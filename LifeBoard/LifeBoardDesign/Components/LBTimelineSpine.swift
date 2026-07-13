@@ -8,6 +8,7 @@ struct LBTimelineSpine: View {
     var iconAccessibilityLabel: String?
     var iconAccessibilityValue: String?
     var iconAction: (() -> Void)?
+    var iconIsCompleted: Bool?
 
     var body: some View {
         let style = LBColorTokens.role(role)
@@ -32,6 +33,7 @@ struct LBTimelineSpine: View {
                     iconMarker(systemName: iconSystemName, baseColor: baseColor)
                 }
                 .buttonStyle(.plain)
+                .completionCelebration(isComplete: iconIsCompleted ?? false, tint: baseColor)
                 .accessibilityLabel(iconAccessibilityLabel ?? "Timeline action")
                 .accessibilityValue(iconAccessibilityValue ?? "")
             } else {

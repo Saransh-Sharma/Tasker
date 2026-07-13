@@ -12,6 +12,8 @@ struct ConversationView: View {
 
     @EnvironmentObject var appManager: AppManager
 
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+
     let snapshot: ChatTranscriptSnapshot
 
     let liveOutput: ChatLiveOutputState
@@ -46,6 +48,7 @@ struct ConversationView: View {
                         .padding(.horizontal, LifeBoardTheme.Spacing.lg)
                         .padding(.vertical, LifeBoardTheme.Spacing.sm)
                         .id(message.id.uuidString)
+                        .transition(messageTransition(for: message))
                     }
 
                     if shouldRenderLiveOutput {
@@ -65,6 +68,7 @@ struct ConversationView: View {
                         .padding(.horizontal, LifeBoardTheme.Spacing.lg)
                         .padding(.vertical, LifeBoardTheme.Spacing.sm)
                         .id(liveOutput.responseID?.uuidString ?? liveOutput.threadID?.uuidString ?? "output")
+                        .transition(liveOutputTransition)
                         .onAppear {
                             scrollInterrupted = false
                         }
@@ -76,6 +80,8 @@ struct ConversationView: View {
                         .id("bottom")
                 }
                 .scrollTargetLayout()
+                .animation(messageInsertionAnimation, value: snapshot.identityHash)
+                .animation(messageInsertionAnimation, value: shouldRenderLiveOutput)
             }
             .background(Color.clear)
             .scrollPosition(id: $scrollID, anchor: .bottom)
@@ -135,6 +141,33 @@ struct ConversationView: View {
         #if os(iOS)
             .scrollDismissesKeyboard(.interactively)
         #endif
+    }
+
+    private var messageInsertionAnimation: Animation? {
+        LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange
+    }
+
+    private func messageTransition(for message: ChatMessageRenderModel) -> AnyTransition {
+        guard LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false else {
+            return .opacity
+        }
+        if message.role == .user {
+            return .asymmetric(
+                insertion: .move(edge: .bottom).combined(with: .opacity),
+                removal: .opacity
+            )
+        }
+        return .asymmetric(
+            insertion: .opacity.combined(with: .move(edge: .bottom)),
+            removal: .opacity
+        )
+    }
+
+    private var liveOutputTransition: AnyTransition {
+        guard LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false else {
+            return .opacity
+        }
+        return .asymmetric(insertion: .opacity, removal: .opacity)
     }
 }
 

@@ -52,6 +52,8 @@ struct SunriseHomeScreen: View {
     @State private var activeDaySunriseSwipeSide: SunriseDaySwipeSide?
     @State private var isDaySunriseSwipeChromeVisible = true
     @State private var committedDaySwipeDirection: HomeDayNavigationDirection?
+    @State private var completionBurstRowID: String?
+    @State private var completionBurstTrigger = 0
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -196,6 +198,8 @@ struct SunriseHomeScreen: View {
                         navigatorTitle: LBHeaderTimeContext.navigatorTitle(selectedDate: chrome.selectedDate, now: timeline.date),
                         navigatorGlassFill: context.foregroundStyle.glassFill,
                         navigatorGlassStroke: context.foregroundStyle.glassStroke,
+                        isOnNonTodayLens: activeLens != .today,
+                        backToTodayColor: LBColorTokens.sunriseGold,
                         hasNotifications: false,
                         hasActiveFilters: chrome.activeFilterState.hasActiveFilters
                     ),
@@ -203,7 +207,11 @@ struct SunriseHomeScreen: View {
                     safeAreaTop: safeAreaTop,
                     onMenu: onOpenSettings,
                     onSearch: onOpenSearch,
-                    onDateTap: onShowDatePicker
+                    onDateTap: onShowDatePicker,
+                    onBackToToday: {
+                        LifeBoardFeedback.selection()
+                        onSelectLens(.today)
+                    }
                 )
             }
         }
@@ -575,8 +583,9 @@ struct SunriseHomeScreen: View {
                 )
             } else {
                 LazyVStack(spacing: LBSpacingTokens.sm) {
-                    ForEach(rows) { row in
+                    ForEach(Array(rows.enumerated()), id: \.element.id) { rowIndex, row in
                         let temporalState = row.temporalState(now: context.date)
+                        Group {
                     switch row.kind {
                     case .anchor(let anchor):
                         let anchorRole = role(for: anchor)
@@ -608,6 +617,10 @@ struct SunriseHomeScreen: View {
                         let kind = cardKind(for: item)
                         let taskToggleAction: (() -> Void)? = item.taskID == nil ? nil : {
                             let interval = LifeBoardPerformanceTrace.begin("HomeTimelineTaskToggle")
+                            if item.isComplete == false, isFirstCompletionOfDay {
+                                completionBurstRowID = row.id
+                                completionBurstTrigger += 1
+                            }
                             onTimelineItemToggleComplete(item)
                             LifeBoardPerformanceTrace.end(interval)
                         }
@@ -619,7 +632,8 @@ struct SunriseHomeScreen: View {
                             spineIconSystemName: spineIconSystemName(for: item, kind: kind),
                             spineIconAccessibilityLabel: item.isComplete ? "Reopen \(item.title)" : "Complete \(item.title)",
                             spineIconAccessibilityValue: item.isComplete ? "Completed" : "Not completed",
-                            spineIconAction: kind == .task ? taskToggleAction : nil
+                            spineIconAction: kind == .task ? taskToggleAction : nil,
+                            spineIconIsCompleted: kind == .task ? item.isComplete : nil
                         ) {
                             LBTimelineCard(
                                 model: timelineCardModel(
@@ -645,20 +659,10 @@ struct SunriseHomeScreen: View {
                                 }
                             }
                         }
-                    case .gap(let gap):
-                        LBTimelineItem(
-                            timeText: timeText(row.sortDate(now: context.date)),
-                            role: .assistant,
-                            temporalState: temporalState,
-                            spineIconSystemName: "sparkles"
-                        ) {
-                            let copy = assistantCopy(for: gap)
-                            LBAssistantPromptCard(
-                                title: copy.title,
-                                subtitle: copy.subtitle,
-                                action: { onAddTask(gap.startDate) }
-                            )
-                        }
+                    case .gap:
+                        // Gaps stay quiet; the row kind survives for compatibility
+                        // but is no longer injected or rendered.
+                        EmptyView()
                     case .now(let now):
                         LBCurrentTimeRail(
                             model: LBCurrentTimeRail.Model(
@@ -669,6 +673,11 @@ struct SunriseHomeScreen: View {
                         .equatable()
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
+                        }
+                        .cardEntrance(index: rowIndex)
+                        .lbCelebrationBurst(
+                            trigger: completionBurstRowID == row.id ? completionBurstTrigger : 0
+                        )
                     }
                 }
             }
@@ -689,7 +698,10 @@ struct SunriseHomeScreen: View {
         .padding(.top, LBSpacingTokens.xs)
         .padding(.bottom, LBSpacingTokens.xxl)
         .transaction { transaction in
-            transaction.animation = nil
+            // Stay static while scrolling; let check-in interactions animate.
+            if isScrollActive || LifeBoardAnimation.isUITesting {
+                transaction.animation = nil
+            }
         }
     }
 
@@ -699,8 +711,8 @@ struct SunriseHomeScreen: View {
             return (
                 LBEmptyState.Model(
                     title: "A quiet day",
-                    message: "Nothing fixed is on the board yet. Add one meaningful next step when you are ready.",
-                    actionTitle: "Add to today",
+                    message: "Want to shape it?",
+                    actionTitle: "Add task",
                     systemImage: "sun.max"
                 ),
                 { onAddTask(chrome.selectedDate) }
@@ -708,8 +720,8 @@ struct SunriseHomeScreen: View {
         case .meetings:
             return (
                 LBEmptyState.Model(
-                    title: "No meetings on this day",
-                    message: "Your calendar has nothing meeting-like in this Home view.",
+                    title: "No meetings today",
+                    message: "The calendar is clear here.",
                     actionTitle: "Choose calendars",
                     systemImage: "calendar",
                     actionSystemImage: "calendar.badge.checkmark"
@@ -719,9 +731,9 @@ struct SunriseHomeScreen: View {
         case .tasks:
             return (
                 LBEmptyState.Model(
-                    title: "No tasks in this view",
-                    message: "No task cards match the current day and focus filters.",
-                    actionTitle: "Add to today",
+                    title: "No tasks here",
+                    message: "Nothing matches the current filters.",
+                    actionTitle: "Add task",
                     systemImage: "checkmark.square"
                 ),
                 { onAddTask(chrome.selectedDate) }
@@ -729,8 +741,8 @@ struct SunriseHomeScreen: View {
         case .habits:
             return (
                 LBEmptyState.Model(
-                    title: "No habits here yet",
-                    message: "Nothing is due or tracked in Home right now. Open the Habit Board to review the full system.",
+                    title: "No habits yet",
+                    message: "Start with one small rhythm.",
                     actionTitle: "Open Habit Board",
                     systemImage: "heart",
                     actionSystemImage: "arrow.right"
@@ -750,6 +762,12 @@ struct SunriseHomeScreen: View {
         SunriseHomeContentScope.allCases.map {
             HomeChipRailBuilder.todayFacetChipModel(for: $0, isSelected: selectedContentScope == $0)
         }
+    }
+
+    /// True while no plotted timeline item is complete yet — gates the
+    /// celebration burst to the first completion of the day.
+    private var isFirstCompletionOfDay: Bool {
+        timeline.day.plottedTimelineItems.allSatisfy { $0.isComplete == false }
     }
 
     func timelineRows(now: Date) -> [SunriseTimelineRow] {
@@ -804,10 +822,8 @@ struct SunriseHomeScreen: View {
             rows.append(.now(now))
         }
 
-        if contentScope.includesAssistantGaps,
-           let gap = gaps.first(where: { Self.assistantDisplayDate(for: $0, now: now) != nil }) {
-            rows.append(.gap(gap))
-        }
+        // Open time reads as restful, not unfinished: the assistant gap prompt
+        // was removed from the timeline in the Sunrise Glass polish pass.
 
         if contentScope.includesStructuralTimelineRows {
             rows.append(.anchor(sleepAnchor))
@@ -839,7 +855,8 @@ struct SunriseHomeScreen: View {
             title: row.title,
             cellModel: habitCellModel(for: row),
             currentStateText: interaction.currentStateText,
-            nextActionText: interaction.nextActionText
+            nextActionText: interaction.nextActionText,
+            nextAction: interaction.action
         )
     }
 
@@ -1023,16 +1040,6 @@ struct SunriseHomeScreen: View {
         case .night:
             return "Keep the night gentle"
         }
-    }
-
-    private func assistantCopy(for gap: TimelineGap) -> (title: String, subtitle: String) {
-        let context = LBHeaderTimeContext.resolve(selectedDate: chrome.selectedDate)
-        return LBHeaderTimeContext.assistantCopy(
-            for: context.period,
-            gapStart: gap.startDate,
-            gapEnd: gap.endDate,
-            now: context.now
-        )
     }
 
     nonisolated static func sortedRows(_ rows: [SunriseTimelineRow], now: Date) -> [SunriseTimelineRow] {
@@ -1543,6 +1550,7 @@ private struct SunriseHabitGridRowModel: Identifiable, Equatable {
     let cellModel: LBHabitCell.Model
     let currentStateText: String
     let nextActionText: String
+    let nextAction: HomeHabitLastCellAction
 
     var id: UUID { habitID }
     var accessibilityIdentifier: String { "home.habits.row.\(habitID.uuidString)" }
@@ -1555,6 +1563,7 @@ private struct SunriseHabitGridCard: View, Equatable {
     let onOpenHabitBoard: () -> Void
     let onCycleHabit: (SunriseHabitGridRowModel) -> Void
     let onAddHabit: () -> Void
+    @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
 
     nonisolated static func == (lhs: SunriseHabitGridCard, rhs: SunriseHabitGridCard) -> Bool {
         lhs.rows == rhs.rows
@@ -1576,17 +1585,11 @@ private struct SunriseHabitGridCard: View, Equatable {
                     if rows.isEmpty {
                         emptyState
                     } else {
-                        updateHint
-
                         ForEach(rows) { row in
                             SunriseHabitGridRow(model: row, onCycleHabit: onCycleHabit)
                                 .equatable()
                         }
                     }
-
-                    Divider().overlay(LBColorTokens.hairline)
-                    addHabitFooterButton
-                    footerNote
                 }
                 .padding(LBSpacingTokens.lg)
             }
@@ -1598,87 +1601,43 @@ private struct SunriseHabitGridCard: View, Equatable {
                 .accessibilityLabel("Habits grid")
         }
         .transaction { transaction in
-            transaction.animation = nil
+            // Stay static while scrolling; let check-in interactions animate.
+            if scrollOptimizedRendering || LifeBoardAnimation.isUITesting {
+                transaction.animation = nil
+            }
         }
     }
 
     private var emptyState: some View {
         let style = LBColorTokens.role(.personal)
-        return HStack(alignment: .top, spacing: LBSpacingTokens.sm) {
-            Image(systemName: "heart")
-                .font(LBTypographyTokens.bodyStrong)
-                .foregroundStyle(style.deep)
-                .frame(width: 34, height: 34)
-                .background(style.softSurface.opacity(0.8), in: Circle())
-                .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Start a habit loop")
+        return Button(action: onAddHabit) {
+            HStack(alignment: .center, spacing: LBSpacingTokens.sm) {
+                Image(systemName: "heart")
                     .font(LBTypographyTokens.bodyStrong)
-                    .foregroundStyle(LBColorTokens.navy)
-                Text("Create a repeatable routine and Home will show the next check-in here.")
-                    .font(LBTypographyTokens.meta)
-                    .foregroundStyle(LBColorTokens.navyMuted)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            Spacer(minLength: LBSpacingTokens.sm)
-        }
-        .padding(LBSpacingTokens.md)
-        .background(style.softSurface.opacity(0.5), in: RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous))
-        .overlay {
-            RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous)
-                .stroke(style.border.opacity(0.68), lineWidth: 1)
-        }
-    }
-
-    private var updateHint: some View {
-        HStack(spacing: LBSpacingTokens.xs) {
-            Image(systemName: "hand.tap")
-                .font(.system(size: 13, weight: .semibold))
-            Text("Tap a habit to update today")
-                .font(LBTypographyTokens.meta)
-        }
-        .foregroundStyle(LBColorTokens.navyMuted)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityIdentifier("home.habits.hint")
-    }
-
-    private var addHabitFooterButton: some View {
-        Button(action: onAddHabit) {
-            HStack(spacing: LBSpacingTokens.xs) {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                Text("Add Habit")
-                    .font(LBTypographyTokens.chip)
+                    .foregroundStyle(style.deep)
+                    .frame(width: 34, height: 34)
+                    .background(style.softSurface.opacity(0.8), in: Circle())
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Start with one small rhythm.")
+                        .font(LBTypographyTokens.bodyStrong)
+                        .foregroundStyle(LBColorTokens.navy)
+                    Text("Create habit")
+                        .font(LBTypographyTokens.meta)
+                        .foregroundStyle(LBColorTokens.violetDeep)
+                }
                 Spacer(minLength: LBSpacingTokens.sm)
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(LBColorTokens.violetDeep.opacity(0.7))
             }
-            .foregroundStyle(LBColorTokens.violetDeep)
-            .padding(.horizontal, LBSpacingTokens.md)
-            .padding(.vertical, LBSpacingTokens.sm)
-            .background {
-                RoundedRectangle(cornerRadius: LBRadiusTokens.iconWell, style: .continuous)
-                    .fill(LBColorTokens.violetSoft.opacity(0.72))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: LBRadiusTokens.iconWell, style: .continuous)
-                            .stroke(LBColorTokens.violet.opacity(0.22), lineWidth: 1)
-                    }
+            .padding(LBSpacingTokens.md)
+            .background(style.softSurface.opacity(0.5), in: RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous)
+                    .stroke(style.border.opacity(0.68), lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("home.habits.addHabit")
-        .accessibilityLabel("Add Habit")
-    }
-
-    private var footerNote: some View {
-        HStack {
-            Image(systemName: "calendar.badge.clock")
-            Text("Due states update from the Habit Board.")
-            Spacer()
-        }
-        .font(LBTypographyTokens.meta)
-        .foregroundStyle(LBColorTokens.navyMuted)
+        .accessibilityLabel("Create habit")
     }
 }
 
@@ -1693,6 +1652,13 @@ private struct SunriseHabitGridRow: View, Equatable {
     var body: some View {
         Button {
             let interval = LifeBoardPerformanceTrace.begin("HomeHabitLastCellTap")
+            // Explicit completion earns the success haptic; every other
+            // cycle step stays light, per the design-doc haptic budget.
+            if model.nextAction == .complete {
+                LifeBoardFeedback.success()
+            } else {
+                LifeBoardFeedback.light()
+            }
             onCycleHabit(model)
             LifeBoardPerformanceTrace.end(interval)
         } label: {

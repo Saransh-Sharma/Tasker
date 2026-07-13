@@ -4,6 +4,7 @@
 //
 
 import Foundation
+import SwiftData
 
 @MainActor
 final class HomeUITestWorkspaceSeeder {
@@ -15,6 +16,7 @@ final class HomeUITestWorkspaceSeeder {
     private static var hasSeededUITestHabitBoardWorkspace = false
     private static var hasSeededUITestQuietTrackingWorkspace = false
     private static var hasSeededUITestFullTimelineWorkspace = false
+    private static var hasSeededAppStoreScreenshotWorkspace = false
 
     func seedUITestEstablishedWorkspaceIfNeeded(presentationDependencyContainer: PresentationDependencyContainer?, completion: @escaping () -> Void) {
         guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE") else {
@@ -818,6 +820,425 @@ final class HomeUITestWorkspaceSeeder {
             }
 
             completion()
+        }
+    }
+
+    func seedAppStoreScreenshotWorkspaceIfNeeded(
+        presentationDependencyContainer: PresentationDependencyContainer?,
+        viewModel: HomeViewModel?,
+        completion: @escaping () -> Void
+    ) {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS") else {
+            completion()
+            return
+        }
+        guard Self.hasSeededAppStoreScreenshotWorkspace == false else {
+            completion()
+            return
+        }
+        guard let presentationDependencyContainer else {
+            completion()
+            return
+        }
+
+        Self.hasSeededAppStoreScreenshotWorkspace = true
+
+        Task { @MainActor in
+            do {
+                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
+                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
+                let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
+                let updateTaskDefinition = presentationDependencyContainer.coordinator.updateTaskDefinition
+                let createHabit = presentationDependencyContainer.coordinator.createHabit
+                let resolveHabitOccurrence = presentationDependencyContainer.coordinator.resolveHabitOccurrence
+                let reflectionStore = presentationDependencyContainer.coordinator.dailyReflectionStore
+
+                let calendar = Calendar.current
+                let now = Date()
+                let today = calendar.startOfDay(for: now)
+                let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
+                let workArea = try await manageLifeAreas.createAsync(
+                    name: "Work",
+                    color: "#2F5B8A",
+                    icon: "briefcase.fill"
+                )
+                let lifeAdminArea = try await manageLifeAreas.createAsync(
+                    name: "Life Admin",
+                    color: "#D28A38",
+                    icon: "folder.badge.person.crop"
+                )
+                let healthArea = try await manageLifeAreas.createAsync(
+                    name: "Health",
+                    color: "#3B8A5D",
+                    icon: "heart.fill"
+                )
+                let recoveryArea = try await manageLifeAreas.createAsync(
+                    name: "Recovery",
+                    color: "#6A4E8A",
+                    icon: "moon.stars.fill"
+                )
+
+                let launchProject = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Partner Launch",
+                        description: "Final prep for next week's product partnership announcement.",
+                        lifeAreaID: workArea.id
+                    )
+                )
+                let adminProject = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Personal Admin",
+                        description: "Small obligations that get easier when handled early.",
+                        lifeAreaID: lifeAdminArea.id
+                    )
+                )
+                let rhythmProject = try await manageProjects.createProjectAsync(
+                    request: CreateProjectRequest(
+                        name: "Daily Rhythm",
+                        description: "A calm baseline for mornings, shutdown, and recovery.",
+                        lifeAreaID: healthArea.id
+                    )
+                )
+
+                let partnerBriefID = UUID(uuidString: "A5000000-0000-0000-0000-000000000001") ?? UUID()
+                let pricingNotesID = UUID(uuidString: "A5000000-0000-0000-0000-000000000002") ?? UUID()
+                let handoffID = UUID(uuidString: "A5000000-0000-0000-0000-000000000003") ?? UUID()
+                let dentistID = UUID(uuidString: "A5000000-0000-0000-0000-000000000004") ?? UUID()
+                let onboardingEmailID = UUID(uuidString: "A5000000-0000-0000-0000-000000000005") ?? UUID()
+                let completedID = UUID(uuidString: "A5000000-0000-0000-0000-000000000006") ?? UUID()
+                let passportID = UUID(uuidString: "A5000000-0000-0000-0000-000000000101") ?? UUID()
+                let insuranceID = UUID(uuidString: "A5000000-0000-0000-0000-000000000102") ?? UUID()
+                let leaseID = UUID(uuidString: "A5000000-0000-0000-0000-000000000103") ?? UUID()
+
+                let taskRequests = [
+                    CreateTaskDefinitionRequest(
+                        id: completedID,
+                        title: "Send launch timeline to design",
+                        details: "Shared the revised dates and asset handoff notes.",
+                        projectID: launchProject.id,
+                        projectName: launchProject.name,
+                        iconSymbolName: "paperplane.fill",
+                        lifeAreaID: workArea.id,
+                        dueDate: calendar.date(bySettingHour: 8, minute: 20, second: 0, of: today),
+                        scheduledStartAt: calendar.date(bySettingHour: 8, minute: 20, second: 0, of: today),
+                        scheduledEndAt: calendar.date(bySettingHour: 8, minute: 45, second: 0, of: today),
+                        priority: .low,
+                        type: .morning,
+                        context: .computer,
+                        estimatedDuration: 25 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: partnerBriefID,
+                        title: "Finalize partner launch brief",
+                        details: "Tighten positioning, risks, and final owner list before the readiness review.",
+                        projectID: launchProject.id,
+                        projectName: launchProject.name,
+                        iconSymbolName: "doc.text.fill",
+                        lifeAreaID: workArea.id,
+                        dueDate: calendar.date(bySettingHour: 9, minute: 15, second: 0, of: today),
+                        scheduledStartAt: calendar.date(bySettingHour: 9, minute: 15, second: 0, of: today),
+                        scheduledEndAt: calendar.date(bySettingHour: 10, minute: 0, second: 0, of: today),
+                        priority: .max,
+                        type: .morning,
+                        context: .computer,
+                        estimatedDuration: 45 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: pricingNotesID,
+                        title: "Review pricing notes before sync",
+                        details: "Check the two open questions from Maya and decide what can wait.",
+                        projectID: launchProject.id,
+                        projectName: launchProject.name,
+                        iconSymbolName: "tag.fill",
+                        lifeAreaID: workArea.id,
+                        dueDate: calendar.date(bySettingHour: 10, minute: 20, second: 0, of: today),
+                        scheduledStartAt: calendar.date(bySettingHour: 10, minute: 20, second: 0, of: today),
+                        scheduledEndAt: calendar.date(bySettingHour: 10, minute: 50, second: 0, of: today),
+                        priority: .high,
+                        type: .morning,
+                        context: .computer,
+                        estimatedDuration: 30 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: handoffID,
+                        title: "Send Clara the handoff checklist",
+                        details: "Include analytics access, the launch calendar, and the owner map.",
+                        projectID: launchProject.id,
+                        projectName: launchProject.name,
+                        iconSymbolName: "checklist",
+                        lifeAreaID: workArea.id,
+                        dueDate: calendar.date(bySettingHour: 13, minute: 30, second: 0, of: today),
+                        scheduledStartAt: calendar.date(bySettingHour: 13, minute: 30, second: 0, of: today),
+                        scheduledEndAt: calendar.date(bySettingHour: 14, minute: 0, second: 0, of: today),
+                        priority: .high,
+                        type: .morning,
+                        context: .computer,
+                        estimatedDuration: 30 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: dentistID,
+                        title: "Book dentist slot before renewal",
+                        details: "Use the insurance portal before the plan flips next month.",
+                        projectID: adminProject.id,
+                        projectName: adminProject.name,
+                        iconSymbolName: "calendar.badge.plus",
+                        lifeAreaID: lifeAdminArea.id,
+                        dueDate: calendar.date(bySettingHour: 16, minute: 15, second: 0, of: today),
+                        priority: .low,
+                        type: .evening,
+                        context: .anywhere,
+                        estimatedDuration: 15 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: onboardingEmailID,
+                        title: "Outline onboarding email v2",
+                        details: "Draft the three-message arc from aha moment to habit loop.",
+                        projectID: launchProject.id,
+                        projectName: launchProject.name,
+                        iconSymbolName: "envelope.open.fill",
+                        lifeAreaID: workArea.id,
+                        dueDate: calendar.date(byAdding: .day, value: 1, to: today),
+                        priority: .high,
+                        type: .morning,
+                        context: .computer,
+                        estimatedDuration: 45 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: passportID,
+                        title: "Renew passport photos",
+                        details: "Find a nearby appointment and upload the receipt.",
+                        projectID: adminProject.id,
+                        projectName: adminProject.name,
+                        iconSymbolName: "person.text.rectangle.fill",
+                        lifeAreaID: lifeAdminArea.id,
+                        dueDate: calendar.date(byAdding: .day, value: -9, to: today),
+                        priority: .max,
+                        type: .morning,
+                        context: .errands,
+                        estimatedDuration: 40 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: insuranceID,
+                        title: "Submit insurance reimbursement",
+                        details: "Attach the clinic PDF and confirm the bank details.",
+                        projectID: adminProject.id,
+                        projectName: adminProject.name,
+                        iconSymbolName: "doc.badge.arrow.up.fill",
+                        lifeAreaID: lifeAdminArea.id,
+                        dueDate: calendar.date(byAdding: .day, value: -6, to: today),
+                        priority: .high,
+                        type: .morning,
+                        context: .computer,
+                        estimatedDuration: 25 * 60,
+                        createdAt: now
+                    ),
+                    CreateTaskDefinitionRequest(
+                        id: leaseID,
+                        title: "Reply to Asha about lease documents",
+                        details: "Confirm the revised start date and parking addendum.",
+                        projectID: adminProject.id,
+                        projectName: adminProject.name,
+                        iconSymbolName: "house.fill",
+                        lifeAreaID: lifeAdminArea.id,
+                        dueDate: calendar.date(byAdding: .day, value: -3, to: today),
+                        priority: .high,
+                        type: .evening,
+                        context: .anywhere,
+                        estimatedDuration: 20 * 60,
+                        createdAt: now
+                    )
+                ]
+
+                for request in taskRequests {
+                    _ = try await createTaskDefinition.executeAsync(request: request)
+                }
+                _ = try await updateTaskDefinitionAsync(
+                    updateTaskDefinition,
+                    request: UpdateTaskDefinitionRequest(
+                        id: completedID,
+                        isComplete: true,
+                        dateCompleted: calendar.date(bySettingHour: 8, minute: 42, second: 0, of: today)
+                    )
+                )
+
+                let habits = [
+                    CreateHabitRequest(
+                        id: UUID(uuidString: "A6000000-0000-0000-0000-000000000001") ?? UUID(),
+                        title: "Walk before first coffee",
+                        lifeAreaID: healthArea.id,
+                        projectID: rhythmProject.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "figure.walk", categoryKey: "health"),
+                        colorHex: HabitColorFamily.green.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily(),
+                        createdAt: calendar.date(byAdding: .day, value: -28, to: today) ?? now
+                    ),
+                    CreateHabitRequest(
+                        id: UUID(uuidString: "A6000000-0000-0000-0000-000000000002") ?? UUID(),
+                        title: "Protein with breakfast",
+                        lifeAreaID: healthArea.id,
+                        projectID: rhythmProject.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "fork.knife.circle.fill", categoryKey: "health"),
+                        colorHex: HabitColorFamily.orange.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily(),
+                        createdAt: calendar.date(byAdding: .day, value: -24, to: today) ?? now
+                    ),
+                    CreateHabitRequest(
+                        id: UUID(uuidString: "A6000000-0000-0000-0000-000000000003") ?? UUID(),
+                        title: "No phone after lights out",
+                        lifeAreaID: recoveryArea.id,
+                        projectID: rhythmProject.id,
+                        kind: .negative,
+                        trackingMode: .lapseOnly,
+                        icon: HabitIconMetadata(symbolName: "bed.double.fill", categoryKey: "sleep"),
+                        colorHex: HabitColorFamily.coral.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily(),
+                        createdAt: calendar.date(byAdding: .day, value: -21, to: today) ?? now
+                    ),
+                    CreateHabitRequest(
+                        id: UUID(uuidString: "A6000000-0000-0000-0000-000000000004") ?? UUID(),
+                        title: "Shutdown plan before 6",
+                        lifeAreaID: workArea.id,
+                        projectID: launchProject.id,
+                        kind: .positive,
+                        trackingMode: .dailyCheckIn,
+                        icon: HabitIconMetadata(symbolName: "moon.stars.fill", categoryKey: "planning"),
+                        colorHex: HabitColorFamily.purple.canonicalHex,
+                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
+                        cadence: .daily(),
+                        createdAt: calendar.date(byAdding: .day, value: -18, to: today) ?? now
+                    )
+                ]
+
+                for habit in habits {
+                    let createdHabit = try await createHabit.executeAsync(request: habit)
+                    try await markScreenshotHabitHistory(
+                        habitID: createdHabit.id,
+                        kind: habit.kind,
+                        calendar: calendar,
+                        today: today,
+                        resolver: resolveHabitOccurrence
+                    )
+                }
+
+                let reflectionPayload = ReflectionPayload(
+                    reflectionDate: yesterday,
+                    planningDate: today,
+                    mode: .catchUpYesterday,
+                    mood: .good,
+                    energy: .okay,
+                    frictionTags: [.meetings, .tooMuchPlanned],
+                    note: "Protected the launch review, moved the small admin items into one rescue pass, and kept the evening lighter."
+                )
+                _ = try reflectionStore.markCompleted(
+                    on: yesterday,
+                    completedAt: calendar.date(bySettingHour: 20, minute: 45, second: 0, of: yesterday) ?? now,
+                    payload: reflectionPayload
+                )
+
+                seedAppStoreScreenshotEvaThread()
+                UserDefaults.standard.set(
+                    [partnerBriefID.uuidString, pricingNotesID.uuidString, handoffID.uuidString],
+                    forKey: "home.focus.pinnedTaskIDs.v2"
+                )
+                UserDefaults.standard.removeObject(forKey: "home.eva.recentShuffleTaskIDs.v1")
+                UserDefaults.standard.set(true, forKey: "lifeboard.appStoreScreenshotSeed.ready")
+
+                viewModel?.invalidateTaskCaches()
+            } catch {
+                logError(
+                    event: "app_store_screenshot_workspace_seed_failed",
+                    message: "Failed to seed App Store screenshot workspace",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+
+            completion()
+        }
+    }
+
+    private func markScreenshotHabitHistory(
+        habitID: UUID,
+        kind: HabitKind,
+        calendar: Calendar,
+        today: Date,
+        resolver: ResolveHabitOccurrenceUseCase
+    ) async throws {
+        for offset in stride(from: -20, through: 0, by: 1) {
+            guard let day = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
+            let weekday = calendar.component(.weekday, from: day)
+            if kind == .positive {
+                let shouldSkip = weekday == 1 || offset == -9
+                try await resolver.executeAsync(
+                    habitID: habitID,
+                    action: shouldSkip ? .skip : .complete,
+                    on: day
+                )
+            } else {
+                let hadLapse = offset == -12 || offset == -4
+                try await resolver.executeAsync(
+                    habitID: habitID,
+                    action: hadLapse ? .lapsed : .abstained,
+                    on: day
+                )
+            }
+        }
+    }
+
+    private func seedAppStoreScreenshotEvaThread() {
+        guard let container = LLMDataController.shared else { return }
+        let context = container.mainContext
+        let thread = Thread()
+        thread.title = "Launch day rescue plan"
+        thread.timestamp = Date().addingTimeInterval(-18 * 60)
+
+        let userMessage = Message(
+            role: .user,
+            content: "Eva, rescue my overdue admin tasks and keep the partner launch block protected.",
+            thread: thread
+        )
+        userMessage.timestamp = thread.timestamp
+
+        let assistantMessage = Message(
+            role: .assistant,
+            content: """
+            Here is the cleanest plan:
+
+            1. Keep the launch brief from 9:15-10:00 untouched.
+            2. Batch passport photos, insurance reimbursement, and Asha's lease reply into one admin pass.
+            3. Move anything that is not launch-critical after the customer notes debrief.
+
+            I would start with the reimbursement first because it is short and unblocks the rest of the rescue list.
+            """,
+            thread: thread,
+            generatingTime: 1.4,
+            sourceModelName: "Eva"
+        )
+        assistantMessage.timestamp = thread.timestamp.addingTimeInterval(90)
+
+        thread.messages = [userMessage, assistantMessage]
+        context.insert(thread)
+        do {
+            try context.save()
+        } catch {
+            logError(
+                event: "app_store_screenshot_eva_thread_seed_failed",
+                message: "Failed to seed App Store screenshot Eva transcript",
+                fields: ["error": error.localizedDescription]
+            )
         }
     }
 

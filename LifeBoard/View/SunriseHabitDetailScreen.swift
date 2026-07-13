@@ -27,10 +27,18 @@ struct SunriseHabitDetailScreen: View {
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.lifeboardLayoutClass) private var layoutClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var showDetailReveal = false
+    @State private var completionBurstTrigger = 0
+    @State private var sawTodayCompletionThisSession = false
+    @State private var isInitialReadOnlyHydrationComplete = false
+    @State private var isInitialEditorSupportHydrationComplete = false
     @State private var snackbar: SnackbarData?
 
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
+    private var isInitialDraftHydrationComplete: Bool {
+        isInitialReadOnlyHydrationComplete && isInitialEditorSupportHydrationComplete
+    }
 
     init(viewModel: HabitDetailViewModel, onMutation: @escaping @MainActor @Sendable () -> Void) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -38,107 +46,113 @@ struct SunriseHabitDetailScreen: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView(.vertical, showsIndicators: false) {
-                VStack(alignment: .leading, spacing: spacing.s16) {
-                    if viewModel.isEditing {
-                        editingContent
-                    } else {
-                        readOnlyContent
-                    }
-                }
-                .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 760 : .infinity, alignment: .center)
-                .padding(.horizontal, spacing.s16)
-                .padding(.top, spacing.s12)
-                .padding(.bottom, spacing.s32)
+        ScrollView(.vertical, showsIndicators: false) {
+            VStack(alignment: .leading, spacing: spacing.s16) {
+                headerChrome
+                alwaysEditableContent
             }
-            .background(sunriseBackground)
-            .accessibilityIdentifier(SunriseHabitDetailAccessibilityID.view)
-            .navigationTitle(viewModel.isEditing ? "Edit Habit" : viewModel.row.title)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(viewModel.isEditing ? "Cancel" : "Close") {
-                        if viewModel.isEditing {
-                            viewModel.cancelEditing()
-                        } else {
-                            dismiss()
-                        }
-                    }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    if viewModel.isEditing {
-                        Button("Save") {
-                            saveChanges()
-                        }
-                        .accessibilityIdentifier(SunriseHabitDetailAccessibilityID.saveButton)
-                        .disabled(!viewModel.canSave || viewModel.isSaving)
-                    } else {
-                        Button {
-                            viewModel.beginEditing()
-                        } label: {
-                            HStack(spacing: spacing.s4) {
-                                if viewModel.isPreparingEditorData {
-                                    ProgressView().controlSize(.small)
-                                }
-                                Text(viewModel.isPreparingEditorData ? "Loading" : "Edit")
-                            }
-                        }
-                        .accessibilityIdentifier(SunriseHabitDetailAccessibilityID.editButton)
-                        .disabled(viewModel.isSaving || viewModel.isPreparingEditorData)
-                    }
-                }
+            .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 760 : .infinity, alignment: .center)
+            .padding(.horizontal, spacing.s16)
+            .padding(.top, spacing.s12)
+            .padding(.bottom, spacing.s32)
+        }
+        .background(sunriseBackground)
+        .accessibilityIdentifier(SunriseHabitDetailAccessibilityID.view)
+        .task {
+            isInitialReadOnlyHydrationComplete = false
+            isInitialEditorSupportHydrationComplete = false
+            viewModel.loadIfNeeded {
+                isInitialReadOnlyHydrationComplete = true
             }
-            .task {
-                viewModel.loadIfNeeded()
+            viewModel.prepareAlwaysEditableSupport {
+                isInitialEditorSupportHydrationComplete = true
             }
-            .onAppear {
-                LifeBoardPerformanceTrace.event("SunriseHabitDetailScreenPresented")
+        }
+        .onAppear {
+            LifeBoardPerformanceTrace.event("SunriseHabitDetailScreenPresented")
+        }
+        .onDisappear {
+            viewModel.cancelPendingAutosave()
+        }
+        .onChange(of: viewModel.mutationFeedback) { _, feedback in
+            guard let feedback else { return }
+            snackbar = SnackbarData(message: feedback.message, autoDismissSeconds: 2)
+            playMutationHaptic(feedback.haptic)
+            viewModel.clearMutationFeedback()
+        }
+        .onChange(of: viewModel.draft.title) { _, _ in scheduleAutosaveIfHydrated(debounced: true) }
+        .onChange(of: viewModel.draft.notes) { _, _ in scheduleAutosaveIfHydrated(debounced: true) }
+        .onChange(of: viewModel.draft.kind) { _, _ in
+            viewModel.normalizeDraftSelection()
+            scheduleAutosaveIfHydrated(debounced: false)
+        }
+        .onChange(of: viewModel.draft.trackingMode) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
+        .onChange(of: viewModel.draft.cadence) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
+        .onChange(of: viewModel.draft.lifeAreaID) { _, _ in
+            viewModel.normalizeDraftSelection()
+            scheduleAutosaveIfHydrated(debounced: false)
+        }
+        .onChange(of: viewModel.draft.projectID) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
+        .onChange(of: viewModel.draft.reminderWindowStart) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
+        .onChange(of: viewModel.draft.reminderWindowEnd) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
+        .onChange(of: viewModel.draft.selectedIconSymbolName) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
+        .onChange(of: viewModel.draft.colorHex) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
+        .lifeboardSnackbar($snackbar)
+    }
+
+    private func scheduleAutosaveIfHydrated(debounced: Bool) {
+        guard isInitialDraftHydrationComplete else { return }
+        viewModel.scheduleAutosave(debounced: debounced)
+    }
+
+    private var headerChrome: some View {
+        HStack(spacing: spacing.s12) {
+            Button {
+                dismiss()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .frame(width: 44, height: 44)
+                    .background(Color.lifeboard.surfaceSecondary.opacity(0.72), in: Circle())
             }
-            .onChange(of: viewModel.mutationFeedback) { _, feedback in
-                guard let feedback else { return }
-                snackbar = SnackbarData(message: feedback.message, autoDismissSeconds: 2)
-                playMutationHaptic(feedback.haptic)
-                viewModel.clearMutationFeedback()
+            .buttonStyle(.plain)
+            .accessibilityLabel("Close")
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Habit")
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color.lifeboard.textTertiary)
+                Text(viewModel.row.title)
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
             }
-            .alert(
-                "Couldn’t update habit",
-                isPresented: Binding(
-                    get: { viewModel.errorMessage != nil },
-                    set: { if !$0 { viewModel.clearError() } }
-                )
-            ) {
-            } message: {
-                Text(viewModel.errorMessage ?? "")
+
+            Spacer(minLength: spacing.s8)
+
+            if viewModel.isPreparingEditorData {
+                ProgressView()
+                    .controlSize(.small)
+                    .accessibilityLabel("Loading habit editor")
             }
-            .lifeboardSnackbar($snackbar)
+            SunriseAutosaveWhisper(state: viewModel.autosaveState)
         }
     }
 
-    private var readOnlyContent: some View {
+    private var alwaysEditableContent: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             heroCard
-            habitProgressCard
             detailReveal {
                 VStack(alignment: .leading, spacing: spacing.s16) {
-                    CalmFieldGroup(title: "Rhythm") { rhythmReadOnlyContent }
-                    CalmFieldGroup(title: "Lifecycle") { lifecycleContent }
-                }
-            }
-        }
-    }
-
-    private var editingContent: some View {
-        VStack(alignment: .leading, spacing: spacing.s16) {
-            heroCard
-            essentialsEditor
-            detailReveal {
-                VStack(alignment: .leading, spacing: spacing.s16) {
+                    CalmFieldGroup(title: "Essentials") { essentialsEditorContent }
                     CalmFieldGroup(title: "Rhythm") { rhythmEditorContent }
                     CalmFieldGroup(title: "Appearance") { appearanceContent }
                     CalmFieldGroup(title: "Lifecycle") { lifecycleContent }
                 }
             }
+            habitProgressCard
         }
     }
 
@@ -150,7 +164,9 @@ struct SunriseHabitDetailScreen: View {
             accessibilityID: SunriseHabitDetailAccessibilityID.detailsDisclosure,
             onToggle: {
                 LifeBoardFeedback.light()
-                withAnimation(LifeBoardAnimation.snappy) { showDetailReveal.toggle() }
+                withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy) {
+                    showDetailReveal.toggle()
+                }
             },
             content: content
         )
@@ -163,23 +179,28 @@ struct SunriseHabitDetailScreen: View {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(accentColor.opacity(0.14))
                         .frame(width: 58, height: 58)
-                    Image(systemName: viewModel.row.icon?.symbolName ?? "circle.dashed")
-                        .font(.system(size: 24, weight: .semibold))
+                    Image(systemName: viewModel.draft.selectedIconSymbolName ?? viewModel.row.icon?.symbolName ?? "circle.dashed")
+                        .font(.lifeboard(.title2))
                         .foregroundStyle(accentColor)
                         .contentTransition(.symbolEffect(.replace))
-                        .animation(LifeBoardAnimation.snappy, value: viewModel.row.icon?.symbolName)
+                        .animation(
+                            LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy,
+                            value: viewModel.draft.selectedIconSymbolName
+                        )
                 }
                 .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: spacing.s4) {
-                    Text(viewModel.row.title)
+                    TextField("Habit title", text: $viewModel.draft.title, axis: .vertical)
                         .font(.lifeboard(.title2))
                         .bold()
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .lineLimit(3)
+                        .textFieldStyle(.plain)
+                        .accessibilityLabel("Habit title")
 
                     HStack(spacing: spacing.s4) {
-                        LifeBoardStatusPill(text: viewModel.row.kind == .positive ? "Build" : "Quit", systemImage: "sparkles", tone: viewModel.row.kind == .positive ? .success : .warning)
+                        LifeBoardStatusPill(text: viewModel.draft.kind == .positive ? "Build" : "Quit", systemImage: "sparkles", tone: viewModel.draft.kind == .positive ? .success : .warning)
                         LifeBoardStatusPill(text: habitStateLabel, systemImage: habitStateSymbol, tone: viewModel.row.isArchived || viewModel.row.isPaused ? .quiet : .accent)
                     }
                 }
@@ -193,7 +214,14 @@ struct SunriseHabitDetailScreen: View {
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityIdentifier(SunriseHabitDetailAccessibilityID.contextPrimary)
 
-            Text(cadenceSummary(viewModel.row.cadence))
+            if viewModel.draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text("Habit title cannot be empty")
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(LifeBoardDetailTonePalette.dangerText)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text(cadenceSummary(viewModel.draft.cadence))
                 .font(.lifeboard(.callout))
                 .foregroundStyle(Color.lifeboard.textSecondary)
                 .accessibilityIdentifier(SunriseHabitDetailAccessibilityID.contextSecondary)
@@ -234,6 +262,8 @@ struct SunriseHabitDetailScreen: View {
                 }
                 .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .success))
                 .disabled(!todayCell.isInteractive || viewModel.isSaving)
+                .completionCelebration(isComplete: todayCell.state == .success, tint: accentColor)
+                .lbCelebrationBurst(trigger: completionBurstTrigger, tint: accentColor)
             }
         }
         .padding(spacing.s12)
@@ -245,28 +275,8 @@ struct SunriseHabitDetailScreen: View {
         )
     }
 
-    private var rhythmReadOnlyContent: some View {
+    private var essentialsEditorContent: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
-            definitionLine("Ownership", ownershipSummary)
-            definitionLine("Cadence", cadenceSummary(viewModel.row.cadence))
-            definitionLine("Reminder", reminderSummary)
-            if let notes = viewModel.row.notes, notes.isEmpty == false {
-                Text(notes)
-                    .font(.lifeboard(.callout))
-                    .foregroundStyle(Color.lifeboard.textSecondary)
-                    .padding(spacing.s12)
-                    .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.md, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.72))
-            }
-        }
-    }
-
-    private var essentialsEditor: some View {
-        VStack(alignment: .leading, spacing: spacing.s12) {
-            Text("Essentials")
-                .font(.lifeboard(.headline))
-                .foregroundStyle(Color.lifeboard.textPrimary)
-            TextField("Title", text: $viewModel.draft.title, axis: .vertical)
-                .textFieldStyle(LifeBoardTextFieldStyle())
             Picker("Type", selection: $viewModel.draft.kind) {
                 ForEach(AddHabitKind.allCases) { kind in
                     Text(kind.displayName).tag(kind)
@@ -285,8 +295,6 @@ struct SunriseHabitDetailScreen: View {
                 .pickerStyle(.segmented)
             }
         }
-        .padding(spacing.s12)
-        .lifeboardDenseSurface(cornerRadius: LifeBoardTheme.CornerRadius.card, fillColor: Color.lifeboard.surfacePrimary)
     }
 
     private var rhythmEditorContent: some View {
@@ -316,12 +324,12 @@ struct SunriseHabitDetailScreen: View {
                         set: { viewModel.draft.reminderWindowEndPickerDate = $0 }
                     ),
                     onEnable: {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy) {
                             viewModel.draft.ensureReminderWindowDefaults()
                         }
                     },
                     onClear: {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy) {
                             viewModel.draft.clearReminderWindow()
                         }
                     },
@@ -331,7 +339,7 @@ struct SunriseHabitDetailScreen: View {
                 if let reminderError = viewModel.editorReminderWindowValidationError {
                     Text(reminderError)
                         .font(.lifeboard(.callout))
-                        .foregroundStyle(Color.lifeboard.statusWarning)
+                        .foregroundStyle(LifeBoardDetailTonePalette.dangerText)
                 }
 
                 if !viewModel.lifeAreas.isEmpty {
@@ -353,6 +361,13 @@ struct SunriseHabitDetailScreen: View {
                 TextField("Notes", text: $viewModel.draft.notes, axis: .vertical)
                     .lineLimit(3...7)
                     .textFieldStyle(LifeBoardTextFieldStyle())
+
+                if case .failed(let message) = viewModel.autosaveState {
+                    Text(message)
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(LifeBoardDetailTonePalette.dangerText)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
         }
     }
 
@@ -467,19 +482,21 @@ struct SunriseHabitDetailScreen: View {
 
     private var colorFamily: HabitColorFamily {
         HabitColorFamily.family(
-            for: viewModel.isEditing ? viewModel.draft.colorHex : viewModel.row.colorHex,
-            fallback: viewModel.row.kind == .positive ? .green : .coral
+            for: viewModel.draft.colorHex,
+            fallback: viewModel.draft.kind == .positive ? .green : .coral
         )
     }
 
     private var accentColor: Color {
-        LifeBoardHexColor.color(viewModel.isEditing ? viewModel.draft.colorHex : viewModel.row.colorHex, fallback: viewModel.row.kind == .positive ? Color.lifeboard.statusSuccess : Color.lifeboard.statusWarning)
+        LifeBoardHexColor.color(
+            viewModel.draft.colorHex,
+            fallback: viewModel.draft.kind == .positive ? Color.lifeboard.statusSuccess : Color.lifeboard.statusWarning
+        )
     }
 
     private var habitStateLabel: String {
         if viewModel.row.isArchived { return String(localized: "Archived", defaultValue: "Archived") }
         if viewModel.row.isPaused { return "Paused" }
-        if viewModel.isEditing { return "Editing" }
         return "Live"
     }
 
@@ -490,15 +507,15 @@ struct SunriseHabitDetailScreen: View {
     }
 
     private var reminderSummary: String {
-        let startText = viewModel.row.reminderWindowStart?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let endText = viewModel.row.reminderWindowEnd?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let startText = viewModel.draft.reminderWindowStart.trimmingCharacters(in: .whitespacesAndNewlines)
+        let endText = viewModel.draft.reminderWindowEnd.trimmingCharacters(in: .whitespacesAndNewlines)
         let start = startText.isEmpty ? "Not set" : startText
         let end = endText.isEmpty ? "Not set" : endText
         return "\(start) to \(end)"
     }
 
     private var rhythmSummary: String {
-        "\(cadenceSummary(viewModel.row.cadence)) · \(reminderSummary)"
+        "\(cadenceSummary(viewModel.draft.cadence)) · \(reminderSummary)"
     }
 
     private var appearanceSummary: String {
@@ -507,19 +524,30 @@ struct SunriseHabitDetailScreen: View {
     }
 
     private var ownershipSummary: String {
-        if let projectName = viewModel.row.projectName, projectName.isEmpty == false {
-            return "\(viewModel.row.lifeAreaName) · \(projectName)"
+        if let projectName = selectedProjectName, projectName.isEmpty == false {
+            return "\(selectedLifeAreaName) · \(projectName)"
         }
-        return viewModel.row.lifeAreaName
+        return selectedLifeAreaName
     }
 
     private var metaLine: String {
-        var parts = [viewModel.row.lifeAreaName]
-        if let projectName = viewModel.row.projectName, projectName.isEmpty == false {
+        var parts = [selectedLifeAreaName]
+        if let projectName = selectedProjectName, projectName.isEmpty == false {
             parts.append(projectName)
         }
-        parts.append(viewModel.row.trackingMode == .lapseOnly ? "Lapse only" : "Daily check-in")
+        parts.append(viewModel.draft.trackingMode == .lapseOnly ? "Lapse only" : "Daily check-in")
         return parts.joined(separator: " · ")
+    }
+
+    private var selectedLifeAreaName: String {
+        viewModel.lifeAreas.first { $0.id == viewModel.draft.lifeAreaID }?.name ?? viewModel.row.lifeAreaName
+    }
+
+    private var selectedProjectName: String? {
+        if let projectID = viewModel.draft.projectID {
+            return viewModel.projects.first { $0.project.id == projectID }?.project.name ?? viewModel.row.projectName
+        }
+        return nil
     }
 
     private func cadenceSummary(_ cadence: HabitCadenceDraft) -> String {
@@ -637,14 +665,12 @@ struct SunriseHabitDetailScreen: View {
 
     private func mutate(_ cell: HabitDetailDayCell) {
         let onMutation = onMutation
-        viewModel.mutateDay(cell) {
-            Task { @MainActor in onMutation() }
+        let willCompleteToday = cell.isToday && cell.state != .success && cell.state != .future
+        if willCompleteToday, sawTodayCompletionThisSession == false {
+            sawTodayCompletionThisSession = true
+            completionBurstTrigger += 1
         }
-    }
-
-    private func saveChanges() {
-        let onMutation = onMutation
-        viewModel.saveChanges {
+        viewModel.mutateDay(cell) {
             Task { @MainActor in onMutation() }
         }
     }
@@ -670,8 +696,6 @@ private enum SunriseHabitDetailAccessibilityID {
     static let contextSecondary = "habitDetail.context.secondary"
     static let detailsDisclosure = "habitDetail.detailsDisclosure"
     static let helperText = "habitDetail.helperText"
-    static let editButton = "habitDetail.editButton"
-    static let saveButton = "habitDetail.saveButton"
     static let currentStreakMetric = "habitDetail.metric.currentStreak"
     static let bestStreakMetric = "habitDetail.metric.bestStreak"
     static let totalCountMetric = "habitDetail.metric.totalCount"

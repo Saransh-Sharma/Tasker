@@ -249,6 +249,17 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
                         viewModel: self.viewModel,
                         completion: completion
                     )
+                },
+                appStoreScreenshotSeed: { [weak self] completion in
+                    guard let self else {
+                        completion()
+                        return
+                    }
+                    self.uiTestWorkspaceSeeder.seedAppStoreScreenshotWorkspaceIfNeeded(
+                        presentationDependencyContainer: self.presentationDependencyContainer,
+                        viewModel: self.viewModel,
+                        completion: completion
+                    )
                 }
             )
         ) { [weak self] in

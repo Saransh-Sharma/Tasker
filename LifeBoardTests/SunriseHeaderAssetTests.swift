@@ -127,9 +127,15 @@ final class SunriseHeaderAssetTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         let headerSource = try String(contentsOf: projectRoot.appendingPathComponent("LifeBoard/LifeBoardDesign/Components/LBDateHeroHeader.swift"))
+        let sunriseHomeSource = try String(contentsOf: projectRoot.appendingPathComponent("LifeBoard/LifeBoardDesign/SunriseHomeScreen.swift"))
         let homeSource = try String(contentsOf: projectRoot.appendingPathComponent("LifeBoard/View/SunriseAppShellView.swift"))
 
         XCTAssertTrue(headerSource.contains("\"home.sunrise.date.selector\""))
+        XCTAssertTrue(headerSource.contains("\"home.sunrise.backToToday\""))
+        XCTAssertTrue(headerSource.contains("\"Back to Today\""))
+        XCTAssertTrue(sunriseHomeSource.contains("isOnNonTodayLens: activeLens != .today"))
+        XCTAssertTrue(sunriseHomeSource.contains("backToTodayColor: LBColorTokens.sunriseGold"))
+        XCTAssertTrue(sunriseHomeSource.contains("onSelectLens(.today)"))
         XCTAssertFalse(headerSource.contains("\"home.sunrise.date.previous\""))
         XCTAssertFalse(headerSource.contains("\"home.sunrise.date.next\""))
         XCTAssertTrue(homeSource.contains("\"home.datePicker\""))
@@ -304,7 +310,8 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertTrue(rows.contains { $0.id == "anchor-wake" })
         XCTAssertTrue(rows.contains { $0.id == "item-task" })
         XCTAssertTrue(rows.contains { $0.id == "item-event" })
-        XCTAssertTrue(rows.contains { if case .gap = $0 { return true }; return false })
+        // Assistant gap prompts were removed from the timeline in the polish pass.
+        XCTAssertFalse(rows.contains { if case .gap = $0 { return true }; return false })
         XCTAssertTrue(rows.contains { if case .now = $0 { return true }; return false })
         XCTAssertTrue(rows.contains { $0.id == "anchor-sleep" })
     }
@@ -347,7 +354,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertFalse(rows.contains { if case .now = $0 { return true }; return false })
     }
 
-    func testWindDownAnchorStaysSeparateFromAssistantGap() {
+    func testWindDownAnchorRendersWithoutAssistantGapRow() {
         let now = date(hour: 21, minute: 15)
         let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 8), systemImageName: "sunrise.fill")
         let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
@@ -364,7 +371,8 @@ final class SunriseHeaderAssetTests: XCTestCase {
         )
 
         XCTAssertTrue(rows.contains { $0.id == "anchor-sleep" })
-        XCTAssertTrue(rows.contains { if case .gap = $0 { return true }; return false })
+        // Assistant gap prompts were removed from the timeline in the polish pass.
+        XCTAssertFalse(rows.contains { if case .gap = $0 { return true }; return false })
         XCTAssertEqual(LBColorTokens.role(.windDown).symbolName, "moon.stars.fill")
     }
 

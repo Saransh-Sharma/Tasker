@@ -43,7 +43,7 @@ struct AddTaskCreateButton: View {
                             .font(.system(size: 16, weight: .medium))
                     }
 
-                    Text(isLoading ? "Creating..." : successFlash ? "Added!" : buttonTitle)
+                    Text(isLoading ? "Adding…" : successFlash ? "Added" : buttonTitle)
                         .font(.lifeboard(.button))
                         .contentTransition(.opacity)
                 }
@@ -66,6 +66,8 @@ struct AddTaskCreateButton: View {
                             lineWidth: 1
                         )
                 )
+                .clipShape(RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
+                .lbAnimatedSheen()
             }
             .buttonStyle(.plain)
             .scaleOnPress()

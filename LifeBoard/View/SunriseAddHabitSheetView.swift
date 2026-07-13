@@ -60,9 +60,13 @@ public struct SunriseAddHabitSheetView: View {
             ScrollView {
                 VStack(spacing: spacing.s16) {
                     livingPreview
+                        .cardEntrance(index: 0)
                     essentialsCard
+                        .cardEntrance(index: 1)
                     rhythmCard
+                        .cardEntrance(index: 2)
                     appearanceCard
+                        .cardEntrance(index: 3)
 
                     if let validationText {
                         SunriseHabitInlineError(message: validationText)
@@ -142,7 +146,7 @@ public struct SunriseAddHabitSheetView: View {
                     .foregroundStyle(accent)
                     .contentTransition(.symbolEffect(.replace))
             }
-            .breathingPulse(min: isAwaiting ? 0.5 : 1.0, max: 1.0, duration: 1.8)
+            .breathingPulse(min: isAwaiting ? 0.85 : 1.0, max: 1.0, duration: 2.6)
             .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: spacing.s4) {
@@ -174,7 +178,7 @@ public struct SunriseAddHabitSheetView: View {
                 iconAccessibilityLabel: viewModel.selectedIconOption?.displayName,
                 onIconTap: openAppearance,
                 placeholder: "What do you want to repeat?",
-                helperText: "Keep it small enough to show up on an ordinary day.",
+                helperText: "Keep it small enough for an ordinary day.",
                 onSubmit: handleCreate
             )
 
@@ -652,7 +656,7 @@ struct SunriseHabitReminderWindowPicker: View {
                     Text("Reminder window")
                         .font(.lifeboard(.callout).weight(.semibold))
                         .foregroundStyle(Color.lifeboard.textPrimary)
-                    Text("Optional. Home stores this as a normalized start and end time.")
+                    Text("Optional. A gentle nudge window.")
                         .font(.lifeboard(.meta))
                         .foregroundStyle(Color.lifeboard.textSecondary)
                         .fixedSize(horizontal: false, vertical: true)
@@ -773,7 +777,7 @@ private struct SunriseHabitBottomActionBar: View {
                 } else {
                     Image(systemName: successFlash ? "checkmark.circle.fill" : "plus.circle.fill")
                 }
-                Text(isLoading ? "Adding..." : title)
+                Text(isLoading ? "Adding…" : title)
             }
             .font(.lifeboard(.bodyEmphasis))
             .foregroundStyle(Color.lifeboard.textInverse)
@@ -789,6 +793,8 @@ private struct SunriseHabitBottomActionBar: View {
                 ),
                 in: Capsule()
             )
+            .clipShape(Capsule())
+            .lbAnimatedSheen()
             .opacity(isEnabled ? 1 : 0.62)
         }
         .buttonStyle(.plain)

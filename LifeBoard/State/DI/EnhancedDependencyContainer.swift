@@ -539,14 +539,17 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol, @unche
             let firstEnd = calendar.date(byAdding: .minute, value: 30, to: firstStart) ?? firstStart
             let secondStart = calendar.date(byAdding: .minute, value: 60, to: firstEnd) ?? firstEnd
             let secondEnd = calendar.date(byAdding: .minute, value: 30, to: secondStart) ?? secondStart
+            let screenshotSeed = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS")
+            let thirdStart = calendar.date(byAdding: .minute, value: 60, to: secondEnd) ?? secondEnd
+            let thirdEnd = calendar.date(byAdding: .minute, value: 30, to: thirdStart) ?? thirdStart
             let allEvents = [
                 LifeBoardCalendarEventSnapshot(
                     id: "test_meeting_1",
                     calendarID: "work",
                     calendarTitle: "Work",
                     calendarColorHex: "#007AFF",
-                    title: "Design Review",
-                    location: "Zoom",
+                    title: screenshotSeed ? "Launch Readiness Review" : "Design Review",
+                    location: screenshotSeed ? "Zoom - Partner Room" : "Zoom",
                     startDate: firstStart,
                     endDate: firstEnd,
                     isAllDay: false,
@@ -558,10 +561,23 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol, @unche
                     calendarID: "work",
                     calendarTitle: "Work",
                     calendarColorHex: "#007AFF",
-                    title: "Sprint Standup",
-                    location: "Room A",
+                    title: screenshotSeed ? "Customer Notes Debrief" : "Sprint Standup",
+                    location: screenshotSeed ? "Room A" : "Room A",
                     startDate: secondStart,
                     endDate: secondEnd,
+                    isAllDay: false,
+                    availability: .busy,
+                    participationStatus: .accepted
+                ),
+                LifeBoardCalendarEventSnapshot(
+                    id: "test_meeting_3",
+                    calendarID: "work",
+                    calendarTitle: "Work",
+                    calendarColorHex: "#007AFF",
+                    title: screenshotSeed ? "1:1 with Maya" : "Roadmap Check-in",
+                    location: screenshotSeed ? "Huddle 2" : "Room B",
+                    startDate: thirdStart,
+                    endDate: thirdEnd,
                     isAllDay: false,
                     availability: .busy,
                     participationStatus: .accepted

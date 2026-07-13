@@ -99,7 +99,7 @@ struct ChatScaffoldView: View {
 
     var body: some View {
         ZStack {
-            EvaChatSunriseBackground()
+            EvaChatSunriseBackground(isStreaming: isGenerationInFlight || liveOutput.shouldRender)
 
             VStack(spacing: 0) {
                 if transcriptSnapshot.threadID != nil {

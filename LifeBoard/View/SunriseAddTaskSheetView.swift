@@ -83,14 +83,16 @@ public struct SunriseAddTaskSheetView: View {
                     )
                     .scaleEffect(previewPop && !reduceMotion ? 1.03 : 1.0)
                     .animation(LifeBoardAnimation.snappy, value: previewPop)
+                    .cardEntrance(index: 0)
 
                     AddTaskTitleField(
                         text: $viewModel.taskName,
                         isFocused: $titleFieldFocused,
                         placeholder: "What do you want to do?",
-                        helperText: "Just a name to start — shape the rest below.",
+                        helperText: nil,
                         onSubmit: handleCreate
                     )
+                    .cardEntrance(index: 1)
 
                     SunriseTaskEssentials(
                         viewModel: viewModel,
@@ -100,6 +102,7 @@ public struct SunriseAddTaskSheetView: View {
                         selectedLifeArea: selectedLifeArea,
                         onEditTime: { showTimeEditor = true }
                     )
+                    .cardEntrance(index: 2)
 
                     CalmInlineReveal(
                         title: "Refine",
@@ -114,6 +117,7 @@ public struct SunriseAddTaskSheetView: View {
                             onExpand: expandSheet
                         )
                     }
+                    .cardEntrance(index: 3)
 
                     if let validationText {
                         SunriseAddTaskErrorView(message: validationText)
@@ -178,9 +182,12 @@ public struct SunriseAddTaskSheetView: View {
             guard let taskID, let pendingBehavior else { return }
             handleCreatedTask(taskID, behavior: pendingBehavior)
         }
-        .onChange(of: viewModel.taskName) { _, _ in triggerPreviewPop() }
+        // The preview settles on structural changes (time, duration); title
+        // typing updates the preview text under a quiet content transition,
+        // so the card no longer pops on every keystroke.
         .onChange(of: viewModel.scheduledStartAt) { _, _ in triggerPreviewPop() }
         .onChange(of: viewModel.estimatedDuration) { _, _ in triggerPreviewPop() }
+        .onChange(of: viewModel.selectedLifeAreaID) { _, _ in triggerPreviewPop() }
     }
 
     private var selectedLifeArea: LifeArea? {

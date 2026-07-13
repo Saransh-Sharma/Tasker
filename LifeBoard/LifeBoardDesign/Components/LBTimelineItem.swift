@@ -9,6 +9,7 @@ struct LBTimelineItem<Content: View>: View {
     var spineIconAccessibilityLabel: String?
     var spineIconAccessibilityValue: String?
     var spineIconAction: (() -> Void)?
+    var spineIconIsCompleted: Bool?
     @ViewBuilder let content: Content
 
     init(
@@ -20,6 +21,7 @@ struct LBTimelineItem<Content: View>: View {
         spineIconAccessibilityLabel: String? = nil,
         spineIconAccessibilityValue: String? = nil,
         spineIconAction: (() -> Void)? = nil,
+        spineIconIsCompleted: Bool? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.timeText = timeText
@@ -30,6 +32,7 @@ struct LBTimelineItem<Content: View>: View {
         self.spineIconAccessibilityLabel = spineIconAccessibilityLabel
         self.spineIconAccessibilityValue = spineIconAccessibilityValue
         self.spineIconAction = spineIconAction
+        self.spineIconIsCompleted = spineIconIsCompleted
         self.content = content()
     }
 
@@ -61,7 +64,8 @@ struct LBTimelineItem<Content: View>: View {
             iconSystemName: spineIconSystemName,
             iconAccessibilityLabel: spineIconAccessibilityLabel,
             iconAccessibilityValue: spineIconAccessibilityValue,
-            iconAction: spineIconAction
+            iconAction: spineIconAction,
+            iconIsCompleted: spineIconIsCompleted
         )
     }
 

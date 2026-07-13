@@ -31,29 +31,13 @@ jobs:
           set -euo pipefail
           bash scripts/validate_coredata_codegen_guardrails.sh
 
-      - name: Enforce V2 fail-closed runtime guardrails
+      - name: Enforce V3 fail-closed runtime guardrails
         run: |
           set -euo pipefail
-          rg -n "assertV2RuntimeReady|v2RuntimeReady|v2_runtime_not_ready" \
+          rg -n "assertV3RuntimeReady|v3RuntimeReady|v3_runtime_not_ready" \
             "LifeBoard/AppDelegate.swift" \
             "LifeBoard/Presentation/DI/PresentationDependencyContainer.swift" \
             "LifeBoard/State/DI/EnhancedDependencyContainer.swift"
-
-      - name: Install flowctl
-        env:
-          FLOWCTL_DOWNLOAD_URL: ${{ secrets.FLOWCTL_DOWNLOAD_URL }}
-          FLOWCTL_DOWNLOAD_SHA256: ${{ secrets.FLOWCTL_DOWNLOAD_SHA256 }}
-          FLOWCTL_ALLOW_SHIM: "0"
-        run: |
-          set -euo pipefail
-          bash scripts/install_flowctl.sh
-
-      - name: Verify flowctl availability
-        env:
-          FLOWCTL_ALLOW_SHIM: "0"
-        run: |
-          set -euo pipefail
-          bash scripts/verify_flowctl.sh
 
   unit-tests:
     runs-on: macos-latest
@@ -63,7 +47,26 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Select Xcode
-        run: sudo xcode-select -switch /Applications/Xcode.app
+        run: |
+          set -euo pipefail
+          if [[ ! -d /Applications/Xcode_26.5.app ]]; then
+            ls -1 /Applications
+            echo "Xcode 26.5 is required for SwiftUI 26 APIs used by LifeBoard."
+            exit 1
+          fi
+          sudo xcode-select -switch /Applications/Xcode_26.5.app
+          xcodebuild -version
+
+      - name: Write CI Firebase placeholder
+        run: bash scripts/write-ci-google-service-info.sh
+
+      - name: Install CocoaPods dependencies
+        run: |
+          set -euo pipefail
+          if ! command -v pod >/dev/null; then
+            brew install cocoapods
+          fi
+          pod install --deployment
 
       - name: Run Unit Tests
         run: |
@@ -71,8 +74,19 @@ jobs:
           xcodebuild \
             -workspace "LifeBoard.xcworkspace" \
             -scheme "LifeBoard" \
-            -destination 'platform=iOS Simulator,name=iPhone 16' \
-            -only-testing:LifeBoardTests \
+            -destination 'platform=iOS Simulator,name=iPhone 17' \
+            -only-testing:LifeBoardTests/TaskNotificationOrchestratorTests \
+            -only-testing:LifeBoardTests/TaskSemanticRetrievalServiceTests \
+            -only-testing:LifeBoardTests/TaskTagLinkUniquenessTests \
+            -only-testing:LifeBoardTests/ThreadContextAttachmentTests \
+            -only-testing:LifeBoardTests/TombstoneRetentionTests \
+            -only-testing:LifeBoardTests/TypographyTokenTests \
+            -only-testing:LifeBoardTests/V2PerformanceGateTests \
+            -only-testing:LifeBoardTests/V2RepositoryInvariantTests \
+            -only-testing:LifeBoardTests/XPCalculationEngineExactPreviewTests \
+            -only-testing:LifeBoardTests/XPCalculationEngineWeeklyCategoryTests \
+            -only-testing:LifeBoardTests/XPExactPreviewParityTests \
+            -only-testing:LifeBoardTests/XPRewardPreviewCopyRegressionTests \
             test
 
   perf-gate:

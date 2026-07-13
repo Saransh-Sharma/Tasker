@@ -338,7 +338,10 @@ extension ChatComposerView {
     }
 
     var generateButton: some View {
-        Button(action: onGenerate) {
+        Button {
+            LifeBoardFeedback.light()
+            onGenerate()
+        } label: {
             Image(systemName: "arrow.up")
                 .font(.lifeboard(.buttonSmall))
                 .fontWeight(.semibold)
@@ -362,10 +365,11 @@ extension ChatComposerView {
             .padding(.trailing, LifeBoardTheme.Spacing.sm)
             .padding(.bottom, LifeBoardTheme.Spacing.sm)
         #endif
-        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: canSubmit)
+        .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.quick, value: canSubmit)
         #if os(macOS) || os(visionOS)
         .buttonStyle(.plain)
         #endif
+        .lifeboardPressFeedback(reduceMotion: LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion))
     }
 
     var stopButton: some View {

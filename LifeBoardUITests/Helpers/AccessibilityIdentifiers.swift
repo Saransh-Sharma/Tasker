@@ -474,8 +474,6 @@ enum AccessibilityIdentifiers {
         static let contextSecondary = "habitDetail.context.secondary"
         static let detailsDisclosure = "habitDetail.detailsDisclosure"
         static let helperText = "habitDetail.helperText"
-        static let editButton = "habitDetail.editButton"
-        static let saveButton = "habitDetail.saveButton"
         static let currentStreakMetric = "habitDetail.metric.currentStreak"
         static let bestStreakMetric = "habitDetail.metric.bestStreak"
         static let totalCountMetric = "habitDetail.metric.totalCount"

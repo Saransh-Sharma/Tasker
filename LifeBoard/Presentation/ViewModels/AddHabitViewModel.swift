@@ -1262,6 +1262,7 @@ public final class HabitDetailViewModel: ObservableObject {
     @Published public private(set) var isSaving = false
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var mutationFeedback: HabitDetailMutationFeedback?
+    @Published public var autosaveState: TaskDetailAutosaveState = .idle
     @Published public var isEditing = false
     @Published public var draft: HabitEditorDraft
 
@@ -1278,7 +1279,11 @@ public final class HabitDetailViewModel: ObservableObject {
     private var hasLoadedOnce = false
     private var hasLoadedEditorSupport = false
     private var iconOptionsCache: (key: IconSearchCacheKey, options: [HabitIconOption])?
+    private var pendingLoadIfNeededCompletions: [@MainActor @Sendable () -> Void] = []
     private var pendingEditorSupportCompletions: [(Bool) -> Void] = []
+    private var autosaveWorkItem: DispatchWorkItem?
+    private var needsSaveAfterCurrentRequest = false
+    private let textAutosaveDebounceSeconds: TimeInterval = 0.6
 
     public init(
         row: HabitLibraryRow,
@@ -1368,9 +1373,18 @@ public final class HabitDetailViewModel: ObservableObject {
         )
     }
 
-    public func loadIfNeeded() {
-        guard hasLoadedOnce == false else { return }
+    public func loadIfNeeded(completion: (@MainActor @Sendable () -> Void)? = nil) {
+        if let completion {
+            pendingLoadIfNeededCompletions.append(completion)
+        }
+        guard hasLoadedOnce == false else {
+            if isLoading == false && isCalendarLoading == false {
+                completeLoadIfNeededCompletions()
+            }
+            return
+        }
         hasLoadedOnce = true
+        isLoading = true
         isCalendarLoading = true
         LifeBoardPerformanceTrace.event("HabitDetailSheetLoadRequested")
 
@@ -1379,7 +1393,9 @@ public final class HabitDetailViewModel: ObservableObject {
             LifeBoardPerformanceTrace.event("HabitDetailCalendarMounted")
 
             DispatchQueue.main.async {
-                self.refreshReadOnlyData()
+                self.refreshReadOnlyData {
+                    self.completeLoadIfNeededCompletions()
+                }
             }
         }
     }
@@ -1388,7 +1404,7 @@ public final class HabitDetailViewModel: ObservableObject {
         refreshReadOnlyData()
     }
 
-    public func refreshReadOnlyData(completion: (@Sendable () -> Void)? = nil) {
+    public func refreshReadOnlyData(completion: (@MainActor @Sendable () -> Void)? = nil) {
         isLoading = true
         isCalendarLoading = true
         errorMessage = nil
@@ -1489,6 +1505,20 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
+    public func prepareAlwaysEditableSupport(completion: (@MainActor @Sendable () -> Void)? = nil) {
+        loadEditorSupportDataIfNeeded { [weak self] didLoad in
+            guard let self else {
+                completion?()
+                return
+            }
+            if didLoad {
+                self.isEditing = true
+                self.errorMessage = nil
+            }
+            completion?()
+        }
+    }
+
     public func cancelEditing() {
         draft = HabitEditorDraft(row: row)
         normalizeDraftSelection()
@@ -1510,7 +1540,7 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
-    public func saveChanges(completion: (@Sendable () -> Void)? = nil) {
+    public func saveChanges(completion: (@MainActor @Sendable () -> Void)? = nil) {
         normalizeDraftSelection()
         guard canSave else {
             errorMessage = editorReminderWindowValidationError ?? "Fill in the required habit details."
@@ -1519,23 +1549,7 @@ public final class HabitDetailViewModel: ObservableObject {
 
         isSaving = true
         errorMessage = nil
-        let request = UpdateHabitRequest(
-            id: row.habitID,
-            title: draft.title.trimmingCharacters(in: .whitespacesAndNewlines),
-            lifeAreaID: draft.lifeAreaID,
-            projectID: draft.projectID,
-            clearProject: draft.projectID == nil,
-            kind: draft.kind == .positive ? .positive : .negative,
-            trackingMode: draft.trackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly,
-            icon: selectedIconOption.map { HabitIconMetadata(symbolName: $0.symbolName, categoryKey: $0.categoryKey) },
-            colorHex: LifeBoardHexColor.normalized(draft.colorHex.nilIfBlank),
-            targetConfig: HabitTargetConfig(notes: draft.notes.nilIfBlank, targetCountPerDay: 1),
-            metricConfig: HabitMetricConfig(unitLabel: nil, showNotesOnCompletion: draft.notes.nilIfBlank != nil),
-            cadence: draft.cadence,
-            reminderWindowStart: draft.reminderWindowStart.nilIfBlank?.normalizedHHmm,
-            reminderWindowEnd: draft.reminderWindowEnd.nilIfBlank?.normalizedHHmm,
-            notes: draft.notes.nilIfBlank
-        )
+        let request = makeUpdateRequest()
 
         updateHabitUseCase.execute(request: request) { [weak self] result in
             Task { @MainActor [weak self] in
@@ -1554,7 +1568,41 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
-    public func togglePause(completion: (@Sendable () -> Void)? = nil) {
+    /// Cancels any scheduled debounced autosave, flushing the last edit
+    /// immediately so a fast dismiss doesn't drop the final keystroke.
+    /// Mirrors the cleanup `TaskDetailViewModel.handleDisappear` performs.
+    public func cancelPendingAutosave() {
+        guard let pending = autosaveWorkItem else { return }
+        autosaveWorkItem = nil
+        pending.cancel()
+        if isSaving {
+            needsSaveAfterCurrentRequest = true
+        } else {
+            performAutosave()
+        }
+    }
+
+    public func scheduleAutosave(debounced: Bool) {
+        autosaveWorkItem?.cancel()
+
+        if isSaving {
+            needsSaveAfterCurrentRequest = true
+            return
+        }
+
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.performAutosave()
+        }
+        autosaveWorkItem = workItem
+
+        if debounced {
+            DispatchQueue.main.asyncAfter(deadline: .now() + textAutosaveDebounceSeconds, execute: workItem)
+        } else {
+            DispatchQueue.main.async(execute: workItem)
+        }
+    }
+
+    public func togglePause(completion: (@MainActor @Sendable () -> Void)? = nil) {
         guard isSaving == false else { return }
         isSaving = true
         pauseHabitUseCase.execute(id: row.habitID, isPaused: !row.isPaused) { [weak self] result in
@@ -1564,6 +1612,10 @@ public final class HabitDetailViewModel: ObservableObject {
                 switch result {
                 case .success:
                     self.refreshReadOnlyData {
+                        if self.needsSaveAfterCurrentRequest {
+                            self.needsSaveAfterCurrentRequest = false
+                            self.scheduleAutosave(debounced: false)
+                        }
                         completion?()
                     }
                 case .failure(let error):
@@ -1573,7 +1625,7 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
-    public func archive(completion: (@Sendable () -> Void)? = nil) {
+    public func archive(completion: (@MainActor @Sendable () -> Void)? = nil) {
         guard isSaving == false else { return }
         isSaving = true
         archiveHabitUseCase.execute(id: row.habitID) { [weak self] result in
@@ -1583,6 +1635,10 @@ public final class HabitDetailViewModel: ObservableObject {
                 switch result {
                 case .success:
                     self.refreshReadOnlyData {
+                        if self.needsSaveAfterCurrentRequest {
+                            self.needsSaveAfterCurrentRequest = false
+                            self.scheduleAutosave(debounced: false)
+                        }
                         completion?()
                     }
                 case .failure(let error):
@@ -1592,7 +1648,7 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
-    public func logLapse(completion: (@Sendable () -> Void)? = nil) {
+    public func logLapse(completion: (@MainActor @Sendable () -> Void)? = nil) {
         guard row.trackingMode == .lapseOnly else { return }
         guard isSaving == false else { return }
         isSaving = true
@@ -1608,6 +1664,10 @@ public final class HabitDetailViewModel: ObservableObject {
                 switch result {
                 case .success:
                     self.refreshReadOnlyData {
+                        if self.needsSaveAfterCurrentRequest {
+                            self.needsSaveAfterCurrentRequest = false
+                            self.scheduleAutosave(debounced: false)
+                        }
                         completion?()
                     }
                 case .failure(let error):
@@ -1619,7 +1679,7 @@ public final class HabitDetailViewModel: ObservableObject {
 
     public func mutateDay(
         _ cell: HabitDetailDayCell,
-        completion: (@Sendable () -> Void)? = nil
+        completion: (@MainActor @Sendable () -> Void)? = nil
     ) {
         guard cell.isInteractive,
               isSaving == false,
@@ -1641,6 +1701,10 @@ public final class HabitDetailViewModel: ObservableObject {
                 case .success:
                     self.mutationFeedback = mutationFeedback
                     self.refreshReadOnlyData {
+                        if self.needsSaveAfterCurrentRequest {
+                            self.needsSaveAfterCurrentRequest = false
+                            self.scheduleAutosave(debounced: false)
+                        }
                         completion?()
                     }
                 case .failure(let error):
@@ -1683,6 +1747,75 @@ public final class HabitDetailViewModel: ObservableObject {
             row: row,
             marks: historyMarks,
             referenceDate: referenceDate
+        )
+    }
+
+    private func completeLoadIfNeededCompletions() {
+        let completions = pendingLoadIfNeededCompletions
+        pendingLoadIfNeededCompletions.removeAll()
+        completions.forEach { $0() }
+    }
+
+    private func performAutosave() {
+        normalizeDraftSelection()
+
+        guard draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            autosaveState = .failed("Habit title cannot be empty")
+            return
+        }
+
+        guard draft.lifeAreaID != nil else {
+            autosaveState = .failed("Select a life area")
+            return
+        }
+
+        guard editorReminderWindowValidationError == nil else {
+            autosaveState = .failed("Fix reminder window to save")
+            return
+        }
+
+        autosaveState = .saving
+        isSaving = true
+        errorMessage = nil
+        let request = makeUpdateRequest()
+
+        updateHabitUseCase.execute(request: request) { [weak self] result in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isSaving = false
+                switch result {
+                case .success:
+                    self.autosaveState = .saved
+                    self.refreshReadOnlyData {
+                        if self.needsSaveAfterCurrentRequest {
+                            self.needsSaveAfterCurrentRequest = false
+                            self.scheduleAutosave(debounced: false)
+                        }
+                    }
+                case .failure(let error):
+                    self.autosaveState = .failed(error.localizedDescription)
+                }
+            }
+        }
+    }
+
+    private func makeUpdateRequest() -> UpdateHabitRequest {
+        UpdateHabitRequest(
+            id: row.habitID,
+            title: draft.title.trimmingCharacters(in: .whitespacesAndNewlines),
+            lifeAreaID: draft.lifeAreaID,
+            projectID: draft.projectID,
+            clearProject: draft.projectID == nil,
+            kind: draft.kind == .positive ? .positive : .negative,
+            trackingMode: draft.trackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly,
+            icon: selectedIconOption.map { HabitIconMetadata(symbolName: $0.symbolName, categoryKey: $0.categoryKey) },
+            colorHex: LifeBoardHexColor.normalized(draft.colorHex.nilIfBlank),
+            targetConfig: HabitTargetConfig(notes: draft.notes.nilIfBlank, targetCountPerDay: 1),
+            metricConfig: HabitMetricConfig(unitLabel: nil, showNotesOnCompletion: draft.notes.nilIfBlank != nil),
+            cadence: draft.cadence,
+            reminderWindowStart: draft.reminderWindowStart.nilIfBlank?.normalizedHHmm,
+            reminderWindowEnd: draft.reminderWindowEnd.nilIfBlank?.normalizedHHmm,
+            notes: draft.notes.nilIfBlank
         )
     }
 

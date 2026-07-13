@@ -27,6 +27,7 @@ struct LBCurrentTimeRail: View, Equatable {
                     .fill(LBColorTokens.violet)
                     .frame(width: 11, height: 11)
                     .overlay(Circle().stroke(LBColorTokens.canvas.opacity(0.92), lineWidth: 3))
+                    .breathingPulse(min: 0.85, max: 1.0, duration: 2.6)
                     .frame(width: LBSpacingTokens.timelineRailWidth)
 
                 Color.clear

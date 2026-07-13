@@ -15234,6 +15234,47 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         XCTAssertFalse(fixture.viewModel.isPreparingEditorData)
     }
 
+    func testLoadIfNeededCompletionRunsAfterReadOnlyDraftHydration() async {
+        let fixture = makeDetailFixture(returnedTitle: "Hydrate refreshed")
+        var completedDraftTitle: String?
+        var completedIsLoading: Bool?
+
+        fixture.viewModel.loadIfNeeded {
+            completedDraftTitle = fixture.viewModel.draft.title
+            completedIsLoading = fixture.viewModel.isLoading
+        }
+
+        await waitUntil { completedDraftTitle != nil }
+
+        XCTAssertEqual(completedDraftTitle, "Hydrate refreshed")
+        XCTAssertEqual(completedIsLoading, false)
+        XCTAssertEqual(fixture.readRepository.fetchDetailSummaryCallCount, 1)
+        XCTAssertEqual(fixture.readRepository.fetchHistoryCallCount, 1)
+    }
+
+    func testPrepareAlwaysEditableSupportCompletionRunsAfterEditorSupportHydration() async {
+        let fixture = makeDetailFixture()
+        var completedIsEditing: Bool?
+        var completedIsPreparingEditorData: Bool?
+        var completedLifeAreaFetchCount: Int?
+        var completedProjectFetchCount: Int?
+
+        fixture.viewModel.prepareAlwaysEditableSupport {
+            completedIsEditing = fixture.viewModel.isEditing
+            completedIsPreparingEditorData = fixture.viewModel.isPreparingEditorData
+            completedLifeAreaFetchCount = fixture.lifeAreaRepository.fetchAllCallCount
+            completedProjectFetchCount = fixture.projectRepository.fetchAllProjectsCallCount
+        }
+
+        await waitUntil { completedIsEditing != nil }
+
+        XCTAssertEqual(completedIsEditing, true)
+        XCTAssertEqual(completedIsPreparingEditorData, false)
+        XCTAssertEqual(completedLifeAreaFetchCount, 1)
+        XCTAssertEqual(completedProjectFetchCount, 1)
+        XCTAssertEqual(fixture.projectRepository.getTaskCountCallCount, fixture.projectRepository.projectCount)
+    }
+
     func testBeginEditingDefersAndCachesEditorSupportLoading() async {
         let fixture = makeDetailFixture()
 
@@ -17574,7 +17615,12 @@ final class HomeLensResolverTests: XCTestCase {
         let chips = HomeLensResolver.lifeAreaLenses(
             lifeAreas: [archived, areaA, areaB],
             pinnedLifeAreaIDs: [areaB.id],
-            activeLens: .lifeArea(areaB.id)
+            activeLens: .lifeArea(areaB.id),
+            activityByID: [
+                areaA.id: HomeLensLifeAreaActivity(openCount: 1, nearestDue: nil),
+                areaB.id: HomeLensLifeAreaActivity(openCount: 1, nearestDue: nil),
+                archived.id: HomeLensLifeAreaActivity(openCount: 1, nearestDue: nil)
+            ]
         )
 
         XCTAssertEqual(chips.map(\.title), ["Beta", "Alpha"])
@@ -17582,15 +17628,18 @@ final class HomeLensResolverTests: XCTestCase {
         XCTAssertFalse(chips.contains { $0.lens == .lifeArea(archived.id) })
     }
 
-    func testLifeAreaLensesRespectLimit() {
+    func testLifeAreaLensesShowAllOpenLifeAreasWithoutLimit() {
         let areas = (0..<8).map { LifeArea(name: "Area \($0)") }
+        let activity = Dictionary(uniqueKeysWithValues: areas.map {
+            ($0.id, HomeLensLifeAreaActivity(openCount: 1, nearestDue: nil))
+        })
         let chips = HomeLensResolver.lifeAreaLenses(
             lifeAreas: areas,
             pinnedLifeAreaIDs: [],
             activeLens: .today,
-            limit: 4
+            activityByID: activity
         )
-        XCTAssertEqual(chips.count, 4)
+        XCTAssertEqual(chips.map(\.title), areas.map(\.name))
     }
 
     func testLifeAreaLensesCarryAreaColorTint() {
@@ -17598,7 +17647,10 @@ final class HomeLensResolverTests: XCTestCase {
         let chips = HomeLensResolver.lifeAreaLenses(
             lifeAreas: [area],
             pinnedLifeAreaIDs: [area.id],
-            activeLens: .today
+            activeLens: .today,
+            activityByID: [
+                area.id: HomeLensLifeAreaActivity(openCount: 1, nearestDue: nil)
+            ]
         )
         XCTAssertEqual(chips.first?.tintHex, LifeAreaColorPalette.normalizeOrMap(hex: "#AABBCC", for: area.id))
     }
@@ -17622,7 +17674,23 @@ final class HomeLensResolverTests: XCTestCase {
         XCTAssertEqual(chips.map(\.title), ["Beta", "Alpha", "Charlie"])
     }
 
-    func testPinnedLifeAreasLeadEvenWhenLessActive() {
+    func testPinnedLifeAreasLeadWhenOpenEvenIfLessActive() {
+        let alpha = LifeArea(name: "Alpha")
+        let beta = LifeArea(name: "Beta")
+        let activity: [UUID: HomeLensLifeAreaActivity] = [
+            alpha.id: HomeLensLifeAreaActivity(openCount: 1, nearestDue: nil),
+            beta.id: HomeLensLifeAreaActivity(openCount: 5, nearestDue: Date())
+        ]
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [alpha, beta],
+            pinnedLifeAreaIDs: [alpha.id],
+            activeLens: .today,
+            activityByID: activity
+        )
+        XCTAssertEqual(chips.map(\.title), ["Alpha", "Beta"])
+    }
+
+    func testPinnedLifeAreasWithNoOpenTasksAreHiddenWhenInactive() {
         let alpha = LifeArea(name: "Alpha")
         let beta = LifeArea(name: "Beta")
         let activity: [UUID: HomeLensLifeAreaActivity] = [
@@ -17635,7 +17703,44 @@ final class HomeLensResolverTests: XCTestCase {
             activeLens: .today,
             activityByID: activity
         )
-        XCTAssertEqual(chips.map(\.title), ["Alpha", "Beta"])
+        XCTAssertEqual(chips.map(\.title), ["Beta"])
+    }
+
+    func testActiveLifeAreaStaysVisibleWithNoOpenTasks() {
+        let alpha = LifeArea(name: "Alpha")
+        let beta = LifeArea(name: "Beta")
+        let charlie = LifeArea(name: "Charlie")
+        let activity: [UUID: HomeLensLifeAreaActivity] = [
+            alpha.id: HomeLensLifeAreaActivity(openCount: 0, nearestDue: nil),
+            beta.id: HomeLensLifeAreaActivity(openCount: 5, nearestDue: Date()),
+            charlie.id: HomeLensLifeAreaActivity(openCount: 4, nearestDue: nil)
+        ]
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [alpha, beta, charlie],
+            pinnedLifeAreaIDs: [],
+            activeLens: .lifeArea(alpha.id),
+            activityByID: activity
+        )
+        XCTAssertEqual(chips.map(\.title), ["Alpha", "Beta", "Charlie"])
+        XCTAssertEqual(chips.first?.isSelected, true)
+    }
+
+    func testLifeAreaLensesRankByOpenCountWhenDueDatesTie() {
+        let alpha = LifeArea(name: "Alpha")
+        let beta = LifeArea(name: "Beta")
+        let charlie = LifeArea(name: "Charlie")
+        let activity: [UUID: HomeLensLifeAreaActivity] = [
+            alpha.id: HomeLensLifeAreaActivity(openCount: 2, nearestDue: nil),
+            beta.id: HomeLensLifeAreaActivity(openCount: 7, nearestDue: nil),
+            charlie.id: HomeLensLifeAreaActivity(openCount: 7, nearestDue: nil)
+        ]
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [alpha, beta, charlie],
+            pinnedLifeAreaIDs: [],
+            activeLens: .today,
+            activityByID: activity
+        )
+        XCTAssertEqual(chips.map(\.title), ["Beta", "Charlie", "Alpha"])
     }
 }
 

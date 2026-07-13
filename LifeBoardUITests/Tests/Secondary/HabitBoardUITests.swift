@@ -41,30 +41,10 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertGreaterThanOrEqual(title.frame.minY, strip.frame.minY, "Title overlay should be vertically inside the streak surface")
     }
 
-    func testHomeHabitsFooterAddHabitOpensComposer() {
-        relaunchForHomeHabitRowAssertions()
-
-        let addHabitButton = app.buttons[AccessibilityIdentifiers.Home.habitsAddHabit]
-        var foundAddHabitButton = addHabitButton.waitForExistence(timeout: 4)
-        if !foundAddHabitButton || !addHabitButton.isHittable {
-            for _ in 0..<8 {
-                if addHabitButton.exists && addHabitButton.isHittable {
-                    foundAddHabitButton = true
-                    break
-                }
-                app.swipeUp()
-                foundAddHabitButton = addHabitButton.waitForExistence(timeout: 1)
-            }
-        }
-
-        XCTAssertTrue(foundAddHabitButton, "Home habits section should expose the Add Habit footer action")
-        XCTAssertTrue(waitForElementToBeHittable(addHabitButton, timeout: 4))
-
-        addHabitButton.tap()
-
-        let habitComposer = app.otherElements["addHabit.view"]
-        XCTAssertTrue(habitComposer.waitForExistence(timeout: 5), "Tapping the Home habits footer action should open the habit composer")
-    }
+    // The Add Habit footer button was removed in the Sunrise Glass polish
+    // pass; habit creation stays reachable from the dock add button and the
+    // Habit Board. The empty-state card reuses the home.habits.addHabit
+    // identifier when no habits exist yet.
 
     func testSunriseHomeHabitGridRowsCycleWithToast() throws {
         relaunchForSunriseHabitGridAssertions()
@@ -72,8 +52,6 @@ final class HabitBoardUITests: BaseUITest {
         let positiveRow = try sunriseHomeHabitRow(title: "Drink water after breakfast")
         let negativeRow = try sunriseHomeHabitRow(title: "No phone in bed")
 
-        let hint = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.habitsHint]
-        XCTAssertTrue(hint.waitForExistence(timeout: 3), "Sunrise habits grid should explain that rows are tappable")
         let grid = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.habitsGrid]
         XCTAssertTrue(grid.waitForExistence(timeout: 3), "Sunrise habits grid container should stay mounted")
 
@@ -89,7 +67,7 @@ final class HabitBoardUITests: BaseUITest {
         )
         XCTAssertTrue(waitForHabitMutationToast(containing: "Marked done"), "Done tap should show mutation toast feedback")
         XCTAssertTrue(positiveRow.exists, "Positive habit row should stay mounted after done state")
-        assertHabitGridStayedMounted(grid: grid, hint: hint, stableRow: negativeRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: initialNegativeRowFrame)
+        assertHabitGridStayedMounted(grid: grid, stableRow: negativeRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: initialNegativeRowFrame)
 
         positiveRow.tap()
         XCTAssertTrue(
@@ -98,7 +76,7 @@ final class HabitBoardUITests: BaseUITest {
         )
         XCTAssertTrue(waitForHabitMutationToast(containing: "Marked skipped"), "Skipped tap should show mutation toast feedback")
         XCTAssertTrue(positiveRow.exists, "Positive habit row should stay mounted after skipped state")
-        assertHabitGridStayedMounted(grid: grid, hint: hint, stableRow: negativeRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: initialNegativeRowFrame)
+        assertHabitGridStayedMounted(grid: grid, stableRow: negativeRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: initialNegativeRowFrame)
 
         positiveRow.tap()
         XCTAssertTrue(
@@ -107,7 +85,7 @@ final class HabitBoardUITests: BaseUITest {
         )
         XCTAssertTrue(waitForHabitMutationToast(containing: "Cleared to empty"), "Clear tap should show mutation toast feedback")
         XCTAssertTrue(positiveRow.exists, "Positive habit row should stay mounted after clear state")
-        assertHabitGridStayedMounted(grid: grid, hint: hint, stableRow: negativeRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: initialNegativeRowFrame)
+        assertHabitGridStayedMounted(grid: grid, stableRow: negativeRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: initialNegativeRowFrame)
 
         let positiveRowFrameBeforeNegativeCycle = positiveRow.frame
         XCTAssertEqual(negativeRow.value as? String, "Empty. Next: Mark stayed clean.")
@@ -119,7 +97,7 @@ final class HabitBoardUITests: BaseUITest {
         )
         XCTAssertTrue(waitForHabitMutationToast(containing: "Marked clean"), "Clean tap should show mutation toast feedback")
         XCTAssertTrue(negativeRow.exists, "Negative habit row should stay mounted after clean state")
-        assertHabitGridStayedMounted(grid: grid, hint: hint, stableRow: positiveRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: positiveRowFrameBeforeNegativeCycle)
+        assertHabitGridStayedMounted(grid: grid, stableRow: positiveRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: positiveRowFrameBeforeNegativeCycle)
 
         negativeRow.tap()
         XCTAssertTrue(
@@ -128,7 +106,7 @@ final class HabitBoardUITests: BaseUITest {
         )
         XCTAssertTrue(waitForHabitMutationToast(containing: "Marked lapsed"), "Lapsed tap should show mutation toast feedback")
         XCTAssertTrue(negativeRow.exists, "Negative habit row should stay mounted after lapsed state")
-        assertHabitGridStayedMounted(grid: grid, hint: hint, stableRow: positiveRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: positiveRowFrameBeforeNegativeCycle)
+        assertHabitGridStayedMounted(grid: grid, stableRow: positiveRow, expectedGridFrame: initialGridFrame, expectedStableRowFrame: positiveRowFrameBeforeNegativeCycle)
     }
 
     func testHabitBoardShowsSevenDayMatrixAndPages() throws {
@@ -233,7 +211,7 @@ final class HabitBoardUITests: BaseUITest {
         firstRow.tap()
 
         XCTAssertTrue(app.staticTexts["Drink water after breakfast"].waitForExistence(timeout: 5), "Habit detail should show the tapped habit title")
-        XCTAssertTrue(app.buttons["Edit"].waitForExistence(timeout: 3), "Habit detail should expose the edit action")
+        XCTAssertTrue(app.textFields["Habit title"].waitForExistence(timeout: 3), "Habit detail should expose the always-editable title field")
     }
 
     func testHabitDetailShowsSquareTappableDayCells() throws {
@@ -288,7 +266,7 @@ final class HabitBoardUITests: BaseUITest {
         XCTAssertTrue(waitForElementToBeHittable(todayCell, timeout: 5), "Day cell should become interactive again after the save cycle")
     }
 
-    func testHabitDetailEditWaitsForDeferredEditorSupport() throws {
+    func testHabitDetailShowsAlwaysEditableDetailsAfterDeferredEditorSupport() throws {
         openHabitBoard()
 
         let firstRow = try firstHabitBoardRow()
@@ -297,24 +275,12 @@ final class HabitBoardUITests: BaseUITest {
         let detailView = app.otherElements[AccessibilityIdentifiers.HabitDetail.view]
         XCTAssertTrue(detailView.waitForExistence(timeout: 5), "Habit detail should render")
 
-        let editButton = app.buttons[AccessibilityIdentifiers.HabitDetail.editButton]
-        XCTAssertTrue(editButton.waitForExistence(timeout: 3), "Habit detail should expose the edit action")
-        XCTAssertTrue(waitForElementToBeHittable(editButton, timeout: 3))
+        let titleField = app.textFields["Habit title"]
+        XCTAssertTrue(titleField.waitForExistence(timeout: 3), "Habit detail should expose the always-editable title field")
 
-        editButton.tap()
-
-        let loadingExpectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == %@", "Loading"),
-            object: editButton
-        )
-        XCTAssertEqual(
-            XCTWaiter.wait(for: [loadingExpectation], timeout: 1.5),
-            .completed,
-            "Deferred editor support should keep the sheet visible and show a loading affordance"
-        )
-
-        let saveButton = app.buttons[AccessibilityIdentifiers.HabitDetail.saveButton]
-        XCTAssertTrue(saveButton.waitForExistence(timeout: 5), "Habit detail should enter edit mode after editor support loads")
+        let detailsDisclosure = app.buttons[AccessibilityIdentifiers.HabitDetail.detailsDisclosure]
+        XCTAssertTrue(detailsDisclosure.waitForExistence(timeout: 5), "Habit detail should expose editable details after editor support loads")
+        XCTAssertTrue(waitForElementToBeHittable(detailsDisclosure, timeout: 3))
     }
 
     func testHomeHabitLastCellCyclesThroughThreeStates() throws {
@@ -715,7 +681,6 @@ final class HabitBoardUITests: BaseUITest {
 
     private func assertHabitGridStayedMounted(
         grid: XCUIElement,
-        hint: XCUIElement,
         stableRow: XCUIElement,
         expectedGridFrame: CGRect,
         expectedStableRowFrame: CGRect,
@@ -723,7 +688,6 @@ final class HabitBoardUITests: BaseUITest {
         line: UInt = #line
     ) {
         XCTAssertTrue(grid.exists, "Sunrise habits grid should not disappear during a row state change", file: file, line: line)
-        XCTAssertTrue(hint.exists, "Sunrise habits hint should remain mounted during a row state change", file: file, line: line)
         XCTAssertTrue(stableRow.exists, "Untapped Sunrise habit row should remain mounted during another row's state change", file: file, line: line)
         assertFrame(
             grid.frame,
