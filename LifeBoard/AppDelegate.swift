@@ -10,7 +10,6 @@ import UIKit
 import CoreData
 import CloudKit
 @preconcurrency import Dispatch
-import Firebase
 @preconcurrency import BackgroundTasks
 import MetricKit
 import Synchronization
@@ -280,15 +279,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             }
         }
 
-        // DEBUG defaults to Firebase off to avoid noisy simulator Network.framework QUIC logs.
-        let shouldConfigureFirebase: Bool = {
-            #if DEBUG
-            return launchArguments.contains("-LIFEBOARD_ENABLE_FIREBASE_DEBUG")
-            #else
-            return true
-            #endif
-        }()
-
         // Configure UIAppearance to make ShyHeaderController's dummy table view transparent
         UITableView.appearance().backgroundColor = UIColor.clear
         UITableView.appearance().isOpaque = false
@@ -307,18 +297,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         beginPersistentStoreBootstrap(trigger: "launch")
         LifeBoardPerformanceTrace.end(bootstrapInterval)
         registerPerformanceTelemetryIfNeeded()
-        scheduleDeferredLaunchServices(
-            application: application,
-            shouldConfigureFirebase: shouldConfigureFirebase
-        )
+        scheduleDeferredLaunchServices(application: application)
         
         return true
     }
 
-    private func scheduleDeferredLaunchServices(
-        application: UIApplication,
-        shouldConfigureFirebase: Bool
-    ) {
+    private func scheduleDeferredLaunchServices(application: UIApplication) {
         guard didScheduleDeferredLaunchServices == false else { return }
         didScheduleDeferredLaunchServices = true
 
@@ -326,7 +310,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             guard let self else { return }
             self.runDeferredLaunchPostFirstFrameMain(application: application)
             Task { @MainActor [weak self] in
-                self?.runDeferredLaunchBackgroundWarmup(shouldConfigureFirebase: shouldConfigureFirebase)
+                self?.runDeferredLaunchBackgroundWarmup()
             }
         }
     }
@@ -339,60 +323,16 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         application.registerForRemoteNotifications()
     }
 
-    private func runDeferredLaunchBackgroundWarmup(
-        shouldConfigureFirebase: Bool
-    ) {
+    private func runDeferredLaunchBackgroundWarmup() {
         let interval = LifeBoardPerformanceTrace.begin("DeferredLaunchBackgroundWarmup")
         defer { LifeBoardPerformanceTrace.end(interval) }
 
-        configureFirebaseIfNeeded(shouldConfigureFirebase)
         logCloudKitPreflightTelemetry()
 #if DEBUG
         Task { @MainActor in
             LLMDebugSmokeRunner.scheduleIfEnabled()
         }
 #endif
-    }
-
-    private func configureFirebaseIfNeeded(_ shouldConfigureFirebase: Bool) {
-        guard shouldConfigureFirebase else {
-            logDebug(
-                event: "firebase_startup_mode",
-                message: "Firebase skipped in DEBUG (opt in with launch arg)",
-                fields: [
-                    "enabled": "false",
-                    "source": "debug_default_disabled",
-                    "launch_arg": "-LIFEBOARD_ENABLE_FIREBASE_DEBUG"
-                ]
-            )
-            return
-        }
-
-        if FirebaseApp.app() == nil {
-            FirebaseApp.configure()
-            FirebaseConfiguration.shared.setLoggerLevel(.error)
-
-            #if !DEBUG
-            Analytics.setAnalyticsCollectionEnabled(true)
-            #endif
-        }
-
-        #if DEBUG
-        let firebaseStartupSource = "debug_launch_argument"
-        #else
-        let firebaseStartupSource = "release_default_enabled"
-        #endif
-
-        logInfo(
-            event: "firebase_startup_mode",
-            message: "Firebase configured for this run",
-            fields: [
-                "enabled": "true",
-                "source": firebaseStartupSource
-            ]
-        )
-        GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_launch")
-        LiquidMetalCTARemoteConfigService.shared.refreshIfAvailable(reason: "app_launch")
     }
 
     /// Executes applicationDidEnterBackground.
@@ -426,10 +366,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         guard case .ready = persistentBootstrapState else { return }
         if let persistentContainer, AppDelegate.isWriteClosed == false {
             RescueScheduleRepairService.repair(container: persistentContainer)
-        }
-        if FirebaseApp.app() != nil {
-            GamificationRemoteKillSwitchService.shared.refreshIfAvailable(reason: "app_did_become_active")
-            LiquidMetalCTARemoteConfigService.shared.refreshIfAvailable(reason: "app_did_become_active")
         }
         TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "app_did_become_active")
         maintainHabitRuntimeIfNeeded(reason: "app_did_become_active")
