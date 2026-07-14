@@ -85,12 +85,12 @@ extension AppOnboardingJourneyView {
                         subtitle: area.subtitle,
                         icon: area.icon,
                         colorHex: area.colorHex,
+                        accessibilityID: AppOnboardingAccessibilityID.lifeArea(area.id),
                         isSelected: viewModel.selectedLifeAreaIDs.contains(area.id)
                     ) {
                         feedbackController.selection()
                         viewModel.toggleLifeArea(area.id)
                     }
-                    .accessibilityIdentifier(AppOnboardingAccessibilityID.lifeArea(area.id))
                 }
             }
         }
@@ -198,6 +198,7 @@ extension AppOnboardingJourneyView {
                         ) {
                             viewModel.toggleEvaWorkingStyle(style.rawValue)
                         }
+                        .accessibilityIdentifier(AppOnboardingAccessibilityID.workingStyle(style.id))
                     }
                 }
             }
@@ -233,6 +234,7 @@ extension AppOnboardingJourneyView {
                     ) {
                         viewModel.toggleEvaMomentumBlocker(blocker.rawValue)
                     }
+                    .accessibilityIdentifier(AppOnboardingAccessibilityID.momentumBlocker(blocker.id))
                 }
             }
 
@@ -367,6 +369,9 @@ extension AppOnboardingJourneyView {
                         state: viewModel.taskTemplateStates[template.id] ?? .idle,
                         isGuidanceHighlighted: viewModel.createdTaskTemplateMap[template.id] != nil,
                         showsIdleBadge: false,
+                        accessibilityIdentifier: template.id == viewModel.taskSuggestions.first?.id
+                            ? AppOnboardingAccessibilityID.primaryTaskAction
+                            : AppOnboardingAccessibilityID.taskTemplate(template.id),
                         onAdd: {
                             feedbackController.selection()
                             Task { await viewModel.addSuggestedTask(template) }

@@ -185,7 +185,7 @@ struct ChatEmptyStateView: View {
         .accessibilityLabel("\(identity.displayName) help")
         .accessibilityHint("Shows ways to use \(identity.displayName) as your chief of staff.")
         .accessibilityIdentifier("eva.structured.help")
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
     }
 
     func structuredExampleChip(_ chip: EvaHomePromptChip) -> some View {
@@ -224,7 +224,7 @@ struct ChatEmptyStateView: View {
             )
         }
         .buttonStyle(.plain)
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
     }
 
     @ViewBuilder
@@ -265,7 +265,7 @@ struct ChatEmptyStateView: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Send \(prompt.title)")
         .accessibilityIdentifier("chat.activation_starter.\(prompt.id)")
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
     }
 
     func commandSuggestionChip(for descriptor: SlashCommandDescriptor) -> some View {
@@ -288,6 +288,6 @@ struct ChatEmptyStateView: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Run command \(descriptor.command)")
         .accessibilityIdentifier("chat.command_suggestion.\(descriptor.id.rawValue)")
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
     }
 }

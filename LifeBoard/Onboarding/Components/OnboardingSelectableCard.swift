@@ -12,6 +12,7 @@ struct OnboardingSelectableCard: View {
     let icon: String
     let colorHex: String?
     let accentColor: Color?
+    let accessibilityID: String
     let isSelected: Bool
     let allowsMultiline: Bool = false
     let action: () -> Void
@@ -23,6 +24,7 @@ struct OnboardingSelectableCard: View {
         icon: String,
         colorHex: String? = nil,
         accentColor: Color? = nil,
+        accessibilityID: String,
         isSelected: Bool,
         action: @escaping () -> Void
     ) {
@@ -31,6 +33,7 @@ struct OnboardingSelectableCard: View {
         self.icon = icon
         self.colorHex = colorHex
         self.accentColor = accentColor
+        self.accessibilityID = accessibilityID
         self.isSelected = isSelected
         self.action = action
     }
@@ -91,10 +94,15 @@ struct OnboardingSelectableCard: View {
             )
         }
         .buttonStyle(OnboardingPressScaleButtonStyle())
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(title)
-        .accessibilityValue(isSelected ? "Selected" : "Not selected")
-        .accessibilityHint(subtitle)
         .animation(reduceMotion ? .none : .easeOut(duration: 0.18), value: isSelected)
+        .accessibilityRepresentation {
+            Button(action: action) {
+                Text(title)
+            }
+            .accessibilityIdentifier(accessibilityID)
+            .accessibilityLabel(title)
+            .accessibilityValue(isSelected ? "Selected" : "Not selected")
+            .accessibilityHint(subtitle)
+        }
     }
 }

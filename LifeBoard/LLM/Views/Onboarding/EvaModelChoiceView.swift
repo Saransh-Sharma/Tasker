@@ -170,7 +170,7 @@ private struct EvaModeCard: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityID)
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
         .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isSelected)
     }
 }

@@ -56,8 +56,12 @@ enum AppOnboardingAccessibilityID {
     static let weeklyOutcomeAdd = "onboarding.weeklyOutcomes.add"
     static let homeDemoTimeline = "onboarding.homeDemo.timeline"
     static let homeDemoHabits = "onboarding.homeDemo.habits"
+    static let primaryTaskAction = "onboarding.taskTemplate.primaryAction"
 
     static func lifeArea(_ id: String) -> String { "onboarding.lifeArea.\(id)" }
+    static func primaryGoal(_ id: String) -> String { "onboarding.primaryGoal.\(id)" }
+    static func workingStyle(_ id: String) -> String { "onboarding.workingStyle.\(id)" }
+    static func momentumBlocker(_ id: String) -> String { "onboarding.momentumBlocker.\(id)" }
     static func taskTemplate(_ id: String) -> String { "onboarding.taskTemplate.\(id)" }
     static func habitTemplate(_ id: String) -> String { "onboarding.habitTemplate.\(id)" }
     static func mascotPersona(_ id: String) -> String { "onboarding.mascot.persona.\(id)" }

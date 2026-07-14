@@ -402,6 +402,7 @@ extension AppOnboardingJourneyView {
                         subtitle: goal.subtitle,
                         icon: goal.symbolName,
                         accentColor: OnboardingTheme.accent,
+                        accessibilityID: AppOnboardingAccessibilityID.primaryGoal(goal.id),
                         isSelected: viewModel.selectedGoal == goal
                     ) {
                         feedbackController.selection()

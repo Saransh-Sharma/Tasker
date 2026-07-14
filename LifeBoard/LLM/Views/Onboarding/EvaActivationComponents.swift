@@ -149,7 +149,7 @@ struct EvaSelectionChip: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier)
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
         .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isSelected)
     }
 }
@@ -204,7 +204,7 @@ struct EvaCollapsedNoteField: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
-                .lifeboardPressFeedback(reduceMotion: reduceMotion)
+                .lifeboardPressFeedback()
                 .accessibilityIdentifier("\(accessibilityIdentifier).toggle")
             }
         }
@@ -233,7 +233,7 @@ struct EvaGoalChip: View {
                     .background(Circle().fill(Color.lifeboard(.surfacePrimary)))
             }
             .buttonStyle(.plain)
-            .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
             .accessibilityIdentifier("\(accessibilityIdentifier).remove")
         }
         .padding(.leading, LifeBoardTheme.Spacing.md)
@@ -284,7 +284,7 @@ struct EvaGoalComposer: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .lifeboardPressFeedback(reduceMotion: reduceMotion)
+                .lifeboardPressFeedback()
                 .accessibilityIdentifier("\(accessibilityIdentifier).button")
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }

@@ -546,7 +546,7 @@ struct EvaFooterButtons: View {
             }
             .buttonStyle(.plain)
             .disabled(isPrimaryDisabled)
-            .lifeboardPressFeedback(reduceMotion: reduceMotion)
+            .lifeboardPressFeedback()
             .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isPrimaryDisabled)
 
             Button(action: onSecondary) {
@@ -563,7 +563,7 @@ struct EvaFooterButtons: View {
                     )
             }
             .buttonStyle(.plain)
-            .lifeboardPressFeedback(reduceMotion: reduceMotion)
+            .lifeboardPressFeedback()
         }
     }
 }

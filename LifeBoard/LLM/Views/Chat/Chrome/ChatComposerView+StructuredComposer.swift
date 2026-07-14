@@ -138,7 +138,7 @@ extension ChatComposerView {
                             Capsule()
                                 .stroke(prompt.isRecommended ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.assistantBorder, lineWidth: 1)
                         )
-                        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+                        .lifeboardPressFeedback()
                         .enhancedStaggeredAppearance(index: index)
                     }
                 } else {
@@ -164,7 +164,7 @@ extension ChatComposerView {
                         Capsule()
                             .stroke(EvaChatSunriseGlass.primary, lineWidth: 1)
                     )
-                    .lifeboardPressFeedback(reduceMotion: reduceMotion)
+                    .lifeboardPressFeedback()
 
                     ForEach(commandSuggestions, id: \.id) { descriptor in
                         Button {
@@ -185,7 +185,7 @@ extension ChatComposerView {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Insert \(descriptor.command)")
                         .accessibilityIdentifier("chat.command_composer_suggestion.\(descriptor.id.rawValue)")
-                        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+                        .lifeboardPressFeedback()
                     }
                 }
             }
@@ -273,7 +273,7 @@ extension ChatComposerView {
         .accessibilityLabel("Commands")
         .accessibilityHint("Open slash commands")
         .accessibilityIdentifier("chat.slash_button")
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
     }
 
     @ViewBuilder
@@ -369,7 +369,7 @@ extension ChatComposerView {
         #if os(macOS) || os(visionOS)
         .buttonStyle(.plain)
         #endif
-        .lifeboardPressFeedback(reduceMotion: LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion))
+        .lifeboardPressFeedback()
     }
 
     var stopButton: some View {
@@ -399,6 +399,6 @@ extension ChatComposerView {
         #if os(macOS) || os(visionOS)
         .buttonStyle(.plain)
         #endif
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
     }
 }
