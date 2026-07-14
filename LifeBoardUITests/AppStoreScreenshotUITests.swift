@@ -2,19 +2,111 @@ import XCTest
 
 @MainActor
 final class AppStoreScreenshotUITests: BaseUITest {
+    private struct ScreenshotLaunchConfiguration {
+        let fixedNow: String
+
+        var launchArguments: [String] {
+            ["-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+        }
+
+        var launchEnvironment: [String: String] {
+            [
+                "LIFEBOARD_SCREENSHOT_FIXED_NOW": fixedNow,
+                "TZ": "UTC"
+            ]
+        }
+    }
+
+    private var screenshotLaunchConfiguration: ScreenshotLaunchConfiguration {
+        let configuration = screenshotOutputConfiguration(repositoryRoot: repositoryRoot)
+        return ScreenshotLaunchConfiguration(
+            fixedNow: configuration?.fixedNow ?? "2026-07-13T10:00:00Z"
+        )
+    }
+
     override var shouldSkipOnboarding: Bool { false }
     override var additionalLaunchArguments: [String] {
         [XCUIApplication.LaunchArgumentKey.testExpandedAppStoreOnboarding.rawValue]
+            + screenshotLaunchConfiguration.launchArguments
+    }
+    override var additionalLaunchEnvironment: [String: String] {
+        screenshotLaunchConfiguration.launchEnvironment
     }
 
     func testCaptureExpandedAppStoreScreenshotSet() throws {
-        captureOnboardingScreens()
-        captureSeededHomeScreens()
-        captureEvaActivationScreen()
-        captureEvaChatScreen()
-        captureHabitScreens()
-        captureOverdueRescueScreens()
-        captureReflectionScreens()
+        try captureOnboardingScreens()
+        try captureSeededHomeScreens()
+        try captureEvaActivationScreen()
+        try captureEvaChatScreen()
+        try captureHabitScreens()
+        try captureOverdueRescueScreens()
+        try captureReflectionScreens()
+    }
+
+    func testScreenshotSeedCompletesWithoutTerminatingTheApp() throws {
+        try relaunchSeededWorkspace(evaCompleted: true)
+        XCTAssertTrue(waitForRealisticHomeContent(timeout: 18))
+        XCTAssertEqual(app.state, .runningForeground)
+    }
+
+    func testSeededScreenshotDestinationsAreReachable() throws {
+        try captureSeededHomeScreens()
+        try captureEvaActivationScreen()
+        try captureEvaChatScreen()
+        try captureHabitScreens()
+        try captureOverdueRescueScreens()
+        try captureReflectionScreens()
+    }
+
+    func testSecondaryScreenshotDestinationsAreReachable() throws {
+        try captureEvaActivationScreen()
+        try captureEvaChatScreen()
+        try captureHabitScreens()
+        try captureOverdueRescueScreens()
+        try captureReflectionScreens()
+    }
+
+    func testRescueScreenshotDestinationsAreReachable() throws {
+        try captureOverdueRescueScreens()
+    }
+
+    func testOnboardingGoalUsesStableSelectableCardIdentifiers() throws {
+        waitForSteadyWelcome()
+        try tap(app.buttons[AccessibilityIdentifiers.Onboarding.welcomeIntroContinue])
+        try require(
+            app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.goal],
+            timeout: 12,
+            message: "Onboarding goal destination did not appear"
+        )
+        let goal = try require(
+            app.buttons[AccessibilityIdentifiers.Onboarding.primaryGoal("dailyExecution")],
+            timeout: 8,
+            message: "Daily execution goal did not expose its stable identifier"
+        )
+        try tap(goal)
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Onboarding.nextButton].isEnabled)
+    }
+
+    func testMissingSeededContentFailsClosed() throws {
+        app.terminate()
+        let unseededApp = XCUIApplication()
+        unseededApp.launchArguments = [
+            XCUIApplication.LaunchArgumentKey.resetAppState.rawValue,
+            XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableAnimations.rawValue,
+            XCUIApplication.LaunchArgumentKey.skipOnboarding.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue
+        ]
+        app = unseededApp
+        app.launch()
+        waitForAppLaunch()
+
+        let seededTask = app.descendants(matching: .any)[
+            AccessibilityIdentifiers.Home.timelineTask("A5000000-0000-0000-0000-000000000001")
+        ]
+        XCTAssertThrowsError(
+            try require(seededTask, timeout: 1, message: "Expected seeded task was missing")
+        )
     }
 
     override func waitForAppLaunch() {
@@ -24,11 +116,11 @@ final class AppStoreScreenshotUITests: BaseUITest {
         }
 
         if app.launchArguments.contains(XCUIApplication.LaunchArgumentKey.skipOnboarding.rawValue) {
-            let navBar = app.navigationBars.firstMatch
-            let tabBar = app.tabBars.firstMatch
             let seededContent = app.staticTexts["Finalize partner launch brief"]
             XCTAssert(
-                navBar.waitForExistence(timeout: 5) || tabBar.waitForExistence(timeout: 2) || seededContent.exists,
+                waitForAny(app.navigationBars, timeout: 5)
+                    || waitForAny(app.tabBars, timeout: 2)
+                    || seededContent.exists,
                 "Seeded screenshot app did not launch successfully within timeout"
             )
             return
@@ -45,15 +137,13 @@ final class AppStoreScreenshotUITests: BaseUITest {
             return
         }
 
-        let navBar = app.navigationBars.firstMatch
-        let tabBar = app.tabBars.firstMatch
         XCTAssert(
-            navBar.waitForExistence(timeout: 5) || tabBar.waitForExistence(timeout: 5),
+            waitForAny(app.navigationBars, timeout: 5) || waitForAny(app.tabBars, timeout: 5),
             "App did not launch successfully within timeout"
         )
     }
 
-    private func captureOnboardingScreens() {
+    private func captureOnboardingScreens() throws {
         waitForSteadyWelcome()
         saveScreenshot("01_onboarding_welcome")
 
@@ -61,37 +151,37 @@ final class AppStoreScreenshotUITests: BaseUITest {
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.goal].waitForExistence(timeout: 12))
         saveScreenshot("02_onboarding_goal")
 
-        tapButton(labelPrefix: "Starting each day")
-        app.buttons["Choose goal"].tap()
+        try tap(app.buttons[AccessibilityIdentifiers.Onboarding.primaryGoal("dailyExecution")])
+        try tap(app.buttons[AccessibilityIdentifiers.Onboarding.nextButton])
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.lifeAreas].waitForExistence(timeout: 12))
         saveScreenshot("05_onboarding_life_areas")
 
         let useAreas = app.buttons[AccessibilityIdentifiers.Onboarding.useAreas]
         XCTAssertTrue(useAreas.waitForExistence(timeout: 8))
         if waitUntilEnabled(useAreas, timeout: 2) == false {
-            selectLifeAreaIfNeeded("work-career")
-            selectLifeAreaIfNeeded("life-admin")
-            selectLifeAreaIfNeeded("health-self")
+            try selectLifeAreaIfNeeded("work-career")
+            try selectLifeAreaIfNeeded("life-admin")
+            try selectLifeAreaIfNeeded("health-self")
         }
         XCTAssertTrue(waitUntilEnabled(useAreas, timeout: 8))
-        tap(useAreas)
+        try tap(useAreas)
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.evaValue].waitForExistence(timeout: 12))
         saveScreenshot("04_onboarding_choose_eva")
 
-        app.buttons["Choose guide"].tap()
+        try tap(app.buttons[AccessibilityIdentifiers.Onboarding.nextButton])
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.habitSetup].waitForExistence(timeout: 12))
         saveScreenshot("06_onboarding_habit_setup")
 
-        app.buttons["Set habit"].tap()
+        try tap(app.buttons[AccessibilityIdentifiers.Onboarding.nextButton])
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.evaStyle].waitForExistence(timeout: 12))
-        app.buttons["Be concise"].firstMatch.tap()
-        app.buttons["Save style"].tap()
+        try tap(app.buttons[AccessibilityIdentifiers.Onboarding.workingStyle("concise")])
+        try tap(app.buttons[AccessibilityIdentifiers.Onboarding.nextButton])
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.workBlockers].waitForExistence(timeout: 12))
         saveScreenshot("03_onboarding_blockers")
 
-        app.buttons["Context switching"].firstMatch.tap()
-        app.buttons["Save blockers"].tap()
+        try tap(app.buttons[AccessibilityIdentifiers.Onboarding.momentumBlocker("contextSwitching")])
+        try tap(app.buttons[AccessibilityIdentifiers.Onboarding.nextButton])
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.weeklyOutcomes].waitForExistence(timeout: 12))
         saveScreenshot("07_onboarding_weekly_outcomes")
@@ -101,18 +191,18 @@ final class AppStoreScreenshotUITests: BaseUITest {
         outcomeField.tap()
         outcomeField.typeText("Ship the partner launch calmly")
         dismissKeyboardIfNeeded()
-        app.buttons["Save outcomes"].tap()
+        try tap(app.buttons[AccessibilityIdentifiers.Onboarding.nextButton])
 
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.firstTask].waitForExistence(timeout: 18))
-        let chooseTaskButton = app.buttons["Choose"].firstMatch
-        XCTAssertTrue(chooseTaskButton.waitForExistence(timeout: 8))
-        tap(chooseTaskButton)
+        let chooseTaskButton = app.buttons[AccessibilityIdentifiers.Onboarding.primaryTaskAction]
+        try require(chooseTaskButton, timeout: 8, message: "Primary onboarding task action did not appear")
+        try tap(chooseTaskButton)
         let finishTaskButton = app.buttons[AccessibilityIdentifiers.Onboarding.goFinishTask]
         XCTAssertTrue(waitUntilEnabled(finishTaskButton, timeout: 12))
         scrollToTop()
         saveScreenshot("08_onboarding_first_task")
 
-        tap(finishTaskButton)
+        try tap(finishTaskButton)
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.homeDemo].waitForExistence(timeout: 12))
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.homeDemoTimeline].waitForExistence(timeout: 8))
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.Onboarding.homeDemoHabits].waitForExistence(timeout: 8))
@@ -123,8 +213,8 @@ final class AppStoreScreenshotUITests: BaseUITest {
         saveScreenshot("10_onboarding_permissions")
     }
 
-    private func captureSeededHomeScreens() {
-        relaunchSeededWorkspace(evaCompleted: true)
+    private func captureSeededHomeScreens() throws {
+        try relaunchSeededWorkspace(evaCompleted: true)
         XCTAssertTrue(waitForRealisticHomeContent(timeout: 18))
         assertNoFixtureCopyIsVisible()
         saveScreenshot("11_home_seeded_day")
@@ -138,110 +228,115 @@ final class AppStoreScreenshotUITests: BaseUITest {
         saveScreenshot("13_home_meetings")
 
         tapSunriseFilter("habits")
-        _ = waitForLabelContaining("Walk before first coffee", timeout: 5)
+        try require(
+            app.descendants(matching: .any)["home.habits.row.A6000000-0000-0000-0000-000000000002"],
+            timeout: 8,
+            message: "Expected the seeded Protein with breakfast habit"
+        )
         saveScreenshot("14_home_habits")
 
         tapSunriseFilter("all")
         let focusStrip = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.focusStrip]
-        scrollUntilVisible(focusStrip, maxSwipes: 3)
-        if focusStrip.waitForExistence(timeout: 3) == false {
-            _ = waitForLabelContaining("Finalize partner launch brief", timeout: 4)
-        }
+        scrollUntilVisible(focusStrip, maxSwipes: 3, in: homeScrollElement())
+        try requireVisible(focusStrip, timeout: 3, message: "Expected the seeded focus strip before capture")
         saveScreenshot("15_home_focus_strip")
     }
 
-    private func captureEvaActivationScreen() {
-        relaunchSeededWorkspace(evaCompleted: false)
-        openChatSurface()
-        let activationIntro = app.otherElements["eva.activation.intro"]
-        if activationIntro.waitForExistence(timeout: 6) == false {
-            _ = waitForEvaChat(timeout: 4)
-        }
+    private func captureEvaActivationScreen() throws {
+        try relaunchSeededWorkspace(evaCompleted: false)
+        try openChatSurface()
+        try require(
+            app.descendants(matching: .any)["eva.activation.intro"],
+            timeout: 10,
+            message: "Eva activation intro did not appear"
+        )
         saveScreenshot("16_eva_activation")
     }
 
-    private func captureEvaChatScreen() {
-        relaunchSeededWorkspace(evaCompleted: true)
-        openChatSurface()
-        if waitForEvaChat(timeout: 10) == false {
-            _ = waitForLabelContaining("Eva", timeout: 2)
+    private func captureEvaChatScreen() throws {
+        try relaunchSeededWorkspace(evaCompleted: true)
+        try openChatSurface()
+        guard waitForEvaChat(timeout: 10) else {
+            throw captureFailure("Eva chat did not reach a transcript or composer state")
         }
         saveScreenshot("17_eva_chat")
     }
 
-    private func captureHabitScreens() {
-        relaunchSeededWorkspace(evaCompleted: true, presentHabitBoard: true)
+    private func captureHabitScreens() throws {
+        try relaunchSeededWorkspace(evaCompleted: true)
+        let openBoard = app.buttons[AccessibilityIdentifiers.Home.habitsOpenBoard]
+        scrollUntilVisible(openBoard, maxSwipes: 5, in: homeScrollElement())
+        try requireVisible(openBoard, timeout: 8, message: "Seeded habit board action did not appear")
+        try tap(openBoard)
         let board = app.descendants(matching: .any)[AccessibilityIdentifiers.HabitBoard.view]
         XCTAssertTrue(board.waitForExistence(timeout: 15))
-        _ = waitForLabelContaining("Walk before first coffee", timeout: 5)
+
+        let seededHabitID = "A6000000-0000-0000-0000-000000000002"
+        let seededRow = app.descendants(matching: .any)["habitBoard.row.\(seededHabitID)"]
+        try require(seededRow, timeout: 8, message: "Seeded screenshot habit row did not appear")
+        XCTAssertEqual(seededRow.label, "Protein with breakfast")
         saveScreenshot("18_habit_board_history")
+        try tap(seededRow)
 
-        let firstRow = app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier BEGINSWITH %@", "habitBoard.row.")
-        ).firstMatch
-        guard firstRow.waitForExistence(timeout: 6) else {
-            saveScreenshot("19_habit_detail_history")
-            saveScreenshot("20_habit_grid_reflection")
-            return
-        }
-        tap(firstRow)
-
-        guard app.descendants(matching: .any)[AccessibilityIdentifiers.HabitDetail.view].waitForExistence(timeout: 10) else {
-            saveScreenshot("19_habit_detail_history")
-            saveScreenshot("20_habit_grid_reflection")
-            return
-        }
+        try require(
+            app.descendants(matching: .any)[AccessibilityIdentifiers.HabitDetail.view],
+            timeout: 12,
+            message: "Seeded habit detail did not open"
+        )
         saveScreenshot("19_habit_detail_history")
         scrollUntilVisible(app.descendants(matching: .any)[AccessibilityIdentifiers.HabitDetail.grid], maxSwipes: 4)
         saveScreenshot("20_habit_grid_reflection")
     }
 
-    private func captureOverdueRescueScreens() {
-        relaunchSeededWorkspace(evaCompleted: true)
+    private func captureOverdueRescueScreens() throws {
+        try relaunchSeededWorkspace(evaCompleted: true, seedRescue: true)
         let rescueSection = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueSection]
-        let rescueStart = app.buttons[AccessibilityIdentifiers.Home.rescueStart]
-        let rescueOpen = app.buttons[AccessibilityIdentifiers.Home.rescueOpen]
-        scrollUntilVisible(rescueSection, maxSwipes: 7)
-        let hasRescueEntry = rescueSection.waitForExistence(timeout: 4) || rescueStart.exists || rescueOpen.exists
-        if hasRescueEntry == false {
-            _ = waitForLabelContaining("Renew passport photos", timeout: 4)
+        let rescueStart = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueStart]
+        let rescueOpen = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueOpen]
+        scrollDownUntilVisible(rescueOpen, maxSwipes: 14, in: homeScrollElement())
+        let hasRescueEntry = isVisible(rescueSection) || isVisible(rescueStart) || isVisible(rescueOpen)
+        guard hasRescueEntry else {
+            let counts = app.descendants(matching: .any)["home.debug.counts"]
+            let countsValue = counts.exists ? String(describing: counts.value ?? "unknown") : "unavailable"
+            throw captureFailure("Seeded overdue-rescue entry did not appear; Home counts: \(countsValue)")
         }
         saveScreenshot("21_overdue_rescue_entry")
-        guard hasRescueEntry else {
-            saveScreenshot("22_overdue_rescue_deck")
-            saveScreenshot("23_overdue_rescue_completion")
-            return
-        }
 
         if rescueStart.exists {
-            tap(rescueStart)
+            try tap(rescueStart)
         } else if rescueOpen.exists {
-            tap(rescueOpen)
+            try tap(rescueOpen)
         } else {
-            tap(rescueSection)
+            try tap(rescueSection)
         }
 
         let rescueSheet = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueSheet]
-        guard rescueSheet.waitForExistence(timeout: 8) else {
-            saveScreenshot("22_overdue_rescue_deck")
-            saveScreenshot("23_overdue_rescue_completion")
-            return
+        guard rescueSheet.waitForExistence(timeout: 10) else {
+            let loading = app.descendants(matching: .any)["home.rescue.launcher.loading"]
+            let failed = app.descendants(matching: .any)["home.rescue.launcher.failed"]
+            let state = loading.exists
+                ? "launcher remained loading"
+                : (failed.exists ? "launcher failed: \(failed.value)" : "launcher state was not rendered")
+            throw captureFailure("Overdue-rescue sheet did not open (\(state))")
         }
-        _ = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueCard("A5000000-0000-0000-0000-000000000101")].waitForExistence(timeout: 4)
+        try require(
+            app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueCard("A5000000-0000-0000-0000-000000000101")],
+            timeout: 6,
+            message: "Seeded rescue card did not appear"
+        )
         saveScreenshot("22_overdue_rescue_deck")
 
         let keepToday = app.buttons[AccessibilityIdentifiers.Home.rescueActionKeepToday]
-        if keepToday.waitForExistence(timeout: 6) {
-            tap(keepToday)
-        }
+        try require(keepToday, timeout: 8, message: "Keep Today rescue action did not appear")
+        try tap(keepToday)
 
         let viewToday = app.buttons[AccessibilityIdentifiers.Home.rescueCompletionViewToday]
-        _ = viewToday.waitForExistence(timeout: 8)
+        try require(viewToday, timeout: 10, message: "Rescue completion state did not appear")
         saveScreenshot("23_overdue_rescue_completion")
     }
 
-    private func captureReflectionScreens() {
-        relaunchSeededWorkspace(evaCompleted: true, postSeedRoute: "daily_summary:nightly")
+    private func captureReflectionScreens() throws {
+        try relaunchSeededWorkspace(evaCompleted: true, postSeedRoute: "daily_summary:nightly")
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.ReflectPlan.screen].waitForExistence(timeout: 18))
         XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.ReflectPlan.yesterdayCard].waitForExistence(timeout: 8))
         saveScreenshot("24_daily_reflection_summary")
@@ -252,18 +347,21 @@ final class AppStoreScreenshotUITests: BaseUITest {
 
         let contextToggle = app.buttons[AccessibilityIdentifiers.ReflectPlan.contextToggle]
         scrollUntilVisible(contextToggle, maxSwipes: 5)
-        if contextToggle.waitForExistence(timeout: 4) {
-            tap(contextToggle)
-            _ = app.textFields[AccessibilityIdentifiers.ReflectPlan.noteField].waitForExistence(timeout: 4)
-        }
+        try require(contextToggle, timeout: 8, message: "Reflection context control did not appear")
+        try tap(contextToggle)
+        try require(
+            app.textFields[AccessibilityIdentifiers.ReflectPlan.noteField],
+            timeout: 6,
+            message: "Reflection context note field did not appear"
+        )
         saveScreenshot("26_daily_reflection_context")
     }
 
     private func relaunchSeededWorkspace(
         evaCompleted: Bool,
-        presentHabitBoard: Bool = false,
+        seedRescue: Bool = false,
         postSeedRoute: String? = nil
-    ) {
+    ) throws {
         app.terminate()
         let relaunched = XCUIApplication()
         relaunched.launchArguments = [
@@ -279,16 +377,31 @@ final class AppStoreScreenshotUITests: BaseUITest {
         if evaCompleted {
             relaunched.launchArguments.append(XCUIApplication.LaunchArgumentKey.testEvaActivationCompleted.rawValue)
         }
-        if presentHabitBoard {
-            relaunched.launchArguments.append(XCUIApplication.LaunchArgumentKey.testPresentHabitBoard.rawValue)
+        if seedRescue {
+            relaunched.launchArguments.append(XCUIApplication.LaunchArgumentKey.testSeedOverdueRescueSuite.rawValue)
+            relaunched.launchArguments.append(XCUIApplication.LaunchArgumentKey.enableDebugLogging.rawValue)
         }
         if let postSeedRoute {
             relaunched.launchArguments.append("-LIFEBOARD_TEST_POST_SEED_ROUTE:\(postSeedRoute)")
         }
+        relaunched.launchArguments.append(contentsOf: screenshotLaunchConfiguration.launchArguments)
         relaunched.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        for (key, value) in screenshotLaunchConfiguration.launchEnvironment {
+            relaunched.launchEnvironment[key] = value
+        }
         app = relaunched
         app.launch()
         waitForAppLaunch()
+        let ready = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.screenshotSeedReady]
+        let failed = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.screenshotSeedFailed]
+        let deadline = Date().addingTimeInterval(45)
+        while Date() < deadline, ready.exists == false, failed.exists == false {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        if failed.exists {
+            throw captureFailure("App Store screenshot seed failed: \(failed.value as? String ?? "unknown error")")
+        }
+        try require(ready, timeout: 1, message: "App Store screenshot seed did not complete")
     }
 
     private func waitForSteadyWelcome() {
@@ -301,30 +414,20 @@ final class AppStoreScreenshotUITests: BaseUITest {
         XCTAssertTrue(start.waitForExistence(timeout: 12))
     }
 
-    private func openChatSurface() {
+    private func openChatSurface() throws {
         let homePage = HomePage(app: app)
-        let candidates = [
-            homePage.chatButton,
-            app.buttons["Chat"],
-            app.descendants(matching: .any)["home.bottomBar"]
-        ]
-        for candidate in candidates where candidate.waitForExistence(timeout: 2) {
-            if candidate.identifier == "home.bottomBar" {
-                candidate.coordinate(withNormalizedOffset: CGVector(dx: 0.50, dy: 0.50)).tap()
-            } else {
-                tap(candidate)
-            }
-            if waitForEvaChat(timeout: 4) || app.otherElements["eva.activation.intro"].exists {
-                return
-            }
+        try require(homePage.chatButton, timeout: 8, message: "Eva dock button did not appear")
+        try tap(homePage.chatButton)
+        let activationIntro = app.descendants(matching: .any)["eva.activation.intro"]
+        guard waitForEvaChat(timeout: 6) || activationIntro.waitForExistence(timeout: 2) else {
+            throw captureFailure("Eva surface did not open from the dock button")
         }
-        app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.60, dy: 0.92)).tap()
     }
 
     private func waitForEvaChat(timeout: TimeInterval) -> Bool {
         let transcriptText = app.staticTexts.matching(
             NSPredicate(format: "label CONTAINS[c] %@", "cleanest plan")
-        ).firstMatch
+        )
         let emptyGreeting = app.staticTexts["Hi there!"]
         let emptyState = app.descendants(matching: .any)["chat.emptyState.container"]
         let standardComposer = app.descendants(matching: .any)["chat.composer.container"]
@@ -332,12 +435,12 @@ final class AppStoreScreenshotUITests: BaseUITest {
         let navTitle = app.descendants(matching: .any)["chat.nav.title"]
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if transcriptText.exists || emptyGreeting.exists || emptyState.exists || standardComposer.exists || composer.exists || navTitle.exists {
+            if transcriptText.count > 0 || emptyGreeting.exists || emptyState.exists || standardComposer.exists || composer.exists || navTitle.exists {
                 return true
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
-        return transcriptText.exists || emptyGreeting.exists || emptyState.exists || standardComposer.exists || composer.exists || navTitle.exists
+        return transcriptText.count > 0 || emptyGreeting.exists || emptyState.exists || standardComposer.exists || composer.exists || navTitle.exists
     }
 
     private func waitForRealisticHomeContent(timeout: TimeInterval) -> Bool {
@@ -358,32 +461,23 @@ final class AppStoreScreenshotUITests: BaseUITest {
 
     private func tapSunriseFilter(_ id: String) {
         scrollToTop()
+        let chipRail = app.scrollViews["home.sunrise.chipRail"]
+        XCTAssertTrue(chipRail.waitForExistence(timeout: 8))
         if id == "habits" {
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.88, dy: 0.535))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.48, dy: 0.535))
-            start.press(forDuration: 0.05, thenDragTo: end)
+            chipRail.swipeLeft()
+        } else if id == "all" {
+            chipRail.swipeRight()
         }
-
         let filter = app.buttons[AccessibilityIdentifiers.Home.sunriseFilter(id)]
         XCTAssertTrue(filter.waitForExistence(timeout: 8))
-        if id == "habits" {
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.74, dy: 0.535)).tap()
-        } else {
-            tap(filter)
-        }
+        filter.tap()
     }
 
-    private func selectLifeAreaIfNeeded(_ id: String) {
+    private func selectLifeAreaIfNeeded(_ id: String) throws {
         let area = app.descendants(matching: .any)["onboarding.lifeArea.\(id)"]
         if area.waitForExistence(timeout: 3) {
-            tap(area)
+            try tap(area)
         }
-    }
-
-    private func tapButton(labelPrefix: String) {
-        let button = app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", labelPrefix)).firstMatch
-        XCTAssertTrue(button.waitForExistence(timeout: 12))
-        tap(button)
     }
 
     private func waitUntilEnabled(_ element: XCUIElement, timeout: TimeInterval) -> Bool {
@@ -397,31 +491,73 @@ final class AppStoreScreenshotUITests: BaseUITest {
         return element.exists && element.isEnabled
     }
 
-    private func waitForLabelContaining(_ text: String, timeout: TimeInterval) -> Bool {
-        let element = app.descendants(matching: .any).matching(
-            NSPredicate(format: "label CONTAINS[c] %@", text)
-        ).firstMatch
-        if element.waitForExistence(timeout: min(2, timeout)) {
-            return true
+    @discardableResult
+    private func require(_ element: XCUIElement, timeout: TimeInterval, message: String) throws -> XCUIElement {
+        guard element.waitForExistence(timeout: timeout) else {
+            throw captureFailure(message)
         }
-        let deadline = Date().addingTimeInterval(timeout)
-        while Date() < deadline {
-            app.swipeUp()
-            if element.waitForExistence(timeout: 0.8) {
-                return true
-            }
-        }
-        return element.exists
+        return element
     }
 
-    private func scrollUntilVisible(_ element: XCUIElement, maxSwipes: Int) {
-        if element.waitForExistence(timeout: 1) { return }
+    @discardableResult
+    private func requireVisible(_ element: XCUIElement, timeout: TimeInterval, message: String) throws -> XCUIElement {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if isVisible(element) { return element }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        guard isVisible(element) else { throw captureFailure(message) }
+        return element
+    }
+
+    private func captureFailure(_ message: String) -> Error {
+        return NSError(domain: "AppStoreScreenshotUITests", code: 1, userInfo: [NSLocalizedDescriptionKey: message])
+    }
+
+    private func scrollUntilVisible(
+        _ element: XCUIElement,
+        maxSwipes: Int,
+        in scrollElement: XCUIElement? = nil
+    ) {
+        if element.waitForExistence(timeout: 1), isVisible(element) { return }
         for _ in 0..<maxSwipes {
-            app.swipeUp()
-            if element.waitForExistence(timeout: 1) {
+            if let scrollElement {
+                scrollElement.swipeUp()
+            } else {
+                app.swipeUp()
+            }
+            if element.waitForExistence(timeout: 1), isVisible(element) {
                 return
             }
         }
+    }
+
+    private func homeScrollElement() -> XCUIElement {
+        let taskList = app.scrollViews[AccessibilityIdentifiers.Home.taskListScrollView]
+        return taskList.exists ? taskList : app
+    }
+
+    private func scrollDownUntilVisible(
+        _ element: XCUIElement,
+        maxSwipes: Int,
+        in scrollElement: XCUIElement? = nil
+    ) {
+        if element.waitForExistence(timeout: 1), isVisible(element) { return }
+        for _ in 0..<maxSwipes {
+            if let scrollElement {
+                scrollElement.swipeDown()
+            } else {
+                app.swipeDown()
+            }
+            if element.waitForExistence(timeout: 1), isVisible(element) {
+                return
+            }
+        }
+    }
+
+    private func isVisible(_ element: XCUIElement) -> Bool {
+        guard element.exists, element.frame.isEmpty == false else { return false }
+        return app.frame.intersects(element.frame)
     }
 
     private func scrollToTop() {
@@ -433,27 +569,35 @@ final class AppStoreScreenshotUITests: BaseUITest {
     private func dismissKeyboardIfNeeded() {
         if app.keyboards.buttons["Done"].exists {
             app.keyboards.buttons["Done"].tap()
-        } else if app.keyboards.firstMatch.exists {
+        } else if app.keyboards.count > 0 {
             app.typeText("\n")
         }
     }
 
-    private func tap(_ element: XCUIElement) {
-        if element.isHittable {
-            element.tap()
-        } else {
-            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+    private func tap(_ element: XCUIElement) throws {
+        guard element.isHittable else {
+            throw captureFailure("Required element is not hittable: \(element.identifier)")
         }
+        element.tap()
     }
 
     private func assertNoFixtureCopyIsVisible() {
         let forbidden = ["UI test", "seed", "Timeline Launch", "Rescue suite", "Rescue timeline quick win"]
         for text in forbidden {
-            let element = app.descendants(matching: .any).matching(
+            let matches = app.descendants(matching: .any).matching(
                 NSPredicate(format: "label CONTAINS[c] %@", text)
-            ).firstMatch
-            XCTAssertFalse(element.exists, "Fixture copy should not be visible in App Store screenshots: \(text)")
+            )
+            XCTAssertEqual(matches.count, 0, "Fixture copy should not be visible in App Store screenshots: \(text)")
         }
+    }
+
+    private func waitForAny(_ query: XCUIElementQuery, timeout: TimeInterval) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if query.count > 0 { return true }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.25))
+        }
+        return query.count > 0
     }
 
     private func saveScreenshot(_ name: String) {
@@ -463,13 +607,12 @@ final class AppStoreScreenshotUITests: BaseUITest {
         attachment.lifetime = .keepAlways
         add(attachment)
 
-        let repositoryRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let defaultOutputRoot = repositoryRoot
-            .appendingPathComponent("screenshots/app-store-raw-2026-07-06", isDirectory: true)
+        let repositoryRootURL = repositoryRoot
+        let outputDate = String(screenshotLaunchConfiguration.fixedNow.prefix(10))
+        let defaultOutputRoot = repositoryRootURL
+            .appendingPathComponent("screenshots/app-store-raw-\(outputDate)", isDirectory: true)
             .path
-        let outputConfiguration = screenshotOutputConfiguration(repositoryRoot: repositoryRoot)
+        let outputConfiguration = screenshotOutputConfiguration(repositoryRoot: repositoryRootURL)
         let outputRoot = ProcessInfo.processInfo.environment["LIFEBOARD_SCREENSHOT_OUTPUT_DIR"]
             ?? outputConfiguration?.outputRoot
             ?? defaultOutputRoot
@@ -490,12 +633,26 @@ final class AppStoreScreenshotUITests: BaseUITest {
     private struct ScreenshotOutputConfiguration: Decodable {
         let outputRoot: String?
         let deviceSlug: String?
+        let fixedNow: String?
     }
 
     private func screenshotOutputConfiguration(repositoryRoot: URL) -> ScreenshotOutputConfiguration? {
-        let configURL = repositoryRoot.appendingPathComponent(".app-store-screenshot-config.json")
-        guard let data = try? Data(contentsOf: configURL) else { return nil }
-        return try? JSONDecoder().decode(ScreenshotOutputConfiguration.self, from: data)
+        let candidates = [
+            URL(fileURLWithPath: "/tmp/lifeboard-app-store-screenshot-config.json"),
+            repositoryRoot.appendingPathComponent(".app-store-screenshot-config.json")
+        ]
+        for configURL in candidates {
+            guard let data = try? Data(contentsOf: configURL),
+                  let configuration = try? JSONDecoder().decode(ScreenshotOutputConfiguration.self, from: data) else { continue }
+            return configuration
+        }
+        return nil
+    }
+
+    private var repositoryRoot: URL {
+        URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
     }
 
     private func slug(_ value: String) -> String {
