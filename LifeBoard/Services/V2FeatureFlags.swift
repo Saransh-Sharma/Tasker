@@ -18,6 +18,127 @@ public enum V2FeatureFlags {
     private static let decorativeCTAEffectsUserKey = "feature.ui.decorative_cta_effects.user_enabled"
     private static let decorativeCTAEffectsRemoteAllowKey = "feature.ui.decorative_cta_effects.remote_allowed"
 
+    /// The Life OS shell is the default developer experience so a normal Xcode
+    /// run exercises the new product. Release builds retain the promoted value
+    /// policy and never inherit this Debug-only default.
+    public static var lifeOSFoundationV1Enabled: Bool {
+        get {
+            #if DEBUG
+            if launchArguments.contains("-LIFEBOARD_ENABLE_LIFE_OS_FOUNDATION") { return true }
+            if launchArguments.contains("-LIFEBOARD_DISABLE_LIFE_OS_FOUNDATION") { return false }
+            if let override = defaults.object(forKey: "debug.life_os_foundation_v1") as? Bool {
+                return override
+            }
+            return true
+            #else
+            return false
+            #endif
+        }
+        set {
+            #if DEBUG
+            defaults.set(newValue, forKey: "debug.life_os_foundation_v1")
+            #endif
+        }
+    }
+
+    public static var adaptiveHomeV2Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.adaptive_home_v2", argument: "ADAPTIVE_HOME_V2") }
+        set { setStagedFeature(newValue, key: "feature.life_os.adaptive_home_v2") }
+    }
+
+    public static var dashboardCustomizationV2Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.dashboard_customization_v2", argument: "DASHBOARD_CUSTOMIZATION_V2") }
+        set { setStagedFeature(newValue, key: "feature.life_os.dashboard_customization_v2") }
+    }
+
+    public static var trackersV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.trackers_v1", argument: "TRACKERS_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.trackers_v1") }
+    }
+
+    public static var healthIntegrationsV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.health_integrations_v1", argument: "HEALTH_INTEGRATIONS_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.health_integrations_v1") }
+    }
+
+    public static var journalV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.journal_v1", argument: "JOURNAL_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.journal_v1") }
+    }
+
+    public static var knowledgeNotesV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.knowledge_notes_v1", argument: "KNOWLEDGE_NOTES_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_v1") }
+    }
+
+    public static var planningCoreV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.planning_core_v1", argument: "PLANNING_CORE_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.planning_core_v1") }
+    }
+
+    public static var planDestinationV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.plan_destination_v1", argument: "PLAN_DESTINATION_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.plan_destination_v1") }
+    }
+
+    public static var focusExecutionV2Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.focus_execution_v2", argument: "FOCUS_EXECUTION_V2") }
+        set { setStagedFeature(newValue, key: "feature.life_os.focus_execution_v2") }
+    }
+
+    public static var evaPlanRepairV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.eva_plan_repair_v1", argument: "EVA_PLAN_REPAIR_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.eva_plan_repair_v1") }
+    }
+
+    public static var trackFoundationsV2Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.track_foundations_v2", argument: "TRACK_FOUNDATIONS_V2") }
+        set { setStagedFeature(newValue, key: "feature.life_os.track_foundations_v2") }
+    }
+
+    public static var habitResilienceV2Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.habit_resilience_v2", argument: "HABIT_RESILIENCE_V2") }
+        set { setStagedFeature(newValue, key: "feature.life_os.habit_resilience_v2") }
+    }
+
+    public static var goalsRoutinesV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.goals_routines_v1", argument: "GOALS_ROUTINES_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.goals_routines_v1") }
+    }
+
+    public static var careModulesV2Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.care_modules_v2", argument: "CARE_MODULES_V2") }
+        set { setStagedFeature(newValue, key: "feature.life_os.care_modules_v2") }
+    }
+
+    public static var starterPacksV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.starter_packs_v1", argument: "STARTER_PACKS_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.starter_packs_v1") }
+    }
+
+    private static func stagedFeatureEnabled(key: String, argument: String) -> Bool {
+        #if DEBUG
+        if launchArguments.contains("-LIFEBOARD_ENABLE_\(argument)") { return true }
+        if launchArguments.contains("-LIFEBOARD_DISABLE_\(argument)") { return false }
+        if let override = sharedDefaults?.object(forKey: key) as? Bool
+            ?? defaults.object(forKey: key) as? Bool {
+            return override
+        }
+        // Phase II is intentionally visible on an ordinary developer launch.
+        // This keeps manual product/design testing on the same path as CI while
+        // preserving explicit per-feature disable arguments for rollback work.
+        return true
+        #else
+        return sharedDefaults?.object(forKey: key) as? Bool
+            ?? defaults.object(forKey: key) as? Bool
+            ?? false
+        #endif
+    }
+
+    private static func setStagedFeature(_ enabled: Bool, key: String) {
+        (sharedDefaults ?? defaults).set(enabled, forKey: key)
+    }
+
     public static var remindersSyncEnabled: Bool {
         get { defaults.object(forKey: "feature.reminders.sync") as? Bool ?? true }
         set { defaults.set(newValue, forKey: "feature.reminders.sync") }
