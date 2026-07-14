@@ -26,6 +26,18 @@ struct LBRoleStyle: Equatable {
 }
 
 enum LBColorTokens {
+    // Compatibility bridge for the Life OS semantic system. New foundation
+    // surfaces resolve through LifeBoardColorTokens; legacy Sunrise values stay
+    // stable while the production feature flag is off.
+    static var lifeOSInkPrimary: Color { Color(LifeBoardColorTokens.inkPrimary) }
+    static var lifeOSInkSecondary: Color { Color(LifeBoardColorTokens.inkSecondary) }
+    static var lifeOSSurfaceSolid: Color { Color(LifeBoardColorTokens.foundationSurfaceSolid) }
+    static var lifeOSHairline: Color { Color(LifeBoardColorTokens.foundationHairline) }
+
+    static func lifeOSPalette(for daypart: ResolvedDaypart) -> LifeBoardDaypartPalette {
+        LifeBoardColorTokens.daypartPalette(for: daypart)
+    }
+
     static let navy = adaptive(light: "#071B52", dark: "#F7F1E7", darkHighContrast: "#FFFFFF")
     static let navySoft = adaptive(light: "#203765", dark: "#E7DFD1", darkHighContrast: "#FFFFFF")
     static let navyMuted = adaptive(light: "#48607F", dark: "#C9D2E3", darkHighContrast: "#E4EBF8")

@@ -13,13 +13,14 @@ import UIKit
 
 @MainActor
 public enum LifeBoardAnimation {
+    public static let celebrationDuration: TimeInterval = 0.54
     public static let press: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.09)
     public static let feedbackFast: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.14)
     public static let stateChange: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.22)
     public static let panelIn: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.28)
     public static let panelOut: Animation = .timingCurve(0.25, 1, 0.5, 1, duration: 0.22)
     public static let heroReveal: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.36)
-    public static let celebration: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.54)
+    public static let celebration: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: celebrationDuration)
     public static let gatewayReveal: Animation = .timingCurve(0.16, 1, 0.3, 1, duration: 0.38)
     public static let exit: Animation = panelOut
     public static let ctaConfirmation: Animation = .timingCurve(0.25, 1, 0.5, 1, duration: 0.32)
@@ -72,6 +73,10 @@ public enum LifeBoardAnimation {
 
     public static func animationsDisabled(reduceMotion: Bool) -> Bool {
         reduceMotion || areProcessAnimationsDisabled
+    }
+
+    public static func pressScale(isPressed: Bool, animationsDisabled: Bool) -> CGFloat {
+        isPressed && animationsDisabled == false ? 0.97 : 1.0
     }
 }
 
@@ -193,7 +198,7 @@ public struct CompletionCelebration: ViewModifier {
                 LifeBoardFeedback.success()
                 guard LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false else { return }
                 withAnimation(LifeBoardAnimation.celebration) { swell = true }
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.27) {
+                DispatchQueue.main.asyncAfter(deadline: .now() + LifeBoardAnimation.celebrationDuration) {
                     withAnimation(LifeBoardAnimation.celebration) { swell = false }
                 }
             }
@@ -297,11 +302,14 @@ public struct ScaleOnPress: ViewModifier {
 }
 
 private struct LifeBoardScaleOnPressButtonStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     /// Executes makeBody.
     func makeBody(configuration: Configuration) -> some View {
+        let animationsDisabled = LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion)
         configuration.label
-            .scaleEffect(configuration.isPressed && LifeBoardAnimation.areProcessAnimationsDisabled == false ? 0.97 : 1.0)
-            .animation(LifeBoardAnimation.areProcessAnimationsDisabled ? nil : LifeBoardAnimation.quick, value: configuration.isPressed)
+            .scaleEffect(LifeBoardAnimation.pressScale(isPressed: configuration.isPressed, animationsDisabled: animationsDisabled))
+            .animation(animationsDisabled ? nil : LifeBoardAnimation.quick, value: configuration.isPressed)
     }
 }
 

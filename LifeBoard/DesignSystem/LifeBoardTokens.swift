@@ -1,6 +1,6 @@
 import UIKit
 
-public enum LifeBoardLayoutClass: String, CaseIterable, Sendable {
+public enum LifeBoardLayoutClass: String, CaseIterable, Hashable, Sendable {
     case phone
     case padCompact
     case padRegular

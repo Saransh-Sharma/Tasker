@@ -154,12 +154,13 @@ private struct LBConfettiView: UIViewRepresentable {
 /// A slow, ambient diagonal light sweep for primary CTAs. Far subtler than
 /// a loading shimmer: one pass every few seconds, masked to the content.
 private struct LBAnimatedSheen: ViewModifier {
+    let isEnabled: Bool
     @State private var phase: CGFloat = -1
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimized
 
     func body(content: Content) -> some View {
-        if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) || scrollOptimized {
+        if isEnabled == false || LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) || scrollOptimized {
             content
         } else {
             content
@@ -229,8 +230,8 @@ extension View {
     }
 
     /// Ambient diagonal light sweep for primary CTAs.
-    func lbAnimatedSheen() -> some View {
-        modifier(LBAnimatedSheen())
+    func lbAnimatedSheen(isEnabled: Bool = true) -> some View {
+        modifier(LBAnimatedSheen(isEnabled: isEnabled))
     }
 
     /// One-shot scale pop delayed by `index`, forming a ripple across a row.

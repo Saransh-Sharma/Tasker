@@ -1,5 +1,28 @@
 import SwiftUI
 
+enum LBDateHeroNavigationMode: Equatable {
+    case dateSelector(title: String)
+    case backToToday
+
+    var accessibilityIdentifier: String {
+        switch self {
+        case .dateSelector: return "home.sunrise.date.selector"
+        case .backToToday: return "home.sunrise.backToToday"
+        }
+    }
+
+    var accessibilityLabel: String {
+        switch self {
+        case .dateSelector: return "Choose date"
+        case .backToToday: return "Back to Today"
+        }
+    }
+
+    static func resolve(isOnNonTodayLens: Bool, navigatorTitle: String) -> Self {
+        isOnNonTodayLens ? .backToToday : .dateSelector(title: navigatorTitle)
+    }
+}
+
 struct LBDateHeroHeader: View {
     struct Model: Equatable {
         let date: Date
@@ -58,7 +81,7 @@ struct LBDateHeroHeader: View {
     }
 
     private var dateGroup: some View {
-        Button(action: onDateTap) {
+        return Button(action: onDateTap) {
             VStack(spacing: 2) {
                 Text(Self.dateTitle(model.date))
                     .font(LBTypographyTokens.dateHero)
@@ -102,7 +125,11 @@ struct LBDateHeroHeader: View {
     }
 
     private var dateNavigatorButton: some View {
-        Button(action: onDateTap) {
+        let mode = LBDateHeroNavigationMode.resolve(
+            isOnNonTodayLens: model.isOnNonTodayLens,
+            navigatorTitle: model.navigatorTitle
+        )
+        return Button(action: onDateTap) {
             navigatorLabel(
                 leadingSystemName: "calendar",
                 title: model.navigatorTitle,
@@ -112,13 +139,17 @@ struct LBDateHeroHeader: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Choose date")
+        .accessibilityLabel(mode.accessibilityLabel)
         .accessibilityValue(model.navigatorTitle)
-        .accessibilityIdentifier("home.sunrise.date.selector")
+        .accessibilityIdentifier(mode.accessibilityIdentifier)
     }
 
     private var backToTodayButton: some View {
-        Button(action: onBackToToday) {
+        let mode = LBDateHeroNavigationMode.resolve(
+            isOnNonTodayLens: model.isOnNonTodayLens,
+            navigatorTitle: model.navigatorTitle
+        )
+        return Button(action: onBackToToday) {
             navigatorLabel(
                 leadingSystemName: "arrow.uturn.backward",
                 title: "Today",
@@ -128,8 +159,8 @@ struct LBDateHeroHeader: View {
             )
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Back to Today")
-        .accessibilityIdentifier("home.sunrise.backToToday")
+        .accessibilityLabel(mode.accessibilityLabel)
+        .accessibilityIdentifier(mode.accessibilityIdentifier)
     }
 
     private func navigatorLabel(
@@ -157,14 +188,14 @@ struct LBDateHeroHeader: View {
     }
 
     private var navigatorTransition: AnyTransition {
-        if reduceMotion {
-            return .opacity
+        if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) {
+            return .identity
         }
         return .opacity.combined(with: .scale(scale: 0.98))
     }
 
     private var navigatorAnimation: Animation? {
-        reduceMotion ? .linear(duration: 0.01) : .snappy(duration: 0.18)
+        LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy
     }
 
     private var dateGroupTop: CGFloat {
