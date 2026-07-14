@@ -192,7 +192,7 @@ struct HomeTasksSnapshot: Equatable {
     let pinnedFocusTaskIDs: [UUID]
     let todayOpenTaskCount: Int
     /// Per-life-area activity used to auto-fill the Home lens row beyond pinned life areas.
-    let lifeAreaLensActivity: [UUID: HomeLensLifeAreaActivity]
+    let lifeAreaLensActivity: [UUID: HomeLensLifeAreaActivity]?
 
     static var empty: HomeTasksSnapshot {
         HomeTasksSnapshot(
@@ -224,7 +224,7 @@ struct HomeTasksSnapshot: Equatable {
             focusRows: [],
             pinnedFocusTaskIDs: [],
             todayOpenTaskCount: 0,
-            lifeAreaLensActivity: [:]
+            lifeAreaLensActivity: nil
         )
     }
 

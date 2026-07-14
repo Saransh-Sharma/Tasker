@@ -97,7 +97,11 @@ extension SunriseAppShellView {
             },
             onDayCompassSnooze: { flow in
                 viewModel.snoozeDayCompass(flow)
-            }
+            },
+            onOpenRescue: {
+                viewModel.openRescue()
+            },
+            focusContent: tasksSnapshot.focusNowSectionState.rows.isEmpty ? nil : AnyView(focusStrip)
         )
     }
 

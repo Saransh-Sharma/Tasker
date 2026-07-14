@@ -148,7 +148,7 @@ public final class HomeViewModel: ObservableObject {
 
     /// Most recent per-project activity (open count + nearest due) used to auto-fill the lens row.
     /// Refreshed whenever we have the unfiltered forward open-task set (Upcoming lens).
-    var cachedLifeAreaLensActivity: [UUID: HomeLensLifeAreaActivity] = [:]
+    var cachedLifeAreaLensActivity: [UUID: HomeLensLifeAreaActivity]?
 
     // MARK: - Persistence Keys
 

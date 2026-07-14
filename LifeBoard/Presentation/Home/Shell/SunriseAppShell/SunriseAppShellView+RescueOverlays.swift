@@ -25,6 +25,7 @@ extension SunriseAppShellView {
             )
             .transition(.opacity.combined(with: .scale(scale: 0.98)))
             .zIndex(45)
+            .accessibilityIdentifier("home.rescue.launcher.loading")
         case .failed(let message):
             OverdueRescueLauncherOverlayView(
                 title: "Rescue could not start",
@@ -41,6 +42,7 @@ extension SunriseAppShellView {
             )
             .transition(.opacity.combined(with: .scale(scale: 0.98)))
             .zIndex(45)
+            .accessibilityIdentifier("home.rescue.launcher.failed")
         case .idle, .ready:
             EmptyView()
         }
@@ -93,7 +95,7 @@ extension SunriseAppShellView {
             )
             .transition(.opacity.combined(with: .scale(scale: 0.985)))
             .zIndex(46)
-            .accessibilityIdentifier("home.rescue.overlay")
+            .accessibilityIdentifier("home.rescue.sheet")
         }
     }
 }

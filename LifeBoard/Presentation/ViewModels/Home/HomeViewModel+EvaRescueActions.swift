@@ -75,10 +75,19 @@ extension HomeViewModel {
     }
 
     public func openRescue() {
-        guard V2FeatureFlags.evaRescueEnabled else { return }
+        guard V2FeatureFlags.evaRescueEnabled else {
+            evaRescueLauncherState = .failed("Overdue Rescue is currently unavailable.")
+            return
+        }
         let referenceDate = Date()
         evaRescueLauncherState = .loading
         evaRescueReferenceDate = nil
+
+        if overdueTasks.isEmpty == false {
+            presentRescuePlan(overdueTasks: overdueTasks, referenceDate: referenceDate)
+            return
+        }
+
         useCaseCoordinator.getTasks.getOverdueTasks { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
@@ -95,22 +104,26 @@ extension HomeViewModel {
                         return
                     }
                 }
-                let rescueEligibleTasks = tasks.filter {
-                    self.isOverdueRescueDeckEligibleTask($0, on: referenceDate)
-                }
-                self.evaRescuePlan = self.getOverdueRescuePlanUseCase.execute(
-                    overdueTasks: rescueEligibleTasks,
-                    now: referenceDate
-                )
-                self.evaRescueReferenceDate = referenceDate
-                self.evaRescueLauncherState = .ready
-                self.evaRescueSheetPresented = true
-                self.trackHomeInteraction(action: "rescue_open", metadata: [
-                    "scope": "all_overdue",
-                    "overdue_count": rescueEligibleTasks.count
-                ])
+                self.presentRescuePlan(overdueTasks: tasks, referenceDate: referenceDate)
             }
         }
+    }
+
+    private func presentRescuePlan(overdueTasks: [TaskDefinition], referenceDate: Date) {
+        let rescueEligibleTasks = overdueTasks.filter {
+            isOverdueRescueDeckEligibleTask($0, on: referenceDate)
+        }
+        evaRescuePlan = getOverdueRescuePlanUseCase.execute(
+            overdueTasks: rescueEligibleTasks,
+            now: referenceDate
+        )
+        evaRescueReferenceDate = referenceDate
+        evaRescueLauncherState = .ready
+        evaRescueSheetPresented = true
+        trackHomeInteraction(action: "rescue_open", metadata: [
+            "scope": "all_overdue",
+            "overdue_count": rescueEligibleTasks.count
+        ])
     }
 
     public func openOverdueRescueFromHome(
