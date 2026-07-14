@@ -4,6 +4,7 @@ This directory is the navigation hub for product, architecture, audit, and featu
 
 ## Canonical References
 
+- [Life OS implementation hub](./life-os/README.md) - Phase I/II architecture, operational flags, migration/privacy contracts, manual QA, and the roadmap from Adaptive Home to the complete Life OS.
 - [Local EVA / LLM architecture](./architecture/LOCAL_LLM_EVA_ARCHITECTURE.md) - source of truth for local inference, chat routing, Chief of Staff day overview cards, planner proposals, apply/undo boundaries, and timeline-aware assistant context.
 - [Assistant mascot persona placement guide](./design/EVA_MASCOT_PLACEMENT_GUIDE.md) - source of truth for selectable Chief of Staff personas, sprite resources, placement mapping, accessibility rules, and QA checklist.
 - [LifeBoard V2 architecture guide](./architecture/LIFEBOARD_V2_ARCHITECTURE_GUIDE.md)
@@ -11,6 +12,8 @@ This directory is the navigation hub for product, architecture, audit, and featu
 
 ## Feature Packages
 
+- [Phase I — Life OS Foundation](./phase-1-life-os-foundation.md)
+- [Phase II — Unified Adaptive Home](./life-os/phase-2-adaptive-home.md)
 - [Habits feature docs](./habits/README.md)
 - [Calendar + timeline docs](./calendar/README.md) - canonical Home/timeline product contract for the single-glanceable day command center, read-only calendar schedule context, timeline runtime, task-fit hints, timeline-aware Eva guidance, risks, and roadmap.
 
