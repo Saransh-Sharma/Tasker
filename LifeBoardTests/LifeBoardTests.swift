@@ -954,14 +954,14 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         XCTAssertFalse(legacyFields.contains("lastHistoryRollDate"))
     }
 
-    func testTaskModelCurrentVersionPointsToTaskIconsSourceModel() throws {
+    func testTaskModelCurrentVersionPointsToTrackFoundationsSourceModel() throws {
         let currentVersionFile = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("LifeBoard/TaskModelV3.xcdatamodeld/.xccurrentversion")
         let contents = try String(contentsOf: currentVersionFile, encoding: .utf8)
 
-        XCTAssertTrue(contents.contains("TaskModelV3_TaskIcons.xcdatamodel"))
+        XCTAssertTrue(contents.contains("TaskModelV3_TrackFoundations.xcdatamodel"))
     }
 
     func testCoreDataNeedsReplanCandidatesFiltersRepeatPatternDataWithoutUnknownKeypathCrash() throws {
@@ -5182,7 +5182,7 @@ final class TombstoneRetentionTests: XCTestCase {
 
 @MainActor
 final class CoreDataModelCompatibilityTests: XCTestCase {
-    func testFreshInstallLoadsCurrentTaskModelV3TaskIconsModel() throws {
+    func testFreshInstallLoadsCurrentTaskModelV3TrackFoundationsModel() throws {
         let model = try currentTaskModelV3Model()
         let storeURL = temporaryStoreURL(name: "fresh-current-taskmodelv3")
         defer { removeSQLiteArtifacts(at: storeURL) }
@@ -5243,10 +5243,10 @@ final class CoreDataModelCompatibilityTests: XCTestCase {
 
     private func currentTaskModelV3Model() throws -> NSManagedObjectModel {
         let momdURL = try taskModelV3MomdURL()
-        let currentURL = momdURL.appendingPathComponent("TaskModelV3_TaskIcons.mom")
+        let currentURL = momdURL.appendingPathComponent("TaskModelV3_TrackFoundations.mom")
         guard let model = NSManagedObjectModel(contentsOf: currentURL) else {
             throw NSError(domain: "CoreDataModelCompatibilityTests", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "Unable to load current TaskModelV3_TaskIcons model"
+                NSLocalizedDescriptionKey: "Unable to load current TaskModelV3_TrackFoundations model"
             ])
         }
         return model
@@ -5259,7 +5259,7 @@ final class CoreDataModelCompatibilityTests: XCTestCase {
             includingPropertiesForKeys: nil
         )
         .filter { $0.pathExtension == "mom" }
-        .filter { $0.deletingPathExtension().lastPathComponent != "TaskModelV3_TaskIcons" }
+        .filter { $0.deletingPathExtension().lastPathComponent != "TaskModelV3_TrackFoundations" }
         .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
         return versionURLs.compactMap { url in
@@ -6778,7 +6778,7 @@ final class ConcurrencyRaceTests: XCTestCase {
         XCTAssertEqual(aggregate?.updatedAt, newerUpdatedAt)
     }
 
-    func testGamificationModelDefinesUniquenessConstraintsForXPEventAndDailyAggregate() throws {
+    func testGamificationCloudEntitiesUseAppLevelCanonicalizationInsteadOfUniquenessConstraints() throws {
         let container = try makeInMemoryV2Container()
         let model = container.managedObjectModel
 
@@ -6792,14 +6792,8 @@ final class ConcurrencyRaceTests: XCTestCase {
         let xpEventConstraints = normalizedUniquenessConstraints(for: xpEventEntity)
         let dailyAggregateConstraints = normalizedUniquenessConstraints(for: dailyAggregateEntity)
 
-        XCTAssertTrue(
-            xpEventConstraints.contains(["idempotencyKey"]),
-            "XPEvent must enforce uniqueness on idempotencyKey"
-        )
-        XCTAssertTrue(
-            dailyAggregateConstraints.contains(["dateKey"]),
-            "DailyXPAggregate must enforce uniqueness on dateKey"
-        )
+        XCTAssertTrue(xpEventConstraints.isEmpty, "CloudKit-backed XPEvent canonicalizes idempotency keys in the repository")
+        XCTAssertTrue(dailyAggregateConstraints.isEmpty, "CloudKit-backed DailyXPAggregate canonicalizes date keys in the repository")
     }
 
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
@@ -7727,6 +7721,7 @@ private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol, 
     var occurrences: [OccurrenceDefinition] = []
     var resolutions: [OccurrenceResolutionDefinition] = []
     var deletedOccurrenceIDs: [UUID] = []
+    var resolveError: Error?
 
     func fetchInRange(start: Date, end: Date, completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void) {
         completion(.success(occurrences.filter {
@@ -7747,6 +7742,10 @@ private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol, 
     }
 
     func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        if let resolveError {
+            completion(.failure(resolveError))
+            return
+        }
         resolutions.append(resolution)
         if let index = occurrences.firstIndex(where: { $0.id == resolution.occurrenceID }) {
             switch resolution.resolutionType {
@@ -15275,6 +15274,82 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         XCTAssertEqual(fixture.projectRepository.getTaskCountCallCount, fixture.projectRepository.projectCount)
     }
 
+    func testPrepareAlwaysEditableSupportWaitsForCanonicalDraftHydration() async {
+        let fixture = makeDetailFixture(returnedTitle: "Canonical title")
+        var completedTitle: String?
+
+        fixture.viewModel.prepareAlwaysEditableSupport {
+            completedTitle = fixture.viewModel.draft.title
+        }
+
+        await waitUntil { completedTitle != nil }
+
+        XCTAssertEqual(completedTitle, "Canonical title")
+        XCTAssertEqual(fixture.viewModel.draft.title, "Canonical title")
+        XCTAssertTrue(fixture.viewModel.isEditing)
+    }
+
+    func testFlushDuringRunningAutosaveDoesNotDuplicateWrite() async {
+        let fixture = makeDetailFixture()
+        fixture.habitRepository.deferUpdateCompletion = true
+        fixture.viewModel.draft.title = "One serialized save"
+
+        fixture.viewModel.scheduleAutosave(debounced: false)
+        await waitUntil { fixture.habitRepository.draftMutationUpdateCallCount == 1 }
+
+        fixture.viewModel.flushPendingAutosave()
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 1)
+
+        fixture.habitRepository.completeNextUpdate()
+        await waitUntil { fixture.viewModel.isSaving == false }
+
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 1)
+        XCTAssertEqual(fixture.habitRepository.maximumConcurrentUpdates, 1)
+    }
+
+    func testEditDuringAutosaveQueuesOneLatestSerializedWrite() async {
+        let fixture = makeDetailFixture()
+        fixture.habitRepository.deferUpdateCompletion = true
+        fixture.viewModel.draft.title = "First revision"
+        fixture.viewModel.scheduleAutosave(debounced: false)
+        await waitUntil { fixture.habitRepository.draftMutationUpdateCallCount == 1 }
+
+        fixture.viewModel.draft.title = "Latest revision"
+        fixture.viewModel.scheduleAutosave(debounced: false)
+        fixture.habitRepository.completeNextUpdate()
+
+        await waitUntil { fixture.habitRepository.draftMutationUpdateCallCount == 2 }
+        fixture.habitRepository.completeNextUpdate()
+        await waitUntil { fixture.viewModel.isSaving == false }
+
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 2)
+        XCTAssertEqual(fixture.habitRepository.maximumConcurrentUpdates, 1)
+        XCTAssertEqual(fixture.viewModel.autosaveState, .saved)
+    }
+
+    func testFailedAutosaveStaysRetryableUntilSuccess() async {
+        let fixture = makeDetailFixture()
+        fixture.habitRepository.updateError = NSError(
+            domain: "HabitDetailAutosaveTests",
+            code: 503,
+            userInfo: [NSLocalizedDescriptionKey: "Save unavailable"]
+        )
+        fixture.viewModel.draft.title = "Retry this draft"
+
+        fixture.viewModel.scheduleAutosave(debounced: false)
+        await waitUntil {
+            if case .failed = fixture.viewModel.autosaveState { return true }
+            return false
+        }
+
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 1)
+        fixture.habitRepository.updateError = nil
+        fixture.viewModel.retryAutosave()
+        await waitUntil { fixture.viewModel.autosaveState == .saved }
+
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 2)
+    }
+
     func testBeginEditingDefersAndCachesEditorSupportLoading() async {
         let fixture = makeDetailFixture()
 
@@ -15352,6 +15427,29 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         XCTAssertNil(fixture.viewModel.mutationFeedback)
     }
 
+    func testMutateDayReportsFailureWithoutSuccessFeedback() async {
+        let fixture = makeDetailFixture()
+        fixture.occurrenceRepository.occurrences = [makePendingOccurrence(habitID: fixture.row.habitID, on: Date())]
+        fixture.occurrenceRepository.resolveError = NSError(
+            domain: "HabitDetailMutationTests",
+            code: 500,
+            userInfo: [NSLocalizedDescriptionKey: "Could not update day"]
+        )
+        fixture.viewModel.loadIfNeeded()
+        await waitUntil { fixture.viewModel.isLoading == false }
+
+        let todayCell = fixture.viewModel.detailCalendarWeeks
+            .flatMap(\.cells)
+            .first(where: { Calendar.current.isDateInToday($0.date) })!
+        var didSucceed: Bool?
+        fixture.viewModel.mutateDay(todayCell) { success in didSucceed = success }
+        await waitUntil { didSucceed != nil }
+
+        XCTAssertEqual(didSucceed, false)
+        XCTAssertNil(fixture.viewModel.mutationFeedback)
+        XCTAssertEqual(fixture.viewModel.errorMessage, "Could not update day")
+    }
+
     func testSaveChangesRefreshesReadOnlyDataWithoutReloadingEditorSupport() async {
         let fixture = makeDetailFixture()
 
@@ -15408,6 +15506,7 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         let lifeAreaRepository: CountingLifeAreaRepository
         let projectRepository: CountingProjectRepository
         let occurrenceRepository: InMemoryOccurrenceRepository
+        let habitRepository: InMemoryHabitRepository
     }
 
     private final class DetailReadRepositorySpy: HabitRuntimeReadRepositoryProtocol, @unchecked Sendable {
@@ -15736,7 +15835,8 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
             readRepository: readRepository,
             lifeAreaRepository: lifeAreaRepository,
             projectRepository: projectRepository,
-            occurrenceRepository: occurrenceRepository
+            occurrenceRepository: occurrenceRepository,
+            habitRepository: habitRepository
         )
     }
 
@@ -16301,9 +16401,16 @@ private func makeHabitSummary(
 private final class InMemoryHabitRepository: HabitRepositoryProtocol, @unchecked Sendable {
     private(set) var habitsByID: [UUID: HabitDefinitionRecord]
     private(set) var createCallCount = 0
+    private(set) var updateCallCount = 0
+    private(set) var draftMutationUpdateCallCount = 0
+    private(set) var maximumConcurrentUpdates = 0
     var deferCreateCompletion = false
+    var deferUpdateCompletion = false
     var createError: Error?
+    var updateError: Error?
     private var pendingCreateCompletions: [(Result<HabitDefinitionRecord, Error>) -> Void] = []
+    private var pendingUpdateCompletions: [(@Sendable () -> Void)] = []
+    private var activeUpdateCount = 0
 
     init(habits: [HabitDefinitionRecord] = []) {
         self.habitsByID = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
@@ -16332,8 +16439,45 @@ private final class InMemoryHabitRepository: HabitRepositoryProtocol, @unchecked
     }
 
     func update(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
-        habitsByID[habit.id] = habit
-        completion(.success(habit))
+        let storedHabit = habitsByID[habit.id]
+        let isDraftMutation = storedHabit?.title != habit.title ||
+            storedHabit?.lifeAreaID != habit.lifeAreaID ||
+            storedHabit?.projectID != habit.projectID ||
+            storedHabit?.kindRaw != habit.kindRaw ||
+            storedHabit?.trackingModeRaw != habit.trackingModeRaw ||
+            storedHabit?.iconSymbolName != habit.iconSymbolName ||
+            storedHabit?.iconCategoryKey != habit.iconCategoryKey ||
+            storedHabit?.colorHex != habit.colorHex ||
+            storedHabit?.targetConfigData != habit.targetConfigData ||
+            storedHabit?.metricConfigData != habit.metricConfigData ||
+            storedHabit?.notes != habit.notes
+        updateCallCount += 1
+        if isDraftMutation {
+            draftMutationUpdateCallCount += 1
+        }
+        activeUpdateCount += 1
+        maximumConcurrentUpdates = max(maximumConcurrentUpdates, activeUpdateCount)
+        let result: Result<HabitDefinitionRecord, Error>
+        if let updateError {
+            result = .failure(updateError)
+        } else {
+            habitsByID[habit.id] = habit
+            result = .success(habit)
+        }
+        let finish: @Sendable () -> Void = { [weak self] in
+            self?.activeUpdateCount -= 1
+            completion(result)
+        }
+        if deferUpdateCompletion && isDraftMutation {
+            pendingUpdateCompletions.append(finish)
+        } else {
+            finish()
+        }
+    }
+
+    func completeNextUpdate() {
+        guard pendingUpdateCompletions.isEmpty == false else { return }
+        pendingUpdateCompletions.removeFirst()()
     }
 
     func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
@@ -17626,6 +17770,33 @@ final class HomeLensResolverTests: XCTestCase {
         XCTAssertEqual(chips.map(\.title), ["Beta", "Alpha"])
         XCTAssertEqual(chips.first?.isSelected, true)
         XCTAssertFalse(chips.contains { $0.lens == .lifeArea(archived.id) })
+    }
+
+    func testLifeAreaLensesKeepAreasVisibleWhileActivityIsLoading() {
+        let alpha = LifeArea(name: "Alpha")
+        let beta = LifeArea(name: "Beta")
+
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [beta, alpha],
+            pinnedLifeAreaIDs: [],
+            activeLens: .today,
+            activityByID: nil
+        )
+
+        XCTAssertEqual(chips.map(\.title), ["Alpha", "Beta"])
+    }
+
+    func testLifeAreaLensesHideInactiveAreasAfterLoadedEmptyActivity() {
+        let alpha = LifeArea(name: "Alpha")
+
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [alpha],
+            pinnedLifeAreaIDs: [],
+            activeLens: .today,
+            activityByID: [:]
+        )
+
+        XCTAssertTrue(chips.isEmpty)
     }
 
     func testLifeAreaLensesShowAllOpenLifeAreasWithoutLimit() {

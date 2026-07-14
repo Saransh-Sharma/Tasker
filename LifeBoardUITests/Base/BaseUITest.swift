@@ -14,6 +14,7 @@ class BaseUITest: XCTestCase {
 
     var app: XCUIApplication!
     var additionalLaunchArguments: [String] { [] }
+    var additionalLaunchEnvironment: [String: String] { [:] }
     var shouldSkipOnboarding: Bool { true }
 
     // MARK: - Test Lifecycle
@@ -33,6 +34,9 @@ class BaseUITest: XCTestCase {
             XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue
         ]
         app.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        for (key, value) in additionalLaunchEnvironment {
+            app.launchEnvironment[key] = value
+        }
         if shouldSkipOnboarding {
             app.launchArguments.append("-SKIP_ONBOARDING")
         }
