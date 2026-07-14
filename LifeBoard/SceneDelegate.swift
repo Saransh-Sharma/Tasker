@@ -139,7 +139,51 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return nil
         }
 
-        return UINavigationController(rootViewController: homeViewController)
+        let productionController = UINavigationController(rootViewController: homeViewController)
+        guard V2FeatureFlags.lifeOSFoundationV1Enabled
+                || V2FeatureFlags.adaptiveHomeV2Enabled
+                || V2FeatureFlags.trackersV1Enabled
+                || V2FeatureFlags.healthIntegrationsV1Enabled
+                || V2FeatureFlags.journalV1Enabled
+                || V2FeatureFlags.knowledgeNotesV1Enabled
+                || V2FeatureFlags.planDestinationV1Enabled
+                || V2FeatureFlags.trackFoundationsV2Enabled else {
+            return productionController
+        }
+
+        let projectionAdapter = HomeProjectionAdapter(
+            chromeStore: homeViewController.chromeStore,
+            tasksStore: homeViewController.tasksStore,
+            habitsStore: homeViewController.habitsStore,
+            calendarStore: homeViewController.calendarStore
+        )
+        let layoutRepository: (any DashboardLayoutRepository)?
+        let phaseIIRepository: (any LifeBoardPhaseIIRepository)?
+        let planningRepository: CoreDataPlanningRepository?
+        let trackFoundationRepository: CoreDataTrackFoundationRepository?
+        if let appDelegate = UIApplication.shared.delegate as? AppDelegate,
+           let persistentContainer = appDelegate.persistentContainer {
+            layoutRepository = CoreDataDashboardLayoutRepository(container: persistentContainer)
+            phaseIIRepository = CoreDataLifeBoardPhaseIIRepository(container: persistentContainer)
+            planningRepository = CoreDataPlanningRepository(container: persistentContainer)
+            trackFoundationRepository = CoreDataTrackFoundationRepository(container: persistentContainer)
+        } else {
+            layoutRepository = nil
+            phaseIIRepository = nil
+            planningRepository = nil
+            trackFoundationRepository = nil
+        }
+
+        return UIHostingController(
+            rootView: LifeOSFoundationShell(
+                legacyHomeController: productionController,
+                homeProjectionAdapter: projectionAdapter,
+                dashboardLayoutRepository: layoutRepository,
+                phaseIIRepository: phaseIIRepository,
+                planningRepository: planningRepository,
+                trackFoundationRepository: trackFoundationRepository
+            )
+        )
     }
 
     /// Executes showBootstrapFailureRoot.
@@ -250,6 +294,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     private func handleIncomingURL(_ url: URL) {
+        if V2FeatureFlags.lifeOSFoundationV1Enabled,
+           LifeOSFoundationRuntime.shared.handle(url: url) {
+            return
+        }
         guard let scheme = url.scheme?.lowercased(), ["lifeboard", "tasker"].contains(scheme) else { return }
         guard let host = url.host?.lowercased() else { return }
         let pathSegments = url.pathComponents.filter { $0 != "/" }
