@@ -50,6 +50,16 @@
 	<string>LifeBoard uses Calendar access to show read-only schedule context for task planning and fit hints.</string>
 	<key>NSCalendarsUsageDescription</key>
 	<string>LifeBoard uses Calendar access to show read-only schedule context for task planning and fit hints.</string>
+	<key>NSHealthShareUsageDescription</key>
+	<string>LifeBoard reads steps and active energy only when you choose to show those metrics in your private dashboard.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>LifeBoard does not write Health data. This description is reserved for explicit future Health actions.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>LifeBoard uses the microphone only while you record a private journal audio block.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>LifeBoard lets you choose photos to attach privately to a journal day or note.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>LifeBoard transcribes journal audio only after you review and accept the speech-processing disclosure.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
