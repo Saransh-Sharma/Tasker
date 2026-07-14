@@ -89,7 +89,7 @@ public struct SunriseAddTaskSheetView: View {
                         text: $viewModel.taskName,
                         isFocused: $titleFieldFocused,
                         placeholder: "What do you want to do?",
-                        helperText: nil,
+                        helperText: "Keep it small enough for an ordinary day.",
                         onSubmit: handleCreate
                     )
                     .cardEntrance(index: 1)

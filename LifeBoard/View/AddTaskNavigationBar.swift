@@ -43,8 +43,8 @@ struct AddTaskNavigationBar: View {
                 }
             } label: {
                 Text("Done")
-                    .font(.lifeboard(.callout))
-                    .foregroundStyle(canSave ? Color.lifeboard.textSecondary : Color.lifeboard.textQuaternary)
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundStyle(canSave ? Color.lifeboard.accentPrimary : Color.lifeboard.textQuaternary)
             }
             .buttonStyle(.plain)
             .disabled(!canSave)

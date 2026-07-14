@@ -790,9 +790,14 @@ private struct HabitBoardPinnedRowView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier(HabitBoardAccessibilityID.row(row.habitID))
-        .accessibilityLabel(row.title)
-        .accessibilityHint("Opens habit details")
+        .accessibilityRepresentation {
+            Button(action: onSelect) {
+                Text(row.title)
+            }
+            .accessibilityIdentifier(HabitBoardAccessibilityID.row(row.habitID))
+            .accessibilityLabel(row.title)
+            .accessibilityHint("Opens habit details")
+        }
     }
 }
 

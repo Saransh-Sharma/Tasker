@@ -82,7 +82,7 @@ public struct HomeQuickFilterTriggerButton: View {
             )
             .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: summary.hasActiveFilters)
         }
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(isOpen ? "Double tap to close filters" : "Double tap to open filters")
     }

@@ -794,7 +794,7 @@ private struct SunriseHabitBottomActionBar: View {
                 in: Capsule()
             )
             .clipShape(Capsule())
-            .lbAnimatedSheen()
+            .lbAnimatedSheen(isEnabled: isEnabled && isLoading == false)
             .opacity(isEnabled ? 1 : 0.62)
         }
         .buttonStyle(.plain)

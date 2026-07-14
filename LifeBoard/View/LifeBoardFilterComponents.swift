@@ -15,12 +15,8 @@ private struct LifeBoardOptionalAccessibilityIdentifier: ViewModifier {
 
 extension View {
     @ViewBuilder
-    func lifeboardPressFeedback(reduceMotion: Bool) -> some View {
-        if reduceMotion {
-            self
-        } else {
-            self.scaleOnPress()
-        }
+    func lifeboardPressFeedback() -> some View {
+        scaleOnPress()
     }
 
     func lifeboardAccessibilityIdentifier(_ identifier: String?) -> some View {
@@ -47,7 +43,7 @@ struct LifeBoardFilterChip: View {
             chipLabel
         }
         .buttonStyle(.plain)
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(isSelected ? "Selected" : "Double tap to apply")
         .accessibilityValue(isSelected ? "selected" : "unselected")
@@ -162,7 +158,7 @@ struct LifeBoardFilterRow: View {
             rowLabel
         }
         .buttonStyle(.plain)
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
         .accessibilityLabel(accessibilityLabel)
         .accessibilityHint(isSelected ? "Selected" : "Double tap to apply")
         .lifeboardAccessibilityIdentifier(accessibilityIdentifier)

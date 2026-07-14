@@ -51,7 +51,7 @@ struct SunriseAutosaveWhisper: View {
 
     private var label: String {
         switch state {
-        case .idle, .saving: return "Saving…"
+        case .idle, .debouncing, .saving: return "Saving…"
         case .saved: return "Saved"
         case .failed: return "Couldn't save"
         }
@@ -76,7 +76,7 @@ struct SunriseAutosaveWhisper: View {
         savingDelayTask?.cancel()
         savedFadeTask?.cancel()
         switch newValue {
-        case .idle:
+        case .idle, .debouncing:
             visible = false
         case .saving:
             // Only reveal a "Saving…" whisper if the work outlasts a blink.
