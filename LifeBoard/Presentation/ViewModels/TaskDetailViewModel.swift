@@ -65,6 +65,7 @@ public struct ProjectWeeklyMotivation: Equatable, Sendable {
 
 public enum TaskDetailAutosaveState: Equatable {
     case idle
+    case debouncing
     case saving
     case saved
     case failed(String)
@@ -73,6 +74,8 @@ public enum TaskDetailAutosaveState: Equatable {
         switch self {
         case .idle:
             return ""
+        case .debouncing:
+            return "Waiting to save..."
         case .saving:
             return "Saving..."
         case .saved:
