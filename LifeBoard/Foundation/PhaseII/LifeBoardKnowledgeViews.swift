@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import QuickLook
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -13,12 +14,22 @@ final class LifeBoardKnowledgeStore {
     private(set) var links: [LifeBoardKnowledgeLinkValue] = []
     private(set) var isLoading = false
     var selectedSpaceID: UUID?
+    var selectedFolderID: UUID?
     var searchText = ""
     var errorMessage: String?
 
     let repository: any LifeBoardPhaseIIRepository
+    let attachmentFiles: any KnowledgeAttachmentFileRepository
 
-    init(repository: any LifeBoardPhaseIIRepository) { self.repository = repository }
+    init(
+        repository: any LifeBoardPhaseIIRepository,
+        initialFolderID: UUID? = nil,
+        attachmentFiles: (any KnowledgeAttachmentFileRepository)? = nil
+    ) {
+        self.repository = repository
+        self.attachmentFiles = attachmentFiles ?? ProtectedKnowledgeAttachmentFiles()
+        selectedFolderID = initialFolderID
+    }
 
     func load() async {
         guard !isLoading else { return }
@@ -56,6 +67,40 @@ final class LifeBoardKnowledgeStore {
             try await repository.saveKnowledgeFolder(.init(spaceID: selectedSpaceID, parentFolderID: parentID, title: title, ordinal: folders.count))
             await load()
         } catch { errorMessage = error.localizedDescription }
+    }
+
+    var selectedFolderPath: [LifeBoardKnowledgeFolderValue] {
+        KnowledgeFolderHierarchy.path(to: selectedFolderID, in: folders)
+    }
+
+    func navigateUp() {
+        guard let selectedFolderID,
+              let folder = folders.first(where: { $0.id == selectedFolderID }) else {
+            self.selectedFolderID = nil
+            return
+        }
+        self.selectedFolderID = folder.parentFolderID
+    }
+
+    func move(_ folder: LifeBoardKnowledgeFolderValue, to parentID: UUID?) async {
+        guard KnowledgeFolderHierarchy.canMove(folderID: folder.id, to: parentID, in: folders) else {
+            errorMessage = "A folder can’t be moved inside itself or one of its subfolders."
+            return
+        }
+        var updated = folder
+        updated.parentFolderID = parentID
+        do {
+            try await repository.saveKnowledgeFolder(updated)
+            if selectedFolderID == folder.id { selectedFolderID = folder.id }
+            await load()
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    func move(_ note: LifeBoardKnowledgeNoteValue, to folderID: UUID?) async {
+        var updated = note
+        updated.folderID = folderID
+        updated.updatedAt = Date()
+        await save(updated)
     }
 
     func createNote(folderID: UUID? = nil) -> LifeBoardKnowledgeNoteValue? {
@@ -112,22 +157,31 @@ final class LifeBoardKnowledgeStore {
         } catch { errorMessage = error.localizedDescription }
     }
 
-    func addAttachment(noteID: UUID, url: URL) async {
-        guard url.startAccessingSecurityScopedResource() else { return }
+    func addAttachment(noteID: UUID, url: URL) async -> LifeBoardKnowledgeAttachmentValue? {
+        guard url.startAccessingSecurityScopedResource() else {
+            errorMessage = "LifeBoard couldn’t access that file. Choose it again to retry."
+            return nil
+        }
         defer { url.stopAccessingSecurityScopedResource() }
         do {
             let data = try Data(contentsOf: url, options: .mappedIfSafe)
             guard data.count <= 20_000_000 else {
                 errorMessage = "Files larger than 20 MB are not supported."
-                return
+                return nil
             }
-            try await repository.saveKnowledgeAttachment(.init(
+            let attachment = LifeBoardKnowledgeAttachmentValue(
                 noteID: noteID,
                 kind: url.pathExtension.lowercased(),
                 fileName: url.lastPathComponent,
                 payload: data
-            ))
-        } catch { errorMessage = error.localizedDescription }
+            )
+            try await repository.saveKnowledgeAttachment(attachment)
+            _ = try await attachmentFiles.persist(attachment)
+            return attachment
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
     }
 }
 
@@ -143,8 +197,8 @@ struct LifeBoardKnowledgeModuleView: View {
     @State private var draftName = ""
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
 
-    init(repository: any LifeBoardPhaseIIRepository) {
-        _store = State(initialValue: LifeBoardKnowledgeStore(repository: repository))
+    init(repository: any LifeBoardPhaseIIRepository, initialFolderID: UUID? = nil) {
+        _store = State(initialValue: LifeBoardKnowledgeStore(repository: repository, initialFolderID: initialFolderID))
     }
 
     var body: some View {
@@ -154,7 +208,12 @@ struct LifeBoardKnowledgeModuleView: View {
             switch section {
             case .library: library(palette: palette)
             case .graph:
-                LifeBoardKnowledgeGraphView(notes: Array(store.notes.prefix(150)), links: store.links) { editingNote = $0 }
+                LifeBoardKnowledgeGraphView(
+                    notes: Array(store.notes.prefix(150)),
+                    links: store.links,
+                    folders: store.folders,
+                    tags: store.tags
+                ) { editingNote = $0 }
             }
         }
         .task { await store.load() }
@@ -204,11 +263,12 @@ struct LifeBoardKnowledgeModuleView: View {
             tags: tags,
             links: links,
             repository: repository,
+            attachmentFiles: store.attachmentFiles,
             onSave: saveNote,
             onCreateTag: createTag,
             onConnect: { destination in connect(noteID: note.id, destination: destination) },
             onDisconnect: disconnect,
-            onAttach: { url in attach(noteID: note.id, url: url) }
+            onAttach: { url in await store.addAttachment(noteID: note.id, url: url) }
         )
     }
 
@@ -228,14 +288,19 @@ struct LifeBoardKnowledgeModuleView: View {
         Task { await store.disconnect(link) }
     }
 
-    private func attach(noteID: UUID, url: URL) {
-        Task { await store.addAttachment(noteID: noteID, url: url) }
-    }
-
     private func library(palette: LifeBoardDaypartPalette) -> some View {
         ScrollView {
             LazyVStack(spacing: 12) {
                 HStack {
+                    if store.selectedFolderID != nil {
+                        Button {
+                            store.navigateUp()
+                        } label: {
+                            Image(systemName: "chevron.left")
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Back to parent folder")
+                    }
                     Menu {
                         ForEach(store.spaces) { space in
                             Button(space.title, systemImage: space.icon) { store.selectedSpaceID = space.id }
@@ -247,20 +312,35 @@ struct LifeBoardKnowledgeModuleView: View {
                     }
                     Spacer()
                     Menu {
-                        Button("New Note", systemImage: "square.and.pencil") { editingNote = store.createNote() }
+                        Button("New Note", systemImage: "square.and.pencil") {
+                            editingNote = store.createNote(folderID: store.selectedFolderID)
+                        }
                         Button("New Folder", systemImage: "folder.badge.plus") { draftName = ""; showsNewFolder = true }
                     } label: { Image(systemName: "plus.circle.fill").font(.title2).frame(width: 44, height: 44) }
                     .accessibilityLabel("Add note or folder")
                 }
                 TextField("Search notes", text: $store.searchText)
                     .textFieldStyle(.roundedBorder)
-                if !store.folders.isEmpty {
+                if store.selectedFolderID != nil {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            Button("All Notes") { store.selectedFolderID = nil }
+                            ForEach(store.selectedFolderPath) { folder in
+                                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                                Button(folder.title) { store.selectedFolderID = folder.id }
+                            }
+                        }
+                        .font(.subheadline.weight(.medium))
+                    }
+                    .accessibilityLabel("Folder path")
+                }
+                let visibleFolders = store.folders.filter { $0.parentFolderID == store.selectedFolderID }
+                if !visibleFolders.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Folders").font(.headline)
-                        ForEach(store.folders) { folder in
+                        Text(store.selectedFolderID == nil ? "Folders" : "Subfolders").font(.headline)
+                        ForEach(visibleFolders) { folder in
                             Button {
-                                if let note = store.notes.first(where: { $0.folderID == folder.id }) { editingNote = note }
-                                else { editingNote = store.createNote(folderID: folder.id) }
+                                store.selectedFolderID = folder.id
                             } label: {
                                 HStack {
                                     Image(systemName: "folder.fill")
@@ -271,16 +351,20 @@ struct LifeBoardKnowledgeModuleView: View {
                                 .frame(minHeight: 44)
                             }
                             .buttonStyle(.plain)
+                            .contextMenu { folderMoveMenu(folder) }
                         }
                     }
                     .padding(16)
                     .lifeBoardPaperCard()
                 }
-                if store.notes.isEmpty {
+                let visibleNotes = store.notes.filter { note in
+                    note.folderID == store.selectedFolderID
+                }
+                if visibleNotes.isEmpty {
                     ContentUnavailableView("No notes yet", systemImage: "note.text", description: Text("Create a note for an idea, reference, checklist, or plan."))
                         .padding(.top, 36)
                 } else {
-                    ForEach(store.notes) { note in
+                    ForEach(visibleNotes) { note in
                         Button { editingNote = note } label: {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
@@ -300,6 +384,7 @@ struct LifeBoardKnowledgeModuleView: View {
                         }
                         .buttonStyle(.plain)
                         .contextMenu {
+                            noteMoveMenu(note)
                             Button("Delete", systemImage: "trash", role: .destructive) { confirmsDelete = note }
                         }
                     }
@@ -326,11 +411,35 @@ struct LifeBoardKnowledgeModuleView: View {
         TextField("Name", text: $draftName)
         Button("Save") {
             let name = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
-            Task { await store.createFolder(title: name) }
+            Task { await store.createFolder(title: name, parentID: store.selectedFolderID) }
             draftName = ""
         }
         .disabled(draftName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         Button("Cancel", role: .cancel) { draftName = "" }
+    }
+
+    @ViewBuilder private func folderMoveMenu(_ folder: LifeBoardKnowledgeFolderValue) -> some View {
+        Button("Move to All Notes", systemImage: "tray") { Task { await store.move(folder, to: nil) } }
+            .disabled(folder.parentFolderID == nil)
+        Menu("Move to Folder", systemImage: "folder") {
+            ForEach(store.folders.filter {
+                $0.id != folder.id && KnowledgeFolderHierarchy.canMove(folderID: folder.id, to: $0.id, in: store.folders)
+            }) { destination in
+                Button(destination.title) { Task { await store.move(folder, to: destination.id) } }
+                    .disabled(folder.parentFolderID == destination.id)
+            }
+        }
+    }
+
+    @ViewBuilder private func noteMoveMenu(_ note: LifeBoardKnowledgeNoteValue) -> some View {
+        Menu("Move", systemImage: "folder") {
+            Button("All Notes", systemImage: "tray") { Task { await store.move(note, to: nil) } }
+                .disabled(note.folderID == nil)
+            ForEach(store.folders) { folder in
+                Button(folder.title) { Task { await store.move(note, to: folder.id) } }
+                    .disabled(note.folderID == folder.id)
+            }
+        }
     }
 }
 
@@ -341,15 +450,18 @@ private struct LifeBoardKnowledgeNoteEditor: View {
     @State private var showsFileImporter = false
     @State private var showsLinkPicker = false
     @State private var isLoadingAttachments = false
+    @State private var previewAttachmentURL: URL?
+    @State private var attachmentFailures: Set<UUID> = []
     let allNotes: [LifeBoardKnowledgeNoteValue]
     let tags: [LifeBoardKnowledgeTagValue]
     let links: [LifeBoardKnowledgeLinkValue]
     let repository: any LifeBoardPhaseIIRepository
+    let attachmentFiles: any KnowledgeAttachmentFileRepository
     let onSave: (LifeBoardKnowledgeNoteValue) -> Void
     let onCreateTag: (String) async -> LifeBoardKnowledgeTagValue?
     let onConnect: (UUID) -> Void
     let onDisconnect: (LifeBoardKnowledgeLinkValue) -> Void
-    let onAttach: (URL) -> Void
+    let onAttach: (URL) async -> LifeBoardKnowledgeAttachmentValue?
     @Environment(\.dismiss) private var dismiss
 
     init(
@@ -358,17 +470,19 @@ private struct LifeBoardKnowledgeNoteEditor: View {
         tags: [LifeBoardKnowledgeTagValue],
         links: [LifeBoardKnowledgeLinkValue],
         repository: any LifeBoardPhaseIIRepository,
+        attachmentFiles: any KnowledgeAttachmentFileRepository,
         onSave: @escaping (LifeBoardKnowledgeNoteValue) -> Void,
         onCreateTag: @escaping (String) async -> LifeBoardKnowledgeTagValue?,
         onConnect: @escaping (UUID) -> Void,
         onDisconnect: @escaping (LifeBoardKnowledgeLinkValue) -> Void,
-        onAttach: @escaping (URL) -> Void
+        onAttach: @escaping (URL) async -> LifeBoardKnowledgeAttachmentValue?
     ) {
         _draft = State(initialValue: note)
         self.allNotes = allNotes
         self.tags = tags
         self.links = links
         self.repository = repository
+        self.attachmentFiles = attachmentFiles
         self.onSave = onSave
         self.onCreateTag = onCreateTag
         self.onConnect = onConnect
@@ -389,7 +503,12 @@ private struct LifeBoardKnowledgeNoteEditor: View {
                     }
                     tagRail
                     ForEach($draft.blocks) { $block in
-                        LifeBoardKnowledgeBlockEditor(block: $block, onDelete: { deleteBlock(block.id) })
+                        LifeBoardKnowledgeBlockEditor(
+                            block: $block,
+                            allNotes: allNotes.filter { $0.id != draft.id },
+                            attachments: attachments,
+                            onDelete: { deleteBlock(block) }
+                        )
                     }
                     addBlockMenu
                     Divider().padding(.vertical, 4)
@@ -412,8 +531,16 @@ private struct LifeBoardKnowledgeNoteEditor: View {
                 }
             }
             .fileImporter(isPresented: $showsFileImporter, allowedContentTypes: [.data, .image, .pdf, .plainText], allowsMultipleSelection: false) { result in
-                if let url = try? result.get().first { onAttach(url); Task { await loadAttachments() } }
+                if let url = try? result.get().first {
+                    Task {
+                        if let attachment = await onAttach(url) {
+                            addAttachmentBlock(attachment)
+                        }
+                        await loadAttachments()
+                    }
+                }
             }
+            .quickLookPreview($previewAttachmentURL)
             .sheet(isPresented: $showsLinkPicker) {
                 NavigationStack {
                     List(allNotes.filter { $0.id != draft.id }) { note in
@@ -496,8 +623,30 @@ private struct LifeBoardKnowledgeNoteEditor: View {
             }
             if isLoadingAttachments { ProgressView() }
             ForEach(attachments) { attachment in
-                Label(attachment.fileName, systemImage: attachment.kind == "pdf" ? "doc.richtext" : "doc")
-                    .lineLimit(1)
+                HStack {
+                    Button {
+                        Task { await openAttachment(attachment) }
+                    } label: {
+                        Label(attachment.fileName, systemImage: attachment.kind == "pdf" ? "doc.richtext" : "doc")
+                            .lineLimit(1)
+                    }
+                    .buttonStyle(.plain)
+                    Spacer()
+                    if attachmentFailures.contains(attachment.id) {
+                        Button("Retry", systemImage: "arrow.clockwise") {
+                            Task { await openAttachment(attachment) }
+                        }
+                        .labelStyle(.iconOnly)
+                        .accessibilityLabel("Retry opening \(attachment.fileName)")
+                    }
+                    Button(role: .destructive) {
+                        Task { await deleteAttachment(attachment) }
+                    } label: {
+                        Image(systemName: "trash")
+                            .frame(width: 44, height: 44)
+                    }
+                    .accessibilityLabel("Delete \(attachment.fileName)")
+                }
             }
         }
         .padding(16)
@@ -508,10 +657,31 @@ private struct LifeBoardKnowledgeNoteEditor: View {
         draft.blocks.append(.init(noteID: draft.id, kind: kind, ordinal: draft.blocks.count))
     }
 
-    private func deleteBlock(_ id: UUID) {
+    private func deleteBlock(_ block: LifeBoardKnowledgeBlockValue) {
         guard draft.blocks.count > 1 else { return }
-        draft.blocks.removeAll { $0.id == id }
+        if let attachmentID = KnowledgeBlockPayload.decode(from: block).attachment?.attachmentID,
+           let attachment = attachments.first(where: { $0.id == attachmentID }) {
+            Task { await deleteAttachment(attachment) }
+            return
+        }
+        draft.blocks.removeAll { $0.id == block.id }
         normalizeOrdinals()
+    }
+
+    private func addAttachmentBlock(_ attachment: LifeBoardKnowledgeAttachmentValue) {
+        let imageExtensions = Set(["jpg", "jpeg", "png", "heic", "heif", "gif", "webp"])
+        let kind: LifeBoardKnowledgeBlockKind = imageExtensions.contains(attachment.kind.lowercased()) ? .image : .file
+        let payload = KnowledgeBlockPayload(attachment: .init(
+            attachmentID: attachment.id,
+            fileName: attachment.fileName
+        ))
+        draft.blocks.append(.init(
+            noteID: draft.id,
+            kind: kind,
+            text: attachment.fileName,
+            metadata: payload.encoded(),
+            ordinal: draft.blocks.count
+        ))
     }
 
     private func normalizeOrdinals() {
@@ -522,6 +692,31 @@ private struct LifeBoardKnowledgeNoteEditor: View {
         isLoadingAttachments = true
         attachments = (try? await repository.fetchKnowledgeAttachments(noteID: draft.id)) ?? []
         isLoadingAttachments = false
+    }
+
+    private func deleteAttachment(_ attachment: LifeBoardKnowledgeAttachmentValue) async {
+        do {
+            try await attachmentFiles.deleteFile(for: attachment)
+            try await repository.deleteKnowledgeAttachment(id: attachment.id)
+            attachmentFailures.remove(attachment.id)
+            draft.blocks.removeAll {
+                KnowledgeBlockPayload.decode(from: $0).attachment?.attachmentID == attachment.id
+            }
+            if draft.blocks.isEmpty { draft.blocks = [.init(noteID: draft.id)] }
+            normalizeOrdinals()
+            await loadAttachments()
+        } catch {
+            // Keep the attachment visible so the user can retry instead of pretending deletion succeeded.
+        }
+    }
+
+    private func openAttachment(_ attachment: LifeBoardKnowledgeAttachmentValue) async {
+        do {
+            previewAttachmentURL = try await attachmentFiles.resolvedURL(for: attachment)
+            attachmentFailures.remove(attachment.id)
+        } catch {
+            attachmentFailures.insert(attachment.id)
+        }
     }
 
     private func kindTitle(_ kind: LifeBoardKnowledgeBlockKind) -> String {
@@ -558,8 +753,12 @@ private struct LifeBoardKnowledgeNoteEditor: View {
 
 private struct LifeBoardKnowledgeBlockEditor: View {
     @Binding var block: LifeBoardKnowledgeBlockValue
+    let allNotes: [LifeBoardKnowledgeNoteValue]
+    let attachments: [LifeBoardKnowledgeAttachmentValue]
     let onDelete: () -> Void
     @State private var expanded = true
+    @State private var bookmarkIsLoading = false
+    @State private var bookmarkError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -593,8 +792,59 @@ private struct LifeBoardKnowledgeBlockEditor: View {
             case .code:
                 TextEditor(text: $block.text).font(.system(.body, design: .monospaced)).frame(minHeight: 100)
             case .table:
-                TextEditor(text: $block.text).font(.system(.body, design: .monospaced)).frame(minHeight: 90)
-                    .accessibilityHint("Enter rows on new lines and separate columns with commas")
+                LifeBoardKnowledgeTableEditor(block: $block)
+            case .bookmark:
+                VStack(alignment: .leading, spacing: 8) {
+                    TextField("https://example.com", text: $block.text)
+                        .textInputAutocapitalization(.never)
+                        .keyboardType(.URL)
+                        .onChange(of: block.text) { _, value in
+                            var payload = KnowledgeBlockPayload.decode(from: block)
+                            payload.bookmark = .init(url: URL(string: value), title: payload.bookmark?.title, summary: payload.bookmark?.summary)
+                            block.metadata = payload.encoded()
+                        }
+                    if let url = KnowledgeBlockPayload.decode(from: block).bookmark?.url {
+                        Link(destination: url) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                let bookmark = KnowledgeBlockPayload.decode(from: block).bookmark
+                                Label(bookmark?.title ?? url.host() ?? url.absoluteString, systemImage: "safari")
+                                    .font(.headline)
+                                if let summary = bookmark?.summary {
+                                    Text(summary).font(.caption).foregroundStyle(.secondary).lineLimit(3)
+                                }
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        }
+                        if bookmarkIsLoading { ProgressView("Loading preview") }
+                        if bookmarkError != nil {
+                            Button("Retry preview", systemImage: "arrow.clockwise") { Task { await refreshBookmark() } }
+                                .font(.caption.weight(.semibold))
+                        }
+                    }
+                }
+            case .noteLink:
+                Picker("Linked note", selection: noteLinkSelection) {
+                    Text("Choose a note").tag(UUID?.none)
+                    ForEach(allNotes) { note in
+                        Text(note.title.isEmpty ? "Untitled" : note.title).tag(Optional(note.id))
+                    }
+                }
+                .pickerStyle(.menu)
+            case .image:
+                if let attachment = attachmentForBlock, let image = UIImage(data: attachment.payload) {
+                    Image(uiImage: image)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(maxHeight: 260)
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
+                        .accessibilityLabel(attachment.fileName)
+                } else {
+                    Label(block.text.isEmpty ? "Unavailable image" : block.text, systemImage: "photo.badge.exclamationmark")
+                        .foregroundStyle(.secondary)
+                }
+            case .file:
+                Label(attachmentForBlock?.fileName ?? block.text, systemImage: attachmentForBlock == nil ? "doc.badge.ellipsis" : "doc")
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             default:
                 TextField(placeholder, text: $block.text, axis: .vertical).lineLimit(2...12)
             }
@@ -602,6 +852,11 @@ private struct LifeBoardKnowledgeBlockEditor: View {
         .padding(14)
         .background(.background, in: RoundedRectangle(cornerRadius: 16))
         .overlay(RoundedRectangle(cornerRadius: 16).stroke(.separator.opacity(0.35)))
+        .task(id: block.text) {
+            guard block.kind == .bookmark else { return }
+            do { try await Task.sleep(for: .milliseconds(350)) } catch { return }
+            await refreshBookmark()
+        }
     }
 
     private var placeholder: String {
@@ -613,30 +868,202 @@ private struct LifeBoardKnowledgeBlockEditor: View {
         default: "Write something"
         }
     }
+
+    private var noteLinkSelection: Binding<UUID?> {
+        Binding(
+            get: { KnowledgeBlockPayload.decode(from: block).noteLink?.noteID },
+            set: { noteID in
+                var payload = KnowledgeBlockPayload.decode(from: block)
+                payload.noteLink = noteID.map { id in
+                    .init(noteID: id, cachedTitle: allNotes.first(where: { $0.id == id })?.title)
+                }
+                block.metadata = payload.encoded()
+                block.text = noteID?.uuidString ?? ""
+            }
+        )
+    }
+
+    private var attachmentForBlock: LifeBoardKnowledgeAttachmentValue? {
+        guard let id = KnowledgeBlockPayload.decode(from: block).attachment?.attachmentID else { return nil }
+        return attachments.first(where: { $0.id == id })
+    }
+
+    @MainActor
+    private func refreshBookmark() async {
+        guard let url = URL(string: block.text), ["http", "https"].contains(url.scheme?.lowercased() ?? "") else {
+            bookmarkError = "Enter a valid web address."
+            return
+        }
+        bookmarkIsLoading = true
+        bookmarkError = nil
+        defer { bookmarkIsLoading = false }
+        do {
+            let bookmark = try await URLSessionKnowledgeBookmarkMetadataFetcher.shared.metadata(for: url)
+            var payload = KnowledgeBlockPayload.decode(from: block)
+            payload.bookmark = bookmark
+            block.metadata = payload.encoded()
+        } catch is CancellationError {
+            return
+        } catch {
+            bookmarkError = error.localizedDescription
+        }
+    }
+}
+
+private struct LifeBoardKnowledgeTableEditor: View {
+    @Binding var block: LifeBoardKnowledgeBlockValue
+
+    private var table: KnowledgeBlockPayload.Table {
+        KnowledgeBlockPayload.decode(from: block).table ?? .init()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ScrollView(.horizontal) {
+                Grid(horizontalSpacing: 6, verticalSpacing: 6) {
+                    ForEach(table.rows.indices, id: \.self) { row in
+                        GridRow {
+                            ForEach(table.rows[row].indices, id: \.self) { column in
+                                TextField("Cell", text: cellBinding(row: row, column: column))
+                                    .textFieldStyle(.roundedBorder)
+                                    .frame(minWidth: 120)
+                            }
+                            Button(role: .destructive) { deleteRow(row) } label: {
+                                Image(systemName: "minus.circle")
+                                    .frame(width: 44, height: 44)
+                            }
+                            .disabled(table.rows.count == 1)
+                            .accessibilityLabel("Delete row \(row + 1)")
+                        }
+                    }
+                }
+            }
+            HStack {
+                Button("Add row", systemImage: "plus") { addRow() }
+                Button("Add column", systemImage: "rectangle.split.3x1") { addColumn() }
+                Button("Remove column", systemImage: "minus") { removeColumn() }
+                    .disabled((table.rows.first?.count ?? 1) == 1)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Editable table")
+    }
+
+    private func cellBinding(row: Int, column: Int) -> Binding<String> {
+        Binding(
+            get: {
+                let rows = table.rows
+                guard rows.indices.contains(row), rows[row].indices.contains(column) else { return "" }
+                return rows[row][column]
+            },
+            set: { value in mutate { $0.rows[row][column] = value } }
+        )
+    }
+
+    private func addRow() {
+        mutate { $0.rows.append(Array(repeating: "", count: $0.rows.first?.count ?? 1)) }
+    }
+
+    private func deleteRow(_ row: Int) {
+        mutate { if $0.rows.count > 1 { $0.rows.remove(at: row) } }
+    }
+
+    private func addColumn() {
+        mutate { table in for row in table.rows.indices { table.rows[row].append("") } }
+    }
+
+    private func removeColumn() {
+        mutate { table in
+            guard (table.rows.first?.count ?? 1) > 1 else { return }
+            for row in table.rows.indices { table.rows[row].removeLast() }
+        }
+    }
+
+    private func mutate(_ change: (inout KnowledgeBlockPayload.Table) -> Void) {
+        var payload = KnowledgeBlockPayload.decode(from: block)
+        var value = payload.table ?? .init()
+        change(&value)
+        payload.table = value
+        block.metadata = payload.encoded()
+        block.text = value.rows.map { $0.joined(separator: ",") }.joined(separator: "\n")
+    }
 }
 
 private struct LifeBoardKnowledgeGraphView: View {
     let notes: [LifeBoardKnowledgeNoteValue]
     let links: [LifeBoardKnowledgeLinkValue]
+    let folders: [LifeBoardKnowledgeFolderValue]
+    let tags: [LifeBoardKnowledgeTagValue]
     let onOpen: (LifeBoardKnowledgeNoteValue) -> Void
     @State private var scale = 1.0
     @State private var offset = CGSize.zero
+    @State private var searchText = ""
+    @State private var selectedFolderID: UUID?
+    @State private var selectedTagID: UUID?
+    @State private var prefersList = false
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+
+    private var filteredNotes: [LifeBoardKnowledgeNoteValue] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return notes.filter { note in
+            (query.isEmpty || note.title.lowercased().contains(query) || note.plainText.lowercased().contains(query))
+                && (selectedFolderID == nil || note.folderID == selectedFolderID)
+                && (selectedTagID.map { note.tagIDs.contains($0) } ?? true)
+        }
+    }
+
+    private var filteredLinks: [LifeBoardKnowledgeLinkValue] {
+        let ids = Set(filteredNotes.map(\.id))
+        return links.filter { ids.contains($0.sourceNoteID) && ids.contains($0.destinationNoteID) }
+    }
 
     var body: some View {
+        VStack(spacing: 10) {
+            TextField("Search graph", text: $searchText)
+                .textFieldStyle(.roundedBorder)
+                .padding(.horizontal, 20)
+            HStack {
+                filterMenu(title: "Folder", selection: $selectedFolderID, values: folders.map { ($0.id, $0.title) })
+                filterMenu(title: "Tag", selection: $selectedTagID, values: tags.map { ($0.id, $0.name) })
+                Spacer()
+                Button(prefersList ? "Graph" : "List", systemImage: prefersList ? "point.3.connected.trianglepath.dotted" : "list.bullet") {
+                    prefersList.toggle()
+                }
+            }
+            .padding(.horizontal, 20)
+            if prefersList || voiceOverEnabled {
+                List(filteredNotes) { note in
+                    Button { onOpen(note) } label: {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(note.title.isEmpty ? "Untitled" : note.title).font(.headline)
+                            Text(note.plainText).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                        }
+                    }
+                }
+                .listStyle(.plain)
+            } else {
+                graph
+            }
+        }
+    }
+
+    private var graph: some View {
         GeometryReader { proxy in
-            if notes.isEmpty {
+            if filteredNotes.isEmpty {
                 ContentUnavailableView("No graph yet", systemImage: "point.3.connected.trianglepath.dotted", description: Text("Create and connect notes to form a graph."))
             } else {
-                let positions = graphPositions(in: proxy.size)
+                let positions = graphPositions(for: filteredNotes, in: proxy.size)
                 ZStack {
                     Canvas { context, _ in
-                        for link in links {
+                        for link in filteredLinks {
                             guard let start = positions[link.sourceNoteID], let end = positions[link.destinationNoteID] else { continue }
                             var path = Path(); path.move(to: start); path.addLine(to: end)
                             context.stroke(path, with: .color(Color.primary.opacity(0.24)), lineWidth: 1.5)
                         }
                     }
-                    ForEach(notes) { note in
+                    ForEach(filteredNotes) { note in
                         if let position = positions[note.id] {
                             Button { onOpen(note) } label: {
                                 VStack(spacing: 4) {
@@ -654,13 +1081,13 @@ private struct LifeBoardKnowledgeGraphView: View {
                 .gesture(MagnifyGesture().onChanged { scale = min(2.5, max(0.6, $0.magnification)) })
                 .simultaneousGesture(DragGesture().onChanged { offset = $0.translation })
                 .accessibilityElement(children: .contain)
-                .accessibilityLabel("Knowledge graph with \(notes.count) notes and \(links.count) links")
+                .accessibilityLabel("Knowledge graph with \(filteredNotes.count) notes and \(filteredLinks.count) links")
             }
         }
         .padding(12)
     }
 
-    private func graphPositions(in size: CGSize) -> [UUID: CGPoint] {
+    private func graphPositions(for notes: [LifeBoardKnowledgeNoteValue], in size: CGSize) -> [UUID: CGPoint] {
         let radius = max(70, min(size.width, size.height) * 0.34)
         let center = CGPoint(x: size.width / 2, y: size.height / 2)
         return Dictionary(uniqueKeysWithValues: notes.enumerated().map { index, note in
@@ -668,5 +1095,21 @@ private struct LifeBoardKnowledgeGraphView: View {
             let ring = index < 12 ? radius * 0.62 : radius
             return (note.id, CGPoint(x: center.x + cos(angle) * ring, y: center.y + sin(angle) * ring))
         })
+    }
+
+    private func filterMenu(
+        title: String,
+        selection: Binding<UUID?>,
+        values: [(id: UUID, title: String)]
+    ) -> some View {
+        Menu {
+            Button("All") { selection.wrappedValue = nil }
+            ForEach(values, id: \.id) { value in
+                Button(value.title) { selection.wrappedValue = value.id }
+            }
+        } label: {
+            Label(title, systemImage: selection.wrappedValue == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+        }
+        .buttonStyle(.bordered)
     }
 }

@@ -1,11 +1,262 @@
 import CoreData
 import Foundation
+import JournalFoundation
+import UserNotifications
 
-public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepository, @unchecked Sendable {
+struct TrackerReminderRequest: Equatable, Sendable {
+    var identifier: String
+    var weekday: Int
+    var hour: Int
+    var minute: Int
+}
+
+enum TrackerReminderPolicy {
+    static func requests(for tracker: LifeBoardTrackerDefinitionValue) -> [TrackerReminderRequest] {
+        guard tracker.isArchived == false, let minutes = tracker.reminderMinutes else { return [] }
+        return tracker.schedule.sorted().map { weekday in
+            TrackerReminderRequest(
+                identifier: "lifeboard.tracker.\(tracker.id.uuidString).\(weekday)",
+                weekday: weekday,
+                hour: minutes / 60,
+                minute: minutes % 60
+            )
+        }
+    }
+
+    static func identifiers(for trackerID: UUID) -> [String] {
+        (1...7).map { "lifeboard.tracker.\(trackerID.uuidString).\($0)" }
+    }
+}
+
+actor TrackerReminderCoordinator {
+    static let shared = TrackerReminderCoordinator()
+    private let center: UNUserNotificationCenter
+
+    init(center: UNUserNotificationCenter = .current()) { self.center = center }
+
+    func synchronize(_ tracker: LifeBoardTrackerDefinitionValue) async {
+        center.removePendingNotificationRequests(withIdentifiers: TrackerReminderPolicy.identifiers(for: tracker.id))
+        let settings = await center.notificationSettings()
+        guard [.authorized, .provisional, .ephemeral].contains(settings.authorizationStatus) else { return }
+        for value in TrackerReminderPolicy.requests(for: tracker) {
+            let content = UNMutableNotificationContent()
+            content.title = tracker.title
+            content.body = "A gentle reminder to record today’s check-in."
+            content.sound = .default
+            content.userInfo = ["trackerID": tracker.id.uuidString]
+            var components = DateComponents()
+            components.hour = value.hour
+            components.minute = value.minute
+            components.weekday = value.weekday
+            let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+            try? await center.add(.init(identifier: value.identifier, content: content, trigger: trigger))
+        }
+    }
+}
+
+struct MedicationReminderRequest: Equatable, Sendable {
+    var identifier: String
+    var weekday: Int
+    var hour: Int
+    var minute: Int
+}
+
+enum MedicationReminderPolicy {
+    static func requests(
+        medication: LifeBoardMedicationDefinitionValue,
+        schedule: LifeBoardMedicationScheduleValue
+    ) -> [MedicationReminderRequest] {
+        guard medication.isArchived == false, schedule.reminderEnabled else { return [] }
+        return schedule.weekdays.sorted().map { weekday in
+            MedicationReminderRequest(
+                identifier: "lifeboard.medication.\(schedule.id.uuidString).\(weekday)",
+                weekday: weekday,
+                hour: schedule.windowStartMinutes / 60,
+                minute: schedule.windowStartMinutes % 60
+            )
+        }
+    }
+
+    static func identifiers(for scheduleID: UUID) -> [String] {
+        (1...7).map { "lifeboard.medication.\(scheduleID.uuidString).\($0)" }
+    }
+}
+
+actor MedicationReminderCoordinator {
+    static let shared = MedicationReminderCoordinator()
+    private let center: UNUserNotificationCenter
+
+    init(center: UNUserNotificationCenter = .current()) { self.center = center }
+
+    func synchronize(
+        medication: LifeBoardMedicationDefinitionValue,
+        schedule: LifeBoardMedicationScheduleValue
+    ) async {
+        center.removePendingNotificationRequests(withIdentifiers: MedicationReminderPolicy.identifiers(for: schedule.id))
+        let settings = await center.notificationSettings()
+        guard [.authorized, .provisional, .ephemeral].contains(settings.authorizationStatus) else { return }
+        for value in MedicationReminderPolicy.requests(medication: medication, schedule: schedule) {
+            let content = UNMutableNotificationContent()
+            content.title = medication.name
+            content.body = medication.dosageText.map { "Scheduled care window · \($0)" } ?? "Your scheduled care window is beginning."
+            content.sound = .default
+            content.userInfo = ["medicationID": medication.id.uuidString]
+            var components = DateComponents()
+            components.hour = value.hour
+            components.minute = value.minute
+            components.weekday = value.weekday
+            try? await center.add(.init(
+                identifier: value.identifier,
+                content: content,
+                trigger: UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+            ))
+        }
+    }
+}
+
+public actor ProtectedKnowledgeAttachmentFiles: KnowledgeAttachmentFileRepository {
+    private let rootURL: URL
+    private let fileManager: FileManager
+
+    public init(rootURL: URL? = nil, fileManager: FileManager = .default) {
+        self.fileManager = fileManager
+        if let rootURL {
+            self.rootURL = rootURL
+        } else {
+            let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+                ?? fileManager.temporaryDirectory
+            self.rootURL = support
+                .appendingPathComponent("LifeBoard", isDirectory: true)
+                .appendingPathComponent("KnowledgeAttachments", isDirectory: true)
+        }
+    }
+
+    public func persist(_ attachment: LifeBoardKnowledgeAttachmentValue) async throws -> URL {
+        guard attachment.payload.isEmpty == false else {
+            throw CocoaError(.fileWriteUnknown, userInfo: [NSLocalizedDescriptionKey: "The attachment has no readable data."])
+        }
+        let directory = rootURL.appendingPathComponent(attachment.id.uuidString, isDirectory: true)
+        try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        let fileName = URL(fileURLWithPath: attachment.fileName).lastPathComponent
+        let url = directory.appendingPathComponent(fileName.isEmpty ? "Attachment" : fileName, isDirectory: false)
+        try attachment.payload.write(to: url, options: [.atomic, .completeFileProtection])
+        try? fileManager.setAttributes([.protectionKey: FileProtectionType.complete], ofItemAtPath: directory.path)
+        return url
+    }
+
+    public func resolvedURL(for attachment: LifeBoardKnowledgeAttachmentValue) async throws -> URL {
+        let directory = rootURL.appendingPathComponent(attachment.id.uuidString, isDirectory: true)
+        if let existing = try? fileManager.contentsOfDirectory(
+            at: directory,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles]
+        ).first, fileManager.fileExists(atPath: existing.path) {
+            return existing
+        }
+        return try await persist(attachment)
+    }
+
+    public func deleteFile(for attachment: LifeBoardKnowledgeAttachmentValue) async throws {
+        let directory = rootURL.appendingPathComponent(attachment.id.uuidString, isDirectory: true)
+        guard fileManager.fileExists(atPath: directory.path) else { return }
+        try fileManager.removeItem(at: directory)
+    }
+}
+
+public actor URLSessionKnowledgeBookmarkMetadataFetcher: KnowledgeBookmarkMetadataFetching {
+    public static let shared = URLSessionKnowledgeBookmarkMetadataFetcher()
+
+    public func metadata(for url: URL) async throws -> KnowledgeBlockPayload.Bookmark {
+        guard ["http", "https"].contains(url.scheme?.lowercased() ?? "") else {
+            throw URLError(.unsupportedURL)
+        }
+        var request = URLRequest(url: url, cachePolicy: .returnCacheDataElseLoad, timeoutInterval: 10)
+        request.setValue("text/html,application/xhtml+xml", forHTTPHeaderField: "Accept")
+        let (data, response) = try await URLSession.shared.data(for: request)
+        guard let http = response as? HTTPURLResponse,
+              (200..<400).contains(http.statusCode) else { throw URLError(.badServerResponse) }
+        return Self.parseHTML(Data(data.prefix(262_144)), url: http.url ?? url)
+    }
+
+    public nonisolated static func parseHTML(_ data: Data, url: URL) -> KnowledgeBlockPayload.Bookmark {
+        guard let html = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
+            return .init(url: url)
+        }
+        let metadata = metaAttributes(in: html)
+        let title = metadata["og:title"]
+            ?? metadata["twitter:title"]
+            ?? firstCapture(in: html, pattern: #"(?is)<title[^>]*>(.*?)</title>"#)
+        let summary = metadata["og:description"]
+            ?? metadata["twitter:description"]
+            ?? metadata["description"]
+        return .init(url: url, title: cleaned(title), summary: cleaned(summary))
+    }
+
+    private nonisolated static func metaAttributes(in html: String) -> [String: String] {
+        guard let regex = try? NSRegularExpression(pattern: #"(?is)<meta\s+[^>]*>"#) else { return [:] }
+        let range = NSRange(html.startIndex..., in: html)
+        var result: [String: String] = [:]
+        for match in regex.matches(in: html, range: range) {
+            guard let tagRange = Range(match.range, in: html) else { continue }
+            let tag = String(html[tagRange])
+            let key = attribute("property", in: tag) ?? attribute("name", in: tag)
+            if let key, let content = attribute("content", in: tag) {
+                result[key.lowercased()] = content
+            }
+        }
+        return result
+    }
+
+    private nonisolated static func attribute(_ name: String, in tag: String) -> String? {
+        firstCapture(in: tag, pattern: "(?is)\\b\(NSRegularExpression.escapedPattern(for: name))\\s*=\\s*[\\\"']([^\\\"']*)[\\\"']")
+    }
+
+    private nonisolated static func firstCapture(in value: String, pattern: String) -> String? {
+        guard let regex = try? NSRegularExpression(pattern: pattern),
+              let match = regex.firstMatch(in: value, range: NSRange(value.startIndex..., in: value)),
+              match.numberOfRanges > 1,
+              let range = Range(match.range(at: 1), in: value) else { return nil }
+        return String(value[range])
+    }
+
+    private nonisolated static func cleaned(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let withoutTags = value.replacingOccurrences(of: #"<[^>]+>"#, with: " ", options: .regularExpression)
+        let decoded = withoutTags
+            .replacingOccurrences(of: "&amp;", with: "&")
+            .replacingOccurrences(of: "&quot;", with: "\"")
+            .replacingOccurrences(of: "&#39;", with: "'")
+            .replacingOccurrences(of: "&lt;", with: "<")
+            .replacingOccurrences(of: "&gt;", with: ">")
+        let compact = decoded.split(whereSeparator: \.isWhitespace).joined(separator: " ")
+        return compact.isEmpty ? nil : compact
+    }
+}
+
+public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepository, JournalBackupImportApplying, @unchecked Sendable {
     private let container: NSPersistentContainer
 
     public init(container: NSPersistentContainer) {
         self.container = container
+    }
+
+    public func makeJournalDerivedPipeline(
+        derivedIndex: any JournalDerivedIndexRepository,
+        invalidateReflections: @escaping JournalDerivedPipelineCoordinator.ReflectionInvalidator = { _ in },
+        invalidateHomeAndEvidence: @escaping JournalDerivedPipelineCoordinator.ProjectionInvalidator = {}
+    ) -> JournalDerivedPipelineCoordinator {
+        JournalDerivedPipelineCoordinator(
+            derivedIndex: derivedIndex,
+            graphStore: LifeBoardKnowledgeGraphStore(container: container),
+            snapshotProvider: { [weak self] in
+                guard let self else { return [] }
+                return try await self
+                    .fetchJournalDays(search: nil, starredOnly: false, mood: nil)
+                    .map(JournalEntrySnapshot.init(day:))
+            },
+            invalidateReflections: invalidateReflections,
+            invalidateHomeAndEvidence: invalidateHomeAndEvidence
+        )
     }
 
     // MARK: Trackers
@@ -33,6 +284,17 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             object.setValue(value.createdAt, forKey: "createdAt")
             object.setValue(value.updatedAt, forKey: "updatedAt")
             object.setValue(1, forKey: "version")
+        }
+    }
+
+    public func deleteTracker(id: UUID) async throws {
+        try await write { context in
+            let entries = NSFetchRequest<NSManagedObject>(entityName: "TrackerEntry")
+            entries.predicate = NSPredicate(format: "trackerID == %@", id as CVarArg)
+            try context.fetch(entries).forEach(context.delete)
+            if let tracker = try Self.fetchOne(entity: "TrackerDefinition", id: id, in: context) {
+                context.delete(tracker)
+            }
         }
     }
 
@@ -88,6 +350,13 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
         }
     }
 
+    public func deleteMoodCheckIn(id: UUID) async throws {
+        try await write { context in
+            guard let object = try Self.fetchOne(entity: "MoodEnergyCheckIn", id: id, in: context) else { return }
+            context.delete(object)
+        }
+    }
+
     // MARK: Medication
 
     public func fetchMedications() async throws -> [LifeBoardMedicationDefinitionValue] {
@@ -110,6 +379,19 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             object.setValue(value.isArchived, forKey: "isArchived")
             object.setValue(value.createdAt, forKey: "createdAt")
             object.setValue(value.updatedAt, forKey: "updatedAt")
+        }
+    }
+
+    public func deleteMedication(id: UUID) async throws {
+        try await write { context in
+            for entityName in ["MedicationEvent", "MedicationSchedule"] {
+                let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+                request.predicate = NSPredicate(format: "medicationID == %@", id as CVarArg)
+                try context.fetch(request).forEach(context.delete)
+            }
+            if let medication = try Self.fetchOne(entity: "MedicationDefinition", id: id, in: context) {
+                context.delete(medication)
+            }
         }
     }
 
@@ -185,6 +467,12 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             object.setValue(try Self.encode(value.reminderOffsets), forKey: "reminderOffsetsData")
             object.setValue(value.note, forKey: "note")
             object.setValue(value.startedAt, forKey: "createdAt")
+            if object.entity.attributesByName["completionKindRaw"] != nil {
+                object.setValue(value.completionKind?.rawValue, forKey: "completionKindRaw")
+            }
+            if object.entity.attributesByName["updatedAt"] != nil {
+                object.setValue(value.updatedAt ?? Date(), forKey: "updatedAt")
+            }
         }
     }
 
@@ -231,45 +519,47 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
 
     public func saveJournalDay(_ value: LifeBoardJournalDayValue) async throws {
         try await write { context in
-            let day = try Self.upsert(entity: "JournalDay", id: value.id, in: context)
-            day.setValue(value.id, forKey: "id")
-            day.setValue(Calendar.current.startOfDay(for: value.day), forKey: "day")
-            day.setValue(value.summary, forKey: "summary")
-            day.setValue(value.isStarred, forKey: "isStarred")
-            day.setValue(value.representativeCheckInID, forKey: "representativeCheckInID")
-            day.setValue(value.createdAt, forKey: "createdAt")
-            day.setValue(value.updatedAt, forKey: "updatedAt")
+            try Self.writeJournalDay(value, in: context)
+        }
+    }
 
-            Self.deleteChildren(of: day, key: "blocks", in: context)
-            Self.deleteChildren(of: day, key: "media", in: context)
-
-            for blockValue in value.blocks {
-                let block = NSEntityDescription.insertNewObject(forEntityName: "JournalBlock", into: context)
-                block.setValue(blockValue.id, forKey: "id")
-                block.setValue(value.id, forKey: "dayID")
-                block.setValue(blockValue.kind.rawValue, forKey: "kindRaw")
-                block.setValue(blockValue.text, forKey: "text")
-                block.setValue(blockValue.mood?.rawValue, forKey: "moodRaw")
-                block.setValue(blockValue.energy.map(NSNumber.init(value:)), forKey: "energy")
-                block.setValue(blockValue.mediaID, forKey: "mediaID")
-                block.setValue(blockValue.promptID, forKey: "promptID")
-                block.setValue(blockValue.createdAt, forKey: "createdAt")
-                block.setValue(blockValue.updatedAt, forKey: "updatedAt")
-                block.setValue(blockValue.ordinal, forKey: "ordinal")
-                block.setValue(day, forKey: "day")
-            }
-
-            for mediaValue in value.media {
-                let media = NSEntityDescription.insertNewObject(forEntityName: "JournalMediaAttachment", into: context)
-                media.setValue(mediaValue.id, forKey: "id")
-                media.setValue(value.id, forKey: "dayID")
-                media.setValue(mediaValue.kind.rawValue, forKey: "kindRaw")
-                media.setValue(mediaValue.kind == .photo ? mediaValue.payload : nil, forKey: "payloadData")
-                media.setValue(mediaValue.relativePath, forKey: "relativePath")
-                media.setValue(mediaValue.duration.map(NSNumber.init(value:)), forKey: "duration")
-                media.setValue(mediaValue.createdAt, forKey: "createdAt")
-                media.setValue(mediaValue.syncPolicy.rawValue, forKey: "syncPolicyRaw")
-                media.setValue(day, forKey: "day")
+    public func importJournalDays(
+        _ values: [LifeBoardJournalDayValue],
+        duplicatePolicy: JournalBackupDuplicatePolicy
+    ) async throws -> JournalImportReceipt {
+        let context = container.newBackgroundContext()
+        context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
+        return try await context.perform {
+            var inserted: [UUID] = []
+            var replaced: [UUID] = []
+            var skipped: [UUID] = []
+            do {
+                for input in values {
+                    let existing = try Self.fetchOne(entity: "JournalDay", id: input.id, in: context) != nil
+                    switch (existing, duplicatePolicy) {
+                    case (true, .keepExisting):
+                        skipped.append(input.id)
+                    case (true, .replaceExisting):
+                        try Self.writeJournalDay(input, in: context)
+                        replaced.append(input.id)
+                    case (_, .duplicateWithNewIDs):
+                        let remapped = Self.remapJournalDay(input)
+                        try Self.writeJournalDay(remapped, in: context)
+                        inserted.append(remapped.id)
+                    case (false, _):
+                        try Self.writeJournalDay(input, in: context)
+                        inserted.append(input.id)
+                    }
+                }
+                if context.hasChanges { try context.save() }
+                return JournalImportReceipt(
+                    insertedDayIDs: inserted,
+                    replacedDayIDs: replaced,
+                    skippedDayIDs: skipped
+                )
+            } catch {
+                context.rollback()
+                throw error
             }
         }
     }
@@ -278,6 +568,36 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
         try await write { context in
             if let day = try Self.fetchOne(entity: "JournalDay", id: id, in: context) {
                 context.delete(day)
+            }
+        }
+    }
+
+    public func fetchJournalDraft(dayID: UUID?) async throws -> LifeBoardJournalDraftValue? {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "JournalDraft")
+            if let dayID { request.predicate = NSPredicate(format: "dayID == %@", dayID as CVarArg) }
+            request.sortDescriptors = [NSSortDescriptor(key: "updatedAt", ascending: false)]
+            request.fetchLimit = 1
+            guard let object = try context.fetch(request).first,
+                  let payload = object.value(forKey: "payloadData") as? Data else { return nil }
+            return try JSONDecoder().decode(LifeBoardJournalDraftValue.self, from: payload)
+        }
+    }
+
+    public func saveJournalDraft(_ value: LifeBoardJournalDraftValue) async throws {
+        try await write { context in
+            let object = try Self.upsert(entity: "JournalDraft", id: value.id, in: context)
+            object.setValue(value.id, forKey: "id")
+            object.setValue(value.dayID, forKey: "dayID")
+            object.setValue(try Self.encode(value), forKey: "payloadData")
+            object.setValue(value.updatedAt, forKey: "updatedAt")
+        }
+    }
+
+    public func deleteJournalDraft(id: UUID) async throws {
+        try await write { context in
+            if let draft = try Self.fetchOne(entity: "JournalDraft", id: id, in: context) {
+                context.delete(draft)
             }
         }
     }
@@ -379,6 +699,12 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
                 link.setValue(tagID, forKey: "tagID")
                 link.setValue(note, forKey: "note")
                 link.setValue(tag, forKey: "tag")
+            }
+
+            let attachmentRequest = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeAttachment")
+            attachmentRequest.predicate = NSPredicate(format: "noteID == %@", value.id as CVarArg)
+            for attachment in try context.fetch(attachmentRequest) {
+                attachment.setValue(note, forKey: "note")
             }
         }
     }
@@ -494,6 +820,76 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
         children.forEach(context.delete)
     }
 
+    private static func writeJournalDay(_ value: LifeBoardJournalDayValue, in context: NSManagedObjectContext) throws {
+        let day = try upsert(entity: "JournalDay", id: value.id, in: context)
+        day.setValue(value.id, forKey: "id")
+        day.setValue(value.day, forKey: "day")
+        day.setValue(value.summary, forKey: "summary")
+        day.setValue(value.isStarred, forKey: "isStarred")
+        day.setValue(value.representativeCheckInID, forKey: "representativeCheckInID")
+        if day.entity.attributesByName["aiExclusionRaw"] != nil {
+            day.setValue(value.aiExclusion == .included ? nil : value.aiExclusion.rawValue, forKey: "aiExclusionRaw")
+        }
+        day.setValue(value.createdAt, forKey: "createdAt")
+        day.setValue(value.updatedAt, forKey: "updatedAt")
+        deleteChildren(of: day, key: "blocks", in: context)
+        deleteChildren(of: day, key: "media", in: context)
+        for value in value.blocks {
+            let block = NSEntityDescription.insertNewObject(forEntityName: "JournalBlock", into: context)
+            block.setValue(value.id, forKey: "id")
+            block.setValue(day.value(forKey: "id"), forKey: "dayID")
+            block.setValue(value.kind.rawValue, forKey: "kindRaw")
+            block.setValue(value.text, forKey: "text")
+            block.setValue(value.mood?.rawValue, forKey: "moodRaw")
+            block.setValue(value.energy.map(NSNumber.init(value:)), forKey: "energy")
+            block.setValue(value.mediaID, forKey: "mediaID")
+            block.setValue(value.promptID, forKey: "promptID")
+            block.setValue(value.createdAt, forKey: "createdAt")
+            block.setValue(value.updatedAt, forKey: "updatedAt")
+            block.setValue(value.ordinal, forKey: "ordinal")
+            block.setValue(day, forKey: "day")
+        }
+        for value in value.media {
+            let media = NSEntityDescription.insertNewObject(forEntityName: "JournalMediaAttachment", into: context)
+            media.setValue(value.id, forKey: "id")
+            media.setValue(day.value(forKey: "id"), forKey: "dayID")
+            media.setValue(value.kind.rawValue, forKey: "kindRaw")
+            media.setValue(value.kind == .photo ? value.payload : nil, forKey: "payloadData")
+            media.setValue(value.relativePath, forKey: "relativePath")
+            media.setValue(value.duration.map(NSNumber.init(value:)), forKey: "duration")
+            media.setValue(value.createdAt, forKey: "createdAt")
+            media.setValue(value.syncPolicy.rawValue, forKey: "syncPolicyRaw")
+            media.setValue(day, forKey: "day")
+        }
+    }
+
+    private static func remapJournalDay(_ input: LifeBoardJournalDayValue) -> LifeBoardJournalDayValue {
+        let dayID = UUID()
+        let mediaIDs = Dictionary(uniqueKeysWithValues: input.media.map { ($0.id, UUID()) })
+        var value = input
+        value.id = dayID
+        value.createdAt = Date()
+        value.updatedAt = value.createdAt
+        value.media = input.media.map { media in
+            var copy = media
+            copy.id = mediaIDs[media.id] ?? UUID()
+            copy.dayID = dayID
+            copy.createdAt = value.createdAt
+            return copy
+        }
+        value.blocks = input.blocks.enumerated().map { index, block in
+            var copy = block
+            copy.id = UUID()
+            copy.dayID = dayID
+            copy.mediaID = block.mediaID.flatMap { mediaIDs[$0] }
+            copy.ordinal = index
+            copy.createdAt = value.createdAt
+            copy.updatedAt = value.createdAt
+            return copy
+        }
+        return value
+    }
+
     private static func encode<T: Encodable>(_ value: T) throws -> Data { try JSONEncoder().encode(value) }
     private static func decode<T: Decodable>(_ type: T.Type, from data: Data?) -> T? {
         guard let data else { return nil }
@@ -601,7 +997,13 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             endedAt: object.value(forKey: "endedAt") as? Date,
             targetDuration: (object.value(forKey: "targetDuration") as? NSNumber)?.doubleValue,
             reminderOffsets: decode([TimeInterval].self, from: object.value(forKey: "reminderOffsetsData") as? Data) ?? [],
-            note: object.value(forKey: "note") as? String
+            note: object.value(forKey: "note") as? String,
+            completionKind: object.entity.attributesByName["completionKindRaw"] == nil
+                ? nil
+                : (object.value(forKey: "completionKindRaw") as? String).flatMap(LifeBoardFastingCompletionKind.init(rawValue:)),
+            updatedAt: object.entity.attributesByName["updatedAt"] == nil
+                ? nil
+                : object.value(forKey: "updatedAt") as? Date
         )
     }
 
@@ -619,7 +1021,11 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             createdAt: object.value(forKey: "createdAt") as? Date ?? day,
             updatedAt: object.value(forKey: "updatedAt") as? Date ?? day,
             blocks: blockObjects.compactMap(journalBlockValue),
-            media: mediaObjects.compactMap(journalMediaValue)
+            media: mediaObjects.compactMap(journalMediaValue),
+            aiExclusion: object.entity.attributesByName["aiExclusionRaw"] == nil
+                ? .included
+                : ((object.value(forKey: "aiExclusionRaw") as? String)
+                    .flatMap(JournalAIExclusion.init(rawValue:)) ?? .included)
         )
     }
 
