@@ -4,7 +4,7 @@ import Combine
 
 @MainActor
 final class HomeViewModelPersistenceTests: XCTestCase {
-    private var cancellables = Set<AnyCancellable>()
+    nonisolated(unsafe) private var cancellables = Set<AnyCancellable>()
 
     func testShiftSelectedDayLeftContractMovesToPreviousCustomDate() {
         let suiteName = "HomeViewModelPersistenceTests.DaySwipePrevious.\(UUID().uuidString)"

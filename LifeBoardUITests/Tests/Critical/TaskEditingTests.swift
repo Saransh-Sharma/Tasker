@@ -18,8 +18,8 @@ class TaskEditingTests: BaseUITest {
         [XCUIApplication.LaunchArgumentKey.testSeedEstablishedWorkspace.rawValue]
     }
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         homePage = HomePage(app: app)
         XCTAssertTrue(homePage.waitForTask(withTitle: seededTaskTitle, timeout: 8), "Seeded task should be visible")
     }

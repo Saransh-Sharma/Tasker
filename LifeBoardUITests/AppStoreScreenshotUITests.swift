@@ -316,7 +316,7 @@ final class AppStoreScreenshotUITests: BaseUITest {
             let failed = app.descendants(matching: .any)["home.rescue.launcher.failed"]
             let state = loading.exists
                 ? "launcher remained loading"
-                : (failed.exists ? "launcher failed: \(failed.value)" : "launcher state was not rendered")
+                : (failed.exists ? "launcher failed: \(String(describing: failed.value ?? "unknown"))" : "launcher state was not rendered")
             throw captureFailure("Overdue-rescue sheet did not open (\(state))")
         }
         try require(

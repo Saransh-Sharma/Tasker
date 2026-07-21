@@ -16,8 +16,8 @@ final class ReflectPlanSeededUITests: BaseUITest {
         ]
     }
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         reflectPage = ReflectPlanPage(app: app)
         XCTAssertTrue(reflectPage.screen.waitForExistence(timeout: 12), "Post-seed nightly route should open Reflect & Plan.")
     }

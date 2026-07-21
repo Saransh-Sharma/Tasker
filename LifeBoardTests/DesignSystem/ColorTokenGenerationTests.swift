@@ -4,64 +4,72 @@ import UIKit
 
 @MainActor
 final class ColorTokenGenerationTests: XCTestCase {
-    func testSarvamPaletteMatchesSpec() {
-        let palette = LifeBoardBrandPalette.sarvam
+    func testSunrisePaletteMatchesSpec() {
+        let palette = LifeBoardBrandPalette.sunrise
 
-        assertEqualColor(palette.brandEmerald, UIColor(lifeboardHex: "#293A18"))
-        assertEqualColor(palette.brandMagenta, UIColor(lifeboardHex: "#B1205F"))
-        assertEqualColor(palette.brandMarigold, UIColor(lifeboardHex: "#FEBF2B"))
-        assertEqualColor(palette.brandRed, UIColor(lifeboardHex: "#C11317"))
-        assertEqualColor(palette.brandSandstone, UIColor(lifeboardHex: "#9E5F0A"))
-        assertEqualColor(palette.neutralIvory, UIColor(lifeboardHex: "#FFF8EF"))
-        assertEqualColor(palette.neutralDarkInk0, UIColor(lifeboardHex: "#0F0C0A"))
-        assertEqualColor(palette.neutralDarkText1, UIColor(lifeboardHex: "#FFF3E6"))
+        assertEqualColor(palette.brandEmerald, UIColor(lifeboardHex: "#28B53F"))
+        assertEqualColor(palette.brandMagenta, UIColor(lifeboardHex: "#6842FF"))
+        assertEqualColor(palette.brandMarigold, UIColor(lifeboardHex: "#FFB300"))
+        assertEqualColor(palette.brandRed, UIColor(lifeboardHex: "#FF7A3D"))
+        assertEqualColor(palette.brandSandstone, UIColor(lifeboardHex: "#FF7A3D"))
+        assertEqualColor(palette.neutralIvory, UIColor(lifeboardHex: "#FFFDFC"))
+        assertEqualColor(palette.neutralDarkInk0, UIColor(lifeboardHex: "#080C17"))
+        assertEqualColor(palette.neutralDarkText1, UIColor(lifeboardHex: "#F7F1E7"))
     }
 
+    // These assert the canonical warm paper/cocoa palette (unified presentation
+    // is the default in DEBUG, where these tests run). The legacy sunrise
+    // values remain covered by `testSunrisePaletteMatchesSpec`, which checks
+    // the brand palette struct directly.
     func testSemanticNeutralsStayStableAcrossBrandTheme() {
         let colors = LifeBoardTheme(index: 0).tokens.color
 
         assertEqualColor(
             colors.bgCanvas.resolvedColor(with: .init(userInterfaceStyle: .light)),
-            UIColor(lifeboardHex: "#FFF8EF")
+            UIColor(lifeboardHex: "#FFF7D8")
         )
         assertEqualColor(
             colors.bgCanvasSecondary.resolvedColor(with: .init(userInterfaceStyle: .light)),
-            UIColor(lifeboardHex: "#F7EFE4")
+            UIColor(lifeboardHex: "#FAF2DA")
         )
         assertEqualColor(
             colors.bgCanvasSecondary.resolvedColor(with: .init(userInterfaceStyle: .dark)),
-            UIColor(lifeboardHex: "#15110E")
+            UIColor(lifeboardHex: "#111624")
         )
         assertEqualColor(
             colors.surfacePrimary.resolvedColor(with: .init(userInterfaceStyle: .dark)),
-            UIColor(lifeboardHex: "#15110E")
+            UIColor(lifeboardHex: "#202741").withAlphaComponent(0.92)
         )
     }
 
     func testPrimaryAndAssistantAccentsMatchBrandRoles() {
         let colors = LifeBoardTheme(index: 0).tokens.color
 
+        // Primary action is cocoa ink on paper; the dark treatment flips to
+        // warm sun so labels keep contrast.
         assertEqualColor(
             colors.primaryAction.resolvedColor(with: .init(userInterfaceStyle: .light)),
-            UIColor(lifeboardHex: "#293A18")
+            UIColor(lifeboardHex: "#2B2118")
         )
         assertEqualColor(
             colors.primaryAction.resolvedColor(with: .init(userInterfaceStyle: .dark)),
-            UIColor(lifeboardHex: "#FEBF2B")
+            UIColor(lifeboardHex: "#F0CD87")
         )
-        assertEqualColor(colors.assistantAccent, UIColor(lifeboardHex: "#B1205F"))
-        assertEqualColor(colors.warningAccent, UIColor(lifeboardHex: "#FEBF2B"))
-        assertEqualColor(colors.dangerAccent, UIColor(lifeboardHex: "#C11317"))
-        assertEqualColor(colors.stateInfo, UIColor(lifeboardHex: "#9E5F0A"))
+        // Assistant accent retains warm sun; status colors move to clay tones.
+        assertEqualColor(colors.assistantAccent.resolvedColor(with: .init(userInterfaceStyle: .light)), UIColor(lifeboardHex: "#F0CD87"))
+        assertEqualColor(colors.warningAccent.resolvedColor(with: .init(userInterfaceStyle: .light)), UIColor(lifeboardHex: "#8A6A2F"))
+        assertEqualColor(colors.dangerAccent.resolvedColor(with: .init(userInterfaceStyle: .light)), UIColor(lifeboardHex: "#A14E41"))
+        assertEqualColor(colors.stateInfo.resolvedColor(with: .init(userInterfaceStyle: .light)), UIColor(lifeboardHex: "#68727E"))
     }
 
     func testPriorityColorsUseBrandFamilies() {
         let colors = LifeBoardTheme(index: 0).tokens.color
 
-        assertEqualColor(colors.priorityNone, UIColor(lifeboardHex: "#9E5F0A"))
-        assertEqualColor(colors.priorityLow, UIColor(lifeboardHex: "#293A18"))
-        assertEqualColor(colors.priorityHigh, UIColor(lifeboardHex: "#B1205F"))
-        assertEqualColor(colors.priorityMax, UIColor(lifeboardHex: "#C11317"))
+        let traits = UITraitCollection(userInterfaceStyle: .light)
+        assertEqualColor(colors.priorityNone.resolvedColor(with: traits), UIColor(lifeboardHex: "#877B68"))
+        assertEqualColor(colors.priorityLow.resolvedColor(with: traits), UIColor(lifeboardHex: "#5D6A4D"))
+        assertEqualColor(colors.priorityHigh.resolvedColor(with: traits), UIColor(lifeboardHex: "#B5654F"))
+        assertEqualColor(colors.priorityMax.resolvedColor(with: traits), UIColor(lifeboardHex: "#A14E41"))
     }
 
     func testCompatibilityAliasesMapToSemanticRoles() {

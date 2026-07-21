@@ -4,9 +4,9 @@ import UIKit
 
 @MainActor
 final class HomeCalendarIntegrationTests: XCTestCase {
-    private var workspaceSuiteName: String!
-    private var workspaceStore: LifeBoardWorkspacePreferencesStore!
-    private var ephemeralSuiteNames: [String] = []
+    nonisolated(unsafe) private var workspaceSuiteName: String!
+    nonisolated(unsafe) private var workspaceStore: LifeBoardWorkspacePreferencesStore!
+    nonisolated(unsafe) private var ephemeralSuiteNames: [String] = []
 
     override func setUp() {
         super.setUp()
@@ -1533,7 +1533,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     @MainActor
-    func testHomeViewControllerRefreshesCalendarWhenAppBecomesActive() {
+    func testHomeViewControllerRefreshesCalendarWhenAppBecomesActive() throws {
         workspaceStore.save(LifeBoardWorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
@@ -1573,7 +1573,9 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         controller.viewModel = viewModel
         controller.presentationDependencyContainer = presentationContainer
 
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 420, height: 900))
+        let windowScene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: windowScene)
+        window.frame = CGRect(x: 0, y: 0, width: 420, height: 900)
         window.rootViewController = controller
         window.makeKeyAndVisible()
         controller.loadViewIfNeeded()

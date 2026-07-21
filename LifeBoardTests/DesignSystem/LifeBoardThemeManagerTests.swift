@@ -8,21 +8,21 @@ final class LifeBoardThemeManagerTests: XCTestCase {
         let currentTheme = LifeBoardThemeManager.shared.currentTheme
 
         XCTAssertEqual(currentTheme.index, 0)
-        XCTAssertEqual(currentTheme.palette, .sarvam)
+        XCTAssertEqual(currentTheme.palette, .sunrise)
     }
 
     func testLifeBoardThemePreservesPassedIndexForCompatibility() {
         let theme = LifeBoardTheme(index: 7)
 
         XCTAssertEqual(theme.index, 7)
-        XCTAssertEqual(theme.palette, .sarvam)
+        XCTAssertEqual(theme.palette, .sunrise)
     }
 
     func testReloadFromPersistenceKeepsSingleBrandTheme() {
         LifeBoardThemeManager.shared.reloadFromPersistence()
 
         XCTAssertEqual(LifeBoardThemeManager.shared.currentTheme.index, 0)
-        XCTAssertEqual(LifeBoardThemeManager.shared.currentTheme.palette, .sarvam)
+        XCTAssertEqual(LifeBoardThemeManager.shared.currentTheme.palette, .sunrise)
     }
 
     func testTokenResolverKeepsPhoneValuesStable() {
@@ -53,12 +53,12 @@ final class LifeBoardThemeManagerTests: XCTestCase {
         XCTAssertEqual(first.typography.title2.pointSize, second.typography.title2.pointSize)
     }
 
-    func testCurrentPaletteCarriesSilkScribeInspiredNeutrals() {
+    func testCurrentPaletteCarriesSunriseNeutrals() {
         let palette = LifeBoardThemeManager.shared.currentTheme.palette
 
-        assertEqualColor(palette.neutralIvory, UIColor(lifeboardHex: "#FFF8EF"))
-        assertEqualColor(palette.neutralDarkInk0, UIColor(lifeboardHex: "#0F0C0A"))
-        assertEqualColor(palette.neutralDarkBorder2, UIColor(lifeboardHex: "#4A3B30"))
+        assertEqualColor(palette.neutralIvory, UIColor(lifeboardHex: "#FFFDFC"))
+        assertEqualColor(palette.neutralDarkInk0, UIColor(lifeboardHex: "#080C17"))
+        assertEqualColor(palette.neutralDarkBorder2, UIColor(lifeboardHex: "#56617B"))
     }
 
     private func assertEqualColor(_ lhs: UIColor, _ rhs: UIColor, file: StaticString = #filePath, line: UInt = #line) {

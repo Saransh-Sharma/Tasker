@@ -19,8 +19,8 @@ class BaseUITest: XCTestCase {
 
     // MARK: - Test Lifecycle
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
 
         // Stop immediately on failure for easier debugging
         continueAfterFailure = false
@@ -42,19 +42,15 @@ class BaseUITest: XCTestCase {
         }
         app.launchArguments.append(contentsOf: additionalLaunchArguments)
 
-        // Launch the app
         app.launch()
-
-        // Wait for app to be ready
         waitForAppLaunch()
     }
 
-    override func tearDownWithError() throws {
-        // Terminate the app
+    override func tearDown() async throws {
         app.terminate()
         app = nil
 
-        try super.tearDownWithError()
+        try await super.tearDown()
     }
 
     // MARK: - App Launch

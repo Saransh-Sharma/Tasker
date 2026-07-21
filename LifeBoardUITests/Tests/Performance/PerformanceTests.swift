@@ -20,8 +20,8 @@ class PerformanceTests: BaseUITest {
         ]
     }
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         homePage = HomePage(app: app)
         XCTAssertTrue(ensurePerformanceAppReady(), "Performance test app should be ready before measurement starts")
     }
@@ -517,9 +517,11 @@ class PerformanceTests: BaseUITest {
 
         measure(metrics: [XCTApplicationLaunchMetric()], options: launchOptions) {
             app.terminate()
-
-            // Simulate cold start delay
-            Thread.sleep(forTimeInterval: 1.0)
+            let terminated = XCTNSPredicateExpectation(
+                predicate: NSPredicate { _, _ in self.app.state == .notRunning },
+                object: NSObject()
+            )
+            _ = XCTWaiter.wait(for: [terminated], timeout: 2)
 
             app.launch()
         }
@@ -734,7 +736,6 @@ class PerformanceTests: BaseUITest {
     }
 
     private func createHabitThroughAddSheet(title: String) {
-        let addPage = AddTaskPage(app: app)
         if openHabitComposerFromHome() == false {
             let taskAddPage = homePage.tapAddTask()
             XCTAssertTrue(taskAddPage.verifyIsDisplayed(timeout: 5), "Add sheet should open before creating a habit")
@@ -1165,7 +1166,6 @@ class PerformanceTests: BaseUITest {
     private func dismissScheduleEventDetailIfPresented() -> Bool {
         let identifiedClose = app.buttons["schedule.detail.close"]
         let done = app.navigationBars.buttons["Done"].firstMatch
-        let detailSheet = app.descendants(matching: .any)["schedule.detail.sheet"]
         let sheet = app.sheets.firstMatch
 
         let appeared = waitForScheduleEventDetailPresented(timeout: 2)

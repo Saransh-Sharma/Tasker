@@ -5,8 +5,9 @@ import SwiftUI
 import UIKit
 #endif
 
+@MainActor
 final class SunriseHeaderAssetTests: XCTestCase {
-    private var calendar: Calendar!
+    nonisolated(unsafe) private var calendar: Calendar!
 
     override func setUp() {
         super.setUp()
@@ -165,7 +166,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(style?.accessibilityLabel(timeText: "8:00 AM"), "Routine, 8:00 AM, Rise and shine, Start the day.")
     }
 
-    func testRoutineAnchorVisualStyleResolvesSleepAssetAndTitleCase() {
+    func testRoutineAnchorVisualStyleResolvesSleepAssetAndPreservesSentenceCase() {
         let style = TimelineRoutineAnchorVisualStyle.resolve(
             anchorID: "sleep",
             title: "Wind down",
@@ -173,9 +174,9 @@ final class SunriseHeaderAssetTests: XCTestCase {
         )
 
         XCTAssertEqual(style?.assetName, "routine_evening_strip")
-        XCTAssertEqual(style?.displayTitle, "Wind Down")
+        XCTAssertEqual(style?.displayTitle, "Wind down")
         XCTAssertEqual(style?.subtitleText(timeText: "10:00 PM"), "10:00 PM • Close the day")
-        XCTAssertEqual(style?.accessibilityLabel(timeText: "10:00 PM"), "Routine, 10:00 PM, Wind Down, Close the day.")
+        XCTAssertEqual(style?.accessibilityLabel(timeText: "10:00 PM"), "Routine, 10:00 PM, Wind down, Close the day.")
     }
 
     func testRoutineAnchorVisualStyleIgnoresUnknownAnchors() {
@@ -805,6 +806,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
 }
 
 #if canImport(UIKit)
+@MainActor
 final class ReflectPlanStyleTests: XCTestCase {
     func testReflectPlanSurfacesResolveDarkAndReadable() {
         let darkCanvas = resolvedColor(ReflectPlanStyle.canvas, style: .dark)
@@ -846,6 +848,7 @@ final class ReflectPlanStyleTests: XCTestCase {
     }
 }
 
+@MainActor
 final class HabitDetailStyleTests: XCTestCase {
     func testHabitDetailBackgroundStopsResolveDark() {
         let darkStops = [
@@ -890,6 +893,7 @@ final class HabitDetailStyleTests: XCTestCase {
     }
 }
 
+@MainActor
 final class TaskDetailStyleTests: XCTestCase {
     private let traitVariants: [(style: UIUserInterfaceStyle, contrast: UIAccessibilityContrast)] = [
         (.light, .normal),

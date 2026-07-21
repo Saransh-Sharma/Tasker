@@ -3,6 +3,7 @@ import UIKit
 import CoreData
 @testable import LifeBoard
 
+@MainActor
 final class HomeViewControllerLifecycleTests: XCTestCase {
     func testStoryboardInstantiatedHomeViewControllerDeallocatesWithoutInjectedDependencies() throws {
         weak var weakController: HomeViewController?
@@ -18,9 +19,10 @@ final class HomeViewControllerLifecycleTests: XCTestCase {
         XCTAssertNil(weakController)
     }
 
-    func testDeferredHomeAttachShowsBootstrapFailureWhenInjectionFails() {
+    func testDeferredHomeAttachShowsBootstrapFailureWhenInjectionFails() throws {
         let sceneDelegate = SceneDelegate()
-        sceneDelegate.window = UIWindow()
+        let windowScene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        sceneDelegate.window = UIWindow(windowScene: windowScene)
 
         let result = sceneDelegate.makeDeferredHomeRootController(
             bootstrapState: .ready(makeBootstrapContainer()),
