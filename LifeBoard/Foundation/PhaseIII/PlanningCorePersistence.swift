@@ -12,7 +12,28 @@ public enum PlanningPersistenceError: LocalizedError, Sendable {
     }
 }
 
-public final class CoreDataPlanningRepository: PlanningRepository, PlanningProjectionRepository, InternalTimeBlockRepository, PlanningMutationRepository, FocusExecutionCoordinator, @unchecked Sendable {
+private struct FocusCommandLedger: Codable, Sendable {
+    var appliedCommandIDs: Set<UUID>
+    var receipts: [FocusCommandReceipt]
+}
+
+public final class CoreDataPlanningRepository: PlanningRepository, PlanningProjectionRepository, PlanningCalendarContextRepository, InternalTimeBlockRepository, PlanningMutationRepository, FocusExecutionCoordinator, @unchecked Sendable {
+    // Read-only calendar context stays an EventKit concern; this repository
+    // only forwards so callers can treat planning as one composed boundary.
+    private lazy var calendarContext = SystemPlanningCalendarContextRepository()
+
+    public func authorization() async -> PlanningCalendarAuthorization {
+        await calendarContext.authorization()
+    }
+
+    public func requestAccess() async -> PlanningCalendarAuthorization {
+        await calendarContext.requestAccess()
+    }
+
+    public func fetchCommitments(from: Date, to: Date) async throws -> PlanningCalendarContext {
+        try await calendarContext.fetchCommitments(from: from, to: to)
+    }
+
     private let container: NSPersistentContainer
 
     public init(container: NSPersistentContainer) {
@@ -62,7 +83,14 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
             let taskRequest = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
             taskRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
                 NSPredicate(format: "isComplete == NO"),
-                NSPredicate(format: "parentTaskID == nil")
+                NSPredicate(format: "parentTaskID == nil"),
+                NSCompoundPredicate(orPredicateWithSubpredicates: [
+                    NSPredicate(format: "unscheduledDispositionRaw == nil"),
+                    NSPredicate(
+                        format: "unscheduledDispositionRaw != %@",
+                        UnscheduledDisposition.deleted.rawValue
+                    )
+                ])
             ])
             taskRequest.sortDescriptors = [
                 NSSortDescriptor(key: "dueDate", ascending: true),
@@ -142,6 +170,24 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
                     && firstReadyTaskByProject[projectID] == summaries[index].id
             }
             return summaries
+        }
+    }
+
+    public func fetchPlanningProjects() async throws -> [PlanningProjectSummary] {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "Project")
+            request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
+            return try context.fetch(request).compactMap { object in
+                guard let id = object.value(forKey: "id") as? UUID,
+                      let rawName = object.value(forKey: "name") as? String else { return nil }
+                let name = rawName.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard name.isEmpty == false else { return nil }
+                return PlanningProjectSummary(
+                    id: id,
+                    name: name,
+                    isArchived: (object.value(forKey: "isArchived") as? NSNumber)?.boolValue ?? false
+                )
+            }
         }
     }
 
@@ -256,6 +302,51 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
         }
     }
 
+    public func hasAppliedReceipt(source: String) async throws -> Bool {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "PlanningMutationReceipt")
+            request.fetchLimit = 1
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(format: "source == %@", source),
+                NSPredicate(format: "stateRaw == %@", "applied")
+            ])
+            return try context.count(for: request) > 0
+        }
+    }
+
+    public func fetchMutationReceipts(since: Date? = nil) async throws -> [PlanningReceiptRecord] {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "PlanningMutationReceipt")
+            if let since { request.predicate = NSPredicate(format: "createdAt >= %@", since as NSDate) }
+            request.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
+            request.fetchBatchSize = 200
+            return try context.fetch(request).compactMap { object in
+                guard let id = object.value(forKey: "id") as? UUID,
+                      let source = object.value(forKey: "source") as? String,
+                      let summary = object.value(forKey: "summary") as? String,
+                      let forwardData = object.value(forKey: "forwardData") as? Data,
+                      let undoData = object.value(forKey: "undoData") as? Data,
+                      let createdAt = object.value(forKey: "createdAt") as? Date else { return nil }
+                let receipt = PlanMutationReceipt(
+                    id: id,
+                    source: source,
+                    summary: summary,
+                    forwardData: forwardData,
+                    undoData: undoData,
+                    createdAt: createdAt
+                )
+                let state = (object.value(forKey: "stateRaw") as? String)
+                    .flatMap(PlanningReceiptState.init(rawValue:)) ?? .prepared
+                return PlanningReceiptRecord(
+                    receipt: receipt,
+                    state: state,
+                    appliedAt: object.value(forKey: "appliedAt") as? Date,
+                    undoneAt: object.value(forKey: "undoneAt") as? Date
+                )
+            }
+        }
+    }
+
     public func activeSession() async throws -> FocusSessionV2? {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "FocusSession")
@@ -263,6 +354,39 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
             request.sortDescriptors = [NSSortDescriptor(key: "startedAt", ascending: false)]
             request.fetchLimit = 1
             return try context.fetch(request).first.flatMap(Self.focusSession)
+        }
+    }
+
+    public func session(id: UUID) async throws -> FocusSessionV2? {
+        try await read { context in
+            try Self.fetchOne(entity: "FocusSession", id: id, in: context).flatMap(Self.focusSession)
+        }
+    }
+
+    public func sessions(since: Date? = nil) async throws -> [FocusSessionV2] {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "FocusSession")
+            if let since { request.predicate = NSPredicate(format: "startedAt >= %@", since as NSDate) }
+            request.sortDescriptors = [NSSortDescriptor(key: "startedAt", ascending: false)]
+            request.fetchBatchSize = 200
+            return try context.fetch(request).compactMap(Self.focusSession)
+        }
+    }
+
+    public func commandReceipts(since: Date? = nil) async throws -> [FocusCommandReceipt] {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "FocusSession")
+            request.sortDescriptors = [NSSortDescriptor(key: "startedAt", ascending: false)]
+            request.fetchBatchSize = 200
+            return try context.fetch(request)
+                .flatMap(Self.focusCommandReceipts)
+                .filter { receipt in
+                    since.map { threshold in threshold <= receipt.occurredAt } ?? true
+                }
+                .sorted {
+                    if $0.occurredAt != $1.occurredAt { return $0.occurredAt > $1.occurredAt }
+                    return $0.id.uuidString < $1.id.uuidString
+                }
         }
     }
 
@@ -302,8 +426,21 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
                   let current = Self.focusSession(object) else {
                 throw PlanningPersistenceError.taskNotFound(command.sessionID)
             }
+            let wasApplied = Self.focusCommandCanApply(command, to: current)
             let updated = FocusSessionStateMachine.applying(command, to: current)
-            try Self.write(updated, to: object)
+            var receipts = Self.focusCommandReceipts(object)
+            if receipts.contains(where: { $0.id == command.id }) == false {
+                receipts.append(FocusCommandReceipt(
+                    id: command.id,
+                    sessionID: command.sessionID,
+                    kind: command.kind,
+                    occurredAt: command.occurredAt,
+                    resultingState: updated.state,
+                    focusedDuration: updated.focusedDuration(at: command.occurredAt),
+                    wasApplied: wasApplied
+                ))
+            }
+            try Self.write(updated, to: object, commandReceipts: receipts)
             if context.hasChanges { try context.save() }
             return updated
         }
@@ -421,7 +558,9 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
               let startedAt = object.value(forKey: "startedAt") as? Date else { return nil }
         let commandIDs: Set<UUID>
         if let data = object.value(forKey: "appliedCommandIDsData") as? Data {
-            commandIDs = (try? JSONDecoder().decode(Set<UUID>.self, from: data)) ?? []
+            commandIDs = (try? JSONDecoder().decode(FocusCommandLedger.self, from: data).appliedCommandIDs)
+                ?? (try? JSONDecoder().decode(Set<UUID>.self, from: data))
+                ?? []
         } else {
             commandIDs = []
         }
@@ -443,7 +582,32 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
         )
     }
 
-    private static func write(_ session: FocusSessionV2, to object: NSManagedObject) throws {
+    private static func focusCommandReceipts(_ object: NSManagedObject) -> [FocusCommandReceipt] {
+        guard let data = object.value(forKey: "appliedCommandIDsData") as? Data else { return [] }
+        return (try? JSONDecoder().decode(FocusCommandLedger.self, from: data).receipts) ?? []
+    }
+
+    private static func focusCommandCanApply(
+        _ command: FocusSessionCommand,
+        to session: FocusSessionV2
+    ) -> Bool {
+        guard command.sessionID == session.id,
+              session.appliedCommandIDs.contains(command.id) == false else { return false }
+        return switch command.kind {
+        case .pause:
+            session.state == .running
+        case .resume:
+            session.state == .paused && session.pausedAt != nil
+        case .end(_):
+            session.state != .ended
+        }
+    }
+
+    private static func write(
+        _ session: FocusSessionV2,
+        to object: NSManagedObject,
+        commandReceipts: [FocusCommandReceipt] = []
+    ) throws {
         object.setValue(session.id, forKey: "id")
         object.setValue(session.taskID, forKey: "taskID")
         object.setValue(session.timeBlockID, forKey: "timeBlockID")
@@ -460,7 +624,14 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
         object.setValue(session.energyAfter, forKey: "energyAfter")
         object.setValue(session.reflection, forKey: "reflection")
         object.setValue(session.state.rawValue, forKey: "stateRaw")
-        object.setValue(try JSONEncoder().encode(session.appliedCommandIDs), forKey: "appliedCommandIDsData")
+        let ledger = FocusCommandLedger(
+            appliedCommandIDs: session.appliedCommandIDs,
+            receipts: commandReceipts.sorted {
+                if $0.occurredAt != $1.occurredAt { return $0.occurredAt < $1.occurredAt }
+                return $0.id.uuidString < $1.id.uuidString
+            }
+        )
+        object.setValue(try JSONEncoder().encode(ledger), forKey: "appliedCommandIDsData")
         object.setValue(object.value(forKey: "createdAt") as? Date ?? session.startedAt, forKey: "createdAt")
     }
 

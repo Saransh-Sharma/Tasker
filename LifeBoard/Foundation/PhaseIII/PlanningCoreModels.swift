@@ -64,6 +64,10 @@ public enum ProjectExecutionMode: String, Codable, CaseIterable, Sendable {
 public enum UnscheduledDisposition: String, Codable, CaseIterable, Sendable {
     case inbox
     case someday
+    case archived
+    /// A sync-safe deletion marker. Mutation receipts can restore the canonical task exactly,
+    /// while every planning and linked-source projection treats it as removed.
+    case deleted
 }
 
 public struct PlanningTaskMetadata: Codable, Hashable, Identifiable, Sendable {
@@ -371,6 +375,18 @@ public struct PlanningTaskSummary: Codable, Hashable, Identifiable, Sendable {
     }
 }
 
+public struct PlanningProjectSummary: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public let name: String
+    public let isArchived: Bool
+
+    public init(id: UUID, name: String, isArchived: Bool) {
+        self.id = id
+        self.name = name
+        self.isArchived = isArchived
+    }
+}
+
 public struct PlanDaySnapshot: Codable, Equatable, Sendable {
     public var day: PlanningDay
     public var capacity: CapacityBudget
@@ -405,6 +421,7 @@ public enum BacklogGroup: String, Codable, CaseIterable, Sendable {
     case someday
     case waiting
     case paused
+    case archived
 }
 
 public struct PlanBacklogSnapshot: Codable, Equatable, Sendable {
@@ -622,6 +639,32 @@ public struct PlanMutationReceipt: Codable, Hashable, Identifiable, Sendable {
     public var createdAt: Date
 }
 
+public enum PlanningReceiptState: String, Codable, CaseIterable, Sendable {
+    case prepared
+    case applied
+    case undone
+}
+
+public struct PlanningReceiptRecord: Codable, Hashable, Identifiable, Sendable {
+    public var id: UUID { receipt.id }
+    public var receipt: PlanMutationReceipt
+    public var state: PlanningReceiptState
+    public var appliedAt: Date?
+    public var undoneAt: Date?
+
+    public init(
+        receipt: PlanMutationReceipt,
+        state: PlanningReceiptState,
+        appliedAt: Date? = nil,
+        undoneAt: Date? = nil
+    ) {
+        self.receipt = receipt
+        self.state = state
+        self.appliedAt = appliedAt
+        self.undoneAt = undoneAt
+    }
+}
+
 public enum PlanMutation: Codable, Hashable, Sendable {
     case saveTaskMetadata(before: PlanningTaskMetadata, after: PlanningTaskMetadata)
     case saveTimeBlock(before: InternalTimeBlock?, after: InternalTimeBlock)
@@ -710,6 +753,34 @@ public struct FocusSessionCommand: Codable, Hashable, Identifiable, Sendable {
     }
 }
 
+public struct FocusCommandReceipt: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public var sessionID: UUID
+    public var kind: FocusSessionCommandKind
+    public var occurredAt: Date
+    public var resultingState: FocusSessionState
+    public var focusedDuration: TimeInterval
+    public var wasApplied: Bool
+
+    public init(
+        id: UUID,
+        sessionID: UUID,
+        kind: FocusSessionCommandKind,
+        occurredAt: Date,
+        resultingState: FocusSessionState,
+        focusedDuration: TimeInterval,
+        wasApplied: Bool
+    ) {
+        self.id = id
+        self.sessionID = sessionID
+        self.kind = kind
+        self.occurredAt = occurredAt
+        self.resultingState = resultingState
+        self.focusedDuration = max(0, focusedDuration)
+        self.wasApplied = wasApplied
+    }
+}
+
 // MARK: - Repository and service contracts
 
 public protocol PlanningRepository: Sendable {
@@ -718,8 +789,63 @@ public protocol PlanningRepository: Sendable {
     func saveTaskMetadata(_ values: [PlanningTaskMetadata]) async throws
 }
 
+public struct PlanningHomeContextCandidateProvider: HomeContextCandidateProvider {
+    public let providerID = "planning"
+    private let repository: any PlanningRepository & PlanningProjectionRepository & PlanningCalendarContextRepository
+
+    public init(repository: any PlanningRepository & PlanningProjectionRepository & PlanningCalendarContextRepository) {
+        self.repository = repository
+    }
+
+    public func candidates(context: HomeContextCandidateContext) async -> [HomeContextCandidate] {
+        let now = context.date
+        let horizon = now.addingTimeInterval(24 * 60 * 60)
+        async let tasksResult = try? repository.fetchOpenPlanningTasks()
+        async let calendarResult = try? repository.fetchCommitments(from: now, to: horizon)
+        let tasks = await tasksResult ?? []
+        let calendar = await calendarResult
+        var result: [HomeContextCandidate] = []
+
+        if let next = calendar?.commitments
+            .filter({ $0.endAt > now && !$0.isAllDay })
+            .sorted(by: { $0.startAt < $1.startAt }).first {
+            result.append(.init(
+                id: "planning-commitment:\(next.id)",
+                widgetKind: .compactTimeline,
+                title: next.startAt <= now ? next.title : "Next: \(next.title)",
+                reason: .init(
+                    message: next.startAt <= now ? "This commitment is happening now." : "This is your next scheduled commitment.",
+                    signal: "calendar"
+                ),
+                destination: .plan,
+                priority: next.startAt <= now ? 520 : 420,
+                relevantFrom: now,
+                relevantUntil: next.endAt
+            ))
+        }
+
+        let overdue = tasks.filter { task in
+            guard let due = task.dueDate else { return false }
+            return due < now && task.scheduledEndAt == nil
+        }.count
+        if overdue > 0 {
+            result.append(.init(
+                id: "planning-overdue:\(Calendar.current.startOfDay(for: now).timeIntervalSince1970)",
+                widgetKind: .tasks,
+                title: overdue == 1 ? "One task needs a gentle decision" : "\(overdue) tasks need a quick reset",
+                reason: .init(message: "A short review can keep old tasks from quietly weighing on today.", signal: "unfinished tasks"),
+                destination: .plan,
+                priority: 310,
+                relevantFrom: now
+            ))
+        }
+        return result
+    }
+}
+
 public protocol PlanningProjectionRepository: Sendable {
     func fetchOpenPlanningTasks() async throws -> [PlanningTaskSummary]
+    func fetchPlanningProjects() async throws -> [PlanningProjectSummary]
 }
 
 public protocol PlanningCalendarContextRepository: Sendable {
@@ -732,10 +858,15 @@ public protocol PlanningMutationRepository: Sendable {
     func prepare(_ mutation: PlanMutation, source: String, summary: String) async throws -> PlanMutationReceipt
     func apply(receiptID: UUID) async throws
     func undo(receiptID: UUID) async throws
+    func hasAppliedReceipt(source: String) async throws -> Bool
+    func fetchMutationReceipts(since: Date?) async throws -> [PlanningReceiptRecord]
 }
 
 public protocol FocusExecutionCoordinator: Sendable {
     func activeSession() async throws -> FocusSessionV2?
+    func session(id: UUID) async throws -> FocusSessionV2?
+    func sessions(since: Date?) async throws -> [FocusSessionV2]
+    func commandReceipts(since: Date?) async throws -> [FocusCommandReceipt]
     func start(taskID: UUID?, timeBlockID: UUID?, targetDuration: TimeInterval, at: Date) async throws -> FocusSessionV2
     func handle(_ command: FocusSessionCommand) async throws -> FocusSessionV2
 }

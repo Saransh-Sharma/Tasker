@@ -1,5 +1,207 @@
 import CoreData
+import CryptoKit
 import Foundation
+
+/// Protected, local-only recovery log for in-place Track and care corrections. The corrected
+/// source values remain in their existing Core Data stores; this file contains only the before /
+/// after snapshots needed for honest undo and normalized-event provenance.
+public actor LocalTrackCorrectionReceiptRepository: TrackCorrectionReceiptRepository {
+    private struct Envelope: Codable {
+        var schemaVersion = 1
+        var receipts: [TrackCorrectionReceipt]
+    }
+
+    public static let shared = LocalTrackCorrectionReceiptRepository()
+
+    private let directoryURL: URL
+    private let fileURL: URL
+    private let fileManager: FileManager
+
+    public init(rootURL: URL? = nil, fileManager: FileManager = .default) {
+        let base = rootURL
+            ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory
+        directoryURL = base.appendingPathComponent("LifeBoard/TrackRecovery", isDirectory: true)
+        fileURL = directoryURL.appendingPathComponent("CorrectionReceipts.v1.json", isDirectory: false)
+        self.fileManager = fileManager
+    }
+
+    public func fetchTrackCorrectionReceipts() async throws -> [TrackCorrectionReceipt] {
+        try Task.checkCancellation()
+        return try load().sorted { lhs, rhs in
+            lhs.appliedAt == rhs.appliedAt ? lhs.id.uuidString < rhs.id.uuidString : lhs.appliedAt > rhs.appliedAt
+        }
+    }
+
+    public func saveTrackCorrectionReceipt(_ receipt: TrackCorrectionReceipt) async throws {
+        try Task.checkCancellation()
+        var receipts = try load()
+        receipts.removeAll { $0.id == receipt.id }
+        receipts.append(receipt)
+        try persist(receipts)
+    }
+
+    private func load() throws -> [TrackCorrectionReceipt] {
+        guard fileManager.fileExists(atPath: fileURL.path) else { return [] }
+        do {
+            let data = try Data(contentsOf: fileURL)
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            let envelope = try decoder.decode(Envelope.self, from: data)
+            guard envelope.schemaVersion == 1 else { throw TrackCorrectionReceiptFailure.unsupportedSchema }
+            return envelope.receipts
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            let quarantine = directoryURL.appendingPathComponent(
+                "CorrectionReceipts.corrupt-\(Int(Date().timeIntervalSince1970)).json",
+                isDirectory: false
+            )
+            try? fileManager.moveItem(at: fileURL, to: quarantine)
+            return []
+        }
+    }
+
+    private func persist(_ receipts: [TrackCorrectionReceipt]) throws {
+        do {
+            try fileManager.createDirectory(
+                at: directoryURL,
+                withIntermediateDirectories: true,
+                attributes: [.protectionKey: FileProtectionType.complete]
+            )
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.sortedKeys]
+            let data = try encoder.encode(Envelope(receipts: receipts))
+            try data.write(to: fileURL, options: [.atomic, .completeFileProtection])
+            try fileManager.setAttributes(
+                [.protectionKey: FileProtectionType.complete],
+                ofItemAtPath: fileURL.path
+            )
+        } catch {
+            throw TrackCorrectionReceiptFailure.unableToPersist
+        }
+    }
+}
+
+public enum TrackCorrectionReceiptFailure: LocalizedError, Equatable {
+    case mismatchedPayload
+    case staleReceipt
+    case unsupportedSchema
+    case unableToPersist
+
+    public var errorDescription: String? {
+        switch self {
+        case .mismatchedPayload: "The correction does not preserve the source record."
+        case .staleReceipt: "A newer correction exists. Undo the most recent change first."
+        case .unsupportedSchema: "The correction history uses an unsupported format."
+        case .unableToPersist: "The correction could not be saved with protected recovery history."
+        }
+    }
+}
+
+public extension TrackCorrectionReceipt {
+    static func deterministic(
+        previous: TrackCorrectionPayload,
+        corrected: TrackCorrectionPayload,
+        appliedAt: Date = Date()
+    ) throws -> TrackCorrectionReceipt {
+        guard previous.sourceID == corrected.sourceID, previous.domain == corrected.domain else {
+            throw TrackCorrectionReceiptFailure.mismatchedPayload
+        }
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
+        let payload = try encoder.encode(corrected)
+        let digest = SHA256.hash(data: payload).map { String(format: "%02x", $0) }.joined()
+        let seed = "\(previous.domain.rawValue)|\(previous.sourceID.uuidString)|\(String(format: "%.6f", appliedAt.timeIntervalSinceReferenceDate))|\(digest)"
+        return TrackCorrectionReceipt(
+            id: deterministicUUID(seed: seed),
+            previous: previous,
+            corrected: corrected,
+            appliedAt: appliedAt
+        )
+    }
+
+    private static func deterministicUUID(seed: String) -> UUID {
+        let digest = Array(SHA256.hash(data: Data(seed.utf8)).prefix(16))
+        return UUID(uuid: (
+            digest[0], digest[1], digest[2], digest[3],
+            digest[4], digest[5], (digest[6] & 0x0F) | 0x50, digest[7],
+            (digest[8] & 0x3F) | 0x80, digest[9], digest[10], digest[11],
+            digest[12], digest[13], digest[14], digest[15]
+        ))
+    }
+}
+
+public final class CoreDataGoalSampleProvider: GoalSampleProvider, @unchecked Sendable {
+    private let container: NSPersistentContainer
+
+    public init(container: NSPersistentContainer) { self.container = container }
+
+    public func samples(for links: [GoalLink], asOf date: Date) async throws -> [GoalProgressSample] {
+        let context = container.newBackgroundContext()
+        context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyStoreTrumpMergePolicyType)
+        return try await context.perform {
+            try links.compactMap { try Self.sample(for: $0, asOf: date, in: context) }
+        }
+    }
+
+    private static func sample(for link: GoalLink, asOf date: Date, in context: NSManagedObjectContext) throws -> GoalProgressSample? {
+        switch link.source {
+        case .task:
+            let request = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
+            request.fetchLimit = 1
+            request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: [
+                NSPredicate(format: "id == %@", link.sourceID as CVarArg),
+                NSPredicate(format: "taskID == %@", link.sourceID as CVarArg)
+            ])
+            guard let value = try context.fetch(request).first else { return nil }
+            let complete = (value.value(forKey: "isComplete") as? NSNumber)?.boolValue ?? false
+            return .init(linkID: link.id, value: complete ? 1 : 0, isComplete: complete, measuredAt: value.value(forKey: "updatedAt") as? Date ?? date)
+        case .project:
+            let request = NSFetchRequest<NSManagedObject>(entityName: "Project")
+            request.fetchLimit = 1
+            request.predicate = NSPredicate(format: "id == %@", link.sourceID as CVarArg)
+            guard let value = try context.fetch(request).first else { return nil }
+            let status = (value.value(forKey: "status") as? String)?.lowercased()
+            let complete = status == "completed" || status == "complete" || status == "done"
+            return .init(linkID: link.id, value: complete ? 1 : 0, isComplete: complete, measuredAt: value.value(forKey: "updatedAt") as? Date ?? date)
+        case .habit:
+            let request = NSFetchRequest<NSManagedObject>(entityName: "Occurrence")
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(format: "sourceID == %@", link.sourceID as CVarArg),
+                NSPredicate(format: "state == %@", OccurrenceState.completed.rawValue),
+                NSPredicate(format: "scheduledAt <= %@", date as NSDate)
+            ])
+            let count = try context.count(for: request)
+            return .init(linkID: link.id, value: Double(count), isComplete: nil, measuredAt: date)
+        case .routine:
+            let request = NSFetchRequest<NSManagedObject>(entityName: "RoutineRun")
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(format: "routineID == %@", link.sourceID as CVarArg),
+                NSPredicate(format: "statusRaw == %@", RoutineRunStatus.completed.rawValue)
+            ])
+            let count = try context.count(for: request)
+            return .init(linkID: link.id, value: Double(count), isComplete: nil, measuredAt: date)
+        case .trackerMeasure:
+            let request = NSFetchRequest<NSManagedObject>(entityName: "TrackerEntry")
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(format: "trackerID == %@", link.sourceID as CVarArg),
+                NSPredicate(format: "timestamp <= %@", date as NSDate)
+            ])
+            let entries = try context.fetch(request)
+            guard !entries.isEmpty else { return nil }
+            let total = entries.reduce(0.0) { partial, value in
+                if let numeric = value.value(forKey: "numericValue") as? NSNumber { return partial + numeric.doubleValue }
+                if (value.value(forKey: "booleanValue") as? NSNumber)?.boolValue == true { return partial + 1 }
+                return partial
+            }
+            let measuredAt = entries.compactMap { $0.value(forKey: "timestamp") as? Date }.max() ?? date
+            return .init(linkID: link.id, value: total, isComplete: nil, measuredAt: measuredAt)
+        }
+    }
+}
 
 public final class CoreDataTrackFoundationRepository: TrackFoundationRepository, @unchecked Sendable {
     private let container: NSPersistentContainer
@@ -30,6 +232,18 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
             object.setValue(value.isArchived, forKey: "isArchived")
             object.setValue(value.createdAt, forKey: "createdAt")
             object.setValue(value.updatedAt, forKey: "updatedAt")
+        }
+    }
+
+    public func deleteGoal(id: UUID) async throws {
+        try await write { context in
+            let linkRequest = NSFetchRequest<NSManagedObject>(entityName: "GoalLink")
+            linkRequest.predicate = NSPredicate(format: "goalID == %@", id as CVarArg)
+            try context.fetch(linkRequest).forEach(context.delete)
+
+            let goalRequest = NSFetchRequest<NSManagedObject>(entityName: "GoalDefinition")
+            goalRequest.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+            try context.fetch(goalRequest).forEach(context.delete)
         }
     }
 
@@ -66,10 +280,52 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
             object.setValue(value.id, forKey: "id")
             object.setValue(value.habitID, forKey: "habitID")
             object.setValue(value.groupID, forKey: "groupID")
-            object.setValue(try Self.encode(value.offDays), forKey: "offDayKeysData")
+            object.setValue(
+                try Self.encode(HabitPolicyDayMetadata(
+                    offDays: value.offDays,
+                    recoveryReceipts: value.recoveryReceipts
+                )),
+                forKey: "offDayKeysData"
+            )
             object.setValue(value.recoveryEnabled, forKey: "recoveryEnabled")
             object.setValue(value.streakPresentation.rawValue, forKey: "streakPresentationRaw")
             object.setValue(value.updatedAt, forKey: "updatedAt")
+        }
+    }
+
+    public func fetchHabitGroups() async throws -> [HabitGroup] {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "HabitGroup")
+            request.sortDescriptors = [
+                NSSortDescriptor(key: "ordinal", ascending: true),
+                NSSortDescriptor(key: "title", ascending: true)
+            ]
+            return try context.fetch(request).compactMap(Self.habitGroup)
+        }
+    }
+
+    public func saveHabitGroup(_ value: HabitGroup) async throws {
+        try await write { context in
+            let object = try Self.upsert(entity: "HabitGroup", id: value.id, in: context)
+            object.setValue(value.id, forKey: "id")
+            object.setValue(value.title, forKey: "title")
+            object.setValue(value.planningContext.rawValue, forKey: "planningContextRaw")
+            object.setValue(value.ordinal, forKey: "ordinal")
+            object.setValue(value.createdAt, forKey: "createdAt")
+        }
+    }
+
+    public func deleteHabitGroup(id: UUID) async throws {
+        try await write { context in
+            let policyRequest = NSFetchRequest<NSManagedObject>(entityName: "HabitResiliencePolicy")
+            policyRequest.predicate = NSPredicate(format: "groupID == %@", id as CVarArg)
+            try context.fetch(policyRequest).forEach { policy in
+                policy.setValue(nil, forKey: "groupID")
+                policy.setValue(Date(), forKey: "updatedAt")
+            }
+            let groupRequest = NSFetchRequest<NSManagedObject>(entityName: "HabitGroup")
+            groupRequest.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+            try context.fetch(groupRequest).forEach(context.delete)
         }
     }
 
@@ -111,6 +367,21 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
                 stepObject.setValue(step.isSkippable, forKey: "isSkippable")
                 stepObject.setValue(try Self.encode(step), forKey: "configurationData")
             }
+        }
+    }
+
+    public func deleteRoutine(id: UUID) async throws {
+        try await write { context in
+            // Definition-owned presentation state is removed. Historical runs deliberately remain:
+            // every run carries its immutable versionSnapshotData and must survive definition deletion.
+            for entity in ["RoutineStep", "RoutineSchedule"] {
+                let request = NSFetchRequest<NSManagedObject>(entityName: entity)
+                request.predicate = NSPredicate(format: "routineID == %@", id as CVarArg)
+                try context.fetch(request).forEach(context.delete)
+            }
+            let definitionRequest = NSFetchRequest<NSManagedObject>(entityName: "RoutineDefinition")
+            definitionRequest.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+            try context.fetch(definitionRequest).forEach(context.delete)
         }
     }
 
@@ -224,6 +495,10 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
         }
     }
 
+    public func deleteHydrationLog(id: UUID) async throws {
+        try await delete(entity: "HydrationLog", id: id)
+    }
+
     public func fetchHydrationTarget() async throws -> HydrationTarget? {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "HydrationTarget")
@@ -268,6 +543,10 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
         }
     }
 
+    public func deleteSleepContextRecord(id: UUID) async throws {
+        try await delete(entity: "SleepContextRecord", id: id)
+    }
+
     public func fetchStarterPackInstallations() async throws -> [StarterPackInstallation] {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "StarterPackInstallation")
@@ -299,6 +578,14 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
         try await context.perform {
             try operation(context)
             if context.hasChanges { try context.save() }
+        }
+    }
+
+    private func delete(entity: String, id: UUID) async throws {
+        try await write { context in
+            if let object = try Self.fetchOne(entity: entity, id: id, in: context) {
+                context.delete(object)
+            }
         }
     }
 
@@ -360,15 +647,38 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
     private static func habitPolicy(_ object: NSManagedObject) -> HabitResiliencePolicy? {
         guard let id = object.value(forKey: "id") as? UUID,
               let habitID = object.value(forKey: "habitID") as? UUID else { return nil }
+        let dayData = object.value(forKey: "offDayKeysData") as? Data
+        let metadata = decode(HabitPolicyDayMetadata.self, from: dayData)
         return .init(
             id: id,
             habitID: habitID,
             groupID: object.value(forKey: "groupID") as? UUID,
-            offDays: decode(Set<PlanningDay>.self, from: object.value(forKey: "offDayKeysData") as? Data) ?? [],
+            // Earlier Phase IV builds stored the bare set in this column. Decode it
+            // as a fallback so recovery metadata remains an additive migration.
+            offDays: metadata?.offDays ?? decode(Set<PlanningDay>.self, from: dayData) ?? [],
             recoveryEnabled: (object.value(forKey: "recoveryEnabled") as? NSNumber)?.boolValue ?? true,
             streakPresentation: (object.value(forKey: "streakPresentationRaw") as? String)
                 .flatMap(HabitStreakPresentation.init(rawValue:)) ?? .gradeAndStreak,
+            recoveryReceipts: metadata?.recoveryReceipts ?? [],
             updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+        )
+    }
+
+    private struct HabitPolicyDayMetadata: Codable {
+        var offDays: Set<PlanningDay>
+        var recoveryReceipts: [HabitRecoveryReceipt]
+    }
+
+    private static func habitGroup(_ object: NSManagedObject) -> HabitGroup? {
+        guard let id = object.value(forKey: "id") as? UUID,
+              let title = object.value(forKey: "title") as? String else { return nil }
+        return .init(
+            id: id,
+            title: title,
+            planningContext: (object.value(forKey: "planningContextRaw") as? String)
+                .flatMap(PlanningContext.init(rawValue:)) ?? .neutral,
+            ordinal: (object.value(forKey: "ordinal") as? NSNumber)?.intValue ?? 0,
+            createdAt: object.value(forKey: "createdAt") as? Date ?? Date()
         )
     }
 

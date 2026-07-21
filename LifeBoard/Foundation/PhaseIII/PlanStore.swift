@@ -1,12 +1,33 @@
 import Foundation
 import Observation
 
-enum PlanLens: String, CaseIterable, Identifiable {
+enum PlanLens: String, CaseIterable, Identifiable, Codable, Sendable {
     case day = "Day"
     case week = "Week"
     case backlog = "Backlog"
 
     var id: String { rawValue }
+}
+
+struct BacklogDeletionUndoState: Equatable, Sendable {
+    let receiptID: UUID
+    let deletedCount: Int
+}
+
+enum PlanLensRestoration {
+    static let key = "lifeboard.plan.selectedLens.v1"
+
+    static func load(from defaults: UserDefaults = .standard) -> PlanLens {
+        guard let rawValue = defaults.string(forKey: key),
+              let lens = PlanLens(rawValue: rawValue) else {
+            return .day
+        }
+        return lens
+    }
+
+    static func save(_ lens: PlanLens, to defaults: UserDefaults = .standard) {
+        defaults.set(lens.rawValue, forKey: key)
+    }
 }
 
 @MainActor
@@ -18,7 +39,9 @@ final class PlanStore {
     private(set) var backlogSnapshot: PlanBacklogSnapshot?
     private(set) var repairProposals: [PlanRepairProposal] = []
     private(set) var activeFocusSession: FocusSessionV2?
+    private(set) var normalizedEvents: [NormalizedLifeEvent] = []
     private(set) var lastMutationReceiptID: UUID?
+    private(set) var backlogDeletionUndoState: BacklogDeletionUndoState?
     private(set) var isLoading = false
     var errorMessage: String?
     var selectedDay: PlanningDay
@@ -28,7 +51,7 @@ final class PlanStore {
     private let calendarRepository: any PlanningCalendarContextRepository
     private let repairService: any PlanRepairService
     private var allBlocks: [InternalTimeBlock] = []
-    private var workingProfile: WorkingHoursProfile?
+    private(set) var workingProfile: WorkingHoursProfile?
     private var calendarContext = PlanningCalendarContext(authorization: .notDetermined)
     private var calendar: Calendar
 
@@ -60,6 +83,21 @@ final class PlanStore {
             async let fetchedCalendarContext = safeCalendarContext(from: bounds.start, to: bounds.end)
             tasks = try await fetchedTasks
             activeFocusSession = try await planningRepository.activeSession()
+            if let session = activeFocusSession,
+               let repair = FocusStartupRepairPolicy.commandKind(for: session, now: Date()) {
+                let repaired = try await planningRepository.handle(.init(
+                    sessionID: session.id,
+                    kind: repair,
+                    occurredAt: Date()
+                ))
+                activeFocusSession = repaired.state == .ended ? nil : repaired
+            }
+            await FocusLiveActivityCoordinator.shared.endOrphanedActivities(except: activeFocusSession?.id)
+            if let activeFocusSession {
+                await synchronizeFocusPresentation(activeFocusSession)
+            } else {
+                await FocusNotificationFallbackCoordinator.shared.cancelAll()
+            }
             allBlocks = try await fetchedBlocks
             let availableProfiles = try await profiles
             calendarContext = await fetchedCalendarContext
@@ -71,6 +109,7 @@ final class PlanStore {
                 workingProfile = profile
             }
             rebuildSnapshots()
+            repairProposals = try await suppressAcknowledgedRepairs(repairProposals)
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -136,6 +175,160 @@ final class PlanStore {
         } catch { errorMessage = error.localizedDescription }
     }
 
+    func bulkUpdate(
+        _ taskIDs: Set<UUID>,
+        planningDay: PlanningDay? = nil,
+        preserveDay: Bool = true,
+        context: PlanningContext? = nil,
+        availability: TaskAvailability? = nil,
+        disposition: UnscheduledDisposition? = nil
+    ) async {
+        let selected = tasks.filter { taskIDs.contains($0.id) }
+        let mutations = selected.map { task -> PlanMutation in
+            var after = task.metadata
+            if !preserveDay { after.planningDay = planningDay }
+            if let context { after.planningContext = context }
+            if let availability { after.availability = availability }
+            if let disposition {
+                after.unscheduledDisposition = disposition
+                after.planningDay = nil
+            }
+            after.updatedAt = Date()
+            return .saveTaskMetadata(before: task.metadata, after: after)
+        }
+        guard !mutations.isEmpty else { return }
+        do {
+            try await commit(.batch(mutations), source: "plan.bulk", summary: "Updated \(mutations.count) tasks")
+            await load()
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    func deleteBacklogTasks(_ taskIDs: Set<UUID>) async {
+        let selected = tasks.filter {
+            taskIDs.contains($0.id) && $0.metadata.unscheduledDisposition != .deleted
+        }
+        let mutations = selected.map { task -> PlanMutation in
+            var after = task.metadata
+            after.planningDay = nil
+            after.unscheduledDisposition = .deleted
+            after.updatedAt = Date()
+            return .saveTaskMetadata(before: task.metadata, after: after)
+        }
+        guard mutations.isEmpty == false else { return }
+        do {
+            let receiptID = try await commit(
+                .batch(mutations),
+                source: "plan.backlog.delete",
+                summary: "Deleted \(mutations.count) backlog item\(mutations.count == 1 ? "" : "s")"
+            )
+            backlogDeletionUndoState = BacklogDeletionUndoState(
+                receiptID: receiptID,
+                deletedCount: mutations.count
+            )
+            // Reflect the confirmed tombstone immediately. The authoritative reload below
+            // reconciles CloudKit/Core Data, but must not hold the interaction behind Focus,
+            // Calendar, or Live Activity restoration work.
+            tasks.removeAll { taskIDs.contains($0.id) }
+            rebuildSnapshots()
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func saveWorkingHours(
+        activeWeekdays: Set<Int>,
+        startMinute: Int,
+        endMinute: Int,
+        bufferDuration: TimeInterval
+    ) async {
+        guard endMinute > startMinute else {
+            errorMessage = "Working hours must end after they start."
+            return
+        }
+        var value = workingProfile ?? Self.defaultWorkingProfile()
+        value.intervalsByWeekday = Dictionary(uniqueKeysWithValues: activeWeekdays.map {
+            ($0, [WorkingHoursInterval(startMinute: startMinute, endMinute: endMinute)])
+        })
+        value.bufferDuration = max(0, bufferDuration)
+        value.updatedAt = Date()
+        do {
+            try await blockRepository.saveWorkingHoursProfile(value)
+            workingProfile = value
+            await load()
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    func applyRepair(_ proposal: PlanRepairProposal, action: PlanRepairAction) async {
+        let source = repairReceiptSource(proposal.id)
+        guard action != .askEva else { return }
+        do {
+            let targetTask = proposal.taskID.flatMap(task(for:))
+                ?? daySnapshot?.plannedTasks.sorted(by: repairTaskOrder).last
+            let targetBlock = proposal.timeBlockID.flatMap { id in allBlocks.first { $0.id == id } }
+                ?? daySnapshot?.blocks.max(by: { $0.duration < $1.duration })
+            let mutation: PlanMutation
+            switch action {
+            case .resume:
+                mutation = .batch([])
+            case .moveLaterToday:
+                guard let block = targetBlock else { mutation = .batch([]); break }
+                let start = daySnapshot?.freeWindows.first(where: { $0.endAt > Date() })?.startAt
+                    ?? max(Date(), block.endAt).addingTimeInterval(15 * 60)
+                var moved = block
+                moved.startAt = start
+                moved.endAt = start.addingTimeInterval(block.duration)
+                moved.updatedAt = Date()
+                mutation = .saveTimeBlock(before: block, after: moved)
+            case .moveToAnotherDay:
+                var values: [PlanMutation] = []
+                if let task = targetTask,
+                   let date = selectedDay.startDate(calendar: calendar),
+                   let tomorrow = calendar.date(byAdding: .day, value: 1, to: date) {
+                    var metadata = task.metadata
+                    metadata.planningDay = PlanningDay(date: tomorrow, timeZone: calendar.timeZone, calendar: calendar)
+                    metadata.updatedAt = Date()
+                    values.append(.saveTaskMetadata(before: task.metadata, after: metadata))
+                }
+                if let block = targetBlock {
+                    var moved = block
+                    moved.startAt = calendar.date(byAdding: .day, value: 1, to: block.startAt) ?? block.startAt.addingTimeInterval(86_400)
+                    moved.endAt = calendar.date(byAdding: .day, value: 1, to: block.endAt) ?? block.endAt.addingTimeInterval(86_400)
+                    moved.updatedAt = Date()
+                    values.append(.saveTimeBlock(before: block, after: moved))
+                }
+                mutation = .batch(values)
+            case .split:
+                guard let block = targetBlock, block.duration >= 30 * 60 else { mutation = .batch([]); break }
+                let midpoint = block.startAt.addingTimeInterval(block.duration / 2)
+                var first = block
+                first.endAt = midpoint
+                first.updatedAt = Date()
+                let second = InternalTimeBlock(
+                    title: block.title, startAt: midpoint, endAt: block.endAt,
+                    taskID: block.taskID, planningContext: block.planningContext, isFixed: block.isFixed
+                )
+                mutation = .batch([.saveTimeBlock(before: block, after: first), .saveTimeBlock(before: nil, after: second)])
+            case .defer:
+                guard let task = targetTask else { mutation = .batch([]); break }
+                var metadata = task.metadata
+                metadata.planningDay = nil
+                metadata.unscheduledDisposition = .inbox
+                metadata.updatedAt = Date()
+                mutation = .saveTaskMetadata(before: task.metadata, after: metadata)
+            case .leaveUnchanged:
+                mutation = .batch([])
+            case .askEva:
+                return
+            }
+            try await commit(mutation, source: source, summary: "Plan repair: \(action.rawValue)")
+            if action == .resume, let taskID = proposal.taskID {
+                await startFocus(taskID: taskID, timeBlockID: proposal.timeBlockID, targetDuration: targetBlock?.duration ?? targetTask?.estimatedDuration ?? 25 * 60)
+            }
+            await load()
+        } catch { errorMessage = error.localizedDescription }
+    }
+
     func createBlock(title: String, start: Date, duration: TimeInterval, taskID: UUID? = nil) async {
         let value = InternalTimeBlock(
             title: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Focus block" : title,
@@ -155,6 +348,18 @@ final class PlanStore {
         value.updatedAt = Date()
         do {
             try await commit(.saveTimeBlock(before: block, after: value), source: "plan.block", summary: "Resized \(block.title)")
+            await load()
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    func moveBlock(_ block: InternalTimeBlock, minutesDelta: Int) async {
+        var value = block
+        let delta = TimeInterval(minutesDelta * 60)
+        value.startAt = block.startAt.addingTimeInterval(delta)
+        value.endAt = block.endAt.addingTimeInterval(delta)
+        value.updatedAt = Date()
+        do {
+            try await commit(.saveTimeBlock(before: block, after: value), source: "plan.block", summary: "Moved \(block.title)")
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -194,12 +399,26 @@ final class PlanStore {
     }
 
     func task(for id: UUID) -> PlanningTaskSummary? { tasks.first { $0.id == id } }
+    func plannedTasks(on day: PlanningDay) -> [PlanningTaskSummary] {
+        tasks.filter {
+            $0.metadata.unscheduledDisposition != .deleted
+                && $0.metadata.planningDay == day
+                && $0.metadata.availability == .actionable
+        }
+    }
 
     func undoLastMutation() async {
         guard let receiptID = lastMutationReceiptID else { return }
         do {
             try await planningRepository.undo(receiptID: receiptID)
+            normalizedEvents = normalizedEvents.map { event in
+                guard event.receipt?.receiptID == receiptID else { return event }
+                var reversed = event
+                reversed.reversal = .reversed(receiptID: receiptID)
+                return reversed
+            }
             lastMutationReceiptID = nil
+            backlogDeletionUndoState = nil
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -212,10 +431,66 @@ final class PlanStore {
                 targetDuration: targetDuration,
                 at: Date()
             )
+            if let activeFocusSession {
+                normalizedEvents.append(NormalizedLifeEventProjector().event(
+                    sourceID: activeFocusSession.id,
+                    domain: "focus",
+                    kind: "started",
+                    occurredAt: activeFocusSession.startedAt,
+                    numericValue: activeFocusSession.targetDuration,
+                    provenance: "LifeBoard Focus session",
+                    evidenceDisplay: focusTitle(for: activeFocusSession)
+                ))
+                await synchronizeFocusPresentation(activeFocusSession)
+            }
         } catch { errorMessage = error.localizedDescription }
     }
 
+    func pauseFocus() async { await sendFocusCommand(.pause) }
+    func resumeFocus() async { await sendFocusCommand(.resume) }
+    func endFocus(outcome: FocusCompletionOutcome) async { await sendFocusCommand(.end(outcome)) }
+
+    private func sendFocusCommand(_ kind: FocusSessionCommandKind) async {
+        guard let session = activeFocusSession else { return }
+        do {
+            let command = FocusSessionCommand(sessionID: session.id, kind: kind, occurredAt: Date())
+            let updated = try await planningRepository.handle(command)
+            let eventKind: String = switch kind {
+            case .pause: "paused"
+            case .resume: "resumed"
+            case .end(let outcome): "ended_\(outcome.rawValue)"
+            }
+            normalizedEvents.append(NormalizedLifeEventProjector().event(
+                sourceID: updated.id,
+                domain: "focus",
+                kind: eventKind,
+                occurredAt: command.occurredAt,
+                numericValue: updated.focusedDuration(at: command.occurredAt),
+                provenance: "LifeBoard Focus command",
+                evidenceDisplay: focusTitle(for: updated),
+                receipt: .init(receiptID: command.id, summary: eventKind.replacingOccurrences(of: "_", with: " "))
+            ))
+            await synchronizeFocusPresentation(updated)
+            activeFocusSession = updated.state == .ended ? nil : updated
+            await load()
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    private func synchronizeFocusPresentation(_ session: FocusSessionV2) async {
+        let title = focusTitle(for: session)
+        let liveActivitiesAvailable = await FocusLiveActivityCoordinator.shared.synchronize(
+            session: session,
+            title: title
+        )
+        await FocusNotificationFallbackCoordinator.shared.synchronize(
+            session: session,
+            title: title,
+            liveActivitiesAvailable: liveActivitiesAvailable
+        )
+    }
+
     private func rebuildSnapshots() {
+        let visibleTasks = tasks.filter { $0.metadata.unscheduledDisposition != .deleted }
         daySnapshot = makeDaySnapshot(for: selectedDay)
         let weekDays = daysInWeek(containing: selectedDay)
         weekSnapshot = PlanWeekSnapshot(
@@ -231,7 +506,9 @@ final class PlanStore {
                     }.count
                 )
             },
-            unplannedTasks: tasks.filter { $0.metadata.planningDay == nil },
+            unplannedTasks: visibleTasks.filter {
+                $0.metadata.planningDay == nil && $0.metadata.unscheduledDisposition != .archived
+            },
             generatedAt: Date()
         )
         backlogSnapshot = PlanBacklogSnapshot(groups: backlogGroups(), generatedAt: Date())
@@ -242,7 +519,11 @@ final class PlanStore {
         let bounds = dayBounds(day)
         let externalCommitments = externalCommitments(for: bounds)
         let blocks = allBlocks.filter { $0.startAt < bounds.end && $0.endAt > bounds.start }
-        let planned = tasks.filter { $0.metadata.planningDay == day && $0.metadata.availability == .actionable }
+        let planned = tasks.filter {
+            $0.metadata.unscheduledDisposition != .deleted
+                && $0.metadata.planningDay == day
+                && $0.metadata.availability == .actionable
+        }
         let working = workingIntervals(for: day)
         let capacity = CapacityBudgetService.calculate(
             workingIntervals: working,
@@ -271,7 +552,11 @@ final class PlanStore {
             freeWindows: FreeWindowService.calculate(workingIntervals: working, occupiedIntervals: occupied),
             blocks: blocks,
             plannedTasks: planned,
-            unscheduledTasks: tasks.filter { $0.metadata.planningDay == nil && $0.metadata.availability == .actionable },
+            unscheduledTasks: tasks.filter {
+                $0.metadata.planningDay == nil
+                    && $0.metadata.availability == .actionable
+                    && $0.metadata.unscheduledDisposition == .inbox
+            },
             generatedAt: Date()
         )
     }
@@ -282,10 +567,17 @@ final class PlanStore {
         let nextWeekEnd = calendar.date(byAdding: .day, value: 14, to: start) ?? weekEnd
         var groups = Dictionary(uniqueKeysWithValues: BacklogGroup.allCases.map { ($0, [PlanningTaskSummary]()) })
         for task in tasks {
+            guard task.metadata.unscheduledDisposition != .deleted else { continue }
             if task.metadata.availability == .waiting { groups[.waiting, default: []].append(task); continue }
             if task.metadata.availability == .paused { groups[.paused, default: []].append(task); continue }
             guard let date = task.metadata.planningDay?.startDate(calendar: calendar) else {
-                groups[task.metadata.unscheduledDisposition == .someday ? .someday : .inbox, default: []].append(task)
+                let group: BacklogGroup = switch task.metadata.unscheduledDisposition {
+                case .inbox: .inbox
+                case .someday: .someday
+                case .archived: .archived
+                case .deleted: .inbox // Filtered by the tombstone guard above.
+                }
+                groups[group, default: []].append(task)
                 continue
             }
             if date < weekEnd { groups[.thisWeek, default: []].append(task) }
@@ -351,9 +643,56 @@ final class PlanStore {
         return WorkingHoursProfile(name: "LifeBoard default", intervalsByWeekday: intervals, bufferDuration: 30 * 60)
     }
 
-    private func commit(_ mutation: PlanMutation, source: String, summary: String) async throws {
+    @discardableResult
+    private func commit(_ mutation: PlanMutation, source: String, summary: String) async throws -> UUID {
         let receipt = try await planningRepository.prepare(mutation, source: source, summary: summary)
         try await planningRepository.apply(receiptID: receipt.id)
         lastMutationReceiptID = receipt.id
+        backlogDeletionUndoState = nil
+        normalizedEvents.append(NormalizedLifeEventProjector().event(
+            sourceID: sourceID(for: mutation),
+            domain: "plan",
+            kind: source,
+            occurredAt: receipt.createdAt,
+            provenance: "LifeBoard planning mutation",
+            evidenceDisplay: summary,
+            receipt: .init(receiptID: receipt.id, summary: summary),
+            reversal: .reversible(receiptID: receipt.id)
+        ))
+        return receipt.id
+    }
+
+    private func sourceID(for mutation: PlanMutation) -> UUID {
+        switch mutation {
+        case .saveTaskMetadata(_, let after): after.taskID
+        case .saveTimeBlock(_, let after): after.id
+        case .deleteTimeBlock(let value): value.id
+        case .batch(let values): values.first.map(sourceID(for:)) ?? UUID()
+        }
+    }
+
+    private func suppressAcknowledgedRepairs(_ values: [PlanRepairProposal]) async throws -> [PlanRepairProposal] {
+        var visible: [PlanRepairProposal] = []
+        for value in values {
+            if try await planningRepository.hasAppliedReceipt(source: repairReceiptSource(value.id)) == false {
+                visible.append(value)
+            }
+        }
+        return visible
+    }
+
+    private func repairReceiptSource(_ id: UUID) -> String { "plan.repair.\(id.uuidString)" }
+
+    private func repairTaskOrder(_ lhs: PlanningTaskSummary, _ rhs: PlanningTaskSummary) -> Bool {
+        if lhs.metadata.commitmentLevel != rhs.metadata.commitmentLevel {
+            return lhs.metadata.commitmentLevel == .mustDo
+        }
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
+
+    private func focusTitle(for session: FocusSessionV2) -> String {
+        if let taskID = session.taskID, let title = task(for: taskID)?.title { return title }
+        if let blockID = session.timeBlockID, let title = allBlocks.first(where: { $0.id == blockID })?.title { return title }
+        return "Focus session"
     }
 }
