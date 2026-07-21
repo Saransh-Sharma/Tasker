@@ -7,7 +7,15 @@ import AppIntents
 @main
 struct LifeBoardWidgetBundle: WidgetBundle {
     var body: some Widget {
+        FocusLiveActivityWidget()
         FocusSeedWidget()
+        JournalDomainWidget()
+        FastingDomainWidget()
+        NutritionDomainWidget()
+        WellnessDomainWidget()
+        LifeMomentsDomainWidget()
+        GoalsDomainWidget()
+        RoutinesDomainWidget()
 
         TaskListStaticWidget(
             kind: "TopTaskNowWidget",
