@@ -46,6 +46,40 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.adaptive_home_v2") }
     }
 
+    /// Rollback gate for the Adaptive Home Canvas and shared conversational
+    /// presentation. Domain stores remain canonical when this surface is off.
+    public static var lifeOSUnifiedPresentationV2Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.unified_presentation_v2", argument: "LIFE_OS_UNIFIED_PRESENTATION_V2") }
+        set { setStagedFeature(newValue, key: "feature.life_os.unified_presentation_v2") }
+    }
+
+    /// Additive domain gates. Turning one off only removes unfinished surfaces;
+    /// canonical records and migrations are never rolled back or discarded.
+    public static var wellnessCoreV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.wellness_core_v1", argument: "WELLNESS_CORE_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.wellness_core_v1") }
+    }
+
+    public static var fastingV2Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.fasting_v2", argument: "FASTING_V2") }
+        set { setStagedFeature(newValue, key: "feature.life_os.fasting_v2") }
+    }
+
+    public static var nutritionV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.nutrition_v1", argument: "NUTRITION_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.nutrition_v1") }
+    }
+
+    public static var lifeMomentsV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.life_moments_v1", argument: "LIFE_MOMENTS_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.life_moments_v1") }
+    }
+
+    public static var lifeOSSystemSurfacesV2Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.system_surfaces_v2", argument: "LIFE_OS_SYSTEM_SURFACES_V2") }
+        set { setStagedFeature(newValue, key: "feature.life_os.system_surfaces_v2") }
+    }
+
     public static var dashboardCustomizationV2Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.dashboard_customization_v2", argument: "DASHBOARD_CUSTOMIZATION_V2") }
         set { setStagedFeature(newValue, key: "feature.life_os.dashboard_customization_v2") }
@@ -64,6 +98,21 @@ public enum V2FeatureFlags {
     public static var journalV1Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.journal_v1", argument: "JOURNAL_V1") }
         set { setStagedFeature(newValue, key: "feature.life_os.journal_v1") }
+    }
+
+    /// Phase 5: OffRecord journal parity (shared JournalKit packages — mood
+    /// dial, capture modes, semantic memory, reflection, watch capture).
+    public static var journalParityV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.journal_parity_v1", argument: "JOURNAL_PARITY_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.journal_parity_v1") }
+    }
+
+    /// Debug/AB path: phrase Eva's journal answers with the on-device Apple
+    /// FoundationModels layer when available. Never the only path — the
+    /// deterministic evidence answer always remains the fallback.
+    public static var evaFoundationModelsResponderEnabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.eva_fm_responder_v1", argument: "EVA_FM_RESPONDER_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.eva_fm_responder_v1") }
     }
 
     public static var knowledgeNotesV1Enabled: Bool {
@@ -162,6 +211,15 @@ public enum V2FeatureFlags {
         set {
             userDecorativeCTAEffectsEnabled = newValue
         }
+    }
+
+    /// The bounded signature Metal effects (daypartBloom, evaInkReveal, journalMediaReveal,
+    /// fastingEmberRing). Enabled
+    /// by default; callers still gate on Reduce Motion / Low Power / thermal / GPU support.
+    public static var signatureShadersEnabled: Bool {
+        if launchArguments.contains("-LIFEBOARD_ENABLE_SIGNATURE_SHADERS") { return true }
+        if launchArguments.contains("-LIFEBOARD_DISABLE_SIGNATURE_SHADERS") { return false }
+        return remoteDecorativeCTAEffectsAllowed
     }
 
     public static var userDecorativeCTAEffectsEnabled: Bool {

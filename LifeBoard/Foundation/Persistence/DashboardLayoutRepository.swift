@@ -9,6 +9,69 @@ public struct DashboardWidgetConfigurationEnvelope: Codable, Hashable, Sendable 
         self.version = version
         self.payload = payload
     }
+
+    public var homeConfiguration: HomeCardConfiguration {
+        if version >= HomeCardConfiguration.storageVersion,
+           let decoded = try? JSONDecoder().decode(HomeCardConfiguration.self, from: payload) {
+            return decoded
+        }
+        return HomeCardConfiguration(domainPayload: payload)
+    }
+
+    public static func home(_ configuration: HomeCardConfiguration) -> Self {
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        return Self(
+            version: HomeCardConfiguration.storageVersion,
+            payload: (try? encoder.encode(configuration)) ?? Data()
+        )
+    }
+}
+
+public struct HomeCardSourceConfiguration: Codable, Hashable, Sendable {
+    public var destination: LifeBoardDestination
+    public var sourceID: String?
+    public var filter: String?
+
+    public init(destination: LifeBoardDestination, sourceID: String? = nil, filter: String? = nil) {
+        self.destination = destination
+        self.sourceID = sourceID
+        self.filter = filter
+    }
+}
+
+public struct HomePlacementMetadata: Codable, Hashable, Sendable {
+    public var ownership: HomeCardOwnership
+    public var gridPosition: HomeGridPosition?
+    public var smartSlot: HomeSmartSlotConfiguration?
+
+    public init(
+        ownership: HomeCardOwnership = .pinned,
+        gridPosition: HomeGridPosition? = nil,
+        smartSlot: HomeSmartSlotConfiguration? = nil
+    ) {
+        self.ownership = ownership
+        self.gridPosition = gridPosition
+        self.smartSlot = smartSlot
+    }
+}
+
+public struct HomeCardConfiguration: Codable, Hashable, Sendable {
+    public static let storageVersion = 2
+
+    public var source: HomeCardSourceConfiguration?
+    public var placement: HomePlacementMetadata
+    public var domainPayload: Data
+
+    public init(
+        source: HomeCardSourceConfiguration? = nil,
+        placement: HomePlacementMetadata = .init(),
+        domainPayload: Data = Data()
+    ) {
+        self.source = source
+        self.placement = placement
+        self.domainPayload = domainPayload
+    }
 }
 
 public struct DashboardWidgetPlacementValue: Codable, Hashable, Identifiable, Sendable {
@@ -33,6 +96,30 @@ public struct DashboardWidgetPlacementValue: Codable, Hashable, Identifiable, Se
         self.ordinal = ordinal
         self.isVisible = isVisible
         self.configuration = configuration
+    }
+
+    public var homeConfiguration: HomeCardConfiguration {
+        configuration.homeConfiguration
+    }
+
+    public var ownership: HomeCardOwnership {
+        homeConfiguration.placement.ownership
+    }
+
+    public var gridPosition: HomeGridPosition? {
+        homeConfiguration.placement.gridPosition
+    }
+
+    public var smartSlot: HomeSmartSlotConfiguration? {
+        homeConfiguration.placement.smartSlot
+    }
+
+    public mutating func updateHomeConfiguration(
+        _ update: (inout HomeCardConfiguration) -> Void
+    ) {
+        var decoded = configuration.homeConfiguration
+        update(&decoded)
+        configuration = .home(decoded)
     }
 }
 
@@ -200,6 +287,26 @@ public final class CoreDataDashboardLayoutRepository: DashboardLayoutRepository,
         }
 
         var migrated = layout
+        if migrated.schemaVersion < 3, migrated.isDefault {
+            let existing = migrated.placements
+            let curated = Self.curatedHomePlacements()
+            var consumedIDs = Set<UUID>()
+            var upgraded: [DashboardWidgetPlacementValue] = curated.compactMap { desired in
+                if let preserved = existing.first(where: {
+                    $0.widgetKind == desired.widgetKind && consumedIDs.contains($0.id) == false
+                }) {
+                    consumedIDs.insert(preserved.id)
+                    return preserved
+                }
+                return desired
+            }
+            upgraded.append(contentsOf: existing.filter { consumedIDs.contains($0.id) == false })
+            for index in upgraded.indices { upgraded[index].ordinal = index }
+            migrated.placements = upgraded
+        }
+        if migrated.schemaVersion < 4 {
+            migrated.placements = HomeGridPackingEngine.normalized(migrated.placements)
+        }
         migrated.schemaVersion = LifeOSFoundationSchema.dashboardLayoutVersion
         migrated.placements.sort {
             if $0.ordinal == $1.ordinal { return $0.id.uuidString < $1.id.uuidString }
@@ -242,19 +349,110 @@ public final class CoreDataDashboardLayoutRepository: DashboardLayoutRepository,
             (.focusNow, .wide),
             (.lifeSnapshot, .wide),
             (.care, .standard),
+            (.tasks, .standard),
+            (.routines, .standard),
             (.scheduleCapacity, .standard),
             (.quickCapture, .compact),
             (.compactTimeline, .wide),
+            (.journal, .standard),
             (.progressReflection, .standard)
         ]
-        return specifications.enumerated().map { index, specification in
+        let placements = specifications.enumerated().map { index, specification in
             DashboardWidgetPlacementValue(
                 widgetKind: specification.0.rawValue,
                 semanticSize: specification.1,
                 ordinal: index
             )
         }
+        return HomeGridPackingEngine.normalized(placements)
     }
+}
+
+public enum HomeGridPackingEngine {
+    public static func normalized(
+        _ placements: [DashboardWidgetPlacementValue],
+        columns: Int = 4
+    ) -> [DashboardWidgetPlacementValue] {
+        let columnCount = max(1, columns)
+        var occupied = Set<HomeGridPosition>()
+        var result: [DashboardWidgetPlacementValue] = []
+
+        for (ordinal, value) in placements.sorted(by: placementOrder).enumerated() {
+            var placement = value
+            placement.ordinal = ordinal
+            let span = placement.semanticSize.canonicalGridSpan
+            let width = min(columnCount, span.columns)
+            let position = firstAvailablePosition(
+                width: width,
+                height: span.rows,
+                columns: columnCount,
+                occupied: occupied
+            )
+            for row in position.row..<(position.row + span.rows) {
+                for column in position.column..<(position.column + width) {
+                    occupied.insert(.init(column: column, row: row))
+                }
+            }
+            placement.updateHomeConfiguration { configuration in
+                configuration.placement.gridPosition = position
+                if configuration.placement.ownership == .smart,
+                   configuration.placement.smartSlot == nil {
+                    configuration.placement.smartSlot = .init()
+                }
+            }
+            result.append(placement)
+        }
+        return result
+    }
+
+    private static func firstAvailablePosition(
+        width: Int,
+        height: Int,
+        columns: Int,
+        occupied: Set<HomeGridPosition>
+    ) -> HomeGridPosition {
+        var row = 0
+        while true {
+            for column in 0...max(0, columns - width) {
+                let fits = (row..<(row + height)).allSatisfy { candidateRow in
+                    (column..<(column + width)).allSatisfy { candidateColumn in
+                        occupied.contains(.init(column: candidateColumn, row: candidateRow)) == false
+                    }
+                }
+                if fits { return .init(column: column, row: row) }
+            }
+            row += 1
+        }
+    }
+
+    private static func placementOrder(
+        _ lhs: DashboardWidgetPlacementValue,
+        _ rhs: DashboardWidgetPlacementValue
+    ) -> Bool {
+        if lhs.ordinal != rhs.ordinal { return lhs.ordinal < rhs.ordinal }
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
+}
+
+public struct HomeLayoutTransaction: Codable, Hashable, Sendable {
+    public let id: UUID
+    public let before: DashboardLayoutValue
+    public let after: DashboardLayoutValue
+    public let committedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        before: DashboardLayoutValue,
+        after: DashboardLayoutValue,
+        committedAt: Date = Date()
+    ) {
+        self.id = id
+        self.before = before
+        self.after = after
+        self.committedAt = committedAt
+    }
+
+    public var undoLayout: DashboardLayoutValue { before }
 }
 
 public struct HomeLayoutDraft: Equatable, Sendable {
@@ -291,6 +489,30 @@ public struct HomeLayoutDraft: Equatable, Sendable {
             return
         }
         current.placements[index].semanticSize = size
+        current.placements = HomeGridPackingEngine.normalized(current.placements)
+        touch()
+    }
+
+    public mutating func setOwnership(
+        _ ownership: HomeCardOwnership,
+        smartSlot: HomeSmartSlotConfiguration? = nil,
+        id: UUID
+    ) {
+        guard let index = current.placements.firstIndex(where: { $0.id == id }) else { return }
+        current.placements[index].updateHomeConfiguration { configuration in
+            configuration.placement.ownership = ownership
+            configuration.placement.smartSlot = ownership == .smart
+                ? (smartSlot ?? configuration.placement.smartSlot ?? .init())
+                : nil
+        }
+        touch()
+    }
+
+    public mutating func setSource(_ source: HomeCardSourceConfiguration?, id: UUID) {
+        guard let index = current.placements.firstIndex(where: { $0.id == id }) else { return }
+        current.placements[index].updateHomeConfiguration { configuration in
+            configuration.source = source
+        }
         touch()
     }
 
@@ -320,6 +542,7 @@ public struct HomeLayoutDraft: Equatable, Sendable {
                 ordinal: current.placements.count
             )
         )
+        current.placements = HomeGridPackingEngine.normalized(current.placements)
         touch()
     }
 
@@ -352,8 +575,6 @@ public struct HomeLayoutDraft: Equatable, Sendable {
     }
 
     private func normalize(_ placements: inout [DashboardWidgetPlacementValue]) {
-        for index in placements.indices {
-            placements[index].ordinal = index
-        }
+        placements = HomeGridPackingEngine.normalized(placements)
     }
 }

@@ -186,6 +186,10 @@ private final class LifeBoardMetricKitSubscriber: NSObject, MXMetricManagerSubsc
 @main
 @MainActor
 class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotificationCenterDelegate {
+    private static var isRunningTests: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+            || ProcessInfo.processInfo.arguments.contains(where: { $0.contains("xctest") })
+    }
 
     private let occurrenceRefreshTaskIdentifier = "com.lifeboard.refresh.occurrences"
     private let remindersRefreshTaskIdentifier = "com.lifeboard.refresh.reminders"
@@ -320,6 +324,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     ) {
         let interval = LifeBoardPerformanceTrace.begin("DeferredLaunchPostFirstFrameMain")
         defer { LifeBoardPerformanceTrace.end(interval) }
+        guard Self.isRunningTests == false else { return }
         application.registerForRemoteNotifications()
     }
 
@@ -431,33 +436,37 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                 return makeLaunchRootMode()
             }
 
-            gamificationRemoteChangeCoordinator = GamificationRemoteChangeCoordinator(
-                container: container,
-                notificationCenter: .default,
-                onQualifiedCloudImport: { reason, completion in
-                    guard V2FeatureFlags.gamificationV2Enabled else {
-                        completion(true)
-                        return
-                    }
-                    let engine = PresentationDependencyContainer.shared.coordinator.gamificationEngine
-                    engine.fullReconciliation { result in
-                        switch result {
-                        case .success:
+            if Self.isRunningTests == false {
+                gamificationRemoteChangeCoordinator = GamificationRemoteChangeCoordinator(
+                    container: container,
+                    notificationCenter: .default,
+                    onQualifiedCloudImport: { reason, completion in
+                        guard V2FeatureFlags.gamificationV2Enabled else {
                             completion(true)
-                        case .failure(let error):
-                            logError(
-                                event: "gamification_remote_reconciliation_failed",
-                                message: "Gamification reconciliation failed after qualified CloudKit import transaction",
-                                fields: [
-                                    "reason": reason,
-                                    "error": error.localizedDescription
-                                ]
-                            )
-                            completion(false)
+                            return
+                        }
+                        let engine = PresentationDependencyContainer.shared.coordinator.gamificationEngine
+                        engine.fullReconciliation { result in
+                            switch result {
+                            case .success:
+                                completion(true)
+                            case .failure(let error):
+                                logError(
+                                    event: "gamification_remote_reconciliation_failed",
+                                    message: "Gamification reconciliation failed after qualified CloudKit import transaction",
+                                    fields: [
+                                        "reason": reason,
+                                        "error": error.localizedDescription
+                                    ]
+                                )
+                                completion(false)
+                            }
                         }
                     }
-                }
-            )
+                )
+            } else {
+                gamificationRemoteChangeCoordinator = nil
+            }
 
             if AppDelegate.isWriteClosed {
                 logWarning(
@@ -475,8 +484,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                 }
             }
             configureLifeBoardNotifications()
-            installPersistentStoreObservers(container: container)
-            TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "bootstrap_ready")
+            if Self.isRunningTests == false {
+                installPersistentStoreObservers(container: container)
+                TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "bootstrap_ready")
+            }
 
             logInfo(
                 event: "persistent_sync_mode_activated",
@@ -746,6 +757,15 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         UserDefaults.standard.removePersistentDomain(forName: domain)
         UserDefaults.standard.synchronize()
 
+        // The Life OS router, presentation preferences, privacy policy, and
+        // widget handoff state live in the App Group domain. UI journeys must
+        // clear that domain as well or inactive navigation stacks leak between
+        // otherwise isolated launches and make route depth/order nondeterministic.
+        if let sharedDefaults = UserDefaults(suiteName: AppGroupConstants.suiteName) {
+            sharedDefaults.removePersistentDomain(forName: AppGroupConstants.suiteName)
+            sharedDefaults.synchronize()
+        }
+
         // UI tests launch before the persistent container is bootstrapped, so remove
         // store files only from this explicit test reset path.
         wipeV3StoreFiles()
@@ -1010,7 +1030,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             "entitlement_present": String(entitlementPresent),
             "mirroring_mode": mirroringMode.reason
         ]
-        if entitlementPresent {
+        if entitlementPresent || mirroringMode.reason == "xctest_runtime" {
             logInfo(
                 event: "cloudkit_preflight",
                 message: "CloudKit runtime preflight diagnostics",
@@ -1234,6 +1254,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
 
     /// Executes registerBackgroundTasks.
     private func registerBackgroundTasks() {
+        guard Self.isRunningTests == false else { return }
         BGTaskScheduler.shared.register(
             forTaskWithIdentifier: occurrenceRefreshTaskIdentifier,
             using: nil
@@ -1259,6 +1280,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
 
     /// Executes scheduleOccurrenceRefresh.
     private func scheduleOccurrenceRefresh() {
+        guard Self.isRunningTests == false else { return }
         let request = BGAppRefreshTaskRequest(identifier: occurrenceRefreshTaskIdentifier)
         request.earliestBeginDate = Calendar.current.date(byAdding: .hour, value: 12, to: Date())
         do {
@@ -1274,6 +1296,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
 
     /// Executes scheduleRemindersRefresh.
     private func scheduleRemindersRefresh() {
+        guard Self.isRunningTests == false else { return }
         let request = BGAppRefreshTaskRequest(identifier: remindersRefreshTaskIdentifier)
         request.earliestBeginDate = Calendar.current.date(byAdding: .hour, value: 6, to: Date())
         do {
@@ -1561,7 +1584,10 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                 switch result {
                 case .success:
                     engine.updateStreak { streakResult in
-                        if case .failure(let error) = streakResult {
+                        switch streakResult {
+                        case .success:
+                            engine.writeWidgetSnapshot()
+                        case .failure(let error):
                             logError(
                                 event: "gamification_startup_streak_update_failed",
                                 message: "Gamification startup streak update failed after deferred reconciliation",
