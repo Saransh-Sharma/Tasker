@@ -8,8 +8,8 @@ This package is the canonical handoff for the LifeBoard-to-Life-OS program. It d
 |---|---|---|
 | Phase I — Foundation | Implemented behind typed rollout controls | Stable shell, routes, capture arbitration, daypart/theme context, atmospheric policy, and versioned dashboard persistence |
 | Phase II — Unified Adaptive Home | Implemented for internal/manual testing | Screenshot-calibrated Adaptive Home, one shared customizable layout, Smart/Work/Personal/Low Energy modes, Trackers/Health/care, OffRecord-derived Journal, and structured Notes |
-| Phase III — Planning Core | Foundation vertical slice implemented | Additive planning schema, deterministic capacity/ranking/repair services, Day/Week/Backlog destination, internal blocks, task planning states, Focus routing, and Home projections |
-| Phase IV — Track Foundations | Foundation vertical slice implemented | Additive goals/routines/resilience/care schema, Track Today, hydration/mood/medication/sleep loops, routine runner, starter-pack preview, Universal Capture, and Home projections |
+| Phase III — Planning Core | Feature-complete vertical slice; promotion gates remain | Planning schema, EventKit/free windows, Day/Week/Backlog, receipts/undo, Focus V2 + Live Activity, deterministic ranking/repair, and Home projections |
+| Phase IV — Track Foundations | Integrated vertical slice; Journal/Notes and promotion gaps remain | Goals/routines/resilience/care schema, canonical habit/goal samples, linked mutations, care loops, reversible starter packs, Track Today, Universal Capture, and Home projections |
 | Public promotion | Not yet approved | Requires physical-device, populated-iCloud, accessibility, privacy, performance, and founder scenario gates |
 
 Detailed references:
@@ -71,7 +71,7 @@ The implementation currently passes:
 - Daypart, contrast, rendering-policy, router/restoration, capture arbitration, shared layout, unknown-widget, medication, Journal insight, and OffRecord asset tests.
 - Foundation/dependency and token-law guardrails.
 - Plain Debug launch into Adaptive Home with all Phase II surfaces enabled.
-- Phase III/IV focused contract suite (13 tests), including planning-day identity, overlap-safe capacity, deterministic ranking/repair, habit resilience, routine idempotency, goals, hydration, sleep privacy, serialized schemas, and repository round trips.
+- Phase III/IV and foundation focused contract suite (44 tests), including planning-day identity, overlap-safe capacity, deterministic ranking/repair, Focus command idempotency, Activity payload limits, habit resilience, routine idempotency, goals, hydration, sleep privacy, appearance independence, serialized schemas, and repository round trips.
 - Runtime smoke launches of the new Plan and Track destinations on iPhone 17 Pro simulator.
 
 The full legacy `LifeBoardTests` target currently reports pre-existing failures outside this implementation. Those failures are recorded as repository debt and must not be represented as Phase II regressions without comparison against a clean baseline. The focused Life OS suite is green; public promotion still requires the physical-device gates below.

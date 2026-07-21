@@ -17,37 +17,53 @@ This file is the repository-local execution checklist for the approved 30-week P
 - [x] Feed Home immutable Plan/Track snapshots and deterministic Focus explanations.
 - [x] Preserve legacy schedule, weekly planner, Habit, and Phase II Track surfaces as rollback adapters.
 - [x] Validate the app build, focused migration/contracts, repository round trips, and simulator runtime composition.
+- [x] Read EventKit commitments without mutation, derive free windows, and expose denied/not-determined states honestly.
+- [x] Persist working hours, planning mutations/receipts, Focus V2 sessions/commands, routine schedules, linked-mutation receipts, and starter-pack ownership.
+- [x] Add exact-once Focus commands, restoration, ActivityKit/Lock Screen presentation, orphan reconciliation, and deep-link command handling.
+- [x] Add task-to-free-window drag/drop plus menu/keyboard block move, resize, split, and remove alternatives.
+- [x] Connect canonical habit evidence, typed goal samples, and canonical routine-linked task/habit mutations.
+- [x] Complete routine authoring/scheduling/timers, hydration target/correction/history, medication lifecycle/reconciliation, fasting target/correction/history, mood history, and sleep history.
+- [x] Install and remove starter-pack habits/reminders through canonical use cases with compensating rollback and history-preserving archive.
+- [x] Separate daypart atmosphere from system appearance, including a warm lunar Light appearance.
+- [x] Add the Focus Live Activity widget and align app/widget versions.
+- [x] Remove XCTest-only APNs, background-task, App Group refresh, and gamification persistent-history noise.
 
-## Remaining before Phase III promotion
+## Remaining before Phase III public promotion
 
-- [ ] Connect EventKit read-only commitments to `PlanStore` capacity/free-window projections and calendar detail sheets.
-- [ ] Add phone drag/drop and pointer/keyboard iPad board interactions for tasks and blocks.
-- [ ] Reuse weekly outcomes/review/triage use cases in the persistent Week lens and implement bulk backlog undo receipts.
-- [ ] Finish Focus Execution V2 persistence/state-machine integration, pause/resume recovery, ActivityKit Live Activity, lock-screen controls, and duplicate-command tests.
-- [ ] Route deterministic Plan receipts/explanations into Eva and complete diff/confirm/apply/audit/undo repair mutations.
-- [ ] Add the complete seeded Plan UI/accessibility suite and matched physical-device performance baselines.
+- [x] Connect EventKit read-only commitments to capacity/free-window projections.
+- [x] Add phone task-to-window drag/drop and menu/keyboard equivalents for block editing.
+- [x] Persist backlog bulk mutations and exact undo receipts.
+- [x] Finish Focus V2 persistence, state transitions, restoration, ActivityKit, Lock Screen commands, and duplicate-command handling.
+- [x] Apply plan repairs through durable typed mutation receipts and undo.
+- [ ] Replace the remaining Week compatibility summary with the complete weekly outcomes/review/triage workflow and prove iPad board pointer interactions.
+- [ ] Finish Eva’s conversational receipt/evidence presentation around the deterministic explanation and repair pipeline.
+- [ ] Add the full seeded Plan UI/accessibility suite and matched signed-device performance baselines.
 
-## Remaining before Phase IV promotion
+## Remaining before Phase IV public promotion
 
-- [ ] Connect the canonical habit occurrence repository to Track Today/history so production grades, streaks, off days, recovery, pause, and archive feed every projection.
+- [x] Connect canonical habit occurrence evidence so production grades, streaks, off days, and recovery feed Track/Home projections.
 - [ ] Add habit group/resilience editors and the full 30-day history surface.
-- [ ] Add typed goal-link editing and normalized source samples from tasks, habits, routines, projects, and trackers.
-- [ ] Route routine linked task/habit completion through canonical mutation use cases exactly once.
-- [ ] Finish starter-pack habit/reminder creation through canonical editors and reversible pack removal while retaining history.
-- [ ] Add hydration correction/history/target editing, complete medication schedule/reschedule UI, mood trends, and sleep history.
+- [x] Add typed goal links and normalized samples from tasks, habits, routines, projects, and trackers.
+- [x] Route routine linked task/habit completion through canonical mutation use cases exactly once.
+- [x] Complete reversible starter-pack goal/routine/habit/reminder installation with retained history.
+- [x] Add hydration correction/history/target editing, medication scheduling/unresolved/snooze flows, fasting correction/history, multiple mood check-ins, and sleep history.
+- [ ] Replace raw UUID entry in goal/routine link editors with searchable source pickers.
+- [ ] Complete mood trend visualization and edit/delete semantics; add full hydration and sleep history filtering.
+- [ ] Finish the advertised structured Notes block semantics (table, bookmark metadata, image/file lifecycle, and note-link blocks) and nested-folder navigation.
+- [ ] Finish OffRecord-selected Journal parity: resilient audio/transcription retry, media editing, complete semantic memory/rebuild controls, reflection versions, exports, and lock/privacy controls.
 - [ ] Add normalized Insights/Eva receipts with sensitivity authorization and explicit external-surface redaction tests.
 - [ ] Complete the Phase IV seeded UI/accessibility/privacy/performance matrix on signed physical devices.
 
 ## Verification commands
 
 ```sh
-xcodebuild -project LifeBoard.xcodeproj -scheme LifeBoard \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' build
+xcodebuild -workspace LifeBoard.xcworkspace -scheme LifeBoard \
+  -destination 'platform=iOS Simulator,id=<simulator-udid>' build
 
-xcodebuild -project LifeBoard.xcodeproj -scheme LifeBoard \
-  -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
+xcodebuild -workspace LifeBoard.xcworkspace -scheme LifeBoard \
+  -destination 'platform=iOS Simulator,id=<simulator-udid>' \
   -only-testing:LifeBoardTests/LifeBoardPlanningTrackFoundationTests \
   -only-testing:LifeBoardTests/LifeOSFoundationContractTests test
 ```
 
-Latest local result: build succeeded; 38 focused tests passed with zero failures.
+Latest local result (2026-07-14): iOS Simulator and Mac Catalyst builds succeeded; 44 focused tests passed with zero failures. The runtime visual audit also passed the Night + Light-appearance independence check. Public completion remains blocked by the explicit unchecked items above and signed-device/manual gates; this file must not be used to claim full Phase I–IV promotion before those checks close.
