@@ -92,7 +92,7 @@ public enum LifeBoardLayoutResolver {
     @MainActor
     public static func classify(windowScene: UIWindowScene?) -> LifeBoardLayoutClass {
         guard let windowScene else { return .phone }
-        let size = windowScene.coordinateSpace.bounds.size
+        let size = windowScene.effectiveGeometry.coordinateSpace.bounds.size
         let horizontalSizeClass = windowScene.traitCollection.horizontalSizeClass
         let verticalSizeClass = windowScene.traitCollection.verticalSizeClass
         let safeAreaInsets = windowScene.windows.first?.safeAreaInsets ?? .zero
@@ -116,7 +116,7 @@ public enum LifeBoardLayoutResolver {
     @MainActor
     static func metrics(for view: UIView) -> LifeBoardLayoutMetrics {
         let bounds = view.bounds
-        let fallbackBounds = view.window?.windowScene?.coordinateSpace.bounds ?? view.window?.bounds
+        let fallbackBounds = view.window?.windowScene?.effectiveGeometry.coordinateSpace.bounds ?? view.window?.bounds
         let resolvedWidth: CGFloat
         let resolvedHeight: CGFloat
 

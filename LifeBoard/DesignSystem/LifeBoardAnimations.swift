@@ -59,6 +59,17 @@ public enum LifeBoardAnimation {
     public static let dateChange: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.28)
     public static let habitFill: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.18)
 
+    // The four semantic motion roles from the Life OS premium brief. Named by intent so surfaces
+    // pick a role, not a raw duration. Existing tokens back each range.
+    /// Press / selection feedback (120–180 ms).
+    public static let rolePress: Animation = .spring(response: 0.16, dampingFraction: 0.72)
+    /// Local state transition within a surface (180–280 ms).
+    public static let roleLocalState: Animation = .spring(response: 0.24, dampingFraction: 0.82)
+    /// Route / sheet transition (280–450 ms).
+    public static let roleRoute: Animation = .spring(response: 0.40, dampingFraction: 0.86)
+    /// Ambient / daypart transition, manual variant (450–650 ms).
+    public static let roleAmbient: Animation = .spring(response: 0.58, dampingFraction: 0.90)
+
     // Entrance stagger stops compounding past this index so long lists settle quickly.
     public static let entranceStaggerCap: Int = 6
 
@@ -172,18 +183,28 @@ public struct CardEntrance: ViewModifier {
 
 // MARK: - Completion Celebration Modifier
 
-/// The single shared "success moment": brief scale swell + tint-deepened glow.
-/// This is the only place that fires the success haptic, keeping the haptic
-/// budget (success = explicit completion only) enforced structurally.
+/// The single shared "success moment": brief scale swell, tint-deepened glow,
+/// and a one-shot warm particle burst with an expanding ring. This is the
+/// only place that fires the success haptic, keeping the haptic budget
+/// (success = explicit completion only) enforced structurally. The burst is
+/// completion-driven — no timers — and collapses to the swell alone under
+/// Reduce Motion or when `showsBurst` is false (calm comfort profile).
 public struct CompletionCelebration: ViewModifier {
     let isComplete: Bool
     let tint: Color
+    let showsBurst: Bool
     @State private var swell = false
+    @State private var isBursting = false
+    @State private var burstProgress: CGFloat = 0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    public init(isComplete: Bool, tint: Color) {
+    private static let particleCount = 12
+    private static let burstRadius: CGFloat = 46
+
+    public init(isComplete: Bool, tint: Color, showsBurst: Bool = true) {
         self.isComplete = isComplete
         self.tint = tint
+        self.showsBurst = showsBurst
     }
 
     public func body(content: Content) -> some View {
@@ -193,6 +214,13 @@ public struct CompletionCelebration: ViewModifier {
                 color: swell ? tint.opacity(0.30) : .clear,
                 radius: swell ? 10 : 0
             )
+            .overlay {
+                if isBursting {
+                    burstOverlay
+                        .allowsHitTesting(false)
+                        .accessibilityHidden(true)
+                }
+            }
             .onChange(of: isComplete) { _, newValue in
                 guard newValue else { return }
                 LifeBoardFeedback.success()
@@ -201,7 +229,39 @@ public struct CompletionCelebration: ViewModifier {
                 DispatchQueue.main.asyncAfter(deadline: .now() + LifeBoardAnimation.celebrationDuration) {
                     withAnimation(LifeBoardAnimation.celebration) { swell = false }
                 }
+                guard showsBurst else { return }
+                isBursting = true
+                burstProgress = 0
+                withAnimation(.easeOut(duration: 0.62)) {
+                    burstProgress = 1
+                } completion: {
+                    isBursting = false
+                }
             }
+    }
+
+    private var burstOverlay: some View {
+        ZStack {
+            Circle()
+                .stroke(tint, lineWidth: 1.5)
+                .frame(width: 40, height: 40)
+                .scaleEffect(0.6 + burstProgress * 1.9)
+                .opacity(1 - burstProgress)
+            ForEach(0..<Self.particleCount, id: \.self) { index in
+                let angle = Angle.degrees(Double(index) / Double(Self.particleCount) * 360)
+                let travel = burstProgress * Self.burstRadius
+                Capsule(style: .continuous)
+                    .fill(tint.opacity(index.isMultiple(of: 2) ? 1 : 0.6))
+                    .frame(width: 3.5, height: 9)
+                    .scaleEffect(1 - burstProgress * 0.65)
+                    .rotationEffect(angle + .degrees(90))
+                    .offset(
+                        x: cos(angle.radians) * travel,
+                        y: sin(angle.radians) * travel
+                    )
+                    .opacity(1 - burstProgress)
+            }
+        }
     }
 }
 
@@ -317,7 +377,7 @@ private struct LifeBoardScaleOnPressButtonStyle: ButtonStyle {
 
 public struct ShimmerEffect: ViewModifier {
     /// Executes body.
-    @State private var phase: CGFloat = 0
+    @State private var phase: CGFloat = -1
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public func body(content: Content) -> some View {
@@ -325,25 +385,27 @@ public struct ShimmerEffect: ViewModifier {
             content
         } else {
             content
-                .overlay(
-                    LinearGradient(
-                        gradient: Gradient(colors: [
-                            .white.opacity(0),
-                            .white.opacity(0.08),
-                            .white.opacity(0)
-                        ]),
-                        startPoint: .leading,
-                        endPoint: .trailing
-                    )
-                    .offset(x: phase)
+                .overlay {
+                    GeometryReader { proxy in
+                        LinearGradient(
+                            gradient: Gradient(colors: [
+                                .white.opacity(0),
+                                .white.opacity(0.08),
+                                .white.opacity(0)
+                            ]),
+                            startPoint: .leading,
+                            endPoint: .trailing
+                        )
+                        .offset(x: phase * proxy.size.width)
+                    }
                     .mask(content)
-                )
+                }
                 .onAppear {
                     withAnimation(
                         .linear(duration: 2.0)
                         .repeatForever(autoreverses: false)
                     ) {
-                        phase = UIScreen.main.bounds.width
+                        phase = 1
                     }
                 }
         }
@@ -514,5 +576,83 @@ public enum LifeBoardFeedback {
         #else
         return true
         #endif
+    }
+}
+
+// MARK: - Liquid fill (ported wave surface)
+
+/// A sine-wave liquid surface. Mask it to any shape and drive `level`
+/// (0 = empty, 1 = full); the surface ripples gently via `TimelineView`
+/// unless Reduce Motion or Low Power renders it as a still fill.
+public struct LifeBoardLiquidWaveShape: Shape {
+    public var phase: CGFloat
+    public var level: CGFloat
+    public let amplitude: CGFloat
+    public let frequency: CGFloat
+
+    public var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { AnimatablePair(phase, level) }
+        set {
+            phase = newValue.first
+            level = newValue.second
+        }
+    }
+
+    public init(phase: CGFloat, level: CGFloat, amplitude: CGFloat = 3, frequency: CGFloat = 2.2) {
+        self.phase = phase
+        self.level = min(1, max(0, level))
+        self.amplitude = amplitude
+        self.frequency = frequency
+    }
+
+    public func path(in rect: CGRect) -> Path {
+        var path = Path()
+        let surfaceY = rect.height * (1 - level)
+        path.move(to: CGPoint(x: rect.width, y: rect.height * 2))
+        path.addLine(to: CGPoint(x: 0, y: rect.height * 2))
+        var x: CGFloat = 0
+        while x <= rect.width {
+            let y = sin(((x / max(1, rect.width)) + phase) * frequency * .pi) * amplitude + surfaceY
+            path.addLine(to: CGPoint(x: x, y: y))
+            x += 2
+        }
+        path.addLine(to: CGPoint(x: rect.width, y: rect.height * 2))
+        path.closeSubpath()
+        return path
+    }
+}
+
+/// Progress rendered as liquid rising inside the masked container. Used by
+/// hydration and fasting surfaces; falls back to a static fill under Reduce
+/// Motion and Low Power Mode.
+public struct LifeBoardLiquidFill: View {
+    private let level: Double
+    private let tint: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public init(level: Double, tint: Color) {
+        self.level = min(1, max(0, level))
+        self.tint = tint
+    }
+
+    public var body: some View {
+        if reduceMotion || ProcessInfo.processInfo.isLowPowerModeEnabled {
+            GeometryReader { proxy in
+                tint.opacity(0.85)
+                    .frame(height: proxy.size.height * level)
+                    .frame(maxHeight: .infinity, alignment: .bottom)
+            }
+        } else {
+            TimelineView(.animation(minimumInterval: 1 / 24)) { context in
+                let time = context.date.timeIntervalSinceReferenceDate
+                let phase = CGFloat(time.truncatingRemainder(dividingBy: 4) / 4)
+                ZStack {
+                    LifeBoardLiquidWaveShape(phase: phase, level: level, amplitude: 2.6)
+                        .fill(tint.opacity(0.4))
+                    LifeBoardLiquidWaveShape(phase: phase + 0.35, level: max(0, level - 0.015), amplitude: 3.4)
+                        .fill(tint.opacity(0.85))
+                }
+            }
+        }
     }
 }
