@@ -59,6 +59,9 @@ public struct LifeBoardAtmosphereView: View {
     public let comfortProfile: LifeBoardComfortProfile
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
     @State private var powerRevision = 0
 
     public init(
@@ -73,7 +76,7 @@ public struct LifeBoardAtmosphereView: View {
 
     public var body: some View {
         let policy = renderingPolicy
-        TimelineView(.animation(minimumInterval: 1.0 / 30.0, paused: policy.allowsIdleMotion == false)) { timeline in
+        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: policy.allowsIdleMotion == false || scenePhase != .active)) { timeline in
             GeometryReader { proxy in
                 atmosphereCanvas(
                     size: proxy.size,
@@ -88,10 +91,13 @@ public struct LifeBoardAtmosphereView: View {
         .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
             powerRevision &+= 1
         }
+        .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
+            powerRevision &+= 1
+        }
     }
 
     private var palette: LifeBoardDaypartPalette {
-        LifeBoardDaypartTokens.palette(for: daypart)
+        LifeBoardDaypartTokens.appearancePalette(for: daypart, colorScheme: colorScheme)
     }
 
     private var renderingPolicy: AmbientRenderingPolicy {
@@ -150,7 +156,7 @@ public struct LifeBoardAtmosphereView: View {
                 canvasSize: canvasSize,
                 y: canvasSize.height * 0.16,
                 drift: -drift * 0.5,
-                color: palette.color(for: .layerOne),
+                color: palette.color(for: .layerOne).opacity(reduceTransparency ? 1 : 0.94),
                 scale: 1.0
             )
             drawCloudLayer(
@@ -158,7 +164,7 @@ public struct LifeBoardAtmosphereView: View {
                 canvasSize: canvasSize,
                 y: canvasSize.height * 0.24,
                 drift: drift * 0.34,
-                color: palette.color(for: .layerTwo),
+                color: palette.color(for: .layerTwo).opacity(reduceTransparency ? 1 : 0.9),
                 scale: 0.78
             )
 
@@ -168,10 +174,13 @@ public struct LifeBoardAtmosphereView: View {
                 width: canvasSize.width * 0.62,
                 height: canvasSize.width * 0.48
             )
-            context.fill(Path(ellipseIn: mistRect), with: .color(palette.color(for: .coolMist).opacity(0.72)))
+            context.fill(
+                Path(ellipseIn: mistRect),
+                with: .color(palette.color(for: .coolMist).opacity(reduceTransparency ? 0.92 : 0.68))
+            )
 
-            let grainOpacity = daypart == .night ? 0.025 : 0.018
-            for index in 0..<96 {
+            let grainOpacity = reduceTransparency ? 0 : (daypart == .night ? 0.022 : 0.015)
+            for index in 0..<(policy.effectiveTier == .static ? 48 : 72) {
                 let x = pseudoRandom(index * 17 + 3) * canvasSize.width
                 let y = pseudoRandom(index * 29 + 11) * canvasSize.height
                 let diameter = 0.5 + pseudoRandom(index * 7 + 5) * 1.3
@@ -237,8 +246,209 @@ public struct LifeBoardPaperCardModifier: ViewModifier {
     }
 }
 
+public struct LifeBoardGlassSurfaceModifier: ViewModifier {
+    public let cornerRadius: CGFloat
+    public let interactive: Bool
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    public func body(content: Content) -> some View {
+        if reduceTransparency {
+            content.background(
+                Color(LifeBoardColorTokens.foundationSurfaceSolid),
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+            )
+        } else if interactive {
+            content.glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
+        } else {
+            content.glassEffect(.regular, in: .rect(cornerRadius: cornerRadius))
+        }
+    }
+}
+
 public extension View {
     func lifeBoardPaperCard() -> some View {
         modifier(LifeBoardPaperCardModifier())
+    }
+
+    func lifeBoardGlassSurface(cornerRadius: CGFloat = LifeBoardFoundationRadius.largeCard, interactive: Bool = false) -> some View {
+        modifier(LifeBoardGlassSurfaceModifier(cornerRadius: cornerRadius, interactive: interactive))
+    }
+}
+
+// MARK: - Clay surface primitives
+
+/// Shared claymorphism surfaces: warm opaque fills, a soft top highlight, and
+/// a low-opacity warm shadow. These are the only sanctioned content
+/// elevations; glass remains reserved for chrome.
+public extension View {
+    func lifeBoardRaisedClayCard(
+        palette: LifeBoardDaypartPalette,
+        cornerRadius: CGFloat = 20
+    ) -> some View {
+        let isNight = palette.canvas == LifeBoardDaypartTokens.night.canvas
+        let surface = isNight
+            ? palette.color(for: .layerOne)
+            : Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.94)
+        return background(surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.white.opacity(isNight ? 0.16 : 0.68), lineWidth: 1)
+            }
+            .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.12), radius: 8, y: 4)
+    }
+
+    func lifeBoardFloatingClayCard(
+        palette: LifeBoardDaypartPalette,
+        cornerRadius: CGFloat = 24
+    ) -> some View {
+        let isNight = palette.canvas == LifeBoardDaypartTokens.night.canvas
+        let surface = isNight
+            ? palette.color(for: .layerOne)
+            : Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.97)
+        return background(surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color.white.opacity(isNight ? 0.2 : 0.76), lineWidth: 1)
+            }
+            .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.17), radius: 18, y: 8)
+    }
+
+    func lifeBoardEmbeddedClayWell(
+        palette: LifeBoardDaypartPalette,
+        cornerRadius: CGFloat = 14
+    ) -> some View {
+        let isNight = palette.canvas == LifeBoardDaypartTokens.night.canvas
+        let surface = isNight
+            ? palette.color(for: .layerTwo)
+            : palette.color(for: .canvasSecondary).opacity(0.72)
+        return background(surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                    .stroke(Color(LifeBoardColorTokens.foundationHairline).opacity(0.72), lineWidth: 1)
+            }
+    }
+}
+
+// MARK: - Metric ring
+
+/// The shared circular signal used by Home, Track, and Insights. Values
+/// animate only when they change; empty and setup states stay visually and
+/// semantically distinct from an honest zero.
+public struct LifeBoardMetricRing: View {
+    public enum RingState: Equatable, Sendable {
+        case loading
+        case setupRequired
+        case value(progress: Double, centerText: String)
+        case complete(centerText: String)
+    }
+
+    private let label: String
+    private let state: RingState
+    private let diameter: CGFloat
+    private let palette: LifeBoardDaypartPalette
+    /// When set, the interior renders a rising liquid surface (hydration,
+    /// fasting) instead of staying empty — the ported wave fill.
+    private let liquidTint: Color?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public init(
+        label: String,
+        state: RingState,
+        diameter: CGFloat = 60,
+        palette: LifeBoardDaypartPalette,
+        liquidTint: Color? = nil
+    ) {
+        self.label = label
+        self.state = state
+        self.diameter = diameter
+        self.palette = palette
+        self.liquidTint = liquidTint
+    }
+
+    private var progress: Double {
+        switch state {
+        case .loading, .setupRequired: 0
+        case .value(let progress, _): min(1, max(0, progress))
+        case .complete: 1
+        }
+    }
+
+    private var centerText: String? {
+        switch state {
+        case .loading: nil
+        case .setupRequired: nil
+        case .value(_, let text), .complete(let text): text
+        }
+    }
+
+    public var body: some View {
+        VStack(spacing: 6) {
+            ZStack {
+                Circle()
+                    .stroke(
+                        Color(LifeBoardColorTokens.metricRingTrack),
+                        style: StrokeStyle(
+                            lineWidth: 5,
+                            dash: state == .setupRequired ? [3, 5] : []
+                        )
+                    )
+                if let liquidTint, state != .loading, state != .setupRequired {
+                    LifeBoardLiquidFill(level: progress, tint: liquidTint)
+                        .clipShape(Circle().inset(by: 4))
+                        .allowsHitTesting(false)
+                }
+                if case .loading = state {
+                    ProgressView().controlSize(.small)
+                } else if state != .setupRequired {
+                    Circle()
+                        .trim(from: 0, to: progress)
+                        .stroke(
+                            ringColor,
+                            style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                        )
+                        .rotationEffect(.degrees(-90))
+                        .animation(
+                            reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.86),
+                            value: progress
+                        )
+                }
+                if let centerText {
+                    Text(centerText)
+                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                        .monospacedDigit()
+                        .minimumScaleFactor(0.6)
+                        .lineLimit(1)
+                        .padding(.horizontal, 7)
+                } else if state == .setupRequired {
+                    Image(systemName: "plus")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                }
+            }
+            .frame(width: diameter, height: diameter)
+            Text(label)
+                .font(.caption2.weight(.medium))
+                .foregroundStyle(palette.color(for: .foregroundSecondary))
+                .lineLimit(1)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(accessibilityValueText)
+    }
+
+    private var ringColor: Color {
+        if case .complete = state {
+            return Color(LifeBoardColorTokens.foundationSageAccent)
+        }
+        return Color(LifeBoardColorTokens.metricRingFill)
+    }
+
+    private var accessibilityValueText: String {
+        switch state {
+        case .loading: "Loading"
+        case .setupRequired: "Set up"
+        case .value(let progress, let text): "\(text), \(Int((min(1, max(0, progress)) * 100).rounded())) percent"
+        case .complete(let text): "\(text), complete"
+        }
     }
 }

@@ -111,6 +111,34 @@ public enum LifeBoardDaypartTokens {
         case .night: return night
         }
     }
+
+    /// Daypart selects the celestial mood; system appearance selects functional contrast.
+    /// In Light appearance, Night remains recognizably lunar without forcing a dark canvas.
+    public static func appearancePalette(
+        for daypart: ResolvedDaypart,
+        colorScheme: ColorScheme
+    ) -> LifeBoardDaypartPalette {
+        guard daypart == .night, colorScheme == .light else { return palette(for: daypart) }
+        return LifeBoardDaypartPalette(
+            canvas: "#FFF7D8",
+            canvasSecondary: "#F5ECC9",
+            celestialPrimary: night.celestialPrimary,
+            celestialCore: night.celestialCore,
+            layerOne: "#D8CEE0",
+            layerTwo: "#C9C6BA",
+            coolMist: "#B9C9C3",
+            decorativeHighlight: night.decorativeHighlight,
+            foreground: afternoon.foreground,
+            foregroundSecondary: afternoon.foregroundSecondary
+        )
+    }
+
+    public static func functionalPalette(
+        for daypart: ResolvedDaypart,
+        colorScheme: ColorScheme
+    ) -> LifeBoardDaypartPalette {
+        colorScheme == .dark ? night : appearancePalette(for: daypart, colorScheme: .light)
+    }
 }
 
 public extension LifeBoardColorTokens {
@@ -177,9 +205,11 @@ public extension LifeBoardColorTokens {
 }
 
 public enum LifeBoardFoundationTypography {
-    public static func hero() -> Font { .largeTitle.weight(.semibold) }
-    public static func screenTitle() -> Font { .title.weight(.semibold) }
-    public static func sectionTitle() -> Font { .title2.weight(.semibold) }
+    /// Greetings and friendly emphasis use SF Rounded; body and data stay on
+    /// SF Pro; metrics use monospaced digits at their call sites.
+    public static func hero() -> Font { .system(.largeTitle, design: .rounded, weight: .semibold) }
+    public static func screenTitle() -> Font { .system(.title, design: .rounded, weight: .semibold) }
+    public static func sectionTitle() -> Font { .system(.title2, design: .rounded, weight: .semibold) }
     public static func body() -> Font { .body }
     public static func metric() -> Font { .caption.weight(.medium) }
     public static func metadata() -> Font { .caption2 }
