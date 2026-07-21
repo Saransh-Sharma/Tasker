@@ -509,13 +509,12 @@ private struct SunriseFocusZoneRow: View {
                 presentation.secondarySegments.enumerated().reduce(Text("")) { partialResult, entry in
                     let segmentText = styledSecondaryText(for: entry.element)
                     if entry.offset == 0 {
-                        return partialResult + segmentText
+                        return Text("\(partialResult)\(segmentText)")
                     }
-                    return partialResult
-                        + Text(SunriseFocusZoneSecondaryFormatting.separator)
-                            .font(.lifeboard(.caption1))
-                            .foregroundColor(Color.lifeboard.textTertiary)
-                        + segmentText
+                    let separator = Text(SunriseFocusZoneSecondaryFormatting.separator)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(Color.lifeboard.textTertiary)
+                    return Text("\(partialResult)\(separator)\(segmentText)")
                 }
             )
             .font(.lifeboard(.caption1))
