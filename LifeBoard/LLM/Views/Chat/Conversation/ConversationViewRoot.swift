@@ -32,6 +32,8 @@ struct ConversationView: View {
 
     @State var now = Date()
 
+    @State private var inkRevealProgress = 1.0
+
     var body: some View {
         ScrollViewReader { scrollView in
             ScrollView(.vertical) {
@@ -67,6 +69,11 @@ struct ConversationView: View {
                         )
                         .padding(.horizontal, LifeBoardTheme.Spacing.lg)
                         .padding(.vertical, LifeBoardTheme.Spacing.sm)
+                        .lifeboardEvaInkReveal(
+                            progress: liveOutput.runtimePhase == .answering ? inkRevealProgress : 1,
+                            newContentFraction: newlySettledContentFraction,
+                            tint: Color.lifeboard(.accentPrimary)
+                        )
                         .id(liveOutput.responseID?.uuidString ?? liveOutput.threadID?.uuidString ?? "output")
                         .transition(liveOutputTransition)
                         .onAppear {
@@ -85,6 +92,29 @@ struct ConversationView: View {
             }
             .background(Color.clear)
             .scrollPosition(id: $scrollID, anchor: .bottom)
+            .overlay(alignment: .bottomTrailing) {
+                if scrollInterrupted && shouldRenderLiveOutput {
+                    Button {
+                        scrollInterrupted = false
+                        if reduceMotion {
+                            scrollView.scrollTo("bottom", anchor: .bottom)
+                        } else {
+                            withAnimation(.snappy(duration: 0.24)) {
+                                scrollView.scrollTo("bottom", anchor: .bottom)
+                            }
+                        }
+                    } label: {
+                        Label("New response", systemImage: "arrow.down")
+                            .font(.subheadline.weight(.semibold))
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .padding(.trailing, LifeBoardTheme.Spacing.lg)
+                    .padding(.bottom, LifeBoardTheme.Spacing.md)
+                    .transition(.opacity.combined(with: .move(edge: .bottom)))
+                    .accessibilityHint("Moves to the newest settled part of Eva's response")
+                }
+            }
             .onAppear {
                 if !scrollInterrupted {
                     scrollView.scrollTo("bottom")
@@ -98,6 +128,14 @@ struct ConversationView: View {
             .onChange(of: liveOutput.text) { _, _ in
                 if !scrollInterrupted {
                     scrollView.scrollTo("bottom")
+                }
+            }
+            .onChange(of: llm.phraseSettlementSequence) { oldSequence, newSequence in
+                guard newSequence > oldSequence,
+                      liveOutput.runtimePhase == .answering else { return }
+                inkRevealProgress = 0
+                withAnimation(.linear(duration: reduceMotion ? 0.14 : 0.22)) {
+                    inkRevealProgress = 1
                 }
             }
             .onChange(of: liveOutput.runtimePhase) { oldPhase, newPhase in
@@ -168,6 +206,14 @@ struct ConversationView: View {
             return .opacity
         }
         return .asymmetric(insertion: .opacity, removal: .opacity)
+    }
+
+    private var newlySettledContentFraction: Double {
+        guard liveOutput.text.isEmpty == false else { return 1 }
+        return min(
+            1,
+            Double(llm.lastSettledPhraseCharacterCount) / Double(liveOutput.text.count)
+        )
     }
 }
 
