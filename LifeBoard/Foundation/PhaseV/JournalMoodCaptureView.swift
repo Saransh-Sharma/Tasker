@@ -174,7 +174,7 @@ struct JournalMoodCaptureView: View {
                 advance()
             }
             .font(.system(size: 16, weight: .bold, design: .rounded))
-            .foregroundStyle(.white)
+            .foregroundStyle(Color(LifeBoardColorTokens.foundationOnCelestialAccent))
             .frame(minWidth: 84, minHeight: 44)
             .background(palette.color(for: .celestialCore), in: Capsule())
             .disabled(isSaving)

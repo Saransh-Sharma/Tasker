@@ -6,11 +6,13 @@ import LocalAuthentication
 import JournalSecurityKit
 import Observation
 import PhotosUI
+import ReflectionKit
 import Speech
 import SwiftUI
 import TranscriptionKit
 import UIKit
 import UniformTypeIdentifiers
+import WatchCaptureKit
 
 // MARK: - Track module
 
@@ -1433,6 +1435,9 @@ final class LifeBoardJournalStore {
     private(set) var exportPhase: AsyncActionPhase<JournalExportReceipt> = .idle
     private(set) var backupPhase: AsyncActionPhase<JournalBackupReceipt> = .idle
     private(set) var importPhase: AsyncActionPhase<JournalImportReceipt> = .idle
+    private(set) var watchRecoveryRecords: [WatchCaptureRecoveryRecord] = []
+    private(set) var proactiveInsights: [ReflectionInsight] = []
+    private(set) var savedProactiveInsights: [ReflectionInsight] = []
     var section: Section = .today
     var searchText = ""
     var starredOnly = false
@@ -1445,6 +1450,9 @@ final class LifeBoardJournalStore {
     private let reflectionRepository: (any WeeklyReflectionHistoryRepository)?
     private let exportService: (any JournalExporting)?
     private let backupService: (any JournalBackupServicing)?
+    private let proactiveRepository: LocalProactiveReflectionRepository?
+    private var proactiveFeedback: [String: ReflectionCardFeedback] = [:]
+    private var proactiveFollowUps: [DecisionFollowUpState] = []
     private var hasBuiltDerivedIndex = false
     private var reflectionInvalidationTask: Task<Void, Never>?
     private var exportTask: Task<Void, Never>?
@@ -1458,6 +1466,7 @@ final class LifeBoardJournalStore {
         reflectionRepository: (any WeeklyReflectionHistoryRepository)? = nil,
         exportService: (any JournalExporting)? = nil,
         backupService: (any JournalBackupServicing)? = nil,
+        proactiveRepository: LocalProactiveReflectionRepository? = nil,
         initialSection: Section = .today
     ) {
         self.repository = repository
@@ -1513,6 +1522,11 @@ final class LifeBoardJournalStore {
         } else {
             self.backupService = try? LocalJournalBackupService()
         }
+        if let proactiveRepository {
+            self.proactiveRepository = proactiveRepository
+        } else {
+            self.proactiveRepository = try? LocalProactiveReflectionRepository()
+        }
     }
 
     func load() async {
@@ -1549,7 +1563,116 @@ final class LifeBoardJournalStore {
             try? LifeBoardJournalAudioFiles.deleteOrphans(retaining: retainedAudioPaths)
             applyVisibleDays()
             if !hasBuiltDerivedIndex { await rebuildDerivedIndex() }
+            await refreshProactiveReflections()
+            await loadWatchRecovery()
         } catch { errorMessage = error.localizedDescription }
+    }
+
+    func loadWatchRecovery() async {
+        #if canImport(WatchConnectivity) && os(iOS)
+        watchRecoveryRecords = await LifeBoardWatchConnectivityCoordinator.shared.journalRecoveryRecords()
+        #endif
+    }
+
+    func retryWatchRecovery() async {
+        #if canImport(WatchConnectivity) && os(iOS)
+        await LifeBoardWatchConnectivityCoordinator.shared.retryJournalRecovery()
+        try? await Task.sleep(for: .milliseconds(220))
+        await loadWatchRecovery()
+        #endif
+    }
+
+    func discardWatchRecoveryRecord(id: UUID) async {
+        #if canImport(WatchConnectivity) && os(iOS)
+        await LifeBoardWatchConnectivityCoordinator.shared.discardJournalRecoveryRecord(id: id)
+        await loadWatchRecovery()
+        #endif
+    }
+
+    func refreshProactiveReflections(now: Date = Date()) async {
+        do {
+            if let proactiveRepository {
+                let state = try await proactiveRepository.load()
+                proactiveFeedback = state.feedback
+                proactiveFollowUps = state.followUps
+            }
+            let snapshots = allDays
+                .filter { $0.aiExclusion.permitsReflection }
+                .map {
+                    ReflectionEntrySnapshot(
+                        id: $0.id,
+                        date: $0.day,
+                        updatedAt: $0.updatedAt,
+                        mood: $0.latestMood?.rawValue,
+                        text: $0.displayText
+                    )
+                }
+            let result = ProactiveReflectionAnalyzer.analyze(
+                entries: snapshots,
+                existingFollowUps: proactiveFollowUps,
+                now: now
+            )
+            proactiveFollowUps = result.followUpStates
+            savedProactiveInsights = result.insights.filter { proactiveFeedback[$0.feedbackKey]?.saved == true }
+            proactiveInsights = result.insights.filter { insight in
+                let feedback = proactiveFeedback[insight.feedbackKey]
+                return feedback?.saved != true
+                    && feedback?.isDismissed != true
+                    && feedback?.isSnoozed(now: now) != true
+            }
+            try await persistProactiveState()
+        } catch is CancellationError {
+            return
+        } catch {
+            // Reflection is derived and optional; primary Journal loading must
+            // remain successful when protected data is temporarily unavailable.
+            proactiveInsights = []
+            savedProactiveInsights = []
+        }
+    }
+
+    func toggleSaved(_ insight: ReflectionInsight) async {
+        var feedback = proactiveFeedback[insight.feedbackKey]
+            ?? ReflectionCardFeedback(insightID: insight.feedbackKey)
+        feedback.saved.toggle()
+        feedback.updatedAt = Date()
+        proactiveFeedback[insight.feedbackKey] = feedback
+        try? await persistProactiveState()
+        await refreshProactiveReflections()
+    }
+
+    func snooze(_ insight: ReflectionInsight, until: Date) async {
+        var feedback = proactiveFeedback[insight.feedbackKey]
+            ?? ReflectionCardFeedback(insightID: insight.feedbackKey)
+        feedback.snoozedUntil = until
+        feedback.dismissedAt = nil
+        feedback.updatedAt = Date()
+        proactiveFeedback[insight.feedbackKey] = feedback
+        try? await persistProactiveState()
+        await refreshProactiveReflections()
+    }
+
+    func dismiss(_ insight: ReflectionInsight) async {
+        var feedback = proactiveFeedback[insight.feedbackKey]
+            ?? ReflectionCardFeedback(insightID: insight.feedbackKey)
+        feedback.dismissedAt = Date()
+        feedback.snoozedUntil = nil
+        feedback.updatedAt = Date()
+        proactiveFeedback[insight.feedbackKey] = feedback
+        try? await persistProactiveState()
+        await refreshProactiveReflections()
+    }
+
+    func isSaved(_ insight: ReflectionInsight) -> Bool {
+        proactiveFeedback[insight.feedbackKey]?.saved == true
+    }
+
+    private func persistProactiveState() async throws {
+        guard let proactiveRepository else { return }
+        try await proactiveRepository.save(.init(
+            feedback: proactiveFeedback,
+            followUps: proactiveFollowUps
+        ))
     }
 
     var selectedReflection: WeeklyReflectionReport? {
@@ -2085,6 +2208,7 @@ struct LifeBoardJournalModuleView: View {
     @State private var pendingImportURL: URL?
     @State private var importDuplicatePolicy: JournalBackupDuplicatePolicy = .keepExisting
     @State private var showsBackupImporter = false
+    @State private var showsWatchRecovery = false
     @State private var backupOperationTask: Task<Void, Never>?
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
     @Environment(\.scenePhase) private var scenePhase
@@ -2156,6 +2280,8 @@ struct LifeBoardJournalModuleView: View {
             }
         }.sheet(item: $backupOperation, onDismiss: resetBackupPresentation) { operation in
             backupPassphraseSheet(operation: operation)
+        }.sheet(isPresented: $showsWatchRecovery) {
+            watchRecoverySheet
         }.fileImporter(
             isPresented: $showsBackupImporter,
             allowedContentTypes: [UTType(filenameExtension: "lifeboardjournal") ?? .data],
@@ -2201,6 +2327,12 @@ struct LifeBoardJournalModuleView: View {
             .pickerStyle(.segmented)
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
+
+            if !store.watchRecoveryRecords.isEmpty {
+                watchRecoveryBanner
+                    .padding(.horizontal, 20)
+                    .padding(.bottom, 8)
+            }
 
             switch store.section {
             case .today: today(palette: palette)
@@ -2259,6 +2391,118 @@ struct LifeBoardJournalModuleView: View {
                 }
                 photoSelection = []
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .lifeboardJournalWatchCaptureNeedsAttention)) { _ in
+            Task { await store.loadWatchRecovery() }
+        }
+    }
+
+    private var watchRecoveryBanner: some View {
+        Button { showsWatchRecovery = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "applewatch.radiowaves.left.and.right")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Color.lifeboard(.statusWarning))
+                    .frame(width: 36, height: 36)
+                    .background(Color.lifeboard(.statusWarning).opacity(0.14), in: Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Watch capture needs attention")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
+                    Text("\(store.watchRecoveryRecords.count) private capture\(store.watchRecoveryRecords.count == 1 ? "" : "s") held safely")
+                        .font(.caption)
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                }
+                Spacer(minLength: 4)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
+            }
+            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            .padding(12)
+            .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(Color.lifeboard(.statusWarning).opacity(0.34), lineWidth: 1)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityHint("Shows recovery details and retry actions")
+    }
+
+    private var watchRecoverySheet: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(store.watchRecoveryRecords) { record in
+                        VStack(alignment: .leading, spacing: 6) {
+                            Label(watchRecoveryTitle(record.reason), systemImage: watchRecoverySymbol(record.reason))
+                                .font(.headline)
+                            Text(watchRecoveryMessage(record.reason))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                            Text(record.receivedAtUTC, format: .dateTime.month().day().hour().minute())
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                            HStack {
+                                if record.isRetryable {
+                                    Button("Retry") { Task { await store.retryWatchRecovery() } }
+                                        .buttonStyle(.borderedProminent)
+                                }
+                                Button("Remove", role: .destructive) {
+                                    Task { await store.discardWatchRecoveryRecord(id: record.id) }
+                                }
+                                .buttonStyle(.bordered)
+                            }
+                            .controlSize(.small)
+                        }
+                        .padding(.vertical, 4)
+                        .accessibilityElement(children: .contain)
+                    }
+                } header: {
+                    Text("Held privately")
+                } footer: {
+                    Text("LifeBoard never includes the capture’s text or recording in diagnostics. Remove only if you no longer need this recovery record.")
+                }
+            }
+            .navigationTitle("Watch recovery")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { showsWatchRecovery = false }
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+    }
+
+    private func watchRecoveryTitle(_ reason: WatchCaptureRecoveryReason) -> String {
+        switch reason {
+        case .awaitingAudio: "Waiting for recording"
+        case .protectedDataUnavailable: "Waiting for unlock"
+        case .persistenceUnavailable: "Couldn’t save yet"
+        case .unsupportedSchema: "Watch update needed"
+        case .malformedPayload: "Capture couldn’t be read"
+        }
+    }
+
+    private func watchRecoveryMessage(_ reason: WatchCaptureRecoveryReason) -> String {
+        switch reason {
+        case .awaitingAudio: "The capture details arrived before its audio. Keep both devices nearby and retry."
+        case .protectedDataUnavailable: "Unlock iPhone, then retry so the protected Journal store can open."
+        case .persistenceUnavailable: "The capture is still held and can be safely retried."
+        case .unsupportedSchema: "Update LifeBoard on iPhone and Apple Watch before trying this capture again."
+        case .malformedPayload: "The protected transfer was incomplete and cannot be imported automatically."
+        }
+    }
+
+    private func watchRecoverySymbol(_ reason: WatchCaptureRecoveryReason) -> String {
+        switch reason {
+        case .awaitingAudio: "waveform.badge.exclamationmark"
+        case .protectedDataUnavailable: "lock.fill"
+        case .persistenceUnavailable: "arrow.clockwise.circle"
+        case .unsupportedSchema: "applewatch.and.arrow.forward"
+        case .malformedPayload: "exclamationmark.triangle"
         }
     }
 
@@ -2397,7 +2641,7 @@ struct LifeBoardJournalModuleView: View {
         } else if let failure = backupFailure(operation: operation) {
             Label(failure.message, systemImage: "exclamationmark.triangle")
                 .font(.footnote)
-                .foregroundStyle(.red)
+                .foregroundStyle(Color.lifeboard(.statusDanger))
         }
     }
 
@@ -2682,6 +2926,45 @@ struct LifeBoardJournalModuleView: View {
                     insightTile("Streak", value: "\(snapshot.currentStreak)", symbol: "flame", palette: palette)
                     insightTile("Words", value: "\(snapshot.totalWords)", symbol: "text.word.spacing", palette: palette)
                 }
+                if store.proactiveInsights.isEmpty == false {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text("Noticed for you")
+                                    .font(.title3.weight(.semibold))
+                                Text("Private, on-device patterns with their supporting moments.")
+                                    .font(.caption)
+                                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+                            }
+                            Spacer(minLength: 8)
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(Color.lifeboard(.accentPrimary))
+                                .accessibilityHidden(true)
+                        }
+                        ForEach(store.proactiveInsights.prefix(3)) { insight in
+                            proactiveInsightCard(insight, palette: palette)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if store.savedProactiveInsights.isEmpty == false {
+                    DisclosureGroup {
+                        VStack(spacing: 10) {
+                            ForEach(store.savedProactiveInsights) { insight in
+                                proactiveInsightCard(insight, palette: palette)
+                            }
+                        }
+                        .padding(.top, 10)
+                    } label: {
+                        Label(
+                            "Saved insights (\(store.savedProactiveInsights.count))",
+                            systemImage: "bookmark.fill"
+                        )
+                        .font(.headline)
+                    }
+                    .padding(16)
+                    .lifeBoardPaperCard()
+                }
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(alignment: .firstTextBaseline) {
                         Text("Weekly reflection")
@@ -2834,7 +3117,7 @@ struct LifeBoardJournalModuleView: View {
         guard developedReflectionID != id else { return }
         developedReflectionID = id
         reflectionDevelopProgress = 0
-        withAnimation(.easeOut(duration: 0.72)) {
+        withAnimation(LifeBoardAnimation.roleAmbient) {
             reflectionDevelopProgress = 1
         }
     }
@@ -2894,6 +3177,100 @@ struct LifeBoardJournalModuleView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 100)
         .lifeBoardPaperCard()
+    }
+
+    private func proactiveInsightCard(
+        _ insight: ReflectionInsight,
+        palette: LifeBoardDaypartPalette
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 11) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: proactiveInsightSymbol(insight))
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.lifeboard(.accentPrimary))
+                    .frame(width: 32, height: 32)
+                    .background(Color.lifeboard(.accentPrimary).opacity(0.12), in: Circle())
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(insight.category.rawValue.uppercased())
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                    Text(insight.title)
+                        .font(.headline)
+                    Text(insight.message)
+                        .font(.subheadline)
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                }
+                Spacer(minLength: 4)
+                Menu {
+                    Button(store.isSaved(insight) ? "Remove bookmark" : "Save insight") {
+                        Task { await store.toggleSaved(insight) }
+                    }
+                    Button("Remind me tomorrow") {
+                        let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Date()) ?? Date().addingTimeInterval(86_400)
+                        Task { await store.snooze(insight, until: tomorrow) }
+                    }
+                    Button("Dismiss", role: .destructive) {
+                        Task { await store.dismiss(insight) }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Actions for \(insight.title)")
+            }
+
+            if insight.evidence.isEmpty == false {
+                ScrollView(.horizontal) {
+                    HStack(spacing: 8) {
+                        ForEach(insight.evidence.prefix(4)) { evidence in
+                            Button {
+                                router?.openProtectedJournalRoute(.journalDay(evidence.entryID), in: .track)
+                            } label: {
+                                Label(
+                                    evidence.date.formatted(.dateTime.month(.abbreviated).day()),
+                                    systemImage: evidence.role == .baseline ? "clock.arrow.circlepath" : "quote.bubble"
+                                )
+                                .font(.caption.weight(.medium))
+                                .padding(.horizontal, 11)
+                                .frame(minHeight: 44)
+                                .background(palette.color(for: .canvasSecondary), in: Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Opens the supporting Journal entry")
+                        }
+                    }
+                }
+                .scrollIndicators(.hidden)
+            }
+
+            HStack(spacing: 8) {
+                Label(insight.confidence.rawValue.capitalized, systemImage: "checkmark.seal")
+                Text("•")
+                Text(insight.explanation)
+                    .lineLimit(2)
+            }
+            .font(.caption2)
+            .foregroundStyle(palette.color(for: .foregroundSecondary))
+            .accessibilityElement(children: .combine)
+        }
+        .padding(16)
+        .lifeBoardPaperCard()
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("journal.proactive.\(insight.id)")
+    }
+
+    private func proactiveInsightSymbol(_ insight: ReflectionInsight) -> String {
+        switch insight.kind {
+        case .decisionFollowUp: return "arrow.trianglehead.2.clockwise.rotate.90"
+        case .weeklyRecap: return "calendar.badge.clock"
+        case .moodTrajectory, .moodAssociation: return "waveform.path.ecg"
+        case .resurfacedThread, .quietEntity: return "point.3.connected.trianglepath.dotted"
+        case .repeatedQuestion: return "questionmark.bubble"
+        case .carryForward: return "leaf"
+        default: return "sparkles"
+        }
     }
 
 }
@@ -3056,6 +3433,92 @@ private struct JournalExportShareSheet: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }
 
+private struct JournalPhotoActivitySheet: UIViewControllerRepresentable {
+    let image: UIImage
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [image], applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+private struct LifeBoardJournalPhotoInspector: View {
+    let media: LifeBoardJournalMediaValue
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var zoom: CGFloat = 1
+    @State private var startingZoom: CGFloat = 1
+    @State private var showsShare = false
+
+    private var image: UIImage? {
+        media.payload.flatMap(UIImage.init(data:))
+    }
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if let image {
+                    ScrollView([.horizontal, .vertical]) {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .scaleEffect(zoom)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .padding(24)
+                            .accessibilityLabel("Journal photo, full screen")
+                            .accessibilityHint("Pinch to zoom. Double tap to return to the full photo.")
+                            .onTapGesture(count: 2) {
+                                withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) {
+                                    zoom = 1
+                                    startingZoom = 1
+                                }
+                            }
+                            .gesture(
+                                MagnifyGesture()
+                                    .onChanged { value in
+                                        zoom = min(max(startingZoom * value.magnification, 1), 5)
+                                    }
+                                    .onEnded { _ in
+                                        startingZoom = zoom
+                                    }
+                            )
+                    }
+                    .scrollIndicators(.hidden)
+                    .background(Color.lifeboard(.overlayScrim).ignoresSafeArea())
+                } else {
+                    ContentUnavailableView(
+                        "Photo unavailable",
+                        systemImage: "photo.badge.exclamationmark",
+                        description: Text("The attachment record is safe, but its image is not available on this device.")
+                    )
+                }
+            }
+            .navigationTitle("Journal photo")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbarBackground(Color.lifeboard(.overlayScrim), for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done") { dismiss() }
+                }
+                if image != nil {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Share", systemImage: "square.and.arrow.up") {
+                            showsShare = true
+                        }
+                        .accessibilityHint("Shares a copy of this photo using the system share sheet")
+                    }
+                }
+            }
+            .sheet(isPresented: $showsShare) {
+                if let image { JournalPhotoActivitySheet(image: image) }
+            }
+        }
+    }
+}
+
 private struct LifeBoardJournalDayCard: View {
     let day: LifeBoardJournalDayValue
     let palette: LifeBoardDaypartPalette
@@ -3068,6 +3531,7 @@ private struct LifeBoardJournalDayCard: View {
     @State private var confirmsDelete = false
     @State private var playback = LifeBoardJournalAudioPlaybackController()
     @State private var mediaRevealProgress = 0.0
+    @State private var inspectedPhoto: LifeBoardJournalMediaValue?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -3124,18 +3588,30 @@ private struct LifeBoardJournalDayCard: View {
                            let media = day.media.first(where: { $0.id == block.mediaID }),
                            let payload = media.payload,
                            let image = UIImage(data: payload) {
-                            Image(uiImage: image)
-                                .resizable()
-                                .scaledToFill()
-                                .frame(maxWidth: .infinity, minHeight: 150, maxHeight: 260)
-                                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                                .lifeboardJournalMediaReveal(progress: mediaRevealProgress)
-                                .accessibilityLabel("Journal photo")
+                            Button {
+                                inspectedPhoto = media
+                            } label: {
+                                Image(uiImage: image)
+                                    .resizable()
+                                    .scaledToFill()
+                                    .frame(maxWidth: .infinity, minHeight: 150, maxHeight: 260)
+                                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                    .lifeboardJournalMediaReveal(progress: mediaRevealProgress)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Open Journal photo")
+                            .accessibilityHint("Shows the full photo with zoom and sharing controls")
                         } else if block.kind == .photo {
-                            Label("Photo unavailable", systemImage: "photo.badge.exclamationmark")
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
+                            unavailableAttachment(
+                                title: "Photo unavailable",
+                                detail: "Its place is preserved. Restore an encrypted backup or remove this block.",
+                                symbol: "photo.badge.exclamationmark",
+                                blockID: block.id
+                            )
                         }
-                        if block.kind == .audio, let media = day.media.first(where: { $0.id == block.mediaID }) {
+                        if block.kind == .audio,
+                           let media = day.media.first(where: { $0.id == block.mediaID }),
+                           media.relativePath?.isEmpty == false {
                             Button { playback.toggle(media) } label: {
                                 Label(
                                     playback.playingMediaID == media.id ? "Stop recording" : "Play recording",
@@ -3150,8 +3626,12 @@ private struct LifeBoardJournalDayCard: View {
                                     .foregroundStyle(palette.color(for: .foregroundSecondary))
                             }
                         } else if block.kind == .audio {
-                            Text("Private audio is unavailable on this device")
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
+                            unavailableAttachment(
+                                title: "Private audio unavailable",
+                                detail: "The recording is not stored on this device. Restore an encrypted backup or remove this block.",
+                                symbol: "waveform.badge.exclamationmark",
+                                blockID: block.id
+                            )
                         }
                         Text(block.createdAt.formatted(date: .omitted, time: .shortened))
                             .font(.caption2)
@@ -3162,6 +3642,9 @@ private struct LifeBoardJournalDayCard: View {
                         if block.kind == .photo,
                            let media = day.media.first(where: { $0.id == block.mediaID }),
                            media.payload != nil {
+                            Button("View full screen", systemImage: "arrow.up.left.and.arrow.down.right") {
+                                inspectedPhoto = media
+                            }
                             Button("Edit photo", systemImage: "crop.rotate") { onEditPhoto(media) }
                         }
                         if day.blocks.first?.id != block.id {
@@ -3193,6 +3676,9 @@ private struct LifeBoardJournalDayCard: View {
             }
         }
         .onDisappear { playback.stop() }
+        .sheet(item: $inspectedPhoto) { media in
+            LifeBoardJournalPhotoInspector(media: media)
+        }
     }
 
     @ViewBuilder
@@ -3209,6 +3695,30 @@ private struct LifeBoardJournalDayCard: View {
 
     private static func duration(_ interval: TimeInterval) -> String {
         String(format: "%d:%02d", Int(interval) / 60, Int(interval) % 60)
+    }
+
+    private func unavailableAttachment(
+        title: String,
+        detail: String,
+        symbol: String,
+        blockID: UUID
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: symbol)
+                .font(.subheadline.weight(.semibold))
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(palette.color(for: .foregroundSecondary))
+            Button("Remove unavailable attachment", role: .destructive) {
+                onDeleteBlock(blockID)
+            }
+            .font(.caption.weight(.semibold))
+            .frame(minHeight: 44)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(palette.color(for: .layerOne).opacity(0.22), in: RoundedRectangle(cornerRadius: 14))
+        .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
@@ -3558,7 +4068,9 @@ struct LifeBoardJournalAudioCapture: View {
                     .accessibilityHidden(true)
                 Text(recorder.isRecording ? Self.duration(recorder.duration) : capturedURL == nil ? "Ready when you are" : "Recording ready")
                     .font(.title2.weight(.semibold))
-                if let error = recorder.errorMessage { Text(error).foregroundStyle(.red) }
+                if let error = recorder.errorMessage {
+                    Text(error).foregroundStyle(Color.lifeboard(.statusDanger))
+                }
                 if isTranscribing { ProgressView("Transcribing saved audio…") }
                 if let transcription { Text(transcription).padding().background(.background, in: RoundedRectangle(cornerRadius: 14)) }
                 if processingState == .transcriptionFailed {

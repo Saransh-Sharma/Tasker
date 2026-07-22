@@ -1,7 +1,84 @@
 import Foundation
 import CryptoKit
+import ReflectionKit
 import Security
 @preconcurrency import UIKit
+
+/// Protected local state for evidence-linked proactive reflection cards.
+/// The primary Journal remains in Core Data; this file only stores reversible
+/// presentation feedback and decision-follow-up state.
+public actor LocalProactiveReflectionRepository {
+    public struct State: Codable, Equatable, Sendable {
+        public var feedback: [String: ReflectionCardFeedback]
+        public var followUps: [DecisionFollowUpState]
+
+        public init(
+            feedback: [String: ReflectionCardFeedback] = [:],
+            followUps: [DecisionFollowUpState] = []
+        ) {
+            self.feedback = feedback
+            self.followUps = followUps
+        }
+    }
+
+    private struct Envelope: Codable {
+        var schemaVersion = 1
+        var state: State
+    }
+
+    private let fileURL: URL
+
+    public init(rootURL: URL? = nil) throws {
+        let directory: URL
+        if let rootURL {
+            directory = rootURL
+        } else {
+            guard let applicationSupport = FileManager.default.urls(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask
+            ).first else {
+                throw JournalExportFailure.unableToCreateProtectedFile
+            }
+            directory = applicationSupport.appendingPathComponent("LifeBoard/JournalDerived", isDirectory: true)
+        }
+        try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.complete]
+        )
+        fileURL = directory.appendingPathComponent("ProactiveReflections.v1.json", isDirectory: false)
+    }
+
+    public func load() throws -> State {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return State() }
+        do {
+            let envelope = try JSONDecoder.lifeBoardJournal.decode(
+                Envelope.self,
+                from: Data(contentsOf: fileURL)
+            )
+            guard envelope.schemaVersion == 1 else { throw JournalExportFailure.encodingFailed }
+            return envelope.state
+        } catch {
+            let quarantine = fileURL.deletingPathExtension()
+                .appendingPathExtension("corrupt-\(Int(Date().timeIntervalSince1970)).json")
+            try? FileManager.default.moveItem(at: fileURL, to: quarantine)
+            return State()
+        }
+    }
+
+    public func save(_ state: State) throws {
+        do {
+            let data = try JSONEncoder.lifeBoardJournal.encode(Envelope(state: state))
+            try data.write(to: fileURL, options: [.atomic, .completeFileProtection])
+            try FileManager.default.setAttributes(
+                [.protectionKey: FileProtectionType.complete],
+                ofItemAtPath: fileURL.path
+            )
+        } catch {
+            throw JournalExportFailure.unableToCreateProtectedFile
+        }
+    }
+}
 
 /// Protected, local-only version history for deterministic weekly reflections.
 /// This derived store is intentionally separate from the synced Journal schema.

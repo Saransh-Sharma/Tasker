@@ -96,7 +96,8 @@ struct LifeBoardPlanRootView: View {
     var body: some View {
         ZStack(alignment: .top) {
             Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
-            LifeBoardAtmosphereView(
+            LifeBoardScenicBackdrop(
+                scene: .plan,
                 daypart: preferences.resolvedDaypart(),
                 requestedTier: preferences.renderingTier,
                 comfortProfile: preferences.comfortProfile
@@ -208,7 +209,19 @@ struct LifeBoardPlanRootView: View {
 
     @ViewBuilder private var dayContent: some View {
         if store.isLoading && store.daySnapshot == nil {
-            ProgressView("Building your day").frame(maxWidth: .infinity).padding(40)
+            LifeBoardStatusSurface(
+                state: .loading,
+                title: "Building your day",
+                message: "Gathering commitments, blocks, and the next usable window."
+            )
+        } else if let errorMessage = store.errorMessage, store.daySnapshot == nil {
+            LifeBoardStatusSurface(
+                state: .recoverableError,
+                title: "Your plan is still safe",
+                message: errorMessage,
+                actionTitle: "Try again",
+                action: { Task { await store.load() } }
+            )
         } else if let snapshot = store.daySnapshot {
             if let session = store.activeFocusSession { activeFocusCard(session) }
             capacityCard(snapshot.capacity)
@@ -633,7 +646,17 @@ struct LifeBoardPlanRootView: View {
 
     private func emptyCard(_ title: String, detail: String, symbol: String) -> some View {
         HStack(spacing: 14) {
-            Image(systemName: symbol).font(.title2).foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+            if symbol == "sun.max" {
+                Image(decorative: "SunDayPlan")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 58, height: 58)
+                    .accessibilityHidden(true)
+            } else {
+                Image(systemName: symbol)
+                    .font(.title2)
+                    .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+            }
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.headline)
                 Text(detail).font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
@@ -997,7 +1020,7 @@ struct LifeBoardPlanRootView: View {
 
     private var errorBinding: Binding<Bool> {
         Binding(
-            get: { store.errorMessage != nil },
+            get: { store.errorMessage != nil && store.daySnapshot != nil },
             set: { if $0 == false { store.errorMessage = nil } }
         )
     }

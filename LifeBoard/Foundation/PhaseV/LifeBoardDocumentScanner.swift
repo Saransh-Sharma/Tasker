@@ -242,7 +242,7 @@ public struct LifeBoardBarcodeScannerView: UIViewControllerRepresentable {
     }
 
     @MainActor
-    public final class Coordinator: NSObject, @preconcurrency DataScannerViewControllerDelegate {
+    public final class Coordinator: NSObject, DataScannerViewControllerDelegate {
         private let completion: @MainActor (Result<String, Error>) -> Void
         private var didComplete = false
 

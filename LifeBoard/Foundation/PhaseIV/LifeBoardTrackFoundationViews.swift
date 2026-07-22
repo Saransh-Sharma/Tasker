@@ -225,7 +225,7 @@ struct LifeBoardTrackFoundationRootView: View {
             ? LifeBoardColorTokens.foundationSurfaceSelected
             : LifeBoardColorTokens.foundationSurfaceSolid)
         return Button {
-            withAnimation(.snappy(duration: 0.22)) { selectedCategory = category }
+            withAnimation(LifeBoardAnimation.roleLocalState) { selectedCategory = category }
         } label: {
             Label(category.rawValue, systemImage: category.symbol)
                 .font(.subheadline.weight(.semibold))
