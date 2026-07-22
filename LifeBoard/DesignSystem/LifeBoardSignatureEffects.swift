@@ -108,9 +108,9 @@ public struct LifeBoardAsyncActionControl<Receipt: Equatable & Sendable>: View {
                 ProgressView().controlSize(.small)
             }
         case .success:
-            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(Color.lifeboard(.statusSuccess))
         case .recoverableFailure:
-            Image(systemName: "arrow.clockwise.circle.fill").foregroundStyle(.orange)
+            Image(systemName: "arrow.clockwise.circle.fill").foregroundStyle(Color.lifeboard(.statusWarning))
         case .cancelled:
             Image(systemName: "xmark.circle")
         }

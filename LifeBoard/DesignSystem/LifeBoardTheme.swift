@@ -111,6 +111,19 @@ public enum LifeBoardThreadSafeTokenResolver {
     ) -> UIColor {
         sunriseColorTokens.color(for: role)
     }
+
+    public static func color(
+        for role: LifeBoardLegibilityRole,
+        on surface: LifeBoardSurfaceContext,
+        imageLuminance: CGFloat? = nil,
+        traits _: LifeBoardTokenTraitContext = .unspecified
+    ) -> UIColor {
+        sunriseColorTokens.color(
+            for: role,
+            on: surface,
+            imageLuminance: imageLuminance
+        )
+    }
 }
 
 public struct LifeBoardPatternTokens: Equatable {

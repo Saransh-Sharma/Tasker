@@ -56,6 +56,7 @@ enum LBColorTokens {
     static let surfaceSolid = adaptive(light: "#FFFDF7", dark: "#202741", darkHighContrast: "#2B3146")
     static let glassBorder = adaptive(light: "#FFFFFF", dark: "#FFFFFF", lightOpacity: 0.72, darkOpacity: 0.16, darkHighContrastOpacity: 0.28)
     static let glassDimmingOverlay = adaptive(light: "#000000", dark: "#000000", lightOpacity: 0.05, darkOpacity: 0.12, darkHighContrastOpacity: 0.18)
+    static let mediaScrim = adaptive(light: "#000000", dark: "#000000")
     static let hairline = adaptive(light: "#E9DFC6", dark: "#3A4258", darkHighContrast: "#56617B")
     static let elevationShadow = adaptive(light: "#2B2118", dark: "#000000", lightOpacity: 0.10, darkOpacity: 0.34)
     static let floatingShadow = adaptive(light: "#2B2118", dark: "#000000", lightOpacity: 0.22, darkOpacity: 0.38)

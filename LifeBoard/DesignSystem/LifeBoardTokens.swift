@@ -173,7 +173,7 @@ public enum LifeBoardTextStyle: String, CaseIterable {
     case buttonSmall
 }
 
-public enum LifeBoardColorRole: String, CaseIterable {
+public enum LifeBoardColorRole: String, CaseIterable, Sendable {
     case bgCanvas
     case bgCanvasSecondary
     case bgElevated
@@ -225,6 +225,120 @@ public enum LifeBoardColorRole: String, CaseIterable {
     case priorityHigh
     case priorityLow
     case priorityNone
+}
+
+/// The semantic surface beneath content. Feature views describe their
+/// surface instead of guessing a foreground color from appearance alone.
+public enum LifeBoardSurfaceContext: String, CaseIterable, Sendable {
+    case canvas
+    case paper
+    case elevatedPaper
+    case card
+    case glass
+    case strongGlass
+    case dockChrome
+    case sidebar
+    case toolbar
+    case inspector
+    case sheet
+    case overlay
+    case accent
+    case image
+    case modalScrim
+
+    /// Opaque surface used for deterministic contrast validation and as the
+    /// Reduce Transparency fallback for translucent chrome.
+    public var fallbackBackgroundRole: LifeBoardColorRole? {
+        switch self {
+        case .canvas:
+            return .bgCanvas
+        case .paper, .card, .sidebar, .sheet:
+            return .surfacePrimary
+        case .elevatedPaper, .glass, .dockChrome, .toolbar, .inspector:
+            return .bgElevated
+        case .strongGlass, .overlay:
+            return .surfaceSecondary
+        case .accent:
+            return .actionPrimary
+        case .modalScrim:
+            return .overlayScrim
+        case .image:
+            return nil
+        }
+    }
+}
+
+public enum LifeBoardLegibilityRole: String, CaseIterable, Sendable {
+    case primary
+    case secondary
+    case tertiary
+    case disabled
+    case link
+    case success
+    case warning
+    case destructive
+    case onAccent
+    case onImage
+    case focusRing
+}
+
+public enum LifeBoardImageForegroundStyle: String, Sendable {
+    case darkContent
+    case lightContent
+}
+
+/// Shared policy for copy placed over photography or decorative artwork.
+/// The sampled region, not the image as a whole, determines the foreground.
+public enum LifeBoardImageReadabilityPolicy {
+    public static let darkContentThreshold: CGFloat = 0.56
+    public static let strongScrimLowerBound: CGFloat = 0.30
+    public static let strongScrimUpperBound: CGFloat = 0.72
+
+    public static func foregroundStyle(forLuminance luminance: CGFloat) -> LifeBoardImageForegroundStyle {
+        luminance >= darkContentThreshold ? .darkContent : .lightContent
+    }
+
+    /// Returns a bounded scrim opacity for locally ambiguous image regions.
+    /// Very light and very dark regions need less intervention; mid-tones get
+    /// the strongest treatment because either foreground can become fragile.
+    public static func scrimOpacity(forLuminance luminance: CGFloat) -> CGFloat {
+        let value = min(1, max(0, luminance))
+        guard value > strongScrimLowerBound, value < strongScrimUpperBound else { return 0.08 }
+        let distanceFromMiddle = abs(value - 0.5) / 0.22
+        return 0.26 - min(1, distanceFromMiddle) * 0.10
+    }
+}
+
+public struct LifeBoardLegibilityPair: Hashable, Sendable {
+    public let foreground: LifeBoardColorRole
+    public let background: LifeBoardColorRole
+    public let minimumContrast: CGFloat
+
+    public init(foreground: LifeBoardColorRole, background: LifeBoardColorRole, minimumContrast: CGFloat) {
+        self.foreground = foreground
+        self.background = background
+        self.minimumContrast = minimumContrast
+    }
+
+    /// Release-gated combinations used by reading, action, status, and glass
+    /// surfaces. Decorative separators intentionally do not appear here.
+    public static let releaseGate: [LifeBoardLegibilityPair] = [
+        .init(foreground: .textPrimary, background: .bgCanvas, minimumContrast: 4.5),
+        .init(foreground: .textPrimary, background: .surfacePrimary, minimumContrast: 4.5),
+        .init(foreground: .textPrimary, background: .surfaceSecondary, minimumContrast: 4.5),
+        .init(foreground: .textPrimary, background: .surfaceTertiary, minimumContrast: 4.5),
+        .init(foreground: .textPrimary, background: .bgElevated, minimumContrast: 4.5),
+        .init(foreground: .textSecondary, background: .bgCanvas, minimumContrast: 4.5),
+        .init(foreground: .textSecondary, background: .surfacePrimary, minimumContrast: 4.5),
+        .init(foreground: .textSecondary, background: .surfaceSecondary, minimumContrast: 4.5),
+        .init(foreground: .textSecondary, background: .surfaceTertiary, minimumContrast: 4.5),
+        .init(foreground: .textSecondary, background: .bgElevated, minimumContrast: 4.5),
+        .init(foreground: .accentOnPrimary, background: .actionPrimary, minimumContrast: 4.5),
+        .init(foreground: .statusSuccess, background: .surfacePrimary, minimumContrast: 3.0),
+        .init(foreground: .statusWarning, background: .surfacePrimary, minimumContrast: 3.0),
+        .init(foreground: .statusDanger, background: .surfacePrimary, minimumContrast: 3.0),
+        .init(foreground: .actionFocus, background: .surfacePrimary, minimumContrast: 3.0)
+    ]
 }
 
 public enum LifeBoardSpacingToken: CGFloat, CaseIterable {

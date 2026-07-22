@@ -83,6 +83,66 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
     public var glassTint: UIColor { overlayGlassTint }
     public var patternTint: UIColor { accentSecondaryWash }
 
+    // Final LifeBoard 5.0 composition roles. These aliases keep feature code
+    // semantic while preserving the existing additive token storage contract.
+    public var scenicCanvas: UIColor { bgCanvas }
+    public var paperPrimary: UIColor { surfacePrimary }
+    public var paperRaised: UIColor { bgElevated }
+    public var inkPrimary: UIColor { textPrimary }
+    public var inkSecondary: UIColor { textSecondary }
+    public var hairline: UIColor { strokeHairline }
+    public var focusAccent: UIColor { actionFocus }
+    public var success: UIColor { statusSuccess }
+    public var warning: UIColor { statusWarning }
+    public var danger: UIColor { statusDanger }
+    public var assistantEvidence: UIColor { accentSecondary }
+    public var imageScrim: UIColor { overlayScrim }
+
+    public func color(
+        for role: LifeBoardLegibilityRole,
+        on surface: LifeBoardSurfaceContext,
+        imageLuminance: CGFloat? = nil
+    ) -> UIColor {
+        if surface == .image || surface == .modalScrim {
+            let usesDarkImageInk = surface == .image
+                && LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: imageLuminance ?? 0.5) == .darkContent
+            switch role {
+            case .primary, .secondary, .tertiary, .onImage:
+                return usesDarkImageInk ? textPrimary : textInverse
+            default:
+                break
+            }
+        }
+
+        switch role {
+        case .primary:
+            return surface == .accent ? accentOnPrimary : textPrimary
+        case .secondary:
+            return surface == .accent ? accentOnPrimary : textSecondary
+        case .tertiary:
+            return surface == .accent ? accentOnPrimary : textTertiary
+        case .disabled:
+            return textDisabled
+        case .link:
+            return surface == .accent ? accentOnPrimary : accentPrimary
+        case .success:
+            return statusSuccess
+        case .warning:
+            return statusWarning
+        case .destructive:
+            return statusDanger
+        case .onAccent:
+            return accentOnPrimary
+        case .onImage:
+            let luminance = imageLuminance ?? 0.5
+            return LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: luminance) == .darkContent
+                ? textPrimary
+                : textInverse
+        case .focusRing:
+            return actionFocus
+        }
+    }
+
     /// Executes color.
     public func color(for role: LifeBoardColorRole) -> UIColor {
         switch role {
