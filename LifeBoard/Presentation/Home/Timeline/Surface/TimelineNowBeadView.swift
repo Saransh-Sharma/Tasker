@@ -42,7 +42,7 @@ struct TimelineNowBeadView: View {
                 .frame(width: 11, height: 11)
                 .overlay {
                     Circle()
-                        .stroke(Color.white.opacity(0.76), lineWidth: 1)
+                        .stroke(LBColorTokens.whiteStroke.opacity(0.76), lineWidth: 1)
                 }
                 .offset(x: beadX - 5.5, y: -5.5)
         }

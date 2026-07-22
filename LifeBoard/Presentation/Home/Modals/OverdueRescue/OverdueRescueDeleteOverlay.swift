@@ -15,7 +15,7 @@ struct OverdueRescueDeleteOverlay: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.28)
+            Color.lifeboard(.overlayScrim).opacity(0.84)
                 .ignoresSafeArea()
                 .onTapGesture { onCancel() }
                 .accessibilityHidden(true)
@@ -46,7 +46,7 @@ struct OverdueRescueDeleteOverlay: View {
                         Text("Delete task")
                             .font(.lifeboard(.button))
                             .fontWeight(.semibold)
-                            .foregroundStyle(.white)
+                            .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                             .frame(maxWidth: .infinity, minHeight: 54)
                             .background(
                                 RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -82,7 +82,7 @@ struct OverdueRescueDeleteOverlay: View {
                         RoundedRectangle(cornerRadius: 32, style: .continuous)
                             .stroke(Color.lifeboard.strokeHairline, lineWidth: 1)
                     )
-                    .shadow(color: Color.black.opacity(0.18), radius: 30, y: 16)
+                    .lbShadow(LBShadowTokens.rescueOverlay)
             )
             .padding(.horizontal, 32)
         }

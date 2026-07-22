@@ -21,7 +21,7 @@ struct OverdueRescueRevealPanel: View {
                     .stroke(panelForeground.opacity(0.18), lineWidth: 1)
             )
             .frame(width: metrics.revealPanelWidth, height: metrics.cardHeight * 0.96)
-            .shadow(color: Color.black.opacity(0.08 * easedProgress), radius: 22, y: 12)
+            .lbShadow(LBShadowTokens.rescueReveal(progress: easedProgress))
             .overlay(alignment: reveal == .keep ? .leading : .trailing) {
                 if reveal != .none {
                     VStack(spacing: 12) {

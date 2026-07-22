@@ -27,7 +27,7 @@ struct TimelineCapsule: View {
             }()
             let iconColor: Color = {
                 if isCompleted || isCurrent {
-                    return Color.white.opacity(0.96)
+                    return Color.lifeboard(.textInverse).opacity(0.96)
                 }
                 if isPastIncomplete {
                     return palette.icon.opacity(0.9)

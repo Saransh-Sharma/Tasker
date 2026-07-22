@@ -30,7 +30,7 @@ struct OverdueRescueBackCards: View {
                         y: -CGFloat(reverseIndex) * 21
                     )
                     .scaleEffect(1.0 - Double(reverseIndex) * 0.015)
-                    .shadow(color: Color.black.opacity(0.045 + Double(index) * 0.012), radius: 16 + CGFloat(index) * 4, y: 8 + CGFloat(index) * 2)
+                    .lbShadow(LBShadowTokens.rescueStack(depth: index))
             }
         }
     }

@@ -114,7 +114,7 @@ struct TimelineTaskMarkerRow: View {
     }
 
     var markerIconColor: Color {
-        row.temporalState == .currentTask ? Color.white.opacity(0.96) : palette.icon
+        row.temporalState == .currentTask ? Color.lifeboard(.textInverse).opacity(0.96) : palette.icon
     }
 
     var markerStroke: Color {

@@ -92,7 +92,7 @@ struct OverdueRescueActionGrid: View {
                             RoundedRectangle(cornerRadius: 26, style: .continuous)
                                 .stroke(foreground.opacity(0.10), lineWidth: 1)
                         )
-                        .shadow(color: Color.black.opacity(0.045), radius: 14, y: 8)
+                        .lbShadow(LBShadowTokens.rescueTile)
                 )
                 .contentShape(RoundedRectangle(cornerRadius: 26))
         }

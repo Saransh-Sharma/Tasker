@@ -20,7 +20,7 @@ struct OverdueRescueLauncherOverlayView: View {
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.16)
+            Color.lifeboard(.overlayScrim)
                 .ignoresSafeArea()
                 .accessibilityHidden(true)
 
@@ -83,7 +83,7 @@ struct OverdueRescueLauncherOverlayView: View {
                             Button(action: onPrimary) {
                                 Text(primaryTitle)
                                     .font(.lifeboard(.callout).weight(.semibold))
-                                    .foregroundStyle(Color.white)
+                                    .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                                     .frame(minWidth: 112, minHeight: 44)
                                     .padding(.horizontal, 14)
                                     .background(
@@ -104,9 +104,9 @@ struct OverdueRescueLauncherOverlayView: View {
                     .fill(Color(red: 1.0, green: 0.985, blue: 0.955).opacity(0.96))
                     .overlay(
                         RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(Color.white.opacity(0.7), lineWidth: 1)
+                            .stroke(LBColorTokens.whiteStroke.opacity(0.7), lineWidth: 1)
                     )
-                    .shadow(color: Color.black.opacity(0.12), radius: 28, x: 0, y: 18)
+                    .lbShadow(LBShadowTokens.rescueLauncher)
             )
             .padding(.horizontal, 28)
             .accessibilityElement(children: .contain)

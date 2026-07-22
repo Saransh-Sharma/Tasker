@@ -323,7 +323,7 @@ extension SunriseAppShellView {
 
     var sunriseDatePickerDropdown: some View {
         ZStack(alignment: .top) {
-            Color.black.opacity(0.001)
+            Color.lifeboard(.textPrimary).opacity(0.001)
                 .ignoresSafeArea()
                 .onTapGesture {
                     showDatePicker = false

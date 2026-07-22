@@ -37,7 +37,7 @@ struct OverdueRescueLargeStackView: View {
             }
             .font(.lifeboard(.button))
             .fontWeight(.bold)
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.lifeboard(.accentOnPrimary))
             .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.primaryButtonHeight)
             .background(OverdueRescueVisualSpec.primaryButtonBackground())
             .opacity(safeCount == 0 ? 0.58 : 1.0)

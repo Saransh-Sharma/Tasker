@@ -364,7 +364,7 @@ extension SunriseAppShellView {
                         .frame(width: 44, height: 44)
                         .background(
                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                .fill(Color.black.opacity(0.14))
+                                .fill(Color.lifeboard(.overlayScrim).opacity(0.72))
                         )
                 }
                 .buttonStyle(.plain)
