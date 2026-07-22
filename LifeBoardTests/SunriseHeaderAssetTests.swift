@@ -35,11 +35,11 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(TimeOfDayHeaderAsset.period(for: date(hour: 21), calendar: calendar), .night)
     }
 
-    func testAssetNamesMatchFourVariantsPerPeriod() {
-        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .morning), ["M1", "M2", "M3", "M4"])
-        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .afternoon), ["A1", "A2", "A3", "A4"])
-        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .evening), ["E1", "E2", "E3", "E4"])
-        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .night), ["N1", "N2", "N3", "N4"])
+    func testAssetNamesMatchDeterministicCelestialPhases() {
+        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .morning), ["CelestialDawnBackground", "CelestialMorningBackground"])
+        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .afternoon), ["CelestialMiddayBackground"])
+        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .evening), ["CelestialGoldenHourBackground", "CelestialTwilightBackground"])
+        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .night), ["CelestialNightBackground"])
     }
 
     func testResolveIsStableForSameActivationAndPeriod() {
@@ -99,7 +99,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(context.greeting, TimeOfDayHeaderAsset.Period.afternoon.greeting)
     }
 
-    func testHeaderContextUsesNoonForNonTodayDates() {
+    func testHeaderContextKeepsSelectedDateCopySeparateFromCurrentAtmosphere() {
         let selectedDateAtMidnight = date(hour: 0, day: 9)
         let now = date(hour: 22, day: 8)
 
@@ -111,8 +111,115 @@ final class SunriseHeaderAssetTests: XCTestCase {
         )
 
         XCTAssertEqual(calendar.component(.hour, from: context.effectiveDate), 12)
-        XCTAssertEqual(context.period, .afternoon)
-        XCTAssertEqual(context.asset.period, .afternoon)
+        XCTAssertEqual(context.period, .night)
+        XCTAssertEqual(context.asset.period, .night)
+    }
+
+    func testSixCelestialPhaseBoundaries() {
+        let cases: [(Int, Int, LifeBoardCelestialPhase)] = [
+            (4, 59, .night), (5, 0, .dawn), (7, 59, .dawn),
+            (8, 0, .morning), (11, 59, .morning), (12, 0, .midday),
+            (16, 59, .midday), (17, 0, .goldenHour), (18, 59, .goldenHour),
+            (19, 0, .twilight), (20, 59, .twilight), (21, 0, .night)
+        ]
+
+        for (hour, minute, expected) in cases {
+            XCTAssertEqual(
+                LifeBoardCelestialPhase.resolve(at: date(hour: hour, minute: minute), calendar: calendar),
+                expected,
+                "Unexpected phase at \(hour):\(minute)"
+            )
+        }
+    }
+
+    func testCelestialPhaseSemanticAndManualMappings() {
+        XCTAssertEqual(LifeBoardCelestialPhase.dawn.semanticDaypart, .morning)
+        XCTAssertEqual(LifeBoardCelestialPhase.twilight.semanticDaypart, .evening)
+        XCTAssertEqual(LifeBoardCelestialPhase.manualPhase(for: .automatic), nil)
+        XCTAssertEqual(LifeBoardCelestialPhase.manualPhase(for: .morning), .morning)
+        XCTAssertEqual(LifeBoardCelestialPhase.manualPhase(for: .afternoon), .midday)
+        XCTAssertEqual(LifeBoardCelestialPhase.manualPhase(for: .evening), .goldenHour)
+        XCTAssertEqual(LifeBoardCelestialPhase.manualPhase(for: .night), .night)
+    }
+
+    func testNextBoundarySchedulingAcrossMidnight() {
+        let twilightBoundary = LifeBoardCelestialPhase.nextBoundary(
+            after: date(hour: 20, minute: 59),
+            calendar: calendar
+        )
+        XCTAssertEqual(calendar.component(.hour, from: twilightBoundary), 21)
+        XCTAssertEqual(calendar.component(.day, from: twilightBoundary), 8)
+
+        let nightBoundary = LifeBoardCelestialPhase.nextBoundary(
+            after: date(hour: 23, minute: 30),
+            calendar: calendar
+        )
+        XCTAssertEqual(calendar.component(.hour, from: nightBoundary), 5)
+        XCTAssertEqual(calendar.component(.day, from: nightBoundary), 9)
+    }
+
+    func testCelestialDescriptorAndAssetManifestIsComplete() {
+        for phase in LifeBoardCelestialPhase.allCases {
+            let descriptor = LifeBoardAtmosphereDescriptor.descriptor(for: phase)
+            XCTAssertEqual(descriptor.phase, phase)
+            XCTAssertNotNil(UIImage(named: descriptor.backgroundAsset), descriptor.backgroundAsset)
+            let celestial = UIImage(named: descriptor.celestialAsset)
+            XCTAssertNotNil(celestial, descriptor.celestialAsset)
+            XCTAssertGreaterThan(descriptor.celestialScale, 0)
+            XCTAssertTrue((0...1).contains(descriptor.celestialAnchorX))
+            XCTAssertTrue((0...1).contains(descriptor.celestialAnchorY))
+        }
+    }
+
+    func testCelestialPhaseFixtureParsesEveryPhaseAndRejectsUnknownValues() {
+        for phase in LifeBoardCelestialPhase.allCases {
+            let fixture = LifeBoardCelestialPhaseFixture(arguments: [
+                "-UI_TESTING",
+                "\(LifeBoardCelestialPhaseFixture.launchArgumentPrefix)\(phase.rawValue)"
+            ])
+            XCTAssertEqual(fixture?.phase, phase)
+            XCTAssertEqual(
+                fixture?.launchArgument,
+                "\(LifeBoardCelestialPhaseFixture.launchArgumentPrefix)\(phase.rawValue)"
+            )
+        }
+
+        XCTAssertNil(LifeBoardCelestialPhaseFixture(arguments: [
+            "\(LifeBoardCelestialPhaseFixture.launchArgumentPrefix)blueHour"
+        ]))
+    }
+
+    func testCelestialAssetsHaveTransparentOuterCorners() throws {
+        for phase in LifeBoardCelestialPhase.allCases {
+            let descriptor = LifeBoardAtmosphereDescriptor.descriptor(for: phase)
+            let image = try XCTUnwrap(UIImage(named: descriptor.celestialAsset), descriptor.celestialAsset)
+            let cgImage = try XCTUnwrap(image.cgImage, descriptor.celestialAsset)
+            XCTAssertTrue(
+                cornerAlphaValues(in: cgImage).allSatisfy { $0 == 0 },
+                "\(descriptor.celestialAsset) must not retain color residue at its outer corners"
+            )
+        }
+    }
+
+    private func cornerAlphaValues(in image: CGImage) -> [UInt8] {
+        let width = image.width
+        let height = image.height
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 0, count: height * bytesPerRow)
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return [255] }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return [(0, 0), (width - 1, 0), (0, height - 1), (width - 1, height - 1)].map { coordinate in
+            let (x, y) = coordinate
+            return pixels[y * bytesPerRow + x * 4 + 3]
+        }
     }
 
     func testNavigatorTitleAvoidsDuplicatingHeroDateForRelativeDays() {

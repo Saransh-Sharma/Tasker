@@ -46,6 +46,7 @@ extension XCUIApplication {
         case testHabitDetailEditorSupportDelayMilliseconds = "-LIFEBOARD_TEST_HABIT_DETAIL_EDITOR_SUPPORT_DELAY_MS"
         case visualFixture = "-LIFEBOARD_VISUAL_FIXTURE"
         case visualAppearance = "-LIFEBOARD_VISUAL_APPEARANCE"
+        case celestialPhase = "-LIFEBOARD_CELESTIAL_PHASE"
     }
 
     // MARK: - Convenience Launch Methods
@@ -174,7 +175,7 @@ extension XCUIApplication {
     }
 
     /// Launches a deterministic root/state composition for visual evidence.
-    func launchVisualFixture(root: String, state: String, appearance: String? = nil) {
+    func launchVisualFixture(root: String, state: String, appearance: String? = nil, phase: String? = nil) {
         launchArguments = [
             LaunchArgumentKey.uiTesting.rawValue,
             LaunchArgumentKey.skipOnboarding.rawValue,
@@ -183,6 +184,9 @@ extension XCUIApplication {
         ]
         if let appearance {
             launchArguments.append("\(LaunchArgumentKey.visualAppearance.rawValue)=\(appearance)")
+        }
+        if let phase {
+            launchArguments.append("\(LaunchArgumentKey.celestialPhase.rawValue)=\(phase)")
         }
         launchEnvironment[LaunchEnvironmentKey.performanceTest.rawValue] = "1"
         launch()
