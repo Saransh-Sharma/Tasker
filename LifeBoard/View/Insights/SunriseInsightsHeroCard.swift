@@ -5,7 +5,7 @@ struct SunriseInsightsHeroCard: View {
     let answer: String
     let metric: String
     var role: LBRole = .focus
-    var decorAsset: SunriseDecorAsset = .happySun
+    var decorAsset: SunriseDecorAsset = .daySun
     var primaryActionTitle: String? = nil
     var primaryAction: (() -> Void)? = nil
     var accessibilityIdentifier: String = "home.insights.hero"
@@ -82,6 +82,8 @@ struct SunriseInsightsHeroCard: View {
 
     private var decorSize: CGFloat {
         switch decorAsset {
+        case .daySun, .planSun:
+            return 132
         case .mountain:
             return 116
         case .thinkingCup:
@@ -93,6 +95,8 @@ struct SunriseInsightsHeroCard: View {
 
     private var decorOffsetX: CGFloat {
         switch decorAsset {
+        case .daySun, .planSun:
+            return 24
         case .mountain:
             return 4
         default:
@@ -102,6 +106,8 @@ struct SunriseInsightsHeroCard: View {
 
     private var decorOffsetY: CGFloat {
         switch decorAsset {
+        case .daySun, .planSun:
+            return 26
         case .mountain:
             return 16
         default:

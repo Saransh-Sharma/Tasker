@@ -495,7 +495,7 @@ private struct TimeWheelSlotRow: View {
             .monospacedDigit()
             .lineLimit(1)
             .minimumScaleFactor(0.85)
-            .foregroundStyle(isSelected ? Color.white : Color.lifeboard.textSecondary.opacity(opacity))
+            .foregroundStyle(isSelected ? Color.lifeboard(.accentOnPrimary) : Color.lifeboard.textSecondary.opacity(opacity))
             .frame(maxWidth: .infinity, minHeight: 44)
             .padding(.horizontal, LifeBoardTheme.Spacing.md)
             .background(
@@ -549,7 +549,7 @@ private struct TaskDurationSegmentedPicker: View {
                             .monospacedDigit()
                             .lineLimit(1)
                             .minimumScaleFactor(0.85)
-                            .foregroundStyle(option.minutes == durationMinutes ? Color.white : Color.lifeboard.textSecondary)
+                            .foregroundStyle(option.minutes == durationMinutes ? Color.lifeboard(.accentOnPrimary) : Color.lifeboard.textSecondary)
                             .frame(maxWidth: .infinity, minHeight: 44)
                             .background(
                                 Capsule()

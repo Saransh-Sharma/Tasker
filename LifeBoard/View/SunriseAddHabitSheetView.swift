@@ -826,7 +826,7 @@ private extension View {
             } else if #available(iOS 26.0, *) {
                 shape
                     .fill(.clear)
-                    .glassEffect(.regular, in: shape)
+                    .lifeBoardSystemGlass(.regular, in: shape)
                     .overlay(shape.fill(LBColorTokens.glass.opacity(0.66)))
             } else {
                 shape

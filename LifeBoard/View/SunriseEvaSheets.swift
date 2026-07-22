@@ -657,7 +657,7 @@ struct FocusTaskCard: View {
         .lbShadow(isActive ? LBShadowTokens.floating : LBShadowTokens.card)
         .overlay {
             RoundedRectangle(cornerRadius: 28)
-                .stroke(isSelectedForSwap ? heroImage.accentColor.opacity(0.56) : Color.white.opacity(0.46), lineWidth: isSelectedForSwap ? 2 : 1)
+                .stroke(isSelectedForSwap ? heroImage.accentColor.opacity(0.56) : LBColorTokens.whiteStroke.opacity(0.46), lineWidth: isSelectedForSwap ? 2 : 1)
         }
         .accessibilityElement(children: .contain)
         .scaleEffect(isActive ? 1 : 0.992)
@@ -825,7 +825,7 @@ struct FocusTaskCardBack: View {
 
                 Button("Start timer", systemImage: "play.fill", action: onStartTimer)
                     .font(.lifeboard(.bodyEmphasis))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 52)
                     .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 16))
@@ -1066,7 +1066,7 @@ struct FocusBottomActions: View {
                     Image(systemName: isStarting ? "hourglass" : "play.fill")
                         .font(.lifeboard(.callout).weight(.bold))
                         .frame(width: 48, height: 48)
-                        .background(Color.white.opacity(0.14), in: Circle())
+                        .background(LBColorTokens.whiteStroke.opacity(0.14), in: Circle())
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(isStarting ? "Starting..." : "Start focus")
@@ -1078,7 +1078,7 @@ struct FocusBottomActions: View {
 
                     Spacer(minLength: 0)
                 }
-                .foregroundStyle(Color.white)
+                .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                 .padding(.horizontal, 14)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 74)
@@ -1196,7 +1196,7 @@ struct RefineFocusSheet: View {
                         onApply(selectedTasks)
                     }
                     .font(.lifeboard(.bodyEmphasis))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 54)
                     .background(selectedIDs.isEmpty ? LBColorTokens.navyMuted.opacity(0.48) : LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
@@ -1335,7 +1335,7 @@ struct FocusTaskDetailSheet: View {
                 HStack(spacing: 10) {
                     Button("Start timer", systemImage: "play.fill", action: onStartTimer)
                         .font(.lifeboard(.bodyEmphasis))
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 52)
                         .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 16))
@@ -1428,7 +1428,7 @@ struct FocusDurationPickerSheet: View {
                             customMinutes = ""
                         }
                         .font(.lifeboard(.caption1).weight(.semibold))
-                        .foregroundStyle(selectedDurationSeconds == minutes * 60 ? Color.white : LBColorTokens.navy)
+                        .foregroundStyle(selectedDurationSeconds == minutes * 60 ? Color.lifeboard(.accentOnPrimary) : LBColorTokens.navy)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
                         .background(selectedDurationSeconds == minutes * 60 ? LBColorTokens.navy : ReflectPlanStyle.cream, in: Capsule())
@@ -1453,7 +1453,7 @@ struct FocusDurationPickerSheet: View {
                     onStart(selectedDurationSeconds)
                 }
                 .font(.lifeboard(.bodyEmphasis))
-                .foregroundStyle(Color.white)
+                .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 54)
                 .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))

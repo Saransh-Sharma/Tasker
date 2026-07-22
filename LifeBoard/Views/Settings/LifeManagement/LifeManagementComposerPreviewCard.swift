@@ -23,7 +23,7 @@ struct LifeManagementComposerPreviewCard: View {
             HStack(alignment: .top, spacing: spacing.s12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(Color.white.opacity(0.18))
+                        .fill(LBColorTokens.whiteStroke.opacity(0.18))
                         .frame(width: 58, height: 58)
 
                     Group {
@@ -35,24 +35,24 @@ struct LifeManagementComposerPreviewCard: View {
                         }
                     }
                     .font(.system(size: 24, weight: .semibold))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.lifeboard(.textInverse))
                 }
                 .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: spacing.s4) {
                     Text(eyebrow)
-                        .font(.lifeboard(.eyebrow))
-                        .foregroundStyle(Color.white.opacity(0.78))
+                        .lifeboardFont(.eyebrow)
+                        .foregroundStyle(Color.lifeboard(.secondary, on: .image, imageLuminance: 0.2))
 
                     Text(title)
-                        .font(.lifeboard(.title2).weight(.semibold))
-                        .foregroundStyle(Color.white)
+                        .lifeboardFont(.title2)
+                        .foregroundStyle(Color.lifeboard(.primary, on: .image, imageLuminance: 0.2))
                         .contentTransition(.opacity)
-                        .lineLimit(2)
+                        .fixedSize(horizontal: false, vertical: true)
 
                     Text(subtitle)
-                        .font(.lifeboard(.callout))
-                        .foregroundStyle(Color.white.opacity(0.84))
+                        .lifeboardFont(.callout)
+                        .foregroundStyle(Color.lifeboard(.secondary, on: .image, imageLuminance: 0.2))
                         .contentTransition(.opacity)
                         .fixedSize(horizontal: false, vertical: true)
                 }
@@ -89,9 +89,9 @@ struct LifeManagementComposerPreviewCard: View {
         .overlay(
             LinearGradient(
                 colors: [
-                    Color.black.opacity(0.10),
-                    Color.black.opacity(0.03),
-                    Color.white.opacity(0.08)
+                    Color.lifeboard(.overlayScrim).opacity(0.50),
+                    Color.lifeboard(.overlayScrim).opacity(0.15),
+                    LBColorTokens.whiteStroke.opacity(0.08)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -100,7 +100,7 @@ struct LifeManagementComposerPreviewCard: View {
         .lifeboardPremiumSurface(
             cornerRadius: LifeBoardTheme.CornerRadius.card,
             fillColor: .clear,
-            strokeColor: Color.white.opacity(0.16),
+            strokeColor: LBColorTokens.whiteStroke.opacity(0.16),
             accentColor: accentColor,
             level: .e2
         )

@@ -339,7 +339,7 @@ struct HabitHomeSectionCard: View {
                         .frame(width: 44, height: 44)
                         .background(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.white.opacity(0.7))
+                                .fill(LBColorTokens.whiteStroke.opacity(0.7))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -1290,7 +1290,7 @@ private struct HabitBoardCellView: View {
                         let x = CGFloat((index * 7) % 11) / 11 * size.width
                         let y = CGFloat((index * 11) % 13) / 13 * size.height
                         path.addEllipse(in: CGRect(x: x, y: y, width: 0.6, height: 0.6))
-                        context.fill(path, with: .color(Color.white.opacity(0.12)))
+                        context.fill(path, with: .color(LBColorTokens.whiteStroke.opacity(0.12)))
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous))
@@ -1416,8 +1416,8 @@ enum HabitEverydayPalette {
 
     static func gridStroke(colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color.white.opacity(0.07)
-            : Color.black.opacity(0.04)
+            ? LBColorTokens.whiteStroke.opacity(0.07)
+            : LBColorTokens.elevationShadow.opacity(0.4)
     }
 
     static func paperFill(colorScheme: ColorScheme) -> Color {

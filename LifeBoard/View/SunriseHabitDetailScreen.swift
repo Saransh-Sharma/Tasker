@@ -1062,7 +1062,7 @@ private struct SunriseHabitCalendarDayCell: View {
     private var textColor: Color {
         switch cell.cell.state {
         case .success:
-            return (cell.streakDepth ?? 1) >= 4 ? Color.white.opacity(0.98) : Color.lifeboard.textPrimary
+            return (cell.streakDepth ?? 1) >= 4 ? Color.lifeboard(.textInverse).opacity(0.98) : Color.lifeboard.textPrimary
         case .lapsed:
             return Color.lifeboard.textSecondary
         case .future, .notScheduled:

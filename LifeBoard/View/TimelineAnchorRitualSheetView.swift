@@ -145,8 +145,8 @@ private struct TimelineAnchorRitualHero: View {
                 .overlay {
                     LinearGradient(
                         colors: [
-                            Color.white.opacity(0.18),
-                            Color.white.opacity(0.02),
+                            LBColorTokens.whiteStroke.opacity(0.18),
+                            LBColorTokens.whiteStroke.opacity(0.02),
                             Color.clear
                         ],
                         startPoint: .top,
@@ -155,7 +155,7 @@ private struct TimelineAnchorRitualHero: View {
                 }
 
             Capsule()
-                .fill(Color.black.opacity(0.18))
+                .fill(Color.lifeboard(.overlayScrim))
                 .frame(width: 78, height: 7)
                 .padding(.top, 18)
                 .accessibilityHidden(true)
@@ -171,7 +171,7 @@ private struct TimelineAnchorRitualHero: View {
                             Circle()
                                 .stroke(LBColorTokens.hairline, lineWidth: 1)
                         }
-                        .shadow(color: Color.black.opacity(0.08), radius: 14, x: 0, y: 8)
+                        .lbShadow(LBShadowTokens.ritualClose)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("timelineAnchorDetail.closeButton")
@@ -233,12 +233,12 @@ private struct TimelineAnchorRitualContent: View {
             Button(action: saveChanges) {
                 Label("Save changes", systemImage: "checkmark")
                     .font(.lifeboard(.headline).weight(.semibold))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                     .frame(width: metrics.ctaWidth, height: metrics.ctaHeight)
                     .background(theme.ctaGradient, in: Capsule())
                     .overlay {
                         Capsule()
-                            .stroke(Color.white.opacity(0.18), lineWidth: 1)
+                            .stroke(LBColorTokens.whiteStroke.opacity(0.18), lineWidth: 1)
                     }
                     .shadow(color: theme.accent.opacity(0.26), radius: 16, x: 0, y: 8)
             }
@@ -382,7 +382,7 @@ private struct TimelineAnchorTimeSelectorCard: View {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
                 .stroke(theme.cardBorder.opacity(0.86), lineWidth: 1)
         }
-        .shadow(color: Color.black.opacity(0.08), radius: 18, x: 0, y: 10)
+        .lbShadow(LBShadowTokens.ritualCard)
         .accessibilityIdentifier("timelineAnchorDetail.timeSelectorCard")
     }
 
@@ -470,7 +470,7 @@ private struct TimelineAnchorTimeChip: View {
                     RoundedRectangle(cornerRadius: 17, style: .continuous)
                         .stroke(option.isSelected ? theme.accentMist : LBColorTokens.hairline, lineWidth: option.isSelected ? 2 : 1)
                 }
-                .shadow(color: option.isSelected ? theme.accent.opacity(0.12) : Color.black.opacity(0.035), radius: option.isSelected ? 8 : 4, x: 0, y: 3)
+                .lbShadow(LBShadowTokens.ritualOption(isSelected: option.isSelected, accent: theme.accent))
             }
         }
         .buttonStyle(.plain)

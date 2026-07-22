@@ -7,6 +7,7 @@
 //
 
 import SwiftUI
+import UIKit
 
 // MARK: - Snackbar Data
 
@@ -42,12 +43,18 @@ struct SnackbarAction: Equatable {
 
 // MARK: - Snackbar View
 
-struct LifeBoardSnackbar: View {
+/// Receipt-style confirmation surface. It stays above keyboard-safe content,
+/// announces its message once, and keeps Undo visible for the full receipt
+/// window. `LifeBoardSnackbar` remains as the compatibility wrapper used by
+/// existing feature views.
+struct LifeBoardReceiptToast: View {
     let data: SnackbarData
     let onDismiss: () -> Void
 
     @State private var isVisible = false
     @State private var dragOffset: CGFloat = 0
+    @State private var autoDismissTask: Task<Void, Never>?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.currentTheme.tokens.spacing }
     private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.currentTheme.tokens.corner }
@@ -57,7 +64,8 @@ struct LifeBoardSnackbar: View {
             // Message
             Text(data.message)
                 .font(.lifeboard(.callout))
-                .foregroundColor(Color.lifeboard.textPrimary)
+                .foregroundStyle(Color.lifeboard.textPrimary)
+                .fixedSize(horizontal: false, vertical: true)
 
             Spacer()
 
@@ -70,7 +78,8 @@ struct LifeBoardSnackbar: View {
                 } label: {
                     Text(action.title)
                         .font(.lifeboard(.callout).weight(.semibold))
-                        .foregroundColor(Color.lifeboard.accentPrimary)
+                        .foregroundStyle(Color.lifeboard.accentPrimary)
+                        .frame(minHeight: 44)
                 }
                 .buttonStyle(.plain)
                 .accessibilityIdentifier("lifeboard.snackbar.action.\(action.title.lowercased().replacingOccurrences(of: " ", with: "_"))")
@@ -81,7 +90,6 @@ struct LifeBoardSnackbar: View {
         .background(
             RoundedRectangle(cornerRadius: corner.r3)
                 .fill(Color.lifeboard.surfacePrimary)
-                .shadow(color: .black.opacity(0.15), radius: 12, y: 4)
         )
         .overlay(
             RoundedRectangle(cornerRadius: corner.r3)
@@ -101,33 +109,49 @@ struct LifeBoardSnackbar: View {
                     if value.translation.height > 40 {
                         dismissSnackbar()
                     } else {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(reduceMotion ? nil : LifeBoardAnimation.roleLocalState) {
                             dragOffset = 0
                         }
                     }
                 }
         )
         .onAppear {
-            withAnimation(LifeBoardAnimation.snappy) {
+            withAnimation(reduceMotion ? nil : LifeBoardAnimation.roleRoute) {
                 isVisible = true
             }
-
-            // Auto-dismiss
-            DispatchQueue.main.asyncAfter(deadline: .now() + data.autoDismissSeconds) {
+            UIAccessibility.post(notification: .announcement, argument: data.message)
+            autoDismissTask?.cancel()
+            autoDismissTask = Task { @MainActor in
+                try? await Task.sleep(for: .seconds(data.autoDismissSeconds))
+                guard Task.isCancelled == false else { return }
                 dismissSnackbar()
             }
         }
+        .onDisappear { autoDismissTask?.cancel() }
         .accessibilityIdentifier("lifeboard.snackbar")
     }
 
     /// Executes dismissSnackbar.
     private func dismissSnackbar() {
-        withAnimation(LifeBoardAnimation.gentle) {
+        autoDismissTask?.cancel()
+        withAnimation(reduceMotion ? nil : LifeBoardAnimation.roleRoute) {
             isVisible = false
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+        Task { @MainActor in
+            if reduceMotion == false {
+                try? await Task.sleep(for: .milliseconds(360))
+            }
             onDismiss()
         }
+    }
+}
+
+struct LifeBoardSnackbar: View {
+    let data: SnackbarData
+    let onDismiss: () -> Void
+
+    var body: some View {
+        LifeBoardReceiptToast(data: data, onDismiss: onDismiss)
     }
 }
 

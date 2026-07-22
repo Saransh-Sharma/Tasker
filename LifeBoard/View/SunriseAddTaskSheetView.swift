@@ -830,7 +830,7 @@ private struct SunriseGlassCardModifier: ViewModifier {
                 if #available(iOS 26.0, *) {
                     shape
                         .fill(.clear)
-                        .glassEffect(.regular, in: shape)
+                        .lifeBoardSystemGlass(.regular, in: shape)
                         .overlay(shape.fill(LBColorTokens.glass.opacity(0.50)))
                 } else {
                     shape

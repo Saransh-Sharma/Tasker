@@ -118,7 +118,7 @@ public struct SunriseFocusTimerView: View {
                 }
                 .font(.lifeboard(.bodyEmphasis))
                 .fontDesign(.rounded)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                 .frame(maxWidth: .infinity, minHeight: 50)
                 .background(
                     LinearGradient(colors: LBColorTokens.actionGradient(for: .focus), startPoint: .topLeading, endPoint: .bottomTrailing),

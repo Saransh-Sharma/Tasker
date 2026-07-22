@@ -15,12 +15,12 @@ struct StickySaveButton: View {
                 HStack(spacing: LBSpacingTokens.sm) {
                     if isSaving {
                         ProgressView()
-                            .tint(.white)
+                            .tint(Color.lifeboard(.accentOnPrimary))
                             .controlSize(.small)
                     }
                     Text(title)
                         .font(.lifeboard(.bodyEmphasis))
-                        .foregroundStyle(.white)
+                        .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                         .lineLimit(1)
                         .minimumScaleFactor(0.86)
                 }
@@ -32,7 +32,7 @@ struct StickySaveButton: View {
                 )
                 .overlay(
                     Capsule(style: .continuous)
-                        .stroke(Color.white.opacity(0.20), lineWidth: 1)
+                        .stroke(Color.lifeboard(.accentOnPrimary).opacity(0.20), lineWidth: 1)
                 )
             }
             .buttonStyle(.plain)

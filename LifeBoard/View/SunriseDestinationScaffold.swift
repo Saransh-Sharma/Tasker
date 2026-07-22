@@ -323,7 +323,7 @@ struct SecondaryStateRenderer: View {
                     if let primaryTitle, let primaryAction {
                         Button(primaryTitle, systemImage: "arrow.right", action: primaryAction)
                             .font(.lifeboard(.callout).weight(.semibold))
-                            .foregroundStyle(Color.white)
+                            .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                             .padding(.horizontal, LBSpacingTokens.md)
                             .frame(minHeight: 44)
                             .background(Capsule().fill(LBColorTokens.violetFill))

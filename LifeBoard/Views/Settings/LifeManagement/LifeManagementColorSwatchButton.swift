@@ -27,7 +27,7 @@ struct LifeManagementColorSwatchButton: View {
                     if let systemImage {
                         Image(systemName: systemImage)
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundStyle(color == nil ? Color.lifeboard.textSecondary : Color.white)
+                            .foregroundStyle(color == nil ? Color.lifeboard.textSecondary : Color.lifeboard(.textInverse))
                     }
                 }
                 .overlay(

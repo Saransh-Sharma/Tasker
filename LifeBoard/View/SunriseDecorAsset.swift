@@ -1,6 +1,8 @@
 import SwiftUI
 
 enum SunriseDecorAsset: String {
+    case daySun = "SunDay"
+    case planSun = "SunDayPlan"
     case mountain = "sunrise_decor_mountain"
     case decisionSign = "sunrise_decor_decision_sign"
     case subtleLeaf = "sunrise_decor_subtle_leaf"
@@ -49,6 +51,8 @@ struct SunriseDecorImage: View {
     var mirrorX = false
 
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var hasAppeared = false
 
     var body: some View {
         Image(decorative: asset.rawValue)
@@ -58,8 +62,25 @@ struct SunriseDecorImage: View {
             .scaleEffect(x: mirrorX ? -1 : 1, y: 1)
             .rotationEffect(rotation)
             .opacity(reduceTransparency ? max(opacity, 0.18) : opacity)
+            .scaleEffect(signatureSun && hasAppeared == false ? 0.96 : 1)
+            .offset(y: signatureSun && hasAppeared == false ? 6 : 0)
+            .onAppear {
+                guard signatureSun, hasAppeared == false else { return }
+                if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion)
+                    || ProcessInfo.processInfo.isLowPowerModeEnabled {
+                    hasAppeared = true
+                } else {
+                    withAnimation(LifeBoardAnimation.heroReveal) {
+                        hasAppeared = true
+                    }
+                }
+            }
             .accessibilityHidden(true)
             .allowsHitTesting(false)
+    }
+
+    private var signatureSun: Bool {
+        asset == .daySun || asset == .planSun
     }
 }
 

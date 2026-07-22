@@ -48,7 +48,7 @@ private struct PriorityPill: View {
             Text(label)
                 .font(.lifeboard(.callout))
                 .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundColor(isSelected ? .white : color)
+                .foregroundColor(isSelected ? .lifeboard(.accentOnPrimary) : color)
                 .padding(.horizontal, LifeBoardTheme.Spacing.md)
                 .padding(.vertical, LifeBoardTheme.Spacing.sm)
                 .frame(minHeight: 36)
