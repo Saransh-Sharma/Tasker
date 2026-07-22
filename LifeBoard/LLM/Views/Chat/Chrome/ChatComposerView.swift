@@ -128,13 +128,11 @@ struct ChatComposerView: View {
         #if os(iOS) || os(visionOS)
         .padding(.vertical, LifeBoardTheme.Spacing.sm)
         .padding(.horizontal, 2)
-        .lifeboardPremiumSurface(
-            cornerRadius: 28,
-            fillColor: EvaChatSunriseGlass.glassFill,
-            strokeColor: EvaChatSunriseGlass.glassBorder,
-            accentColor: EvaChatSunriseGlass.primary,
-            level: .e3
-        )
+        .lifeBoardGlassSurface(cornerRadius: 28, interactive: true)
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(EvaChatSunriseGlass.glassBorder, lineWidth: 1)
+        }
         #elseif os(macOS)
         .background(
             RoundedRectangle(cornerRadius: 16)

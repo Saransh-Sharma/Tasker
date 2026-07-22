@@ -75,18 +75,14 @@ extension ChatComposerView {
             }
         }
         .padding(.vertical, LifeBoardTheme.Spacing.xs)
-        .lifeboardPremiumSurface(
-            cornerRadius: 28,
-            fillColor: EvaChatSunriseGlass.glassFill,
-            strokeColor: isPromptFocused ? EvaChatSunriseGlass.primary.opacity(0.42) : EvaChatSunriseGlass.glassBorder,
-            accentColor: EvaChatSunriseGlass.primary,
-            level: isPromptFocused ? .e3 : .e2
-        )
-        .shadow(
-            color: isPromptFocused ? EvaChatSunriseGlass.primary.opacity(0.14) : EvaChatSunriseGlass.navy.opacity(0.04),
-            radius: isPromptFocused ? 12 : 5,
-            y: isPromptFocused ? 4 : 2
-        )
+        .lifeBoardGlassSurface(cornerRadius: 28, interactive: true)
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(
+                    isPromptFocused ? EvaChatSunriseGlass.primary.opacity(0.42) : EvaChatSunriseGlass.glassBorder,
+                    lineWidth: isPromptFocused ? 1.5 : 1
+                )
+        }
         .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isPromptFocused)
         .accessibilityIdentifier("eva.structured.composer")
         .contentShape(Rectangle())
@@ -101,7 +97,7 @@ extension ChatComposerView {
         } label: {
             Image(systemName: systemName)
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(Color.lifeboard(.accentPrimary).opacity(0.82))
+                .foregroundStyle(Color.lifeboard(.link, on: .dockChrome))
                 .frame(width: 36, height: 44)
                 .padding(.bottom, 4)
         }

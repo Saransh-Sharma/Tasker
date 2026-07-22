@@ -10,12 +10,19 @@ struct EvaChatSunriseBackground: View {
 
     var body: some View {
         ZStack {
-            EvaChatSunriseGlass.background
+            LifeBoardScenicBackdrop(
+                scene: .secondary,
+                daypart: LifeBoardDaypartResolver.resolve(selection: .automatic),
+                requestedTier: .ambient2D,
+                comfortProfile: .balanced,
+                showsSun: false
+            )
 
             LinearGradient(
                 colors: [
-                    EvaChatSunriseGlass.gold.opacity(0.12),
-                    .clear
+                    EvaChatSunriseGlass.canvasTop.opacity(0.72),
+                    EvaChatSunriseGlass.gold.opacity(0.10),
+                    .clear,
                 ],
                 startPoint: .top,
                 endPoint: .center
@@ -26,7 +33,7 @@ struct EvaChatSunriseBackground: View {
             LinearGradient(
                 colors: [
                     .clear,
-                    EvaChatSunriseGlass.primary.opacity(0.05)
+                    EvaChatSunriseGlass.canvasBottom.opacity(0.70)
                 ],
                 startPoint: .center,
                 endPoint: .bottom

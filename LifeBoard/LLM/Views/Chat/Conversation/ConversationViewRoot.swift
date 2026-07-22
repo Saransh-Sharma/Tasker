@@ -99,7 +99,7 @@ struct ConversationView: View {
                         if reduceMotion {
                             scrollView.scrollTo("bottom", anchor: .bottom)
                         } else {
-                            withAnimation(.snappy(duration: 0.24)) {
+                            withAnimation(LifeBoardAnimation.roleLocalState) {
                                 scrollView.scrollTo("bottom", anchor: .bottom)
                             }
                         }
@@ -134,7 +134,7 @@ struct ConversationView: View {
                 guard newSequence > oldSequence,
                       liveOutput.runtimePhase == .answering else { return }
                 inkRevealProgress = 0
-                withAnimation(.linear(duration: reduceMotion ? 0.14 : 0.22)) {
+                withAnimation(reduceMotion ? nil : LifeBoardAnimation.roleLocalState) {
                     inkRevealProgress = 1
                 }
             }

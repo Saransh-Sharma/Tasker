@@ -169,9 +169,6 @@ extension MessageView {
                     }
                 }
 
-                if shouldShowTypingIndicator {
-                    TypingIndicator()
-                }
             }
             .padding(LifeBoardTheme.Spacing.lg)
             .lifeboardPremiumSurface(
@@ -214,7 +211,7 @@ extension MessageView {
         #endif
             .overlay(
                 RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
-                    .stroke(Color.white.opacity(0.32), lineWidth: 1)
+                    .stroke(LBColorTokens.whiteStroke.opacity(0.32), lineWidth: 1)
             )
             .shadow(color: EvaChatSunriseGlass.primary.opacity(0.16), radius: 12, x: 0, y: 6)
             .frame(maxWidth: messageMaxWidth, alignment: .trailing)
