@@ -22,5 +22,7 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>WKApplication</key>
 	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>LifeBoard uses the microphone only while you record a private journal moment.</string>
 </dict>
 </plist>

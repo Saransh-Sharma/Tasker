@@ -89,7 +89,21 @@ public struct LifeBoardSystemSnapshotEnvelope: Codable, Hashable, Sendable {
         self.schemaVersion = schemaVersion
         self.domain = domain
         self.generatedAt = generatedAt
-        self.snapshots = snapshots.map(\.redactedForExternalDisplay)
+        var newestByID: [UUID: LifeBoardSystemSurfaceSnapshot] = [:]
+        for snapshot in snapshots.map(\.redactedForExternalDisplay) {
+            guard let existing = newestByID[snapshot.id] else {
+                newestByID[snapshot.id] = snapshot
+                continue
+            }
+            if snapshot.updatedAt > existing.updatedAt
+                || (snapshot.updatedAt == existing.updatedAt && snapshot.title < existing.title) {
+                newestByID[snapshot.id] = snapshot
+            }
+        }
+        self.snapshots = newestByID.values.sorted {
+            if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
+            return $0.id.uuidString < $1.id.uuidString
+        }
     }
 }
 
