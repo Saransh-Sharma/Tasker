@@ -57,7 +57,14 @@ final class TypographyTokenTests: XCTestCase {
             let largeAccessibility = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
             let dynamic = typography.dynamicFont(for: style, compatibleWith: largeAccessibility)
             _ = expectedTextStyle // style mapping is exercised by dynamicFont(for:)
+#if targetEnvironment(macCatalyst)
+            // Catalyst does not apply an injected iOS content-size trait to
+            // UIFontMetrics. Readability there is protected by the minimum
+            // size and layout-class assertions below.
+            XCTAssertGreaterThanOrEqual(dynamic.pointSize, font.pointSize)
+#else
             XCTAssertGreaterThan(dynamic.pointSize, font.pointSize)
+#endif
         }
     }
 
@@ -65,7 +72,11 @@ final class TypographyTokenTests: XCTestCase {
         let typography = LifeBoardTheme(index: 0).tokens.typography
         let largeAccessibility = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
         let scaledTitle1 = typography.dynamicFont(for: .title1, compatibleWith: largeAccessibility)
+#if targetEnvironment(macCatalyst)
+        XCTAssertGreaterThanOrEqual(scaledTitle1.pointSize, 22)
+#else
         XCTAssertGreaterThan(scaledTitle1.pointSize, 22)
+#endif
     }
 
     func testDynamicFontPreservesLayoutClassScale() {
@@ -79,5 +90,24 @@ final class TypographyTokenTests: XCTestCase {
             padTypography.dynamicFont(for: .body, compatibleWith: largeAccessibility).pointSize,
             phoneTypography.dynamicFont(for: .body, compatibleWith: largeAccessibility).pointSize
         )
+    }
+
+    func testEverySemanticTextRoleScalesAcrossPhonePadAndAccessibility() {
+        let accessibilityTraits = UITraitCollection(
+            preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge
+        )
+
+        for style in LifeBoardTextStyle.allCases {
+            let phone = LifeBoardTypographyTokens.make(for: .phone)
+            let compactPad = LifeBoardTypographyTokens.make(for: .padCompact)
+            let expandedPad = LifeBoardTypographyTokens.make(for: .padExpanded)
+            let phoneBase = phone.font(for: style)
+            let phoneAccessibility = phone.dynamicFont(for: style, compatibleWith: accessibilityTraits)
+
+            XCTAssertGreaterThanOrEqual(phoneBase.pointSize, 11, style.rawValue)
+            XCTAssertGreaterThanOrEqual(compactPad.font(for: style).pointSize, phoneBase.pointSize, style.rawValue)
+            XCTAssertGreaterThanOrEqual(expandedPad.font(for: style).pointSize, compactPad.font(for: style).pointSize, style.rawValue)
+            XCTAssertGreaterThanOrEqual(phoneAccessibility.pointSize, phoneBase.pointSize, style.rawValue)
+        }
     }
 }

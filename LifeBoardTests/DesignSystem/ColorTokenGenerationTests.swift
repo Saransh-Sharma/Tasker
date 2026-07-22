@@ -83,6 +83,56 @@ final class ColorTokenGenerationTests: XCTestCase {
         assertEqualColor(colors.strokeHairline.resolvedColor(with: darkTraits), colors.borderDefault.resolvedColor(with: darkTraits))
     }
 
+    func testSemanticReadingRolesClearEveryOpaqueFallbackSurfaceInAllAppearances() {
+        let colors = LifeBoardTheme(index: 0).tokens.color
+        let contexts = LifeBoardSurfaceContext.allCases.filter {
+            $0 != .image && $0 != .modalScrim
+        }
+
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            for accessibilityContrast in [UIAccessibilityContrast.normal, .high] {
+                let traits = UITraitCollection { traits in
+                    traits.userInterfaceStyle = style
+                    traits.accessibilityContrast = accessibilityContrast
+                }
+                let canvas = colors.bgCanvas.resolvedColor(with: traits)
+
+                for context in contexts {
+                    guard let backgroundRole = context.fallbackBackgroundRole else {
+                        return XCTFail("Missing fallback surface for \(context.rawValue)")
+                    }
+                    let rawBackground = colors.color(for: backgroundRole).resolvedColor(with: traits)
+                    let background = alphaComponent(rawBackground) < 1
+                        ? composited(rawBackground, over: canvas)
+                        : rawBackground
+
+                    for role in [LifeBoardLegibilityRole.primary, .secondary] {
+                        let foreground = colors.color(for: role, on: context).resolvedColor(with: traits)
+                        XCTAssertGreaterThanOrEqual(
+                            contrastRatio(foreground, background),
+                            4.5,
+                            "\(role.rawValue) on \(context.rawValue) failed in \(style) / \(accessibilityContrast)"
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    func testImageForegroundPolicyReturnsDeterministicReadableInkFamilies() {
+        let colors = LifeBoardTheme(index: 0).tokens.color
+        let traits = UITraitCollection(userInterfaceStyle: .light)
+
+        assertEqualColor(
+            colors.color(for: .primary, on: .image, imageLuminance: 0.9).resolvedColor(with: traits),
+            colors.textPrimary.resolvedColor(with: traits)
+        )
+        assertEqualColor(
+            colors.color(for: .secondary, on: .image, imageLuminance: 0.1).resolvedColor(with: traits),
+            colors.textInverse.resolvedColor(with: traits)
+        )
+    }
+
     private func assertEqualColor(_ lhs: UIColor, _ rhs: UIColor, file: StaticString = #filePath, line: UInt = #line) {
         var lR: CGFloat = 0
         var lG: CGFloat = 0

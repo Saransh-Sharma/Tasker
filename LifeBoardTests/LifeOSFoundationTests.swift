@@ -1,10 +1,54 @@
 import CoreData
+import JournalFoundation
 import KnowledgeGraphKit
+import ReflectionKit
 import UIKit
 import XCTest
 @testable import LifeBoard
 
 final class LifeOSFoundationContractTests: XCTestCase {
+    func testVisualFixtureCatalogCoversEveryRootAndReleaseState() {
+        let fixtures = LifeBoardVisualFixture.catalog
+        XCTAssertEqual(
+            fixtures.count,
+            LifeBoardVisualFixtureRoot.allCases.count * LifeBoardVisualFixtureState.allCases.count
+        )
+        XCTAssertEqual(Set(fixtures.map(\.id)).count, fixtures.count)
+
+        for fixture in fixtures {
+            XCTAssertEqual(LifeBoardVisualFixture(arguments: [fixture.launchArgument]), fixture)
+        }
+        XCTAssertNil(LifeBoardVisualFixture(arguments: ["-LIFEBOARD_VISUAL_FIXTURE=home:not-real"]))
+    }
+
+    func testVisualAppearanceFixturesRoundTripEveryReleaseComfortMode() {
+        XCTAssertEqual(LifeBoardVisualAppearanceFixture.allCases.count, 7)
+        for appearance in LifeBoardVisualAppearanceFixture.allCases {
+            XCTAssertEqual(
+                LifeBoardVisualAppearanceFixture(arguments: [appearance.launchArgument]),
+                appearance
+            )
+        }
+        XCTAssertNil(
+            LifeBoardVisualAppearanceFixture(arguments: ["-LIFEBOARD_VISUAL_APPEARANCE=not-real"])
+        )
+        XCTAssertTrue(LifeBoardVisualAppearanceFixture.highContrastLight.usesHighContrast)
+        XCTAssertTrue(LifeBoardVisualAppearanceFixture.highContrastDark.usesHighContrast)
+        XCTAssertTrue(LifeBoardVisualAppearanceFixture.reducedTransparency.usesReducedTransparency)
+        XCTAssertTrue(LifeBoardVisualAppearanceFixture.reducedMotion.usesReducedMotion)
+        XCTAssertTrue(LifeBoardVisualAppearanceFixture.grayscale.usesGrayscale)
+    }
+
+    func testDashboardResponsiveSpansPreserveSemanticDensityAcrossFourEightAndTwelveColumns() {
+        XCTAssertEqual(DashboardResponsiveSpanResolver.columns(for: .standard, columnCount: 4), 2)
+        XCTAssertEqual(DashboardResponsiveSpanResolver.columns(for: .standard, columnCount: 8), 4)
+        XCTAssertEqual(DashboardResponsiveSpanResolver.columns(for: .standard, columnCount: 12), 6)
+        XCTAssertEqual(DashboardResponsiveSpanResolver.columns(for: .wide, columnCount: 4), 4)
+        XCTAssertEqual(DashboardResponsiveSpanResolver.columns(for: .wide, columnCount: 8), 8)
+        XCTAssertEqual(DashboardResponsiveSpanResolver.columns(for: .wide, columnCount: 12), 12)
+        XCTAssertEqual(DashboardResponsiveSpanResolver.columns(for: .expanded, columnCount: 1), 1)
+    }
+
     func testPlanLensRestorationIsStableAndRejectsMalformedValues() throws {
         let suite = "LifeOSFoundationContractTests.plan-lens.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -117,6 +161,71 @@ final class LifeOSFoundationContractTests: XCTestCase {
                 let surface = try rgbComponents(from: LifeBoardColorTokens.foundationSurfaceSolid.resolvedColor(with: traits))
                 XCTAssertGreaterThanOrEqual(contrastRatio(ink, surface), 4.5)
             }
+        }
+    }
+
+    func testCelestialAccentControlsUseVerifiedCocoaForeground() throws {
+        let foreground = try rgbComponents(from: LifeBoardColorTokens.foundationOnCelestialAccent)
+        for daypart in ResolvedDaypart.allCases {
+            let background = try rgbComponents(
+                from: LifeBoardDaypartTokens.palette(for: daypart).celestialCore
+            )
+            XCTAssertGreaterThanOrEqual(
+                contrastRatio(foreground, background),
+                4.5,
+                "Celestial controls must remain readable in the \(daypart.rawValue) palette"
+            )
+        }
+    }
+
+    func testSettingsHeroUsesAStableReadableForeground() throws {
+        let foreground = try rgbComponents(from: LifeBoardColorTokens.foundationOnSettingsHero)
+        for backgroundColor in [
+            LifeBoardColorTokens.foundationSettingsHeroStart,
+            LifeBoardColorTokens.foundationSettingsHeroMiddle,
+            LifeBoardColorTokens.foundationSettingsHeroEnd
+        ] {
+            XCTAssertGreaterThanOrEqual(
+                contrastRatio(foreground, try rgbComponents(from: backgroundColor)),
+                4.5
+            )
+        }
+    }
+
+    func testReleaseGateLegibilityPairsPassInEveryAppearance() throws {
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            for accessibilityContrast in [UIAccessibilityContrast.normal, .high] {
+                let traits = UITraitCollection(mutations: {
+                    $0.userInterfaceStyle = style
+                    $0.accessibilityContrast = accessibilityContrast
+                })
+                for pair in LifeBoardLegibilityPair.releaseGate {
+                    let foreground = try rgbComponents(
+                        from: UIColor.lifeboard(pair.foreground).resolvedColor(with: traits)
+                    )
+                    let background = try rgbComponents(
+                        from: UIColor.lifeboard(pair.background).resolvedColor(with: traits)
+                    )
+                    XCTAssertGreaterThanOrEqual(
+                        contrastRatio(foreground, background),
+                        pair.minimumContrast,
+                        "\(pair.foreground.rawValue) on \(pair.background.rawValue) failed in \(style) / \(accessibilityContrast)"
+                    )
+                }
+            }
+        }
+    }
+
+    func testImageReadabilityPolicyIsBoundedAndDeterministic() {
+        XCTAssertEqual(LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: 0.1), .lightContent)
+        XCTAssertEqual(LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: 0.9), .darkContent)
+        XCTAssertGreaterThan(
+            LifeBoardImageReadabilityPolicy.scrimOpacity(forLuminance: 0.5),
+            LifeBoardImageReadabilityPolicy.scrimOpacity(forLuminance: 0.05)
+        )
+        for luminance in stride(from: CGFloat(-0.2), through: CGFloat(1.2), by: 0.1) {
+            let opacity = LifeBoardImageReadabilityPolicy.scrimOpacity(forLuminance: luminance)
+            XCTAssertTrue((0...1).contains(opacity))
         }
     }
 
@@ -935,7 +1044,10 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(empty.density, .empty)
         XCTAssertTrue(calendar.isDate(empty.weekStart, inSameDayAs: monday))
 
-        let repeatedWords = Array(repeating: "grounded", count: 48).joined(separator: " ")
+        // Canonical JournalKit eligibility is empty below 150 words, then full
+        // at three entries or 600 words. Keep this fixture exactly on the
+        // visible boundary so host-app tests enforce the shared contract.
+        let repeatedWords = Array(repeating: "grounded", count: 50).joined(separator: " ")
         let entries = [0, 1, 2].map { offset in
             JournalEntrySnapshot(
                 id: UUID(),
@@ -967,6 +1079,38 @@ final class LifeOSFoundationContractTests: XCTestCase {
         )
         XCTAssertEqual(regenerated.version, 2)
         XCTAssertEqual(regenerated.weekStart, full.weekStart)
+    }
+
+    func testProactiveReflectionFeedbackRoundTripsInProtectedDerivedStore() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LifeBoardProactiveReflectionTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let repository = try LocalProactiveReflectionRepository(rootURL: root)
+        let feedback = ReflectionCardFeedback(
+            insightID: "mood-association:focus",
+            saved: true,
+            snoozedUntil: Date(timeIntervalSince1970: 2_000),
+            updatedAt: Date(timeIntervalSince1970: 1_000)
+        )
+        let followUp = DecisionFollowUpState(
+            id: "followup-1",
+            decisionID: "decision-1",
+            sourceEntryID: UUID(),
+            phraseHash: "stable-hash",
+            state: .prompted,
+            firstSeenAt: Date(timeIntervalSince1970: 900),
+            lastPromptedAt: Date(timeIntervalSince1970: 1_000),
+            resolvedAt: nil
+        )
+
+        try await repository.save(.init(
+            feedback: [feedback.insightID: feedback],
+            followUps: [followUp]
+        ))
+        let restored = try await repository.load()
+
+        XCTAssertEqual(restored.feedback[feedback.insightID], feedback)
+        XCTAssertEqual(restored.followUps, [followUp])
     }
 
     func testWeeklyReflectionHistoryPersistsVersionsAndExportRedactsSensitiveFields() async throws {
@@ -1580,6 +1724,30 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(completed.attachments.first?.transcription, "Recovered words")
     }
 
+    func testJournalMediaMapsIntoSharedAttachmentLifecycle() {
+        let dayID = UUID()
+        let local = LifeBoardJournalMediaValue(
+            dayID: dayID,
+            kind: .audio,
+            relativePath: "voice.m4a",
+            duration: 12,
+            syncPolicy: .protectedLocalOnly
+        ).journalAttachmentSnapshot
+        XCTAssertEqual(local.kind, .audio)
+        XCTAssertEqual(local.availability, .locallyAvailable)
+        XCTAssertEqual(local.fileName, "voice.m4a")
+        XCTAssertEqual(local.duration, 12)
+
+        let missing = LifeBoardJournalMediaValue(
+            dayID: dayID,
+            kind: .photo,
+            syncPolicy: .privateCloud
+        ).journalAttachmentSnapshot
+        XCTAssertEqual(missing.kind, .image)
+        XCTAssertEqual(missing.availability, .unavailable)
+        XCTAssertTrue(missing.fileName.hasSuffix(".jpg"))
+    }
+
     func testAdaptiveHomePackingAssignsStableNonOverlappingPositions() throws {
         let placements = [
             DashboardWidgetPlacementValue(widgetKind: DashboardWidgetKind.tasks.rawValue, semanticSize: .compact, ordinal: 0),
@@ -1596,6 +1764,38 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(packed[2].gridPosition), HomeGridPosition(column: 0, row: 1))
         XCTAssertEqual(try XCTUnwrap(packed[3].gridPosition), HomeGridPosition(column: 0, row: 3))
         XCTAssertEqual(HomeGridPackingEngine.normalized(packed), packed)
+    }
+
+    func testAdaptiveHomePackingRemainsCollisionFreeAtFourEightAndTwelveColumns() throws {
+        let sizes: [WidgetSizePreset] = [.compact, .standard, .wide, .tall, .expanded, .compact, .wide]
+        let placements = sizes.enumerated().map { index, size in
+            DashboardWidgetPlacementValue(
+                widgetKind: "fixture-\(index)",
+                semanticSize: size,
+                ordinal: index
+            )
+        }
+
+        for columns in [4, 8, 12] {
+            let packed = HomeGridPackingEngine.normalized(placements, columns: columns)
+            var occupied = Set<HomeGridPosition>()
+            for placement in packed {
+                let origin = try XCTUnwrap(placement.gridPosition)
+                let span = placement.semanticSize.canonicalGridSpan
+                let width = min(columns, span.columns)
+                XCTAssertGreaterThanOrEqual(origin.column, 0)
+                XCTAssertLessThanOrEqual(origin.column + width, columns)
+                for row in origin.row..<(origin.row + span.rows) {
+                    for column in origin.column..<(origin.column + width) {
+                        XCTAssertTrue(
+                            occupied.insert(.init(column: column, row: row)).inserted,
+                            "\(columns)-column layout overlaps at \(column),\(row)"
+                        )
+                    }
+                }
+            }
+            XCTAssertEqual(HomeGridPackingEngine.normalized(packed, columns: columns), packed)
+        }
     }
 
     func testHomeConfigurationWrapsLegacyDomainPayloadWithoutLosingIt() {
@@ -2114,6 +2314,11 @@ final class LifeOSFoundationContractTests: XCTestCase {
             snapshots: [privateSnapshot]
         )
         try await store.write(first)
+        let primaryAfterFirstWrite = directory.appendingPathComponent("lifeboard-journal-snapshot-v1.json")
+        let attributes = try FileManager.default.attributesOfItem(atPath: primaryAfterFirstWrite.path)
+        if let protection = attributes[.protectionKey] as? FileProtectionType {
+            XCTAssertEqual(protection, .complete)
+        }
         let redacted = try await store.load(.journal)
         XCTAssertEqual(redacted?.snapshots.first?.title, "LifeBoard")
         XCTAssertEqual(redacted?.snapshots.first?.primaryValue, "Open LifeBoard to view")
@@ -2130,6 +2335,101 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let recovered = try await store.load(.journal)
         XCTAssertEqual(recovered?.generatedAt, first.generatedAt)
         XCTAssertEqual(recovered?.snapshots.count, 1)
+    }
+
+    func testSystemSurfaceEnvelopeDeduplicatesAndOrdersNewestFirst() throws {
+        let duplicateID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000101"))
+        let secondID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000102"))
+        let older = LifeBoardSystemSurfaceSnapshot(
+            id: duplicateID,
+            title: "Older",
+            primaryValue: "1",
+            systemImage: "circle",
+            sensitivity: .shareEligible,
+            isExplicitlyAuthorized: true,
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+        let newest = LifeBoardSystemSurfaceSnapshot(
+            id: duplicateID,
+            title: "Newest",
+            primaryValue: "2",
+            systemImage: "circle.fill",
+            sensitivity: .shareEligible,
+            isExplicitlyAuthorized: true,
+            updatedAt: Date(timeIntervalSince1970: 300)
+        )
+        let middle = LifeBoardSystemSurfaceSnapshot(
+            id: secondID,
+            title: "Middle",
+            primaryValue: "3",
+            systemImage: "circle",
+            sensitivity: .shareEligible,
+            isExplicitlyAuthorized: true,
+            updatedAt: Date(timeIntervalSince1970: 200)
+        )
+
+        let envelope = LifeBoardSystemSnapshotEnvelope(
+            domain: .goals,
+            generatedAt: Date(timeIntervalSince1970: 400),
+            snapshots: [older, middle, newest]
+        )
+        XCTAssertEqual(envelope.snapshots.map(\.id), [duplicateID, secondID])
+        XCTAssertEqual(envelope.snapshots.map(\.title), ["Newest", "Middle"])
+    }
+
+    func testSystemSurfaceReaderAcceptsLegacyAndRejectsFutureSchemaAndWrongDomain() throws {
+        func data(for envelope: LifeBoardSystemSnapshotEnvelope) throws -> Data {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .millisecondsSince1970
+            return try encoder.encode(envelope)
+        }
+
+        let legacy = LifeBoardSystemSnapshotEnvelope(schemaVersion: 0, domain: .routines, snapshots: [])
+        let decodedLegacy = try LifeBoardSystemSnapshotReader.decode(
+            data(for: legacy),
+            expectedDomain: .routines
+        )
+        XCTAssertEqual(decodedLegacy.schemaVersion, legacy.schemaVersion)
+        XCTAssertEqual(decodedLegacy.domain, legacy.domain)
+        XCTAssertEqual(decodedLegacy.snapshots, legacy.snapshots)
+        XCTAssertEqual(decodedLegacy.generatedAt.timeIntervalSince1970,
+                       legacy.generatedAt.timeIntervalSince1970,
+                       accuracy: 0.001)
+
+        let future = LifeBoardSystemSnapshotEnvelope(
+            schemaVersion: LifeBoardSystemSnapshotEnvelope.currentSchemaVersion + 1,
+            domain: .routines,
+            snapshots: []
+        )
+        XCTAssertThrowsError(
+            try LifeBoardSystemSnapshotReader.decode(data(for: future), expectedDomain: .routines)
+        ) { error in
+            XCTAssertEqual(
+                error as? LifeBoardSystemSnapshotStoreError,
+                .incompatibleSchema(
+                    found: LifeBoardSystemSnapshotEnvelope.currentSchemaVersion + 1,
+                    supported: LifeBoardSystemSnapshotEnvelope.currentSchemaVersion
+                )
+            )
+        }
+
+        XCTAssertThrowsError(
+            try LifeBoardSystemSnapshotReader.decode(data(for: legacy), expectedDomain: .goals)
+        ) { error in
+            XCTAssertEqual(error as? LifeBoardSystemSnapshotStoreError, .domainMismatch)
+        }
+    }
+
+    func testSystemSurfaceStoreIsFullyLocalAndReturnsNilWhileOfflineWithoutFiles() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LifeBoardSystemSnapshotOfflineTests", isDirectory: true)
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = LifeBoardSystemSnapshotStore(directoryURL: directory)
+
+        let loadedEnvelope = try await store.load(.nutrition)
+        XCTAssertNil(loadedEnvelope)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: directory.path))
     }
 
     func testWellnessBodyMetricNormalizesUnitsAndPreservesCaptureTimezone() throws {

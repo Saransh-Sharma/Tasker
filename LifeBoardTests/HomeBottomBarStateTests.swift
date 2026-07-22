@@ -3,6 +3,34 @@ import XCTest
 
 @MainActor
 final class HomeBottomBarStateTests: XCTestCase {
+    func testFloatingChromeNeverRequiresAnOpaqueFooterBand() {
+        XCTAssertFalse(HomeBottomBarVisibilityPolicy.usesOpaqueHostBackground)
+        XCTAssertLessThanOrEqual(HomeBottomBarVisibilityPolicy.chromeBackdropMaximumOpacity, 0.2)
+    }
+
+    func testAdaptiveIPadAndCatalystShellCollapseAtAccessibilitySizes() {
+        XCTAssertEqual(
+            HomeAdaptiveShellPolicy.presentation(layoutClass: .padCompact, isAccessibilitySize: false),
+            .compact
+        )
+        XCTAssertEqual(
+            HomeAdaptiveShellPolicy.presentation(layoutClass: .padRegular, isAccessibilitySize: false),
+            .regular
+        )
+        XCTAssertEqual(
+            HomeAdaptiveShellPolicy.presentation(layoutClass: .padExpanded, isAccessibilitySize: false),
+            .expanded
+        )
+        XCTAssertEqual(
+            HomeAdaptiveShellPolicy.presentation(layoutClass: .padRegular, isAccessibilitySize: true),
+            .compact
+        )
+        XCTAssertEqual(
+            HomeAdaptiveShellPolicy.presentation(layoutClass: .padExpanded, isAccessibilitySize: true),
+            .regular
+        )
+    }
+
     func testSelectUpdatesSelectedItem() {
         let state = HomeBottomBarState()
 

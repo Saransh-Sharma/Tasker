@@ -64,6 +64,39 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Capture Task"].waitForExistence(timeout: 2))
     }
 
+    func testFoundationCompactChromeRemainsReadableAcrossScrollAndKeyboard() throws {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedEstablishedWorkspace: true
+        )
+        defer { app.terminate() }
+
+        assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
+        let chrome = app.descendants(matching: .any)["LifeBoardCompactChrome"]
+        XCTAssertTrue(chrome.waitForExistence(timeout: 10))
+        let restingFrame = chrome.frame
+
+        let homeScroll = app.scrollViews.firstMatch
+        XCTAssertTrue(homeScroll.waitForExistence(timeout: 5))
+        homeScroll.swipeUp()
+        XCTAssertTrue(chrome.waitForExistence(timeout: 5))
+        XCTAssertEqual(chrome.frame.height, restingFrame.height, accuracy: 2)
+        XCTAssertEqual(chrome.frame.maxY, restingFrame.maxY, accuracy: 2)
+
+        let composer = app.textFields["home.lifeThread.composer"]
+        XCTAssertTrue(composer.waitForExistence(timeout: 5))
+        composer.tap()
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+        XCTAssertTrue(chrome.exists && composer.isHittable)
+        XCTAssertLessThanOrEqual(
+            chrome.frame.maxY,
+            keyboard.frame.minY + 4,
+            "The compact clay chrome must move with the keyboard instead of covering content."
+        )
+        try saveVisualEvidenceScreenshot(named: "home-compact-chrome-keyboard", platform: "iphone")
+    }
+
     func testAdaptiveHomeCustomizationCancelAndComposerHandoff() {
         let app = launchFoundationApp(
             accessibilityCategory: "UICTContentSizeCategoryL",
@@ -95,6 +128,28 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertTrue(send.waitForExistence(timeout: 5))
         send.tap()
         XCTAssertTrue(app.descendants(matching: .any)["foundation.eva"].waitForExistence(timeout: 12))
+    }
+
+    func testVisualEvidenceWideIPadAtomicHomeEdit() throws {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedEstablishedWorkspace: true
+        )
+        defer { app.terminate() }
+
+        guard app.windows.firstMatch.frame.width >= 1_024 else {
+            throw XCTSkip("Wide Home edit evidence requires the expanded iPad destination.")
+        }
+
+        assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
+        let customize = app.buttons["home.customize"]
+        XCTAssertTrue(customize.waitForExistence(timeout: 10))
+        customize.tap()
+        XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["Done"].exists)
+        try saveVisualEvidenceScreenshot(named: "home-atomic-edit-wide")
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(customize.waitForExistence(timeout: 8), "Cancel must restore the atomic Home draft.")
     }
 
     func testAddToHomeUsesSizePreviewAndProducesUndoReceipt() {
@@ -598,6 +653,25 @@ class LifeBoardUITests: XCTestCase {
         app.launchEnvironment["PERFORMANCE_TEST"] = "1"
         app.launch()
         return app
+    }
+
+    private func saveVisualEvidenceScreenshot(named name: String, platform: String = "ipad") throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let outputDirectory = repositoryRoot
+            .appendingPathComponent("docs/evidence/lifeboard-5/root-state-fixtures/\(platform)", isDirectory: true)
+        try FileManager.default.createDirectory(at: outputDirectory, withIntermediateDirectories: true)
+
+        let screenshot = XCUIScreen.main.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        try screenshot.pngRepresentation.write(
+            to: outputDirectory.appendingPathComponent("\(name).png"),
+            options: .atomic
+        )
     }
 
     private func openBacklog(in app: XCUIApplication) {
