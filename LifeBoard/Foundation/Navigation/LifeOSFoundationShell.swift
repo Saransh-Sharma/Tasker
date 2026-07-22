@@ -3,6 +3,19 @@ import SwiftData
 import UIKit
 import VisionKit
 
+private struct LifeBoardAtmosphereSnapshotReader<Content: View>: View {
+    @Environment(\.lifeBoardAtmosphereSnapshot) private var snapshot
+    private let content: (LifeBoardAtmosphereSnapshot) -> Content
+
+    init(@ViewBuilder content: @escaping (LifeBoardAtmosphereSnapshot) -> Content) {
+        self.content = content
+    }
+
+    var body: some View {
+        content(snapshot)
+    }
+}
+
 public struct LifeOSFoundationShell: View {
     private let legacyHomeController: UIViewController
     private let runtime: LifeOSFoundationRuntime
@@ -85,11 +98,18 @@ public struct LifeOSFoundationShell: View {
 
     public var body: some View {
         @Bindable var router = runtime.router
-        Group {
-            if usesExpandedShell {
-                expandedShell(router: router)
-            } else {
-                compactShell(router: router)
+        LifeBoardAtmosphereHost(
+            preferences: runtime.preferences,
+            placement: .root(router.selectedDestination)
+        ) {
+            LifeBoardAtmosphereSnapshotReader { atmosphereSnapshot in
+                Group {
+                    if usesExpandedShell {
+                        expandedShell(router: router, atmosphereSnapshot: atmosphereSnapshot)
+                    } else {
+                        compactShell(router: router, atmosphereSnapshot: atmosphereSnapshot)
+                    }
+                }
             }
         }
         // Default-tinted controls (menu labels, plain buttons) resolve to cocoa
@@ -251,7 +271,10 @@ public struct LifeOSFoundationShell: View {
         horizontalSizeClass == .regular && dynamicTypeSize.isAccessibilitySize == false
     }
 
-    private func compactShell(router: LifeBoardAppRouter) -> some View {
+    private func compactShell(
+        router: LifeBoardAppRouter,
+        atmosphereSnapshot: LifeBoardAtmosphereSnapshot
+    ) -> some View {
         @Bindable var router = router
         // The floating chrome draws as a bottom overlay, and each root reserves
         // its measured height as a clear bottom inset. This is the measured
@@ -262,7 +285,7 @@ public struct LifeOSFoundationShell: View {
         return GeometryReader { geometry in
             TabView(selection: $router.selectedDestination) {
                 ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
-                    destinationNavigation(destination, router: router)
+                    destinationNavigation(destination, router: router, atmosphereSnapshot: atmosphereSnapshot)
                         .safeAreaInset(edge: .bottom, spacing: 0) {
                             Color.clear.frame(height: measuredChromeHeight)
                         }
@@ -270,6 +293,8 @@ public struct LifeOSFoundationShell: View {
                 }
             }
             .toolbar(.hidden, for: .tabBar)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .background(Color.clear)
             .overlay(alignment: .bottom) {
                 compactNavigationChrome(
                     router: router,
@@ -305,7 +330,7 @@ public struct LifeOSFoundationShell: View {
                 .accessibilityIdentifier("LifeBoardCompactChrome")
             }
         }
-        .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+        .background(Color.clear.ignoresSafeArea())
     }
 
     private func compactNavigationChrome(router: LifeBoardAppRouter, paletteMaxHeight: CGFloat) -> some View {
@@ -494,7 +519,10 @@ public struct LifeOSFoundationShell: View {
         }
     }
 
-    private func expandedShell(router: LifeBoardAppRouter) -> some View {
+    private func expandedShell(
+        router: LifeBoardAppRouter,
+        atmosphereSnapshot: LifeBoardAtmosphereSnapshot
+    ) -> some View {
         @Bindable var router = router
         return NavigationSplitView {
             List {
@@ -518,7 +546,11 @@ public struct LifeOSFoundationShell: View {
             .navigationTitle("LifeBoard")
         } detail: {
             VStack(spacing: 0) {
-                destinationNavigation(router.selectedDestination, router: router)
+                destinationNavigation(
+                    router.selectedDestination,
+                    router: router,
+                    atmosphereSnapshot: atmosphereSnapshot
+                )
                 if sharedComposerIsVisible(for: router) {
                     lifeThreadComposerHost(router: router)
                         .padding(.horizontal, 16)
@@ -531,12 +563,19 @@ public struct LifeOSFoundationShell: View {
 
     private func destinationNavigation(
         _ destination: LifeBoardDestination,
-        router: LifeBoardAppRouter
+        router: LifeBoardAppRouter,
+        atmosphereSnapshot: LifeBoardAtmosphereSnapshot
     ) -> some View {
         NavigationStack(path: pathBinding(for: destination)) {
-            destinationRoot(destination, router: router)
+            ZStack {
+                activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
+                destinationRoot(destination, router: router)
+            }
                 .navigationDestination(for: AppRoute.self) { route in
-                    routeView(route)
+                    ZStack {
+                        activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
+                        routeView(route)
+                    }
                 }
                 .toolbar {
                     if destination != .home || showsReferenceHome {
@@ -610,6 +649,26 @@ public struct LifeOSFoundationShell: View {
                         }
                     }
                 }
+        }
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .background(Color.clear)
+    }
+
+    @ViewBuilder
+    private func activeAtmosphere(
+        for destination: LifeBoardDestination,
+        snapshot: LifeBoardAtmosphereSnapshot
+    ) -> some View {
+        if destination == runtime.router.selectedDestination {
+            LifeBoardAdaptiveAtmosphere(
+                snapshot: snapshot,
+                placement: .root(destination),
+                requestedTier: runtime.preferences.renderingTier,
+                comfortProfile: runtime.preferences.comfortProfile
+            )
+            .ignoresSafeArea()
+        } else {
+            Color.clear
         }
     }
 
@@ -1440,7 +1499,7 @@ private struct FoundationInsightsDestination: View {
                 .padding(.bottom, 48)
             }
         }
-        .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+        .background(Color.clear.ignoresSafeArea())
         .navigationTitle("Insights")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadEvidence() }

@@ -95,7 +95,7 @@ struct LifeBoardPlanRootView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+            Color.clear.ignoresSafeArea()
             LifeBoardScenicBackdrop(
                 scene: .plan,
                 daypart: preferences.resolvedDaypart(),
@@ -647,7 +647,7 @@ struct LifeBoardPlanRootView: View {
     private func emptyCard(_ title: String, detail: String, symbol: String) -> some View {
         HStack(spacing: 14) {
             if symbol == "sun.max" {
-                Image(decorative: "SunDayPlan")
+                Image(decorative: LifeBoardAtmosphereDescriptor.descriptor(for: .midday).celestialAsset)
                     .resizable()
                     .scaledToFit()
                     .frame(width: 58, height: 58)

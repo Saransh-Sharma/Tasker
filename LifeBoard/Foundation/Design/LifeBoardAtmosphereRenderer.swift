@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import Observation
 
 public struct AmbientRenderingPolicy: Equatable, Sendable {
     public let requestedTier: AmbientRenderingTier
@@ -53,16 +54,467 @@ public struct AmbientRenderingPolicy: Equatable, Sendable {
     }
 }
 
+// MARK: - Time-driven celestial atmosphere
+
+public enum LifeBoardCelestialPhase: String, Codable, CaseIterable, Hashable, Sendable {
+    case dawn
+    case morning
+    case midday
+    case goldenHour
+    case twilight
+    case night
+
+    public static func resolve(at date: Date = Date(), calendar: Calendar = .current) -> Self {
+        switch calendar.component(.hour, from: date) {
+        case 5..<8: .dawn
+        case 8..<12: .morning
+        case 12..<17: .midday
+        case 17..<19: .goldenHour
+        case 19..<21: .twilight
+        default: .night
+        }
+    }
+
+    public var semanticDaypart: ResolvedDaypart {
+        switch self {
+        case .dawn, .morning: .morning
+        case .midday: .afternoon
+        case .goldenHour, .twilight: .evening
+        case .night: .night
+        }
+    }
+
+    public static func manualPhase(for selection: DaypartSelection) -> Self? {
+        switch selection {
+        case .automatic: nil
+        case .morning: .morning
+        case .afternoon: .midday
+        case .evening: .goldenHour
+        case .night: .night
+        }
+    }
+
+    public static func nextBoundary(after date: Date, calendar: Calendar = .current) -> Date {
+        let phase = resolve(at: date, calendar: calendar)
+        let start = calendar.startOfDay(for: date)
+        let targetHour: Int
+        let dayOffset: Int
+        switch phase {
+        case .dawn: (targetHour, dayOffset) = (8, 0)
+        case .morning: (targetHour, dayOffset) = (12, 0)
+        case .midday: (targetHour, dayOffset) = (17, 0)
+        case .goldenHour: (targetHour, dayOffset) = (19, 0)
+        case .twilight: (targetHour, dayOffset) = (21, 0)
+        case .night:
+            if calendar.component(.hour, from: date) < 5 {
+                (targetHour, dayOffset) = (5, 0)
+            } else {
+                (targetHour, dayOffset) = (5, 1)
+            }
+        }
+        let targetDay = calendar.date(byAdding: .day, value: dayOffset, to: start) ?? start
+        return calendar.date(bySettingHour: targetHour, minute: 0, second: 0, of: targetDay)
+            ?? date.addingTimeInterval(60)
+    }
+}
+
+public struct LifeBoardAtmosphereDescriptor: Equatable, Sendable {
+    public let phase: LifeBoardCelestialPhase
+    public let backgroundAsset: String
+    public let celestialAsset: String
+    public let fallbackHex: String
+    public let usesInverseHeaderInk: Bool
+    public let scrimStrength: Double
+    public let celestialAnchorX: Double
+    public let celestialAnchorY: Double
+    public let celestialScale: Double
+    public let compactStarCount: Int
+    public let regularStarCount: Int
+
+    public static func descriptor(for phase: LifeBoardCelestialPhase) -> Self {
+        switch phase {
+        case .dawn:
+            .init(phase: phase, backgroundAsset: "CelestialDawnBackground", celestialAsset: "CelestialDawn", fallbackHex: "#F2D6B6", usesInverseHeaderInk: false, scrimStrength: 0.10, celestialAnchorX: 0.36, celestialAnchorY: 0.18, celestialScale: 0.70, compactStarCount: 0, regularStarCount: 0)
+        case .morning:
+            .init(phase: phase, backgroundAsset: "CelestialMorningBackground", celestialAsset: "CelestialMorning", fallbackHex: "#F4D9A8", usesInverseHeaderInk: false, scrimStrength: 0.08, celestialAnchorX: 0.52, celestialAnchorY: 0.13, celestialScale: 0.76, compactStarCount: 0, regularStarCount: 0)
+        case .midday:
+            .init(phase: phase, backgroundAsset: "CelestialMiddayBackground", celestialAsset: "CelestialMidday", fallbackHex: "#EDC178", usesInverseHeaderInk: false, scrimStrength: 0.12, celestialAnchorX: 0.62, celestialAnchorY: 0.09, celestialScale: 0.68, compactStarCount: 0, regularStarCount: 0)
+        case .goldenHour:
+            .init(phase: phase, backgroundAsset: "CelestialGoldenHourBackground", celestialAsset: "CelestialGoldenHour", fallbackHex: "#E7B875", usesInverseHeaderInk: false, scrimStrength: 0.13, celestialAnchorX: 0.34, celestialAnchorY: 0.20, celestialScale: 0.66, compactStarCount: 0, regularStarCount: 0)
+        case .twilight:
+            .init(phase: phase, backgroundAsset: "CelestialTwilightBackground", celestialAsset: "CelestialTwilight", fallbackHex: "#B7A5A2", usesInverseHeaderInk: false, scrimStrength: 0.20, celestialAnchorX: 0.70, celestialAnchorY: 0.16, celestialScale: 0.54, compactStarCount: 8, regularStarCount: 12)
+        case .night:
+            .init(phase: phase, backgroundAsset: "CelestialNightBackground", celestialAsset: "CelestialNight", fallbackHex: "#343545", usesInverseHeaderInk: true, scrimStrength: 0.30, celestialAnchorX: 0.72, celestialAnchorY: 0.14, celestialScale: 0.50, compactStarCount: 14, regularStarCount: 22)
+        }
+    }
+}
+
+public struct LifeBoardAtmosphereSnapshot: Equatable, Sendable {
+    public let phase: LifeBoardCelestialPhase
+    public let semanticDaypart: ResolvedDaypart
+    public let observedAt: Date
+    public let nextBoundary: Date
+    public let transitionIdentity: String
+
+    public init(
+        phase: LifeBoardCelestialPhase,
+        observedAt: Date,
+        nextBoundary: Date,
+        transitionIdentity: String? = nil
+    ) {
+        self.phase = phase
+        semanticDaypart = phase.semanticDaypart
+        self.observedAt = observedAt
+        self.nextBoundary = nextBoundary
+        self.transitionIdentity = transitionIdentity ?? "\(phase.rawValue)-\(Int(nextBoundary.timeIntervalSince1970))"
+    }
+
+    public static func resolve(at date: Date = Date(), calendar: Calendar = .current) -> Self {
+        let phase = LifeBoardCelestialPhase.resolve(at: date, calendar: calendar)
+        return .init(
+            phase: phase,
+            observedAt: date,
+            nextBoundary: LifeBoardCelestialPhase.nextBoundary(after: date, calendar: calendar)
+        )
+    }
+
+    public func replacingPhase(_ phase: LifeBoardCelestialPhase) -> Self {
+        .init(
+            phase: phase,
+            observedAt: observedAt,
+            nextBoundary: nextBoundary,
+            transitionIdentity: "manual-\(phase.rawValue)-\(Int(nextBoundary.timeIntervalSince1970))"
+        )
+    }
+}
+
+@MainActor
+@Observable
+public final class LifeBoardAtmosphereClock {
+    public private(set) var snapshot: LifeBoardAtmosphereSnapshot
+    @ObservationIgnored private let now: @Sendable () -> Date
+    @ObservationIgnored private let calendar: @Sendable () -> Calendar
+
+    public init(
+        now: @escaping @Sendable () -> Date = { Date() },
+        calendar: @escaping @Sendable () -> Calendar = { Calendar.current }
+    ) {
+        self.now = now
+        self.calendar = calendar
+        let current = now()
+        snapshot = .resolve(at: current, calendar: calendar())
+    }
+
+    public func refresh() {
+        let current = now()
+        snapshot = .resolve(at: current, calendar: calendar())
+    }
+
+    public func run() async {
+        while Task.isCancelled == false {
+            refresh()
+            let delay = max(1, snapshot.nextBoundary.timeIntervalSince(now()) + 0.05)
+            do {
+                try await Task.sleep(for: .seconds(delay))
+            } catch {
+                return
+            }
+        }
+    }
+}
+
+public enum LifeBoardAtmospherePlacement: String, CaseIterable, Hashable, Sendable {
+    case home, plan, track, insights, eva, onboarding, focusedPresentation
+
+    public static func root(_ destination: LifeBoardDestination) -> Self {
+        switch destination {
+        case .home: .home
+        case .plan: .plan
+        case .track: .track
+        case .insights: .insights
+        case .eva: .eva
+        }
+    }
+
+    var suppressesAmbientDetail: Bool {
+        self == .onboarding || self == .focusedPresentation
+    }
+}
+
+private struct LifeBoardAtmosphereSnapshotKey: EnvironmentKey {
+    static let defaultValue = LifeBoardAtmosphereSnapshot.resolve()
+}
+
+private struct LifeBoardAtmosphereHostedKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var lifeBoardAtmosphereSnapshot: LifeBoardAtmosphereSnapshot {
+        get { self[LifeBoardAtmosphereSnapshotKey.self] }
+        set { self[LifeBoardAtmosphereSnapshotKey.self] = newValue }
+    }
+
+    var lifeBoardAtmosphereIsHosted: Bool {
+        get { self[LifeBoardAtmosphereHostedKey.self] }
+        set { self[LifeBoardAtmosphereHostedKey.self] = newValue }
+    }
+}
+
+public struct LifeBoardAtmosphereHost<Content: View>: View {
+    private let preferences: LifeBoardPresentationPreferences
+    private let placement: LifeBoardAtmospherePlacement
+    private let content: Content
+    @State private var clock: LifeBoardAtmosphereClock
+
+    public init(
+        preferences: LifeBoardPresentationPreferences,
+        placement: LifeBoardAtmospherePlacement,
+        clock: LifeBoardAtmosphereClock? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.preferences = preferences
+        self.placement = placement
+        self.content = content()
+        _clock = State(initialValue: clock ?? LifeBoardAtmosphereClock())
+    }
+
+    public var body: some View {
+        let snapshot = effectiveSnapshot
+        content
+            .overlay(alignment: .topLeading) {
+            if ProcessInfo.processInfo.arguments.contains("-UI_TESTING") {
+                Color.clear
+                    .frame(width: 1, height: 1)
+                    .accessibilityElement()
+                    .accessibilityLabel("Celestial atmosphere: \(snapshot.phase.rawValue)")
+                    .accessibilityIdentifier("lifeboard.atmosphere.\(snapshot.phase.rawValue)")
+            }
+            }
+        .environment(\.lifeBoardAtmosphereSnapshot, snapshot)
+        .environment(\.lifeBoardAtmosphereIsHosted, true)
+        .task { await clock.run() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.significantTimeChangeNotification)) { _ in clock.refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name.NSSystemTimeZoneDidChange)) { _ in clock.refresh() }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in clock.refresh() }
+    }
+
+    private var effectiveSnapshot: LifeBoardAtmosphereSnapshot {
+        if let fixture = LifeBoardCelestialPhaseFixture.active {
+            return clock.snapshot.replacingPhase(fixture.phase)
+        }
+        _ = preferences.resolvedDaypart(at: clock.snapshot.observedAt)
+        guard let manual = LifeBoardCelestialPhase.manualPhase(for: preferences.daypartSelection) else {
+            return clock.snapshot
+        }
+        return clock.snapshot.replacingPhase(manual)
+    }
+}
+
+public struct LifeBoardAdaptiveAtmosphere: View {
+    public let snapshot: LifeBoardAtmosphereSnapshot
+    public let placement: LifeBoardAtmospherePlacement
+    public let requestedTier: AmbientRenderingTier
+    public let comfortProfile: LifeBoardComfortProfile
+    public let showsCelestial: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var accessibilityContrast
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var transitionTrigger = 0
+    @State private var powerRevision = 0
+
+    public init(
+        snapshot: LifeBoardAtmosphereSnapshot,
+        placement: LifeBoardAtmospherePlacement = .home,
+        requestedTier: AmbientRenderingTier = .ambient2D,
+        comfortProfile: LifeBoardComfortProfile = .balanced,
+        showsCelestial: Bool = true
+    ) {
+        self.snapshot = snapshot
+        self.placement = placement
+        self.requestedTier = requestedTier
+        self.comfortProfile = comfortProfile
+        self.showsCelestial = showsCelestial
+    }
+
+    public var body: some View {
+        let descriptor = LifeBoardAtmosphereDescriptor.descriptor(for: snapshot.phase)
+        GeometryReader { proxy in
+            let layout = scenicLayout(for: proxy.size)
+            ZStack {
+                Color(lifeboardHex: descriptor.fallbackHex)
+
+                scenicPlane(descriptor: descriptor, layout: layout)
+                    .frame(width: layout.width, height: proxy.size.height)
+                    .position(x: layout.midX, y: proxy.size.height / 2)
+
+                if descriptor.compactStarCount > 0, placement.suppressesAmbientDetail == false {
+                    starField(descriptor: descriptor, layout: layout, size: proxy.size)
+                }
+
+                phaseWash(descriptor: descriptor)
+
+                if showsCelestial {
+                    celestial(descriptor: descriptor, layout: layout, size: proxy.size)
+                }
+            }
+            .frame(width: proxy.size.width, height: proxy.size.height)
+            .clipped()
+            .lifeboardCelestialTide(
+                center: UnitPoint(x: descriptor.celestialAnchorX, y: descriptor.celestialAnchorY),
+                trigger: transitionTrigger,
+                daypart: snapshot.semanticDaypart
+            )
+        }
+        .animation(reduceMotion ? .linear(duration: 0.18) : .easeInOut(duration: 0.65), value: snapshot.transitionIdentity)
+        .accessibilityHidden(true)
+        .allowsHitTesting(false)
+        .onChange(of: snapshot.transitionIdentity) { _, _ in transitionTrigger &+= 1 }
+        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in powerRevision &+= 1 }
+        .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in powerRevision &+= 1 }
+    }
+
+    private struct ScenicLayout {
+        let width: CGFloat
+        let minX: CGFloat
+        var midX: CGFloat { minX + width / 2 }
+    }
+
+    private func scenicLayout(for size: CGSize) -> ScenicLayout {
+        let width = size.width >= 700 ? min(520, size.width) : size.width
+        return ScenicLayout(width: width, minX: (size.width - width) / 2)
+    }
+
+    private func scenicPlane(descriptor: LifeBoardAtmosphereDescriptor, layout: ScenicLayout) -> some View {
+        Image(decorative: descriptor.backgroundAsset)
+            .resizable()
+            .scaledToFill()
+            .frame(width: layout.width)
+            .clipped()
+            .saturation(colorScheme == .dark ? 0.74 : 1)
+            .brightness(colorScheme == .dark ? -0.20 : 0)
+            .id(descriptor.backgroundAsset)
+            .transition(.opacity)
+            .overlay {
+                if layout.width >= 500 {
+                    HStack(spacing: 0) {
+                        LinearGradient(colors: [Color(lifeboardHex: descriptor.fallbackHex), .clear], startPoint: .leading, endPoint: .trailing).frame(width: 28)
+                        Spacer(minLength: 0)
+                        LinearGradient(colors: [.clear, Color(lifeboardHex: descriptor.fallbackHex)], startPoint: .leading, endPoint: .trailing).frame(width: 28)
+                    }
+                }
+            }
+    }
+
+    private func phaseWash(descriptor: LifeBoardAtmosphereDescriptor) -> some View {
+        let contrastBoost = accessibilityContrast == .increased ? 0.12 : 0
+        let darkBoost = colorScheme == .dark ? 0.20 : 0
+        return LinearGradient(
+            colors: descriptor.usesInverseHeaderInk
+                ? [Color.black.opacity(descriptor.scrimStrength + contrastBoost), Color.clear, Color(LifeBoardColorTokens.foundationCanvas).opacity(0.12 + darkBoost)]
+                : [Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(descriptor.scrimStrength + contrastBoost), Color.clear, Color(LifeBoardColorTokens.foundationCanvas).opacity(darkBoost)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+        .opacity(reduceTransparency ? 1 : 0.94)
+    }
+
+    @ViewBuilder
+    private func celestial(
+        descriptor: LifeBoardAtmosphereDescriptor,
+        layout: ScenicLayout,
+        size: CGSize
+    ) -> some View {
+        let policy = motionPolicy
+        let paused = policy.allowsIdleMotion == false || placement.suppressesAmbientDetail || scenePhase != .active
+        TimelineView(.animation(minimumInterval: 1 / 12, paused: paused)) { context in
+            let phase = paused ? 0 : context.date.timeIntervalSinceReferenceDate
+            let amplitude = celestialAmplitude
+            let driftX = CGFloat(sin(phase / 10.8)) * amplitude
+            let driftY = CGFloat(cos(phase / 12.0)) * amplitude * 0.66
+            let rotation = Double(sin(phase / 11.6)) * (comfortProfile == .playful ? 0.15 : 0.10)
+            let breath = 1 + CGFloat(sin(phase / 9.8)) * (comfortProfile == .playful ? 0.004 : 0.003)
+            let diameter = min(520, max(snapshot.phase == .night || snapshot.phase == .twilight ? 180 : 220, layout.width * descriptor.celestialScale))
+
+            Image(decorative: descriptor.celestialAsset)
+                .resizable()
+                .scaledToFit()
+                .frame(width: diameter, height: diameter)
+                .opacity(reduceTransparency ? 0.94 : 1)
+                .rotationEffect(.degrees(rotation))
+                .scaleEffect(breath)
+                .position(
+                    x: layout.minX + layout.width * descriptor.celestialAnchorX + driftX,
+                    y: size.height * descriptor.celestialAnchorY + driftY
+                )
+                .id(descriptor.celestialAsset)
+                .transition(.opacity.combined(with: .scale(scale: 0.992)))
+        }
+    }
+
+    private func starField(
+        descriptor: LifeBoardAtmosphereDescriptor,
+        layout: ScenicLayout,
+        size: CGSize
+    ) -> some View {
+        let policy = motionPolicy
+        let count = size.width >= 700 ? descriptor.regularStarCount : descriptor.compactStarCount
+        let visibleCount = reduceTransparency ? max(4, count / 2) : count
+        let paused = policy.allowsIdleMotion == false || scenePhase != .active
+        return TimelineView(.animation(minimumInterval: 1 / 12, paused: paused)) { context in
+            let time = paused ? 0 : context.date.timeIntervalSinceReferenceDate
+            Canvas(rendersAsynchronously: true) { graphics, canvasSize in
+                for index in 0..<visibleCount {
+                    let x = layout.minX + pseudoRandom(index * 41 + 7) * layout.width
+                    let y = 18 + pseudoRandom(index * 67 + 19) * canvasSize.height * 0.40
+                    let base = 0.8 + pseudoRandom(index * 23 + 3) * 1.4
+                    let cycle = 5 + pseudoRandom(index * 13 + 2) * 5
+                    let wave = paused ? 0.72 : 0.55 + 0.30 * sin((time / cycle + Double(index)) * .pi * 2)
+                    let opacity = reduceTransparency ? max(0.58, wave) : wave
+                    let rect = CGRect(x: x, y: y, width: base, height: base)
+                    let color = index.isMultiple(of: 3)
+                        ? Color(lifeboardHex: "#E7DDF1")
+                        : Color(lifeboardHex: "#FFF3D9")
+                    graphics.fill(Path(ellipseIn: rect), with: .color(color.opacity(opacity)))
+                }
+            }
+        }
+    }
+
+    private var motionPolicy: LifeBoardMotionPolicy {
+        _ = powerRevision
+        return LifeBoardMotionPolicy.resolve(
+            reduceMotion: reduceMotion || LifeBoardVisualAppearanceFixture.active?.usesReducedMotion == true,
+            reduceTransparency: reduceTransparency || LifeBoardVisualAppearanceFixture.active?.usesReducedTransparency == true,
+            sceneIsActive: scenePhase == .active
+        )
+    }
+
+    private var celestialAmplitude: CGFloat {
+        guard motionPolicy.allowsIdleMotion, requestedTier != .static else { return 0 }
+        return switch comfortProfile {
+        case .calm: 0
+        case .balanced: 3
+        case .playful: 4
+        }
+    }
+
+    private func pseudoRandom(_ seed: Int) -> Double {
+        let value = sin(Double(seed) * 12.9898) * 43_758.5453
+        return value - floor(value)
+    }
+}
+
 public struct LifeBoardAtmosphereView: View {
     public let daypart: ResolvedDaypart
     public let requestedTier: AmbientRenderingTier
     public let comfortProfile: LifeBoardComfortProfile
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var powerRevision = 0
+    @Environment(\.lifeBoardAtmosphereSnapshot) private var sharedSnapshot
+    @Environment(\.lifeBoardAtmosphereIsHosted) private var isHosted
 
     public init(
         daypart: ResolvedDaypart,
@@ -75,154 +527,32 @@ public struct LifeBoardAtmosphereView: View {
     }
 
     public var body: some View {
-        let policy = renderingPolicy
-        TimelineView(.animation(minimumInterval: 1.0 / 20.0, paused: policy.allowsIdleMotion == false || scenePhase != .active)) { timeline in
-            GeometryReader { proxy in
-                atmosphereCanvas(
-                    size: proxy.size,
-                    date: timeline.date,
-                    policy: policy
+        Group {
+            if isHosted {
+                Color.clear
+            } else {
+                LifeBoardAdaptiveAtmosphere(
+                    snapshot: compatibleSnapshot,
+                    placement: .track,
+                    requestedTier: requestedTier,
+                    comfortProfile: comfortProfile
                 )
             }
         }
-        .background(palette.color(for: .canvas))
         .accessibilityHidden(true)
         .allowsHitTesting(false)
-        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
-            powerRevision &+= 1
+    }
+
+    private var compatibleSnapshot: LifeBoardAtmosphereSnapshot {
+        if sharedSnapshot.semanticDaypart == daypart { return sharedSnapshot }
+        let phase: LifeBoardCelestialPhase
+        switch daypart {
+        case .morning: phase = .morning
+        case .afternoon: phase = .midday
+        case .evening: phase = .goldenHour
+        case .night: phase = .night
         }
-        .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
-            powerRevision &+= 1
-        }
-    }
-
-    private var palette: LifeBoardDaypartPalette {
-        LifeBoardDaypartTokens.appearancePalette(for: daypart, colorScheme: colorScheme)
-    }
-
-    private var renderingPolicy: AmbientRenderingPolicy {
-        _ = powerRevision
-        return AmbientRenderingPolicy.resolve(
-            requestedTier: requestedTier,
-            comfortProfile: comfortProfile,
-            reduceMotion: reduceMotion || LifeBoardVisualAppearanceFixture.active?.usesReducedMotion == true
-        )
-    }
-
-    private func atmosphereCanvas(
-        size: CGSize,
-        date: Date,
-        policy: AmbientRenderingPolicy
-    ) -> some View {
-        let phase = policy.allowsIdleMotion ? date.timeIntervalSinceReferenceDate : 0
-        let drift = CGFloat(sin(phase / 7.5)) * policy.maximumParallax
-        let lift = CGFloat(cos(phase / 9.0)) * policy.maximumParallax * 0.55
-
-        return Canvas(rendersAsynchronously: true) { context, canvasSize in
-            context.fill(
-                Path(CGRect(origin: .zero, size: canvasSize)),
-                with: .linearGradient(
-                    Gradient(colors: [
-                        palette.color(for: .canvas),
-                        palette.color(for: .canvasSecondary)
-                    ]),
-                    startPoint: .zero,
-                    endPoint: CGPoint(x: canvasSize.width, y: canvasSize.height)
-                )
-            )
-
-            let sunDiameter = max(canvasSize.width * 0.72, 260)
-            let sunRect = CGRect(
-                x: canvasSize.width * 0.18 + drift,
-                y: -sunDiameter * 0.28 + lift,
-                width: sunDiameter,
-                height: sunDiameter
-            )
-            context.fill(
-                Path(ellipseIn: sunRect),
-                with: .radialGradient(
-                    Gradient(colors: [
-                        palette.color(for: .celestialCore),
-                        palette.color(for: .celestialPrimary)
-                    ]),
-                    center: CGPoint(x: sunRect.midX, y: sunRect.midY),
-                    startRadius: 4,
-                    endRadius: sunDiameter * 0.52
-                )
-            )
-
-            drawCloudLayer(
-                in: &context,
-                canvasSize: canvasSize,
-                y: canvasSize.height * 0.16,
-                drift: -drift * 0.5,
-                color: palette.color(for: .layerOne).opacity(effectiveReduceTransparency ? 1 : 0.94),
-                scale: 1.0
-            )
-            drawCloudLayer(
-                in: &context,
-                canvasSize: canvasSize,
-                y: canvasSize.height * 0.24,
-                drift: drift * 0.34,
-                color: palette.color(for: .layerTwo).opacity(effectiveReduceTransparency ? 1 : 0.9),
-                scale: 0.78
-            )
-
-            let mistRect = CGRect(
-                x: canvasSize.width * 0.58 - drift,
-                y: canvasSize.height * 0.18,
-                width: canvasSize.width * 0.62,
-                height: canvasSize.width * 0.48
-            )
-            context.fill(
-                Path(ellipseIn: mistRect),
-                with: .color(palette.color(for: .coolMist).opacity(effectiveReduceTransparency ? 0.92 : 0.68))
-            )
-
-            let grainOpacity = effectiveReduceTransparency ? 0 : (daypart == .night ? 0.022 : 0.015)
-            for index in 0..<(policy.effectiveTier == .static ? 48 : 72) {
-                let x = pseudoRandom(index * 17 + 3) * canvasSize.width
-                let y = pseudoRandom(index * 29 + 11) * canvasSize.height
-                let diameter = 0.5 + pseudoRandom(index * 7 + 5) * 1.3
-                context.fill(
-                    Path(ellipseIn: CGRect(x: x, y: y, width: diameter, height: diameter)),
-                    with: .color(Color.lifeboard(.textInverse).opacity(grainOpacity))
-                )
-            }
-        }
-        .rotation3DEffect(
-            policy.effectiveTier == .enhanced3D ? .degrees(drift * 0.18) : .zero,
-            axis: (x: 0.12, y: 1, z: 0),
-            perspective: 0.25
-        )
-        .scaleEffect(policy.effectiveTier == .enhanced3D ? 1.025 : 1)
-        .clipped()
-    }
-
-    private func drawCloudLayer(
-        in context: inout GraphicsContext,
-        canvasSize: CGSize,
-        y: CGFloat,
-        drift: CGFloat,
-        color: Color,
-        scale: CGFloat
-    ) {
-        let diameter = canvasSize.width * 0.48 * scale
-        for index in 0..<5 {
-            let x = CGFloat(index) * diameter * 0.54 - diameter * 0.42 + drift
-            let verticalOffset = index.isMultiple(of: 2) ? diameter * 0.12 : 0
-            let rect = CGRect(x: x, y: y + verticalOffset, width: diameter, height: diameter)
-            context.fill(Path(ellipseIn: rect), with: .color(color.opacity(0.9)))
-        }
-    }
-
-    private func pseudoRandom(_ seed: Int) -> CGFloat {
-        let value = sin(Double(seed) * 12.9898) * 43_758.5453
-        return CGFloat(value - floor(value))
-    }
-
-    private var effectiveReduceTransparency: Bool {
-        reduceTransparency || LifeBoardVisualAppearanceFixture.active?.usesReducedTransparency == true
+        return sharedSnapshot.replacingPhase(phase)
     }
 }
 
@@ -236,20 +566,6 @@ public struct LifeBoardScenicBackdrop: View {
         case home
         case plan
         case secondary
-
-        var canvasAsset: String {
-            switch self {
-            case .home: "HomeScenicNoSun"
-            case .plan, .secondary: "PlanScenicNoSun"
-            }
-        }
-
-        var sunAsset: String {
-            switch self {
-            case .home: "SunDay"
-            case .plan, .secondary: "SunDayPlan"
-            }
-        }
     }
 
     public let scene: Scene
@@ -258,12 +574,8 @@ public struct LifeBoardScenicBackdrop: View {
     public let comfortProfile: LifeBoardComfortProfile
     public let showsSun: Bool
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var daypartRevision = 0
-    @State private var powerRevision = 0
+    @Environment(\.lifeBoardAtmosphereSnapshot) private var sharedSnapshot
+    @Environment(\.lifeBoardAtmosphereIsHosted) private var isHosted
 
     public init(
         scene: Scene,
@@ -280,119 +592,41 @@ public struct LifeBoardScenicBackdrop: View {
     }
 
     public var body: some View {
-        GeometryReader { proxy in
-            ZStack(alignment: .top) {
-                palette.color(for: .canvas)
-
-                Image(decorative: scene.canvasAsset)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: proxy.size.width, height: proxy.size.height, alignment: .top)
-                    .clipped()
-                    .saturation(colorScheme == .dark ? 0.72 : 1)
-                    .brightness(colorScheme == .dark ? -0.28 : 0)
-
-                daypartWash
-
-                if showsSun {
-                    celestialLayer(in: proxy.size)
-                }
+        Group {
+            if isHosted {
+                Color.clear
+            } else {
+                LifeBoardAdaptiveAtmosphere(
+                    snapshot: compatibleSnapshot,
+                    placement: placement,
+                    requestedTier: requestedTier,
+                    comfortProfile: comfortProfile,
+                    showsCelestial: showsSun
+                )
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
-            .clipped()
         }
-        .lifeboardDaypartBloom(center: .init(x: 0.52, y: 0.16), trigger: daypartRevision, daypart: daypart)
         .accessibilityHidden(true)
         .allowsHitTesting(false)
-        .onChange(of: daypart) { _, _ in daypartRevision &+= 1 }
-        .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in
-            powerRevision &+= 1
-        }
-        .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in
-            powerRevision &+= 1
-        }
     }
 
-    private var palette: LifeBoardDaypartPalette {
-        LifeBoardDaypartTokens.appearancePalette(for: daypart, colorScheme: colorScheme)
-    }
-
-    private var renderingPolicy: AmbientRenderingPolicy {
-        _ = powerRevision
-        return AmbientRenderingPolicy.resolve(
-            requestedTier: requestedTier,
-            comfortProfile: comfortProfile,
-            reduceMotion: reduceMotion || LifeBoardVisualAppearanceFixture.active?.usesReducedMotion == true
-        )
-    }
-
-    private var daypartWash: some View {
-        LinearGradient(
-            colors: [
-                palette.color(for: .celestialPrimary).opacity(daypart == .night ? 0.24 : 0.08),
-                palette.color(for: .canvas).opacity(colorScheme == .dark ? 0.62 : 0.04),
-                palette.color(for: .canvasSecondary).opacity(colorScheme == .dark ? 0.78 : 0.10)
-            ],
-            startPoint: .top,
-            endPoint: .bottom
-        )
-    }
-
-    @ViewBuilder
-    private func celestialLayer(in size: CGSize) -> some View {
-        let policy = renderingPolicy
-        if policy.allowsIdleMotion, scenePhase == .active {
-            TimelineView(.animation(minimumInterval: 1 / 20)) { timeline in
-                celestialImage(in: size, phase: timeline.date.timeIntervalSinceReferenceDate, policy: policy)
-            }
-        } else {
-            celestialImage(in: size, phase: 0, policy: policy)
+    private var placement: LifeBoardAtmospherePlacement {
+        switch scene {
+        case .home: .home
+        case .plan: .plan
+        case .secondary: .insights
         }
     }
 
-    private func celestialImage(
-        in size: CGSize,
-        phase: TimeInterval,
-        policy: AmbientRenderingPolicy
-    ) -> some View {
-        let diameter = daypart == .night
-            ? min(max(size.width * 0.42, 150), 240)
-            : min(max(size.width * (scene == .home ? 0.70 : 0.62), 220), 430)
-        let drift = CGFloat(sin(phase / 8.5)) * policy.maximumParallax
-        let lift = CGFloat(cos(phase / 10.0)) * policy.maximumParallax * 0.55
-        return Group {
-            if daypart == .night {
-                ZStack(alignment: .topTrailing) {
-                    ZStack {
-                        Circle()
-                            .fill(palette.color(for: .celestialPrimary).opacity(0.84))
-                        Circle()
-                            .fill(Color(LifeBoardColorTokens.inkPrimary))
-                            .scaleEffect(0.82)
-                            .offset(x: diameter * 0.20, y: -diameter * 0.08)
-                            .blendMode(.destinationOut)
-                    }
-                    .compositingGroup()
-
-                    Image(systemName: "sparkles")
-                        .font(.system(size: max(18, diameter * 0.13), weight: .medium))
-                        .foregroundStyle(palette.color(for: .celestialCore))
-                        .offset(x: diameter * 0.04, y: -diameter * 0.04)
-                }
-            } else {
-                Image(decorative: scene.sunAsset)
-                    .resizable()
-                    .scaledToFit()
-            }
+    private var compatibleSnapshot: LifeBoardAtmosphereSnapshot {
+        if sharedSnapshot.semanticDaypart == daypart { return sharedSnapshot }
+        let phase: LifeBoardCelestialPhase
+        switch daypart {
+        case .morning: phase = .morning
+        case .afternoon: phase = .midday
+        case .evening: phase = .goldenHour
+        case .night: phase = .night
         }
-            .frame(width: diameter, height: diameter)
-            .opacity(effectiveReduceTransparency ? 0.88 : 0.96)
-            .offset(x: drift, y: -diameter * (scene == .home ? 0.26 : 0.18) + lift)
-            .scaleEffect(policy.effectiveTier == .enhanced3D ? 1.025 : 1)
-    }
-
-    private var effectiveReduceTransparency: Bool {
-        reduceTransparency || LifeBoardVisualAppearanceFixture.active?.usesReducedTransparency == true
+        return sharedSnapshot.replacingPhase(phase)
     }
 }
 
@@ -579,6 +813,29 @@ public enum LifeBoardVisualAppearanceFixture: String, CaseIterable, Sendable {
     public var usesGrayscale: Bool { self == .grayscale }
 }
 
+/// Screenshot/UI-test-only phase override. It is intentionally launch-argument
+/// driven and never persisted to presentation preferences.
+public struct LifeBoardCelestialPhaseFixture: Equatable, Sendable {
+    public static let launchArgumentPrefix = "-LIFEBOARD_CELESTIAL_PHASE="
+    public let phase: LifeBoardCelestialPhase
+
+    public static var active: Self? { Self(arguments: ProcessInfo.processInfo.arguments) }
+
+    public init(phase: LifeBoardCelestialPhase) {
+        self.phase = phase
+    }
+
+    public init?(arguments: [String]) {
+        guard let argument = arguments.first(where: { $0.hasPrefix(Self.launchArgumentPrefix) }),
+              let phase = LifeBoardCelestialPhase(rawValue: String(argument.dropFirst(Self.launchArgumentPrefix.count))) else {
+            return nil
+        }
+        self.phase = phase
+    }
+
+    public var launchArgument: String { "\(Self.launchArgumentPrefix)\(phase.rawValue)" }
+}
+
 public struct LifeBoardVisualFixtureSurface: View {
     public let fixture: LifeBoardVisualFixture
 
@@ -588,7 +845,7 @@ public struct LifeBoardVisualFixtureSurface: View {
 
     public var body: some View {
         ZStack {
-            Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+            Color.clear.ignoresSafeArea()
             LifeBoardStatusSurface(
                 state: statusState,
                 title: copy.title,

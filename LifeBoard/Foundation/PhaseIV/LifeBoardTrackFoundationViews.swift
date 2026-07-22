@@ -87,7 +87,7 @@ struct LifeBoardTrackFoundationRootView: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            Color(LifeBoardColorTokens.foundationSurfaceSolid).ignoresSafeArea()
+            Color.clear.ignoresSafeArea()
             LifeBoardAtmosphereView(
                 daypart: preferences.resolvedDaypart(),
                 requestedTier: preferences.renderingTier,

@@ -729,6 +729,7 @@ struct LifeBoardAdaptiveHome: View {
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.lifeBoardAtmosphereSnapshot) private var atmosphereSnapshot
 
     init(
         projectionAdapter: HomeProjectionAdapter,
@@ -787,7 +788,7 @@ struct LifeBoardAdaptiveHome: View {
 
     var body: some View {
         @Bindable var store = store
-        let daypart = preferences.resolvedDaypart()
+        let daypart = atmosphereSnapshot.semanticDaypart
         let palette = LifeBoardDaypartTokens.functionalPalette(for: daypart, colorScheme: colorScheme)
 
         ZStack(alignment: .bottom) {
@@ -941,7 +942,7 @@ struct LifeBoardAdaptiveHome: View {
     /// its effective size, so glance/compact bodies read domain providers
     /// instead of canonical stores.
     private func refreshCardSnapshots(now: Date = Date()) async {
-        let daypart = preferences.resolvedDaypart()
+        let daypart = atmosphereSnapshot.semanticDaypart
         var seen = Set<String>()
         var requests: [(kind: DashboardWidgetKind, size: HomeCardSize)] = []
         for placement in visiblePlacements {
@@ -993,10 +994,13 @@ struct LifeBoardAdaptiveHome: View {
 
     /// Alive, personal header line echoing the reference: the current time and
     /// weekday, plus a gentle count of what actually needs the user right now.
-    private func headerSubtitle(now: Date) -> String {
+    private func headerSubtitle(now: Date, usesCompactDate: Bool = false) -> String {
         let time = now.formatted(date: .omitted, time: .shortened)
-        let day = projectionAdapter.snapshot.selectedDate.formatted(.dateTime.weekday(.wide).month(.wide).day())
-        let base = "It’s \(time), \(day)"
+        let dateStyle = usesCompactDate
+            ? Date.FormatStyle.dateTime.weekday(.abbreviated).month(.abbreviated).day()
+            : Date.FormatStyle.dateTime.weekday(.wide).month(.wide).day()
+        let day = projectionAdapter.snapshot.selectedDate.formatted(dateStyle)
+        let base = usesCompactDate ? "\(time) · \(day)" : "It’s \(time), \(day)"
         let attention = attentionCount
         guard attention > 0 else { return base }
         return "\(base) · \(attention) need\(attention == 1 ? "s" : "") you"
@@ -1014,14 +1018,22 @@ struct LifeBoardAdaptiveHome: View {
     private func homeSectionHeading(
         _ title: String,
         detail: String,
-        palette: LifeBoardDaypartPalette
+        palette: LifeBoardDaypartPalette,
+        usesInverseInk: Bool = false
     ) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
+        let primary = usesInverseInk
+            ? Color.lifeboard(.textInverse)
+            : palette.color(for: .foreground)
+        let secondary = usesInverseInk
+            ? Color(lifeboardHex: "#E8E1D8")
+            : palette.color(for: .foregroundSecondary)
+        return VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.system(.title3, design: .rounded, weight: .semibold))
+                .foregroundStyle(primary)
             Text(detail)
                 .font(.caption.weight(.medium))
-                .foregroundStyle(palette.color(for: .foregroundSecondary))
+                .foregroundStyle(secondary)
         }
         .accessibilityElement(children: .combine)
     }
@@ -1032,7 +1044,8 @@ struct LifeBoardAdaptiveHome: View {
             homeSectionHeading(
                 "Now",
                 detail: "A small, explainable view of what matters next.",
-                palette: palette
+                palette: palette,
+                usesInverseInk: atmosphereSnapshot.phase == .night
             )
             if store.contextSelection.candidates.isEmpty {
                 focusNowWidget(palette: palette)
@@ -1351,6 +1364,15 @@ struct LifeBoardAdaptiveHome: View {
 
     @ViewBuilder
     private func adaptiveHeader(daypart: ResolvedDaypart, palette: LifeBoardDaypartPalette) -> some View {
+        let usesInverseInk = LifeBoardAtmosphereDescriptor
+            .descriptor(for: atmosphereSnapshot.phase)
+            .usesInverseHeaderInk
+        let headerPrimary = usesInverseInk
+            ? Color.lifeboard(.textInverse)
+            : palette.color(for: .foreground)
+        let headerSecondary = usesInverseInk
+            ? Color(lifeboardHex: "#E8E1D8")
+            : palette.color(for: .foregroundSecondary)
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Menu {
@@ -1419,9 +1441,12 @@ struct LifeBoardAdaptiveHome: View {
                         .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                         .accessibilityIdentifier("home.header")
                     TimelineView(.periodic(from: .now, by: 30)) { context in
-                        Text(headerSubtitle(now: context.date))
+                        Text(headerSubtitle(
+                            now: context.date,
+                            usesCompactDate: dynamicTypeSize.isAccessibilitySize
+                        ))
                             .font(LifeBoardFoundationTypography.body())
-                            .foregroundStyle(palette.color(for: .foregroundSecondary))
+                            .foregroundStyle(headerSecondary)
                             .contentTransition(.numericText())
                     }
                 }
@@ -1449,6 +1474,7 @@ struct LifeBoardAdaptiveHome: View {
                             .shadow(color: palette.color(for: .celestialCore).opacity(0.35), radius: 12)
                         Image(systemName: DaypartSelection(rawValue: daypart.rawValue)?.systemImage ?? "sun.max")
                             .font(.system(size: 22, weight: .semibold))
+                            .foregroundStyle(Color(LifeBoardColorTokens.foundationOnCelestialAccent))
                     }
                 }
                 .accessibilityLabel("Daypart, \(daypart.rawValue)")
@@ -1468,6 +1494,7 @@ struct LifeBoardAdaptiveHome: View {
                 .frame(minHeight: 32)
             }
         }
+        .foregroundStyle(headerPrimary)
     }
 
     @ViewBuilder
