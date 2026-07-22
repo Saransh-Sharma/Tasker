@@ -276,6 +276,15 @@ public enum LifeBoardSignatureShaders {
         return true
     }
 
+    /// Rendering begins only after every named function has been materialized.
+    /// A missing/default-library failure therefore degrades to the caller's
+    /// ordinary SwiftUI transition instead of attempting a broken shader.
+    public static var isReadyForRendering: Bool {
+        guard performancePermits else { return false }
+        if case .ready = preloadState { return true }
+        return false
+    }
+
     /// Loads the app's already-compiled Metal library and materializes every signature function
     /// away from the main actor. SwiftUI does not expose its private stitched render pipeline, so
     /// this deliberately stops at the supported public boundary instead of rasterizing hidden UI.
@@ -348,14 +357,14 @@ struct DaypartBloomModifier: ViewModifier {
         content
             .overlay { bloomOverlay }
             .onChange(of: trigger) { _, _ in
-                guard sceneIsActive, LifeBoardSignatureShaders.performancePermits else { return }
+                guard sceneIsActive, LifeBoardSignatureShaders.isReadyForRendering else { return }
                 startDate = Date()
             }
     }
 
     @ViewBuilder
     private var bloomOverlay: some View {
-        if let startDate, sceneIsActive, LifeBoardSignatureShaders.performancePermits, reduceMotion == false, reduceTransparency == false {
+        if let startDate, sceneIsActive, LifeBoardSignatureShaders.isReadyForRendering, reduceMotion == false, reduceTransparency == false {
             TimelineView(.animation) { context in
                 let elapsed = context.date.timeIntervalSince(startDate)
                 if elapsed <= duration {
@@ -430,7 +439,7 @@ struct EvaInkRevealModifier: ViewModifier, @preconcurrency Animatable {
     }
 
     func body(content: Content) -> some View {
-        if progress >= 1.0 || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.performancePermits == false {
+        if progress >= 1.0 || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.isReadyForRendering == false {
             // Settled or degraded: fully static text, no shimmer.
             content
         } else if reduceMotion {
@@ -477,7 +486,7 @@ struct JournalMediaRevealModifier: ViewModifier, @preconcurrency Animatable {
     }
 
     func body(content: Content) -> some View {
-        if progress >= 1.0 || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.performancePermits == false {
+        if progress >= 1.0 || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.isReadyForRendering == false {
             content
         } else if reduceMotion {
             // Reduce Motion: simple cross-fade instead of an aperture.
@@ -511,7 +520,7 @@ private struct MemoryDevelopRevealModifier: ViewModifier, @preconcurrency Animat
 
     func body(content: Content) -> some View {
         let settled = min(1, max(0, progress))
-        if settled >= 1 || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.performancePermits == false {
+        if settled >= 1 || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.isReadyForRendering == false {
             content
         } else if reduceMotion {
             content.opacity(settled)
@@ -537,7 +546,7 @@ private struct FastingEmberRingModifier: ViewModifier {
     let sceneIsActive: Bool
 
     func body(content: Content) -> some View {
-        if reduceMotion || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.performancePermits == false {
+        if reduceMotion || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.isReadyForRendering == false {
             content
         } else {
             TimelineView(.animation(minimumInterval: 1 / 30, paused: sceneIsActive == false)) { context in
@@ -582,6 +591,25 @@ public extension View {
     func lifeboardDaypartBloom(center: UnitPoint = .center, trigger: Int, daypart: ResolvedDaypart) -> some View {
         let (r, g, b) = LifeBoardSignatureShaders.tintComponents(for: daypart)
         return modifier(DaypartBloomModifierEnvironment(center: center, trigger: trigger, tint: Color(.sRGB, red: Double(r), green: Double(g), blue: Double(b))))
+    }
+
+    /// LifeBoard's signature phase-change moment. The existing bounded Metal
+    /// bloom is deliberately reused so the atmosphere receives one light tide
+    /// without introducing a second render pipeline or touching foreground UI.
+    @MainActor
+    func lifeboardCelestialTide(
+        center: UnitPoint,
+        trigger: Int,
+        daypart: ResolvedDaypart
+    ) -> some View {
+#if targetEnvironment(macCatalyst)
+        // The landscape/celestial layers still receive their bounded SwiftUI
+        // crossfade and scale interpolation. Catalyst intentionally skips the
+        // stitched ripple until a separately profiled renderer gate exists.
+        self
+#else
+        lifeboardDaypartBloom(center: center, trigger: trigger, daypart: daypart)
+#endif
     }
 
     /// Applies the Eva ink-reveal shimmer over freshly streamed text. `progress` 0→1 settles it.

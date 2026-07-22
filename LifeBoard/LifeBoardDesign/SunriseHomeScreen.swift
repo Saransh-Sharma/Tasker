@@ -60,11 +60,12 @@ struct SunriseHomeScreen: View {
     @State private var pendingCompletionBurstExpiryTask: Task<Void, Never>?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeBoardAtmosphereIsHosted) private var isAtmosphereHosted
 
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .top) {
-                Color.lifeboard.bgCanvas
+                (isAtmosphereHosted ? Color.clear : Color.lifeboard.bgCanvas)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
 
