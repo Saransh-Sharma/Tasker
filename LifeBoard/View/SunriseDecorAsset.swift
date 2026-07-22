@@ -1,8 +1,8 @@
 import SwiftUI
 
 enum SunriseDecorAsset: String {
-    case daySun = "SunDay"
-    case planSun = "SunDayPlan"
+    case daySun = "CelestialMorning"
+    case planSun = "CelestialGoldenHour"
     case mountain = "sunrise_decor_mountain"
     case decisionSign = "sunrise_decor_decision_sign"
     case subtleLeaf = "sunrise_decor_subtle_leaf"
