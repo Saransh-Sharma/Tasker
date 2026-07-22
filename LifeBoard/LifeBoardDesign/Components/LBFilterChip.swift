@@ -61,7 +61,7 @@ struct LBFilterChip: View {
                     }
                 }
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(model.isSelected ? Color.white : LBColorTokens.navyMuted)
+                .foregroundStyle(model.isSelected ? Color.lifeboard(.accentOnPrimary) : LBColorTokens.navyMuted)
                 .frame(minHeight: 34)
                 .padding(.horizontal, model.hidesTitle ? 12 : 10)
                 .background {

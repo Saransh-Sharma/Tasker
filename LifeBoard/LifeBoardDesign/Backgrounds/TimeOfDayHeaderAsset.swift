@@ -172,7 +172,7 @@ struct LBHeaderTimeContext: Equatable {
             case .navy:
                 return Color(lifeboardHex: "#071B52")
             case .light:
-                return Color.white
+                return Color.lifeboard(.textInverse)
             }
         }
 
@@ -181,25 +181,25 @@ struct LBHeaderTimeContext: Equatable {
             case .navy:
                 return Color(lifeboardHex: "#071B52")
             case .light:
-                return Color.white
+                return Color.lifeboard(.textInverse)
             }
         }
 
         var glassFill: Color {
             switch self {
             case .navy:
-                return Color.white.opacity(0.58)
+                return Color.lifeboard(.textInverse).opacity(0.58)
             case .light:
-                return Color.white.opacity(0.20)
+                return Color.lifeboard(.textInverse).opacity(0.20)
             }
         }
 
         var glassStroke: Color {
             switch self {
             case .navy:
-                return Color.white.opacity(0.72)
+                return Color.lifeboard(.textInverse).opacity(0.72)
             case .light:
-                return Color.white.opacity(0.52)
+                return Color.lifeboard(.textInverse).opacity(0.52)
             }
         }
     }
@@ -314,7 +314,7 @@ struct LBHeaderTimeContext: Equatable {
     private static func foregroundStyle(for asset: TimeOfDayHeaderAsset) -> ForegroundStyle {
         #if canImport(UIKit)
         if let cached = TimeOfDayHeaderAsset.luminanceCache.withLock({ $0[asset.name] }) {
-            return cached < 0.38 ? .light : .navy
+            return LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: cached) == .lightContent ? .light : .navy
         }
         if let image = TimeOfDayHeaderAsset.image(named: asset.name) {
             let luminance = TimeOfDayHeaderAsset.averageLuminance(
@@ -324,7 +324,7 @@ struct LBHeaderTimeContext: Equatable {
             TimeOfDayHeaderAsset.luminanceCache.withLock {
                 $0[asset.name] = luminance
             }
-            return luminance < 0.38 ? .light : .navy
+            return LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: luminance) == .lightContent ? .light : .navy
         }
         #endif
         return asset.period == .night ? .light : .navy

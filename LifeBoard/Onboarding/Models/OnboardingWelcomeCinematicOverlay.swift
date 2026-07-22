@@ -66,7 +66,7 @@ struct OnboardingWelcomeCinematicOverlay: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(Color.black.opacity(0.001))
+        .background(Color.lifeboard(.overlayScrim).opacity(0.006))
         .contentShape(Rectangle())
         .onTapGesture {
             onSkipDelay()
@@ -96,7 +96,7 @@ struct OnboardingWelcomeCinematicOverlay: View {
             level: .e3,
             useNativeGlass: true
         )
-        .shadow(color: Color.black.opacity(0.14), radius: 32, y: 18)
+        .shadow(color: LBColorTokens.floatingShadow.opacity(0.64), radius: 32, y: 18)
         .opacity(phase.introCardOpacity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Welcome to LifeBoard.")

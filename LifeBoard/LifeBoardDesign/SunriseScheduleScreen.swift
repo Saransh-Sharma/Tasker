@@ -359,7 +359,7 @@ struct SunriseScheduleScreen: View {
                     .minimumScaleFactor(0.82)
             }
             .font(LBTypographyTokens.chip)
-            .foregroundStyle(isSelected ? Color.white : LBColorTokens.navy)
+            .foregroundStyle(isSelected ? Color.lifeboard(.accentOnPrimary) : LBColorTokens.navy)
             .frame(maxWidth: .infinity, minHeight: 44)
             .background {
                 if isSelected {
@@ -382,7 +382,7 @@ struct SunriseScheduleScreen: View {
         if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .glassEffect(.clear, in: shape)
+                .lifeBoardSystemGlass(.clear, in: shape)
                 .overlay { shape.fill(fill) }
                 .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
@@ -549,12 +549,12 @@ struct SunriseScheduleScreen: View {
             VStack(spacing: 4) {
                 Text(date.formatted(.dateTime.weekday(.narrow)))
                     .font(LBTypographyTokens.habitDayLabel)
-                    .foregroundStyle(isSelected ? Color.white.opacity(0.84) : LBColorTokens.textTertiary)
+                    .foregroundStyle(isSelected ? Color.lifeboard(.accentOnPrimary).opacity(0.84) : LBColorTokens.textTertiary)
                 Text(date.formatted(.dateTime.day()))
                     .font(LBTypographyTokens.bodyStrong)
-                    .foregroundStyle(isSelected ? Color.white : LBColorTokens.navy)
+                    .foregroundStyle(isSelected ? Color.lifeboard(.accentOnPrimary) : LBColorTokens.navy)
                 Circle()
-                    .fill(isSelected ? Color.white.opacity(eventCount > 0 ? 0.94 : 0.0) : LBColorTokens.violet.opacity(eventCount > 0 ? 0.85 : 0.0))
+                    .fill(isSelected ? LBColorTokens.whiteStroke.opacity(eventCount > 0 ? 0.94 : 0.0) : LBColorTokens.violet.opacity(eventCount > 0 ? 0.85 : 0.0))
                     .frame(width: 5, height: 5)
             }
             .frame(maxWidth: .infinity, minHeight: 58)
@@ -573,7 +573,7 @@ struct SunriseScheduleScreen: View {
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? Color.white.opacity(0.42) : LBColorTokens.hairline.opacity(0.62), lineWidth: 1)
+                    .stroke(isSelected ? LBColorTokens.whiteStroke.opacity(0.42) : LBColorTokens.hairline.opacity(0.62), lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -692,7 +692,7 @@ struct SunriseScheduleScreen: View {
                             Image(systemName: "arrow.right")
                         }
                         .font(LBTypographyTokens.bodyStrong)
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                         .frame(maxWidth: .infinity, minHeight: 50)
                         .background {
                             LinearGradient(
@@ -1189,7 +1189,7 @@ private struct SunriseScheduleHeaderChrome: View {
                 .minimumScaleFactor(0.75)
                 .lineLimit(1)
                 .foregroundStyle(context.foregroundStyle.titleColor)
-                .shadow(color: Color.black.opacity(0.12), radius: 6, y: 2)
+                .shadow(color: LBColorTokens.elevationShadow, radius: 6, y: 2)
 
             HStack(spacing: 6) {
                 Image(systemName: context.period.symbolName)
@@ -1254,7 +1254,7 @@ private struct SunriseScheduleHeaderChrome: View {
         if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .glassEffect(.clear, in: shape)
+                .lifeBoardSystemGlass(.clear, in: shape)
                 .overlay { shape.fill(fill) }
                 .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
@@ -1273,7 +1273,7 @@ private struct SunriseScheduleHeaderChrome: View {
         if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .glassEffect(.clear, in: shape)
+                .lifeBoardSystemGlass(.clear, in: shape)
                 .overlay { shape.fill(fill) }
                 .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }

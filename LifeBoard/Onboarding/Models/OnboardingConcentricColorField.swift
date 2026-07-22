@@ -22,7 +22,7 @@ struct OnboardingConcentricColorField: View {
             // Soften toward the light canvas rather than dimming toward
             // black — the field sits over Sunrise Glass, not the dark video.
             Rectangle()
-                .fill(Color.white.opacity(darkContrastOpacity))
+                .fill(OnboardingTheme.onMediaTextPrimary.opacity(darkContrastOpacity))
         }
         .animation(.easeInOut(duration: 0.34), value: theme.id)
         .accessibilityHidden(true)
@@ -33,7 +33,7 @@ struct OnboardingConcentricColorField: View {
         if #available(iOS 26.0, *) {
             Rectangle()
                 .fill(.clear)
-                .glassEffect(.clear, in: Rectangle())
+                .lifeBoardSystemGlass(.clear, in: Rectangle())
                 .overlay(colorField)
                 .overlay(
                     Rectangle()
@@ -56,7 +56,7 @@ struct OnboardingConcentricColorField: View {
                 colors: [
                     theme.backdrop.opacity(backdropOpacity),
                     theme.accent.opacity(accentOpacity),
-                    Color.white.opacity(gradientFloorOpacity)
+                    OnboardingTheme.onMediaTextPrimary.opacity(gradientFloorOpacity)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing

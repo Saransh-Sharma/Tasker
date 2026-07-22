@@ -7,26 +7,24 @@ import Network
 import MLXLMCommon
 
 enum OnboardingPromptTheme {
-    static let canvasBase = Color(uiColor: UIColor(lifeboardHex: "#FFFDFC"))
-    static let canvasWarm = Color(uiColor: UIColor(lifeboardHex: "#FFF8EF"))
-    static let canvasCool = Color(uiColor: UIColor(lifeboardHex: "#F7FBFF"))
-    static let surfaceGlass = Color.white.opacity(0.88)
-    static let surfaceStrongGlass = Color.white.opacity(0.95)
-    static let surfaceSolid = Color.white
-    static let textPrimary = Color(uiColor: UIColor(lifeboardHex: "#071B52"))
-    static let textSecondary = Color(uiColor: UIColor(lifeboardHex: "#48607F"))
-    static let textTertiary = Color(uiColor: UIColor(lifeboardHex: "#7A8BA5"))
-    static let accent = Color(uiColor: UIColor(lifeboardHex: "#6842FF"))
-    static let accentPressed = Color(uiColor: UIColor(lifeboardHex: "#4F2CFF"))
-    static let accentOnPrimary = Color.white
-    static let sunriseGold = Color(uiColor: UIColor(lifeboardHex: "#FFB300"))
-    static let assistantSoft = Color(uiColor: UIColor(lifeboardHex: "#F6F2FF"))
-    static let taskSoft = Color(uiColor: UIColor(lifeboardHex: "#EFF9EC"))
-    static let shadow = Color(uiColor: UIColor(lifeboardHex: "#071B52"))
+    static let canvasBase = Color.lifeboard(.bgCanvas)
+    static let canvasWarm = Color.lifeboard(.bgCanvasSecondary)
+    static let canvasCool = Color.lifeboard(.bgElevated)
+    static let surfaceGlass = Color.lifeboard(.surfacePrimary)
+    static let surfaceStrongGlass = Color.lifeboard(.bgElevated)
+    static let surfaceSolid = Color.lifeboard(.bgElevated)
+    static let textPrimary = Color.lifeboard(.textPrimary)
+    static let textSecondary = Color.lifeboard(.textSecondary)
+    static let textTertiary = Color.lifeboard(.textTertiary)
+    static let accent = Color.lifeboard(.accentPrimary)
+    static let accentPressed = Color.lifeboard(.accentPrimaryPressed)
+    static let accentOnPrimary = Color.lifeboard(.accentOnPrimary)
+    static let sunriseGold = Color.lifeboard(.accentSecondary)
+    static let assistantSoft = Color.lifeboard(.accentWash)
+    static let taskSoft = Color.lifeboard(.accentSecondaryWash)
+    static let shadow = Color.lifeboard(.overlayScrim)
 
     static func border(reduceTransparency: Bool) -> Color {
-        reduceTransparency
-            ? Color(uiColor: UIColor(lifeboardHex: "#DDE3EE"))
-            : Color.white.opacity(0.82)
+        reduceTransparency ? Color.lifeboard(.borderStrong) : Color.lifeboard(.borderDefault)
     }
 }

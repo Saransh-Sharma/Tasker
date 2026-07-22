@@ -88,7 +88,7 @@ struct LBDateHeroHeader: View {
                     .minimumScaleFactor(0.72)
                     .lineLimit(1)
                     .foregroundStyle(model.heroTitleColor)
-                    .shadow(color: Color.black.opacity(0.12), radius: 6, y: 2)
+                    .shadow(color: LBColorTokens.elevationShadow.opacity(1.2), radius: 6, y: 2)
 
                 HStack(spacing: 6) {
                     Image(systemName: model.period.symbolName)
@@ -253,7 +253,7 @@ struct LBDateHeroHeader: View {
         } else if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .glassEffect(.clear, in: shape)
+                .lifeBoardSystemGlass(.clear, in: shape)
                 .overlay { shape.fill(fill) }
                 .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
@@ -276,7 +276,7 @@ struct LBDateHeroHeader: View {
         } else if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .glassEffect(.clear, in: shape)
+                .lifeBoardSystemGlass(.clear, in: shape)
                 .overlay { shape.fill(fill) }
                 .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }

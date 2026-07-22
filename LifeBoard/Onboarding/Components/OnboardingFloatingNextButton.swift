@@ -62,7 +62,7 @@ struct OnboardingFloatingNextButton: View {
         if #available(iOS 26.0, *) {
             Capsule()
                 .fill(.clear)
-                .glassEffect(.regular, in: Capsule())
+                .lifeBoardSystemGlass(.regular, in: Capsule())
                 .overlay(
                     Capsule()
                         .fill(OnboardingTheme.surfaceElevated.opacity(0.40))

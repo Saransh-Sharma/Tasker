@@ -35,9 +35,9 @@ struct LBSunriseHeroArtwork: View {
             if colorScheme == .dark {
                 LinearGradient(
                     colors: [
-                        Color.black.opacity(0.28),
-                        Color.black.opacity(0.16),
-                        Color.black.opacity(0.08)
+                        LBColorTokens.mediaScrim.opacity(0.28),
+                        LBColorTokens.mediaScrim.opacity(0.16),
+                        LBColorTokens.mediaScrim.opacity(0.08)
                     ],
                     startPoint: .top,
                     endPoint: .bottom
