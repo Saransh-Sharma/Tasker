@@ -14,7 +14,8 @@ UI_DIRS=(
   "LifeBoard/View"
   "LifeBoard/Views"
   "LifeBoard/ViewControllers"
-  "LifeBoard/Presentation/Views"
+  "LifeBoard/Presentation"
+  "LifeBoard/Foundation"
   "LifeBoard/LLM/Views"
 )
 
@@ -74,16 +75,29 @@ scan_added_lines() {
 
 scan_added_lines \
   "Token Law: no raw UIColor constructors in UI modules" \
-  '\bUIColor\s*\('
+  '\bUIColor\s*\(' \
+  'LifeBoard/Foundation/Design/LifeBoardDaypartTokens.swift'
 
 scan_added_lines \
   "Token Law: no UIFont.systemFont / SwiftUI .font(.system...) in UI modules" \
-  'UIFont\.systemFont|\.font\(\.system\('
+  'UIFont\.systemFont|\.font\(\.system\(' \
+  'LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift'
 
 scan_added_lines \
   "Token Law: no ad-hoc shadows outside DesignSystem components" \
   'layer\.shadow(Color|Opacity|Offset|Radius|Path)|\.shadow\(' \
-  'LifeBoard/View/LiquidGlass/LGBaseView.swift'
+  'LifeBoard/View/LiquidGlass/LGBaseView.swift' \
+  'LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift'
+
+scan_added_lines \
+  "Token Law: no direct named SwiftUI colors in UI modules" \
+  'Color\.(red|blue|green|orange|yellow|purple|pink|white|black)\b|foregroundStyle\(\.(red|blue|green|orange|yellow|purple|pink|white|black)\b'
+
+scan_added_lines \
+  "Token Law: Liquid Glass is applied only by the shared visual layer" \
+  '\.glassEffect\(' \
+  'LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift' \
+  'LifeBoard/View/LiquidGlass/'
 
 if [[ $FAILED -eq 1 ]]; then
   echo ""

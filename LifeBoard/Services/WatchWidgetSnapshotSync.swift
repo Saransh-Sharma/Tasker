@@ -6,6 +6,63 @@ import WatchCaptureKit
 #if canImport(WatchConnectivity) && os(iOS)
 import WatchConnectivity
 
+/// Durable, file-protected holding area for captures that cannot be committed
+/// immediately. It keeps private payloads out of UserDefaults and diagnostics.
+actor LifeBoardWatchCaptureRecoveryStore {
+    private var records: [WatchCaptureRecoveryRecord] = []
+    private let fileURL: URL
+
+    init(fileManager: FileManager = .default) {
+        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        let directory = support.appendingPathComponent("LifeBoardWatchCaptureRecovery", isDirectory: true)
+        try? fileManager.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.complete]
+        )
+        fileURL = directory.appendingPathComponent("recovery.json")
+        if let data = try? Data(contentsOf: fileURL),
+           let decoded = try? JSONDecoder.watchCapture.decode([WatchCaptureRecoveryRecord].self, from: data) {
+            records = decoded
+        }
+    }
+
+    func all() -> [WatchCaptureRecoveryRecord] { records }
+
+    func upsert(_ record: WatchCaptureRecoveryRecord) {
+        if let captureID = record.captureID,
+           let index = records.firstIndex(where: { $0.captureID == captureID }) {
+            records[index] = record
+        } else {
+            records.append(record)
+        }
+        persist()
+    }
+
+    func remove(captureID: UUID) {
+        records.removeAll { $0.captureID == captureID }
+        persist()
+    }
+
+    func remove(id: UUID) {
+        records.removeAll { $0.id == id }
+        persist()
+    }
+
+    private func persist() {
+        do {
+            let data = try JSONEncoder.watchCapture.encode(records)
+            try data.write(to: fileURL, options: [.atomic, .completeFileProtection])
+            try FileManager.default.setAttributes(
+                [.protectionKey: FileProtectionType.complete],
+                ofItemAtPath: fileURL.path
+            )
+        } catch {
+            logDebug("WATCH_CAPTURE recovery_store_unavailable")
+        }
+    }
+}
+
 /// The phone-side import boundary for Watch journal captures. Canonical
 /// Journal storage is committed before an acknowledgement is created.
 actor LifeBoardWatchCaptureImporter {
@@ -156,6 +213,7 @@ final class LifeBoardWatchConnectivityCoordinator: NSObject, WCSessionDelegate, 
     private var pendingAudioEnvelopes: [UUID: WatchCaptureEnvelope] = [:]
     private let lock = NSLock()
     private var importer: LifeBoardWatchCaptureImporter?
+    private let recoveryStore = LifeBoardWatchCaptureRecoveryStore()
 
     private override init() { super.init() }
 
@@ -164,6 +222,7 @@ final class LifeBoardWatchConnectivityCoordinator: NSObject, WCSessionDelegate, 
         importer = LifeBoardWatchCaptureImporter(repository: repository, container: container)
         lock.unlock()
         activate()
+        Task { await restorePendingCaptures() }
     }
 
     func activate() {
@@ -179,6 +238,19 @@ final class LifeBoardWatchConnectivityCoordinator: NSObject, WCSessionDelegate, 
 
     func sendGamificationSnapshot(_ snapshot: GamificationWidgetSnapshot) {
         send(snapshot, fileName: AppGroupConstants.snapshotFileName)
+    }
+
+    func journalRecoveryRecords() async -> [WatchCaptureRecoveryRecord] {
+        await recoveryStore.all().sorted { $0.receivedAtUTC > $1.receivedAtUTC }
+    }
+
+    func retryJournalRecovery() async {
+        await restorePendingCaptures()
+    }
+
+    func discardJournalRecoveryRecord(id: UUID) async {
+        await recoveryStore.remove(id: id)
+        NotificationCenter.default.post(name: .lifeboardJournalWatchCaptureNeedsAttention, object: nil)
     }
 
     private func send<T: Encodable>(_ value: T, fileName: String) {
@@ -211,23 +283,41 @@ final class LifeBoardWatchConnectivityCoordinator: NSObject, WCSessionDelegate, 
         Task {
             do {
                 let receipt = try await importer.importCapture(envelope, audioURL: audioURL)
+                await self.recoveryStore.remove(captureID: envelope.captureID)
+                self.removePendingAudioEnvelope(captureID: envelope.captureID)
                 WCSession.default.transferUserInfo(try receipt.userInfoPayload(namespace: .lifeBoard))
                 NotificationCenter.default.post(name: .lifeboardJournalWatchCaptureImported, object: receipt)
             } catch LifeBoardWatchCaptureImporter.ImportFailure.missingAudio {
                 self.storePendingAudioEnvelope(envelope)
+                await self.recoveryStore.upsert(.init(reason: .awaitingAudio, envelope: envelope))
+                NotificationCenter.default.post(name: .lifeboardJournalWatchCaptureNeedsAttention, object: envelope.captureID)
+            } catch LifeBoardWatchCaptureImporter.ImportFailure.unsupportedEnvelope {
+                let payload = try? JSONEncoder.watchCapture.encode(envelope)
+                await self.recoveryStore.upsert(.init(
+                    reason: .unsupportedSchema,
+                    envelope: envelope,
+                    protectedPayload: payload
+                ))
+                NotificationCenter.default.post(name: .lifeboardJournalWatchCaptureNeedsAttention, object: envelope.captureID)
             } catch {
+                await self.recoveryStore.upsert(.init(reason: .persistenceUnavailable, envelope: envelope))
                 logDebug("WATCH_CAPTURE import_failed capture=\(envelope.captureID.uuidString)")
+                NotificationCenter.default.post(name: .lifeboardJournalWatchCaptureNeedsAttention, object: envelope.captureID)
             }
         }
     }
 
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
-        guard let envelope = try? WatchCaptureEnvelope.decoded(
-            from: userInfo,
-            namespace: .lifeBoard,
-            acceptingLegacyNamespaces: []
-        ) else { return }
-        accept(envelope)
+        do {
+            let envelope = try WatchCaptureEnvelope.decoded(
+                from: userInfo,
+                namespace: .lifeBoard,
+                acceptingLegacyNamespaces: []
+            )
+            accept(envelope)
+        } catch {
+            quarantineMalformedPayload(userInfo[WatchCaptureTransportNamespace.lifeBoard.capturePayloadKey] as? Data)
+        }
     }
 
     func session(_ session: WCSession, didReceive file: WCSessionFile) {
@@ -242,7 +332,10 @@ final class LifeBoardWatchConnectivityCoordinator: NSObject, WCSessionDelegate, 
            let captureID = UUID(uuidString: captureIDText) {
             lock.lock(); envelope = pendingAudioEnvelopes.removeValue(forKey: captureID); lock.unlock()
         }
-        guard let envelope else { return }
+        guard let envelope else {
+            quarantineMalformedPayload(metadata[WatchCaptureTransportNamespace.lifeBoard.capturePayloadKey] as? Data)
+            return
+        }
         accept(envelope, audioURL: file.fileURL)
     }
 
@@ -250,6 +343,31 @@ final class LifeBoardWatchConnectivityCoordinator: NSObject, WCSessionDelegate, 
         lock.lock()
         pendingAudioEnvelopes[envelope.captureID] = envelope
         lock.unlock()
+    }
+
+    private func removePendingAudioEnvelope(captureID: UUID) {
+        lock.lock()
+        pendingAudioEnvelopes.removeValue(forKey: captureID)
+        lock.unlock()
+    }
+
+    private func quarantineMalformedPayload(_ payload: Data?) {
+        Task {
+            await recoveryStore.upsert(.init(reason: .malformedPayload, protectedPayload: payload))
+            NotificationCenter.default.post(name: .lifeboardJournalWatchCaptureNeedsAttention, object: nil)
+        }
+    }
+
+    private func restorePendingCaptures() async {
+        let records = await recoveryStore.all()
+        for record in records where record.isRetryable {
+            guard let envelope = record.envelope else { continue }
+            if envelope.kind == .audio {
+                storePendingAudioEnvelope(envelope)
+            } else {
+                accept(envelope)
+            }
+        }
     }
 
     func session(
@@ -270,5 +388,6 @@ typealias WatchWidgetSnapshotSync = LifeBoardWatchConnectivityCoordinator
 
 extension Notification.Name {
     static let lifeboardJournalWatchCaptureImported = Notification.Name("LifeBoardJournalWatchCaptureImported")
+    static let lifeboardJournalWatchCaptureNeedsAttention = Notification.Name("LifeBoardJournalWatchCaptureNeedsAttention")
 }
 #endif

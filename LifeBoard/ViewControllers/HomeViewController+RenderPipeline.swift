@@ -149,7 +149,11 @@ extension HomeViewController {
         }
 
         let hostingController = UIHostingController(rootView: root)
-        hostingController.view.backgroundColor = .clear
+        hostingController.view.backgroundColor = HomeBottomBarVisibilityPolicy.usesOpaqueHostBackground
+            ? LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas
+            : .clear
+        hostingController.view.isOpaque = HomeBottomBarVisibilityPolicy.usesOpaqueHostBackground
+        hostingController.safeAreaRegions = []
         hostingController.view.translatesAutoresizingMaskIntoConstraints = false
         bottomBarHostingController = hostingController
         addChild(hostingController)
