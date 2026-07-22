@@ -610,7 +610,7 @@ private struct LifeBoardJournalMoodWheel: View {
                                     : palette.color(for: .layerTwo).opacity(0.86),
                                 in: Circle()
                             )
-                            .overlay(Circle().stroke(Color.white.opacity(0.62), lineWidth: 1))
+                            .overlay(Circle().stroke(Color.lifeboard(.textInverse).opacity(0.62), lineWidth: 1))
                             .shadow(
                                 color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(mood == selectedMood ? 0.2 : 0.08),
                                 radius: mood == selectedMood ? 10 : 4,
@@ -671,7 +671,7 @@ private struct LifeBoardJournalMoodWheel: View {
         if reduceMotion {
             selectedMood = mood
         } else {
-            withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) { selectedMood = mood }
+            withAnimation(LifeBoardAnimation.roleLocalState) { selectedMood = mood }
         }
         UISelectionFeedbackGenerator().selectionChanged()
     }
@@ -726,6 +726,7 @@ struct LifeBoardAdaptiveHome: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
 
@@ -790,28 +791,35 @@ struct LifeBoardAdaptiveHome: View {
         let palette = LifeBoardDaypartTokens.functionalPalette(for: daypart, colorScheme: colorScheme)
 
         ZStack(alignment: .bottom) {
-            LifeBoardAtmosphereView(
+            LifeBoardScenicBackdrop(
+                scene: .home,
                 daypart: daypart,
                 requestedTier: preferences.renderingTier,
                 comfortProfile: preferences.comfortProfile
             )
             .ignoresSafeArea()
             .accessibilityHidden(true)
-            .lifeboardDaypartBloom(
-                center: UnitPoint(x: 0.5, y: 0.24),
-                trigger: ResolvedDaypart.allCases.firstIndex(of: daypart) ?? 0,
-                daypart: daypart
-            )
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     adaptiveHeader(daypart: daypart, palette: palette)
 
+                    if let errorMessage = store.errorMessage {
+                        LifeBoardStatusSurface(
+                            state: .stale,
+                            title: "Showing your safe Home layout",
+                            message: errorMessage,
+                            actionTitle: "Dismiss",
+                            action: { store.dismissError() }
+                        )
+                    }
+
                     nowSection(palette: palette)
 
                     homeSectionHeading(
                         "At a glance",
-                        detail: "The signals that are useful right now."
+                        detail: "The signals that are useful right now.",
+                        palette: palette
                     )
                     signalRowWidget(palette: palette)
 
@@ -819,7 +827,8 @@ struct LifeBoardAdaptiveHome: View {
                         "My Home",
                         detail: store.isCustomizing
                             ? "Drag the order, resize, or make a card adaptive."
-                            : "Your cards stay exactly where you put them."
+                            : "Your cards stay exactly where you put them.",
+                        palette: palette
                     )
                     DashboardFlowLayout(
                         isRegular: horizontalSizeClass == .regular,
@@ -881,6 +890,9 @@ struct LifeBoardAdaptiveHome: View {
         .onChange(of: projectionAdapter.snapshot) { _, _ in refreshContextSelection(boundary: .taskMutation) }
         .onChange(of: permitsSensitiveHomeContent) { _, _ in refreshContextSelection() }
         .onChange(of: daypart) { _, _ in refreshContextSelection(boundary: .daypartBoundary) }
+        .onChange(of: voiceOverEnabled, initial: true) { _, enabled in
+            store.setContextFrozen(enabled, reason: "voiceover-focus")
+        }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { refreshContextSelection(boundary: .appForeground) }
         }
@@ -895,17 +907,6 @@ struct LifeBoardAdaptiveHome: View {
                     refreshContextSelection(boundary: .trackerCommit)
                 }
             }
-        }
-        .alert(
-            "Home layout",
-            isPresented: Binding(
-                get: { store.errorMessage != nil },
-                set: { if !$0 { store.dismissError() } }
-            )
-        ) {
-            Button("OK", role: .cancel) { store.dismissError() }
-        } message: {
-            Text(store.errorMessage ?? "")
         }
         .sheet(item: $contextReasonCandidate) { candidate in
             contextReasonSheet(candidate, palette: palette)
@@ -1010,13 +1011,17 @@ struct LifeBoardAdaptiveHome: View {
         return care + mustDo + routines
     }
 
-    private func homeSectionHeading(_ title: String, detail: String) -> some View {
+    private func homeSectionHeading(
+        _ title: String,
+        detail: String,
+        palette: LifeBoardDaypartPalette
+    ) -> some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(title)
                 .font(.system(.title3, design: .rounded, weight: .semibold))
             Text(detail)
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(palette.color(for: .foregroundSecondary))
         }
         .accessibilityElement(children: .combine)
     }
@@ -1024,31 +1029,47 @@ struct LifeBoardAdaptiveHome: View {
     @ViewBuilder
     private func nowSection(palette: LifeBoardDaypartPalette) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            homeSectionHeading("Now", detail: "A small, explainable view of what matters next.")
+            homeSectionHeading(
+                "Now",
+                detail: "A small, explainable view of what matters next.",
+                palette: palette
+            )
             if store.contextSelection.candidates.isEmpty {
                 focusNowWidget(palette: palette)
             } else {
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: 12) {
-                        ForEach(store.contextSelection.candidates) { candidate in
-                            contextCard(candidate, palette: palette)
+                        ForEach(Array(store.contextSelection.candidates.enumerated()), id: \.element.id) { index, candidate in
+                            contextCard(
+                                candidate,
+                                palette: palette,
+                                accessibilityIdentifier: index == 0 ? "home.hero" : "home.context.\(candidate.id)"
+                            )
                                 .frame(maxWidth: .infinity)
                         }
                     }
                     VStack(spacing: 12) {
-                        ForEach(store.contextSelection.candidates) { candidate in
-                            contextCard(candidate, palette: palette)
+                        ForEach(Array(store.contextSelection.candidates.enumerated()), id: \.element.id) { index, candidate in
+                            contextCard(
+                                candidate,
+                                palette: palette,
+                                accessibilityIdentifier: index == 0 ? "home.hero" : "home.context.\(candidate.id)"
+                            )
                         }
                     }
                 }
             }
         }
-        .accessibilityIdentifier("home.now")
+        // The whole explainable "Now" region is the canonical Home hero.
+        // Its contents can legitimately swap from Focus to a context card as
+        // providers hydrate, so the stable identity belongs on the region.
+        .accessibilityIdentifier("home.hero")
     }
 
     private func contextCard(
         _ candidate: HomeContextCandidate,
-        palette: LifeBoardDaypartPalette
+        palette: LifeBoardDaypartPalette,
+        accessibilityIdentifier: String
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
@@ -1111,6 +1132,12 @@ struct LifeBoardAdaptiveHome: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(candidate.title)
         .accessibilityHint(candidate.reason.message)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in store.setContextFrozen(true, reason: "context-touch") }
+                .onEnded { _ in store.setContextFrozen(false, reason: "context-touch") }
+        )
     }
 
     private func contextReasonSheet(
@@ -1145,7 +1172,11 @@ struct LifeBoardAdaptiveHome: View {
 
     private func todayStorySection(palette: LifeBoardDaypartPalette) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            homeSectionHeading("Today Story", detail: "The small moments that are shaping your day.")
+            homeSectionHeading(
+                "Today Story",
+                detail: "The small moments that are shaping your day.",
+                palette: palette
+            )
             VStack(spacing: 0) {
                 ForEach(todayStoryItems) { item in
                     Button {
@@ -1332,11 +1363,17 @@ struct LifeBoardAdaptiveHome: View {
                         }
                     }
                 } label: {
-                    HStack(spacing: 6) {
-                        Text(router.dashboardMode.title)
-                            .font(.system(size: 22, weight: .semibold, design: .rounded))
-                        Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
+                    if dynamicTypeSize.isAccessibilitySize {
+                        Image(systemName: router.dashboardMode.systemImage)
+                            .font(.title2.weight(.semibold))
+                            .frame(width: 44, height: 44)
+                    } else {
+                        HStack(spacing: 6) {
+                            Text(router.dashboardMode.title)
+                                .font(LifeBoardFoundationTypography.sectionTitle())
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption2.weight(.semibold))
+                        }
                     }
                 }
                 .accessibilityLabel("Dashboard mode, \(router.dashboardMode.title)")
@@ -1441,60 +1478,79 @@ struct LifeBoardAdaptiveHome: View {
     ) -> some View {
         let kind = resolvedWidgetKind(for: placement, daypart: daypart)
         let preset = effectivePreset(for: placement.semanticSize)
-        Group {
-            if preset == .compact {
-                glanceWidget(kind: kind, daypart: daypart, palette: palette)
-            } else if preset == .standard {
-                compactWidget(kind: kind, daypart: daypart, palette: palette)
-            } else {
-                switch kind {
-                case .focusNow:
-                    focusNowWidget(palette: palette)
-                case .lifeSnapshot:
-                    lifeSnapshotWidget(palette: palette)
-                case .care:
-                    careWidget(daypart: daypart, palette: palette)
-                case .tasks:
-                    tasksWidget(palette: palette)
-                case .routines:
-                    routinesWidget(daypart: daypart, palette: palette)
-                case .scheduleCapacity:
-                    capacityWidget(palette: palette)
-                case .quickCapture:
-                    quickCaptureWidget(palette: palette)
-                case .compactTimeline:
-                    timelineWidget(palette: palette)
-                case .journal:
-                    journalWidget(palette: palette)
-                case .progressReflection:
-                    progressWidget(palette: palette)
-                case .fasting:
-                    fastingWidget(palette: palette)
-                default:
-                    EmptyView()
+        VStack(spacing: store.isCustomizing ? 6 : 0) {
+            if store.isCustomizing {
+                HStack(spacing: 8) {
+                    Label(
+                        placement.ownership == .smart ? "Smart" : "Pinned",
+                        systemImage: placement.ownership == .smart ? "sparkles" : "pin.fill"
+                    )
+                    .font(.caption2.weight(.semibold))
+                    .padding(.horizontal, 9)
+                    .frame(minHeight: 30)
+                    .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: Capsule())
+                    .accessibilityLabel(placement.ownership.accessibilityDescription)
+
+                    Spacer(minLength: 0)
+                    customizationControls(for: placement, daypart: daypart, palette: palette)
+                }
+                .padding(.horizontal, 4)
+            }
+
+            Group {
+                if preset == .compact {
+                    glanceWidget(kind: kind, daypart: daypart, palette: palette)
+                } else if preset == .standard {
+                    // Standard cards must preserve their meaningful primary actions.
+                    // Collapsing these into a generic "Open" tile made capture,
+                    // recovery, and evidence routes undiscoverable in the curated
+                    // two-column Home layout.
+                    switch kind {
+                    case .care:
+                        careWidget(daypart: daypart, palette: palette)
+                    case .tasks:
+                        tasksWidget(palette: palette)
+                    case .routines:
+                        routinesWidget(daypart: daypart, palette: palette)
+                    case .scheduleCapacity:
+                        capacityWidget(palette: palette)
+                    case .journal:
+                        journalWidget(palette: palette)
+                    case .progressReflection:
+                        progressWidget(palette: palette)
+                    default:
+                        compactWidget(kind: kind, daypart: daypart, palette: palette)
+                    }
+                } else {
+                    switch kind {
+                    case .focusNow:
+                        focusNowWidget(palette: palette)
+                    case .lifeSnapshot:
+                        lifeSnapshotWidget(palette: palette)
+                    case .care:
+                        careWidget(daypart: daypart, palette: palette)
+                    case .tasks:
+                        tasksWidget(palette: palette)
+                    case .routines:
+                        routinesWidget(daypart: daypart, palette: palette)
+                    case .scheduleCapacity:
+                        capacityWidget(palette: palette)
+                    case .quickCapture:
+                        quickCaptureWidget(palette: palette)
+                    case .compactTimeline:
+                        timelineWidget(palette: palette)
+                    case .journal:
+                        journalWidget(palette: palette)
+                    case .progressReflection:
+                        progressWidget(palette: palette)
+                    case .fasting:
+                        fastingWidget(palette: palette)
+                    default:
+                        EmptyView()
+                    }
                 }
             }
-        }
-        .frame(minHeight: preset.minimumCardHeight)
-        .overlay(alignment: .topTrailing) {
-            if store.isCustomizing {
-                customizationControls(for: placement, daypart: daypart, palette: palette)
-                    .padding(8)
-            }
-        }
-        .overlay(alignment: .topLeading) {
-            if store.isCustomizing {
-                Label(
-                    placement.ownership == .smart ? "Smart" : "Pinned",
-                    systemImage: placement.ownership == .smart ? "sparkles" : "pin.fill"
-                )
-                .font(.caption2.weight(.semibold))
-                .padding(.horizontal, 9)
-                .frame(minHeight: 30)
-                .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: Capsule())
-                .padding(9)
-                .accessibilityLabel(placement.ownership.accessibilityDescription)
-            }
+            .frame(minHeight: preset.minimumCardHeight)
         }
         .modifier(
             HomeCardReorderModifier(
@@ -1772,6 +1828,7 @@ struct LifeBoardAdaptiveHome: View {
         }
     }
 
+    @ViewBuilder
     private func signalRowWidget(palette: LifeBoardDaypartPalette) -> some View {
         let hydrationAmount = lifeOSStore.trackSnapshot?.hydrationAmountMilliliters
         let hydrationTarget = lifeOSStore.trackSnapshot?.hydrationTargetMilliliters
@@ -1807,11 +1864,18 @@ struct LifeBoardAdaptiveHome: View {
                 availability: lifeOSStore.activeFast == nil ? .setupRequired : .available
             )
         ]
-        return HStack(spacing: 8) {
-            ForEach(slots) { slot in compactSignalRing(slot, palette: palette) }
+        if dynamicTypeSize.isAccessibilitySize {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(slots) { slot in compactSignalRing(slot, palette: palette) }
+            }
+            .accessibilityIdentifier("home.signalRow")
+        } else {
+            HStack(spacing: 8) {
+                ForEach(slots) { slot in compactSignalRing(slot, palette: palette) }
+            }
+            .frame(maxWidth: .infinity)
+            .accessibilityIdentifier("home.signalRow")
         }
-        .frame(maxWidth: .infinity)
-        .accessibilityIdentifier("home.signalRow")
     }
 
     private func compactSignalRing(_ slot: HomeSignalSlot, palette: LifeBoardDaypartPalette) -> some View {
@@ -1849,11 +1913,17 @@ struct LifeBoardAdaptiveHome: View {
         switch slot.availability {
         case .loading:
             return .loading
-        case .setupRequired, .permissionRequired, .unavailable:
+        case .setupRequired, .permissionRequired:
             return .setupRequired
-        case .available, .stale:
+        case .unavailable:
+            return .unavailable
+        case .stale:
+            guard let value = slot.valueText else { return .unavailable }
+            return .stale(progress: slot.progress ?? 0, centerText: value)
+        case .available:
             guard let value = slot.valueText else { return .setupRequired }
             let progress = slot.progress ?? 0
+            if progress == 0 { return .zero(centerText: value) }
             return progress >= 1 ? .complete(centerText: value) : .value(progress: progress, centerText: value)
         }
     }
@@ -2636,7 +2706,9 @@ private struct DashboardFlowLayout: Layout {
 
         for index in subviews.indices {
             let preset = subviews[index][DashboardPresetLayoutKey.self]
-            let requestedSpan = usesSingleColumn ? 1 : preset.canonicalGridSpan.columns
+            let requestedSpan = usesSingleColumn
+                ? 1
+                : DashboardResponsiveSpanResolver.columns(for: preset, columnCount: columnCount)
             let itemSpan = min(columnCount, max(1, requestedSpan))
             var bestColumn = 0
             var bestY = CGFloat.greatestFiniteMagnitude
@@ -2663,6 +2735,19 @@ private struct DashboardFlowLayout: Layout {
             }
         }
         return (result, max(0, (columnHeights.max() ?? 0) - spacing))
+    }
+}
+
+/// Home presets are defined against the canonical four-column phone grid.
+/// Regular-width layouts preserve that semantic density by scaling spans into
+/// their 8/12-column coordinate spaces; otherwise a standard two-column card
+/// becomes an unreadable one-sixth-width strip on a wide iPad.
+enum DashboardResponsiveSpanResolver {
+    static func columns(for preset: WidgetSizePreset, columnCount: Int) -> Int {
+        let safeColumnCount = max(1, columnCount)
+        let canonicalColumnCount = 4
+        let scale = max(1, safeColumnCount / canonicalColumnCount)
+        return min(safeColumnCount, preset.canonicalGridSpan.columns * scale)
     }
 }
 
@@ -2946,7 +3031,7 @@ public struct LifeBoardReferenceDashboard: View {
         )
         .overlay {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color.white.opacity(colorScheme == .dark ? 0.15 : 0.68), lineWidth: 1)
+                .stroke(Color.lifeboard(.textInverse).opacity(colorScheme == .dark ? 0.15 : 0.68), lineWidth: 1)
         }
         .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow), radius: 18, y: 8)
         .padding(.horizontal, 16)
@@ -2980,7 +3065,7 @@ public struct LifeBoardTokenGallery: View {
                                         .frame(height: 72)
                                         .overlay {
                                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                                                .stroke(Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.08), lineWidth: 1)
                                         }
                                     Text(role.rawValue)
                                         .font(.caption.weight(.semibold))

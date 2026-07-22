@@ -158,6 +158,13 @@ public extension LifeBoardColorTokens {
         UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#343754" : "#F2E7C2")
     }
     static let foundationSunAccent = UIColor(lifeboardHex: "#F0CD87")
+    /// Cocoa ink is the verified foreground for every celestial/daypart accent,
+    /// including the pale lunar lavender used by the dark appearance.
+    static let foundationOnCelestialAccent = UIColor(lifeboardHex: "#2B2118")
+    static let foundationSettingsHeroStart = UIColor(lifeboardHex: "#F2C6AE")
+    static let foundationSettingsHeroMiddle = UIColor(lifeboardHex: "#E8BFCB")
+    static let foundationSettingsHeroEnd = UIColor(lifeboardHex: "#D8C5DD")
+    static let foundationOnSettingsHero = UIColor(lifeboardHex: "#2B2118")
     static let foundationApricotAccent = UIColor(lifeboardHex: "#E7BB7E")
     static let foundationSageAccent = UIColor(lifeboardHex: "#C9C6BA")
     static let foundationFocusRing = UIColor { traits in

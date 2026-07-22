@@ -20,6 +20,8 @@ public struct LifeOSFoundationShell: View {
     private let nutritionRepository: any NutritionRepository
     private let lifeMomentRepository: any LifeMomentRepository
     private let wellnessRepository: any WellnessRepository
+    private let visualFixture: LifeBoardVisualFixture?
+    private let visualAppearanceFixture: LifeBoardVisualAppearanceFixture?
 
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -73,6 +75,8 @@ public struct LifeOSFoundationShell: View {
         self.nutritionRepository = nutritionRepository
         self.lifeMomentRepository = lifeMomentRepository
         self.wellnessRepository = wellnessRepository
+        visualFixture = LifeBoardVisualFixture(arguments: ProcessInfo.processInfo.arguments)
+        visualAppearanceFixture = LifeBoardVisualAppearanceFixture(arguments: ProcessInfo.processInfo.arguments)
         self.showsReferenceHome = showsReferenceHome
         let mutationCoordinator = LifeBoardMutationCoordinator()
         lifeBoardMutationCoordinator = mutationCoordinator
@@ -82,7 +86,7 @@ public struct LifeOSFoundationShell: View {
     public var body: some View {
         @Bindable var router = runtime.router
         Group {
-            if horizontalSizeClass == .regular {
+            if usesExpandedShell {
                 expandedShell(router: router)
             } else {
                 compactShell(router: router)
@@ -212,13 +216,39 @@ public struct LifeOSFoundationShell: View {
                 .zIndex(20)
             }
         }
+        .overlay {
+            if let visualFixture, visualFixture.state != .populated {
+                LifeBoardVisualFixtureSurface(fixture: visualFixture)
+                    .zIndex(100)
+            }
+        }
+        .task(id: visualFixture?.id) {
+            guard let visualFixture else { return }
+            switch visualFixture.root {
+            case .home: router.activateRoot(.home)
+            case .plan: router.activateRoot(.plan)
+            case .track: router.activateRoot(.track)
+            case .insights: router.activateRoot(.insights)
+            case .eva: router.activateRoot(.eva)
+            }
+        }
         .onChange(of: router.selectedDestination, initial: true) { _, destination in
             lifeThreadComposer.move(to: destination)
         }
+        .preferredColorScheme(visualAppearanceFixture?.preferredColorScheme)
+        .contrast(visualAppearanceFixture?.usesHighContrast == true ? 1.16 : 1)
+        .saturation(visualAppearanceFixture?.usesGrayscale == true ? 0 : 1)
         // Presentation modifiers live outside the shell's visual subtree. Keep
         // the observable preferences at the outermost level so sheets and
         // navigation destinations receive the same environment as root views.
         .environment(runtime.preferences)
+    }
+
+    /// Accessibility text needs the full content width even on regular-width
+    /// iPad and Catalyst windows. The same compact shell remains keyboard and
+    /// VoiceOver complete, so collapsing here never removes a destination.
+    private var usesExpandedShell: Bool {
+        horizontalSizeClass == .regular && dynamicTypeSize.isAccessibilitySize == false
     }
 
     private func compactShell(router: LifeBoardAppRouter) -> some View {
@@ -248,22 +278,22 @@ public struct LifeOSFoundationShell: View {
                 .padding(.horizontal, 12)
                 .padding(.bottom, 6)
                 .background(alignment: .bottom) {
-                    // A short fade at the very top dissolves scrolling content
-                    // into the canvas; below it the canvas is solid so nothing
-                    // reads through the translucent composer.
-                    VStack(spacing: 0) {
-                        LinearGradient(
-                            colors: [
-                                Color(LifeBoardColorTokens.foundationCanvas).opacity(0),
-                                Color(LifeBoardColorTokens.foundationCanvas)
-                            ],
-                            startPoint: .top,
-                            endPoint: .bottom
-                        )
-                        .frame(height: 28)
-                        Color(LifeBoardColorTokens.foundationCanvas)
-                    }
-                    .frame(height: measuredChromeHeight + 28)
+                    // The composer and dock own their readable clay/glass
+                    // surfaces. A compact edge fade is enough to separate
+                    // them from scrolling content; an opaque footer here
+                    // created the dark band visible behind the floating bar.
+                    LinearGradient(
+                        colors: [
+                            Color.clear,
+                            Color(LifeBoardColorTokens.foundationCanvas)
+                                .opacity(HomeBottomBarVisibilityPolicy.chromeBackdropMaximumOpacity),
+                            Color.clear
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 44)
+                    .offset(y: -(measuredChromeHeight - 22))
                     .allowsHitTesting(false)
                 }
                 .onGeometryChange(for: CGFloat.self) { proxy in
@@ -279,8 +309,10 @@ public struct LifeOSFoundationShell: View {
     }
 
     private func compactNavigationChrome(router: LifeBoardAppRouter, paletteMaxHeight: CGFloat) -> some View {
-        VStack(spacing: 8) {
-            if compactCaptureState.isExpanded, sharedComposerIsVisible == false {
+        let composerVisible = sharedComposerIsVisible(for: router)
+        return GlassEffectContainer(spacing: 10) {
+            VStack(spacing: 8) {
+            if compactCaptureState.isExpanded, composerVisible == false {
                 ScrollView {
                     LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
                         ForEach(availableCaptureKinds, id: \.self) { kind in
@@ -318,7 +350,7 @@ public struct LifeOSFoundationShell: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
-            if sharedComposerIsVisible {
+            if composerVisible {
                 lifeThreadComposerHost(router: router)
             }
 
@@ -370,7 +402,7 @@ public struct LifeOSFoundationShell: View {
                 .overlay { RoundedRectangle(cornerRadius: 30).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
                 .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.18), radius: 12, y: 6)
 
-                if sharedComposerIsVisible == false {
+                if composerVisible == false {
                     Button {
                         withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) {
                             compactCaptureState.isExpanded.toggle()
@@ -408,12 +440,13 @@ public struct LifeOSFoundationShell: View {
                     }
                 }
             }
-            .padding(.top, sharedComposerIsVisible ? 0 : 30)
+                .padding(.top, composerVisible ? 0 : 30)
+            }
         }
     }
 
-    private var sharedComposerIsVisible: Bool {
-        V2FeatureFlags.lifeOSUnifiedPresentationV2Enabled
+    private func sharedComposerIsVisible(for router: LifeBoardAppRouter) -> Bool {
+        V2FeatureFlags.lifeOSUnifiedPresentationV2Enabled && router.selectedDestination == .home
     }
 
     private func updateCompactCaptureDrag(at location: CGPoint) {
@@ -486,7 +519,7 @@ public struct LifeOSFoundationShell: View {
         } detail: {
             VStack(spacing: 0) {
                 destinationNavigation(router.selectedDestination, router: router)
-                if sharedComposerIsVisible {
+                if sharedComposerIsVisible(for: router) {
                     lifeThreadComposerHost(router: router)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 10)
@@ -839,7 +872,10 @@ public struct LifeOSFoundationShell: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(composer.state == .tools ? "Close capture tools" : "Open capture tools")
 
-                TextField(composerPlaceholder(for: composer.destination), text: $composer.draftText, axis: .vertical)
+                TextField(text: $composer.draftText, axis: .vertical) {
+                    Text(composerPlaceholder(for: composer.destination))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
                     .lineLimit(1...4)
                     .focused($lifeThreadComposerIsFocused)
                     .submitLabel(.send)
@@ -847,7 +883,7 @@ public struct LifeOSFoundationShell: View {
                     .onChange(of: lifeThreadComposerIsFocused) { _, focused in
                         if focused { composer.focus() }
                     }
-                    .accessibilityIdentifier("lifeThread.composer.field")
+                    .accessibilityIdentifier("home.lifeThread.composer")
 
                 Button {
                     if composer.hasDraft {
@@ -864,7 +900,7 @@ public struct LifeOSFoundationShell: View {
                 }
                 .buttonStyle(.plain)
                 .disabled(composer.state == .working)
-                .accessibilityLabel(composer.hasDraft ? "Send" : "Record audio")
+                .accessibilityLabel(composer.hasDraft ? "Send to Eva" : "Record audio")
             }
             .padding(8)
             .lifeBoardGlassSurface(cornerRadius: 27, interactive: true)
@@ -1317,7 +1353,8 @@ private struct FoundationInsightsDestination: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            LifeBoardAtmosphereView(
+            LifeBoardScenicBackdrop(
+                scene: .secondary,
                 daypart: preferences.resolvedDaypart(),
                 requestedTier: preferences.renderingTier,
                 comfortProfile: preferences.comfortProfile
@@ -1780,7 +1817,11 @@ private struct FoundationInteractiveGlassModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if isEnabled {
-            content.glassEffect(.regular.interactive(), in: .rect(cornerRadius: cornerRadius))
+            content.lifeBoardSystemGlass(
+                .regular,
+                in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous),
+                interactive: true
+            )
         } else {
             content
         }
