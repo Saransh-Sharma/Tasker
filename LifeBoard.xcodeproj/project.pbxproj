@@ -1125,7 +1125,6 @@
 		E50000000000000000000039 /* SunriseScheduleScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000038 /* SunriseScheduleScreen.swift */; };
 		E50000000000000000000041 /* LBDelight.swift in Sources */ = {isa = PBXBuildFile; fileRef = E50000000000000000000040 /* LBDelight.swift */; };
 		E5B177F856A5092F0FE8ECD6 /* LifeBoardPlanViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7D15177D45D46D8D0B8D2F3 /* LifeBoardPlanViews.swift */; };
-		E5F000000000000000000002 /* SunriseImages in Resources */ = {isa = PBXBuildFile; fileRef = E5F000000000000000000001 /* SunriseImages */; };
 		E671F97D401D06E3D9FD602D /* PendingCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5489B0A74568225DD433C75F /* PendingCapture.swift */; };
 		E6A100000000000000000002 /* SunriseHeaderAssetTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6A100000000000000000001 /* SunriseHeaderAssetTests.swift */; };
 		E74EA3C46BB64BDD2E97F053 /* TimelineStreamInfluenceKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = D76C10CD61388AF076BFDDB5 /* TimelineStreamInfluenceKind.swift */; };
@@ -2393,7 +2392,6 @@
 		E508CD28D9365DD6B35FE330 /* MessageView+AssistantAndUserBubble.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/LLM/Views/Chat/Conversation/MessageView+AssistantAndUserBubble.swift"; sourceTree = SOURCE_ROOT; };
 		E526F0CB3E9299C87861646E /* SunriseTaskListView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseTaskListView.swift; sourceTree = "<group>"; };
 		E54A7695DD06B755561CDB3D /* LifeManagementColorSwatchButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementColorSwatchButton.swift; sourceTree = SOURCE_ROOT; };
-		E5F000000000000000000001 /* SunriseImages */ = {isa = PBXFileReference; lastKnownFileType = folder; path = SunriseImages; sourceTree = SOURCE_ROOT; };
 		E6095F80ED6FB73CD69363AC /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = Info.plist; path = LifeBoardWidgets/Info.plist; sourceTree = "<group>"; };
 		E6747A1FAF23571C7A3DA320 /* CoreDataAssistantActionRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Repositories/CoreDataAssistantActionRepository.swift; sourceTree = SOURCE_ROOT; };
 		E6A100000000000000000001 /* SunriseHeaderAssetTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseHeaderAssetTests.swift; sourceTree = "<group>"; };
@@ -3039,7 +3037,6 @@
 		753EFC9C2445A24500A739E3 /* LifeBoard */ = {
 			isa = PBXGroup;
 			children = (
-				E5F000000000000000000001 /* SunriseImages */,
 				E5D000000000000000000001 /* LifeBoardDesign */,
 				7551DA0724883298005CF826 /* Utils */,
 				755FE8DF2479E60200A71A75 /* View */,
@@ -4913,7 +4910,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E5F000000000000000000002 /* SunriseImages in Resources */,
 				753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */,
 				753EFCA72445A24700A739E3 /* Assets.xcassets in Resources */,
 				B7C8D9E22F6A100100ABC123 /* Localizable.xcstrings in Resources */,
