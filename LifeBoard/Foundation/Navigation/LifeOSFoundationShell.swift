@@ -52,6 +52,7 @@ public struct LifeOSFoundationShell: View {
     @State private var scannedDraft: LifeBoardScannedDraft?
     @State private var lifeBoardActionReceipt: LifeBoardActionReceipt?
     @FocusState private var lifeThreadComposerIsFocused: Bool
+    @Namespace private var dockSelectionNamespace
     private let lifeBoardMutationCoordinator: LifeBoardMutationCoordinator
     private let lifeThreadIntentResolver: LifeThreadIntentResolver
 
@@ -98,16 +99,18 @@ public struct LifeOSFoundationShell: View {
 
     public var body: some View {
         @Bindable var router = runtime.router
-        LifeBoardAtmosphereHost(
-            preferences: runtime.preferences,
-            placement: .root(router.selectedDestination)
-        ) {
-            LifeBoardAtmosphereSnapshotReader { atmosphereSnapshot in
-                Group {
-                    if usesExpandedShell {
-                        expandedShell(router: router, atmosphereSnapshot: atmosphereSnapshot)
-                    } else {
-                        compactShell(router: router, atmosphereSnapshot: atmosphereSnapshot)
+        LifeBoardTransitionHost {
+            LifeBoardAtmosphereHost(
+                preferences: runtime.preferences,
+                placement: .root(router.selectedDestination)
+            ) {
+                LifeBoardAtmosphereSnapshotReader { atmosphereSnapshot in
+                    Group {
+                        if usesExpandedShell {
+                            expandedShell(router: router, atmosphereSnapshot: atmosphereSnapshot)
+                        } else {
+                            compactShell(router: router, atmosphereSnapshot: atmosphereSnapshot)
+                        }
                     }
                 }
             }
@@ -127,42 +130,47 @@ public struct LifeOSFoundationShell: View {
             .opacity(0)
         }
         .sheet(isPresented: capturePresentationBinding) {
-            if let request = runtime.captureRouter.activeRequest {
-                FoundationCaptureSheet(
-                    request: request,
-                    phaseIIRepository: phaseIIRepository,
-                    planningRepository: planningRepository,
-                    trackFoundationRepository: trackFoundationRepository,
-                    routineLinkedMutationApplier: routineLinkedMutationApplier,
-                    mutationCoordinator: lifeBoardMutationCoordinator,
-                    onReceipt: { receipt in lifeBoardActionReceipt = receipt },
-                    onClose: { runtime.captureRouter.cancelActiveRequest() },
-                    onOpenHabitBoard: {
-                        runtime.captureRouter.completeActiveRequest()
-                        runtime.router.push(.habitBoard, in: .track)
-                    }
-                )
+            LifeBoardPresentationScaffold(mode: .editor, readableWidth: 720) {
+                if let request = runtime.captureRouter.activeRequest {
+                    FoundationCaptureSheet(
+                        request: request,
+                        phaseIIRepository: phaseIIRepository,
+                        planningRepository: planningRepository,
+                        trackFoundationRepository: trackFoundationRepository,
+                        routineLinkedMutationApplier: routineLinkedMutationApplier,
+                        mutationCoordinator: lifeBoardMutationCoordinator,
+                        onReceipt: { receipt in lifeBoardActionReceipt = receipt },
+                        onClose: { runtime.captureRouter.cancelActiveRequest() },
+                        onOpenHabitBoard: {
+                            runtime.captureRouter.completeActiveRequest()
+                            runtime.router.push(.habitBoard, in: .track)
+                        }
+                    )
+                }
             }
         }
         .sheet(item: $homeCardPlacementRequest) { request in
-            if let descriptor = DefaultDashboardWidgetRegistry.shared.descriptor(for: request.kind) {
-                HomeCardPlacementSheet(
-                    descriptor: descriptor,
-                    destination: request.destination,
-                    onCancel: { homeCardPlacementRequest = nil },
-                    onAdd: { size in
-                        homeCardPlacementRequest = nil
-                        Task { await addCardToHome(request.kind, size: size, from: request.destination) }
-                    }
-                )
+            LifeBoardPresentationScaffold(mode: .utility, readableWidth: 640) {
+                if let descriptor = DefaultDashboardWidgetRegistry.shared.descriptor(for: request.kind) {
+                    HomeCardPlacementSheet(
+                        descriptor: descriptor,
+                        destination: request.destination,
+                        onCancel: { homeCardPlacementRequest = nil },
+                        onAdd: { size in
+                            homeCardPlacementRequest = nil
+                            Task { await addCardToHome(request.kind, size: size, from: request.destination) }
+                        }
+                    )
+                }
             }
         }
         .sheet(isPresented: $showsComposerAudioCapture, onDismiss: {
             if lifeThreadComposer.state == .recording { lifeThreadComposer.focus() }
         }) {
-            if let store = composerAudioStore {
-                NavigationStack {
-                    LifeBoardJournalAudioCapture(
+            LifeBoardPresentationScaffold(mode: .editor, readableWidth: 720) {
+                if let store = composerAudioStore {
+                    NavigationStack {
+                        LifeBoardJournalAudioCapture(
                         onSave: { path, duration, transcription in
                             if store.allDays.isEmpty { await store.load() }
                             return await store.appendAudio(
@@ -178,10 +186,11 @@ public struct LifeOSFoundationShell: View {
                             await store.discardAudio(relativePath: path)
                         }
                     )
-                    .navigationTitle("Voice note")
-                    .navigationBarTitleDisplayMode(.inline)
+                        .navigationTitle("Voice note")
+                        .navigationBarTitleDisplayMode(.inline)
+                    }
+                    .presentationDetents([.medium, .large])
                 }
-                .presentationDetents([.medium, .large])
             }
         }
         .fullScreenCover(isPresented: $showsDocumentScanner) {
@@ -202,16 +211,18 @@ public struct LifeOSFoundationShell: View {
             .ignoresSafeArea()
         }
         .sheet(item: $scannedDraft) { draft in
-            LifeBoardScanReviewView(
-                draft: draft,
-                onUse: { text in
-                    lifeThreadComposer.draftText = text
-                    lifeThreadComposer.focus()
-                    scannedDraft = nil
-                    lifeThreadComposerIsFocused = true
-                },
-                onCancel: { scannedDraft = nil }
-            )
+            LifeBoardPresentationScaffold(mode: .editor, readableWidth: 720) {
+                LifeBoardScanReviewView(
+                    draft: draft,
+                    onUse: { text in
+                        lifeThreadComposer.draftText = text
+                        lifeThreadComposer.focus()
+                        scannedDraft = nil
+                        lifeThreadComposerIsFocused = true
+                    },
+                    onCancel: { scannedDraft = nil }
+                )
+            }
         }
         .alert(item: $router.activeAlert) { alert in
             Alert(title: Text(alert.title), message: Text(alert.message), dismissButton: .default(Text("OK")))
@@ -370,6 +381,7 @@ public struct LifeOSFoundationShell: View {
                 .frame(maxWidth: 340, maxHeight: paletteMaxHeight)
                 .accessibilityIdentifier("foundation.capture.palette")
                 .lifeBoardGlassSurface(cornerRadius: 24, interactive: true)
+                .lifeBoardGlassIdentity(.capture)
                 .overlay { RoundedRectangle(cornerRadius: 24).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
                 .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.24), radius: 18, y: 10)
                 .transition(.move(edge: .bottom).combined(with: .opacity))
@@ -383,8 +395,10 @@ public struct LifeOSFoundationShell: View {
                 HStack(spacing: 0) {
                     ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
                         Button {
-                            router.activateRoot(destination)
-                            UISelectionFeedbackGenerator().selectionChanged()
+                            withAnimation(LifeBoardMotionProfile.selection.animation(reduceMotion: reduceMotion)) {
+                                router.activateRoot(destination)
+                            }
+                            LifeBoardFeedback.selection()
                         } label: {
                             VStack(spacing: 3) {
                                 Image(systemName: destination.systemImage)
@@ -406,6 +420,7 @@ public struct LifeOSFoundationShell: View {
                                         .fill(Color(LifeBoardColorTokens.foundationSurfaceSelected).opacity(0.9))
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 5)
+                                        .matchedGeometryEffect(id: "foundation.dock.selection", in: dockSelectionNamespace)
                                 }
                             }
                             .contentShape(Rectangle())
@@ -429,16 +444,18 @@ public struct LifeOSFoundationShell: View {
 
                 if composerVisible == false {
                     Button {
-                        withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) {
+                        withAnimation(LifeBoardMotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
                             compactCaptureState.isExpanded.toggle()
                         }
-                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                        LifeBoardFeedback.light()
                     } label: {
                         Image(systemName: compactCaptureState.isExpanded ? "xmark" : "plus")
                             .font(.system(size: 21, weight: .bold))
                             .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
                             .frame(width: 56, height: 56)
                             .background(Color(LifeBoardColorTokens.foundationSunAccent), in: Circle())
+                            .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
+                            .lifeBoardGlassIdentity(.capture)
                             .lifeboardConfirmationRipple(
                                 trigger: compactCaptureRippleTrigger,
                                 tint: Color(LifeBoardColorTokens.inkPrimary)
@@ -476,7 +493,7 @@ public struct LifeOSFoundationShell: View {
 
     private func updateCompactCaptureDrag(at location: CGPoint) {
         if compactCaptureState.isExpanded == false {
-            withAnimation(reduceMotion ? nil : .spring(response: 0.30, dampingFraction: 0.84)) {
+            withAnimation(LifeBoardMotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
                 compactCaptureState.isExpanded = true
             }
         }
@@ -484,7 +501,7 @@ public struct LifeOSFoundationShell: View {
         let selection = CaptureOrbDragSelectionPolicy.selection(at: location, targets: targets)
         guard selection != compactCaptureState.highlightedKind else { return }
         compactCaptureState.highlightedKind = selection
-        if selection != nil { UISelectionFeedbackGenerator().selectionChanged() }
+        if selection != nil { LifeBoardFeedback.selection() }
     }
 
     private func finishCompactCaptureDrag(at location: CGPoint) {
@@ -499,7 +516,7 @@ public struct LifeOSFoundationShell: View {
         compactCaptureState = .init(isExpanded: false, highlightedKind: kind)
         compactCaptureRippleTrigger &+= 1
         runtime.captureRouter.request(kind: kind, source: .shell)
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        LifeBoardFeedback.light()
     }
 
     private var availableCaptureKinds: [CaptureKind] {
@@ -569,12 +586,26 @@ public struct LifeOSFoundationShell: View {
         NavigationStack(path: pathBinding(for: destination)) {
             ZStack {
                 activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
-                destinationRoot(destination, router: router)
+                LifeBoardScreenScaffold(mode: .ambient, placement: .root(destination)) {
+                    destinationRoot(destination, router: router)
+                }
             }
                 .navigationDestination(for: AppRoute.self) { route in
-                    ZStack {
-                        activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
-                        routeView(route)
+                    if let transitionID = route.spatialTransitionID {
+                        ZStack {
+                            activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
+                            LifeBoardScreenScaffold(mode: route.screenMode, placement: .root(destination)) {
+                                routeView(route)
+                            }
+                        }
+                        .lifeBoardZoomDestination(sourceID: transitionID)
+                    } else {
+                        ZStack {
+                            activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
+                            LifeBoardScreenScaffold(mode: route.screenMode, placement: .root(destination)) {
+                                routeView(route)
+                            }
+                        }
                     }
                 }
                 .toolbar {
@@ -1353,6 +1384,7 @@ private struct FoundationInsightsDestination: View {
     @State private var persistedPlanningEvents: [NormalizedLifeEvent] = []
     @State private var planningEvidenceError: String?
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
+    @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
     let router: LifeBoardAppRouter
     private let planningRepository: CoreDataPlanningRepository?
 
@@ -1412,15 +1444,17 @@ private struct FoundationInsightsDestination: View {
 
     var body: some View {
         ZStack(alignment: .top) {
-            LifeBoardScenicBackdrop(
-                scene: .secondary,
-                daypart: preferences.resolvedDaypart(),
-                requestedTier: preferences.renderingTier,
-                comfortProfile: preferences.comfortProfile
-            )
-            .frame(height: 260)
-            .clipped()
-            .ignoresSafeArea(edges: .top)
+            if atmosphereIsHosted == false {
+                LifeBoardScenicBackdrop(
+                    scene: .secondary,
+                    daypart: preferences.resolvedDaypart(),
+                    requestedTier: preferences.renderingTier,
+                    comfortProfile: preferences.comfortProfile
+                )
+                .frame(height: 260)
+                .clipped()
+                .ignoresSafeArea(edges: .top)
+            }
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {

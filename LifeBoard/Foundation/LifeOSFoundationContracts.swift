@@ -700,12 +700,17 @@ public enum LifeBoardInteractionOrigin: String, Codable, CaseIterable, Hashable,
 }
 
 public enum LifeBoardMotionProfile: String, Codable, CaseIterable, Hashable, Sendable {
+    case press
+    case selection
+    case localState
+    case contentInsertion
+    case controlMorph
+    case directManipulation
     case micro
     case cardReflow
-    case controlMorph
-    case contentInsertion
-    case navigation
+    case route
     case celebration
+    case ambient
 }
 
 public struct LifeBoardTransactionPreview: Codable, Hashable, Identifiable, Sendable {

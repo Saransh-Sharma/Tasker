@@ -489,7 +489,9 @@ public struct LifeBoardAdaptiveAtmosphere: View {
         return LifeBoardMotionPolicy.resolve(
             reduceMotion: reduceMotion || LifeBoardVisualAppearanceFixture.active?.usesReducedMotion == true,
             reduceTransparency: reduceTransparency || LifeBoardVisualAppearanceFixture.active?.usesReducedTransparency == true,
-            sceneIsActive: scenePhase == .active
+            sceneIsActive: scenePhase == .active,
+            comfortProfile: comfortProfile,
+            isFocusedPresentation: placement.suppressesAmbientDetail
         )
     }
 
@@ -1190,13 +1192,14 @@ public struct LifeBoardMetricRing: View {
                         )
                         .rotationEffect(.degrees(-90))
                         .animation(
-                            reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.86),
+                            reduceMotion ? nil : LifeBoardAnimation.numericUpdate,
                             value: progress
                         )
                 }
                 if let centerText {
                     Text(centerText)
-                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                        .font(.lifeboard(.caption1).weight(.semibold))
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
                         .monospacedDigit()
                         .minimumScaleFactor(0.6)
                         .lineLimit(1)

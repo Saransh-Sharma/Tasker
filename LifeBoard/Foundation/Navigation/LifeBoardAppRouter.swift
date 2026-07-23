@@ -25,6 +25,32 @@ public enum AppRoute: Codable, Hashable, Sendable {
     case settings
     case tokenGallery
     case referenceDashboard
+
+    public var spatialTransitionID: String? {
+        switch self {
+        case .taskDetail(let id):
+            "route.task.\(id.uuidString)"
+        case .habitDetail(let id):
+            "route.habit.\(id.uuidString)"
+        case .project(let id):
+            "route.project.\(id.uuidString)"
+        case .journalDay(let id):
+            "route.journal.\(id.uuidString)"
+        default:
+            nil
+        }
+    }
+
+    public var screenMode: LifeBoardScreenMode {
+        switch self {
+        case .settings, .tokenGallery, .referenceDashboard:
+            .utility
+        case .focusSession:
+            .focused
+        default:
+            .detail
+        }
+    }
 }
 
 public struct AppAlertState: Identifiable, Codable, Hashable, Sendable {

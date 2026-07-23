@@ -50,6 +50,23 @@ private enum PlanDayPresentation: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+enum PlanRepairDeckDragResolver {
+    static let threshold: CGFloat = 96
+    static let minimumIntent: CGFloat = 24
+
+    static func action(
+        translation: CGSize,
+        predictedEndTranslation: CGSize,
+        candidates: [PlanRepairAction]
+    ) -> PlanRepairAction? {
+        guard candidates.isEmpty == false,
+              abs(translation.width) >= minimumIntent,
+              abs(predictedEndTranslation.width) > abs(predictedEndTranslation.height) * 1.15,
+              abs(predictedEndTranslation.width) >= threshold else { return nil }
+        return predictedEndTranslation.width > 0 ? candidates[0] : candidates.dropFirst().first
+    }
+}
+
 struct LifeBoardPlanRootView: View {
     private let onOpenFocus: (UUID) -> Void
     private let onAskEva: () -> Void
@@ -70,12 +87,15 @@ struct LifeBoardPlanRootView: View {
     @State private var backlogEnergyFilter: BacklogEnergyFilter = .all
     @State private var backlogDurationFilter: BacklogDurationFilter = .all
     @State private var backlogProjectFilter: BacklogProjectFilter = .all
+    @State private var repairDragOffset: CGSize = .zero
+    @State private var repairSnapAction: PlanRepairAction?
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
 
     init(
         repository: CoreDataPlanningRepository,
@@ -96,15 +116,17 @@ struct LifeBoardPlanRootView: View {
     var body: some View {
         ZStack(alignment: .top) {
             Color.clear.ignoresSafeArea()
-            LifeBoardScenicBackdrop(
-                scene: .plan,
-                daypart: preferences.resolvedDaypart(),
-                requestedTier: preferences.renderingTier,
-                comfortProfile: preferences.comfortProfile
-            )
-            .frame(height: 230)
-            .clipped()
-            .ignoresSafeArea(edges: .top)
+            if atmosphereIsHosted == false {
+                LifeBoardScenicBackdrop(
+                    scene: .plan,
+                    daypart: preferences.resolvedDaypart(),
+                    requestedTier: preferences.renderingTier,
+                    comfortProfile: preferences.comfortProfile
+                )
+                .frame(height: 230)
+                .clipped()
+                .ignoresSafeArea(edges: .top)
+            }
 
             ScrollView {
                 LazyVStack(spacing: 16) {
@@ -618,21 +640,23 @@ struct LifeBoardPlanRootView: View {
     }
 
     private func repairCard(_ proposals: [PlanRepairProposal]) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        let proposal = proposals.first
+        let dragCandidates = Array((proposal?.actions ?? []).filter { $0 != .askEva }.prefix(2))
+        return VStack(alignment: .leading, spacing: 10) {
             Label("Plan repair", systemImage: "wand.and.stars")
                 .font(.headline)
-            Text(proposals.first?.explanation ?? "Your day has changed. Choose what should move; nothing changes automatically.")
+            Text(proposal?.explanation ?? "Your day has changed. Choose what should move; nothing changes automatically.")
                 .font(.subheadline).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            if dragCandidates.count == 2 {
+                Text("Swipe right for \(repairActionTitle(dragCandidates[0])); left for \(repairActionTitle(dragCandidates[1])).")
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
             ScrollView(.horizontal) {
                 HStack {
-                    ForEach(Array((proposals.first?.actions ?? []).prefix(5)), id: \.self) { action in
+                    ForEach(Array((proposal?.actions ?? []).prefix(5)), id: \.self) { action in
                         Button(repairActionTitle(action), systemImage: repairActionSymbol(action)) {
-                            UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                            if action == .askEva {
-                                onAskEva()
-                            } else if let proposal = proposals.first {
-                                Task { await store.applyRepair(proposal, action: action) }
-                            }
+                            performRepairAction(action, proposal: proposal)
                         }
                         .buttonStyle(.bordered)
                     }
@@ -641,7 +665,65 @@ struct LifeBoardPlanRootView: View {
             .scrollIndicators(.hidden)
         }
         .foundationClayCard()
+        .offset(x: repairDragOffset.width * 0.22, y: repairDragOffset.height * 0.03)
+        .scaleEffect(repairDragOffset == .zero ? 1 : 1.012)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: repairDragOffset)
+        .simultaneousGesture(repairGesture(proposal: proposal, candidates: dragCandidates))
+        .accessibilityAction(named: dragCandidates.first.map { Text(repairActionTitle($0)) } ?? Text("Apply first repair")) {
+            if let action = dragCandidates.first { performRepairAction(action, proposal: proposal) }
+        }
+        .accessibilityAction(named: dragCandidates.dropFirst().first.map { Text(repairActionTitle($0)) } ?? Text("Apply second repair")) {
+            if let action = dragCandidates.dropFirst().first { performRepairAction(action, proposal: proposal) }
+        }
         .accessibilityIdentifier("plan.repair")
+    }
+
+    private func repairGesture(
+        proposal: PlanRepairProposal?,
+        candidates: [PlanRepairAction]
+    ) -> some Gesture {
+        DragGesture(minimumDistance: 14)
+            .onChanged { value in
+                repairDragOffset = value.translation
+                let candidate = PlanRepairDeckDragResolver.action(
+                    translation: value.translation,
+                    predictedEndTranslation: value.predictedEndTranslation,
+                    candidates: candidates
+                )
+                if candidate != nil, repairSnapAction == nil { LifeBoardFeedback.selection() }
+                repairSnapAction = candidate
+            }
+            .onEnded { value in
+                let action = PlanRepairDeckDragResolver.action(
+                    translation: value.translation,
+                    predictedEndTranslation: value.predictedEndTranslation,
+                    candidates: candidates
+                )
+                repairSnapAction = nil
+                guard let action else {
+                    withAnimation(reduceMotion ? nil : LifeBoardAnimation.directManipulation) {
+                        repairDragOffset = .zero
+                    }
+                    return
+                }
+                LifeBoardFeedback.medium()
+                withAnimation(reduceMotion ? nil : LifeBoardAnimation.panelOut) {
+                    repairDragOffset = CGSize(width: value.predictedEndTranslation.width > 0 ? 420 : -420, height: 0)
+                }
+                DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0 : 0.18)) {
+                    repairDragOffset = .zero
+                    performRepairAction(action, proposal: proposal)
+                }
+            }
+    }
+
+    private func performRepairAction(_ action: PlanRepairAction, proposal: PlanRepairProposal?) {
+        LifeBoardFeedback.light()
+        if action == .askEva {
+            onAskEva()
+        } else if let proposal {
+            Task { await store.applyRepair(proposal, action: action) }
+        }
     }
 
     private func emptyCard(_ title: String, detail: String, symbol: String) -> some View {

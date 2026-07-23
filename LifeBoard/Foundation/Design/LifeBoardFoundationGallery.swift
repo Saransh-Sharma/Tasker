@@ -730,6 +730,7 @@ struct LifeBoardAdaptiveHome: View {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.lifeBoardAtmosphereSnapshot) private var atmosphereSnapshot
+    @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
 
     init(
         projectionAdapter: HomeProjectionAdapter,
@@ -790,16 +791,21 @@ struct LifeBoardAdaptiveHome: View {
         @Bindable var store = store
         let daypart = atmosphereSnapshot.semanticDaypart
         let palette = LifeBoardDaypartTokens.functionalPalette(for: daypart, colorScheme: colorScheme)
+        let ambientPalette = daypart == .night && horizontalSizeClass == .regular
+            ? LifeBoardDaypartTokens.palette(for: daypart)
+            : palette
 
         ZStack(alignment: .bottom) {
-            LifeBoardScenicBackdrop(
-                scene: .home,
-                daypart: daypart,
-                requestedTier: preferences.renderingTier,
-                comfortProfile: preferences.comfortProfile
-            )
-            .ignoresSafeArea()
-            .accessibilityHidden(true)
+            if atmosphereIsHosted == false {
+                LifeBoardScenicBackdrop(
+                    scene: .home,
+                    daypart: daypart,
+                    requestedTier: preferences.renderingTier,
+                    comfortProfile: preferences.comfortProfile
+                )
+                .ignoresSafeArea()
+                .accessibilityHidden(true)
+            }
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
@@ -820,16 +826,16 @@ struct LifeBoardAdaptiveHome: View {
                     homeSectionHeading(
                         "At a glance",
                         detail: "The signals that are useful right now.",
-                        palette: palette
+                        palette: ambientPalette
                     )
-                    signalRowWidget(palette: palette)
+                    signalRowWidget(palette: ambientPalette)
 
                     homeSectionHeading(
                         "My Home",
                         detail: store.isCustomizing
                             ? "Drag the order, resize, or make a card adaptive."
                             : "Your cards stay exactly where you put them.",
-                        palette: palette
+                        palette: ambientPalette
                     )
                     DashboardFlowLayout(
                         isRegular: horizontalSizeClass == .regular,
@@ -2073,6 +2079,7 @@ struct LifeBoardAdaptiveHome: View {
                     .buttonStyle(.plain)
                     .frame(maxWidth: .infinity, minHeight: 44)
                     .contentShape(Rectangle())
+                    .lifeBoardTransitionSource("route.task.\(task.id.uuidString)")
                     .accessibilityIdentifier("home.task.\(task.id.uuidString)")
                 }
             }
