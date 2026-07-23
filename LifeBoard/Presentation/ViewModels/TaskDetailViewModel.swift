@@ -719,7 +719,7 @@ public final class TaskDetailViewModel: ObservableObject {
     /// Executes toggleRootCompletion.
     public func toggleRootCompletion() {
         let target = !isComplete
-        withAnimation(LifeBoardAnimation.bouncy) {
+        withAnimation(LifeBoardAnimation.celebration) {
             isComplete = target
         }
 
