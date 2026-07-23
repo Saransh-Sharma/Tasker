@@ -56,7 +56,8 @@ struct OverdueRescueDeckView: View {
                     OverdueRescueRevealPanel(
                         reveal: drag.reveal,
                         progress: drag.progress,
-                        metrics: metrics
+                        metrics: metrics,
+                        keepTitle: viewModel.keepActionTitle
                     )
 
                     OverdueRescueTaskCard(card: card)
@@ -71,9 +72,9 @@ struct OverdueRescueDeckView: View {
                 .frame(maxWidth: .infinity)
                 .frame(width: min(metrics.containerSize.width + 34, metrics.cardWidth + 64), height: metrics.deckHeight)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Rescue. Card \(viewModel.progressText). \(card.task.title). \(card.confidenceLabel). \(card.overdueText). Actions: Keep today, \(card.moveButtonTitle), Edit, Delete.")
+                .accessibilityLabel("Rescue. Card \(viewModel.progressText). \(card.task.title). \(card.confidenceLabel). \(card.overdueText). Actions: \(viewModel.keepActionTitle), \(card.moveButtonTitle), Edit, Delete.")
                 .accessibilityIdentifier("home.rescue.card.\(card.id.uuidString)")
-                .accessibilityAction(named: Text("Keep today")) {
+                .accessibilityAction(named: Text(viewModel.keepActionTitle)) {
                     viewModel.keepToday(source: .tap)
                 }
                 .accessibilityAction(named: Text(card.moveButtonTitle)) {
@@ -91,11 +92,14 @@ struct OverdueRescueDeckView: View {
 
                 OverdueRescueActionGrid(
                     metrics: metrics,
+                    keepTitle: viewModel.keepActionTitle,
+                    keepAccessibilityHint: viewModel.keepActionAccessibilityHint,
                     keep: { viewModel.keepToday(source: .tap) },
                     move: { viewModel.moveLater(source: .tap) },
                     edit: viewModel.requestEdit,
                     delete: viewModel.requestDelete
                 )
+                .disabled(viewModel.isDecisionInFlight)
                 .frame(width: metrics.contentWidth)
                 .padding(.top, metrics.dynamicTypeIsExpanded ? 12 : (metrics.isCompactHeight ? 12 : 16))
             } else {
@@ -125,6 +129,8 @@ struct OverdueRescueDeckView: View {
                 .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
                 .lifeboardElevation(.e1, cornerRadius: OverdueRescueVisualSpec.topButtonSize / 2, includesBorder: false)
                 .accessibilityLabel("Close rescue")
+                .accessibilityIdentifier("home.rescue.close")
+                .disabled(viewModel.isDecisionInFlight)
 
                 Spacer()
 

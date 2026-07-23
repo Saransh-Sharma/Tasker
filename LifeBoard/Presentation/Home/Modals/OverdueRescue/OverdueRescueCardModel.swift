@@ -25,7 +25,9 @@ struct OverdueRescueCardModel: Identifiable, Equatable, Sendable {
         task: TaskDefinition,
         recommendation: EvaRescueRecommendation?,
         projectsByID: [UUID: Project],
-        now: Date
+        now: Date,
+        decisionAnchorDate: Date? = nil,
+        decisionCalendar: Calendar = .current
     ) -> OverdueRescueCardModel {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
@@ -36,7 +38,8 @@ struct OverdueRescueCardModel: Identifiable, Equatable, Sendable {
         let moveDate = OverdueRescueMoveLaterResolver.resolveMoveDate(
             for: task,
             recommendation: recommendation,
-            now: now
+            now: decisionAnchorDate ?? now,
+            calendar: decisionCalendar
         )
 
         return OverdueRescueCardModel(
@@ -51,7 +54,11 @@ struct OverdueRescueCardModel: Identifiable, Equatable, Sendable {
             reasonTitle: reason.title,
             reasonBody: reason.body,
             moveDate: moveDate,
-            moveButtonTitle: OverdueRescueMoveLaterResolver.buttonTitle(for: moveDate, now: now),
+            moveButtonTitle: OverdueRescueMoveLaterResolver.buttonTitle(
+                for: moveDate,
+                now: decisionAnchorDate ?? now,
+                calendar: decisionCalendar
+            ),
             requiresDeleteConfirmation: Self.requiresDeleteConfirmation(task, now: now)
         )
     }

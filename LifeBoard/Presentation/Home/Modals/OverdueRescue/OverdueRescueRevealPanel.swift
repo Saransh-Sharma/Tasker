@@ -12,6 +12,7 @@ struct OverdueRescueRevealPanel: View {
     let reveal: OverdueRescueSwipeRevealKind
     let progress: Double
     let metrics: OverdueRescueDeckLayoutMetrics
+    let keepTitle: String
 
     var body: some View {
         RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous)
@@ -74,7 +75,7 @@ struct OverdueRescueRevealPanel: View {
 
     var title: String {
         switch reveal {
-        case .keep: return "Keep\ntoday"
+        case .keep: return keepTitle.replacingOccurrences(of: " ", with: "\n", options: [], range: keepTitle.range(of: " ", options: .backwards))
         case .move: return "Move\nlater"
         case .none: return ""
         }
