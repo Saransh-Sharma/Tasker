@@ -113,6 +113,7 @@ extension HomeViewModel {
         let rescueEligibleTasks = overdueTasks.filter {
             isOverdueRescueDeckEligibleTask($0, on: referenceDate)
         }
+        evaRescueTasksByID = Dictionary(uniqueKeysWithValues: rescueEligibleTasks.map { ($0.id, $0) })
         evaRescuePlan = getOverdueRescuePlanUseCase.execute(
             overdueTasks: rescueEligibleTasks,
             now: referenceDate

@@ -232,6 +232,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let foundationController = UIHostingController(
             rootView: LifeOSFoundationShell(
                 legacyHomeController: productionController,
+                homeViewModel: homeViewController.viewModel,
                 homeProjectionAdapter: projectionAdapter,
                 dashboardLayoutRepository: layoutRepository,
                 phaseIIRepository: phaseIIRepository,

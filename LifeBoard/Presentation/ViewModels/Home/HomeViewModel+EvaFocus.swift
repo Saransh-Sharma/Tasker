@@ -47,6 +47,7 @@ extension HomeViewModel {
         if value == false, evaRescueLauncherState != .loading {
             evaRescueLauncherState = .idle
             evaRescueReferenceDate = nil
+            evaRescueTasksByID = [:]
         }
         if value == false {
             completeDayCompassRescueIfNeeded()
