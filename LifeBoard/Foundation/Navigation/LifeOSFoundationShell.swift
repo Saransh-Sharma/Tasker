@@ -18,6 +18,7 @@ private struct LifeBoardAtmosphereSnapshotReader<Content: View>: View {
 
 public struct LifeOSFoundationShell: View {
     private let legacyHomeController: UIViewController
+    private let homeViewModel: HomeViewModel
     private let runtime: LifeOSFoundationRuntime
     private let showsReferenceHome: Bool
     private let homeProjectionAdapter: HomeProjectionAdapter?
@@ -58,6 +59,7 @@ public struct LifeOSFoundationShell: View {
 
     init(
         legacyHomeController: UIViewController,
+        homeViewModel: HomeViewModel,
         runtime: LifeOSFoundationRuntime = .shared,
         homeProjectionAdapter: HomeProjectionAdapter? = nil,
         dashboardLayoutRepository: any DashboardLayoutRepository,
@@ -75,6 +77,7 @@ public struct LifeOSFoundationShell: View {
         showsReferenceHome: Bool = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_FOUNDATION_REFERENCE_DASHBOARD")
     ) {
         self.legacyHomeController = legacyHomeController
+        self.homeViewModel = homeViewModel
         self.runtime = runtime
         self.homeProjectionAdapter = homeProjectionAdapter
         self.dashboardLayoutRepository = dashboardLayoutRepository
@@ -800,6 +803,8 @@ public struct LifeOSFoundationShell: View {
         } else if destination == .plan {
             LifeBoardPlanRootView(
                 repository: planningRepository,
+                rescueViewModel: homeViewModel,
+                rescueBottomInset: usesExpandedShell ? 0 : measuredChromeHeight,
                 onOpenFocus: { _ in router.select(.plan) },
                 onAskEva: { router.select(.eva) },
                 onOpenWeeklyPlanner: { router.push(.weeklyPlanner, in: .plan) },
@@ -1172,6 +1177,8 @@ public struct LifeOSFoundationShell: View {
     private func planRoute(lens: PlanLens, title: String, systemImage: String) -> some View {
         LifeBoardPlanRootView(
             repository: planningRepository,
+            rescueViewModel: homeViewModel,
+            rescueBottomInset: usesExpandedShell ? 0 : measuredChromeHeight,
             initialLens: lens,
             onOpenFocus: { _ in runtime.router.select(.plan) },
             onAskEva: { runtime.router.select(.eva) },
@@ -1265,7 +1272,12 @@ public struct LifeOSFoundationShell: View {
         case .knowledgeFolder(let id):
             LifeBoardKnowledgeModuleView(repository: phaseIIRepository, initialFolderID: id)
         case .focusSession(let id):
-            FoundationFocusSessionRouteView(sessionID: id, repository: planningRepository, router: runtime.router)
+            FoundationFocusSessionRouteView(
+                sessionID: id,
+                repository: planningRepository,
+                router: runtime.router,
+                homeViewModel: homeViewModel
+            )
         }
     }
 
@@ -1310,6 +1322,7 @@ private struct FoundationFocusSessionRouteView: View {
     let sessionID: UUID?
     let repository: CoreDataPlanningRepository
     let router: LifeBoardAppRouter
+    let homeViewModel: HomeViewModel
     @State private var state: FoundationRouteLoadState<FocusSessionV2> = .loading
 
     var body: some View {
@@ -1321,6 +1334,7 @@ private struct FoundationFocusSessionRouteView: View {
             case let .loaded(session) where session.state == .running || session.state == .paused:
                 LifeBoardPlanRootView(
                     repository: repository,
+                    rescueViewModel: homeViewModel,
                     initialLens: .day,
                     onOpenFocus: { _ in },
                     onAskEva: { router.select(.eva) }

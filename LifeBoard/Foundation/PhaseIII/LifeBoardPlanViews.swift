@@ -72,6 +72,9 @@ struct LifeBoardPlanRootView: View {
     private let onAskEva: () -> Void
     private let onOpenWeeklyPlanner: () -> Void
     private let onOpenWeeklyReview: () -> Void
+    private let rescueBottomInset: CGFloat
+    private let planningRepository: CoreDataPlanningRepository
+    @ObservedObject private var rescueViewModel: HomeViewModel
     @State private var store: PlanStore
     @State private var lens: PlanLens = .day
     @State private var dayPresentation: PlanDayPresentation = .canvas
@@ -89,6 +92,7 @@ struct LifeBoardPlanRootView: View {
     @State private var backlogProjectFilter: BacklogProjectFilter = .all
     @State private var repairDragOffset: CGSize = .zero
     @State private var repairSnapAction: PlanRepairAction?
+    @State private var rescueLaunchContext: OverdueRescueLaunchContext?
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -99,6 +103,8 @@ struct LifeBoardPlanRootView: View {
 
     init(
         repository: CoreDataPlanningRepository,
+        rescueViewModel: HomeViewModel,
+        rescueBottomInset: CGFloat = 0,
         initialLens: PlanLens? = nil,
         onOpenFocus: @escaping (UUID) -> Void = { _ in },
         onAskEva: @escaping () -> Void = {},
@@ -106,7 +112,10 @@ struct LifeBoardPlanRootView: View {
         onOpenWeeklyReview: @escaping () -> Void = {}
     ) {
         _store = State(initialValue: PlanStore(planningRepository: repository, blockRepository: repository))
+        _rescueViewModel = ObservedObject(wrappedValue: rescueViewModel)
         _lens = State(initialValue: initialLens ?? PlanLensRestoration.load())
+        self.planningRepository = repository
+        self.rescueBottomInset = rescueBottomInset
         self.onOpenFocus = onOpenFocus
         self.onAskEva = onAskEva
         self.onOpenWeeklyPlanner = onOpenWeeklyPlanner
@@ -167,6 +176,21 @@ struct LifeBoardPlanRootView: View {
         .sheet(isPresented: $showsWorkingHours) {
             PlanWorkingHoursComposer(profile: store.workingProfile) { weekdays, start, end, buffer in
                 Task { await store.saveWorkingHours(activeWeekdays: weekdays, startMinute: start, endMinute: end, bufferDuration: buffer) }
+            }
+        }
+        .overlay {
+            if let rescueLaunchContext {
+                OverdueRescuePresentationHost(
+                    viewModel: rescueViewModel,
+                    tasksByID: rescueViewModel.evaRescueTasksByID,
+                    projectsByID: Dictionary(uniqueKeysWithValues: rescueViewModel.projects.map { ($0.id, $0) }),
+                    bottomInset: rescueBottomInset,
+                    launchContext: rescueLaunchContext,
+                    planningRepository: planningRepository,
+                    onDismiss: finishOverdueRescuePresentation
+                )
+                .ignoresSafeArea()
+                .zIndex(80)
             }
         }
         .alert("Plan needs attention", isPresented: errorBinding) {
@@ -296,7 +320,7 @@ struct LifeBoardPlanRootView: View {
 
             sectionHeader("Planned work", systemImage: "checklist")
             if snapshot.plannedTasks.isEmpty {
-                emptyCard("This day is open", detail: "Choose work from the backlog when you are ready.", symbol: "sun.max")
+                openDayRescueCard
             } else {
                 ForEach(snapshot.plannedTasks) { taskCard($0, planned: true) }
             }
@@ -746,6 +770,57 @@ struct LifeBoardPlanRootView: View {
             Spacer()
         }
         .foundationClayCard()
+    }
+
+    private var openDayRescueCard: some View {
+        Button(action: openOverdueRescue) {
+            HStack(spacing: 14) {
+                Image(decorative: LifeBoardAtmosphereDescriptor.descriptor(for: .midday).celestialAsset)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 58, height: 58)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("This day is open")
+                        .font(.headline)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    Text("Choose overdue work that still deserves a place.")
+                        .font(.caption)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 12)
+                Image(systemName: "chevron.right")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .accessibilityHidden(true)
+            }
+            .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+            .foundationClayCard()
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .hoverEffect(.highlight)
+        .accessibilityIdentifier("plan.day.openRescue")
+        .accessibilityLabel("Plan this day with Overdue Rescue")
+        .accessibilityHint("Review overdue tasks and keep, move, edit, or remove them.")
+    }
+
+    private func openOverdueRescue() {
+        let metadataByTaskID = Dictionary(uniqueKeysWithValues: store.tasks.map { ($0.id, $0.metadata) })
+        let context = OverdueRescueLaunchContext.plan(
+            selectedDay: store.selectedDay,
+            planningMetadataByTaskID: metadataByTaskID
+        )
+        rescueLaunchContext = context
+        rescueViewModel.openOverdueRescueFromHome(source: context.source)
+        LifeBoardFeedback.light()
+    }
+
+    private func finishOverdueRescuePresentation() {
+        rescueLaunchContext = nil
+        Task { await store.load() }
     }
 
     private func sectionHeader<Content: View>(_ title: String, systemImage: String, @ViewBuilder trailing: () -> Content) -> some View {
