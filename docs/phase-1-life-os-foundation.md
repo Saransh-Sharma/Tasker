@@ -1,5 +1,7 @@
 # Phase 1 — Life OS Foundation
 
+> **Classification: Historical implementation handoff.** Current architecture and product behavior are indexed from [docs/README.md](./README.md); active completion is owned by the [remaining execution ledger](./todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+
 This document is the implementation handoff for the additive, internal-only Life OS foundation.
 
 ## Activation

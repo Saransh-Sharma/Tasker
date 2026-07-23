@@ -1,5 +1,7 @@
 # Life OS Manual Test Playbook
 
+> **Classification: Canonical manual-test reference.** Use with the [product handbook](../product/README.md), [UI/UX guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md), and active [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+
 Use this playbook while product/design and engineering test the implementation together.
 
 ## Start state
@@ -80,6 +82,18 @@ Use this playbook while product/design and engineering test the implementation t
 - Test offline edits, reconnect, account sign-out/in, and remote edits on two devices.
 - Verify private text/audio/health/medication values do not appear in notifications, widgets, Spotlight excerpts, or app switcher snapshots.
 - Disable each feature flag after creating data; re-enable and verify the data is intact.
+
+## Cross-feature state and accessibility pass
+
+- Exercise populated, empty, loading, explicit zero, stale, denied, offline, locked, error, and destructive states where the feature supports them.
+- At accessibility XXXL, verify all five roots, Universal Capture, primary Save/Cancel/Retry actions, protected Journal unlock, Plan repair, and Track capture remain reachable.
+- With VoiceOver, verify the semantic order is title/state, primary action, evidence/context, then secondary controls.
+- With Reduce Motion and Reduce Transparency, verify the experience remains complete and glass chrome receives an opaque fallback.
+- On regular/wide iPad, verify split navigation, 8/12-column Home, seven-day Week, and modal/editor actions.
+- On Catalyst, verify keyboard traversal, commands, pointer feedback, menus, and narrow/wide window resizing.
+- Verify cross-root typed routes select the destination before appending the leaf and active-root reselection returns to root.
+- Verify mutation failure preserves input, proposal Apply produces a receipt, Undo consumes the canonical inverse, and expired Undo is explicit.
+- Verify widgets, Spotlight, notifications, Watch, and diagnostics contain no protected Journal content or sensitive health detail.
 
 ## Review record
 

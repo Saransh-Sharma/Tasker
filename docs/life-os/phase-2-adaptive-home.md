@@ -1,5 +1,7 @@
 # Phase II — Unified Adaptive Home
 
+> **Classification: Implementation handoff.** Current Home product/UX behavior is canonical in [Adaptive Home](../product/HOME.md); completion status is owned by the [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+
 ## Outcome
 
 Phase II is implemented as an additive, independently promotable set of product trains. It replaces the internal Home experience with one adaptive dashboard while keeping the legacy Home available as a rollback path.
@@ -12,7 +14,7 @@ The implementation includes:
 - Orientation, Focus Now, life snapshot, contextual care, capacity, capture, timeline, progress, and reflection widgets.
 - Screenshot-calibrated atmospheric composition and clay surfaces with static/ambient/enhanced policy backends.
 - Track overview, generic trackers, mood/energy, medication state, neutral fasting, and HealthKit steps/active-energy reads.
-- OffRecord-derived Journal mood art and interaction identity, text/photo/protected audio, optional transcription, voice search, library, filters, starring, deterministic insights, weekly reflection, and privacy-safe Spotlight metadata.
+- Journal mood art and interaction identity, text/photo/protected audio, optional transcription, voice search, library, filters, starring, deterministic insights, weekly reflection, and privacy-safe Spotlight metadata.
 - Structured Notes spaces, nested folders, block editor, tags, favorites, pinning, links/backlinks, file attachments, search, and a derived 150-node graph.
 - Universal capture routing to task, habit, tracker, Journal, and Note providers when their train is enabled.
 
@@ -93,7 +95,7 @@ Apple platform behavior follows the official [HealthKit privacy guidance](https:
 - Functional text uses system typography; the brand display face is reserved for selective hero moments.
 - Calm, Balanced, and Playful change depth/motion only—not content, meaning, or semantic colors.
 - Rendering policy yields to Reduce Motion, Reduce Transparency, Low Power Mode, thermal pressure, accessibility, inactive scenes, and unsupported hardware.
-- Namespaced Journal mood assets live under `LifeBoardJournal/Moods`; there is no OffRecord runtime dependency and no OffRecord user-data import.
+- Namespaced Journal mood assets live under `LifeBoardJournal/Moods`; there is no external app runtime dependency or user-data import.
 
 ## Test and review status
 

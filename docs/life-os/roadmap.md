@@ -1,5 +1,7 @@
 # Roadmap — From Adaptive Home to the Complete Life OS
 
+> **Classification: Product roadmap reference.** Current completion status is owned by the [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md); feature intent is canonical in the [product handbook](../product/README.md).
+
 Phases I and II create the shell, adaptive command center, capture/data contracts, care tracking, private reflection, and knowledge substrate. The next program should deepen these systems rather than introduce parallel navigation, theme, persistence, or assistant architectures.
 
 ## Immediate promotion track — Phase II hardening

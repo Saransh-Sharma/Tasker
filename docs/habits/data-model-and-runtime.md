@@ -1,5 +1,7 @@
 # Habit Data Model And Runtime
 
+> **Classification: Canonical runtime reference.** The [Habit package](./README.md) owns this feature's detailed contracts; the [active ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md) owns completion status.
+
 This document describes the habit lifecycle, streak semantics, and runtime projection rules that LifeBoard uses for Habit Streaks.
 
 ## Core Concepts

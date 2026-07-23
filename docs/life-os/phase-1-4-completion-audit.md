@@ -1,5 +1,7 @@
 # LifeBoard 5.0 Phase I–IV completion audit
 
+> **Classification: Audit snapshot and implementation evidence.** Current status is owned by the [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md); current product/UX behavior is defined by the [product handbook](../product/README.md).
+
 This file is the implementation checklist for the Phase I–IV completion pass. A box is checked only after the behavior is implemented and verified in the current worktree.
 
 ## Verification ledger
@@ -89,7 +91,7 @@ This file is the implementation checklist for the Phase I–IV completion pass. 
   - [x] Image/file blocks retain stable attachment IDs, render recoverable content, and clean up both block and attachment state together.
   - [x] Bookmark previews fetch bounded HTML metadata, cache title/summary in the typed payload, decode readable entities, and expose retry without blocking note editing.
 - [x] Journal preserves existing LifeBoard entries and keeps its FTS5/vector index protected, local-only, cancellable, incrementally updated, invalidatable, and recoverable from corruption.
-- [ ] Journal completes the remaining OffRecord-equivalent capture/draft, weekly reflection, export/import, and privacy-control parity.
+- [ ] Journal completes the remaining capture/draft, weekly reflection, export/import, and privacy-control parity.
   - [x] Journal text drafts autosave into the existing protected `JournalDraft` local entity and restore after interrupted presentation.
   - [x] Draft payload retains stable day identity, prompt, mood/energy, up to five photo payloads, audio paths, and edit position without a CloudKit schema change.
   - [x] Journal renders actual photo attachments and caps capture at five photos.
@@ -192,5 +194,5 @@ This file is the implementation checklist for the Phase I–IV completion pass. 
 
 ## Scope guard
 
-- [x] OffRecord is a selective Journal behavior and asset source, not a cross-app data migration.
+- [x] Shared Journal behavior and assets do not imply a cross-app data migration.
 - [x] Watch Journal, Journal widgets, full App Intents, full Eva autopilot, collaboration, runtime image generation, package extraction, and all Phase V+ work remain excluded.

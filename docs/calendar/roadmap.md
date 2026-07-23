@@ -1,5 +1,7 @@
 # Calendar + Timeline Roadmap
 
+> **Classification: Roadmap reference.** This document records direction, not current completion. Use the [active ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md) for release status.
+
 ## Near Term
 
 - Keep the calendar contract canonical in this package and remove duplicate explanations elsewhere

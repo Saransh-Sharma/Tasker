@@ -1,5 +1,7 @@
 # Phase III/IV Implementation Status
 
+> **Classification: Historical implementation record.** Current Plan/Track product behavior is canonical in the [product handbook](../product/README.md); active completion is owned by the [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+
 This file is the repository-local execution checklist for the approved 30-week Phase III/IV plan. It distinguishes the implemented foundation vertical slice from work that still requires product, device, entitlement, or legacy-domain integration.
 
 ## Implemented
@@ -50,7 +52,7 @@ This file is the repository-local execution checklist for the approved 30-week P
 - [ ] Replace raw UUID entry in goal/routine link editors with searchable source pickers.
 - [ ] Complete mood trend visualization and edit/delete semantics; add full hydration and sleep history filtering.
 - [ ] Finish the advertised structured Notes block semantics (table, bookmark metadata, image/file lifecycle, and note-link blocks) and nested-folder navigation.
-- [ ] Finish OffRecord-selected Journal parity: resilient audio/transcription retry, media editing, complete semantic memory/rebuild controls, reflection versions, exports, and lock/privacy controls.
+- [ ] Finish the selected Journal parity scope: resilient audio/transcription retry, media editing, complete semantic memory/rebuild controls, reflection versions, exports, and lock/privacy controls.
 - [ ] Add normalized Insights/Eva receipts with sensitivity authorization and explicit external-surface redaction tests.
 - [ ] Complete the Phase IV seeded UI/accessibility/privacy/performance matrix on signed physical devices.
 

@@ -1,5 +1,7 @@
 # Calendar + Timeline Data Model and Runtime
 
+> **Classification: Canonical runtime reference.** The [Calendar package](./README.md) owns this feature's detailed contracts; the [active ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md) owns completion status.
+
 This document describes the implementation-facing contract for calendar sync and the schedule context it produces.
 
 ## Runtime Flow

@@ -1,5 +1,7 @@
 # LifeBoard appearance and comfort evidence
 
+> **Classification: Evidence.** These fixtures document one captured simulator state and do not constitute current device approval.
+
 Generated on 2026-07-22 from the same seeded iPhone 17 Pro Simulator build. These PNGs are non-shipping QA evidence.
 
 The `LifeBoardVisualAppearanceFixture` launch contract covers:

@@ -1,5 +1,7 @@
 # LifeBoard root-state visual evidence
 
+> **Classification: Evidence.** These fixtures document one captured simulator state and do not constitute current device approval.
+
 Generated on 2026-07-22 from the Debug simulator build. These screenshots are non-shipping QA evidence.
 
 ## Deterministic contract
