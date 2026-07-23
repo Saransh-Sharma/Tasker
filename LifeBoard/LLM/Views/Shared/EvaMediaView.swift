@@ -658,7 +658,7 @@ final class MascotSpriteFrameProvider {
             spritesheetURL: url
         )
         return decoded.mapValues { frame in
-            UIImage(cgImage: frame.image, scale: UIScreen.main.scale, orientation: .up)
+            UIImage(cgImage: frame.image, scale: 1, orientation: .up)
         }
     }
 

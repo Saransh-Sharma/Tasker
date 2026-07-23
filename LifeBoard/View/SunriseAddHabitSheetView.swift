@@ -112,7 +112,7 @@ public struct SunriseAddHabitSheetView: View {
         .overlay(
             LBColorTokens.leaf
                 .opacity(successFlash ? 0.06 : 0)
-                .animation(LifeBoardAnimation.gentle, value: successFlash)
+                .animation(LifeBoardAnimation.heroReveal, value: successFlash)
                 .allowsHitTesting(false)
         )
         .onAppear {
@@ -166,7 +166,7 @@ public struct SunriseAddHabitSheetView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(spacing.s16)
         .sunriseHabitGlassCard(reduceTransparency: reduceTransparency)
-        .animation(LifeBoardAnimation.snappy, value: viewModel.selectedColorHex)
+        .animation(LifeBoardAnimation.stateChange, value: viewModel.selectedColorHex)
     }
 
     private var essentialsCard: some View {
@@ -212,7 +212,7 @@ public struct SunriseAddHabitSheetView: View {
             isExpanded: $showDetails,
             accessibilityID: "addHabit.rhythmDisclosure",
             onToggle: {
-                withAnimation(LifeBoardAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.stateChange) {
                     showDetails.toggle()
                     if showDetails {
                         selectedDetent = .large
@@ -271,12 +271,12 @@ public struct SunriseAddHabitSheetView: View {
                             set: { viewModel.reminderWindowEndPickerDate = $0 }
                         ),
                         onEnable: {
-                            withAnimation(LifeBoardAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.stateChange) {
                                 viewModel.ensureReminderWindowDefaults()
                             }
                         },
                         onClear: {
-                            withAnimation(LifeBoardAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.stateChange) {
                                 viewModel.clearReminderWindow()
                             }
                         },
@@ -416,19 +416,19 @@ public struct SunriseAddHabitSheetView: View {
 
     private func runSuccessFlash() {
         successResetTask?.cancel()
-        withAnimation(LifeBoardAnimation.snappy) {
+        withAnimation(LifeBoardAnimation.stateChange) {
             successFlash = true
         }
         successResetTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 750_000_000)
-            withAnimation(LifeBoardAnimation.gentle) {
+            withAnimation(LifeBoardAnimation.heroReveal) {
                 successFlash = false
             }
         }
     }
 
     private func toggleAppearance() {
-        withAnimation(LifeBoardAnimation.snappy) {
+        withAnimation(LifeBoardAnimation.stateChange) {
             showAppearance.toggle()
             if showAppearance {
                 selectedDetent = .large
@@ -440,7 +440,7 @@ public struct SunriseAddHabitSheetView: View {
     /// already-open Appearance panel.
     private func openAppearance() {
         guard showAppearance == false else { return }
-        withAnimation(LifeBoardAnimation.snappy) {
+        withAnimation(LifeBoardAnimation.stateChange) {
             showAppearance = true
             selectedDetent = .large
         }
@@ -588,7 +588,7 @@ private struct SunriseHabitCadenceDots: View {
                     )
             }
         }
-        .animation(LifeBoardAnimation.snappy, value: activeDays)
+        .animation(LifeBoardAnimation.stateChange, value: activeDays)
         .accessibilityHidden(true)
     }
 }
@@ -794,7 +794,7 @@ private struct SunriseHabitBottomActionBar: View {
                 in: Capsule()
             )
             .clipShape(Capsule())
-            .lbAnimatedSheen()
+            .lbAnimatedSheen(isEnabled: isEnabled && isLoading == false)
             .opacity(isEnabled ? 1 : 0.62)
         }
         .buttonStyle(.plain)
@@ -826,7 +826,7 @@ private extension View {
             } else if #available(iOS 26.0, *) {
                 shape
                     .fill(.clear)
-                    .glassEffect(.regular, in: shape)
+                    .lifeBoardSystemGlass(.regular, in: shape)
                     .overlay(shape.fill(LBColorTokens.glass.opacity(0.66)))
             } else {
                 shape

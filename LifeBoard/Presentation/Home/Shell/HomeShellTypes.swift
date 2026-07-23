@@ -38,6 +38,8 @@ struct HomeLayoutMetrics: Equatable {
 
 struct HomeBottomBarVisibilityPolicy {
     static let phoneDockHostHeight: CGFloat = 82
+    static let usesOpaqueHostBackground = false
+    static let chromeBackdropMaximumOpacity: Double = 0.16
 
     static func restingDockDownshift(
         safeAreaBottom: CGFloat,
@@ -126,7 +128,6 @@ struct HomeBottomBarContainer: View {
         )
         .padding(.horizontal, LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing.s16)
         .padding(.bottom, 0)
-        .ignoresSafeArea(.container, edges: .bottom)
         .offset(y: 0)
         .allowsHitTesting(isConcealed == false)
         .accessibilityHidden(isConcealed)

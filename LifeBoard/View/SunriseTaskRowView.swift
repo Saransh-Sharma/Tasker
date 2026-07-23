@@ -706,7 +706,7 @@ struct SunriseTaskRowView: View, Equatable {
             .padding(.leading, isSunriseSearchCard ? LifeBoardTheme.Spacing.sm : LifeBoardTheme.Spacing.xs)
             .frame(minHeight: rowMinimumHeight)
         }
-        .animation(LifeBoardAnimation.quick, value: task.isComplete)
+        .animation(LifeBoardAnimation.feedbackFast, value: task.isComplete)
         .overlay {
             if isOnboardingHighlighted {
                 taskRowHighlightShape
@@ -722,7 +722,7 @@ struct SunriseTaskRowView: View, Equatable {
             highlightPulse = false
             return
         }
-        withAnimation(LifeBoardAnimation.gentle.repeatForever(autoreverses: true)) {
+        withAnimation(LifeBoardAnimation.heroReveal.repeatForever(autoreverses: true)) {
             highlightPulse = true
         }
     }
@@ -861,7 +861,7 @@ struct SunriseTaskRowView: View, Equatable {
             .background(Capsule().fill(Color.lifeboard.statusWarning.opacity(0.15)))
             .fixedSize()
             .transition(.scale.combined(with: .opacity))
-            .animation(LifeBoardAnimation.bouncy, value: displayModel.statusChip)
+            .animation(LifeBoardAnimation.celebration, value: displayModel.statusChip)
     }
 
     private var isSunriseSearchCard: Bool {
@@ -918,7 +918,7 @@ private struct TaskRowChromeModifier: ViewModifier {
                 .background {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .fill(rowBackground)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+                        .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                         .overlay(
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
                                 .stroke(highlightStrokeColor.opacity(isOnboardingHighlighted ? 1 : 0.42), lineWidth: isOnboardingHighlighted ? 2 : 1)

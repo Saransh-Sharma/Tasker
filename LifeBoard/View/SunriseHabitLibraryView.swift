@@ -21,7 +21,10 @@ private enum HabitLibraryFilter: String, CaseIterable, Identifiable {
 }
 @MainActor
 struct SunriseHabitLibraryView: View {
+    enum PresentationStyle { case modal, pushed }
+
     @ObservedObject var viewModel: HabitLibraryViewModel
+    let presentationStyle: PresentationStyle
     @State private var selectedRow: HabitLibraryRow?
     @State private var selectedFilter: HabitLibraryFilter = .active
     @State private var searchText = ""
@@ -32,6 +35,11 @@ struct SunriseHabitLibraryView: View {
 
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
     private var corner: LifeBoardCornerTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).corner }
+
+    init(viewModel: HabitLibraryViewModel, presentationStyle: PresentationStyle = .modal) {
+        self.viewModel = viewModel
+        self.presentationStyle = presentationStyle
+    }
 
     private var filteredRows: [HabitLibraryRow] {
         let baseRows: [HabitLibraryRow]
@@ -66,88 +74,98 @@ struct SunriseHabitLibraryView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                VStack(alignment: .leading, spacing: spacing.s16) {
-                    HabitLibrarySummaryHeader(
-                        activeCount: viewModel.activeRows.count,
-                        pausedCount: viewModel.pausedRows.count,
-                        archivedCount: viewModel.archivedRows.count
-                    )
-                    .enhancedStaggeredAppearance(index: 0)
-
-                    HabitLibraryControlRail(
-                        selectedFilter: $selectedFilter,
-                        searchText: $searchText
-                    )
-                    .enhancedStaggeredAppearance(index: 1)
-
-                    content
-                }
-                .padding(.horizontal, spacing.s16)
-                .padding(.top, spacing.s12)
-                .padding(.bottom, spacing.s24)
+        Group {
+            if presentationStyle == .modal {
+                NavigationStack { libraryContent }
+            } else {
+                libraryContent
             }
-            .background(Color.lifeboard.bgCanvas)
-            .navigationTitle("Manage Habits")
-            .toolbar {
+        }
+    }
+
+    private var libraryContent: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: spacing.s16) {
+                HabitLibrarySummaryHeader(
+                    activeCount: viewModel.activeRows.count,
+                    pausedCount: viewModel.pausedRows.count,
+                    archivedCount: viewModel.archivedRows.count
+                )
+                .enhancedStaggeredAppearance(index: 0)
+
+                HabitLibraryControlRail(
+                    selectedFilter: $selectedFilter,
+                    searchText: $searchText
+                )
+                .enhancedStaggeredAppearance(index: 1)
+
+                content
+            }
+            .padding(.horizontal, spacing.s16)
+            .padding(.top, spacing.s12)
+            .padding(.bottom, spacing.s24)
+        }
+        .background(Color.lifeboard.bgCanvas)
+        .navigationTitle("Manage Habits")
+        .toolbar {
+            if presentationStyle == .modal {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") {
                         dismiss()
                     }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    Button {
-                        presentHabitComposer()
-                    } label: {
-                        Label("Add Habit", systemImage: "plus")
-                    }
-                    .accessibilityLabel("Add habit")
+            }
+            ToolbarItem(placement: .topBarLeading) {
+                Button {
+                    presentHabitComposer()
+                } label: {
+                    Label("Add Habit", systemImage: "plus")
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        viewModel.refresh()
-                    } label: {
-                        Image(systemName: "arrow.clockwise")
-                    }
-                    .disabled(viewModel.isLoading)
-                    .accessibilityLabel("Refresh habits")
+                .accessibilityLabel("Add habit")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    viewModel.refresh()
+                } label: {
+                    Image(systemName: "arrow.clockwise")
                 }
+                .disabled(viewModel.isLoading)
+                .accessibilityLabel("Refresh habits")
             }
-            .task {
-                viewModel.loadIfNeeded()
-            }
-            .sheet(item: $selectedRow) { row in
-                SunriseHabitDetailScreen(
-                    viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
-                    onMutation: {
-                        viewModel.refresh()
-                    }
-                )
-            }
-            .sheet(isPresented: $habitComposerPresented) {
-                SunriseAddHabitSheetView(
-                    viewModel: habitComposerViewModel,
-                    onHabitCreated: { _ in
-                        habitComposerPresented = false
-                        viewModel.refresh()
-                    },
-                    onDismissWithoutHabit: {
-                        habitComposerPresented = false
-                    }
-                )
-            }
-            .alert(
-                "Habit Error",
-                isPresented: Binding(
-                    get: { viewModel.errorMessage != nil },
-                    set: { if !$0 { viewModel.clearError() } }
-                )
-            ) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(viewModel.errorMessage ?? "")
-            }
+        }
+        .task {
+            viewModel.loadIfNeeded()
+        }
+        .sheet(item: $selectedRow) { row in
+            SunriseHabitDetailScreen(
+                viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
+                onMutation: {
+                    viewModel.refresh()
+                }
+            )
+        }
+        .sheet(isPresented: $habitComposerPresented) {
+            SunriseAddHabitSheetView(
+                viewModel: habitComposerViewModel,
+                onHabitCreated: { _ in
+                    habitComposerPresented = false
+                    viewModel.refresh()
+                },
+                onDismissWithoutHabit: {
+                    habitComposerPresented = false
+                }
+            )
+        }
+        .alert(
+            "Habit Error",
+            isPresented: Binding(
+                get: { viewModel.errorMessage != nil },
+                set: { if !$0 { viewModel.clearError() } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(viewModel.errorMessage ?? "")
         }
     }
 
@@ -294,7 +312,7 @@ private struct HabitLibraryControlRail: View {
             HStack(spacing: spacing.s8) {
                 ForEach(HabitLibraryFilter.allCases) { filter in
                     Button {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.stateChange) {
                             selectedFilter = filter
                         }
                     } label: {

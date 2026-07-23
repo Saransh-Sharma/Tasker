@@ -108,7 +108,7 @@ struct SunriseHomeDatePickerPopover: View {
                 .font(LBTypographyTokens.meta.weight(.semibold))
                 .lineLimit(1)
                 .minimumScaleFactor(0.86)
-                .foregroundStyle(isPrimary ? Color.white : LBColorTokens.navy)
+                .foregroundStyle(isPrimary ? Color.lifeboard(.accentOnPrimary) : LBColorTokens.navy)
                 .frame(maxWidth: .infinity, minHeight: 38)
                 .padding(.horizontal, LBSpacingTokens.sm)
                 .background {

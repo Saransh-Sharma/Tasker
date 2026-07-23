@@ -26,7 +26,7 @@ struct AddTaskReminderChip: View {
                 isActive: hasReminder
             ) {
                 if hasReminder {
-                    withAnimation(LifeBoardAnimation.quick) {
+                    withAnimation(LifeBoardAnimation.feedbackFast) {
                         hasReminder = false
                     }
                     LifeBoardFeedback.light()

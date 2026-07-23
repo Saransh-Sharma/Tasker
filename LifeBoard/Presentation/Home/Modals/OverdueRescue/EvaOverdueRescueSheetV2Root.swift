@@ -23,6 +23,8 @@ struct EvaOverdueRescueSheetV2: View {
 
     let bottomInset: CGFloat
 
+    let launchContext: OverdueRescueLaunchContext
+
     let onClose: () -> Void
 
     let onExit: () -> Void
@@ -37,6 +39,11 @@ struct EvaOverdueRescueSheetV2: View {
 
     let onUndo: @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
 
+    let onSavePlanningMetadata: @Sendable (
+        [PlanningTaskMetadata],
+        @escaping @Sendable (Result<Void, Error>) -> Void
+    ) -> Void
+
     let onTrack: (String, [String: Any]) -> Void
 
     @StateObject var viewModel: OverdueRescueViewModel
@@ -50,6 +57,7 @@ struct EvaOverdueRescueSheetV2: View {
         referenceDate: Date = Date(),
         lastBatchRunID: UUID?,
         bottomInset: CGFloat = 0,
+        launchContext: OverdueRescueLaunchContext? = nil,
         onClose: @escaping () -> Void = {},
         onExit: @escaping () -> Void = {},
         onUpdate: @escaping @Sendable (UpdateTaskDefinitionRequest, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void,
@@ -57,14 +65,20 @@ struct EvaOverdueRescueSheetV2: View {
         onRestore: @escaping @Sendable (TaskDefinition, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void,
         onApply: @escaping @Sendable ([EvaBatchMutationInstruction], @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void,
         onUndo: @escaping @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void,
+        onSavePlanningMetadata: @escaping @Sendable (
+            [PlanningTaskMetadata],
+            @escaping @Sendable (Result<Void, Error>) -> Void
+        ) -> Void = { _, completion in completion(.success(())) },
         onTrack: @escaping (String, [String: Any]) -> Void
     ) {
+        let resolvedLaunchContext = launchContext ?? .home(referenceDate: referenceDate)
         self.plan = plan
         self.tasksByID = tasksByID
         self.projectsByID = projectsByID
         self.referenceDate = referenceDate
         self.lastBatchRunID = lastBatchRunID
         self.bottomInset = bottomInset
+        self.launchContext = resolvedLaunchContext
         self.onClose = onClose
         self.onExit = onExit
         self.onUpdate = onUpdate
@@ -72,17 +86,21 @@ struct EvaOverdueRescueSheetV2: View {
         self.onRestore = onRestore
         self.onApply = onApply
         self.onUndo = onUndo
+        self.onSavePlanningMetadata = onSavePlanningMetadata
         self.onTrack = onTrack
         _viewModel = StateObject(wrappedValue: OverdueRescueViewModel(
             plan: plan,
             tasksByID: tasksByID,
             projectsByID: projectsByID,
             referenceDate: referenceDate,
+            launchContext: resolvedLaunchContext,
+            sessionScope: resolvedLaunchContext.sessionScope(),
             onUpdate: onUpdate,
             onDelete: onDelete,
             onRestore: onRestore,
             onApplyBulk: onApply,
             onUndoBulk: onUndo,
+            onSavePlanningMetadata: onSavePlanningMetadata,
             onTrack: onTrack
         ))
     }
@@ -90,6 +108,13 @@ struct EvaOverdueRescueSheetV2: View {
     var body: some View {
         ZStack {
             OverdueRescueBackground()
+
+            Color.clear
+                .frame(width: 1, height: 1)
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Overdue Rescue")
+                .accessibilityIdentifier("home.rescue.sheet")
+                .allowsHitTesting(false)
 
             switch viewModel.state {
             case .paused:
@@ -125,7 +150,7 @@ struct EvaOverdueRescueSheetV2: View {
                 .zIndex(60)
             }
         }
-        .animation(reduceMotion ? nil : LifeBoardAnimation.snappy, value: viewModel.state == .confirmingDelete)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: viewModel.state == .confirmingDelete)
         .lifeboardSnackbar($viewModel.snackbar, bottomPadding: bottomInset + 20)
         .sheet(isPresented: Binding(
             get: { viewModel.state == .editing },
@@ -157,6 +182,5 @@ struct EvaOverdueRescueSheetV2: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
             viewModel.pause()
         }
-        .accessibilityIdentifier("home.rescue.sheet")
     }
 }

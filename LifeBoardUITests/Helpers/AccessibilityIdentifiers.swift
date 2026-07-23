@@ -14,6 +14,8 @@ enum AccessibilityIdentifiers {
 
     enum Home {
         static let view = "home.view"
+        static let screenshotSeedReady = "screenshot.seed.ready"
+        static let screenshotSeedFailed = "screenshot.seed.failed"
         static let sunriseSurface = "home.sunrise.surface"
         static let sunriseCollapseHint = "home.sunrise.collapseHint"
         static let addTaskButton = "home.addTaskButton"
@@ -414,6 +416,10 @@ enum AccessibilityIdentifiers {
         static let weeklyOutcomeAdd = "onboarding.weeklyOutcomes.add"
         static let homeDemoTimeline = "onboarding.homeDemo.timeline"
         static let homeDemoHabits = "onboarding.homeDemo.habits"
+        static let primaryTaskAction = "onboarding.taskTemplate.primaryAction"
+        static func primaryGoal(_ id: String) -> String { "onboarding.primaryGoal.\(id)" }
+        static func workingStyle(_ id: String) -> String { "onboarding.workingStyle.\(id)" }
+        static func momentumBlocker(_ id: String) -> String { "onboarding.momentumBlocker.\(id)" }
         static func mascotPersona(_ id: String) -> String { "onboarding.mascot.persona.\(id)" }
         static func weeklyOutcomeField(_ index: Int) -> String { "onboarding.weeklyOutcomes.field.\(index)" }
     }

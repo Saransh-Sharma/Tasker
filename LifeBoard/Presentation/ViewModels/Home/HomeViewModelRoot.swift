@@ -148,7 +148,7 @@ public final class HomeViewModel: ObservableObject {
 
     /// Most recent per-project activity (open count + nearest due) used to auto-fill the lens row.
     /// Refreshed whenever we have the unfiltered forward open-task set (Upcoming lens).
-    var cachedLifeAreaLensActivity: [UUID: HomeLensLifeAreaActivity] = [:]
+    var cachedLifeAreaLensActivity: [UUID: HomeLensLifeAreaActivity]?
 
     // MARK: - Persistence Keys
 
@@ -479,6 +479,8 @@ public final class HomeViewModel: ObservableObject {
     @Published public internal(set) var evaRescueReferenceDate: Date? = nil {
         didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
+
+    @Published public internal(set) var evaRescueTasksByID: [UUID: TaskDefinition] = [:]
 
     @Published public internal(set) var evaLastBatchRunID: UUID? {
         didSet { scheduleHomeRenderStateRefresh(.overlay) }

@@ -247,6 +247,80 @@ public extension Color {
             LifeBoardThreadSafeTokenResolver.color(for: role, traits: traits.lifeboardTokenTraits)
         })
     }
+
+
+    /// Semantic foreground resolved against the surface that actually sits
+    /// beneath it. Feature views no longer need opacity guesses for readable
+    /// dock, sidebar, toolbar, card, sheet, or image copy.
+    static func lifeboard(
+        _ role: LifeBoardLegibilityRole,
+        on surface: LifeBoardSurfaceContext,
+        imageLuminance: CGFloat? = nil
+    ) -> Color {
+        Color(uiColor: UIColor { traits in
+            LifeBoardThreadSafeTokenResolver.color(
+                for: role,
+                on: surface,
+                imageLuminance: imageLuminance,
+                traits: traits.lifeboardTokenTraits
+            )
+        })
+    }
+}
+
+public enum LifeBoardSystemGlassVariant: Sendable {
+    case regular
+    case clear
+}
+
+/// The only feature-facing entry point for system Liquid Glass. It owns the
+/// comfort fallback and OS fallback so callers choose a semantic variant and
+/// shape without duplicating availability or accessibility policy.
+public struct LifeBoardSystemGlassModifier<GlassShape: Shape>: ViewModifier {
+    public let variant: LifeBoardSystemGlassVariant
+    public let shape: GlassShape
+    public let interactive: Bool
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    public func body(content: Content) -> some View {
+        if effectiveReduceTransparency {
+            content.background(Color.lifeboard(.bgElevated), in: shape)
+        } else if #available(iOS 26.0, *) {
+            switch variant {
+            case .regular where interactive:
+                content.glassEffect(.regular.interactive(), in: shape)
+            case .regular:
+                content.glassEffect(.regular, in: shape)
+            case .clear:
+                content.glassEffect(.clear, in: shape)
+            }
+        } else {
+            content.background(.ultraThinMaterial, in: shape)
+        }
+    }
+
+    private var effectiveReduceTransparency: Bool {
+        reduceTransparency || ProcessInfo.processInfo.arguments.contains(
+            "-LIFEBOARD_VISUAL_APPEARANCE=reduced-transparency"
+        )
+    }
+}
+
+public extension View {
+    func lifeBoardSystemGlass<GlassShape: Shape>(
+        _ variant: LifeBoardSystemGlassVariant = .regular,
+        in shape: GlassShape,
+        interactive: Bool = false
+    ) -> some View {
+        modifier(
+            LifeBoardSystemGlassModifier(
+                variant: variant,
+                shape: shape,
+                interactive: interactive
+            )
+        )
+    }
 }
 
 @MainActor

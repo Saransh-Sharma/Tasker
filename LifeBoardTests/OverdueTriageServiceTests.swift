@@ -73,6 +73,11 @@ final class OverdueRescueDeckTests: XCTestCase {
         var taskID: UUID?
     }
 
+    private final class PlanningMetadataCapture: @unchecked Sendable {
+        var writes: [[PlanningTaskMetadata]] = []
+        var error: Error?
+    }
+
     func testDeckIncludesStaleOverdueAndCapsSprint() {
         let now = fixedDate()
         let tasks = (0..<18).map { index in
@@ -160,6 +165,323 @@ final class OverdueRescueDeckTests: XCTestCase {
         XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .active, to: .loading))
         XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .paused, to: .editing))
         XCTAssertFalse(OverdueRescueViewModel.canTransition(from: .confirmingDelete, to: .applyingBulk))
+    }
+
+    func testPlanLaunchContextUsesSelectedDayCopyAndDistinctSessionScope() {
+        let calendar = Calendar.current
+        let referenceDate = fixedDate()
+        let today = calendar.startOfDay(for: referenceDate)
+        let tomorrow = calendar.date(byAdding: .day, value: 1, to: today)!
+        let later = calendar.date(byAdding: .day, value: 3, to: today)!
+
+        let todayContext = OverdueRescueLaunchContext.plan(
+            selectedDay: PlanningDay(date: today),
+            planningMetadataByTaskID: [:],
+            referenceDate: referenceDate
+        )
+        let tomorrowContext = OverdueRescueLaunchContext.plan(
+            selectedDay: PlanningDay(date: tomorrow),
+            planningMetadataByTaskID: [:],
+            referenceDate: referenceDate
+        )
+        let laterContext = OverdueRescueLaunchContext.plan(
+            selectedDay: PlanningDay(date: later),
+            planningMetadataByTaskID: [:],
+            referenceDate: referenceDate
+        )
+
+        XCTAssertEqual(todayContext.keepActionTitle(), "Keep today")
+        XCTAssertEqual(tomorrowContext.keepActionTitle(), "Keep tomorrow")
+        XCTAssertTrue(laterContext.keepActionTitle().hasPrefix("Keep on "))
+        XCTAssertNotEqual(todayContext.sessionScope().storageKey, tomorrowContext.sessionScope().storageKey)
+        XCTAssertNotEqual(tomorrowContext.sessionScope().storageKey, laterContext.sessionScope().storageKey)
+        XCTAssertEqual(
+            OverdueRescueLaunchContext.home(referenceDate: referenceDate).sessionScope().purpose,
+            nil
+        )
+
+        var tokyoCalendar = Calendar(identifier: .gregorian)
+        tokyoCalendar.timeZone = try! XCTUnwrap(TimeZone(identifier: "Asia/Tokyo"))
+        let tokyoDay = PlanningDay(
+            year: 2026,
+            month: 6,
+            day: 2,
+            timeZoneIdentifier: tokyoCalendar.timeZone.identifier
+        )
+        let tokyoContext = OverdueRescueLaunchContext.plan(
+            selectedDay: tokyoDay,
+            planningMetadataByTaskID: [:],
+            referenceDate: referenceDate
+        )
+        XCTAssertEqual(
+            tokyoContext.targetDate(calendar: tokyoCalendar),
+            tokyoDay.startDate(calendar: tokyoCalendar)
+        )
+        XCTAssertEqual(tokyoContext.decisionCalendar().timeZone.identifier, "Asia/Tokyo")
+    }
+
+    func testPlanKeepWritesSelectedPlanningDayAndUndoRestoresBothStores() async {
+        let calendar = Calendar.current
+        let referenceDate = fixedDate()
+        let selectedDate = calendar.date(byAdding: .day, value: 2, to: referenceDate)!
+        let selectedDay = PlanningDay(date: selectedDate)
+        let task = rescueTask(
+            title: "Plan-aware keep",
+            priority: .high,
+            dueDate: calendar.date(byAdding: .day, value: -16, to: referenceDate)!
+        )
+        let originalMetadata = PlanningTaskMetadata(
+            taskID: task.id,
+            planningDay: nil,
+            commitmentLevel: .mustDo,
+            availability: .actionable,
+            planningContext: .work,
+            unscheduledDisposition: .inbox,
+            availabilityExplanation: "Ready after review",
+            pinOrder: 7,
+            updatedAt: referenceDate
+        )
+        let planningCapture = PlanningMetadataCapture()
+        let updateCapture = UpdateRequestCapture()
+        let scope = uniqueScope(referenceDate: selectedDate)
+        let store = UserDefaultsOverdueRescueSessionStore()
+        defer { store.clearSync(scope: scope) }
+
+        let viewModel = OverdueRescueViewModel(
+            plan: nil,
+            tasksByID: [task.id: task],
+            projectsByID: [:],
+            referenceDate: referenceDate,
+            launchContext: .plan(
+                selectedDay: selectedDay,
+                planningMetadataByTaskID: [task.id: originalMetadata],
+                referenceDate: referenceDate
+            ),
+            sessionScope: scope,
+            sessionStore: store,
+            onUpdate: { request, completion in
+                updateCapture.request = request
+                var updated = task
+                updated.dueDate = request.clearDueDate ? nil : (request.dueDate ?? updated.dueDate)
+                updated.scheduledStartAt = request.clearScheduledStartAt ? nil : (request.scheduledStartAt ?? updated.scheduledStartAt)
+                updated.scheduledEndAt = request.clearScheduledEndAt ? nil : (request.scheduledEndAt ?? updated.scheduledEndAt)
+                updated.isAllDay = request.isAllDay ?? updated.isAllDay
+                completion(.success(updated))
+            },
+            onDelete: { _, completion in completion(.success(())) },
+            onRestore: { task, completion in completion(.success(task)) },
+            onApplyBulk: { _, completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onUndoBulk: { completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onSavePlanningMetadata: { metadata, completion in
+                planningCapture.writes.append(metadata)
+                completion(.success(()))
+            },
+            onTrack: { _, _ in }
+        )
+
+        viewModel.keepToday(source: .tap)
+        await waitForCondition { viewModel.state == .completed }
+
+        XCTAssertEqual(PlanningDay(date: updateCapture.request?.dueDate ?? .distantPast), selectedDay)
+        let plannedMetadata = try? XCTUnwrap(planningCapture.writes.first?.first)
+        XCTAssertEqual(plannedMetadata?.planningDay, selectedDay)
+        XCTAssertEqual(plannedMetadata?.commitmentLevel, .mustDo)
+        XCTAssertEqual(plannedMetadata?.planningContext, .work)
+        XCTAssertEqual(plannedMetadata?.availabilityExplanation, "Ready after review")
+        XCTAssertEqual(plannedMetadata?.pinOrder, 7)
+        XCTAssertEqual(viewModel.undoRecords.last?.previousPlanningMetadata, originalMetadata)
+
+        viewModel.undoLast()
+        await waitForCondition { viewModel.state == .active }
+
+        XCTAssertEqual(planningCapture.writes.last?.first, originalMetadata)
+        XCTAssertEqual(updateCapture.request?.dueDate, task.dueDate)
+        XCTAssertEqual(viewModel.cards.first?.id, task.id)
+        XCTAssertTrue(viewModel.undoRecords.isEmpty)
+    }
+
+    func testPlanKeepRollsTaskBackWhenPlanningMetadataWriteFails() async {
+        let calendar = Calendar.current
+        let referenceDate = fixedDate()
+        let selectedDay = PlanningDay(date: calendar.date(byAdding: .day, value: 1, to: referenceDate)!)
+        let task = rescueTask(
+            title: "Rollback keep",
+            priority: .high,
+            dueDate: calendar.date(byAdding: .day, value: -16, to: referenceDate)!
+        )
+        let updateRequests = LockedTestState<[UpdateTaskDefinitionRequest]>([])
+        let scope = uniqueScope(referenceDate: selectedDay.startDate() ?? referenceDate)
+        let store = UserDefaultsOverdueRescueSessionStore()
+        defer { store.clearSync(scope: scope) }
+
+        let viewModel = OverdueRescueViewModel(
+            plan: nil,
+            tasksByID: [task.id: task],
+            projectsByID: [:],
+            referenceDate: referenceDate,
+            launchContext: .plan(
+                selectedDay: selectedDay,
+                planningMetadataByTaskID: [task.id: PlanningTaskMetadata(taskID: task.id)],
+                referenceDate: referenceDate
+            ),
+            sessionScope: scope,
+            sessionStore: store,
+            onUpdate: { request, completion in
+                updateRequests.withValue { $0.append(request) }
+                var updated = task
+                updated.dueDate = request.clearDueDate ? nil : (request.dueDate ?? updated.dueDate)
+                completion(.success(updated))
+            },
+            onDelete: { _, completion in completion(.success(())) },
+            onRestore: { task, completion in completion(.success(task)) },
+            onApplyBulk: { _, completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onUndoBulk: { completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onSavePlanningMetadata: { _, completion in
+                completion(.failure(NSError(domain: "planning", code: 55, userInfo: [
+                    NSLocalizedDescriptionKey: "Planning metadata unavailable"
+                ])))
+            },
+            onTrack: { _, _ in }
+        )
+
+        viewModel.keepToday(source: .tap)
+        await waitForCondition { viewModel.state == .error }
+
+        XCTAssertEqual(updateRequests.read().count, 2)
+        XCTAssertEqual(updateRequests.read().last?.dueDate, task.dueDate)
+        XCTAssertEqual(viewModel.cards.first?.id, task.id)
+        XCTAssertEqual(viewModel.summary.kept, 0)
+        XCTAssertTrue(viewModel.undoRecords.isEmpty)
+        XCTAssertEqual(viewModel.errorMessage, "Planning metadata unavailable")
+    }
+
+    func testPlanMoveLaterUsesSelectedDayAnchorWithoutWritingPlannedWork() async {
+        let calendar = Calendar.current
+        let referenceDate = fixedDate()
+        let selectedDate = calendar.date(byAdding: .day, value: 4, to: referenceDate)!
+        let selectedDay = PlanningDay(date: selectedDate)
+        let task = rescueTask(
+            title: "Move relative to planned day",
+            priority: .high,
+            dueDate: calendar.date(byAdding: .day, value: -16, to: referenceDate)!
+        )
+        let updateCapture = UpdateRequestCapture()
+        let planningCapture = PlanningMetadataCapture()
+        let scope = uniqueScope(referenceDate: selectedDate)
+        let store = UserDefaultsOverdueRescueSessionStore()
+        defer { store.clearSync(scope: scope) }
+
+        let viewModel = OverdueRescueViewModel(
+            plan: nil,
+            tasksByID: [task.id: task],
+            projectsByID: [:],
+            referenceDate: referenceDate,
+            launchContext: .plan(
+                selectedDay: selectedDay,
+                planningMetadataByTaskID: [task.id: PlanningTaskMetadata(taskID: task.id)],
+                referenceDate: referenceDate
+            ),
+            sessionScope: scope,
+            sessionStore: store,
+            onUpdate: { request, completion in
+                updateCapture.request = request
+                var updated = task
+                updated.dueDate = request.clearDueDate ? nil : (request.dueDate ?? updated.dueDate)
+                completion(.success(updated))
+            },
+            onDelete: { _, completion in completion(.success(())) },
+            onRestore: { task, completion in completion(.success(task)) },
+            onApplyBulk: { _, completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onUndoBulk: { completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onSavePlanningMetadata: { metadata, completion in
+                planningCapture.writes.append(metadata)
+                completion(.success(()))
+            },
+            onTrack: { _, _ in }
+        )
+
+        viewModel.moveLater(source: .tap)
+        await waitForCondition { viewModel.state == .completed }
+
+        let expectedMoveDate = OverdueRescueMoveLaterResolver.resolveMoveDate(
+            for: task,
+            recommendation: nil,
+            now: selectedDay.startDate() ?? selectedDate
+        )
+        XCTAssertEqual(
+            calendar.startOfDay(for: updateCapture.request?.dueDate ?? .distantPast),
+            calendar.startOfDay(for: expectedMoveDate)
+        )
+        XCTAssertTrue(planningCapture.writes.isEmpty)
+        XCTAssertEqual(viewModel.summary.moved, 1)
+    }
+
+    func testPlanUndoRemainsRetryableAfterPlanningRestoreFailure() async {
+        let calendar = Calendar.current
+        let referenceDate = fixedDate()
+        let selectedDay = PlanningDay(date: calendar.date(byAdding: .day, value: 2, to: referenceDate)!)
+        let task = rescueTask(
+            title: "Retry planning undo",
+            priority: .high,
+            dueDate: calendar.date(byAdding: .day, value: -16, to: referenceDate)!
+        )
+        let originalMetadata = PlanningTaskMetadata(taskID: task.id, planningContext: .work)
+        let planningAttempt = LockedTestState<Int>(0)
+        let scope = uniqueScope(referenceDate: selectedDay.startDate() ?? referenceDate)
+        let store = UserDefaultsOverdueRescueSessionStore()
+        defer { store.clearSync(scope: scope) }
+
+        let viewModel = OverdueRescueViewModel(
+            plan: nil,
+            tasksByID: [task.id: task],
+            projectsByID: [:],
+            referenceDate: referenceDate,
+            launchContext: .plan(
+                selectedDay: selectedDay,
+                planningMetadataByTaskID: [task.id: originalMetadata],
+                referenceDate: referenceDate
+            ),
+            sessionScope: scope,
+            sessionStore: store,
+            onUpdate: { request, completion in
+                var updated = task
+                updated.dueDate = request.clearDueDate ? nil : (request.dueDate ?? updated.dueDate)
+                completion(.success(updated))
+            },
+            onDelete: { _, completion in completion(.success(())) },
+            onRestore: { task, completion in completion(.success(task)) },
+            onApplyBulk: { _, completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onUndoBulk: { completion in completion(.failure(NSError(domain: "test", code: 1))) },
+            onSavePlanningMetadata: { _, completion in
+                let attempt = planningAttempt.withValue {
+                    $0 += 1
+                    return $0
+                }
+                if attempt == 2 {
+                    completion(.failure(NSError(domain: "planning", code: 56, userInfo: [
+                        NSLocalizedDescriptionKey: "Planning undo unavailable"
+                    ])))
+                } else {
+                    completion(.success(()))
+                }
+            },
+            onTrack: { _, _ in }
+        )
+
+        viewModel.keepToday(source: .tap)
+        await waitForCondition { viewModel.state == .completed }
+        XCTAssertEqual(viewModel.undoRecords.count, 1)
+
+        viewModel.undoLast()
+        await waitForCondition { viewModel.errorMessage == "Planning undo unavailable" }
+        XCTAssertEqual(viewModel.undoRecords.count, 1)
+        XCTAssertEqual(viewModel.state, .completed)
+
+        viewModel.undoLast()
+        await waitForCondition { viewModel.state == .active }
+        XCTAssertTrue(viewModel.undoRecords.isEmpty)
+        XCTAssertEqual(viewModel.cards.first?.id, task.id)
+        XCTAssertEqual(planningAttempt.read(), 3)
     }
 
     func testConfirmedDeleteOfFinalCardCompletesDeck() async {
@@ -305,6 +627,26 @@ final class OverdueRescueDeckTests: XCTestCase {
         XCTAssertEqual(result.commitAction, .moveLater)
     }
 
+    func testDragResolverUsesPredictedVelocityAfterClearIntent() {
+        let result = OverdueRescueDragResolver.commitAction(
+            for: CGSize(width: 42, height: 5),
+            predictedEndTranslation: CGSize(width: 132, height: 8),
+            cardWidth: 360
+        )
+
+        XCTAssertEqual(result, .keepToday)
+    }
+
+    func testDragResolverRejectsFastFlickWithoutMinimumIntent() {
+        let result = OverdueRescueDragResolver.commitAction(
+            for: CGSize(width: 12, height: 2),
+            predictedEndTranslation: CGSize(width: -180, height: 4),
+            cardWidth: 360
+        )
+
+        XCTAssertNil(result)
+    }
+
     func testDragResolverVerticalDragDoesNotCommit() {
         let result = OverdueRescueDragResolver.resolve(
             translation: CGSize(width: 34, height: 160),
@@ -331,7 +673,7 @@ final class OverdueRescueDeckTests: XCTestCase {
         let calendar = Calendar.current
         let referenceDate = fixedDate()
         let today = calendar.startOfDay(for: referenceDate)
-        let overdueDay = calendar.date(byAdding: .day, value: -3, to: today)!
+        let overdueDay = calendar.date(byAdding: .day, value: -16, to: today)!
         let originalStart = calendar.date(bySettingHour: 9, minute: 30, second: 0, of: overdueDay)!
         let originalEnd = originalStart.addingTimeInterval(45 * 60)
         var task = rescueTask(
@@ -350,6 +692,7 @@ final class OverdueRescueDeckTests: XCTestCase {
             tasksByID: [originalTask.id: originalTask],
             projectsByID: [:],
             referenceDate: referenceDate,
+            nowProvider: { referenceDate },
             onUpdate: { request, completion in
                 capture.request = request
                 var updatedTask = originalTask
@@ -404,7 +747,7 @@ final class OverdueRescueDeckTests: XCTestCase {
         let calendar = Calendar.current
         let referenceDate = fixedDate()
         let today = calendar.startOfDay(for: referenceDate)
-        let overdueDay = calendar.date(byAdding: .day, value: -3, to: today)!
+        let overdueDay = calendar.date(byAdding: .day, value: -16, to: today)!
         let originalStart = calendar.date(bySettingHour: 9, minute: 30, second: 0, of: overdueDay)!
         let originalEnd = originalStart.addingTimeInterval(45 * 60)
         let expectedStart = calendar.date(bySettingHour: 9, minute: 30, second: 0, of: today)!
@@ -426,6 +769,7 @@ final class OverdueRescueDeckTests: XCTestCase {
             tasksByID: [originalTask.id: originalTask],
             projectsByID: [:],
             referenceDate: referenceDate,
+            nowProvider: { referenceDate },
             onUpdate: { request, completion in
                 capture.request = request
                 var updatedTask = originalTask
@@ -508,7 +852,7 @@ final class OverdueRescueDeckTests: XCTestCase {
         let calendar = Calendar.current
         let referenceDate = calendar.date(from: DateComponents(year: 2026, month: 5, day: 30, hour: 23))!
         let applyDate = calendar.date(from: DateComponents(year: 2026, month: 5, day: 31, hour: 1))!
-        let overdueDate = calendar.date(byAdding: .day, value: -3, to: referenceDate)!
+        let overdueDate = calendar.date(byAdding: .day, value: -16, to: referenceDate)!
         let updatedAt = calendar.date(byAdding: .hour, value: -4, to: referenceDate)!
         let task = rescueTask(
             title: "Safe do today",
@@ -602,6 +946,14 @@ final class OverdueRescueDeckTests: XCTestCase {
                 completion(.failure(NSError(domain: "test", code: 1)))
             },
             onTrack: { _, _ in }
+        )
+    }
+
+    private func uniqueScope(referenceDate: Date) -> OverdueRescueSessionScope {
+        OverdueRescueSessionScope(
+            accountScopeID: "overdue-rescue-test-\(UUID().uuidString)",
+            workspaceID: nil,
+            rescueDay: referenceDate
         )
     }
 

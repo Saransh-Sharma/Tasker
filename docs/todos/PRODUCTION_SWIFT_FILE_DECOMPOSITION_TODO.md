@@ -1,5 +1,7 @@
 # Production Swift File Decomposition TODO
 
+> **Classification: Engineering implementation record.** It does not define product behavior or release completion.
+
 - [x] Split `LifeBoard/Onboarding/AppOnboarding.swift` into models, services, coordinator, views, and components.
 - [x] Split `LifeBoard/Presentation/ViewModels/HomeViewModel.swift` into owner type plus focused support files.
 - [x] Split `LifeBoard/View/SunriseTimelineSurface.swift` into timeline geometry, layout, rail, surface, cards, compact, agenda, and backdrop files.

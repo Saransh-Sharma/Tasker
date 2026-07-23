@@ -87,7 +87,7 @@ struct AddTaskTitleField: View {
                     )
             )
             .clipShape(RoundedRectangle(cornerRadius: corner.r2))
-            .animation(LifeBoardAnimation.quick, value: isFocused)
+            .animation(LifeBoardAnimation.feedbackFast, value: isFocused)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("addTask.titleFieldContainer")
 
@@ -96,7 +96,7 @@ struct AddTaskTitleField: View {
                     .font(.lifeboard(.meta))
                     .foregroundStyle(isFocused ? Color.lifeboard.textSecondary : Color.lifeboard.textTertiary)
                     .padding(.horizontal, spacing.s4)
-                    .animation(LifeBoardAnimation.quick, value: isFocused)
+                    .animation(LifeBoardAnimation.feedbackFast, value: isFocused)
             }
         }
     }

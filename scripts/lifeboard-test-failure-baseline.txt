@@ -1,0 +1,2 @@
+# Generated from the pre-remediation master test debt. Regenerate with
+# UPDATE_LIFEBOARD_TEST_BASELINE=1 scripts/run-baseline-aware-tests.sh.

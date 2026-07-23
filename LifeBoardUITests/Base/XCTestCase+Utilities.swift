@@ -228,13 +228,30 @@ extension XCTestCase {
 
     /// Wait for network request to complete (useful for CloudKit sync)
     func waitForNetworkIdle(timeout: TimeInterval = 5) {
-        // Wait for network activity indicator to disappear
-        Thread.sleep(forTimeInterval: timeout)
+        let indicator = XCUIApplication().descendants(matching: .any)["network.activity"]
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in indicator.exists == false },
+            object: NSObject()
+        )
+        _ = XCTWaiter.wait(for: [expectation], timeout: timeout)
     }
 
     /// Wait for animation to complete
     func waitForAnimations(duration: TimeInterval = 0.5) {
-        Thread.sleep(forTimeInterval: duration)
+        let window = XCUIApplication().windows.firstMatch
+        var previousFrame = window.frame
+        var stableSamples = 0
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
+                guard window.exists else { return false }
+                let currentFrame = window.frame
+                if currentFrame.equalTo(previousFrame) { stableSamples += 1 } else { stableSamples = 0 }
+                previousFrame = currentFrame
+                return stableSamples >= 2
+            },
+            object: NSObject()
+        )
+        _ = XCTWaiter.wait(for: [expectation], timeout: max(duration, 0.25))
     }
 
     // MARK: - Conditional Helpers

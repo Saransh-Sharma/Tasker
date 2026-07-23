@@ -6,8 +6,8 @@ import MLXLMCommon
 @MainActor
 final class LLMRuntimeCoordinatorTests: XCTestCase {
     private let qwenPointSixName = "mlx-community/Qwen3-0.6B-4bit"
-    private var originalPrewarmMode: LLMChatPrewarmMode = .adaptiveOnDemand
-    private var originalDeferPrewarmFlag: Bool = true
+    nonisolated(unsafe) private var originalPrewarmMode: LLMChatPrewarmMode = .adaptiveOnDemand
+    nonisolated(unsafe) private var originalDeferPrewarmFlag: Bool = true
 
     override func setUp() {
         super.setUp()

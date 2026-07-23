@@ -693,7 +693,7 @@ private struct LegacySunriseReflectPlanScreen: View {
         .padding(.horizontal, spacing.s16)
         .padding(.top, spacing.s8)
         .padding(.bottom, max(spacing.s12, layoutClass.isPad ? spacing.s16 : spacing.s8))
-        .background(.ultraThinMaterial)
+        .background(Color.lifeboard(.bgElevated))
     }
 
     private func recapSurface(snapshot: DailyReflectionCoreSnapshot) -> some View {

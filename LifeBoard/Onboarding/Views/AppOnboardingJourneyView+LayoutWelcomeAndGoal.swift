@@ -65,13 +65,6 @@ extension AppOnboardingJourneyView {
         layoutClass.isPad ? 28 : 18
     }
 
-    var onboardingBackdropMode: OnboardingCinematicBackdrop.Mode {
-        if shouldShowWelcomeExperience {
-            return .intro(welcomeIntroPhase)
-        }
-        return .steady(currentVisualTheme)
-    }
-
     var currentVisualTheme: OnboardingStepVisualTheme {
         OnboardingStepVisualTheme.theme(for: viewModel.step)
     }
@@ -84,24 +77,10 @@ extension AppOnboardingJourneyView {
         reduceMotion || isKeyboardEditing
     }
 
-    /// The dark cinematic video backs only the welcome intro. Every other
-    /// step sits on the Sunrise Glass canvas with a pastel step wash. The
-    /// slow crossfade out of the video is the sunrise moment itself.
+    /// Onboarding uses one quiet dawn composition so instructions remain the
+    /// focal point and the persistent app atmosphere feels familiar on entry.
     var backgroundLayer: some View {
-        ZStack {
-            if shouldShowWelcomeExperience {
-                OnboardingCinematicBackdrop(
-                    mode: onboardingBackdropMode,
-                    includeWelcomeAccessibilityMarkers: true
-                )
-            } else {
-                AppOnboardingBackground()
-            }
-        }
-        .animation(
-            pageMotionIsReduced ? .easeOut(duration: 0.2) : .easeInOut(duration: 0.6),
-            value: shouldShowWelcomeExperience
-        )
+        AppOnboardingBackground()
     }
 
     @ViewBuilder
@@ -402,6 +381,7 @@ extension AppOnboardingJourneyView {
                         subtitle: goal.subtitle,
                         icon: goal.symbolName,
                         accentColor: OnboardingTheme.accent,
+                        accessibilityID: AppOnboardingAccessibilityID.primaryGoal(goal.id),
                         isSelected: viewModel.selectedGoal == goal
                     ) {
                         feedbackController.selection()

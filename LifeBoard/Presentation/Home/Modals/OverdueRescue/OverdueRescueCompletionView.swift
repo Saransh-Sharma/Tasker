@@ -63,7 +63,7 @@ struct OverdueRescueCompletionView: View {
                 Button("View today", action: viewToday)
                     .font(.lifeboard(.button))
                     .fontWeight(.bold)
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                     .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.primaryButtonHeight)
                     .background(OverdueRescueVisualSpec.primaryButtonBackground())
                     .padding(.horizontal, 42)
@@ -109,7 +109,7 @@ struct OverdueRescueCompletionView: View {
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
                         .stroke(color.opacity(0.10), lineWidth: 1)
                 )
-                .shadow(color: Color.black.opacity(0.04), radius: 14, y: 8)
+                .lbShadow(LBShadowTokens.rescueCompletionTile)
         )
     }
 }

@@ -44,7 +44,7 @@ struct AddTaskDescriptionField: View {
                 )
         )
         .clipShape(RoundedRectangle(cornerRadius: corner.r2))
-        .animation(LifeBoardAnimation.quick, value: isFocused)
+        .animation(LifeBoardAnimation.feedbackFast, value: isFocused)
         .accessibilityIdentifier("addTask.descriptionField")
     }
 }

@@ -18,7 +18,7 @@ struct LifeManagementProjectColorPicker: View {
                         systemImage: nil,
                         isSelected: selectedColor == color
                     ) {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.stateChange) {
                             selectedColor = color
                         }
                     }

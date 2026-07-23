@@ -445,6 +445,48 @@ public enum LifeBoardPerformanceTrace {
     }
 }
 
+/// Stable, content-free instrumentation for the Life OS orchestration paths.
+/// Callers may attach counts, but never titles, notes, transcripts, prompts, or
+/// other user-authored values. This keeps Instruments useful without making
+/// private content part of the diagnostics surface.
+public enum LifeOSPerformanceOperation: CaseIterable, Sendable {
+    case homeCardSnapshot
+    case homeContextEvaluation
+    case composerResolution
+    case journalDerivedRebuild
+    case persistentStoreMigration
+    case signatureShaderWarmup
+    case systemSurfaceRefresh
+
+    fileprivate var signpostName: StaticString {
+        switch self {
+        case .homeCardSnapshot: "LifeOS.HomeCardSnapshot"
+        case .homeContextEvaluation: "LifeOS.HomeContextEvaluation"
+        case .composerResolution: "LifeOS.ComposerResolution"
+        case .journalDerivedRebuild: "LifeOS.JournalDerivedRebuild"
+        case .persistentStoreMigration: "LifeOS.PersistentStoreMigration"
+        case .signatureShaderWarmup: "LifeOS.SignatureShaderWarmup"
+        case .systemSurfaceRefresh: "LifeOS.SystemSurfaceRefresh"
+        }
+    }
+
+    public func begin() -> LifeBoardPerformanceInterval {
+        LifeBoardPerformanceTrace.begin(signpostName)
+    }
+
+    public func end(_ interval: LifeBoardPerformanceInterval) {
+        LifeBoardPerformanceTrace.end(interval)
+    }
+
+    public func mark(count: Int? = nil) {
+        if let count {
+            LifeBoardPerformanceTrace.event(signpostName, value: count)
+        } else {
+            LifeBoardPerformanceTrace.event(signpostName)
+        }
+    }
+}
+
 typealias TaskerPerformanceTrace = LifeBoardPerformanceTrace
 
 enum LifeBoardMemoryDiagnostics {

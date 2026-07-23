@@ -10,6 +10,18 @@ import CoreData
 import UIKit
 @preconcurrency import Combine
 
+enum AppStoreScreenshotTestConfiguration {
+    private static let fixedNowEnvironmentKey = "LIFEBOARD_SCREENSHOT_FIXED_NOW"
+
+    static var referenceDate: Date {
+        guard let value = ProcessInfo.processInfo.environment[fixedNowEnvironmentKey],
+              let date = ISO8601DateFormatter().date(from: value) else {
+            return Date()
+        }
+        return date
+    }
+}
+
 private final class UserDefaultsWriteProxy: @unchecked Sendable {
     private let defaults: UserDefaults
 
@@ -527,19 +539,20 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol, @unche
             )))
         case .active:
             let calendar = Calendar.current
-            let now = Date()
+            let screenshotSeed = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS")
+            let now = screenshotSeed ? AppStoreScreenshotTestConfiguration.referenceDate : Date()
             let dayStart = calendar.startOfDay(for: now)
             let morningStart = calendar.date(byAdding: .hour, value: 9, to: dayStart) ?? now
             let latestVisibleStart = calendar.date(byAdding: .hour, value: 17, to: dayStart) ?? morningStart
             let upcomingStart = calendar.date(byAdding: .minute, value: 30, to: now) ?? now
-            let deterministicTimelineSeed = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE")
+            let deterministicTimelineSeed = screenshotSeed
+                || ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE")
             let firstStart = deterministicTimelineSeed
                 ? (calendar.date(byAdding: .hour, value: 10, to: dayStart) ?? morningStart)
                 : min(max(upcomingStart, morningStart), latestVisibleStart)
             let firstEnd = calendar.date(byAdding: .minute, value: 30, to: firstStart) ?? firstStart
             let secondStart = calendar.date(byAdding: .minute, value: 60, to: firstEnd) ?? firstEnd
             let secondEnd = calendar.date(byAdding: .minute, value: 30, to: secondStart) ?? secondStart
-            let screenshotSeed = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS")
             let thirdStart = calendar.date(byAdding: .minute, value: 60, to: secondEnd) ?? secondEnd
             let thirdEnd = calendar.date(byAdding: .minute, value: 30, to: thirdStart) ?? thirdStart
             let allEvents = [
@@ -562,7 +575,7 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol, @unche
                     calendarTitle: "Work",
                     calendarColorHex: "#007AFF",
                     title: screenshotSeed ? "Customer Notes Debrief" : "Sprint Standup",
-                    location: screenshotSeed ? "Room A" : "Room A",
+                    location: "Room A",
                     startDate: secondStart,
                     endDate: secondEnd,
                     isAllDay: false,

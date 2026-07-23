@@ -10,6 +10,8 @@ import UIKit
 
 struct OverdueRescueActionGrid: View {
     let metrics: OverdueRescueDeckLayoutMetrics
+    let keepTitle: String
+    let keepAccessibilityHint: String
     let keep: () -> Void
     let move: () -> Void
     let edit: () -> Void
@@ -41,7 +43,7 @@ struct OverdueRescueActionGrid: View {
 
     var keepButton: some View {
         actionButton(
-            title: OverdueRescueDeckCopy.keepToday,
+            title: keepTitle,
             icon: "checkmark.circle",
             fill: OverdueRescuePalette.keepFill,
             foreground: OverdueRescuePalette.keepForeground,
@@ -92,7 +94,7 @@ struct OverdueRescueActionGrid: View {
                             RoundedRectangle(cornerRadius: 26, style: .continuous)
                                 .stroke(foreground.opacity(0.10), lineWidth: 1)
                         )
-                        .shadow(color: Color.black.opacity(0.045), radius: 14, y: 8)
+                        .lbShadow(LBShadowTokens.rescueTile)
                 )
                 .contentShape(RoundedRectangle(cornerRadius: 26))
         }
@@ -103,7 +105,7 @@ struct OverdueRescueActionGrid: View {
     }
 
     func accessibilityHint(for title: String) -> String {
-        if title == OverdueRescueDeckCopy.keepToday { return "Keeps this task on today’s board and moves to the next card." }
+        if title == keepTitle { return keepAccessibilityHint }
         if title == OverdueRescueDeckCopy.edit { return "Opens quick edit for this task." }
         if title == OverdueRescueDeckCopy.delete { return "Removes this task from your board." }
         return "Moves this task out of today and moves to the next card."

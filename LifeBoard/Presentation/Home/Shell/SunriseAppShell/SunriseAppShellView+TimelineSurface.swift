@@ -312,46 +312,52 @@ extension SunriseAppShellView {
 
     func timelineRescueTailItem(_ state: RescueTailState) -> some View {
         let style = LBColorTokens.role(.warning)
-        return LBGlassCard(
-            cornerRadius: LBRadiusTokens.card,
-            borderColor: style.border.opacity(0.72),
-            fill: style.softSurface.opacity(0.48),
-            shadow: nil,
-            usesMaterialBackground: false
-        ) {
-            HStack(alignment: .center, spacing: spacing.s12) {
-                Image(systemName: style.symbolName)
-                    .font(LBTypographyTokens.bodyStrong)
-                    .foregroundStyle(style.deep)
-                    .frame(width: 34, height: 34)
-                    .background(style.softSurface.opacity(0.82), in: Circle())
-                    .accessibilityHidden(true)
+        return Button {
+            viewModel.openRescue()
+        } label: {
+            LBGlassCard(
+                cornerRadius: LBRadiusTokens.card,
+                borderColor: style.border.opacity(0.72),
+                fill: style.softSurface.opacity(0.48),
+                shadow: nil,
+                usesMaterialBackground: false
+            ) {
+                HStack(alignment: .center, spacing: spacing.s12) {
+                    Image(systemName: style.symbolName)
+                        .font(LBTypographyTokens.bodyStrong)
+                        .foregroundStyle(style.deep)
+                        .frame(width: 34, height: 34)
+                        .background(style.softSurface.opacity(0.82), in: Circle())
+                        .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(String(localized: "Rescue available"))
-                        .font(LBTypographyTokens.cardTitle)
-                        .foregroundStyle(LBColorTokens.navy)
-                        .accessibilityIdentifier("home.rescue.header")
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(String(localized: "Rescue available"))
+                            .font(LBTypographyTokens.cardTitle)
+                            .foregroundStyle(LBColorTokens.navy)
 
-                    Text(state.subtitle)
-                        .font(LBTypographyTokens.meta)
-                        .foregroundStyle(LBColorTokens.navyMuted)
-                        .multilineTextAlignment(.leading)
-
-                    if state.mode == .expanded {
-                        Text(String(localized: "Day Compass keeps the primary rescue action at the top of Home."))
+                        Text(state.subtitle)
                             .font(LBTypographyTokens.meta)
-                            .foregroundStyle(LBColorTokens.textTertiary)
-                            .fixedSize(horizontal: false, vertical: true)
+                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .multilineTextAlignment(.leading)
+
+                        if state.mode == .expanded {
+                            Text(String(localized: "Day Compass keeps the primary rescue action at the top of Home."))
+                                .font(LBTypographyTokens.meta)
+                                .foregroundStyle(LBColorTokens.textTertiary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.vertical, spacing.s12)
+                .padding(.horizontal, spacing.s16)
             }
-            .padding(.vertical, spacing.s12)
-            .padding(.horizontal, spacing.s16)
         }
-        .accessibilityIdentifier("home.rescue.section")
+        .buttonStyle(.plain)
         .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("home.rescue.open")
+        .accessibilityLabel("Open Overdue Rescue")
+        .accessibilityHint("Review overdue tasks that still need a decision")
     }
 
     var daySunriseSwipeOverlay: some View {

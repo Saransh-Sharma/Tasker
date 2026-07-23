@@ -54,37 +54,10 @@ struct LifeBoardSettingsCard<Content: View>: View {
     var active: Bool = false
     @ViewBuilder let content: Content
 
-    @Environment(\.lifeboardLayoutClass) private var layoutClass
-
-    private var cardPadding: CGFloat {
-        LifeBoardSettingsMetrics.cardInnerPadding
-    }
-
-    private var cornerRadius: CGFloat {
-        LifeBoardSettingsMetrics.cardCornerRadius
-    }
-
-    private var surfaceColor: Color {
-        Color(uiColor: LifeBoardThemeManager.shared.tokens(for: layoutClass).color.surfacePrimary)
-    }
-
-    private var borderColor: Color {
-        let color = active
-            ? LifeBoardThemeManager.shared.tokens(for: layoutClass).color.borderStrong
-            : LifeBoardThemeManager.shared.tokens(for: layoutClass).color.borderDefault
-        return Color(uiColor: color).opacity(0.95)
-    }
-
     var body: some View {
-        content
-            .padding(cardPadding)
-            .background(surfaceColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(borderColor, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .lifeboardElevation(.e1, cornerRadius: cornerRadius, includesBorder: false)
+        LifeBoardCard(active: active) {
+            content
+        }
     }
 }
 
@@ -125,6 +98,7 @@ struct LifeBoardSettingsHeroCard: View {
     var accessibilityIdentifier: String? = nil
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var spacing: LifeBoardSpacingTokens {
         LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
@@ -134,35 +108,37 @@ struct LifeBoardSettingsHeroCard: View {
         LifeBoardSettingsMetrics.cardCornerRadius
     }
 
-    private var maxHeroHeight: CGFloat {
-        layoutClass.isPad ? 228 : 220
+    private var maxHeroHeight: CGFloat? {
+        dynamicTypeSize.isAccessibilitySize ? nil : (layoutClass.isPad ? 228 : 220)
     }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 Text(eyebrow)
-                    .font(.lifeboard(.eyebrow))
-                    .foregroundStyle(Color.white.opacity(0.78))
+                    .lifeboardFont(.eyebrow)
+                    .foregroundStyle(heroInk)
 
                 Text(title)
-                    .font(.lifeboard(.screenTitle))
-                    .foregroundStyle(Color.white)
+                    .lifeboardFont(.screenTitle)
+                    .foregroundStyle(heroInk)
                     .lineLimit(2)
 
                 Text(subtitle)
-                    .font(.lifeboard(.callout))
-                    .foregroundStyle(Color.white.opacity(0.84))
-                    .lineLimit(layoutClass.isPad ? 2 : 3)
+                    .lifeboardFont(.callout)
+                    .foregroundStyle(heroInk)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : (layoutClass.isPad ? 2 : 3))
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             if statusItems.isEmpty == false {
-                HStack(spacing: 10) {
-                    ForEach(Array(statusItems.prefix(3))) { item in
-                        LifeBoardSettingsStatusChip(descriptor: item)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .layoutPriority(1)
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(spacing: 10) {
+                        statusChips
+                    }
+                } else {
+                    HStack(spacing: 10) {
+                        statusChips
                     }
                 }
             }
@@ -174,7 +150,7 @@ struct LifeBoardSettingsHeroCard: View {
         .background(heroBackground)
         .overlay(
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                .stroke(Color.white.opacity(0.14), lineWidth: 1)
+                .stroke(heroInk.opacity(0.18), lineWidth: 1)
         )
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .lifeboardElevation(.e2, cornerRadius: cornerRadius, includesBorder: false)
@@ -186,23 +162,28 @@ struct LifeBoardSettingsHeroCard: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(red: 0.90, green: 0.60, blue: 0.48),
-                    Color(red: 0.82, green: 0.54, blue: 0.62),
-                    Color(red: 0.63, green: 0.42, blue: 0.55)
+                    Color(LifeBoardColorTokens.foundationSettingsHeroStart),
+                    Color(LifeBoardColorTokens.foundationSettingsHeroMiddle),
+                    Color(LifeBoardColorTokens.foundationSettingsHeroEnd)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
 
-            LinearGradient(
-                colors: [
-                    Color.black.opacity(0.10),
-                    Color.black.opacity(0.03),
-                    Color.white.opacity(0.04)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            Color(LifeBoardColorTokens.foundationOnSettingsHero).opacity(0.025)
+        }
+    }
+
+    private var heroInk: Color {
+        Color(LifeBoardColorTokens.foundationOnSettingsHero)
+    }
+
+    @ViewBuilder
+    private var statusChips: some View {
+        ForEach(Array(statusItems.prefix(3))) { item in
+            LifeBoardSettingsStatusChip(descriptor: item)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
         }
     }
 }
@@ -219,16 +200,14 @@ struct LifeBoardSettingsStatusChip: View {
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(descriptor.title)
-                    .font(.lifeboard(.caption2))
-                    .foregroundStyle(Color.white.opacity(0.72))
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.82)
+                    .lifeboardFont(.caption2)
+                    .foregroundStyle(heroInk)
+                    .lineLimit(2)
 
                 Text(descriptor.value)
-                    .font(.lifeboard(.bodyStrong))
-                    .foregroundStyle(Color.white)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.8)
+                    .lifeboardFont(.bodyStrong)
+                    .foregroundStyle(heroInk)
+                    .lineLimit(2)
             }
         }
         .padding(.horizontal, 10)
@@ -236,27 +215,20 @@ struct LifeBoardSettingsStatusChip: View {
         .frame(minHeight: LifeBoardSettingsMetrics.chipMinHeight, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white.opacity(0.12))
+                .fill(Color.lifeboard(.surfacePrimary).opacity(0.34))
         )
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                .stroke(heroInk.opacity(0.16), lineWidth: 1)
         )
     }
 
     private var iconColor: Color {
-        switch descriptor.tone {
-        case .accent:
-            return Color.white
-        case .neutral:
-            return Color.white.opacity(0.88)
-        case .success:
-            return Color.lifeboard(.statusSuccess)
-        case .warning:
-            return Color.lifeboard(.statusWarning)
-        case .danger:
-            return Color.lifeboard(.statusDanger)
-        }
+        heroInk
+    }
+
+    private var heroInk: Color {
+        Color(LifeBoardColorTokens.foundationOnSettingsHero)
     }
 }
 
@@ -387,7 +359,7 @@ struct LifeBoardSettingsToggleSummaryRow<ExpandedContent: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: LifeBoardSwiftUITokens.spacing.s12) {
                 Button {
-                    withAnimation(LifeBoardAnimation.gentle) {
+                    withAnimation(LifeBoardAnimation.heroReveal) {
                         isExpanded.toggle()
                     }
                 } label: {
@@ -440,7 +412,7 @@ struct LifeBoardSettingsToggleSummaryRow<ExpandedContent: View>: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(LifeBoardAnimation.gentle, value: isExpanded)
+        .animation(LifeBoardAnimation.heroReveal, value: isExpanded)
         .applyOptionalAccessibilityIdentifier(accessibilityIdentifier ?? descriptor.accessibilityIdentifier)
     }
 }

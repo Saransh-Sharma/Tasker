@@ -1,0 +1,1202 @@
+<?xml version='1.0' encoding='UTF-8' standalone='yes'?>
+<model type='com.apple.IDECoreDataModeler.DataModel' documentVersion='1.0' lastSavedToolsVersion='24299' systemVersion='25A354' minimumToolsVersion='Automatic' sourceLanguage='Swift' usedWithCloudKit='YES' userDefinedModelVersionIdentifier=''>
+    <entity name='LifeArea' representedClassName='LifeAreaEntity' codeGenerationType='class' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='name' optional='YES' attributeType='String'/>
+        <attribute name='color' optional='YES' attributeType='String'/>
+        <attribute name='icon' optional='YES' attributeType='String'/>
+        <attribute name='sortOrder' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='isArchived' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedByDeviceID' optional='YES' attributeType='String'/>
+        <attribute name='version' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <relationship name='projects' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='Project' inverseName='lifeAreaRef' inverseEntity='Project'/>
+        <relationship name='habits' optional='YES' toMany='YES' deletionRule='Nullify' destinationEntity='HabitDefinition' inverseName='lifeAreaRef' inverseEntity='HabitDefinition'/>
+        <fetchIndex name='byLifeAreaID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='Project' representedClassName='ProjectEntity' codeGenerationType='category' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='lifeAreaID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='name' optional='YES' attributeType='String'/>
+        <attribute name='projectDescription' optional='YES' attributeType='String'/>
+        <attribute name='status' optional='YES' attributeType='String'/>
+        <attribute name='priority' optional='YES' attributeType='Integer 32' defaultValueString='2' usesScalarValueType='YES'/>
+        <attribute name='color' optional='YES' attributeType='String'/>
+        <attribute name='icon' optional='YES' attributeType='String'/>
+        <attribute name='isInbox' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='isArchived' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='isFavorite' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='isDefault' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='sortOrder' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='dueDate' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='settingsData' optional='YES' attributeType='Binary'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedByDeviceID' optional='YES' attributeType='String'/>
+        <attribute name='version' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <attribute name='createdDate' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='modifiedDate' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='parentProjectID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='subprojectIDs' optional='YES' attributeType='Transformable' valueTransformerName='NSSecureUnarchiveFromDataTransformer' customClassName='NSArray'/>
+        <attribute name='tags' optional='YES' attributeType='Transformable' valueTransformerName='NSSecureUnarchiveFromDataTransformer' customClassName='NSArray'/>
+        <attribute name='templateID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='estimatedTaskCount' optional='YES' attributeType='Integer 32' usesScalarValueType='YES'/>
+        <attribute name='motivationWhy' optional='YES' attributeType='String'/>
+        <attribute name='motivationSuccessLooksLike' optional='YES' attributeType='String'/>
+        <attribute name='motivationCostOfNeglect' optional='YES' attributeType='String'/>
+        <relationship name='lifeAreaRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='LifeArea' inverseName='projects' inverseEntity='LifeArea'/>
+        <relationship name='sections' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='ProjectSection' inverseName='projectRef' inverseEntity='ProjectSection'/>
+        <relationship name='tasks' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='TaskDefinition' inverseName='projectRef' inverseEntity='TaskDefinition'/>
+        <relationship name='habits' optional='YES' toMany='YES' deletionRule='Nullify' destinationEntity='HabitDefinition' inverseName='projectRef' inverseEntity='HabitDefinition'/>
+        <relationship name='externalContainerMaps' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='ExternalContainerMap' inverseName='projectRef' inverseEntity='ExternalContainerMap'/>
+        <fetchIndex name='byProjectID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byProjectName'>
+            <fetchIndexElement property='name' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <attribute name='executionModeRaw' optional='YES' attributeType='String' defaultValueString='parallel'/>
+    </entity>
+    <entity name='ProjectSection' representedClassName='ProjectSectionEntity' codeGenerationType='class' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='projectID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='name' optional='YES' attributeType='String'/>
+        <attribute name='sortOrder' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='isCollapsed' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='projectRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='Project' inverseName='sections' inverseEntity='Project'/>
+        <relationship name='tasks' optional='YES' toMany='YES' deletionRule='Nullify' destinationEntity='TaskDefinition' inverseName='sectionRef' inverseEntity='TaskDefinition'/>
+    </entity>
+    <entity name='Tag' representedClassName='TagEntity' codeGenerationType='class' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='name' optional='YES' attributeType='String'/>
+        <attribute name='color' optional='YES' attributeType='String'/>
+        <attribute name='icon' optional='YES' attributeType='String'/>
+        <attribute name='sortOrder' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='taskLinks' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='TaskTagLink' inverseName='tagRef' inverseEntity='TaskTagLink'/>
+    </entity>
+    <entity name='TaskDefinition' representedClassName='TaskDefinitionEntity' codeGenerationType='category' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='taskID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='projectID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='iconSymbolName' optional='YES' attributeType='String'/>
+        <attribute name='lifeAreaID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='sectionID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='parentTaskID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='recurrenceSeriesID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='habitDefinitionID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='notes' optional='YES' attributeType='String'/>
+        <attribute name='status' optional='YES' attributeType='String'/>
+        <attribute name='priority' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <attribute name='energy' optional='YES' attributeType='String'/>
+        <attribute name='category' optional='YES' attributeType='String'/>
+        <attribute name='context' optional='YES' attributeType='String'/>
+        <attribute name='estimatedDuration' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='actualDuration' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='source' optional='YES' attributeType='String'/>
+        <attribute name='repeatPatternData' optional='YES' attributeType='Binary'/>
+        <attribute name='createdBy' optional='YES' attributeType='String'/>
+        <attribute name='sortOrder' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='dueDate' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='scheduledStartAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='scheduledEndAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='isAllDay' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='dateCompleted' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='dateAdded' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedByDeviceID' optional='YES' attributeType='String'/>
+        <attribute name='version' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <attribute name='isComplete' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='taskType' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <attribute name='isEveningTask' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='alertReminderTime' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='planningBucketRaw' optional='YES' attributeType='String'/>
+        <attribute name='weeklyOutcomeID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='deferredFromWeekStart' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='deferredCount' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='replanCount' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <relationship name='projectRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='Project' inverseName='tasks' inverseEntity='Project'/>
+        <relationship name='sectionRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='ProjectSection' inverseName='tasks' inverseEntity='ProjectSection'/>
+        <relationship name='parentTaskRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='TaskDefinition' inverseName='childTasks' inverseEntity='TaskDefinition'/>
+        <relationship name='childTasks' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='TaskDefinition' inverseName='parentTaskRef' inverseEntity='TaskDefinition'/>
+        <relationship name='habitDefinitionRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='HabitDefinition' inverseName='generatedTasks' inverseEntity='HabitDefinition'/>
+        <relationship name='dependencies' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='TaskDependency' inverseName='taskRef' inverseEntity='TaskDependency'/>
+        <relationship name='dependedBy' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='TaskDependency' inverseName='dependsOnTaskRef' inverseEntity='TaskDependency'/>
+        <relationship name='tagLinks' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='TaskTagLink' inverseName='taskRef' inverseEntity='TaskTagLink'/>
+        <fetchIndex name='byTaskID'>
+            <fetchIndexElement property='taskID' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byProjectID'>
+            <fetchIndexElement property='projectID' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byProjectCompletionDueDate'>
+            <fetchIndexElement property='projectID' type='Binary' order='ascending'/>
+            <fetchIndexElement property='isComplete' type='Binary' order='ascending'/>
+            <fetchIndexElement property='dueDate' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byCompletionDueUpdated'>
+            <fetchIndexElement property='isComplete' type='Binary' order='ascending'/>
+            <fetchIndexElement property='dueDate' type='Binary' order='ascending'/>
+            <fetchIndexElement property='updatedAt' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byCompletionScheduledWindow'>
+            <fetchIndexElement property='isComplete' type='Binary' order='ascending'/>
+            <fetchIndexElement property='scheduledStartAt' type='Binary' order='ascending'/>
+            <fetchIndexElement property='scheduledEndAt' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byProjectCompletionScheduledStart'>
+            <fetchIndexElement property='projectID' type='Binary' order='ascending'/>
+            <fetchIndexElement property='isComplete' type='Binary' order='ascending'/>
+            <fetchIndexElement property='scheduledStartAt' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byParentTaskID'>
+            <fetchIndexElement property='parentTaskID' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byUpdatedAt'>
+            <fetchIndexElement property='updatedAt' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byPlanningBucket'>
+            <fetchIndexElement property='planningBucketRaw' type='Binary' order='ascending'/>
+            <fetchIndexElement property='isComplete' type='Binary' order='ascending'/>
+            <fetchIndexElement property='dueDate' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byWeeklyOutcomeID'>
+            <fetchIndexElement property='weeklyOutcomeID' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <attribute name='planningDayYear' optional='YES' attributeType='Integer 32' usesScalarValueType='YES'/>
+        <attribute name='planningDayMonth' optional='YES' attributeType='Integer 16' usesScalarValueType='YES'/>
+        <attribute name='planningDayDay' optional='YES' attributeType='Integer 16' usesScalarValueType='YES'/>
+        <attribute name='planningDayTimeZoneIdentifier' optional='YES' attributeType='String'/>
+        <attribute name='commitmentLevelRaw' optional='YES' attributeType='String' defaultValueString='standard'/>
+        <attribute name='availabilityRaw' optional='YES' attributeType='String' defaultValueString='actionable'/>
+        <attribute name='planningContextRaw' optional='YES' attributeType='String' defaultValueString='neutral'/>
+        <attribute name='availabilityExplanation' optional='YES' attributeType='String'/>
+        <attribute name='planningResumeDate' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='planningPinOrder' optional='YES' attributeType='Integer 32' usesScalarValueType='YES'/>
+        <attribute name='unscheduledDispositionRaw' optional='YES' attributeType='String' defaultValueString='inbox'/>
+        <fetchIndex name='byPlanningDayAvailability'>
+            <fetchIndexElement property='planningDayYear' type='Binary' order='ascending'/>
+            <fetchIndexElement property='planningDayMonth' type='Binary' order='ascending'/>
+            <fetchIndexElement property='planningDayDay' type='Binary' order='ascending'/>
+            <fetchIndexElement property='availabilityRaw' type='Binary' order='ascending'/>
+            <fetchIndexElement property='isComplete' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='TaskDependency' representedClassName='TaskDependency' codeGenerationType='class' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='taskID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='dependsOnTaskID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='kind' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='taskRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='TaskDefinition' inverseName='dependencies' inverseEntity='TaskDefinition'/>
+        <relationship name='dependsOnTaskRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='TaskDefinition' inverseName='dependedBy' inverseEntity='TaskDefinition'/>
+        <fetchIndex name='byTaskDependsKind'>
+            <fetchIndexElement property='taskID' type='Binary' order='ascending'/>
+            <fetchIndexElement property='dependsOnTaskID' type='Binary' order='ascending'/>
+            <fetchIndexElement property='kind' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='TaskTagLink' representedClassName='TaskTagLink' codeGenerationType='class' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='taskID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='tagID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='taskRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='TaskDefinition' inverseName='tagLinks' inverseEntity='TaskDefinition'/>
+        <relationship name='tagRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='Tag' inverseName='taskLinks' inverseEntity='Tag'/>
+        <fetchIndex name='byTaskTagPair'>
+            <fetchIndexElement property='taskID' type='Binary' order='ascending'/>
+            <fetchIndexElement property='tagID' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='WeeklyPlan' representedClassName='WeeklyPlanEntity' codeGenerationType='class' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='weekStartDate' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='weekEndDate' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='focusStatement' optional='YES' attributeType='String'/>
+        <attribute name='selectedHabitIDs' optional='YES' attributeType='Transformable' valueTransformerName='NSSecureUnarchiveFromDataTransformer' customClassName='NSArray'/>
+        <attribute name='targetCapacity' optional='YES' attributeType='Integer 32' usesScalarValueType='YES'/>
+        <attribute name='minimumViableWeekEnabled' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='reviewStatus' optional='YES' attributeType='String' defaultValueString='notStarted'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byWeekStartDate'>
+            <fetchIndexElement property='weekStartDate' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byReviewStatus'>
+            <fetchIndexElement property='reviewStatus' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='WeeklyOutcome' representedClassName='WeeklyOutcomeEntity' codeGenerationType='class' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='weeklyPlanID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='sourceProjectID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='whyItMatters' optional='YES' attributeType='String'/>
+        <attribute name='successDefinition' optional='YES' attributeType='String'/>
+        <attribute name='status' optional='YES' attributeType='String' defaultValueString='planned'/>
+        <attribute name='orderIndex' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byPlanOrder'>
+            <fetchIndexElement property='weeklyPlanID' type='Binary' order='ascending'/>
+            <fetchIndexElement property='orderIndex' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='WeeklyReview' representedClassName='WeeklyReviewEntity' codeGenerationType='class' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='weeklyPlanID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='wins' optional='YES' attributeType='String'/>
+        <attribute name='blockers' optional='YES' attributeType='String'/>
+        <attribute name='lessons' optional='YES' attributeType='String'/>
+        <attribute name='nextWeekPrepNotes' optional='YES' attributeType='String'/>
+        <attribute name='perceivedWeekRating' optional='YES' attributeType='Integer 32' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='completedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byReviewPlanID'>
+            <fetchIndexElement property='weeklyPlanID' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='ReflectionNote' representedClassName='ReflectionNoteEntity' codeGenerationType='class' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='kind' optional='YES' attributeType='String' defaultValueString='freeform'/>
+        <attribute name='linkedTaskID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='linkedProjectID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='linkedHabitID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='linkedWeeklyPlanID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='energy' optional='YES' attributeType='Integer 16' usesScalarValueType='YES'/>
+        <attribute name='mood' optional='YES' attributeType='Integer 16' usesScalarValueType='YES'/>
+        <attribute name='prompt' optional='YES' attributeType='String'/>
+        <attribute name='noteText' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byLinkedTaskID'>
+            <fetchIndexElement property='linkedTaskID' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byLinkedProjectID'>
+            <fetchIndexElement property='linkedProjectID' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byLinkedWeeklyPlanID'>
+            <fetchIndexElement property='linkedWeeklyPlanID' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byCreatedAt'>
+            <fetchIndexElement property='createdAt' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='HabitDefinition' representedClassName='HabitDefinition' codeGenerationType='class' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='lifeAreaID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='projectID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='habitType' optional='YES' attributeType='String'/>
+        <attribute name='targetConfigData' optional='YES' attributeType='Binary'/>
+        <attribute name='metricConfigData' optional='YES' attributeType='Binary'/>
+        <attribute name='isPaused' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='lastGeneratedDate' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='streakCurrent' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='streakBest' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='kindRaw' optional='YES' attributeType='String'/>
+        <attribute name='trackingModeRaw' optional='YES' attributeType='String'/>
+        <attribute name='iconSymbolName' optional='YES' attributeType='String'/>
+        <attribute name='iconCategoryKey' optional='YES' attributeType='String'/>
+        <attribute name='colorHex' optional='YES' attributeType='String'/>
+        <attribute name='notes' optional='YES' attributeType='String'/>
+        <attribute name='archivedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='successMask14Raw' optional='YES' attributeType='Integer 16' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='failureMask14Raw' optional='YES' attributeType='Integer 16' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='lastHistoryRollDate' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='lifeAreaRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='LifeArea' inverseName='habits' inverseEntity='LifeArea'/>
+        <relationship name='projectRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='Project' inverseName='habits' inverseEntity='Project'/>
+        <relationship name='generatedTasks' optional='YES' toMany='YES' deletionRule='Nullify' destinationEntity='TaskDefinition' inverseName='habitDefinitionRef' inverseEntity='TaskDefinition'/>
+        <fetchIndex name='byOwnershipPauseArchive'>
+            <fetchIndexElement property='lifeAreaID' type='Binary' order='ascending'/>
+            <fetchIndexElement property='projectID' type='Binary' order='ascending'/>
+            <fetchIndexElement property='isPaused' type='Binary' order='ascending'/>
+            <fetchIndexElement property='archivedAt' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='ScheduleTemplate' representedClassName='ScheduleTemplate' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='sourceType' optional='YES' attributeType='String'/>
+        <attribute name='sourceID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='timezoneID' optional='YES' attributeType='String'/>
+        <attribute name='temporalReference' optional='YES' attributeType='String' defaultValueString='anchored'/>
+        <attribute name='anchorAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='windowStart' optional='YES' attributeType='String'/>
+        <attribute name='windowEnd' optional='YES' attributeType='String'/>
+        <attribute name='isActive' optional='YES' attributeType='Boolean' defaultValueString='YES' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='rules' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='ScheduleRule' inverseName='templateRef' inverseEntity='ScheduleRule'/>
+        <relationship name='exceptions' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='ScheduleException' inverseName='templateRef' inverseEntity='ScheduleException'/>
+        <relationship name='occurrences' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='Occurrence' inverseName='templateRef' inverseEntity='Occurrence'/>
+    </entity>
+    <entity name='ScheduleRule' representedClassName='ScheduleRule' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='scheduleTemplateID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='ruleType' optional='YES' attributeType='String'/>
+        <attribute name='interval' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <attribute name='byDayMask' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='byMonthDay' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='byHour' optional='YES' attributeType='Integer 32' defaultValueString='-1' usesScalarValueType='YES'/>
+        <attribute name='byMinute' optional='YES' attributeType='Integer 32' defaultValueString='-1' usesScalarValueType='YES'/>
+        <attribute name='rawRuleData' optional='YES' attributeType='Binary'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='templateRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='ScheduleTemplate' inverseName='rules' inverseEntity='ScheduleTemplate'/>
+    </entity>
+    <entity name='ScheduleException' representedClassName='ScheduleException' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='scheduleTemplateID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='occurrenceKey' optional='YES' attributeType='String'/>
+        <attribute name='action' optional='YES' attributeType='String'/>
+        <attribute name='movedToAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='payloadData' optional='YES' attributeType='Binary'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='templateRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='ScheduleTemplate' inverseName='exceptions' inverseEntity='ScheduleTemplate'/>
+    </entity>
+    <entity name='Occurrence' representedClassName='Occurrence' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='occurrenceKey' optional='YES' attributeType='String'/>
+        <attribute name='scheduleTemplateID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='sourceType' optional='YES' attributeType='String'/>
+        <attribute name='sourceID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='scheduledAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='dueAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='state' optional='YES' attributeType='String' defaultValueString='pending'/>
+        <attribute name='isGenerated' optional='YES' attributeType='Boolean' defaultValueString='YES' usesScalarValueType='YES'/>
+        <attribute name='generationWindow' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='templateRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='ScheduleTemplate' inverseName='occurrences' inverseEntity='ScheduleTemplate'/>
+        <relationship name='resolutions' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='OccurrenceResolution' inverseName='occurrenceRef' inverseEntity='OccurrenceResolution'/>
+        <relationship name='reminders' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='Reminder' inverseName='occurrenceRef' inverseEntity='Reminder'/>
+        <fetchIndex name='byOccurrenceKey'>
+            <fetchIndexElement property='occurrenceKey' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byTemplateScheduledState'>
+            <fetchIndexElement property='scheduleTemplateID' type='Binary' order='ascending'/>
+            <fetchIndexElement property='scheduledAt' type='Binary' order='ascending'/>
+            <fetchIndexElement property='state' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='bySourceScheduledState'>
+            <fetchIndexElement property='sourceType' type='Binary' order='ascending'/>
+            <fetchIndexElement property='scheduledAt' type='Binary' order='ascending'/>
+            <fetchIndexElement property='sourceID' type='Binary' order='ascending'/>
+            <fetchIndexElement property='state' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='bySourceDue'>
+            <fetchIndexElement property='sourceType' type='Binary' order='ascending'/>
+            <fetchIndexElement property='dueAt' type='Binary' order='ascending'/>
+            <fetchIndexElement property='sourceID' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='OccurrenceResolution' representedClassName='OccurrenceResolution' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='occurrenceID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='resolutionType' optional='YES' attributeType='String'/>
+        <attribute name='resolvedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='actor' optional='YES' attributeType='String'/>
+        <attribute name='reason' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='occurrenceRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='Occurrence' inverseName='resolutions' inverseEntity='Occurrence'/>
+    </entity>
+    <entity name='Reminder' representedClassName='Reminder' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='sourceType' optional='YES' attributeType='String'/>
+        <attribute name='sourceID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='occurrenceID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='policy' optional='YES' attributeType='String'/>
+        <attribute name='channelMask' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <attribute name='isEnabled' optional='YES' attributeType='Boolean' defaultValueString='YES' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='occurrenceRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='Occurrence' inverseName='reminders' inverseEntity='Occurrence'/>
+        <relationship name='triggers' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='ReminderTrigger' inverseName='reminderRef' inverseEntity='ReminderTrigger'/>
+    </entity>
+    <entity name='ReminderTrigger' representedClassName='ReminderTrigger' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='reminderID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='triggerType' optional='YES' attributeType='String'/>
+        <attribute name='fireAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='offsetSeconds' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='locationPayloadData' optional='YES' attributeType='Binary'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='reminderRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='Reminder' inverseName='triggers' inverseEntity='Reminder'/>
+    </entity>
+    <entity name='ReminderDelivery' representedClassName='ReminderDelivery' syncable='NO'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='reminderID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='triggerID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='status' optional='YES' attributeType='String'/>
+        <attribute name='scheduledAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='sentAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='ackAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='snoozedUntil' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='errorCode' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+    </entity>
+    <entity name='GamificationProfile' representedClassName='GamificationProfile' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='xpTotal' optional='YES' attributeType='Integer 64' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='level' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <attribute name='currentStreak' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='bestStreak' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='lastActiveDate' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='gamificationV2ActivatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='nextLevelXP' optional='YES' attributeType='Integer 64' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='returnStreak' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='bestReturnStreak' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+    </entity>
+    <entity name='XPEvent' representedClassName='XPEvent' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='occurrenceID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='taskID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='delta' optional='YES' attributeType='Integer 32' usesScalarValueType='YES'/>
+        <attribute name='reason' optional='YES' attributeType='String'/>
+        <attribute name='idempotencyKey' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='category' optional='YES' attributeType='String'/>
+        <attribute name='source' optional='YES' attributeType='String'/>
+        <attribute name='qualityWeight' optional='YES' attributeType='Float' defaultValueString='1' usesScalarValueType='YES'/>
+        <attribute name='periodKey' optional='YES' attributeType='String'/>
+        <attribute name='metadataBlob' optional='YES' attributeType='Binary'/>
+        <relationship name='achievementUnlocks' optional='YES' toMany='YES' deletionRule='Nullify' destinationEntity='AchievementUnlock' inverseName='sourceEventRef' inverseEntity='AchievementUnlock'/>
+        <fetchIndex name='byIdempotencyKey'>
+            <fetchIndexElement property='idempotencyKey' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byCreatedAt'>
+            <fetchIndexElement property='createdAt' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byPeriodKey'>
+            <fetchIndexElement property='periodKey' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='AchievementUnlock' representedClassName='AchievementUnlock' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='achievementKey' optional='YES' attributeType='String'/>
+        <attribute name='unlockedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='sourceEventID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <relationship name='sourceEventRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='XPEvent' inverseName='achievementUnlocks' inverseEntity='XPEvent'/>
+    </entity>
+    <entity name='DailyXPAggregate' representedClassName='DailyXPAggregate' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='dateKey' optional='YES' attributeType='String'/>
+        <attribute name='totalXP' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='eventCount' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byDateKey'>
+            <fetchIndexElement property='dateKey' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='FocusSession' representedClassName='FocusSessionEntity' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='taskID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='startedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='endedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='durationSeconds' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='targetDurationSeconds' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='wasCompleted' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='xpAwarded' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byStartedAt'>
+            <fetchIndexElement property='startedAt' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <attribute name='timeBlockID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='pausedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='accumulatedPauseDuration' optional='YES' attributeType='Double' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='interruptionCount' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='actualFocusedDuration' optional='YES' attributeType='Double' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='completionOutcomeRaw' optional='YES' attributeType='String'/>
+        <attribute name='energyAfter' optional='YES' attributeType='Integer 16' usesScalarValueType='YES'/>
+        <attribute name='reflection' optional='YES' attributeType='String'/>
+        <attribute name='stateRaw' optional='YES' attributeType='String' defaultValueString='ended'/>
+        <attribute name='appliedCommandIDsData' optional='YES' attributeType='Binary'/>
+    </entity>
+    <entity name='ExternalContainerMap' representedClassName='ExternalContainerMap' codeGenerationType='class' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='provider' optional='YES' attributeType='String'/>
+        <attribute name='projectID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='externalContainerID' optional='YES' attributeType='String'/>
+        <attribute name='syncEnabled' optional='YES' attributeType='Boolean' defaultValueString='YES' usesScalarValueType='YES'/>
+        <attribute name='lastSyncAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='projectRef' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='Project' inverseName='externalContainerMaps' inverseEntity='Project'/>
+        <fetchIndex name='byProviderProject'>
+            <fetchIndexElement property='provider' type='Binary' order='ascending'/>
+            <fetchIndexElement property='projectID' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='ExternalItemMap' representedClassName='ExternalItemMap' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='provider' optional='YES' attributeType='String'/>
+        <attribute name='localEntityType' optional='YES' attributeType='String'/>
+        <attribute name='localEntityID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='externalItemID' optional='YES' attributeType='String'/>
+        <attribute name='externalPersistentID' optional='YES' attributeType='String'/>
+        <attribute name='lastSeenExternalModAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='externalPayloadData' optional='YES' attributeType='Binary'/>
+        <attribute name='syncStateData' optional='YES' attributeType='Binary'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byProviderLocalKey'>
+            <fetchIndexElement property='provider' type='Binary' order='ascending'/>
+            <fetchIndexElement property='localEntityType' type='Binary' order='ascending'/>
+            <fetchIndexElement property='localEntityID' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byProviderExternalKey'>
+            <fetchIndexElement property='provider' type='Binary' order='ascending'/>
+            <fetchIndexElement property='externalItemID' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='DashboardLayout' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='mode' optional='YES' attributeType='String' defaultValueString='smart'/>
+        <attribute name='schemaVersion' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <attribute name='isDefault' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='placements' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='DashboardWidgetPlacement' inverseName='layout' inverseEntity='DashboardWidgetPlacement'/>
+        <fetchIndex name='byDashboardLayoutID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='DashboardWidgetPlacement' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='widgetKind' optional='YES' attributeType='String'/>
+        <attribute name='semanticSize' optional='YES' attributeType='String' defaultValueString='standard'/>
+        <attribute name='ordinal' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='isVisible' optional='YES' attributeType='Boolean' defaultValueString='YES' usesScalarValueType='YES'/>
+        <attribute name='configurationData' optional='YES' attributeType='Binary'/>
+        <attribute name='configurationVersion' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <relationship name='layout' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='DashboardLayout' inverseName='placements' inverseEntity='DashboardLayout'/>
+        <fetchIndex name='byDashboardWidgetPlacementID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='TrackerDefinition' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='kindRaw' optional='YES' attributeType='String' defaultValueString='boolean'/>
+        <attribute name='unitLabel' optional='YES' attributeType='String'/>
+        <attribute name='targetValue' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='scheduleData' optional='YES' attributeType='Binary'/>
+        <attribute name='reminderMinutes' optional='YES' attributeType='Integer 32' usesScalarValueType='YES'/>
+        <attribute name='isArchived' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='version' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <relationship name='entries' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='TrackerEntry' inverseName='tracker' inverseEntity='TrackerEntry'/>
+        <fetchIndex name='byTrackerDefinitionID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='TrackerEntry' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='trackerID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='timestamp' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='numericValue' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='booleanValue' optional='YES' attributeType='Boolean' usesScalarValueType='YES'/>
+        <attribute name='note' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='tracker' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='TrackerDefinition' inverseName='entries' inverseEntity='TrackerDefinition'/>
+        <fetchIndex name='byTrackerEntryID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byTrackerEntryDefinitionDate'>
+            <fetchIndexElement property='trackerID' type='Binary' order='ascending'/>
+            <fetchIndexElement property='timestamp' type='Binary' order='descending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='MoodEnergyCheckIn' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='moodRaw' optional='YES' attributeType='String'/>
+        <attribute name='energy' optional='YES' attributeType='Integer 16' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='representativeDay' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='isRepresentative' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <fetchIndex name='byMoodEnergyCheckInID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byMoodEnergyCheckInDate'>
+            <fetchIndexElement property='createdAt' type='Binary' order='descending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='MedicationDefinition' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='name' optional='YES' attributeType='String'/>
+        <attribute name='dosageText' optional='YES' attributeType='String'/>
+        <attribute name='instructions' optional='YES' attributeType='String'/>
+        <attribute name='healthCorrelationID' optional='YES' attributeType='String'/>
+        <attribute name='isArchived' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='schedules' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='MedicationSchedule' inverseName='medication' inverseEntity='MedicationSchedule'/>
+        <relationship name='events' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='MedicationEvent' inverseName='medication' inverseEntity='MedicationEvent'/>
+        <fetchIndex name='byMedicationDefinitionID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='MedicationSchedule' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='medicationID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='windowStartMinutes' optional='YES' attributeType='Integer 32' usesScalarValueType='YES'/>
+        <attribute name='windowEndMinutes' optional='YES' attributeType='Integer 32' usesScalarValueType='YES'/>
+        <attribute name='weekdaysData' optional='YES' attributeType='Binary'/>
+        <attribute name='reminderEnabled' optional='YES' attributeType='Boolean' defaultValueString='YES' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='medication' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='MedicationDefinition' inverseName='schedules' inverseEntity='MedicationDefinition'/>
+        <fetchIndex name='byMedicationScheduleID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='MedicationEvent' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='medicationID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='scheduledAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='statusRaw' optional='YES' attributeType='String' defaultValueString='scheduled'/>
+        <attribute name='resolvedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='note' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='medication' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='MedicationDefinition' inverseName='events' inverseEntity='MedicationDefinition'/>
+        <fetchIndex name='byMedicationEventID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byMedicationEventDate'>
+            <fetchIndexElement property='scheduledAt' type='Binary' order='descending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='FastingSession' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='startedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='endedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='targetDuration' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='reminderOffsetsData' optional='YES' attributeType='Binary'/>
+        <attribute name='note' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byFastingSessionID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='JournalDay' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='day' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='summary' optional='YES' attributeType='String'/>
+        <attribute name='isStarred' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='aiExclusionRaw' optional='YES' attributeType='String'/>
+        <attribute name='representativeCheckInID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='blocks' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='JournalBlock' inverseName='day' inverseEntity='JournalBlock'/>
+        <relationship name='media' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='JournalMediaAttachment' inverseName='day' inverseEntity='JournalMediaAttachment'/>
+        <fetchIndex name='byJournalDayID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byJournalDayDate'>
+            <fetchIndexElement property='day' type='Binary' order='descending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='JournalBlock' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='dayID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='kindRaw' optional='YES' attributeType='String' defaultValueString='text'/>
+        <attribute name='text' optional='YES' attributeType='String'/>
+        <attribute name='moodRaw' optional='YES' attributeType='String'/>
+        <attribute name='energy' optional='YES' attributeType='Integer 16' usesScalarValueType='YES'/>
+        <attribute name='mediaID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='promptID' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='ordinal' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <relationship name='day' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='JournalDay' inverseName='blocks' inverseEntity='JournalDay'/>
+        <fetchIndex name='byJournalBlockID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='JournalMediaAttachment' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='dayID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='kindRaw' optional='YES' attributeType='String'/>
+        <attribute name='payloadData' optional='YES' attributeType='Binary' allowsExternalBinaryDataStorage='YES'/>
+        <attribute name='relativePath' optional='YES' attributeType='String'/>
+        <attribute name='duration' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='syncPolicyRaw' optional='YES' attributeType='String'/>
+        <relationship name='day' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='JournalDay' inverseName='media' inverseEntity='JournalDay'/>
+        <fetchIndex name='byJournalMediaAttachmentID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='JournalDerivedIndex' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='dayID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='kindRaw' optional='YES' attributeType='String'/>
+        <attribute name='payloadData' optional='YES' attributeType='Binary' allowsExternalBinaryDataStorage='YES'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byJournalDerivedIndexDay'>
+            <fetchIndexElement property='dayID' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='JournalDraft' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='dayID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='payloadData' optional='YES' attributeType='Binary' allowsExternalBinaryDataStorage='YES'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byJournalDraftDay'>
+            <fetchIndexElement property='dayID' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='KnowledgeSpace' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='icon' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='folders' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='KnowledgeFolder' inverseName='space' inverseEntity='KnowledgeFolder'/>
+        <relationship name='notes' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='KnowledgeNote' inverseName='space' inverseEntity='KnowledgeNote'/>
+        <fetchIndex name='byKnowledgeSpaceID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='KnowledgeFolder' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='spaceID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='parentFolderID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='ordinal' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <relationship name='space' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='KnowledgeSpace' inverseName='folders' inverseEntity='KnowledgeSpace'/>
+        <relationship name='notes' optional='YES' toMany='YES' deletionRule='Nullify' destinationEntity='KnowledgeNote' inverseName='folder' inverseEntity='KnowledgeNote'/>
+        <fetchIndex name='byKnowledgeFolderID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='KnowledgeNote' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='spaceID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='folderID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='isPinned' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='isFavorite' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='space' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='KnowledgeSpace' inverseName='notes' inverseEntity='KnowledgeSpace'/>
+        <relationship name='folder' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='KnowledgeFolder' inverseName='notes' inverseEntity='KnowledgeFolder'/>
+        <relationship name='blocks' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='KnowledgeBlock' inverseName='note' inverseEntity='KnowledgeBlock'/>
+        <relationship name='tagLinks' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='KnowledgeNoteTagLink' inverseName='note' inverseEntity='KnowledgeNoteTagLink'/>
+        <relationship name='outgoingLinks' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='KnowledgeLink' inverseName='sourceNote' inverseEntity='KnowledgeLink'/>
+        <relationship name='incomingLinks' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='KnowledgeLink' inverseName='destinationNote' inverseEntity='KnowledgeLink'/>
+        <relationship name='attachments' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='KnowledgeAttachment' inverseName='note' inverseEntity='KnowledgeAttachment'/>
+        <fetchIndex name='byKnowledgeNoteID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byKnowledgeNoteUpdated'>
+            <fetchIndexElement property='updatedAt' type='Binary' order='descending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='KnowledgeBlock' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='noteID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='kindRaw' optional='YES' attributeType='String' defaultValueString='paragraph'/>
+        <attribute name='text' optional='YES' attributeType='String'/>
+        <attribute name='metadataData' optional='YES' attributeType='Binary' allowsExternalBinaryDataStorage='YES'/>
+        <attribute name='ordinal' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='isChecked' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <relationship name='note' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='KnowledgeNote' inverseName='blocks' inverseEntity='KnowledgeNote'/>
+        <fetchIndex name='byKnowledgeBlockID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='KnowledgeTag' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='name' optional='YES' attributeType='String'/>
+        <attribute name='colorHex' optional='YES' attributeType='String'/>
+        <relationship name='noteLinks' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='KnowledgeNoteTagLink' inverseName='tag' inverseEntity='KnowledgeNoteTagLink'/>
+        <fetchIndex name='byKnowledgeTagID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='KnowledgeNoteTagLink' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='noteID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='tagID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <relationship name='note' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='KnowledgeNote' inverseName='tagLinks' inverseEntity='KnowledgeNote'/>
+        <relationship name='tag' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='KnowledgeTag' inverseName='noteLinks' inverseEntity='KnowledgeTag'/>
+        <fetchIndex name='byKnowledgeNoteTagLinkID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='KnowledgeLink' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='sourceNoteID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='destinationNoteID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='label' optional='YES' attributeType='String'/>
+        <relationship name='sourceNote' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='KnowledgeNote' inverseName='outgoingLinks' inverseEntity='KnowledgeNote'/>
+        <relationship name='destinationNote' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='KnowledgeNote' inverseName='incomingLinks' inverseEntity='KnowledgeNote'/>
+        <fetchIndex name='byKnowledgeLinkID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='KnowledgeAttachment' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='noteID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='kindRaw' optional='YES' attributeType='String'/>
+        <attribute name='fileName' optional='YES' attributeType='String'/>
+        <attribute name='payloadData' optional='YES' attributeType='Binary' allowsExternalBinaryDataStorage='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <relationship name='note' optional='YES' maxCount='1' deletionRule='Nullify' destinationEntity='KnowledgeNote' inverseName='attachments' inverseEntity='KnowledgeNote'/>
+        <fetchIndex name='byKnowledgeAttachmentID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='KnowledgeGraphPosition' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='noteID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='x' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='y' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byKnowledgeGraphPositionNote'>
+            <fetchIndexElement property='noteID' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='Tombstone' representedClassName='Tombstone' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='entityType' optional='YES' attributeType='String'/>
+        <attribute name='entityID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='deletedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='deletedBy' optional='YES' attributeType='String'/>
+        <attribute name='purgeAfter' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+    </entity>
+    <entity name='AssistantActionRun' representedClassName='AssistantActionRun' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='threadID' optional='YES' attributeType='String'/>
+        <attribute name='proposalData' optional='YES' attributeType='Binary'/>
+        <attribute name='status' optional='YES' attributeType='String' defaultValueString='pending'/>
+        <attribute name='confirmedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='appliedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='rejectedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='resultSummary' optional='YES' attributeType='String'/>
+        <attribute name='executionTraceData' optional='YES' attributeType='Binary'/>
+        <attribute name='rollbackStatus' optional='YES' attributeType='String'/>
+        <attribute name='rollbackVerifiedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='lastErrorCode' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+    </entity>
+    <entity name='WatchImportReceipt' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='captureID' optional='YES' attributeType='String'/>
+        <attribute name='importHash' optional='YES' attributeType='String'/>
+        <attribute name='importedDayID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='importedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byWatchImportReceiptCaptureID'>
+            <fetchIndexElement property='captureID' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='DerivedBlobStore' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='key' optional='YES' attributeType='String'/>
+        <attribute name='namespace' optional='YES' attributeType='String'/>
+        <attribute name='payloadData' optional='YES' attributeType='Binary' allowsExternalBinaryDataStorage='YES'/>
+        <attribute name='schemaVersion' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byDerivedBlobStoreKey'>
+            <fetchIndexElement property='key' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <configuration name='CloudSync'>
+        <memberEntity name='LifeArea'/>
+        <memberEntity name='Project'/>
+        <memberEntity name='ProjectSection'/>
+        <memberEntity name='Tag'/>
+        <memberEntity name='TaskDefinition'/>
+        <memberEntity name='TaskDependency'/>
+        <memberEntity name='TaskTagLink'/>
+        <memberEntity name='WeeklyPlan'/>
+        <memberEntity name='WeeklyOutcome'/>
+        <memberEntity name='WeeklyReview'/>
+        <memberEntity name='ReflectionNote'/>
+        <memberEntity name='HabitDefinition'/>
+        <memberEntity name='ScheduleTemplate'/>
+        <memberEntity name='ScheduleRule'/>
+        <memberEntity name='ScheduleException'/>
+        <memberEntity name='Occurrence'/>
+        <memberEntity name='OccurrenceResolution'/>
+        <memberEntity name='Reminder'/>
+        <memberEntity name='ReminderTrigger'/>
+        <memberEntity name='ExternalContainerMap'/>
+        <memberEntity name='ExternalItemMap'/>
+        <memberEntity name='Tombstone'/>
+        <memberEntity name='AssistantActionRun'/>
+        <memberEntity name='DashboardLayout'/>
+        <memberEntity name='DashboardWidgetPlacement'/>
+        <memberEntity name='TrackerDefinition'/>
+        <memberEntity name='TrackerEntry'/>
+        <memberEntity name='MoodEnergyCheckIn'/>
+        <memberEntity name='MedicationDefinition'/>
+        <memberEntity name='MedicationSchedule'/>
+        <memberEntity name='MedicationEvent'/>
+        <memberEntity name='FastingSession'/>
+        <memberEntity name='JournalDay'/>
+        <memberEntity name='JournalBlock'/>
+        <memberEntity name='JournalMediaAttachment'/>
+        <memberEntity name='KnowledgeSpace'/>
+        <memberEntity name='KnowledgeFolder'/>
+        <memberEntity name='KnowledgeNote'/>
+        <memberEntity name='KnowledgeBlock'/>
+        <memberEntity name='KnowledgeTag'/>
+        <memberEntity name='KnowledgeNoteTagLink'/>
+        <memberEntity name='KnowledgeLink'/>
+        <memberEntity name='KnowledgeAttachment'/>
+        <memberEntity name='InternalTimeBlock'/>
+        <memberEntity name='WorkingHoursProfile'/>
+        <memberEntity name='PlanningMutationReceipt'/>
+        <memberEntity name='GoalDefinition'/>
+        <memberEntity name='GoalLink'/>
+        <memberEntity name='HabitGroup'/>
+        <memberEntity name='HabitResiliencePolicy'/>
+        <memberEntity name='RoutineDefinition'/>
+        <memberEntity name='RoutineStep'/>
+        <memberEntity name='RoutineRun'/>
+        <memberEntity name='RoutineStepEvent'/>
+        <memberEntity name='RoutineSchedule'/>
+        <memberEntity name='RoutineLinkedMutationReceipt'/>
+        <memberEntity name='HydrationLog'/>
+        <memberEntity name='HydrationTarget'/>
+        <memberEntity name='SleepContextRecord'/>
+        <memberEntity name='StarterPackInstallation'/>
+    </configuration>
+    <configuration name='LocalOnly'>
+        <memberEntity name='DerivedBlobStore'/>
+        <memberEntity name='WatchImportReceipt'/>
+        <memberEntity name='ReminderDelivery'/>
+        <memberEntity name='GamificationProfile'/>
+        <memberEntity name='XPEvent'/>
+        <memberEntity name='AchievementUnlock'/>
+        <memberEntity name='DailyXPAggregate'/>
+        <memberEntity name='FocusSession'/>
+        <memberEntity name='JournalDerivedIndex'/>
+        <memberEntity name='JournalDraft'/>
+        <memberEntity name='KnowledgeGraphPosition'/>
+    </configuration>
+    <entity name='InternalTimeBlock' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='startAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='endAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='taskID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='planningContextRaw' optional='YES' attributeType='String' defaultValueString='neutral'/>
+        <attribute name='isFixed' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byInternalTimeBlockID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='WorkingHoursProfile' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='name' optional='YES' attributeType='String'/>
+        <attribute name='intervalsData' optional='YES' attributeType='Binary'/>
+        <attribute name='bufferDuration' optional='YES' attributeType='Double' defaultValueString='1800' usesScalarValueType='YES'/>
+        <attribute name='isDefault' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byWorkingHoursProfileID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='PlanningMutationReceipt' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='source' optional='YES' attributeType='String'/>
+        <attribute name='summary' optional='YES' attributeType='String'/>
+        <attribute name='forwardData' optional='YES' attributeType='Binary'/>
+        <attribute name='undoData' optional='YES' attributeType='Binary'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='stateRaw' optional='YES' attributeType='String' defaultValueString='prepared'/>
+        <attribute name='appliedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='undoneAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byPlanningMutationReceiptID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='GoalDefinition' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='typeRaw' optional='YES' attributeType='String'/>
+        <attribute name='areaID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='targetValue' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='unitLabel' optional='YES' attributeType='String'/>
+        <attribute name='targetDate' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='isArchived' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byGoalDefinitionID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='GoalLink' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='goalID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='sourceTypeRaw' optional='YES' attributeType='String'/>
+        <attribute name='sourceID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byGoalLinkID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='HabitGroup' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='planningContextRaw' optional='YES' attributeType='String' defaultValueString='neutral'/>
+        <attribute name='ordinal' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byHabitGroupID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='HabitResiliencePolicy' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='habitID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='groupID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='offDayKeysData' optional='YES' attributeType='Binary'/>
+        <attribute name='recoveryEnabled' optional='YES' attributeType='Boolean' defaultValueString='YES' usesScalarValueType='YES'/>
+        <attribute name='streakPresentationRaw' optional='YES' attributeType='String' defaultValueString='gradeAndStreak'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byHabitResiliencePolicyID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='RoutineDefinition' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='version' optional='YES' attributeType='Integer 32' defaultValueString='1' usesScalarValueType='YES'/>
+        <attribute name='isArchived' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byRoutineDefinitionID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='RoutineStep' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='routineID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='kindRaw' optional='YES' attributeType='String'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='ordinal' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='duration' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='isRequired' optional='YES' attributeType='Boolean' defaultValueString='YES' usesScalarValueType='YES'/>
+        <attribute name='isSkippable' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='configurationData' optional='YES' attributeType='Binary'/>
+        <fetchIndex name='byRoutineStepID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='RoutineRun' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='routineID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='versionSnapshotData' optional='YES' attributeType='Binary'/>
+        <attribute name='statusRaw' optional='YES' attributeType='String'/>
+        <attribute name='currentStepID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='startedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='endedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byRoutineRunID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='RoutineStepEvent' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='runID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='stepID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='statusRaw' optional='YES' attributeType='String'/>
+        <attribute name='responseData' optional='YES' attributeType='Binary'/>
+        <attribute name='occurredAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='idempotencyKey' optional='YES' attributeType='String'/>
+        <fetchIndex name='byRoutineStepEventID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byRoutineRunIdempotencyKey'>
+            <fetchIndexElement property='runID' type='Binary' order='ascending'/>
+            <fetchIndexElement property='idempotencyKey' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='RoutineSchedule' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='routineID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='weekdaysData' optional='YES' attributeType='Binary'/>
+        <attribute name='daypartRaw' optional='YES' attributeType='String'/>
+        <attribute name='reminderTimeMinutes' optional='YES' attributeType='Integer 32' usesScalarValueType='YES'/>
+        <attribute name='timeZoneIdentifier' optional='YES' attributeType='String'/>
+        <attribute name='isEnabled' optional='YES' attributeType='Boolean' defaultValueString='YES' usesScalarValueType='YES'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byRoutineScheduleID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byRoutineScheduleRoutineID'>
+            <fetchIndexElement property='routineID' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='RoutineLinkedMutationReceipt' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='runID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='stepID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='targetTypeRaw' optional='YES' attributeType='String'/>
+        <attribute name='targetID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='idempotencyKey' optional='YES' attributeType='String'/>
+        <attribute name='statusRaw' optional='YES' attributeType='String'/>
+        <attribute name='preparedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='appliedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='reconciledAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byRoutineLinkedMutationReceiptID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+        <fetchIndex name='byRoutineLinkedMutationIdempotencyKey'>
+            <fetchIndexElement property='idempotencyKey' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='HydrationLog' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='amount' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='unitRaw' optional='YES' attributeType='String'/>
+        <attribute name='timestamp' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='note' optional='YES' attributeType='String'/>
+        <attribute name='correctedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byHydrationLogID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='HydrationTarget' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='amount' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='unitRaw' optional='YES' attributeType='String'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byHydrationTargetID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='SleepContextRecord' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='bedtime' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='wakeTime' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='perceivedRest' optional='YES' attributeType='Integer 16' usesScalarValueType='YES'/>
+        <attribute name='interruptionCount' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='notes' optional='YES' attributeType='String'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='bySleepContextRecordID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+    <entity name='StarterPackInstallation' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='packRaw' optional='YES' attributeType='String'/>
+        <attribute name='createdIDsData' optional='YES' attributeType='Binary'/>
+        <attribute name='installedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='removedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byStarterPackInstallationID'>
+            <fetchIndexElement property='id' type='Binary' order='ascending'/>
+        </fetchIndex>
+    </entity>
+</model>

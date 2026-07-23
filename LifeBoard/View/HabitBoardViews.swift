@@ -339,7 +339,7 @@ struct HabitHomeSectionCard: View {
                         .frame(width: 44, height: 44)
                         .background(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(Color.white.opacity(0.7))
+                                .fill(LBColorTokens.whiteStroke.opacity(0.7))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -455,7 +455,11 @@ struct HabitHomeSectionCard: View {
 }
 
 struct HabitBoardScreen: View {
+    enum PresentationStyle { case modal, pushed }
+
     @ObservedObject var viewModel: HabitBoardViewModel
+    let presentationStyle: PresentationStyle
+    let onManageHabits: () -> Void
     @State private var selectedHabitRow: HabitLibraryRow?
     @State private var measuredBoardWidth: CGFloat = 0
     @Environment(\.dismiss) private var dismiss
@@ -468,38 +472,56 @@ struct HabitBoardScreen: View {
         HabitBoardLayoutMetrics.forContainerWidth(resolvedBoardWidth, dynamicTypeSize: dynamicTypeSize)
     }
     private var resolvedBoardWidth: CGFloat {
-        let fallback = max(UIScreen.main.bounds.width - (spacing.s16 * 2), 320)
-        return measuredBoardWidth > 1 ? measuredBoardWidth : fallback
+        measuredBoardWidth > 1 ? measuredBoardWidth : 320
     }
 
+    init(
+        viewModel: HabitBoardViewModel,
+        presentationStyle: PresentationStyle = .modal,
+        onManageHabits: @escaping () -> Void
+    ) {
+        self.viewModel = viewModel
+        self.presentationStyle = presentationStyle
+        self.onManageHabits = onManageHabits
+    }
+
+    @ViewBuilder
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                boardSurface
-                    .enhancedStaggeredAppearance(index: 0)
+        if presentationStyle == .modal {
+            NavigationStack { content.toolbar { closeToolbar } }
+        } else {
+            content
+        }
+    }
+
+    private var content: some View {
+        ScrollView {
+            boardSurface
+                .enhancedStaggeredAppearance(index: 0)
                 .padding(.horizontal, spacing.s16)
                 .padding(.top, spacing.s12)
                 .padding(.bottom, spacing.s24)
-            }
-            .background(Color.lifeboard.bgCanvas)
-            .accessibilityIdentifier(HabitBoardAccessibilityID.view)
-            .navigationTitle("Habit Board")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
-                }
-            }
-            .task(id: layoutMetrics) {
-                viewModel.configureViewport(columnCount: layoutMetrics.visibleColumns, historySpan: layoutMetrics.historySpan)
-                viewModel.loadIfNeeded()
-            }
-            .sheet(item: $selectedHabitRow) { row in
-                SunriseHabitDetailScreen(
-                    viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
-                    onMutation: { viewModel.refresh() }
-                )
-            }
+        }
+        .background(Color.lifeboard.bgCanvas)
+        .accessibilityIdentifier(HabitBoardAccessibilityID.view)
+        .navigationTitle("Habit Board")
+        .navigationBarTitleDisplayMode(.inline)
+        .task(id: layoutMetrics) {
+            viewModel.configureViewport(columnCount: layoutMetrics.visibleColumns, historySpan: layoutMetrics.historySpan)
+            viewModel.loadIfNeeded()
+        }
+        .sheet(item: $selectedHabitRow) { row in
+            SunriseHabitDetailScreen(
+                viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
+                onMutation: { viewModel.refresh() }
+            )
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var closeToolbar: some ToolbarContent {
+        ToolbarItem(placement: .cancellationAction) {
+            Button("Close") { dismiss() }
         }
     }
 
@@ -620,10 +642,7 @@ struct HabitBoardScreen: View {
     }
 
     private func openManageHabitsFromBoard() {
-        dismiss()
-        DispatchQueue.main.async {
-            NotificationCenter.default.post(name: .lifeboardOpenHabitLibraryDeepLink, object: nil)
-        }
+        onManageHabits()
     }
 
     private func boardPagerButton(
@@ -790,9 +809,14 @@ private struct HabitBoardPinnedRowView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityIdentifier(HabitBoardAccessibilityID.row(row.habitID))
-        .accessibilityLabel(row.title)
-        .accessibilityHint("Opens habit details")
+        .accessibilityRepresentation {
+            Button(action: onSelect) {
+                Text(row.title)
+            }
+            .accessibilityIdentifier(HabitBoardAccessibilityID.row(row.habitID))
+            .accessibilityLabel(row.title)
+            .accessibilityHint("Opens habit details")
+        }
     }
 }
 
@@ -1266,7 +1290,7 @@ private struct HabitBoardCellView: View {
                         let x = CGFloat((index * 7) % 11) / 11 * size.width
                         let y = CGFloat((index * 11) % 13) / 13 * size.height
                         path.addEllipse(in: CGRect(x: x, y: y, width: 0.6, height: 0.6))
-                        context.fill(path, with: .color(Color.white.opacity(0.12)))
+                        context.fill(path, with: .color(LBColorTokens.whiteStroke.opacity(0.12)))
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous))
@@ -1392,8 +1416,8 @@ enum HabitEverydayPalette {
 
     static func gridStroke(colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? Color.white.opacity(0.07)
-            : Color.black.opacity(0.04)
+            ? LBColorTokens.whiteStroke.opacity(0.07)
+            : LBColorTokens.elevationShadow.opacity(0.4)
     }
 
     static func paperFill(colorScheme: ColorScheme) -> Color {

@@ -8,6 +8,28 @@
 import Combine
 import SwiftUI
 
+enum HomeAdaptiveShellPresentation: Equatable {
+    case compact
+    case regular
+    case expanded
+}
+
+enum HomeAdaptiveShellPolicy {
+    static func presentation(
+        layoutClass: LifeBoardLayoutClass,
+        isAccessibilitySize: Bool
+    ) -> HomeAdaptiveShellPresentation {
+        switch (layoutClass, isAccessibilitySize) {
+        case (.phone, _), (.padCompact, _), (.padRegular, true):
+            return .compact
+        case (.padRegular, false), (.padExpanded, true):
+            return .regular
+        case (.padExpanded, false):
+            return .expanded
+        }
+    }
+}
+
 enum HomeiPadDestination: String, CaseIterable, Identifiable {
     case tasks
     case schedule
@@ -233,6 +255,7 @@ struct SunriseiPadSplitShellView: View {
     @State private var showHabitLibrarySheet = false
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @StateObject private var primarySurfaceMonitor = HomeiPadPrimarySurfaceMonitor()
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var spacing: LifeBoardSpacingTokens {
         LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
@@ -293,12 +316,16 @@ struct SunriseiPadSplitShellView: View {
 
     @ViewBuilder
     private var shellLayout: some View {
-        if layoutClass == .padCompact {
+        switch HomeAdaptiveShellPolicy.presentation(
+            layoutClass: layoutClass,
+            isAccessibilitySize: dynamicTypeSize.isAccessibilitySize
+        ) {
+        case .compact:
             compactShell
-        } else if layoutClass == .padExpanded {
-            expandedShell
-        } else {
+        case .regular:
             regularShell
+        case .expanded:
+            expandedShell
         }
     }
 
@@ -460,6 +487,8 @@ struct SunriseiPadSplitShellView: View {
                 Section {
                     ForEach(section.destinations) { dest in
                         Label(dest.title, systemImage: dest.icon)
+                            .lifeboardFont(.body)
+                            .foregroundStyle(Color.lifeboard(.primary, on: .sidebar))
                             .tag(dest)
                             .hoverEffect(.highlight)
                             .accessibilityIdentifier("home.ipad.destination.\(dest.rawValue)")
@@ -467,6 +496,8 @@ struct SunriseiPadSplitShellView: View {
                 } header: {
                     if let title = section.title {
                         Text(title)
+                            .lifeboardFont(.eyebrow)
+                            .foregroundStyle(Color.lifeboard(.secondary, on: .sidebar))
                     }
                 }
             }
@@ -485,8 +516,8 @@ struct SunriseiPadSplitShellView: View {
         VStack(spacing: spacing.s4) {
             Divider()
             Text("LifeBoard v\(Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0")")
-                .font(.lifeboard(.caption2))
-                .foregroundColor(Color.lifeboard.textQuaternary)
+                .lifeboardFont(.caption2)
+                .foregroundStyle(Color.lifeboard(.secondary, on: .sidebar))
                 .padding(.vertical, spacing.s8)
         }
         .padding(.horizontal, spacing.s16)
@@ -584,9 +615,9 @@ struct SunriseiPadSplitShellView: View {
                     .toolbar {
                         ToolbarItem(placement: .principal) {
                             Text(task.title)
-                                .font(.lifeboard(.headline))
-                                .foregroundColor(Color.lifeboard.textPrimary)
-                                .lineLimit(1)
+                                .lifeboardFont(.headline)
+                                .foregroundStyle(Color.lifeboard(.primary, on: .toolbar))
+                                .lineLimit(2)
                         }
                         ToolbarItem(placement: .topBarTrailing) {
                             Button {
@@ -609,11 +640,11 @@ struct SunriseiPadSplitShellView: View {
                     .font(.system(size: 48, weight: .thin))
                     .foregroundStyle(Color.lifeboard.accentMuted)
                 Text("No task selected")
-                    .font(.lifeboard(.title3))
-                    .foregroundColor(Color.lifeboard.textSecondary)
+                    .lifeboardFont(.title3)
+                    .foregroundStyle(Color.lifeboard(.primary, on: .inspector))
                 Text("Tap a task in the list to see its details here.")
-                    .font(.lifeboard(.body))
-                    .foregroundColor(Color.lifeboard.textTertiary)
+                    .lifeboardFont(.body)
+                    .foregroundStyle(Color.lifeboard(.secondary, on: .inspector))
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 260)
             }

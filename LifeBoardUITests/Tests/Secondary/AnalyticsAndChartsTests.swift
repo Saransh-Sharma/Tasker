@@ -15,8 +15,8 @@ class AnalyticsAndChartsTests: BaseUITest {
         [XCUIApplication.LaunchArgumentKey.disableLLM.rawValue]
     }
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         executionTimeAllowance = 120
         homePage = HomePage(app: app)
     }

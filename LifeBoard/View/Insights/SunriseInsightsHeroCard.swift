@@ -5,7 +5,7 @@ struct SunriseInsightsHeroCard: View {
     let answer: String
     let metric: String
     var role: LBRole = .focus
-    var decorAsset: SunriseDecorAsset = .happySun
+    var decorAsset: SunriseDecorAsset = .daySun
     var primaryActionTitle: String? = nil
     var primaryAction: (() -> Void)? = nil
     var accessibilityIdentifier: String = "home.insights.hero"
@@ -66,7 +66,7 @@ struct SunriseInsightsHeroCard: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 28, style: .continuous)
                             .stroke(style.border.opacity(0.58), lineWidth: 1)
@@ -82,6 +82,8 @@ struct SunriseInsightsHeroCard: View {
 
     private var decorSize: CGFloat {
         switch decorAsset {
+        case .daySun, .planSun:
+            return 132
         case .mountain:
             return 116
         case .thinkingCup:
@@ -93,6 +95,8 @@ struct SunriseInsightsHeroCard: View {
 
     private var decorOffsetX: CGFloat {
         switch decorAsset {
+        case .daySun, .planSun:
+            return 24
         case .mountain:
             return 4
         default:
@@ -102,6 +106,8 @@ struct SunriseInsightsHeroCard: View {
 
     private var decorOffsetY: CGFloat {
         switch decorAsset {
+        case .daySun, .planSun:
+            return 26
         case .mountain:
             return 16
         default:
@@ -143,7 +149,7 @@ struct SunriseInsightsReflectionCard: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 24, style: .continuous)
                             .stroke(LBColorTokens.role(.warning).border.opacity(0.48), lineWidth: 1)

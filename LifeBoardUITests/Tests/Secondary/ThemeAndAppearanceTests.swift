@@ -13,8 +13,8 @@ class ThemeAndAppearanceTests: BaseUITest {
     var homePage: HomePage!
     var settingsPage: SettingsPage!
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         homePage = HomePage(app: app)
     }
 
@@ -186,5 +186,73 @@ class ThemeAndAppearanceTests: BaseUITest {
 
         homePage = settingsPage.tapDone()
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home should be displayed after closing settings")
+    }
+
+    func testAllCelestialPhasesResolveInThePersistentRootHost() throws {
+        for phase in ["dawn", "morning", "midday", "goldenHour", "twilight", "night"] {
+            app.terminate()
+            app.launchVisualFixture(root: "home", state: "populated", phase: phase)
+
+            let marker = app.otherElements["lifeboard.atmosphere.\(phase)"]
+            XCTAssertTrue(
+                marker.waitForExistence(timeout: 5),
+                "The persistent atmosphere host should resolve \(phase)"
+            )
+            takeScreenshot(named: "celestial_home_\(phase)")
+        }
+    }
+
+    func testCelestialAtmospherePersistsAcrossEveryPrimaryRoot() throws {
+        for root in ["home", "plan", "track", "insights", "eva"] {
+            app.terminate()
+            app.launchVisualFixture(root: root, state: "populated", phase: "twilight")
+
+            XCTAssertTrue(
+                app.otherElements["lifeboard.atmosphere.twilight"].waitForExistence(timeout: 5),
+                "The shared Twilight atmosphere should remain installed behind \(root)"
+            )
+            takeScreenshot(named: "celestial_twilight_\(root)")
+        }
+    }
+
+    func testCelestialAccessibilityAppearanceFallbackMatrix() throws {
+        let appearances = [
+            "light", "dark", "high-contrast-light", "high-contrast-dark",
+            "reduced-transparency", "reduced-motion", "grayscale"
+        ]
+
+        for appearance in appearances {
+            app.terminate()
+            app.launchVisualFixture(
+                root: "home",
+                state: "populated",
+                appearance: appearance,
+                phase: "night"
+            )
+
+            XCTAssertTrue(
+                app.otherElements["lifeboard.atmosphere.night"].waitForExistence(timeout: 5),
+                "Night should remain usable with the \(appearance) fallback"
+            )
+            takeScreenshot(named: "celestial_night_\(appearance)")
+        }
+    }
+
+    func testCelestialFocusedStatusSurfaceMatrix() throws {
+        let states = [
+            "empty", "loading", "stale", "offline", "denied",
+            "recoverable-error", "locked", "destructive-confirmation"
+        ]
+
+        for state in states {
+            app.terminate()
+            app.launchVisualFixture(root: "home", state: state, phase: "midday")
+
+            XCTAssertTrue(
+                app.otherElements["fixture.home.\(state)"].waitForExistence(timeout: 5),
+                "The focused \(state) surface should render on the phase canvas"
+            )
+            takeScreenshot(named: "celestial_midday_home_\(state)")
+        }
     }
 }

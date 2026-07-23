@@ -81,7 +81,11 @@ extension SunriseAppShellView {
         content
             .sheet(isPresented: $showHabitBoardPresented) {
                 HabitBoardScreen(
-                    viewModel: PresentationDependencyContainer.shared.makeHabitBoardViewModel()
+                    viewModel: PresentationDependencyContainer.shared.makeHabitBoardViewModel(),
+                    onManageHabits: {
+                        showHabitBoardPresented = false
+                        DispatchQueue.main.async { showHabitLibraryPresented = true }
+                    }
                 )
             }
             .sheet(isPresented: $showHabitLibraryPresented) {

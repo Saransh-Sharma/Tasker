@@ -63,7 +63,9 @@ final class EvaActivationCoordinator: ObservableObject {
         defaults: UserDefaults = .standard,
         workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
         deviceSupportsLocalEvaProvider: @escaping () -> Bool = {
-            if ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED") {
+            let arguments = ProcessInfo.processInfo.arguments
+            if arguments.contains("-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED") ||
+                arguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS") {
                 return true
             }
             #if os(iOS)

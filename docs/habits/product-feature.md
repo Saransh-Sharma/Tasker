@@ -1,5 +1,7 @@
 # Habit Streaks Product Feature
 
+> **Classification: Canonical feature reference.** The [LifeBoard product handbook](../product/README.md) owns cross-feature journeys; this document owns Habit detail.
+
 LifeBoard Habit Streaks turn repeat behaviors into a calm visual system that helps users stay consistent without forcing perfection.
 
 ## Product Philosophy

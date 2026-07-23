@@ -59,7 +59,7 @@ struct AddTaskDatePresetRow: View {
                             text: preset.label,
                             isActive: activePreset == preset
                         ) {
-                            withAnimation(LifeBoardAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.stateChange) {
                                 applyPreset(preset)
                             }
                         }

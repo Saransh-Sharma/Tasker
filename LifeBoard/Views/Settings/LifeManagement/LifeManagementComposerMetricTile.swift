@@ -7,20 +7,20 @@ struct LifeManagementComposerMetricTile: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(metric.title)
-                .font(.lifeboard(.caption1))
-                .foregroundStyle(Color.white.opacity(0.72))
+                .lifeboardFont(.caption1)
+                .foregroundStyle(Color.lifeboard(.secondary, on: .image, imageLuminance: 0.2))
 
             Text(metric.value)
-                .font(.lifeboard(.callout).weight(.semibold))
-                .foregroundStyle(Color.white)
-                .lineLimit(1)
+                .lifeboardFont(.bodyStrong)
+                .foregroundStyle(Color.lifeboard(.primary, on: .image, imageLuminance: 0.2))
+                .lineLimit(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 12)
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.md, style: .continuous)
-                .fill(Color.white.opacity(0.12))
+                .fill(LBColorTokens.whiteStroke.opacity(0.12))
         )
     }
 }

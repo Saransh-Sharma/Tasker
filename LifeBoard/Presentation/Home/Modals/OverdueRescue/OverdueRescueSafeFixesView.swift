@@ -83,7 +83,7 @@ struct OverdueRescueSafeFixesView: View {
             }
             .font(.lifeboard(.button))
             .fontWeight(.bold)
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.lifeboard(.accentOnPrimary))
             .frame(maxWidth: .infinity, minHeight: OverdueRescueVisualSpec.primaryButtonHeight)
             .background(OverdueRescueVisualSpec.primaryButtonBackground())
             .disabled(viewModel.safeFixes.isEmpty)

@@ -56,12 +56,24 @@ struct ChatComposerView: View {
     @State var structuredDeferredFeedback: String?
 
     var body: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: LifeBoardTheme.Spacing.xs) {
+                composerContent
+            }
+        } else {
+            composerContent
+        }
+    }
+
+    @ViewBuilder
+    private var composerContent: some View {
         if V2FeatureFlags.evaStructuredComposer && isActivationPresentation == false {
             VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                 if shouldShowComposerSuggestionStrip {
                     composerSuggestionStrip
                 }
                 structuredComposer
+                    .lifeBoardGlassIdentity(.evaComposer)
             }
         } else {
         VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
@@ -128,13 +140,11 @@ struct ChatComposerView: View {
         #if os(iOS) || os(visionOS)
         .padding(.vertical, LifeBoardTheme.Spacing.sm)
         .padding(.horizontal, 2)
-        .lifeboardPremiumSurface(
-            cornerRadius: 28,
-            fillColor: EvaChatSunriseGlass.glassFill,
-            strokeColor: EvaChatSunriseGlass.glassBorder,
-            accentColor: EvaChatSunriseGlass.primary,
-            level: .e3
-        )
+        .lifeBoardGlassSurface(cornerRadius: 28, interactive: true)
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(EvaChatSunriseGlass.glassBorder, lineWidth: 1)
+        }
         #elseif os(macOS)
         .background(
             RoundedRectangle(cornerRadius: 16)
@@ -142,6 +152,7 @@ struct ChatComposerView: View {
         )
         #endif
         .accessibilityIdentifier("chat.composer.container")
+        .lifeBoardGlassIdentity(.evaComposer)
         .contentShape(Rectangle())
         .onTapGesture {
             isPromptFocused = true

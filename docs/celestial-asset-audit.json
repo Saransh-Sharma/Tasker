@@ -1,0 +1,732 @@
+{
+  "catalog": "LifeBoard/Assets.xcassets",
+  "counts": {
+    "referenced": 71,
+    "protected": 32,
+    "superseded": 0,
+    "unreachable": 0
+  },
+  "entries": [
+    {
+      "name": "charts",
+      "path": "LifeBoard/Assets.xcassets/3D_icons/charts.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "chat",
+      "path": "LifeBoard/Assets.xcassets/3D_icons/chat.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "inbox",
+      "path": "LifeBoard/Assets.xcassets/3D_icons/inbox.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "plus",
+      "path": "LifeBoard/Assets.xcassets/3D_icons/plus.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "search",
+      "path": "LifeBoard/Assets.xcassets/3D_icons/search.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "settings",
+      "path": "LifeBoard/Assets.xcassets/3D_icons/settings.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "icon_menu",
+      "path": "LifeBoard/Assets.xcassets/Buttons/icon_menu.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "icon_search",
+      "path": "LifeBoard/Assets.xcassets/Buttons/icon_search.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "notifications-btn",
+      "path": "LifeBoard/Assets.xcassets/Buttons/notifications-btn.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "settings-btn",
+      "path": "LifeBoard/Assets.xcassets/Buttons/settings-btn.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "CelestialDawn",
+      "path": "LifeBoard/Assets.xcassets/CelestialAtmospheres/CelestialDawn.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "CelestialDawnBackground",
+      "path": "LifeBoard/Assets.xcassets/CelestialAtmospheres/CelestialDawnBackground.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "CelestialGoldenHour",
+      "path": "LifeBoard/Assets.xcassets/CelestialAtmospheres/CelestialGoldenHour.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "CelestialGoldenHourBackground",
+      "path": "LifeBoard/Assets.xcassets/CelestialAtmospheres/CelestialGoldenHourBackground.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "CelestialMidday",
+      "path": "LifeBoard/Assets.xcassets/CelestialAtmospheres/CelestialMidday.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "CelestialMiddayBackground",
+      "path": "LifeBoard/Assets.xcassets/CelestialAtmospheres/CelestialMiddayBackground.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "CelestialMorning",
+      "path": "LifeBoard/Assets.xcassets/CelestialAtmospheres/CelestialMorning.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "CelestialMorningBackground",
+      "path": "LifeBoard/Assets.xcassets/CelestialAtmospheres/CelestialMorningBackground.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "CelestialNight",
+      "path": "LifeBoard/Assets.xcassets/CelestialAtmospheres/CelestialNight.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "CelestialNightBackground",
+      "path": "LifeBoard/Assets.xcassets/CelestialAtmospheres/CelestialNightBackground.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "CelestialTwilight",
+      "path": "LifeBoard/Assets.xcassets/CelestialAtmospheres/CelestialTwilight.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "CelestialTwilightBackground",
+      "path": "LifeBoard/Assets.xcassets/CelestialAtmospheres/CelestialTwilightBackground.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_calendar",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_calendar.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_celebration",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_celebration.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_clipboard",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_clipboard.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_excited",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_excited.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_focused",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_focused.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_idea",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_idea.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_meditate",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_meditate.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_neutral",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_neutral.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_peek",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_peek.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_pencil",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_pencil.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_point_left",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_point_left.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_point_right",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_point_right.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_running",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_running.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_sitting",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_sitting.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_sleepy",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_sleepy.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_surprised",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_surprised.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_thinking",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_thinking.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "eva_worried",
+      "path": "LifeBoard/Assets.xcassets/EvaMascot/eva_worried.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "Angry_Large",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Angry_Large.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Angry_Mini",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Angry_Mini.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Angry_face",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Angry_face.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Anxious_Large",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Anxious_Large.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Anxious_Mini",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Anxious_Mini.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Anxious_face",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Anxious_face.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Calm_Large",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Calm_Large.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Calm_Mini",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Calm_Mini.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Calm_face",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Calm_face.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Difficult_Glow",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Difficult_Glow.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Excited_Large",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Excited_Large.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Excited_Mini",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Excited_Mini.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Excited_face",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Excited_face.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Grateful_Large",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Grateful_Large.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Grateful_Mini",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Grateful_Mini.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Grateful_face",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Grateful_face.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Happy_Large",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Happy_Large.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Happy_Mini",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Happy_Mini.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Happy_face",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Happy_face.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Neutral_Glow",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Neutral_Glow.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Neutral_face",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Neutral_face.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "NoMood_Neutral_Large",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/NoMood_Neutral_Large.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "NoMood_Neutral_Mini",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/NoMood_Neutral_Mini.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Positive_Glow",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Positive_Glow.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Sad_Large",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Sad_Large.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Sad_Mini",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Sad_Mini.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Sad_face",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Sad_face.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Sleepy_face",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Sleepy_face.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Tired_Large",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Tired_Large.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "Tired_Mini",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardJournal/Moods/Tired_Mini.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "LifeBoardLogo",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardLogo.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "LifeBoardSplashIcon",
+      "path": "LifeBoard/Assets.xcassets/LifeBoardSplashIcon.imageset",
+      "status": "protected",
+      "referenced": true,
+      "protected": true
+    },
+    {
+      "name": "backdropFrontImage",
+      "path": "LifeBoard/Assets.xcassets/Material_Icons/materialBackDrop/backdropFrontImage.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "material_add_White",
+      "path": "LifeBoard/Assets.xcassets/Material_Icons/material_add_White.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "material_close",
+      "path": "LifeBoard/Assets.xcassets/Material_Icons/material_close.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "material_day_White",
+      "path": "LifeBoard/Assets.xcassets/Material_Icons/material_day_White.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "material_done_White",
+      "path": "LifeBoard/Assets.xcassets/Material_Icons/material_done_White.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "material_evening_White",
+      "path": "LifeBoard/Assets.xcassets/Material_Icons/material_evening_White.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "rescue_decor_cup",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/rescue_decor_cup.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "rescue_decor_moonrise",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/rescue_decor_moonrise.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "rescue_decor_plant",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/rescue_decor_plant.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "rescue_decor_shield",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/rescue_decor_shield.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "rescue_decor_sparkles",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/rescue_decor_sparkles.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "rescue_decor_sunrise",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/rescue_decor_sunrise.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "sunrise_decor_cloud",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/sunrise_decor_cloud.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "sunrise_decor_decision_sign",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/sunrise_decor_decision_sign.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "sunrise_decor_growth_plant",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/sunrise_decor_growth_plant.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "sunrise_decor_happy_sun",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/sunrise_decor_happy_sun.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "sunrise_decor_mountain",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/sunrise_decor_mountain.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "sunrise_decor_subtle_leaf",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/sunrise_decor_subtle_leaf.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "sunrise_decor_thinking_cup",
+      "path": "LifeBoard/Assets.xcassets/SunriseDecor/sunrise_decor_thinking_cup.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "at-12x12",
+      "path": "LifeBoard/Assets.xcassets/TableViewCell/at-12x12.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "excelIcon",
+      "path": "LifeBoard/Assets.xcassets/TableViewCell/excelIcon.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "shared-12x12",
+      "path": "LifeBoard/Assets.xcassets/TableViewCell/shared-12x12.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "success-12x12",
+      "path": "LifeBoard/Assets.xcassets/TableViewCell/success-12x12.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "TaskCard01",
+      "path": "LifeBoard/Assets.xcassets/TaskCard01.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "TaskCard02",
+      "path": "LifeBoard/Assets.xcassets/TaskCard02.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "TaskCard03",
+      "path": "LifeBoard/Assets.xcassets/TaskCard03.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "TaskCard04",
+      "path": "LifeBoard/Assets.xcassets/TaskCard04.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "TaskCard05",
+      "path": "LifeBoard/Assets.xcassets/TaskCard05.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "TaskCard06",
+      "path": "LifeBoard/Assets.xcassets/TaskCard06.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "routine_evening_strip",
+      "path": "LifeBoard/Assets.xcassets/routine_evening_strip.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    },
+    {
+      "name": "routine_morning_strip",
+      "path": "LifeBoard/Assets.xcassets/routine_morning_strip.imageset",
+      "status": "referenced",
+      "referenced": true,
+      "protected": false
+    }
+  ]
+}

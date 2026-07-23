@@ -101,6 +101,6 @@ struct DailyRitualsCard: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(LifeBoardAnimation.gentle, value: isEnabled.wrappedValue)
+        .animation(LifeBoardAnimation.heroReveal, value: isEnabled.wrappedValue)
     }
 }

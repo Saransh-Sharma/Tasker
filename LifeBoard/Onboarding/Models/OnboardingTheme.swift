@@ -39,4 +39,5 @@ enum OnboardingTheme {
     static let onMediaTextPrimary = Color.white.opacity(0.96)
     static let onMediaTextSecondary = Color.white.opacity(0.76)
     static let onMediaBorder = Color.white.opacity(0.24)
+    static let mediaScrim = Color.black
 }

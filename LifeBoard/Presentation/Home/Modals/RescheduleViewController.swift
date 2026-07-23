@@ -42,7 +42,7 @@ final class RescheduleViewController: UIViewController {
         )
         navigationItem.rightBarButtonItem = UIBarButtonItem(
             title: "Save",
-            style: .done,
+            style: .prominent,
             target: self,
             action: #selector(saveTapped)
         )

@@ -89,7 +89,11 @@ struct LifeBoardSearchHeaderView: View {
         .background {
             RoundedRectangle(cornerRadius: LifeBoardSearchChromeStyle.headerCornerRadius, style: .continuous)
                 .fill(LBColorTokens.glassStrong.opacity(0.82))
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: LifeBoardSearchChromeStyle.headerCornerRadius, style: .continuous))
+                .lifeBoardSystemGlass(
+                    .regular,
+                    in: RoundedRectangle(cornerRadius: LifeBoardSearchChromeStyle.headerCornerRadius, style: .continuous),
+                    interactive: true
+                )
                 .overlay {
                     RoundedRectangle(cornerRadius: LifeBoardSearchChromeStyle.headerCornerRadius, style: .continuous)
                         .stroke(isFocused ? LBColorTokens.violet.opacity(0.82) : LBColorTokens.hairline.opacity(0.38), lineWidth: isFocused ? 1.5 : 1)

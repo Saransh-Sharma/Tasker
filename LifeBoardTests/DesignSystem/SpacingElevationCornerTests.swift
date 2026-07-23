@@ -73,15 +73,17 @@ final class SpacingElevationCornerTests: XCTestCase {
     }
 
     @MainActor
-    func testLayoutResolverFallsBackToWindowMetricsWhenViewWidthIsZero() {
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 900, height: 700))
+    func testLayoutResolverFallsBackToWindowMetricsWhenViewWidthIsZero() throws {
+        let windowScene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: windowScene)
         let view = UIView(frame: .zero)
         window.addSubview(view)
         window.layoutIfNeeded()
 
         let metrics = LifeBoardLayoutResolver.metrics(for: view)
-        XCTAssertEqual(metrics.width, 900, accuracy: 0.1)
-        XCTAssertEqual(metrics.height, 700, accuracy: 0.1)
+        let sceneSize = windowScene.effectiveGeometry.coordinateSpace.bounds.size
+        XCTAssertEqual(metrics.width, sceneSize.width, accuracy: 0.1)
+        XCTAssertEqual(metrics.height, sceneSize.height, accuracy: 0.1)
     }
 
     func testPhoneLayoutTokensMatchLegacyThemeTokens() {

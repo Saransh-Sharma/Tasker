@@ -1,5 +1,7 @@
 # Calendar + Timeline Risk Register
 
+> **Classification: Reference.** This register preserves feature risk detail. Current release gates are tracked only in the [active ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+
 ## Permission Risk
 
 Risk:

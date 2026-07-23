@@ -151,7 +151,7 @@ struct SunriseReflectPlanScreen: View {
                     LifeBoardFeedback.selection()
                     guard isExpanded else { return }
                     DispatchQueue.main.async {
-                        withAnimation(reduceMotion ? nil : LifeBoardAnimation.snappy) {
+                        withAnimation(reduceMotion ? nil : LifeBoardAnimation.stateChange) {
                             proxy.scrollTo("addContext", anchor: .bottom)
                         }
                     }

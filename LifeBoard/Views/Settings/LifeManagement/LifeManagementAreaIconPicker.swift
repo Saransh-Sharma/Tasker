@@ -20,7 +20,7 @@ struct LifeManagementAreaIconPicker: View {
                     title: option.keywords.first?.capitalized ?? option.symbolName,
                     isSelected: selectedSymbolName == option.symbolName
                 ) {
-                    withAnimation(LifeBoardAnimation.snappy) {
+                    withAnimation(LifeBoardAnimation.stateChange) {
                         selectedSymbolName = option.symbolName
                     }
                 }

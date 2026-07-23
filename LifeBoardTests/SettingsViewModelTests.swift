@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class SettingsViewModelTests: XCTestCase {
-    private var suiteName: String!
+    nonisolated(unsafe) private var suiteName: String!
 
     override func setUp() {
         super.setUp()
@@ -97,20 +97,20 @@ final class SettingsViewModelTests: XCTestCase {
         draft.setTime(time(hour: 5, minute: 45), for: .wake)
         draft.setTime(time(hour: 8, minute: 0), for: .wake)
 
-        var notificationCount = 0
+        let notificationCount = LockedTestState(0)
         let observer = NotificationCenter.default.addObserver(
             forName: LifeBoardWorkspacePreferencesStore.didChangeNotification,
             object: nil,
             queue: .main
         ) { _ in
-            notificationCount += 1
+            notificationCount.withValue { $0 += 1 }
         }
         defer { NotificationCenter.default.removeObserver(observer) }
 
         draft.commitIfNeeded(for: .wake, to: workspaceStore)
         waitForMainQueue(seconds: 0.05)
 
-        XCTAssertEqual(notificationCount, 0)
+        XCTAssertEqual(notificationCount.read(), 0)
         XCTAssertEqual(workspaceStore.load().timelineRiseAndShineHour, 8)
         XCTAssertEqual(workspaceStore.load().timelineRiseAndShineMinute, 0)
     }
@@ -136,13 +136,13 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(workspaceStore.load().timelineRiseAndShineHour, 8)
         XCTAssertEqual(workspaceStore.load().timelineWindDownHour, 22)
 
-        var notificationCount = 0
+        let notificationCount = LockedTestState(0)
         let observer = NotificationCenter.default.addObserver(
             forName: LifeBoardWorkspacePreferencesStore.didChangeNotification,
             object: nil,
             queue: .main
         ) { _ in
-            notificationCount += 1
+            notificationCount.withValue { $0 += 1 }
         }
         defer { NotificationCenter.default.removeObserver(observer) }
 
@@ -150,7 +150,7 @@ final class SettingsViewModelTests: XCTestCase {
         waitForMainQueue(seconds: 0.05)
 
         let loaded = workspaceStore.load()
-        XCTAssertEqual(notificationCount, 1)
+        XCTAssertEqual(notificationCount.read(), 1)
         XCTAssertEqual(loaded.timelineRiseAndShineHour, 6)
         XCTAssertEqual(loaded.timelineRiseAndShineMinute, 20)
         XCTAssertEqual(loaded.timelineWindDownHour, 23)

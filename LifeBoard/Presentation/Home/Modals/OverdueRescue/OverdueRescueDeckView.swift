@@ -16,6 +16,7 @@ struct OverdueRescueDeckView: View {
     @GestureState var dragTranslation: CGSize = .zero
     @State var commitOffset: CGSize = .zero
     @State var viewportSize: CGSize = CGSize(width: 390, height: 844)
+    @State private var snapCandidate: OverdueRescueDecisionAction?
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) var voiceOverEnabled
     @Environment(\.dynamicTypeSize) var dynamicTypeSize
@@ -55,22 +56,25 @@ struct OverdueRescueDeckView: View {
                     OverdueRescueRevealPanel(
                         reveal: drag.reveal,
                         progress: drag.progress,
-                        metrics: metrics
+                        metrics: metrics,
+                        keepTitle: viewModel.keepActionTitle
                     )
 
                     OverdueRescueTaskCard(card: card)
                         .frame(width: metrics.cardWidth, height: metrics.cardHeight)
                         .offset(activeCardOffset(metrics: metrics))
                         .rotationEffect(.degrees(reduceMotion ? 0 : drag.tiltDegrees))
-                        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: card.id)
+                        .scaleEffect(reduceMotion || drag.reveal == .none ? 1 : 1.012)
+                        .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: card.id)
+                        .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: drag.reveal)
                         .gesture(cardGesture(metrics: metrics), including: voiceOverEnabled ? .subviews : .all)
                 }
                 .frame(maxWidth: .infinity)
                 .frame(width: min(metrics.containerSize.width + 34, metrics.cardWidth + 64), height: metrics.deckHeight)
                 .accessibilityElement(children: .combine)
-                .accessibilityLabel("Rescue. Card \(viewModel.progressText). \(card.task.title). \(card.confidenceLabel). \(card.overdueText). Actions: Keep today, \(card.moveButtonTitle), Edit, Delete.")
+                .accessibilityLabel("Rescue. Card \(viewModel.progressText). \(card.task.title). \(card.confidenceLabel). \(card.overdueText). Actions: \(viewModel.keepActionTitle), \(card.moveButtonTitle), Edit, Delete.")
                 .accessibilityIdentifier("home.rescue.card.\(card.id.uuidString)")
-                .accessibilityAction(named: Text("Keep today")) {
+                .accessibilityAction(named: Text(viewModel.keepActionTitle)) {
                     viewModel.keepToday(source: .tap)
                 }
                 .accessibilityAction(named: Text(card.moveButtonTitle)) {
@@ -88,11 +92,14 @@ struct OverdueRescueDeckView: View {
 
                 OverdueRescueActionGrid(
                     metrics: metrics,
+                    keepTitle: viewModel.keepActionTitle,
+                    keepAccessibilityHint: viewModel.keepActionAccessibilityHint,
                     keep: { viewModel.keepToday(source: .tap) },
                     move: { viewModel.moveLater(source: .tap) },
                     edit: viewModel.requestEdit,
                     delete: viewModel.requestDelete
                 )
+                .disabled(viewModel.isDecisionInFlight)
                 .frame(width: metrics.contentWidth)
                 .padding(.top, metrics.dynamicTypeIsExpanded ? 12 : (metrics.isCompactHeight ? 12 : 16))
             } else {
@@ -119,9 +126,11 @@ struct OverdueRescueDeckView: View {
                 .font(.system(size: 24, weight: .semibold))
                 .foregroundStyle(OverdueRescuePalette.ink)
                 .frame(width: OverdueRescueVisualSpec.topButtonSize, height: OverdueRescueVisualSpec.topButtonSize)
-                .background(Circle().fill(OverdueRescuePalette.glassFill))
-                .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
+                .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
+                .lifeboardElevation(.e1, cornerRadius: OverdueRescueVisualSpec.topButtonSize / 2, includesBorder: false)
                 .accessibilityLabel("Close rescue")
+                .accessibilityIdentifier("home.rescue.close")
+                .disabled(viewModel.isDecisionInFlight)
 
                 Spacer()
 
@@ -142,8 +151,8 @@ struct OverdueRescueDeckView: View {
                         .font(.system(size: 24, weight: .semibold))
                         .foregroundStyle(OverdueRescuePalette.ink)
                         .frame(width: OverdueRescueVisualSpec.topButtonSize, height: OverdueRescueVisualSpec.topButtonSize)
-                        .background(Circle().fill(OverdueRescuePalette.glassFill))
-                        .shadow(color: OverdueRescuePalette.softShadow.opacity(0.7), radius: 14, y: 8)
+                        .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
+                        .lifeboardElevation(.e1, cornerRadius: OverdueRescueVisualSpec.topButtonSize / 2, includesBorder: false)
                 }
                     .accessibilityLabel("More rescue actions")
             }
@@ -178,11 +187,25 @@ struct OverdueRescueDeckView: View {
             .updating($dragTranslation) { value, state, _ in
                 state = value.translation
             }
+            .onChanged { value in
+                let candidate = OverdueRescueDragResolver.commitAction(
+                    for: value.translation,
+                    predictedEndTranslation: value.predictedEndTranslation,
+                    cardWidth: metrics.cardWidth
+                )
+                if candidate != nil, snapCandidate == nil {
+                    LifeBoardFeedback.selection()
+                }
+                snapCandidate = candidate
+            }
             .onEnded { value in
+                snapCandidate = nil
                 if let action = OverdueRescueDragResolver.commitAction(
                     for: value.translation,
+                    predictedEndTranslation: value.predictedEndTranslation,
                     cardWidth: metrics.cardWidth
                 ) {
+                    LifeBoardFeedback.medium()
                     commitDrag(action, metrics: metrics)
                 } else {
                     withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.stateChange) {

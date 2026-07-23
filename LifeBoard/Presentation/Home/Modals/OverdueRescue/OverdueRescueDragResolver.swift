@@ -10,6 +10,7 @@ import UIKit
 
 enum OverdueRescueDragResolver {
     static let horizontalDominanceRatio: CGFloat = 1.15
+    static let minimumIntentDistance: CGFloat = 24
 
     static func commitThreshold(cardWidth: CGFloat) -> CGFloat {
         max(96, cardWidth * 0.28)
@@ -48,8 +49,22 @@ enum OverdueRescueDragResolver {
     }
 
     static func commitAction(for translation: CGSize, cardWidth: CGFloat) -> OverdueRescueDecisionAction? {
-        let reveal = revealKind(for: translation)
-        guard reveal != .none, abs(translation.width) >= commitThreshold(cardWidth: cardWidth) else {
+        commitAction(
+            for: translation,
+            predictedEndTranslation: translation,
+            cardWidth: cardWidth
+        )
+    }
+
+    static func commitAction(
+        for translation: CGSize,
+        predictedEndTranslation: CGSize,
+        cardWidth: CGFloat
+    ) -> OverdueRescueDecisionAction? {
+        guard abs(translation.width) >= minimumIntentDistance else { return nil }
+        let reveal = revealKind(for: predictedEndTranslation)
+        guard reveal != .none,
+              abs(predictedEndTranslation.width) >= commitThreshold(cardWidth: cardWidth) else {
             return nil
         }
         return reveal == .keep ? .keepToday : .moveLater

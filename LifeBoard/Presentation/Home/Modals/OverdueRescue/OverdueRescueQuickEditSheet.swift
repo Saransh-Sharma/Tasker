@@ -164,7 +164,7 @@ struct OverdueRescueQuickEditSheet: View {
             }
             .font(.lifeboard(.button))
             .fontWeight(.bold)
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.lifeboard(.accentOnPrimary))
             .frame(maxWidth: .infinity, minHeight: 68)
             .background(OverdueRescueVisualSpec.primaryButtonBackground())
             .buttonStyle(.plain)

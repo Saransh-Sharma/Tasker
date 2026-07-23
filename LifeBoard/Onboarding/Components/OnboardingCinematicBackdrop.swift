@@ -128,7 +128,7 @@ struct OnboardingCinematicBackdrop: View {
                 .ignoresSafeArea()
 
             Rectangle()
-                .fill(Color.black.opacity(mode.dimOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast)))
+                .fill(OnboardingTheme.mediaScrim.opacity(mode.dimOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast)))
                 .ignoresSafeArea()
 
             Rectangle()
@@ -147,14 +147,14 @@ struct OnboardingCinematicBackdrop: View {
             }
 
             Rectangle()
-                .fill(Color.black.opacity(mode.materialDimmingOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast)))
+                .fill(OnboardingTheme.mediaScrim.opacity(mode.materialDimmingOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast)))
                 .ignoresSafeArea()
 
             LinearGradient(
                 colors: [
-                    Color.black.opacity(mode.topGradientOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast)),
+                    OnboardingTheme.mediaScrim.opacity(mode.topGradientOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast)),
                     Color.clear,
-                    Color.black.opacity(mode.bottomGradientOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast))
+                    OnboardingTheme.mediaScrim.opacity(mode.bottomGradientOpacity(colorScheme: colorScheme, colorSchemeContrast: colorSchemeContrast))
                 ],
                 startPoint: .top,
                 endPoint: .bottom

@@ -25,7 +25,7 @@ struct TimelineCompactAnchorRow: View {
                     .frame(width: 10, height: 10)
                     .overlay {
                         Circle()
-                            .stroke(Color.white.opacity(0.72), lineWidth: 2)
+                            .stroke(LBColorTokens.whiteStroke.opacity(0.72), lineWidth: 2)
                     }
                     .frame(width: metrics.compactLaneWidth)
                     .accessibilityHidden(true)

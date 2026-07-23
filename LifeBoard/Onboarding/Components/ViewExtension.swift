@@ -38,7 +38,7 @@ extension View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(OnboardingTheme.borderSoft.opacity(0.95), lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(0.05), radius: 18, y: 8)
+            .shadow(color: LBColorTokens.elevationShadow.opacity(0.5), radius: 18, y: 8)
     }
 
     func onboardingGlassPanel(cornerRadius: CGFloat, shadowOpacity: Double = 0.06) -> some View {
@@ -47,7 +47,7 @@ extension View {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
             )
-            .shadow(color: Color.black.opacity(shadowOpacity), radius: 14, y: 6)
+            .shadow(color: LBColorTokens.elevationShadow.opacity(shadowOpacity * 10), radius: 14, y: 6)
     }
 
     func onboardingPrimaryButton(disabled: Bool = false) -> some View {

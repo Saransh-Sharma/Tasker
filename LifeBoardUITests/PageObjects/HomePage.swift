@@ -1061,6 +1061,7 @@ class HomePage {
         let datePicker = app.otherElements[AccessibilityIdentifiers.Home.datePicker]
 
         if datePicker.waitForExistence(timeout: 2) {
+            let previousHeaderValue = headerDateLabel.value as? String ?? headerDateLabel.label
             // FSCalendar in week mode - use coordinate-based tapping
             let calendar = Calendar.current
             let dayOfWeek = calendar.component(.weekday, from: date) // 1=Sunday, 7=Saturday
@@ -1079,8 +1080,14 @@ class HomePage {
                 .withOffset(CGVector(dx: xOffset, dy: yOffset))
             tapCoordinate.tap()
 
-            // Wait for view to update
-            Thread.sleep(forTimeInterval: 0.5)
+            let updated = XCTNSPredicateExpectation(
+                predicate: NSPredicate { _, _ in
+                    let current = self.headerDateLabel.value as? String ?? self.headerDateLabel.label
+                    return self.headerDateLabel.exists && current != previousHeaderValue
+                },
+                object: NSObject()
+            )
+            _ = XCTWaiter.wait(for: [updated], timeout: 2)
 
             print("📅 Navigated home view to: \(date)")
         } else {

@@ -75,19 +75,15 @@ extension ChatComposerView {
             }
         }
         .padding(.vertical, LifeBoardTheme.Spacing.xs)
-        .lifeboardPremiumSurface(
-            cornerRadius: 28,
-            fillColor: EvaChatSunriseGlass.glassFill,
-            strokeColor: isPromptFocused ? EvaChatSunriseGlass.primary.opacity(0.42) : EvaChatSunriseGlass.glassBorder,
-            accentColor: EvaChatSunriseGlass.primary,
-            level: isPromptFocused ? .e3 : .e2
-        )
-        .shadow(
-            color: isPromptFocused ? EvaChatSunriseGlass.primary.opacity(0.14) : EvaChatSunriseGlass.navy.opacity(0.04),
-            radius: isPromptFocused ? 12 : 5,
-            y: isPromptFocused ? 4 : 2
-        )
-        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isPromptFocused)
+        .lifeBoardGlassSurface(cornerRadius: 28, interactive: true)
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(
+                    isPromptFocused ? EvaChatSunriseGlass.primary.opacity(0.42) : EvaChatSunriseGlass.glassBorder,
+                    lineWidth: isPromptFocused ? 1.5 : 1
+                )
+        }
+        .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isPromptFocused)
         .accessibilityIdentifier("eva.structured.composer")
         .contentShape(Rectangle())
         .onTapGesture {
@@ -101,7 +97,7 @@ extension ChatComposerView {
         } label: {
             Image(systemName: systemName)
                 .font(.system(size: 22, weight: .semibold))
-                .foregroundStyle(Color.lifeboard(.accentPrimary).opacity(0.82))
+                .foregroundStyle(Color.lifeboard(.link, on: .dockChrome))
                 .frame(width: 36, height: 44)
                 .padding(.bottom, 4)
         }
@@ -138,7 +134,7 @@ extension ChatComposerView {
                             Capsule()
                                 .stroke(prompt.isRecommended ? EvaChatSunriseGlass.primary : EvaChatSunriseGlass.assistantBorder, lineWidth: 1)
                         )
-                        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+                        .lifeboardPressFeedback()
                         .enhancedStaggeredAppearance(index: index)
                     }
                 } else {
@@ -164,7 +160,7 @@ extension ChatComposerView {
                         Capsule()
                             .stroke(EvaChatSunriseGlass.primary, lineWidth: 1)
                     )
-                    .lifeboardPressFeedback(reduceMotion: reduceMotion)
+                    .lifeboardPressFeedback()
 
                     ForEach(commandSuggestions, id: \.id) { descriptor in
                         Button {
@@ -185,7 +181,7 @@ extension ChatComposerView {
                         .buttonStyle(.plain)
                         .accessibilityLabel("Insert \(descriptor.command)")
                         .accessibilityIdentifier("chat.command_composer_suggestion.\(descriptor.id.rawValue)")
-                        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+                        .lifeboardPressFeedback()
                     }
                 }
             }
@@ -273,7 +269,7 @@ extension ChatComposerView {
         .accessibilityLabel("Commands")
         .accessibilityHint("Open slash commands")
         .accessibilityIdentifier("chat.slash_button")
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
     }
 
     @ViewBuilder
@@ -365,11 +361,11 @@ extension ChatComposerView {
             .padding(.trailing, LifeBoardTheme.Spacing.sm)
             .padding(.bottom, LifeBoardTheme.Spacing.sm)
         #endif
-        .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.quick, value: canSubmit)
+        .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.feedbackFast, value: canSubmit)
         #if os(macOS) || os(visionOS)
         .buttonStyle(.plain)
         #endif
-        .lifeboardPressFeedback(reduceMotion: LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion))
+        .lifeboardPressFeedback()
     }
 
     var stopButton: some View {
@@ -399,6 +395,6 @@ extension ChatComposerView {
         #if os(macOS) || os(visionOS)
         .buttonStyle(.plain)
         #endif
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
     }
 }

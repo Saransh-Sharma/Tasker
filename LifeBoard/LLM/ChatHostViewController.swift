@@ -958,7 +958,7 @@ private struct SunriseChatUnavailableSheet: View {
                         dismiss()
                     }
                     .font(.lifeboard(.body))
-                    .foregroundColor(.white)
+                    .foregroundColor(.lifeboard(.accentOnPrimary))
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .background(
                         LinearGradient(
@@ -1094,7 +1094,7 @@ struct LLMStoreUnavailableView: View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 24, weight: .semibold))
-                .foregroundColor(.orange)
+                .foregroundColor(.lifeboard(.statusWarning))
             Text("Assistant storage unavailable")
                 .font(.headline)
                 .foregroundColor(.lifeboard(.textPrimary))

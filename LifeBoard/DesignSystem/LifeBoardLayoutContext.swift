@@ -29,7 +29,7 @@ public struct LifeBoardLayoutContext: Sendable {
                 )
             )
         }
-        let bounds = windowScene.coordinateSpace.bounds
+        let bounds = windowScene.effectiveGeometry.coordinateSpace.bounds
         let metrics = LifeBoardLayoutMetrics(
             width: bounds.width,
             height: bounds.height,

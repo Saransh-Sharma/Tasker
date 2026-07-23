@@ -1,5 +1,7 @@
 # Concentric Onboarding Redesign TODO
 
+> **Classification: Historical implementation plan.** Current onboarding behavior is defined in the [product handbook](../product/ONBOARDING_SETTINGS_AND_RECOVERY.md).
+
 - [x] Preserve the existing 14-step onboarding state machine and product journey.
 - [x] Add LifeBoard-owned concentric transition primitives instead of a third-party dependency.
 - [x] Keep the dimmed running onboarding video behind the redesigned screens.

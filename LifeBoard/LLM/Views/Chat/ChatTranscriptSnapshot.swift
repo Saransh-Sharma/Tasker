@@ -24,13 +24,13 @@ enum ChatPendingResponseStatusText {
             case .idle:
                 return nil
             case .buildingContext:
-                return "Looking at your tasks and goals..."
+                return "Gathering the tasks and goals you permitted..."
             case .assemblingPrompt:
-                return "Building your first plan..."
+                return "Preparing your first planning request..."
             case .preparingModel:
                 return "Getting \(AssistantIdentityText.currentSnapshot().displayName) ready..."
             case .generating:
-                return "Writing your recommendation..."
+                return "Drafting your recommendation..."
             }
         }
 
@@ -38,13 +38,13 @@ enum ChatPendingResponseStatusText {
         case .idle:
             return nil
         case .buildingContext:
-            return "Checking the forecast..."
+            return "Gathering the context you permitted..."
         case .assemblingPrompt:
-            return "Sorting your timeline..."
+            return "Preparing your request..."
         case .preparingModel:
-            return "Getting the model ready..."
+            return "Getting Eva ready..."
         case .generating:
-            return "Protecting routines..."
+            return "Drafting a response..."
         }
     }
 }

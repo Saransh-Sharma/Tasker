@@ -954,14 +954,14 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         XCTAssertFalse(legacyFields.contains("lastHistoryRollDate"))
     }
 
-    func testTaskModelCurrentVersionPointsToTaskIconsSourceModel() throws {
+    func testTaskModelCurrentVersionPointsToTrackFoundationsSourceModel() throws {
         let currentVersionFile = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
             .appendingPathComponent("LifeBoard/TaskModelV3.xcdatamodeld/.xccurrentversion")
         let contents = try String(contentsOf: currentVersionFile, encoding: .utf8)
 
-        XCTAssertTrue(contents.contains("TaskModelV3_TaskIcons.xcdatamodel"))
+        XCTAssertTrue(contents.contains("TaskModelV3_TrackFoundations.xcdatamodel"))
     }
 
     func testCoreDataNeedsReplanCandidatesFiltersRepeatPatternDataWithoutUnknownKeypathCrash() throws {
@@ -986,8 +986,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         let completedID = UUID()
         let repeatPatternData = try JSONEncoder().encode(TaskRepeatPattern.daily)
 
-        var seedError: Error?
-        container.viewContext.performAndWait {
+        try container.viewContext.performAndWait {
             func insertTask(
                 id: UUID,
                 title: String,
@@ -1021,14 +1020,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
             insertTask(id: habitID, title: "Habit", habitDefinitionID: UUID())
             insertTask(id: completedID, title: "Completed", isComplete: true)
 
-            do {
-                try container.viewContext.save()
-            } catch {
-                seedError = error
-            }
-        }
-        if let seedError {
-            throw seedError
+            try container.viewContext.save()
         }
 
         let projection = try awaitResult { completion in
@@ -1671,16 +1663,23 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         let cloudURL = appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.cloudStoreFileName)
         let localURL = appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.localStoreFileName)
 
-        let incompatibleCloud = try makeContainer(
+        let incompatibleModel = try XCTUnwrap(currentModel.copy() as? NSManagedObjectModel)
+        let incompatibleTitle = try XCTUnwrap(
+            incompatibleModel.entitiesByName["TaskDefinition"]?.attributesByName["title"]
+        )
+        incompatibleTitle.attributeType = .integer64AttributeType
+
+        let incompatibleCloud = try makeConfiguredContainer(
             name: "TaskModelV3",
-            model: currentModel,
+            model: incompatibleModel,
             storeType: NSSQLiteStoreType,
-            url: cloudURL
+            url: cloudURL,
+            configuration: "CloudSync"
         )
         incompatibleCloud.viewContext.performAndWait {
             let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: incompatibleCloud.viewContext)
             task.setValue(UUID(), forKey: "id")
-            task.setValue("Wrong topology", forKey: "title")
+            task.setValue(Int64(7), forKey: "title")
             task.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "createdAt")
             task.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "updatedAt")
             try? incompatibleCloud.viewContext.save()
@@ -1718,7 +1717,6 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
 
         XCTAssertEqual(result.syncMode, .fullSync)
         let rebuiltTaskRequest = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
-        rebuiltTaskRequest.predicate = NSPredicate(format: "title == %@", "Wrong topology")
         XCTAssertEqual(try container.viewContext.count(for: rebuiltTaskRequest), 0)
         let profileRequest = NSFetchRequest<NSManagedObject>(entityName: "GamificationProfile")
         XCTAssertEqual(try container.viewContext.count(for: profileRequest), 1)
@@ -3326,8 +3324,7 @@ final class DeterministicFetchTests: XCTestCase {
         let projectID = UUID()
         let now = Date()
 
-        var seedError: Error?
-        context.performAndWait {
+        try context.performAndWait {
             Self.seedTaskDefinitionRow(
                 in: context,
                 rowID: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
@@ -3344,14 +3341,7 @@ final class DeterministicFetchTests: XCTestCase {
                 title: "Duplicate Beta",
                 createdAt: now.addingTimeInterval(1)
             )
-            do {
-                try context.save()
-            } catch {
-                seedError = error
-            }
-        }
-        if let seedError {
-            throw seedError
+            try context.save()
         }
 
         let first = try awaitResult { completion in
@@ -3373,8 +3363,7 @@ final class DeterministicFetchTests: XCTestCase {
         let projectID = UUID()
         let now = Date()
 
-        var seedError: Error?
-        context.performAndWait {
+        try context.performAndWait {
             Self.seedTaskDefinitionRow(
                 in: context,
                 rowID: UUID(uuidString: "00000000-0000-0000-0000-000000000101")!,
@@ -3383,14 +3372,7 @@ final class DeterministicFetchTests: XCTestCase {
                 title: "No Legacy Compatibility Keys",
                 createdAt: now
             )
-            do {
-                try context.save()
-            } catch {
-                seedError = error
-            }
-        }
-        if let seedError {
-            throw seedError
+            try context.save()
         }
 
         let fetched = try awaitResult { completion in
@@ -3422,9 +3404,8 @@ final class DeterministicFetchTests: XCTestCase {
         let container = try makeInMemoryV2Container()
         let context = container.viewContext
 
-        var taskObject: TaskDefinitionEntity?
-        context.performAndWait {
-            taskObject = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context) as? TaskDefinitionEntity
+        let taskObject: TaskDefinitionEntity? = context.performAndWait {
+            NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context) as? TaskDefinitionEntity
         }
 
         guard let taskObject else {
@@ -3446,9 +3427,8 @@ final class DeterministicFetchTests: XCTestCase {
         let container = try makeInMemoryV2Container()
         let context = container.viewContext
 
-        var taskObject: TaskDefinitionEntity?
-        context.performAndWait {
-            taskObject = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context) as? TaskDefinitionEntity
+        let taskObject: TaskDefinitionEntity? = context.performAndWait {
+            NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context) as? TaskDefinitionEntity
         }
 
         guard let taskObject else {
@@ -3467,9 +3447,8 @@ final class DeterministicFetchTests: XCTestCase {
         let container = try makeInMemoryV2Container()
         let context = container.viewContext
 
-        var projectObject: ProjectEntity?
-        context.performAndWait {
-            projectObject = NSEntityDescription.insertNewObject(forEntityName: "Project", into: context) as? ProjectEntity
+        let projectObject: ProjectEntity? = context.performAndWait {
+            NSEntityDescription.insertNewObject(forEntityName: "Project", into: context) as? ProjectEntity
         }
 
         guard let projectObject else {
@@ -3491,8 +3470,7 @@ final class DeterministicFetchTests: XCTestCase {
         let provider = "apple_reminders"
         let projectID = UUID()
 
-        var seedError: Error?
-        context.performAndWait {
+        try context.performAndWait {
             let first = NSEntityDescription.insertNewObject(forEntityName: "ExternalContainerMap", into: context)
             first.setValue(UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, forKey: "id")
             first.setValue(provider, forKey: "provider")
@@ -3509,14 +3487,7 @@ final class DeterministicFetchTests: XCTestCase {
             second.setValue(true, forKey: "syncEnabled")
             second.setValue(Date(), forKey: "createdAt")
 
-            do {
-                try context.save()
-            } catch {
-                seedError = error
-            }
-        }
-        if let seedError {
-            throw seedError
+            try context.save()
         }
 
         let firstRead = try awaitResult { completion in
@@ -3657,11 +3628,11 @@ final class OccurrenceKeyCodecTests: XCTestCase {
 
 @MainActor
 final class FeatureFlagKillSwitchTests: XCTestCase {
-    private var originalV2Enabled = true
-    private var originalRemindersSyncEnabled = true
-    private var originalAssistantApplyEnabled = true
-    private var originalAssistantUndoEnabled = true
-    private var originalRemindersBackgroundRefreshEnabled = true
+    nonisolated(unsafe) private var originalV2Enabled = true
+    nonisolated(unsafe) private var originalRemindersSyncEnabled = true
+    nonisolated(unsafe) private var originalAssistantApplyEnabled = true
+    nonisolated(unsafe) private var originalAssistantUndoEnabled = true
+    nonisolated(unsafe) private var originalRemindersBackgroundRefreshEnabled = true
 
     override func setUp() {
         super.setUp()
@@ -3744,21 +3715,21 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
     }
 
     func testPersistentStoreDescriptionsEnableAutomaticMigrationOptions() throws {
-        let appDelegateSource = try loadWorkspaceFile("LifeBoard/AppDelegate.swift")
+        let bootstrapSource = try loadWorkspaceFile("LifeBoard/State/DI/LifeBoardPersistentStoreBootstrapService.swift")
         XCTAssertTrue(
-            appDelegateSource.contains("cloudDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)"),
+            bootstrapSource.contains("cloudDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)"),
             "Cloud store description must enable automatic migration"
         )
         XCTAssertTrue(
-            appDelegateSource.contains("cloudDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)"),
+            bootstrapSource.contains("cloudDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)"),
             "Cloud store description must enable inferred mapping migration"
         )
         XCTAssertTrue(
-            appDelegateSource.contains("localDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)"),
+            bootstrapSource.contains("localDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)"),
             "Local store description must enable automatic migration"
         )
         XCTAssertTrue(
-            appDelegateSource.contains("localDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)"),
+            bootstrapSource.contains("localDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)"),
             "Local store description must enable inferred mapping migration"
         )
     }
@@ -3773,15 +3744,17 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
             appDelegateSource.contains("gamification_startup_streak_update_failed"),
             "Startup path must log follow-up streak update failures"
         )
-        let writeSnapshotRange = appDelegateSource.range(of: "engine.writeWidgetSnapshot()")
         let updateStreakRange = appDelegateSource.range(of: "engine.updateStreak { streakResult in")
-        XCTAssertNotNil(writeSnapshotRange, "Startup path must write widget snapshot after reconciliation")
+        let writeSnapshotRange = updateStreakRange.flatMap {
+            appDelegateSource.range(of: "engine.writeWidgetSnapshot()", range: $0.lowerBound..<appDelegateSource.endIndex)
+        }
         XCTAssertNotNil(updateStreakRange, "Startup path must update streak after successful reconciliation")
+        XCTAssertNotNil(writeSnapshotRange, "Startup path must write a widget snapshot after the streak result succeeds")
         if let writeSnapshotRange, let updateStreakRange {
-            XCTAssertLessThan(
+            XCTAssertGreaterThan(
                 writeSnapshotRange.lowerBound,
                 updateStreakRange.lowerBound,
-                "Startup path must sequence writeWidgetSnapshot before updateStreak"
+                "Startup path must snapshot the reconciled streak rather than the pre-update value"
             )
         }
     }
@@ -3843,6 +3816,11 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         XCTAssertTrue(source.contains("lifeboardOpenHabitBoardDeepLink"))
         XCTAssertTrue(source.contains("lifeboardOpenHabitLibraryDeepLink"))
         XCTAssertTrue(source.contains("lifeboardOpenHabitDetailDeepLink"))
+
+        let phaseIISource = try loadWorkspaceFile("LifeBoard/Foundation/PhaseII/LifeBoardTrackAndJournalViews.swift")
+        let phaseIVSource = try loadWorkspaceFile("LifeBoard/Foundation/PhaseIV/LifeBoardTrackFoundationViews.swift")
+        XCTAssertFalse(phaseIISource.contains("NotificationCenter.default.post(name: .lifeboardOpenHabitBoardDeepLink"))
+        XCTAssertFalse(phaseIVSource.contains("NotificationCenter.default.post(name: .lifeboardOpenHabitBoardDeepLink"))
     }
 
     func testSceneDelegateRegistersWeeklyDeepLinkRoutesAndFallbackNotice() throws {
@@ -3912,12 +3890,15 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         XCTAssertFalse(source.contains("description: \"\""))
     }
 
-    func testRemoteKillSwitchMapsTaskWidgetFlags() throws {
-        let source = try loadWorkspaceFile("LifeBoard/Services/GamificationRemoteKillSwitchService.swift")
-        XCTAssertTrue(source.contains("feature_task_list_widgets_enabled"))
-        XCTAssertTrue(source.contains("feature_task_list_widgets_interactive_enabled"))
-        XCTAssertTrue(source.contains("V2FeatureFlags.taskListWidgetsEnabled"))
-        XCTAssertTrue(source.contains("V2FeatureFlags.interactiveTaskWidgetsEnabled"))
+    func testTaskWidgetKillSwitchFacadeUsesTypedLocalFlagsWithoutRemoteFetches() throws {
+        let facadeSource = try loadWorkspaceFile("LifeBoard/Services/GamificationRemoteKillSwitchService.swift")
+        let flagsSource = try loadWorkspaceFile("LifeBoard/Services/V2FeatureFlags.swift")
+
+        XCTAssertTrue(facadeSource.contains("device-local typed feature flags"))
+        XCTAssertFalse(facadeSource.contains("URLSession"))
+        XCTAssertFalse(facadeSource.contains("feature_task_list_widgets_enabled"))
+        XCTAssertTrue(flagsSource.contains("static var taskListWidgetsEnabled"))
+        XCTAssertTrue(flagsSource.contains("static var interactiveTaskWidgetsEnabled"))
     }
 
     func testWidgetTargetCompilesAgainstDesignSystemSources() throws {
@@ -5182,7 +5163,7 @@ final class TombstoneRetentionTests: XCTestCase {
 
 @MainActor
 final class CoreDataModelCompatibilityTests: XCTestCase {
-    func testFreshInstallLoadsCurrentTaskModelV3TaskIconsModel() throws {
+    func testFreshInstallLoadsCurrentTaskModelV3TrackFoundationsModel() throws {
         let model = try currentTaskModelV3Model()
         let storeURL = temporaryStoreURL(name: "fresh-current-taskmodelv3")
         defer { removeSQLiteArtifacts(at: storeURL) }
@@ -5243,10 +5224,10 @@ final class CoreDataModelCompatibilityTests: XCTestCase {
 
     private func currentTaskModelV3Model() throws -> NSManagedObjectModel {
         let momdURL = try taskModelV3MomdURL()
-        let currentURL = momdURL.appendingPathComponent("TaskModelV3_TaskIcons.mom")
+        let currentURL = momdURL.appendingPathComponent("TaskModelV3_TrackFoundations.mom")
         guard let model = NSManagedObjectModel(contentsOf: currentURL) else {
             throw NSError(domain: "CoreDataModelCompatibilityTests", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "Unable to load current TaskModelV3_TaskIcons model"
+                NSLocalizedDescriptionKey: "Unable to load current TaskModelV3_TrackFoundations model"
             ])
         }
         return model
@@ -5259,7 +5240,7 @@ final class CoreDataModelCompatibilityTests: XCTestCase {
             includingPropertiesForKeys: nil
         )
         .filter { $0.pathExtension == "mom" }
-        .filter { $0.deletingPathExtension().lastPathComponent != "TaskModelV3_TaskIcons" }
+        .filter { $0.deletingPathExtension().lastPathComponent != "TaskModelV3_TrackFoundations" }
         .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
         return versionURLs.compactMap { url in
@@ -6778,7 +6759,7 @@ final class ConcurrencyRaceTests: XCTestCase {
         XCTAssertEqual(aggregate?.updatedAt, newerUpdatedAt)
     }
 
-    func testGamificationModelDefinesUniquenessConstraintsForXPEventAndDailyAggregate() throws {
+    func testGamificationCloudEntitiesUseAppLevelCanonicalizationInsteadOfUniquenessConstraints() throws {
         let container = try makeInMemoryV2Container()
         let model = container.managedObjectModel
 
@@ -6792,14 +6773,8 @@ final class ConcurrencyRaceTests: XCTestCase {
         let xpEventConstraints = normalizedUniquenessConstraints(for: xpEventEntity)
         let dailyAggregateConstraints = normalizedUniquenessConstraints(for: dailyAggregateEntity)
 
-        XCTAssertTrue(
-            xpEventConstraints.contains(["idempotencyKey"]),
-            "XPEvent must enforce uniqueness on idempotencyKey"
-        )
-        XCTAssertTrue(
-            dailyAggregateConstraints.contains(["dateKey"]),
-            "DailyXPAggregate must enforce uniqueness on dateKey"
-        )
+        XCTAssertTrue(xpEventConstraints.isEmpty, "CloudKit-backed XPEvent canonicalizes idempotency keys in the repository")
+        XCTAssertTrue(dailyAggregateConstraints.isEmpty, "CloudKit-backed DailyXPAggregate canonicalizes date keys in the repository")
     }
 
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
@@ -7099,7 +7074,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
 
         let engine = GamificationEngine(repository: repository)
         let taskID = UUID()
-        var observedMutation: GamificationLedgerMutation?
+        let observedMutation = LockedTestState<GamificationLedgerMutation?>(nil)
         let mutationExpectation = expectation(description: "ledger mutation")
         let completionExpectation = expectation(description: "record completion")
         let capturedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
@@ -7110,7 +7085,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         ) { notification in
             guard let mutation = notification.gamificationLedgerMutation else { return }
             guard mutation.category == .complete else { return }
-            observedMutation = mutation
+            observedMutation.write(mutation)
             mutationExpectation.fulfill()
         }
         defer {
@@ -7133,8 +7108,8 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         wait(for: [mutationExpectation, completionExpectation], timeout: 2.0)
         let result = try XCTUnwrap(capturedResult.read()).get()
         XCTAssertEqual(result.currentStreak, 1)
-        XCTAssertEqual(observedMutation?.streakDays, 1)
-        XCTAssertEqual(observedMutation?.didChange, true)
+        XCTAssertEqual(observedMutation.read()?.streakDays, 1)
+        XCTAssertEqual(observedMutation.read()?.didChange, true)
     }
 
     func testRecordEventRecoversWhenDailyAggregateWriteFailsAfterEventSave() throws {
@@ -7144,7 +7119,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
 
         let completedAt = Date()
         let dateKey = XPCalculationEngine.periodKey(for: completedAt)
-        var observedMutation: GamificationLedgerMutation?
+        let observedMutation = LockedTestState<GamificationLedgerMutation?>(nil)
         let capturedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
         let mutationExpectation = expectation(description: "recovery mutation")
         let completionExpectation = expectation(description: "record completion")
@@ -7156,7 +7131,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         ) { notification in
             guard let mutation = notification.gamificationLedgerMutation else { return }
             guard mutation.category == .complete else { return }
-            observedMutation = mutation
+            observedMutation.write(mutation)
             mutationExpectation.fulfill()
         }
         defer {
@@ -7180,7 +7155,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
 
         let result = try XCTUnwrap(capturedResult.read()).get()
         XCTAssertGreaterThan(result.awardedXP, 0)
-        XCTAssertTrue(observedMutation?.didChange ?? false)
+        XCTAssertTrue(observedMutation.read()?.didChange ?? false)
 
         let aggregate = try awaitResult { completion in
             repository.fetchDailyAggregate(dateKey: dateKey, completion: completion)
@@ -7269,7 +7244,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         let completionExpectation = expectation(description: "record completion")
         let mutationExpectation = expectation(description: "ledger mutation")
         let capturedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
-        var observedMutation: GamificationLedgerMutation?
+        let observedMutation = LockedTestState<GamificationLedgerMutation?>(nil)
 
         let token = NotificationCenter.default.addObserver(
             forName: .gamificationLedgerDidMutate,
@@ -7278,7 +7253,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         ) { notification in
             guard let mutation = notification.gamificationLedgerMutation else { return }
             guard mutation.category == .complete else { return }
-            observedMutation = mutation
+            observedMutation.write(mutation)
             mutationExpectation.fulfill()
         }
         defer { NotificationCenter.default.removeObserver(token) }
@@ -7302,7 +7277,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         XCTAssertEqual(result?.awardedXP, 0)
         XCTAssertEqual(result?.totalXP, seededProfile.xpTotal)
         XCTAssertEqual(result?.dailyXPSoFar, 40)
-        XCTAssertEqual(observedMutation?.didChange, false)
+        XCTAssertEqual(observedMutation.read()?.didChange, false)
         XCTAssertEqual(repository.saveProfileCount, 0)
         XCTAssertEqual(repository.saveDailyAggregateCount, 0)
     }
@@ -7444,7 +7419,7 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
     }
 
     func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        let write = {
+        let write: @Sendable () -> Void = {
             self.lock.lock()
             if self.unlocks.contains(where: { $0.achievementKey == unlock.achievementKey }) == false {
                 self.unlocks.append(unlock)
@@ -7727,6 +7702,7 @@ private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol, 
     var occurrences: [OccurrenceDefinition] = []
     var resolutions: [OccurrenceResolutionDefinition] = []
     var deletedOccurrenceIDs: [UUID] = []
+    var resolveError: Error?
 
     func fetchInRange(start: Date, end: Date, completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void) {
         completion(.success(occurrences.filter {
@@ -7747,6 +7723,10 @@ private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol, 
     }
 
     func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        if let resolveError {
+            completion(.failure(resolveError))
+            return
+        }
         resolutions.append(resolution)
         if let index = occurrences.firstIndex(where: { $0.id == resolution.occurrenceID }) {
             switch resolution.resolutionType {
@@ -7793,8 +7773,8 @@ private final class InMemoryTombstoneRepository: TombstoneRepositoryProtocol, @u
 
 @MainActor
 final class ReconcileExternalRemindersConflictTests: XCTestCase {
-    private var originalV2Enabled = true
-    private var originalRemindersSyncEnabled = true
+    nonisolated(unsafe) private var originalV2Enabled = true
+    nonisolated(unsafe) private var originalRemindersSyncEnabled = true
 
     override func setUp() {
         super.setUp()
@@ -8169,8 +8149,8 @@ final class ReconcileExternalRemindersConflictTests: XCTestCase {
 
 @MainActor
 final class ReminderPayloadRoundTripTests: XCTestCase {
-    private var originalV2Enabled = true
-    private var originalRemindersSyncEnabled = true
+    nonisolated(unsafe) private var originalV2Enabled = true
+    nonisolated(unsafe) private var originalRemindersSyncEnabled = true
 
     override func setUp() {
         super.setUp()
@@ -8327,9 +8307,9 @@ final class SyncClockDeterminismTests: XCTestCase {
 
 @MainActor
 final class AssistantPipelineTransactionalTests: XCTestCase {
-    private var originalV2Enabled = true
-    private var originalAssistantApplyEnabled = true
-    private var originalAssistantUndoEnabled = true
+    nonisolated(unsafe) private var originalV2Enabled = true
+    nonisolated(unsafe) private var originalAssistantApplyEnabled = true
+    nonisolated(unsafe) private var originalAssistantUndoEnabled = true
 
     override func setUp() {
         super.setUp()
@@ -8610,8 +8590,8 @@ final class AssistantPipelineTransactionalTests: XCTestCase {
 
 @MainActor
 final class AssistantUndoWindowTests: XCTestCase {
-    private var originalV2Enabled = true
-    private var originalAssistantUndoEnabled = true
+    nonisolated(unsafe) private var originalV2Enabled = true
+    nonisolated(unsafe) private var originalAssistantUndoEnabled = true
 
     override func setUp() {
         super.setUp()
@@ -8726,9 +8706,7 @@ final class V2PerformanceGateTests: XCTestCase {
     }
 
     func testPerfSeedHarnessProducesBalancedProfileSnapshot() throws {
-#if !os(macOS)
-        throw XCTSkip("Shell command perf harness is only supported on macOS host tests")
-#endif
+#if os(macOS)
         try XCTSkipUnless(
             ProcessInfo.processInfo.environment["LIFEBOARD_RUN_PERF_GATE_TESTS"] == "1",
             "Set LIFEBOARD_RUN_PERF_GATE_TESTS=1 to run repo-local performance gate tests."
@@ -8757,15 +8735,16 @@ final class V2PerformanceGateTests: XCTestCase {
         XCTAssertLessThanOrEqual(snapshot.metrics.home.p99_ms, 600)
         XCTAssertLessThanOrEqual(snapshot.metrics.project.p99_ms, 600)
         XCTAssertLessThanOrEqual(snapshot.metrics.search.p99_ms, 600)
+#else
+        throw XCTSkip("Shell command perf harness is only supported on macOS host tests")
+#endif
     }
 }
 
 @MainActor
 final class FlowctlToolingTests: XCTestCase {
     func testFlowctlInstallAndVerifyScriptsSucceed() throws {
-#if !os(macOS)
-        throw XCTSkip("flowctl shell checks are only supported on macOS host tests")
-#endif
+#if os(macOS)
         try XCTSkipUnless(
             ProcessInfo.processInfo.environment["LIFEBOARD_RUN_HOST_TOOLING_TESTS"] == "1",
             "Set LIFEBOARD_RUN_HOST_TOOLING_TESTS=1 to run repo-local tooling checks."
@@ -8776,15 +8755,16 @@ final class FlowctlToolingTests: XCTestCase {
         let flowctlPath = root.appendingPathComponent(".flow/bin/flowctl").path
         XCTAssertTrue(FileManager.default.fileExists(atPath: flowctlPath))
         XCTAssertTrue(FileManager.default.isExecutableFile(atPath: flowctlPath))
+#else
+        throw XCTSkip("flowctl shell checks are only supported on macOS host tests")
+#endif
     }
 }
 
 @MainActor
 final class ProcessExecutionTests: XCTestCase {
     func testRunProcessPreservesArgumentsContainingSpaces() throws {
-#if !os(macOS)
-        throw XCTSkip("Process execution checks are only supported on macOS host tests")
-#endif
+#if os(macOS)
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("lifeboard process helper \(UUID().uuidString)", isDirectory: true)
         let outputURL = tempDirectory.appendingPathComponent("output file.txt")
@@ -8799,6 +8779,9 @@ final class ProcessExecutionTests: XCTestCase {
 
         XCTAssertEqual(status, 0)
         XCTAssertTrue(FileManager.default.fileExists(atPath: outputURL.path))
+#else
+        throw XCTSkip("Process execution checks are only supported on macOS host tests")
+#endif
     }
 }
 
@@ -9803,7 +9786,7 @@ final class AddTaskViewModelTagCreationTests: XCTestCase {
 
 @MainActor
 final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
-    private var originalAssistantCopilotEnabled = V2FeatureFlags.assistantCopilotEnabled
+    nonisolated(unsafe) private var originalAssistantCopilotEnabled = V2FeatureFlags.assistantCopilotEnabled
 
     override func setUp() {
         super.setUp()
@@ -9985,7 +9968,7 @@ final class DefaultTaskIconResolverTests: XCTestCase {
 
 @MainActor
 final class AddTaskViewModelTaskIconTests: XCTestCase {
-    private var originalAutoTaskIconsEnabled = V2FeatureFlags.autoTaskIconsEnabled
+    nonisolated(unsafe) private var originalAutoTaskIconsEnabled = V2FeatureFlags.autoTaskIconsEnabled
 
     override func setUp() {
         super.setUp()
@@ -14638,28 +14621,20 @@ final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
         let createdAt = referenceDate.addingTimeInterval(-120)
         let updatedAt = referenceDate.addingTimeInterval(-60)
 
-        var insertionError: Error?
-        container.viewContext.performAndWait {
-            do {
-                let object = NSEntityDescription.insertNewObject(forEntityName: "WeeklyPlan", into: container.viewContext)
-                object.setValue(planID, forKey: "id")
-                object.setValue(legacyWeekStart, forKey: "weekStartDate")
-                object.setValue(
-                    Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: legacyWeekStart),
-                    forKey: "weekEndDate"
-                )
-                object.setValue("Legacy keyed plan", forKey: "focusStatement")
-                object.setValue([], forKey: "selectedHabitIDs")
-                object.setValue(WeeklyPlanReviewStatus.ready.rawValue, forKey: "reviewStatus")
-                object.setValue(createdAt, forKey: "createdAt")
-                object.setValue(updatedAt, forKey: "updatedAt")
-                try container.viewContext.save()
-            } catch {
-                insertionError = error
-            }
-        }
-        if let insertionError {
-            throw insertionError
+        try container.viewContext.performAndWait {
+            let object = NSEntityDescription.insertNewObject(forEntityName: "WeeklyPlan", into: container.viewContext)
+            object.setValue(planID, forKey: "id")
+            object.setValue(legacyWeekStart, forKey: "weekStartDate")
+            object.setValue(
+                Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: legacyWeekStart),
+                forKey: "weekEndDate"
+            )
+            object.setValue("Legacy keyed plan", forKey: "focusStatement")
+            object.setValue([], forKey: "selectedHabitIDs")
+            object.setValue(WeeklyPlanReviewStatus.ready.rawValue, forKey: "reviewStatus")
+            object.setValue(createdAt, forKey: "createdAt")
+            object.setValue(updatedAt, forKey: "updatedAt")
+            try container.viewContext.save()
         }
 
         let fetchedFromLegacyStart = try awaitResult { completion in
@@ -15275,6 +15250,82 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         XCTAssertEqual(fixture.projectRepository.getTaskCountCallCount, fixture.projectRepository.projectCount)
     }
 
+    func testPrepareAlwaysEditableSupportWaitsForCanonicalDraftHydration() async {
+        let fixture = makeDetailFixture(returnedTitle: "Canonical title")
+        var completedTitle: String?
+
+        fixture.viewModel.prepareAlwaysEditableSupport {
+            completedTitle = fixture.viewModel.draft.title
+        }
+
+        await waitUntil { completedTitle != nil }
+
+        XCTAssertEqual(completedTitle, "Canonical title")
+        XCTAssertEqual(fixture.viewModel.draft.title, "Canonical title")
+        XCTAssertTrue(fixture.viewModel.isEditing)
+    }
+
+    func testFlushDuringRunningAutosaveDoesNotDuplicateWrite() async {
+        let fixture = makeDetailFixture()
+        fixture.habitRepository.deferUpdateCompletion = true
+        fixture.viewModel.draft.title = "One serialized save"
+
+        fixture.viewModel.scheduleAutosave(debounced: false)
+        await waitUntil { fixture.habitRepository.draftMutationUpdateCallCount == 1 }
+
+        fixture.viewModel.flushPendingAutosave()
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 1)
+
+        fixture.habitRepository.completeNextUpdate()
+        await waitUntil { fixture.viewModel.isSaving == false }
+
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 1)
+        XCTAssertEqual(fixture.habitRepository.maximumConcurrentUpdates, 1)
+    }
+
+    func testEditDuringAutosaveQueuesOneLatestSerializedWrite() async {
+        let fixture = makeDetailFixture()
+        fixture.habitRepository.deferUpdateCompletion = true
+        fixture.viewModel.draft.title = "First revision"
+        fixture.viewModel.scheduleAutosave(debounced: false)
+        await waitUntil { fixture.habitRepository.draftMutationUpdateCallCount == 1 }
+
+        fixture.viewModel.draft.title = "Latest revision"
+        fixture.viewModel.scheduleAutosave(debounced: false)
+        fixture.habitRepository.completeNextUpdate()
+
+        await waitUntil { fixture.habitRepository.draftMutationUpdateCallCount == 2 }
+        fixture.habitRepository.completeNextUpdate()
+        await waitUntil { fixture.viewModel.isSaving == false }
+
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 2)
+        XCTAssertEqual(fixture.habitRepository.maximumConcurrentUpdates, 1)
+        XCTAssertEqual(fixture.viewModel.autosaveState, .saved)
+    }
+
+    func testFailedAutosaveStaysRetryableUntilSuccess() async {
+        let fixture = makeDetailFixture()
+        fixture.habitRepository.updateError = NSError(
+            domain: "HabitDetailAutosaveTests",
+            code: 503,
+            userInfo: [NSLocalizedDescriptionKey: "Save unavailable"]
+        )
+        fixture.viewModel.draft.title = "Retry this draft"
+
+        fixture.viewModel.scheduleAutosave(debounced: false)
+        await waitUntil {
+            if case .failed = fixture.viewModel.autosaveState { return true }
+            return false
+        }
+
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 1)
+        fixture.habitRepository.updateError = nil
+        fixture.viewModel.retryAutosave()
+        await waitUntil { fixture.viewModel.autosaveState == .saved }
+
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 2)
+    }
+
     func testBeginEditingDefersAndCachesEditorSupportLoading() async {
         let fixture = makeDetailFixture()
 
@@ -15352,6 +15403,29 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         XCTAssertNil(fixture.viewModel.mutationFeedback)
     }
 
+    func testMutateDayReportsFailureWithoutSuccessFeedback() async {
+        let fixture = makeDetailFixture()
+        fixture.occurrenceRepository.occurrences = [makePendingOccurrence(habitID: fixture.row.habitID, on: Date())]
+        fixture.occurrenceRepository.resolveError = NSError(
+            domain: "HabitDetailMutationTests",
+            code: 500,
+            userInfo: [NSLocalizedDescriptionKey: "Could not update day"]
+        )
+        fixture.viewModel.loadIfNeeded()
+        await waitUntil { fixture.viewModel.isLoading == false }
+
+        let todayCell = fixture.viewModel.detailCalendarWeeks
+            .flatMap(\.cells)
+            .first(where: { Calendar.current.isDateInToday($0.date) })!
+        var didSucceed: Bool?
+        fixture.viewModel.mutateDay(todayCell) { success in didSucceed = success }
+        await waitUntil { didSucceed != nil }
+
+        XCTAssertEqual(didSucceed, false)
+        XCTAssertNil(fixture.viewModel.mutationFeedback)
+        XCTAssertEqual(fixture.viewModel.errorMessage, "Could not update day")
+    }
+
     func testSaveChangesRefreshesReadOnlyDataWithoutReloadingEditorSupport() async {
         let fixture = makeDetailFixture()
 
@@ -15408,6 +15482,7 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         let lifeAreaRepository: CountingLifeAreaRepository
         let projectRepository: CountingProjectRepository
         let occurrenceRepository: InMemoryOccurrenceRepository
+        let habitRepository: InMemoryHabitRepository
     }
 
     private final class DetailReadRepositorySpy: HabitRuntimeReadRepositoryProtocol, @unchecked Sendable {
@@ -15736,7 +15811,8 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
             readRepository: readRepository,
             lifeAreaRepository: lifeAreaRepository,
             projectRepository: projectRepository,
-            occurrenceRepository: occurrenceRepository
+            occurrenceRepository: occurrenceRepository,
+            habitRepository: habitRepository
         )
     }
 
@@ -16301,9 +16377,16 @@ private func makeHabitSummary(
 private final class InMemoryHabitRepository: HabitRepositoryProtocol, @unchecked Sendable {
     private(set) var habitsByID: [UUID: HabitDefinitionRecord]
     private(set) var createCallCount = 0
+    private(set) var updateCallCount = 0
+    private(set) var draftMutationUpdateCallCount = 0
+    private(set) var maximumConcurrentUpdates = 0
     var deferCreateCompletion = false
+    var deferUpdateCompletion = false
     var createError: Error?
+    var updateError: Error?
     private var pendingCreateCompletions: [(Result<HabitDefinitionRecord, Error>) -> Void] = []
+    private var pendingUpdateCompletions: [(@Sendable () -> Void)] = []
+    private var activeUpdateCount = 0
 
     init(habits: [HabitDefinitionRecord] = []) {
         self.habitsByID = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
@@ -16332,8 +16415,45 @@ private final class InMemoryHabitRepository: HabitRepositoryProtocol, @unchecked
     }
 
     func update(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
-        habitsByID[habit.id] = habit
-        completion(.success(habit))
+        let storedHabit = habitsByID[habit.id]
+        let isDraftMutation = storedHabit?.title != habit.title ||
+            storedHabit?.lifeAreaID != habit.lifeAreaID ||
+            storedHabit?.projectID != habit.projectID ||
+            storedHabit?.kindRaw != habit.kindRaw ||
+            storedHabit?.trackingModeRaw != habit.trackingModeRaw ||
+            storedHabit?.iconSymbolName != habit.iconSymbolName ||
+            storedHabit?.iconCategoryKey != habit.iconCategoryKey ||
+            storedHabit?.colorHex != habit.colorHex ||
+            storedHabit?.targetConfigData != habit.targetConfigData ||
+            storedHabit?.metricConfigData != habit.metricConfigData ||
+            storedHabit?.notes != habit.notes
+        updateCallCount += 1
+        if isDraftMutation {
+            draftMutationUpdateCallCount += 1
+        }
+        activeUpdateCount += 1
+        maximumConcurrentUpdates = max(maximumConcurrentUpdates, activeUpdateCount)
+        let result: Result<HabitDefinitionRecord, Error>
+        if let updateError {
+            result = .failure(updateError)
+        } else {
+            habitsByID[habit.id] = habit
+            result = .success(habit)
+        }
+        let finish: @Sendable () -> Void = { [weak self] in
+            self?.activeUpdateCount -= 1
+            completion(result)
+        }
+        if deferUpdateCompletion && isDraftMutation {
+            pendingUpdateCompletions.append(finish)
+        } else {
+            finish()
+        }
+    }
+
+    func completeNextUpdate() {
+        guard pendingUpdateCompletions.isEmpty == false else { return }
+        pendingUpdateCompletions.removeFirst()()
     }
 
     func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
@@ -17626,6 +17746,33 @@ final class HomeLensResolverTests: XCTestCase {
         XCTAssertEqual(chips.map(\.title), ["Beta", "Alpha"])
         XCTAssertEqual(chips.first?.isSelected, true)
         XCTAssertFalse(chips.contains { $0.lens == .lifeArea(archived.id) })
+    }
+
+    func testLifeAreaLensesKeepAreasVisibleWhileActivityIsLoading() {
+        let alpha = LifeArea(name: "Alpha")
+        let beta = LifeArea(name: "Beta")
+
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [beta, alpha],
+            pinnedLifeAreaIDs: [],
+            activeLens: .today,
+            activityByID: nil
+        )
+
+        XCTAssertEqual(chips.map(\.title), ["Alpha", "Beta"])
+    }
+
+    func testLifeAreaLensesHideInactiveAreasAfterLoadedEmptyActivity() {
+        let alpha = LifeArea(name: "Alpha")
+
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [alpha],
+            pinnedLifeAreaIDs: [],
+            activeLens: .today,
+            activityByID: [:]
+        )
+
+        XCTAssertTrue(chips.isEmpty)
     }
 
     func testLifeAreaLensesShowAllOpenLifeAreasWithoutLimit() {

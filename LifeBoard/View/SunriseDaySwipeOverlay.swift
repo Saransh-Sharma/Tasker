@@ -116,7 +116,7 @@ struct SunriseDaySwipeOverlay: View {
         if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .glassEffect(.clear, in: shape)
+                .lifeBoardSystemGlass(.regular, in: shape)
         } else {
             shape
                 .fill(.clear)

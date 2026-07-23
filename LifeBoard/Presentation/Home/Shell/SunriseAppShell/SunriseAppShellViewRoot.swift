@@ -216,6 +216,8 @@ struct SunriseAppShellView: View {
 
     @StateObject var timelineSnapshotRenderCache = HomeTimelineSnapshotRenderCache()
 
+    @State var screenshotSeedStatusValue: String?
+
     static let daySunriseSwipeCoordinateSpaceName = "home.daySunriseSwipe"
 
     static let sunriseHintLaunchDelay: TimeInterval = 0.10
@@ -240,6 +242,46 @@ struct SunriseAppShellView: View {
         let _ = themeManager.currentTheme.index
 
         homeScreenBody
+            .overlay(alignment: .topLeading) {
+                if screenshotSeedStatusValue == "ready" {
+                    Text("Workspace ready")
+                        .font(.caption2)
+                        .opacity(0.01)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Workspace ready")
+                        .accessibilityIdentifier("screenshot.seed.ready")
+                } else if let screenshotSeedStatusValue,
+                          screenshotSeedStatusValue.hasPrefix("failed:") {
+                    Text("Workspace setup failed")
+                        .font(.caption2)
+                        .opacity(0.01)
+                        .accessibilityElement(children: .ignore)
+                        .accessibilityLabel("Workspace setup failed")
+                        .accessibilityValue(String(screenshotSeedStatusValue.dropFirst("failed:".count)))
+                        .accessibilityIdentifier("screenshot.seed.failed")
+                }
+            }
+            .onAppear(perform: refreshScreenshotSeedStatus)
+            .onReceive(NotificationCenter.default.publisher(
+                for: Notification.Name("lifeboard.appStoreScreenshotSeed.didFinish")
+            )) { _ in
+                refreshScreenshotSeedStatus()
+                viewModel.refreshCurrentScopeContent(source: "app_store_screenshot_seed_completed")
+            }
+    }
+
+    func refreshScreenshotSeedStatus() {
+        guard Self.launchArguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS") else {
+            screenshotSeedStatusValue = nil
+            return
+        }
+        if UserDefaults.standard.bool(forKey: "lifeboard.appStoreScreenshotSeed.ready") {
+            screenshotSeedStatusValue = "ready"
+        } else if let error = UserDefaults.standard.string(forKey: "lifeboard.appStoreScreenshotSeed.error") {
+            screenshotSeedStatusValue = "failed:\(error)"
+        } else {
+            screenshotSeedStatusValue = nil
+        }
     }
 
     func loadTaskIDFromDrop(

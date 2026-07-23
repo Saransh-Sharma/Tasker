@@ -261,7 +261,7 @@ struct SunriseCompactHeaderChrome: View {
     private var foregroundDateColor: Color {
         switch colorScheme {
         case .dark:
-            return Color.white.opacity(0.955)
+            return Color.lifeboard(.surfacePrimary).opacity(0.955)
         default:
             return Color.lifeboard.textPrimary.opacity(0.87)
         }

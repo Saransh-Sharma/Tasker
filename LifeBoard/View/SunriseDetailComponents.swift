@@ -51,7 +51,7 @@ struct SunriseAutosaveWhisper: View {
 
     private var label: String {
         switch state {
-        case .idle, .saving: return "Saving…"
+        case .idle, .debouncing, .saving: return "Saving…"
         case .saved: return "Saved"
         case .failed: return "Couldn't save"
         }
@@ -76,7 +76,7 @@ struct SunriseAutosaveWhisper: View {
         savingDelayTask?.cancel()
         savedFadeTask?.cancel()
         switch newValue {
-        case .idle:
+        case .idle, .debouncing:
             visible = false
         case .saving:
             // Only reveal a "Saving…" whisper if the work outlasts a blink.
@@ -177,7 +177,7 @@ struct SunriseDetailDisclosureCard<Content: View>: View {
             accentColor: isExpanded ? Color.lifeboard.accentPrimary : Color.lifeboard.accentSecondary,
             level: isExpanded ? .e1 : .e0
         )
-        .animation(LifeBoardAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.stateChange, value: isExpanded)
     }
 }
 
@@ -263,7 +263,7 @@ struct CalmSummaryChip: View {
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .animation(LifeBoardAnimation.snappy, value: state)
+        .animation(LifeBoardAnimation.stateChange, value: state)
         .accessibilityLabel("\(label)")
     }
 
@@ -348,7 +348,7 @@ struct CalmInlineReveal<Content: View>: View {
             RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous)
                 .stroke(LBColorTokens.glassBorder, lineWidth: 1)
         )
-        .animation(LifeBoardAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.stateChange, value: isExpanded)
     }
 }
 

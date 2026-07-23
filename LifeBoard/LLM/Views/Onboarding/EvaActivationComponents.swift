@@ -149,8 +149,8 @@ struct EvaSelectionChip: View {
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier)
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
-        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isSelected)
+        .lifeboardPressFeedback()
+        .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isSelected)
     }
 }
 
@@ -186,7 +186,7 @@ struct EvaCollapsedNoteField: View {
                     .accessibilityIdentifier("\(accessibilityIdentifier).field")
             } else {
                 Button {
-                    withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.quick) {
+                    withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.feedbackFast) {
                         isExpanded = true
                     }
                 } label: {
@@ -204,7 +204,7 @@ struct EvaCollapsedNoteField: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .buttonStyle(.plain)
-                .lifeboardPressFeedback(reduceMotion: reduceMotion)
+                .lifeboardPressFeedback()
                 .accessibilityIdentifier("\(accessibilityIdentifier).toggle")
             }
         }
@@ -233,7 +233,7 @@ struct EvaGoalChip: View {
                     .background(Circle().fill(Color.lifeboard(.surfacePrimary)))
             }
             .buttonStyle(.plain)
-            .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
             .accessibilityIdentifier("\(accessibilityIdentifier).remove")
         }
         .padding(.leading, LifeBoardTheme.Spacing.md)
@@ -284,7 +284,7 @@ struct EvaGoalComposer: View {
                         )
                 }
                 .buttonStyle(.plain)
-                .lifeboardPressFeedback(reduceMotion: reduceMotion)
+                .lifeboardPressFeedback()
                 .accessibilityIdentifier("\(accessibilityIdentifier).button")
                 .transition(.move(edge: .trailing).combined(with: .opacity))
             }

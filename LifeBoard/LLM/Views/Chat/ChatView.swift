@@ -9,11 +9,38 @@ import SwiftData
 import SwiftUI
 import os
 
+private struct EvaAuthorizedEvidenceContextEnvironmentKey: EnvironmentKey {
+    static let defaultValue = EvaAuthorizedEvidenceContext.notProvided
+}
+
+struct EvaEvidenceOpenAction {
+    var open: @MainActor (EvidenceReference) -> Void
+
+    static let disabled = Self(open: { _ in })
+}
+
+private struct EvaEvidenceOpenActionEnvironmentKey: EnvironmentKey {
+    static let defaultValue = EvaEvidenceOpenAction.disabled
+}
+
+extension EnvironmentValues {
+    var evaAuthorizedEvidenceContext: EvaAuthorizedEvidenceContext {
+        get { self[EvaAuthorizedEvidenceContextEnvironmentKey.self] }
+        set { self[EvaAuthorizedEvidenceContextEnvironmentKey.self] = newValue }
+    }
+
+    var evaEvidenceOpenAction: EvaEvidenceOpenAction {
+        get { self[EvaEvidenceOpenActionEnvironmentKey.self] }
+        set { self[EvaEvidenceOpenActionEnvironmentKey.self] = newValue }
+    }
+}
+
 struct ChatView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(\.modelContext) var modelContext
     @Binding var currentThread: Thread?
     @Environment(LLMEvaluator.self) var llm
+    @Environment(\.evaAuthorizedEvidenceContext) private var authorizedLifeEvidence
     @Namespace var bottomID
     @State var prompt = ""
     @FocusState.Binding var isPromptFocused: Bool
@@ -986,7 +1013,7 @@ struct ChatView: View {
         let planResult = await service.generatePlan(
             userPrompt: message,
             thread: Thread(),
-            contextPayload: contextPayload.payload,
+            contextPayload: authorizedLifeEvidence.injecting(into: contextPayload.payload),
             taskTitleByID: [:],
             projectNameByID: [:],
             knownTaskIDs: [],
@@ -1331,13 +1358,14 @@ struct ChatView: View {
             attachments: activeAttachments,
             tokenBudget: resolvedChatBudget.slashContextTokens
         )
+        let runtimeTaskContext = authorizedLifeEvidence.injecting(into: contextPayload.payload)
         let dynamicSystemPrompt = composeChatSystemPrompt(
             basePrompt: appManager.systemPrompt,
             model: activeModelConfiguration,
             personalMemory: memoryBlock,
             executiveContext: executiveContext,
             slashContext: slashCommandContext,
-            taskContext: contextPayload.payload
+            taskContext: runtimeTaskContext
         )
         LifeBoardPerformanceTrace.end(promptAssemblyTrace)
         logWarning(
@@ -1348,7 +1376,7 @@ struct ChatView: View {
                 "stored_system_prompt_chars": String(appManager.systemPrompt.count),
                 "personal_memory_chars": String(memoryBlock?.count ?? 0),
                 "executive_context_chars": String(executiveContext?.count ?? 0),
-                "runtime_context_chars": String(contextPayload.payload.count),
+                "runtime_context_chars": String(runtimeTaskContext.count),
                 "slash_context_chars": String(slashCommandContext?.count ?? 0),
                 "final_prompt_chars": String(dynamicSystemPrompt.count),
                 "estimated_final_prompt_tokens": String(
@@ -1515,6 +1543,7 @@ struct ChatView: View {
                 tokenBudget: resolvedChatBudget.executiveContextTokens
             )
             let retryAttachments = await loadSlashAttachments(for: tID)
+            let retryTaskContext = authorizedLifeEvidence.injecting(into: retryContextPayload.payload)
             let retrySystemPrompt = composeChatSystemPrompt(
                 basePrompt: appManager.systemPrompt,
                 model: runtimeModelConfiguration,
@@ -1524,7 +1553,7 @@ struct ChatView: View {
                     attachments: retryAttachments,
                     tokenBudget: resolvedChatBudget.slashContextTokens
                 ),
-                taskContext: retryContextPayload.payload,
+                taskContext: retryTaskContext,
                 additionalInstruction: "Return only the final answer. Do not repeat the previous analysis, thinking, or intro. Keep it short and directly useful."
             )
             let retryThread = Thread()

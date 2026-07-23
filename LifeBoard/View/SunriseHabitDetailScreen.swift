@@ -39,6 +39,14 @@ struct SunriseHabitDetailScreen: View {
     private var isInitialDraftHydrationComplete: Bool {
         isInitialReadOnlyHydrationComplete && isInitialEditorSupportHydrationComplete
     }
+    private var isErrorAlertPresented: Binding<Bool> {
+        Binding(
+            get: { viewModel.errorMessage != nil },
+            set: { isPresented in
+                if isPresented == false { viewModel.clearError() }
+            }
+        )
+    }
 
     init(viewModel: HabitDetailViewModel, onMutation: @escaping @MainActor @Sendable () -> Void) {
         _viewModel = StateObject(wrappedValue: viewModel)
@@ -72,7 +80,7 @@ struct SunriseHabitDetailScreen: View {
             LifeBoardPerformanceTrace.event("SunriseHabitDetailScreenPresented")
         }
         .onDisappear {
-            viewModel.cancelPendingAutosave()
+            viewModel.flushPendingAutosave()
         }
         .onChange(of: viewModel.mutationFeedback) { _, feedback in
             guard let feedback else { return }
@@ -98,6 +106,14 @@ struct SunriseHabitDetailScreen: View {
         .onChange(of: viewModel.draft.selectedIconSymbolName) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
         .onChange(of: viewModel.draft.colorHex) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
         .lifeboardSnackbar($snackbar)
+        .alert(
+            "Couldn’t update habit",
+            isPresented: isErrorAlertPresented
+        ) {
+            Button("OK", role: .cancel) { viewModel.clearError() }
+        } message: {
+            Text(viewModel.errorMessage ?? "Please try again.")
+        }
     }
 
     private func scheduleAutosaveIfHydrated(debounced: Bool) {
@@ -144,6 +160,7 @@ struct SunriseHabitDetailScreen: View {
     private var alwaysEditableContent: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             heroCard
+            autosaveFailureBanner
             detailReveal {
                 VStack(alignment: .leading, spacing: spacing.s16) {
                     CalmFieldGroup(title: "Essentials") { essentialsEditorContent }
@@ -156,6 +173,29 @@ struct SunriseHabitDetailScreen: View {
         }
     }
 
+    @ViewBuilder
+    private var autosaveFailureBanner: some View {
+        if case .failed(let message) = viewModel.autosaveState {
+            HStack(alignment: .center, spacing: spacing.s12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(LifeBoardDetailTonePalette.dangerText)
+                    .accessibilityHidden(true)
+                Text(message)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Button("Retry") { viewModel.retryAutosave() }
+                    .buttonStyle(.bordered)
+                    .disabled(viewModel.isSaving)
+            }
+            .padding(spacing.s12)
+            .background(LifeBoardDetailTonePalette.dangerText.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(SunriseHabitDetailAccessibilityID.autosaveFailure)
+        }
+    }
+
     private func detailReveal<Content: View>(@ViewBuilder content: @escaping () -> Content) -> some View {
         CalmInlineReveal(
             title: "Details",
@@ -164,7 +204,7 @@ struct SunriseHabitDetailScreen: View {
             accessibilityID: SunriseHabitDetailAccessibilityID.detailsDisclosure,
             onToggle: {
                 LifeBoardFeedback.light()
-                withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
                     showDetailReveal.toggle()
                 }
             },
@@ -184,7 +224,7 @@ struct SunriseHabitDetailScreen: View {
                         .foregroundStyle(accentColor)
                         .contentTransition(.symbolEffect(.replace))
                         .animation(
-                            LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy,
+                            LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange,
                             value: viewModel.draft.selectedIconSymbolName
                         )
                 }
@@ -324,12 +364,12 @@ struct SunriseHabitDetailScreen: View {
                         set: { viewModel.draft.reminderWindowEndPickerDate = $0 }
                     ),
                     onEnable: {
-                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
                             viewModel.draft.ensureReminderWindowDefaults()
                         }
                     },
                     onClear: {
-                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
                             viewModel.draft.clearReminderWindow()
                         }
                     },
@@ -362,12 +402,6 @@ struct SunriseHabitDetailScreen: View {
                     .lineLimit(3...7)
                     .textFieldStyle(LifeBoardTextFieldStyle())
 
-                if case .failed(let message) = viewModel.autosaveState {
-                    Text(message)
-                        .font(.lifeboard(.callout))
-                        .foregroundStyle(LifeBoardDetailTonePalette.dangerText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
         }
     }
 
@@ -424,21 +458,27 @@ struct SunriseHabitDetailScreen: View {
     private var lifecycleContent: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
                 Button(viewModel.row.isPaused ? "Resume habit" : "Pause habit", systemImage: viewModel.row.isPaused ? "play.fill" : "pause.fill") {
-                    viewModel.togglePause { Task { @MainActor in notifyMutation() } }
+                    viewModel.togglePause { didSucceed in
+                        if didSucceed { notifyMutation() }
+                    }
                 }
                 .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .quiet))
                 .disabled(viewModel.isSaving)
 
                 if viewModel.row.trackingMode == .lapseOnly && !viewModel.row.isArchived {
                     Button("Log lapse", systemImage: "arrow.uturn.backward.circle") {
-                        viewModel.logLapse { Task { @MainActor in notifyMutation() } }
+                        viewModel.logLapse { didSucceed in
+                            if didSucceed { notifyMutation() }
+                        }
                     }
                     .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .warning))
                     .disabled(viewModel.isSaving)
                 }
 
                 Button(String(localized: "Archive", defaultValue: "Archive") + " habit", systemImage: "archivebox.fill") {
-                    viewModel.archive { Task { @MainActor in notifyMutation() } }
+                    viewModel.archive { didSucceed in
+                        if didSucceed { notifyMutation() }
+                    }
                 }
                 .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .danger))
                 .disabled(viewModel.isSaving || viewModel.row.isArchived)
@@ -666,12 +706,13 @@ struct SunriseHabitDetailScreen: View {
     private func mutate(_ cell: HabitDetailDayCell) {
         let onMutation = onMutation
         let willCompleteToday = cell.isToday && cell.state != .success && cell.state != .future
-        if willCompleteToday, sawTodayCompletionThisSession == false {
-            sawTodayCompletionThisSession = true
-            completionBurstTrigger += 1
-        }
-        viewModel.mutateDay(cell) {
-            Task { @MainActor in onMutation() }
+        viewModel.mutateDay(cell) { didSucceed in
+            guard didSucceed else { return }
+            if willCompleteToday, sawTodayCompletionThisSession == false {
+                sawTodayCompletionThisSession = true
+                completionBurstTrigger += 1
+            }
+            onMutation()
         }
     }
 
@@ -696,6 +737,7 @@ private enum SunriseHabitDetailAccessibilityID {
     static let contextSecondary = "habitDetail.context.secondary"
     static let detailsDisclosure = "habitDetail.detailsDisclosure"
     static let helperText = "habitDetail.helperText"
+    static let autosaveFailure = "habitDetail.autosaveFailure"
     static let currentStreakMetric = "habitDetail.metric.currentStreak"
     static let bestStreakMetric = "habitDetail.metric.bestStreak"
     static let totalCountMetric = "habitDetail.metric.totalCount"
@@ -1020,7 +1062,7 @@ private struct SunriseHabitCalendarDayCell: View {
     private var textColor: Color {
         switch cell.cell.state {
         case .success:
-            return (cell.streakDepth ?? 1) >= 4 ? Color.white.opacity(0.98) : Color.lifeboard.textPrimary
+            return (cell.streakDepth ?? 1) >= 4 ? Color.lifeboard(.textInverse).opacity(0.98) : Color.lifeboard.textPrimary
         case .lapsed:
             return Color.lifeboard.textSecondary
         case .future, .notScheduled:

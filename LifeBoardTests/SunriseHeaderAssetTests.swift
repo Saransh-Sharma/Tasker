@@ -5,8 +5,9 @@ import SwiftUI
 import UIKit
 #endif
 
+@MainActor
 final class SunriseHeaderAssetTests: XCTestCase {
-    private var calendar: Calendar!
+    nonisolated(unsafe) private var calendar: Calendar!
 
     override func setUp() {
         super.setUp()
@@ -34,11 +35,11 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(TimeOfDayHeaderAsset.period(for: date(hour: 21), calendar: calendar), .night)
     }
 
-    func testAssetNamesMatchFourVariantsPerPeriod() {
-        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .morning), ["M1", "M2", "M3", "M4"])
-        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .afternoon), ["A1", "A2", "A3", "A4"])
-        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .evening), ["E1", "E2", "E3", "E4"])
-        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .night), ["N1", "N2", "N3", "N4"])
+    func testAssetNamesMatchDeterministicCelestialPhases() {
+        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .morning), ["CelestialDawnBackground", "CelestialMorningBackground"])
+        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .afternoon), ["CelestialMiddayBackground"])
+        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .evening), ["CelestialGoldenHourBackground", "CelestialTwilightBackground"])
+        XCTAssertEqual(TimeOfDayHeaderAsset.assetNames(for: .night), ["CelestialNightBackground"])
     }
 
     func testResolveIsStableForSameActivationAndPeriod() {
@@ -98,7 +99,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(context.greeting, TimeOfDayHeaderAsset.Period.afternoon.greeting)
     }
 
-    func testHeaderContextUsesNoonForNonTodayDates() {
+    func testHeaderContextKeepsSelectedDateCopySeparateFromCurrentAtmosphere() {
         let selectedDateAtMidnight = date(hour: 0, day: 9)
         let now = date(hour: 22, day: 8)
 
@@ -110,8 +111,115 @@ final class SunriseHeaderAssetTests: XCTestCase {
         )
 
         XCTAssertEqual(calendar.component(.hour, from: context.effectiveDate), 12)
-        XCTAssertEqual(context.period, .afternoon)
-        XCTAssertEqual(context.asset.period, .afternoon)
+        XCTAssertEqual(context.period, .night)
+        XCTAssertEqual(context.asset.period, .night)
+    }
+
+    func testSixCelestialPhaseBoundaries() {
+        let cases: [(Int, Int, LifeBoardCelestialPhase)] = [
+            (4, 59, .night), (5, 0, .dawn), (7, 59, .dawn),
+            (8, 0, .morning), (11, 59, .morning), (12, 0, .midday),
+            (16, 59, .midday), (17, 0, .goldenHour), (18, 59, .goldenHour),
+            (19, 0, .twilight), (20, 59, .twilight), (21, 0, .night)
+        ]
+
+        for (hour, minute, expected) in cases {
+            XCTAssertEqual(
+                LifeBoardCelestialPhase.resolve(at: date(hour: hour, minute: minute), calendar: calendar),
+                expected,
+                "Unexpected phase at \(hour):\(minute)"
+            )
+        }
+    }
+
+    func testCelestialPhaseSemanticAndManualMappings() {
+        XCTAssertEqual(LifeBoardCelestialPhase.dawn.semanticDaypart, .morning)
+        XCTAssertEqual(LifeBoardCelestialPhase.twilight.semanticDaypart, .evening)
+        XCTAssertEqual(LifeBoardCelestialPhase.manualPhase(for: .automatic), nil)
+        XCTAssertEqual(LifeBoardCelestialPhase.manualPhase(for: .morning), .morning)
+        XCTAssertEqual(LifeBoardCelestialPhase.manualPhase(for: .afternoon), .midday)
+        XCTAssertEqual(LifeBoardCelestialPhase.manualPhase(for: .evening), .goldenHour)
+        XCTAssertEqual(LifeBoardCelestialPhase.manualPhase(for: .night), .night)
+    }
+
+    func testNextBoundarySchedulingAcrossMidnight() {
+        let twilightBoundary = LifeBoardCelestialPhase.nextBoundary(
+            after: date(hour: 20, minute: 59),
+            calendar: calendar
+        )
+        XCTAssertEqual(calendar.component(.hour, from: twilightBoundary), 21)
+        XCTAssertEqual(calendar.component(.day, from: twilightBoundary), 8)
+
+        let nightBoundary = LifeBoardCelestialPhase.nextBoundary(
+            after: date(hour: 23, minute: 30),
+            calendar: calendar
+        )
+        XCTAssertEqual(calendar.component(.hour, from: nightBoundary), 5)
+        XCTAssertEqual(calendar.component(.day, from: nightBoundary), 9)
+    }
+
+    func testCelestialDescriptorAndAssetManifestIsComplete() {
+        for phase in LifeBoardCelestialPhase.allCases {
+            let descriptor = LifeBoardAtmosphereDescriptor.descriptor(for: phase)
+            XCTAssertEqual(descriptor.phase, phase)
+            XCTAssertNotNil(UIImage(named: descriptor.backgroundAsset), descriptor.backgroundAsset)
+            let celestial = UIImage(named: descriptor.celestialAsset)
+            XCTAssertNotNil(celestial, descriptor.celestialAsset)
+            XCTAssertGreaterThan(descriptor.celestialScale, 0)
+            XCTAssertTrue((0...1).contains(descriptor.celestialAnchorX))
+            XCTAssertTrue((0...1).contains(descriptor.celestialAnchorY))
+        }
+    }
+
+    func testCelestialPhaseFixtureParsesEveryPhaseAndRejectsUnknownValues() {
+        for phase in LifeBoardCelestialPhase.allCases {
+            let fixture = LifeBoardCelestialPhaseFixture(arguments: [
+                "-UI_TESTING",
+                "\(LifeBoardCelestialPhaseFixture.launchArgumentPrefix)\(phase.rawValue)"
+            ])
+            XCTAssertEqual(fixture?.phase, phase)
+            XCTAssertEqual(
+                fixture?.launchArgument,
+                "\(LifeBoardCelestialPhaseFixture.launchArgumentPrefix)\(phase.rawValue)"
+            )
+        }
+
+        XCTAssertNil(LifeBoardCelestialPhaseFixture(arguments: [
+            "\(LifeBoardCelestialPhaseFixture.launchArgumentPrefix)blueHour"
+        ]))
+    }
+
+    func testCelestialAssetsHaveTransparentOuterCorners() throws {
+        for phase in LifeBoardCelestialPhase.allCases {
+            let descriptor = LifeBoardAtmosphereDescriptor.descriptor(for: phase)
+            let image = try XCTUnwrap(UIImage(named: descriptor.celestialAsset), descriptor.celestialAsset)
+            let cgImage = try XCTUnwrap(image.cgImage, descriptor.celestialAsset)
+            XCTAssertTrue(
+                cornerAlphaValues(in: cgImage).allSatisfy { $0 == 0 },
+                "\(descriptor.celestialAsset) must not retain color residue at its outer corners"
+            )
+        }
+    }
+
+    private func cornerAlphaValues(in image: CGImage) -> [UInt8] {
+        let width = image.width
+        let height = image.height
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 0, count: height * bytesPerRow)
+        guard let context = CGContext(
+            data: &pixels,
+            width: width,
+            height: height,
+            bitsPerComponent: 8,
+            bytesPerRow: bytesPerRow,
+            space: CGColorSpaceCreateDeviceRGB(),
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return [255] }
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return [(0, 0), (width - 1, 0), (0, height - 1), (width - 1, height - 1)].map { coordinate in
+            let (x, y) = coordinate
+            return pixels[y * bytesPerRow + x * 4 + 3]
+        }
     }
 
     func testNavigatorTitleAvoidsDuplicatingHeroDateForRelativeDays() {
@@ -122,23 +230,24 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(LBHeaderTimeContext.navigatorTitle(selectedDate: date(hour: 0, day: 7), now: now, calendar: calendar), "Yesterday")
     }
 
-    func testSunriseDateNavigatorAccessibilityIdentifiersAreStable() throws {
-        let projectRoot = URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .deletingLastPathComponent()
-        let headerSource = try String(contentsOf: projectRoot.appendingPathComponent("LifeBoard/LifeBoardDesign/Components/LBDateHeroHeader.swift"))
-        let sunriseHomeSource = try String(contentsOf: projectRoot.appendingPathComponent("LifeBoard/LifeBoardDesign/SunriseHomeScreen.swift"))
-        let homeSource = try String(contentsOf: projectRoot.appendingPathComponent("LifeBoard/View/SunriseAppShellView.swift"))
+    @MainActor
+    func testPressScaleAndCelebrationTimingHonorMotionContract() {
+        XCTAssertEqual(LifeBoardAnimation.pressScale(isPressed: true, animationsDisabled: false), 0.97)
+        XCTAssertEqual(LifeBoardAnimation.pressScale(isPressed: true, animationsDisabled: true), 1.0)
+        XCTAssertEqual(LifeBoardAnimation.pressScale(isPressed: false, animationsDisabled: false), 1.0)
+        XCTAssertEqual(LifeBoardAnimation.celebrationDuration, 0.54)
+    }
 
-        XCTAssertTrue(headerSource.contains("\"home.sunrise.date.selector\""))
-        XCTAssertTrue(headerSource.contains("\"home.sunrise.backToToday\""))
-        XCTAssertTrue(headerSource.contains("\"Back to Today\""))
-        XCTAssertTrue(sunriseHomeSource.contains("isOnNonTodayLens: activeLens != .today"))
-        XCTAssertTrue(sunriseHomeSource.contains("backToTodayColor: LBColorTokens.sunriseGold"))
-        XCTAssertTrue(sunriseHomeSource.contains("onSelectLens(.today)"))
-        XCTAssertFalse(headerSource.contains("\"home.sunrise.date.previous\""))
-        XCTAssertFalse(headerSource.contains("\"home.sunrise.date.next\""))
-        XCTAssertTrue(homeSource.contains("\"home.datePicker\""))
+    func testSunriseDateNavigatorAccessibilityContract() {
+        let selector = LBDateHeroNavigationMode.resolve(isOnNonTodayLens: false, navigatorTitle: "Tomorrow")
+        XCTAssertEqual(selector, .dateSelector(title: "Tomorrow"))
+        XCTAssertEqual(selector.accessibilityIdentifier, "home.sunrise.date.selector")
+        XCTAssertEqual(selector.accessibilityLabel, "Choose date")
+
+        let backToToday = LBDateHeroNavigationMode.resolve(isOnNonTodayLens: true, navigatorTitle: "Tomorrow")
+        XCTAssertEqual(backToToday, .backToToday)
+        XCTAssertEqual(backToToday.accessibilityIdentifier, "home.sunrise.backToToday")
+        XCTAssertEqual(backToToday.accessibilityLabel, "Back to Today")
     }
 
     func testAssistantCopySwitchesByTimeBucket() {
@@ -164,7 +273,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(style?.accessibilityLabel(timeText: "8:00 AM"), "Routine, 8:00 AM, Rise and shine, Start the day.")
     }
 
-    func testRoutineAnchorVisualStyleResolvesSleepAssetAndTitleCase() {
+    func testRoutineAnchorVisualStyleResolvesSleepAssetAndPreservesSentenceCase() {
         let style = TimelineRoutineAnchorVisualStyle.resolve(
             anchorID: "sleep",
             title: "Wind down",
@@ -172,9 +281,9 @@ final class SunriseHeaderAssetTests: XCTestCase {
         )
 
         XCTAssertEqual(style?.assetName, "routine_evening_strip")
-        XCTAssertEqual(style?.displayTitle, "Wind Down")
+        XCTAssertEqual(style?.displayTitle, "Wind down")
         XCTAssertEqual(style?.subtitleText(timeText: "10:00 PM"), "10:00 PM • Close the day")
-        XCTAssertEqual(style?.accessibilityLabel(timeText: "10:00 PM"), "Routine, 10:00 PM, Wind Down, Close the day.")
+        XCTAssertEqual(style?.accessibilityLabel(timeText: "10:00 PM"), "Routine, 10:00 PM, Wind down, Close the day.")
     }
 
     func testRoutineAnchorVisualStyleIgnoresUnknownAnchors() {
@@ -223,13 +332,10 @@ final class SunriseHeaderAssetTests: XCTestCase {
         let task = timelineItem(id: "task", startHour: 18, endHour: 19)
         let meetingTask = timelineItem(id: "meeting-task", startHour: 19, endHour: 20, isMeetingLike: true)
         let calendarEvent = timelineItem(id: "event", source: .calendarEvent, startHour: 20, endHour: 21)
-        let gap = TimelineGap(startDate: date(hour: 21), endDate: date(hour: 22), suggestedTaskCount: 0)
-
         let rows = SunriseHomeScreen.buildTimelineRows(
             wakeAnchor: wake,
             sleepAnchor: sleep,
             plottedItems: [task, meetingTask, calendarEvent],
-            gaps: [gap],
             now: now,
             isToday: true,
             contentScope: .tasks,
@@ -248,13 +354,10 @@ final class SunriseHeaderAssetTests: XCTestCase {
         let meetingTwo = timelineItem(id: "meeting-2", source: .calendarEvent, startHour: 18, startMinute: 15, endHour: 19)
         let meetingThree = timelineItem(id: "meeting-3", source: .calendarEvent, startHour: 18, startMinute: 30, endHour: 19)
         let meetingTask = timelineItem(id: "meeting-task", startHour: 20, endHour: 21, isMeetingLike: true)
-        let gap = TimelineGap(startDate: date(hour: 21), endDate: date(hour: 22), suggestedTaskCount: 0)
-
         let rows = SunriseHomeScreen.buildTimelineRows(
             wakeAnchor: wake,
             sleepAnchor: sleep,
             plottedItems: [task, meetingOne, meetingTwo, meetingThree, meetingTask],
-            gaps: [gap],
             now: now,
             isToday: true,
             contentScope: .meetings,
@@ -263,7 +366,6 @@ final class SunriseHeaderAssetTests: XCTestCase {
 
         XCTAssertEqual(rows.map(\.id), ["item-meeting-1", "item-meeting-2", "item-meeting-3", "item-meeting-task"])
         XCTAssertFalse(rows.contains { $0.id == "item-task" })
-        XCTAssertFalse(rows.contains { if case .gap = $0 { return true }; return false })
         XCTAssertFalse(rows.contains { if case .now = $0 { return true }; return false })
         XCTAssertFalse(rows.contains { $0.id.hasPrefix("anchor-") })
     }
@@ -278,7 +380,6 @@ final class SunriseHeaderAssetTests: XCTestCase {
             wakeAnchor: wake,
             sleepAnchor: sleep,
             plottedItems: [task],
-            gaps: [TimelineGap(startDate: date(hour: 21), endDate: date(hour: 22), suggestedTaskCount: 0)],
             now: now,
             isToday: true,
             contentScope: .habits,
@@ -294,13 +395,10 @@ final class SunriseHeaderAssetTests: XCTestCase {
         let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
         let task = timelineItem(id: "task", startHour: 18, endHour: 19)
         let calendarEvent = timelineItem(id: "event", source: .calendarEvent, startHour: 20, endHour: 21)
-        let gap = TimelineGap(startDate: date(hour: 21), endDate: date(hour: 22), suggestedTaskCount: 0)
-
         let rows = SunriseHomeScreen.buildTimelineRows(
             wakeAnchor: wake,
             sleepAnchor: sleep,
             plottedItems: [task, calendarEvent],
-            gaps: [gap],
             now: now,
             isToday: true,
             contentScope: .all,
@@ -311,7 +409,6 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertTrue(rows.contains { $0.id == "item-task" })
         XCTAssertTrue(rows.contains { $0.id == "item-event" })
         // Assistant gap prompts were removed from the timeline in the polish pass.
-        XCTAssertFalse(rows.contains { if case .gap = $0 { return true }; return false })
         XCTAssertTrue(rows.contains { if case .now = $0 { return true }; return false })
         XCTAssertTrue(rows.contains { $0.id == "anchor-sleep" })
     }
@@ -327,7 +424,6 @@ final class SunriseHeaderAssetTests: XCTestCase {
             wakeAnchor: wake,
             sleepAnchor: sleep,
             plottedItems: [earlyTask, lateTask],
-            gaps: [],
             now: now,
             isToday: true,
             meetingFlockModel: stubMeetingFlock
@@ -345,7 +441,6 @@ final class SunriseHeaderAssetTests: XCTestCase {
             wakeAnchor: wake,
             sleepAnchor: sleep,
             plottedItems: [],
-            gaps: [],
             now: now,
             isToday: false,
             meetingFlockModel: stubMeetingFlock
@@ -358,13 +453,10 @@ final class SunriseHeaderAssetTests: XCTestCase {
         let now = date(hour: 21, minute: 15)
         let wake = TimelineAnchorItem(id: "wake", title: "Rise", time: date(hour: 8), systemImageName: "sunrise.fill")
         let sleep = TimelineAnchorItem(id: "sleep", title: "Wind Down", time: date(hour: 23), systemImageName: "moon.stars.fill")
-        let activeGap = TimelineGap(startDate: date(hour: 21), endDate: date(hour: 22), suggestedTaskCount: 0)
-
         let rows = SunriseHomeScreen.buildTimelineRows(
             wakeAnchor: wake,
             sleepAnchor: sleep,
             plottedItems: [],
-            gaps: [activeGap],
             now: now,
             isToday: true,
             meetingFlockModel: stubMeetingFlock
@@ -372,7 +464,6 @@ final class SunriseHeaderAssetTests: XCTestCase {
 
         XCTAssertTrue(rows.contains { $0.id == "anchor-sleep" })
         // Assistant gap prompts were removed from the timeline in the polish pass.
-        XCTAssertFalse(rows.contains { if case .gap = $0 { return true }; return false })
         XCTAssertEqual(LBColorTokens.role(.windDown).symbolName, "moon.stars.fill")
     }
 
@@ -385,17 +476,6 @@ final class SunriseHeaderAssetTests: XCTestCase {
         XCTAssertEqual(SunriseTimelineRow.item(past).temporalState(now: now), .past)
         XCTAssertEqual(SunriseTimelineRow.item(current).temporalState(now: now), .current)
         XCTAssertEqual(SunriseTimelineRow.item(future).temporalState(now: now), .future)
-    }
-
-    func testActiveAssistantGapDisplaysAtNowAndStaleGapsAreHidden() {
-        let now = date(hour: 21, minute: 15)
-        let activeGap = TimelineGap(startDate: date(hour: 20), endDate: date(hour: 22), suggestedTaskCount: 0)
-        let staleGap = TimelineGap(startDate: date(hour: 18), endDate: date(hour: 18, minute: 30), suggestedTaskCount: 0)
-        let shortGap = TimelineGap(startDate: date(hour: 21), endDate: date(hour: 21, minute: 25), suggestedTaskCount: 0)
-
-        XCTAssertEqual(SunriseHomeScreen.assistantDisplayDate(for: activeGap, now: now), now)
-        XCTAssertNil(SunriseHomeScreen.assistantDisplayDate(for: staleGap, now: now))
-        XCTAssertNil(SunriseHomeScreen.assistantDisplayDate(for: shortGap, now: now))
     }
 
     func testTaskAndCalendarCardModelsKeepCardOnlySemantics() {
@@ -833,6 +913,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
 }
 
 #if canImport(UIKit)
+@MainActor
 final class ReflectPlanStyleTests: XCTestCase {
     func testReflectPlanSurfacesResolveDarkAndReadable() {
         let darkCanvas = resolvedColor(ReflectPlanStyle.canvas, style: .dark)
@@ -874,6 +955,7 @@ final class ReflectPlanStyleTests: XCTestCase {
     }
 }
 
+@MainActor
 final class HabitDetailStyleTests: XCTestCase {
     func testHabitDetailBackgroundStopsResolveDark() {
         let darkStops = [
@@ -918,6 +1000,7 @@ final class HabitDetailStyleTests: XCTestCase {
     }
 }
 
+@MainActor
 final class TaskDetailStyleTests: XCTestCase {
     private let traitVariants: [(style: UIUserInterfaceStyle, contrast: UIAccessibilityContrast)] = [
         (.light, .normal),

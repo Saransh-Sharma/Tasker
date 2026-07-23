@@ -1,4 +1,5 @@
 import AppIntents
+import CoreData
 import Foundation
 
 enum LifeBoardShortcutDeepLink {
@@ -112,6 +113,14 @@ struct InboxTaskCaptureService {
 private struct HeadlessLifeBoardShortcutRuntime {
     let projectRepository: ProjectRepositoryProtocol
     let createTaskDefinitionUseCase: CreateTaskDefinitionUseCase
+    let persistentContainer: NSPersistentContainer
+}
+
+fileprivate struct HeadlessLifeOSRepositories {
+    let phaseII: CoreDataLifeBoardPhaseIIRepository
+    let wellness: CoreDataWellnessRepository
+    let nutrition: CoreDataNutritionRepository
+    let moments: CoreDataLifeMomentRepository
 }
 
 enum LifeBoardShortcutDependencyResolver {
@@ -120,6 +129,16 @@ enum LifeBoardShortcutDependencyResolver {
         return InboxTaskCaptureService(
             projectRepository: runtime.projectRepository,
             createTaskDefinitionUseCase: runtime.createTaskDefinitionUseCase
+        )
+    }
+
+    fileprivate static func lifeOSRepositories() async throws -> HeadlessLifeOSRepositories {
+        let runtime = try await headlessRuntime()
+        return .init(
+            phaseII: CoreDataLifeBoardPhaseIIRepository(container: runtime.persistentContainer),
+            wellness: CoreDataWellnessRepository(container: runtime.persistentContainer),
+            nutrition: CoreDataNutritionRepository(container: runtime.persistentContainer),
+            moments: CoreDataLifeMomentRepository(container: runtime.persistentContainer)
         )
     }
 
@@ -160,9 +179,20 @@ enum LifeBoardShortcutDependencyResolver {
                 repository: taskDefinitionRepository,
                 taskTagLinkRepository: taskTagLinkRepository,
                 taskDependencyRepository: taskDependencyRepository
-            )
+            ),
+            persistentContainer: container
         )
     }
+}
+
+private func applyShortcutMutation(
+    preview: LifeBoardTransactionPreview,
+    apply: @escaping @Sendable () async throws -> String,
+    undo: @escaping @Sendable () async throws -> Void
+) async throws -> LifeBoardActionReceipt {
+    let coordinator = LifeBoardMutationCoordinator()
+    let prepared = await coordinator.prepare(.init(preview: preview, apply: apply, undo: undo))
+    return try await coordinator.apply(previewID: prepared.id)
 }
 
 @available(iOS 16.0, macOS 13.0, *)
@@ -255,6 +285,127 @@ struct StartFocusSessionIntent: AppIntent {
 }
 
 @available(iOS 16.0, macOS 13.0, *)
+struct QuickJournalCaptureIntent: AppIntent {
+    static let title: LocalizedStringResource = "Capture Journal Moment"
+    static let description = IntentDescription("Adds a private text moment to today’s Journal.")
+    static let openAppWhenRun = false
+
+    @Parameter(title: "Moment", requestValueDialog: IntentDialog("What would you like to keep?"))
+    var text: String
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !content.isEmpty else { throw $text.needsValueError(IntentDialog("What would you like to keep?")) }
+        let repositories = try await LifeBoardShortcutDependencyResolver.lifeOSRepositories()
+        let repository = repositories.phaseII
+        let dayDate = Calendar.current.startOfDay(for: Date())
+        let previous = try await repository.fetchJournalDay(containing: dayDate)
+        var day = previous ?? LifeBoardJournalDayValue(day: dayDate)
+        let blockID = UUID()
+        day.blocks.append(.init(id: blockID, dayID: day.id, kind: .text, text: content, ordinal: day.blocks.count))
+        day.updatedAt = Date()
+        let saved = day
+        _ = try await applyShortcutMutation(
+            preview: .init(destination: .track, summary: "Add a Journal moment", changes: ["Journal · Today", content], origin: .appIntent),
+            apply: { try await repository.saveJournalDay(saved); return "Added to today’s Journal." },
+            undo: {
+                if let previous { try await repository.saveJournalDay(previous) }
+                else { try await repository.deleteJournalDay(id: saved.id) }
+            }
+        )
+        return .result(dialog: "Added to today’s Journal.")
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct LogBodyMetricIntent: AppIntent {
+    static let title: LocalizedStringResource = "Log Body Metric"
+    static let description = IntentDescription("Logs a body metric with an explicit value and unit.")
+    static let openAppWhenRun = false
+
+    @Parameter(title: "Metric", description: "bodyMass, bodyFatPercentage, waistCircumference, or restingHeartRate")
+    var metric: String
+    @Parameter(title: "Value") var value: Double
+    @Parameter(title: "Unit", description: "kilograms, pounds, percent, centimeters, inches, or beatsPerMinute")
+    var unit: String
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard let kind = BodyMetricKind(rawValue: metric),
+              let displayUnit = WellnessDisplayUnit(rawValue: unit) else {
+            throw LifeBoardShortcutRuntimeError.handoffFailed("Choose a compatible metric and unit.")
+        }
+        let sample = try BodyMetricSample(kind: kind, value: value, unit: displayUnit, source: .manual)
+        if case .requiresConfirmation(let message) = WellnessOutlierPolicy().review(
+            kind: kind,
+            normalizedValue: sample.normalizedValue
+        ) {
+            throw LifeBoardShortcutRuntimeError.handoffFailed(message)
+        }
+        let repositories = try await LifeBoardShortcutDependencyResolver.lifeOSRepositories()
+        let repository = repositories.wellness
+        _ = try await applyShortcutMutation(
+            preview: .init(destination: .track, summary: "Log \(kind.title)", changes: ["\(value) \(displayUnit.symbol)"], origin: .appIntent),
+            apply: { try await repository.save(sample); return "Logged \(kind.title)." },
+            undo: { try await repository.delete(kind: .bodyMetric, id: sample.id) }
+        )
+        return .result(dialog: IntentDialog(stringLiteral: "Logged \(kind.title)."))
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct StartFastingTimerIntent: AppIntent {
+    static let title: LocalizedStringResource = "Start Fasting Timer"
+    static let description = IntentDescription("Starts a neutral timer using only the duration you choose.")
+    static let openAppWhenRun = false
+
+    @Parameter(title: "Target hours") var targetHours: Double?
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        if let targetHours, targetHours <= 0 { throw LifeBoardShortcutRuntimeError.handoffFailed("Target hours must be greater than zero.") }
+        let repositories = try await LifeBoardShortcutDependencyResolver.lifeOSRepositories()
+        let store = FastingTimerStore(repository: LifeBoardFastingRepositoryAdapter(repository: repositories.phaseII))
+        let session = try await store.start(targetDuration: targetHours.map { $0 * 3_600 })
+        return .result(dialog: IntentDialog(stringLiteral: "Fasting timer started at \(session.startedAt.formatted(date: .omitted, time: .shortened))."))
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct EndFastingTimerIntent: AppIntent {
+    static let title: LocalizedStringResource = "End Fasting Timer"
+    static let description = IntentDescription("Ends the active timer without judgment or coaching.")
+    static let openAppWhenRun = false
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let repositories = try await LifeBoardShortcutDependencyResolver.lifeOSRepositories()
+        let store = FastingTimerStore(repository: LifeBoardFastingRepositoryAdapter(repository: repositories.phaseII))
+        let session = try await store.finish()
+        return .result(dialog: IntentDialog(stringLiteral: "Timer ended after \(Int(session.elapsed() / 60)) minutes."))
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct CreateCountdownIntent: AppIntent {
+    static let title: LocalizedStringResource = "Create Countdown"
+    static let description = IntentDescription("Keeps a meaningful date in LifeBoard.")
+    static let openAppWhenRun = false
+
+    @Parameter(title: "Title") var momentTitle: String
+    @Parameter(title: "Date") var date: Date
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        let repositories = try await LifeBoardShortcutDependencyResolver.lifeOSRepositories()
+        let repository = repositories.moments
+        let moment = try LifeMoment(title: momentTitle, kind: .countdown, eventDate: date)
+        _ = try await applyShortcutMutation(
+            preview: .init(destination: .insights, summary: "Create countdown", changes: [moment.title, date.formatted(date: .abbreviated, time: .omitted)], origin: .appIntent),
+            apply: { try await repository.save(moment); return "Created \(moment.title)." },
+            undo: { try await repository.delete(id: moment.id) }
+        )
+        return .result(dialog: IntentDialog(stringLiteral: "Created \(moment.title)."))
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
 struct LifeBoardAppShortcutsProvider: AppShortcutsProvider {
     @AppShortcutsBuilder
     static var appShortcuts: [AppShortcut] {
@@ -290,6 +441,12 @@ struct LifeBoardAppShortcutsProvider: AppShortcutsProvider {
             shortTitle: "Start Focus",
             systemImageName: "timer"
         )
+
+        AppShortcut(intent: QuickJournalCaptureIntent(), phrases: ["Capture a journal moment in \(.applicationName)"], shortTitle: "Journal Moment", systemImageName: "book.closed")
+        AppShortcut(intent: LogBodyMetricIntent(), phrases: ["Log a body metric in \(.applicationName)"], shortTitle: "Log Metric", systemImageName: "chart.line.uptrend.xyaxis")
+        AppShortcut(intent: StartFastingTimerIntent(), phrases: ["Start fasting timer in \(.applicationName)"], shortTitle: "Start Timer", systemImageName: "timer")
+        AppShortcut(intent: EndFastingTimerIntent(), phrases: ["End fasting timer in \(.applicationName)"], shortTitle: "End Timer", systemImageName: "stop.circle")
+        AppShortcut(intent: CreateCountdownIntent(), phrases: ["Create countdown in \(.applicationName)"], shortTitle: "Countdown", systemImageName: "calendar.badge.clock")
     }
 
     static var shortcutTileColor: ShortcutTileColor {

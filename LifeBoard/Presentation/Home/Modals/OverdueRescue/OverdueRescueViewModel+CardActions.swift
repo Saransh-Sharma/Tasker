@@ -32,6 +32,24 @@ extension OverdueRescueViewModel {
         max(0, allCount - resolvedTaskIDs.count)
     }
 
+    var keepActionTitle: String {
+        launchContext.keepActionTitle()
+    }
+
+    var keepActionAccessibilityHint: String {
+        if launchContext.synchronizesKeptTasksWithPlan {
+            return "Places this task in Planned Work for the selected day and moves to the next card."
+        }
+        return "Keeps this task on today’s board and moves to the next card."
+    }
+
+    var keepTargetDate: Date {
+        if launchContext.targetPlanningDay != nil {
+            return launchContext.targetDate()
+        }
+        return Calendar.current.startOfDay(for: nowProvider())
+    }
+
     var safeFixes: [OverdueRescueCardModel] {
         allCards.filter { card in
             guard resolvedTaskIDs.contains(card.id) == false else { return false }
@@ -84,8 +102,12 @@ extension OverdueRescueViewModel {
 
     func keepToday(source: OverdueRescueDecisionSource) {
         guard let card = currentCard else { return }
-        let today = Calendar.current.startOfDay(for: nowProvider())
-        let schedule = TaskRescueScheduleShifter.shift(task: card.task, to: today)
+        let targetDate = keepTargetDate
+        let schedule = TaskRescueScheduleShifter.shift(
+            task: card.task,
+            to: targetDate,
+            calendar: launchContext.decisionCalendar()
+        )
         let dueDescription = schedule.dueDate?.description ?? "nil"
         let startDescription = schedule.scheduledStartAt?.description ?? "nil"
         let endDescription = schedule.scheduledEndAt?.description ?? "nil"
@@ -108,7 +130,7 @@ extension OverdueRescueViewModel {
             ),
             action: .keepToday,
             source: source,
-            message: "Kept on today"
+            message: launchContext.keepSuccessMessage()
         )
     }
 
@@ -117,9 +139,14 @@ extension OverdueRescueViewModel {
         let dueDate = card.moveDate ?? OverdueRescueMoveLaterResolver.resolveMoveDate(
             for: card.task,
             recommendation: card.recommendation,
-            now: nowProvider()
+            now: launchContext.targetDate(),
+            calendar: launchContext.decisionCalendar()
         )
-        let schedule = TaskRescueScheduleShifter.shift(task: card.task, to: dueDate)
+        let schedule = TaskRescueScheduleShifter.shift(
+            task: card.task,
+            to: dueDate,
+            calendar: launchContext.decisionCalendar()
+        )
         applyUpdate(
             task: card.task,
             request: UpdateTaskDefinitionRequest(
@@ -181,14 +208,14 @@ extension OverdueRescueViewModel {
         let fixes = safeFixes
         guard fixes.isEmpty == false else { return }
         guard transition(to: .applyingBulk) else { return }
-        let today = Calendar.current.startOfDay(for: nowProvider())
+        let keepDate = keepTargetDate
         let mutations = fixes.compactMap { card -> EvaBatchMutationInstruction? in
             switch card.recommendation?.action {
             case .doToday:
                 return EvaBatchMutationInstruction(
                     taskID: card.id,
                     expectedUpdatedAt: card.task.updatedAt,
-                    dueDate: today
+                    dueDate: keepDate
                 )
             case .move:
                 return EvaBatchMutationInstruction(
@@ -205,25 +232,7 @@ extension OverdueRescueViewModel {
                 guard let self else { return }
                 switch result {
                 case .success(let run):
-                    for card in fixes {
-                        self.undoRecords.append(OverdueRescueUndoRecord(
-                            taskSnapshot: card.task,
-                            source: .bulk,
-                            action: card.recommendation?.action == .doToday ? .keepToday : .moveLater,
-                            runID: run.id
-                        ))
-                    }
-                    self.summary.kept += fixes.filter { $0.recommendation?.action == .doToday }.count
-                    self.summary.moved += fixes.filter { $0.recommendation?.action == .move }.count
-                    let fixedIDs = Set(fixes.map(\.id))
-                    self.resolvedTaskIDs.formUnion(fixedIDs)
-                    self.sprintResolvedCount = min(self.sprintTotal, self.sprintResolvedCount + fixes.count)
-                    self.cards.removeAll { fixedIDs.contains($0.id) }
-                    self.currentIndex = min(self.currentIndex, max(0, self.cards.count - 1))
-                    self.snackbar = SnackbarData(message: "Applied \(fixes.count) safe fixes", actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
-                    self.showSafeFixesConfirmation = false
-                    _ = self.transition(to: self.cards.isEmpty ? .completed : .active)
-                    LifeBoardFeedback.success()
+                    self.synchronizeBulkPlanningIfNeeded(fixes: fixes, run: run)
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                     _ = self.transition(to: .error)
@@ -232,20 +241,105 @@ extension OverdueRescueViewModel {
         }
     }
 
+    func synchronizeBulkPlanningIfNeeded(
+        fixes: [OverdueRescueCardModel],
+        run: AssistantActionRunDefinition
+    ) {
+        guard launchContext.synchronizesKeptTasksWithPlan,
+              let targetPlanningDay = launchContext.targetPlanningDay else {
+            finishSafeFixes(fixes: fixes, run: run)
+            return
+        }
+        let keptCards = fixes.filter { $0.recommendation?.action == .doToday }
+        let updatedMetadata = keptCards.map { card -> PlanningTaskMetadata in
+            var metadata = launchContext.planningMetadataByTaskID[card.id]
+                ?? PlanningTaskMetadata(taskID: card.id)
+            metadata.planningDay = targetPlanningDay
+            metadata.updatedAt = nowProvider()
+            return metadata
+        }
+        guard updatedMetadata.isEmpty == false else {
+            finishSafeFixes(fixes: fixes, run: run)
+            return
+        }
+        onSavePlanningMetadata(updatedMetadata) { [weak self] result in
+            Task { @MainActor in
+                guard let self else { return }
+                switch result {
+                case .success:
+                    self.finishSafeFixes(fixes: fixes, run: run)
+                case .failure(let planningError):
+                    self.onUndoBulk { [weak self] undoResult in
+                        Task { @MainActor in
+                            guard let self else { return }
+                            switch undoResult {
+                            case .success:
+                                self.errorMessage = planningError.localizedDescription
+                            case .failure(let undoError):
+                                self.errorMessage = "\(planningError.localizedDescription) The safe-fix rollback also failed: \(undoError.localizedDescription)"
+                            }
+                            _ = self.transition(to: .error)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func finishSafeFixes(
+        fixes: [OverdueRescueCardModel],
+        run: AssistantActionRunDefinition
+    ) {
+        for card in fixes {
+            let isKeep = card.recommendation?.action == .doToday
+            let previousMetadata = isKeep && launchContext.synchronizesKeptTasksWithPlan
+                ? (launchContext.planningMetadataByTaskID[card.id] ?? PlanningTaskMetadata(taskID: card.id))
+                : nil
+            undoRecords.append(OverdueRescueUndoRecord(
+                taskSnapshot: card.task,
+                source: .bulk,
+                action: isKeep ? .keepToday : .moveLater,
+                runID: run.id,
+                previousPlanningMetadata: previousMetadata
+            ))
+        }
+        summary.kept += fixes.filter { $0.recommendation?.action == .doToday }.count
+        summary.moved += fixes.filter { $0.recommendation?.action == .move }.count
+        let fixedIDs = Set(fixes.map(\.id))
+        resolvedTaskIDs.formUnion(fixedIDs)
+        sprintResolvedCount = min(sprintTotal, sprintResolvedCount + fixes.count)
+        cards.removeAll { fixedIDs.contains($0.id) }
+        currentIndex = min(currentIndex, max(0, cards.count - 1))
+        snackbar = SnackbarData(message: "Applied \(fixes.count) safe fixes", actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
+        showSafeFixesConfirmation = false
+        _ = transition(to: cards.isEmpty ? .completed : .active)
+        LifeBoardFeedback.success()
+    }
+
     func undoLast() {
-        guard let record = undoRecords.popLast() else { return }
+        guard let record = undoRecords.last else { return }
         if record.source == .bulk, let runID = record.runID {
-            let relatedRecords = [record] + undoRecords.filter { $0.runID == runID }
-            undoRecords.removeAll { $0.runID == runID }
-            onUndoBulk { [weak self] result in
+            let relatedRecords = undoRecords.filter { $0.runID == runID }
+            restoreBulkPlanningMetadata(relatedRecords) { [weak self] planningResult in
                 Task { @MainActor in
-                    switch result {
-                    case .success:
-                        self?.snackbar = SnackbarData(message: "Safe fixes undone")
-                        self?.restoreUndoRecords(relatedRecords)
-                        _ = self?.transition(to: .active)
+                    guard let self else { return }
+                    switch planningResult {
                     case .failure(let error):
-                        self?.errorMessage = error.localizedDescription
+                        self.errorMessage = error.localizedDescription
+                    case .success:
+                        self.onUndoBulk { [weak self] result in
+                            Task { @MainActor in
+                                switch result {
+                                case .success:
+                                    self?.undoRecords.removeAll { $0.runID == runID }
+                                    self?.snackbar = SnackbarData(message: "Safe fixes undone")
+                                    self?.restoreUndoRecords(relatedRecords)
+                                    _ = self?.transition(to: .active)
+                                case .failure(let error):
+                                    self?.errorMessage = error.localizedDescription
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -258,6 +352,7 @@ extension OverdueRescueViewModel {
                 Task { @MainActor in
                     switch result {
                     case .success:
+                        self?.undoRecords.removeAll { $0.id == record.id }
                         self?.restoreUndoRecords([record])
                         _ = self?.transition(to: .active)
                         self?.snackbar = SnackbarData(message: "Delete undone")
@@ -267,30 +362,23 @@ extension OverdueRescueViewModel {
                 }
             }
         case .keepToday, .moveLater, .edit:
-            let request = UpdateTaskDefinitionRequest(
-                id: record.taskSnapshot.id,
-                projectID: record.taskSnapshot.projectID,
-                dueDate: record.taskSnapshot.dueDate,
-                clearDueDate: record.taskSnapshot.dueDate == nil,
-                scheduledStartAt: record.taskSnapshot.scheduledStartAt,
-                clearScheduledStartAt: record.taskSnapshot.scheduledStartAt == nil,
-                scheduledEndAt: record.taskSnapshot.scheduledEndAt,
-                clearScheduledEndAt: record.taskSnapshot.scheduledEndAt == nil,
-                isAllDay: record.taskSnapshot.isAllDay,
-                priority: record.taskSnapshot.priority,
-                isComplete: record.taskSnapshot.isComplete,
-                estimatedDuration: record.taskSnapshot.estimatedDuration,
-                clearEstimatedDuration: record.taskSnapshot.estimatedDuration == nil
-            )
-            onUpdate(request) { [weak self] result in
+            restorePlanningMetadataIfNeeded(record) { [weak self] planningResult in
                 Task { @MainActor in
-                    switch result {
-                    case .success:
-                        self?.restoreUndoRecords([record])
-                        _ = self?.transition(to: .active)
-                        self?.snackbar = SnackbarData(message: "Change undone")
+                    guard let self else { return }
+                    switch planningResult {
                     case .failure(let error):
-                        self?.errorMessage = error.localizedDescription
+                        self.errorMessage = error.localizedDescription
+                    case .success:
+                        self.onUpdate(self.restoreRequest(for: record.taskSnapshot)) { [weak self] result in
+                            Task { @MainActor in
+                                switch result {
+                                case .success:
+                                    self?.completeTaskUndo(record)
+                                case .failure(let error):
+                                    self?.errorMessage = error.localizedDescription
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -304,7 +392,8 @@ extension OverdueRescueViewModel {
         source: OverdueRescueDecisionSource,
         message: String
     ) {
-        guard state == .active || state == .editing else { return }
+        guard state == .active || state == .editing, isDecisionInFlight == false else { return }
+        isDecisionInFlight = true
         onUpdate(request) { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
@@ -317,22 +406,137 @@ extension OverdueRescueViewModel {
                         "scheduled_end=\(updatedTask.scheduledEndAt?.description ?? "nil") " +
                         "is_all_day=\(updatedTask.isAllDay)"
                     )
-                    self.undoRecords.append(OverdueRescueUndoRecord(taskSnapshot: task, source: source, action: action, runID: nil))
-                    switch action {
-                    case .keepToday: self.summary.kept += 1
-                    case .moveLater: self.summary.moved += 1
-                    case .edit: self.summary.edited += 1
-                    case .delete: self.summary.deleted += 1
+                    if action == .keepToday,
+                       self.launchContext.synchronizesKeptTasksWithPlan,
+                       let targetPlanningDay = self.launchContext.targetPlanningDay {
+                        let previousMetadata = self.launchContext.planningMetadataByTaskID[task.id]
+                            ?? PlanningTaskMetadata(taskID: task.id)
+                        var updatedMetadata = previousMetadata
+                        updatedMetadata.planningDay = targetPlanningDay
+                        updatedMetadata.updatedAt = self.nowProvider()
+                        self.onSavePlanningMetadata([updatedMetadata]) { [weak self] planningResult in
+                            Task { @MainActor in
+                                guard let self else { return }
+                                switch planningResult {
+                                case .success:
+                                    self.completeUpdate(
+                                        task: task,
+                                        action: action,
+                                        source: source,
+                                        message: message,
+                                        previousPlanningMetadata: previousMetadata
+                                    )
+                                case .failure(let error):
+                                    self.rollbackTaskUpdate(task, afterPlanningFailure: error)
+                                }
+                            }
+                        }
+                    } else {
+                        self.completeUpdate(
+                            task: task,
+                            action: action,
+                            source: source,
+                            message: message,
+                            previousPlanningMetadata: nil
+                        )
                     }
-                    self.snackbar = SnackbarData(message: message, actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
-                    self.advance()
-                    LifeBoardFeedback.success()
                 case .failure(let error):
+                    self.isDecisionInFlight = false
                     self.errorMessage = error.localizedDescription
                     _ = self.transition(to: .error)
                 }
             }
         }
+    }
+
+    func completeUpdate(
+        task: TaskDefinition,
+        action: OverdueRescueDecisionAction,
+        source: OverdueRescueDecisionSource,
+        message: String,
+        previousPlanningMetadata: PlanningTaskMetadata?
+    ) {
+        isDecisionInFlight = false
+        undoRecords.append(OverdueRescueUndoRecord(
+            taskSnapshot: task,
+            source: source,
+            action: action,
+            runID: nil,
+            previousPlanningMetadata: previousPlanningMetadata
+        ))
+        switch action {
+        case .keepToday: summary.kept += 1
+        case .moveLater: summary.moved += 1
+        case .edit: summary.edited += 1
+        case .delete: summary.deleted += 1
+        }
+        snackbar = SnackbarData(message: message, actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
+        advance()
+        LifeBoardFeedback.success()
+    }
+
+    func rollbackTaskUpdate(_ task: TaskDefinition, afterPlanningFailure planningError: Error) {
+        onUpdate(restoreRequest(for: task)) { [weak self] rollbackResult in
+            Task { @MainActor in
+                guard let self else { return }
+                self.isDecisionInFlight = false
+                switch rollbackResult {
+                case .success:
+                    self.errorMessage = planningError.localizedDescription
+                case .failure(let rollbackError):
+                    self.errorMessage = "\(planningError.localizedDescription) The task rollback also failed: \(rollbackError.localizedDescription)"
+                }
+                _ = self.transition(to: .error)
+            }
+        }
+    }
+
+    func restorePlanningMetadataIfNeeded(
+        _ record: OverdueRescueUndoRecord,
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
+    ) {
+        guard let previousPlanningMetadata = record.previousPlanningMetadata else {
+            completion(.success(()))
+            return
+        }
+        onSavePlanningMetadata([previousPlanningMetadata], completion)
+    }
+
+    func restoreBulkPlanningMetadata(
+        _ records: [OverdueRescueUndoRecord],
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
+    ) {
+        let metadata = records.compactMap(\.previousPlanningMetadata)
+        guard metadata.isEmpty == false else {
+            completion(.success(()))
+            return
+        }
+        onSavePlanningMetadata(metadata, completion)
+    }
+
+    func completeTaskUndo(_ record: OverdueRescueUndoRecord) {
+        undoRecords.removeAll { $0.id == record.id }
+        restoreUndoRecords([record])
+        _ = transition(to: .active)
+        snackbar = SnackbarData(message: "Change undone")
+    }
+
+    func restoreRequest(for task: TaskDefinition) -> UpdateTaskDefinitionRequest {
+        UpdateTaskDefinitionRequest(
+            id: task.id,
+            projectID: task.projectID,
+            dueDate: task.dueDate,
+            clearDueDate: task.dueDate == nil,
+            scheduledStartAt: task.scheduledStartAt,
+            clearScheduledStartAt: task.scheduledStartAt == nil,
+            scheduledEndAt: task.scheduledEndAt,
+            clearScheduledEndAt: task.scheduledEndAt == nil,
+            isAllDay: task.isAllDay,
+            priority: task.priority,
+            isComplete: task.isComplete,
+            estimatedDuration: task.estimatedDuration,
+            clearEstimatedDuration: task.estimatedDuration == nil
+        )
     }
 
     func deleteCurrent() {

@@ -1282,7 +1282,12 @@ public final class HabitDetailViewModel: ObservableObject {
     private var pendingLoadIfNeededCompletions: [@MainActor @Sendable () -> Void] = []
     private var pendingEditorSupportCompletions: [(Bool) -> Void] = []
     private var autosaveWorkItem: DispatchWorkItem?
-    private var needsSaveAfterCurrentRequest = false
+    private var autosaveGeneration = 0
+    private var draftRevision = 0
+    private var savedDraftRevision = 0
+    private var savingDraftRevision: Int?
+    private var autosaveRequestedAfterCurrentOperation = false
+    private var pendingAutosaveFlushCompletions: [(Bool) -> Void] = []
     private let textAutosaveDebounceSeconds: TimeInterval = 0.6
 
     public init(
@@ -1477,7 +1482,7 @@ public final class HabitDetailViewModel: ObservableObject {
                         notes: latestRow.notes
                     )
                 }
-                if self.isEditing == false {
+                if self.draftRevision == self.savedDraftRevision {
                     self.draft = HabitEditorDraft(row: self.row)
                 }
             }
@@ -1506,6 +1511,13 @@ public final class HabitDetailViewModel: ObservableObject {
     }
 
     public func prepareAlwaysEditableSupport(completion: (@MainActor @Sendable () -> Void)? = nil) {
+        guard hasLoadedOnce, isLoading == false, isCalendarLoading == false else {
+            loadIfNeeded { [weak self] in
+                self?.prepareAlwaysEditableSupport(completion: completion)
+            }
+            return
+        }
+
         loadEditorSupportDataIfNeeded { [weak self] didLoad in
             guard let self else {
                 completion?()
@@ -1568,90 +1580,154 @@ public final class HabitDetailViewModel: ObservableObject {
         }
     }
 
-    /// Cancels any scheduled debounced autosave, flushing the last edit
-    /// immediately so a fast dismiss doesn't drop the final keystroke.
-    /// Mirrors the cleanup `TaskDetailViewModel.handleDisappear` performs.
-    public func cancelPendingAutosave() {
-        guard let pending = autosaveWorkItem else { return }
+    /// Flushes any dirty draft without allowing a running save to be duplicated.
+    public func flushPendingAutosave(completion: ((Bool) -> Void)? = nil) {
+        autosaveWorkItem?.cancel()
         autosaveWorkItem = nil
-        pending.cancel()
-        if isSaving {
-            needsSaveAfterCurrentRequest = true
-        } else {
-            performAutosave()
+        autosaveGeneration += 1
+
+        if let completion {
+            pendingAutosaveFlushCompletions.append(completion)
         }
+
+        guard draftRevision > savedDraftRevision else {
+            completeAutosaveFlushes(success: true)
+            return
+        }
+
+        guard isSaving == false else {
+            if draftRevision > (savingDraftRevision ?? savedDraftRevision) {
+                autosaveRequestedAfterCurrentOperation = true
+            }
+            return
+        }
+
+        performAutosave()
     }
 
     public func scheduleAutosave(debounced: Bool) {
         autosaveWorkItem?.cancel()
+        autosaveWorkItem = nil
+        autosaveGeneration += 1
+        draftRevision += 1
 
         if isSaving {
-            needsSaveAfterCurrentRequest = true
+            autosaveRequestedAfterCurrentOperation = true
             return
         }
 
+        let generation = autosaveGeneration
         let workItem = DispatchWorkItem { [weak self] in
-            self?.performAutosave()
+            guard let self, generation == self.autosaveGeneration else { return }
+            self.autosaveWorkItem = nil
+            self.performAutosave()
         }
         autosaveWorkItem = workItem
 
         if debounced {
+            autosaveState = .debouncing
             DispatchQueue.main.asyncAfter(deadline: .now() + textAutosaveDebounceSeconds, execute: workItem)
         } else {
             DispatchQueue.main.async(execute: workItem)
         }
     }
 
-    public func togglePause(completion: (@MainActor @Sendable () -> Void)? = nil) {
-        guard isSaving == false else { return }
+    public func retryAutosave() {
+        guard draftRevision > savedDraftRevision, isSaving == false else { return }
+        performAutosave()
+    }
+
+    public func togglePause(completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
+        flushPendingAutosave { [weak self] didFlush in
+            guard let self, didFlush else {
+                completion?(false)
+                return
+            }
+            self.performTogglePause(completion: completion)
+        }
+    }
+
+    private func performTogglePause(completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
+        guard isSaving == false else {
+            completion?(false)
+            return
+        }
         isSaving = true
+        errorMessage = nil
         pauseHabitUseCase.execute(id: row.habitID, isPaused: !row.isPaused) { [weak self] result in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.isSaving = false
                 switch result {
                 case .success:
                     self.refreshReadOnlyData {
-                        if self.needsSaveAfterCurrentRequest {
-                            self.needsSaveAfterCurrentRequest = false
-                            self.scheduleAutosave(debounced: false)
-                        }
-                        completion?()
+                        self.finishExplicitMutation()
+                        completion?(true)
                     }
                 case .failure(let error):
+                    self.isSaving = false
                     self.errorMessage = error.localizedDescription
+                    completion?(false)
                 }
             }
         }
     }
 
-    public func archive(completion: (@MainActor @Sendable () -> Void)? = nil) {
-        guard isSaving == false else { return }
+    public func archive(completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
+        flushPendingAutosave { [weak self] didFlush in
+            guard let self, didFlush else {
+                completion?(false)
+                return
+            }
+            self.performArchive(completion: completion)
+        }
+    }
+
+    private func performArchive(completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
+        guard isSaving == false else {
+            completion?(false)
+            return
+        }
         isSaving = true
+        errorMessage = nil
         archiveHabitUseCase.execute(id: row.habitID) { [weak self] result in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.isSaving = false
                 switch result {
                 case .success:
                     self.refreshReadOnlyData {
-                        if self.needsSaveAfterCurrentRequest {
-                            self.needsSaveAfterCurrentRequest = false
-                            self.scheduleAutosave(debounced: false)
-                        }
-                        completion?()
+                        self.finishExplicitMutation()
+                        completion?(true)
                     }
                 case .failure(let error):
+                    self.isSaving = false
                     self.errorMessage = error.localizedDescription
+                    completion?(false)
                 }
             }
         }
     }
 
-    public func logLapse(completion: (@MainActor @Sendable () -> Void)? = nil) {
-        guard row.trackingMode == .lapseOnly else { return }
-        guard isSaving == false else { return }
+    public func logLapse(completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
+        guard row.trackingMode == .lapseOnly else {
+            completion?(false)
+            return
+        }
+        flushPendingAutosave { [weak self] didFlush in
+            guard let self, didFlush else {
+                completion?(false)
+                return
+            }
+            self.performLogLapse(completion: completion)
+        }
+    }
+
+    private func performLogLapse(completion: (@MainActor @Sendable (Bool) -> Void)? = nil) {
+        guard isSaving == false else {
+            completion?(false)
+            return
+        }
         isSaving = true
+        errorMessage = nil
         resolveHabitOccurrenceUseCase.execute(
             habitID: row.habitID,
             occurrenceID: nil,
@@ -1660,18 +1736,16 @@ public final class HabitDetailViewModel: ObservableObject {
         ) { [weak self] result in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.isSaving = false
                 switch result {
                 case .success:
                     self.refreshReadOnlyData {
-                        if self.needsSaveAfterCurrentRequest {
-                            self.needsSaveAfterCurrentRequest = false
-                            self.scheduleAutosave(debounced: false)
-                        }
-                        completion?()
+                        self.finishExplicitMutation()
+                        completion?(true)
                     }
                 case .failure(let error):
+                    self.isSaving = false
                     self.errorMessage = error.localizedDescription
+                    completion?(false)
                 }
             }
         }
@@ -1679,11 +1753,32 @@ public final class HabitDetailViewModel: ObservableObject {
 
     public func mutateDay(
         _ cell: HabitDetailDayCell,
-        completion: (@MainActor @Sendable () -> Void)? = nil
+        completion: (@MainActor @Sendable (Bool) -> Void)? = nil
     ) {
         guard cell.isInteractive,
-              isSaving == false,
-              let request = HabitDetailCalendarBuilder.nextMutation(for: row, state: cell.state) else { return }
+              let request = HabitDetailCalendarBuilder.nextMutation(for: row, state: cell.state) else {
+            completion?(false)
+            return
+        }
+
+        flushPendingAutosave { [weak self] didFlush in
+            guard let self, didFlush else {
+                completion?(false)
+                return
+            }
+            self.performDayMutation(cell: cell, request: request, completion: completion)
+        }
+    }
+
+    private func performDayMutation(
+        cell: HabitDetailDayCell,
+        request: HabitDetailDayMutationRequest,
+        completion: (@MainActor @Sendable (Bool) -> Void)?
+    ) {
+        guard isSaving == false else {
+            completion?(false)
+            return
+        }
 
         let mutationFeedback = HabitDetailCalendarBuilder.mutationFeedback(
             for: request,
@@ -1696,19 +1791,17 @@ public final class HabitDetailViewModel: ObservableObject {
         let handleResult: @Sendable (Result<Void, Error>) -> Void = { [weak self] result in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.isSaving = false
                 switch result {
                 case .success:
                     self.mutationFeedback = mutationFeedback
                     self.refreshReadOnlyData {
-                        if self.needsSaveAfterCurrentRequest {
-                            self.needsSaveAfterCurrentRequest = false
-                            self.scheduleAutosave(debounced: false)
-                        }
-                        completion?()
+                        self.finishExplicitMutation()
+                        completion?(true)
                     }
                 case .failure(let error):
+                    self.isSaving = false
                     self.errorMessage = error.localizedDescription
+                    completion?(false)
                 }
             }
         }
@@ -1757,46 +1850,75 @@ public final class HabitDetailViewModel: ObservableObject {
     }
 
     private func performAutosave() {
+        guard isSaving == false else {
+            autosaveRequestedAfterCurrentOperation = true
+            return
+        }
+
         normalizeDraftSelection()
 
         guard draft.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
             autosaveState = .failed("Habit title cannot be empty")
+            completeAutosaveFlushes(success: false)
             return
         }
 
         guard draft.lifeAreaID != nil else {
             autosaveState = .failed("Select a life area")
+            completeAutosaveFlushes(success: false)
             return
         }
 
         guard editorReminderWindowValidationError == nil else {
             autosaveState = .failed("Fix reminder window to save")
+            completeAutosaveFlushes(success: false)
             return
         }
 
         autosaveState = .saving
         isSaving = true
         errorMessage = nil
+        autosaveRequestedAfterCurrentOperation = false
+        let savingRevision = draftRevision
+        savingDraftRevision = savingRevision
         let request = makeUpdateRequest()
 
         updateHabitUseCase.execute(request: request) { [weak self] result in
             Task { @MainActor [weak self] in
                 guard let self else { return }
-                self.isSaving = false
                 switch result {
                 case .success:
+                    self.savedDraftRevision = max(self.savedDraftRevision, savingRevision)
                     self.autosaveState = .saved
                     self.refreshReadOnlyData {
-                        if self.needsSaveAfterCurrentRequest {
-                            self.needsSaveAfterCurrentRequest = false
-                            self.scheduleAutosave(debounced: false)
+                        self.savingDraftRevision = nil
+                        self.isSaving = false
+                        if self.draftRevision > self.savedDraftRevision || self.autosaveRequestedAfterCurrentOperation {
+                            self.performAutosave()
+                        } else {
+                            self.completeAutosaveFlushes(success: true)
                         }
                     }
                 case .failure(let error):
+                    self.savingDraftRevision = nil
+                    self.isSaving = false
                     self.autosaveState = .failed(error.localizedDescription)
+                    self.completeAutosaveFlushes(success: false)
                 }
             }
         }
+    }
+
+    private func completeAutosaveFlushes(success: Bool) {
+        let completions = pendingAutosaveFlushCompletions
+        pendingAutosaveFlushCompletions.removeAll()
+        completions.forEach { $0(success) }
+    }
+
+    private func finishExplicitMutation() {
+        isSaving = false
+        guard draftRevision > savedDraftRevision || autosaveRequestedAfterCurrentOperation else { return }
+        performAutosave()
     }
 
     private func makeUpdateRequest() -> UpdateHabitRequest {

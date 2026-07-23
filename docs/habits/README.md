@@ -1,5 +1,7 @@
 # Habit System
 
+> **Classification: Canonical feature package.** The [product handbook](../product/README.md) owns cross-feature journeys; this package owns detailed Habit product, runtime, risk, and roadmap contracts.
+
 LifeBoard treats habits as first-class recurring behaviors, separate from finite tasks but visible in the same execution system.
 
 The habit experience is built around visual streaks, calm recovery after misses, and low-friction logging that keeps the system honest without turning completion into punishment.

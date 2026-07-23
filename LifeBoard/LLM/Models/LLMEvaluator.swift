@@ -139,6 +139,8 @@ class LLMEvaluator {
     var runtimePhase: LLMChatRuntimePhase = .idle
     var answerPhaseSignalCount: Int = 0
     var loadedModelName: String?
+    private(set) var lastSettledPhraseCharacterCount = 0
+    private(set) var phraseSettlementSequence = 0
 
     var elapsedTime: TimeInterval? {
         guard let startTime else { return nil }
@@ -153,11 +155,9 @@ class LLMEvaluator {
     private var generationCancellationToken = LLMGenerationCancellationToken()
     private var didEmitAnswerPhaseSignalForRun = false
     private var pendingVisibleOutput = ""
-    private var hasPendingVisibleOutput = false
-    private var lastVisibleOutputPublishAt = Date.distantPast
+    private var cumulativePhraseSettler = CumulativePhraseSettler()
     private let inferenceEngine: LLMInferenceEngine
     private let generationSlot = LLMGenerationSlot()
-    private let streamPublishThrottleInterval: TimeInterval = 1.0 / 24.0
 
     var modelConfiguration = ModelConfiguration.defaultModel
 
@@ -225,6 +225,8 @@ class LLMEvaluator {
     func cancelGeneration(reason: String = "unknown") {
         cancelled = true
         isThinking = false
+        output = cumulativePhraseSettler.stopDiscardingUncommitted()
+        pendingVisibleOutput = output
         let shouldCancelLoad = runtimePhase == .preparing
         generationCancellationToken.cancel()
         Task {
@@ -256,8 +258,9 @@ class LLMEvaluator {
         cancelled = false
         output = ""
         pendingVisibleOutput = ""
-        hasPendingVisibleOutput = false
-        lastVisibleOutputPublishAt = .distantPast
+        cumulativePhraseSettler = CumulativePhraseSettler()
+        lastSettledPhraseCharacterCount = 0
+        phraseSettlementSequence = 0
         stat = ""
         thinkingTime = nil
         lastGenerationTimedOut = false
@@ -422,8 +425,9 @@ class LLMEvaluator {
         cancelled = false
         output = ""
         pendingVisibleOutput = ""
-        hasPendingVisibleOutput = false
-        lastVisibleOutputPublishAt = .distantPast
+        cumulativePhraseSettler = CumulativePhraseSettler()
+        lastSettledPhraseCharacterCount = 0
+        phraseSettlementSequence = 0
         stat = ""
         progress = 0.0
         thinkingTime = nil
@@ -496,10 +500,8 @@ class LLMEvaluator {
             loadedModelName = modelName
             progress = 1.0
             lastRawOutput = generationResult.rawOutput
+            pendingVisibleOutput = generationResult.visibleOutput
             flushPendingVisibleOutput(force: true)
-            if generationResult.visibleOutput != output {
-                output = generationResult.visibleOutput
-            }
             stat = " Tokens/second: \(String(format: "%.3f", generationResult.tokensPerSecond))"
             thinkingTime = elapsedTime
             lastTerminationReason = generationResult.terminationReason
@@ -575,22 +577,22 @@ class LLMEvaluator {
     }
 
     private func enqueueVisibleOutput(_ text: String) {
-        guard output != text else { return }
         pendingVisibleOutput = text
-        hasPendingVisibleOutput = true
-        flushPendingVisibleOutput(force: false)
+        let update = cumulativePhraseSettler.ingest(cumulativeText: text)
+        publishSettlement(update)
     }
 
     private func flushPendingVisibleOutput(force: Bool) {
-        guard hasPendingVisibleOutput else { return }
-        let now = Date()
-        if force || now.timeIntervalSince(lastVisibleOutputPublishAt) >= streamPublishThrottleInterval {
-            hasPendingVisibleOutput = false
-            lastVisibleOutputPublishAt = now
-            if output != pendingVisibleOutput {
-                output = pendingVisibleOutput
-            }
-        }
+        guard force else { return }
+        let update = cumulativePhraseSettler.complete(cumulativeText: pendingVisibleOutput)
+        publishSettlement(update)
+    }
+
+    private func publishSettlement(_ update: PhraseSettlementUpdate) {
+        guard update.newlySettledText.isEmpty == false else { return }
+        output = update.displayText
+        lastSettledPhraseCharacterCount = update.newlySettledText.count
+        phraseSettlementSequence &+= 1
     }
 
     private func markAnswerPhaseStarted(modelName: String, trigger: String, tokenCount: Int) {
@@ -616,8 +618,9 @@ class LLMEvaluator {
         progress = 0
         output = ""
         pendingVisibleOutput = ""
-        hasPendingVisibleOutput = false
-        lastVisibleOutputPublishAt = .distantPast
+        cumulativePhraseSettler = CumulativePhraseSettler()
+        lastSettledPhraseCharacterCount = 0
+        phraseSettlementSequence = 0
         stat = ""
         thinkingTime = nil
         isThinking = false

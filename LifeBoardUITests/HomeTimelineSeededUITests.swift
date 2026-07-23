@@ -20,8 +20,8 @@ final class HomeTimelineSeededUITests: BaseUITest {
         ]
     }
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         ensureHomeTimelineReady()
     }
 

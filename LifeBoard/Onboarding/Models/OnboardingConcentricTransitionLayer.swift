@@ -50,14 +50,14 @@ struct OnboardingConcentricTransitionLayer: View {
         if #available(iOS 26.0, *), reduceTransparency == false {
             Circle()
                 .fill(pulseColor.opacity(pulseFillOpacity))
-                .glassEffect(.regular, in: Circle())
+                .lifeBoardSystemGlass(.regular, in: Circle())
                 .overlay(
                     Circle()
                         .fill(theme.accent.opacity(0.22))
                 )
                 .overlay(
                     Circle()
-                        .stroke(Color.white.opacity(colorSchemeContrast == .increased ? 0.34 : 0.22), lineWidth: 1)
+                        .stroke(OnboardingTheme.onMediaBorder.opacity(colorSchemeContrast == .increased ? 1 : 0.72), lineWidth: 1)
                 )
         } else {
             Circle()
@@ -66,7 +66,7 @@ struct OnboardingConcentricTransitionLayer: View {
                         colors: [
                             theme.accent.opacity(0.42),
                             pulseColor.opacity(pulseFillOpacity),
-                            Color.white.opacity(0.18)
+                            OnboardingTheme.onMediaBorder.opacity(0.75)
                         ],
                         center: .center,
                         startRadius: 0,

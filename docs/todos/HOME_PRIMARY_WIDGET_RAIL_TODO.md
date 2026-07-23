@@ -1,5 +1,7 @@
 # Home Primary Widget Rail TODO
 
+> **Classification: Historical implementation plan.** Current Home hierarchy is defined in [Adaptive Home](../product/HOME.md).
+
 - [x] Replace stacked Focus Now and Weekly Operating Layer home modules with a horizontal primary-widget rail.
 - [x] Add a default-selection policy that prefers Focus Now and resets when the chosen widget disappears.
 - [x] Use a localized UIKit pager bridge for snap paging while keeping SwiftUI as the owner of Home composition.

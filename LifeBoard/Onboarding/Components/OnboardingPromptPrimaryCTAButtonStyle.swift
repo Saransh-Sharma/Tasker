@@ -22,7 +22,7 @@ struct OnboardingPromptPrimaryCTAButtonStyle: ButtonStyle {
             .background(configuration.isPressed ? OnboardingPromptTheme.accentPressed : OnboardingPromptTheme.accent, in: shape)
             .overlay(
                 shape
-                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                    .stroke(OnboardingTheme.onMediaBorder.opacity(0.92), lineWidth: 1)
             )
             .shadow(color: OnboardingPromptTheme.shadow.opacity(0.14), radius: 18, y: 8)
             .contentShape(shape)

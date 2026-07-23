@@ -2,15 +2,16 @@
 import SwiftUI
 import UIKit
 
+@MainActor
 func resolvedColor(
     _ color: Color,
     style: UIUserInterfaceStyle,
     contrast: UIAccessibilityContrast = .normal
 ) -> UIColor {
-    let traits = UITraitCollection(traitsFrom: [
-        UITraitCollection(userInterfaceStyle: style),
-        UITraitCollection(accessibilityContrast: contrast)
-    ])
+    let traits = UITraitCollection { mutableTraits in
+        mutableTraits.userInterfaceStyle = style
+        mutableTraits.accessibilityContrast = contrast
+    }
     return UIColor(color).resolvedColor(with: traits)
 }
 

@@ -1,5 +1,7 @@
 # Semantic Swift File Naming Cleanup TODO
 
+> **Classification: Engineering implementation record.** It does not define product behavior or release completion.
+
 ## Preparation
 - [x] Confirm working tree scope before edits.
 - [x] Build a rename manifest with old path, new path, and pure rename vs split.

@@ -12,6 +12,7 @@ struct OverdueRescueRevealPanel: View {
     let reveal: OverdueRescueSwipeRevealKind
     let progress: Double
     let metrics: OverdueRescueDeckLayoutMetrics
+    let keepTitle: String
 
     var body: some View {
         RoundedRectangle(cornerRadius: OverdueRescueVisualSpec.cardCorner, style: .continuous)
@@ -21,7 +22,7 @@ struct OverdueRescueRevealPanel: View {
                     .stroke(panelForeground.opacity(0.18), lineWidth: 1)
             )
             .frame(width: metrics.revealPanelWidth, height: metrics.cardHeight * 0.96)
-            .shadow(color: Color.black.opacity(0.08 * easedProgress), radius: 22, y: 12)
+            .lbShadow(LBShadowTokens.rescueReveal(progress: easedProgress))
             .overlay(alignment: reveal == .keep ? .leading : .trailing) {
                 if reveal != .none {
                     VStack(spacing: 12) {
@@ -74,7 +75,7 @@ struct OverdueRescueRevealPanel: View {
 
     var title: String {
         switch reveal {
-        case .keep: return "Keep\ntoday"
+        case .keep: return keepTitle.replacingOccurrences(of: " ", with: "\n", options: [], range: keepTitle.range(of: " ", options: .backwards))
         case .move: return "Move\nlater"
         case .none: return ""
         }

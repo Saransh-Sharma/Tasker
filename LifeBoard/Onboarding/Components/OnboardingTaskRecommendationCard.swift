@@ -11,6 +11,7 @@ struct OnboardingTaskRecommendationCard: View {
     let state: OnboardingTaskTemplateState
     let isGuidanceHighlighted: Bool
     let showsIdleBadge: Bool
+    let accessibilityIdentifier: String
     let onAdd: () -> Void
     let onEdit: () -> Void
     @Environment(\.accessibilityReduceMotion) var reduceMotion
@@ -82,6 +83,7 @@ struct OnboardingTaskRecommendationCard: View {
                 .buttonStyle(OnboardingPressScaleButtonStyle())
                 .foregroundStyle(state == .creating ? OnboardingTheme.textSecondary : OnboardingTheme.textPrimary)
                 .disabled(state == .creating)
+                .accessibilityIdentifier(accessibilityIdentifier)
             }
         }
     }

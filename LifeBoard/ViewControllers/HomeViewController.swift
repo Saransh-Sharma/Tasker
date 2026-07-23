@@ -164,6 +164,13 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
         navigationCoordinator.handle(.uiTestOpenSettings)
         navigationCoordinator.handle(.pendingWidgetActionCommand)
         navigationCoordinator.handle(.pendingIPadModalRequest)
+        seedUITestWorkspacesForLaunchIfNeeded()
+    }
+
+    /// Runs the canonical UI-test repository seed independently of Home's presentation.
+    /// The foundation shell uses this hook to gate seeded automation until the same data
+    /// written by the legacy launch harness is ready for its native SwiftUI destinations.
+    func seedUITestWorkspacesForLaunchIfNeeded(completion: @escaping () -> Void = {}) {
         launchHarnessService.seedUITestWorkspacesIfNeeded(
             seeders: HomeLaunchHarnessWorkspaceSeeders(
                 establishedSeed: { [weak self] completion in
@@ -263,11 +270,15 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
                 }
             )
         ) { [weak self] in
-            guard let self else { return }
+            guard let self else {
+                completion()
+                return
+            }
             self.viewModel.invalidateTaskCaches()
             self.viewModel.loadTasksForSelectedDate()
             self.navigationCoordinator.handle(.uiTestInjectedRoute)
             self.scheduleOnboardingEvaluationIfNeeded()
+            completion()
         }
     }
 

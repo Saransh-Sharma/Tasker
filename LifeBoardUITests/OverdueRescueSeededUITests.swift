@@ -19,8 +19,8 @@ final class OverdueRescueSeededUITests: BaseUITest {
         ]
     }
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         homePage = HomePage(app: app)
         rescuePage = OverdueRescuePage(app: app, homePage: homePage)
     }

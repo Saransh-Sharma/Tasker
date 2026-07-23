@@ -1,5 +1,7 @@
 # Weekly Review Perf And Completion Fixes
 
+> **Classification: Implementation record.** Current planning behavior is defined in [Plan and Focus](../product/PLAN_AND_FOCUS.md); active completion is owned by the remaining ledger.
+
 - [x] Investigate review-screen performance and completion failure path
 - [x] Refactor weekly review domain/use-case result to carry skipped stale entities
 - [x] Batch and harden Core Data review finalization

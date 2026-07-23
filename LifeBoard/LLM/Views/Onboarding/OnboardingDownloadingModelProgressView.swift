@@ -94,7 +94,7 @@ struct OnboardingDownloadingModelProgressView: View {
                             RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.pill)
                                 .fill(Color.lifeboard(.accentPrimary))
                                 .frame(width: geo.size.width * overallProgress, height: 8)
-                                .animation(LifeBoardAnimation.gentle, value: overallProgress)
+                                .animation(LifeBoardAnimation.heroReveal, value: overallProgress)
                         }
                     }
                     .frame(height: 8)

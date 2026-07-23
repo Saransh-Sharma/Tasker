@@ -48,6 +48,9 @@ final class HomeBottomBarState {
     }
 
     func handleChromeStateChange(_ state: HomeScrollChromeState) {
-        isMinimized = state == .collapsed
+        // The dock is persistent navigation, so scrolling may simplify the
+        // surrounding chrome but must not collapse or hide its destinations.
+        // Keeping this stable is especially important at accessibility sizes.
+        isMinimized = false
     }
 }

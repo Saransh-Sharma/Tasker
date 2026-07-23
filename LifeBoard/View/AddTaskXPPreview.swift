@@ -70,14 +70,14 @@ struct AddTaskXPPreview: View {
                     )
             )
         }
-        .animation(LifeBoardAnimation.quick, value: priority)
+        .animation(LifeBoardAnimation.feedbackFast, value: priority)
         .onChange(of: priority) { _, newPriority in
             if newPriority == .high || newPriority == .max {
-                withAnimation(LifeBoardAnimation.gentle) {
+                withAnimation(LifeBoardAnimation.heroReveal) {
                     pulsing = true
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
-                    withAnimation(LifeBoardAnimation.gentle) {
+                    withAnimation(LifeBoardAnimation.heroReveal) {
                         pulsing = false
                     }
                 }

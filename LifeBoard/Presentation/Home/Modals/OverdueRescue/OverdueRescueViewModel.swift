@@ -38,6 +38,8 @@ final class OverdueRescueViewModel: ObservableObject {
 
     @Published var showSafeFixesConfirmation = false
 
+    @Published var isDecisionInFlight = false
+
     let allCount: Int
 
     let allCards: [OverdueRescueCardModel]
@@ -47,6 +49,8 @@ final class OverdueRescueViewModel: ObservableObject {
     let projectsByID: [UUID: Project]
 
     let nowProvider: @Sendable () -> Date
+
+    let launchContext: OverdueRescueLaunchContext
 
     var resolvedTaskIDs: Set<UUID> = []
 
@@ -68,6 +72,11 @@ final class OverdueRescueViewModel: ObservableObject {
 
     let onUndoBulk: @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
 
+    let onSavePlanningMetadata: @Sendable (
+        [PlanningTaskMetadata],
+        @escaping @Sendable (Result<Void, Error>) -> Void
+    ) -> Void
+
     let onTrack: (String, [String: Any]) -> Void
 
     init(
@@ -76,6 +85,7 @@ final class OverdueRescueViewModel: ObservableObject {
         projectsByID: [UUID: Project],
         referenceDate: Date = Date(),
         nowProvider: @escaping @Sendable () -> Date = Date.init,
+        launchContext: OverdueRescueLaunchContext? = nil,
         sessionScope: OverdueRescueSessionScope? = nil,
         sessionStore: UserDefaultsOverdueRescueSessionStore = UserDefaultsOverdueRescueSessionStore(),
         onUpdate: @escaping @Sendable (UpdateTaskDefinitionRequest, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void,
@@ -83,15 +93,17 @@ final class OverdueRescueViewModel: ObservableObject {
         onRestore: @escaping @Sendable (TaskDefinition, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void,
         onApplyBulk: @escaping @Sendable ([EvaBatchMutationInstruction], @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void,
         onUndoBulk: @escaping @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void,
+        onSavePlanningMetadata: @escaping @Sendable (
+            [PlanningTaskMetadata],
+            @escaping @Sendable (Result<Void, Error>) -> Void
+        ) -> Void = { _, completion in completion(.success(())) },
         onTrack: @escaping (String, [String: Any]) -> Void
     ) {
+        let resolvedLaunchContext = launchContext ?? .home(referenceDate: referenceDate)
         let planRecommendations = Self.orderedRecommendations(from: plan)
         let recommendationByID = Dictionary(uniqueKeysWithValues: planRecommendations.map { ($0.taskID, $0) })
-        let scope = sessionScope ?? OverdueRescueSessionScope(
-            accountScopeID: "default",
-            workspaceID: nil,
-            rescueDay: referenceDate
-        )
+        let scope = sessionScope ?? resolvedLaunchContext.sessionScope()
+        let decisionCalendar = resolvedLaunchContext.decisionCalendar()
         let eligibleTasks = OverdueRescueEligibilityService.eligibleTasks(
             from: tasksByID,
             recommendations: planRecommendations,
@@ -104,7 +116,9 @@ final class OverdueRescueViewModel: ObservableObject {
                     task: task,
                     recommendation: recommendationByID[task.id],
                     projectsByID: projectsByID,
-                    now: referenceDate
+                    now: referenceDate,
+                    decisionAnchorDate: resolvedLaunchContext.targetDate(calendar: decisionCalendar),
+                    decisionCalendar: decisionCalendar
                 )
             }
             .sorted { lhs, rhs in
@@ -116,6 +130,7 @@ final class OverdueRescueViewModel: ObservableObject {
         self.referenceDate = referenceDate
         self.projectsByID = projectsByID
         self.nowProvider = nowProvider
+        self.launchContext = resolvedLaunchContext
         self.sessionScope = scope
         self.sessionStore = sessionStore
         let savedSession: OverdueRescueSessionState?
@@ -131,6 +146,7 @@ final class OverdueRescueViewModel: ObservableObject {
         self.onRestore = onRestore
         self.onApplyBulk = onApplyBulk
         self.onUndoBulk = onUndoBulk
+        self.onSavePlanningMetadata = onSavePlanningMetadata
         self.onTrack = onTrack
 
         if let savedSession,
