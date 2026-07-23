@@ -107,7 +107,7 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
             let usesDarkImageInk = surface == .image
                 && LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: imageLuminance ?? 0.5) == .darkContent
             switch role {
-            case .primary, .secondary, .tertiary, .onImage:
+            case .primary, .secondary, .metadata, .inverse, .tertiary, .onImage:
                 return usesDarkImageInk ? textPrimary : textInverse
             default:
                 break
@@ -119,6 +119,12 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
             return surface == .accent ? accentOnPrimary : textPrimary
         case .secondary:
             return surface == .accent ? accentOnPrimary : textSecondary
+        case .metadata:
+            return surface == .accent ? accentOnPrimary : textSecondary
+        case .action:
+            return surface == .accent ? accentOnPrimary : accentPrimary
+        case .inverse:
+            return textInverse
         case .tertiary:
             return surface == .accent ? accentOnPrimary : textTertiary
         case .disabled:

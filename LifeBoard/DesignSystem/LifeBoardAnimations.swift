@@ -27,15 +27,6 @@ public enum LifeBoardAnimation {
     public static let numericUpdate: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.34)
     public static let heroEmphasis: Animation = .timingCurve(0.16, 1, 0.3, 1, duration: 0.42)
 
-    // Backward-compatible aliases
-    public static let snappy: Animation = stateChange
-    public static let gentle: Animation = heroReveal
-    public static let bouncy: Animation = celebration
-    public static let quick: Animation = feedbackFast
-    public static let micro: Animation = feedbackFast
-    public static let expressive: Animation = celebration
-    public static let ambient: Animation = .easeInOut(duration: 1.4)
-
     // UIKit parameters
     public static let uiPress = (duration: 0.09, damping: CGFloat(1.0), velocity: CGFloat(0.0))
     public static let uiFeedbackFast = (duration: 0.14, damping: CGFloat(0.96), velocity: CGFloat(0.08))
@@ -43,13 +34,6 @@ public enum LifeBoardAnimation {
     public static let uiHeroReveal = (duration: 0.36, damping: CGFloat(0.92), velocity: CGFloat(0.12))
     public static let uiCelebration = (duration: 0.54, damping: CGFloat(0.90), velocity: CGFloat(0.16))
     public static let uiGatewayReveal = (duration: 0.38, damping: CGFloat(0.92), velocity: CGFloat(0.12))
-
-    // Backward-compatible aliases
-    public static let uiSnappy = uiStateChange
-    public static let uiGentle = uiHeroReveal
-    public static let uiBouncy = uiCelebration
-    public static let uiMicro = uiFeedbackFast
-    public static let uiExpressive = uiCelebration
 
     // Stagger delay per item (seconds)
     public static let staggerInterval: Double = 0.04
@@ -63,8 +47,18 @@ public enum LifeBoardAnimation {
     // pick a role, not a raw duration. Existing tokens back each range.
     /// Press / selection feedback (120–180 ms).
     public static let rolePress: Animation = .spring(response: 0.16, dampingFraction: 0.72)
+    /// Selection feedback stays slightly firmer than a press so controls feel precise.
+    public static let selection: Animation = .spring(response: 0.18, dampingFraction: 0.88)
     /// Local state transition within a surface (180–280 ms).
     public static let roleLocalState: Animation = .spring(response: 0.24, dampingFraction: 0.82)
+    /// New content arriving in an existing hierarchy.
+    public static let contentInsertion: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.26)
+    /// One chrome object becoming another without blocking interaction.
+    public static let controlMorph: Animation = .spring(response: 0.30, dampingFraction: 0.88)
+    /// Reordering or inserting cards while preserving their spatial relationship.
+    public static let cardReflow: Animation = .spring(response: 0.34, dampingFraction: 0.90)
+    /// Direct manipulation preserves velocity but settles without an elastic bounce.
+    public static let directManipulation: Animation = .interactiveSpring(response: 0.30, dampingFraction: 0.88, blendDuration: 0.12)
     /// Route / sheet transition (280–450 ms).
     public static let roleRoute: Animation = .spring(response: 0.40, dampingFraction: 0.86)
     /// Ambient / daypart transition, manual variant (450–650 ms).
@@ -110,7 +104,7 @@ public struct StaggeredAppearance: ViewModifier {
             .opacity(appeared ? 1 : 0)
             .offset(y: appeared ? 0 : 12)
             .animation(
-                LifeBoardAnimation.gentle.delay(Double(index) * LifeBoardAnimation.staggerInterval),
+                LifeBoardAnimation.heroReveal.delay(Double(index) * LifeBoardAnimation.staggerInterval),
                 value: appeared
             )
             .onAppear { appeared = true }
@@ -141,7 +135,7 @@ public struct EnhancedStaggeredAppearance: ViewModifier {
                 .scaleEffect(appeared ? 1 : 0.97)
                 .offset(y: appeared ? 0 : 16)
                 .animation(
-                    LifeBoardAnimation.gentle.delay(Double(index) * LifeBoardAnimation.staggerInterval),
+                    LifeBoardAnimation.heroReveal.delay(Double(index) * LifeBoardAnimation.staggerInterval),
                     value: appeared
                 )
                 .onAppear { appeared = true }
@@ -302,7 +296,7 @@ public struct TaskCompletionTransition: ViewModifier {
         content
             .opacity(isComplete ? 0.55 : 1.0)
             .scaleEffect(isComplete ? 0.98 : 1.0)
-            .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.gentle, value: isComplete)
+            .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.heroReveal, value: isComplete)
     }
 }
 
@@ -325,7 +319,7 @@ public struct ActiveGlow: ViewModifier {
                 color: isActive && scrollOptimizedRendering == false ? color.opacity(0.25) : .clear,
                 radius: isActive && scrollOptimizedRendering == false ? 8 : 0
             )
-            .animation((LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) || scrollOptimizedRendering) ? nil : LifeBoardAnimation.quick, value: isActive)
+            .animation((LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) || scrollOptimizedRendering) ? nil : LifeBoardAnimation.feedbackFast, value: isActive)
     }
 }
 
@@ -342,7 +336,7 @@ public struct CardPressEffect: ViewModifier {
                 color: .black.opacity(isPressed ? 0.04 : 0.08),
                 radius: isPressed ? 4 : 8
             )
-            .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.quick, value: isPressed)
+            .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.feedbackFast, value: isPressed)
             .simultaneousGesture(
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in isPressed = true }
@@ -369,7 +363,7 @@ private struct LifeBoardScaleOnPressButtonStyle: ButtonStyle {
         let animationsDisabled = LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion)
         configuration.label
             .scaleEffect(LifeBoardAnimation.pressScale(isPressed: configuration.isPressed, animationsDisabled: animationsDisabled))
-            .animation(animationsDisabled ? nil : LifeBoardAnimation.quick, value: configuration.isPressed)
+            .animation(animationsDisabled ? nil : LifeBoardAnimation.feedbackFast, value: configuration.isPressed)
     }
 }
 
@@ -518,7 +512,7 @@ public extension UIView {
         animations: @escaping () -> Void,
         completion: ((Bool) -> Void)? = nil
     ) {
-        let resolvedParams = params ?? LifeBoardAnimation.uiSnappy
+        let resolvedParams = params ?? LifeBoardAnimation.uiStateChange
         UIView.animate(
             withDuration: resolvedParams.duration,
             delay: delay,

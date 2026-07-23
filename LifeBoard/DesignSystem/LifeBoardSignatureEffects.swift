@@ -5,9 +5,13 @@ import UIKit
 public struct LifeBoardMotionPolicy: Equatable, Sendable {
     public let allowsCustomShaders: Bool
     public let allowsIdleMotion: Bool
+    public let allowsSpatialMotion: Bool
+    public let allowsHaptics: Bool
     public let usesOpaqueSurfaces: Bool
     public let transitionDuration: TimeInterval
     public let springDamping: Double
+    public let comfortProfile: LifeBoardComfortProfile
+    public let isFocusedPresentation: Bool
 
     public static func resolve(
         reduceMotion: Bool,
@@ -16,19 +20,62 @@ public struct LifeBoardMotionPolicy: Equatable, Sendable {
         thermalState: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState,
         sceneIsActive: Bool,
         supportsCustomShaders: Bool = true,
-        isCatalyst: Bool = ProcessInfo.processInfo.isMacCatalystApp
+        isCatalyst: Bool = ProcessInfo.processInfo.isMacCatalystApp,
+        comfortProfile: LifeBoardComfortProfile = .balanced,
+        isFocusedPresentation: Bool = false
     ) -> LifeBoardMotionPolicy {
         let thermallyConstrained = thermalState == .serious || thermalState == .critical
         let energyConstrained = lowPowerMode || thermallyConstrained
-        let allowsMotion = sceneIsActive && reduceMotion == false && energyConstrained == false
-        let allowsShaders = allowsMotion && reduceTransparency == false && supportsCustomShaders && isCatalyst == false
+        let allowsSpatialMotion = sceneIsActive && reduceMotion == false && energyConstrained == false
+        let allowsIdleMotion = allowsSpatialMotion
+            && isFocusedPresentation == false
+            && comfortProfile != .calm
+        let allowsShaders = allowsSpatialMotion
+            && reduceTransparency == false
+            && supportsCustomShaders
+            && isCatalyst == false
+            && isFocusedPresentation == false
+            && comfortProfile != .calm
         return LifeBoardMotionPolicy(
             allowsCustomShaders: allowsShaders,
-            allowsIdleMotion: allowsMotion,
+            allowsIdleMotion: allowsIdleMotion,
+            allowsSpatialMotion: allowsSpatialMotion,
+            allowsHaptics: sceneIsActive && isCatalyst == false,
             usesOpaqueSurfaces: reduceTransparency,
             transitionDuration: reduceMotion ? 0 : (energyConstrained ? 0.12 : 0.28),
-            springDamping: reduceMotion ? 1 : 0.82
+            springDamping: reduceMotion ? 1 : (comfortProfile == .playful ? 0.78 : 0.86),
+            comfortProfile: comfortProfile,
+            isFocusedPresentation: isFocusedPresentation
         )
+    }
+}
+
+@MainActor
+public extension LifeBoardMotionProfile {
+    func animation(reduceMotion: Bool) -> Animation? {
+        guard LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false else { return nil }
+        return switch self {
+        case .press, .micro:
+            LifeBoardAnimation.rolePress
+        case .selection:
+            LifeBoardAnimation.selection
+        case .localState:
+            LifeBoardAnimation.roleLocalState
+        case .contentInsertion:
+            LifeBoardAnimation.contentInsertion
+        case .controlMorph:
+            LifeBoardAnimation.controlMorph
+        case .cardReflow:
+            LifeBoardAnimation.cardReflow
+        case .directManipulation:
+            LifeBoardAnimation.directManipulation
+        case .route:
+            LifeBoardAnimation.roleRoute
+        case .celebration:
+            LifeBoardAnimation.celebration
+        case .ambient:
+            LifeBoardAnimation.roleAmbient
+        }
     }
 }
 
@@ -198,6 +245,7 @@ private struct LifeBoardConfirmationRippleModifier: ViewModifier {
     let tint: Color
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.scenePhase) private var scenePhase
     @State private var startDate: Date?
 
@@ -210,10 +258,10 @@ private struct LifeBoardConfirmationRippleModifier: ViewModifier {
             .onChange(of: trigger) { _, _ in
                 let policy = LifeBoardMotionPolicy.resolve(
                     reduceMotion: reduceMotion,
-                    reduceTransparency: false,
+                    reduceTransparency: reduceTransparency,
                     sceneIsActive: scenePhase == .active
                 )
-                startDate = policy.allowsIdleMotion ? Date() : nil
+                startDate = policy.allowsSpatialMotion && policy.usesOpaqueSurfaces == false ? Date() : nil
             }
     }
 

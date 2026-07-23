@@ -231,6 +231,11 @@ public enum LifeBoardColorRole: String, CaseIterable, Sendable {
 /// surface instead of guessing a foreground color from appearance alone.
 public enum LifeBoardSurfaceContext: String, CaseIterable, Sendable {
     case canvas
+    case hero
+    case reading
+    case grouped
+    case raised
+    case selected
     case paper
     case elevatedPaper
     case card
@@ -242,6 +247,7 @@ public enum LifeBoardSurfaceContext: String, CaseIterable, Sendable {
     case inspector
     case sheet
     case overlay
+    case destructive
     case accent
     case image
     case modalScrim
@@ -252,11 +258,11 @@ public enum LifeBoardSurfaceContext: String, CaseIterable, Sendable {
         switch self {
         case .canvas:
             return .bgCanvas
-        case .paper, .card, .sidebar, .sheet:
+        case .paper, .reading, .card, .sidebar, .sheet, .destructive:
             return .surfacePrimary
-        case .elevatedPaper, .glass, .dockChrome, .toolbar, .inspector:
+        case .hero, .raised, .elevatedPaper, .glass, .dockChrome, .toolbar, .inspector:
             return .bgElevated
-        case .strongGlass, .overlay:
+        case .grouped, .selected, .strongGlass, .overlay:
             return .surfaceSecondary
         case .accent:
             return .actionPrimary
@@ -271,6 +277,9 @@ public enum LifeBoardSurfaceContext: String, CaseIterable, Sendable {
 public enum LifeBoardLegibilityRole: String, CaseIterable, Sendable {
     case primary
     case secondary
+    case metadata
+    case action
+    case inverse
     case tertiary
     case disabled
     case link
