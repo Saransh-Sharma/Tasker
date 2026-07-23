@@ -33,7 +33,7 @@ struct OnboardingConcentricColorField: View {
         if #available(iOS 26.0, *) {
             Rectangle()
                 .fill(.clear)
-                .lifeBoardSystemGlass(.clear, in: Rectangle())
+                .lifeBoardSystemGlass(.regular, in: Rectangle())
                 .overlay(colorField)
                 .overlay(
                     Rectangle()

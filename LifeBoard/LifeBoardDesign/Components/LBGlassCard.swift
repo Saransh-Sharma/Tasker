@@ -10,36 +10,21 @@ struct LBGlassCard<Content: View>: View {
     @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
 
     var body: some View {
-        let useMaterialBackground = usesMaterialBackground && scrollOptimizedRendering == false
         let effectiveShadow = scrollOptimizedRendering ? nil : shadow
 
         content
             .background {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(fill)
-                    .modifier(LBOptionalMaterialBackgroundModifier(cornerRadius: cornerRadius, isEnabled: useMaterialBackground))
+                    .fill(usesMaterialBackground ? Color.lifeboard(.surfacePrimary) : fill)
                     .overlay {
                         RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .stroke(borderColor, lineWidth: 1)
+                            .stroke(
+                                usesMaterialBackground ? Color.lifeboard(.borderDefault) : borderColor,
+                                lineWidth: 1
+                            )
                     }
             }
             .modifier(LBOptionalShadowModifier(token: effectiveShadow))
-    }
-}
-
-private struct LBOptionalMaterialBackgroundModifier: ViewModifier {
-    let cornerRadius: CGFloat
-    let isEnabled: Bool
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
-    func body(content: Content) -> some View {
-        if isEnabled == false {
-            content
-        } else if reduceTransparency {
-            content.background(LBColorTokens.surfaceSolid, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        } else {
-            content.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-        }
     }
 }
 

@@ -195,7 +195,7 @@ struct LBDateHeroHeader: View {
     }
 
     private var navigatorAnimation: Animation? {
-        LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy
+        LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange
     }
 
     private var dateGroupTop: CGFloat {
@@ -253,7 +253,7 @@ struct LBDateHeroHeader: View {
         } else if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .lifeBoardSystemGlass(.clear, in: shape)
+                .lifeBoardSystemGlass(.regular, in: shape)
                 .overlay { shape.fill(fill) }
                 .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
@@ -276,7 +276,7 @@ struct LBDateHeroHeader: View {
         } else if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .lifeBoardSystemGlass(.clear, in: shape)
+                .lifeBoardSystemGlass(.regular, in: shape)
                 .overlay { shape.fill(fill) }
                 .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }

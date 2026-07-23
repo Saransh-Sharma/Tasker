@@ -382,7 +382,7 @@ struct SunriseScheduleScreen: View {
         if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .lifeBoardSystemGlass(.clear, in: shape)
+                .lifeBoardSystemGlass(.regular, in: shape)
                 .overlay { shape.fill(fill) }
                 .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
@@ -1254,7 +1254,7 @@ private struct SunriseScheduleHeaderChrome: View {
         if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .lifeBoardSystemGlass(.clear, in: shape)
+                .lifeBoardSystemGlass(.regular, in: shape)
                 .overlay { shape.fill(fill) }
                 .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
@@ -1273,7 +1273,7 @@ private struct SunriseScheduleHeaderChrome: View {
         if #available(iOS 26.0, *) {
             shape
                 .fill(.clear)
-                .lifeBoardSystemGlass(.clear, in: shape)
+                .lifeBoardSystemGlass(.regular, in: shape)
                 .overlay { shape.fill(fill) }
                 .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
