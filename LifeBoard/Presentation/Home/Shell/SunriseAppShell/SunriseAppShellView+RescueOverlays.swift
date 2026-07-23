@@ -9,10 +9,25 @@ import SwiftUI
 import UIKit
 import Combine
 
-extension SunriseAppShellView {
+struct OverdueRescuePresentationHost: View {
+    @ObservedObject var viewModel: HomeViewModel
+    let tasksByID: [UUID: TaskDefinition]
+    let projectsByID: [UUID: Project]
+    let bottomInset: CGFloat
+    let launchContext: OverdueRescueLaunchContext
+    let planningRepository: CoreDataPlanningRepository?
+    var onDismiss: () -> Void = {}
+
+    var body: some View {
+        ZStack {
+            launcherOverlay
+            deckOverlay
+        }
+    }
+
     @ViewBuilder
-    var rescueLauncherOverlay: some View {
-        switch overlaySnapshot.rescueLauncherState {
+    private var launcherOverlay: some View {
+        switch viewModel.evaRescueLauncherState {
         case .loading:
             OverdueRescueLauncherOverlayView(
                 title: "Preparing rescue",
@@ -38,6 +53,7 @@ extension SunriseAppShellView {
                 },
                 onSecondary: {
                     viewModel.setEvaRescuePresented(false)
+                    onDismiss()
                 }
             )
             .transition(.opacity.combined(with: .scale(scale: 0.98)))
@@ -49,20 +65,23 @@ extension SunriseAppShellView {
     }
 
     @ViewBuilder
-    var rescueDeckOverlay: some View {
-        if overlaySnapshot.rescuePresented {
+    private var deckOverlay: some View {
+        if viewModel.evaRescueSheetPresented {
             EvaOverdueRescueSheetV2(
-                plan: overlaySnapshot.rescuePlan,
-                tasksByID: rescueTasksByID,
-                projectsByID: tasksSnapshot.projectsByID,
-                referenceDate: overlaySnapshot.rescueReferenceDate ?? Date(),
-                lastBatchRunID: overlaySnapshot.lastBatchRunID,
-                bottomInset: layoutMetrics.taskListBottomInset,
+                plan: viewModel.evaRescuePlan,
+                tasksByID: effectiveTasksByID,
+                projectsByID: projectsByID,
+                referenceDate: viewModel.evaRescueReferenceDate ?? launchContext.referenceDate,
+                lastBatchRunID: viewModel.evaLastBatchRunID,
+                bottomInset: bottomInset,
+                launchContext: launchContext,
                 onClose: {
                     viewModel.setEvaRescuePresented(false)
+                    onDismiss()
                 },
                 onExit: {
                     viewModel.setEvaRescuePresented(false)
+                    onDismiss()
                 },
                 onUpdate: { request, completion in
                     Task { @MainActor in
@@ -89,13 +108,43 @@ extension SunriseAppShellView {
                         viewModel.undoRescueRun(completion: completion)
                     }
                 },
+                onSavePlanningMetadata: { metadata, completion in
+                    guard let planningRepository else {
+                        completion(.success(()))
+                        return
+                    }
+                    Task {
+                        do {
+                            try await planningRepository.saveTaskMetadata(metadata)
+                            completion(.success(()))
+                        } catch {
+                            completion(.failure(error))
+                        }
+                    }
+                },
                 onTrack: { action, metadata in
                     viewModel.trackHomeInteraction(action: action, metadata: metadata)
                 }
             )
             .transition(.opacity.combined(with: .scale(scale: 0.985)))
             .zIndex(46)
-            .accessibilityIdentifier("home.rescue.sheet")
         }
+    }
+
+    private var effectiveTasksByID: [UUID: TaskDefinition] {
+        tasksByID.merging(viewModel.evaRescueTasksByID) { _, launchedTask in launchedTask }
+    }
+}
+
+extension SunriseAppShellView {
+    var rescuePresentationHost: some View {
+        OverdueRescuePresentationHost(
+            viewModel: viewModel,
+            tasksByID: rescueTasksByID,
+            projectsByID: tasksSnapshot.projectsByID,
+            bottomInset: layoutMetrics.taskListBottomInset,
+            launchContext: .home(referenceDate: overlaySnapshot.rescueReferenceDate ?? Date()),
+            planningRepository: nil
+        )
     }
 }

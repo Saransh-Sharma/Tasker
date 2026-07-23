@@ -165,11 +165,8 @@ extension SunriseAppShellView {
                     .accessibilityIdentifier("home.debug.counts")
             }
         }
-        .overlay(alignment: .center) {
-            rescueLauncherOverlay
-        }
         .overlay {
-            rescueDeckOverlay
+            rescuePresentationHost
         }
         .overlay(alignment: .top) {
             if showDatePicker {
