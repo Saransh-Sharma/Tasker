@@ -125,7 +125,7 @@ struct EvaOverdueRescueSheetV2: View {
                 .zIndex(60)
             }
         }
-        .animation(reduceMotion ? nil : LifeBoardAnimation.snappy, value: viewModel.state == .confirmingDelete)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: viewModel.state == .confirmingDelete)
         .lifeboardSnackbar($viewModel.snackbar, bottomPadding: bottomInset + 20)
         .sheet(isPresented: Binding(
             get: { viewModel.state == .editing },
