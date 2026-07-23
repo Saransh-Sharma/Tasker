@@ -83,7 +83,7 @@ extension ChatComposerView {
                     lineWidth: isPromptFocused ? 1.5 : 1
                 )
         }
-        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isPromptFocused)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isPromptFocused)
         .accessibilityIdentifier("eva.structured.composer")
         .contentShape(Rectangle())
         .onTapGesture {
@@ -361,7 +361,7 @@ extension ChatComposerView {
             .padding(.trailing, LifeBoardTheme.Spacing.sm)
             .padding(.bottom, LifeBoardTheme.Spacing.sm)
         #endif
-        .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.quick, value: canSubmit)
+        .animation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.feedbackFast, value: canSubmit)
         #if os(macOS) || os(visionOS)
         .buttonStyle(.plain)
         #endif

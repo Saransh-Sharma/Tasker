@@ -207,7 +207,7 @@ struct EvaWakeEvaInstallView: View {
                         .font(.lifeboard(.caption1).weight(.semibold))
                         .foregroundStyle(Color.lifeboard(.accentPrimary))
                 }
-                .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: installPresentation.statusText)
+                .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: installPresentation.statusText)
                 .frame(maxWidth: .infinity)
             }
             .enhancedStaggeredAppearance(index: 1)
@@ -339,7 +339,7 @@ struct EvaWakeEvaInstallView: View {
     private func updateProgressPresentation(for rawProgress: Double) {
         let clampedProgress = max(0, min(rawProgress, 1))
 
-        withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.quick) {
+        withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.feedbackFast) {
             displayedProgress = clampedProgress
         }
 
@@ -375,7 +375,7 @@ struct EvaWakeEvaInstallView: View {
                 try? await Task.sleep(nanoseconds: 2_600_000_000)
                 guard !Task.isCancelled else { return }
                 await MainActor.run {
-                    withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.quick) {
+                    withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.feedbackFast) {
                         statusIndex = (statusIndex + 1) % max(statusMessages.count, 1)
                     }
                 }
@@ -515,7 +515,7 @@ struct EvaActivationStageView<Content: View, Footer: View>: View {
                 .padding(.bottom, spacing.s8)
             }
         }
-        .animation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.gentle, value: footerIsEmpty)
+        .animation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.heroReveal, value: footerIsEmpty)
     }
 
     private var footerIsEmpty: Bool {
@@ -547,7 +547,7 @@ struct EvaFooterButtons: View {
             .buttonStyle(.plain)
             .disabled(isPrimaryDisabled)
             .lifeboardPressFeedback()
-            .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isPrimaryDisabled)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isPrimaryDisabled)
 
             Button(action: onSecondary) {
                 Text(secondaryTitle)

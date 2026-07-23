@@ -150,7 +150,7 @@ struct EvaSelectionChip: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier(accessibilityIdentifier)
         .lifeboardPressFeedback()
-        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isSelected)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isSelected)
     }
 }
 
@@ -186,7 +186,7 @@ struct EvaCollapsedNoteField: View {
                     .accessibilityIdentifier("\(accessibilityIdentifier).field")
             } else {
                 Button {
-                    withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.quick) {
+                    withAnimation(reduceMotion ? .easeInOut(duration: 0.18) : LifeBoardAnimation.feedbackFast) {
                         isExpanded = true
                     }
                 } label: {

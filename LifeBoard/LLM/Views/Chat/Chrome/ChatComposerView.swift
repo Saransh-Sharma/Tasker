@@ -56,12 +56,24 @@ struct ChatComposerView: View {
     @State var structuredDeferredFeedback: String?
 
     var body: some View {
+        if #available(iOS 26.0, *) {
+            GlassEffectContainer(spacing: LifeBoardTheme.Spacing.xs) {
+                composerContent
+            }
+        } else {
+            composerContent
+        }
+    }
+
+    @ViewBuilder
+    private var composerContent: some View {
         if V2FeatureFlags.evaStructuredComposer && isActivationPresentation == false {
             VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
                 if shouldShowComposerSuggestionStrip {
                     composerSuggestionStrip
                 }
                 structuredComposer
+                    .lifeBoardGlassIdentity(.evaComposer)
             }
         } else {
         VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
@@ -140,6 +152,7 @@ struct ChatComposerView: View {
         )
         #endif
         .accessibilityIdentifier("chat.composer.container")
+        .lifeBoardGlassIdentity(.evaComposer)
         .contentShape(Rectangle())
         .onTapGesture {
             isPromptFocused = true
