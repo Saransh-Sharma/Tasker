@@ -584,6 +584,51 @@ class LifeBoardUITests: XCTestCase {
         )
     }
 
+    func testFoundationOpenDayLaunchesOverdueRescueAndKeepsTaskInPlannedWork() {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedRescueWorkspace: true
+        )
+        defer { app.terminate() }
+
+        assertFoundationDestination("plan", rootIdentifier: "plan.header", in: app)
+
+        let openDay = app.buttons["plan.day.openRescue"]
+        scrollUntilHittable(openDay, in: app, maximumSwipes: 12)
+        XCTAssertTrue(openDay.waitForExistence(timeout: 10))
+        XCTAssertTrue(openDay.isHittable)
+        openDay.tap()
+
+        XCTAssertTrue(app.descendants(matching: .any)["home.rescue.sheet"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.staticTexts["Rescue oldest"].waitForExistence(timeout: 8))
+
+        let keep = app.buttons["home.rescue.action.keepToday"]
+        XCTAssertTrue(keep.waitForExistence(timeout: 8))
+        XCTAssertEqual(keep.label, "Keep today")
+        keep.tap()
+        XCTAssertTrue(
+            app.staticTexts["Rescue middle"].waitForExistence(timeout: 12),
+            "The deck should advance only after the task and Planned Work metadata both save."
+        )
+
+        let close = app.buttons["home.rescue.close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 8))
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.06, dy: 0.045)).tap()
+        XCTAssertTrue(
+            waitForElementToDisappear(app.descendants(matching: .any)["home.rescue.sheet"], timeout: 8),
+            "Closing rescue should return to the existing Plan context."
+        )
+
+        let plannedTask = app.staticTexts.matching(
+            NSPredicate(format: "label == %@", "Rescue oldest")
+        ).firstMatch
+        scrollUntilVisible(plannedTask, in: app, maximumSwipes: 12)
+        XCTAssertTrue(
+            plannedTask.waitForExistence(timeout: 12),
+            "A task kept from Plan rescue should appear immediately under Planned Work."
+        )
+    }
+
     func testFoundationWeekUsesSevenDayBoardOnRegularWidth() throws {
         let app = launchFoundationApp(
             accessibilityCategory: "UICTContentSizeCategoryL",
@@ -616,6 +661,7 @@ class LifeBoardUITests: XCTestCase {
         seedHabits: Bool = false,
         seedEstablishedWorkspace: Bool = false,
         seedFullTimeline: Bool = false,
+        seedRescueWorkspace: Bool = false,
         appearance: String? = nil
     ) -> XCUIApplication {
         let app = XCUIApplication()
@@ -647,6 +693,7 @@ class LifeBoardUITests: XCTestCase {
         if seedHabits { app.launchArguments.append("-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE") }
         if seedEstablishedWorkspace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE") }
         if seedFullTimeline { app.launchArguments.append("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE") }
+        if seedRescueWorkspace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_RESCUE_WORKSPACE") }
         if let appearance {
             app.launchArguments.append(contentsOf: ["-AppleInterfaceStyle", appearance])
         }
