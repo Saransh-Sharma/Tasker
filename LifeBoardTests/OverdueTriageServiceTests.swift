@@ -305,6 +305,26 @@ final class OverdueRescueDeckTests: XCTestCase {
         XCTAssertEqual(result.commitAction, .moveLater)
     }
 
+    func testDragResolverUsesPredictedVelocityAfterClearIntent() {
+        let result = OverdueRescueDragResolver.commitAction(
+            for: CGSize(width: 42, height: 5),
+            predictedEndTranslation: CGSize(width: 132, height: 8),
+            cardWidth: 360
+        )
+
+        XCTAssertEqual(result, .keepToday)
+    }
+
+    func testDragResolverRejectsFastFlickWithoutMinimumIntent() {
+        let result = OverdueRescueDragResolver.commitAction(
+            for: CGSize(width: 12, height: 2),
+            predictedEndTranslation: CGSize(width: -180, height: 4),
+            cardWidth: 360
+        )
+
+        XCTAssertNil(result)
+    }
+
     func testDragResolverVerticalDragDoesNotCommit() {
         let result = OverdueRescueDragResolver.resolve(
             translation: CGSize(width: 34, height: 160),

@@ -282,6 +282,88 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertFalse(constrained[4].allowsIdleMotion)
     }
 
+    func testSharedMotionPolicySeparatesFocusedAndCalmIdleMotionFromDirectInteraction() {
+        let calm = LifeBoardMotionPolicy.resolve(
+            reduceMotion: false,
+            reduceTransparency: false,
+            lowPowerMode: false,
+            thermalState: .nominal,
+            sceneIsActive: true,
+            comfortProfile: .calm
+        )
+        XCTAssertFalse(calm.allowsIdleMotion)
+        XCTAssertTrue(calm.allowsSpatialMotion)
+        XCTAssertFalse(calm.allowsCustomShaders)
+
+        let focused = LifeBoardMotionPolicy.resolve(
+            reduceMotion: false,
+            reduceTransparency: false,
+            lowPowerMode: false,
+            thermalState: .nominal,
+            sceneIsActive: true,
+            comfortProfile: .balanced,
+            isFocusedPresentation: true
+        )
+        XCTAssertFalse(focused.allowsIdleMotion)
+        XCTAssertTrue(focused.allowsSpatialMotion)
+        XCTAssertFalse(focused.allowsCustomShaders)
+        XCTAssertTrue(focused.isFocusedPresentation)
+    }
+
+    @MainActor
+    func testTransitionCoordinatorClaimsSemanticEffectsOnlyOnceUntilReset() {
+        let coordinator = LifeBoardTransitionCoordinator()
+        XCTAssertTrue(coordinator.claimOneShot("task.completed.1"))
+        XCTAssertFalse(coordinator.claimOneShot("task.completed.1"))
+        coordinator.resetOneShot("task.completed.1")
+        XCTAssertTrue(coordinator.claimOneShot("task.completed.1"))
+    }
+
+    func testSpatialRoutesUseStableContentIdentitiesAndRestrainedModes() {
+        let taskID = UUID(uuidString: "00000000-0000-0000-0000-000000000111")!
+        XCTAssertEqual(AppRoute.taskDetail(taskID).spatialTransitionID, "route.task.\(taskID.uuidString)")
+        XCTAssertEqual(AppRoute.taskDetail(taskID).screenMode, .detail)
+        XCTAssertNil(AppRoute.settings.spatialTransitionID)
+        XCTAssertEqual(AppRoute.settings.screenMode, .utility)
+        XCTAssertEqual(AppRoute.focusSession(nil).screenMode, .focused)
+        XCTAssertEqual(LifeBoardGlassMorphRole.capture.rawValue, "capture")
+        XCTAssertEqual(LifeBoardGlassMorphRole.evaComposer.rawValue, "evaComposer")
+    }
+
+    func testPlanRepairDeckUsesVelocityButRequiresHorizontalIntent() {
+        let candidates: [PlanRepairAction] = [.moveLaterToday, .moveToAnotherDay]
+        XCTAssertEqual(
+            PlanRepairDeckDragResolver.action(
+                translation: CGSize(width: 38, height: 4),
+                predictedEndTranslation: CGSize(width: 140, height: 7),
+                candidates: candidates
+            ),
+            .moveLaterToday
+        )
+        XCTAssertEqual(
+            PlanRepairDeckDragResolver.action(
+                translation: CGSize(width: -42, height: 4),
+                predictedEndTranslation: CGSize(width: -148, height: 8),
+                candidates: candidates
+            ),
+            .moveToAnotherDay
+        )
+        XCTAssertNil(
+            PlanRepairDeckDragResolver.action(
+                translation: CGSize(width: 12, height: 2),
+                predictedEndTranslation: CGSize(width: 180, height: 4),
+                candidates: candidates
+            )
+        )
+        XCTAssertNil(
+            PlanRepairDeckDragResolver.action(
+                translation: CGSize(width: 50, height: 100),
+                predictedEndTranslation: CGSize(width: 120, height: 180),
+                candidates: candidates
+            )
+        )
+    }
+
     func testAsyncActionPhaseCarriesRealProgressReceiptAndRecovery() {
         let receipt = UUID()
         let phases: [AsyncActionPhase<UUID>] = [
