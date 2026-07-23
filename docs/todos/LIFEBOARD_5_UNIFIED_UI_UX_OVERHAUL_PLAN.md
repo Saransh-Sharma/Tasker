@@ -5,6 +5,8 @@ Status: Proposed execution plan
 Supersedes: the UI/presentation portions of `LifeBoard 5.0 Phase I–IV Remaining-Work Execution Plan - CODEX 15th Jul.md`  
 Does not supersede: `docs/life-os/phase-1-4-completion-audit.md`, which remains the production acceptance ledger
 
+> **Historical planning reference:** The [remaining completion ledger](./LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md) owns current completion status. See the [implementation/design audit](../audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md) for reviewed evidence and [DESIGN.md](../../DESIGN.md) for the active visual contract.
+
 ## Outcome
 
 Rebuild every active LifeBoard presentation surface around one warm, personal, conversational visual system that is materially close to the supplied target screenshots while preserving the now-complete Phase I–IV domain, persistence, routing, privacy, planning, evidence, and receipt behavior.

@@ -2,6 +2,8 @@
 
 Status legend: `[ ]` not started, `[-]` in progress, `[x]` implemented and locally reviewed, `[v]` simulator/build verified, `[!]` blocked with documented reason.
 
+> **Historical migration record:** This document retains detailed clay/glass execution history. The [remaining execution ledger](./LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md) owns active completion status, the [implementation/design audit](../audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md) records reviewed evidence, and [DESIGN.md](../../DESIGN.md) is the canonical visual contract.
+
 ## Foundation and guardrails
 
 - [v] Add `LifeBoardScreenScaffold` with ambient, detail, editor, utility, focused, and critical modes.
@@ -49,6 +51,7 @@ Status legend: `[ ]` not started, `[-]` in progress, `[x]` implemented and local
 - [-] Route remaining feature-local raw springs through named semantic roles.
 - [ ] Add shared-element sources/destinations for the five approved content relationships.
 - [v] Complete Plan Repair velocity/threshold/cancel/commit/accessibility parity and retain the planning mutation undo receipt.
+- [v] Connect Plan’s “This day is open” card to the shared Overdue Rescue deck with selected-day Keep semantics, transactional planning rollback, persisted day-scoped sessions, and retryable two-store undo.
 - [ ] Audit one-shot milestone receipts against refresh, navigation return, and sync replay.
 
 ## Verification

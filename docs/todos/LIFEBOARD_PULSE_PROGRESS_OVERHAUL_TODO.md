@@ -1,5 +1,7 @@
 # LifeBoard Pulse + Progress Overhaul
 
+> **Classification: Historical implementation plan.** Current Insights behavior is defined in [Insights and EVA](../product/INSIGHTS_AND_EVA.md).
+
 - [ ] Add Pulse/Progress feature flags and rollout plumbing.
 - [ ] Add pulse/economy domain models and repository contracts.
 - [ ] Extend the gamification persistence model for pulse snapshots, FC ledger, and quests.

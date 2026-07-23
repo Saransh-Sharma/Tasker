@@ -2,7 +2,9 @@
 
 Updated: 2026-07-22
 
-This is the release contract for the LifeBoard 5.0 deep-completion pass. It combines the three supplied specifications, the remaining-execution ledger, the shared OffRecord `JournalKit`, and executable evidence. A row may be marked complete only when the implementation and its listed evidence both pass. The four additive model versions that entered this pass untracked are protected user work and must not be replaced or deleted.
+> **Current-status authority:** This is a release-contract and evidence document. For active completion status, use [LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md](./LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md). For the 2026-07-23 evidence review and visual-system assessment, use [the implementation and design audit](../audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md).
+
+This is the release contract for the LifeBoard 5.0 deep-completion pass. It combines the supplied specifications, the remaining-execution ledger, the shared `JournalKit`, and executable evidence. A row may be marked complete only when the implementation and its listed evidence both pass. The four additive model versions that entered this pass untracked are protected user work and must not be replaced or deleted.
 
 Status vocabulary: **complete**, **partial**, **missing**, **superseded**, **device gate**.
 
@@ -15,7 +17,7 @@ Status vocabulary: **complete**, **partial**, **missing**, **superseded**, **dev
 | 2 | Adaptive 4/8/12-column Home, Smart Slots, restoration, starter states | complete | Home provider registry, proportional semantic spans, transactional editor, shared composer | Dashboard placement and feedback stores | Collision-free 4/8/12 and accessibility packing contracts; restoration; compact/regular/accessibility/wide atomic-edit screenshots | Closed by executable packing/restoration contracts and simulator fixture matrix |
 | 3 | Deep Plan/execution, canonical mutations, undo, freeze rules | partial | Planning foundation, mutation coordinator, shared receipts, Plan grid | Planning Core and mutation receipts | Plan UI journeys; rapid edit/termination/restoration tests | Complete interaction-freeze audit remains open |
 | 4 | Track foundations and evidence-backed cross-domain cards | partial | Track foundations, Wellness/Nutrition/Fasting/Life Moments providers | Track Foundations + additive Wellness/Nutrition/Life Moments versions | CRUD/export/degraded-state tests and visual evidence | Saved-insight provider and final evidence comparison audit remain open |
-| 5 | Shared OffRecord Journal with resilient capture and parity | partial | Nine-product `JournalKit`; LifeBoard Journal; document, voice, media, semantic, graph, reflection pipeline | Journal Parity model, attachment files, derived stores, Watch receipts | 67 shared package tests; iOS build; full-screen photo inspection/sharing; unavailable-media recovery | Mixed-video capture and the full parity screenshot matrix remain open |
+| 5 | Shared Journal with resilient capture and parity | partial | Shared `JournalKit` products; LifeBoard Journal; document, voice, media, semantic, graph, reflection pipeline | Journal Parity model, attachment files, derived stores, Watch receipts | 67 shared package tests; iOS build; full-screen photo inspection/sharing; unavailable-media recovery | Mixed-video capture and the full parity screenshot matrix remain open |
 | 6 | Wellness, Nutrition, Life Moments and remaining life modules | partial | Wellness Core, nutrition timeline/lookup, Life Moments, goals and routines | Additive model versions and backfills | Domain unit/integration tests; root + leaf screenshots | Full export/restore and cross-module evidence matrix remains open |
 | 7 | Insights, Eva, proactive reflection, local-first automation | partial | Shared `ReflectionKit` proactive analyzer, protected proactive state, evidence-linked Journal cards, Eva evidence pipeline | Reflection cache, semantic memory, graph, consent settings | Canonical weekly thresholds; deterministic proactive analyzer and protected round-trip tests; streaming/cancel/offline journeys | Saved insight cross-surface route and complete degraded-state matrix remain open |
 | 8 | Apple ecosystem: Watch, widgets, intents, Spotlight, deep links | partial | Watch Mood/Speak/Record/Recent/outbox; redacted snapshots; intents; Spotlight | Durable Watch outbox/recovery, app-group snapshots | Watch + Watch-widget build; cold/warm/deleted/locked route tests | Paired-device delivery/ack loss and stale-widget matrices are device gates |
@@ -23,14 +25,14 @@ Status vocabulary: **complete**, **partial**, **missing**, **superseded**, **dev
 
 ## Shared JournalKit contract
 
-- [x] Keep the canonical package at `/Users/saransh1337/Developer/Projects/OffRecord/Packages/JournalKit`.
+- [x] Keep one canonical shared `JournalKit` package checkout for all configured consumers.
 - [x] Preserve Foundation, Transcription, Mood Dial, Semantic Memory, Knowledge Graph, Reflection, Assistant Core, Watch Capture, and Security product boundaries.
 - [x] Correct weekly eligibility to Monday–Sunday; empty below 150 words; full at three entries or 600 words; light otherwise.
-- [x] Port the reusable deterministic proactive-reflection models and analyzer into `ReflectionKit` without OffRecord navigation, branding, persistence, or UI assumptions.
+- [x] Keep the reusable deterministic proactive-reflection models and analyzer in `ReflectionKit` without consumer-specific navigation, branding, persistence, or UI assumptions.
 - [x] Add shared Watch recovery reason/record contracts while leaving protected storage to each host.
 - [x] Move reusable saved-insight/report persistence seams, attachment metadata/lifecycle contracts, and versioned encrypted restore primitives behind package protocols.
 - [x] Version new encrypted archives as `DVX2` with an explicit 100,000-round PBKDF2-HMAC-SHA256 parameter while retaining read compatibility for legacy `DVX1` HKDF archives.
-- [x] Build OffRecord, including its Watch target, against the expanded shared revision.
+- [x] Build the configured shared-package consumer, including its Watch target, against the expanded revision.
 
 ## Journal and Watch evidence ledger
 
@@ -70,6 +72,8 @@ Status vocabulary: **complete**, **partial**, **missing**, **superseded**, **dev
 
 ## Current executable evidence
 
+Current-run evidence is recorded separately from focused and historical results. On 2026-07-23, the generic iOS Simulator build passed, both UI guardrails passed, and the official `DESIGN.md` lint reported 0 errors and 0 warnings. The baseline-aware app suite executed 1,704 tests: 1,657 passed, 3 skipped, and 44 distinct methods failed with 78 failure assertions, 2 unexpected. It does not match the checked-in empty failure baseline, so the complete-suite release gate remains open.
+
 - [x] `JournalKit`: 67 tests pass across 17 suites.
 - [x] `LifeOSFoundationContractTests`: 112 tests pass, including the 45-pair visual fixture catalog, all compiled predecessor migrations, proportional 4/8/12-column packing, the appearance fixture catalog, and system-surface interruption/offline/order/dedup/schema/protection contracts.
 - [x] Eva transcript contracts: 9 tests pass for truthful bounded work states and settled streaming copy (121/121 combined with Foundation).
@@ -77,14 +81,14 @@ Status vocabulary: **complete**, **partial**, **missing**, **superseded**, **dev
 - [x] LifeBoard generic iOS Simulator app + widget build passes.
 - [x] LifeBoard Mac Catalyst build passes with the expanded sidebar/content shell.
 - [x] LifeBoard generic watchOS app + complication build passes.
-- [x] Changed-line token-law guardrails pass across Presentation/Foundation UI, including direct glass, raw color, fixed-font, and ad hoc shadow checks.
+- [x] Changed-line token-law and premium UI guardrails pass across the current Presentation/Foundation UI changes, including direct glass, raw color, fixed-font, ad hoc shadow, clay, and motion checks.
 - [x] Appearance evidence matrix passes visual review in system Light/Dark, Increase Contrast Light/Dark, Reduce Transparency, Reduce Motion, and grayscale configurations.
-- [x] OffRecord generic iOS Simulator build passes against the shared JournalKit revision, including its embedded Watch app.
+- [x] The configured shared-package consumer's generic iOS Simulator build passes, including its embedded Watch app.
 
 ## Validation commands
 
 ```sh
-cd /Users/saransh1337/Developer/Projects/OffRecord/Packages/JournalKit
+cd <JournalKit-package-checkout>
 swift test
 
 cd /Users/saransh1337/Developer/Projects/Tasker
@@ -95,6 +99,6 @@ xcodebuild -project LifeBoard.xcodeproj -scheme LifeBoardWatch -configuration De
 ## Protected baseline
 
 - Do not delete, reset, or recreate `TaskModelV3_JournalParity`, `TaskModelV3_WellnessCore`, `TaskModelV3_Nutrition`, or `TaskModelV3_LifeMoments`.
-- Do not import archived OffRecord user data.
+- Do not import unrelated archived user data.
 - Do not expose journal text, audio, image content, prompts, or embeddings in diagnostics or system previews.
 - Do not mark device-only performance, Watch transfer, camera, microphone, haptics, or thermal rows complete from simulator evidence.

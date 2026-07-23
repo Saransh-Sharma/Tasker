@@ -1,5 +1,7 @@
 # Seeded UI Test Suite TODO
 
+> **Classification: Test implementation record.** Current release evidence is indexed by the [remaining execution ledger](./LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+
 - [x] Review existing UI test harness, seeders, and route handling.
 - [x] Add suite launch flags and post-seed route support.
 - [x] Add deterministic seeded data for Overdue Rescue, Reflect & Plan, and Focus Now.

@@ -1,14 +1,16 @@
 # LifeBoard 5.0 Remaining Completion Ledger
 
-Updated: 2026-07-22
+Updated: 2026-07-23
 
 This is the active implementation ledger for the remaining LifeBoard 5.0 work. It supersedes overlapping Phase 5/6 and UI-overhaul checklists as a tracking surface; those documents remain product references. A checked item means implemented and verified, not merely scaffolded.
+
+Product intent and UX acceptance live in the [LifeBoard 5.0 Product Handbook](../product/README.md). Design behavior lives in the [Product UI/UX Guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md) and [DESIGN.md](../../DESIGN.md). This ledger alone decides current completion status.
 
 ## Protected baseline
 
 - [x] Adaptive Home grid, semantic card sizes, transactional editing, Smart Slots, Now rail, Today Story, shared Home composer, Add to Home, rollback presentation, and fasting effect exist.
 - [x] JournalKit shared baseline: 67 tests pass.
-- [x] OffRecord generic iOS build passes against the shared JournalKit revision.
+- [x] The configured shared-package consumer's generic iOS build passes against the shared JournalKit revision.
 - [x] LifeBoard focused foundation baseline: 112 tests pass; the adjacent Eva transcript contract adds 9 passing tests (121/121 combined).
 - [x] LifeBoard adaptive Home edit/composer and Add-to-Home UI journeys pass.
 - [x] LifeBoard generic Simulator and Mac Catalyst builds pass.
@@ -21,7 +23,7 @@ This is the active implementation ledger for the remaining LifeBoard 5.0 work. I
 - [x] Add data-preserving gates for Wellness, Fasting v2, Nutrition, Life Moments, and system surfaces.
 - [x] Add content-free typed performance operations for card snapshots, context, composer resolution, journal rebuilds, migrations, shader warm-up, and system refresh.
 - [x] Preserve unrelated dirty-worktree changes; milestone edits remain narrowly scoped.
-- [x] Re-run both application baselines after the shared-contract boundary: JournalKit 67/67, OffRecord generic iOS (including its embedded Watch app), LifeBoard Simulator, and Catalyst pass.
+- [x] Re-run the shared-contract baselines: JournalKit 67/67, configured consumer generic iOS (including its embedded Watch app), LifeBoard Simulator, and Catalyst pass.
 
 ## Milestone 1 — Adaptive Home architecture closure
 
@@ -108,5 +110,5 @@ This is the active implementation ledger for the remaining LifeBoard 5.0 work. I
 - [x] Complete Plan, Track, Insights, Eva, Journal, Notes, detail, settings, onboarding, iPad, and Catalyst visual migration (all five roots verified warm in the simulator; the canonical palette + global cocoa `.tint` + shared clay primitives bring every semantic-token leaf — details, sheets, settings, onboarding, widgets, Watch — to parity by construction; no system-blue remains).
 - [x] Implement and prewarm exactly five signature effects with centralized motion/power/thermal/transparency fallbacks (`daypartBloom`, `evaInkReveal`, `journalMediaReveal`, `memoryDevelopReveal`, `fastingEmberRing`; enhanced completion-burst and ported liquid ring fill added within the existing motion budget, Reduce Motion / Low Power aware).
 - [~] Finish timing and interaction polish across every migrated root and leaf (Foundation and Eva state changes now use centralized interactive/local/ambient motion roles; Home atomic customization, safe-area composer continuity, responsive 4/8/12 packing, bounded streaming reveal, truthful async states, and named haptic/elevation budgets are simulator-verified. Physical haptic feel, shader timing, drag velocity, and oldest-device frame pacing remain signed-device tuning gates).
-- [~] Accessibility/contrast gates: WCAG contrast contracts and the light/dark/high-contrast/reduced-transparency/reduced-motion/grayscale screenshot matrix are green. Device performance/memory/launch/thermal remain signed-device gates (not locally runnable). Latest complete inherited `LifeBoardTests` rerun executed 1,677 tests with 3 skips and reported 98 assertions across 48 distinct failing tests; the one drift caused by the new Eva status wording was subsequently corrected and its focused 9-test contract is green. The remaining failures are inherited Phase 5/6 contract drift and time-sensitive legacy tests, so release promotion remains blocked until that suite and the device gates close.
+- [~] Accessibility/contrast and regression gates: WCAG contrast contracts and the stored light/dark/high-contrast/reduced-transparency/reduced-motion/grayscale screenshot matrix are green. In the 2026-07-23 validation snapshot, the official `DESIGN.md` lint and both UI guardrails completed with 0 warnings/errors, and a serial generic Simulator build passed. The baseline-aware `LifeBoardTests` run executed 1,704 tests: 1,657 passed, 3 skipped, and 44 distinct methods failed with 78 failure assertions, 2 unexpected. The checked-in failure baseline is empty, so this is unresolved baseline drift and release promotion remains blocked. Active Overdue Rescue source changed after that run and requires a fresh candidate rerun. Device performance, memory, launch, thermal, haptics, App Group, and paired-Watch gates also remain open.
 - [x] Retain the previous presentation for one release (legacy Sunrise palette + legacy Home remain behind `lifeOSUnifiedPresentationV2` / `adaptiveHomeV2` as the documented rollback).

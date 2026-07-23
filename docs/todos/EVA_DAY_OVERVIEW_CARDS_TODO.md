@@ -1,5 +1,7 @@
 # EVA Day Overview Cards TODO
 
+> **Classification: Historical implementation plan.** Current EVA behavior is defined in [Insights and EVA](../product/INSIGHTS_AND_EVA.md).
+
 - [x] Add EVA day overview payload models and card codec support.
 - [x] Expand route and intent classification for day-review prompt variations.
 - [x] Build dedicated day overview context slice and deterministic overview builder.

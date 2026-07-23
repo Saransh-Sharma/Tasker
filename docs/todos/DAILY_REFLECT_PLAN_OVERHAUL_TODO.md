@@ -1,5 +1,7 @@
 # Daily Reflect & Plan Overhaul TODO
 
+> **Classification: Historical implementation plan.** Current reflection and planning behavior is defined by the [product handbook](../product/README.md).
+
 - [ ] Add daily reflection domain models, enums, and editable plan state
 - [ ] Add daily reflection store protocol and UserDefaults implementation
 - [ ] Upgrade daily reflection completion APIs to explicit-date semantics
