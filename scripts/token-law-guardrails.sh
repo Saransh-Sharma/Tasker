@@ -99,6 +99,19 @@ scan_added_lines \
   'LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift' \
   'LifeBoard/View/LiquidGlass/'
 
+scan_added_lines \
+  "Token Law: production chrome must not introduce Clear Liquid Glass" \
+  'lifeBoardSystemGlass\(\.clear|glassEffect\(\.clear'
+
+scan_added_lines \
+  "Motion Law: feature code uses semantic motion tokens, not raw springs" \
+  '\.spring\(' \
+  'LifeBoard/DesignSystem/'
+
+scan_added_lines \
+  "Motion Law: retired generic motion aliases cannot return" \
+  'LifeBoardMotionProfile\.(bouncy|snappy|expressive)|LifeBoardAnimation\.(bouncy|snappy|expressive)'
+
 if [[ $FAILED -eq 1 ]]; then
   echo ""
   echo "Token-law guardrails failed on newly added violations. Existing debt remains baselined in git history."
