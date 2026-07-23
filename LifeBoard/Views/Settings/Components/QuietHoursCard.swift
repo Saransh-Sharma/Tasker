@@ -114,7 +114,7 @@ struct QuietHoursCard: View {
                 }
             }
             .opacity(disabled ? 0.5 : 1.0)
-            .animation(LifeBoardAnimation.gentle, value: isEnabled)
+            .animation(LifeBoardAnimation.heroReveal, value: isEnabled)
         }
     }
 }

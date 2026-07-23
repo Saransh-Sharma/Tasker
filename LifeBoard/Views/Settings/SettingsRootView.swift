@@ -68,29 +68,24 @@ struct SettingsRootView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                overviewSection
-                    .padding(.horizontal, spacing.screenHorizontal)
-                    .padding(.top, spacing.s16)
+        LifeBoardScreenScaffold(mode: .utility, placement: .focusedPresentation, readableWidth: 1180) {
+            ScrollView {
+                VStack(spacing: 0) {
+                    overviewSection
+                        .padding(.horizontal, spacing.screenHorizontal)
+                        .padding(.top, spacing.s16)
 
-                if isPadLayout {
-                    iPadSettingsBody
-                } else {
-                    phoneSettingsBody
+                    if isPadLayout {
+                        iPadSettingsBody
+                    } else {
+                        phoneSettingsBody
+                    }
+
+                    SettingsFooterView()
                 }
-
-                SettingsFooterView()
+                .padding(.bottom, spacing.s24)
             }
-            .padding(.bottom, spacing.s24)
-        }
-        .background {
-            LinearGradient(
-                colors: [LBColorTokens.canvas, LBColorTokens.warmCanvas.opacity(0.72), LBColorTokens.coolCanvas.opacity(0.62)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-            .ignoresSafeArea()
+            .scrollContentBackground(.hidden)
         }
         .onAppear {
             viewModel.reload()

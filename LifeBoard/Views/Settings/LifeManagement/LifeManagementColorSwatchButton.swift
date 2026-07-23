@@ -54,7 +54,7 @@ struct LifeManagementColorSwatchButton: View {
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isSelected)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isSelected)
         .accessibilityLabel(title)
         .accessibilityAddTraits(isSelected ? [.isSelected] : [])
     }

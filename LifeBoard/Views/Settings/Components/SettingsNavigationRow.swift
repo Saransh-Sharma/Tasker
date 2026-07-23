@@ -54,37 +54,10 @@ struct LifeBoardSettingsCard<Content: View>: View {
     var active: Bool = false
     @ViewBuilder let content: Content
 
-    @Environment(\.lifeboardLayoutClass) private var layoutClass
-
-    private var cardPadding: CGFloat {
-        LifeBoardSettingsMetrics.cardInnerPadding
-    }
-
-    private var cornerRadius: CGFloat {
-        LifeBoardSettingsMetrics.cardCornerRadius
-    }
-
-    private var surfaceColor: Color {
-        Color(uiColor: LifeBoardThemeManager.shared.tokens(for: layoutClass).color.surfacePrimary)
-    }
-
-    private var borderColor: Color {
-        let color = active
-            ? LifeBoardThemeManager.shared.tokens(for: layoutClass).color.borderStrong
-            : LifeBoardThemeManager.shared.tokens(for: layoutClass).color.borderDefault
-        return Color(uiColor: color).opacity(0.95)
-    }
-
     var body: some View {
-        content
-            .padding(cardPadding)
-            .background(surfaceColor)
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(borderColor, lineWidth: 1)
-            )
-            .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .lifeboardElevation(.e1, cornerRadius: cornerRadius, includesBorder: false)
+        LifeBoardCard(active: active) {
+            content
+        }
     }
 }
 
@@ -386,7 +359,7 @@ struct LifeBoardSettingsToggleSummaryRow<ExpandedContent: View>: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(alignment: .center, spacing: LifeBoardSwiftUITokens.spacing.s12) {
                 Button {
-                    withAnimation(LifeBoardAnimation.gentle) {
+                    withAnimation(LifeBoardAnimation.heroReveal) {
                         isExpanded.toggle()
                     }
                 } label: {
@@ -439,7 +412,7 @@ struct LifeBoardSettingsToggleSummaryRow<ExpandedContent: View>: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(LifeBoardAnimation.gentle, value: isExpanded)
+        .animation(LifeBoardAnimation.heroReveal, value: isExpanded)
         .applyOptionalAccessibilityIdentifier(accessibilityIdentifier ?? descriptor.accessibilityIdentifier)
     }
 }

@@ -18,7 +18,7 @@ struct LifeManagementAreaSwatchPicker: View {
                         systemImage: nil,
                         isSelected: lifeManagementNormalizedHex(selectedHex) == lifeManagementNormalizedHex(option.hex)
                     ) {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.stateChange) {
                             selectedHex = option.hex
                         }
                     }
