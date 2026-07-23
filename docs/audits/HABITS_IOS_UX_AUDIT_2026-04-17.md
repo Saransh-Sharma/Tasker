@@ -1,4 +1,6 @@
 # Habits iOS UX Audit (Core Surfaces)
+
+> **Classification: Audit snapshot.** Current Habit behavior is defined by the [Habit package](../habits/README.md); current completion is owned by the remaining execution ledger.
 Date: 2026-04-17
 Scope: Home Habits surfaces, Habit Board, Habit Library, Habit Detail, Life Management habit flows
 Lenses: `audit` + `axiom-ux-flow-audit` (primary), `axiom-hig`, `axiom-ios-ui`, `axiom-ios-accessibility`

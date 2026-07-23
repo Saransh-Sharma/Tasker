@@ -1,5 +1,7 @@
 # LifeBoard iOS - V2-Only Architecture Guide
 
+> **Classification: Canonical architecture reference.** Product and interaction behavior lives in the [LifeBoard 5.0 product handbook](../product/README.md); current completion is owned by the [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+
 **iOS 16.0+ | Swift 5+ | TaskDefinition-first runtime**
 
 LifeBoard is now V2-only for task domain/runtime flows.
@@ -56,3 +58,11 @@ xcodebuild -workspace LifeBoard.xcworkspace -scheme "LifeBoard" -configuration D
 ```
 
 Guardrail script enforces absence of banned legacy symbols in production code.
+
+## Release and visual-system authority
+
+The active LifeBoard 5.0 completion tracker is `docs/todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md`; the implementation/design audit records the source and automated evidence supporting its status. `DESIGN.md` is the agent-readable visual contract, while `LifeBoardColorTokens`, companion token groups, and named components remain the runtime source of truth. `lifeOSUnifiedPresentationV2` keeps the legacy Sunrise palette as a one-release rollback path.
+
+Before release, run the build and baseline-aware test script serially with token-law and premium UI guardrails. Signed-device performance, paired Watch, App Group, migration, iCloud/account, and accessibility-device checks cannot be closed by the simulator alone.
+
+Product intent and screen behavior live in `docs/product/README.md`; global interaction and responsive rules live in `docs/design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md`. Architecture documents own runtime composition, dependency direction, persistence, and trust boundaries. Avoid duplicating product requirements here.

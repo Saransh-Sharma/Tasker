@@ -1,5 +1,7 @@
 # LifeBoard Cleanup Audit - 2026-05-16
 
+> **Classification: Audit snapshot.** It preserves dated cleanup evidence and does not define current product behavior or completion status.
+
 ## Executive Summary
 
 This is the first audit-only deliverable for the LifeBoard iOS cleanup plan. It records candidates and verification gates before any broad deletion, dependency removal, project rewrite, or architecture split.

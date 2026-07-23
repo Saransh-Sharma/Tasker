@@ -1,5 +1,7 @@
 # Audit Remediation Boundaries - 2026-05-18
 
+> **Classification: Audit snapshot and architecture reference.** It preserves dated evidence and does not override current product behavior or completion status.
+
 This note records the internal contracts introduced or hardened during the phase 1-4 remediation pass and the first phase 5 implementation slice.
 
 ## Home Navigation And Reload
