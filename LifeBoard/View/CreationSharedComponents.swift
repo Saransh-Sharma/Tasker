@@ -34,7 +34,7 @@ struct AddTaskTypeChips: View {
                     text: item.label,
                     isActive: selectedType == item.type
                 ) {
-                    withAnimation(LifeBoardAnimation.snappy) {
+                    withAnimation(LifeBoardAnimation.stateChange) {
                         selectedType = item.type
                     }
                 }
@@ -182,7 +182,7 @@ struct LifeBoardComposerOptionGrid<ID: Hashable>: View {
         .accessibilityElement(children: .combine)
         .accessibilityLabel(title)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
-        .animation(LifeBoardAnimation.quick, value: isSelected)
+        .animation(LifeBoardAnimation.feedbackFast, value: isSelected)
     }
 }
 
@@ -237,6 +237,6 @@ struct LifeBoardComposerDisclosureRow: View {
         .accessibilityIdentifier(accessibilityIdentifier ?? "")
         .accessibilityLabel("\(title). \(summary)")
         .accessibilityHint(isExpanded ? "Collapse details" : "Expand details")
-        .animation(LifeBoardAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.stateChange, value: isExpanded)
     }
 }

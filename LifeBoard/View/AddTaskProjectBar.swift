@@ -26,7 +26,7 @@ struct AddTaskProjectBar: View {
                     // Add project button
                     Button {
                         LifeBoardFeedback.selection()
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.stateChange) {
                             showInlineCreator = true
                         }
                     } label: {
@@ -83,7 +83,7 @@ struct AddTaskProjectBar: View {
                 ))
             }
         }
-        .animation(LifeBoardAnimation.snappy, value: showInlineCreator)
+        .animation(LifeBoardAnimation.stateChange, value: showInlineCreator)
     }
 }
 

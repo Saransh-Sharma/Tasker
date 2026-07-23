@@ -46,7 +46,7 @@ struct AddContextCard: View {
                         .font(.system(size: 13, weight: .semibold))
                         .foregroundStyle(LBColorTokens.navyMuted)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
-                        .animation(reduceMotion ? nil : LifeBoardAnimation.snappy, value: isExpanded)
+                        .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: isExpanded)
                         .accessibilityHidden(true)
                 }
                 .contentShape(Rectangle())
@@ -68,7 +68,7 @@ struct AddContextCard: View {
                 .stroke(ReflectPlanStyle.peachBorder.opacity(0.72), lineWidth: 1)
         )
         .shadow(color: ReflectPlanStyle.shadow, radius: 18, x: 0, y: 10)
-        .animation(reduceMotion ? nil : LifeBoardAnimation.snappy, value: isExpanded)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: isExpanded)
         .accessibilityIdentifier("reflection.plan.context.card")
     }
 
@@ -147,7 +147,7 @@ struct AddContextCard: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+                .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 30, style: .continuous))
         }
     }
 

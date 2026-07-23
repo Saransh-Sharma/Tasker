@@ -74,9 +74,9 @@ struct AddTaskCreateButton: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("addTask.createButton")
             .disabled(!isEnabled || isLoading)
-            .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isEnabled)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isEnabled)
             .animation(reduceMotion ? nil : LifeBoardAnimation.ctaConfirmation, value: successFlash)
-            .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isLoading)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isLoading)
 
             if showAddAnother {
                 Button {
@@ -91,6 +91,6 @@ struct AddTaskCreateButton: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(reduceMotion ? nil : LifeBoardAnimation.snappy, value: showAddAnother)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: showAddAnother)
     }
 }

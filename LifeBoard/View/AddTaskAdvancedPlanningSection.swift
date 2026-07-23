@@ -109,7 +109,7 @@ struct AddTaskDependenciesPicker: View {
                             text: kind == .blocks ? "Blocks" : "Related",
                             isActive: dependencyKind == kind
                         ) {
-                            withAnimation(LifeBoardAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.stateChange) {
                                 dependencyKind = kind
                             }
                         }

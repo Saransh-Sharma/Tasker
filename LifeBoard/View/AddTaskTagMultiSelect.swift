@@ -32,7 +32,7 @@ struct AddTaskTagMultiSelect: View {
                     // Add tag button
                     Button {
                         LifeBoardFeedback.selection()
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.stateChange) {
                             showInlineCreate.toggle()
                         }
                     } label: {
@@ -102,7 +102,7 @@ struct AddTaskTagMultiSelect: View {
                 ))
             }
         }
-        .animation(LifeBoardAnimation.snappy, value: showInlineCreate)
+        .animation(LifeBoardAnimation.stateChange, value: showInlineCreate)
     }
 
     /// Executes tagChip.
@@ -111,7 +111,7 @@ struct AddTaskTagMultiSelect: View {
 
         return Button {
             LifeBoardFeedback.selection()
-            withAnimation(LifeBoardAnimation.bouncy) {
+            withAnimation(LifeBoardAnimation.celebration) {
                 if isSelected {
                     selectedTagIDs.remove(tag.id)
                 } else {
@@ -148,6 +148,6 @@ struct AddTaskTagMultiSelect: View {
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .animation(LifeBoardAnimation.bouncy, value: isSelected)
+        .animation(LifeBoardAnimation.celebration, value: isSelected)
     }
 }

@@ -62,7 +62,7 @@ struct AddTaskTaskPicker: View {
                     Spacer()
                     Button {
                         LifeBoardFeedback.light()
-                        withAnimation(LifeBoardAnimation.quick) {
+                        withAnimation(LifeBoardAnimation.feedbackFast) {
                             self.selectedTaskID = nil
                         }
                     } label: {
@@ -85,7 +85,7 @@ struct AddTaskTaskPicker: View {
                     ForEach(filteredTasks.prefix(5), id: \.id) { task in
                         Button {
                             LifeBoardFeedback.selection()
-                            withAnimation(LifeBoardAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.stateChange) {
                                 selectedTaskID = task.id
                                 searchText = ""
                             }

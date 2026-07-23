@@ -76,7 +76,7 @@ struct AddTaskMetadataChip: View {
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .animation(LifeBoardAnimation.quick, value: isActive)
+        .animation(LifeBoardAnimation.feedbackFast, value: isActive)
     }
 }
 
