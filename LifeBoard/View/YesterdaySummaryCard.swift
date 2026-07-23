@@ -107,7 +107,7 @@ struct YesterdaySummaryCard: View {
                         endPoint: .bottomTrailing
                     )
                 )
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 30, style: .continuous))
+                .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 30, style: .continuous))
         }
     }
 

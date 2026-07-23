@@ -88,7 +88,7 @@ public struct InsightsTabView: View {
                             isSystemsDetailsExpanded = true
                         }
                         DispatchQueue.main.async {
-                            withAnimation(LifeBoardAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.stateChange) {
                                 proxy.scrollTo(anchor, anchor: .top)
                             }
                             pendingDetailAnchor = nil

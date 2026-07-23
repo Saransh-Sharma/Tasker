@@ -575,7 +575,7 @@ private struct SunriseInsightsTodayView: View {
     private func perform(_ intent: InsightsActionIntent) {
         switch intent {
         case .expandDetails(let anchor):
-            withAnimation(LifeBoardAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.stateChange) {
                 showDetails = true
             }
             LifeBoardFeedback.success()
@@ -662,7 +662,7 @@ private struct SunriseInsightsWeekView: View {
     private func perform(_ intent: InsightsActionIntent) {
         switch intent {
         case .expandDetails(let anchor):
-            withAnimation(LifeBoardAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.stateChange) {
                 isDetailsExpanded = true
             }
             LifeBoardFeedback.success()
@@ -743,7 +743,7 @@ private struct SunriseInsightsSystemsView: View {
     private func perform(_ intent: InsightsActionIntent) {
         switch intent {
         case .expandDetails(let anchor):
-            withAnimation(LifeBoardAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.stateChange) {
                 isDetailsExpanded = true
             }
             LifeBoardFeedback.success()
@@ -933,7 +933,7 @@ private struct SunriseInsightDisclosureCard<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: isExpanded ? LBSpacingTokens.md : 0) {
             Button {
-                withAnimation(LifeBoardAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.stateChange) {
                     isExpanded.toggle()
                 }
             } label: {

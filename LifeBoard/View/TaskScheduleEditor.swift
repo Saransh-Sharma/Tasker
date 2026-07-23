@@ -185,7 +185,7 @@ struct TaskTimeWheelPicker: View {
             return
         }
         LifeBoardFeedback.selection()
-        withAnimation(reduceMotion ? nil : LifeBoardAnimation.snappy) {
+        withAnimation(reduceMotion ? nil : LifeBoardAnimation.stateChange) {
             startDate = slot.date
         }
     }
@@ -207,7 +207,7 @@ struct TaskTimeWheelPicker: View {
     }
 
     private func scroll(to id: Int, proxy: ScrollViewProxy) {
-        withAnimation(reduceMotion ? nil : LifeBoardAnimation.snappy) {
+        withAnimation(reduceMotion ? nil : LifeBoardAnimation.stateChange) {
             proxy.scrollTo(id, anchor: .center)
         }
     }
@@ -569,14 +569,14 @@ private struct TaskDurationSegmentedPicker: View {
                 fillColor: Color.lifeboard.surfacePrimary,
                 strokeColor: Color.lifeboard.strokeHairline.opacity(0.72)
             )
-            .animation(reduceMotion ? nil : LifeBoardAnimation.snappy, value: durationMinutes)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: durationMinutes)
         }
     }
 
     private func select(_ minutes: Int) {
         guard durationMinutes != minutes else { return }
         LifeBoardFeedback.selection()
-        withAnimation(reduceMotion ? nil : LifeBoardAnimation.snappy) {
+        withAnimation(reduceMotion ? nil : LifeBoardAnimation.stateChange) {
             durationMinutes = minutes
         }
     }

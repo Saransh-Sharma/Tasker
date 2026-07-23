@@ -66,7 +66,7 @@ struct SunriseInsightsHeroCard: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
+                    .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 28, style: .continuous)
                             .stroke(style.border.opacity(0.58), lineWidth: 1)
@@ -149,7 +149,7 @@ struct SunriseInsightsReflectionCard: View {
                             endPoint: .bottomTrailing
                         )
                     )
-                    .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                    .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 24, style: .continuous)
                             .stroke(LBColorTokens.role(.warning).border.opacity(0.48), lineWidth: 1)

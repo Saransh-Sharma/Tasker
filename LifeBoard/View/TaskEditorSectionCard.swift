@@ -108,6 +108,6 @@ struct TaskEditorSectionCard<Content: View>: View {
             strokeColor: isExpanded ? Color.lifeboard.accentSecondary.opacity(0.24) : Color.lifeboard.strokeHairline.opacity(0.72)
         )
         .lifeboardElevation(isExpanded ? .e1 : .e0, cornerRadius: LifeBoardTheme.CornerRadius.card, includesBorder: false)
-        .animation(LifeBoardAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.stateChange, value: isExpanded)
     }
 }
