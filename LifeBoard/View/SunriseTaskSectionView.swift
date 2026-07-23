@@ -63,7 +63,7 @@ struct TaskSectionHeaderRow: View {
                         .foregroundColor(Color.lifeboard.textQuaternary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .scaleEffect(isExpanded ? 1.0 : 0.9)
-                        .animation(LifeBoardAnimation.snappy, value: isExpanded)
+                        .animation(LifeBoardAnimation.stateChange, value: isExpanded)
                 }
                 .contentShape(Rectangle())
             }
@@ -218,7 +218,7 @@ struct SunriseTaskSectionView: View {
                     ))
             }
         }
-        .animation(LifeBoardAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.stateChange, value: isExpanded)
     }
 
     // MARK: - Section Header
@@ -231,7 +231,7 @@ struct SunriseTaskSectionView: View {
             taskCount: tasks.count,
             isExpanded: isExpanded,
             onToggle: {
-                withAnimation(LifeBoardAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.stateChange) {
                     isExpanded.toggle()
                 }
                 LifeBoardFeedback.selection()
@@ -347,7 +347,7 @@ struct SunriseTaskSectionView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(Color.lifeboard.textQuaternary)
                     .rotationEffect(.degrees(isCompletedCollapsed ? 0 : 90))
-                    .animation(LifeBoardAnimation.snappy, value: isCompletedCollapsed)
+                    .animation(LifeBoardAnimation.stateChange, value: isCompletedCollapsed)
             }
             .padding(.horizontal, 2)
             .padding(.vertical, 4)
@@ -615,7 +615,7 @@ struct HomeListSectionView: View {
                     taskCount: section.rows.count,
                     isExpanded: isExpanded,
                     onToggle: {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.stateChange) {
                             isExpanded.toggle()
                         }
                         LifeBoardFeedback.selection()
@@ -631,7 +631,7 @@ struct HomeListSectionView: View {
                 rowsContent
             }
         }
-        .animation(LifeBoardAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.stateChange, value: isExpanded)
     }
 
     private var rowsContent: some View {
@@ -763,7 +763,7 @@ struct HomeListSectionView: View {
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundColor(Color.lifeboard.textQuaternary)
                     .rotationEffect(.degrees(isResolvedCollapsed ? 0 : 90))
-                    .animation(LifeBoardAnimation.snappy, value: isResolvedCollapsed)
+                    .animation(LifeBoardAnimation.stateChange, value: isResolvedCollapsed)
             }
             .padding(.horizontal, 2)
             .padding(.vertical, 4)

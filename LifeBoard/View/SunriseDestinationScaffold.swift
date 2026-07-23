@@ -54,14 +54,15 @@ struct SecondaryScreenShell<Content: View>: View {
     var topContentInset: CGFloat = 0
     @ViewBuilder let content: Content
 
-    @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     var body: some View {
-        ZStack(alignment: .top) {
-            background
-
+        LifeBoardScreenScaffold(
+            mode: .detail,
+            placement: .focusedPresentation,
+            bottomClearance: bottomInset,
+            readableWidth: 860
+        ) {
             VStack(spacing: LBSpacingTokens.md) {
                 SecondaryScreenHeader(
                     title: title,
@@ -82,47 +83,13 @@ struct SecondaryScreenShell<Content: View>: View {
             }
             .padding(.horizontal, LBSpacingTokens.screenMargin)
             .padding(.top, topPadding + max(0, topContentInset))
-            .padding(.bottom, bottomInset)
-            .lifeboardReadableContent(maxWidth: layoutClass.isPad ? 860 : .infinity, alignment: .center)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-        .background(LBColorTokens.canvas)
     }
 
     private var topPadding: CGFloat {
         dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.lg : LBSpacingTokens.sm
     }
 
-    private var background: some View {
-        ZStack {
-            if reduceTransparency {
-                LBColorTokens.canvas
-            } else {
-                LinearGradient(
-                    colors: [
-                        LBColorTokens.canvas,
-                        LBColorTokens.warmCanvas.opacity(0.82),
-                        LBColorTokens.coolCanvas.opacity(0.72)
-                    ],
-                    startPoint: .top,
-                    endPoint: .bottom
-                )
-            }
-
-            SunriseDecorImage(asset: .subtleLeaf, size: 150, opacity: 0.16, rotation: .degrees(18))
-                .offset(x: 172, y: -32)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-
-            SunriseDecorImage(asset: .subtleLeaf, size: 170, opacity: 0.10, rotation: .degrees(-24), mirrorX: true)
-                .offset(x: -148, y: 440)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-
-            SunriseDecorImage(asset: .cloud, size: 170, opacity: 0.10)
-                .offset(x: 130, y: 520)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
-        }
-        .ignoresSafeArea()
-    }
 }
 
 struct SecondaryScreenHeader: View {
@@ -169,14 +136,14 @@ struct SecondaryScreenHeader: View {
             VStack(spacing: dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.xs : 3) {
                 Text(title)
                     .font(.lifeboard(.screenTitle))
-                    .foregroundStyle(LBColorTokens.navy)
+                    .foregroundStyle(Color.lifeboard(.primary, on: .canvas))
                     .multilineTextAlignment(.center)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.76)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 3 : 2)
+                    .fixedSize(horizontal: false, vertical: true)
 
                 Text(subtitle)
                     .font(.lifeboard(.callout))
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .foregroundStyle(Color.lifeboard(.secondary, on: .canvas))
                     .multilineTextAlignment(.center)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
@@ -199,23 +166,18 @@ struct SecondaryHeaderButton: View {
     var accessibilityIdentifier: String? = nil
     let action: () -> Void
 
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-
     var body: some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(LBColorTokens.navySoft)
+                .font(.lifeboard(.buttonSmall))
+                .foregroundStyle(Color.lifeboard(.primary, on: .toolbar))
                 .frame(width: 52, height: 52)
-                .background {
-                    Circle()
-                        .fill(reduceTransparency ? LBColorTokens.glassStrong : LBColorTokens.glassStrong.opacity(0.84))
-                        .background(.ultraThinMaterial, in: Circle())
-                        .overlay(Circle().stroke(LBColorTokens.glassBorder, lineWidth: 1))
-                        .shadow(color: LBColorTokens.elevationShadow, radius: 12, x: 0, y: 7)
-                }
+                .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
+                .overlay(Circle().stroke(Color.lifeboard(.borderDefault), lineWidth: 1))
+                .lifeboardElevation(.e1, cornerRadius: 26, includesBorder: false)
         }
         .buttonStyle(.plain)
+        .lifeboardPressFeedback()
         .accessibilityLabel(accessibilityLabel)
         .lifeboardAccessibilityIdentifier(accessibilityIdentifier)
     }
@@ -227,13 +189,13 @@ struct SecondaryMetricPill: View {
     var body: some View {
         Text(title)
             .font(.lifeboard(.caption1).weight(.semibold))
-            .foregroundStyle(LBColorTokens.violetDeep)
+            .foregroundStyle(Color.lifeboard(.link, on: .raised))
             .lineLimit(1)
             .minimumScaleFactor(0.82)
             .padding(.horizontal, LBSpacingTokens.sm)
             .frame(minHeight: 30)
-            .background(LBColorTokens.glassStrong.opacity(0.88), in: Capsule())
-            .overlay(Capsule().stroke(LBColorTokens.glassBorder, lineWidth: 1))
+            .background(Color.lifeboard(.surfaceSecondary), in: Capsule())
+            .overlay(Capsule().stroke(Color.lifeboard(.borderDefault), lineWidth: 1))
             .accessibilityLabel(title)
     }
 }
@@ -243,27 +205,15 @@ struct SecondaryGlassCardSurface<Content: View>: View {
     var cornerRadius: CGFloat = 24
     @ViewBuilder let content: Content
 
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    private var style: LBRoleStyle { LBColorTokens.role(role) }
-
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
         content
             .background {
                 shape
-                    .fill(
-                        LinearGradient(
-                            colors: reduceTransparency
-                                ? [LBColorTokens.glassStrong, LBColorTokens.glassStrong]
-                                : [style.softSurface.opacity(0.90), LBColorTokens.glassStrong.opacity(0.92)],
-                            startPoint: .topLeading,
-                            endPoint: .bottomTrailing
-                        )
-                    )
-                    .background(.ultraThinMaterial, in: shape)
-                    .overlay(shape.stroke(style.border.opacity(reduceTransparency ? 0.90 : 0.58), lineWidth: 1))
-                    .shadow(color: LBColorTokens.elevationShadow, radius: 16, x: 0, y: 9)
+                    .fill(Color.lifeboard(.surfacePrimary))
+                    .overlay(shape.stroke(Color.lifeboard(.borderDefault), lineWidth: 1))
             }
+            .lifeboardElevation(.e2, cornerRadius: cornerRadius, includesBorder: false)
     }
 }
 

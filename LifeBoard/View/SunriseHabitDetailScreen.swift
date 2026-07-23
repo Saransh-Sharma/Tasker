@@ -204,7 +204,7 @@ struct SunriseHabitDetailScreen: View {
             accessibilityID: SunriseHabitDetailAccessibilityID.detailsDisclosure,
             onToggle: {
                 LifeBoardFeedback.light()
-                withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
                     showDetailReveal.toggle()
                 }
             },
@@ -224,7 +224,7 @@ struct SunriseHabitDetailScreen: View {
                         .foregroundStyle(accentColor)
                         .contentTransition(.symbolEffect(.replace))
                         .animation(
-                            LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy,
+                            LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange,
                             value: viewModel.draft.selectedIconSymbolName
                         )
                 }
@@ -364,12 +364,12 @@ struct SunriseHabitDetailScreen: View {
                         set: { viewModel.draft.reminderWindowEndPickerDate = $0 }
                     ),
                     onEnable: {
-                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
                             viewModel.draft.ensureReminderWindowDefaults()
                         }
                     },
                     onClear: {
-                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
                             viewModel.draft.clearReminderWindow()
                         }
                     },

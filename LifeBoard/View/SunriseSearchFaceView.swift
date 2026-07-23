@@ -302,7 +302,7 @@ private struct CommandSearchSuggestionRow: View {
         .background {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
                 .fill(LBColorTokens.glassStrong.opacity(0.82))
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+                .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(LBColorTokens.glassBorder, lineWidth: 1))
         }
         .accessibilityElement(children: .combine)
@@ -344,7 +344,7 @@ private struct CommandSearchAskEvaRow: View {
         .background {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(LBColorTokens.glassStrong.opacity(0.86))
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(LBColorTokens.violet.opacity(0.30), lineWidth: 1))
         }
         .accessibilityIdentifier("search.askEvaRow")
@@ -392,7 +392,7 @@ struct SunriseSearchResultsSurface<Content: View>: View {
         .background {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
                 .fill(LBColorTokens.glass.opacity(0.74))
-                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+                .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
                         .stroke(LBColorTokens.glassBorder, lineWidth: 1)

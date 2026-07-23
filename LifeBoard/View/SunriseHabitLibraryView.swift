@@ -312,7 +312,7 @@ private struct HabitLibraryControlRail: View {
             HStack(spacing: spacing.s8) {
                 ForEach(HabitLibraryFilter.allCases) { filter in
                     Button {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.stateChange) {
                             selectedFilter = filter
                         }
                     } label: {
