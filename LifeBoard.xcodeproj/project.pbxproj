@@ -128,6 +128,7 @@
 		263B577D54B198C0599992DE /* HomeHabitMutationSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72A5D667C54915B85FDEAA65 /* HomeHabitMutationSnapshot.swift */; };
 		268BE6701AAC432C4DDDF880 /* SpacingTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = D39BBE25D96F4BE6E41320B1 /* SpacingTokens.swift */; };
 		26F202A21C56299EBD7FDF66 /* LifeBoardSignatureEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71864350C9202D897069A4C /* LifeBoardSignatureEffects.swift */; };
+		C8A100012FB0000100C1A001 /* LifeBoardScreenScaffold.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A100002FB0000100C1A001 /* LifeBoardScreenScaffold.swift */; };
 		2721FCB8D7ABE25DBC7508B1 /* TimelineOverlapItemCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5B7AA06E3FAF9CBF2A49AE /* TimelineOverlapItemCard.swift */; };
 		273B0CB5CC4D28068F5487FC /* TimelinePreferenceKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1144C788F612CB7B2BB7458B /* TimelinePreferenceKeys.swift */; };
 		27F1CA9185082A8916CE7149 /* ColorTokenGenerationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24EC3451B4B59726B8F286E2 /* ColorTokenGenerationTests.swift */; };
@@ -1961,6 +1962,7 @@
 		A6E1D42A2F3C120100B1C2D3 /* TaskSemanticRetrievalServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskSemanticRetrievalServiceTests.swift; sourceTree = "<group>"; };
 		A6F510C5BFB0D534AB441244 /* ManageProjectsUseCaseExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/ManageProjectsUseCaseExtension.swift; sourceTree = SOURCE_ROOT; };
 		A71864350C9202D897069A4C /* LifeBoardSignatureEffects.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardSignatureEffects.swift; path = LifeBoardSignatureEffects.swift; sourceTree = "<group>"; };
+		C8A100002FB0000100C1A001 /* LifeBoardScreenScaffold.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardScreenScaffold.swift; sourceTree = "<group>"; };
 		A78BBA8638C97BD9668075C1 /* DayCompassEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = DayCompassEngine.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A1 /* HabitBoardPresentationBuilderTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitBoardPresentationBuilderTests.swift; sourceTree = "<group>"; };
 		A7B8C9D0E1F20123456789A3 /* HomeHabitLastCellInteractionTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeHabitLastCellInteractionTests.swift; sourceTree = "<group>"; };
@@ -3967,6 +3969,7 @@
 				F1A2B3C4D5E6F7A8B9C0D1E2 /* LifeBoardTheme+SwiftUI.swift */,
 				F1A2B3C4D5E6F7A8B9C0D1E4 /* LifeBoardAnimations.swift */,
 				A71864350C9202D897069A4C /* LifeBoardSignatureEffects.swift */,
+				C8A100002FB0000100C1A001 /* LifeBoardScreenScaffold.swift */,
 			);
 			path = DesignSystem;
 			sourceTree = "<group>";
@@ -6055,6 +6058,7 @@
 				55FFB9DC9443E96B0DCA5AAC /* TypedSourcePicker.swift in Sources */,
 				70A09FE5E6F84EEB4424EBA9 /* LifeBoardSignatureEffects.metal in Sources */,
 				26F202A21C56299EBD7FDF66 /* LifeBoardSignatureEffects.swift in Sources */,
+				C8A100012FB0000100C1A001 /* LifeBoardScreenScaffold.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
