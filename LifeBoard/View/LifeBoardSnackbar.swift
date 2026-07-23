@@ -176,7 +176,7 @@ struct SnackbarModifier: ViewModifier {
                 .zIndex(100)
             }
         }
-        .animation(LifeBoardAnimation.snappy, value: snackbar != nil)
+        .animation(LifeBoardAnimation.stateChange, value: snackbar != nil)
     }
 }
 

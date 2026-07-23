@@ -47,7 +47,7 @@ public struct HomeQuickFilterTriggerButton: View {
                         .fill(Color.lifeboard.accentPrimary)
                         .frame(width: 8, height: 8)
                         .transition(.scale.combined(with: .opacity))
-                        .animation(reduceMotion ? nil : LifeBoardAnimation.bouncy, value: summary.hasActiveFilters)
+                        .animation(reduceMotion ? nil : LifeBoardAnimation.celebration, value: summary.hasActiveFilters)
                 }
 
                 // Primary text
@@ -80,7 +80,7 @@ public struct HomeQuickFilterTriggerButton: View {
                 Capsule()
                     .stroke(borderColor, lineWidth: 1)
             )
-            .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: summary.hasActiveFilters)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: summary.hasActiveFilters)
         }
         .lifeboardPressFeedback()
         .accessibilityLabel(accessibilityLabel)

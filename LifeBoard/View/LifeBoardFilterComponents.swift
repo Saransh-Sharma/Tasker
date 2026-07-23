@@ -169,7 +169,7 @@ struct LifeBoardFilterRow: View {
             Image(systemName: selectionIcon)
                 .font(.system(size: 18))
                 .foregroundStyle(isSelected ? rowAccent : Color.lifeboard.textTertiary)
-                .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: isSelected)
+                .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isSelected)
 
             if let systemImage {
                 Image(systemName: systemImage)

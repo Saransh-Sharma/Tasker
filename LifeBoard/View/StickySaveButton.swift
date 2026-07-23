@@ -57,8 +57,7 @@ struct StickySaveButton: View {
                 if reduceTransparency {
                     ReflectPlanStyle.canvas
                 } else {
-                    ReflectPlanStyle.canvas.opacity(0.82)
-                        .background(.ultraThinMaterial)
+                    Color.lifeboard(.bgElevated)
                 }
             }
             .ignoresSafeArea(edges: .bottom)
