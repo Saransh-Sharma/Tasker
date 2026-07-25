@@ -317,7 +317,7 @@ Use continuous corners. Inputs use 14 pt corners; standard cards 18 pt; sheets a
 - Do use semantic tokens and named components; do not add direct colors, ad-hoc shadows, raw global font sizes, or direct material calls in feature code.
 - Do make state and hierarchy perceivable with text, shape, and accessibility semantics; do not communicate status through color or animation alone.
 - Do honor Reduce Motion, Reduce Transparency, Low Power Mode, thermal pressure, scene activity, and Catalyst fallbacks through `LifeBoardMotionPolicy`.
-- Do use only the approved signature effects: `daypartBloom`, `evaInkReveal`, `journalMediaReveal`, `memoryDevelopReveal`, and `fastingEmberRing`. Do not add decorative loops, shimmer, or generic spring aliases.
+- Do use only the approved signature effects: `daypartBloom`, `evaInkReveal`, `journalMediaReveal`, `memoryDevelopReveal`, `fastingEmberRing`, `healthSyncPulse`, `vitalOrbWarp`, `clayPressBloom`, `daypartCrossDissolve`, and `completionBurst`. Every one is one-shot and interaction-, threshold-, or boundary-bound; do not turn any of them into ambient loops. Do not add decorative loops, shimmer, or generic spring aliases.
 - Do use SF Symbols or curated assets for UI icons; do not use emoji as interface icons.
 - Do preserve privacy: never reveal journal text, audio, media, embeddings, or private health content in diagnostics, widgets, or system previews.
 - Do distinguish explicit zero, no record, setup required, stale, denied, locked, offline, and error; do not collapse them into one empty state.
