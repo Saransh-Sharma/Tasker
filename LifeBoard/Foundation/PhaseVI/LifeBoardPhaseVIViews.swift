@@ -119,7 +119,7 @@ struct LifeBoardNutritionView: View {
             timelineContent
                 .padding(20)
         }
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid).ignoresSafeArea())
+        .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
         .navigationTitle("Nutrition")
         .toolbar { nutritionToolbar }
         .task { await store.load() }
@@ -172,7 +172,13 @@ struct LifeBoardNutritionView: View {
     }
 
     private func logMeal(food: FoodItem, serving: FoodServingDefinition, quantity: Double, slot: NutritionMealSlot) {
-        Task { await store.log(food: food, serving: serving, quantity: quantity, slot: slot) }
+        Task {
+            await store.log(food: food, serving: serving, quantity: quantity, slot: slot)
+            await LifeBoardHealthRuntime.shared.jitCoordinator.offerConnectAfterReward(
+                leadDomain: .nutrition,
+                trigger: "nutrition_log_meal"
+            )
+        }
     }
 
     private var barcodeScannerCover: some View {
@@ -268,7 +274,7 @@ struct LifeBoardNutritionView: View {
         }
         .padding(.horizontal, 14)
         .frame(minHeight: 48)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: 15))
+        .lifeBoardClaySurface(.well, cornerRadius: 15, fill: Color(LifeBoardColorTokens.foundationSurfaceSelected))
     }
 
     private var macroSummary: some View {
@@ -288,7 +294,7 @@ struct LifeBoardNutritionView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
         .padding(10)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: 15))
+        .lifeBoardClaySurface(.well, cornerRadius: 15, fill: Color(LifeBoardColorTokens.foundationSurfaceSelected))
     }
 
     /// Honest trailing-week report: recorded energy per day, no goals or
@@ -312,8 +318,9 @@ struct LifeBoardNutritionView: View {
                 .chartXAxis { AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)) } }
                 .frame(height: 132)
                 .padding(14)
-                .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 18))
-                .overlay { RoundedRectangle(cornerRadius: 18).stroke(Color(LifeBoardColorTokens.foundationHairline)) }
+                // The clay surface already draws the hairline; the previous
+                // explicit stroke doubled it.
+                .lifeBoardClaySurface(.raised, cornerRadius: 18)
                 .accessibilityLabel("Energy logged per day over the past week")
                 .accessibilityValue(report.map { "\($0.day.formatted(.dateTime.weekday(.abbreviated))): \(Int($0.calories.rounded())) kilocalories" }.joined(separator: ", "))
             }
@@ -327,18 +334,51 @@ private struct NutritionMealSectionView: View {
     let entries: [NutritionLogEntry]
     let onDelete: (NutritionLogEntry) -> Void
 
+    /// One clay card per meal slot, with its entries as rows inside.
+    ///
+    /// Previously the slot name was a bare heading on the page and each entry
+    /// carried its own card, so an empty day rendered as four headings and four
+    /// identical sentences floating on a flat background with no structure at
+    /// all. Grouping gives the day a shape and lets the header carry the slot's
+    /// running total.
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(slot.rawValue.capitalized).font(LifeBoardFoundationTypography.sectionTitle())
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(slot.rawValue.capitalized)
+                    .font(LifeBoardFoundationTypography.sectionTitle())
+                Spacer(minLength: 0)
+                if entries.isEmpty == false {
+                    Text("\(loggedCalories) kcal")
+                        .font(.footnote.weight(.medium))
+                        .monospacedDigit()
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+            }
             if entries.isEmpty {
-                Text("Nothing logged—and nothing required.")
-                    .font(.subheadline).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary)).padding(.vertical, 8)
+                // The reassurance that nothing is required is made once, in the
+                // screen's subtitle. Repeating it under all four slots turned a
+                // kind sentence into wallpaper.
+                Text("Nothing logged")
+                    .font(.subheadline)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
             } else {
-                ForEach(entries) { entry in
-                    row(entry)
+                VStack(spacing: 0) {
+                    ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
+                        if index > 0 {
+                            Divider().overlay(Color(LifeBoardColorTokens.foundationHairline))
+                        }
+                        row(entry)
+                    }
                 }
             }
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lifeBoardClaySurface(.raised)
+    }
+
+    private var loggedCalories: Int {
+        Int(entries.reduce(0) { $0 + $1.resolvedMacrosSnapshot.calories }.rounded())
     }
 
     private func row(_ entry: NutritionLogEntry) -> some View {
@@ -357,9 +397,7 @@ private struct NutritionMealSectionView: View {
                 Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
             }
         }
-        .padding(14)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 18))
-        .overlay { RoundedRectangle(cornerRadius: 18).stroke(Color(LifeBoardColorTokens.foundationHairline)) }
+        .padding(.vertical, 8)
     }
 }
 
@@ -406,6 +444,7 @@ private struct NutritionLogComposer: View {
                 }
                 if let errorMessage { Text(errorMessage).foregroundStyle(.secondary) }
             }
+            .lifeBoardFormSurface()
             .navigationTitle("Review meal")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -496,17 +535,17 @@ struct LifeBoardWellnessView: View {
                             Spacer(); Text(display(sample)).monospacedDigit()
                             Menu { Button("Delete", role: .destructive) { Task { await store.delete(sample, kind: kind) } } } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }
                         }
-                        .padding(12).background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 16))
+                        .padding(12).lifeBoardClaySurface(.raised, cornerRadius: 16)
                     }
                 }.accessibilityElement(children: .contain).accessibilityLabel("\(kind.title) history table")
             }.padding(20)
         }
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid).ignoresSafeArea())
+        .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
         .navigationTitle("Wellness")
         .searchable(text: $searchText, prompt: "Search values or dates")
         .toolbar { Button("Add value", systemImage: "plus") { showsCapture = true } }
         .task(id: kind) { await store.load(kind: kind) }
-        .sheet(isPresented: $showsCapture) { WellnessMetricCapture(kind: kind) { value in Task { await store.save(value, kind: kind) } } }
+        .sheet(isPresented: $showsCapture) { WellnessMetricCapture(kind: kind) { value in Task { await store.save(value, kind: kind); await LifeBoardHealthRuntime.shared.jitCoordinator.offerConnectAfterReward(leadDomain: .body, trigger: "wellness_body_metric") } } }
     }
 
     /// Today-first: the day's state and one obvious capture action lead the
@@ -534,7 +573,7 @@ struct LifeBoardWellnessView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: 22))
+        .lifeBoardClaySurface(.well, cornerRadius: 22, fill: Color(LifeBoardColorTokens.foundationSurfaceSelected))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Today, \(kind.title)")
     }
@@ -559,7 +598,7 @@ struct LifeBoardWellnessView: View {
         .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { _ in AxisValueLabel(format: .dateTime.month(.abbreviated).day()) } }
         .frame(height: 148)
         .padding(16)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 20))
+        .lifeBoardClaySurface(.raised, cornerRadius: 20)
         .overlay { RoundedRectangle(cornerRadius: 20).stroke(Color(LifeBoardColorTokens.foundationHairline)) }
         .accessibilityLabel("\(kind.title) trend chart")
         .accessibilityValue(store.samples.isEmpty ? "No data" : "\(store.samples.count) entries. Latest \(display(store.samples[0])).")
@@ -660,7 +699,8 @@ struct LifeBoardLifeMomentsView: View {
                 }
             } header: { Text("Meaningful moments") }
         }
-        .scrollContentBackground(.hidden).background(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+        .lifeBoardFormSurface()
+        .scrollContentBackground(.hidden).background(Color(LifeBoardColorTokens.foundationCanvas))
         .navigationTitle("Life Moments")
         .searchable(text: $searchText, prompt: "Search moments")
         .toolbar {

@@ -225,6 +225,8 @@ public struct SleepNote: Codable, Hashable, Identifiable, Sendable {
     public var note: String?
     public var source: WellnessCaptureSource
     public var sourceIdentifier: String?
+    public var healthStageValue: Int?
+    public var healthMetadata: [String: String]?
     public var capturedTimeZoneIdentifier: String
     public var createdAt: Date
     public var updatedAt: Date
@@ -237,6 +239,8 @@ public struct SleepNote: Codable, Hashable, Identifiable, Sendable {
         note: String? = nil,
         source: WellnessCaptureSource = .manual,
         sourceIdentifier: String? = nil,
+        healthStageValue: Int? = nil,
+        healthMetadata: [String: String]? = nil,
         capturedTimeZone: TimeZone = .autoupdatingCurrent,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
@@ -252,6 +256,8 @@ public struct SleepNote: Codable, Hashable, Identifiable, Sendable {
         self.note = note?.trimmedNilIfEmpty
         self.source = source
         self.sourceIdentifier = sourceIdentifier
+        self.healthStageValue = healthStageValue
+        self.healthMetadata = healthMetadata
         capturedTimeZoneIdentifier = capturedTimeZone.identifier
         self.createdAt = createdAt
         self.updatedAt = max(updatedAt, createdAt)

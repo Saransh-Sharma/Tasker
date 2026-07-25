@@ -11,6 +11,7 @@ public final class CoreDataWellnessRepository: WellnessRepository, @unchecked Se
     public func bodyMetricSamples(kind: BodyMetricKind?) async throws -> [BodyMetricSample] {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "BodyMetricSample")
+            request.affectedStores = Self.localStores(in: context)
             if let kind { request.predicate = NSPredicate(format: "kindRaw == %@", kind.rawValue) }
             request.sortDescriptors = [
                 NSSortDescriptor(key: "observedAt", ascending: false),
@@ -23,6 +24,7 @@ public final class CoreDataWellnessRepository: WellnessRepository, @unchecked Se
     public func workoutRecords() async throws -> [WorkoutRecord] {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "WorkoutRecord")
+            request.affectedStores = Self.localStores(in: context)
             request.sortDescriptors = [NSSortDescriptor(key: "startedAt", ascending: false)]
             return try context.fetch(request).compactMap(Self.workout)
         }
@@ -31,6 +33,7 @@ public final class CoreDataWellnessRepository: WellnessRepository, @unchecked Se
     public func sleepNotes() async throws -> [SleepNote] {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "SleepNote")
+            request.affectedStores = Self.localStores(in: context)
             request.sortDescriptors = [NSSortDescriptor(key: "startedAt", ascending: false)]
             return try context.fetch(request).compactMap(Self.sleep)
         }
@@ -39,6 +42,7 @@ public final class CoreDataWellnessRepository: WellnessRepository, @unchecked Se
     public func movementRecords() async throws -> [MovementContextRecord] {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "MovementContextRecord")
+            request.affectedStores = Self.localStores(in: context)
             request.sortDescriptors = [NSSortDescriptor(key: "startedAt", ascending: false)]
             return try context.fetch(request).compactMap(Self.movement)
         }
@@ -58,6 +62,24 @@ public final class CoreDataWellnessRepository: WellnessRepository, @unchecked Se
             object.setValue(value.note, forKey: "note")
             object.setValue(value.createdAt, forKey: "createdAt")
             object.setValue(value.updatedAt, forKey: "updatedAt")
+            if value.source == .manual {
+                let metric: HealthMetric = switch value.kind {
+                case .bodyMass: .bodyMass
+                case .bodyFatPercentage: .bodyFatPercentage
+                case .waistCircumference: .waistCircumference
+                case .restingHeartRate: .restingHeartRate
+                }
+                try HealthOutboxCoreDataWriter.enqueue(
+                    payloads: [.init(
+                        localID: value.id,
+                        metric: metric,
+                        value: value.normalizedValue,
+                        startDate: value.observedAt
+                    )],
+                    kind: .update,
+                    in: context
+                )
+            }
         }
     }
 
@@ -75,6 +97,24 @@ public final class CoreDataWellnessRepository: WellnessRepository, @unchecked Se
             object.setValue(value.note, forKey: "note")
             object.setValue(value.createdAt, forKey: "createdAt")
             object.setValue(value.updatedAt, forKey: "updatedAt")
+            if value.source == .manual {
+                try HealthOutboxCoreDataWriter.enqueue(
+                    payloads: [.init(
+                        localID: value.id,
+                        metric: .workout,
+                        startDate: value.startedAt,
+                        endDate: value.endedAt,
+                        workout: .init(
+                            activityName: value.activityKind,
+                            duration: value.endedAt.timeIntervalSince(value.startedAt),
+                            energyKilocalories: value.energyKilocalories,
+                            distanceMeters: value.distanceMeters
+                        )
+                    )],
+                    kind: .update,
+                    in: context
+                )
+            }
         }
     }
 
@@ -88,6 +128,8 @@ public final class CoreDataWellnessRepository: WellnessRepository, @unchecked Se
             object.setValue(value.note, forKey: "note")
             object.setValue(value.source.rawValue, forKey: "sourceRaw")
             object.setValue(value.sourceIdentifier, forKey: "sourceIdentifier")
+            object.setValue(value.healthStageValue, forKey: "healthStageValue")
+            object.setValue(try value.healthMetadata.map { try JSONEncoder().encode($0) }, forKey: "healthMetadataData")
             object.setValue(value.capturedTimeZoneIdentifier, forKey: "capturedTimeZoneIdentifier")
             object.setValue(value.createdAt, forKey: "createdAt")
             object.setValue(value.updatedAt, forKey: "updatedAt")
@@ -121,6 +163,32 @@ public final class CoreDataWellnessRepository: WellnessRepository, @unchecked Se
             guard let object = try Self.fetchOne(entity: entity, id: id, in: context) else {
                 throw WellnessRepositoryError.recordNotFound
             }
+            if kind == .bodyMetric || kind == .workout {
+                let payloads: [HealthWritePayload]
+                if kind == .workout {
+                    payloads = [.init(
+                        localID: id,
+                        metric: .workout,
+                        startDate: object.value(forKey: "startedAt") as? Date ?? Date()
+                    )]
+                } else if let raw = object.value(forKey: "kindRaw") as? String,
+                          let bodyKind = BodyMetricKind(rawValue: raw) {
+                    let metric: HealthMetric = switch bodyKind {
+                    case .bodyMass: .bodyMass
+                    case .bodyFatPercentage: .bodyFatPercentage
+                    case .waistCircumference: .waistCircumference
+                    case .restingHeartRate: .restingHeartRate
+                    }
+                    payloads = [.init(
+                        localID: id,
+                        metric: metric,
+                        startDate: object.value(forKey: "observedAt") as? Date ?? Date()
+                    )]
+                } else {
+                    payloads = []
+                }
+                try HealthOutboxCoreDataWriter.enqueue(payloads: payloads, kind: .delete, in: context)
+            }
             context.delete(object)
         }
     }
@@ -139,6 +207,7 @@ public final class CoreDataWellnessRepository: WellnessRepository, @unchecked Se
         let context = container.newBackgroundContext()
         context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
         try await context.perform {
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
             try operation(context)
             if context.hasChanges { try context.save() }
         }
@@ -150,6 +219,7 @@ public final class CoreDataWellnessRepository: WellnessRepository, @unchecked Se
         in context: NSManagedObjectContext
     ) throws -> NSManagedObject? {
         let request = NSFetchRequest<NSManagedObject>(entityName: entity)
+        request.affectedStores = localStores(in: context)
         request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
         request.fetchLimit = 1
         return try context.fetch(request).first
@@ -161,7 +231,17 @@ public final class CoreDataWellnessRepository: WellnessRepository, @unchecked Se
         in context: NSManagedObjectContext
     ) throws -> NSManagedObject {
         if let value = try fetchOne(entity: entity, id: id, in: context) { return value }
-        return NSEntityDescription.insertNewObject(forEntityName: entity, into: context)
+        let value = NSEntityDescription.insertNewObject(forEntityName: entity, into: context)
+        if let store = localStores(in: context).first {
+            context.assign(value, to: store)
+        }
+        return value
+    }
+
+    private static func localStores(in context: NSManagedObjectContext) -> [NSPersistentStore] {
+        context.persistentStoreCoordinator?.persistentStores.filter {
+            $0.configurationName == "LocalOnly"
+        } ?? []
     }
 
     private static func bodyMetric(_ object: NSManagedObject) -> BodyMetricSample? {
@@ -225,6 +305,9 @@ public final class CoreDataWellnessRepository: WellnessRepository, @unchecked Se
             note: object.value(forKey: "note") as? String,
             source: (object.value(forKey: "sourceRaw") as? String).flatMap(WellnessCaptureSource.init(rawValue:)) ?? .manual,
             sourceIdentifier: object.value(forKey: "sourceIdentifier") as? String,
+            healthStageValue: (object.value(forKey: "healthStageValue") as? NSNumber)?.intValue,
+            healthMetadata: (object.value(forKey: "healthMetadataData") as? Data)
+                .flatMap { try? JSONDecoder().decode([String: String].self, from: $0) },
             capturedTimeZone: Self.timeZone(object.value(forKey: "capturedTimeZoneIdentifier") as? String),
             createdAt: object.value(forKey: "createdAt") as? Date ?? startedAt,
             updatedAt: object.value(forKey: "updatedAt") as? Date ?? endedAt

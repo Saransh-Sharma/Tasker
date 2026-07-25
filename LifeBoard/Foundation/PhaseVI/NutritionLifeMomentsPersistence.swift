@@ -11,6 +11,7 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
     public func foods(query: String) async throws -> [FoodItem] {
         try await read { [decoder] context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "FoodItem")
+            request.affectedStores = Self.localStores(in: context)
             let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
             if !normalized.isEmpty {
                 request.predicate = NSPredicate(format: "name CONTAINS[cd] %@ OR brand CONTAINS[cd] %@", normalized, normalized)
@@ -26,6 +27,7 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
     public func food(barcode: String) async throws -> FoodItem? {
         try await read { [decoder] context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "FoodItem")
+            request.affectedStores = Self.localStores(in: context)
             request.predicate = NSPredicate(format: "barcode == %@", barcode.filter(\.isNumber))
             request.fetchLimit = 1
             return try context.fetch(request).first.flatMap { Self.food($0, decoder: decoder) }
@@ -46,6 +48,7 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
     public func logs(from: Date?, to: Date?) async throws -> [NutritionLogEntry] {
         try await read { [decoder] context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "NutritionLogEntry")
+            request.affectedStores = Self.localStores(in: context)
             var predicates: [NSPredicate] = []
             if let from { predicates.append(NSPredicate(format: "loggedAt >= %@", from as NSDate)) }
             if let to { predicates.append(NSPredicate(format: "loggedAt < %@", to as NSDate)) }
@@ -58,6 +61,7 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
     public func goals() async throws -> [NutritionGoal] {
         try await read { [decoder] context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "NutritionGoal")
+            request.affectedStores = Self.localStores(in: context)
             request.sortDescriptors = [NSSortDescriptor(key: "effectiveFrom", ascending: false)]
             return try context.fetch(request).compactMap { Self.goal($0, decoder: decoder) }
         }
@@ -89,6 +93,25 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
                 "capturedTimeZoneIdentifier": entry.capturedTimeZoneIdentifier, "note": entry.note,
                 "createdAt": entry.createdAt, "updatedAt": entry.updatedAt
             ])
+            let macroValues: [(HealthMetric, String, Double)] = [
+                (.dietaryEnergy, "calories", entry.resolvedMacrosSnapshot.calories),
+                (.dietaryProtein, "protein", entry.resolvedMacrosSnapshot.proteinGrams),
+                (.dietaryCarbohydrates, "carbohydrates", entry.resolvedMacrosSnapshot.carbohydrateGrams),
+                (.dietaryFat, "fat", entry.resolvedMacrosSnapshot.fatGrams)
+            ]
+            try HealthOutboxCoreDataWriter.enqueue(
+                payloads: macroValues.map { metric, role, value in
+                    .init(
+                        localID: entry.id,
+                        metric: metric,
+                        role: role,
+                        value: value,
+                        startDate: entry.loggedAt
+                    )
+                },
+                kind: .update,
+                in: context
+            )
         }
     }
 
@@ -105,7 +128,25 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
     }
 
     public func deleteFood(id: UUID) async throws { try await delete("FoodItem", id: id) }
-    public func deleteLog(id: UUID) async throws { try await delete("NutritionLogEntry", id: id) }
+    public func deleteLog(id: UUID) async throws {
+        try await write { context in
+            guard let object = try Self.fetch("NutritionLogEntry", id: id, context: context) else {
+                throw NutritionError.recordNotFound
+            }
+            let date = object.value(forKey: "loggedAt") as? Date ?? Date()
+            try HealthOutboxCoreDataWriter.enqueue(
+                payloads: [
+                    .init(localID: id, metric: .dietaryEnergy, role: "calories", startDate: date),
+                    .init(localID: id, metric: .dietaryProtein, role: "protein", startDate: date),
+                    .init(localID: id, metric: .dietaryCarbohydrates, role: "carbohydrates", startDate: date),
+                    .init(localID: id, metric: .dietaryFat, role: "fat", startDate: date)
+                ],
+                kind: .delete,
+                in: context
+            )
+            context.delete(object)
+        }
+    }
 
     private func delete(_ entity: String, id: UUID) async throws {
         try await write { context in
@@ -174,18 +215,36 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
     private func write(_ body: @escaping @Sendable (NSManagedObjectContext) throws -> Void) async throws {
         let context = container.newBackgroundContext()
         context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
-        try await context.perform { try body(context); if context.hasChanges { try context.save() } }
+        try await context.perform {
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            try body(context)
+            if context.hasChanges { try context.save() }
+        }
     }
 
     private static func fetch(_ entity: String, id: UUID, context: NSManagedObjectContext) throws -> NSManagedObject? {
         let request = NSFetchRequest<NSManagedObject>(entityName: entity)
+        request.affectedStores = localStores(in: context)
         request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
         request.fetchLimit = 1
         return try context.fetch(request).first
     }
 
     private static func upsert(_ entity: String, id: UUID, context: NSManagedObjectContext) throws -> NSManagedObject {
-        try fetch(entity, id: id, context: context) ?? NSEntityDescription.insertNewObject(forEntityName: entity, into: context)
+        if let value = try fetch(entity, id: id, context: context) {
+            return value
+        }
+        let value = NSEntityDescription.insertNewObject(forEntityName: entity, into: context)
+        if let store = localStores(in: context).first {
+            context.assign(value, to: store)
+        }
+        return value
+    }
+
+    private static func localStores(in context: NSManagedObjectContext) -> [NSPersistentStore] {
+        context.persistentStoreCoordinator?.persistentStores.filter {
+            $0.configurationName == "LocalOnly"
+        } ?? []
     }
 
     private static func set(_ object: NSManagedObject, values: [String: Any?]) {
