@@ -286,7 +286,7 @@ private struct LifeBoardConfirmationRippleModifier: ViewModifier {
 
 /// The bounded signature Metal effects from the premium redesign brief:
 /// `daypartBloom`, `evaInkReveal`, `journalMediaReveal`, `memoryDevelopReveal`, and
-/// `fastingEmberRing`. Each enhances an existing state,
+/// `fastingEmberRing`, `healthSyncPulse`, and `vitalOrbWarp`. Each enhances an existing state,
 /// compiles asynchronously before first use, and degrades to a plain opacity/scale fallback under
 /// Reduce Motion, Low Power, thermal pressure, Reduce Transparency, or when the flag is off.
 @MainActor
@@ -311,7 +311,12 @@ public enum LifeBoardSignatureShaders {
         "LifeBoardEvaInkReveal",
         "LifeBoardJournalMediaReveal",
         "LifeBoardMemoryDevelopReveal",
-        "LifeBoardFastingEmberRing"
+        "LifeBoardFastingEmberRing",
+        "LifeBoardHealthSyncPulse",
+        "LifeBoardVitalOrbWarp",
+        "LifeBoardClayPressBloom",
+        "LifeBoardDaypartCrossDissolve",
+        "LifeBoardCompletionBurst"
     ]
 
     /// Whether custom shaders may run at all right now (flag + energy/thermal, not accessibility —
@@ -626,6 +631,94 @@ private struct FastingEmberRingModifier: ViewModifier {
     }
 }
 
+// MARK: - healthSyncPulse / vitalOrbWarp
+
+@MainActor
+private struct HealthSyncPulseModifier: ViewModifier {
+    let trigger: Int
+    let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let sceneIsActive: Bool
+    @State private var startDate: Date?
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                if let startDate {
+                    TimelineView(.animation) { context in
+                        let progress = min(1, context.date.timeIntervalSince(startDate) / 0.52)
+                        if reduceMotion || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.isReadyForRendering == false {
+                            Color.lifeboard(.statusSuccess)
+                                .opacity(0.12 * (1 - progress))
+                                .scaleEffect(0.98 + progress * 0.02)
+                        } else {
+                            GeometryReader { proxy in
+                                Rectangle()
+                                    .fill(.clear)
+                                    .colorEffect(Shader(
+                                        function: ShaderFunction(library: .default, name: "LifeBoardHealthSyncPulse"),
+                                        arguments: [
+                                            .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                                            .float(Float(progress)),
+                                            .float3(0.30, 0.82, 0.58)
+                                        ]
+                                    ))
+                            }
+                        }
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+            }
+            .clipped()
+            .onChange(of: trigger) { _, _ in
+                guard sceneIsActive else { return }
+                startDate = Date()
+            }
+    }
+}
+
+@MainActor
+private struct VitalOrbWarpModifier: ViewModifier {
+    let trigger: Int
+    let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let sceneIsActive: Bool
+    @State private var startDate: Date?
+
+    func body(content: Content) -> some View {
+        Group {
+            if let startDate {
+                TimelineView(.animation) { context in
+                    let progress = min(1, context.date.timeIntervalSince(startDate) / 0.42)
+                    if reduceMotion || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.isReadyForRendering == false {
+                        content.scaleEffect(0.985 + progress * 0.015)
+                    } else {
+                        content.visualEffect { effect, proxy in
+                            effect.distortionEffect(
+                                Shader(
+                                    function: ShaderFunction(library: .default, name: "LifeBoardVitalOrbWarp"),
+                                    arguments: [
+                                        .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                                        .float(Float(progress))
+                                    ]
+                                ),
+                                maxSampleOffset: CGSize(width: 6, height: 6)
+                            )
+                        }
+                    }
+                }
+            } else {
+                content
+            }
+        }
+            .onChange(of: trigger) { _, _ in
+                guard sceneIsActive else { return }
+                startDate = Date()
+            }
+    }
+}
+
 // MARK: - View sugar
 
 public extension View {
@@ -690,6 +783,18 @@ public extension View {
     @MainActor
     func lifeboardFastingEmberRing(progress: Double, tint: Color) -> some View {
         modifier(FastingEmberRingModifierEnvironment(progress: progress, tint: tint))
+    }
+
+    /// One-shot Health authorization/manual-sync confirmation.
+    @MainActor
+    func lifeboardHealthSyncPulse(trigger: Int) -> some View {
+        modifier(HealthSyncPulseModifierEnvironment(trigger: trigger))
+    }
+
+    /// Brief deformation for a direct vital interaction or first daily goal crossing.
+    @MainActor
+    func lifeboardVitalOrbWarp(trigger: Int) -> some View {
+        modifier(VitalOrbWarpModifierEnvironment(trigger: trigger))
     }
 }
 
@@ -775,5 +880,294 @@ private struct FastingEmberRingModifierEnvironment: ViewModifier {
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
+    }
+}
+
+private struct HealthSyncPulseModifierEnvironment: ViewModifier {
+    let trigger: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+
+    func body(content: Content) -> some View {
+        content.modifier(HealthSyncPulseModifier(
+            trigger: trigger,
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+private struct VitalOrbWarpModifierEnvironment: ViewModifier {
+    let trigger: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+
+    func body(content: Content) -> some View {
+        content.modifier(VitalOrbWarpModifier(
+            trigger: trigger,
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+// MARK: - Clay press bloom
+
+/// The tactile signature: pressing a clay surface pushes a shaded dimple into
+/// it ringed by displaced light. One-shot and interaction-bound — there is
+/// deliberately no ambient variant.
+@MainActor
+private struct ClayPressBloomModifier: ViewModifier {
+    let center: UnitPoint
+    let trigger: Int
+    let tint: Color
+    let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let sceneIsActive: Bool
+    @State private var startDate: Date?
+
+    private static let duration: TimeInterval = 0.44
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                if let startDate {
+                    TimelineView(.animation) { context in
+                        let progress = min(1, context.date.timeIntervalSince(startDate) / Self.duration)
+                        if usesFallback {
+                            // Reduce Motion still gets a readable confirmation,
+                            // just without spatial energy.
+                            tint.opacity(0.10 * (1 - progress))
+                        } else {
+                            GeometryReader { proxy in
+                                Rectangle()
+                                    .fill(.clear)
+                                    .colorEffect(Shader(
+                                        function: ShaderFunction(library: .default, name: "LifeBoardClayPressBloom"),
+                                        arguments: [
+                                            .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                                            .float2(Float(center.x), Float(center.y)),
+                                            .float(Float(progress)),
+                                            .float3(1.0, 0.92, 0.78)
+                                        ]
+                                    ))
+                            }
+                        }
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+            }
+            .clipped()
+            .onChange(of: trigger) { _, _ in
+                guard sceneIsActive else { return }
+                startDate = Date()
+            }
+    }
+
+    private var usesFallback: Bool {
+        reduceMotion || reduceTransparency || sceneIsActive == false
+            || LifeBoardSignatureShaders.isReadyForRendering == false
+    }
+}
+
+// MARK: - Daypart cross dissolve
+
+/// The screen changing time of day. An organic light front sweeps across the
+/// surface carrying the incoming daypart's colour, so a daypart boundary or a
+/// manual override is a moment rather than a swap.
+@MainActor
+private struct DaypartCrossDissolveModifier: ViewModifier {
+    let trigger: Int
+    let daypart: ResolvedDaypart
+    let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let sceneIsActive: Bool
+    @State private var startDate: Date?
+
+    private static let duration: TimeInterval = 0.9
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                if let startDate {
+                    TimelineView(.animation) { context in
+                        let progress = min(1, context.date.timeIntervalSince(startDate) / Self.duration)
+                        if usesFallback {
+                            // A plain cross-fade of the incoming light, which is
+                            // what Apple's guidance asks for in place of spatial
+                            // motion under Reduce Motion.
+                            fallbackTint
+                                .opacity(0.16 * sin(progress * .pi))
+                        } else {
+                            GeometryReader { proxy in
+                                let tint = LifeBoardSignatureShaders.tintComponents(for: daypart)
+                                Rectangle()
+                                    .fill(.clear)
+                                    .colorEffect(Shader(
+                                        function: ShaderFunction(library: .default, name: "LifeBoardDaypartCrossDissolve"),
+                                        arguments: [
+                                            .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                                            .float(Float(progress)),
+                                            .float3(tint.0, tint.1, tint.2)
+                                        ]
+                                    ))
+                            }
+                        }
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+            }
+            .onChange(of: trigger) { _, _ in
+                guard sceneIsActive else { return }
+                startDate = Date()
+            }
+    }
+
+    private var fallbackTint: Color {
+        let tint = LifeBoardSignatureShaders.tintComponents(for: daypart)
+        return Color(red: Double(tint.0), green: Double(tint.1), blue: Double(tint.2))
+    }
+
+    private var usesFallback: Bool {
+        reduceMotion || reduceTransparency || sceneIsActive == false
+            || LifeBoardSignatureShaders.isReadyForRendering == false
+    }
+}
+
+// MARK: - Completion burst
+
+/// A commitment finishing. Replaces the CPU particle celebration with a single
+/// expanding ring of warm light.
+@MainActor
+private struct CompletionBurstModifier: ViewModifier {
+    let center: UnitPoint
+    let trigger: Int
+    let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let sceneIsActive: Bool
+    @State private var startDate: Date?
+
+    private static let duration: TimeInterval = 0.6
+
+    func body(content: Content) -> some View {
+        content
+            .overlay {
+                if let startDate {
+                    TimelineView(.animation) { context in
+                        let progress = min(1, context.date.timeIntervalSince(startDate) / Self.duration)
+                        if usesFallback {
+                            Color.lifeboard(.statusSuccess)
+                                .opacity(0.14 * (1 - progress))
+                        } else {
+                            GeometryReader { proxy in
+                                Rectangle()
+                                    .fill(.clear)
+                                    .colorEffect(Shader(
+                                        function: ShaderFunction(library: .default, name: "LifeBoardCompletionBurst"),
+                                        arguments: [
+                                            .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                                            .float2(Float(center.x), Float(center.y)),
+                                            .float(Float(progress)),
+                                            .float3(0.96, 0.82, 0.52)
+                                        ]
+                                    ))
+                            }
+                        }
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+                }
+            }
+            .clipped()
+            .onChange(of: trigger) { _, _ in
+                guard sceneIsActive else { return }
+                startDate = Date()
+            }
+    }
+
+    private var usesFallback: Bool {
+        reduceMotion || reduceTransparency || sceneIsActive == false
+            || LifeBoardSignatureShaders.isReadyForRendering == false
+    }
+}
+
+// MARK: - Environment wrappers
+
+private struct ClayPressBloomModifierEnvironment: ViewModifier {
+    let center: UnitPoint
+    let trigger: Int
+    let tint: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+    func body(content: Content) -> some View {
+        content.modifier(ClayPressBloomModifier(
+            center: center, trigger: trigger, tint: tint,
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+private struct DaypartCrossDissolveModifierEnvironment: ViewModifier {
+    let trigger: Int
+    let daypart: ResolvedDaypart
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+    func body(content: Content) -> some View {
+        content.modifier(DaypartCrossDissolveModifier(
+            trigger: trigger, daypart: daypart,
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+private struct CompletionBurstModifierEnvironment: ViewModifier {
+    let center: UnitPoint
+    let trigger: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+    func body(content: Content) -> some View {
+        content.modifier(CompletionBurstModifier(
+            center: center, trigger: trigger,
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+public extension View {
+    /// One-shot dimple-and-lip bloom at the touch point of a clay surface.
+    @MainActor
+    func lifeboardClayPressBloom(
+        center: UnitPoint = .center,
+        trigger: Int,
+        tint: Color = Color(LifeBoardColorTokens.foundationSunAccent)
+    ) -> some View {
+        modifier(ClayPressBloomModifierEnvironment(center: center, trigger: trigger, tint: tint))
+    }
+
+    /// One-shot organic light front for a daypart boundary or manual override.
+    @MainActor
+    func lifeboardDaypartCrossDissolve(trigger: Int, daypart: ResolvedDaypart) -> some View {
+        modifier(DaypartCrossDissolveModifierEnvironment(trigger: trigger, daypart: daypart))
+    }
+
+    /// One-shot expanding ring for a completed commitment.
+    @MainActor
+    func lifeboardCompletionBurst(center: UnitPoint = .center, trigger: Int) -> some View {
+        modifier(CompletionBurstModifierEnvironment(center: center, trigger: trigger))
     }
 }

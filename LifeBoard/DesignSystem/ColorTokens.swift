@@ -257,7 +257,11 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
         }
 
         let ink = adaptive(light: "#2B2118", dark: "#F4EBDD")
-        let inkSecondary = adaptive(light: "#746757", dark: "#C6BBA8")
+        // #746757 measured 4.446:1 against the tertiary paper surface — a
+        // near-miss on the 4.5:1 body-text floor that the release gate has been
+        // failing on. Two notches darker clears it at 4.84:1 and also lifts
+        // secondary text on the main canvas from 5.12:1 to 5.52:1.
+        let inkSecondary = adaptive(light: "#6F6252", dark: "#C6BBA8")
         // Darkened from #9B8F7E so tertiary metadata clears 3:1 on the lightest
         // composited clay wells (task-detail chevron/icon surfaces).
         let inkTertiary = adaptive(light: "#877B68", dark: "#96907F")
@@ -470,5 +474,28 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
             priorityLow: priorityLow,
             priorityNone: priorityNone
         )
+    }
+}
+
+// MARK: - Clay depth tokens
+
+/// The two inner layers that make a surface read as clay rather than as a
+/// rectangle with a drop shadow. Consumed by `LifeBoardClaySurface` and by the
+/// premium-surface highlight in `SwiftUI+TokenAdapters`, which previously
+/// hardcoded `.white.opacity(0.34)`.
+public extension LifeBoardColorTokens {
+    /// The lit inner rim. Warm white on paper; a restrained lift in the dark
+    /// composition, where a bright rim would read as a hard plastic edge.
+    static let clayHighlight = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(lifeboardHex: "#B9C6F0", alpha: 0.16)
+            : UIColor(lifeboardHex: "#FFFFFF", alpha: 0.9)
+    }
+
+    /// The inner contact shade that gives clay its thickness.
+    static let clayInnerShade = UIColor { traits in
+        traits.userInterfaceStyle == .dark
+            ? UIColor(lifeboardHex: "#05070F", alpha: 0.5)
+            : UIColor(lifeboardHex: "#6B5130", alpha: 0.13)
     }
 }

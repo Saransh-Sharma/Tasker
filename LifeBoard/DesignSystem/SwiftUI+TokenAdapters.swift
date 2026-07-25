@@ -473,7 +473,7 @@ private struct LifeBoardPremiumSurfaceModifier: ViewModifier {
                     .fill(
                         LinearGradient(
                             colors: [
-                                .white.opacity(0.34),
+                                Color(LifeBoardColorTokens.clayHighlight).opacity(0.38),
                                 .clear
                             ],
                             startPoint: .top,
