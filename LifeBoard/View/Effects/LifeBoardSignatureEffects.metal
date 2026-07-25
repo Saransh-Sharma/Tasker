@@ -185,3 +185,156 @@ namespace LifeBoardSignature {
     half3 warm = currentColor.rgb + half3(tint) * half(ember * breathe * 0.72);
     return half4(min(warm, half3(1.0)), currentColor.a);
 }
+
+// healthSyncPulse: one bounded confirmation wave after an authorization grant or
+// a user-requested sync completes. The caller drives progress from 0 -> 1 once.
+[[ stitchable ]] half4 LifeBoardHealthSyncPulse(
+    float2 position,
+    half4 currentColor,
+    float2 size,
+    float progress,
+    float3 tint
+) {
+    if (currentColor.a <= 0.001 || size.x <= 0.0 || size.y <= 0.0) {
+        return currentColor;
+    }
+    float2 uv = position / size;
+    float2 delta = uv - float2(0.5);
+    delta.x *= size.x / size.y;
+    float distance = length(delta);
+    float front = clamp(progress, 0.0, 1.0) * 0.82;
+    float ring = 1.0 - smoothstep(0.035, 0.12, abs(distance - front));
+    float fade = 1.0 - clamp(progress, 0.0, 1.0);
+    half3 resolved = currentColor.rgb + half3(tint) * half(ring * fade * 0.48);
+    return half4(min(resolved, half3(1.0)), currentColor.a);
+}
+
+// vitalOrbWarp: a short, low-amplitude deformation for a direct interaction or
+// first daily goal crossing. It has no time source and cannot become an idle loop.
+[[ stitchable ]] float2 LifeBoardVitalOrbWarp(
+    float2 position,
+    float2 size,
+    float progress
+) {
+    if (size.x <= 0.0 || size.y <= 0.0) {
+        return position;
+    }
+    float phase = clamp(progress, 0.0, 1.0);
+    float envelope = sin(phase * M_PI_F);
+    float2 uv = (position / size) - float2(0.5);
+    float radius = length(uv);
+    float falloff = 1.0 - smoothstep(0.05, 0.72, radius);
+    float wave = sin(radius * 24.0 - phase * 8.0);
+    float2 direction = normalize(uv + 1e-5);
+    return position + direction * wave * falloff * envelope * 5.0;
+}
+
+// clayPressBloom: the tactile signature. Pressing a clay surface pushes a soft
+// dimple into it — the contact point darkens very slightly and a warm rim of
+// displaced light pushes outward, the way a thumb pressed into real clay leaves
+// a shaded well ringed by a raised lip. `progress` runs 0 -> 1 across the press;
+// `center` is the touch point in normalized coordinates.
+[[ stitchable ]] half4 LifeBoardClayPressBloom(
+    float2 position,
+    half4 currentColor,
+    float2 size,
+    float2 center,
+    float progress,
+    float3 tint
+) {
+    if (size.x <= 0.0 || size.y <= 0.0 || progress <= 0.001) {
+        return currentColor;
+    }
+
+    float2 uv = position / size;
+    float2 toCenter = uv - center;
+    toCenter.x *= size.x / size.y;
+    float dist = length(toCenter);
+
+    // The dimple opens quickly and relaxes slowly, so the press reads as
+    // material yielding rather than as a flash.
+    float envelope = sin(progress * 3.14159265);
+    float radius = 0.10 + progress * 0.34;
+
+    // Shaded well at the contact point.
+    float well = LifeBoardSignature::softCircle(dist, radius * 0.55, 0.20) * envelope;
+    // Raised lip of displaced light just outside it.
+    float lip = smoothstep(radius * 0.5, radius, dist) * (1.0 - smoothstep(radius, radius * 1.5, dist));
+    lip *= envelope;
+
+    half3 shaded = currentColor.rgb * half(1.0 - well * 0.10);
+    half3 lifted = shaded + half3(tint) * half(lip * 0.18);
+    return half4(clamp(lifted, half3(0.0), half3(1.0)), currentColor.a);
+}
+
+// daypartCrossDissolve: the screen changing time of day. A soft organic front
+// sweeps diagonally across the surface carrying the incoming daypart's light,
+// with a low-frequency wobble so the boundary is a weather edge rather than a
+// wipe. `progress` 0 -> 1 drives the front; `tint` is the incoming light.
+[[ stitchable ]] half4 LifeBoardDaypartCrossDissolve(
+    float2 position,
+    half4 currentColor,
+    float2 size,
+    float progress,
+    float3 tint
+) {
+    if (size.x <= 0.0 || size.y <= 0.0 || progress <= 0.001 || progress >= 0.999) {
+        return currentColor;
+    }
+
+    float2 uv = position / size;
+    // Diagonal sweep, top-trailing to bottom-leading, matching where the
+    // celestial sits.
+    float axis = (uv.x * 0.38 + uv.y * 0.62);
+
+    // Two out-of-phase sines keep the front organic without needing noise reads.
+    float wobble = sin(uv.y * 7.0) * 0.035 + sin(uv.x * 4.5 + 1.7) * 0.028;
+    float front = progress * 1.36 - 0.18;
+    float band = smoothstep(front - 0.24, front + 0.10, axis + wobble);
+
+    // Light is strongest at the leading edge and settles behind it.
+    float edge = (1.0 - band) * smoothstep(front - 0.30, front, axis + wobble);
+    float wash = (1.0 - band) * 0.5 + edge * 0.9;
+
+    // The whole effect fades out as the transition completes so the final
+    // frame is exactly the untouched destination.
+    float envelope = sin(progress * 3.14159265);
+    half3 lit = currentColor.rgb + half3(tint) * half(wash * 0.26 * envelope);
+    return half4(min(lit, half3(1.0)), currentColor.a);
+}
+
+// completionBurst: a commitment finishing. A warm ring expands once from the
+// checkmark and dissipates, replacing the CPU particle celebration. Bounded to
+// a single 0 -> 1 pass; there is no looping variant on purpose.
+[[ stitchable ]] half4 LifeBoardCompletionBurst(
+    float2 position,
+    half4 currentColor,
+    float2 size,
+    float2 center,
+    float progress,
+    float3 tint
+) {
+    if (size.x <= 0.0 || size.y <= 0.0 || progress <= 0.001 || progress >= 0.999) {
+        return currentColor;
+    }
+
+    float2 uv = position / size;
+    float2 toCenter = uv - center;
+    toCenter.x *= size.x / size.y;
+    float dist = length(toCenter);
+    float angle = atan2(toCenter.y, toCenter.x);
+
+    // Expanding ring that thins as it grows, so it reads as energy leaving
+    // rather than as a growing disc.
+    float radius = progress * 0.62;
+    float thickness = 0.14 * (1.0 - progress * 0.72);
+    float ring = 1.0 - smoothstep(0.0, thickness, abs(dist - radius));
+
+    // Eight soft rays give the burst direction without discrete particles.
+    float rays = 0.72 + 0.28 * cos(angle * 8.0);
+    float fade = 1.0 - smoothstep(0.55, 1.0, progress);
+
+    float energy = ring * rays * fade;
+    half3 lit = currentColor.rgb + half3(tint) * half(energy * 0.55);
+    return half4(min(lit, half3(1.0)), currentColor.a);
+}
