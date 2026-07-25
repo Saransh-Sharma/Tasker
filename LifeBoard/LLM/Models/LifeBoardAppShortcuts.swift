@@ -118,6 +118,7 @@ private struct HeadlessLifeBoardShortcutRuntime {
 
 fileprivate struct HeadlessLifeOSRepositories {
     let phaseII: CoreDataLifeBoardPhaseIIRepository
+    let track: CoreDataTrackFoundationRepository
     let wellness: CoreDataWellnessRepository
     let nutrition: CoreDataNutritionRepository
     let moments: CoreDataLifeMomentRepository
@@ -136,6 +137,7 @@ enum LifeBoardShortcutDependencyResolver {
         let runtime = try await headlessRuntime()
         return .init(
             phaseII: CoreDataLifeBoardPhaseIIRepository(container: runtime.persistentContainer),
+            track: CoreDataTrackFoundationRepository(container: runtime.persistentContainer),
             wellness: CoreDataWellnessRepository(container: runtime.persistentContainer),
             nutrition: CoreDataNutritionRepository(container: runtime.persistentContainer),
             moments: CoreDataLifeMomentRepository(container: runtime.persistentContainer)
@@ -154,6 +156,14 @@ enum LifeBoardShortcutDependencyResolver {
         }
 
         LifeBoardPersistentRuntimeInitializer().initialize(container: container)
+        if V2FeatureFlags.healthIntegrationsV1Enabled {
+            let migrationState = try await HealthPrivacyMigrationCoordinator(container: container).migrate()
+            guard migrationState == .validated else {
+                throw LifeBoardShortcutRuntimeError.bootstrapFailed(
+                    "LifeBoard is still preparing private local health storage. Try again in a moment."
+                )
+            }
+        }
 
         let writeGate = SyncWriteGate(modeProvider: { bootstrapResult.syncMode })
         let projectRepository = WriteClosedProjectRepositoryAdapter(
@@ -318,6 +328,59 @@ struct QuickJournalCaptureIntent: AppIntent {
 }
 
 @available(iOS 16.0, macOS 13.0, *)
+struct LogWaterIntent: AppIntent {
+    static let title: LocalizedStringResource = "Log Water"
+    static let description = IntentDescription("Logs water locally in LifeBoard. Apple Health sync continues separately when enabled.")
+    static let openAppWhenRun = false
+
+    @Parameter(title: "Milliliters")
+    var milliliters: Double
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard milliliters > 0 else {
+            throw LifeBoardShortcutRuntimeError.handoffFailed("Water must be greater than zero milliliters.")
+        }
+        let repositories = try await LifeBoardShortcutDependencyResolver.lifeOSRepositories()
+        let log = HydrationLog(amount: milliliters, unit: .milliliters, source: .manual)
+        try await repositories.track.saveHydrationLog(log)
+        LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
+        return .result(dialog: IntentDialog(stringLiteral: "Logged \(Int(milliliters.rounded())) milliliters of water in LifeBoard."))
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
+struct LogWeightIntent: AppIntent {
+    static let title: LocalizedStringResource = "Log Weight"
+    static let description = IntentDescription("Logs weight locally in LifeBoard. Apple Health sync continues separately when enabled.")
+    static let openAppWhenRun = false
+
+    @Parameter(title: "Kilograms")
+    var kilograms: Double
+
+    func perform() async throws -> some IntentResult & ProvidesDialog {
+        guard kilograms > 0 else {
+            throw LifeBoardShortcutRuntimeError.handoffFailed("Weight must be greater than zero kilograms.")
+        }
+        let sample = try BodyMetricSample(
+            kind: .bodyMass,
+            value: kilograms,
+            unit: .kilograms,
+            source: .manual
+        )
+        if case .requiresConfirmation(let message) = WellnessOutlierPolicy().review(
+            kind: .bodyMass,
+            normalizedValue: sample.normalizedValue
+        ) {
+            throw LifeBoardShortcutRuntimeError.handoffFailed(message)
+        }
+        let repositories = try await LifeBoardShortcutDependencyResolver.lifeOSRepositories()
+        try await repositories.wellness.save(sample)
+        LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
+        return .result(dialog: IntentDialog(stringLiteral: "Logged \(kilograms.formatted()) kilograms in LifeBoard."))
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
 struct LogBodyMetricIntent: AppIntent {
     static let title: LocalizedStringResource = "Log Body Metric"
     static let description = IntentDescription("Logs a body metric with an explicit value and unit.")
@@ -443,6 +506,8 @@ struct LifeBoardAppShortcutsProvider: AppShortcutsProvider {
         )
 
         AppShortcut(intent: QuickJournalCaptureIntent(), phrases: ["Capture a journal moment in \(.applicationName)"], shortTitle: "Journal Moment", systemImageName: "book.closed")
+        AppShortcut(intent: LogWaterIntent(), phrases: ["Log water in \(.applicationName)"], shortTitle: "Log Water", systemImageName: "drop.fill")
+        AppShortcut(intent: LogWeightIntent(), phrases: ["Log weight in \(.applicationName)"], shortTitle: "Log Weight", systemImageName: "scalemass.fill")
         AppShortcut(intent: LogBodyMetricIntent(), phrases: ["Log a body metric in \(.applicationName)"], shortTitle: "Log Metric", systemImageName: "chart.line.uptrend.xyaxis")
         AppShortcut(intent: StartFastingTimerIntent(), phrases: ["Start fasting timer in \(.applicationName)"], shortTitle: "Start Timer", systemImageName: "timer")
         AppShortcut(intent: EndFastingTimerIntent(), phrases: ["End fasting timer in \(.applicationName)"], shortTitle: "End Timer", systemImageName: "stop.circle")
