@@ -95,6 +95,15 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.health_integrations_v1") }
     }
 
+    /// Two-way Apple Health sync. `healthIntegrationsV1Enabled` remains the master
+    /// read gate; this additionally opens the local→HealthKit write-back path
+    /// (hydration, nutrition, body metrics, workouts). Turning it off leaves
+    /// read projections intact and never rolls back records already written.
+    public static var healthWriteBackV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.health_writeback_v1", argument: "HEALTH_WRITEBACK_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.health_writeback_v1") }
+    }
+
     public static var journalV1Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.journal_v1", argument: "JOURNAL_V1") }
         set { setStagedFeature(newValue, key: "feature.life_os.journal_v1") }
