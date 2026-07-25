@@ -474,6 +474,7 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
     public func fetchHydrationLogs(from: Date, to: Date) async throws -> [HydrationLog] {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "HydrationLog")
+            request.affectedStores = Self.localStores(in: context)
             request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
                 NSPredicate(format: "timestamp >= %@", from as NSDate),
                 NSPredicate(format: "timestamp < %@", to as NSDate)
@@ -485,23 +486,58 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
 
     public func saveHydrationLog(_ value: HydrationLog) async throws {
         try await write { context in
-            let object = try Self.upsert(entity: "HydrationLog", id: value.id, in: context)
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            let object = try Self.upsertLocal(entity: "HydrationLog", id: value.id, in: context)
             object.setValue(value.id, forKey: "id")
             object.setValue(value.amount, forKey: "amount")
             object.setValue(value.unit.rawValue, forKey: "unitRaw")
             object.setValue(value.timestamp, forKey: "timestamp")
             object.setValue(value.note, forKey: "note")
             object.setValue(value.correctedAt, forKey: "correctedAt")
+            object.setValue(value.source.rawValue, forKey: "sourceRaw")
+            object.setValue(value.sourceIdentifier, forKey: "sourceIdentifier")
+            object.setValue(value.capturedTimeZoneIdentifier, forKey: "capturedTimeZoneIdentifier")
+            object.setValue(value.createdAt, forKey: "createdAt")
+            object.setValue(value.updatedAt, forKey: "updatedAt")
+            if value.source == .manual {
+                let amount = switch value.unit {
+                case .milliliters: value.amount
+                case .liters: value.amount * 1_000
+                case .fluidOunces: value.amount * 29.573_529_562_5
+                }
+                try HealthOutboxCoreDataWriter.enqueue(
+                    payloads: [.init(
+                        localID: value.id,
+                        metric: .water,
+                        value: amount,
+                        startDate: value.timestamp
+                    )],
+                    kind: .update,
+                    in: context
+                )
+            }
         }
     }
 
     public func deleteHydrationLog(id: UUID) async throws {
-        try await delete(entity: "HydrationLog", id: id)
+        try await write { context in
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            if let object = try Self.fetchOneLocal(entity: "HydrationLog", id: id, in: context) {
+                let timestamp = object.value(forKey: "timestamp") as? Date ?? Date()
+                context.delete(object)
+                try HealthOutboxCoreDataWriter.enqueue(
+                    payloads: [.init(localID: id, metric: .water, startDate: timestamp)],
+                    kind: .delete,
+                    in: context
+                )
+            }
+        }
     }
 
     public func fetchHydrationTarget() async throws -> HydrationTarget? {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "HydrationTarget")
+            request.affectedStores = Self.localStores(in: context)
             request.fetchLimit = 1
             request.sortDescriptors = [NSSortDescriptor(key: "updatedAt", ascending: false)]
             return try context.fetch(request).first.flatMap(Self.hydrationTarget)
@@ -510,7 +546,8 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
 
     public func saveHydrationTarget(_ value: HydrationTarget) async throws {
         try await write { context in
-            let object = try Self.upsert(entity: "HydrationTarget", id: value.id, in: context)
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            let object = try Self.upsertLocal(entity: "HydrationTarget", id: value.id, in: context)
             object.setValue(value.id, forKey: "id")
             object.setValue(value.amount, forKey: "amount")
             object.setValue(value.unit.rawValue, forKey: "unitRaw")
@@ -521,6 +558,7 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
     public func fetchSleepContextRecords(from: Date, to: Date) async throws -> [SleepContextRecord] {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "SleepContextRecord")
+            request.affectedStores = Self.localStores(in: context)
             request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
                 NSPredicate(format: "bedtime >= %@", from as NSDate),
                 NSPredicate(format: "bedtime < %@", to as NSDate)
@@ -532,7 +570,8 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
 
     public func saveSleepContextRecord(_ value: SleepContextRecord) async throws {
         try await write { context in
-            let object = try Self.upsert(entity: "SleepContextRecord", id: value.id, in: context)
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            let object = try Self.upsertLocal(entity: "SleepContextRecord", id: value.id, in: context)
             object.setValue(value.id, forKey: "id")
             object.setValue(value.bedtime, forKey: "bedtime")
             object.setValue(value.wakeTime, forKey: "wakeTime")
@@ -544,7 +583,12 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
     }
 
     public func deleteSleepContextRecord(id: UUID) async throws {
-        try await delete(entity: "SleepContextRecord", id: id)
+        try await write { context in
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            if let object = try Self.fetchOneLocal(entity: "SleepContextRecord", id: id, in: context) {
+                context.delete(object)
+            }
+        }
     }
 
     public func fetchStarterPackInstallations() async throws -> [StarterPackInstallation] {
@@ -589,6 +633,14 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
         }
     }
 
+    private func deleteLocal(entity: String, id: UUID) async throws {
+        try await write { context in
+            if let object = try Self.fetchOneLocal(entity: entity, id: id, in: context) {
+                context.delete(object)
+            }
+        }
+    }
+
     private static func fetchOne(entity: String, id: UUID, in context: NSManagedObjectContext) throws -> NSManagedObject? {
         let request = NSFetchRequest<NSManagedObject>(entityName: entity)
         request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
@@ -599,6 +651,39 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
     private static func upsert(entity: String, id: UUID, in context: NSManagedObjectContext) throws -> NSManagedObject {
         try fetchOne(entity: entity, id: id, in: context)
             ?? NSEntityDescription.insertNewObject(forEntityName: entity, into: context)
+    }
+
+    private static func fetchOneLocal(
+        entity: String,
+        id: UUID,
+        in context: NSManagedObjectContext
+    ) throws -> NSManagedObject? {
+        let request = NSFetchRequest<NSManagedObject>(entityName: entity)
+        request.affectedStores = localStores(in: context)
+        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
+    private static func upsertLocal(
+        entity: String,
+        id: UUID,
+        in context: NSManagedObjectContext
+    ) throws -> NSManagedObject {
+        if let value = try fetchOneLocal(entity: entity, id: id, in: context) {
+            return value
+        }
+        let value = NSEntityDescription.insertNewObject(forEntityName: entity, into: context)
+        if let store = localStores(in: context).first {
+            context.assign(value, to: store)
+        }
+        return value
+    }
+
+    private static func localStores(in context: NSManagedObjectContext) -> [NSPersistentStore] {
+        context.persistentStoreCoordinator?.persistentStores.filter {
+            $0.configurationName == "LocalOnly"
+        } ?? []
     }
 
     private static func fetchRoutineSteps(routineID: UUID, context: NSManagedObjectContext) throws -> [RoutineStep] {
@@ -754,7 +839,16 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
         return .init(
             id: id, amount: (object.value(forKey: "amount") as? NSNumber)?.doubleValue ?? 0,
             unit: unit, timestamp: timestamp, note: object.value(forKey: "note") as? String,
-            correctedAt: object.value(forKey: "correctedAt") as? Date
+            correctedAt: object.value(forKey: "correctedAt") as? Date,
+            source: (object.value(forKey: "sourceRaw") as? String)
+                .flatMap(WellnessCaptureSource.init(rawValue:)) ?? .manual,
+            sourceIdentifier: object.value(forKey: "sourceIdentifier") as? String,
+            capturedTimeZone: (object.value(forKey: "capturedTimeZoneIdentifier") as? String)
+                .flatMap(TimeZone.init(identifier:)) ?? .autoupdatingCurrent,
+            createdAt: object.value(forKey: "createdAt") as? Date ?? timestamp,
+            updatedAt: object.value(forKey: "updatedAt") as? Date
+                ?? object.value(forKey: "correctedAt") as? Date
+                ?? timestamp
         )
     }
 

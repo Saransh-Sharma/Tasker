@@ -349,16 +349,19 @@ struct LifeBoardTrackRootView: View {
     @State private var reviewsFastCompletion = false
     @State private var showsFastingHistory = false
     private let onOpenHabitBoard: () -> Void
+    private let onOpenHealth: () -> Void
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
 
     init(
         repository: any LifeBoardPhaseIIRepository,
         initialModule: Module = .overview,
-        onOpenHabitBoard: @escaping () -> Void = {}
+        onOpenHabitBoard: @escaping () -> Void = {},
+        onOpenHealth: @escaping () -> Void = {}
     ) {
         _store = State(initialValue: LifeBoardTrackStore(repository: repository))
         _module = State(initialValue: initialModule)
         self.onOpenHabitBoard = onOpenHabitBoard
+        self.onOpenHealth = onOpenHealth
     }
 
     var body: some View {
@@ -441,7 +444,15 @@ struct LifeBoardTrackRootView: View {
         }
         .sheet(isPresented: $showsFastingComposer) {
             LifeBoardFastingComposer { target, reminderOffsets in
-                Task { await store.toggleFast(target: target, reminderOffsets: reminderOffsets) }
+                Task {
+                    await store.toggleFast(target: target, reminderOffsets: reminderOffsets)
+                    // Connecting nutrition powers the "last meal" fasting suggestion;
+                    // fasting itself is never written to Apple Health.
+                    await LifeBoardHealthRuntime.shared.jitCoordinator.offerConnectAfterReward(
+                        leadDomain: .nutrition,
+                        trigger: "fasting_start"
+                    )
+                }
             }
         }
         .sheet(isPresented: $showsFastingHistory) {
@@ -534,7 +545,7 @@ struct LifeBoardTrackRootView: View {
                             palette: palette
                         )
                     }
-                    Button { Task { await store.healthStore.requestAccessAndRefresh() } } label: {
+                    Button(action: onOpenHealth) {
                         overviewTile(
                             title: "Health",
                             value: healthSummary,
@@ -878,6 +889,7 @@ struct LifeBoardTrackerComposer: View {
                     if reminderEnabled { DatePicker("Time", selection: $reminderTime, displayedComponents: .hourAndMinute) }
                 }
             }
+            .lifeBoardFormSurface()
             .navigationTitle(existing == nil ? "New Tracker" : "Edit Tracker")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -996,6 +1008,7 @@ private struct LifeBoardTrackerCorrectionView: View {
                 TextField("Correction note", text: $note, axis: .vertical)
                 LabeledContent("Recorded", value: entry.timestamp.formatted(date: .abbreviated, time: .shortened))
             }
+            .lifeBoardFormSurface()
             .navigationTitle("Correct entry")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -1079,6 +1092,7 @@ private struct LifeBoardMedicationComposer: View {
                     Toggle("Reminder enabled", isOn: $reminderEnabled)
                 }
             }
+            .lifeBoardFormSurface()
             .navigationTitle(existing == nil ? "Add Medication" : "Edit Medication")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -1205,6 +1219,7 @@ private struct LifeBoardMedicationCorrectionView: View {
                 if status != .scheduled && status != .unresolved { DatePicker("Resolved", selection: $resolvedAt) }
                 TextField("Correction note", text: $note, axis: .vertical)
             }
+            .lifeBoardFormSurface()
             .navigationTitle("Correct status")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -1239,6 +1254,7 @@ private struct LifeBoardFastingComposer: View {
                 Text("LifeBoard provides a neutral timer only. It does not recommend a protocol or make metabolic claims.")
                     .font(.caption)
             }
+            .lifeBoardFormSurface()
             .navigationTitle("Start fasting timer")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -1321,6 +1337,7 @@ private struct LifeBoardFastingHistoryView: View {
                     }
                 }
             }
+            .lifeBoardFormSurface()
             .navigationTitle("Fasting history")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
@@ -2465,6 +2482,7 @@ struct LifeBoardJournalModuleView: View {
                     Text("LifeBoard never includes the capture’s text or recording in diagnostics. Remove only if you no longer need this recovery record.")
                 }
             }
+            .lifeBoardFormSurface()
             .navigationTitle("Watch recovery")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -2517,6 +2535,7 @@ struct LifeBoardJournalModuleView: View {
                     Text("What do you want to carry forward?")
                 }
             }
+            .lifeBoardFormSurface()
             .navigationTitle("Weekly takeaway")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -2565,6 +2584,7 @@ struct LifeBoardJournalModuleView: View {
                     backupStatus(operation: operation)
                 }
             }
+            .lifeBoardFormSurface()
             .navigationTitle(operation == .create ? "Encrypted backup" : "Import backup")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -4018,6 +4038,7 @@ private struct JournalPrivacySettingsView: View {
                     Button("Import encrypted backup", systemImage: "square.and.arrow.down") { onImportBackup() }
                 }
             }
+            .lifeBoardFormSurface()
             .navigationTitle("Journal Privacy")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

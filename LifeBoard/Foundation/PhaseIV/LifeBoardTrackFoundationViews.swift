@@ -30,6 +30,7 @@ struct LifeBoardTrackFoundationRootView: View {
     @State private var store: TrackFoundationStore
     private let sourcePickerRepository: any TypedSourcePickerRepository
     private let onOpenHabitBoard: () -> Void
+    private let onOpenHealth: () -> Void
     private let nutritionRepository: any NutritionRepository
     private let lifeMomentRepository: any LifeMomentRepository
     private let wellnessRepository: any WellnessRepository
@@ -64,7 +65,8 @@ struct LifeBoardTrackFoundationRootView: View {
         nutritionRepository: any NutritionRepository,
         lifeMomentRepository: any LifeMomentRepository,
         wellnessRepository: any WellnessRepository,
-        onOpenHabitBoard: @escaping () -> Void = {}
+        onOpenHabitBoard: @escaping () -> Void = {},
+        onOpenHealth: @escaping () -> Void = {}
     ) {
         _store = State(initialValue: TrackFoundationStore(
             repository: repository,
@@ -80,6 +82,7 @@ struct LifeBoardTrackFoundationRootView: View {
         self.sourcePickerRepository = sourcePickerRepository
             ?? ComposedTypedSourcePickerRepository(trackFoundation: repository, phaseII: phaseIIRepository)
         self.onOpenHabitBoard = onOpenHabitBoard
+        self.onOpenHealth = onOpenHealth
         self.nutritionRepository = nutritionRepository
         self.lifeMomentRepository = lifeMomentRepository
         self.wellnessRepository = wellnessRepository
@@ -418,7 +421,7 @@ struct LifeBoardTrackFoundationRootView: View {
         }
         .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
         .padding(12)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 16))
+        .lifeBoardClaySurface(.raised, cornerRadius: 16)
         .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
     }
 
@@ -464,7 +467,7 @@ struct LifeBoardTrackFoundationRootView: View {
                 trackSectionHeader("Recent sleep context", symbol: "moon.zzz")
                 ForEach(filteredSleepHistory) { sleepHistoryRow($0) }
             }
-            Button { showsCareLibrary = true } label: {
+            Button(action: onOpenHealth) {
                 moduleRow("Health and care library", detail: "Medication, fasting, trackers, steps, and active energy", symbol: "heart.circle")
             }
             .buttonStyle(.plain)
@@ -547,6 +550,13 @@ struct LifeBoardTrackFoundationRootView: View {
         }
     }
 
+    @ViewBuilder
+    private var hydrationQuickActions: some View {
+        Button("+250") { Task { await store.quickAddHydration(250); await offerHealthConnect() } }
+        Button("+500") { Task { await store.quickAddHydration(500); await offerHealthConnect() } }
+        Button("Target") { showsHydrationTarget = true }
+    }
+
     private var hydrationTile: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Hydration", systemImage: "drop.fill").font(.headline)
@@ -556,15 +566,26 @@ struct LifeBoardTrackFoundationRootView: View {
             } else {
                 Text("Set your own target").font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
             }
-            HStack(spacing: 6) {
-                Button("+250") { Task { await store.quickAddHydration(250) } }
-                Button("+500") { Task { await store.quickAddHydration(500) } }
-                Button("Target") { showsHydrationTarget = true }
+            // Three chips do not fit across a half-width card, so they stack
+            // rather than wrapping their own labels mid-word.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 6) { hydrationQuickActions }
+                VStack(alignment: .leading, spacing: 6) { hydrationQuickActions }
             }
-            .buttonStyle(.bordered).controlSize(.small)
+            .buttonStyle(.lifeBoardChip)
         }
         .trackClayCard()
         .accessibilityIdentifier("track.hydration")
+    }
+
+    /// After a hydration log lands (and its fill animates), gently invite a
+    /// not-yet-connected user to mirror water with Apple Health. Never blocks.
+    @MainActor
+    private func offerHealthConnect() async {
+        await LifeBoardHealthRuntime.shared.jitCoordinator.offerConnectAfterReward(
+            leadDomain: .hydration,
+            trigger: "track_hydration_quick_add"
+        )
     }
 
     private var goals: some View {
@@ -622,23 +643,23 @@ struct LifeBoardTrackFoundationRootView: View {
                 }
                 .padding(.vertical, 6)
             }
-            NavigationLink { LifeBoardJournalModuleView(repository: store.phaseIIRepository) } label: { moduleRow("Journal", detail: "Phase II reflection and check-in history", symbol: "book.closed") }
+            NavigationLink { LifeBoardJournalModuleView(repository: store.phaseIIRepository) } label: { moduleRow("Journal", detail: "Write, reflect, and look back", symbol: "book.closed") }
                 .buttonStyle(.plain)
-            NavigationLink { LifeBoardKnowledgeModuleView(repository: store.phaseIIRepository) } label: { moduleRow("Notes", detail: "Knowledge spaces and typed links", symbol: "note.text") }
+            NavigationLink { LifeBoardKnowledgeModuleView(repository: store.phaseIIRepository) } label: { moduleRow("Notes", detail: "Notes and the links between them", symbol: "note.text") }
                 .buttonStyle(.plain)
             if V2FeatureFlags.nutritionV1Enabled {
-                NavigationLink { LifeBoardNutritionView(repository: nutritionRepository) } label: { moduleRow("Nutrition", detail: "Meal timeline, local foods, and factual summaries", symbol: "fork.knife") }
+                NavigationLink { LifeBoardNutritionView(repository: nutritionRepository) } label: { moduleRow("Nutrition", detail: "What you ate today", symbol: "fork.knife") }
                     .buttonStyle(.plain)
             }
             if V2FeatureFlags.wellnessCoreV1Enabled {
-                NavigationLink { LifeBoardWellnessView(repository: wellnessRepository) } label: { moduleRow("Wellness", detail: "Measurements, history, and accessible trends", symbol: "heart.text.square") }
+                NavigationLink { LifeBoardWellnessView(repository: wellnessRepository) } label: { moduleRow("Wellness", detail: "Weight, sleep, workouts, and trends", symbol: "heart.text.square") }
                     .buttonStyle(.plain)
             }
             if V2FeatureFlags.lifeMomentsV1Enabled {
-                NavigationLink { LifeBoardLifeMomentsView(repository: lifeMomentRepository) } label: { moduleRow("Life Moments", detail: "Countdowns, anniversaries, and meaningful dates", symbol: "calendar.badge.heart") }
+                NavigationLink { LifeBoardLifeMomentsView(repository: lifeMomentRepository) } label: { moduleRow("Life Moments", detail: "Countdowns and dates that matter", symbol: "calendar.badge.heart") }
                     .buttonStyle(.plain)
             }
-            Button { showsCareLibrary = true } label: { moduleRow("Tracker and care library", detail: "Definitions, schedules, corrections, and history", symbol: "square.grid.3x3") }
+            Button { showsCareLibrary = true } label: { moduleRow("Tracker and care library", detail: "Your trackers, medications, and schedules", symbol: "square.grid.3x3") }
                 .buttonStyle(.plain)
         }
     }
@@ -848,6 +869,7 @@ struct TrackUniversalCaptureView: View {
                         }
                     }
                 }
+                .lifeBoardFormSurface()
                 .navigationTitle("Medication event")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
             case .routineRun:
@@ -896,6 +918,7 @@ private struct HydrationCaptureComposer: View {
             }
             Text("LifeBoard records the amount against your own target; it does not generate a hydration recommendation.").font(.caption)
         }
+        .lifeBoardFormSurface()
         .navigationTitle("Log hydration")
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -933,6 +956,7 @@ private struct HydrationTargetComposer: View {
                         .foregroundStyle(.secondary)
                 }
             }
+            .lifeBoardFormSurface()
             .navigationTitle("Hydration target")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -958,7 +982,7 @@ private struct RoutineRunner: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(LifeBoardColorTokens.foundationSurfaceSolid).ignoresSafeArea()
+                Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
                 VStack(spacing: 22) {
                     ProgressView(value: Double(index + 1), total: Double(max(1, run.versionSnapshot.steps.count))).tint(Color(LifeBoardColorTokens.foundationFocusRing))
                     Spacer()
@@ -1126,6 +1150,7 @@ private struct HabitResilienceLibrary: View {
                             }
                         }
                     }
+                    .lifeBoardFormSurface()
                 }
             }
             .navigationTitle("Habit resilience")
@@ -1201,6 +1226,7 @@ private struct HabitGroupEditor: View {
                 .font(.caption)
                 .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
         }
+        .lifeBoardFormSurface()
         .navigationTitle(group == nil ? "New habit group" : "Edit habit group")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -1333,6 +1359,7 @@ private struct HabitResilienceEditor: View {
                 Text("Exceptions use the local calendar day, survive travel and daylight-saving changes, and do not reduce the eligible grade denominator.")
             }
         }
+        .lifeBoardFormSurface()
         .navigationTitle(habit.title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -1556,6 +1583,7 @@ private struct RoutineComposer: View {
                     .font(.caption)
                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
             }
+            .lifeBoardFormSurface()
             .navigationTitle(existing == nil ? "New routine" : "Edit routine")
             .environment(\.editMode, .constant(.active))
             .toolbar {
@@ -1690,6 +1718,7 @@ private struct MoodEnergyComposer: View {
                     Button("Delete check-in", systemImage: "trash", role: .destructive) { confirmsDelete = true }
                 }
             }
+            .lifeBoardFormSurface()
             .navigationTitle(checkIn == nil ? "Mood + energy" : "Edit check-in")
             .toolbar { composerToolbar { saveValue() } }
             .confirmationDialog("Delete this check-in?", isPresented: $confirmsDelete, titleVisibility: .visible) {
@@ -1745,6 +1774,7 @@ private struct SleepContextComposer: View {
                 TextField("Private notes", text: $notes, axis: .vertical)
                 Text("Sleep context stays out of widgets, Spotlight, Siri, and lock-screen previews.").font(.caption)
             }
+            .lifeBoardFormSurface()
             .privacySensitive()
             .navigationTitle(existing == nil ? "Sleep context" : "Edit sleep context")
             .toolbar { composerToolbar { saveValue() } }
@@ -1807,6 +1837,7 @@ private struct GoalComposer: View {
                     .font(.caption)
                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
             }
+            .lifeBoardFormSurface()
             .navigationTitle(existing == nil ? "New goal" : "Edit goal")
             .toolbar {
                 composerToolbar(disabled: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (usesNumericTarget && target <= 0)) {
@@ -1868,6 +1899,7 @@ private struct GoalLinkComposer: View {
                     .font(.caption)
                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
             }
+            .lifeBoardFormSurface()
             .navigationTitle("Link \(goal.title)")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -1915,6 +1947,7 @@ private struct StarterPackBrowser: View {
                     }
                 }
             }
+            .lifeBoardFormSurface()
             .navigationTitle("Starter packs")
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
             .sheet(item: $selectedPack) { _ in
@@ -1941,6 +1974,7 @@ private struct StarterPackPreviewSheet: View {
                 }
                 Text("Selected items use LifeBoard’s canonical creation flows. You can edit them afterward; removing the pack archives its definitions and preserves completed history.").font(.caption)
             }
+            .lifeBoardFormSurface()
             .navigationTitle("Preview pack")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
@@ -1965,10 +1999,11 @@ private struct DismissComposerButton: View {
 }
 
 private extension View {
+    /// Delegates to the canonical clay depth scale. Previously carried a
+    /// radius-9 shadow and a 0.5pt stroke, so Track cards sat at a different
+    /// apparent height from the identical-looking cards on Plan and Home.
     func trackClayCard() -> some View {
         self.padding(16).frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.card, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.card, style: .continuous).stroke(Color(LifeBoardColorTokens.foundationHairline).opacity(0.55), lineWidth: 0.5))
-            .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow), radius: 9, y: 4)
+            .lifeBoardClaySurface(.raised, cornerRadius: LifeBoardFoundationRadius.card)
     }
 }

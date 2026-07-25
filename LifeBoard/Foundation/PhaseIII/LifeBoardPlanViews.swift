@@ -50,6 +50,65 @@ private enum PlanDayPresentation: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 }
 
+/// How the agenda schedule is sectioned. `timeOfDay` mirrors best-in-class
+/// planners (Morning / Afternoon / Evening); `none` keeps the flat card list.
+private enum PlanScheduleGrouping: String, CaseIterable, Identifiable {
+    case timeOfDay = "Time of day"
+    case none = "None"
+    var id: String { rawValue }
+}
+
+/// A daypart bucket derived from a scheduled entry's start time.
+private enum PlanScheduleDaypart: Int, CaseIterable, Identifiable {
+    case morning, afternoon, evening
+    var id: Int { rawValue }
+
+    var title: String {
+        switch self {
+        case .morning: return "Morning"
+        case .afternoon: return "Afternoon"
+        case .evening: return "Evening"
+        }
+    }
+
+    var symbolName: String {
+        switch self {
+        case .morning: return "sunrise"
+        case .afternoon: return "sun.max"
+        case .evening: return "moon.stars"
+        }
+    }
+
+    static func daypart(for date: Date, calendar: Calendar = .current) -> PlanScheduleDaypart {
+        switch calendar.component(.hour, from: date) {
+        case 0..<12: return .morning
+        case 12..<17: return .afternoon
+        default: return .evening
+        }
+    }
+}
+
+/// A single scheduled agenda entry — a read-only calendar commitment or a
+/// LifeBoard time block — unified so the daypart grouping can interleave them.
+private enum PlanScheduledEntry: Identifiable {
+    case commitment(PlanningFixedCommitment)
+    case block(InternalTimeBlock)
+
+    var id: String {
+        switch self {
+        case .commitment(let commitment): return "commitment-\(commitment.id)"
+        case .block(let block): return "block-\(block.id.uuidString)"
+        }
+    }
+
+    var startAt: Date {
+        switch self {
+        case .commitment(let commitment): return commitment.startAt
+        case .block(let block): return block.startAt
+        }
+    }
+}
+
 enum PlanRepairDeckDragResolver {
     static let threshold: CGFloat = 96
     static let minimumIntent: CGFloat = 24
@@ -72,12 +131,12 @@ struct LifeBoardPlanRootView: View {
     private let onAskEva: () -> Void
     private let onOpenWeeklyPlanner: () -> Void
     private let onOpenWeeklyReview: () -> Void
-    private let rescueBottomInset: CGFloat
-    private let planningRepository: CoreDataPlanningRepository
-    @ObservedObject private var rescueViewModel: HomeViewModel
+    private let onOpenOverdueRescue: (OverdueRescueLaunchContext) -> Void
+    private let rescueRefreshGeneration: Int
     @State private var store: PlanStore
     @State private var lens: PlanLens = .day
     @State private var dayPresentation: PlanDayPresentation = .canvas
+    @State private var scheduleGrouping: PlanScheduleGrouping = .timeOfDay
     @State private var showsBlockComposer = false
     @State private var showsWorkingHours = false
     @State private var selectedTaskIDs: Set<UUID> = []
@@ -92,7 +151,6 @@ struct LifeBoardPlanRootView: View {
     @State private var backlogProjectFilter: BacklogProjectFilter = .all
     @State private var repairDragOffset: CGSize = .zero
     @State private var repairSnapAction: PlanRepairAction?
-    @State private var rescueLaunchContext: OverdueRescueLaunchContext?
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -103,23 +161,22 @@ struct LifeBoardPlanRootView: View {
 
     init(
         repository: CoreDataPlanningRepository,
-        rescueViewModel: HomeViewModel,
-        rescueBottomInset: CGFloat = 0,
         initialLens: PlanLens? = nil,
+        rescueRefreshGeneration: Int = 0,
         onOpenFocus: @escaping (UUID) -> Void = { _ in },
         onAskEva: @escaping () -> Void = {},
         onOpenWeeklyPlanner: @escaping () -> Void = {},
-        onOpenWeeklyReview: @escaping () -> Void = {}
+        onOpenWeeklyReview: @escaping () -> Void = {},
+        onOpenOverdueRescue: @escaping (OverdueRescueLaunchContext) -> Void = { _ in }
     ) {
         _store = State(initialValue: PlanStore(planningRepository: repository, blockRepository: repository))
-        _rescueViewModel = ObservedObject(wrappedValue: rescueViewModel)
         _lens = State(initialValue: initialLens ?? PlanLensRestoration.load())
-        self.planningRepository = repository
-        self.rescueBottomInset = rescueBottomInset
+        self.rescueRefreshGeneration = rescueRefreshGeneration
         self.onOpenFocus = onOpenFocus
         self.onAskEva = onAskEva
         self.onOpenWeeklyPlanner = onOpenWeeklyPlanner
         self.onOpenWeeklyReview = onOpenWeeklyReview
+        self.onOpenOverdueRescue = onOpenOverdueRescue
     }
 
     var body: some View {
@@ -159,7 +216,7 @@ struct LifeBoardPlanRootView: View {
         }
         .navigationTitle("Plan")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await store.load() }
+        .task(id: rescueRefreshGeneration) { await store.load() }
         .onChange(of: lens) { _, selectedLens in
             PlanLensRestoration.save(selectedLens)
         }
@@ -176,21 +233,6 @@ struct LifeBoardPlanRootView: View {
         .sheet(isPresented: $showsWorkingHours) {
             PlanWorkingHoursComposer(profile: store.workingProfile) { weekdays, start, end, buffer in
                 Task { await store.saveWorkingHours(activeWeekdays: weekdays, startMinute: start, endMinute: end, bufferDuration: buffer) }
-            }
-        }
-        .overlay {
-            if let rescueLaunchContext {
-                OverdueRescuePresentationHost(
-                    viewModel: rescueViewModel,
-                    tasksByID: rescueViewModel.evaRescueTasksByID,
-                    projectsByID: Dictionary(uniqueKeysWithValues: rescueViewModel.projects.map { ($0.id, $0) }),
-                    bottomInset: rescueBottomInset,
-                    launchContext: rescueLaunchContext,
-                    planningRepository: planningRepository,
-                    onDismiss: finishOverdueRescuePresentation
-                )
-                .ignoresSafeArea()
-                .zIndex(80)
             }
         }
         .alert("Plan needs attention", isPresented: errorBinding) {
@@ -303,18 +345,19 @@ struct LifeBoardPlanRootView: View {
                     .scrollIndicators(.hidden)
                 }
 
-                if snapshot.commitments.isEmpty == false {
-                    sectionHeader("Fixed commitments", systemImage: "calendar")
-                    ForEach(snapshot.commitments) { commitmentCard($0) }
-                }
-                sectionHeader("Time blocks", systemImage: "rectangle.split.3x1", trailing: {
-                    Button { showsBlockComposer = true } label: { Image(systemName: "plus") }
-                        .accessibilityLabel("Add time block")
-                })
-                if snapshot.blocks.isEmpty {
-                    emptyCard("No LifeBoard blocks yet", detail: "Add a calm focus window without changing your external calendar.", symbol: "calendar.badge.plus")
+                if scheduleGrouping == .timeOfDay {
+                    daypartGroupedSchedule(snapshot)
                 } else {
-                    ForEach(snapshot.blocks) { blockCard($0) }
+                    if snapshot.commitments.isEmpty == false {
+                        sectionHeader("Fixed commitments", systemImage: "calendar")
+                        ForEach(snapshot.commitments) { commitmentCard($0) }
+                    }
+                    sectionHeader("Time blocks", systemImage: "rectangle.split.3x1", trailing: { scheduleSectionTrailing })
+                    if snapshot.blocks.isEmpty {
+                        emptyCard("No LifeBoard blocks yet", detail: "Add a calm focus window without changing your external calendar.", symbol: "calendar.badge.plus")
+                    } else {
+                        ForEach(snapshot.blocks) { blockCard($0) }
+                    }
                 }
             }
 
@@ -593,6 +636,83 @@ struct LifeBoardPlanRootView: View {
         .accessibilityIdentifier("plan.block.\(block.id.uuidString)")
     }
 
+    // MARK: - Daypart-grouped schedule (agenda)
+
+    /// The commitments + blocks merged and chronologically ordered.
+    private func scheduledEntries(_ snapshot: PlanDaySnapshot) -> [PlanScheduledEntry] {
+        let entries = snapshot.commitments.map(PlanScheduledEntry.commitment)
+            + snapshot.blocks.map(PlanScheduledEntry.block)
+        return entries.sorted { $0.startAt < $1.startAt }
+    }
+
+    @ViewBuilder
+    private func daypartGroupedSchedule(_ snapshot: PlanDaySnapshot) -> some View {
+        let entries = scheduledEntries(snapshot)
+        sectionHeader("Schedule", systemImage: "calendar.day.timeline.left", trailing: { scheduleSectionTrailing })
+        if entries.isEmpty {
+            emptyCard("Nothing scheduled yet", detail: "Add a calm focus window or let a commitment sync in — your day stays open until then.", symbol: "calendar.badge.plus")
+        } else {
+            ForEach(PlanScheduleDaypart.allCases) { daypart in
+                let items = entries.filter { PlanScheduleDaypart.daypart(for: $0.startAt) == daypart }
+                if items.isEmpty == false {
+                    daypartSubheader(daypart, count: items.count)
+                    ForEach(items) { scheduledEntryCard($0) }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func scheduledEntryCard(_ entry: PlanScheduledEntry) -> some View {
+        switch entry {
+        case .commitment(let commitment): commitmentCard(commitment)
+        case .block(let block): blockCard(block)
+        }
+    }
+
+    private func daypartSubheader(_ daypart: PlanScheduleDaypart, count: Int) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: daypart.symbolName)
+                .font(.caption.weight(.semibold))
+            Text(daypart.title)
+                .font(.caption.weight(.semibold))
+            Text("\(count)")
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 1)
+                .background(Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.14), in: Capsule())
+            Spacer(minLength: 0)
+        }
+        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+        .padding(.top, 2)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(daypart.title), \(count) scheduled")
+    }
+
+    /// Group-by menu plus the add-block button for the schedule section header.
+    private var scheduleSectionTrailing: some View {
+        HStack(spacing: 12) {
+            Menu {
+                Picker("Group schedule by", selection: $scheduleGrouping) {
+                    ForEach(PlanScheduleGrouping.allCases) { option in
+                        Text(option.rawValue).tag(option)
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: "line.3.horizontal.decrease.circle")
+                    Text(scheduleGrouping.rawValue).font(.caption.weight(.medium))
+                }
+            }
+            .accessibilityLabel("Group schedule by")
+            .accessibilityValue(scheduleGrouping.rawValue)
+
+            Button { showsBlockComposer = true } label: { Image(systemName: "plus") }
+                .accessibilityLabel("Add time block")
+        }
+    }
+
     private func taskCard(_ task: PlanningTaskSummary, planned: Bool) -> some View {
         HStack(spacing: 12) {
             Image(systemName: task.dependenciesReady ? "circle" : "lock.circle")
@@ -813,14 +933,8 @@ struct LifeBoardPlanRootView: View {
             selectedDay: store.selectedDay,
             planningMetadataByTaskID: metadataByTaskID
         )
-        rescueLaunchContext = context
-        rescueViewModel.openOverdueRescueFromHome(source: context.source)
+        onOpenOverdueRescue(context)
         LifeBoardFeedback.light()
-    }
-
-    private func finishOverdueRescuePresentation() {
-        rescueLaunchContext = nil
-        Task { await store.load() }
     }
 
     private func sectionHeader<Content: View>(_ title: String, systemImage: String, @ViewBuilder trailing: () -> Content) -> some View {
@@ -1589,12 +1703,13 @@ private struct PlanWorkingHoursComposer: View {
 }
 
 private extension View {
+    /// Delegates to the canonical clay depth scale so Plan cards match Home
+    /// and Track. This used to carry its own radius-4 shadow and 0.75pt
+    /// stroke, which made Plan read subtly flatter than every other root.
     func foundationClayCard() -> some View {
         self
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.card, style: .continuous))
-            .overlay(RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.card, style: .continuous).stroke(Color(LifeBoardColorTokens.foundationHairline).opacity(0.72), lineWidth: 0.75))
-            .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow), radius: 4, y: 2)
+            .lifeBoardClaySurface(.raised, cornerRadius: LifeBoardFoundationRadius.card)
     }
 }

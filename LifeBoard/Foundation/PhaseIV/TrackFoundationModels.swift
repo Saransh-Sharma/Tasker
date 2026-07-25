@@ -530,6 +530,11 @@ public struct HydrationLog: Codable, Hashable, Identifiable, Sendable {
     public var timestamp: Date
     public var note: String?
     public var correctedAt: Date?
+    public var source: WellnessCaptureSource
+    public var sourceIdentifier: String?
+    public var capturedTimeZoneIdentifier: String
+    public var createdAt: Date
+    public var updatedAt: Date
 
     public init(
         id: UUID = UUID(),
@@ -537,7 +542,12 @@ public struct HydrationLog: Codable, Hashable, Identifiable, Sendable {
         unit: HydrationUnit,
         timestamp: Date = Date(),
         note: String? = nil,
-        correctedAt: Date? = nil
+        correctedAt: Date? = nil,
+        source: WellnessCaptureSource = .manual,
+        sourceIdentifier: String? = nil,
+        capturedTimeZone: TimeZone = .autoupdatingCurrent,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
     ) {
         self.id = id
         self.amount = max(0, amount)
@@ -545,6 +555,41 @@ public struct HydrationLog: Codable, Hashable, Identifiable, Sendable {
         self.timestamp = timestamp
         self.note = note
         self.correctedAt = correctedAt
+        self.source = source
+        self.sourceIdentifier = sourceIdentifier
+        capturedTimeZoneIdentifier = capturedTimeZone.identifier
+        self.createdAt = createdAt
+        self.updatedAt = max(updatedAt, createdAt)
+    }
+
+    public var capturedTimeZone: TimeZone {
+        TimeZone(identifier: capturedTimeZoneIdentifier) ?? .autoupdatingCurrent
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id, amount, unit, timestamp, note, correctedAt
+        case source, sourceIdentifier, capturedTimeZoneIdentifier, createdAt, updatedAt
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        id = try values.decode(UUID.self, forKey: .id)
+        amount = max(0, try values.decode(Double.self, forKey: .amount))
+        unit = try values.decode(HydrationUnit.self, forKey: .unit)
+        timestamp = try values.decode(Date.self, forKey: .timestamp)
+        note = try values.decodeIfPresent(String.self, forKey: .note)
+        correctedAt = try values.decodeIfPresent(Date.self, forKey: .correctedAt)
+        source = try values.decodeIfPresent(WellnessCaptureSource.self, forKey: .source) ?? .manual
+        sourceIdentifier = try values.decodeIfPresent(String.self, forKey: .sourceIdentifier)
+        capturedTimeZoneIdentifier = try values.decodeIfPresent(
+            String.self,
+            forKey: .capturedTimeZoneIdentifier
+        ) ?? TimeZone.autoupdatingCurrent.identifier
+        createdAt = try values.decodeIfPresent(Date.self, forKey: .createdAt) ?? timestamp
+        updatedAt = max(
+            try values.decodeIfPresent(Date.self, forKey: .updatedAt) ?? correctedAt ?? createdAt,
+            createdAt
+        )
     }
 }
 

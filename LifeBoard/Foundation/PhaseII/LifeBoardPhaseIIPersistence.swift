@@ -329,6 +329,7 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
     public func fetchMoodCheckIns(from: Date?, to: Date?) async throws -> [LifeBoardMoodEnergyCheckInValue] {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "MoodEnergyCheckIn")
+            request.affectedStores = Self.localStores(in: context)
             var predicates: [NSPredicate] = []
             if let from { predicates.append(NSPredicate(format: "createdAt >= %@", from as NSDate)) }
             if let to { predicates.append(NSPredicate(format: "createdAt < %@", to as NSDate)) }
@@ -340,7 +341,8 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
 
     public func saveMoodCheckIn(_ value: LifeBoardMoodEnergyCheckInValue) async throws {
         try await write { context in
-            let object = try Self.upsert(entity: "MoodEnergyCheckIn", id: value.id, in: context)
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            let object = try Self.upsertLocal(entity: "MoodEnergyCheckIn", id: value.id, in: context)
             object.setValue(value.id, forKey: "id")
             object.setValue(value.mood.rawValue, forKey: "moodRaw")
             object.setValue(value.energy.map(NSNumber.init(value:)), forKey: "energy")
@@ -352,7 +354,8 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
 
     public func deleteMoodCheckIn(id: UUID) async throws {
         try await write { context in
-            guard let object = try Self.fetchOne(entity: "MoodEnergyCheckIn", id: id, in: context) else { return }
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            guard let object = try Self.fetchOneLocal(entity: "MoodEnergyCheckIn", id: id, in: context) else { return }
             context.delete(object)
         }
     }
@@ -362,6 +365,7 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
     public func fetchMedications() async throws -> [LifeBoardMedicationDefinitionValue] {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "MedicationDefinition")
+            request.affectedStores = Self.localStores(in: context)
             request.predicate = NSPredicate(format: "isArchived == NO")
             request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
             return try context.fetch(request).compactMap(Self.medicationValue)
@@ -370,7 +374,8 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
 
     public func saveMedication(_ value: LifeBoardMedicationDefinitionValue) async throws {
         try await write { context in
-            let object = try Self.upsert(entity: "MedicationDefinition", id: value.id, in: context)
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            let object = try Self.upsertLocal(entity: "MedicationDefinition", id: value.id, in: context)
             object.setValue(value.id, forKey: "id")
             object.setValue(value.name.trimmingCharacters(in: .whitespacesAndNewlines), forKey: "name")
             object.setValue(value.dosageText, forKey: "dosageText")
@@ -384,12 +389,14 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
 
     public func deleteMedication(id: UUID) async throws {
         try await write { context in
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
             for entityName in ["MedicationEvent", "MedicationSchedule"] {
                 let request = NSFetchRequest<NSManagedObject>(entityName: entityName)
+                request.affectedStores = Self.localStores(in: context)
                 request.predicate = NSPredicate(format: "medicationID == %@", id as CVarArg)
                 try context.fetch(request).forEach(context.delete)
             }
-            if let medication = try Self.fetchOne(entity: "MedicationDefinition", id: id, in: context) {
+            if let medication = try Self.fetchOneLocal(entity: "MedicationDefinition", id: id, in: context) {
                 context.delete(medication)
             }
         }
@@ -398,6 +405,7 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
     public func fetchMedicationSchedules(medicationID: UUID?) async throws -> [LifeBoardMedicationScheduleValue] {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "MedicationSchedule")
+            request.affectedStores = Self.localStores(in: context)
             if let medicationID {
                 request.predicate = NSPredicate(format: "medicationID == %@", medicationID as CVarArg)
             }
@@ -408,7 +416,8 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
 
     public func saveMedicationSchedule(_ value: LifeBoardMedicationScheduleValue) async throws {
         try await write { context in
-            let object = try Self.upsert(entity: "MedicationSchedule", id: value.id, in: context)
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            let object = try Self.upsertLocal(entity: "MedicationSchedule", id: value.id, in: context)
             object.setValue(value.id, forKey: "id")
             object.setValue(value.medicationID, forKey: "medicationID")
             object.setValue(value.windowStartMinutes, forKey: "windowStartMinutes")
@@ -416,13 +425,14 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             object.setValue(try Self.encode(value.weekdays), forKey: "weekdaysData")
             object.setValue(value.reminderEnabled, forKey: "reminderEnabled")
             object.setValue(Date(), forKey: "createdAt")
-            object.setValue(try Self.fetchOne(entity: "MedicationDefinition", id: value.medicationID, in: context), forKey: "medication")
+            object.setValue(try Self.fetchOneLocal(entity: "MedicationDefinition", id: value.medicationID, in: context), forKey: "medication")
         }
     }
 
     public func fetchMedicationEvents(from: Date, to: Date) async throws -> [LifeBoardMedicationEventValue] {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "MedicationEvent")
+            request.affectedStores = Self.localStores(in: context)
             request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
                 NSPredicate(format: "scheduledAt >= %@", from as NSDate),
                 NSPredicate(format: "scheduledAt < %@", to as NSDate)
@@ -434,7 +444,8 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
 
     public func saveMedicationEvent(_ value: LifeBoardMedicationEventValue) async throws {
         try await write { context in
-            let object = try Self.upsert(entity: "MedicationEvent", id: value.id, in: context)
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            let object = try Self.upsertLocal(entity: "MedicationEvent", id: value.id, in: context)
             object.setValue(value.id, forKey: "id")
             object.setValue(value.medicationID, forKey: "medicationID")
             object.setValue(value.scheduledAt, forKey: "scheduledAt")
@@ -442,7 +453,7 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             object.setValue(value.resolvedAt, forKey: "resolvedAt")
             object.setValue(value.note, forKey: "note")
             object.setValue(Date(), forKey: "createdAt")
-            object.setValue(try Self.fetchOne(entity: "MedicationDefinition", id: value.medicationID, in: context), forKey: "medication")
+            object.setValue(try Self.fetchOneLocal(entity: "MedicationDefinition", id: value.medicationID, in: context), forKey: "medication")
         }
     }
 
@@ -451,6 +462,7 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
     public func fetchFastingSessions(limit: Int) async throws -> [LifeBoardFastingSessionValue] {
         try await read { context in
             let request = NSFetchRequest<NSManagedObject>(entityName: "FastingSession")
+            request.affectedStores = Self.localStores(in: context)
             request.sortDescriptors = [NSSortDescriptor(key: "startedAt", ascending: false)]
             request.fetchLimit = max(1, limit)
             return try context.fetch(request).compactMap(Self.fastingValue)
@@ -459,7 +471,8 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
 
     public func saveFastingSession(_ value: LifeBoardFastingSessionValue) async throws {
         try await write { context in
-            let object = try Self.upsert(entity: "FastingSession", id: value.id, in: context)
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            let object = try Self.upsertLocal(entity: "FastingSession", id: value.id, in: context)
             object.setValue(value.id, forKey: "id")
             object.setValue(value.startedAt, forKey: "startedAt")
             object.setValue(value.endedAt, forKey: "endedAt")
@@ -813,6 +826,39 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
     private static func upsert(entity: String, id: UUID, in context: NSManagedObjectContext) throws -> NSManagedObject {
         if let existing = try fetchOne(entity: entity, id: id, in: context) { return existing }
         return NSEntityDescription.insertNewObject(forEntityName: entity, into: context)
+    }
+
+    private static func fetchOneLocal(
+        entity: String,
+        id: UUID,
+        in context: NSManagedObjectContext
+    ) throws -> NSManagedObject? {
+        let request = NSFetchRequest<NSManagedObject>(entityName: entity)
+        request.affectedStores = localStores(in: context)
+        request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
+        request.fetchLimit = 1
+        return try context.fetch(request).first
+    }
+
+    private static func upsertLocal(
+        entity: String,
+        id: UUID,
+        in context: NSManagedObjectContext
+    ) throws -> NSManagedObject {
+        if let existing = try fetchOneLocal(entity: entity, id: id, in: context) {
+            return existing
+        }
+        let object = NSEntityDescription.insertNewObject(forEntityName: entity, into: context)
+        if let store = localStores(in: context).first {
+            context.assign(object, to: store)
+        }
+        return object
+    }
+
+    private static func localStores(in context: NSManagedObjectContext) -> [NSPersistentStore] {
+        context.persistentStoreCoordinator?.persistentStores.filter {
+            $0.configurationName == "LocalOnly"
+        } ?? []
     }
 
     private static func deleteChildren(of object: NSManagedObject, key: String, in context: NSManagedObjectContext) {
