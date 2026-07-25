@@ -44,6 +44,8 @@ public struct LifeOSFoundationShell: View {
     @State private var measuredChromeHeight: CGFloat = 132
     @State private var compactCaptureTargetFrames: [CaptureKind: CGRect] = [:]
     @State private var compactCaptureRippleTrigger = 0
+    @State private var planRescueLaunchContext: OverdueRescueLaunchContext?
+    @State private var planRescueRefreshGeneration = 0
     @State private var homeCardReceipt: HomeCardPlacementReceipt?
     @State private var homeCardPlacementRequest: HomeCardPlacementRequest?
     @State private var composerAudioStore: LifeBoardJournalStore?
@@ -227,6 +229,18 @@ public struct LifeOSFoundationShell: View {
                 )
             }
         }
+        .sheet(item: Binding(
+            get: { LifeBoardHealthRuntime.shared.jitCoordinator.pendingPrompt },
+            set: { if $0 == nil { LifeBoardHealthRuntime.shared.jitCoordinator.decline() } }
+        )) { prompt in
+            HealthConnectPromptSheet(
+                leadDomain: prompt.leadDomain,
+                onConnect: { domains in
+                    Task { await LifeBoardHealthRuntime.shared.jitCoordinator.connect(domains: domains) }
+                },
+                onDecline: { LifeBoardHealthRuntime.shared.jitCoordinator.decline() }
+            )
+        }
         .alert(item: $router.activeAlert) { alert in
             Alert(title: Text(alert.title), message: Text(alert.message), dismissButton: .default(Text("OK")))
         }
@@ -248,6 +262,21 @@ public struct LifeOSFoundationShell: View {
                 .padding(.top, 8)
                 .transition(.move(edge: .top).combined(with: .opacity))
                 .zIndex(20)
+            }
+        }
+        .overlay {
+            if let planRescueLaunchContext {
+                OverdueRescuePresentationHost(
+                    viewModel: homeViewModel,
+                    tasksByID: homeViewModel.evaRescueTasksByID,
+                    projectsByID: Dictionary(uniqueKeysWithValues: homeViewModel.projects.map { ($0.id, $0) }),
+                    bottomInset: 0,
+                    launchContext: planRescueLaunchContext,
+                    planningRepository: planningRepository,
+                    onDismiss: dismissPlanOverdueRescue
+                )
+                .transition(.opacity.combined(with: .scale(scale: 0.992)))
+                .zIndex(90)
             }
         }
         .overlay {
@@ -803,12 +832,12 @@ public struct LifeOSFoundationShell: View {
         } else if destination == .plan {
             LifeBoardPlanRootView(
                 repository: planningRepository,
-                rescueViewModel: homeViewModel,
-                rescueBottomInset: usesExpandedShell ? 0 : measuredChromeHeight,
+                rescueRefreshGeneration: planRescueRefreshGeneration,
                 onOpenFocus: { _ in router.select(.plan) },
                 onAskEva: { router.select(.eva) },
                 onOpenWeeklyPlanner: { router.push(.weeklyPlanner, in: .plan) },
-                onOpenWeeklyReview: { router.push(.weeklyReview, in: .plan) }
+                onOpenWeeklyReview: { router.push(.weeklyReview, in: .plan) },
+                onOpenOverdueRescue: presentPlanOverdueRescue
             )
         } else if destination == .track,
                   V2FeatureFlags.trackFoundationsV2Enabled {
@@ -829,12 +858,14 @@ public struct LifeOSFoundationShell: View {
                 nutritionRepository: nutritionRepository,
                 lifeMomentRepository: lifeMomentRepository,
                 wellnessRepository: wellnessRepository,
-                onOpenHabitBoard: { router.push(.habitBoard, in: .track) }
+                onOpenHabitBoard: { router.push(.habitBoard, in: .track) },
+                onOpenHealth: { router.push(.health, in: .track) }
             )
         } else if destination == .track {
             LifeBoardTrackRootView(
                 repository: phaseIIRepository,
-                onOpenHabitBoard: { router.push(.habitBoard, in: .track) }
+                onOpenHabitBoard: { router.push(.habitBoard, in: .track) },
+                onOpenHealth: { router.push(.health, in: .track) }
             )
         } else if destination == .home {
             LifeBoardReferenceDashboard(preferences: runtime.preferences)
@@ -1177,13 +1208,13 @@ public struct LifeOSFoundationShell: View {
     private func planRoute(lens: PlanLens, title: String, systemImage: String) -> some View {
         LifeBoardPlanRootView(
             repository: planningRepository,
-            rescueViewModel: homeViewModel,
-            rescueBottomInset: usesExpandedShell ? 0 : measuredChromeHeight,
             initialLens: lens,
+            rescueRefreshGeneration: planRescueRefreshGeneration,
             onOpenFocus: { _ in runtime.router.select(.plan) },
             onAskEva: { runtime.router.select(.eva) },
             onOpenWeeklyPlanner: { runtime.router.push(.weeklyPlanner, in: .plan) },
-            onOpenWeeklyReview: { runtime.router.push(.weeklyReview, in: .plan) }
+            onOpenWeeklyReview: { runtime.router.push(.weeklyReview, in: .plan) },
+            onOpenOverdueRescue: presentPlanOverdueRescue
         )
     }
 
@@ -1233,7 +1264,14 @@ public struct LifeOSFoundationShell: View {
             LifeBoardTrackRootView(
                 repository: phaseIIRepository,
                 initialModule: .overview,
-                onOpenHabitBoard: { runtime.router.push(.habitBoard, in: .track) }
+                onOpenHabitBoard: { runtime.router.push(.habitBoard, in: .track) },
+                onOpenHealth: { runtime.router.push(.health, in: .track) }
+            )
+        case .health:
+            LifeBoardHealthHubView(
+                trackRepository: trackFoundationRepository,
+                wellnessRepository: wellnessRepository,
+                nutritionRepository: nutritionRepository
             )
         case .project(let id):
             FoundationProjectRouteView(id: id, repository: planningRepository, router: runtime.router)
@@ -1276,7 +1314,8 @@ public struct LifeOSFoundationShell: View {
                 sessionID: id,
                 repository: planningRepository,
                 router: runtime.router,
-                homeViewModel: homeViewModel
+                rescueRefreshGeneration: planRescueRefreshGeneration,
+                onOpenOverdueRescue: presentPlanOverdueRescue
             )
         }
     }
@@ -1297,6 +1336,18 @@ public struct LifeOSFoundationShell: View {
             get: { runtime.router.path(for: destination) },
             set: { runtime.router.setPath($0, for: destination) }
         )
+    }
+
+    private func presentPlanOverdueRescue(_ context: OverdueRescueLaunchContext) {
+        compactCaptureState = CaptureOrbPresentationState()
+        lifeThreadComposerIsFocused = false
+        planRescueLaunchContext = context
+        homeViewModel.openOverdueRescueFromHome(source: context.source)
+    }
+
+    private func dismissPlanOverdueRescue() {
+        planRescueLaunchContext = nil
+        planRescueRefreshGeneration &+= 1
     }
 
 }
@@ -1322,7 +1373,8 @@ private struct FoundationFocusSessionRouteView: View {
     let sessionID: UUID?
     let repository: CoreDataPlanningRepository
     let router: LifeBoardAppRouter
-    let homeViewModel: HomeViewModel
+    let rescueRefreshGeneration: Int
+    let onOpenOverdueRescue: (OverdueRescueLaunchContext) -> Void
     @State private var state: FoundationRouteLoadState<FocusSessionV2> = .loading
 
     var body: some View {
@@ -1334,10 +1386,11 @@ private struct FoundationFocusSessionRouteView: View {
             case let .loaded(session) where session.state == .running || session.state == .paused:
                 LifeBoardPlanRootView(
                     repository: repository,
-                    rescueViewModel: homeViewModel,
                     initialLens: .day,
+                    rescueRefreshGeneration: rescueRefreshGeneration,
                     onOpenFocus: { _ in },
-                    onAskEva: { router.select(.eva) }
+                    onAskEva: { router.select(.eva) },
+                    onOpenOverdueRescue: onOpenOverdueRescue
                 )
                 .accessibilityIdentifier("focus.session.\(session.id.uuidString)")
             case let .loaded(session):
@@ -1935,7 +1988,38 @@ private struct FoundationInteractiveGlassModifier: ViewModifier {
     }
 }
 
+/// The Life OS shell's Settings destination.
+///
+/// This route used to be a ~40 line `Form` with three pickers, while the real
+/// `SettingsRootView` — profile, notifications, quiet hours, rituals, calendar,
+/// Life Management, assistant and account controls — was reachable *only* from
+/// the legacy UIKit home. Anyone running the Life OS shell simply could not get
+/// to most of the app's settings. The full screen is now the destination, with
+/// the shell-owned atmosphere controls pushed from a row inside it.
 private struct FoundationSettingsRouteView: View {
+    @Environment(LifeBoardPresentationPreferences.self) private var preferences
+    @StateObject private var viewModel = SettingsViewModel(
+        calendarIntegrationService: PresentationDependencyContainer.shared
+            .coordinator
+            .calendarIntegrationService
+    )
+    @State private var showsAppearance = false
+
+    var body: some View {
+        SettingsRootView(viewModel: viewModel)
+            .navigationTitle("Settings")
+            .accessibilityIdentifier("foundation.settings")
+            .onAppear {
+                viewModel.onNavigateToAppearance = { showsAppearance = true }
+                viewModel.reload()
+            }
+            .navigationDestination(isPresented: $showsAppearance) {
+                FoundationAppearanceSettingsView()
+            }
+    }
+}
+
+private struct FoundationAppearanceSettingsView: View {
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
 
     var body: some View {
@@ -1971,8 +2055,8 @@ private struct FoundationSettingsRouteView: View {
                 .accessibilityIdentifier("foundation.settings.third-party-notices")
             }
         }
-        .navigationTitle("Settings")
-        .accessibilityIdentifier("foundation.settings")
+        .navigationTitle("Appearance & motion")
+        .accessibilityIdentifier("foundation.settings.appearance")
     }
 }
 

@@ -8,6 +8,7 @@ public enum AppRoute: Codable, Hashable, Sendable {
     case habitDetail(UUID)
     case trackerDetail(UUID)
     case careLibrary
+    case health
     case project(UUID)
     case routine(UUID)
     case goal(UUID)
