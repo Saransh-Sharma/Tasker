@@ -53,7 +53,7 @@
 	<key>NSHealthShareUsageDescription</key>
 	<string>LifeBoard reads the health categories you choose—such as movement, body measurements, workouts, and sleep—to show private wellness context.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>LifeBoard does not write Health data. This description is reserved for explicit future Health actions.</string>
+	<string>LifeBoard writes the water, nutrition, weight, and workouts you log so Apple Health stays in sync. You choose which categories to share, and you can turn any of them off at any time.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>LifeBoard uses the microphone only while you record a private journal audio block.</string>
 	<key>NSCameraUsageDescription</key>

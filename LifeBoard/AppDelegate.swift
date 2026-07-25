@@ -260,6 +260,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         let launchInterval = LifeBoardPerformanceTrace.begin("AppLaunchCriticalPath")
         defer { LifeBoardPerformanceTrace.end(launchInterval) }
+        LifeBoardHealthRuntime.shared.prepareForLaunch()
 
 //        HomeViewController.setDateForViewValue(dateToSetForView: Date.today())
         let launchArguments = ProcessInfo.processInfo.arguments
@@ -429,6 +430,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         case .ready(let container):
             persistentContainer = container
             AppDelegate.persistentBootstrapFailureMessage = nil
+            LifeBoardHealthRuntime.shared.attach(container: container)
 
             let didConfigureRuntime = setupCleanArchitecture()
             guard didConfigureRuntime else {
