@@ -27,6 +27,10 @@ final class SettingsViewModel: ObservableObject, Sendable {
     // MARK: - Navigation callbacks (set by SettingsPageViewController)
 
     var onNavigateToLifeManagement: (() -> Void)?
+    /// Set only by the Life OS shell, which owns the daypart, comfort-profile
+    /// and rendering-tier preferences. The legacy UIKit host leaves this nil
+    /// and the row hides itself.
+    var onNavigateToAppearance: (() -> Void)?
     var onNavigateToAISettings: (() -> Void)?
     var onNavigateToChats: (() -> Void)?
     var onNavigateToModels: (() -> Void)?

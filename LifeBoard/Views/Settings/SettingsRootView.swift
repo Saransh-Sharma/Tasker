@@ -15,6 +15,9 @@ struct SettingsRootView: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var expandedNotificationRow: NotificationExpansion?
     @State private var timelineAnchorDraft = TimelineAnchorDraft(preferences: LifeBoardWorkspacePreferences())
+    @State private var healthStore = LifeBoardHealthRuntime.shared.connectionStore
+    @AppStorage("healthPrivacyLocalOnlyNoticeAcknowledged") private var didAcknowledgeHealthPrivacyNotice = false
+    @State private var showsHealthPrivacyNotice = false
 
     private let dueSoonLeadOptions: [(value: Int, label: String)] = [
         (15, "15m"),
@@ -90,11 +93,20 @@ struct SettingsRootView: View {
         .onAppear {
             viewModel.reload()
             timelineAnchorDraft = TimelineAnchorDraft(preferences: viewModel.workspacePreferences)
+            showsHealthPrivacyNotice = V2FeatureFlags.healthIntegrationsV1Enabled && didAcknowledgeHealthPrivacyNotice == false
+            Task { await healthStore.refreshAuthorization() }
         }
         .onDisappear {
             viewModel.commitTimelineAnchorDraft(timelineAnchorDraft)
         }
         .accessibilityIdentifier("settings.root")
+        .alert("Health data now stays on this device", isPresented: $showsHealthPrivacyNotice) {
+            Button("Got it") {
+                didAcknowledgeHealthPrivacyNotice = true
+            }
+        } message: {
+            Text("LifeBoard wellness records are stored locally. They are not uploaded to LifeBoard’s CloudKit store, analytics, or logs.")
+        }
     }
 
     private var overviewSection: some View {
@@ -112,6 +124,7 @@ struct SettingsRootView: View {
             // baseIndex controls stagger ordering; gaps leave room for expanded card content.
             workspaceSection(baseIndex: 1)
             calendarSection(baseIndex: 4)
+            healthSection(baseIndex: 7)
             timelineSection(baseIndex: 8)
             aiAssistantSection(baseIndex: 10)
             notificationsSection(baseIndex: 12)
@@ -127,6 +140,7 @@ struct SettingsRootView: View {
                     // Keep the same stagger ordering across compact and regular layouts.
                     workspaceSection(baseIndex: 1, includeHorizontalPadding: false)
                     calendarSection(baseIndex: 4, includeHorizontalPadding: false)
+                    healthSection(baseIndex: 7, includeHorizontalPadding: false)
                     timelineSection(baseIndex: 8, includeHorizontalPadding: false)
                     aiAssistantSection(baseIndex: 10, includeHorizontalPadding: false)
                     appearanceSection(baseIndex: 20, includeHorizontalPadding: false)
@@ -142,6 +156,101 @@ struct SettingsRootView: View {
             .frame(maxWidth: .infinity, alignment: .top)
             .padding(.horizontal, spacing.screenHorizontal)
         }
+    }
+
+    private func healthSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
+        SettingsSectionView(
+            title: "Apple Health",
+            subtitle: "Reads stay private; write controls apply only to future changes.",
+            topPadding: sectionTopPadding,
+            includeHorizontalPadding: includeHorizontalPadding
+        ) {
+            VStack(spacing: spacing.cardStackVertical) {
+                LifeBoardSettingsCard(active: healthStore.lastSuccessfulSync != nil) {
+                    VStack(spacing: LifeBoardSettingsMetrics.cardInnerPadding) {
+                        ForEach(HealthDomain.allCases.filter(\.supportsWriteBack)) { domain in
+                            LifeBoardSettingsToggleRow(
+                                iconName: domain.symbolName,
+                                title: domain.title,
+                                subtitle: domain.shareBlurb,
+                                isOn: Binding(
+                                    get: { healthStore.statuses[domain]?.writeEnabled ?? false },
+                                    set: { enabled in
+                                        Task { await healthStore.setWriteEnabled(enabled, for: domain) }
+                                    }
+                                ),
+                                tone: healthTone(for: domain),
+                                summaryText: healthWriteSummary(for: domain),
+                                accessibilityIdentifier: "settings.health.\(domain.rawValue).toggle"
+                            )
+                            if domain != HealthDomain.allCases.filter(\.supportsWriteBack).last {
+                                Divider()
+                            }
+                        }
+                    }
+                }
+                .enhancedStaggeredAppearance(index: baseIndex)
+
+                LifeBoardSettingsCard {
+                    VStack(spacing: LifeBoardSettingsMetrics.cardInnerPadding) {
+                        SettingsNavigationRow(
+                            descriptor: LifeBoardSettingsDestinationDescriptor(
+                                iconName: "arrow.triangle.2.circlepath",
+                                title: healthStore.isRefreshing ? "Syncing…" : "Sync Now",
+                                subtitle: healthSyncSubtitle,
+                                trailingStatus: healthStore.lastSuccessfulSync?.formatted(date: .abbreviated, time: .shortened),
+                                tone: .accent,
+                                accessibilityIdentifier: "settings.health.sync"
+                            ),
+                            action: { Task { await healthStore.syncNow() } }
+                        )
+
+                        Divider()
+
+                        SettingsNavigationRow(
+                            descriptor: LifeBoardSettingsDestinationDescriptor(
+                                iconName: "gear",
+                                title: "Authorization recovery",
+                                subtitle: "To change Apple Health access, review Health permissions. This button opens the public LifeBoard app settings page.",
+                                tone: .neutral,
+                                accessibilityIdentifier: "settings.health.recovery"
+                            ),
+                            action: openAppSettings
+                        )
+                    }
+                }
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
+            }
+        }
+    }
+
+    private func healthWriteSummary(for domain: HealthDomain) -> String {
+        guard let status = healthStore.statuses[domain] else { return "Not connected" }
+        if status.hasPartialWriteAuthorization { return "Partial" }
+        if status.writeAuthorizations.values.contains(.denied) { return "Denied" }
+        if status.writeAuthorizations.values.allSatisfy({ $0 == .authorized }) { return "Allowed" }
+        return "Not requested"
+    }
+
+    private func healthTone(for domain: HealthDomain) -> LifeBoardSettingsTone {
+        let summary = healthWriteSummary(for: domain)
+        if summary == "Allowed" { return .success }
+        if summary == "Denied" || summary == "Partial" { return .warning }
+        return .neutral
+    }
+
+    private var healthSyncSubtitle: String {
+        if healthStore.nonSensitiveErrorCode != nil {
+            return "The last sync could not finish. Your local records are still saved."
+        }
+        return "Refresh anchored imports and process pending writes. Apple Health works without a network connection."
+    }
+
+    private func openAppSettings() {
+        #if os(iOS)
+        guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+        UIApplication.shared.open(url)
+        #endif
     }
 
     private func workspaceSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
@@ -164,6 +273,23 @@ struct SettingsRootView: View {
                     )
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
+
+                // Present only under the Life OS shell, which owns the daypart
+                // and motion preferences. The legacy host has nowhere to go.
+                if viewModel.onNavigateToAppearance != nil {
+                    LifeBoardSettingsCard {
+                        SettingsNavigationRow(
+                            descriptor: LifeBoardSettingsDestinationDescriptor(
+                                iconName: "sun.horizon.fill",
+                                title: "Appearance & motion",
+                                subtitle: "Daypart, comfort profile, and how much the screen moves.",
+                                accessibilityIdentifier: "settings.workspace.appearance.row"
+                            ),
+                            action: viewModel.onNavigateToAppearance
+                        )
+                    }
+                    .enhancedStaggeredAppearance(index: baseIndex)
+                }
 
                 LifeBoardSettingsCard {
                     VStack(alignment: .leading, spacing: LifeBoardSettingsMetrics.cardInnerPadding) {
