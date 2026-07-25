@@ -131,20 +131,27 @@ public struct LifeBoardAtmosphereDescriptor: Equatable, Sendable {
     public let compactStarCount: Int
     public let regularStarCount: Int
 
+    /// Celestial anchors deliberately sit in the trailing-top corner across
+    /// every phase. Morning previously anchored at x 0.52 with the largest
+    /// scale in the set, which put a full-strength sun directly behind the
+    /// greeting and the date line. Keeping the celestial off the leading
+    /// reading column preserves the calm negative-space field the design
+    /// contract asks for, and lets each phase differ by mood rather than by
+    /// how much text it obscures.
     public static func descriptor(for phase: LifeBoardCelestialPhase) -> Self {
         switch phase {
         case .dawn:
-            .init(phase: phase, backgroundAsset: "CelestialDawnBackground", celestialAsset: "CelestialDawn", fallbackHex: "#F2D6B6", usesInverseHeaderInk: false, scrimStrength: 0.10, celestialAnchorX: 0.36, celestialAnchorY: 0.18, celestialScale: 0.70, compactStarCount: 0, regularStarCount: 0)
+            .init(phase: phase, backgroundAsset: "CelestialDawnBackground", celestialAsset: "CelestialDawn", fallbackHex: "#F2D6B6", usesInverseHeaderInk: false, scrimStrength: 0.10, celestialAnchorX: 0.74, celestialAnchorY: 0.15, celestialScale: 0.52, compactStarCount: 0, regularStarCount: 0)
         case .morning:
-            .init(phase: phase, backgroundAsset: "CelestialMorningBackground", celestialAsset: "CelestialMorning", fallbackHex: "#F4D9A8", usesInverseHeaderInk: false, scrimStrength: 0.08, celestialAnchorX: 0.52, celestialAnchorY: 0.13, celestialScale: 0.76, compactStarCount: 0, regularStarCount: 0)
+            .init(phase: phase, backgroundAsset: "CelestialMorningBackground", celestialAsset: "CelestialMorning", fallbackHex: "#F4D9A8", usesInverseHeaderInk: false, scrimStrength: 0.08, celestialAnchorX: 0.76, celestialAnchorY: 0.13, celestialScale: 0.54, compactStarCount: 0, regularStarCount: 0)
         case .midday:
-            .init(phase: phase, backgroundAsset: "CelestialMiddayBackground", celestialAsset: "CelestialMidday", fallbackHex: "#EDC178", usesInverseHeaderInk: false, scrimStrength: 0.12, celestialAnchorX: 0.62, celestialAnchorY: 0.09, celestialScale: 0.68, compactStarCount: 0, regularStarCount: 0)
+            .init(phase: phase, backgroundAsset: "CelestialMiddayBackground", celestialAsset: "CelestialMidday", fallbackHex: "#EDC178", usesInverseHeaderInk: false, scrimStrength: 0.12, celestialAnchorX: 0.78, celestialAnchorY: 0.11, celestialScale: 0.50, compactStarCount: 0, regularStarCount: 0)
         case .goldenHour:
-            .init(phase: phase, backgroundAsset: "CelestialGoldenHourBackground", celestialAsset: "CelestialGoldenHour", fallbackHex: "#E7B875", usesInverseHeaderInk: false, scrimStrength: 0.13, celestialAnchorX: 0.34, celestialAnchorY: 0.20, celestialScale: 0.66, compactStarCount: 0, regularStarCount: 0)
+            .init(phase: phase, backgroundAsset: "CelestialGoldenHourBackground", celestialAsset: "CelestialGoldenHour", fallbackHex: "#E7B875", usesInverseHeaderInk: false, scrimStrength: 0.13, celestialAnchorX: 0.74, celestialAnchorY: 0.17, celestialScale: 0.52, compactStarCount: 0, regularStarCount: 0)
         case .twilight:
-            .init(phase: phase, backgroundAsset: "CelestialTwilightBackground", celestialAsset: "CelestialTwilight", fallbackHex: "#B7A5A2", usesInverseHeaderInk: false, scrimStrength: 0.20, celestialAnchorX: 0.70, celestialAnchorY: 0.16, celestialScale: 0.54, compactStarCount: 8, regularStarCount: 12)
+            .init(phase: phase, backgroundAsset: "CelestialTwilightBackground", celestialAsset: "CelestialTwilight", fallbackHex: "#B7A5A2", usesInverseHeaderInk: false, scrimStrength: 0.20, celestialAnchorX: 0.76, celestialAnchorY: 0.15, celestialScale: 0.48, compactStarCount: 8, regularStarCount: 12)
         case .night:
-            .init(phase: phase, backgroundAsset: "CelestialNightBackground", celestialAsset: "CelestialNight", fallbackHex: "#343545", usesInverseHeaderInk: true, scrimStrength: 0.30, celestialAnchorX: 0.72, celestialAnchorY: 0.14, celestialScale: 0.50, compactStarCount: 14, regularStarCount: 22)
+            .init(phase: phase, backgroundAsset: "CelestialNightBackground", celestialAsset: "CelestialNight", fallbackHex: "#343545", usesInverseHeaderInk: true, scrimStrength: 0.30, celestialAnchorX: 0.78, celestialAnchorY: 0.14, celestialScale: 0.46, compactStarCount: 14, regularStarCount: 22)
         }
     }
 }
@@ -238,6 +245,29 @@ public enum LifeBoardAtmospherePlacement: String, CaseIterable, Hashable, Sendab
 
     var suppressesAmbientDetail: Bool {
         self == .onboarding || self == .focusedPresentation
+    }
+
+    /// How far down the celestial should sit, as a fraction of screen height
+    /// added to the descriptor's anchor.
+    ///
+    /// Home draws its own header on the open canvas, so the celestial can sit
+    /// high in the trailing corner. Every other root has a navigation bar
+    /// there, and a full-strength sun behind a toolbar makes its controls
+    /// unreadable. Those placements push the celestial below the bar.
+    var celestialAnchorOffset: Double {
+        switch self {
+        case .home, .onboarding, .focusedPresentation: return 0
+        case .plan, .track, .insights, .eva: return 0.14
+        }
+    }
+
+    /// Non-home roots are working surfaces; the celestial is atmosphere there,
+    /// not the subject.
+    var celestialScaleMultiplier: Double {
+        switch self {
+        case .home, .onboarding, .focusedPresentation: return 1
+        case .plan, .track, .insights, .eva: return 0.78
+        }
     }
 }
 
@@ -360,6 +390,8 @@ public struct LifeBoardAdaptiveAtmosphere: View {
                 if showsCelestial {
                     celestial(descriptor: descriptor, layout: layout, size: proxy.size)
                 }
+
+                nocturnalVeil()
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
             .clipped()
@@ -394,8 +426,8 @@ public struct LifeBoardAdaptiveAtmosphere: View {
             .scaledToFill()
             .frame(width: layout.width)
             .clipped()
-            .saturation(colorScheme == .dark ? 0.74 : 1)
-            .brightness(colorScheme == .dark ? -0.20 : 0)
+            .saturation(colorScheme == .dark ? 0.5 : 1)
+            .brightness(colorScheme == .dark ? -0.34 : 0)
             .id(descriptor.backgroundAsset)
             .transition(.opacity)
             .overlay {
@@ -422,6 +454,38 @@ public struct LifeBoardAdaptiveAtmosphere: View {
         .opacity(reduceTransparency ? 1 : 0.94)
     }
 
+    /// Dark appearance previously rendered the *light* daypart artwork dimmed
+    /// by `brightness(-0.20)`, which left a cream morning canvas at roughly
+    /// 0.73 luminance behind near-white foreground ink — section subtitles and
+    /// ring labels were effectively invisible. This composites the daypart's
+    /// own dark canvas over the art instead, so dark mode is a night-lit
+    /// version of the scene rather than a washed-out daylight one.
+    ///
+    /// The ramp is lighter at the top, where the celestial lives and nothing
+    /// needs to be read, and strongest across the lower two thirds where the
+    /// content column sits.
+    @ViewBuilder
+    private func nocturnalVeil() -> some View {
+        if colorScheme == .dark {
+            let canvas = Color(
+                lifeboardHex: LifeBoardDaypartTokens
+                    .darkPalette(for: snapshot.semanticDaypart)
+                    .canvas
+            )
+            LinearGradient(
+                stops: [
+                    .init(color: canvas.opacity(0.34), location: 0),
+                    .init(color: canvas.opacity(0.62), location: 0.28),
+                    .init(color: canvas.opacity(0.86), location: 0.55),
+                    .init(color: canvas.opacity(0.94), location: 1)
+                ],
+                startPoint: .top,
+                endPoint: .bottom
+            )
+            .allowsHitTesting(false)
+        }
+    }
+
     @ViewBuilder
     private func celestial(
         descriptor: LifeBoardAtmosphereDescriptor,
@@ -437,7 +501,11 @@ public struct LifeBoardAdaptiveAtmosphere: View {
             let driftY = CGFloat(cos(phase / 12.0)) * amplitude * 0.66
             let rotation = Double(sin(phase / 11.6)) * (comfortProfile == .playful ? 0.15 : 0.10)
             let breath = 1 + CGFloat(sin(phase / 9.8)) * (comfortProfile == .playful ? 0.004 : 0.003)
-            let diameter = min(520, max(snapshot.phase == .night || snapshot.phase == .twilight ? 180 : 220, layout.width * descriptor.celestialScale))
+            // The floor used to be 220pt, which overrode every `celestialScale`
+            // below ~0.56 on a compact width and forced a sun large enough to
+            // sit behind the greeting. Lowering it lets the descriptor's scale
+            // actually govern the composition.
+            let diameter = min(520, max(140, layout.width * descriptor.celestialScale * placement.celestialScaleMultiplier))
 
             Image(decorative: descriptor.celestialAsset)
                 .resizable()
@@ -448,7 +516,7 @@ public struct LifeBoardAdaptiveAtmosphere: View {
                 .scaleEffect(breath)
                 .position(
                     x: layout.minX + layout.width * descriptor.celestialAnchorX + driftX,
-                    y: size.height * descriptor.celestialAnchorY + driftY
+                    y: size.height * (descriptor.celestialAnchorY + placement.celestialAnchorOffset) + driftY
                 )
                 .id(descriptor.celestialAsset)
                 .transition(.opacity.combined(with: .scale(scale: 0.992)))
@@ -998,31 +1066,13 @@ public struct LifeBoardStatusSurface: View {
     }
 }
 
+/// The general reading/content surface. Depth geometry lives in
+/// `LifeBoardClaySurface`; this only pins the ink and the card radius.
 public struct LifeBoardPaperCardModifier: ViewModifier {
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
-    @Environment(\.colorSchemeContrast) private var contrast
-
     public func body(content: Content) -> some View {
         content
             .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-            .background(
-                Color(LifeBoardColorTokens.foundationSurfaceSolid)
-                    .opacity(effectiveReduceTransparency ? 1 : 0.94),
-                in: RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.card, style: .continuous)
-            )
-            .overlay {
-                RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.card, style: .continuous)
-                    .stroke(
-                        Color(LifeBoardColorTokens.foundationHairline)
-                            .opacity(contrast == .increased ? 1 : 0.72),
-                        lineWidth: contrast == .increased ? 1.5 : 1
-                    )
-            }
-            .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow), radius: 6, y: 2)
-    }
-
-    private var effectiveReduceTransparency: Bool {
-        reduceTransparency || LifeBoardVisualAppearanceFixture.active?.usesReducedTransparency == true
+            .lifeBoardClaySurface(.raised, cornerRadius: LifeBoardFoundationRadius.card)
     }
 }
 
@@ -1062,52 +1112,65 @@ public extension View {
 /// Shared claymorphism surfaces: warm opaque fills, a soft top highlight, and
 /// a low-opacity warm shadow. These are the only sanctioned content
 /// elevations; glass remains reserved for chrome.
+///
+/// All of these now delegate to `LifeBoardClaySurface`, which is where the
+/// depth geometry actually lives. They previously each rolled their own
+/// shadow radius (8, 18, none) and stroke, and none of them implemented the
+/// top highlight this comment has always promised.
 public extension View {
     func lifeBoardRaisedClayCard(
         palette: LifeBoardDaypartPalette,
         cornerRadius: CGFloat = 20
     ) -> some View {
-        let isNight = palette.canvas == LifeBoardDaypartTokens.night.canvas
-        let surface = isNight
-            ? palette.color(for: .layerOne)
-            : Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.94)
-        return background(surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.lifeboard(.textInverse).opacity(isNight ? 0.16 : 0.68), lineWidth: 1)
-            }
-            .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.12), radius: 8, y: 4)
+        lifeBoardClaySurface(
+            .raised,
+            cornerRadius: cornerRadius,
+            fill: palette.clayFill(for: .raised)
+        )
     }
 
     func lifeBoardFloatingClayCard(
         palette: LifeBoardDaypartPalette,
         cornerRadius: CGFloat = 24
     ) -> some View {
-        let isNight = palette.canvas == LifeBoardDaypartTokens.night.canvas
-        let surface = isNight
-            ? palette.color(for: .layerOne)
-            : Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.97)
-        return background(surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color.lifeboard(.textInverse).opacity(isNight ? 0.2 : 0.76), lineWidth: 1)
-            }
-            .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.17), radius: 18, y: 8)
+        lifeBoardClaySurface(
+            .floating,
+            cornerRadius: cornerRadius,
+            fill: palette.clayFill(for: .floating)
+        )
     }
 
     func lifeBoardEmbeddedClayWell(
         palette: LifeBoardDaypartPalette,
         cornerRadius: CGFloat = 14
     ) -> some View {
-        let isNight = palette.canvas == LifeBoardDaypartTokens.night.canvas
-        let surface = isNight
-            ? palette.color(for: .layerTwo)
-            : palette.color(for: .canvasSecondary).opacity(0.72)
-        return background(surface, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay {
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(Color(LifeBoardColorTokens.foundationHairline).opacity(0.72), lineWidth: 1)
-            }
+        lifeBoardClaySurface(
+            .well,
+            cornerRadius: cornerRadius,
+            fill: palette.clayFill(for: .well)
+        )
+    }
+}
+
+public extension LifeBoardDaypartPalette {
+    /// The fill a clay surface takes on this palette. Nocturnal compositions
+    /// lift off their own layer colours so cards stay part of the scene
+    /// instead of punching bright holes in it.
+    func clayFill(for depth: LifeBoardClayDepth) -> Color {
+        switch depth {
+        case .well:
+            return isNocturnal
+                ? color(for: .layerTwo)
+                : color(for: .canvasSecondary).opacity(0.72)
+        case .resting, .raised:
+            return isNocturnal
+                ? color(for: .layerOne)
+                : Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.94)
+        case .floating:
+            return isNocturnal
+                ? color(for: .layerOne)
+                : Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.97)
+        }
     }
 }
 
@@ -1170,9 +1233,11 @@ public struct LifeBoardMetricRing: View {
             ZStack {
                 Circle()
                     .stroke(
-                        Color(LifeBoardColorTokens.metricRingTrack),
+                        Color(trackIsTheSignal
+                            ? LifeBoardColorTokens.metricRingTrackProminent
+                            : LifeBoardColorTokens.metricRingTrack),
                         style: StrokeStyle(
-                            lineWidth: 5,
+                            lineWidth: trackIsTheSignal ? 3 : 5,
                             dash: usesDashedTrack ? [3, 5] : []
                         )
                     )
@@ -1234,6 +1299,15 @@ public struct LifeBoardMetricRing: View {
     private var usesDashedTrack: Bool {
         switch state {
         case .setupRequired, .unavailable, .stale: true
+        default: false
+        }
+    }
+
+    /// True when there is no progress arc, so the track is the only thing
+    /// communicating state and has to carry full non-text contrast.
+    private var trackIsTheSignal: Bool {
+        switch state {
+        case .setupRequired, .unavailable: true
         default: false
         }
     }

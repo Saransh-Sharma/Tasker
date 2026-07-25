@@ -719,6 +719,9 @@ struct LifeBoardAdaptiveHome: View {
     @State private var showsMoodDial = false
     @State private var captureOrbState = CaptureOrbPresentationState()
     @State private var contextReasonCandidate: HomeContextCandidate?
+    /// Drives the one-shot daypart cross-dissolve. Incremented on a real
+    /// daypart boundary or a manual override, never on a redraw.
+    @State private var daypartTransitionTrigger = 0
     @State private var composerText = ""
     @FocusState private var composerIsFocused: Bool
     @AppStorage("lifeOS.home.sensitive_cards.enabled") private var permitsSensitiveHomeContent = false
@@ -825,16 +828,15 @@ struct LifeBoardAdaptiveHome: View {
 
                     homeSectionHeading(
                         "At a glance",
-                        detail: "The signals that are useful right now.",
                         palette: ambientPalette
                     )
                     signalRowWidget(palette: ambientPalette)
 
                     homeSectionHeading(
                         "My Home",
-                        detail: store.isCustomizing
-                            ? "Drag the order, resize, or make a card adaptive."
-                            : "Your cards stay exactly where you put them.",
+                        // Only speaks up while editing, when the affordance
+                        // genuinely needs explaining.
+                        state: store.isCustomizing ? "Drag to reorder or resize" : nil,
                         palette: ambientPalette
                     )
                     DashboardFlowLayout(
@@ -845,6 +847,10 @@ struct LifeBoardAdaptiveHome: View {
                             dashboardWidget(for: placement, daypart: daypart, palette: palette)
                                 .dashboardPreset(effectivePreset(for: placement.semanticSize))
                                 .accessibilityValue(placement.ownership.accessibilityDescription)
+                                // Cards focus and rise as they enter. Suspended
+                                // while the layout is being edited so a dragged
+                                // card is never also mid-transition.
+                                .lifeBoardScrollEntrance(intensity: store.isCustomizing ? 0 : 1)
                         }
                     }
 
@@ -875,6 +881,9 @@ struct LifeBoardAdaptiveHome: View {
             }
 
         }
+        // The screen changing time of day should feel like weather moving
+        // across it, not like a palette swap.
+        .lifeboardDaypartCrossDissolve(trigger: daypartTransitionTrigger, daypart: daypart)
         .safeAreaInset(edge: .bottom, spacing: 8) {
             if showsEmbeddedComposer {
                 lifeThreadComposer(palette: palette)
@@ -896,7 +905,10 @@ struct LifeBoardAdaptiveHome: View {
         .onChange(of: lifeOSStore.heroSnapshot?.id) { _, _ in refreshContextSelection(boundary: .taskMutation) }
         .onChange(of: projectionAdapter.snapshot) { _, _ in refreshContextSelection(boundary: .taskMutation) }
         .onChange(of: permitsSensitiveHomeContent) { _, _ in refreshContextSelection() }
-        .onChange(of: daypart) { _, _ in refreshContextSelection(boundary: .daypartBoundary) }
+        .onChange(of: daypart) { _, _ in
+            refreshContextSelection(boundary: .daypartBoundary)
+            daypartTransitionTrigger &+= 1
+        }
         .onChange(of: voiceOverEnabled, initial: true) { _, enabled in
             store.setContextFrozen(enabled, reason: "voiceover-focus")
         }
@@ -1021,9 +1033,20 @@ struct LifeBoardAdaptiveHome: View {
         return care + mustDo + routines
     }
 
+    /// A section heading carries the section's *state*, not an explanation of
+    /// itself.
+    ///
+    /// This previously took a mandatory `detail:` string, so every section was
+    /// structurally required to have a subtitle. Home opened with "A small,
+    /// explainable view of what matters next.", "The signals that are useful
+    /// right now." and "Your cards stay exactly where you put them." — three
+    /// lines that described the interface to the person already looking at it,
+    /// and together cost roughly a quarter of the first viewport. `state` is
+    /// now optional and reserved for information the user cannot see at a
+    /// glance: a count, a time, a number needing attention.
     private func homeSectionHeading(
         _ title: String,
-        detail: String,
+        state: String? = nil,
         palette: LifeBoardDaypartPalette,
         usesInverseInk: Bool = false
     ) -> some View {
@@ -1031,17 +1054,30 @@ struct LifeBoardAdaptiveHome: View {
             ? Color.lifeboard(.textInverse)
             : palette.color(for: .foreground)
         let secondary = usesInverseInk
-            ? Color(lifeboardHex: "#E8E1D8")
+            ? Color.lifeboard(.textInverse).opacity(0.78)
             : palette.color(for: .foregroundSecondary)
-        return VStack(alignment: .leading, spacing: 3) {
+        return HStack(alignment: .firstTextBaseline, spacing: 8) {
             Text(title)
-                .font(.system(.title3, design: .rounded, weight: .semibold))
+                .font(LifeBoardFoundationTypography.sectionTitle())
                 .foregroundStyle(primary)
-            Text(detail)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(secondary)
+            if let state {
+                Text(state)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
+    }
+
+    /// Says how many things are actually asking for attention, which the user
+    /// cannot count at a glance once the list is longer than one.
+    private var nowSectionState: String? {
+        let count = store.contextSelection.candidates.count
+        guard count > 1 else { return nil }
+        return "\(count) need attention"
     }
 
     @ViewBuilder
@@ -1049,7 +1085,7 @@ struct LifeBoardAdaptiveHome: View {
         VStack(alignment: .leading, spacing: 12) {
             homeSectionHeading(
                 "Now",
-                detail: "A small, explainable view of what matters next.",
+                state: nowSectionState,
                 palette: palette,
                 usesInverseInk: atmosphereSnapshot.phase == .night
             )
@@ -1192,8 +1228,8 @@ struct LifeBoardAdaptiveHome: View {
     private func todayStorySection(palette: LifeBoardDaypartPalette) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             homeSectionHeading(
-                "Today Story",
-                detail: "The small moments that are shaping your day.",
+                "Today",
+                state: todayStoryItems.isEmpty ? nil : "\(todayStoryItems.count) moments",
                 palette: palette
             )
             VStack(spacing: 0) {
@@ -1436,6 +1472,22 @@ struct LifeBoardAdaptiveHome: View {
                         .accessibilityLabel("Customize Home")
                         .accessibilityIdentifier("home.customize")
                     }
+
+                    // Settings previously had no entry point anywhere in the
+                    // Life OS shell — the route existed but only a
+                    // `lifeboard://settings` deep link ever pushed it, so
+                    // notifications, quiet hours, calendar and Life Management
+                    // were unreachable in normal use.
+                    Button {
+                        router.push(.settings, in: .home)
+                    } label: {
+                        Image(systemName: "gearshape")
+                            .font(.title3.weight(.medium))
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Settings")
+                    .accessibilityIdentifier("home.settings")
                 }
             }
 
@@ -2253,6 +2305,29 @@ struct LifeBoardAdaptiveHome: View {
         .lifeBoardRaisedClayCard(palette: palette)
     }
 
+    private func journalCaptureButton(palette: LifeBoardDaypartPalette) -> some View {
+        Button {
+            captureRouter.request(kind: .journal, source: .widget)
+        } label: {
+            Label(projectionAdapter.snapshot.hasReflection ? "Add entry" : "Write", systemImage: "square.and.pencil")
+                .lineLimit(1)
+        }
+        .buttonStyle(LifeBoardPrimaryActionStyle(fill: palette.color(for: .foreground)))
+        .accessibilityIdentifier("home.journal.capture")
+    }
+
+    private func journalSearchButton() -> some View {
+        Button {
+            router.navigate(.journalSearch, in: .home)
+        } label: {
+            Label("Search", systemImage: "magnifyingglass")
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.bordered)
+        .accessibilityIdentifier("home.journal.search")
+    }
+
     private func journalWidget(palette: LifeBoardDaypartPalette) -> some View {
         VStack(alignment: .leading, spacing: 13) {
             widgetTitle("Journal", symbol: "book.closed", palette: palette)
@@ -2263,25 +2338,20 @@ struct LifeBoardAdaptiveHome: View {
                 .font(.subheadline)
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 10) {
-                Button {
-                    captureRouter.request(kind: .journal, source: .widget)
-                } label: {
-                    Label(projectionAdapter.snapshot.hasReflection ? "Add entry" : "Write", systemImage: "square.and.pencil")
-                        .frame(maxWidth: .infinity, minHeight: 44)
+            // In a half-width card these two buttons get about 63pt each, which
+            // is narrower than "Search" plus its symbol. Laid out in a fixed
+            // HStack the labels wrapped to one character per line and the
+            // buttons grew to ~350pt tall. `ViewThatFits` keeps the side-by-side
+            // arrangement wherever it genuinely fits and stacks otherwise.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    journalCaptureButton(palette: palette)
+                    journalSearchButton()
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(palette.color(for: .foreground))
-                .accessibilityIdentifier("home.journal.capture")
-
-                Button {
-                    router.navigate(.journalSearch, in: .home)
-                } label: {
-                    Label("Search", systemImage: "magnifyingglass")
-                        .frame(maxWidth: .infinity, minHeight: 44)
+                VStack(spacing: 8) {
+                    journalCaptureButton(palette: palette)
+                    journalSearchButton()
                 }
-                .buttonStyle(.bordered)
-                .accessibilityIdentifier("home.journal.search")
             }
             Button {
                 let week = Calendar.current.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
@@ -2303,6 +2373,15 @@ struct LifeBoardAdaptiveHome: View {
         .lifeBoardRaisedClayCard(palette: palette)
     }
 
+    @ViewBuilder
+    private var progressMetricLabels: some View {
+        Label("\(projectionAdapter.snapshot.openTaskCount) open", systemImage: "checklist")
+            .lineLimit(1)
+        Spacer(minLength: 0)
+        Label("\(projectionAdapter.snapshot.streakDays) day continuity", systemImage: "sparkles")
+            .lineLimit(1)
+    }
+
     private func progressWidget(palette: LifeBoardDaypartPalette) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             widgetTitle(router.dashboardMode == .lowEnergy ? "Continuity" : "Progress", symbol: "chart.line.uptrend.xyaxis", palette: palette)
@@ -2311,10 +2390,15 @@ struct LifeBoardAdaptiveHome: View {
                 .tint(palette.color(for: .celestialCore))
                 .accessibilityLabel("Today’s progress")
                 .accessibilityValue(projectionAdapter.snapshot.completionRate.formatted(.percent))
-            HStack {
-                Label("\(projectionAdapter.snapshot.openTaskCount) open", systemImage: "checklist")
-                Spacer()
-                Label("\(projectionAdapter.snapshot.streakDays) day continuity", systemImage: "sparkles")
+            // Half-width cards hyphenated "continuity" mid-word. These two
+            // metrics wrap as a unit rather than breaking their own labels.
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    progressMetricLabels
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    progressMetricLabels
+                }
             }
             .font(.caption.weight(.medium))
             Divider().overlay(Color(LifeBoardColorTokens.foundationHairline))
@@ -2383,9 +2467,7 @@ struct LifeBoardAdaptiveHome: View {
                     Button("End fast") {
                         Task { await lifeOSStore.endActiveFast() }
                     }
-                    .buttonStyle(.borderedProminent)
-                    .tint(palette.color(for: .foreground))
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .buttonStyle(LifeBoardPrimaryActionStyle(fill: palette.color(for: .foreground)))
                     Button("Open Track") { router.select(.track) }
                         .buttonStyle(.bordered)
                         .frame(maxWidth: .infinity, minHeight: 44)

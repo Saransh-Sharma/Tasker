@@ -25,6 +25,40 @@ public struct LifeBoardDaypartPalette: Equatable, Sendable {
     public let decorativeHighlight: String
     public let foreground: String
     public let foregroundSecondary: String
+    /// Which daypart this palette expresses, and whether it sits on a dark
+    /// canvas. Surfaces used to infer this by string-comparing `canvas`
+    /// against the night palette, which silently broke the moment a second
+    /// dark palette existed.
+    public let daypart: ResolvedDaypart
+    public let isNocturnal: Bool
+
+    public init(
+        canvas: String,
+        canvasSecondary: String,
+        celestialPrimary: String,
+        celestialCore: String,
+        layerOne: String,
+        layerTwo: String,
+        coolMist: String,
+        decorativeHighlight: String,
+        foreground: String,
+        foregroundSecondary: String,
+        daypart: ResolvedDaypart = .afternoon,
+        isNocturnal: Bool = false
+    ) {
+        self.canvas = canvas
+        self.canvasSecondary = canvasSecondary
+        self.celestialPrimary = celestialPrimary
+        self.celestialCore = celestialCore
+        self.layerOne = layerOne
+        self.layerTwo = layerTwo
+        self.coolMist = coolMist
+        self.decorativeHighlight = decorativeHighlight
+        self.foreground = foreground
+        self.foregroundSecondary = foregroundSecondary
+        self.daypart = daypart
+        self.isNocturnal = isNocturnal
+    }
 
     public func hex(for role: LifeBoardDaypartColorRole) -> String {
         switch role {
@@ -51,43 +85,58 @@ public struct LifeBoardDaypartPalette: Equatable, Sendable {
 }
 
 public enum LifeBoardDaypartTokens {
+    // MARK: Light appearance
+    //
+    // The four dayparts must be recognisably different screens. Morning and
+    // afternoon previously shared an identical canvas, canvasSecondary,
+    // layerOne, coolMist and highlight — they differed only in `celestialCore`,
+    // so the adaptive-daypart promise never actually rendered. Morning is now
+    // high-key and dewy, afternoon is deeper and more saturated, and evening
+    // moves into terracotta and dusty rose.
+
+    /// Pale, fresh, high-key. The screen has not warmed up yet.
     public static let morning = LifeBoardDaypartPalette(
-        canvas: "#FFF7D8",
-        canvasSecondary: "#FAF2DA",
-        celestialPrimary: "#F0CD87",
-        celestialCore: "#F4D277",
-        layerOne: "#E7BB7E",
-        layerTwo: "#F5EBCB",
-        coolMist: "#C9C6BA",
-        decorativeHighlight: "#FFFDF7",
+        canvas: "#FFF9E4",
+        canvasSecondary: "#FDF4DC",
+        celestialPrimary: "#F7D98E",
+        celestialCore: "#FAE3A4",
+        layerOne: "#FBE3B0",
+        layerTwo: "#FFF3D2",
+        coolMist: "#CFD8CE",
+        decorativeHighlight: "#FFFEFA",
         foreground: "#2B2118",
-        foregroundSecondary: "#746757"
+        foregroundSecondary: "#6F6252",
+        daypart: .morning
     )
 
+    /// Deeper, more saturated gold — the day at full strength.
     public static let afternoon = LifeBoardDaypartPalette(
-        canvas: "#FFF7D8",
-        canvasSecondary: "#FAF2DA",
-        celestialPrimary: "#F0CD87",
-        celestialCore: "#F3C966",
-        layerOne: "#E7BB7E",
-        layerTwo: "#F2E7C2",
-        coolMist: "#C9C6BA",
-        decorativeHighlight: "#FFFDF7",
+        canvas: "#FFF2C9",
+        canvasSecondary: "#FAEBBE",
+        celestialPrimary: "#F3C45F",
+        celestialCore: "#F0B944",
+        layerOne: "#EDBA72",
+        layerTwo: "#F8E6B6",
+        coolMist: "#C3C9C0",
+        decorativeHighlight: "#FFFDF4",
         foreground: "#2B2118",
-        foregroundSecondary: "#746757"
+        foregroundSecondary: "#6F6252",
+        daypart: .afternoon
     )
 
+    /// Terracotta and dusty rose as the light goes long.
     public static let evening = LifeBoardDaypartPalette(
-        canvas: "#FAF2DA",
-        canvasSecondary: "#F5ECC9",
-        celestialPrimary: "#EFAF63",
-        celestialCore: "#E69A58",
-        layerOne: "#E9B08F",
-        layerTwo: "#C98F8D",
-        coolMist: "#9D92A8",
-        decorativeHighlight: "#F8D7BC",
+        canvas: "#FBEBD6",
+        canvasSecondary: "#F6E0C8",
+        celestialPrimary: "#EFA95E",
+        celestialCore: "#E68F4E",
+        layerOne: "#E8A98C",
+        layerTwo: "#D89A94",
+        coolMist: "#A294A8",
+        decorativeHighlight: "#F9D9BE",
         foreground: "#2B2118",
-        foregroundSecondary: "#746757"
+        foregroundSecondary: "#6F6252",
+        daypart: .evening
     )
 
     public static let night = LifeBoardDaypartPalette(
@@ -100,14 +149,79 @@ public enum LifeBoardDaypartTokens {
         coolMist: "#607C7A",
         decorativeHighlight: "#D8BD7A",
         foreground: "#F7F1E7",
-        foregroundSecondary: "#C9C3B8"
+        foregroundSecondary: "#C9C3B8",
+        daypart: .night,
+        isNocturnal: true
     )
 
+    // MARK: Dark appearance
+    //
+    // Dark mode used to collapse every daypart onto `night`, so a dark-mode
+    // user got the same screen at 7am and 11pm. These keep the dark canvas
+    // that dark appearance requires while preserving each daypart's mood in
+    // the celestial and layer roles.
+
+    public static let morningDark = LifeBoardDaypartPalette(
+        canvas: "#171D2B",
+        canvasSecondary: "#1F2637",
+        celestialPrimary: "#F2D9A0",
+        celestialCore: "#E8C88A",
+        layerOne: "#2A3348",
+        layerTwo: "#37415A",
+        coolMist: "#4A6B6E",
+        decorativeHighlight: "#C8B78A",
+        foreground: "#F4EBDD",
+        foregroundSecondary: "#C6BBA8",
+        daypart: .morning,
+        isNocturnal: true
+    )
+
+    public static let afternoonDark = LifeBoardDaypartPalette(
+        canvas: "#1A1E28",
+        canvasSecondary: "#232833",
+        celestialPrimary: "#F0CD87",
+        celestialCore: "#E5B972",
+        layerOne: "#33384A",
+        layerTwo: "#424860",
+        coolMist: "#55707A",
+        decorativeHighlight: "#D2BC8C",
+        foreground: "#F4EBDD",
+        foregroundSecondary: "#C6BBA8",
+        daypart: .afternoon,
+        isNocturnal: true
+    )
+
+    public static let eveningDark = LifeBoardDaypartPalette(
+        canvas: "#1E1926",
+        canvasSecondary: "#2A2233",
+        celestialPrimary: "#E8A063",
+        celestialCore: "#D98A5E",
+        layerOne: "#3B2E42",
+        layerTwo: "#4E3B52",
+        coolMist: "#6B5A70",
+        decorativeHighlight: "#D9A87E",
+        foreground: "#F4EBDD",
+        foregroundSecondary: "#C6BBA8",
+        daypart: .evening,
+        isNocturnal: true
+    )
+
+    /// The ambient/art palette for a daypart in light appearance.
     public static func palette(for daypart: ResolvedDaypart) -> LifeBoardDaypartPalette {
         switch daypart {
         case .morning: return morning
         case .afternoon: return afternoon
         case .evening: return evening
+        case .night: return night
+        }
+    }
+
+    /// The ambient/art palette for a daypart in dark appearance.
+    public static func darkPalette(for daypart: ResolvedDaypart) -> LifeBoardDaypartPalette {
+        switch daypart {
+        case .morning: return morningDark
+        case .afternoon: return afternoonDark
+        case .evening: return eveningDark
         case .night: return night
         }
     }
@@ -118,7 +232,8 @@ public enum LifeBoardDaypartTokens {
         for daypart: ResolvedDaypart,
         colorScheme: ColorScheme
     ) -> LifeBoardDaypartPalette {
-        guard daypart == .night, colorScheme == .light else { return palette(for: daypart) }
+        if colorScheme == .dark { return darkPalette(for: daypart) }
+        guard daypart == .night else { return palette(for: daypart) }
         return LifeBoardDaypartPalette(
             canvas: "#FFF7D8",
             canvasSecondary: "#F5ECC9",
@@ -129,7 +244,8 @@ public enum LifeBoardDaypartTokens {
             coolMist: "#B9C9C3",
             decorativeHighlight: night.decorativeHighlight,
             foreground: afternoon.foreground,
-            foregroundSecondary: afternoon.foregroundSecondary
+            foregroundSecondary: afternoon.foregroundSecondary,
+            daypart: .night
         )
     }
 
@@ -137,7 +253,7 @@ public enum LifeBoardDaypartTokens {
         for daypart: ResolvedDaypart,
         colorScheme: ColorScheme
     ) -> LifeBoardDaypartPalette {
-        colorScheme == .dark ? night : appearancePalette(for: daypart, colorScheme: .light)
+        appearancePalette(for: daypart, colorScheme: colorScheme)
     }
 }
 
@@ -161,9 +277,13 @@ public extension LifeBoardColorTokens {
     /// Cocoa ink is the verified foreground for every celestial/daypart accent,
     /// including the pale lunar lavender used by the dark appearance.
     static let foundationOnCelestialAccent = UIColor(lifeboardHex: "#2B2118")
+    // A sunrise gradient rather than the previous peach → pink → lavender ramp,
+    // which was the only cool/violet surface in the product and read as a
+    // different app sitting on the warm canvas. Contrast against
+    // `foundationOnSettingsHero` stays above 10:1 across all three stops.
     static let foundationSettingsHeroStart = UIColor(lifeboardHex: "#F2C6AE")
-    static let foundationSettingsHeroMiddle = UIColor(lifeboardHex: "#E8BFCB")
-    static let foundationSettingsHeroEnd = UIColor(lifeboardHex: "#D8C5DD")
+    static let foundationSettingsHeroMiddle = UIColor(lifeboardHex: "#EFB98F")
+    static let foundationSettingsHeroEnd = UIColor(lifeboardHex: "#E9CE94")
     static let foundationOnSettingsHero = UIColor(lifeboardHex: "#2B2118")
     static let foundationApricotAccent = UIColor(lifeboardHex: "#E7BB7E")
     static let foundationSageAccent = UIColor(lifeboardHex: "#C9C6BA")
@@ -174,7 +294,7 @@ public extension LifeBoardColorTokens {
         UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#F7F1E7" : "#2B2118")
     }
     static let inkSecondary = UIColor { traits in
-        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#C9C3B8" : "#746757")
+        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#C9C3B8" : "#6F6252")
     }
     static let inkTertiary = UIColor { traits in
         UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#A9A39A" : "#8D806E")
@@ -190,8 +310,19 @@ public extension LifeBoardColorTokens {
     static let metricRingFill = UIColor { traits in
         UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#F3E6C8" : "#5A3D1E")
     }
+    /// The resting track behind a real progress arc. Meaning comes from the
+    /// arc, so this stays quiet — but the previous light value (`#F5EBCB`)
+    /// measured 1.10:1 against the warm canvas and was simply invisible.
     static let metricRingTrack = UIColor { traits in
-        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#4D526D" : "#F5EBCB")
+        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#4D526D" : "#D2BE93")
+    }
+
+    /// Used when the track itself carries the message — setup required,
+    /// permission required, unavailable. There is no arc to read, so this must
+    /// clear the 3:1 floor for meaningful non-text UI against every daypart
+    /// canvas in both appearances.
+    static let metricRingTrackProminent = UIColor { traits in
+        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#6E7490" : "#8D806E")
     }
     static let warmMenuGlass = UIColor { traits in
         UIColor(
