@@ -34,6 +34,7 @@ enum AppOnboardingAccessibilityID {
     static let habitCheckIn = "onboarding.habitCheckIn"
     static let calendarPermission = "onboarding.calendarPermission"
     static let notificationPermission = "onboarding.notificationPermission"
+    static let healthPermission = "onboarding.healthPermission"
     static let success = "onboarding.success"
     static let skipButton = "onboarding.skipButton"
     static let nextButton = "onboarding.cta.next"

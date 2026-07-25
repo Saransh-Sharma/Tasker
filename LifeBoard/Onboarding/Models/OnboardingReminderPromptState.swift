@@ -11,3 +11,10 @@ enum OnboardingReminderPromptState: Equatable {
     case prompt
     case openSettings
 }
+
+enum OnboardingHealthPermissionState: Equatable {
+    case ready
+    case requesting
+    case completed
+    case skipped
+}

@@ -28,6 +28,7 @@ enum OnboardingStep: Int, CaseIterable, Codable {
     case workBlockers = 18
     case weeklyOutcomes = 19
     case homeDemo = 20
+    case healthPermission = 21
 
     static let orderedFlow: [OnboardingStep] = [
         .welcome,
@@ -37,6 +38,7 @@ enum OnboardingStep: Int, CaseIterable, Codable {
         .habitSetup,
         .firstTask,
         .homeDemo,
+        .healthPermission,
         .success
     ]
 
@@ -90,6 +92,8 @@ enum OnboardingStep: Int, CaseIterable, Codable {
             return "Calendar"
         case .notificationPermission:
             return "Notifications"
+        case .healthPermission:
+            return "Apple Health"
         case .success:
             return "Ready"
         }
@@ -119,6 +123,8 @@ enum OnboardingStep: Int, CaseIterable, Codable {
             return .onboardingCalendarPermission
         case .notificationPermission:
             return .onboardingNotificationPermission
+        case .healthPermission:
+            return .onboardingCaptureSetup
         case .success:
             return .onboardingSuccess
         case .blocker:
@@ -163,6 +169,8 @@ enum OnboardingStep: Int, CaseIterable, Codable {
             return "Create first task"
         case .homeDemo:
             return "Preview Home"
+        case .healthPermission:
+            return "Connect Apple Health"
         case .success:
             return "Setup complete"
         case .pain, .blocker, .projects, .habits, .streakPreview, .evaStyle, .workBlockers, .weeklyOutcomes, .processing, .focusRoom, .habitCheckIn, .calendarPermission, .notificationPermission:
@@ -186,6 +194,8 @@ enum OnboardingStep: Int, CaseIterable, Codable {
             return "Choose or create a task for today."
         case .homeDemo:
             return "Review the Home preview or continue when ready."
+        case .healthPermission:
+            return "Connect selected writable health domains, or skip and connect later."
         case .success:
             return "Go to Home."
         case .pain, .blocker, .projects, .habits, .streakPreview, .evaStyle, .workBlockers, .weeklyOutcomes, .processing, .focusRoom, .habitCheckIn, .calendarPermission, .notificationPermission:

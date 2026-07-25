@@ -90,7 +90,7 @@ extension OnboardingFlowModel {
         errorMessage = nil
         if step == .success {
             successSummary = nil
-            step = .homeDemo
+            step = .healthPermission
             persistJourney()
             return
         }

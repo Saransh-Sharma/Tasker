@@ -49,6 +49,8 @@ struct OnboardingStepVisualTheme: Equatable {
             return sunriseTheme(id: "calendar", backdrop: "#F4F0FF", backdropDark: "#161222", accent: "#5230F3")
         case .notificationPermission:
             return sunriseTheme(id: "notifications", backdrop: "#FFF7DF", backdropDark: "#1E1A0E", accent: "#D88900")
+        case .healthPermission:
+            return sunriseTheme(id: "health", backdrop: "#FFF0F2", backdropDark: "#211215", accent: "#D63B52")
         case .success:
             return sunriseTheme(id: "success", backdrop: "#EFF9EC", backdropDark: "#101A12", accent: "#15952B")
         case .blocker, .projects, .habits:

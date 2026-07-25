@@ -116,6 +116,8 @@ final class OnboardingFlowModel: ObservableObject {
 
     @Published var reminderPromptState: OnboardingReminderPromptState = .hidden
 
+    @Published var healthPermissionState: OnboardingHealthPermissionState = .ready
+
     @Published var isWorking = false
 
     @Published var errorMessage: String?

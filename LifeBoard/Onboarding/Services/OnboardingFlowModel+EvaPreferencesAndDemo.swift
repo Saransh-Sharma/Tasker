@@ -296,6 +296,22 @@ extension OnboardingFlowModel {
             successSummary = buildSummary(completedTask: task)
         }
         reminderPromptState = .hidden
+        healthPermissionState = .ready
+        step = .healthPermission
+        errorMessage = nil
+        persistJourney()
+    }
+
+    func continueFromHealthPermission(connect: Bool) async {
+        if connect {
+            healthPermissionState = .requesting
+            await LifeBoardHealthRuntime.shared.connectionStore.connect(
+                domains: [.hydration, .nutrition, .body, .workouts]
+            )
+            healthPermissionState = .completed
+        } else {
+            healthPermissionState = .skipped
+        }
         step = .success
         errorMessage = nil
         persistJourney()

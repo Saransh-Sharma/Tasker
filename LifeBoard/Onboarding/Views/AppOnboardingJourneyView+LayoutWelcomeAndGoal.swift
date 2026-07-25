@@ -358,6 +358,8 @@ extension AppOnboardingJourneyView {
             calendarPermissionStep
         case .notificationPermission:
             notificationPermissionStep
+        case .healthPermission:
+            healthPermissionStep
         case .success:
             EmptyView()
         }

@@ -178,6 +178,17 @@ extension AppOnboardingJourneyView {
                 feedbackController.medium()
                 Task { await viewModel.continueFromNotificationPermission() }
             }
+        case .healthPermission:
+            return OnboardingFloatingNextAction(
+                title: "Connect Apple Health",
+                systemImage: "heart.text.clipboard.fill",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.nextButton,
+                disabled: viewModel.healthPermissionState == .requesting,
+                showsProgress: viewModel.healthPermissionState == .requesting
+            ) {
+                feedbackController.medium()
+                Task { await viewModel.continueFromHealthPermission(connect: true) }
+            }
         case .success:
             guard viewModel.successSummary != nil else { return nil }
             return OnboardingFloatingNextAction(

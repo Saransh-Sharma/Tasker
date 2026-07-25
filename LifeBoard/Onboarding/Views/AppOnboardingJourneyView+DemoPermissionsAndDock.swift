@@ -162,6 +162,40 @@ extension AppOnboardingJourneyView {
         }
     }
 
+    var healthPermissionStep: some View {
+        VStack(alignment: .center, spacing: spacing.sectionGap) {
+            OnboardingSectionHeader(
+                title: "Keep your health picture together",
+                subtitle: "LifeBoard can read Apple Health and sync only the new records you log after connecting."
+            )
+            .accessibilityIdentifier(AppOnboardingAccessibilityID.healthPermission)
+            .multilineTextAlignment(.center)
+
+            OnboardingPermissionHeroIcon(
+                systemName: "heart.text.clipboard.fill",
+                primaryColor: Color.red,
+                secondaryColor: OnboardingTheme.accent,
+                accessibilityLabel: "Apple Health connection",
+                accessibilityIdentifier: AppOnboardingAccessibilityID.healthPermission
+            )
+
+            OnboardingSelectionSummaryCard(
+                title: "Private by design",
+                message: "Wellness records stay on this device. Apple Health imports are source-labelled and never replace a record you entered yourself.",
+                mascotPlacement: .onboardingCaptureSetup
+            )
+
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                Label("Write new water, meals, body metrics, and workouts", systemImage: "arrow.up.heart")
+                Label("Read activity, energy, sleep, and external health entries", systemImage: "arrow.down.heart")
+                Label("Change each write toggle later in Settings", systemImage: "switch.2")
+            }
+            .lifeboardFont(.caption1)
+            .foregroundStyle(OnboardingTheme.textSecondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
     func successView(summary: AppOnboardingSummary) -> some View {
         VStack(alignment: .leading, spacing: spacing.sectionGap) {
             OnboardingSuccessHero()
@@ -359,6 +393,12 @@ extension AppOnboardingJourneyView {
             Button("Skip for now") {
                 feedbackController.light()
                 Task { await viewModel.continueFromNotificationPermission(skipped: true) }
+            }
+            .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
+        case .healthPermission:
+            Button("Not now") {
+                feedbackController.light()
+                Task { await viewModel.continueFromHealthPermission(connect: false) }
             }
             .onboardingSecondaryButtonStyle(accent: OnboardingTheme.accent)
         case .success where viewModel.evaPreparationState.isReady:
