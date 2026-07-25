@@ -565,4 +565,98 @@ final class HabitBoardPresentationBuilderTests: XCTestCase {
         calendar.locale = Locale(identifier: "en_US_POSIX")
         return calendar
     }
+
+    // MARK: - Benji-parity lens grouping
+
+    func testDaypartBucketMapsReminderStartHonestly() {
+        XCTAssertEqual(HabitDaypartBucket.bucket(forReminderStart: nil), .anytime)
+        XCTAssertEqual(HabitDaypartBucket.bucket(forReminderStart: "not-a-time"), .anytime)
+        XCTAssertEqual(HabitDaypartBucket.bucket(forReminderStart: "06:30"), .morning)
+        XCTAssertEqual(HabitDaypartBucket.bucket(forReminderStart: "11:59"), .morning)
+        XCTAssertEqual(HabitDaypartBucket.bucket(forReminderStart: "12:00"), .afternoon)
+        XCTAssertEqual(HabitDaypartBucket.bucket(forReminderStart: "16:45"), .afternoon)
+        XCTAssertEqual(HabitDaypartBucket.bucket(forReminderStart: "17:00"), .evening)
+        XCTAssertEqual(HabitDaypartBucket.bucket(forReminderStart: "23:15"), .evening)
+    }
+
+    func testGroupedSectionsPartitionByTimeOfDayInDaypartOrder() {
+        let morning = makePresentation("Stretch")
+        let afternoon = makePresentation("Walk")
+        let anytime = makePresentation("Read")
+        let library: [UUID: HabitLibraryRow] = [
+            morning.habitID: makeLibraryRow(id: morning.habitID, reminderStart: "07:00", lifeArea: "Health"),
+            afternoon.habitID: makeLibraryRow(id: afternoon.habitID, reminderStart: "14:00", lifeArea: "Health"),
+            anytime.habitID: makeLibraryRow(id: anytime.habitID, reminderStart: nil, lifeArea: "Mind"),
+        ]
+
+        let sections = HabitBoardGroupedSection.build(
+            rows: [morning, afternoon, anytime],
+            grouping: .timeOfDay,
+            libraryRow: { library[$0] }
+        )
+
+        XCTAssertEqual(sections.map(\.title), ["Any time", "Morning", "Afternoon"])
+        XCTAssertEqual(sections.first(where: { $0.title == "Morning" })?.rows.map(\.title), ["Stretch"])
+        XCTAssertEqual(sections.first(where: { $0.title == "Any time" })?.rows.map(\.title), ["Read"])
+    }
+
+    func testGroupedSectionsPartitionByListPreserveFirstSeenOrder() {
+        let health = makePresentation("Stretch")
+        let mind = makePresentation("Read")
+        let healthTwo = makePresentation("Walk")
+        let library: [UUID: HabitLibraryRow] = [
+            health.habitID: makeLibraryRow(id: health.habitID, reminderStart: "07:00", lifeArea: "Health"),
+            mind.habitID: makeLibraryRow(id: mind.habitID, reminderStart: "07:00", lifeArea: "Mind"),
+            healthTwo.habitID: makeLibraryRow(id: healthTwo.habitID, reminderStart: "07:00", lifeArea: "Health"),
+        ]
+
+        let sections = HabitBoardGroupedSection.build(
+            rows: [health, mind, healthTwo],
+            grouping: .list,
+            libraryRow: { library[$0] }
+        )
+
+        XCTAssertEqual(sections.map(\.title), ["Health", "Mind"])
+        XCTAssertEqual(sections.first?.rows.map(\.title), ["Stretch", "Walk"])
+    }
+
+    func testGroupedSectionsNoneReturnsSingleSection() {
+        let rows = [makePresentation("Stretch"), makePresentation("Read")]
+        let sections = HabitBoardGroupedSection.build(rows: rows, grouping: .none, libraryRow: { _ in nil })
+
+        XCTAssertEqual(sections.count, 1)
+        XCTAssertEqual(sections.first?.rows.count, 2)
+        XCTAssertNil(sections.first?.symbolName)
+    }
+
+    private func makePresentation(_ title: String) -> HabitBoardRowPresentation {
+        let cells = [makeCell("2026-04-05", .done(depth: 1), isToday: true)]
+        return HabitBoardRowPresentation(
+            habitID: UUID(),
+            title: title,
+            iconSymbolName: "circle",
+            accentHex: "#4E9A2F",
+            colorFamily: .green,
+            currentStreak: 1,
+            bestStreak: 1,
+            cells: cells,
+            metrics: HabitBoardPresentationBuilder.metrics(for: cells)
+        )
+    }
+
+    private func makeLibraryRow(id: UUID, reminderStart: String?, lifeArea: String) -> HabitLibraryRow {
+        HabitLibraryRow(
+            habitID: id,
+            title: "row",
+            kind: .positive,
+            trackingMode: .dailyCheckIn,
+            lifeAreaID: UUID(),
+            lifeAreaName: lifeArea,
+            isPaused: false,
+            isArchived: false,
+            currentStreak: 0,
+            bestStreak: 0,
+            reminderWindowStart: reminderStart
+        )
+    }
 }

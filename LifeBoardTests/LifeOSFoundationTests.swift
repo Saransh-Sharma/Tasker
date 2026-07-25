@@ -95,9 +95,15 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(light.foreground, "#2B2118")
         XCTAssertEqual(light.celestialCore, LifeBoardDaypartTokens.night.celestialCore)
 
+        // Dark appearance must still express the *current* daypart. This
+        // previously asserted that morning-in-dark resolved to the night
+        // palette, which is precisely why a dark-mode user saw the same screen
+        // at 7am and 11pm.
         let dark = LifeBoardDaypartTokens.functionalPalette(for: .morning, colorScheme: .dark)
-        XCTAssertEqual(dark.canvas, LifeBoardDaypartTokens.night.canvas)
-        XCTAssertEqual(dark.foreground, LifeBoardDaypartTokens.night.foreground)
+        XCTAssertEqual(dark.canvas, LifeBoardDaypartTokens.morningDark.canvas)
+        XCTAssertNotEqual(dark.canvas, LifeBoardDaypartTokens.night.canvas)
+        XCTAssertTrue(dark.isNocturnal, "A dark-appearance palette must report itself as nocturnal")
+        XCTAssertEqual(dark.daypart, .morning)
     }
 
     func testAutomaticDaypartBoundaries() throws {
@@ -115,13 +121,54 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testApprovedScreenshotSwatchesRemainExact() {
-        XCTAssertEqual(LifeBoardDaypartTokens.morning.canvas, "#FFF7D8")
-        XCTAssertEqual(LifeBoardDaypartTokens.morning.celestialPrimary, "#F0CD87")
-        XCTAssertEqual(LifeBoardDaypartTokens.afternoon.canvas, "#FFF7D8")
-        XCTAssertEqual(LifeBoardDaypartTokens.afternoon.celestialPrimary, "#F0CD87")
+        XCTAssertEqual(LifeBoardDaypartTokens.morning.canvas, "#FFF9E4")
+        XCTAssertEqual(LifeBoardDaypartTokens.morning.celestialPrimary, "#F7D98E")
+        XCTAssertEqual(LifeBoardDaypartTokens.afternoon.canvas, "#FFF2C9")
+        XCTAssertEqual(LifeBoardDaypartTokens.afternoon.celestialPrimary, "#F3C45F")
         XCTAssertEqual(LifeBoardDaypartTokens.evening.foreground, "#2B2118")
         XCTAssertEqual(LifeBoardDaypartTokens.night.canvas, "#151B2D")
         XCTAssertEqual(LifeBoardDaypartTokens.night.foreground, "#F7F1E7")
+    }
+
+    /// The adaptive-daypart promise is that the screen is recognisably
+    /// different at different times. Morning and afternoon previously shared an
+    /// identical canvas, canvasSecondary, layerOne, coolMist and highlight and
+    /// differed only in `celestialCore`, which the swatch test above happily
+    /// locked in place. This asserts the property that actually matters, so a
+    /// regression back to a single shared canvas fails loudly.
+    func testLightDaypartsAreVisuallyDistinct() {
+        let canvases = ResolvedDaypart.allCases.map { LifeBoardDaypartTokens.palette(for: $0).canvas }
+        XCTAssertEqual(Set(canvases).count, ResolvedDaypart.allCases.count,
+                       "Every daypart needs its own canvas")
+
+        let celestials = ResolvedDaypart.allCases.map { LifeBoardDaypartTokens.palette(for: $0).celestialPrimary }
+        XCTAssertEqual(Set(celestials).count, ResolvedDaypart.allCases.count,
+                       "Every daypart needs its own celestial colour")
+    }
+
+    /// The dark compositions must be distinct from each other too, and every
+    /// one of them must actually be dark.
+    func testDarkDaypartsAreDistinctAndDark() throws {
+        let canvases = ResolvedDaypart.allCases.map { LifeBoardDaypartTokens.darkPalette(for: $0).canvas }
+        XCTAssertEqual(Set(canvases).count, ResolvedDaypart.allCases.count,
+                       "Every daypart needs its own dark canvas")
+
+        for daypart in ResolvedDaypart.allCases {
+            let palette = LifeBoardDaypartTokens.darkPalette(for: daypart)
+            let canvas = try rgbComponents(from: palette.canvas)
+            XCTAssertLessThan(relativeLuminance(canvas), 0.04,
+                              "\(daypart.rawValue) dark canvas must be genuinely dark")
+            XCTAssertGreaterThanOrEqual(
+                contrastRatio(try rgbComponents(from: palette.foreground), canvas),
+                4.5,
+                "Primary text must stay readable on the \(daypart.rawValue) dark canvas"
+            )
+            XCTAssertGreaterThanOrEqual(
+                contrastRatio(try rgbComponents(from: palette.foregroundSecondary), canvas),
+                4.5,
+                "Secondary text must stay readable on the \(daypart.rawValue) dark canvas"
+            )
+        }
     }
 
     func testEveryDaypartDefinesEverySemanticRole() {

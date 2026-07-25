@@ -91,16 +91,17 @@ final class AppOnboardingTests: XCTestCase {
     func testOnboardingStepOrderUsesExplicitReorderedFlow() {
         XCTAssertEqual(
             OnboardingStep.orderedFlow,
-            [.welcome, .goal, .lifeAreas, .evaValue, .habitSetup, .firstTask, .homeDemo, .success]
+            [.welcome, .goal, .lifeAreas, .evaValue, .habitSetup, .firstTask, .homeDemo, .healthPermission, .success]
         )
     }
 
     func testOnboardingProgressUsesOrderedFlowAsSingleSource() {
-        XCTAssertEqual(OnboardingProgress(step: .welcome)?.label, "Step 1 of 8")
-        XCTAssertEqual(OnboardingProgress(step: .goal)?.label, "Step 2 of 8")
-        XCTAssertEqual(OnboardingProgress(step: .success)?.label, "Step 8 of 8")
-        XCTAssertEqual(OnboardingStep.goal.accessibilitySummary, "Choose goal. Step 2 of 8. Select one goal to continue.")
-        XCTAssertEqual(OnboardingStep.success.accessibilitySummary, "Setup complete. Step 8 of 8. Go to Home.")
+        XCTAssertEqual(OnboardingProgress(step: .welcome)?.label, "Step 1 of 9")
+        XCTAssertEqual(OnboardingProgress(step: .goal)?.label, "Step 2 of 9")
+        XCTAssertEqual(OnboardingProgress(step: .healthPermission)?.label, "Step 8 of 9")
+        XCTAssertEqual(OnboardingProgress(step: .success)?.label, "Step 9 of 9")
+        XCTAssertEqual(OnboardingStep.goal.accessibilitySummary, "Choose goal. Step 2 of 9. Select one goal to continue.")
+        XCTAssertEqual(OnboardingStep.success.accessibilitySummary, "Setup complete. Step 9 of 9. Go to Home.")
     }
 
     func testLegacyOnboardingStepsNormalizeBeforeRendering() {
@@ -1005,11 +1006,11 @@ final class AppOnboardingTests: XCTestCase {
 
         viewModel.continueFromHomeDemo()
 
-        XCTAssertEqual(viewModel.step, .success)
+        XCTAssertEqual(viewModel.step, .healthPermission)
         XCTAssertFalse(viewModel.didCompleteHomeDemoTask)
         XCTAssertFalse(viewModel.didCompleteHomeDemoHabit)
         XCTAssertFalse(viewModel.createdTasks.first?.isComplete ?? true)
-        XCTAssertEqual(context.store.load().journeySnapshot?.step, .success)
+        XCTAssertEqual(context.store.load().journeySnapshot?.step, .healthPermission)
     }
 
     @MainActor
@@ -1022,10 +1023,25 @@ final class AppOnboardingTests: XCTestCase {
         viewModel.markHomeDemoTaskDone()
         viewModel.continueFromHomeDemo()
 
-        XCTAssertEqual(viewModel.step, .success)
+        XCTAssertEqual(viewModel.step, .healthPermission)
         XCTAssertTrue(viewModel.didCompleteHomeDemoTask)
         XCTAssertTrue(viewModel.createdTasks.first?.isComplete ?? false)
         XCTAssertEqual(viewModel.successSummary?.completedTaskTitle, "Open the draft and write 3 lines")
+    }
+
+    @MainActor
+    func testHealthPermissionSkipAdvancesToSuccessWithoutChangingOnboardingVersion() async {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+        let viewModel = makeHomeDemoViewModel(stateStore: context.store)
+        viewModel.continueFromHomeDemo()
+
+        await viewModel.continueFromHealthPermission(connect: false)
+
+        XCTAssertEqual(viewModel.healthPermissionState, .skipped)
+        XCTAssertEqual(viewModel.step, .success)
+        XCTAssertEqual(AppOnboardingState.currentVersion, 2)
+        XCTAssertEqual(OnboardingStep.healthPermission.rawValue, 21)
     }
 
     @MainActor

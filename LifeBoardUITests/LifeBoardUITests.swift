@@ -605,6 +605,10 @@ class LifeBoardUITests: XCTestCase {
         let keep = app.buttons["home.rescue.action.keepToday"]
         XCTAssertTrue(keep.waitForExistence(timeout: 8))
         XCTAssertEqual(keep.label, "Keep today")
+        XCTAssertTrue(keep.isHittable, "Keep must remain above the app chrome.")
+        XCTAssertTrue(app.buttons["home.rescue.action.moveLater"].isHittable)
+        XCTAssertTrue(app.buttons["home.rescue.action.Edit"].isHittable)
+        XCTAssertTrue(app.buttons["home.rescue.action.Delete"].isHittable)
         keep.tap()
         XCTAssertTrue(
             app.staticTexts["Rescue middle"].waitForExistence(timeout: 12),
@@ -613,7 +617,8 @@ class LifeBoardUITests: XCTestCase {
 
         let close = app.buttons["home.rescue.close"]
         XCTAssertTrue(close.waitForExistence(timeout: 8))
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.06, dy: 0.045)).tap()
+        XCTAssertTrue(close.isHittable, "Close must sit inside the top safe area.")
+        close.tap()
         XCTAssertTrue(
             waitForElementToDisappear(app.descendants(matching: .any)["home.rescue.sheet"], timeout: 8),
             "Closing rescue should return to the existing Plan context."

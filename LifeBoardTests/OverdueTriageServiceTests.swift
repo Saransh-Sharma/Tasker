@@ -566,6 +566,28 @@ final class OverdueRescueDeckTests: XCTestCase {
         XCTAssertLessThanOrEqual(moveFrame.maxX, metrics.containerSize.width - 20)
     }
 
+    func testTallIPhoneStillUsesCompactRescueComposition() {
+        let metrics = OverdueRescueDeckLayoutMetrics.make(
+            size: CGSize(width: 430, height: 932),
+            bottomInset: 0,
+            dynamicTypeSize: .large
+        )
+
+        XCTAssertTrue(metrics.isCompactHeight)
+        XCTAssertEqual(metrics.actionButtonHeight, 62)
+        XCTAssertEqual(metrics.bottomClearance, 24)
+    }
+
+    func testEmbeddedRescueRetainsMeasuredChromeClearance() {
+        let metrics = OverdueRescueDeckLayoutMetrics.make(
+            size: CGSize(width: 393, height: 852),
+            bottomInset: 132,
+            dynamicTypeSize: .large
+        )
+
+        XCTAssertEqual(metrics.bottomClearance, 150)
+    }
+
     func testDragResolverRightDragBelowThresholdRevealsKeepWithoutCommit() {
         let result = OverdueRescueDragResolver.resolve(
             translation: CGSize(width: 54, height: 8),
