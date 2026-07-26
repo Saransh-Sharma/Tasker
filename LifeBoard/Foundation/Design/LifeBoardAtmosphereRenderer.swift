@@ -135,6 +135,14 @@ public struct LifeBoardAtmosphereDescriptor: Equatable, Sendable {
     /// every phase. Morning previously anchored at x 0.52 with the largest
     /// scale in the set, which put a full-strength sun directly behind the
     /// greeting and the date line. Keeping the celestial off the leading
+    /// Whether content resting directly on this phase's scene needs light ink.
+    /// Exposed on the phase so headers and overlays can ask without building a
+    /// whole descriptor, and so there is one answer rather than each surface
+    /// re-deciding with its own `phase == .night` check.
+    public static func usesInverseHeaderInk(for phase: LifeBoardCelestialPhase) -> Bool {
+        descriptor(for: phase).usesInverseHeaderInk
+    }
+
     /// reading column preserves the calm negative-space field the design
     /// contract asks for, and lets each phase differ by mood rather than by
     /// how much text it obscures.
@@ -265,7 +273,8 @@ public enum LifeBoardAtmospherePlacement: String, CaseIterable, Hashable, Sendab
     /// not the subject.
     var celestialScaleMultiplier: Double {
         switch self {
-        case .home, .onboarding, .focusedPresentation: return 1
+        case .home: return 0.76
+        case .onboarding, .focusedPresentation: return 1
         case .plan, .track, .insights, .eva: return 0.78
         }
     }
@@ -377,6 +386,18 @@ public struct LifeBoardAdaptiveAtmosphere: View {
             ZStack {
                 Color(lifeboardHex: descriptor.fallbackHex)
 
+                // At regular width the crisp artwork stays capped at a portrait
+                // band so it is never stretched. On its own that left a hard
+                // vertical seam against the flat canvas — a bright stripe down
+                // the middle of iPad. A full-bleed, heavily blurred copy of the
+                // same art sits underneath so the band's edges dissolve into
+                // colour that belongs to the scene.
+                if layout.width < proxy.size.width - 1 {
+                    scenicBed(descriptor: descriptor)
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                }
+
                 scenicPlane(descriptor: descriptor, layout: layout)
                     .frame(width: layout.width, height: proxy.size.height)
                     .position(x: layout.midX, y: proxy.size.height / 2)
@@ -420,6 +441,20 @@ public struct LifeBoardAdaptiveAtmosphere: View {
         return ScenicLayout(width: width, minX: (size.width - width) / 2)
     }
 
+    /// Wide-layout underlay: the same daypart art, blown out and blurred until
+    /// it reads as ambient colour rather than a second picture.
+    private func scenicBed(descriptor: LifeBoardAtmosphereDescriptor) -> some View {
+        Image(decorative: descriptor.backgroundAsset)
+            .resizable()
+            .scaledToFill()
+            .blur(radius: 90, opaque: true)
+            .saturation(colorScheme == .dark ? 0.38 : 0.72)
+            .brightness(colorScheme == .dark ? -0.36 : -0.02)
+            .overlay(Color(lifeboardHex: descriptor.fallbackHex).opacity(0.42))
+            .id(descriptor.backgroundAsset)
+            .transition(.opacity)
+    }
+
     private func scenicPlane(descriptor: LifeBoardAtmosphereDescriptor, layout: ScenicLayout) -> some View {
         Image(decorative: descriptor.backgroundAsset)
             .resizable()
@@ -430,13 +465,24 @@ public struct LifeBoardAdaptiveAtmosphere: View {
             .brightness(colorScheme == .dark ? -0.34 : 0)
             .id(descriptor.backgroundAsset)
             .transition(.opacity)
-            .overlay {
+            .mask {
                 if layout.width >= 500 {
-                    HStack(spacing: 0) {
-                        LinearGradient(colors: [Color(lifeboardHex: descriptor.fallbackHex), .clear], startPoint: .leading, endPoint: .trailing).frame(width: 28)
-                        Spacer(minLength: 0)
-                        LinearGradient(colors: [.clear, Color(lifeboardHex: descriptor.fallbackHex)], startPoint: .leading, endPoint: .trailing).frame(width: 28)
-                    }
+                    // Fade the crisp band's own alpha into the blurred bed
+                    // instead of painting flat strips over it. Overlaid strips
+                    // used the flat canvas colour, which could never match the
+                    // art behind them and read as a hard edge.
+                    LinearGradient(
+                        stops: [
+                            .init(color: .clear, location: 0),
+                            .init(color: .black, location: 0.16),
+                            .init(color: .black, location: 0.84),
+                            .init(color: .clear, location: 1)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                } else {
+                    Color.black
                 }
             }
     }

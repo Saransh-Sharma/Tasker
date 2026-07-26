@@ -30,6 +30,108 @@ public enum LifeBoardDestination: String, Codable, CaseIterable, Hashable, Senda
     }
 }
 
+/// The three intentionally small ways of looking at recorded life data.
+public enum TrackLens: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
+    case today
+    case areas
+    case history
+
+    public var id: String { rawValue }
+    public var title: String { rawValue.capitalized }
+}
+
+/// Insight is organized by the question a person is asking, not by database scope.
+public enum InsightsLens: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
+    case overview
+    case trends
+    case review
+
+    public var id: String { rawValue }
+    public var title: String { rawValue.capitalized }
+}
+
+/// Presentation-neutral lifecycle shared by async controls and proposal cards.
+public enum LifeBoardInteractionPhase: String, Codable, CaseIterable, Hashable, Sendable {
+    case idle
+    case pressed
+    case running
+    case success
+    case recoverableFailure
+    case cancelled
+}
+
+/// A stable, serializable point used to hand capture motion between screen coordinates.
+public struct LifeBoardNormalizedPoint: Codable, Hashable, Sendable {
+    public let x: Double
+    public let y: Double
+
+    public init(x: Double, y: Double) {
+        self.x = min(1, max(0, x))
+        self.y = min(1, max(0, y))
+    }
+}
+
+public struct CapturePresentationContext: Codable, Hashable, Sendable {
+    public let sourceRoot: LifeBoardDestination
+    public let sourcePoint: LifeBoardNormalizedPoint?
+    public let preferredCaptureKind: CaptureKind?
+
+    public init(
+        sourceRoot: LifeBoardDestination,
+        sourcePoint: LifeBoardNormalizedPoint? = nil,
+        preferredCaptureKind: CaptureKind? = nil
+    ) {
+        self.sourceRoot = sourceRoot
+        self.sourcePoint = sourcePoint
+        self.preferredCaptureKind = preferredCaptureKind
+    }
+}
+
+/// The smallest authorized context that may cross from a product surface into Eva.
+public struct EvaEntryContext: Codable, Hashable, Sendable {
+    public let origin: LifeBoardDestination
+    public let evidenceReferences: [UUID]
+    public let requestedAssistance: String
+    public let createdAt: Date
+
+    public init(
+        origin: LifeBoardDestination,
+        evidenceReferences: [UUID] = [],
+        requestedAssistance: String,
+        createdAt: Date = Date()
+    ) {
+        self.origin = origin
+        self.evidenceReferences = evidenceReferences
+        self.requestedAssistance = requestedAssistance
+        self.createdAt = createdAt
+    }
+}
+
+/// The centrally governed signature-effect allowlist.
+public enum LifeBoardSignatureEffect: String, Codable, CaseIterable, Hashable, Sendable {
+    case daypartBloom
+    case evaInkReveal
+    case journalMediaReveal
+    case memoryDevelopReveal
+    case fastingEmberRing
+    case healthSyncPulse
+    case vitalOrbWarp
+    case clayPressBloom
+    case daypartCrossDissolve
+    case completionBurst
+    case contextLens
+    /// The dock/composer selection well refracts the content beneath it.
+    case liquidGlassRefract
+    /// Charts and sparklines draw in behind a travelling gradient mask.
+    case chartRevealSweep
+    /// Bounded warp on the background plane during a card-to-detail zoom.
+    case cardMorphWarp
+    /// Static warm tooth over large canvas areas. Never animates.
+    case paperGrain
+    /// Completion dissolves a row away instead of fading it.
+    case dissolveAway
+}
+
 public enum DaypartSelection: String, Codable, CaseIterable, Hashable, Sendable {
     case automatic
     case morning
@@ -94,6 +196,116 @@ public enum DashboardMode: String, Codable, CaseIterable, Hashable, Sendable {
         case .work: return "Work"
         case .personal: return "Personal"
         case .lowEnergy: return "Low Energy"
+        }
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .smart: return "sparkles"
+        case .work: return "briefcase"
+        case .personal: return "person.crop.circle"
+        // A leaf, not a moon — night is already the daypart's symbol.
+        case .lowEnergy: return "leaf"
+        }
+    }
+
+    public var summary: String {
+        switch self {
+        case .smart: return "Everything, ordered by what needs you."
+        case .work: return "Work commitments only. Personal care stays private."
+        case .personal: return "Life outside work."
+        case .lowEnergy: return "Less on screen. Care and rest first."
+        }
+    }
+}
+
+/// Life context a card's content belongs to. Mirrors planning's own context so
+/// Home can filter without the foundation layer depending on planning types.
+public enum HomeContentContext: String, Codable, CaseIterable, Hashable, Sendable {
+    case neutral
+    case work
+    case personal
+}
+
+/// How many anchored sections a mode is willing to show.
+public struct HomeSectionBudget: Hashable, Sendable {
+    public var showsToday: Bool
+    public var showsDayAhead: Bool
+    public var showsNeedsAttention: Bool
+    public var showsCloseLoop: Bool
+    public var showsUserSpace: Bool
+    /// Row cap inside list-shaped cards.
+    public var queueLimit: Int
+
+    public init(
+        showsToday: Bool = true,
+        showsDayAhead: Bool = true,
+        showsNeedsAttention: Bool = true,
+        showsCloseLoop: Bool = true,
+        showsUserSpace: Bool = true,
+        queueLimit: Int = 4
+    ) {
+        self.showsToday = showsToday
+        self.showsDayAhead = showsDayAhead
+        self.showsNeedsAttention = showsNeedsAttention
+        self.showsCloseLoop = showsCloseLoop
+        self.showsUserSpace = showsUserSpace
+        self.queueLimit = queueLimit
+    }
+}
+
+/// Modes were persisted and restored but unreachable, and only `.lowEnergy`
+/// ever changed anything. This makes each mode mean something at the data
+/// layer: providers filter their own queries by the permitted contexts rather
+/// than the view hiding rows after the fact.
+public protocol DashboardModePolicy: Sendable {
+    func contexts(for mode: DashboardMode) -> Set<HomeContentContext>
+    func permits(_ descriptor: DashboardWidgetDescriptor, in mode: DashboardMode) -> Bool
+    func sectionBudget(for mode: DashboardMode) -> HomeSectionBudget
+}
+
+public struct DeterministicDashboardModePolicy: DashboardModePolicy {
+    public init() {}
+
+    public func contexts(for mode: DashboardMode) -> Set<HomeContentContext> {
+        switch mode {
+        case .smart, .lowEnergy: [.neutral, .work, .personal]
+        // Neutral items are unlabelled, not "not work" — dropping them would
+        // hide most of an unorganised workspace.
+        case .work: [.neutral, .work]
+        case .personal: [.neutral, .personal]
+        }
+    }
+
+    public func permits(_ descriptor: DashboardWidgetDescriptor, in mode: DashboardMode) -> Bool {
+        switch mode {
+        case .smart, .personal:
+            return true
+        case .work:
+            // Work mode is what someone screen-shares. Health, journal and
+            // body data stay out of it.
+            return descriptor.sensitivity != .privateSensitive
+        case .lowEnergy:
+            // Recovery first: care and wellbeing, nothing that asks for output.
+            return descriptor.category == .wellbeing
+                || descriptor.category == .orient
+                || descriptor.kind == .focusNow
+        }
+    }
+
+    public func sectionBudget(for mode: DashboardMode) -> HomeSectionBudget {
+        switch mode {
+        case .smart, .work, .personal:
+            HomeSectionBudget()
+        case .lowEnergy:
+            HomeSectionBudget(
+                showsToday: false,
+                showsDayAhead: false,
+                showsNeedsAttention: false,
+                showsCloseLoop: false,
+                showsUserSpace: false,
+                queueLimit: 1
+            )
         }
     }
 }
@@ -489,11 +701,16 @@ public actor HomeContextCandidateProviderRegistry {
 }
 
 public struct HomeContextSelection: Codable, Hashable, Sendable {
+    /// One hero plus up to three in "Needs attention". Nine domain providers
+    /// feed this; a cap of two meant the section could only ever render a
+    /// single row, and only when exactly two candidates survived.
+    public static let maximumCandidates = 4
+
     public let candidates: [HomeContextCandidate]
     public let evaluatedAt: Date
 
     public init(candidates: [HomeContextCandidate], evaluatedAt: Date) {
-        self.candidates = Array(candidates.prefix(2))
+        self.candidates = Array(candidates.prefix(Self.maximumCandidates))
         self.evaluatedAt = evaluatedAt
     }
 }
@@ -603,7 +820,10 @@ public struct DeterministicHomeContextPolicy: HomeContextPolicy {
             }
             return lhs.id < rhs.id
         }
-        return HomeContextSelection(candidates: Array(sorted.prefix(2)), evaluatedAt: now)
+        return HomeContextSelection(
+            candidates: Array(sorted.prefix(HomeContextSelection.maximumCandidates)),
+            evaluatedAt: now
+        )
     }
 }
 
@@ -1797,7 +2017,7 @@ public struct LifeBoardThemeContext {
 }
 
 public enum LifeOSFoundationSchema {
-    public static let dashboardLayoutVersion = 4
+    public static let dashboardLayoutVersion = 5
     public static let goalContractVersion = 1
     public static let routineContractVersion = 1
     public static let trackerContractVersion = 1
@@ -1834,6 +2054,11 @@ public struct DashboardWidgetKind: RawRepresentable, Codable, Hashable, Sendable
         self.rawValue = rawValue
     }
 
+    /// Carries whatever setup the user deferred — permissions they skipped,
+    /// targets they have not set — and removes itself once there is nothing
+    /// left to offer. Onboarding cannot ask for everything, so the long tail
+    /// lives here rather than in a longer wizard.
+    public static let setupChecklist = Self(rawValue: "setupChecklist")
     public static let focusNow = Self(rawValue: "focusNow")
     public static let lifeSnapshot = Self(rawValue: "lifeSnapshot")
     public static let care = Self(rawValue: "care")
@@ -1866,6 +2091,50 @@ public enum WidgetMultiplicity: String, Codable, Sendable {
     case multipleInstances
 }
 
+/// How a card presents itself. One archetype is one reusable body that must
+/// render at *every* supported size — this is what removes the old
+/// `EmptyView()` fallthrough, where eleven kinds drew nothing at wide and tall
+/// (and therefore nothing at all at accessibility text sizes, which force wide).
+public enum HomeCardArchetype: String, Codable, CaseIterable, Hashable, Sendable {
+    /// Hero numeral, unit and change. Sparkline or chart as it grows.
+    case metric
+    /// Circular progress against a target.
+    case ring
+    /// A series over time: sparkline → chart → chart plus table.
+    case trend
+    /// Rows of work with state and a primary action.
+    case queue
+    /// Recent-performance dots or heat grid.
+    case streak
+    /// One claim, its rationale and one action. Home's hero.
+    case decision
+    /// A compressed view of the day's shape.
+    case spine
+    /// A remembered moment: mood, media or excerpt.
+    case moment
+    /// Time remaining until a dated thing.
+    case countdown
+    /// A capture affordance rather than a readout.
+    case action
+}
+
+/// Which anchored Home section a card belongs to. Previously this lived as
+/// three hardcoded string sets inside the Home view plus a fourth copy in the
+/// layout repository, so registering a new kind silently dropped it into
+/// "Your space" and the two anchored copies could disagree.
+public enum HomeSectionRole: String, Codable, CaseIterable, Hashable, Sendable {
+    /// Rendered by a fixed Home section, never as a free-floating placement.
+    case anchored
+    /// Today's committed work.
+    case today
+    /// Recurring care, routines and wellbeing.
+    case keepSteady
+    /// Reflection and closing the day.
+    case closeLoop
+    /// Whatever the user chose to pin.
+    case userSpace
+}
+
 public struct DashboardWidgetDescriptor: Codable, Hashable, Sendable {
     public let kind: DashboardWidgetKind
     public let title: String
@@ -1873,6 +2142,8 @@ public struct DashboardWidgetDescriptor: Codable, Hashable, Sendable {
     public let supportedSizes: Set<WidgetSizePreset>
     public let multiplicity: WidgetMultiplicity
     public let sensitivity: DataSensitivity
+    public let archetype: HomeCardArchetype
+    public let sectionRole: HomeSectionRole
     public let configurationVersion: Int
 
     public init(
@@ -1882,6 +2153,8 @@ public struct DashboardWidgetDescriptor: Codable, Hashable, Sendable {
         supportedSizes: Set<WidgetSizePreset>,
         multiplicity: WidgetMultiplicity,
         sensitivity: DataSensitivity,
+        archetype: HomeCardArchetype = .queue,
+        sectionRole: HomeSectionRole = .userSpace,
         configurationVersion: Int = 1
     ) {
         self.kind = kind
@@ -1890,6 +2163,8 @@ public struct DashboardWidgetDescriptor: Codable, Hashable, Sendable {
         self.supportedSizes = supportedSizes
         self.multiplicity = multiplicity
         self.sensitivity = sensitivity
+        self.archetype = archetype
+        self.sectionRole = sectionRole
         self.configurationVersion = configurationVersion
     }
 }
@@ -1980,11 +2255,148 @@ public struct HomeCardActionDescriptor: Codable, Hashable, Identifiable, Sendabl
     }
 }
 
+/// A hero number with its unit and, where it is meaningful, its change.
+public struct HomeMetricValue: Codable, Hashable, Sendable {
+    public enum Trend: String, Codable, Hashable, Sendable { case up, down, flat }
+
+    public var amount: Double
+    /// Digits after the decimal point when rendering. Steps want 0; weight wants 1.
+    public var fractionDigits: Int
+    public var unit: String?
+    /// Change against the comparison window, already resolved by the provider.
+    public var delta: Double?
+    public var deltaDescription: String?
+    public var trend: Trend
+    /// Optional recent history for the inline sparkline.
+    public var history: [HomeSeriesPoint]
+
+    public init(
+        amount: Double,
+        fractionDigits: Int = 0,
+        unit: String? = nil,
+        delta: Double? = nil,
+        deltaDescription: String? = nil,
+        trend: Trend = .flat,
+        history: [HomeSeriesPoint] = []
+    ) {
+        self.amount = amount
+        self.fractionDigits = max(0, min(4, fractionDigits))
+        self.unit = unit
+        self.delta = delta
+        self.deltaDescription = deltaDescription
+        self.trend = trend
+        self.history = history
+    }
+}
+
+public struct HomeSeriesPoint: Codable, Hashable, Sendable, Identifiable {
+    public var date: Date
+    public var value: Double
+    /// Short axis label. Charts must never rely on colour alone.
+    public var label: String?
+
+    public var id: Date { date }
+
+    public init(date: Date, value: Double, label: String? = nil) {
+        self.date = date
+        self.value = value
+        self.label = label
+    }
+}
+
+public struct HomeQueueItem: Codable, Hashable, Sendable, Identifiable {
+    public enum State: String, Codable, Hashable, Sendable {
+        case pending, inProgress, done, overdue, skipped
+    }
+
+    public var id: String
+    public var title: String
+    public var supporting: String?
+    public var state: State
+    public var systemImage: String?
+
+    public init(
+        id: String,
+        title: String,
+        supporting: String? = nil,
+        state: State = .pending,
+        systemImage: String? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.supporting = supporting
+        self.state = state
+        self.systemImage = systemImage
+    }
+}
+
+public struct HomeDayState: Codable, Hashable, Sendable, Identifiable {
+    public enum Outcome: String, Codable, Hashable, Sendable {
+        case complete, partial, missed, offDay, future
+    }
+
+    public var date: Date
+    public var outcome: Outcome
+
+    public var id: Date { date }
+
+    public init(date: Date, outcome: Outcome) {
+        self.date = date
+        self.outcome = outcome
+    }
+}
+
+public struct HomeMomentPreview: Codable, Hashable, Sendable {
+    public var excerpt: String?
+    public var moodLabel: String?
+    /// Bundle-relative or app-container path. Never inlined into system surfaces.
+    public var imagePath: String?
+    public var capturedAt: Date?
+
+    public init(
+        excerpt: String? = nil,
+        moodLabel: String? = nil,
+        imagePath: String? = nil,
+        capturedAt: Date? = nil
+    ) {
+        self.excerpt = excerpt
+        self.moodLabel = moodLabel
+        self.imagePath = imagePath
+        self.capturedAt = capturedAt
+    }
+}
+
+/// Structured card content. Cards previously carried only `value`/`detail`
+/// strings, which the renderer joined with " · " into a single `Text` — so a
+/// card could not be a number or a chart even in principle. The string fields
+/// remain as the VoiceOver and system-surface path.
+public enum HomeCardPayload: Codable, Hashable, Sendable {
+    case none
+    case metric(HomeMetricValue)
+    case progress(fraction: Double, label: String?)
+    case series([HomeSeriesPoint])
+    case queue([HomeQueueItem])
+    case streak([HomeDayState])
+    case countdown(target: Date, label: String)
+    case moment(HomeMomentPreview)
+
+    public var isEmpty: Bool {
+        switch self {
+        case .none: true
+        case .series(let points): points.isEmpty
+        case .queue(let items): items.isEmpty
+        case .streak(let days): days.isEmpty
+        default: false
+        }
+    }
+}
+
 public struct HomeCardSnapshot: Codable, Hashable, Sendable {
     public var availability: HomeCardSnapshotAvailability
     public var title: String
     public var value: String?
     public var detail: String?
+    public var payload: HomeCardPayload
     public var actions: [HomeCardActionDescriptor]
     public var updatedAt: Date
 
@@ -1993,6 +2405,7 @@ public struct HomeCardSnapshot: Codable, Hashable, Sendable {
         title: String,
         value: String? = nil,
         detail: String? = nil,
+        payload: HomeCardPayload = .none,
         actions: [HomeCardActionDescriptor] = [],
         updatedAt: Date = Date()
     ) {
@@ -2000,12 +2413,21 @@ public struct HomeCardSnapshot: Codable, Hashable, Sendable {
         self.title = title
         self.value = value
         self.detail = detail
+        self.payload = payload
         self.actions = actions
         self.updatedAt = updatedAt
     }
 
+    /// Sensitive cards may show a numeral inside the app and must never leak
+    /// one into a widget, Spotlight item or notification preview.
+    public func redactingPayload() -> HomeCardSnapshot {
+        var copy = self
+        copy.payload = .none
+        return copy
+    }
+
     private enum CodingKeys: String, CodingKey {
-        case availability, title, value, detail, actions, updatedAt
+        case availability, title, value, detail, payload, actions, updatedAt
     }
 
     public init(from decoder: Decoder) throws {
@@ -2014,6 +2436,9 @@ public struct HomeCardSnapshot: Codable, Hashable, Sendable {
         title = try container.decode(String.self, forKey: .title)
         value = try container.decodeIfPresent(String.self, forKey: .value)
         detail = try container.decodeIfPresent(String.self, forKey: .detail)
+        // Absent in every snapshot persisted before this schema, including
+        // app-group widget envelopes still on disk.
+        payload = try container.decodeIfPresent(HomeCardPayload.self, forKey: .payload) ?? .none
         actions = try container.decodeIfPresent([HomeCardActionDescriptor].self, forKey: .actions) ?? []
         updatedAt = try container.decode(Date.self, forKey: .updatedAt)
     }
@@ -2144,27 +2569,30 @@ public struct DefaultDashboardWidgetRegistry: DashboardWidgetRegistry {
     public init() {
         let allSizes = Set(WidgetSizePreset.allCases)
         descriptors = [
-            .init(kind: .focusNow, title: "Focus Now", category: .act, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard),
-            .init(kind: .lifeSnapshot, title: "Life Snapshot", category: .orient, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateSensitive),
-            .init(kind: .care, title: "Care", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive),
-            .init(kind: .tasks, title: "Today’s Tasks", category: .act, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard),
-            .init(kind: .routines, title: "Routines", category: .wellbeing, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard),
-            .init(kind: .scheduleCapacity, title: "Schedule & Capacity", category: .plan, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard),
-            .init(kind: .quickCapture, title: "Quick Capture", category: .act, supportedSizes: [.compact, .standard, .wide], multiplicity: .singleton, sensitivity: .privateStandard),
-            .init(kind: .compactTimeline, title: "Day Shape", category: .plan, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard),
-            .init(kind: .journal, title: "Journal", category: .reflect, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateSensitive),
-            .init(kind: .progressReflection, title: "Progress & Reflection", category: .reflect, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateSensitive),
-            .init(kind: .fasting, title: "Active Fast", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive),
-            .init(kind: .goals, title: "Goal Progress", category: .progress, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard),
-            .init(kind: .evaConversation, title: "Saved Eva Insight", category: .reflect, supportedSizes: [.standard, .wide, .tall], multiplicity: .multipleInstances, sensitivity: .privateSensitive),
-            .init(kind: .bodyMetric, title: "Body Metric", category: .wellbeing, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateSensitive),
-            .init(kind: .workout, title: "Recent Workout", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive),
-            .init(kind: .sleep, title: "Sleep Note", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive),
-            .init(kind: .movement, title: "Movement", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive),
-            .init(kind: .lifeMoment, title: "Life Moment", category: .reflect, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateStandard),
-            .init(kind: .nutritionSummary, title: "Nutrition Summary", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive),
-            .init(kind: .recentMeal, title: "Recent Meal", category: .wellbeing, supportedSizes: [.compact, .standard, .wide, .tall], multiplicity: .singleton, sensitivity: .privateSensitive),
-            .init(kind: .logMeal, title: "Log Meal", category: .act, supportedSizes: [.compact, .standard, .wide], multiplicity: .singleton, sensitivity: .privateSensitive)
+            .init(kind: .setupChecklist, title: "Finish setup", category: .orient, supportedSizes: [.standard, .wide], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .ring, sectionRole: .userSpace),
+            .init(kind: .focusNow, title: "Focus Now", category: .act, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .decision, sectionRole: .anchored),
+            .init(kind: .lifeSnapshot, title: "Life Snapshot", category: .orient, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .anchored),
+            .init(kind: .care, title: "Care", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .queue, sectionRole: .keepSteady),
+            // Today's committed work belongs above wellbeing, not last on the
+            // board. It has its own anchored section now.
+            .init(kind: .tasks, title: "Today’s Tasks", category: .act, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .queue, sectionRole: .today),
+            .init(kind: .routines, title: "Routines", category: .wellbeing, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .queue, sectionRole: .keepSteady),
+            .init(kind: .scheduleCapacity, title: "Schedule & Capacity", category: .plan, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .spine, sectionRole: .anchored),
+            .init(kind: .quickCapture, title: "Quick Capture", category: .act, supportedSizes: [.compact, .standard, .wide], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .action, sectionRole: .anchored),
+            .init(kind: .compactTimeline, title: "Day Shape", category: .plan, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .spine, sectionRole: .anchored),
+            .init(kind: .journal, title: "Journal", category: .reflect, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .moment, sectionRole: .closeLoop),
+            .init(kind: .progressReflection, title: "Progress & Reflection", category: .reflect, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateSensitive, archetype: .trend, sectionRole: .closeLoop),
+            .init(kind: .fasting, title: "Active Fast", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .ring, sectionRole: .keepSteady),
+            .init(kind: .goals, title: "Goal Progress", category: .progress, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .ring, sectionRole: .keepSteady),
+            .init(kind: .evaConversation, title: "Saved Eva Insight", category: .reflect, supportedSizes: [.standard, .wide, .tall], multiplicity: .multipleInstances, sensitivity: .privateSensitive, archetype: .moment, sectionRole: .closeLoop),
+            .init(kind: .bodyMetric, title: "Body Metric", category: .wellbeing, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateSensitive, archetype: .trend, sectionRole: .keepSteady),
+            .init(kind: .workout, title: "Recent Workout", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .keepSteady),
+            .init(kind: .sleep, title: "Sleep Note", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .trend, sectionRole: .keepSteady),
+            .init(kind: .movement, title: "Movement", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .keepSteady),
+            .init(kind: .lifeMoment, title: "Life Moment", category: .reflect, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .countdown, sectionRole: .closeLoop),
+            .init(kind: .nutritionSummary, title: "Nutrition Summary", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .keepSteady),
+            .init(kind: .recentMeal, title: "Recent Meal", category: .wellbeing, supportedSizes: [.compact, .standard, .wide, .tall], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .moment, sectionRole: .keepSteady),
+            .init(kind: .logMeal, title: "Log Meal", category: .act, supportedSizes: [.compact, .standard, .wide], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .action, sectionRole: .keepSteady)
         ]
     }
 

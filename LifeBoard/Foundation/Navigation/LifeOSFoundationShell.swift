@@ -230,19 +230,26 @@ public struct LifeOSFoundationShell: View {
             }
         }
         .sheet(item: Binding(
-            get: { LifeBoardHealthRuntime.shared.jitCoordinator.pendingPrompt },
-            set: { if $0 == nil { LifeBoardHealthRuntime.shared.jitCoordinator.decline() } }
+            get: { LifeBoardPermissionPrimingCoordinator.shared.pendingPrompt },
+            set: { if $0 == nil { LifeBoardPermissionPrimingCoordinator.shared.decline() } }
         )) { prompt in
-            HealthConnectPromptSheet(
-                leadDomain: prompt.leadDomain,
-                onConnect: { domains in
-                    Task { await LifeBoardHealthRuntime.shared.jitCoordinator.connect(domains: domains) }
+            LifeBoardPermissionPrimingSheet(
+                prompt: prompt,
+                onGrant: { domains in
+                    Task { await LifeBoardPermissionPrimingCoordinator.shared.grant(healthDomains: domains) }
                 },
-                onDecline: { LifeBoardHealthRuntime.shared.jitCoordinator.decline() }
+                onDecline: { LifeBoardPermissionPrimingCoordinator.shared.decline() }
             )
         }
         .alert(item: $router.activeAlert) { alert in
             Alert(title: Text(alert.title), message: Text(alert.message), dismissButton: .default(Text("OK")))
+        }
+        .task {
+            // Announce once the shell is genuinely on screen so first run can be
+            // presented. Previously this depended on the legacy Home controller
+            // reaching its tasks face, which never happens when the adaptive Home
+            // is the root — onboarding simply never appeared.
+            NotificationCenter.default.post(name: .lifeboardShellDidBecomeInteractive, object: nil)
         }
         .overlay(alignment: .top) {
             if let receipt = homeCardReceipt {
@@ -332,17 +339,31 @@ public struct LifeOSFoundationShell: View {
                         .safeAreaInset(edge: .bottom, spacing: 0) {
                             Color.clear.frame(height: measuredChromeHeight)
                         }
+                        // The hide must sit on the tab *content*, not on the
+                        // TabView. Applied to the container it addresses an
+                        // enclosing tab bar, which left the system bar drawing
+                        // underneath our own floating dock — two bars stacked.
+                        .toolbar(.hidden, for: .tabBar)
                         .tag(destination)
                 }
             }
-            .toolbar(.hidden, for: .tabBar)
             .toolbarBackground(.hidden, for: .navigationBar)
             .background(Color.clear)
             .overlay(alignment: .bottom) {
-                compactNavigationChrome(
-                    router: router,
-                    paletteMaxHeight: max(176, min(320, geometry.size.height * 0.38))
-                )
+                // Composer and dock share one GlassEffectContainer so the two
+                // chrome layers refract and morph as a single surface rather
+                // than two stacked panes.
+                GlassEffectContainer(spacing: 10) {
+                    VStack(spacing: 10) {
+                        if showsFloatingComposer(for: router.selectedDestination) {
+                            lifeThreadComposerHost(router: router)
+                        }
+                        compactNavigationChrome(
+                            router: router,
+                            paletteMaxHeight: max(176, min(320, geometry.size.height * 0.38))
+                        )
+                    }
+                }
                 .padding(.horizontal, 12)
                 .padding(.bottom, 6)
                 .background(alignment: .bottom) {
@@ -376,54 +397,29 @@ public struct LifeOSFoundationShell: View {
         .background(Color.clear.ignoresSafeArea())
     }
 
-    private func compactNavigationChrome(router: LifeBoardAppRouter, paletteMaxHeight: CGFloat) -> some View {
-        let composerVisible = sharedComposerIsVisible(for: router)
-        return GlassEffectContainer(spacing: 10) {
-            VStack(spacing: 8) {
-            if compactCaptureState.isExpanded, composerVisible == false {
-                ScrollView {
-                    LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
-                        ForEach(availableCaptureKinds, id: \.self) { kind in
-                            Button {
-                                commitCompactCapture(kind)
-                            } label: {
-                                Label(kind.title, systemImage: kind.systemImage)
-                                    .font(.subheadline.weight(.medium))
-                                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                                    .padding(.horizontal, 10)
-                                    .background(
-                                        compactCaptureState.highlightedKind == kind
-                                            ? Color(LifeBoardColorTokens.foundationSurfaceSelected)
-                                            : Color.clear,
-                                        in: RoundedRectangle(cornerRadius: 15, style: .continuous)
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                            .onGeometryChange(for: CGRect.self) { proxy in
-                                proxy.frame(in: .global)
-                            } action: { frame in
-                                compactCaptureTargetFrames[kind] = frame
-                            }
-                            .accessibilityLabel("Capture \(kind.title)")
-                        }
-                    }
-                    .padding(10)
+    private var dashboardModeBinding: Binding<DashboardMode> {
+        Binding(
+            get: { runtime.router.dashboardMode },
+            set: { mode in
+                withAnimation(LifeBoardMotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
+                    runtime.router.dashboardMode = mode
                 }
-                .scrollBounceBehavior(.basedOnSize)
-                .frame(maxWidth: 340, maxHeight: paletteMaxHeight)
-                .accessibilityIdentifier("foundation.capture.palette")
-                .lifeBoardGlassSurface(cornerRadius: 24, interactive: true)
-                .lifeBoardGlassIdentity(.capture)
-                .overlay { RoundedRectangle(cornerRadius: 24).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
-                .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.24), radius: 18, y: 10)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                LifeBoardFeedback.selection()
             }
+        )
+    }
 
-            if composerVisible {
-                lifeThreadComposerHost(router: router)
-            }
+    /// Eva owns its own keyboard-safe composer; a second text field in the
+    /// shared chrome would put two on screen at once.
+    private func showsFloatingComposer(for destination: LifeBoardDestination) -> Bool {
+        destination != .eva
+    }
 
-            ZStack(alignment: .top) {
+    private func compactNavigationChrome(router: LifeBoardAppRouter, paletteMaxHeight: CGFloat) -> some View {
+        // The enclosing GlassEffectContainer lives in `compactShell` so the
+        // dock and composer morph together.
+        Group {
+            ZStack {
                 HStack(spacing: 0) {
                     ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
                         Button {
@@ -471,56 +467,11 @@ public struct LifeOSFoundationShell: View {
                 .padding(.horizontal, 6)
                 .padding(.vertical, 6)
                 .lifeBoardGlassSurface(cornerRadius: 30, interactive: true)
+                .lifeBoardGlassIdentity(.dockSelection)
                 .overlay { RoundedRectangle(cornerRadius: 30).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
                 .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.18), radius: 12, y: 6)
-
-                if composerVisible == false {
-                    Button {
-                        withAnimation(LifeBoardMotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
-                            compactCaptureState.isExpanded.toggle()
-                        }
-                        LifeBoardFeedback.light()
-                    } label: {
-                        Image(systemName: compactCaptureState.isExpanded ? "xmark" : "plus")
-                            .font(.system(size: 21, weight: .bold))
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-                            .frame(width: 56, height: 56)
-                            .background(Color(LifeBoardColorTokens.foundationSunAccent), in: Circle())
-                            .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
-                            .lifeBoardGlassIdentity(.capture)
-                            .lifeboardConfirmationRipple(
-                                trigger: compactCaptureRippleTrigger,
-                                tint: Color(LifeBoardColorTokens.inkPrimary)
-                            )
-                            .overlay { Circle().stroke(Color(LifeBoardColorTokens.foundationSurfaceSolid), lineWidth: 3) }
-                            .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.25), radius: 12, y: 6)
-                    }
-                    // Capture is an action layer above navigation, never a sixth tab or
-                    // an obstruction over the center destination. Half-overlapping the
-                    // dock keeps it raised without reserving a dead band above.
-                    .offset(y: -30)
-                    .accessibilityLabel("Universal capture")
-                    .accessibilityValue(compactCaptureState.isExpanded ? "Expanded" : "Collapsed")
-                    .accessibilityIdentifier("foundation.capture")
-                    .simultaneousGesture(
-                        DragGesture(minimumDistance: 12, coordinateSpace: .global)
-                            .onChanged { value in updateCompactCaptureDrag(at: value.location) }
-                            .onEnded { value in finishCompactCaptureDrag(at: value.location) }
-                    )
-                    .accessibilityActions {
-                        ForEach(availableCaptureKinds, id: \.self) { kind in
-                            Button("Capture \(kind.title)") { commitCompactCapture(kind) }
-                        }
-                    }
-                }
-            }
-                .padding(.top, composerVisible ? 0 : 30)
             }
         }
-    }
-
-    private func sharedComposerIsVisible(for router: LifeBoardAppRouter) -> Bool {
-        V2FeatureFlags.lifeOSUnifiedPresentationV2Enabled && router.selectedDestination == .home
     }
 
     private func updateCompactCaptureDrag(at location: CGPoint) {
@@ -547,7 +498,15 @@ public struct LifeOSFoundationShell: View {
     private func commitCompactCapture(_ kind: CaptureKind) {
         compactCaptureState = .init(isExpanded: false, highlightedKind: kind)
         compactCaptureRippleTrigger &+= 1
-        runtime.captureRouter.request(kind: kind, source: .shell)
+        runtime.captureRouter.request(
+            kind: kind,
+            source: .shell,
+            presentationContext: .init(
+                sourceRoot: runtime.router.selectedDestination,
+                sourcePoint: .init(x: 0.91, y: 0.08),
+                preferredCaptureKind: kind
+            )
+        )
         LifeBoardFeedback.light()
     }
 
@@ -568,46 +527,198 @@ public struct LifeOSFoundationShell: View {
         }
     }
 
+    private var primaryCaptureKinds: [CaptureKind] {
+        [.task, .journal, .note, .trackerEntry, .mood].filter(availableCaptureKinds.contains)
+    }
+
+    private func sharedRootHeader(
+        _ destination: LifeBoardDestination,
+        atmosphereSnapshot: LifeBoardAtmosphereSnapshot
+    ) -> some View {
+        // Where the floating composer is mounted it owns capture; a second
+        // "+" in the header would offer the same tray twice.
+        let headerOwnsCapture = showsFloatingComposer(for: destination) == false
+        let model = LifeBoardRootHeaderModel(
+            title: rootHeaderTitle(for: destination),
+            context: rootHeaderContext(for: destination),
+            captureAvailable: headerOwnsCapture,
+            secondaryActionTitle: "More"
+        )
+        return VStack(alignment: .trailing, spacing: 8) {
+            LifeBoardRootHeader(
+                model: model,
+                captureExpanded: compactCaptureState.isExpanded,
+                usesInverseInk: LifeBoardAtmosphereDescriptor.usesInverseHeaderInk(
+                    for: atmosphereSnapshot.phase
+                ),
+                onCapture: {
+                    withAnimation(LifeBoardMotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
+                        compactCaptureState.isExpanded.toggle()
+                        compactCaptureState.highlightedKind = nil
+                        compactCaptureRippleTrigger &+= 1
+                    }
+                    LifeBoardFeedback.light()
+                },
+                secondaryActions: AnyView(
+                    Menu {
+                        // The mode control lived in `adaptiveHeader`, which was
+                        // never called — so Smart/Work/Personal/Low Energy were
+                        // persisted and restored with no way to change them.
+                        if destination == .home {
+                            Picker("Mode", selection: dashboardModeBinding) {
+                                ForEach(DashboardMode.allCases, id: \.self) { mode in
+                                    Label(mode.title, systemImage: mode.systemImage).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            Divider()
+                        }
+                        // Add-to-Home was fully built — placement sheet, receipt
+                        // and Undo — and nothing ever set the request, so the
+                        // whole personalisation loop was unreachable.
+                        if let kinds = homeCardKinds(for: destination), kinds.isEmpty == false {
+                            Menu("Add to Home", systemImage: "plus.rectangle.on.rectangle") {
+                                ForEach(kinds, id: \.self) { kind in
+                                    if let descriptor = DefaultDashboardWidgetRegistry.shared.descriptor(for: kind) {
+                                        Button(descriptor.title) {
+                                            homeCardPlacementRequest = .init(kind: kind, destination: destination)
+                                        }
+                                    }
+                                }
+                            }
+                            Divider()
+                        }
+                        Button("Settings", systemImage: "gearshape") {
+                            runtime.router.push(.settings, in: destination)
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                            .frame(width: 44, height: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
+                    .accessibilityLabel("More")
+                )
+            )
+
+            if compactCaptureState.isExpanded, headerOwnsCapture {
+                HStack(spacing: 6) {
+                    ForEach(primaryCaptureKinds, id: \.self) { kind in
+                        Button {
+                            commitCompactCapture(kind)
+                        } label: {
+                            VStack(spacing: 5) {
+                                Image(systemName: kind.systemImage)
+                                    .font(.system(size: 16, weight: .semibold))
+                                Text(captureTrayTitle(kind))
+                                    .font(.caption2.weight(.semibold))
+                                    .lineLimit(1)
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 54)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .accessibilityLabel("Capture \(captureTrayTitle(kind))")
+                    }
+                }
+                .padding(8)
+                .frame(maxWidth: 430)
+                .lifeBoardGlassSurface(cornerRadius: 22, interactive: true)
+                .lifeBoardGlassIdentity(.captureTray)
+                .background {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(Color(LifeBoardColorTokens.foundationCanvasSoft).opacity(0.44))
+                        .lifeboardContextLens(trigger: compactCaptureRippleTrigger)
+                }
+                .overlay {
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .topTrailing)))
+                .accessibilityIdentifier("foundation.capture.palette")
+            }
+        }
+        .zIndex(20)
+    }
+
+    private func rootHeaderTitle(for destination: LifeBoardDestination) -> String {
+        switch destination {
+        case .home: runtime.preferences.resolvedDaypart().greeting
+        case .plan: "Plan"
+        case .track: "Track"
+        case .insights: "Insights"
+        case .eva: "Eva"
+        }
+    }
+
+    private func rootHeaderContext(for destination: LifeBoardDestination) -> String {
+        switch destination {
+        case .home:
+            Date().formatted(.dateTime.weekday(.wide).month(.wide).day())
+        case .plan: "Make room for what matters."
+        case .track: "Record what helps, skip what doesn’t."
+        case .insights: "Notice change without turning life into a score."
+        case .eva: "Private context, shared only when you choose."
+        }
+    }
+
+    private func captureTrayTitle(_ kind: CaptureKind) -> String {
+        switch kind {
+        case .trackerEntry: "Tracker"
+        case .mood: "Care"
+        default: kind.title
+        }
+    }
+
     private func expandedShell(
         router: LifeBoardAppRouter,
         atmosphereSnapshot: LifeBoardAtmosphereSnapshot
     ) -> some View {
         @Bindable var router = router
-        return NavigationSplitView {
-            List {
-                ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
-                    Button {
-                        router.activateRoot(destination)
-                    } label: {
-                        Label(destination.title, systemImage: destination.systemImage)
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("foundation.destination.\(destination.rawValue)")
-                    .listRowBackground(
-                        router.selectedDestination == destination
-                            ? Color(LifeBoardColorTokens.foundationSurfaceSelected)
-                            : Color.clear
+        // A hand-rolled split view left no way to change roots once the
+        // sidebar collapsed. The adaptive tab style keeps a real switcher at
+        // every regular width — sidebar when there is room, top bar when there
+        // is not — and survives Split View and Slide Over transitions.
+        return TabView(selection: $router.selectedDestination) {
+            ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
+                Tab(destination.title, systemImage: destination.systemImage, value: destination) {
+                    destinationNavigation(
+                        destination,
+                        router: router,
+                        atmosphereSnapshot: atmosphereSnapshot
                     )
+                    .safeAreaInset(edge: .bottom, spacing: 0) {
+                        // Eva hosts its own composer, so it reserves nothing.
+                        Color.clear.frame(
+                            height: showsFloatingComposer(for: destination) ? measuredChromeHeight : 0
+                        )
+                    }
                 }
-            }
-            .navigationTitle("LifeBoard")
-        } detail: {
-            VStack(spacing: 0) {
-                destinationNavigation(
-                    router.selectedDestination,
-                    router: router,
-                    atmosphereSnapshot: atmosphereSnapshot
-                )
-                if sharedComposerIsVisible(for: router) {
-                    lifeThreadComposerHost(router: router)
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 10)
-                }
+                .accessibilityIdentifier("foundation.destination.\(destination.rawValue)")
             }
         }
-        .navigationSplitViewStyle(.balanced)
+        .tabViewStyle(.sidebarAdaptable)
+        .overlay(alignment: .bottom) {
+            // Capture is not iPhone-only: the composer anchors to the detail
+            // column at regular width too.
+            if showsFloatingComposer(for: router.selectedDestination) {
+                GlassEffectContainer(spacing: 10) {
+                    lifeThreadComposerHost(router: router)
+                }
+                .frame(maxWidth: 720)
+                .padding(.horizontal, 20)
+                .padding(.bottom, 10)
+                .onGeometryChange(for: CGFloat.self) { proxy in
+                    proxy.size.height
+                } action: { height in
+                    measuredChromeHeight = height
+                }
+                .accessibilityElement(children: .contain)
+                .accessibilityIdentifier("LifeBoardExpandedChrome")
+            }
+        }
     }
 
     private func destinationNavigation(
@@ -619,8 +730,22 @@ public struct LifeOSFoundationShell: View {
             ZStack {
                 activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
                 LifeBoardScreenScaffold(mode: .ambient, placement: .root(destination)) {
-                    destinationRoot(destination, router: router)
+                    VStack(spacing: 0) {
+                        if V2FeatureFlags.lifeBoardPremiumIAV5Enabled,
+                           router.path(for: destination).isEmpty {
+                            sharedRootHeader(destination, atmosphereSnapshot: atmosphereSnapshot)
+                                .padding(.horizontal, 20)
+                                .padding(.top, 8)
+                                .padding(.bottom, 6)
+                                .accessibilityIdentifier("\(destination.rawValue).header")
+                        }
+                        destinationRoot(destination, router: router)
+                    }
                 }
+                .toolbar(
+                    V2FeatureFlags.lifeBoardPremiumIAV5Enabled ? .hidden : .visible,
+                    for: .navigationBar
+                )
             }
                 .navigationDestination(for: AppRoute.self) { route in
                     if let transitionID = route.spatialTransitionID {
@@ -631,6 +756,7 @@ public struct LifeOSFoundationShell: View {
                             }
                         }
                         .lifeBoardZoomDestination(sourceID: transitionID)
+                        .toolbar(.visible, for: .navigationBar)
                     } else {
                         ZStack {
                             activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
@@ -638,78 +764,7 @@ public struct LifeOSFoundationShell: View {
                                 routeView(route)
                             }
                         }
-                    }
-                }
-                .toolbar {
-                    if destination != .home || showsReferenceHome {
-                        ToolbarItemGroup(placement: .topBarTrailing) {
-                            if let kinds = homeCardKinds(for: destination), kinds.isEmpty == false {
-                                Menu {
-                                    ForEach(kinds, id: \.rawValue) { kind in
-                                        if let descriptor = DefaultDashboardWidgetRegistry.shared.descriptor(for: kind) {
-                                            Button(descriptor.title, systemImage: descriptor.systemImage) {
-                                                homeCardPlacementRequest = .init(kind: kind, destination: destination)
-                                            }
-                                        }
-                                    }
-                                } label: {
-                                    Image(systemName: "rectangle.badge.plus")
-                                }
-                                .accessibilityLabel("Add a card from \(destination.title) to Home")
-                            }
-
-                            Button {
-                                router.push(.tokenGallery, in: destination)
-                            } label: {
-                                Image(systemName: "swatchpalette")
-                            }
-                            .accessibilityLabel("Open token gallery")
-
-                            if horizontalSizeClass == .regular {
-                            Menu {
-                                Button("Task", systemImage: "checkmark.circle") {
-                                    runtime.captureRouter.request(kind: .task, source: .shell)
-                                }
-                                Button("Habit", systemImage: "repeat.circle") {
-                                    runtime.captureRouter.request(kind: .habit, source: .shell)
-                                }
-                                if V2FeatureFlags.journalV1Enabled {
-                                    Button("Journal", systemImage: "book.closed") {
-                                        runtime.captureRouter.request(kind: .journal, source: .shell)
-                                    }
-                                }
-                                if V2FeatureFlags.knowledgeNotesV1Enabled {
-                                    Button("Note", systemImage: "note.text") {
-                                        runtime.captureRouter.request(kind: .note, source: .shell)
-                                    }
-                                }
-                                if V2FeatureFlags.trackersV1Enabled {
-                                    Button("Tracker Entry", systemImage: "chart.bar.doc.horizontal") {
-                                        runtime.captureRouter.request(kind: .trackerEntry, source: .shell)
-                                    }
-                                }
-                                if V2FeatureFlags.careModulesV2Enabled {
-                                    Button("Mood + Energy", systemImage: "face.smiling") {
-                                        runtime.captureRouter.request(kind: .mood, source: .shell)
-                                    }
-                                    Button("Hydration", systemImage: "drop.fill") {
-                                        runtime.captureRouter.request(kind: .hydration, source: .shell)
-                                    }
-                                    Button("Medication Event", systemImage: "pills") {
-                                        runtime.captureRouter.request(kind: .medicationEvent, source: .shell)
-                                    }
-                                }
-                                if V2FeatureFlags.goalsRoutinesV1Enabled {
-                                    Button("Routine Run", systemImage: "figure.mind.and.body") {
-                                        runtime.captureRouter.request(kind: .routineRun, source: .shell)
-                                    }
-                                }
-                            } label: {
-                                Image(systemName: "plus.circle.fill")
-                            }
-                            .accessibilityLabel("Universal capture")
-                            }
-                        }
+                        .toolbar(.visible, for: .navigationBar)
                     }
                 }
         }
@@ -930,28 +985,16 @@ public struct LifeOSFoundationShell: View {
             if composer.state == .tools {
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {
-                        composerCaptureButton("Task", systemImage: "checkmark.circle", kind: .task)
-                        if V2FeatureFlags.journalV1Enabled {
-                            composerCaptureButton("Journal", systemImage: "book.closed", kind: .journal)
-                        }
-                        if V2FeatureFlags.careModulesV2Enabled {
-                            composerCaptureButton("Mood", systemImage: "face.smiling", kind: .mood)
-                            composerCaptureButton("Metric", systemImage: "waveform.path.ecg", kind: .hydration)
-                        }
-                        composerToolButton("Voice", systemImage: "waveform") {
-                            beginComposerAudioCapture()
-                        }
-                        composerToolButton("Scan", systemImage: "doc.viewfinder") {
-                            beginDocumentScan(router: router)
-                        }
-                        if V2FeatureFlags.knowledgeNotesV1Enabled {
-                            composerCaptureButton("Note", systemImage: "note.text", kind: .note)
+                        ForEach(Array(composerTools.enumerated()), id: \.element.id) { index, tool in
+                            composerToolChip(tool, router: router)
+                                .modifier(ComposerToolStagger(index: index, reduceMotion: reduceMotion))
                         }
                     }
                     .padding(.horizontal, 4)
+                    .padding(.vertical, 2)
                 }
                 .scrollIndicators(.hidden)
-                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .transition(.opacity)
                 .accessibilityIdentifier("lifeThread.composer.tools")
             }
 
@@ -986,17 +1029,24 @@ public struct LifeOSFoundationShell: View {
 
             HStack(spacing: 8) {
                 Button {
-                    withAnimation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.86)) {
+                    withAnimation(LifeBoardMotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
                         composer.state == .tools ? composer.focus() : composer.showTools()
                     }
-                    UISelectionFeedbackGenerator().selectionChanged()
+                    LifeBoardFeedback.light()
                 } label: {
-                    Image(systemName: composer.state == .tools ? "xmark" : "plus")
-                        .font(.system(size: 16, weight: .semibold))
+                    // The plus rotates into the close glyph rather than
+                    // swapping, so the control reads as one object opening.
+                    Image(systemName: "plus")
+                        .font(.system(size: 17, weight: .semibold))
+                        .rotationEffect(.degrees(composer.state == .tools ? 45 : 0))
                         .frame(width: 44, height: 44)
+                        // Without an explicit shape the hit region collapses to
+                        // the glyph itself, well under the 44pt minimum.
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel(composer.state == .tools ? "Close capture tools" : "Open capture tools")
+                .accessibilityIdentifier("lifeThread.composer.toolsToggle")
 
                 TextField(text: $composer.draftText, axis: .vertical) {
                     Text(composerPlaceholder(for: composer.destination))
@@ -1039,15 +1089,74 @@ public struct LifeOSFoundationShell: View {
         .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.88), value: composer.state)
     }
 
+    /// One ordered capture tray. Kinds with a working capture host each get a
+    /// visible control — `habit`, `trackerEntry` and `timeBlock` previously had
+    /// hosts wired with no way to reach them.
+    fileprivate struct ComposerToolDescriptor: Identifiable {
+        enum Action { case capture(CaptureKind), voice, scan }
+        let id: String
+        let title: String
+        let systemImage: String
+        let action: Action
+    }
+
+    private var composerTools: [ComposerToolDescriptor] {
+        var tools: [ComposerToolDescriptor] = [
+            .init(id: "task", title: "Task", systemImage: "checkmark.circle", action: .capture(.task)),
+            .init(id: "habit", title: "Habit", systemImage: "repeat", action: .capture(.habit))
+        ]
+        if V2FeatureFlags.planningCoreV1Enabled {
+            tools.append(.init(id: "timeBlock", title: "Time block", systemImage: "clock", action: .capture(.timeBlock)))
+        }
+        if V2FeatureFlags.journalV1Enabled {
+            tools.append(.init(id: "journal", title: "Journal", systemImage: "book.closed", action: .capture(.journal)))
+        }
+        if V2FeatureFlags.careModulesV2Enabled {
+            tools.append(.init(id: "mood", title: "Mood", systemImage: "face.smiling", action: .capture(.mood)))
+            tools.append(.init(id: "metric", title: "Metric", systemImage: "waveform.path.ecg", action: .capture(.hydration)))
+        }
+        if V2FeatureFlags.trackersV1Enabled {
+            tools.append(.init(id: "tracker", title: "Tracker", systemImage: "list.bullet.rectangle", action: .capture(.trackerEntry)))
+        }
+        tools.append(.init(id: "voice", title: "Voice", systemImage: "waveform", action: .voice))
+        tools.append(.init(id: "scan", title: "Scan", systemImage: "doc.viewfinder", action: .scan))
+        if V2FeatureFlags.knowledgeNotesV1Enabled {
+            tools.append(.init(id: "note", title: "Note", systemImage: "note.text", action: .capture(.note)))
+        }
+        return tools
+    }
+
+    @ViewBuilder
+    private func composerToolChip(
+        _ tool: ComposerToolDescriptor,
+        router: LifeBoardAppRouter
+    ) -> some View {
+        switch tool.action {
+        case .capture(let kind):
+            composerCaptureButton(tool.title, systemImage: tool.systemImage, kind: kind)
+        case .voice:
+            composerToolButton(tool.title, systemImage: tool.systemImage) { beginComposerAudioCapture() }
+        case .scan:
+            composerToolButton(tool.title, systemImage: tool.systemImage) { beginDocumentScan(router: router) }
+        }
+    }
+
     private func composerCaptureButton(
         _ title: String,
         systemImage: String,
         kind: CaptureKind
     ) -> some View {
         Button {
-            if title == "Voice" { lifeThreadComposer.beginRecording() }
-            runtime.captureRouter.request(kind: kind, source: .shell)
-            UISelectionFeedbackGenerator().selectionChanged()
+            runtime.captureRouter.request(
+                kind: kind,
+                source: .shell,
+                presentationContext: .init(
+                    sourceRoot: runtime.router.selectedDestination,
+                    sourcePoint: .init(x: 0.08, y: 0.92),
+                    preferredCaptureKind: kind
+                )
+            )
+            LifeBoardFeedback.light()
         } label: {
             Label(title, systemImage: systemImage)
                 .font(.caption.weight(.semibold))
@@ -1241,6 +1350,42 @@ public struct LifeOSFoundationShell: View {
             FoundationWeeklyReviewRoute(
                 onClose: { runtime.router.pop(in: .plan) }
             )
+        case .planningReview:
+            FoundationWeeklyReviewRoute(
+                onClose: { runtime.router.pop(in: runtime.router.selectedDestination) }
+            )
+        case .trackHistory:
+            LifeBoardTrackFoundationRootView(
+                repository: trackFoundationRepository,
+                phaseIIRepository: phaseIIRepository,
+                habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
+                linkedMutationApplier: routineLinkedMutationApplier,
+                goalSampleProvider: goalSampleProvider,
+                starterPackMutationApplier: starterPackMutationApplier,
+                habitRecoveryMutationApplier: habitRecoveryMutationApplier,
+                sourcePickerRepository: ComposedTypedSourcePickerRepository(
+                    planningProjection: planningRepository,
+                    trackFoundation: trackFoundationRepository,
+                    phaseII: phaseIIRepository,
+                    habitRuntime: habitRuntimeReadRepository
+                ),
+                nutritionRepository: nutritionRepository,
+                lifeMomentRepository: lifeMomentRepository,
+                wellnessRepository: wellnessRepository,
+                initialLens: .history,
+                onOpenHabitBoard: { runtime.router.push(.habitBoard, in: .track) },
+                onOpenHealth: { runtime.router.push(.health, in: .track) }
+            )
+        case .insightEvidence:
+            FoundationInsightsDestination(
+                repository: trackFoundationRepository,
+                phaseIIRepository: phaseIIRepository,
+                planningRepository: planningRepository,
+                habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
+                goalSampleProvider: goalSampleProvider,
+                router: runtime.router,
+                initialLens: .overview
+            )
         case .settings:
             FoundationSettingsRouteView()
         case .taskDetail(let id):
@@ -1305,8 +1450,13 @@ public struct LifeOSFoundationShell: View {
                 reflectionWeekDate: date,
                 router: runtime.router
             )
+        case .notesLibrary(let destination):
+            LifeBoardKnowledgeModuleView(
+                repository: phaseIIRepository,
+                initialDestination: destination
+            )
         case .note(let id):
-            FoundationNoteRouteView(id: id, repository: phaseIIRepository)
+            LifeBoardKnowledgeModuleView(repository: phaseIIRepository, initialNoteID: id)
         case .knowledgeFolder(let id):
             LifeBoardKnowledgeModuleView(repository: phaseIIRepository, initialFolderID: id)
         case .focusSession(let id):
@@ -1350,6 +1500,36 @@ public struct LifeOSFoundationShell: View {
         planRescueRefreshGeneration &+= 1
     }
 
+}
+
+/// Capture chips rise in sequence from the composer's leading control so the
+/// tray reads as the "+" unfolding rather than a row appearing at once.
+/// Total stagger stays inside the control-morph budget.
+private struct ComposerToolStagger: ViewModifier {
+    let index: Int
+    let reduceMotion: Bool
+
+    private static let perChipDelay: Double = 0.028
+    private static let maximumDelay: Double = 0.22
+
+    @State private var appeared = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(appeared ? 1 : 0)
+            .scaleEffect(appeared ? 1 : 0.82, anchor: .bottomLeading)
+            .offset(y: appeared ? 0 : 12)
+            .onAppear {
+                guard reduceMotion == false else {
+                    appeared = true
+                    return
+                }
+                let delay = min(Double(index) * Self.perChipDelay, Self.maximumDelay)
+                withAnimation(.spring(response: 0.34, dampingFraction: 0.78).delay(delay)) {
+                    appeared = true
+                }
+            }
+    }
 }
 
 private struct LegacyHomeControllerHost: UIViewControllerRepresentable {
@@ -1439,15 +1619,8 @@ private struct FoundationFocusSessionRouteView: View {
 }
 
 private struct FoundationInsightsDestination: View {
-    private enum Scope: String, CaseIterable, Identifiable {
-        case today = "Today"
-        case week = "Week"
-        case system = "System"
-        var id: String { rawValue }
-    }
-
     @State private var store: TrackFoundationStore
-    @State private var scope: Scope = .today
+    @State private var lens: InsightsLens = .overview
     @State private var persistedPlanningEvents: [NormalizedLifeEvent] = []
     @State private var planningEvidenceError: String?
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
@@ -1461,7 +1634,8 @@ private struct FoundationInsightsDestination: View {
         planningRepository: CoreDataPlanningRepository?,
         habitProjectionService: (any TrackHabitProjectionService)?,
         goalSampleProvider: (any GoalSampleProvider)?,
-        router: LifeBoardAppRouter
+        router: LifeBoardAppRouter,
+        initialLens: InsightsLens = .overview
     ) {
         _store = State(initialValue: TrackFoundationStore(
             repository: repository,
@@ -1471,6 +1645,7 @@ private struct FoundationInsightsDestination: View {
         ))
         self.planningRepository = planningRepository
         self.router = router
+        _lens = State(initialValue: initialLens)
     }
 
     private var authorizedEvents: [NormalizedLifeEvent] {
@@ -1481,13 +1656,13 @@ private struct FoundationInsightsDestination: View {
     private var events: [NormalizedLifeEvent] {
         let calendar = Calendar.current
         let startToday = calendar.startOfDay(for: Date())
-        switch scope {
-        case .today:
+        switch lens {
+        case .overview:
             return authorizedEvents.filter { $0.occurredAt >= startToday }
-        case .week:
+        case .trends:
             let start = calendar.date(byAdding: .day, value: -6, to: startToday) ?? startToday
             return authorizedEvents.filter { $0.occurredAt >= start }
-        case .system:
+        case .review:
             return authorizedEvents
         }
     }
@@ -1525,49 +1700,11 @@ private struct FoundationInsightsDestination: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("A quieter view of your day")
-                            .font(.largeTitle.weight(.bold))
-                            .tracking(-0.8)
-                        Text("Only recorded signals appear here. Missing data stays missing.")
-                            .font(.body)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: 680, alignment: .leading)
-                    .padding(.top, 46)
-
-                    Picker("Insight scope", selection: $scope) {
-                        ForEach(Scope.allCases) { Text($0.rawValue).tag($0) }
+                    Picker("Insights lens", selection: $lens) {
+                        ForEach(InsightsLens.allCases) { Text($0.title).tag($0) }
                     }
                     .pickerStyle(.segmented)
-
-                    HStack(spacing: 12) {
-                        FoundationInsightMetric(value: "\(events.count)", label: "recorded signals")
-                        FoundationInsightMetric(value: confidence.map { $0.formatted(.percent.precision(.fractionLength(0))) } ?? "—", label: "evidence confidence")
-                        FoundationInsightMetric(value: "\(sourceCounts.count)", label: "source domains")
-                    }
-
-                    if sourceCounts.isEmpty == false {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) {
-                                ForEach(sourceCounts, id: \.domain) { item in
-                                    Text("\(item.domain.capitalized) · \(item.count)")
-                                        .font(.caption.weight(.semibold))
-                                        .padding(.horizontal, 12).frame(minHeight: 36)
-                                        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.8), in: Capsule())
-                                }
-                            }
-                        }
-                    }
-
-                    if missingDomains.isEmpty == false {
-                        Label(
-                            "No authorized \(missingDomains.joined(separator: ", ")) evidence in this scope.",
-                            systemImage: "info.circle"
-                        )
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                    }
+                    .accessibilityIdentifier("insights.lens")
 
                     if let planningEvidenceError {
                         Label("Planning history is temporarily unavailable: \(planningEvidenceError)", systemImage: "exclamationmark.triangle")
@@ -1586,17 +1723,12 @@ private struct FoundationInsightsDestination: View {
                         )
                         .frame(minHeight: 240)
                     } else {
-                        VStack(alignment: .leading, spacing: 6) {
-                            Text("Today’s evidence").font(.title2.weight(.semibold))
-                            Text("Transparent sources, no inferred claims.").font(.subheadline).foregroundStyle(.secondary)
-                        }
-                        ForEach(events) { event in
-                            FoundationEvidenceRow(event: event) { evidence in open(evidence) }
-                        }
+                        insightContent
                     }
                 }
                 .frame(maxWidth: 760)
                 .padding(.horizontal, 20)
+                .padding(.top, 8)
                 .padding(.bottom, 48)
             }
         }
@@ -1606,6 +1738,164 @@ private struct FoundationInsightsDestination: View {
         .task { await loadEvidence() }
         .refreshable { await loadEvidence() }
         .accessibilityIdentifier("foundation.insights")
+    }
+
+    @ViewBuilder
+    private var insightContent: some View {
+        switch lens {
+        case .overview:
+            interpretationSurface
+            Button {
+                askEva()
+            } label: {
+                Label("Explore this with Eva", systemImage: "sparkles")
+                    .frame(maxWidth: .infinity, minHeight: 48)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(Color(LifeBoardColorTokens.foundationApricotAccent))
+        case .trends:
+            let resolved = interpretation
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Recorded shape")
+                    .font(.title2.weight(.semibold))
+
+                // A real chart, with its prose equivalent always visible —
+                // this lens used to be a list of per-domain row counts, which
+                // is a tally, not a trend.
+                if resolved.dailyCounts.count > 1 {
+                    let chart = LifeBoardTrendChart(
+                        points: resolved.dailyCounts,
+                        tint: Color(LifeBoardColorTokens.foundationApricotAccent),
+                        unit: "records"
+                    )
+                    chart.frame(height: 150)
+                    Text(chart.textEquivalent)
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text("One day of history so far. A trend needs a few more.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+
+                Divider()
+
+                Text("By area")
+                    .font(.headline)
+                ForEach(sourceCounts, id: \.domain) { item in
+                    HStack {
+                        Text(item.domain.capitalized)
+                        Spacer()
+                        Text("\(item.count) \(item.count == 1 ? "record" : "records")")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    .padding(.vertical, 6)
+                }
+            }
+            .padding(18)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lifeBoardClaySurface(.raised, cornerRadius: 22)
+        case .review:
+            VStack(alignment: .leading, spacing: 12) {
+                Label("Reflection, not a report card", systemImage: "calendar.badge.clock")
+                    .font(.title3.weight(.semibold))
+                Text(reviewSummary)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                Button("Open weekly review") {
+                    router.push(.weeklyReview, in: .insights)
+                }
+                .buttonStyle(.bordered)
+            }
+            .padding(18)
+            .lifeBoardClaySurface(.raised, cornerRadius: 22)
+        }
+
+        DisclosureGroup {
+            VStack(alignment: .leading, spacing: 12) {
+                Text(evidenceCompletenessDescription)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                ForEach(events) { event in
+                    FoundationEvidenceRow(event: event) { evidence in open(evidence) }
+                }
+            }
+            .padding(.top, 12)
+        } label: {
+            Label("Evidence", systemImage: "checkmark.shield")
+                .font(.headline)
+        }
+        .padding(16)
+        .lifeBoardClaySurface(.resting, cornerRadius: 20)
+        .accessibilityIdentifier("insights.evidence")
+    }
+
+    private var interpretationSurface: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Label("What changed", systemImage: "sparkles")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            Text(interpretationTitle)
+                .font(.system(.title2, design: .rounded, weight: .bold))
+            Text(recommendedAction)
+                .font(.body)
+                .foregroundStyle(.secondary)
+            Label(evidenceCompletenessDescription, systemImage: "checkmark.shield")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lifeBoardClaySurface(.raised, cornerRadius: 24)
+        .accessibilityIdentifier("insights.interpretation")
+    }
+
+    /// Ranked by how consistently something is recorded, not how often. The
+    /// previous headline picked whichever domain had the most rows, which
+    /// always meant the chattiest tracker rather than the clearest signal.
+    private var interpretation: InsightsInterpretation {
+        InsightsInterpretationEngine().interpret(events: events)
+    }
+
+    private var interpretationTitle: String {
+        interpretation.claim
+    }
+
+    private var recommendedAction: String {
+        interpretation.recommendedAction
+    }
+
+    private var reviewSummary: String {
+        "Across \(events.count) authorized \(events.count == 1 ? "record" : "records"), \(sourceCounts.count) areas have enough explicit history to revisit. Choose one win, one friction point, and one adjustment."
+    }
+
+    private var evidenceCompletenessDescription: String {
+        guard let confidence else { return "Completeness is not available yet." }
+        let formatted = confidence.formatted(.percent.precision(.fractionLength(0)))
+        return "\(formatted) of these records are complete and current."
+    }
+
+    private func askEva() {
+        let resolved = interpretation
+        // Hand over the interpretation Insights actually made, not a generic
+        // "help me understand this pattern" — Eva was being asked to re-derive
+        // a claim the user had just read.
+        let context = EvaEntryContext(
+            origin: .insights,
+            evidenceReferences: resolved.evidenceReferences,
+            requestedAssistance: resolved.supportsClaim
+                ? "Insights found: \(resolved.claim) Help me understand what that suggests and choose one safe next step."
+                : "Help me understand what my recorded history so far suggests, without over-reading it."
+        )
+        let summary = """
+        \(context.requestedAssistance) \
+        Use only the \(context.evidenceReferences.count) authorized evidence \
+        references shown in Insights.
+        """
+        try? EvaChatLaunchRequestStore.shared.submit(.init(prompt: summary))
+        router.select(.eva)
     }
 
     private func loadEvidence() async {
@@ -1789,19 +2079,20 @@ private struct FoundationEvaDestination: View {
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) {
-            HStack(spacing: 10) {
-                Label("Private on-device context", systemImage: "lock.shield")
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                Spacer(minLength: 8)
-                evidenceSharingMenu
+            GlassEffectContainer(spacing: 8) {
+                HStack(spacing: 10) {
+                    Label("Private on-device context", systemImage: "lock.shield")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    Spacer(minLength: 8)
+                    evidenceSharingMenu
+                }
+                .padding(.horizontal, 14)
+                .frame(minHeight: 44)
+                .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
             }
             .padding(.horizontal, 16)
-            .frame(minHeight: 44)
-            .background(Color(LifeBoardColorTokens.foundationCanvasSoft).opacity(0.96))
-            .overlay(alignment: .bottom) {
-                Rectangle().fill(Color(LifeBoardColorTokens.foundationHairline)).frame(height: 0.5)
-            }
+            .padding(.bottom, 4)
         }
         .navigationTitle("Eva")
         .navigationBarTitleDisplayMode(.inline)
@@ -2666,7 +2957,13 @@ private struct FoundationCaptureSheet: View {
             } else { EmptyView() }
         case .note:
             if V2FeatureFlags.knowledgeNotesV1Enabled, let phaseIIRepository {
-                NavigationStack { LifeBoardKnowledgeModuleView(repository: phaseIIRepository) }
+                NavigationStack {
+                    LifeBoardKnowledgeModuleView(
+                        repository: phaseIIRepository,
+                        startsWithNewNote: true,
+                        captureDraftID: request.draftID
+                    )
+                }
             } else { EmptyView() }
         case .trackerEntry:
             if V2FeatureFlags.trackersV1Enabled, let phaseIIRepository {

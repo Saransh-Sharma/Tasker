@@ -287,6 +287,19 @@ public extension LifeBoardColorTokens {
     static let foundationOnSettingsHero = UIColor(lifeboardHex: "#2B2118")
     static let foundationApricotAccent = UIColor(lifeboardHex: "#E7BB7E")
     static let foundationSageAccent = UIColor(lifeboardHex: "#C9C6BA")
+    /// Overdue and destructive states in foundation surfaces. Same clay values
+    /// as `statusDanger` in the instance token set, exposed statically so
+    /// foundation views do not have to resolve a token group first.
+    static let foundationDanger = UIColor { traits in
+        UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#D98873" : "#A14E41")
+    }
+    /// Content resting directly on a dark scenic backdrop. Fixed rather than
+    /// appearance-aware on purpose: the daypart scene is dark whatever the
+    /// system appearance is, so ink that flips with appearance disappears on a
+    /// Night scene in Light mode. These are the same warm inks the dark
+    /// appearance uses, so contrast is already verified against navy.
+    static let foundationOnScenicDark = UIColor(lifeboardHex: "#F7F1E7")
+    static let foundationOnScenicDarkSecondary = UIColor(lifeboardHex: "#D3CCC0")
     static let foundationFocusRing = UIColor { traits in
         UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#F3E6C8" : "#5A3D1E")
     }

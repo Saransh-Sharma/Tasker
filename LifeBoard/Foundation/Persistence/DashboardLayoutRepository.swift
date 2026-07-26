@@ -307,6 +307,46 @@ public final class CoreDataDashboardLayoutRepository: DashboardLayoutRepository,
         if migrated.schemaVersion < 4 {
             migrated.placements = HomeGridPackingEngine.normalized(migrated.placements)
         }
+        if migrated.schemaVersion < 5 {
+            // These roles are rendered exactly once by Home's anchored
+            // orientation layer. Remove only app-owned copies; pinned/user
+            // placements and unknown widget payloads remain recoverable, and
+            // Home renders those pinned copies in "Your space".
+            //
+            // The anchored set is read from the registry rather than repeated
+            // here. It used to be a literal set in this file *and* another in
+            // the Home view, with different ownership semantics — the view
+            // dropped pinned anchored cards unconditionally, so the recovery
+            // path this migration deliberately preserves was unreachable.
+            let registry = DefaultDashboardWidgetRegistry.shared
+            migrated.placements.removeAll { placement in
+                let descriptor = registry.descriptor(
+                    for: DashboardWidgetKind(rawValue: placement.widgetKind)
+                )
+                return descriptor?.sectionRole == .anchored && placement.ownership != .pinned
+            }
+
+            if migrated.isDefault {
+                let existing = migrated.placements
+                let curated = Self.curatedHomePlacements()
+                var consumedIDs = Set<UUID>()
+                var upgraded = curated.map { desired in
+                    if let preserved = existing.first(where: {
+                        $0.widgetKind == desired.widgetKind && consumedIDs.contains($0.id) == false
+                    }) {
+                        consumedIDs.insert(preserved.id)
+                        return preserved
+                    }
+                    return desired
+                }
+                // Preserve unknown widgets and user-added copies after the new
+                // defaults. The renderer decides current availability.
+                upgraded.append(contentsOf: existing.filter { consumedIDs.contains($0.id) == false })
+                for index in upgraded.indices { upgraded[index].ordinal = index }
+                migrated.placements = upgraded
+            }
+            migrated.placements = HomeGridPackingEngine.normalized(migrated.placements)
+        }
         migrated.schemaVersion = LifeOSFoundationSchema.dashboardLayoutVersion
         migrated.placements.sort {
             if $0.ordinal == $1.ordinal { return $0.id.uuidString < $1.id.uuidString }
@@ -346,14 +386,9 @@ public final class CoreDataDashboardLayoutRepository: DashboardLayoutRepository,
 
     public static func curatedHomePlacements() -> [DashboardWidgetPlacementValue] {
         let specifications: [(DashboardWidgetKind, WidgetSizePreset)] = [
-            (.focusNow, .wide),
-            (.lifeSnapshot, .wide),
             (.care, .standard),
             (.tasks, .standard),
             (.routines, .standard),
-            (.scheduleCapacity, .standard),
-            (.quickCapture, .compact),
-            (.compactTimeline, .wide),
             (.journal, .standard),
             (.progressReflection, .standard)
         ]

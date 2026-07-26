@@ -15,6 +15,7 @@ public enum AppRoute: Codable, Hashable, Sendable {
     case journalDay(UUID)
     case journalSearch
     case weeklyReflection(Date)
+    case notesLibrary(NotesLibraryDestination)
     case note(UUID)
     case knowledgeFolder(UUID)
     case planDay
@@ -23,6 +24,9 @@ public enum AppRoute: Codable, Hashable, Sendable {
     case focusSession(UUID?)
     case weeklyPlanner
     case weeklyReview
+    case planningReview
+    case trackHistory
+    case insightEvidence(UUID?)
     case settings
     case tokenGallery
     case referenceDashboard
@@ -37,6 +41,8 @@ public enum AppRoute: Codable, Hashable, Sendable {
             "route.project.\(id.uuidString)"
         case .journalDay(let id):
             "route.journal.\(id.uuidString)"
+        case .note(let id):
+            "route.note.\(id.uuidString)"
         default:
             nil
         }
@@ -80,12 +86,20 @@ public struct CaptureRequest: Identifiable, Codable, Hashable, Sendable {
     public let kind: CaptureKind
     public let source: Source
     public let draftID: UUID?
+    public let presentationContext: CapturePresentationContext?
 
-    public init(id: UUID = UUID(), kind: CaptureKind, source: Source, draftID: UUID? = nil) {
+    public init(
+        id: UUID = UUID(),
+        kind: CaptureKind,
+        source: Source,
+        draftID: UUID? = nil,
+        presentationContext: CapturePresentationContext? = nil
+    ) {
         self.id = id
         self.kind = kind
         self.source = source
         self.draftID = draftID
+        self.presentationContext = presentationContext
     }
 }
 
@@ -116,8 +130,18 @@ public final class CaptureRouter {
         return true
     }
 
-    public func request(kind: CaptureKind, source: CaptureRequest.Source, draftID: UUID? = nil) {
-        _ = request(CaptureRequest(kind: kind, source: source, draftID: draftID))
+    public func request(
+        kind: CaptureKind,
+        source: CaptureRequest.Source,
+        draftID: UUID? = nil,
+        presentationContext: CapturePresentationContext? = nil
+    ) {
+        _ = request(CaptureRequest(
+            kind: kind,
+            source: source,
+            draftID: draftID,
+            presentationContext: presentationContext
+        ))
     }
 
     public func completeActiveRequest() {
@@ -447,9 +471,34 @@ public final class LifeBoardAppRouter {
         case "note":
             guard let rawID = segments.first, let id = UUID(uuidString: rawID) else {
                 select(.track)
+                captureRouter.request(
+                    kind: .note,
+                    source: .deepLink,
+                    draftID: UUID()
+                )
                 return true
             }
             push(.note(id), in: .track)
+        case "notes":
+            let collection = url.queryValue(named: "collection")
+                .flatMap(KnowledgeNoteCollection.init(rawValue:))
+                ?? .all
+            let folderID = url.queryValue(named: "folder").flatMap(UUID.init(uuidString:))
+            let tagID = url.queryValue(named: "tag").flatMap(UUID.init(uuidString:))
+            let searchText = url.queryValue(named: "search") ?? ""
+            let sort = url.queryValue(named: "sort")
+                .flatMap(KnowledgeNoteSort.init(rawValue:))
+                ?? .updatedDescending
+            push(
+                .notesLibrary(.library(.init(
+                    collection: collection,
+                    folderID: folderID,
+                    tagIDs: tagID.map { [$0] } ?? [],
+                    searchText: searchText,
+                    sort: sort
+                ))),
+                in: .track
+            )
         case "project":
             guard let rawID = segments.first, let id = UUID(uuidString: rawID) else {
                 select(.plan)
