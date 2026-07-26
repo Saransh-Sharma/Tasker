@@ -17,6 +17,7 @@ public final class HealthConnectionStore {
     private let engineProvider: @Sendable () async -> HealthSyncEngine?
     private let ledgerProvider: @Sendable () async -> (any HealthSyncLedgerStore)?
     private var readRequestState: HealthReadRequestState = .neverRequested
+    @ObservationIgnored private var initialSyncTask: Task<Void, Never>?
 
     public init(
         gateway: any HealthKitGatewayProtocol,
@@ -31,6 +32,14 @@ public final class HealthConnectionStore {
         })
     }
 
+    deinit {
+        initialSyncTask?.cancel()
+    }
+
+    /// Requests HealthKit authorization and records the resulting local
+    /// connection state. The initial HealthKit import starts afterward as a
+    /// managed task; callers do not wait for that potentially long-running work.
+    /// Observe `isRefreshing` and `lastSuccessfulSync` for import progress.
     public func connect(domains: Set<HealthDomain>) async {
         guard V2FeatureFlags.healthIntegrationsV1Enabled else { return }
         // Durably record that we've asked (across launches) before the system
@@ -47,11 +56,20 @@ public final class HealthConnectionStore {
                 }
             }
             await refreshAuthorization()
-            await syncNow()
+            scheduleInitialSync()
         } catch {
             readRequestState = .requestCompleted
             nonSensitiveErrorCode = "authorization_request"
             await refreshAuthorization()
+        }
+    }
+
+    private func scheduleInitialSync() {
+        guard initialSyncTask == nil else { return }
+        initialSyncTask = Task { [weak self] in
+            await self?.syncNow()
+            guard Task.isCancelled == false else { return }
+            self?.initialSyncTask = nil
         }
     }
 

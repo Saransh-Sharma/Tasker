@@ -75,92 +75,60 @@ public final class LifeBoardHealthRuntime {
 
 // MARK: - Just-in-time connect
 
-/// One pending "Connect Apple Health" invitation. `leadDomain` is the feature the
-/// user just touched (so the priming can be contextual); `trigger` is an
-/// analytics-friendly source id.
-public struct HealthConnectPrompt: Identifiable, Equatable, Sendable {
-    public let id: UUID
-    public let leadDomain: HealthDomain
-    public let trigger: String
-
-    public init(id: UUID = UUID(), leadDomain: HealthDomain, trigger: String) {
-        self.id = id
-        self.leadDomain = leadDomain
-        self.trigger = trigger
-    }
-}
-
-/// Cross-launch memory of whether we've already asked for Health access, so the
-/// just-in-time invitation appears at most once until the user decides, respects
-/// a "Not now", and stops offering after two declines. Persisted in the App Group
-/// so the app, widgets, and extensions agree.
+/// Cross-launch memory of whether we've already asked for Health access.
+///
+/// The policy this once owned alone now lives in `LifeBoardPermissionPromptState`
+/// and is shared by every permission LifeBoard asks for; this type remains as the
+/// Health-shaped face of it so existing call sites and tests read naturally. The
+/// three original `feature.life_os.health.jit.*` keys are migrated into the
+/// namespaced store on first access, so a user who already connected — or already
+/// declined twice — is never asked again.
 public enum HealthAuthorizationPromptState {
-    /// Two weeks — long enough not to nag, short enough to re-surface if the user
-    /// keeps using health features and simply wasn't ready the first time.
-    public static let snoozeInterval: TimeInterval = 14 * 24 * 60 * 60
-    public static let maxAutoOffers = 2
-
-    private enum Key {
-        static let hasRequested = "feature.life_os.health.jit.has_requested"
-        static let snoozedUntil = "feature.life_os.health.jit.snoozed_until"
-        static let declineCount = "feature.life_os.health.jit.decline_count"
-    }
-
-    private static var defaults: UserDefaults {
-        UserDefaults(suiteName: AppGroupConstants.suiteName) ?? .standard
-    }
+    public static var snoozeInterval: TimeInterval { LifeBoardPermissionPromptState.snoozeInterval }
+    public static var maxAutoOffers: Int { LifeBoardPermissionPromptState.maxAutoOffers }
 
     /// True once any connect path (onboarding, Settings, hub, or a JIT prompt) has
     /// invoked `requestAuthorization` — success or denial. HealthKit hides
     /// read-denial, so this flag is our only durable "we already asked" signal.
     public static var hasRequested: Bool {
-        get { defaults.bool(forKey: Key.hasRequested) }
-        set { defaults.set(newValue, forKey: Key.hasRequested) }
+        LifeBoardPermissionPromptState.hasRequested(.appleHealth)
     }
 
     public static var snoozedUntil: Date? {
-        get { defaults.object(forKey: Key.snoozedUntil) as? Date }
-        set { defaults.set(newValue, forKey: Key.snoozedUntil) }
+        LifeBoardPermissionPromptState.snoozedUntil(.appleHealth)
     }
 
     public static var declineCount: Int {
-        get { defaults.integer(forKey: Key.declineCount) }
-        set { defaults.set(newValue, forKey: Key.declineCount) }
+        LifeBoardPermissionPromptState.declineCount(.appleHealth)
     }
 
     public static func shouldOffer(now: Date = Date()) -> Bool {
-        guard hasRequested == false else { return false }
-        guard declineCount < maxAutoOffers else { return false }
-        if let snoozedUntil, now < snoozedUntil { return false }
-        return true
+        LifeBoardPermissionPromptState.shouldOffer(.appleHealth, now: now)
     }
 
     public static func recordRequested() {
-        hasRequested = true
-        snoozedUntil = nil
+        LifeBoardPermissionPromptState.recordRequested(.appleHealth)
     }
 
     public static func recordDecline(now: Date = Date()) {
-        declineCount += 1
-        snoozedUntil = now.addingTimeInterval(snoozeInterval)
+        LifeBoardPermissionPromptState.recordDecline(.appleHealth, now: now)
     }
 
     /// Test hook — clears the persisted gate.
     public static func reset() {
-        defaults.removeObject(forKey: Key.hasRequested)
-        defaults.removeObject(forKey: Key.snoozedUntil)
-        defaults.removeObject(forKey: Key.declineCount)
+        LifeBoardPermissionPromptState.reset(.appleHealth)
     }
 }
 
-/// Presents a single, contextual "Connect Apple Health" priming prompt when a
-/// not-yet-connected user uses a health feature. It never blocks the underlying
-/// action — callers save locally first and only then offer to connect.
+/// Offers a contextual "Connect Apple Health" invitation when a not-yet-connected
+/// user touches a health feature. It never blocks the underlying action — callers
+/// save locally first and only then offer to connect.
+///
+/// The prompt itself is owned by `LifeBoardPermissionPrimingCoordinator`, which
+/// holds a single pending invitation across all permission kinds; logging water
+/// and creating a reminder in the same breath must not stack two sheets.
 @MainActor
-@Observable
 public final class HealthJustInTimeCoordinator {
-    public private(set) var pendingPrompt: HealthConnectPrompt?
-
     private let connectionStore: HealthConnectionStore
 
     init(connectionStore: HealthConnectionStore) {
@@ -172,34 +140,31 @@ public final class HealthJustInTimeCoordinator {
     /// hasn't snoozed us, they haven't already declined twice, and nothing is
     /// already showing. Safe to call on every health interaction.
     public func offerConnectIfNeeded(leadDomain: HealthDomain, trigger: String) {
-        guard V2FeatureFlags.healthIntegrationsV1Enabled,
-              HKHealthStore.isHealthDataAvailable(),
-              pendingPrompt == nil,
-              HealthAuthorizationPromptState.shouldOffer() else { return }
-        pendingPrompt = HealthConnectPrompt(leadDomain: leadDomain, trigger: trigger)
+        LifeBoardPermissionPrimingCoordinator.shared.offerIfNeeded(
+            kind: .appleHealth,
+            trigger: trigger,
+            leadHealthDomain: leadDomain
+        )
     }
 
     /// Reward-first variant: waits for the feature's own confirmation animation
     /// to settle (~450 ms) before offering, so logging always feels instant and
     /// the invitation is a gentle follow-on rather than an interruption.
     public func offerConnectAfterReward(leadDomain: HealthDomain, trigger: String) async {
-        try? await Task.sleep(nanoseconds: 450_000_000)
-        offerConnectIfNeeded(leadDomain: leadDomain, trigger: trigger)
+        await LifeBoardPermissionPrimingCoordinator.shared.offerAfterReward(
+            kind: .appleHealth,
+            trigger: trigger,
+            leadHealthDomain: leadDomain
+        )
     }
 
-    /// The prompt's primary action. Clears the prompt and runs the real connect
-    /// flow (which shows the system sheet and marks us as having asked).
+    /// Runs the real connect flow, which shows the system sheet and marks us as
+    /// having asked.
     public func connect(domains: Set<HealthDomain>) async {
-        pendingPrompt = nil
         await connectionStore.connect(domains: domains)
     }
 
-    /// "Not now" / swipe-dismiss — snooze and count the decline, but only if a
-    /// prompt is actually showing. Idempotent so the explicit button *and* the
-    /// interactive-dismiss binding can both call it without double-counting.
     public func decline() {
-        guard pendingPrompt != nil else { return }
-        pendingPrompt = nil
-        HealthAuthorizationPromptState.recordDecline()
+        LifeBoardPermissionPrimingCoordinator.shared.decline()
     }
 }

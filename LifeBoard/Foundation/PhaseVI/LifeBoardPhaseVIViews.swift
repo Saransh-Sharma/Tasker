@@ -31,6 +31,19 @@ final class NutritionTimelineStore {
         } catch { errorMessage = "Nutrition is unavailable right now. Your saved meals are unchanged." }
     }
 
+    /// Writes the daily target. The entity and repository write already existed;
+    /// nothing in the app could reach them.
+    func saveGoal(_ macros: NutritionMacros) async {
+        do {
+            let goal = NutritionGoal(id: goals.first?.id ?? UUID(), targetMacros: macros)
+            try await repository.save(goal)
+            goals = try await repository.goals()
+            errorMessage = nil
+        } catch {
+            errorMessage = "Could not save that target. Try again."
+        }
+    }
+
     func log(food: FoodItem, serving: FoodServingDefinition, quantity: Double, slot: NutritionMealSlot) async {
         do {
             try await repository.save(food)
@@ -108,6 +121,7 @@ struct LifeBoardNutritionView: View {
     @State private var scanMessage: String?
     @State private var showsVoiceCapture = false
     @State private var voiceFoodName: String?
+    @State private var showsGoalComposer = false
     private let scanDeduplicator = NutritionScanDeduplicator()
 
     init(repository: any NutritionRepository) {
@@ -129,6 +143,11 @@ struct LifeBoardNutritionView: View {
         }
         .sheet(isPresented: $showsVoiceCapture) {
             voiceCaptureSheet
+        }
+        .sheet(isPresented: $showsGoalComposer) {
+            NutritionGoalComposer(existing: store.goals.first) { macros in
+                Task { await store.saveGoal(macros) }
+            }
         }
         .fullScreenCover(isPresented: $showsBarcodeScanner) {
             barcodeScannerCover
@@ -153,6 +172,8 @@ struct LifeBoardNutritionView: View {
     @ToolbarContentBuilder
     private var nutritionToolbar: some ToolbarContent {
         ToolbarItemGroup(placement: .primaryAction) {
+            Button("Daily target", systemImage: "target") { showsGoalComposer = true }
+                .accessibilityIdentifier("nutrition.goal.open")
             Button("Scan barcode", systemImage: "barcode.viewfinder", action: beginBarcodeScan)
             Button("Log by voice", systemImage: "waveform") { showsVoiceCapture = true }
             Button("Log meal", systemImage: "plus") {
