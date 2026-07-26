@@ -196,12 +196,13 @@ struct LifeBoardPlanRootView: View {
 
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    header
                     Picker("Plan lens", selection: $lens) {
                         ForEach(PlanLens.allCases) { Text($0.rawValue).tag($0) }
                     }
                     .pickerStyle(.segmented)
                     .accessibilityIdentifier("plan.lens")
+
+                    orientationBar
 
                     switch lens {
                     case .day: dayContent
@@ -255,43 +256,45 @@ struct LifeBoardPlanRootView: View {
         }
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Plan with room to breathe")
-                        .font(LifeBoardFoundationTypography.screenTitle())
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-                    Text(dayTitle(store.selectedDay))
-                        .font(LifeBoardFoundationTypography.body())
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+    private var orientationBar: some View {
+        HStack(spacing: 10) {
+            if lens == .day {
+                Button { Task { await store.moveSelection(by: -1) } } label: {
+                    Image(systemName: "chevron.left").frame(width: 44, height: 44)
                 }
-                Spacer()
+                .accessibilityLabel("Previous day")
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(lens == .day ? dayTitle(store.selectedDay) : lens.rawValue)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                Text(contextLine)
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .lineLimit(1)
+            }
+            Spacer()
+            if store.lastMutationReceiptID != nil {
+                Button { Task { await store.undoLastMutation() } } label: {
+                    Image(systemName: "arrow.uturn.backward")
+                        .frame(width: 44, height: 44)
+                }
+                .accessibilityLabel("Undo last planning change")
+            }
+            if lens == .day {
                 Button { Task { await store.select(day: PlanningDay(date: Date())) } } label: {
-                    Image(systemName: "calendar.circle.fill").font(.title2)
+                    Image(systemName: "calendar").frame(width: 44, height: 44)
                 }
                 .accessibilityLabel("Return to today")
-                if store.lastMutationReceiptID != nil {
-                    Button { Task { await store.undoLastMutation() } } label: {
-                        Image(systemName: "arrow.uturn.backward.circle")
-                    }
-                    .accessibilityLabel("Undo last planning change")
+                Button { Task { await store.moveSelection(by: 1) } } label: {
+                    Image(systemName: "chevron.right").frame(width: 44, height: 44)
                 }
+                .accessibilityLabel("Next day")
             }
-
-            HStack(spacing: 14) {
-                Button { Task { await store.moveSelection(by: -1) } } label: { Image(systemName: "chevron.left") }
-                Spacer()
-                Text(contextLine)
-                    .font(LifeBoardFoundationTypography.metric())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                Spacer()
-                Button { Task { await store.moveSelection(by: 1) } } label: { Image(systemName: "chevron.right") }
-            }
-            .buttonStyle(.plain)
         }
-        .padding(.top, 18)
-        .frame(minHeight: 142, alignment: .bottom)
+        .buttonStyle(.plain)
+        .padding(.horizontal, 4)
+        .frame(minHeight: 52)
         .accessibilityIdentifier("plan.header")
     }
 
@@ -312,8 +315,14 @@ struct LifeBoardPlanRootView: View {
             )
         } else if let snapshot = store.daySnapshot {
             if let session = store.activeFocusSession { activeFocusCard(session) }
-            capacityCard(snapshot.capacity)
             calendarState(snapshot)
+
+            // Capacity was computed, rendered as a one-line summary in the
+            // header, and its full card was never called — which also made the
+            // working-hours composer unreachable, since the card holds its only
+            // trigger. Plan was showing a number derived from inputs the user
+            // could not edit.
+            capacityCard(snapshot.capacity)
 
             dayPresentationControl
             if effectiveDayPresentation == .canvas {
@@ -537,21 +546,39 @@ struct LifeBoardPlanRootView: View {
             HStack(spacing: 12) {
                 Image(systemName: "calendar.badge.plus")
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("See real openings").font(.headline)
-                    Text("Calendar stays read-only. LifeBoard only uses it to calculate free windows.")
+                    Text("Calendar can reveal real openings").font(.subheadline.weight(.semibold))
+                    Text("Optional and read-only.")
                         .font(.caption)
                         .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                 }
                 Spacer()
-                Button("Allow") { Task { await store.requestCalendarAccess() } }
-                    .buttonStyle(.bordered)
+                Button("Allow") {
+                    Task {
+                        // Record through the shared gate so the just-in-time
+                        // layer knows we have asked and never double-prompts.
+                        LifeBoardPermissionPromptState.recordRequested(.calendar)
+                        await store.requestCalendarAccess()
+                    }
+                }
+                .buttonStyle(.bordered)
             }
-            .foundationClayCard()
+            .padding(.horizontal, 4)
+            .frame(minHeight: 52)
+            .accessibilityIdentifier("plan.calendar.inline")
         case .denied, .restricted:
-            Label("Calendar context is unavailable. Planning still works with LifeBoard blocks.", systemImage: "calendar.badge.exclamationmark")
-                .font(.caption)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                .frame(maxWidth: .infinity, alignment: .leading)
+            HStack(spacing: 10) {
+                Label("Calendar off · planning still works", systemImage: "calendar.badge.exclamationmark")
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                Spacer()
+                Button("Settings") {
+                    guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
+                    UIApplication.shared.open(url)
+                }
+                .font(.caption.weight(.semibold))
+            }
+            .frame(minHeight: 44)
+            .accessibilityIdentifier("plan.calendar.inline")
         case .authorized, .unavailable:
             EmptyView()
         }

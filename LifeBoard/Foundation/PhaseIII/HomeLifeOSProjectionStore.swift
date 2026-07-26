@@ -175,6 +175,7 @@ final class HomeLifeOSProjectionStore {
     func makeHomeCardProviderRegistry() throws -> HomeCardProviderRegistry {
         let registry = DefaultDashboardWidgetRegistry.shared
         let kinds: [(DashboardWidgetKind, LifeBoardDestination)] = [
+            (.setupChecklist, .track),
             (.focusNow, .plan),
             (.tasks, .plan),
             (.scheduleCapacity, .plan),
@@ -229,29 +230,63 @@ final class HomeLifeOSProjectionStore {
         let title = DefaultDashboardWidgetRegistry.shared.descriptor(for: kind)?.title ?? "Home"
         switch kind {
         case .focusNow:
-            guard let focusTask else { return emptySnapshot(title, "Choose a useful next step.", date) }
+            guard let focusTask else { return emptySnapshot(title, "Choose what is next.", date) }
             return densitySnapshot(
                 title: title,
                 value: focusTask.title,
-                compactDetail: focusResult?.reasons.first?.text ?? "Ready when you are.",
-                storyDetail: "This fits the time and context available now. Open Plan to adjust it before starting.",
+                compactDetail: focusResult?.reasons.first?.text ?? "Pick this up next.",
+                storyDetail: "Fits the time you have now.",
                 size: size,
                 date: date
             )
         case .tasks:
             guard let planSnapshot else { return unavailableSnapshot(title, date) }
-            let count = planSnapshot.plannedTasks.count + planSnapshot.unscheduledTasks.count
+            let planned = planSnapshot.plannedTasks
+            let unscheduled = planSnapshot.unscheduledTasks
+            let count = planned.count + unscheduled.count
+            guard count > 0 else {
+                return emptySnapshot(title, "Nothing is asking for your attention.", date)
+            }
+            // Planned work first, then flexible; overdue rises above both.
+            let rows = (planned + unscheduled).map { task in
+                HomeQueueItem(
+                    id: task.id.uuidString,
+                    title: task.title,
+                    supporting: task.dueDate.map {
+                        "Due \($0.formatted(date: .abbreviated, time: .omitted))"
+                    },
+                    state: Self.queueState(for: task, at: date)
+                )
+            }
+            .sorted { lhs, rhs -> Bool in
+                let lhsRank = lhs.state == .overdue ? 0 : 1
+                let rhsRank = rhs.state == .overdue ? 0 : 1
+                return lhsRank < rhsRank
+            }
             return densitySnapshot(
                 title: title,
                 value: "\(count)",
                 compactDetail: count == 1 ? "task in view" : "tasks in view",
-                storyDetail: "\(planSnapshot.plannedTasks.count) planned · \(planSnapshot.unscheduledTasks.count) still flexible",
+                storyDetail: "\(planned.count) planned · \(unscheduled.count) still flexible",
                 size: size,
-                date: date
+                date: date,
+                payload: .queue(rows)
             )
         case .scheduleCapacity, .compactTimeline:
             guard let planSnapshot else { return unavailableSnapshot(title, date) }
             let count = planSnapshot.commitments.count
+            // The spine reads as the day's shape: what is fixed, in order.
+            let spine = planSnapshot.commitments
+                .sorted { $0.startAt < $1.startAt }
+                .map { commitment in
+                    HomeQueueItem(
+                        id: commitment.id,
+                        title: commitment.title,
+                        supporting: commitment.startAt.formatted(date: .omitted, time: .shortened),
+                        state: commitment.endAt < date ? .done : .pending,
+                        systemImage: "circle.fill"
+                    )
+                }
             return densitySnapshot(
                 title: title,
                 value: "\(count)",
@@ -260,7 +295,8 @@ final class HomeLifeOSProjectionStore {
                     ? "No open window is projected yet."
                     : "\(planSnapshot.freeWindows.count) open windows remain flexible.",
                 size: size,
-                date: date
+                date: date,
+                payload: .queue(spine)
             )
         case .lifeSnapshot:
             guard let latestMood else { return emptySnapshot(title, "A gentle check-in can start your snapshot.", date) }
@@ -268,65 +304,121 @@ final class HomeLifeOSProjectionStore {
                 title: title,
                 value: latestMood.mood.title,
                 compactDetail: latestMood.energy.map { "Energy \($0)/5" } ?? "Mood checked in",
-                storyDetail: "Your latest check-in is shown without judging or turning it into a score.",
+                storyDetail: "Your last check-in.",
                 size: size,
                 date: date
             )
         case .care:
             guard let trackSnapshot else { return unavailableSnapshot(title, date) }
-            let unresolved = trackSnapshot.unresolvedMedicationEvents.filter { $0.status == .unresolved }.count
+            let pending = trackSnapshot.unresolvedMedicationEvents.filter { $0.status == .unresolved }
+            guard pending.isEmpty == false else {
+                return emptySnapshot(title, "No unresolved care decisions.", date)
+            }
+            // The event carries only a medication ID; the snapshot has no name
+            // lookup, so the row leads with its scheduled time and Care owns
+            // the detail. Better an honest time than an invented label.
+            let rows = pending.map { event in
+                HomeQueueItem(
+                    id: event.id.uuidString,
+                    title: event.scheduledAt.formatted(date: .omitted, time: .shortened),
+                    supporting: event.note,
+                    state: event.scheduledAt < date ? .overdue : .pending,
+                    systemImage: "cross.case"
+                )
+            }
             return densitySnapshot(
                 title: title,
-                value: unresolved == 0 ? "Clear" : "\(unresolved)",
-                compactDetail: unresolved == 0 ? "Nothing needs acknowledgement" : "needs your acknowledgement",
-                storyDetail: "LifeBoard waits for your confirmation and never assumes what happened.",
+                value: "\(pending.count)",
+                compactDetail: pending.count == 1 ? "waiting on you" : "waiting on you",
+                storyDetail: "Confirm each one when you have taken it.",
                 size: size,
-                date: date
+                date: date,
+                payload: .queue(rows)
             )
         case .routines:
             guard let trackSnapshot else { return unavailableSnapshot(title, date) }
-            let count = trackSnapshot.dueRoutines.count
+            let due = trackSnapshot.dueRoutines
+            guard due.isEmpty == false else {
+                return emptySnapshot(title, "Nothing due right now.", date)
+            }
+            let rows = due.map { routine in
+                HomeQueueItem(
+                    id: routine.id.uuidString,
+                    title: routine.title,
+                    supporting: routine.steps.isEmpty ? nil : "\(routine.steps.count) steps",
+                    state: .pending,
+                    systemImage: "repeat"
+                )
+            }
             return densitySnapshot(
                 title: title,
-                value: count == 0 ? "All clear" : "\(count)",
-                compactDetail: count == 1 ? "routine is ready" : "routines are ready",
-                storyDetail: "Start one when it fits; there is no penalty for changing the plan.",
+                value: "\(due.count)",
+                compactDetail: due.count == 1 ? "routine ready" : "routines ready",
+                storyDetail: "Start one when it fits.",
                 size: size,
-                date: date
+                date: date,
+                payload: .queue(rows)
             )
         case .goals:
             guard let trackSnapshot else { return unavailableSnapshot(title, date) }
-            let count = trackSnapshot.goals.count
-            return count == 0
-                ? emptySnapshot(title, "Add a goal when there is something meaningful to follow.", date)
-                : densitySnapshot(
-                    title: title,
-                    value: "\(count)",
-                    compactDetail: count == 1 ? "goal in view" : "goals in view",
-                    storyDetail: "Open Track for progress, evidence, and the next useful action.",
-                    size: size,
-                    date: date
-                )
+            let goals = trackSnapshot.goals
+            guard goals.isEmpty == false else {
+                return emptySnapshot(title, "Add a goal to follow.", date)
+            }
+            // Lead with the goal nearest completion rather than an arbitrary
+            // first row, so the ring reads as momentum.
+            let ranked = goals.max { Self.goalFraction($0) < Self.goalFraction($1) }
+            let fraction = ranked.map(Self.goalFraction) ?? 0
+            let percent = Int((fraction * 100).rounded())
+            return densitySnapshot(
+                title: title,
+                value: "\(goals.count)",
+                compactDetail: goals.count == 1 ? "goal in view" : "goals in view",
+                storyDetail: ranked?.nextUsefulAction ?? "Open Track for progress and evidence.",
+                size: size,
+                date: date,
+                payload: .progress(fraction: fraction, label: "\(percent)%")
+            )
         case .fasting:
-            guard let activeFast else { return emptySnapshot(title, "No fast is active.", date) }
-            let elapsed = max(0, Int(activeFast.elapsed(at: date)))
-            let hours = elapsed / 3_600
-            let minutes = (elapsed % 3_600) / 60
+            guard let activeFast else { return emptySnapshot(title, "No fast running.", date) }
+            let elapsed = max(0, activeFast.elapsed(at: date))
+            let hours = Int(elapsed) / 3_600
+            let minutes = (Int(elapsed) % 3_600) / 60
+            let fraction = activeFast.targetDuration.map { target in
+                target > 0 ? min(1, elapsed / target) : 0
+            } ?? 0
             return densitySnapshot(
                 title: title,
                 value: String(format: "%d:%02d", hours, minutes),
-                compactDetail: activeFast.targetDuration.map { "Target \(Int($0 / 3_600))h" } ?? "Your timer is active",
-                storyDetail: "Started \(activeFast.startedAt.formatted(date: .omitted, time: .shortened)). You can finish, correct, or cancel without judgment.",
+                compactDetail: activeFast.targetDuration.map { "Target \(Int($0 / 3_600))h" } ?? "Running",
+                storyDetail: "Started \(activeFast.startedAt.formatted(date: .omitted, time: .shortened)).",
                 size: size,
-                date: date
+                date: date,
+                payload: .progress(
+                    fraction: fraction,
+                    label: String(format: "%d:%02d", hours, minutes)
+                )
             )
         case .journal:
-            return HomeCardSnapshot(
-                availability: .degraded,
+            // Previously hard-coded to `.degraded` with no way to grant consent,
+            // so this card could never become useful. It now reflects a real
+            // setting the user can turn on in Journal privacy.
+            guard JournalHomeConsentStore.isGranted else {
+                return HomeCardSnapshot(
+                    availability: .degraded,
+                    title: title,
+                    value: size == .compact ? nil : "Show journal here?",
+                    detail: "Turn on in Journal privacy.",
+                    updatedAt: date
+                )
+            }
+            return densitySnapshot(
                 title: title,
-                value: size == .compact ? nil : "Open Journal",
-                detail: "Journal previews stay hidden until this card receives explicit Home permission.",
-                updatedAt: date
+                value: "Open",
+                compactDetail: "Today\u{2019}s entry",
+                storyDetail: "Words, photos, or audio \u{2014} whatever fits.",
+                size: size,
+                date: date
             )
         case .progressReflection:
             guard let planSnapshot, let trackSnapshot else { return unavailableSnapshot(title, date) }
@@ -335,8 +427,8 @@ final class HomeLifeOSProjectionStore {
             return densitySnapshot(
                 title: title,
                 value: planned == 0 ? "A quiet day" : "\(planned) planned",
-                compactDetail: goals == 0 ? "Reflect without a score" : "\(goals) goals in context",
-                storyDetail: "Look for what helped, what changed, and one adjustment worth carrying forward.",
+                compactDetail: goals == 0 ? "Look back on today" : "\(goals) goals in context",
+                storyDetail: "What helped, and what to carry forward.",
                 size: size,
                 date: date
             )
@@ -345,15 +437,62 @@ final class HomeLifeOSProjectionStore {
                 title: title,
                 value: "Capture",
                 compactDetail: "Task, note, journal, mood, or metric",
-                storyDetail: "Write naturally. LifeBoard will show a review before saving any interpreted change.",
+                storyDetail: "Write naturally. You review before anything saves.",
                 size: size,
                 date: date
             )
         case .evaConversation:
             return emptySnapshot(title, "Save an Eva insight to place it here.", date)
+        case .setupChecklist:
+            let outstanding = outstandingSetupItems()
+            guard let first = outstanding.first else {
+                // Nothing left to offer: the card reports empty and the Home
+                // canvas drops it rather than leaving a permanent placeholder.
+                return emptySnapshot(title, "Nothing left to set up.", date)
+            }
+            return densitySnapshot(
+                title: title,
+                value: first,
+                compactDetail: outstanding.count == 1 ? "1 left" : "\(outstanding.count) left",
+                storyDetail: outstanding.prefix(3).joined(separator: " \u{00B7} "),
+                size: size,
+                date: date
+            )
         default:
             return unavailableSnapshot(title, date)
         }
+    }
+
+    /// What the user still has not set up, in the order worth offering it.
+    ///
+    /// Onboarding deliberately does not ask for everything; this is where the
+    /// remainder lives so the flow can stay short. Each row disappears as soon as
+    /// it is satisfied, and the card removes itself when the list empties.
+    private func outstandingSetupItems() -> [String] {
+        var items: [String] = []
+
+        if LifeBoardPermissionPromptState.hasRequested(.notifications) == false {
+            items.append("Turn on reminders")
+        }
+        if LifeBoardPermissionKind.appleHealth.isSupportedOnThisDevice,
+           LifeBoardPermissionPromptState.hasRequested(.appleHealth) == false {
+            items.append("Connect Apple Health")
+        }
+        if LifeBoardPermissionPromptState.hasRequested(.calendar) == false {
+            items.append("Connect your calendar")
+        }
+        if let trackSnapshot {
+            if trackSnapshot.hydrationTargetMilliliters == nil {
+                items.append("Set a hydration target")
+            }
+            if trackSnapshot.dueRoutines.isEmpty, trackSnapshot.goals.isEmpty {
+                items.append("Add a routine")
+            }
+        }
+        if V2FeatureFlags.journalV1Enabled, JournalHomeConsentStore.isGranted == false {
+            items.append("Show journal on Home")
+        }
+        return items
     }
 
     private func densitySnapshot(
@@ -362,7 +501,8 @@ final class HomeLifeOSProjectionStore {
         compactDetail: String,
         storyDetail: String,
         size: HomeCardSize,
-        date: Date
+        date: Date,
+        payload: HomeCardPayload = .none
     ) -> HomeCardSnapshot {
         let detail: String?
         switch size {
@@ -375,19 +515,50 @@ final class HomeLifeOSProjectionStore {
             title: title,
             value: value,
             detail: detail,
+            payload: payload,
             updatedAt: date
         )
     }
 
-    private func emptySnapshot(_ title: String, _ detail: String, _ date: Date) -> HomeCardSnapshot {
-        HomeCardSnapshot(availability: .empty, title: title, detail: detail, updatedAt: date)
+    private func emptySnapshot(
+        _ title: String,
+        _ detail: String,
+        _ date: Date,
+        payload: HomeCardPayload = .none
+    ) -> HomeCardSnapshot {
+        HomeCardSnapshot(
+            availability: .empty,
+            title: title,
+            detail: detail,
+            payload: payload,
+            updatedAt: date
+        )
+    }
+
+    /// Overdue is the only state worth surfacing distinctly on Home — the rest
+    /// is noise at glance size.
+    private static func queueState(
+        for task: PlanningTaskSummary,
+        at date: Date
+    ) -> HomeQueueItem.State {
+        if let due = task.dueDate, due < date { return .overdue }
+        switch task.metadata.availability {
+        case .waiting, .paused: return .skipped
+        case .actionable: return .pending
+        }
+    }
+
+    private static func goalFraction(_ goal: GoalProgressSnapshot) -> Double {
+        if let fraction = goal.progressFraction { return max(0, min(1, fraction)) }
+        guard let current = goal.currentValue, let target = goal.targetValue, target > 0 else { return 0 }
+        return max(0, min(1, current / target))
     }
 
     private func unavailableSnapshot(_ title: String, _ date: Date) -> HomeCardSnapshot {
         HomeCardSnapshot(
             availability: .unavailable,
             title: title,
-            detail: "This source is unavailable right now. Your Home layout is unchanged.",
+            detail: "Unavailable right now.",
             updatedAt: date
         )
     }

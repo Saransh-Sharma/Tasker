@@ -5,27 +5,6 @@ extension StarterPack: Identifiable {
     public var id: String { rawValue }
 }
 
-private enum TrackCategory: String, CaseIterable, Identifiable {
-    case today = "Today"
-    case body = "Body"
-    case mind = "Mind"
-    case routines = "Routines"
-    case goals = "Goals"
-    case library = "Library"
-
-    var id: String { rawValue }
-    var symbol: String {
-        switch self {
-        case .today: "sun.max"
-        case .body: "heart.text.square"
-        case .mind: "brain.head.profile"
-        case .routines: "repeat"
-        case .goals: "target"
-        case .library: "books.vertical"
-        }
-    }
-}
-
 struct LifeBoardTrackFoundationRootView: View {
     @State private var store: TrackFoundationStore
     private let sourcePickerRepository: any TypedSourcePickerRepository
@@ -50,7 +29,7 @@ struct LifeBoardTrackFoundationRootView: View {
     @State private var showsCareLibrary = false
     @State private var showsHydrationTarget = false
     @State private var linkingGoal: GoalDefinition?
-    @State private var selectedCategory: TrackCategory = .today
+    @State private var selectedLens: TrackLens = .today
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
 
     init(
@@ -65,6 +44,7 @@ struct LifeBoardTrackFoundationRootView: View {
         nutritionRepository: any NutritionRepository,
         lifeMomentRepository: any LifeMomentRepository,
         wellnessRepository: any WellnessRepository,
+        initialLens: TrackLens = .today,
         onOpenHabitBoard: @escaping () -> Void = {},
         onOpenHealth: @escaping () -> Void = {}
     ) {
@@ -86,6 +66,7 @@ struct LifeBoardTrackFoundationRootView: View {
         self.nutritionRepository = nutritionRepository
         self.lifeMomentRepository = lifeMomentRepository
         self.wellnessRepository = wellnessRepository
+        _selectedLens = State(initialValue: initialLens)
     }
 
     var body: some View {
@@ -100,7 +81,6 @@ struct LifeBoardTrackFoundationRootView: View {
 
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    header
                     categoryRail
                     categoryContent
                 }
@@ -152,7 +132,15 @@ struct LifeBoardTrackFoundationRootView: View {
                 schedule: editingRoutine.flatMap { routine in store.routineSchedules.first(where: { $0.routineID == routine.id }) },
                 sourcePickerRepository: sourcePickerRepository
             ) { title, steps, weekdays, daypart in
-                Task { await store.saveRoutine(existing: editingRoutine, title: title, steps: steps, weekdays: weekdays, daypart: daypart) }
+                Task {
+                    await store.saveRoutine(existing: editingRoutine, title: title, steps: steps, weekdays: weekdays, daypart: daypart)
+                    // A scheduled routine that cannot notify is a routine that
+                    // silently never arrives. Offer once, after the save lands.
+                    await LifeBoardPermissionPrimingCoordinator.shared.offerAfterReward(
+                        kind: .notifications,
+                        trigger: "routine_scheduled"
+                    )
+                }
             }
         }
         .sheet(isPresented: $showsCareLibrary) {
@@ -211,57 +199,104 @@ struct LifeBoardTrackFoundationRootView: View {
     }
 
     private var categoryRail: some View {
-        ScrollView(.horizontal) {
-            HStack(spacing: 8) {
-                ForEach(TrackCategory.allCases) { category in
-                    categoryChip(category)
-                }
+        Picker("Track lens", selection: $selectedLens) {
+            ForEach(TrackLens.allCases) { lens in
+                Text(lens.title).tag(lens)
             }
         }
-        .scrollIndicators(.hidden)
-        .accessibilityLabel("Track categories")
-    }
-
-    private func categoryChip(_ category: TrackCategory) -> some View {
-        let isSelected = selectedCategory == category
-        let fill = Color(isSelected
-            ? LifeBoardColorTokens.foundationSurfaceSelected
-            : LifeBoardColorTokens.foundationSurfaceSolid)
-        return Button {
-            withAnimation(LifeBoardAnimation.roleLocalState) { selectedCategory = category }
-        } label: {
-            Label(category.rawValue, systemImage: category.symbol)
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 13)
-                .frame(minHeight: 44)
-                .background(fill, in: Capsule())
-                .overlay { Capsule().stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
-        }
-        .buttonStyle(.plain)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
-        .accessibilityIdentifier("track.category.\(category.rawValue.lowercased())")
+        .pickerStyle(.segmented)
+        .animation(LifeBoardAnimation.selection, value: selectedLens)
+        .accessibilityIdentifier("track.lens")
     }
 
     @ViewBuilder private var categoryContent: some View {
-        switch selectedCategory {
+        switch selectedLens {
         case .today:
             dueAndUnresolved
-            routinesAndHabits
+            todayRoutines
             careSnapshot
-            goals
-            modules
-        case .body:
-            dueAndUnresolved
+        case .areas:
             bodyCare
-        case .mind:
             mindCare
-        case .routines:
             routinesAndHabits
-        case .goals:
             goals
-        case .library:
             modules
+        case .history:
+            historyContent
         }
+    }
+
+    @ViewBuilder
+    private var todayRoutines: some View {
+        if store.snapshot.dueRoutines.isEmpty == false {
+            trackSectionHeader("Useful today", symbol: "sun.max")
+            ForEach(store.snapshot.dueRoutines) { routine in
+                Button { Task { await store.startRoutine(routine) } } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "play.circle.fill")
+                            .font(.title2)
+                            .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(routine.title).font(.headline)
+                            Text("\(routine.steps.count) calm steps")
+                                .font(.caption)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .trackClayCard()
+                }
+                .buttonStyle(.plain)
+            }
+        }
+    }
+
+    private var historyContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Picker("History range", selection: $careHistoryDays) {
+                Text("7 days").tag(7)
+                Text("30 days").tag(30)
+            }
+            .pickerStyle(.segmented)
+
+            if filteredHydrationHistory.isEmpty
+                && filteredSleepHistory.isEmpty
+                && store.checkIns.isEmpty {
+                trackEmpty(
+                    "No history yet",
+                    detail: "Explicit records will appear here. Missing data is never treated as zero.",
+                    symbol: "clock.arrow.circlepath"
+                )
+            } else {
+                if filteredHydrationHistory.isEmpty == false {
+                    trackSectionHeader("Hydration", symbol: "drop")
+                    ForEach(filteredHydrationHistory) { hydrationHistoryRow($0) }
+                }
+                if filteredSleepHistory.isEmpty == false {
+                    trackSectionHeader("Sleep context", symbol: "moon.zzz")
+                    ForEach(filteredSleepHistory) { sleepHistoryRow($0) }
+                }
+                if store.checkIns.isEmpty == false {
+                    trackSectionHeader("Mind check-ins", symbol: "face.smiling")
+                    ForEach(Array(store.checkIns.prefix(12)), id: \.id) { checkIn in
+                        HStack(spacing: 12) {
+                            Image(systemName: "face.smiling")
+                                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(checkIn.mood.title).font(.body.weight(.medium))
+                                Text(moodCheckInDetail(checkIn))
+                                    .font(.caption)
+                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 7)
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("track.history")
     }
 
     private var header: some View {
