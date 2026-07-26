@@ -18,27 +18,21 @@ public enum V2FeatureFlags {
     private static let decorativeCTAEffectsUserKey = "feature.ui.decorative_cta_effects.user_enabled"
     private static let decorativeCTAEffectsRemoteAllowKey = "feature.ui.decorative_cta_effects.remote_allowed"
 
-    /// The Life OS shell is the default developer experience so a normal Xcode
-    /// run exercises the new product. Release builds retain the promoted value
-    /// policy and never inherit this Debug-only default.
+    /// The Life OS shell is now the product on every build configuration.
+    ///
+    /// This was a hard-coded `false` in Release with no override path, which meant
+    /// a shipped build could only ever show the legacy Sunrise home — and no
+    /// amount of remote configuration could change that without a new binary. It
+    /// now resolves through the same promoted-default policy as every other staged
+    /// flag, so the shell ships on and remains rollback-able without a build.
     public static var lifeOSFoundationV1Enabled: Bool {
         get {
-            #if DEBUG
-            if launchArguments.contains("-LIFEBOARD_ENABLE_LIFE_OS_FOUNDATION") { return true }
-            if launchArguments.contains("-LIFEBOARD_DISABLE_LIFE_OS_FOUNDATION") { return false }
-            if let override = defaults.object(forKey: "debug.life_os_foundation_v1") as? Bool {
-                return override
-            }
-            return true
-            #else
-            return false
-            #endif
+            stagedFeatureEnabled(
+                key: "debug.life_os_foundation_v1",
+                argument: "LIFE_OS_FOUNDATION"
+            )
         }
-        set {
-            #if DEBUG
-            defaults.set(newValue, forKey: "debug.life_os_foundation_v1")
-            #endif
-        }
+        set { setStagedFeature(newValue, key: "debug.life_os_foundation_v1") }
     }
 
     public static var adaptiveHomeV2Enabled: Bool {
@@ -51,6 +45,14 @@ public enum V2FeatureFlags {
     public static var lifeOSUnifiedPresentationV2Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.unified_presentation_v2", argument: "LIFE_OS_UNIFIED_PRESENTATION_V2") }
         set { setStagedFeature(newValue, key: "feature.life_os.unified_presentation_v2") }
+    }
+
+    /// Presentation-only rollback gate for the LifeBoard 5 information
+    /// architecture, root header, contextual capture, and motion choreography.
+    /// Domain models, receipts, and stored records never depend on this flag.
+    public static var lifeBoardPremiumIAV5Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.premium_ia_v5", argument: "PREMIUM_IA_V5") }
+        set { setStagedFeature(newValue, key: "feature.life_os.premium_ia_v5") }
     }
 
     /// Additive domain gates. Turning one off only removes unfinished surfaces;
@@ -174,22 +176,60 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.starter_packs_v1") }
     }
 
+    /// Flags whose staged rollout is complete and which now ship on by default.
+    ///
+    /// Release builds used to fall through to `false` for every staged flag, so a
+    /// shipped LifeBoard showed the legacy Sunrise home and none of Plan, Track,
+    /// Insights, Eva, journal, wellness, nutrition, fasting, or life moments was
+    /// reachable. Promotion is expressed as data rather than as a build-config
+    /// branch so a single flag can be held back by name without disturbing the
+    /// rest, and so a stored override still wins in both directions.
+    private static let promotedDefaults: [String: Bool] = [
+        "debug.life_os_foundation_v1": true,
+        "feature.life_os.adaptive_home_v2": true,
+        "feature.life_os.unified_presentation_v2": true,
+        "feature.life_os.premium_ia_v5": true,
+        "feature.life_os.wellness_core_v1": true,
+        "feature.life_os.fasting_v2": true,
+        "feature.life_os.nutrition_v1": true,
+        "feature.life_os.life_moments_v1": true,
+        "feature.life_os.system_surfaces_v2": true,
+        "feature.life_os.dashboard_customization_v2": true,
+        "feature.life_os.trackers_v1": true,
+        "feature.life_os.health_integrations_v1": true,
+        "feature.life_os.health_writeback_v1": true,
+        "feature.life_os.journal_v1": true,
+        "feature.life_os.journal_parity_v1": true,
+        "feature.life_os.knowledge_notes_v1": true,
+        "feature.life_os.planning_core_v1": true,
+        "feature.life_os.plan_destination_v1": true,
+        "feature.life_os.focus_execution_v2": true,
+        "feature.life_os.eva_plan_repair_v1": true,
+        "feature.life_os.track_foundations_v2": true,
+        "feature.life_os.habit_resilience_v2": true,
+        "feature.life_os.goals_routines_v1": true,
+        "feature.life_os.care_modules_v2": true,
+        "feature.life_os.starter_packs_v1": true,
+        // Held back: an A/B phrasing path for Eva's journal answers, not part of
+        // the shipped surface. The deterministic evidence answer is the default.
+        "feature.life_os.eva_fm_responder_v1": false
+    ]
+
     private static func stagedFeatureEnabled(key: String, argument: String) -> Bool {
         #if DEBUG
         if launchArguments.contains("-LIFEBOARD_ENABLE_\(argument)") { return true }
         if launchArguments.contains("-LIFEBOARD_DISABLE_\(argument)") { return false }
+        #endif
         if let override = sharedDefaults?.object(forKey: key) as? Bool
             ?? defaults.object(forKey: key) as? Bool {
             return override
         }
-        // Phase II is intentionally visible on an ordinary developer launch.
-        // This keeps manual product/design testing on the same path as CI while
-        // preserving explicit per-feature disable arguments for rollback work.
+        #if DEBUG
+        // Every staged surface is intentionally visible on an ordinary developer
+        // launch, so manual product/design testing follows the same path as CI.
         return true
         #else
-        return sharedDefaults?.object(forKey: key) as? Bool
-            ?? defaults.object(forKey: key) as? Bool
-            ?? false
+        return promotedDefaults[key] ?? false
         #endif
     }
 
