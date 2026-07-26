@@ -283,6 +283,30 @@ Use the 2/4/8/12/16/20/24/32/40 pt rhythm. Phone content begins at the tokenized
 
 Home stays open between modules so its atmosphere can breathe. A card is warranted only for one decision, one summary, or one independently movable widget. Task rows remain open and readable; Focus Now is the only deliberately dominant Home card.
 
+### LifeBoard 5 root architecture
+
+Every root answers one question and preserves its own navigation state:
+
+- **Home — What matters now?** One dominant Now decision, no more than four honest signals, Today's committed work, Day ahead, conditional Needs attention, then Keep steady, Close the loop, and user-owned supporting widgets. Home does not restate the same projection twice: if the Now card, a section state, and a summary line would all narrate the open-task count, only one of them survives.
+- **Plan — When should it happen?** Day, Week, and Backlog. Focus is a typed destination from work rather than a competing root lens.
+- **Track — What needs recording or sustaining?** Today, Areas, and History. Configuration and grading belong in detail/settings.
+- **Insights — What changed, and what should I do next?** Overview, Trends, and Review. Interpretation precedes metrics; raw provenance is disclosed as Evidence.
+- **Eva — Help me understand or safely make a change.** Full-height conversation; all mutations remain explicit proposals with receipts.
+
+The floating conversational composer owns capture on every root except Eva, which hosts its own. Its leading control expands into the capture tray; every capture kind with a working host has a visible control there. The compact root header owns capture only where the composer is suppressed, plus the overflow menu, the Home mode control, and Add to Home. The bottom dock is an unobstructed five-target Regular Glass capsule; composer and dock share one `GlassEffectContainer` so they morph as a single surface. Home orientation roles are anchored and rendered once; schema-v5 migration removes only app-owned duplicates and preserves user IDs, payloads, order, size, visibility, ownership, and unknown widgets.
+
+### Card archetypes
+
+`HomeCardSnapshot` carries a typed `HomeCardPayload` alongside its strings, so a card can be a number, a series, a target or a queue rather than a joined sentence. Every registered kind declares a `HomeCardArchetype` — metric, ring, trend, queue, streak, decision, spine, moment, countdown, action — and every archetype renders at all five size presets. This is a correctness rule, not a style one: accessibility text sizes force the wide preset, so an archetype that cannot draw at wide is a blank card for anyone using large type.
+
+Charts always ship their prose equivalent, and degrade to it entirely at accessibility sizes rather than shrinking type. Hero numerals roll only on a real value change. Sensitive cards drop their payload before reaching any widget, Spotlight item or notification preview.
+
+`DashboardWidgetDescriptor.sectionRole` is the single source of truth for which Home section a card belongs to — it replaced three hardcoded string sets in the Home view and a fourth copy in the layout repository.
+
+### Home modes
+
+Smart, Work, Personal and Low Energy each change content, not just palette. `DashboardModePolicy` resolves the permitted planning contexts, which cards a mode will surface, and how many sections it shows; providers filter their own queries rather than the view hiding rows afterwards. Work excludes sensitive cards outright. Low Energy reduces Home to Now, Signals and Keep steady.
+
 Phone uses the canonical four-column semantic grid, regular iPad eight columns, and wide iPad twelve. Persist semantic spans, not device pixels. The system scales authored spans proportionally and falls back to one content column at accessibility sizes. Content must reserve the measured floating chrome height rather than assuming a fixed safe-area inset.
 
 ## Elevation & Depth
@@ -317,7 +341,7 @@ Use continuous corners. Inputs use 14 pt corners; standard cards 18 pt; sheets a
 - Do use semantic tokens and named components; do not add direct colors, ad-hoc shadows, raw global font sizes, or direct material calls in feature code.
 - Do make state and hierarchy perceivable with text, shape, and accessibility semantics; do not communicate status through color or animation alone.
 - Do honor Reduce Motion, Reduce Transparency, Low Power Mode, thermal pressure, scene activity, and Catalyst fallbacks through `LifeBoardMotionPolicy`.
-- Do use only the approved signature effects: `daypartBloom`, `evaInkReveal`, `journalMediaReveal`, `memoryDevelopReveal`, `fastingEmberRing`, `healthSyncPulse`, `vitalOrbWarp`, `clayPressBloom`, `daypartCrossDissolve`, and `completionBurst`. Every one is one-shot and interaction-, threshold-, or boundary-bound; do not turn any of them into ambient loops. Do not add decorative loops, shimmer, or generic spring aliases.
+- Do use only the approved signature effects: `daypartBloom`, `evaInkReveal`, `journalMediaReveal`, `memoryDevelopReveal`, `fastingEmberRing`, `healthSyncPulse`, `vitalOrbWarp`, `clayPressBloom`, `daypartCrossDissolve`, `completionBurst`, and `contextLens`. `contextLens` is the only LifeBoard 5 addition: a 380 ms control/background-plane handoff with an 8 pt maximum sample offset. Every effect is one-shot and interaction-, threshold-, or boundary-bound; do not turn any of them into ambient loops. Do not distort text, charts, evidence, or sensitive content.
 - Do use SF Symbols or curated assets for UI icons; do not use emoji as interface icons.
 - Do preserve privacy: never reveal journal text, audio, media, embeddings, or private health content in diagnostics, widgets, or system previews.
 - Do distinguish explicit zero, no record, setup required, stale, denied, locked, offline, and error; do not collapse them into one empty state.

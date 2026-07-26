@@ -128,12 +128,13 @@ Locked is a privacy state with no content-derived preview. Denied is a permissio
 
 Named motion roles:
 
-- press: 90 ms;
-- fast feedback: 140 ms;
-- local state: 220 ms;
-- panel/reflow: 220–280 ms;
-- hero/route reveal: 360–420 ms;
-- bounded celebration: approximately 540 ms.
+- press: 90–140 ms;
+- selection and symbol replacement: 180–260 ms;
+- local insertion/reflow: 260–360 ms;
+- control morph and sheet: 320–440 ms;
+- shared-element route: 380–500 ms;
+- bounded completion: 420–600 ms, once;
+- exits: approximately 75% of the corresponding entrance.
 
 Use direct manipulation only when the content visibly follows the gesture. Preserve velocity through the approved resolver and provide non-gesture alternatives.
 
@@ -143,7 +144,13 @@ Approved signature effects:
 - `evaInkReveal`;
 - `journalMediaReveal`;
 - `memoryDevelopReveal`;
-- `fastingEmberRing`.
+- `fastingEmberRing`;
+- `healthSyncPulse`;
+- `vitalOrbWarp`;
+- `clayPressBloom`;
+- `daypartCrossDissolve`;
+- `completionBurst`;
+- `contextLens` (capture/Eva background and control planes only, 8 pt maximum offset).
 
 Haptic vocabulary:
 
@@ -170,12 +177,12 @@ Reduce Motion, Low Power Mode, thermal pressure, inactive scenes, unsupported sh
 
 | Surface | First | Dominant action | Secondary context |
 |---|---|---|---|
-| Home | Orientation and Focus Now | Start/continue the current commitment | Signals, tasks, timeline, reflection |
-| Plan Day | Date and capacity | Place/start/repair | Fixed events and unplaced work |
+| Home | Greeting, day summary, and one Now card | Start/continue the current commitment | Signals, Day ahead, conditional care, user space |
+| Plan Day | Day/Week/Backlog lens, date, and capacity | Place/start/repair on one time spine | Fixed events, open windows, conflicts |
 | Plan Week | Distribution across seven days | Open/adjust a day | Weekly operating context |
-| Track | Today capture/due state | Record or continue | History, trends, management |
+| Track | Today/Areas/History lens | Record or continue one useful check-in | Typed history and area detail |
 | Journal | Date and entries | Capture/write | Media, search, reflection |
-| Insights | Supported pattern | Inspect/save/follow up | Evidence and timeframe |
+| Insights | Overview/Trends/Review lens and one supported interpretation | Follow one recommendation | Disclosed evidence and timeframe |
 | EVA | Conversation context | Send or review proposal | Sources, history, model state |
 | Settings | Current control category | Save/change | Explanation and dependencies |
 

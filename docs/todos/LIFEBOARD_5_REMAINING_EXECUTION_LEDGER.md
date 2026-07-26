@@ -112,3 +112,61 @@ Product intent and UX acceptance live in the [LifeBoard 5.0 Product Handbook](..
 - [~] Finish timing and interaction polish across every migrated root and leaf (Foundation and Eva state changes now use centralized interactive/local/ambient motion roles; Home atomic customization, safe-area composer continuity, responsive 4/8/12 packing, bounded streaming reveal, truthful async states, and named haptic/elevation budgets are simulator-verified. Physical haptic feel, shader timing, drag velocity, and oldest-device frame pacing remain signed-device tuning gates).
 - [~] Accessibility/contrast and regression gates: WCAG contrast contracts and the stored light/dark/high-contrast/reduced-transparency/reduced-motion/grayscale screenshot matrix are green. In the 2026-07-23 validation snapshot, the official `DESIGN.md` lint and both UI guardrails completed with 0 warnings/errors, and a serial generic Simulator build passed. The baseline-aware `LifeBoardTests` run executed 1,704 tests: 1,657 passed, 3 skipped, and 44 distinct methods failed with 78 failure assertions, 2 unexpected. The checked-in failure baseline is empty, so this is unresolved baseline drift and release promotion remains blocked. Active Overdue Rescue source changed after that run and requires a fresh candidate rerun. Device performance, memory, launch, thermal, haptics, App Group, and paired-Watch gates also remain open.
 - [x] Retain the previous presentation for one release (legacy Sunrise palette + legacy Home remain behind `lifeOSUnifiedPresentationV2` / `adaptiveHomeV2` as the documented rollback).
+
+## Milestone 12 — IA correction, card archetypes, and motion craft
+
+Updated: 2026-07-27
+
+### Shell
+- [x] One bottom bar on iPhone. `.toolbar(.hidden, for: .tabBar)` was applied to the `TabView` itself, where it addresses an *enclosing* tab bar; the system Liquid Glass bar therefore rendered underneath the custom dock. Moved onto the tab content inside the `ForEach`.
+- [x] iPad root navigation. Replaced the hand-rolled `NavigationSplitView` + `List` with `TabView` + `.tabViewStyle(.sidebarAdaptable)`, so roots stay switchable when the sidebar collapses and through Split View / Slide Over.
+- [x] Mounted the floating conversational composer (`lifeThreadComposerHost`, ~145 lines, previously never called) above the dock inside one `GlassEffectContainer`. Suppressed on Eva, which owns its own composer; the header `+` now appears only where the composer does not.
+- [x] Extended the composer tray with Habit, Tracker entry and Time block — all three had working capture hosts and no visible control.
+- [x] Fixed the composer `+` hit target: it had no `contentShape`, so its tappable area was the glyph rather than its 44×44 frame.
+- [x] Fixed the iPad atmosphere seam. The scenic band is capped at 520pt and centred; 28pt edge gradients could not bridge it, leaving a bright vertical stripe. Added a blurred full-bleed bed and masked the band's own alpha into it.
+
+### Card system
+- [x] Added `HomeCardPayload` (metric / progress / series / queue / streak / countdown / moment) to `HomeCardSnapshot`, decoded additively so persisted snapshots and app-group widget envelopes keep working. `redactingPayload()` strips it for system surfaces.
+- [x] Added `HomeCardArchetype` and `HomeSectionRole` to `DashboardWidgetDescriptor`; assigned both to all 22 registered kinds.
+- [x] New `LifeBoardCardPrimitives.swift`: numeric roll, sparkline, Swift Charts trend with prose equivalent, liquid progress ring, streak grid, bounded 3-card deck stack.
+- [x] New `LifeBoardHomeCardBodies.swift`: ten archetype bodies, each rendering at all five presets. **This closes a real accessibility defect** — eleven kinds previously fell through to `EmptyView()` at wide and above, and accessibility text sizes force the wide preset, so those cards were blank for large-type users.
+- [x] `HomeCardSnapshot.actions` now render. Providers had always populated them; nothing ever drew them.
+- [x] Section membership moved onto the descriptor, replacing three hardcoded string sets in the Home view and a divergent fourth copy in `DashboardLayoutRepository`. The two copies disagreed on ownership, so a user-pinned anchored card persisted forever and never rendered.
+
+### Home
+- [x] New anchored order: Now → Signals → **Today** → Day ahead → Needs attention → Keep steady → Close the loop → Your space. `tasks` previously fell through to "Your space" and rendered below wellbeing and reflection on a default install.
+- [x] Removed the standalone day-summary line, which restated the same projection the Now card and Day ahead already narrated.
+- [x] Raised the context-candidate cap from 2 to 4. Nine domain providers were competing for a "Needs attention" section that could only ever render one row.
+- [x] Header ink follows the scene, not the system appearance. A Night daypart in Light appearance resolved cocoa ink onto navy sky; the greeting and date were effectively invisible.
+
+### Modes
+- [x] Surfaced the Smart / Work / Personal / Low Energy control in the root header. It previously existed only inside `adaptiveHeader`, which is never called — modes were persisted and restored with no way to change them.
+- [x] Added `DashboardModePolicy` so every mode changes content: permitted planning contexts, card permission, and a section budget. Work excludes sensitive cards; Low Energy reduces Home to Now, Signals and Keep steady. Verified live.
+- [x] Deleted the dead `adaptiveHeader` and its duplicate `DashboardMode.systemImage`.
+
+### Reconnections
+- [x] Plan's `capacityCard` is called from the Day lens. It was unreferenced, which also made `PlanWorkingHoursComposer` unreachable — Plan was showing a capacity figure derived from inputs the user could not edit. Verified live.
+- [x] Add to Home wired from the Plan/Track/Insights/Eva overflow menus. The sheet, receipt and Undo were fully built with nothing setting the request.
+
+### Insights
+- [x] New `InsightsInterpretationEngine`. The Overview headline was "whichever domain has the most records", which always named the chattiest tracker; it now ranks by days-present and refuses to claim a pattern below a three-day floor, mirroring the weekly reflection's density gate.
+- [x] Trends renders a real Swift Charts series with its prose equivalent, replacing a list of per-domain row counts.
+- [x] The Eva handoff carries the interpretation Insights actually made instead of a generic "help me understand this pattern".
+
+### Motion
+- [x] Five new Metal shaders in the governed allowlist and `warmUp()`: `chartRevealSweep`, `liquidGlassRefract`, `cardMorphWarp`, `paperGrain`, `dissolveAway`. `paperGrain` adapts the sample project's Halftone; `dissolveAway` adapts Burn. All inherit the existing Reduce Motion / Reduce Transparency / Low Power / thermal fallbacks.
+- [x] Ported the sample project's AddView expansion as the composer tray's staggered entrance (28ms per chip, capped at 220ms) and its rotating plus-to-close control.
+- [x] Apache 2.0 attribution for `SwiftUI-Animations-master` preserved; it remains reference material, not a runtime dependency.
+
+### Evidence
+- [x] `LifeOSFoundationContractTests`: 129 tests, 5 failing — all five are the pre-existing CoreData `writeClosed` failures inherited from the Phase 5/6 worktree (Wellness, Nutrition, Life Moments, Fasting, PhaseII round-trips). Each fails identically when run in isolation, and this pass touched no CoreData store. The two contract tests this work deliberately changed (candidate cap, effect allowlist) were updated rather than worked around.
+- [x] Four new contract tests: every registered kind declares a renderable archetype and section; payload decodes absent as `.none` and redacts on demand; each mode has distinct behaviour; the interpretation engine ranks consistency and refuses below its floor.
+- [x] Live simulator verification on iPhone 17 Pro and iPad (iOS 26.5): single bottom bar, composer tray, mode switching changing content, Plan capacity → working hours, iPad sidebar and seam-free backdrop.
+
+### Open
+- [ ] Migrate Fasting out of the legacy Track tree and retire the legacy `LifeBoardTrackRootView` entry points; Fasting is still legacy-exclusive and Journal still appears twice in Areas.
+- [ ] Deepen Track History beyond hydration/sleep/mood and wire the orphaned `.trackHistory` route.
+- [ ] Render `WorkoutRecord` and sleep in Wellness so the module matches its own subtitle.
+- [ ] Wire `.insightEvidence(UUID)` to honour its ID and `.planningReview`, or delete them.
+- [ ] Populate typed payloads for the wellness, nutrition and life-moment providers (their cards currently fall back to provider strings).
+- [ ] Capture the full appearance/daypart/Dynamic Type/Increased Contrast/Reduce Transparency screenshot matrix for the new card archetypes.

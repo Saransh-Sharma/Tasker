@@ -17,6 +17,10 @@ UI_DIRS=(
   "LifeBoard/Presentation"
   "LifeBoard/Foundation"
   "LifeBoard/LLM/Views"
+  # Onboarding was outside this list, which is how it accumulated ten hand-rolled
+  # easing curves, its own spring, raw shadows, and a parallel hex palette while
+  # every other surface stayed on the token system.
+  "LifeBoard/Onboarding"
 )
 
 CHANGED_FILES=()
