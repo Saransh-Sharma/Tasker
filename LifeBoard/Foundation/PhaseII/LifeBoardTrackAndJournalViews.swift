@@ -422,7 +422,15 @@ struct LifeBoardTrackRootView: View {
                     store.medicationSchedules.first(where: { $0.medicationID == medication.id })
                 }
             ) { medication, schedule in
-                Task { await store.saveMedication(medication, schedule: schedule) }
+                Task {
+                    await store.saveMedication(medication, schedule: schedule)
+                    // A dose window with no notification is a window the user
+                    // has to remember unaided, which defeats the point.
+                    await LifeBoardPermissionPrimingCoordinator.shared.offerAfterReward(
+                        kind: .notifications,
+                        trigger: "medication_scheduled"
+                    )
+                }
             }
         }
         .sheet(item: $historyMedication) { medication in
@@ -3889,7 +3897,13 @@ private final class LifeBoardJournalAudioRecorder: NSObject, AVAudioRecorderDele
         let permitted = await withCheckedContinuation { continuation in
             AVAudioApplication.requestRecordPermission { continuation.resume(returning: $0) }
         }
-        guard permitted else { errorMessage = "Microphone access is unavailable."; return }
+        // iOS asks at this moment, which is the right time — onboarding only
+        // explains it. Record the outcome so nothing offers to prime it later.
+        await MainActor.run { LifeBoardPermissionPromptState.recordRequested(.microphone) }
+        guard permitted else {
+            errorMessage = "Microphone is off. Turn it on in Settings to record."
+            return
+        }
         do {
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.record, mode: .spokenAudio, options: [.duckOthers])
@@ -4021,6 +4035,14 @@ private struct JournalPrivacySettingsView: View {
                 Section {
                     Toggle("Exclude sensitive entries from ordinary exports", isOn: $controller.policy.excludesSensitiveEntriesFromExport)
                     Toggle("Allow Journal evidence for Eva", isOn: $controller.policy.permitsJournalEvidenceForEva)
+                    // The Home journal card was hard-coded to a degraded state
+                    // with no way to grant consent anywhere in the app. This is
+                    // that switch.
+                    Toggle("Show Journal on Home", isOn: Binding(
+                        get: { JournalHomeConsentStore.isGranted },
+                        set: { JournalHomeConsentStore.isGranted = $0 }
+                    ))
+                    .accessibilityIdentifier("journal.privacy.homeConsent")
                 } header: {
                     Text("Sharing")
                 } footer: {

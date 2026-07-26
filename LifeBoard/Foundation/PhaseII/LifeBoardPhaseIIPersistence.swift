@@ -671,6 +671,16 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
         return values.filter { $0.title.lowercased().contains(query) || $0.plainText.lowercased().contains(query) }
     }
 
+    public func fetchKnowledgeNotes(query: KnowledgeNoteQuery) async throws -> [LifeBoardKnowledgeNoteValue] {
+        async let noteValues = fetchKnowledgeNotes(search: nil, spaceID: query.spaceID)
+        async let linkValues = fetchKnowledgeLinks()
+        let (notes, links) = try await (noteValues, linkValues)
+        return query.apply(
+            to: notes,
+            linkedNoteIDs: Set(links.flatMap { [$0.sourceNoteID, $0.destinationNoteID] })
+        )
+    }
+
     public func saveKnowledgeNote(_ value: LifeBoardKnowledgeNoteValue) async throws {
         try await write { context in
             let note = try Self.upsert(entity: "KnowledgeNote", id: value.id, in: context)
@@ -682,6 +692,13 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             note.setValue(value.isFavorite, forKey: "isFavorite")
             note.setValue(value.createdAt, forKey: "createdAt")
             note.setValue(value.updatedAt, forKey: "updatedAt")
+            note.setValue(value.resolvedState.rawValue, forKey: "stateRaw")
+            note.setValue(value.deletedAt, forKey: "deletedAt")
+            note.setValue(value.lastOpenedAt, forKey: "lastOpenedAt")
+            note.setValue(value.manualSortOrder ?? 0, forKey: "manualSortOrder")
+            note.setValue(value.templateID, forKey: "templateID")
+            note.setValue(value.contentVersion ?? 1, forKey: "contentVersion")
+            note.setValue(value.resolvedLockPolicy.rawValue, forKey: "lockPolicyRaw")
             note.setValue(try Self.fetchOne(entity: "KnowledgeSpace", id: value.spaceID, in: context), forKey: "space")
             if let folderID = value.folderID {
                 note.setValue(try Self.fetchOne(entity: "KnowledgeFolder", id: folderID, in: context), forKey: "folder")
@@ -689,11 +706,18 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
                 note.setValue(nil, forKey: "folder")
             }
 
-            Self.deleteChildren(of: note, key: "blocks", in: context)
-            Self.deleteChildren(of: note, key: "tagLinks", in: context)
-
+            let existingBlocks = (note.value(forKey: "blocks") as? Set<NSManagedObject>) ?? []
+            let incomingBlockIDs = Set(value.blocks.map(\.id))
+            for removed in existingBlocks {
+                guard let existingID = removed.value(forKey: "id") as? UUID,
+                      incomingBlockIDs.contains(existingID) else {
+                    context.delete(removed)
+                    continue
+                }
+            }
             for blockValue in value.blocks {
-                let block = NSEntityDescription.insertNewObject(forEntityName: "KnowledgeBlock", into: context)
+                let block = existingBlocks.first(where: { $0.value(forKey: "id") as? UUID == blockValue.id })
+                    ?? NSEntityDescription.insertNewObject(forEntityName: "KnowledgeBlock", into: context)
                 block.setValue(blockValue.id, forKey: "id")
                 block.setValue(value.id, forKey: "noteID")
                 block.setValue(blockValue.kind.rawValue, forKey: "kindRaw")
@@ -701,10 +725,25 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
                 block.setValue(blockValue.metadata, forKey: "metadataData")
                 block.setValue(blockValue.ordinal, forKey: "ordinal")
                 block.setValue(blockValue.isChecked, forKey: "isChecked")
+                block.setValue(blockValue.richTextData, forKey: "richTextData")
+                block.setValue(blockValue.parentBlockID, forKey: "parentBlockID")
+                block.setValue(blockValue.indentLevel ?? 0, forKey: "indentLevel")
+                block.setValue(blockValue.isCollapsed ?? false, forKey: "isCollapsed")
+                block.setValue(blockValue.createdAt ?? value.createdAt, forKey: "createdAt")
+                block.setValue(blockValue.updatedAt ?? value.updatedAt, forKey: "updatedAt")
                 block.setValue(note, forKey: "note")
             }
 
-            for tagID in value.tagIDs {
+            let existingTagLinks = (note.value(forKey: "tagLinks") as? Set<NSManagedObject>) ?? []
+            for removed in existingTagLinks {
+                guard let tagID = removed.value(forKey: "tagID") as? UUID else {
+                    context.delete(removed)
+                    continue
+                }
+                if !value.tagIDs.contains(tagID) { context.delete(removed) }
+            }
+            let existingTagIDs = Set(existingTagLinks.compactMap { $0.value(forKey: "tagID") as? UUID })
+            for tagID in value.tagIDs.subtracting(existingTagIDs) {
                 guard let tag = try Self.fetchOne(entity: "KnowledgeTag", id: tagID, in: context) else { continue }
                 let link = NSEntityDescription.insertNewObject(forEntityName: "KnowledgeNoteTagLink", into: context)
                 link.setValue(UUID(), forKey: "id")
@@ -725,6 +764,139 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
     public func deleteKnowledgeNote(id: UUID) async throws {
         try await write { context in
             if let note = try Self.fetchOne(entity: "KnowledgeNote", id: id, in: context) { context.delete(note) }
+        }
+    }
+
+    public func fetchKnowledgeSmartCollections(spaceID: UUID?) async throws -> [KnowledgeSmartCollectionValue] {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeSmartCollection")
+            if let spaceID { request.predicate = NSPredicate(format: "spaceID == %@ OR spaceID == nil", spaceID as CVarArg) }
+            request.sortDescriptors = [NSSortDescriptor(key: "name", ascending: true)]
+            return try context.fetch(request).compactMap { object in
+                guard let id = object.value(forKey: "id") as? UUID,
+                      let name = object.value(forKey: "name") as? String,
+                      let data = object.value(forKey: "queryData") as? Data,
+                      let query = try? JSONDecoder().decode(KnowledgeNoteQuery.self, from: data) else { return nil }
+                return KnowledgeSmartCollectionValue(
+                    id: id,
+                    spaceID: object.value(forKey: "spaceID") as? UUID,
+                    name: name,
+                    symbol: object.value(forKey: "symbol") as? String ?? "sparkle.magnifyingglass",
+                    query: query,
+                    createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
+                    updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+                )
+            }
+        }
+    }
+
+    public func saveKnowledgeSmartCollection(_ value: KnowledgeSmartCollectionValue) async throws {
+        try await write { context in
+            let object = try Self.upsert(entity: "KnowledgeSmartCollection", id: value.id, in: context)
+            object.setValue(value.id, forKey: "id")
+            object.setValue(value.spaceID, forKey: "spaceID")
+            object.setValue(value.name, forKey: "name")
+            object.setValue(value.symbol, forKey: "symbol")
+            object.setValue(try JSONEncoder().encode(value.query), forKey: "queryData")
+            object.setValue(value.createdAt, forKey: "createdAt")
+            object.setValue(value.updatedAt, forKey: "updatedAt")
+        }
+    }
+
+    public func deleteKnowledgeSmartCollection(id: UUID) async throws {
+        try await write { context in
+            if let value = try Self.fetchOne(entity: "KnowledgeSmartCollection", id: id, in: context) {
+                context.delete(value)
+            }
+        }
+    }
+
+    public func fetchKnowledgeDraft(noteID: UUID) async throws -> KnowledgeNoteDraftValue? {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeNoteDraft")
+            request.predicate = NSPredicate(format: "noteID == %@", noteID as CVarArg)
+            request.fetchLimit = 1
+            guard let object = try context.fetch(request).first,
+                  let id = object.value(forKey: "id") as? UUID,
+                  let snapshot = object.value(forKey: "snapshotData") as? Data else { return nil }
+            return .init(
+                id: id,
+                noteID: noteID,
+                snapshot: snapshot,
+                updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+            )
+        }
+    }
+
+    public func saveKnowledgeDraft(_ value: KnowledgeNoteDraftValue) async throws {
+        try await write { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeNoteDraft")
+            request.predicate = NSPredicate(format: "noteID == %@", value.noteID as CVarArg)
+            request.fetchLimit = 1
+            let object = try context.fetch(request).first
+                ?? NSEntityDescription.insertNewObject(forEntityName: "KnowledgeNoteDraft", into: context)
+            object.setValue(value.id, forKey: "id")
+            object.setValue(value.noteID, forKey: "noteID")
+            object.setValue(value.snapshot, forKey: "snapshotData")
+            object.setValue(value.updatedAt, forKey: "updatedAt")
+        }
+    }
+
+    public func deleteKnowledgeDraft(noteID: UUID) async throws {
+        try await write { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeNoteDraft")
+            request.predicate = NSPredicate(format: "noteID == %@", noteID as CVarArg)
+            for value in try context.fetch(request) { context.delete(value) }
+        }
+    }
+
+    public func fetchKnowledgeRevisions(noteID: UUID) async throws -> [KnowledgeNoteRevisionValue] {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeNoteRevision")
+            request.predicate = NSPredicate(format: "noteID == %@", noteID as CVarArg)
+            request.sortDescriptors = [NSSortDescriptor(key: "createdAt", ascending: false)]
+            request.fetchLimit = 100
+            return try context.fetch(request).compactMap { object in
+                guard let id = object.value(forKey: "id") as? UUID,
+                      let snapshot = object.value(forKey: "snapshotData") as? Data else { return nil }
+                return .init(
+                    id: id,
+                    noteID: noteID,
+                    snapshot: snapshot,
+                    reason: object.value(forKey: "reason") as? String ?? "Edit",
+                    createdAt: object.value(forKey: "createdAt") as? Date ?? Date()
+                )
+            }
+        }
+    }
+
+    public func saveKnowledgeRevision(_ value: KnowledgeNoteRevisionValue) async throws {
+        try await write { context in
+            let object = try Self.upsert(entity: "KnowledgeNoteRevision", id: value.id, in: context)
+            object.setValue(value.id, forKey: "id")
+            object.setValue(value.noteID, forKey: "noteID")
+            object.setValue(value.snapshot, forKey: "snapshotData")
+            object.setValue(value.reason, forKey: "reason")
+            object.setValue(value.createdAt, forKey: "createdAt")
+        }
+    }
+
+    public func pruneKnowledgeRecovery(now: Date = Date()) async throws {
+        try await write { context in
+            let draftCutoff = now.addingTimeInterval(-60 * 60 * 24 * 7)
+            let revisionCutoff = now.addingTimeInterval(-60 * 60 * 24 * 30)
+            let trashCutoff = now.addingTimeInterval(-60 * 60 * 24 * 30)
+            for (entity, key, cutoff) in [
+                ("KnowledgeNoteDraft", "updatedAt", draftCutoff),
+                ("KnowledgeNoteRevision", "createdAt", revisionCutoff)
+            ] {
+                let request = NSFetchRequest<NSManagedObject>(entityName: entity)
+                request.predicate = NSPredicate(format: "%K < %@", key, cutoff as NSDate)
+                for value in try context.fetch(request) { context.delete(value) }
+            }
+            let trashed = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeNote")
+            trashed.predicate = NSPredicate(format: "stateRaw == %@ AND deletedAt < %@", KnowledgeNoteState.trashed.rawValue, trashCutoff as NSDate)
+            for value in try context.fetch(trashed) { context.delete(value) }
         }
     }
 
@@ -789,6 +961,14 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             attachment.setValue(value.fileName, forKey: "fileName")
             attachment.setValue(value.payload, forKey: "payloadData")
             attachment.setValue(value.createdAt, forKey: "createdAt")
+            attachment.setValue(value.contentType, forKey: "contentType")
+            attachment.setValue(value.checksum, forKey: "checksum")
+            attachment.setValue(value.byteCount ?? Int64(value.payload.count), forKey: "byteCount")
+            attachment.setValue(value.availability ?? "available", forKey: "availabilityRaw")
+            attachment.setValue(value.duration, forKey: "duration")
+            attachment.setValue(value.thumbnail, forKey: "thumbnailData")
+            attachment.setValue(value.ocrText, forKey: "ocrText")
+            attachment.setValue(value.transcript, forKey: "transcript")
             attachment.setValue(try Self.fetchOne(entity: "KnowledgeNote", id: value.noteID, in: context), forKey: "note")
         }
     }
@@ -1144,7 +1324,14 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
             updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date(),
             blocks: blocks,
-            tagIDs: tagIDs
+            tagIDs: tagIDs,
+            state: (object.value(forKey: "stateRaw") as? String).flatMap(KnowledgeNoteState.init(rawValue:)),
+            deletedAt: object.value(forKey: "deletedAt") as? Date,
+            lastOpenedAt: object.value(forKey: "lastOpenedAt") as? Date,
+            manualSortOrder: (object.value(forKey: "manualSortOrder") as? NSNumber)?.doubleValue,
+            templateID: object.value(forKey: "templateID") as? String,
+            contentVersion: (object.value(forKey: "contentVersion") as? NSNumber)?.intValue,
+            lockPolicy: (object.value(forKey: "lockPolicyRaw") as? String).flatMap(KnowledgeNoteLockPolicy.init(rawValue:))
         )
     }
 
@@ -1160,7 +1347,13 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             text: object.value(forKey: "text") as? String ?? "",
             metadata: object.value(forKey: "metadataData") as? Data,
             ordinal: (object.value(forKey: "ordinal") as? NSNumber)?.intValue ?? 0,
-            isChecked: (object.value(forKey: "isChecked") as? NSNumber)?.boolValue ?? false
+            isChecked: (object.value(forKey: "isChecked") as? NSNumber)?.boolValue ?? false,
+            richTextData: object.value(forKey: "richTextData") as? Data,
+            parentBlockID: object.value(forKey: "parentBlockID") as? UUID,
+            indentLevel: (object.value(forKey: "indentLevel") as? NSNumber)?.intValue,
+            isCollapsed: (object.value(forKey: "isCollapsed") as? NSNumber)?.boolValue,
+            createdAt: object.value(forKey: "createdAt") as? Date,
+            updatedAt: object.value(forKey: "updatedAt") as? Date
         )
     }
 
@@ -1183,6 +1376,21 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
               let kind = object.value(forKey: "kindRaw") as? String,
               let fileName = object.value(forKey: "fileName") as? String,
               let payload = object.value(forKey: "payloadData") as? Data else { return nil }
-        return .init(id: id, noteID: noteID, kind: kind, fileName: fileName, payload: payload, createdAt: object.value(forKey: "createdAt") as? Date ?? Date())
+        return .init(
+            id: id,
+            noteID: noteID,
+            kind: kind,
+            fileName: fileName,
+            payload: payload,
+            createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
+            contentType: object.value(forKey: "contentType") as? String,
+            checksum: object.value(forKey: "checksum") as? String,
+            byteCount: (object.value(forKey: "byteCount") as? NSNumber)?.int64Value,
+            availability: object.value(forKey: "availabilityRaw") as? String,
+            duration: (object.value(forKey: "duration") as? NSNumber)?.doubleValue,
+            thumbnail: object.value(forKey: "thumbnailData") as? Data,
+            ocrText: object.value(forKey: "ocrText") as? String,
+            transcript: object.value(forKey: "transcript") as? String
+        )
     }
 }

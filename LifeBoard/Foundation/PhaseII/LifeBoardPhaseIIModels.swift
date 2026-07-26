@@ -1103,6 +1103,275 @@ public enum JournalPrivacyGateState: Equatable, Sendable {
 
 // MARK: - Structured notes
 
+public enum KnowledgeNoteState: String, Codable, CaseIterable, Sendable {
+    case active
+    case archived
+    case trashed
+}
+
+public enum KnowledgeNoteLockPolicy: String, Codable, CaseIterable, Sendable {
+    case unlocked
+    case deviceAuthentication
+}
+
+public enum KnowledgeNoteSort: String, Codable, CaseIterable, Sendable {
+    case updatedDescending
+    case createdDescending
+    case titleAscending
+    case manual
+}
+
+public enum KnowledgeNoteCollection: String, Codable, CaseIterable, Identifiable, Sendable {
+    case all
+    case pinned
+    case favorites
+    case recent
+    case unfiled
+    case checklists
+    case attachments
+    case linked
+    case archived
+    case trash
+    case connections
+
+    public var id: String { rawValue }
+}
+
+public struct KnowledgeNoteQuery: Codable, Hashable, Sendable {
+    public var collection: KnowledgeNoteCollection
+    public var spaceID: UUID?
+    public var folderID: UUID?
+    public var tagIDs: Set<UUID>
+    public var searchText: String
+    public var sort: KnowledgeNoteSort
+
+    public init(
+        collection: KnowledgeNoteCollection = .all,
+        spaceID: UUID? = nil,
+        folderID: UUID? = nil,
+        tagIDs: Set<UUID> = [],
+        searchText: String = "",
+        sort: KnowledgeNoteSort = .updatedDescending
+    ) {
+        self.collection = collection
+        self.spaceID = spaceID
+        self.folderID = folderID
+        self.tagIDs = tagIDs
+        self.searchText = searchText
+        self.sort = sort
+    }
+
+    public func apply(
+        to values: [LifeBoardKnowledgeNoteValue],
+        linkedNoteIDs: Set<UUID> = []
+    ) -> [LifeBoardKnowledgeNoteValue] {
+        let needle = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        let now = Date()
+        let filtered = values.filter { note in
+            guard spaceID.map({ note.spaceID == $0 }) ?? true,
+                  folderID.map({ note.folderID == $0 }) ?? true,
+                  tagIDs.isSubset(of: note.tagIDs) else { return false }
+            let stateMatches: Bool
+            switch collection {
+            case .archived:
+                stateMatches = note.resolvedState == .archived
+            case .trash:
+                stateMatches = note.resolvedState == .trashed
+            default:
+                stateMatches = note.resolvedState == .active
+            }
+            guard stateMatches else { return false }
+            let collectionMatches: Bool
+            switch collection {
+            case .all, .archived, .trash, .connections:
+                collectionMatches = true
+            case .pinned:
+                collectionMatches = note.isPinned
+            case .favorites:
+                collectionMatches = note.isFavorite
+            case .recent:
+                collectionMatches = now.timeIntervalSince(note.updatedAt) <= 60 * 60 * 24 * 14
+            case .unfiled:
+                collectionMatches = note.folderID == nil
+            case .checklists:
+                collectionMatches = note.blocks.contains { $0.kind == .checklist }
+            case .attachments:
+                collectionMatches = note.blocks.contains { $0.kind == .image || $0.kind == .file }
+            case .linked:
+                collectionMatches = linkedNoteIDs.contains(note.id)
+            }
+            guard collectionMatches else { return false }
+            guard !needle.isEmpty else { return true }
+            let haystack = ([note.title, note.plainText] + note.blocks.compactMap(\.searchableMetadata))
+                .joined(separator: "\n")
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            return haystack.contains(needle)
+        }
+        return filtered.sorted { lhs, rhs in
+            if !needle.isEmpty {
+                let lhsRank = searchRank(lhs, needle: needle)
+                let rhsRank = searchRank(rhs, needle: needle)
+                if lhsRank != rhsRank { return lhsRank > rhsRank }
+            }
+            if lhs.isPinned != rhs.isPinned, collection != .trash { return lhs.isPinned }
+            switch sort {
+            case .updatedDescending:
+                return lhs.updatedAt > rhs.updatedAt
+            case .createdDescending:
+                return lhs.createdAt > rhs.createdAt
+            case .titleAscending:
+                return lhs.displayTitle.localizedStandardCompare(rhs.displayTitle) == .orderedAscending
+            case .manual:
+                return (lhs.manualSortOrder ?? 0) < (rhs.manualSortOrder ?? 0)
+            }
+        }
+    }
+
+    private func searchRank(_ note: LifeBoardKnowledgeNoteValue, needle: String) -> Int {
+        let title = note.title.folding(
+            options: [.caseInsensitive, .diacriticInsensitive],
+            locale: .current
+        )
+        if title == needle { return 500 }
+        if title.hasPrefix(needle) { return 400 }
+        if title.contains(needle) { return 300 }
+        if note.blocks.contains(where: {
+            $0.searchableMetadata?
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+                .contains(needle) == true
+        }) { return 220 }
+        return 200
+    }
+}
+
+public enum NotesLibraryDestination: Codable, Hashable, Sendable {
+    case library(KnowledgeNoteQuery)
+    case collection(KnowledgeNoteCollection)
+    case folder(UUID)
+    case tag(UUID)
+    case search(String)
+}
+
+public struct KnowledgeRichTextPayload: Codable, Hashable, Sendable {
+    public enum Mark: String, Codable, CaseIterable, Sendable {
+        case bold
+        case italic
+        case underline
+        case strikethrough
+        case highlight
+        case inlineCode
+    }
+
+    public struct Run: Codable, Hashable, Sendable {
+        public var location: Int
+        public var length: Int
+        public var marks: Set<Mark>
+        public var link: URL?
+
+        public init(location: Int, length: Int, marks: Set<Mark> = [], link: URL? = nil) {
+            self.location = location
+            self.length = length
+            self.marks = marks
+            self.link = link
+        }
+    }
+
+    public var version: Int
+    public var runs: [Run]
+
+    public init(version: Int = 1, runs: [Run] = []) {
+        self.version = version
+        self.runs = runs
+    }
+}
+
+public struct KnowledgeSmartCollectionValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var spaceID: UUID?
+    public var name: String
+    public var symbol: String
+    public var query: KnowledgeNoteQuery
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        spaceID: UUID? = nil,
+        name: String,
+        symbol: String = "sparkle.magnifyingglass",
+        query: KnowledgeNoteQuery,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.spaceID = spaceID
+        self.name = name
+        self.symbol = symbol
+        self.query = query
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct KnowledgeNoteDraftValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var noteID: UUID
+    public var snapshot: Data
+    public var updatedAt: Date
+
+    public init(id: UUID = UUID(), noteID: UUID, snapshot: Data, updatedAt: Date = Date()) {
+        self.id = id
+        self.noteID = noteID
+        self.snapshot = snapshot
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct KnowledgeNoteRevisionValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var noteID: UUID
+    public var snapshot: Data
+    public var reason: String
+    public var createdAt: Date
+
+    public init(id: UUID = UUID(), noteID: UUID, snapshot: Data, reason: String, createdAt: Date = Date()) {
+        self.id = id
+        self.noteID = noteID
+        self.snapshot = snapshot
+        self.reason = reason
+        self.createdAt = createdAt
+    }
+}
+
+public struct KnowledgeNoteTemplate: Identifiable, Hashable, Sendable {
+    public struct Block: Hashable, Sendable {
+        public var kind: LifeBoardKnowledgeBlockKind
+        public var text: String
+
+        public init(_ kind: LifeBoardKnowledgeBlockKind, _ text: String) {
+            self.kind = kind
+            self.text = text
+        }
+    }
+
+    public var id: String
+    public var title: String
+    public var subtitle: String
+    public var symbol: String
+    public var blocks: [Block]
+
+    public static let library: [KnowledgeNoteTemplate] = [
+        .init(id: "blank", title: "Blank", subtitle: "A quiet page", symbol: "doc", blocks: [.init(.paragraph, "")]),
+        .init(id: "meeting", title: "Meeting", subtitle: "Decisions and next steps", symbol: "person.2", blocks: [.init(.heading2, "Context"), .init(.paragraph, ""), .init(.heading2, "Decisions"), .init(.bulletedList, ""), .init(.heading2, "Next steps"), .init(.checklist, "")]),
+        .init(id: "project", title: "Project brief", subtitle: "Shape an idea into a plan", symbol: "square.stack.3d.up", blocks: [.init(.heading2, "Outcome"), .init(.paragraph, ""), .init(.heading2, "Why it matters"), .init(.paragraph, ""), .init(.heading2, "Next actions"), .init(.checklist, "")]),
+        .init(id: "idea", title: "Idea", subtitle: "Capture the spark", symbol: "lightbulb", blocks: [.init(.callout, "The idea"), .init(.paragraph, ""), .init(.heading2, "What makes it interesting?"), .init(.paragraph, "")]),
+        .init(id: "checklist", title: "Checklist", subtitle: "A focused list", symbol: "checklist", blocks: [.init(.checklist, ""), .init(.checklist, ""), .init(.checklist, "")]),
+        .init(id: "research", title: "Research", subtitle: "Sources, findings, questions", symbol: "books.vertical", blocks: [.init(.heading2, "Question"), .init(.paragraph, ""), .init(.heading2, "Findings"), .init(.bulletedList, ""), .init(.heading2, "Sources"), .init(.bookmark, "")]),
+        .init(id: "daily", title: "Daily notes", subtitle: "A practical day page", symbol: "sun.max", blocks: [.init(.heading2, "Today"), .init(.paragraph, ""), .init(.heading2, "To do"), .init(.checklist, ""), .init(.heading2, "Keep"), .init(.paragraph, "")])
+    ]
+}
+
 public enum LifeBoardKnowledgeBlockKind: String, Codable, CaseIterable, Sendable {
     case paragraph
     case heading1
@@ -1190,6 +1459,12 @@ public struct LifeBoardKnowledgeBlockValue: Identifiable, Codable, Hashable, Sen
     public var metadata: Data?
     public var ordinal: Int
     public var isChecked: Bool
+    public var richTextData: Data?
+    public var parentBlockID: UUID?
+    public var indentLevel: Int?
+    public var isCollapsed: Bool?
+    public var createdAt: Date?
+    public var updatedAt: Date?
 
     public init(
         id: UUID = UUID(),
@@ -1198,7 +1473,13 @@ public struct LifeBoardKnowledgeBlockValue: Identifiable, Codable, Hashable, Sen
         text: String = "",
         metadata: Data? = nil,
         ordinal: Int = 0,
-        isChecked: Bool = false
+        isChecked: Bool = false,
+        richTextData: Data? = nil,
+        parentBlockID: UUID? = nil,
+        indentLevel: Int? = nil,
+        isCollapsed: Bool? = nil,
+        createdAt: Date? = nil,
+        updatedAt: Date? = nil
     ) {
         self.id = id
         self.noteID = noteID
@@ -1207,6 +1488,19 @@ public struct LifeBoardKnowledgeBlockValue: Identifiable, Codable, Hashable, Sen
         self.metadata = metadata
         self.ordinal = ordinal
         self.isChecked = isChecked
+        self.richTextData = richTextData
+        self.parentBlockID = parentBlockID
+        self.indentLevel = indentLevel
+        self.isCollapsed = isCollapsed
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    public var searchableMetadata: String? {
+        let payload = KnowledgeBlockPayload.decode(from: self)
+        return [payload.bookmark?.title, payload.bookmark?.summary, payload.attachment?.fileName]
+            .compactMap { $0 }
+            .joined(separator: " ")
     }
 }
 
@@ -1308,6 +1602,13 @@ public struct LifeBoardKnowledgeNoteValue: Identifiable, Codable, Hashable, Send
     public var updatedAt: Date
     public var blocks: [LifeBoardKnowledgeBlockValue]
     public var tagIDs: Set<UUID>
+    public var state: KnowledgeNoteState?
+    public var deletedAt: Date?
+    public var lastOpenedAt: Date?
+    public var manualSortOrder: Double?
+    public var templateID: String?
+    public var contentVersion: Int?
+    public var lockPolicy: KnowledgeNoteLockPolicy?
 
     public init(
         id: UUID = UUID(),
@@ -1319,7 +1620,14 @@ public struct LifeBoardKnowledgeNoteValue: Identifiable, Codable, Hashable, Send
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         blocks: [LifeBoardKnowledgeBlockValue] = [],
-        tagIDs: Set<UUID> = []
+        tagIDs: Set<UUID> = [],
+        state: KnowledgeNoteState? = nil,
+        deletedAt: Date? = nil,
+        lastOpenedAt: Date? = nil,
+        manualSortOrder: Double? = nil,
+        templateID: String? = nil,
+        contentVersion: Int? = nil,
+        lockPolicy: KnowledgeNoteLockPolicy? = nil
     ) {
         self.id = id
         self.spaceID = spaceID
@@ -1331,10 +1639,29 @@ public struct LifeBoardKnowledgeNoteValue: Identifiable, Codable, Hashable, Send
         self.updatedAt = updatedAt
         self.blocks = blocks.sorted { $0.ordinal < $1.ordinal }
         self.tagIDs = tagIDs
+        self.state = state
+        self.deletedAt = deletedAt
+        self.lastOpenedAt = lastOpenedAt
+        self.manualSortOrder = manualSortOrder
+        self.templateID = templateID
+        self.contentVersion = contentVersion
+        self.lockPolicy = lockPolicy
     }
 
     public var plainText: String {
         blocks.map(\.text).joined(separator: "\n")
+    }
+
+    public var displayTitle: String {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled" : trimmed
+    }
+
+    public var resolvedState: KnowledgeNoteState { state ?? .active }
+    public var resolvedLockPolicy: KnowledgeNoteLockPolicy { lockPolicy ?? .unlocked }
+    public var isMeaningful: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || blocks.contains { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.kind == .image || $0.kind == .file }
     }
 }
 
@@ -1371,6 +1698,14 @@ public struct LifeBoardKnowledgeAttachmentValue: Identifiable, Codable, Hashable
     public var fileName: String
     public var payload: Data
     public var createdAt: Date
+    public var contentType: String?
+    public var checksum: String?
+    public var byteCount: Int64?
+    public var availability: String?
+    public var duration: Double?
+    public var thumbnail: Data?
+    public var ocrText: String?
+    public var transcript: String?
 
     public init(
         id: UUID = UUID(),
@@ -1378,7 +1713,15 @@ public struct LifeBoardKnowledgeAttachmentValue: Identifiable, Codable, Hashable
         kind: String,
         fileName: String,
         payload: Data,
-        createdAt: Date = Date()
+        createdAt: Date = Date(),
+        contentType: String? = nil,
+        checksum: String? = nil,
+        byteCount: Int64? = nil,
+        availability: String? = nil,
+        duration: Double? = nil,
+        thumbnail: Data? = nil,
+        ocrText: String? = nil,
+        transcript: String? = nil
     ) {
         self.id = id
         self.noteID = noteID
@@ -1386,6 +1729,14 @@ public struct LifeBoardKnowledgeAttachmentValue: Identifiable, Codable, Hashable
         self.fileName = fileName
         self.payload = payload
         self.createdAt = createdAt
+        self.contentType = contentType
+        self.checksum = checksum
+        self.byteCount = byteCount
+        self.availability = availability
+        self.duration = duration
+        self.thumbnail = thumbnail
+        self.ocrText = ocrText
+        self.transcript = transcript
     }
 }
 
@@ -1451,6 +1802,35 @@ public protocol LifeBoardPhaseIIRepository: Sendable {
     func fetchKnowledgeAttachments(noteID: UUID) async throws -> [LifeBoardKnowledgeAttachmentValue]
     func saveKnowledgeAttachment(_ value: LifeBoardKnowledgeAttachmentValue) async throws
     func deleteKnowledgeAttachment(id: UUID) async throws
+
+    func fetchKnowledgeNotes(query: KnowledgeNoteQuery) async throws -> [LifeBoardKnowledgeNoteValue]
+    func fetchKnowledgeSmartCollections(spaceID: UUID?) async throws -> [KnowledgeSmartCollectionValue]
+    func saveKnowledgeSmartCollection(_ value: KnowledgeSmartCollectionValue) async throws
+    func deleteKnowledgeSmartCollection(id: UUID) async throws
+    func fetchKnowledgeDraft(noteID: UUID) async throws -> KnowledgeNoteDraftValue?
+    func saveKnowledgeDraft(_ value: KnowledgeNoteDraftValue) async throws
+    func deleteKnowledgeDraft(noteID: UUID) async throws
+    func fetchKnowledgeRevisions(noteID: UUID) async throws -> [KnowledgeNoteRevisionValue]
+    func saveKnowledgeRevision(_ value: KnowledgeNoteRevisionValue) async throws
+    func pruneKnowledgeRecovery(now: Date) async throws
+}
+
+public extension LifeBoardPhaseIIRepository {
+    func fetchKnowledgeNotes(query: KnowledgeNoteQuery) async throws -> [LifeBoardKnowledgeNoteValue] {
+        let values = try await fetchKnowledgeNotes(search: nil, spaceID: query.spaceID)
+        let links = try await fetchKnowledgeLinks()
+        return query.apply(to: values, linkedNoteIDs: Set(links.flatMap { [$0.sourceNoteID, $0.destinationNoteID] }))
+    }
+
+    func fetchKnowledgeSmartCollections(spaceID: UUID?) async throws -> [KnowledgeSmartCollectionValue] { [] }
+    func saveKnowledgeSmartCollection(_ value: KnowledgeSmartCollectionValue) async throws {}
+    func deleteKnowledgeSmartCollection(id: UUID) async throws {}
+    func fetchKnowledgeDraft(noteID: UUID) async throws -> KnowledgeNoteDraftValue? { nil }
+    func saveKnowledgeDraft(_ value: KnowledgeNoteDraftValue) async throws {}
+    func deleteKnowledgeDraft(noteID: UUID) async throws {}
+    func fetchKnowledgeRevisions(noteID: UUID) async throws -> [KnowledgeNoteRevisionValue] { [] }
+    func saveKnowledgeRevision(_ value: KnowledgeNoteRevisionValue) async throws {}
+    func pruneKnowledgeRecovery(now: Date = Date()) async throws {}
 }
 
 public struct JournalHomeContextCandidateProvider: HomeContextCandidateProvider {
