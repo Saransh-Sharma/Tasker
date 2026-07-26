@@ -33,6 +33,16 @@ extension HomeViewController {
                 self?.onboardingCoordinator?.drainPendingPresentationIfPossible()
             }
             .store(in: &cancellables)
+
+        // The shell is the root when the adaptive Home is on, so it — not this
+        // controller's face switch — is what tells us first run can be presented.
+        notificationCenter.publisher(for: .lifeboardShellDidBecomeInteractive)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.onboardingCoordinator?.evaluateLaunchIfNeeded()
+                self?.onboardingCoordinator?.drainPendingPresentationIfPossible()
+            }
+            .store(in: &cancellables)
     }
 
     /// Executes showTaskCreatedSnackbar.

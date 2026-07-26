@@ -161,7 +161,7 @@ struct SettingsRootView: View {
     private func healthSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
             title: "Apple Health",
-            subtitle: "Reads stay private; write controls apply only to future changes.",
+            subtitle: "Reads stay private. Write controls apply to future changes.",
             topPadding: sectionTopPadding,
             includeHorizontalPadding: includeHorizontalPadding
         ) {
@@ -211,7 +211,7 @@ struct SettingsRootView: View {
                             descriptor: LifeBoardSettingsDestinationDescriptor(
                                 iconName: "gear",
                                 title: "Authorization recovery",
-                                subtitle: "To change Apple Health access, review Health permissions. This button opens the public LifeBoard app settings page.",
+                                subtitle: "Health access is changed in Settings.",
                                 tone: .neutral,
                                 accessibilityIdentifier: "settings.health.recovery"
                             ),

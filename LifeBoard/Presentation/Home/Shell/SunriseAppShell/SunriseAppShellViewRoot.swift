@@ -268,6 +268,20 @@ struct SunriseAppShellView: View {
                 refreshScreenshotSeedStatus()
                 viewModel.refreshCurrentScopeContent(source: "app_store_screenshot_seed_completed")
             }
+            // The Life OS shell hosts this too. Both roots need it so a feature
+            // flag rollback does not silently drop every just-in-time invitation.
+            .sheet(item: Binding(
+                get: { LifeBoardPermissionPrimingCoordinator.shared.pendingPrompt },
+                set: { if $0 == nil { LifeBoardPermissionPrimingCoordinator.shared.decline() } }
+            )) { prompt in
+                LifeBoardPermissionPrimingSheet(
+                    prompt: prompt,
+                    onGrant: { domains in
+                        Task { await LifeBoardPermissionPrimingCoordinator.shared.grant(healthDomains: domains) }
+                    },
+                    onDecline: { LifeBoardPermissionPrimingCoordinator.shared.decline() }
+                )
+            }
     }
 
     func refreshScreenshotSeedStatus() {

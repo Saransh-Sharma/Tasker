@@ -177,6 +177,22 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return nil
         }
 
+        // One coordinator owns every permission invitation, so a feature can invite
+        // a not-yet-granted user without any two prompts stacking. Wiring the real
+        // requests here keeps the coordinator free of service dependencies.
+        LifeBoardPermissionPrimingCoordinator.shared.configure(
+            connectHealth: { domains in
+                await LifeBoardHealthRuntime.shared.connectionStore.connect(domains: domains)
+            },
+            requestNotifications: {
+                guard let service = EnhancedDependencyContainer.shared.notificationService else { return }
+                _ = await service.requestPermissionAsync()
+            },
+            requestCalendar: {
+                coordinator.calendarIntegrationService.requestAccess(source: "permission_priming")
+            }
+        )
+
         let layoutRepository = CoreDataDashboardLayoutRepository(container: persistentContainer)
         let phaseIIRepository = CoreDataLifeBoardPhaseIIRepository(container: persistentContainer)
         let planningRepository = CoreDataPlanningRepository(container: persistentContainer)
@@ -249,11 +265,18 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             )
         )
 
+        // The onboarding coordinator and its notification observers are created in
+        // the legacy controller's `viewDidLoad`. With the Life OS shell as the
+        // root, the adaptive Home replaces that controller and its view may never
+        // load — so first run had nothing listening and never appeared. Loading it
+        // here costs one view construction and keeps first run reachable on both
+        // roots.
+        homeViewController.loadViewIfNeeded()
+
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-UI_TESTING"),
            arguments.contains(where: { $0.hasPrefix("-LIFEBOARD_TEST_SEED_") }) {
             let gate = FoundationUITestSeedGateViewController()
-            homeViewController.loadViewIfNeeded()
             homeViewController.seedUITestWorkspacesForLaunchIfNeeded { [weak gate] in
                 gate?.install(foundationController)
             }
