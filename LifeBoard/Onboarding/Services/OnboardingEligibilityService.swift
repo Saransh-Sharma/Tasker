@@ -58,6 +58,14 @@ final class OnboardingEligibilityService: @unchecked Sendable {
         }
 
         let state = stateStore.load()
+        // Anyone who has finished setup stays finished, whatever version they
+        // finished. Comparing against the current version alone meant every
+        // version bump re-presented onboarding to established users; re-running
+        // setup is only ever a deliberate act via Settings, which clears this
+        // state outright.
+        if state.completedVersion != nil, state.outcome != nil {
+            return .suppressed
+        }
         if state.completedVersion == version {
             return .suppressed
         }

@@ -7,15 +7,21 @@ import Network
 import MLXLMCommon
 
 extension OnboardingFlowModel {
-    func skipToFocusRoom() async {
+    /// "Skip" still leaves a usable workspace behind rather than an empty one:
+    /// it resolves the default areas, projects, habit, and task, then jumps to
+    /// the end. A skipped setup should not mean a dead Home screen.
+    func skipToEnd() async {
         mode = .guided
         errorMessage = nil
         if selectedGoal == nil {
             selectedGoal = .dailyExecution
         }
-        if selectedPainPoints.isEmpty {
-            selectedPainPoints = [.overwhelm]
-            frictionProfile = derivedFrictionProfile()
+        if frictionProfile == nil {
+            frictionProfile = selectedGoal?.mappedFrictionProfile
+        }
+        if selectedModuleIDs.isEmpty {
+            selectedModuleIDs = OnboardingModuleCatalog.recommended(for: selectedGoal)
+                .filter { OnboardingModuleCatalog.module(id: $0) != nil }
         }
 
         if selectedLifeAreaIDs.isEmpty {
@@ -27,7 +33,7 @@ extension OnboardingFlowModel {
             projectDrafts = mergedProjectDrafts(for: selectedLifeAreas.map(\.id))
         }
 
-        let shouldResolveLifeAreas = step == .welcome || step == .goal || step == .pain || step == .evaValue || step == .lifeAreas || resolvedLifeAreas.isEmpty
+        let shouldResolveLifeAreas = step == .welcome || step == .intent || step == .guide || step == .lifeAreas || resolvedLifeAreas.isEmpty
         if shouldResolveLifeAreas {
             await continueFromLifeAreas()
             guard errorMessage == nil else { return }
@@ -54,7 +60,7 @@ extension OnboardingFlowModel {
 
         if let existingTask = createdTasks.first(where: { $0.isComplete == false }) ?? createdTasks.first {
             focusTaskID = existingTask.id
-            step = .homeDemo
+            step = .permissions
             persistJourney()
             return
         }
@@ -79,7 +85,7 @@ extension OnboardingFlowModel {
             createdTaskTemplateMap[firstTemplate.id] = createdTask.id
             taskTemplateStates[firstTemplate.id] = .created(createdTask.id)
             focusTaskID = createdTask.id
-            step = .homeDemo
+            step = .permissions
             persistJourney()
         } catch {
             errorMessage = error.localizedDescription
@@ -90,7 +96,7 @@ extension OnboardingFlowModel {
         errorMessage = nil
         if step == .success {
             successSummary = nil
-            step = .healthPermission
+            step = .permissions
             persistJourney()
             return
         }
@@ -110,7 +116,6 @@ extension OnboardingFlowModel {
             mode: mode
         )
         expandedProjectIDs = []
-        reminderPromptDismissed = false
         showAllLifeAreas = false
         if selectedStarterHabitTemplateID == nil {
             selectedStarterHabitTemplateID = selectedStarterHabitTemplate?.id
@@ -141,19 +146,8 @@ extension OnboardingFlowModel {
         createdTaskTemplateMap = [:]
         taskTemplateStates = [:]
         focusTaskID = nil
-        parentFocusTaskID = nil
-        focusStartedAt = nil
-        focusIsActive = false
         successSummary = nil
-        reminderPromptState = .hidden
-        reminderPromptDismissed = false
         expandedProjectIDs = []
-        lastReminderPromptState = .hidden
-        breakdownSteps = []
-        breakdownSheetPresented = false
-        breakdownIsLoading = false
-        breakdownRouteBanner = nil
-        hasStartedProcessing = false
     }
 
     func mergedProjectDrafts(for selectedTemplateIDs: [String]) -> [OnboardingProjectDraft] {
@@ -198,7 +192,7 @@ extension OnboardingFlowModel {
     func buildSummary(completedTask: TaskDefinition) -> AppOnboardingSummary {
         let completedCount = createdTasks.filter(\.isComplete).count
         let habitMetrics = starterHabitBoardPresentation?.metrics
-        let nextTaskTitle = nextOpenTask?.title
+        let nextTaskTitle = createdTasks.first(where: { $0.isComplete == false })?.title
         return AppOnboardingSummary(
             lifeAreaCount: resolvedLifeAreas.count,
             projectCount: resolvedProjects.count,
@@ -216,12 +210,10 @@ extension OnboardingFlowModel {
 
     func persistJourney() {
         let snapshot = OnboardingJourneySnapshot(
-            step: step.normalizedForCurrentFlow,
+            step: step,
             mode: mode,
             entryContext: entryContext,
-            frictionProfile: frictionProfile,
             selectedGoal: selectedGoal,
-            selectedPainPoints: Array(selectedPainPoints),
             selectedLifeAreaIDs: StarterWorkspaceCatalog.orderedLifeAreas(for: frictionProfile)
                 .map(\.id)
                 .filter { selectedLifeAreaIDs.contains($0) },
@@ -230,6 +222,8 @@ extension OnboardingFlowModel {
             expandedProjectIDs: Array(expandedProjectIDs),
             resolvedLifeAreas: resolvedLifeAreas,
             resolvedProjects: resolvedProjects,
+            dayShape: dayShape,
+            selectedModuleIDs: Array(selectedModuleIDs),
             selectedStarterHabitPreference: selectedStarterHabitPreference,
             selectedStarterHabitTemplateID: selectedStarterHabitTemplateID,
             createdHabits: createdHabits,
@@ -237,29 +231,13 @@ extension OnboardingFlowModel {
             createdTasks: createdTasks,
             createdTaskTemplateMap: createdTaskTemplateMap,
             focusTaskID: focusTaskID,
-            parentFocusTaskID: parentFocusTaskID,
-            focusStartedAt: focusStartedAt,
-            focusIsActive: focusIsActive,
-            habitPreviewMarks: habitPreviewMarks,
-            didCompleteStarterHabitCheckIn: didCompleteStarterHabitCheckIn,
+            grantedPermissionKinds: grantedPermissionKinds.map(\.rawValue),
             evaProfileDraft: evaProfileDraft,
             evaPreparationState: evaPreparationState,
-            didCompleteHomeDemoTask: didCompleteHomeDemoTask,
-            didCompleteHomeDemoHabit: didCompleteHomeDemoHabit,
             successSummary: successSummary,
-            hasSeenSuccess: step == .success,
-            reminderPromptDismissed: reminderPromptDismissed
+            hasSeenSuccess: step == .success
         )
         stateStore.storeJourney(snapshot)
-    }
-
-    func derivedFrictionProfile() -> OnboardingFrictionProfile? {
-        guard selectedPainPoints.isEmpty == false else { return frictionProfile }
-        let counts = Dictionary(grouping: selectedPainPoints.map(\.mappedFrictionProfile), by: { $0 })
-            .mapValues(\.count)
-        return counts.max { lhs, rhs in
-            lhs.value == rhs.value ? lhs.key.rawValue > rhs.key.rawValue : lhs.value < rhs.value
-        }?.key
     }
 
     func defaultLifeAreaSelectionIDs(

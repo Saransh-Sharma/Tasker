@@ -116,6 +116,18 @@ final class AppOnboardingCoordinator: NSObject {
                 mutationContext: HabitMutationContext(source: "onboarding")
             )
         },
+        saveWorkingHours: { profile in
+            guard let container = await MainActor.run(body: {
+                (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer
+            }) else { return }
+            try await CoreDataPlanningRepository(container: container).saveWorkingHoursProfile(profile)
+        },
+        saveHomeLayout: { layout in
+            guard let container = await MainActor.run(body: {
+                (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer
+            }) else { return }
+            try await CoreDataDashboardLayoutRepository(container: container).saveHome(layout)
+        },
         evaAppManager: evaAppManager
     )
 

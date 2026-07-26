@@ -7,24 +7,6 @@ import Network
 import MLXLMCommon
 
 extension OnboardingFlowModel {
-    func continueFromPain() {
-        guard canContinuePain else {
-            errorMessage = OnboardingCopy.Error.choosePain
-            return
-        }
-        step = .evaValue
-        errorMessage = nil
-        persistJourney()
-    }
-
-    func continueFromEvaValue() {
-        persistSelectedMascot()
-        startEvaPreparationInBackgroundIfNeeded()
-        step = .habitSetup
-        errorMessage = nil
-        persistJourney()
-    }
-
     func toggleLifeArea(_ templateID: String) {
         if selectedLifeAreaIDs.contains(templateID) {
             selectedLifeAreaIDs.remove(templateID)
@@ -90,7 +72,7 @@ extension OnboardingFlowModel {
             taskTemplateStates = [:]
             focusTaskID = nil
             selectedStarterHabitTemplateID = selectedStarterHabitTemplateID ?? selectedStarterHabitTemplate?.id
-            step = .evaValue
+            step = .guide
             persistJourney()
         } catch {
             errorMessage = error.localizedDescription
@@ -158,7 +140,6 @@ extension OnboardingFlowModel {
             mode = .guided
             entryContext = .establishedWorkspace
             selectedGoal = .wholeWeek
-            selectedPainPoints = []
             selectedLifeAreaIDs = Set(selectedAreaIDs)
             showAllLifeAreas = false
             resolvedLifeAreas = selectedAreas
@@ -169,7 +150,7 @@ extension OnboardingFlowModel {
             habitTemplateStates = [:]
             clearTasksAndFocus()
             selectedStarterHabitTemplateID = selectedStarterHabitTemplate?.id
-            step = .goal
+            step = .intent
             persistJourney()
         } catch {
             errorMessage = error.localizedDescription
@@ -248,31 +229,6 @@ extension OnboardingFlowModel {
         }
     }
 
-    func continueFromHabitSetup() async {
-        guard canContinueHabitSetup else {
-            errorMessage = OnboardingCopy.Error.chooseHabit
-            return
-        }
-        if selectedStarterHabitTemplateID == nil {
-            selectedStarterHabitTemplateID = selectedStarterHabitTemplate?.id
-        }
-        if let template = selectedStarterHabitTemplate,
-           createdHabitTemplateMap[template.id] == nil,
-           createdHabits.isEmpty {
-            await addSuggestedHabit(template)
-            guard errorMessage == nil else { return }
-        }
-        step = isAppStoreScreenshotOnboardingFlowEnabled ? .evaStyle : .firstTask
-        errorMessage = nil
-        persistJourney()
-    }
-
-    func continueFromStreakPreview() {
-        step = .firstTask
-        errorMessage = nil
-        persistJourney()
-    }
-
     func addSuggestedTask(_ template: StarterTaskTemplate) async {
         if case .creating = taskTemplateStates[template.id] {
             return
@@ -327,7 +283,7 @@ extension OnboardingFlowModel {
                 if focusTaskID == taskID {
                     focusTaskID = createdTasks.first(where: { $0.isComplete == false })?.id
                     if focusTaskID == nil {
-                        step = .firstTask
+                        step = .firstWin
                     }
                 }
                 persistJourney()
@@ -340,77 +296,16 @@ extension OnboardingFlowModel {
         }
     }
 
-    func continueFromFirstTask() {
-        guard canContinueToFocus else { return }
-        focusTaskID = createdTasks.first(where: { $0.isComplete == false })?.id ?? createdTasks.first?.id
-        step = .homeDemo
-        errorMessage = nil
-        persistJourney()
-    }
-
-    func startFocusNow() {
-        focusIsActive = true
-        if focusStartedAt == nil {
-            focusStartedAt = Date()
+    /// Ensures the chosen starter habit actually exists before the flow moves on.
+    /// The habit and task steps merged into `firstWin`, so this runs as part of
+    /// that step's own continue rather than as a step transition of its own.
+    func materializeStarterHabitIfNeeded() async {
+        if selectedStarterHabitTemplateID == nil {
+            selectedStarterHabitTemplateID = selectedStarterHabitTemplate?.id
         }
-        logOnboardingInfo(event: "focus_mode_started")
-        persistJourney()
-    }
-
-    func completeFocusTask() async {
-        guard let focusTaskID else { return }
-        isWorking = true
-        errorMessage = nil
-        defer { isWorking = false }
-
-        do {
-            let completed = try await setTaskCompletion(focusTaskID, true)
-            upsertCreatedTask(completed)
-            focusIsActive = false
-            focusStartedAt = nil
-            successSummary = buildSummary(completedTask: completed)
-            step = .success
-            persistJourney()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    func generateBreakdownSuggestions() async {
-        guard let focusTask else { return }
-        logOnboardingInfo(event: "ai_breakdown_used")
-        let service = TaskBreakdownService.shared
-        let immediate = service.immediateHeuristicSteps(
-            taskTitle: focusTask.title,
-            taskDetails: focusTask.details,
-            projectName: projectName(for: focusTask)
-        )
-        breakdownSteps = immediate.steps.enumerated().map { index, step in
-            OnboardingBreakdownStep(title: step, isSelected: index == 0)
-        }
-        breakdownRouteBanner = immediate.routeBanner
-        breakdownSheetPresented = true
-        breakdownIsLoading = true
-
-        let refined = await service.refine(
-            taskTitle: focusTask.title,
-            taskDetails: focusTask.details,
-            projectName: projectName(for: focusTask)
-        )
-        let selectedTitles = Set(breakdownSteps.filter(\.isSelected).map { StarterWorkspaceCatalog.normalizedName($0.title) })
-        breakdownSteps = refined.steps.enumerated().map { index, step in
-            let normalized = StarterWorkspaceCatalog.normalizedName(step)
-            return OnboardingBreakdownStep(
-                title: step,
-                isSelected: selectedTitles.contains(normalized) || (selectedTitles.isEmpty && index == 0)
-            )
-        }
-        breakdownRouteBanner = refined.routeBanner ?? breakdownRouteBanner
-        breakdownIsLoading = false
-    }
-
-    func toggleBreakdownStep(_ stepID: UUID) {
-        guard let index = breakdownSteps.firstIndex(where: { $0.id == stepID }) else { return }
-        breakdownSteps[index].isSelected.toggle()
+        guard let template = selectedStarterHabitTemplate,
+              createdHabitTemplateMap[template.id] == nil,
+              createdHabits.isEmpty else { return }
+        await addSuggestedHabit(template)
     }
 }

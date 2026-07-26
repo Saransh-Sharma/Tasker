@@ -7,6 +7,31 @@ import Network
 import MLXLMCommon
 
 extension AppOnboardingCoordinator {
+    /// The controller onboarding should actually present from.
+    ///
+    /// The coordinator is owned by the legacy `HomeViewController`, which is only
+    /// in the view hierarchy when the adaptive Home is off. With the Life OS shell
+    /// as the root, that controller can be constructed but never installed — and
+    /// presenting from a detached controller silently shows nothing. Falling back
+    /// to whatever is actually on screen is what keeps first run reachable on both
+    /// roots.
+    var presentationAnchor: UIViewController? {
+        if let hostAdapter, hostAdapter.viewIfLoaded?.window != nil {
+            return hostAdapter
+        }
+        guard let root = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)?
+            .rootViewController
+        else { return hostAdapter }
+        var topmost = root
+        while let presented = topmost.presentedViewController, presented !== onboardingHost, presented !== promptHost {
+            topmost = presented
+        }
+        return topmost
+    }
+
     func evaluateLaunchIfNeeded() {
         guard hasEvaluatedLaunch == false else { return }
         hasEvaluatedLaunch = true
@@ -58,7 +83,7 @@ extension AppOnboardingCoordinator {
                 message: "Queued onboarding presentation until the host is free",
                 fields: [
                     "presentation": presentation.analyticsLabel,
-                    "blocked_by_presented_controller": String(hostAdapter?.presentedViewController != nil)
+                    "blocked_by_presented_controller": String(presentationAnchor?.presentedViewController != nil)
                 ]
             )
         }
@@ -92,7 +117,8 @@ extension AppOnboardingCoordinator {
 
     func presentPromptIfPossible(snapshot: OnboardingWorkspaceSnapshot) -> Bool {
         guard promptHost == nil else { return false }
-        guard let hostAdapter, hostAdapter.presentedViewController == nil else { return false }
+        guard let hostAdapter else { return false }
+        guard let anchor = presentationAnchor, anchor.presentedViewController == nil else { return false }
 
         let controller = UIHostingController(
             rootView: AnyView(
@@ -123,7 +149,7 @@ extension AppOnboardingCoordinator {
             sheet.preferredCornerRadius = 30
         }
         promptHost = controller
-        hostAdapter.present(controller, animated: true, completion: nil)
+        anchor.present(controller, animated: true, completion: nil)
         return true
     }
 
@@ -139,7 +165,8 @@ extension AppOnboardingCoordinator {
     func presentFullFlowIfPossible(source: String) -> Bool {
         dismissPrompt(animated: false, completion: nil)
         guard onboardingHost == nil else { return false }
-        guard let hostAdapter, hostAdapter.presentedViewController == nil else { return false }
+        guard let hostAdapter else { return false }
+        guard let anchor = presentationAnchor, anchor.presentedViewController == nil else { return false }
 
         feedbackController.prepare()
         viewModel.prepareForPresentation(snapshot: stateStore.load().journeySnapshot)
@@ -175,7 +202,7 @@ extension AppOnboardingCoordinator {
         let controller = UIHostingController(rootView: AnyView(rootView))
         controller.modalPresentationStyle = .fullScreen
         onboardingHost = controller
-        hostAdapter.present(controller, animated: true, completion: nil)
+        anchor.present(controller, animated: true, completion: nil)
         return true
     }
 
@@ -233,6 +260,6 @@ extension AppOnboardingCoordinator {
     }
 
     func isPresentationBlocked() -> Bool {
-        hostAdapter?.presentedViewController != nil
+        presentationAnchor?.presentedViewController != nil
     }
 }
