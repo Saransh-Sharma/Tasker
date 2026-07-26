@@ -328,6 +328,67 @@ struct QuickJournalCaptureIntent: AppIntent {
 }
 
 @available(iOS 16.0, macOS 13.0, *)
+struct QuickNoteCaptureIntent: AppIntent {
+    static let title: LocalizedStringResource = "Create Note"
+    static let description = IntentDescription("Captures a note locally in LifeBoard without opening the app.")
+    static let openAppWhenRun = false
+
+    @Parameter(title: "Note", requestValueDialog: IntentDialog("What would you like to keep?"))
+    var text: String
+
+    @Parameter(title: "Title")
+    var noteTitle: String?
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Create note \(\.$text)") {
+            \.$noteTitle
+        }
+    }
+
+    func perform() async throws -> some IntentResult & ReturnsValue<String> & ProvidesDialog {
+        let content = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !content.isEmpty else {
+            throw $text.needsValueError(IntentDialog("What would you like to keep?"))
+        }
+        let repositories = try await LifeBoardShortcutDependencyResolver.lifeOSRepositories()
+        let repository = repositories.phaseII
+        var spaces = try await repository.fetchKnowledgeSpaces()
+        if spaces.isEmpty {
+            let personal = LifeBoardKnowledgeSpaceValue(title: "Personal", icon: "person.crop.circle")
+            try await repository.saveKnowledgeSpace(personal)
+            spaces = [personal]
+        }
+        guard let space = spaces.first else { throw LifeBoardShortcutRuntimeError.unavailable }
+        let title = noteTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let noteID = UUID()
+        let note = LifeBoardKnowledgeNoteValue(
+            id: noteID,
+            spaceID: space.id,
+            title: title?.isEmpty == false ? title! : String(content.prefix(48)),
+            blocks: [.init(noteID: noteID, text: content, createdAt: Date(), updatedAt: Date())],
+            contentVersion: 1
+        )
+        _ = try await applyShortcutMutation(
+            preview: .init(
+                destination: .track,
+                summary: "Create a note",
+                changes: [note.displayTitle, content],
+                origin: .appIntent
+            ),
+            apply: {
+                try await repository.saveKnowledgeNote(note)
+                return "Created \(note.displayTitle)."
+            },
+            undo: { try await repository.deleteKnowledgeNote(id: note.id) }
+        )
+        return .result(
+            value: note.displayTitle,
+            dialog: IntentDialog(stringLiteral: "Saved \(note.displayTitle) to Notes.")
+        )
+    }
+}
+
+@available(iOS 16.0, macOS 13.0, *)
 struct LogWaterIntent: AppIntent {
     static let title: LocalizedStringResource = "Log Water"
     static let description = IntentDescription("Logs water locally in LifeBoard. Apple Health sync continues separately when enabled.")
@@ -506,11 +567,19 @@ struct LifeBoardAppShortcutsProvider: AppShortcutsProvider {
         )
 
         AppShortcut(intent: QuickJournalCaptureIntent(), phrases: ["Capture a journal moment in \(.applicationName)"], shortTitle: "Journal Moment", systemImageName: "book.closed")
+        AppShortcut(
+            intent: QuickNoteCaptureIntent(),
+            phrases: [
+                "Create a note in \(.applicationName)",
+                "Capture a note in \(.applicationName)"
+            ],
+            shortTitle: "Create Note",
+            systemImageName: "square.and.pencil"
+        )
         AppShortcut(intent: LogWaterIntent(), phrases: ["Log water in \(.applicationName)"], shortTitle: "Log Water", systemImageName: "drop.fill")
         AppShortcut(intent: LogWeightIntent(), phrases: ["Log weight in \(.applicationName)"], shortTitle: "Log Weight", systemImageName: "scalemass.fill")
         AppShortcut(intent: LogBodyMetricIntent(), phrases: ["Log a body metric in \(.applicationName)"], shortTitle: "Log Metric", systemImageName: "chart.line.uptrend.xyaxis")
         AppShortcut(intent: StartFastingTimerIntent(), phrases: ["Start fasting timer in \(.applicationName)"], shortTitle: "Start Timer", systemImageName: "timer")
-        AppShortcut(intent: EndFastingTimerIntent(), phrases: ["End fasting timer in \(.applicationName)"], shortTitle: "End Timer", systemImageName: "stop.circle")
         AppShortcut(intent: CreateCountdownIntent(), phrases: ["Create countdown in \(.applicationName)"], shortTitle: "Countdown", systemImageName: "calendar.badge.clock")
     }
 

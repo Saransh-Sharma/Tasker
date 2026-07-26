@@ -21,5 +21,9 @@
 	<array>
 		<string>group.com.saransh1337.tasker.shared</string>
 	</array>
+	<!-- Present in LifeBoard.entitlements but missing here, so HealthKit
+	     authorization failed outright on Mac Catalyst. -->
+	<key>com.apple.developer.healthkit</key>
+	<true/>
 </dict>
 </plist>
