@@ -62,6 +62,45 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(PlanLensRestoration.load(from: defaults), .day)
     }
 
+    func testPremiumRootLensesAndInteractionPhasesRemainStableContracts() {
+        XCTAssertEqual(TrackLens.allCases.map(\.rawValue), ["today", "areas", "history"])
+        XCTAssertEqual(InsightsLens.allCases.map(\.rawValue), ["overview", "trends", "review"])
+        XCTAssertEqual(
+            LifeBoardInteractionPhase.allCases.map(\.rawValue),
+            ["idle", "pressed", "running", "success", "recoverableFailure", "cancelled"]
+        )
+        // The allowlist is append-only and every entry must be unique; asserting
+        // on `.last` just pinned whichever effect was added most recently.
+        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.contextLens))
+        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.chartRevealSweep))
+        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.liquidGlassRefract))
+        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.cardMorphWarp))
+        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.paperGrain))
+        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.dissolveAway))
+        XCTAssertEqual(Set(LifeBoardSignatureEffect.allCases).count, LifeBoardSignatureEffect.allCases.count)
+    }
+
+    func testCapturePresentationContextRoundTripsWithoutChangingTheMutationRequest() throws {
+        let request = CaptureRequest(
+            kind: .journal,
+            source: .shell,
+            presentationContext: .init(
+                sourceRoot: .home,
+                sourcePoint: .init(x: 0.9, y: 0.1),
+                preferredCaptureKind: .journal
+            )
+        )
+        let decoded = try JSONDecoder().decode(
+            CaptureRequest.self,
+            from: JSONEncoder().encode(request)
+        )
+
+        XCTAssertEqual(decoded.kind, .journal)
+        XCTAssertEqual(decoded.presentationContext?.sourceRoot, .home)
+        XCTAssertEqual(decoded.presentationContext?.sourcePoint, .init(x: 0.9, y: 0.1))
+        XCTAssertEqual(decoded.presentationContext?.preferredCaptureKind, .journal)
+    }
+
     func testHomeSignalProgressRendersOnlyForAvailableData() throws {
         let available = HomeSignalSlot(
             id: "hydration",
@@ -368,7 +407,16 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testSpatialRoutesUseStableContentIdentitiesAndRestrainedModes() {
         let taskID = UUID(uuidString: "00000000-0000-0000-0000-000000000111")!
+        let noteID = UUID(uuidString: "00000000-0000-0000-0000-000000000222")!
         XCTAssertEqual(AppRoute.taskDetail(taskID).spatialTransitionID, "route.task.\(taskID.uuidString)")
+        XCTAssertEqual(AppRoute.note(noteID).spatialTransitionID, "route.note.\(noteID.uuidString)")
+        XCTAssertNil(
+            AppRoute.notesLibrary(.library(.init(
+                collection: .pinned,
+                searchText: "launch",
+                sort: .titleAscending
+            ))).spatialTransitionID
+        )
         XCTAssertEqual(AppRoute.taskDetail(taskID).screenMode, .detail)
         XCTAssertNil(AppRoute.settings.spatialTransitionID)
         XCTAssertEqual(AppRoute.settings.screenMode, .utility)
@@ -601,6 +649,31 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     @MainActor
+    func testNotesLibraryDeepLinkRestoresTypedQueryState() throws {
+        let suite = "LifeOSFoundationNotesDeepLinkTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let router = LifeBoardAppRouter(defaults: defaults)
+        let folderID = UUID()
+        let tagID = UUID()
+
+        XCTAssertTrue(router.handle(url: URL(
+            string: "lifeboard://notes?collection=pinned&folder=\(folderID.uuidString)&tag=\(tagID.uuidString)&search=launch&sort=titleAscending"
+        )!))
+        XCTAssertEqual(router.selectedDestination, .track)
+        XCTAssertEqual(
+            router.path(for: .track),
+            [.notesLibrary(.library(.init(
+                collection: .pinned,
+                folderID: folderID,
+                tagIDs: [tagID],
+                searchText: "launch",
+                sort: .titleAscending
+            )))]
+        )
+    }
+
+    @MainActor
     func testProtectedJournalDeepLinkDefersExactIdentityUntilUnlockAndRelocksSafely() throws {
         let suite = "LifeOSFoundationProtectedJournalRouteTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -682,7 +755,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let routes: [AppRoute] = [
             .taskDetail(id), .habitBoard, .habitLibrary, .habitDetail(id), .trackerDetail(id), .careLibrary,
             .project(id), .routine(id), .goal(id), .journalDay(id), .journalSearch,
-            .weeklyReflection(Date(timeIntervalSince1970: 1_789_344_000)), .note(id),
+            .weeklyReflection(Date(timeIntervalSince1970: 1_789_344_000)),
+            .notesLibrary(.library(.init(collection: .recent, searchText: "idea"))), .note(id),
             .knowledgeFolder(id), .planDay, .planWeek, .backlog, .focusSession(id),
             .focusSession(nil), .weeklyPlanner, .weeklyReview, .settings, .tokenGallery,
             .referenceDashboard
@@ -808,11 +882,12 @@ final class LifeOSFoundationContractTests: XCTestCase {
             "TrackerDefinition", "TrackerEntry", "MoodEnergyCheckIn", "MedicationDefinition",
             "MedicationSchedule", "MedicationEvent", "FastingSession", "JournalDay", "JournalBlock",
             "JournalMediaAttachment", "KnowledgeSpace", "KnowledgeFolder", "KnowledgeNote",
-            "KnowledgeBlock", "KnowledgeTag", "KnowledgeNoteTagLink", "KnowledgeLink", "KnowledgeAttachment"
+            "KnowledgeBlock", "KnowledgeTag", "KnowledgeNoteTagLink", "KnowledgeLink", "KnowledgeAttachment",
+            "KnowledgeSmartCollection", "KnowledgeNoteRevision", "KnowledgeNoteSecurePayload"
         ] {
             XCTAssertTrue(cloud.contains(name), "\(name) must be in CloudSync")
         }
-        for name in ["JournalDerivedIndex", "JournalDraft", "KnowledgeGraphPosition"] {
+        for name in ["JournalDerivedIndex", "JournalDraft", "KnowledgeNoteDraft", "KnowledgeGraphPosition"] {
             XCTAssertTrue(local.contains(name), "\(name) must be LocalOnly")
             XCTAssertFalse(cloud.contains(name), "\(name) must never enter CloudSync")
         }
@@ -837,7 +912,9 @@ final class LifeOSFoundationContractTests: XCTestCase {
             "TaskModelV3_TrackFoundations",
             "TaskModelV3_JournalParity",
             "TaskModelV3_WellnessCore",
-            "TaskModelV3_Nutrition"
+            "TaskModelV3_Nutrition",
+            "TaskModelV3_LifeMoments",
+            "TaskModelV3_HealthPrivacy"
         ]
         let modelBundleURL = try taskModelBundleURL()
         let destinationModel = try XCTUnwrap(NSManagedObjectModel(contentsOf: modelBundleURL))
@@ -1004,18 +1081,184 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(
             CoreDataDashboardLayoutRepository.curatedHomePlacements().map(\.widgetKind),
             [
-                DashboardWidgetKind.focusNow.rawValue,
-                DashboardWidgetKind.lifeSnapshot.rawValue,
                 DashboardWidgetKind.care.rawValue,
                 DashboardWidgetKind.tasks.rawValue,
                 DashboardWidgetKind.routines.rawValue,
-                DashboardWidgetKind.scheduleCapacity.rawValue,
-                DashboardWidgetKind.quickCapture.rawValue,
-                DashboardWidgetKind.compactTimeline.rawValue,
                 DashboardWidgetKind.journal.rawValue,
                 DashboardWidgetKind.progressReflection.rawValue
             ]
         )
+    }
+
+    /// The failure this guards against: eleven registered kinds used to fall
+    /// through to `EmptyView()` at wide and above, and accessibility text sizes
+    /// force the wide preset — so those cards were blank for anyone using large
+    /// type. Every registered kind must declare an archetype, and every
+    /// archetype must be one the renderer knows how to draw.
+    func testEveryRegisteredWidgetDeclaresARenderableArchetypeAndSection() throws {
+        let descriptors = DefaultDashboardWidgetRegistry.shared.availableDescriptors()
+        XCTAssertFalse(descriptors.isEmpty)
+
+        for descriptor in descriptors {
+            XCTAssertTrue(
+                HomeCardArchetype.allCases.contains(descriptor.archetype),
+                "\(descriptor.kind.rawValue) has no renderable archetype"
+            )
+            XCTAssertTrue(
+                HomeSectionRole.allCases.contains(descriptor.sectionRole),
+                "\(descriptor.kind.rawValue) has no section role"
+            )
+            XCTAssertFalse(
+                descriptor.supportedSizes.isEmpty,
+                "\(descriptor.kind.rawValue) supports no sizes"
+            )
+        }
+
+        // Today's committed work must not sit below wellbeing and reflection.
+        XCTAssertEqual(
+            DefaultDashboardWidgetRegistry.shared.descriptor(for: .tasks)?.sectionRole,
+            .today
+        )
+    }
+
+    /// The payload is additive: snapshots persisted before it — including
+    /// app-group widget envelopes still on disk — must keep decoding.
+    func testHomeCardSnapshotDecodesWithoutAPayloadAndRedactsOnDemand() throws {
+        let legacy = """
+        {"availability":"ready","title":"Movement","value":"8,120","detail":"steps","updatedAt":768000000}
+        """
+        let decoder = JSONDecoder()
+        let snapshot = try decoder.decode(HomeCardSnapshot.self, from: Data(legacy.utf8))
+        XCTAssertEqual(snapshot.title, "Movement")
+        XCTAssertEqual(snapshot.payload, .none)
+        XCTAssertTrue(snapshot.actions.isEmpty)
+
+        let rich = HomeCardSnapshot(
+            availability: .ready,
+            title: "Movement",
+            payload: .metric(.init(amount: 8_120, unit: "steps"))
+        )
+        let roundTripped = try decoder.decode(
+            HomeCardSnapshot.self,
+            from: JSONEncoder().encode(rich)
+        )
+        XCTAssertEqual(roundTripped.payload, rich.payload)
+        // Sensitive cards may show a numeral in-app and must never leak one.
+        XCTAssertEqual(rich.redactingPayload().payload, .none)
+    }
+
+    /// Modes were persisted and restored, yet only `.lowEnergy` changed
+    /// anything and nothing could change the mode at all.
+    func testDashboardModePolicyGivesEveryModeDistinctBehaviour() throws {
+        let policy = DeterministicDashboardModePolicy()
+
+        XCTAssertEqual(policy.contexts(for: .smart), [.neutral, .work, .personal])
+        // Neutral survives in both: unlabelled work is not "not work".
+        XCTAssertEqual(policy.contexts(for: .work), [.neutral, .work])
+        XCTAssertEqual(policy.contexts(for: .personal), [.neutral, .personal])
+
+        let journal = try XCTUnwrap(
+            DefaultDashboardWidgetRegistry.shared.descriptor(for: .journal)
+        )
+        let tasks = try XCTUnwrap(
+            DefaultDashboardWidgetRegistry.shared.descriptor(for: .tasks)
+        )
+        XCTAssertFalse(policy.permits(journal, in: .work), "Work mode must not surface journal")
+        XCTAssertTrue(policy.permits(journal, in: .personal))
+        XCTAssertTrue(policy.permits(tasks, in: .work))
+        XCTAssertFalse(policy.permits(tasks, in: .lowEnergy), "Low Energy must not ask for output")
+
+        XCTAssertTrue(policy.sectionBudget(for: .smart).showsUserSpace)
+        let lowEnergy = policy.sectionBudget(for: .lowEnergy)
+        XCTAssertFalse(lowEnergy.showsToday)
+        XCTAssertFalse(lowEnergy.showsNeedsAttention)
+        XCTAssertEqual(lowEnergy.queueLimit, 1)
+    }
+
+    /// Ranking by row count always named the chattiest tracker; consistency is
+    /// the honest signal, and below the floor nothing is claimed at all.
+    func testInsightsInterpretationRanksConsistencyAndRefusesBelowTheFloor() throws {
+        let engine = InsightsInterpretationEngine()
+        let calendar = Calendar(identifier: .gregorian)
+        let day = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_700_000_000))
+
+        func event(_ domain: String, dayOffset: Int, id: String) -> NormalizedLifeEvent {
+            let occurred = calendar.date(byAdding: .day, value: dayOffset, to: day) ?? day
+            return NormalizedLifeEvent(
+                id: id,
+                sourceID: UUID(),
+                domain: domain,
+                kind: "sample",
+                occurredAt: occurred,
+                localDay: PlanningDay(date: occurred, timeZone: .current, calendar: calendar),
+                numericValue: nil,
+                completeness: .complete,
+                sensitivity: .privateStandard,
+                allowedDestinations: [.insights],
+                provenance: "test"
+            )
+        }
+
+        XCTAssertEqual(engine.interpret(events: [], calendar: calendar).density, .empty)
+
+        // Hydration is louder (6 records) but lives on 2 days; journal is
+        // quieter (3 records) and present on 3. Consistency should win.
+        var events: [NormalizedLifeEvent] = []
+        for index in 0..<6 {
+            events.append(event("hydration", dayOffset: index % 2, id: "h\(index)"))
+        }
+        for index in 0..<3 {
+            events.append(event("journal", dayOffset: index, id: "j\(index)"))
+        }
+
+        let result = engine.interpret(events: events, calendar: calendar)
+        XCTAssertEqual(result.density, .full)
+        XCTAssertTrue(result.claim.lowercased().contains("journal"), result.claim)
+        XCTAssertFalse(result.evidenceReferences.isEmpty)
+        XCTAssertEqual(result.dailyCounts.count, 3)
+    }
+
+    func testDashboardV5MigrationRemovesOnlyAppOwnedAnchoredDuplicates() throws {
+        let pinnedFocusID = UUID()
+        var pinnedFocus = DashboardWidgetPlacementValue(
+            id: pinnedFocusID,
+            widgetKind: DashboardWidgetKind.focusNow.rawValue,
+            semanticSize: .wide,
+            ordinal: 0
+        )
+        pinnedFocus.updateHomeConfiguration { $0.placement.ownership = .pinned }
+        var smartTimeline = DashboardWidgetPlacementValue(
+            widgetKind: DashboardWidgetKind.compactTimeline.rawValue,
+            semanticSize: .wide,
+            ordinal: 1
+        )
+        smartTimeline.updateHomeConfiguration { $0.placement.ownership = .smart }
+        let unknownID = UUID()
+        let unknown = DashboardWidgetPlacementValue(
+            id: unknownID,
+            widgetKind: "futureWidget",
+            semanticSize: .standard,
+            ordinal: 2,
+            isVisible: false
+        )
+        let legacy = DashboardLayoutValue(
+            mode: .smart,
+            schemaVersion: 4,
+            isDefault: false,
+            placements: [pinnedFocus, smartTimeline, unknown]
+        )
+        let container = NSPersistentContainer(
+            name: "DashboardV5MigrationContract",
+            managedObjectModel: NSManagedObjectModel()
+        )
+
+        let migrated = try CoreDataDashboardLayoutRepository(container: container).migrate(legacy)
+
+        XCTAssertEqual(migrated.schemaVersion, 5)
+        XCTAssertTrue(migrated.placements.contains { $0.id == pinnedFocusID })
+        XCTAssertFalse(migrated.placements.contains { $0.widgetKind == DashboardWidgetKind.compactTimeline.rawValue })
+        XCTAssertEqual(migrated.placements.first(where: { $0.id == unknownID })?.isVisible, false)
+        XCTAssertFalse(migrated.isDefault)
     }
 
     func testDefaultDashboardMigrationAddsPhaseIIHierarchyWithoutReplacingStablePlacements() throws {
@@ -1951,7 +2194,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(placement.smartSlot?.schedule, .workday)
     }
 
-    func testContextPolicyIsPrivateStableAndLimitedToTwoCards() {
+    func testContextPolicyIsPrivateStableAndBoundedByTheCandidateCap() {
         let now = Date(timeIntervalSince1970: 20_000)
         let active = HomeContextCandidate(
             id: "active", widgetKind: .focusNow, title: "Focus",
@@ -1983,7 +2226,10 @@ final class LifeOSFoundationContractTests: XCTestCase {
             permitsSensitiveHomeContent: false,
             now: now
         )
-        XCTAssertEqual(privateSelection.candidates.map(\.id), ["active", "next"])
+        // One hero plus up to three in "Needs attention". The old cap of two
+        // meant nine domain providers competed for a section that could only
+        // ever render a single row, and only when exactly two survived.
+        XCTAssertEqual(privateSelection.candidates.map(\.id), ["active", "next", "lower"])
 
         let permittedSelection = policy.select(
             candidates: [medication, lower, next, active],
@@ -1991,7 +2237,13 @@ final class LifeOSFoundationContractTests: XCTestCase {
             permitsSensitiveHomeContent: true,
             now: now
         )
-        XCTAssertEqual(permittedSelection.candidates.map(\.id), ["active", "next"])
+        // `medication` is sensitive and penalised by `suggestLess`, so it still
+        // sorts last even once sensitive content is permitted.
+        XCTAssertEqual(permittedSelection.candidates.map(\.id), ["active", "next", "lower", "medication"])
+        XCTAssertLessThanOrEqual(
+            permittedSelection.candidates.count,
+            HomeContextSelection.maximumCandidates
+        )
     }
 
     func testSmartSlotOwnershipRemainsTransactional() throws {
@@ -3272,6 +3524,78 @@ final class LifeOSFoundationContractTests: XCTestCase {
         }
         XCTAssertEqual(fetched.id, fixtureID)
         XCTAssertEqual(fetched.name, fixtureName)
+    }
+
+    func testKnowledgeNoteQueryAppliesSmartCollectionsSearchAndSort() {
+        let spaceID = UUID()
+        let pinnedID = UUID()
+        let checklistID = UUID()
+        let pinned = LifeBoardKnowledgeNoteValue(
+            id: pinnedID,
+            spaceID: spaceID,
+            title: "Launch Brief",
+            isPinned: true,
+            updatedAt: Date(timeIntervalSince1970: 20),
+            blocks: [.init(noteID: pinnedID, text: "Premium notes")]
+        )
+        let checklist = LifeBoardKnowledgeNoteValue(
+            id: checklistID,
+            spaceID: spaceID,
+            title: "Today",
+            updatedAt: Date(timeIntervalSince1970: 10),
+            blocks: [.init(noteID: checklistID, kind: .checklist, text: "Review motion")]
+        )
+        var archived = checklist
+        archived.id = UUID()
+        archived.blocks = [.init(noteID: archived.id, text: "Old")]
+        archived.state = .archived
+
+        XCTAssertEqual(
+            KnowledgeNoteQuery(collection: .pinned, spaceID: spaceID)
+                .apply(to: [checklist, archived, pinned]).map(\.id),
+            [pinnedID]
+        )
+        XCTAssertEqual(
+            KnowledgeNoteQuery(collection: .checklists, searchText: "motion")
+                .apply(to: [pinned, checklist, archived]).map(\.id),
+            [checklistID]
+        )
+        XCTAssertEqual(
+            KnowledgeNoteQuery(collection: .archived)
+                .apply(to: [pinned, checklist, archived]).map(\.id),
+            [archived.id]
+        )
+    }
+
+    func testKnowledgeTemplatesCreateStableOrderedBlocks() throws {
+        let noteID = UUID()
+        let meeting = try XCTUnwrap(KnowledgeNoteTemplate.library.first { $0.id == "meeting" })
+        let blocks = meeting.blocks.enumerated().map { index, template in
+            LifeBoardKnowledgeBlockValue(
+                noteID: noteID,
+                kind: template.kind,
+                text: template.text,
+                ordinal: index
+            )
+        }
+        XCTAssertEqual(blocks.map(\.ordinal), Array(blocks.indices))
+        XCTAssertTrue(blocks.contains { $0.kind == .checklist })
+        XCTAssertTrue(blocks.contains { $0.kind == .heading2 })
+    }
+
+    func testNotesProModelAddsRecoveryAndRichContentFields() throws {
+        let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)]))
+        let note = try XCTUnwrap(model.entitiesByName["KnowledgeNote"])
+        let block = try XCTUnwrap(model.entitiesByName["KnowledgeBlock"])
+        let attachment = try XCTUnwrap(model.entitiesByName["KnowledgeAttachment"])
+        XCTAssertNotNil(note.attributesByName["stateRaw"])
+        XCTAssertNotNil(note.attributesByName["deletedAt"])
+        XCTAssertNotNil(note.attributesByName["lockPolicyRaw"])
+        XCTAssertNotNil(block.attributesByName["richTextData"])
+        XCTAssertNotNil(block.attributesByName["indentLevel"])
+        XCTAssertNotNil(attachment.attributesByName["ocrText"])
+        XCTAssertNotNil(model.entitiesByName["KnowledgeNoteDraft"])
+        XCTAssertNotNil(model.entitiesByName["KnowledgeNoteRevision"])
     }
 
     private func rgbComponents(from hex: String) throws -> (red: Double, green: Double, blue: Double) {

@@ -378,8 +378,10 @@ enum AccessibilityIdentifiers {
         static let welcomeIntroTitleCard = "onboarding.welcome.introTitleCard"
         static let welcomeIntroContinue = "onboarding.welcome.introContinue"
         static let goal = "onboarding.goal"
-        static let pain = "onboarding.pain"
         static let evaValue = "onboarding.evaValue"
+        static let dayShape = "onboarding.dayShape"
+        static let modules = "onboarding.modules"
+        static let permissions = "onboarding.permissions"
         static let lifeAreas = "onboarding.lifeAreas"
         static let habitSetup = "onboarding.habitSetup"
         static let workStyle = "onboarding.workStyle"
@@ -417,6 +419,7 @@ enum AccessibilityIdentifiers {
         static let homeDemoTimeline = "onboarding.homeDemo.timeline"
         static let homeDemoHabits = "onboarding.homeDemo.habits"
         static let primaryTaskAction = "onboarding.taskTemplate.primaryAction"
+        static func lifeArea(_ id: String) -> String { "onboarding.lifeArea.\(id)" }
         static func primaryGoal(_ id: String) -> String { "onboarding.primaryGoal.\(id)" }
         static func workingStyle(_ id: String) -> String { "onboarding.workingStyle.\(id)" }
         static func momentumBlocker(_ id: String) -> String { "onboarding.momentumBlocker.\(id)" }

@@ -45,26 +45,24 @@ class LifeBoardUITests: XCTestCase {
         assertFoundationDestination("insights", rootIdentifier: "foundation.insights", in: app)
         assertFoundationDestination("eva", rootIdentifier: "foundation.eva", in: app)
         assertFoundationDestination("home", rootIdentifier: "home.signalRow", in: app)
-        XCTAssertTrue(app.textFields["home.lifeThread.composer"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.textFields["home.lifeThread.composer"].exists)
 
         assertFoundationDestination("plan", rootIdentifier: "plan.header", in: app)
         let capture = app.buttons["foundation.capture"]
         XCTAssertTrue(capture.waitForExistence(timeout: 5))
-        XCTAssertTrue(capture.isHittable, "Capture must stay reachable above the measured chrome.")
+        XCTAssertTrue(capture.isHittable, "Header capture must remain reachable.")
         capture.tap()
         XCTAssertTrue(app.buttons["Capture Task"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Capture Journal"].exists)
-        let hydration = app.buttons["Capture Hydration"]
-        let palette = app.scrollViews["foundation.capture.palette"]
-        XCTAssertTrue(palette.waitForExistence(timeout: 3))
-        for _ in 0..<5 where hydration.exists == false { palette.swipeUp() }
-        XCTAssertTrue(hydration.exists, "Every enabled capture action must remain reachable by scrolling.")
-        XCTAssertTrue(capture.isHittable, "The orb must remain anchored while its action palette scrolls.")
+        XCTAssertTrue(app.buttons["Capture Note"].exists)
+        XCTAssertTrue(app.buttons["Capture Tracker"].exists)
+        XCTAssertTrue(app.buttons["Capture Care"].exists)
+        XCTAssertTrue(capture.isHittable, "The header control must remain anchored while its tray is open.")
         capture.tap()
         XCTAssertFalse(app.buttons["Capture Task"].waitForExistence(timeout: 2))
     }
 
-    func testFoundationCompactChromeRemainsReadableAcrossScrollAndKeyboard() throws {
+    func testFoundationCompactChromeRemainsReadableAcrossScrollAndCapture() throws {
         let app = launchFoundationApp(
             accessibilityCategory: "UICTContentSizeCategoryL",
             seedEstablishedWorkspace: true
@@ -83,18 +81,14 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertEqual(chrome.frame.height, restingFrame.height, accuracy: 2)
         XCTAssertEqual(chrome.frame.maxY, restingFrame.maxY, accuracy: 2)
 
-        let composer = app.textFields["home.lifeThread.composer"]
-        XCTAssertTrue(composer.waitForExistence(timeout: 5))
-        composer.tap()
-        let keyboard = app.keyboards.firstMatch
-        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
-        XCTAssertTrue(chrome.exists && composer.isHittable)
-        XCTAssertLessThanOrEqual(
-            chrome.frame.maxY,
-            keyboard.frame.minY + 4,
-            "The compact clay chrome must move with the keyboard instead of covering content."
-        )
-        try saveVisualEvidenceScreenshot(named: "home-compact-chrome-keyboard", platform: "iphone")
+        let capture = app.buttons["foundation.capture"]
+        XCTAssertTrue(capture.waitForExistence(timeout: 5))
+        capture.tap()
+        let taskCapture = app.buttons["Capture Task"]
+        XCTAssertTrue(taskCapture.waitForExistence(timeout: 5))
+        XCTAssertLessThan(taskCapture.frame.maxY, chrome.frame.minY)
+        XCTAssertTrue(taskCapture.isHittable)
+        try saveVisualEvidenceScreenshot(named: "home-compact-chrome-capture", platform: "iphone")
     }
 
     func testAdaptiveHomeCustomizationCancelAndComposerHandoff() {
@@ -120,14 +114,11 @@ class LifeBoardUITests: XCTestCase {
         app.buttons["Cancel"].tap()
         XCTAssertTrue(customize.waitForExistence(timeout: 5), "Cancel should restore the pre-edit Home transaction.")
 
-        let composer = app.textFields["home.lifeThread.composer"]
-        XCTAssertTrue(composer.waitForExistence(timeout: 5))
-        composer.tap()
-        composer.typeText("Help me choose one useful next step")
-        let send = app.buttons["Send to Eva"]
-        XCTAssertTrue(send.waitForExistence(timeout: 5))
-        send.tap()
-        XCTAssertTrue(app.descendants(matching: .any)["foundation.eva"].waitForExistence(timeout: 12))
+        let capture = app.buttons["foundation.capture"]
+        XCTAssertTrue(capture.waitForExistence(timeout: 5))
+        capture.tap()
+        app.buttons["Capture Task"].tap()
+        XCTAssertTrue(app.buttons["foundation.capture.dismiss"].waitForExistence(timeout: 8))
     }
 
     func testVisualEvidenceWideIPadAtomicHomeEdit() throws {

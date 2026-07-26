@@ -282,6 +282,54 @@ final class HealthSyncTests: XCTestCase {
         XCTAssertEqual(store.statuses[.hydration]?.writeAuthorizations[.water], .denied)
     }
 
+    @MainActor
+    func testConnectionReturnsWhileInitialHealthImportContinues() async {
+        let previousReadFlag = V2FeatureFlags.healthIntegrationsV1Enabled
+        V2FeatureFlags.healthIntegrationsV1Enabled = true
+        HealthAuthorizationPromptState.reset()
+        defer {
+            V2FeatureFlags.healthIntegrationsV1Enabled = previousReadFlag
+            HealthAuthorizationPromptState.reset()
+        }
+
+        let gateway = HealthGatewayFake()
+        let importGate = HealthImportGate()
+        gateway.anchoredChangesGate = importGate
+        let ledger = InMemoryHealthSyncLedger()
+        let engine = HealthSyncEngine(
+            gateway: gateway,
+            ledger: ledger,
+            projections: HealthProjectionFake(),
+            featureFlags: { (true, false) }
+        )
+        let store = HealthConnectionStore(
+            gateway: gateway,
+            engineProvider: { engine },
+            ledgerProvider: { ledger }
+        )
+        let connectionReturned = expectation(description: "Connection returns before initial import")
+
+        let connectionTask = _Concurrency.Task { @MainActor in
+            await store.connect(domains: [.hydration])
+            connectionReturned.fulfill()
+        }
+
+        await importGate.waitUntilEntered()
+        await fulfillment(of: [connectionReturned], timeout: 1)
+        XCTAssertTrue(store.isRefreshing)
+        XCTAssertNil(store.lastSuccessfulSync)
+        XCTAssertEqual(store.statuses[.hydration]?.readRequestState, .requestCompleted)
+
+        await importGate.open()
+        await connectionTask.value
+        for _ in 0..<100 where store.isRefreshing {
+            try? await _Concurrency.Task.sleep(for: .milliseconds(10))
+        }
+
+        XCTAssertFalse(store.isRefreshing)
+        XCTAssertNotNil(store.lastSuccessfulSync)
+    }
+
     func testHydrationBackwardDecodeDefaultsToManual() throws {
         let id = UUID()
         let timestamp = Date(timeIntervalSinceReferenceDate: 100)
@@ -438,6 +486,7 @@ private final class HealthGatewayFake: HealthKitGatewayProtocol, @unchecked Send
     var authorizationRequestError: (any Error)?
     var saveError: (any Error)?
     var changes: [HealthMetric: HealthAnchoredChanges] = [:]
+    var anchoredChangesGate: HealthImportGate?
 
     func requestAuthorization(writeDomains: Set<HealthDomain>) async throws {
         if let authorizationRequestError { throw authorizationRequestError }
@@ -448,7 +497,8 @@ private final class HealthGatewayFake: HealthKitGatewayProtocol, @unchecked Send
     }
 
     func anchoredChanges(metric: HealthMetric, anchorData: Data?) async throws -> HealthAnchoredChanges {
-        changes[metric] ?? .init(samples: [], deletedObjectIDs: [], newAnchorData: anchorData)
+        await anchoredChangesGate?.wait()
+        return changes[metric] ?? .init(samples: [], deletedObjectIDs: [], newAnchorData: anchorData)
     }
 
     func aggregate(metric: HealthMetric, from start: Date, to end: Date) async throws -> HealthAggregateValue {
@@ -463,6 +513,36 @@ private final class HealthGatewayFake: HealthKitGatewayProtocol, @unchecked Send
     func deleteObject(uuid: UUID, metric: HealthMetric) async throws {}
     func installObserver(metric: HealthMetric, update: @escaping @Sendable (@escaping () -> Void) -> Void) {}
     func enableBackgroundDelivery(for metric: HealthMetric) async throws {}
+}
+
+private actor HealthImportGate {
+    private var isOpen = false
+    private var hasEntered = false
+    private var blockedContinuations: [CheckedContinuation<Void, Never>] = []
+    private var entryContinuations: [CheckedContinuation<Void, Never>] = []
+
+    func wait() async {
+        hasEntered = true
+        entryContinuations.forEach { $0.resume() }
+        entryContinuations.removeAll()
+        guard isOpen == false else { return }
+        await withCheckedContinuation { continuation in
+            blockedContinuations.append(continuation)
+        }
+    }
+
+    func waitUntilEntered() async {
+        guard hasEntered == false else { return }
+        await withCheckedContinuation { continuation in
+            entryContinuations.append(continuation)
+        }
+    }
+
+    func open() {
+        isOpen = true
+        blockedContinuations.forEach { $0.resume() }
+        blockedContinuations.removeAll()
+    }
 }
 
 private actor HealthProjectionFake: HealthProjectionRepository {
