@@ -338,3 +338,174 @@ namespace LifeBoardSignature {
     half3 lit = currentColor.rgb + half3(tint) * half(energy * 0.55);
     return half4(min(lit, half3(1.0)), currentColor.a);
 }
+
+// contextLens: a bounded, one-shot refraction on the control/background plane
+// when context is handed into capture or Eva. Maximum displacement is under
+// eight points and the envelope returns the final frame to its original pixels.
+[[ stitchable ]] float2 LifeBoardContextLens(
+    float2 position,
+    float2 size,
+    float2 center,
+    float progress
+) {
+    if (size.x <= 0.0 || size.y <= 0.0 || progress <= 0.001 || progress >= 0.999) {
+        return position;
+    }
+
+    float2 uv = position / size;
+    float2 delta = uv - center;
+    delta.x *= size.x / size.y;
+    float distance = length(delta);
+    float2 direction = normalize(delta + 1e-5);
+    float envelope = sin(clamp(progress, 0.0, 1.0) * M_PI_F);
+    float ringCenter = 0.05 + progress * 0.52;
+    float ring = 1.0 - smoothstep(0.0, 0.16, abs(distance - ringCenter));
+    float softCore = 1.0 - smoothstep(0.0, 0.42, distance);
+    float displacement = min(8.0, (ring * 6.5 + softCore * 1.5) * envelope);
+    return position + direction * displacement;
+}
+
+// chartRevealSweep: a series drawing itself in. A soft leading edge travels
+// left-to-right once; everything behind it is fully opaque, everything ahead is
+// clear. This is a mask pass — it never tints or distorts the chart, so values
+// stay readable the whole way through and the final frame is pixel-identical
+// to the undrawn chart.
+[[ stitchable ]] half4 LifeBoardChartRevealSweep(
+    float2 position,
+    half4 currentColor,
+    float2 size,
+    float progress,
+    float featherWidth
+) {
+    if (size.x <= 0.0 || progress >= 0.999) {
+        return currentColor;
+    }
+    if (progress <= 0.001) {
+        return half4(0.0);
+    }
+
+    float x = position.x / size.x;
+    // The sweep starts a feather-width off-screen so the first column is
+    // already fully revealed when progress reaches 1.
+    float feather = clamp(featherWidth, 0.01, 0.5);
+    float edge = progress * (1.0 + feather);
+    float visibility = 1.0 - smoothstep(edge - feather, edge, x);
+    return currentColor * half(visibility);
+}
+
+// liquidGlassRefract: the selected dock/composer well bending the content
+// beneath it. A shallow lens centred on the well, falling off to zero well
+// inside its own bounds so neighbouring targets never smear. Displacement is
+// capped at six points; this runs only while the selection is moving.
+[[ stitchable ]] float2 LifeBoardLiquidGlassRefract(
+    float2 position,
+    float2 size,
+    float2 center,
+    float radius,
+    float strength
+) {
+    if (size.x <= 0.0 || size.y <= 0.0 || strength <= 0.001) {
+        return position;
+    }
+
+    float2 uv = position / size;
+    float2 delta = uv - center;
+    delta.x *= size.x / size.y;
+    float distance = length(delta);
+    float safeRadius = max(radius, 1e-4);
+    if (distance >= safeRadius) {
+        return position;
+    }
+
+    // Spherical falloff: strongest just inside the rim, zero at the centre and
+    // zero at the edge, which is what makes it read as glass rather than a blur.
+    float normalized = distance / safeRadius;
+    float lens = sin(normalized * M_PI_F);
+    float2 direction = normalize(delta + 1e-5);
+    float displacement = min(6.0, lens * strength * 6.0);
+    return position - direction * displacement;
+}
+
+// cardMorphWarp: the background plane easing out of the way while a card zooms
+// into its detail route. Deliberately not applied to the card itself — text and
+// charts must stay undistorted. Peaks mid-transition and returns to identity.
+[[ stitchable ]] float2 LifeBoardCardMorphWarp(
+    float2 position,
+    float2 size,
+    float2 origin,
+    float progress
+) {
+    if (size.x <= 0.0 || size.y <= 0.0 || progress <= 0.001 || progress >= 0.999) {
+        return position;
+    }
+
+    float2 uv = position / size;
+    float2 delta = uv - origin;
+    delta.x *= size.x / size.y;
+    float distance = length(delta);
+    float envelope = sin(clamp(progress, 0.0, 1.0) * M_PI_F);
+    // Push outward near the origin, relaxing to nothing by half the diagonal.
+    float falloff = 1.0 - smoothstep(0.0, 0.62, distance);
+    float2 direction = normalize(delta + 1e-5);
+    float displacement = min(8.0, falloff * envelope * 8.0);
+    return position + direction * displacement;
+}
+
+// paperGrain: a static, warm tooth over the canvas so large flat areas read as
+// pressed paper rather than flat fill. No time input — this must never animate.
+[[ stitchable ]] half4 LifeBoardPaperGrain(
+    float2 position,
+    half4 currentColor,
+    float2 size,
+    float intensity
+) {
+    if (size.x <= 0.0 || intensity <= 0.001 || currentColor.a <= 0.001) {
+        return currentColor;
+    }
+
+    // Two octaves at different scales avoid a visible repeating cell.
+    float coarse = LifeBoardSignature::hash21(floor(position * 0.5));
+    float fine = LifeBoardSignature::hash21(floor(position * 1.7) + 19.19);
+    float grain = (coarse * 0.6 + fine * 0.4) - 0.5;
+
+    // Scale by luminance so shadowed areas do not turn muddy.
+    float luma = dot(float3(currentColor.rgb), float3(0.2126, 0.7152, 0.0722));
+    float weight = smoothstep(0.08, 0.92, luma);
+    half shift = half(grain * intensity * weight * 0.06);
+    return half4(clamp(currentColor.rgb + shift, half3(0.0), half3(1.0)), currentColor.a);
+}
+
+// dissolveAway: a finished row leaving. Pixels erode along a noise threshold
+// from the trailing edge, which reads as the item being absorbed rather than
+// simply fading. One-shot; the caller removes the view when progress reaches 1.
+[[ stitchable ]] half4 LifeBoardDissolveAway(
+    float2 position,
+    half4 currentColor,
+    float2 size,
+    float progress,
+    float3 emberTint
+) {
+    if (size.x <= 0.0 || progress <= 0.001) {
+        return currentColor;
+    }
+    if (progress >= 0.999) {
+        return half4(0.0);
+    }
+
+    float2 uv = position / size;
+    float noise = LifeBoardSignature::hash21(floor(position * 0.85));
+    // Bias the threshold horizontally so the dissolve travels rather than
+    // flickering uniformly across the whole row.
+    float threshold = progress * 1.35 - uv.x * 0.35;
+    float erosion = threshold - noise * 0.42;
+
+    if (erosion >= 0.32) {
+        return half4(0.0);
+    }
+
+    float alpha = 1.0 - smoothstep(0.0, 0.32, erosion);
+    // A narrow warm rim rides the dissolving boundary.
+    float rim = 1.0 - smoothstep(0.0, 0.12, abs(erosion - 0.20));
+    half3 lit = currentColor.rgb + half3(emberTint) * half(rim * 0.5);
+    return half4(min(lit, half3(1.0)), currentColor.a) * half(alpha);
+}
