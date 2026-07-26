@@ -46,21 +46,21 @@ public enum LifeBoardAnimation {
     // The four semantic motion roles from the Life OS premium brief. Named by intent so surfaces
     // pick a role, not a raw duration. Existing tokens back each range.
     /// Press / selection feedback (120–180 ms).
-    public static let rolePress: Animation = .spring(response: 0.16, dampingFraction: 0.72)
+    public static let rolePress: Animation = .spring(response: 0.13, dampingFraction: 0.90)
     /// Selection feedback stays slightly firmer than a press so controls feel precise.
     public static let selection: Animation = .spring(response: 0.18, dampingFraction: 0.88)
     /// Local state transition within a surface (180–280 ms).
-    public static let roleLocalState: Animation = .spring(response: 0.24, dampingFraction: 0.82)
+    public static let roleLocalState: Animation = .spring(response: 0.24, dampingFraction: 0.88)
     /// New content arriving in an existing hierarchy.
     public static let contentInsertion: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.26)
     /// One chrome object becoming another without blocking interaction.
-    public static let controlMorph: Animation = .spring(response: 0.30, dampingFraction: 0.88)
+    public static let controlMorph: Animation = .spring(response: 0.36, dampingFraction: 0.90)
     /// Reordering or inserting cards while preserving their spatial relationship.
     public static let cardReflow: Animation = .spring(response: 0.34, dampingFraction: 0.90)
     /// Direct manipulation preserves velocity but settles without an elastic bounce.
     public static let directManipulation: Animation = .interactiveSpring(response: 0.30, dampingFraction: 0.88, blendDuration: 0.12)
     /// Route / sheet transition (280–450 ms).
-    public static let roleRoute: Animation = .spring(response: 0.40, dampingFraction: 0.86)
+    public static let roleRoute: Animation = .spring(response: 0.44, dampingFraction: 0.90)
     /// Ambient / daypart transition, manual variant (450–650 ms).
     public static let roleAmbient: Animation = .spring(response: 0.58, dampingFraction: 0.90)
 

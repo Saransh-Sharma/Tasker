@@ -316,7 +316,13 @@ public enum LifeBoardSignatureShaders {
         "LifeBoardVitalOrbWarp",
         "LifeBoardClayPressBloom",
         "LifeBoardDaypartCrossDissolve",
-        "LifeBoardCompletionBurst"
+        "LifeBoardCompletionBurst",
+        "LifeBoardContextLens",
+        "LifeBoardChartRevealSweep",
+        "LifeBoardLiquidGlassRefract",
+        "LifeBoardCardMorphWarp",
+        "LifeBoardPaperGrain",
+        "LifeBoardDissolveAway"
     ]
 
     /// Whether custom shaders may run at all right now (flag + energy/thermal, not accessibility —
@@ -380,6 +386,15 @@ public enum LifeBoardSignatureShaders {
             }
             preloadTask = nil
         }
+    }
+
+    /// Shared `Color` → shader float3. Each modifier used to carry its own
+    /// private copy of this.
+    static func components(of color: Color) -> (Float, Float, Float) {
+        let ui = UIColor(color)
+        var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1
+        ui.getRed(&r, green: &g, blue: &b, alpha: &a)
+        return (Float(r), Float(g), Float(b))
     }
 
     static func tintComponents(for daypart: ResolvedDaypart) -> (Float, Float, Float) {
@@ -719,6 +734,60 @@ private struct VitalOrbWarpModifier: ViewModifier {
     }
 }
 
+// MARK: - Context lens
+
+/// A single bounded refraction used when context moves into capture or Eva.
+/// Callers attach it to a background/control plane; readable content is never distorted.
+@MainActor
+private struct ContextLensModifier: ViewModifier {
+    let center: UnitPoint
+    let trigger: Int
+    let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let sceneIsActive: Bool
+    @State private var startDate: Date?
+
+    private let duration: TimeInterval = 0.38
+
+    func body(content: Content) -> some View {
+        Group {
+            if let startDate {
+                TimelineView(.animation) { context in
+                    let progress = min(1, context.date.timeIntervalSince(startDate) / duration)
+                    if usesFallback {
+                        content.opacity(0.96 + (0.04 * progress))
+                    } else {
+                        content.visualEffect { effect, proxy in
+                            effect.distortionEffect(
+                                Shader(
+                                    function: ShaderFunction(library: .default, name: "LifeBoardContextLens"),
+                                    arguments: [
+                                        .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                                        .float2(Float(center.x), Float(center.y)),
+                                        .float(Float(progress))
+                                    ]
+                                ),
+                                maxSampleOffset: CGSize(width: 8, height: 8)
+                            )
+                        }
+                    }
+                }
+            } else {
+                content
+            }
+        }
+        .onChange(of: trigger) { _, _ in
+            guard sceneIsActive else { return }
+            startDate = Date()
+        }
+    }
+
+    private var usesFallback: Bool {
+        reduceMotion || reduceTransparency || sceneIsActive == false
+            || LifeBoardSignatureShaders.isReadyForRendering == false
+    }
+}
+
 // MARK: - View sugar
 
 public extension View {
@@ -795,6 +864,307 @@ public extension View {
     @MainActor
     func lifeboardVitalOrbWarp(trigger: Int) -> some View {
         modifier(VitalOrbWarpModifierEnvironment(trigger: trigger))
+    }
+
+    /// One-shot contextual handoff. Apply only to a background or control plane.
+    @MainActor
+    func lifeboardContextLens(center: UnitPoint = .topTrailing, trigger: Int) -> some View {
+        modifier(ContextLensModifierEnvironment(center: center, trigger: trigger))
+    }
+
+    /// Draws a chart or sparkline in behind a travelling mask. Mask only — it
+    /// never tints or moves the data, so values stay readable throughout.
+    @MainActor
+    func lifeboardChartRevealSweep(progress: Double) -> some View {
+        modifier(ChartRevealSweepModifierEnvironment(progress: progress))
+    }
+
+    /// Refracts content beneath a moving selection well. Control plane only.
+    @MainActor
+    func lifeboardLiquidGlassRefract(center: UnitPoint, radius: Double, strength: Double) -> some View {
+        modifier(LiquidGlassRefractModifierEnvironment(center: center, radius: radius, strength: strength))
+    }
+
+    /// Eases the background plane out of the way during a card-to-detail zoom.
+    /// Never apply to the card itself; text and charts must not distort.
+    @MainActor
+    func lifeboardCardMorphWarp(origin: UnitPoint, trigger: Int) -> some View {
+        modifier(CardMorphWarpModifierEnvironment(origin: origin, trigger: trigger))
+    }
+
+    /// Static warm tooth for large canvas areas. Never animates.
+    @MainActor
+    func lifeboardPaperGrain(intensity: Double = 1) -> some View {
+        modifier(PaperGrainModifierEnvironment(intensity: intensity))
+    }
+
+    /// Erodes a completed row away instead of fading it.
+    @MainActor
+    func lifeboardDissolveAway(progress: Double, tint: Color) -> some View {
+        modifier(DissolveAwayModifierEnvironment(progress: progress, tint: tint))
+    }
+}
+
+// MARK: - chartRevealSweep
+
+private struct ChartRevealSweepModifierEnvironment: ViewModifier {
+    let progress: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    func body(content: Content) -> some View {
+        content.modifier(ChartRevealSweepModifier(
+            progress: progress,
+            reduceMotion: reduceMotion,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+struct ChartRevealSweepModifier: ViewModifier {
+    let progress: Double
+    let reduceMotion: Bool
+    let sceneIsActive: Bool
+
+    func body(content: Content) -> some View {
+        // A settled chart carries no shader at all, so there is no residual
+        // GPU work once the reveal finishes.
+        if usesFallback || progress >= 0.999 {
+            content.opacity(usesFallback ? 1 : 1)
+        } else {
+            content.layerEffect(
+                Shader(
+                    function: ShaderFunction(library: .default, name: "LifeBoardChartRevealSweep"),
+                    arguments: [
+                        .float2(1, 1),
+                        .float(Float(max(0, min(1, progress)))),
+                        .float(0.16)
+                    ]
+                ),
+                maxSampleOffset: .zero
+            )
+        }
+    }
+
+    private var usesFallback: Bool {
+        reduceMotion || sceneIsActive == false
+            || LifeBoardSignatureShaders.isReadyForRendering == false
+    }
+}
+
+// MARK: - liquidGlassRefract
+
+private struct LiquidGlassRefractModifierEnvironment: ViewModifier {
+    let center: UnitPoint
+    let radius: Double
+    let strength: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+    func body(content: Content) -> some View {
+        content.modifier(LiquidGlassRefractModifier(
+            center: center,
+            radius: radius,
+            strength: strength,
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+struct LiquidGlassRefractModifier: ViewModifier {
+    let center: UnitPoint
+    let radius: Double
+    let strength: Double
+    let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let sceneIsActive: Bool
+
+    func body(content: Content) -> some View {
+        if usesFallback || strength <= 0.001 {
+            content
+        } else {
+            content.visualEffect { effect, proxy in
+                effect.distortionEffect(
+                    Shader(
+                        function: ShaderFunction(library: .default, name: "LifeBoardLiquidGlassRefract"),
+                        arguments: [
+                            .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                            .float2(Float(center.x), Float(center.y)),
+                            .float(Float(radius)),
+                            .float(Float(strength))
+                        ]
+                    ),
+                    maxSampleOffset: CGSize(width: 6, height: 6)
+                )
+            }
+        }
+    }
+
+    private var usesFallback: Bool {
+        reduceMotion || reduceTransparency || sceneIsActive == false
+            || LifeBoardSignatureShaders.isReadyForRendering == false
+    }
+}
+
+// MARK: - cardMorphWarp
+
+private struct CardMorphWarpModifierEnvironment: ViewModifier {
+    let origin: UnitPoint
+    let trigger: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+    func body(content: Content) -> some View {
+        content.modifier(CardMorphWarpModifier(
+            origin: origin,
+            trigger: trigger,
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+struct CardMorphWarpModifier: ViewModifier {
+    let origin: UnitPoint
+    let trigger: Int
+    let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let sceneIsActive: Bool
+    @State private var startDate: Date?
+
+    private let duration: TimeInterval = 0.38
+
+    func body(content: Content) -> some View {
+        Group {
+            if let startDate, usesFallback == false {
+                TimelineView(.animation) { context in
+                    let elapsed = context.date.timeIntervalSince(startDate)
+                    let progress = min(1, elapsed / duration)
+                    content.visualEffect { effect, proxy in
+                        effect.distortionEffect(
+                            Shader(
+                                function: ShaderFunction(library: .default, name: "LifeBoardCardMorphWarp"),
+                                arguments: [
+                                    .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                                    .float2(Float(origin.x), Float(origin.y)),
+                                    .float(Float(progress))
+                                ]
+                            ),
+                            maxSampleOffset: CGSize(width: 8, height: 8)
+                        )
+                    }
+                    .task(id: progress >= 1) {
+                        // Drop the timeline the moment the pass completes so no
+                        // shader work survives the transition.
+                        if progress >= 1 { self.startDate = nil }
+                    }
+                }
+            } else {
+                content
+            }
+        }
+        .onChange(of: trigger) { _, _ in
+            guard sceneIsActive, usesFallback == false else { return }
+            startDate = Date()
+        }
+    }
+
+    private var usesFallback: Bool {
+        reduceMotion || reduceTransparency || sceneIsActive == false
+            || LifeBoardSignatureShaders.isReadyForRendering == false
+    }
+}
+
+// MARK: - paperGrain
+
+private struct PaperGrainModifierEnvironment: ViewModifier {
+    let intensity: Double
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
+    func body(content: Content) -> some View {
+        content.modifier(PaperGrainModifier(
+            intensity: intensity,
+            reduceTransparency: reduceTransparency,
+            increasedContrast: contrast == .increased
+        ))
+    }
+}
+
+struct PaperGrainModifier: ViewModifier {
+    let intensity: Double
+    let reduceTransparency: Bool
+    let increasedContrast: Bool
+
+    func body(content: Content) -> some View {
+        // Grain is texture, not information. Increased Contrast removes it so
+        // it can never eat into a text/background ratio.
+        if increasedContrast || reduceTransparency || LifeBoardSignatureShaders.isReadyForRendering == false {
+            content
+        } else {
+            content.layerEffect(
+                Shader(
+                    function: ShaderFunction(library: .default, name: "LifeBoardPaperGrain"),
+                    arguments: [
+                        .float2(1, 1),
+                        .float(Float(max(0, min(1, intensity))))
+                    ]
+                ),
+                maxSampleOffset: .zero
+            )
+        }
+    }
+}
+
+// MARK: - dissolveAway
+
+private struct DissolveAwayModifierEnvironment: ViewModifier {
+    let progress: Double
+    let tint: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    func body(content: Content) -> some View {
+        content.modifier(DissolveAwayModifier(
+            progress: progress,
+            tint: tint,
+            reduceMotion: reduceMotion,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+struct DissolveAwayModifier: ViewModifier {
+    let progress: Double
+    let tint: Color
+    let reduceMotion: Bool
+    let sceneIsActive: Bool
+
+    func body(content: Content) -> some View {
+        if usesFallback {
+            // Reduce Motion still needs the item to leave; it just fades.
+            content.opacity(1 - max(0, min(1, progress)))
+        } else if progress <= 0.001 {
+            content
+        } else {
+            let components = LifeBoardSignatureShaders.components(of: tint)
+            content.layerEffect(
+                Shader(
+                    function: ShaderFunction(library: .default, name: "LifeBoardDissolveAway"),
+                    arguments: [
+                        .float2(1, 1),
+                        .float(Float(max(0, min(1, progress)))),
+                        .float3(components.0, components.1, components.2)
+                    ]
+                ),
+                maxSampleOffset: .zero
+            )
+        }
+    }
+
+    private var usesFallback: Bool {
+        reduceMotion || sceneIsActive == false
+            || LifeBoardSignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -1141,6 +1511,23 @@ private struct CompletionBurstModifierEnvironment: ViewModifier {
     func body(content: Content) -> some View {
         content.modifier(CompletionBurstModifier(
             center: center, trigger: trigger,
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+private struct ContextLensModifierEnvironment: ViewModifier {
+    let center: UnitPoint
+    let trigger: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+    func body(content: Content) -> some View {
+        content.modifier(ContextLensModifier(
+            center: center,
+            trigger: trigger,
             reduceMotion: reduceMotion,
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active

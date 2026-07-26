@@ -50,10 +50,111 @@ public enum LifeBoardScreenMode: String, CaseIterable, Hashable, Sendable {
 /// Stable semantic identities for custom Liquid Glass transitions.
 public enum LifeBoardGlassMorphRole: String, Hashable, Sendable {
     case capture
+    case captureTray
     case dockSelection
     case evaComposer
     case evaComposerActions
     case floatingToolbar
+}
+
+public struct LifeBoardRootHeaderModel: Equatable, Sendable {
+    public let title: String
+    public let context: String?
+    public let captureAvailable: Bool
+    public let secondaryActionTitle: String?
+
+    public init(
+        title: String,
+        context: String? = nil,
+        captureAvailable: Bool = true,
+        secondaryActionTitle: String? = nil
+    ) {
+        self.title = title
+        self.context = context
+        self.captureAvailable = captureAvailable
+        self.secondaryActionTitle = secondaryActionTitle
+    }
+}
+
+/// One quiet, left-aligned header shared by every root. Capture remains visible;
+/// optional gestures only accelerate controls that are already on screen.
+public struct LifeBoardRootHeader: View {
+    public let model: LifeBoardRootHeaderModel
+    public let captureExpanded: Bool
+    /// True when the header sits over a dark scenic backdrop. The daypart
+    /// scene is independent of the system appearance, so a Night scene in Light
+    /// appearance resolved cocoa ink onto navy sky and the greeting and date
+    /// were effectively invisible.
+    public let usesInverseInk: Bool
+    public let onCapture: () -> Void
+    public let secondaryActions: AnyView?
+
+    public init(
+        model: LifeBoardRootHeaderModel,
+        captureExpanded: Bool = false,
+        usesInverseInk: Bool = false,
+        onCapture: @escaping () -> Void,
+        secondaryActions: AnyView? = nil
+    ) {
+        self.model = model
+        self.captureExpanded = captureExpanded
+        self.usesInverseInk = usesInverseInk
+        self.onCapture = onCapture
+        self.secondaryActions = secondaryActions
+    }
+
+    private var primaryInk: Color {
+        usesInverseInk
+            ? Color(LifeBoardColorTokens.foundationOnScenicDark)
+            : Color(LifeBoardColorTokens.inkPrimary)
+    }
+
+    private var secondaryInk: Color {
+        usesInverseInk
+            ? Color(LifeBoardColorTokens.foundationOnScenicDarkSecondary)
+            : Color(LifeBoardColorTokens.inkSecondary)
+    }
+
+    public var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(model.title)
+                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .foregroundStyle(primaryInk)
+                    .lineLimit(1)
+                if let context = model.context {
+                    Text(context)
+                        .font(.subheadline)
+                        .foregroundStyle(secondaryInk)
+                        .lineLimit(2)
+                }
+            }
+            Spacer(minLength: 8)
+            GlassEffectContainer(spacing: 8) {
+                HStack(spacing: 8) {
+                    if let secondaryActions {
+                        secondaryActions
+                    }
+                    if model.captureAvailable {
+                        Button(action: onCapture) {
+                            Image(systemName: captureExpanded ? "xmark" : "plus")
+                                .contentTransition(.symbolEffect(.replace))
+                                .font(.system(size: 17, weight: .semibold))
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(primaryInk)
+                        .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
+                        .lifeBoardGlassIdentity(.capture)
+                        .accessibilityLabel(captureExpanded ? "Close capture" : "Capture")
+                        .accessibilityIdentifier("foundation.capture")
+                    }
+                }
+            }
+        }
+        .frame(minHeight: 52)
+        .accessibilityElement(children: .contain)
+    }
 }
 
 private struct LifeBoardTransitionNamespaceKey: EnvironmentKey {
