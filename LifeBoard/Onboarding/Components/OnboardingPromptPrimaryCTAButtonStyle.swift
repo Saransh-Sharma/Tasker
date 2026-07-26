@@ -24,9 +24,8 @@ struct OnboardingPromptPrimaryCTAButtonStyle: ButtonStyle {
                 shape
                     .stroke(OnboardingTheme.onMediaBorder.opacity(0.92), lineWidth: 1)
             )
-            .shadow(color: OnboardingPromptTheme.shadow.opacity(0.14), radius: 18, y: 8)
             .contentShape(shape)
             .scaleEffect(configuration.isPressed && reduceMotion == false ? 0.98 : 1)
-            .animation(reduceMotion ? .none : .easeOut(duration: 0.18), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: configuration.isPressed)
     }
 }

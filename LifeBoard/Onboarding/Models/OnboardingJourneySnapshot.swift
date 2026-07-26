@@ -1,25 +1,24 @@
-import SwiftUI
-import UIKit
-import Combine
-import CoreHaptics
-import AVFoundation
-import Network
-import MLXLMCommon
+import Foundation
 
+/// Everything needed to resume a partly-finished setup.
+///
+/// Schema 5 drops the fields that backed removed steps — friction profile, pain
+/// points, the focus-room timer, the streak preview, and the scripted Home demo —
+/// and adds the day shape and module selection the new flow collects.
 struct OnboardingJourneySnapshot: Codable, Equatable {
-    var schemaVersion: Int = 4
+    var schemaVersion: Int = 5
     var step: OnboardingStep
     var mode: OnboardingMode
     var entryContext: OnboardingEntryContext = .freshFlow
-    var frictionProfile: OnboardingFrictionProfile?
     var selectedGoal: OnboardingPrimaryGoal?
-    var selectedPainPoints: [OnboardingPainPoint] = []
     var selectedLifeAreaIDs: [String]
     var showAllLifeAreas: Bool
     var projectDrafts: [OnboardingProjectDraft]
     var expandedProjectIDs: [UUID] = []
     var resolvedLifeAreas: [ResolvedLifeAreaSelection]
     var resolvedProjects: [ResolvedProjectSelection]
+    var dayShape: OnboardingDayShapeDraft = OnboardingDayShapeDraft()
+    var selectedModuleIDs: [String] = []
     var selectedStarterHabitPreference: OnboardingStarterHabitPreference = .positive
     var selectedStarterHabitTemplateID: String?
     var createdHabits: [HabitDefinitionRecord] = []
@@ -27,16 +26,9 @@ struct OnboardingJourneySnapshot: Codable, Equatable {
     var createdTasks: [TaskDefinition]
     var createdTaskTemplateMap: [String: UUID]
     var focusTaskID: UUID?
-    var parentFocusTaskID: UUID?
-    var focusStartedAt: Date?
-    var focusIsActive: Bool
-    var habitPreviewMarks: [HabitDayMark] = []
-    var didCompleteStarterHabitCheckIn: Bool = false
+    var grantedPermissionKinds: [String] = []
     var evaProfileDraft: EvaProfileDraft = EvaProfileDraft()
     var evaPreparationState: OnboardingEvaPreparationState = OnboardingEvaPreparationState()
-    var didCompleteHomeDemoTask: Bool = false
-    var didCompleteHomeDemoHabit: Bool = false
     var successSummary: AppOnboardingSummary?
     var hasSeenSuccess: Bool
-    var reminderPromptDismissed: Bool = false
 }

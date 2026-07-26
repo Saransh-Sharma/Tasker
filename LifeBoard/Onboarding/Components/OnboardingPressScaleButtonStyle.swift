@@ -12,6 +12,6 @@ struct OnboardingPressScaleButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .scaleEffect(configuration.isPressed && reduceMotion == false ? 0.98 : 1)
-            .animation(reduceMotion ? .none : .easeOut(duration: 0.18), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: configuration.isPressed)
     }
 }

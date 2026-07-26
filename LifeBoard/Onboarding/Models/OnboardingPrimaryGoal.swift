@@ -65,4 +65,21 @@ enum OnboardingPrimaryGoal: String, CaseIterable, Codable, Identifiable {
             return ["work-career", "health-self", "life-admin"]
         }
     }
+
+    /// How the starter catalog should weight its suggestions.
+    ///
+    /// This used to be derived from a separate "what gets in the way?" screen,
+    /// which asked the user to describe their difficulties before they had seen
+    /// anything the app could do about them. The intent they already chose
+    /// carries the same signal without the extra step.
+    var mappedFrictionProfile: OnboardingFrictionProfile {
+        switch self {
+        case .wholeWeek: return .overwhelmed
+        case .workDeadlines: return .finishing
+        case .lifeAdmin: return .remembering
+        case .habitsRoutines: return .finishing
+        case .calendarChaos: return .choosing
+        case .dailyExecution: return .starting
+        }
+    }
 }

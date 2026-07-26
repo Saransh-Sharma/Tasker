@@ -15,7 +15,6 @@ struct OnboardingWelcomeCinematicOverlay: View {
     let onSkipDelay: () -> Void
 
     let trustItems = [
-        ("sparkles.rectangle.stack", OnboardingCopy.Welcome.setupChip),
         ("clock", OnboardingCopy.Welcome.durationChip),
         ("arrow.uturn.backward.circle", OnboardingCopy.Welcome.changeLaterChip)
     ]
@@ -86,17 +85,10 @@ struct OnboardingWelcomeCinematicOverlay: View {
         .padding(.horizontal, 26)
         .padding(.vertical, 28)
         .frame(maxWidth: layoutClass.isPad ? 520 : 420)
-        .lifeboardPremiumSurface(
-            cornerRadius: 34,
-            fillColor: reduceTransparency
-                ? OnboardingTheme.surfaceElevated.opacity(0.94)
-                : .clear,
-            strokeColor: OnboardingTheme.onMediaBorder.opacity(0.8),
-            accentColor: reduceTransparency ? OnboardingTheme.accentSecondary : .clear,
-            level: .e3,
-            useNativeGlass: true
-        )
-        .shadow(color: LBColorTokens.floatingShadow.opacity(0.64), radius: 32, y: 18)
+        // One hero surface per screen, at the canonical floating depth. This
+        // previously stacked a premium-glass treatment and a hand-rolled drop
+        // shadow, which read heavier than anything else in the app.
+        .lifeBoardClaySurface(.floating, cornerRadius: 34)
         .opacity(phase.introCardOpacity)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("Welcome to LifeBoard.")

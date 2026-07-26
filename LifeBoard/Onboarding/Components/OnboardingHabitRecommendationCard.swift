@@ -62,7 +62,7 @@ struct OnboardingHabitRecommendationCard: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(borderColor, lineWidth: stateBorderWidth)
         )
-        .animation(reduceMotion ? .none : .easeOut(duration: 0.25), value: state)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: state)
     }
 
     var actionButton: some View {

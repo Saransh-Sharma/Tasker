@@ -94,7 +94,7 @@ struct OnboardingSelectableCard: View {
             )
         }
         .buttonStyle(OnboardingPressScaleButtonStyle())
-        .animation(reduceMotion ? .none : .easeOut(duration: 0.18), value: isSelected)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isSelected)
         .accessibilityRepresentation {
             Button(action: action) {
                 Text(title)

@@ -32,22 +32,17 @@ extension View {
         modifier(OnboardingPromptFooterMaterialModifier())
     }
 
+    /// Both of these hand-rolled their own fill, hairline, and drop shadow, which
+    /// is how onboarding ended up with an elevation language nothing else in the
+    /// app shared. They now defer to the canonical clay depths — one hero per
+    /// screen at `.floating`, ordinary content at `.raised` — so onboarding
+    /// inherits the same press physics and Reduce Transparency behaviour.
     func onboardingHeroPanel(cornerRadius: CGFloat) -> some View {
-        background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(OnboardingTheme.borderSoft.opacity(0.95), lineWidth: 1)
-            )
-            .shadow(color: LBColorTokens.elevationShadow.opacity(0.5), radius: 18, y: 8)
+        lifeBoardClaySurface(.floating, cornerRadius: cornerRadius)
     }
 
     func onboardingGlassPanel(cornerRadius: CGFloat, shadowOpacity: Double = 0.06) -> some View {
-        background(OnboardingTheme.surfaceElevated, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .stroke(OnboardingTheme.borderSoft, lineWidth: 1)
-            )
-            .shadow(color: LBColorTokens.elevationShadow.opacity(shadowOpacity * 10), radius: 14, y: 6)
+        lifeBoardClaySurface(.raised, cornerRadius: cornerRadius)
     }
 
     func onboardingPrimaryButton(disabled: Bool = false) -> some View {

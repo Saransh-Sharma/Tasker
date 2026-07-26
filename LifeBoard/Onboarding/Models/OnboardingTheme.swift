@@ -36,8 +36,10 @@ enum OnboardingTheme {
     static let danger = Color.lifeboard(.statusDanger)
 
     /// Text and strokes rendered directly over the dark welcome video.
-    static let onMediaTextPrimary = Color.white.opacity(0.96)
-    static let onMediaTextSecondary = Color.white.opacity(0.76)
+    // Fixed-white roles for text that sat over the old dark hero video. The
+    // video is gone and the welcome card is now a clay surface on a cream
+    // canvas, so these are decorative-only: they must never carry text again.
     static let onMediaBorder = Color.white.opacity(0.24)
+    static let decorativeHighlight = Color(LifeBoardColorTokens.clayHighlight)
     static let mediaScrim = Color.black
 }

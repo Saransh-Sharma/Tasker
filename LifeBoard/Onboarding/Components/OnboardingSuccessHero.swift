@@ -27,26 +27,21 @@ struct OnboardingSuccessHero: View {
                 .lifeboardFont(.display)
                 .foregroundStyle(OnboardingTheme.textPrimary)
                 .multilineTextAlignment(.center)
-
-            Text(OnboardingCopy.Success.subtitle)
-                .lifeboardFont(.body)
-                .foregroundStyle(OnboardingTheme.textSecondary)
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-                .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .center)
         .padding(22)
-        .onboardingHeroPanel(cornerRadius: 32)
+        .lifeBoardClaySurface(.floating)
         .onAppear {
             guard reduceMotion == false else { return }
             // One gentle settle-in, then a soft two-beat halo pulse — a single
-            // celebratory moment, never a looping reward.
+            // celebratory moment, never a looping reward. The settle uses the
+            // shared completion spring: the one place in the system where an
+            // overshoot is earned.
             haloScale = 0.86
-            withAnimation(.spring(duration: 0.5, bounce: 0.36)) {
+            withAnimation(LifeBoardInteractionMotion.completion(reduceMotion: reduceMotion)) {
                 haloScale = 1
             }
-            withAnimation(.easeInOut(duration: 0.8).repeatCount(2, autoreverses: true)) {
+            withAnimation(LifeBoardAnimation.celebration.repeatCount(2, autoreverses: true)) {
                 pulse = true
             }
         }
