@@ -1,13 +1,6 @@
 import SwiftUI
-import UIKit
-import Combine
-import CoreHaptics
-import AVFoundation
-import Network
-import MLXLMCommon
 
 struct AppOnboardingJourneyView: View {
-
 
     @ObservedObject var viewModel: OnboardingFlowModel
 
@@ -25,6 +18,10 @@ struct AppOnboardingJourneyView: View {
 
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
+    @Environment(\.accessibilityReduceTransparency) var reduceTransparency
+
+    @Environment(\.scenePhase) var scenePhase
+
     @State var hasPlayedSuccess = false
 
     @State var welcomeIntroPhase: WelcomeIntroPhase = .introVideoOnly
@@ -35,17 +32,26 @@ struct AppOnboardingJourneyView: View {
 
     @State var welcomeIntroRunID = UUID()
 
-    @State var customWorkingStyle = ""
+    /// Drives the one-shot press bloom under whatever the user just tapped.
+    @State var selectionBloomTrigger = 0
 
-    @State var customWorkBlocker = ""
+    @State var successBurstTrigger = 0
 
-    @State var didShowHomeDemoCelebration = false
+    @State var permissionRippleTrigger = 0
 
-    @State var outcomeDrafts = [""]
-
-    @State var visibleOutcomeCount = 1
+    @State var didCelebrateFirstWin = false
 
     @FocusState var focusedInputField: OnboardingInputField?
+
+    /// Resolved per-view, as everywhere else in the app — there is no environment
+    /// key for the motion policy.
+    var motionPolicy: LifeBoardMotionPolicy {
+        LifeBoardMotionPolicy.resolve(
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        )
+    }
 
     var body: some View {
         ZStack {
@@ -83,38 +89,34 @@ struct AppOnboardingJourneyView: View {
                     .zIndex(2)
             }
         }
+        // A warm bloom from the last tap, and a burst when setup lands. Both are
+        // prewarmed Metal effects that fall back on their own under Reduce Motion,
+        // Reduce Transparency, and Low Power.
+        .lifeboardClayPressBloom(trigger: selectionBloomTrigger, tint: currentVisualTheme.accent)
+        .lifeboardCompletionBurst(trigger: successBurstTrigger)
         .safeAreaInset(edge: .bottom) {
             if shouldShowBottomDock {
                 bottomDock
             }
         }
-        .sheet(isPresented: $viewModel.breakdownSheetPresented) {
-            breakdownSheet
-        }
         .interactiveDismissDisabled(true)
-        .animation(pageMotionIsReduced ? .none : .easeOut(duration: 0.22), value: viewModel.step)
-        .animation(pageMotionIsReduced ? .none : .easeOut(duration: 0.22), value: viewModel.successSummary != nil)
+        .animation(pageMotionIsReduced ? nil : LifeBoardAnimation.panelIn, value: viewModel.step)
+        .animation(pageMotionIsReduced ? nil : LifeBoardAnimation.panelIn, value: viewModel.successSummary != nil)
         .onAppear {
             feedbackController.prepare()
-            if viewModel.step == .weeklyOutcomes {
-                syncOutcomeDraftsFromModel()
-            }
             scheduleWelcomeIntroIfNeeded()
         }
-        .onChange(of: viewModel.step) { _, step in
+        .onChange(of: viewModel.step) { _, _ in
             focusedInputField = nil
-            if step == .weeklyOutcomes {
-                syncOutcomeDraftsFromModel()
-            }
-            scheduleWelcomeIntroIfNeeded()
-        }
-        .onChange(of: viewModel.successSummary != nil) { _, _ in
             scheduleWelcomeIntroIfNeeded()
         }
         .onChange(of: viewModel.successSummary != nil) { _, isShowingSuccess in
+            scheduleWelcomeIntroIfNeeded()
             guard isShowingSuccess, hasPlayedSuccess == false else { return }
             hasPlayedSuccess = true
             feedbackController.successSignature()
+            guard motionPolicy.allowsSpatialMotion else { return }
+            successBurstTrigger &+= 1
         }
         .task(id: welcomeIntroRunID) {
             await runWelcomeIntroSequenceIfNeeded()
@@ -129,5 +131,13 @@ struct AppOnboardingJourneyView: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier(AppOnboardingAccessibilityID.flow)
+    }
+
+    /// Every selection in the flow routes through here so the tap feedback and
+    /// the bloom stay in step, and so the haptic inherits the motion policy.
+    func registerSelection() {
+        feedbackController.selection()
+        guard motionPolicy.allowsSpatialMotion else { return }
+        selectionBloomTrigger &+= 1
     }
 }
