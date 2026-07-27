@@ -13,6 +13,7 @@ struct LifeBoardTrackFoundationRootView: View {
     private let nutritionRepository: any NutritionRepository
     private let lifeMomentRepository: any LifeMomentRepository
     private let wellnessRepository: any WellnessRepository
+    private let fastingTimerStore: FastingTimerStore
     @State private var showsMood = false
     @State private var editingMood: LifeBoardMoodEnergyCheckInValue?
     @State private var showsSleep = false
@@ -28,6 +29,13 @@ struct LifeBoardTrackFoundationRootView: View {
     @State private var routinePendingDeletion: RoutineDefinition?
     @State private var showsCareLibrary = false
     @State private var showsHydrationTarget = false
+    // Fasting used to exist only inside the legacy Track root, which was
+    // presented as a sheet from inside this one. It is a first-class module
+    // here now, so nothing is reachable through the legacy tree alone.
+    @State private var fastingSessions: [LifeBoardFastingSessionValue] = []
+    @State private var showsFastingComposer = false
+    @State private var showsFastingHistory = false
+    @State private var fastingError: String?
     @State private var linkingGoal: GoalDefinition?
     @State private var selectedLens: TrackLens = .today
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
@@ -66,7 +74,23 @@ struct LifeBoardTrackFoundationRootView: View {
         self.nutritionRepository = nutritionRepository
         self.lifeMomentRepository = lifeMomentRepository
         self.wellnessRepository = wellnessRepository
+        fastingTimerStore = FastingTimerStore(
+            repository: LifeBoardFastingRepositoryAdapter(repository: phaseIIRepository)
+        )
         _selectedLens = State(initialValue: initialLens)
+    }
+
+    private var activeFast: LifeBoardFastingSessionValue? {
+        fastingSessions.first { $0.endedAt == nil }
+    }
+
+    private func reloadFasting() async {
+        do {
+            fastingSessions = try await fastingTimerStore.sessions(limit: 60)
+            fastingError = nil
+        } catch {
+            fastingError = error.localizedDescription
+        }
     }
 
     var body: some View {
@@ -92,6 +116,43 @@ struct LifeBoardTrackFoundationRootView: View {
         .navigationTitle("Track")
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }
+        .task { await reloadFasting() }
+        .sheet(isPresented: $showsFastingComposer) {
+            LifeBoardFastingComposer { target, _ in
+                Task {
+                    do {
+                        _ = try await fastingTimerStore.start(targetDuration: target)
+                        await reloadFasting()
+                    } catch {
+                        fastingError = error.localizedDescription
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showsFastingHistory) {
+            LifeBoardFastingHistoryView(
+                sessions: fastingSessions,
+                activeReceipt: { store.activeCorrection(domain: .fasting, sourceID: $0) },
+                onUndo: { receipt in
+                    await store.undoCorrection(receipt)
+                    await reloadFasting()
+                },
+                onCorrect: { session, startDelta, endDelta in
+                    do {
+                        _ = try await fastingTimerStore.correct(
+                            sessionID: session.id,
+                            startedAt: session.startedAt.addingTimeInterval(startDelta),
+                            endedAt: session.endedAt?.addingTimeInterval(endDelta),
+                            targetDuration: session.targetDuration,
+                            note: session.note
+                        )
+                        await reloadFasting()
+                    } catch {
+                        fastingError = error.localizedDescription
+                    }
+                }
+            )
+        }
         .sheet(isPresented: $showsMood, onDismiss: { editingMood = nil }) {
             MoodEnergyComposer(checkIn: editingMood) { value in
                 Task { await store.saveMood(value) }
@@ -213,10 +274,15 @@ struct LifeBoardTrackFoundationRootView: View {
         switch selectedLens {
         case .today:
             dueAndUnresolved
+            // A running fast is time-sensitive, so it earns a place in Today.
+            // When nothing is running it stays in Body rather than adding a
+            // permanent empty module to the day.
+            if activeFast != nil { fastingSection }
             todayRoutines
             careSnapshot
         case .areas:
             bodyCare
+            if activeFast == nil { fastingSection }
             mindCare
             routinesAndHabits
             goals
@@ -262,7 +328,10 @@ struct LifeBoardTrackFoundationRootView: View {
 
             if filteredHydrationHistory.isEmpty
                 && filteredSleepHistory.isEmpty
-                && store.checkIns.isEmpty {
+                && store.checkIns.isEmpty
+                && filteredFastingHistory.isEmpty
+                && filteredRoutineHistory.isEmpty
+                && store.snapshot.goals.isEmpty {
                 trackEmpty(
                     "No history yet",
                     detail: "Explicit records will appear here. Missing data is never treated as zero.",
@@ -294,9 +363,85 @@ struct LifeBoardTrackFoundationRootView: View {
                         .padding(.vertical, 7)
                     }
                 }
+                // History used to stop at hydration, sleep and mood, which
+                // made it read as a care log rather than a record of the
+                // whole tracked life.
+                if filteredFastingHistory.isEmpty == false {
+                    trackSectionHeader("Fasting", symbol: "timer")
+                    ForEach(filteredFastingHistory) { session in
+                        historyRow(
+                            symbol: "timer",
+                            title: Self.fastingClock(session.elapsed(at: session.endedAt ?? Date())),
+                            detail: session.startedAt.formatted(date: .abbreviated, time: .shortened)
+                        )
+                    }
+                }
+                if filteredRoutineHistory.isEmpty == false {
+                    trackSectionHeader("Routines", symbol: "repeat")
+                    ForEach(filteredRoutineHistory) { run in
+                        historyRow(
+                            symbol: "repeat",
+                            title: routineTitle(for: run),
+                            detail: run.startedAt.formatted(date: .abbreviated, time: .shortened)
+                        )
+                    }
+                }
+                if store.snapshot.goals.isEmpty == false {
+                    trackSectionHeader("Goals", symbol: "target")
+                    ForEach(store.snapshot.goals, id: \.goalID) { goal in
+                        historyRow(
+                            symbol: "target",
+                            title: goalTitle(for: goal.goalID),
+                            detail: goal.nextUsefulAction
+                        )
+                    }
+                }
             }
         }
         .accessibilityIdentifier("track.history")
+    }
+
+    private func historyRow(symbol: String, title: String, detail: String) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: symbol)
+                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.body.weight(.medium))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .lineLimit(2)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 7)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var historyCutoff: Date {
+        Calendar.current.date(byAdding: .day, value: -careHistoryDays, to: Date()) ?? .distantPast
+    }
+
+    private var filteredFastingHistory: [LifeBoardFastingSessionValue] {
+        fastingSessions
+            .filter { $0.endedAt != nil && $0.startedAt >= historyCutoff }
+            .sorted { $0.startedAt > $1.startedAt }
+    }
+
+    private var filteredRoutineHistory: [RoutineRun] {
+        store.routineRuns
+            .filter { $0.startedAt >= historyCutoff }
+            .sorted { $0.startedAt > $1.startedAt }
+            .prefix(12)
+            .map { $0 }
+    }
+
+    private func routineTitle(for run: RoutineRun) -> String {
+        store.routines.first { $0.id == run.routineID }?.title ?? "Routine"
+    }
+
+    private func goalTitle(for id: UUID) -> String {
+        store.definitions.first { $0.id == id }?.title ?? "Goal"
     }
 
     private var header: some View {
@@ -460,6 +605,103 @@ struct LifeBoardTrackFoundationRootView: View {
         .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
     }
 
+    /// Fasting as a first-class Track module. Leads with the running timer
+    /// when there is one, because that is the only state that is time-sensitive.
+    @ViewBuilder
+    private var fastingSection: some View {
+        VStack(spacing: 12) {
+            trackSectionHeader("Fasting", symbol: "timer")
+
+            VStack(alignment: .leading, spacing: 12) {
+                if let activeFast {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        let elapsed = max(0, activeFast.elapsed(at: context.date))
+                        HStack(spacing: 14) {
+                            LifeBoardProgressRing(
+                                fraction: activeFast.targetDuration.map { target in
+                                    target > 0 ? min(1, elapsed / target) : 0
+                                } ?? 0,
+                                tint: Color(LifeBoardColorTokens.foundationSunAccent),
+                                trackTint: Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                                lineWidth: 7
+                            )
+                            .frame(width: 56, height: 56)
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(Self.fastingClock(elapsed))
+                                    .font(.system(.title2, design: .rounded, weight: .bold))
+                                    .monospacedDigit()
+                                Text(
+                                    activeFast.targetDuration
+                                        .map { "Target \(Int($0 / 3_600))h" } ?? "No target set"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
+                            Spacer(minLength: 0)
+                        }
+                    }
+
+                    HStack(spacing: 10) {
+                        Button("Finish") {
+                            Task {
+                                _ = try? await fastingTimerStore.finish()
+                                await reloadFasting()
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        Button("Cancel fast") {
+                            Task {
+                                _ = try? await fastingTimerStore.cancel()
+                                await reloadFasting()
+                            }
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                    .frame(minHeight: 44)
+                } else {
+                    Text("No fast is running.")
+                        .font(.subheadline)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    Button("Start a fast") { showsFastingComposer = true }
+                        .buttonStyle(.borderedProminent)
+                        .frame(minHeight: 44)
+                }
+
+                if let fastingError {
+                    Text(fastingError)
+                        .font(.caption)
+                        .foregroundStyle(Color(LifeBoardColorTokens.foundationDanger))
+                }
+
+                if fastingSessions.contains(where: { $0.endedAt != nil }) {
+                    Divider()
+                    Button {
+                        showsFastingHistory = true
+                    } label: {
+                        HStack {
+                            Text("Fasting history")
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                        }
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lifeBoardClaySurface(.raised, cornerRadius: 20)
+            .accessibilityIdentifier("track.fasting")
+        }
+    }
+
+    private static func fastingClock(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval))
+        return String(format: "%d:%02d:%02d", total / 3_600, (total % 3_600) / 60, total % 60)
+    }
+
     private var careSnapshot: some View {
         VStack(spacing: 12) {
             trackSectionHeader("Care snapshot", symbol: "heart.text.square")
@@ -503,7 +745,9 @@ struct LifeBoardTrackFoundationRootView: View {
                 ForEach(filteredSleepHistory) { sleepHistoryRow($0) }
             }
             Button(action: onOpenHealth) {
-                moduleRow("Health and care library", detail: "Medication, fasting, trackers, steps, and active energy", symbol: "heart.circle")
+                // Fasting is its own module now, so it no longer belongs in
+                // this row's promise.
+                moduleRow("Health and care library", detail: "Medication, trackers, steps, and active energy", symbol: "heart.circle")
             }
             .buttonStyle(.plain)
         }
@@ -546,10 +790,6 @@ struct LifeBoardTrackFoundationRootView: View {
                     .privacySensitive()
                 }
             }
-            NavigationLink { LifeBoardJournalModuleView(repository: store.phaseIIRepository) } label: {
-                moduleRow("Journal", detail: "Capture and revisit private meaning", symbol: "book.closed")
-            }
-            .buttonStyle(.plain)
         }
     }
 
@@ -694,7 +934,11 @@ struct LifeBoardTrackFoundationRootView: View {
                 NavigationLink { LifeBoardLifeMomentsView(repository: lifeMomentRepository) } label: { moduleRow("Life Moments", detail: "Countdowns and dates that matter", symbol: "calendar.badge.heart") }
                     .buttonStyle(.plain)
             }
-            Button { showsCareLibrary = true } label: { moduleRow("Tracker and care library", detail: "Your trackers, medications, and schedules", symbol: "square.grid.3x3") }
+            // Trackers, medications and their schedules still live in the
+            // older Track surface. Fasting used to be stranded there too and
+            // is now a first-class module above; the remaining domains need
+            // their own migration before this row can retire.
+            Button { showsCareLibrary = true } label: { moduleRow("Trackers and medication", detail: "Your trackers, medications, and schedules", symbol: "square.grid.3x3") }
                 .buttonStyle(.plain)
         }
     }
