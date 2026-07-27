@@ -80,6 +80,797 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(Set(LifeBoardSignatureEffect.allCases).count, LifeBoardSignatureEffect.allCases.count)
     }
 
+    // MARK: Completion control
+
+    func testCompletionMarkIsAClosedRingAtRestAndAFullTickWhenComplete() {
+        XCTAssertEqual(LifeBoardCompletionMark.ringExtent(at: 0), 1)
+        XCTAssertEqual(LifeBoardCompletionMark.tickExtent(at: 0), 0)
+
+        XCTAssertEqual(LifeBoardCompletionMark.ringExtent(at: 1), 0)
+        XCTAssertEqual(LifeBoardCompletionMark.tickExtent(at: 1), 1)
+
+        // The ring is fully unwound by the split and the tick has not started,
+        // so the two phases never draw over each other.
+        XCTAssertEqual(LifeBoardCompletionMark.ringExtent(at: LifeBoardCompletionMark.phaseSplit), 0)
+        XCTAssertEqual(LifeBoardCompletionMark.tickExtent(at: LifeBoardCompletionMark.phaseSplit), 0)
+
+        // Out-of-range progress clamps rather than producing an inverted arc.
+        XCTAssertEqual(LifeBoardCompletionMark.ringExtent(at: -4), 1)
+        XCTAssertEqual(LifeBoardCompletionMark.tickExtent(at: 9), 1)
+    }
+
+    func testCompletionMarkRingAndTickAreMonotonicAcrossTheMorph() {
+        var previousRing = LifeBoardCompletionMark.ringExtent(at: 0)
+        var previousTick = LifeBoardCompletionMark.tickExtent(at: 0)
+        for step in 1...100 {
+            let progress = Double(step) / 100
+            let ring = LifeBoardCompletionMark.ringExtent(at: progress)
+            let tick = LifeBoardCompletionMark.tickExtent(at: progress)
+            XCTAssertLessThanOrEqual(ring, previousRing, "Ring must only unwind, never regrow, at \(progress)")
+            XCTAssertGreaterThanOrEqual(tick, previousTick, "Tick must only draw in, never retract, at \(progress)")
+            previousRing = ring
+            previousTick = tick
+        }
+    }
+
+    func testCompletionMarkProducesAnEmptyPathOnlyForADegenerateRect() {
+        let box = CGRect(x: 0, y: 0, width: 44, height: 44)
+        XCTAssertFalse(LifeBoardCompletionMark(progress: 0).path(in: box).isEmpty)
+        XCTAssertFalse(LifeBoardCompletionMark(progress: 0.5).path(in: box).isEmpty)
+        XCTAssertFalse(LifeBoardCompletionMark(progress: 1).path(in: box).isEmpty)
+        XCTAssertTrue(LifeBoardCompletionMark(progress: 1).path(in: .zero).isEmpty)
+    }
+
+    func testCompletionMarkAnimatableDataRoundTrips() {
+        var mark = LifeBoardCompletionMark(progress: 0.2)
+        mark.animatableData = 0.75
+        XCTAssertEqual(mark.progress, 0.75)
+        XCTAssertEqual(mark.animatableData, 0.75)
+    }
+
+    func testTickGrowsAlongItsStrokeRatherThanScalingTheWholeGlyph() {
+        let box = CGRect(x: 0, y: 0, width: 44, height: 44)
+        // A partial tick must end short of the finished tick's far point; a
+        // scaled-down whole glyph would keep the same end point and only shrink.
+        let partial = LifeBoardCompletionMark.tickPath(in: box, extent: 0.5).currentPoint
+        let complete = LifeBoardCompletionMark.tickPath(in: box, extent: 1).currentPoint
+        XCTAssertNotNil(partial)
+        XCTAssertNotNil(complete)
+        XCTAssertLessThan(partial?.x ?? .infinity, complete?.x ?? 0)
+    }
+
+    // MARK: Completion mutation
+
+    func testTaskCompletionMutationInvertsToTheOppositeCompletion() {
+        let taskID = UUID()
+        let complete = PlanMutation.setTaskCompletion(taskID: taskID, before: false, after: true)
+
+        guard case .setTaskCompletion(let inverseID, let before, let after) = complete.inverse else {
+            return XCTFail("Completion must invert to another completion, not a metadata write")
+        }
+        XCTAssertEqual(inverseID, taskID, "Undo must target the same task")
+        XCTAssertTrue(before)
+        XCTAssertFalse(after, "Undoing a completion has to reopen the task")
+
+        // Undo of undo is the original, so a completion survives a round trip.
+        XCTAssertEqual(complete.inverse.inverse, complete)
+    }
+
+    func testBatchedCompletionsInvertInReverseOrder() {
+        let first = UUID()
+        let second = UUID()
+        let batch = PlanMutation.batch([
+            .setTaskCompletion(taskID: first, before: false, after: true),
+            .setTaskCompletion(taskID: second, before: false, after: true)
+        ])
+
+        guard case .batch(let inverted) = batch.inverse, inverted.count == 2 else {
+            return XCTFail("A batch must invert to a batch of the same size")
+        }
+        guard case .setTaskCompletion(let leadingID, _, _) = inverted[0] else {
+            return XCTFail("Expected a completion mutation")
+        }
+        XCTAssertEqual(leadingID, second, "Undo has to unwind the last write first")
+    }
+
+    /// The completion has to survive the whole receipt round trip, not just
+    /// invert as a value: apply must clear the task from the open-task
+    /// projection, and undo must bring it back with its completion date gone.
+    func testCompletionAppliesAndUndoesThroughTheReceiptLedger() async throws {
+        let model = try XCTUnwrap(
+            NSManagedObjectModel(
+                contentsOf: try completionModelBundleURL()
+                    .appendingPathComponent("TaskModelV3_NotesCompletion.mom")
+            )
+        )
+        let container = NSPersistentContainer(name: "CompletionRoundTrip", managedObjectModel: model)
+        let cloud = NSPersistentStoreDescription()
+        cloud.type = NSInMemoryStoreType
+        cloud.configuration = "CloudSync"
+        cloud.url = URL(fileURLWithPath: "/dev/null/cloud-\(UUID().uuidString)")
+        let local = NSPersistentStoreDescription()
+        local.type = NSInMemoryStoreType
+        local.configuration = "LocalOnly"
+        local.url = URL(fileURLWithPath: "/dev/null/local-\(UUID().uuidString)")
+        container.persistentStoreDescriptions = [cloud, local]
+        try await loadCompletionStores(container)
+
+        let taskID = UUID()
+        let context = container.newBackgroundContext()
+        try await context.perform {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            task.setValue(taskID, forKey: "id")
+            task.setValue("Finish the ledger", forKey: "title")
+            task.setValue(false, forKey: "isComplete")
+            try context.save()
+        }
+
+        let planning = CoreDataPlanningRepository(container: container)
+        let openBefore = try await planning.fetchOpenPlanningTasks().map(\.id)
+        XCTAssertEqual(openBefore, [taskID])
+
+        let receipt = try await planning.prepare(
+            .setTaskCompletion(taskID: taskID, before: false, after: true),
+            source: "plan.task.completion",
+            summary: "Completed Finish the ledger"
+        )
+        try await planning.apply(receiptID: receipt.id)
+        let openAfterApply = try await planning.fetchOpenPlanningTasks()
+        XCTAssertTrue(
+            openAfterApply.isEmpty,
+            "A completed task must leave the open-task projection"
+        )
+
+        try await planning.undo(receiptID: receipt.id)
+        let openAfterUndo = try await planning.fetchOpenPlanningTasks().map(\.id)
+        XCTAssertEqual(
+            openAfterUndo, [taskID],
+            "Undo has to reopen the task"
+        )
+
+        let reopened = try await context.perform { () -> NSManagedObject? in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
+            request.predicate = NSPredicate(format: "id == %@", taskID as CVarArg)
+            return try context.fetch(request).first
+        }
+        XCTAssertEqual(try XCTUnwrap(reopened).value(forKey: "isComplete") as? Bool, false)
+        XCTAssertNil(
+            try XCTUnwrap(reopened).value(forKey: "dateCompleted"),
+            "A reopened task keeping its completion date would still count as done everywhere else"
+        )
+    }
+
+    // MARK: Timeline lanes
+
+    private func laneItem(_ id: String, _ startHour: Double, _ endHour: Double) -> PlanTimelineLaneResolver.Item {
+        let base = Date(timeIntervalSince1970: 1_800_000_000)
+        return .init(
+            id: id,
+            start: base.addingTimeInterval(startHour * 3_600),
+            end: base.addingTimeInterval(endHour * 3_600)
+        )
+    }
+
+    func testNonOverlappingItemsAllKeepTheFullWidthLane() {
+        let placements = PlanTimelineLaneResolver.placements(for: [
+            laneItem("a", 9, 10),
+            laneItem("b", 10, 11),
+            laneItem("c", 11, 12)
+        ])
+        for id in ["a", "b", "c"] {
+            XCTAssertEqual(placements[id]?.lane, 0)
+            XCTAssertEqual(placements[id]?.laneCount, 1, "A clear hour must not be narrowed")
+        }
+        // Each is its own cluster, so one busy hour cannot narrow the whole day.
+        XCTAssertEqual(Set([placements["a"], placements["b"], placements["c"]].map { $0?.clusterID }).count, 3)
+    }
+
+    func testOverlappingItemsGetDistinctLanesAndShareTheirClusterWidth() {
+        let placements = PlanTimelineLaneResolver.placements(for: [
+            laneItem("a", 9, 11),
+            laneItem("b", 9.5, 10.5),
+            laneItem("c", 10, 12)
+        ])
+        let lanes = ["a", "b", "c"].compactMap { placements[$0]?.lane }
+        XCTAssertEqual(Set(lanes).count, 3, "Three mutually overlapping items cannot share a lane")
+        for id in ["a", "b", "c"] {
+            XCTAssertEqual(placements[id]?.laneCount, 3)
+            XCTAssertEqual(placements[id]?.clusterID, placements["a"]?.clusterID)
+        }
+    }
+
+    func testALaneIsReusedOnceItsPreviousItemHasEnded() {
+        // b and c both overlap a, but not each other, so two lanes suffice.
+        let placements = PlanTimelineLaneResolver.placements(for: [
+            laneItem("a", 9, 12),
+            laneItem("b", 9, 10),
+            laneItem("c", 10, 11)
+        ])
+        XCTAssertEqual(placements["a"]?.laneCount, 2, "Sequential items must reuse a lane, not add one")
+        XCTAssertEqual(placements["b"]?.lane, placements["c"]?.lane)
+        XCTAssertNotEqual(placements["a"]?.lane, placements["b"]?.lane)
+    }
+
+    func testBackToBackItemsDoNotCountAsOverlapping() {
+        let placements = PlanTimelineLaneResolver.placements(for: [
+            laneItem("a", 9, 10),
+            laneItem("b", 10, 11)
+        ])
+        XCTAssertEqual(placements["a"]?.laneCount, 1)
+        XCTAssertEqual(placements["b"]?.laneCount, 1)
+        XCTAssertNotEqual(
+            placements["a"]?.clusterID, placements["b"]?.clusterID,
+            "A meeting ending exactly when the next begins is not a conflict"
+        )
+    }
+
+    func testDegenerateIntervalsStillGetALaneInsteadOfBreakingTheDay() {
+        let placements = PlanTimelineLaneResolver.placements(for: [
+            laneItem("zero", 9, 9),
+            laneItem("reversed", 10, 9.5),
+            laneItem("normal", 9, 11)
+        ])
+        XCTAssertEqual(placements.count, 3, "Every item must be placed, however malformed")
+        for placement in placements.values {
+            XCTAssertGreaterThanOrEqual(placement.lane, 0)
+            XCTAssertGreaterThan(placement.laneCount, 0)
+            XCTAssertLessThan(placement.lane, placement.laneCount, "A lane index must fit its lane count")
+        }
+    }
+
+    func testOneAndTwoLanesFillTheCanvasWithoutScrolling() {
+        let width: CGFloat = 340
+        let spacing: CGFloat = 6
+
+        let single = PlanTimelineLaneResolver.laneMetrics(laneCount: 1, availableWidth: width, spacing: spacing)
+        XCTAssertEqual(single.laneWidth, width)
+        XCTAssertFalse(single.scrolls)
+
+        let pair = PlanTimelineLaneResolver.laneMetrics(laneCount: 2, availableWidth: width, spacing: spacing)
+        XCTAssertEqual(pair.laneWidth, (width - spacing) / 2)
+        XCTAssertFalse(pair.scrolls, "Two lanes fit, so the strip must stay still")
+    }
+
+    /// Dividing by the true lane count was tried and reverted: at three lanes
+    /// every title truncated to an ellipsis. Lanes hold the two-up width and the
+    /// cluster scrolls instead.
+    func testBeyondTwoLanesKeepsTheTwoUpWidthAndScrolls() {
+        let width: CGFloat = 258
+        let spacing: CGFloat = 6
+        let twoUp = (width - spacing) / 2
+
+        for laneCount in 3...10 {
+            let metrics = PlanTimelineLaneResolver.laneMetrics(
+                laneCount: laneCount, availableWidth: width, spacing: spacing
+            )
+            XCTAssertEqual(
+                metrics.laneWidth, twoUp, accuracy: 0.01,
+                "\(laneCount) lanes must not shrink below the readable two-up width"
+            )
+            XCTAssertTrue(metrics.scrolls, "\(laneCount) lanes cannot fit and must scroll")
+        }
+    }
+
+    func testExactlyTwoLanesAreVisibleWhateverTheDensity() {
+        let width: CGFloat = 258
+        let spacing: CGFloat = 6
+        for laneCount in 2...12 {
+            let metrics = PlanTimelineLaneResolver.laneMetrics(
+                laneCount: laneCount, availableWidth: width, spacing: spacing
+            )
+            let visible = metrics.laneWidth * 2 + spacing
+            XCTAssertEqual(
+                visible, width, accuracy: 0.01,
+                "\(laneCount) lanes should still show two across the full canvas"
+            )
+        }
+    }
+
+    func testTheStripCannotBePannedIntoEmptySpace() {
+        let contentWidth: CGFloat = 258
+        let strip = PlanTimelineLaneResolver.stripWidth(laneCount: 3, laneWidth: 126, spacing: 6)
+        XCTAssertEqual(strip, 126 * 3 + 12)
+
+        func clamp(_ offset: CGFloat) -> CGFloat {
+            PlanTimelineLaneResolver.clampedStripOffset(
+                offset, contentWidth: contentWidth, stripWidth: strip
+            )
+        }
+
+        XCTAssertEqual(clamp(0), 0)
+        XCTAssertEqual(clamp(200), 0, "Dragging right past the first lane must not expose a gap")
+        XCTAssertEqual(
+            clamp(-10_000), contentWidth - strip,
+            "Dragging left must stop at the last lane's trailing edge"
+        )
+        XCTAssertEqual(clamp(-60), -60, "A pan inside the range is left alone")
+    }
+
+    func testAStripThatAlreadyFitsNeverMoves() {
+        let strip = PlanTimelineLaneResolver.stripWidth(laneCount: 2, laneWidth: 126, spacing: 6)
+        for offset in [CGFloat(-500), -1, 0, 1, 500] {
+            XCTAssertEqual(
+                PlanTimelineLaneResolver.clampedStripOffset(
+                    offset, contentWidth: 258, stripWidth: strip
+                ),
+                0,
+                "Two lanes fit the canvas, so there is nothing to pan to"
+            )
+        }
+    }
+
+    // MARK: Root transition
+
+    func testTheCurrentRootSitsOnScreen() {
+        for destination in LifeBoardDestination.allCases {
+            XCTAssertEqual(
+                LifeBoardRootTransition.offset(for: destination, selected: destination), 0,
+                "\(destination) is the current root and must be centred"
+            )
+        }
+    }
+
+    func testARootWaitsOnTheSideItOccupiesInTheDock() {
+        let order = LifeBoardDestination.allCases
+        let middle = order[2]
+        for (index, destination) in order.enumerated() where destination != middle {
+            let offset = LifeBoardRootTransition.offset(
+                for: destination, selected: middle, distance: 24
+            )
+            if index < 2 {
+                XCTAssertEqual(offset, -24, "\(destination) sits left of \(middle) in the dock")
+            } else {
+                XCTAssertEqual(offset, 24, "\(destination) sits right of \(middle) in the dock")
+            }
+        }
+    }
+
+    /// Distance is capped rather than scaled by how far apart the roots are: a
+    /// far root is invisible either way, and a longer throw only slows arrival.
+    func testDistantRootsAreNoFurtherOffThanNeighbours() {
+        let order = LifeBoardDestination.allCases
+        let neighbour = LifeBoardRootTransition.offset(
+            for: order[1], selected: order[0], distance: 24
+        )
+        let distant = LifeBoardRootTransition.offset(
+            for: order[order.count - 1], selected: order[0], distance: 24
+        )
+        XCTAssertEqual(neighbour, distant)
+    }
+
+    func testReduceMotionCollapsesTheSlideToAPlainChange() {
+        let order = LifeBoardDestination.allCases
+        for destination in order {
+            XCTAssertEqual(
+                LifeBoardRootTransition.offset(for: destination, selected: order[0], distance: 0),
+                0,
+                "With no distance every root rests centred and only the crossfade remains"
+            )
+        }
+    }
+
+    // MARK: Celestial daypart indicator
+
+    private func moment(_ hour: Int, _ minute: Int = 0) -> Date {
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 7
+        components.day = 27
+        components.hour = hour
+        components.minute = minute
+        return Calendar(identifier: .gregorian).date(from: components)!
+    }
+
+    private var gregorian: Calendar { Calendar(identifier: .gregorian) }
+
+    func testDayProgressTracksTheClockIncludingMinutes() {
+        XCTAssertEqual(LifeBoardDaypartProgress.dayProgress(at: moment(0), calendar: gregorian), 0, accuracy: 0.0001)
+        XCTAssertEqual(LifeBoardDaypartProgress.dayProgress(at: moment(12), calendar: gregorian), 0.5, accuracy: 0.0001)
+        XCTAssertEqual(LifeBoardDaypartProgress.dayProgress(at: moment(18), calendar: gregorian), 0.75, accuracy: 0.0001)
+        XCTAssertGreaterThan(
+            LifeBoardDaypartProgress.dayProgress(at: moment(9, 30), calendar: gregorian),
+            LifeBoardDaypartProgress.dayProgress(at: moment(9, 0), calendar: gregorian),
+            "Half an hour must move the indicator, or it looks frozen"
+        )
+    }
+
+    func testPhaseProgressIsMeasuredWithinTheMomentsOwnPhase() {
+        // Midday runs 12:00–17:00, so 14:30 is half way through it.
+        XCTAssertEqual(
+            LifeBoardDaypartProgress.phaseProgress(at: moment(14, 30), calendar: gregorian),
+            0.5, accuracy: 0.0001
+        )
+        // Golden hour runs 17:00–19:00.
+        XCTAssertEqual(
+            LifeBoardDaypartProgress.phaseProgress(at: moment(18), calendar: gregorian),
+            0.5, accuracy: 0.0001
+        )
+    }
+
+    /// Night runs 21:00 to 05:00. The hours after midnight are late in that
+    /// phase, not the start of a new one — the wrap is where this goes wrong.
+    func testNightProgressCarriesAcrossMidnight() {
+        let evening = LifeBoardDaypartProgress.phaseProgress(at: moment(22), calendar: gregorian)
+        let smallHours = LifeBoardDaypartProgress.phaseProgress(at: moment(3), calendar: gregorian)
+
+        XCTAssertEqual(evening, 0.125, accuracy: 0.0001, "22:00 is one hour into an eight-hour night")
+        XCTAssertEqual(smallHours, 0.75, accuracy: 0.0001, "03:00 is six hours in")
+        XCTAssertGreaterThan(smallHours, evening, "After midnight must read as later, not earlier")
+    }
+
+    func testTheArcGivesDaylightAndNightTheirOwnFullSweep() {
+        XCTAssertEqual(LifeBoardDaypartProgress.arcProgress(at: moment(5), calendar: gregorian), 0, accuracy: 0.0001)
+        XCTAssertEqual(LifeBoardDaypartProgress.arcProgress(at: moment(13), calendar: gregorian), 0.5, accuracy: 0.0001)
+        XCTAssertEqual(LifeBoardDaypartProgress.arcProgress(at: moment(20, 59), calendar: gregorian), 1, accuracy: 0.01)
+
+        // Night restarts the sweep so the moon rises rather than resuming at dusk's height.
+        XCTAssertEqual(LifeBoardDaypartProgress.arcProgress(at: moment(21), calendar: gregorian), 0, accuracy: 0.0001)
+        XCTAssertEqual(LifeBoardDaypartProgress.arcProgress(at: moment(1), calendar: gregorian), 0.5, accuracy: 0.0001)
+    }
+
+    func testDaylightIsEveryPhaseButNight() {
+        XCTAssertTrue(LifeBoardDaypartProgress.isDaylight(at: moment(6), calendar: gregorian))
+        XCTAssertTrue(LifeBoardDaypartProgress.isDaylight(at: moment(16), calendar: gregorian))
+        XCTAssertTrue(LifeBoardDaypartProgress.isDaylight(at: moment(20), calendar: gregorian))
+        XCTAssertFalse(LifeBoardDaypartProgress.isDaylight(at: moment(23), calendar: gregorian))
+        XCTAssertFalse(LifeBoardDaypartProgress.isDaylight(at: moment(2), calendar: gregorian))
+    }
+
+    func testPhaseBoundsCoverTheWholeDayWithoutOverlap() {
+        let total = LifeBoardCelestialPhase.allCases
+            .map { LifeBoardDaypartProgress.bounds(of: $0).length }
+            .reduce(0, +)
+        XCTAssertEqual(total, 24, "The phases must tile the day exactly once")
+    }
+
+    func testTheCelestialBodyRisesAndSetsAcrossTheArc() {
+        let rect = CGRect(x: 0, y: 0, width: 200, height: 100)
+        let rise = LifeBoardCelestialArc.point(forProgress: 0, in: rect)
+        let peak = LifeBoardCelestialArc.point(forProgress: 0.5, in: rect)
+        let set = LifeBoardCelestialArc.point(forProgress: 1, in: rect)
+
+        XCTAssertEqual(rise.x, 0, accuracy: 0.001)
+        XCTAssertEqual(rise.y, rect.maxY, accuracy: 0.001, "It starts on the horizon")
+        XCTAssertEqual(peak.x, rect.midX, accuracy: 0.001)
+        XCTAssertEqual(peak.y, rect.minY, accuracy: 0.001, "Highest at the midpoint")
+        XCTAssertEqual(set.x, rect.maxX, accuracy: 0.001)
+        XCTAssertEqual(set.y, rect.maxY, accuracy: 0.001, "And returns to the horizon")
+    }
+
+    // MARK: Arc dial
+
+    func testTheDialRunsFromItsStartAngleToItsEnd() {
+        XCTAssertEqual(
+            LifeBoardArcDialGeometry.angle(forProgress: 0),
+            LifeBoardArcDialGeometry.startAngle
+        )
+        XCTAssertEqual(
+            LifeBoardArcDialGeometry.angle(forProgress: 1),
+            LifeBoardArcDialGeometry.endAngle
+        )
+        XCTAssertEqual(
+            LifeBoardArcDialGeometry.angle(forProgress: 0.5),
+            LifeBoardArcDialGeometry.startAngle + LifeBoardArcDialGeometry.sweep / 2
+        )
+    }
+
+    func testProgressOutsideTheTrackIsClampedNotWrapped() {
+        XCTAssertEqual(LifeBoardArcDialGeometry.angle(forProgress: -3), LifeBoardArcDialGeometry.startAngle)
+        XCTAssertEqual(LifeBoardArcDialGeometry.angle(forProgress: 4), LifeBoardArcDialGeometry.endAngle)
+    }
+
+    /// The gap at the bottom of the dial is where a wrap-around bug lives: a
+    /// thumb crossing it must park at the near end, never jump the full range.
+    func testAnAngleInTheGapSnapsToTheNearerEnd() {
+        let gap = 360 - LifeBoardArcDialGeometry.sweep
+        let justPastEnd = LifeBoardArcDialGeometry.endAngle + gap * 0.2
+        let justBeforeStart = LifeBoardArcDialGeometry.startAngle - gap * 0.2
+
+        XCTAssertEqual(LifeBoardArcDialGeometry.progress(forAngle: justPastEnd), 1)
+        XCTAssertEqual(LifeBoardArcDialGeometry.progress(forAngle: justBeforeStart), 0)
+    }
+
+    func testAngleAndProgressRoundTrip() {
+        for percent in stride(from: 0.0, through: 1.0, by: 0.05) {
+            let angle = LifeBoardArcDialGeometry.angle(forProgress: percent)
+            XCTAssertEqual(
+                LifeBoardArcDialGeometry.progress(forAngle: angle), percent, accuracy: 0.0001,
+                "Progress \(percent) did not survive the trip through its angle"
+            )
+        }
+    }
+
+    func testATouchIsReadAsAnAngleWhereverItLands() {
+        let center = CGPoint(x: 100, y: 100)
+        // Straight up is the midpoint of a 270° sweep starting down-left.
+        let up = LifeBoardArcDialGeometry.progress(at: CGPoint(x: 100, y: 20), center: center)
+        XCTAssertEqual(up, 0.5, accuracy: 0.0001)
+
+        // Distance must not matter: the same bearing far off the ring reads the same.
+        let farUp = LifeBoardArcDialGeometry.progress(at: CGPoint(x: 100, y: -900), center: center)
+        XCTAssertEqual(farUp, up, accuracy: 0.0001)
+
+        // The track starts south-west and runs clockwise through west and north,
+        // so west is one sixth along and east is five sixths.
+        XCTAssertEqual(
+            LifeBoardArcDialGeometry.progress(at: CGPoint(x: 20, y: 100), center: center),
+            1.0 / 6.0, accuracy: 0.0001, "Due west"
+        )
+        XCTAssertEqual(
+            LifeBoardArcDialGeometry.progress(at: CGPoint(x: 180, y: 100), center: center),
+            5.0 / 6.0, accuracy: 0.0001, "Due east"
+        )
+    }
+
+    func testValuesQuantiseToTheirStepAndStayInRange() {
+        let range = 0.0...60.0
+        XCTAssertEqual(
+            LifeBoardArcDialGeometry.value(forProgress: 0.5, range: range, step: 15), 30
+        )
+        XCTAssertEqual(
+            LifeBoardArcDialGeometry.value(forProgress: 0.13, range: range, step: 15), 15,
+            "A value between detents lands on the nearest one"
+        )
+        XCTAssertEqual(LifeBoardArcDialGeometry.value(forProgress: -5, range: range, step: 15), 0)
+        XCTAssertEqual(LifeBoardArcDialGeometry.value(forProgress: 5, range: range, step: 15), 60)
+    }
+
+    func testADegenerateRangeCannotProduceNonsense() {
+        let flat = 20.0...20.0
+        XCTAssertEqual(LifeBoardArcDialGeometry.value(forProgress: 0.7, range: flat, step: 5), 20)
+        XCTAssertEqual(LifeBoardArcDialGeometry.progress(forValue: 20, range: flat), 0)
+    }
+
+    func testAStepOfZeroLeavesTheValueContinuous() {
+        let range = 0.0...10.0
+        XCTAssertEqual(
+            LifeBoardArcDialGeometry.value(forProgress: 0.333, range: range, step: 0),
+            3.33, accuracy: 0.0001
+        )
+    }
+
+    // MARK: Plan repair deck
+
+    private static let fourRepairs: [PlanRepairAction] =
+        [.moveLaterToday, .moveToAnotherDay, .split, .defer]
+
+    private func flick(_ dx: CGFloat, _ dy: CGFloat) -> PlanRepairAction? {
+        PlanRepairDeckDragResolver.action(
+            translation: CGSize(width: dx, height: dy),
+            predictedEndTranslation: CGSize(width: dx, height: dy),
+            candidates: Self.fourRepairs
+        )
+    }
+
+    func testEachDirectionCommitsItsOwnRepair() {
+        XCTAssertEqual(flick(140, 0), .moveLaterToday, "Right is the first repair")
+        XCTAssertEqual(flick(-140, 0), .moveToAnotherDay, "Left is the second")
+        XCTAssertEqual(flick(0, -140), .split, "Up is the third")
+        XCTAssertEqual(flick(0, 140), .defer, "Down is the fourth")
+    }
+
+    func testDirectionsWithoutARepairCommitNothing() {
+        // A proposal offering two ways out must not invent a third and fourth.
+        let two: [PlanRepairAction] = [.resume, .leaveUnchanged]
+        XCTAssertEqual(PlanRepairDeckDragResolver.action(for: .right, candidates: two), .resume)
+        XCTAssertEqual(PlanRepairDeckDragResolver.action(for: .left, candidates: two), .leaveUnchanged)
+        XCTAssertNil(PlanRepairDeckDragResolver.action(for: .up, candidates: two))
+        XCTAssertNil(PlanRepairDeckDragResolver.action(for: .down, candidates: two))
+    }
+
+    func testAShortFlickIsNotEnoughToChangeThePlan() {
+        XCTAssertNil(flick(40, 0), "Below threshold must not mutate the plan")
+        XCTAssertNil(flick(0, 40))
+        XCTAssertNil(flick(10, 4), "Barely a touch is not intent")
+    }
+
+    func testDiagonalsResolveToNothingRatherThanGuessing() {
+        // Committing the wrong repair edits the user's day, so an ambiguous
+        // throw must do nothing at all.
+        XCTAssertNil(flick(140, 140))
+        XCTAssertNil(flick(-140, 130))
+        XCTAssertNil(flick(120, -120))
+    }
+
+    func testDominantAxisWinsWhenAFlickIsOnlySlightlyOffAxis() {
+        XCTAssertEqual(flick(160, 30), .moveLaterToday)
+        XCTAssertEqual(flick(-160, -30), .moveToAnotherDay)
+        XCTAssertEqual(flick(25, -160), .split)
+        XCTAssertEqual(flick(-25, 160), .defer)
+    }
+
+    func testACardLeavesTheWayItWasThrown() {
+        XCTAssertEqual(
+            PlanRepairDeckDragResolver.exitOffset(for: .right, distance: 400),
+            CGSize(width: 400, height: 0)
+        )
+        XCTAssertEqual(
+            PlanRepairDeckDragResolver.exitOffset(for: .up, distance: 400),
+            CGSize(width: 0, height: -400)
+        )
+        XCTAssertEqual(
+            PlanRepairDeckDragResolver.exitOffset(for: .down, distance: 400),
+            CGSize(width: 0, height: 400)
+        )
+    }
+
+    func testAnEmptyProposalCannotBeFlickedIntoAMutation() {
+        XCTAssertNil(
+            PlanRepairDeckDragResolver.action(
+                translation: CGSize(width: 200, height: 0),
+                predictedEndTranslation: CGSize(width: 200, height: 0),
+                candidates: []
+            )
+        )
+    }
+
+    // MARK: Kinetic greeting
+
+    func testKineticGreetingIsPerfectlyStillAtRest() {
+        // This is the screenshot-stability guarantee: with no touch, or with
+        // intensity at zero, every glyph must draw exactly where SwiftUI laid
+        // it out, or the appearance fixture matrix stops being deterministic.
+        for midX in stride(from: 0.0, through: 320.0, by: 16.0) {
+            XCTAssertEqual(
+                LifeBoardKineticTextRenderer.rise(glyphMidX: CGFloat(midX), touchX: nil, intensity: 1),
+                0,
+                "An untouched greeting must not move"
+            )
+            XCTAssertEqual(
+                LifeBoardKineticTextRenderer.rise(glyphMidX: CGFloat(midX), touchX: 120, intensity: 0),
+                0,
+                "A settled greeting must not move"
+            )
+        }
+    }
+
+    func testKineticGreetingRiseStaysWithinItsBoundAndPeaksUnderTheFinger() {
+        let touchX: CGFloat = 140
+        let peak = LifeBoardKineticTextRenderer.rise(glyphMidX: touchX, touchX: touchX, intensity: 1)
+        XCTAssertEqual(peak, -LifeBoardKineticTextRenderer.maximumRise, accuracy: 0.0001)
+
+        var previousMagnitude = abs(peak)
+        for offset in stride(from: 0.0, through: 240.0, by: 8.0) {
+            let rise = LifeBoardKineticTextRenderer.rise(
+                glyphMidX: touchX + CGFloat(offset), touchX: touchX, intensity: 1
+            )
+            XCTAssertLessThanOrEqual(
+                abs(rise), LifeBoardKineticTextRenderer.maximumRise + 0.0001,
+                "Displacement must stay bounded so the line stays readable"
+            )
+            XCTAssertLessThanOrEqual(
+                abs(rise), previousMagnitude + 0.0001,
+                "Influence must fall off with distance from the finger"
+            )
+            previousMagnitude = abs(rise)
+
+            // Symmetric either side of the finger.
+            let mirrored = LifeBoardKineticTextRenderer.rise(
+                glyphMidX: touchX - CGFloat(offset), touchX: touchX, intensity: 1
+            )
+            XCTAssertEqual(rise, mirrored, accuracy: 0.0001)
+        }
+    }
+
+    func testKineticGreetingIntensityIsTheAnimatableChannel() {
+        var renderer = LifeBoardKineticTextRenderer(touchX: 40, intensity: 0.25)
+        renderer.animatableData = 0.8
+        XCTAssertEqual(renderer.intensity, 0.8)
+        XCTAssertEqual(renderer.animatableData, 0.8)
+
+        // Out-of-range intensity clamps rather than flinging glyphs off-line.
+        let overdriven = LifeBoardKineticTextRenderer.rise(glyphMidX: 40, touchX: 40, intensity: 9)
+        XCTAssertEqual(overdriven, -LifeBoardKineticTextRenderer.maximumRise, accuracy: 0.0001)
+    }
+
+    // MARK: Schedule snapping
+
+    func testScheduleDragSnapsToFiveMinutesForCorrectionsAndFifteenForRealMoves() {
+        let hourHeight: CGFloat = 66
+        let wide = -600...600
+
+        // 8 minutes of travel is a correction: it lands on the 5-minute grid.
+        let smallTravel = CGFloat(8.0 / 60 * Double(hourHeight))
+        XCTAssertEqual(
+            PlanBlockSnapResolver.snappedMinutes(translation: smallTravel, hourHeight: hourHeight, bounds: wide),
+            10
+        )
+
+        // 47 minutes is a real move: it lands on the 15-minute grid.
+        let largeTravel = CGFloat(47.0 / 60 * Double(hourHeight))
+        XCTAssertEqual(
+            PlanBlockSnapResolver.snappedMinutes(translation: largeTravel, hourHeight: hourHeight, bounds: wide),
+            45
+        )
+    }
+
+    func testScheduleDragSnapIsSymmetricAndRestsAtZero() {
+        let hourHeight: CGFloat = 66
+        let wide = -600...600
+        XCTAssertEqual(
+            PlanBlockSnapResolver.snappedMinutes(translation: 0, hourHeight: hourHeight, bounds: wide),
+            0,
+            "An untouched block must not drift"
+        )
+        for minutes in stride(from: 5.0, through: 120.0, by: 5.0) {
+            let travel = CGFloat(minutes / 60 * Double(hourHeight))
+            let up = PlanBlockSnapResolver.snappedMinutes(translation: -travel, hourHeight: hourHeight, bounds: wide)
+            let down = PlanBlockSnapResolver.snappedMinutes(translation: travel, hourHeight: hourHeight, bounds: wide)
+            XCTAssertEqual(up, -down, "Dragging up and down by \(minutes)m must be symmetric")
+        }
+    }
+
+    func testScheduleDragSnapAlwaysLandsOnTheGridAndInsideTheDay() {
+        let hourHeight: CGFloat = 66
+        let bounds = -90...120
+        for step in stride(from: -900.0, through: 900.0, by: 7.0) {
+            let snapped = PlanBlockSnapResolver.snappedMinutes(
+                translation: CGFloat(step), hourHeight: hourHeight, bounds: bounds
+            )
+            XCTAssertTrue(bounds.contains(snapped), "\(snapped) escaped the drawn day")
+            let onFine = snapped % PlanBlockSnapResolver.fineStepMinutes == 0
+            let onCoarse = snapped % PlanBlockSnapResolver.coarseStepMinutes == 0
+            XCTAssertTrue(
+                onFine || onCoarse || snapped == bounds.lowerBound || snapped == bounds.upperBound,
+                "\(snapped) is off-grid"
+            )
+        }
+    }
+
+    func testScheduleDragSnapIsMonotonicSoTheBlockNeverMovesAgainstTheFinger() {
+        let hourHeight: CGFloat = 66
+        let bounds = -600...600
+        var previous = PlanBlockSnapResolver.snappedMinutes(
+            translation: -400, hourHeight: hourHeight, bounds: bounds
+        )
+        for step in stride(from: -400.0, through: 400.0, by: 3.0) {
+            let snapped = PlanBlockSnapResolver.snappedMinutes(
+                translation: CGFloat(step), hourHeight: hourHeight, bounds: bounds
+            )
+            XCTAssertGreaterThanOrEqual(snapped, previous, "Block jumped backwards at \(step)")
+            previous = snapped
+        }
+    }
+
+    func testScheduleDragSnapSurvivesADegenerateCanvas() {
+        XCTAssertEqual(
+            PlanBlockSnapResolver.snappedMinutes(translation: 120, hourHeight: 0, bounds: -60...60),
+            0,
+            "A zero-height canvas must not divide by zero or fling the block"
+        )
+        XCTAssertEqual(
+            PlanBlockSnapResolver.snappedMinutes(translation: 500, hourHeight: 66, bounds: 0...0),
+            0,
+            "A block with no room to move must stay put"
+        )
+    }
+
+    private func completionModelBundleURL() throws -> URL {
+        for bundle in [Bundle.main, Bundle(for: Self.self)] {
+            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") { return url }
+        }
+        throw NSError(domain: "LifeOSFoundationContractTests", code: 1)
+    }
+
+    private func loadCompletionStores(_ container: NSPersistentContainer) async throws {
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            let lock = NSLock()
+            var remaining = container.persistentStoreDescriptions.count
+            var firstError: (any Error)?
+            container.loadPersistentStores { _, error in
+                lock.lock()
+                if firstError == nil { firstError = error }
+                remaining -= 1
+                let isFinished = remaining == 0
+                let resolvedError = firstError
+                lock.unlock()
+                guard isFinished else { return }
+                if let resolvedError { continuation.resume(throwing: resolvedError) }
+                else { continuation.resume() }
+            }
+        }
+    }
+
     func testCapturePresentationContextRoundTripsWithoutChangingTheMutationRequest() throws {
         let request = CaptureRequest(
             kind: .journal,
@@ -914,7 +1705,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
             "TaskModelV3_WellnessCore",
             "TaskModelV3_Nutrition",
             "TaskModelV3_LifeMoments",
-            "TaskModelV3_HealthPrivacy"
+            "TaskModelV3_HealthPrivacy",
+            "TaskModelV3_NotesPro"
         ]
         let modelBundleURL = try taskModelBundleURL()
         let destinationModel = try XCTUnwrap(NSManagedObjectModel(contentsOf: modelBundleURL))
@@ -1216,6 +2008,54 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertTrue(result.claim.lowercased().contains("journal"), result.claim)
         XCTAssertFalse(result.evidenceReferences.isEmpty)
         XCTAssertEqual(result.dailyCounts.count, 3)
+    }
+
+    /// `planningReview` rendered exactly the same weekly-review route as
+    /// `weeklyReview` and was never pushed. Every remaining route must be
+    /// reachable or gone — a declared-but-unreachable route is a promise the
+    /// app does not keep.
+    func testAppRouteHasNoDuplicateWeeklyReviewCase() throws {
+        let mirror = "\(AppRoute.weeklyReview)"
+        XCTAssertEqual(mirror, "weeklyReview")
+        // `.insightEvidence` keeps its identifier through equality, which is
+        // what lets the destination scroll to the record a link named.
+        let id = UUID()
+        XCTAssertEqual(AppRoute.insightEvidence(id), AppRoute.insightEvidence(id))
+        XCTAssertNotEqual(AppRoute.insightEvidence(id), AppRoute.insightEvidence(nil))
+    }
+
+    /// Fasting existed only inside the legacy Track root, which the new root
+    /// presented as a sheet. Its lifecycle must be usable on its own.
+    func testFastingLifecycleIsUsableWithoutTheLegacyTrackTree() async throws {
+        let repository = InMemoryFastingSessionRepository()
+        let store = FastingTimerStore(repository: repository)
+
+        let started = try await store.start(targetDuration: 8 * 3_600)
+        XCTAssertNil(started.endedAt)
+        let active = try await store.activeSession()
+        XCTAssertEqual(active?.id, started.id)
+
+        // One active fast at a time, whichever surface asks.
+        do {
+            _ = try await store.start(targetDuration: nil)
+            XCTFail("A second concurrent fast must be refused")
+        } catch {
+            XCTAssertEqual(error as? FastingTimerStoreError, .alreadyActive)
+        }
+
+        let finished = try await store.finish()
+        XCTAssertNotNil(finished.endedAt)
+        let afterFinish = try await store.activeSession()
+        XCTAssertNil(afterFinish)
+
+        let corrected = try await store.correct(
+            sessionID: finished.id,
+            startedAt: finished.startedAt,
+            endedAt: finished.startedAt.addingTimeInterval(3_600),
+            targetDuration: finished.targetDuration,
+            note: nil
+        )
+        XCTAssertEqual(corrected.completionKind, .corrected)
     }
 
     func testDashboardV5MigrationRemovesOnlyAppOwnedAnchoredDuplicates() throws {
@@ -3598,6 +4438,182 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertNotNil(model.entitiesByName["KnowledgeNoteRevision"])
     }
 
+    func testNotesCompletionModelKeepsSecureAndDerivedDataSeparated() throws {
+        let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)]))
+        let cloud = Set(try XCTUnwrap(model.entities(forConfigurationName: "CloudSync")).compactMap(\.name))
+        let local = Set(try XCTUnwrap(model.entities(forConfigurationName: "LocalOnly")).compactMap(\.name))
+        let draft = try XCTUnwrap(model.entitiesByName["KnowledgeNoteDraft"])
+        let revision = try XCTUnwrap(model.entitiesByName["KnowledgeNoteRevision"])
+        let link = try XCTUnwrap(model.entitiesByName["KnowledgeLink"])
+        let attachment = try XCTUnwrap(model.entitiesByName["KnowledgeAttachment"])
+
+        XCTAssertTrue(cloud.contains("KnowledgeSecureAttachmentPayload"))
+        XCTAssertFalse(local.contains("KnowledgeSecureAttachmentPayload"))
+        XCTAssertTrue(local.contains("KnowledgeAttachmentJob"))
+        XCTAssertFalse(cloud.contains("KnowledgeAttachmentJob"))
+        XCTAssertNotNil(draft.attributesByName["createdAt"])
+        XCTAssertNotNil(draft.attributesByName["baseContentVersion"])
+        XCTAssertNotNil(draft.attributesByName["sceneID"])
+        XCTAssertNotNil(revision.attributesByName["sessionID"])
+        XCTAssertNotNil(revision.attributesByName["changeKindRaw"])
+        XCTAssertNotNil(link.attributesByName["sourceBlockID"])
+        XCTAssertNotNil(link.attributesByName["kindRaw"])
+        XCTAssertNotNil(attachment.attributesByName["processingStateRaw"])
+        XCTAssertNotNil(attachment.attributesByName["protectedRelativePath"])
+    }
+
+    func testKnowledgeRichTextV2RoundTripsAndFlagsForwardVersions() throws {
+        let linkedNoteID = UUID()
+        let payload = KnowledgeRichTextPayload(
+            runs: [
+                .init(
+                    location: 2,
+                    length: 7,
+                    marks: [.bold, .highlight],
+                    link: URL(string: "https://example.com"),
+                    foreground: .cocoa,
+                    background: .apricot,
+                    noteID: linkedNoteID
+                )
+            ],
+            paragraph: .callout
+        )
+
+        let encoded = try JSONEncoder().encode(payload)
+        let decoded = try JSONDecoder().decode(KnowledgeRichTextPayload.self, from: encoded)
+        XCTAssertEqual(decoded, payload)
+        XCTAssertNil(decoded.unsupportedVersion)
+        XCTAssertEqual(KnowledgeRichTextPayload(version: 99).unsupportedVersion, 99)
+    }
+
+    func testKnowledgeBlockSplitMergeAndMutationInversePreserveIdentity() {
+        let id = UUID()
+        let original = LifeBoardKnowledgeBlockValue(id: id, noteID: UUID(), text: "Hello world", ordinal: 3)
+        let split = KnowledgeNoteDocument.split(block: original, atUTF16Offset: 5)
+
+        XCTAssertEqual(split.leading.id, id)
+        XCTAssertNotEqual(split.trailing.id, id)
+        XCTAssertEqual(split.leading.text, "Hello")
+        XCTAssertEqual(split.trailing.text, " world")
+
+        let merged = KnowledgeNoteDocument.merge(leading: split.leading, trailing: split.trailing)
+        XCTAssertEqual(merged.id, id)
+        XCTAssertEqual(merged.text, original.text)
+
+        let mutation = NoteMutation.replaceText(
+            blockID: id,
+            range: NSRange(location: 6, length: 5),
+            original: "world",
+            replacement: "LifeBoard"
+        )
+        XCTAssertEqual(
+            mutation.inverse(),
+            .replaceText(
+                blockID: id,
+                range: NSRange(location: 6, length: 9),
+                original: "LifeBoard",
+                replacement: "world"
+            )
+        )
+    }
+
+    func testKnowledgeSearchRankingAndLockedRedaction() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("LifeBoardSearchTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let index = try LocalKnowledgeSearchIndex(databaseURL: directory.appendingPathComponent("notes.sqlite"))
+        let exactID = UUID()
+        let prefixID = UUID()
+        let bodyID = UUID()
+        let lockedID = UUID()
+
+        try await index.rebuild([
+            .init(noteID: exactID, title: "Launch", body: "brief", tags: "", attachments: "", updatedAt: .now, isLocked: false),
+            .init(noteID: prefixID, title: "Launch plan", body: "", tags: "", attachments: "", updatedAt: .now, isLocked: false),
+            .init(noteID: bodyID, title: "Project", body: "Launch checklist", tags: "", attachments: "", updatedAt: .now, isLocked: false),
+            .init(noteID: lockedID, title: "Launch secrets", body: "private", tags: "", attachments: "", updatedAt: .now, isLocked: true)
+        ])
+
+        let results = try await index.search("Launch", limit: 10)
+        XCTAssertEqual(results.first?.noteID, exactID)
+        XCTAssertEqual(results.dropFirst().first?.noteID, prefixID)
+        XCTAssertFalse(results.contains { $0.noteID == lockedID })
+
+        try await index.remove(noteID: exactID)
+        let resultsAfterRemoval = try await index.search("Launch", limit: 10)
+        XCTAssertFalse(resultsAfterRemoval.contains { $0.noteID == exactID })
+    }
+
+    func testMarkdownCodecPreservesStructureAndUnsupportedSyntax() {
+        let noteID = UUID()
+        let markdown = """
+        ## Findings
+        - [x] Verified migration
+        1. Ship safely
+        ```
+        let value = 42
+        ```
+        ~~future syntax~~
+        """
+
+        let blocks = KnowledgeMarkdownCodec.parse(markdown, noteID: noteID)
+        XCTAssertEqual(blocks.map(\.kind), [.heading2, .checklist, .numberedList, .code, .paragraph])
+        XCTAssertTrue(blocks[1].isChecked)
+        XCTAssertEqual(blocks[3].text, "let value = 42")
+        XCTAssertEqual(blocks[4].text, "~~future syntax~~")
+        XCTAssertEqual(blocks.map(\.ordinal), Array(blocks.indices))
+
+        let note = LifeBoardKnowledgeNoteValue(id: noteID, spaceID: UUID(), title: "Research", blocks: blocks)
+        let exported = KnowledgeMarkdownCodec.render(note)
+        XCTAssertTrue(exported.contains("# Research"))
+        XCTAssertTrue(exported.contains("- [x] Verified migration"))
+        XCTAssertTrue(exported.contains("```"))
+    }
+
+    func testKnowledgeSmartQueryComposesDatesChecklistsLinksAndPagination() {
+        let spaceID = UUID()
+        let tagID = UUID()
+        let linkedID = UUID()
+        let matching = LifeBoardKnowledgeNoteValue(
+            id: linkedID,
+            spaceID: spaceID,
+            title: "Launch",
+            isPinned: true,
+            isFavorite: true,
+            updatedAt: Date(timeIntervalSince1970: 200),
+            blocks: [.init(noteID: linkedID, kind: .checklist, text: "Review", isChecked: false)],
+            tagIDs: [tagID]
+        )
+        let olderID = UUID()
+        let older = LifeBoardKnowledgeNoteValue(
+            id: olderID,
+            spaceID: spaceID,
+            title: "Older",
+            updatedAt: Date(timeIntervalSince1970: 100),
+            blocks: [.init(noteID: olderID, text: "Review")]
+        )
+        let query = KnowledgeNoteQuery(
+            spaceID: spaceID,
+            tagIDs: [tagID],
+            searchText: "Review",
+            modifiedAfter: Date(timeIntervalSince1970: 150),
+            checklist: .incomplete,
+            links: .incoming,
+            pinned: true,
+            favorite: true,
+            limit: 1
+        )
+
+        XCTAssertEqual(
+            query.apply(
+                to: [older, matching],
+                linkedNoteIDs: [linkedID],
+                incomingNoteIDs: [linkedID]
+            ).map(\.id),
+            [linkedID]
+        )
+    }
+
     private func rgbComponents(from hex: String) throws -> (red: Double, green: Double, blue: Double) {
         let value = hex.trimmingCharacters(in: CharacterSet(charactersIn: "#"))
         guard value.count == 6, let raw = Int(value, radix: 16) else {
@@ -3741,6 +4757,25 @@ private actor MutationRecorderFixture {
     func recordApply() { applyCount += 1 }
     func recordUndo() { undoCount += 1 }
     func counts() -> [Int] { [applyCount, undoCount] }
+}
+
+/// Exercises the fasting lifecycle without a Core Data store, so the contract
+/// is verified independently of the persistence failures inherited by this
+/// worktree.
+private actor InMemoryFastingSessionRepository: LifeBoardFastingSessionRepository {
+    private var storage: [LifeBoardFastingSessionValue] = []
+
+    func fetchFastingSessions(limit: Int) async throws -> [LifeBoardFastingSessionValue] {
+        Array(storage.sorted { $0.startedAt > $1.startedAt }.prefix(max(1, limit)))
+    }
+
+    func saveFastingSession(_ value: LifeBoardFastingSessionValue) async throws {
+        if let index = storage.firstIndex(where: { $0.id == value.id }) {
+            storage[index] = value
+        } else {
+            storage.append(value)
+        }
+    }
 }
 
 private actor JournalSnapshotFixture {
