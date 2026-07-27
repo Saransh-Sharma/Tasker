@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import PhotosUI
 import QuickLook
 import SwiftUI
 import UniformTypeIdentifiers
@@ -8,6 +9,13 @@ import UniformTypeIdentifiers
 @Observable
 final class LifeBoardKnowledgeStore {
     enum Layout: String, CaseIterable { case list, grid }
+    enum BatchOperation: Sendable {
+        case favorite
+        case pin
+        case archive
+        case trash
+        case restore
+    }
 
     private(set) var spaces: [LifeBoardKnowledgeSpaceValue] = []
     private(set) var folders: [LifeBoardKnowledgeFolderValue] = []
@@ -16,6 +24,9 @@ final class LifeBoardKnowledgeStore {
     private(set) var links: [LifeBoardKnowledgeLinkValue] = []
     private(set) var smartCollections: [KnowledgeSmartCollectionValue] = []
     private(set) var isLoading = false
+    private(set) var isSearching = false
+    private(set) var searchIndexStatus: KnowledgeSearchIndexStatus = .unavailable
+    private(set) var rankedSearchIDs: [UUID] = []
     var selectedSpaceID: UUID?
     var selectedFolderID: UUID?
     var selectedTagIDs: Set<UUID> = []
@@ -25,7 +36,11 @@ final class LifeBoardKnowledgeStore {
     var searchText = ""
     var errorMessage: String?
     var undoMessage: String?
-    private var undoNote: LifeBoardKnowledgeNoteValue?
+    private var undoNotes: [LifeBoardKnowledgeNoteValue] = []
+    private let searchIndex: (any KnowledgeSearchIndex)?
+    private let secureNotes: (any KnowledgeSecureNoteService)?
+    private var didSeedSearchIndex = false
+    private var searchTask: Task<Void, Never>?
 
     let repository: any LifeBoardPhaseIIRepository
     let attachmentFiles: any KnowledgeAttachmentFileRepository
@@ -37,6 +52,12 @@ final class LifeBoardKnowledgeStore {
     ) {
         self.repository = repository
         self.attachmentFiles = attachmentFiles ?? ProtectedKnowledgeAttachmentFiles()
+        searchIndex = V2FeatureFlags.knowledgeNotesSearchIndexV2Enabled
+            ? try? LocalKnowledgeSearchIndex()
+            : nil
+        secureNotes = V2FeatureFlags.knowledgeNotesSecurityV1Enabled
+            ? DefaultKnowledgeSecureNoteService()
+            : nil
         selectedFolderID = initialFolderID
     }
 
@@ -61,26 +82,46 @@ final class LifeBoardKnowledgeStore {
             (folders, notes, tags, links, smartCollections) = try await (
                 folderValues, noteValues, tagValues, linkValues, collectionValues
             )
+            if searchIndex != nil, !didSeedSearchIndex {
+                didSeedSearchIndex = true
+                await rebuildSearchIndex()
+            }
             try? await repository.pruneKnowledgeRecovery(now: Date())
         } catch { errorMessage = error.localizedDescription }
     }
 
     var visibleNotes: [LifeBoardKnowledgeNoteValue] {
-        KnowledgeNoteQuery(
+        let filtered = KnowledgeNoteQuery(
             collection: selectedCollection,
             spaceID: selectedSpaceID,
             folderID: selectedFolderID,
             tagIDs: selectedTagIDs,
-            searchText: searchText,
+            searchText: searchIndex == nil ? searchText : "",
             sort: sort
         ).apply(
             to: notes,
-            linkedNoteIDs: Set(links.flatMap { [$0.sourceNoteID, $0.destinationNoteID] })
+            linkedNoteIDs: Set(links.flatMap { [$0.sourceNoteID, $0.destinationNoteID] }),
+            incomingNoteIDs: Set(links.map(\.destinationNoteID)),
+            outgoingNoteIDs: Set(links.map(\.sourceNoteID))
         )
+        guard searchIndex != nil, !searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return filtered
+        }
+        let rank = Dictionary(uniqueKeysWithValues: rankedSearchIDs.enumerated().map { ($0.element, $0.offset) })
+        return filtered.filter { rank[$0.id] != nil }.sorted {
+            (rank[$0.id] ?? .max) < (rank[$1.id] ?? .max)
+        }
     }
 
     var pinnedNotes: [LifeBoardKnowledgeNoteValue] {
-        visibleNotes.filter(\.isPinned)
+        visibleNotes.filter(\.isPinned).sorted {
+            let lhs = $0.manualSortOrder
+            let rhs = $1.manualSortOrder
+            if lhs != nil || rhs != nil {
+                return (lhs ?? .greatestFiniteMagnitude) < (rhs ?? .greatestFiniteMagnitude)
+            }
+            return $0.updatedAt > $1.updatedAt
+        }
     }
 
     var recentNotes: [LifeBoardKnowledgeNoteValue] {
@@ -170,26 +211,34 @@ final class LifeBoardKnowledgeStore {
         do {
             try await repository.saveKnowledgeNote(note)
             try await reconcileBlockLinks(for: note)
+            await index(note)
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
 
     private func reconcileBlockLinks(for note: LifeBoardKnowledgeNoteValue) async throws {
-        let desired = Set(note.blocks.compactMap {
-            KnowledgeBlockPayload.decode(from: $0).noteLink?.noteID
-        }).subtracting([note.id])
-        let generated = links.filter {
-            $0.sourceNoteID == note.id && $0.label == "note-block"
+        let desired = note.blocks.compactMap { block -> (blockID: UUID, destinationID: UUID)? in
+            guard let destinationID = KnowledgeBlockPayload.decode(from: block).noteLink?.noteID,
+                  destinationID != note.id else { return nil }
+            return (block.id, destinationID)
         }
-        let existingDestinations = Set(generated.map(\.destinationNoteID))
-        for destination in desired.subtracting(existingDestinations) {
+        let generated = links.filter {
+            $0.sourceNoteID == note.id && ($0.kind == "blockReference" || $0.label == "note-block")
+        }
+        for reference in desired where !generated.contains(where: {
+            $0.sourceBlockID == reference.blockID && $0.destinationNoteID == reference.destinationID
+        }) {
             try await repository.saveKnowledgeLink(.init(
                 sourceNoteID: note.id,
-                destinationNoteID: destination,
-                label: "note-block"
+                destinationNoteID: reference.destinationID,
+                label: "note-block",
+                sourceBlockID: reference.blockID,
+                kind: "blockReference"
             ))
         }
-        for stale in generated where !desired.contains(stale.destinationNoteID) {
+        for stale in generated where !desired.contains(where: {
+            $0.blockID == stale.sourceBlockID && $0.destinationID == stale.destinationNoteID
+        }) {
             try await repository.deleteKnowledgeLink(id: stale.id)
         }
     }
@@ -199,7 +248,7 @@ final class LifeBoardKnowledgeStore {
         updated.state = .trashed
         updated.deletedAt = Date()
         updated.updatedAt = Date()
-        undoNote = note
+        undoNotes = [note]
         undoMessage = "Moved “\(note.displayTitle)” to Trash"
         await save(updated)
     }
@@ -216,7 +265,7 @@ final class LifeBoardKnowledgeStore {
         var updated = note
         updated.state = .archived
         updated.updatedAt = Date()
-        undoNote = note
+        undoNotes = [note]
         undoMessage = "Archived “\(note.displayTitle)”"
         await save(updated)
     }
@@ -242,15 +291,92 @@ final class LifeBoardKnowledgeStore {
     }
 
     func undoLastMutation() async {
-        guard let undoNote else { return }
-        self.undoNote = nil
+        guard !undoNotes.isEmpty else { return }
+        let values = undoNotes
+        undoNotes = []
         undoMessage = nil
-        await save(undoNote)
+        do {
+            for note in values {
+                try await repository.saveKnowledgeNote(note)
+                await index(note)
+            }
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func performBatch(_ operation: BatchOperation, noteIDs: Set<UUID>) async {
+        let originals = notes.filter { noteIDs.contains($0.id) }
+        guard !originals.isEmpty else { return }
+        do {
+            undoNotes = originals
+            for original in originals {
+                var updated = original
+                updated.updatedAt = Date()
+                switch operation {
+                case .favorite: updated.isFavorite = true
+                case .pin: updated.isPinned = true
+                case .archive: updated.state = .archived
+                case .trash:
+                    updated.state = .trashed
+                    updated.deletedAt = Date()
+                case .restore:
+                    updated.state = .active
+                    updated.deletedAt = nil
+                }
+                try await repository.saveKnowledgeNote(updated)
+                try await reconcileBlockLinks(for: updated)
+                await index(updated)
+            }
+            undoMessage = switch operation {
+            case .favorite: "Added \(originals.count) notes to Favorites"
+            case .pin: "Pinned \(originals.count) notes"
+            case .archive: "Archived \(originals.count) notes"
+            case .trash: "Moved \(originals.count) notes to Trash"
+            case .restore: "Restored \(originals.count) notes"
+            }
+            await load()
+        } catch {
+            undoNotes = []
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func reorderPinned(noteID: UUID, before destinationID: UUID) async {
+        guard noteID != destinationID else { return }
+        var ordered = pinnedNotes
+        guard let source = ordered.firstIndex(where: { $0.id == noteID }),
+              let destination = ordered.firstIndex(where: { $0.id == destinationID }) else { return }
+        let originals = ordered
+        let moved = ordered.remove(at: source)
+        ordered.insert(moved, at: destination)
+        do {
+            undoNotes = originals
+            for index in ordered.indices {
+                ordered[index].manualSortOrder = Double(index)
+                try await repository.saveKnowledgeNote(ordered[index])
+            }
+            undoMessage = "Reordered pinned notes"
+            await load()
+        } catch {
+            undoNotes = []
+            errorMessage = error.localizedDescription
+        }
     }
 
     func deletePermanently(_ note: LifeBoardKnowledgeNoteValue) async {
         do {
+            let attachments = try await repository.fetchKnowledgeAttachments(noteID: note.id)
+            let securePayload = try await repository.fetchKnowledgeSecurePayload(noteID: note.id)?.0
             try await repository.deleteKnowledgeNote(id: note.id)
+            try? await searchIndex?.remove(noteID: note.id)
+            for attachment in attachments {
+                try? await attachmentFiles.deleteFile(for: attachment)
+            }
+            if let securePayload {
+                try? await secureNotes?.deleteKey(identifier: securePayload.keyIdentifier)
+            }
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -265,6 +391,19 @@ final class LifeBoardKnowledgeStore {
             await load()
             return tag
         } catch { errorMessage = error.localizedDescription; return nil }
+    }
+
+    func saveSmartCollection(name: String, query: KnowledgeNoteQuery) async {
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        do {
+            try await repository.saveKnowledgeSmartCollection(
+                .init(spaceID: selectedSpaceID, name: trimmed, query: query)
+            )
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     func connect(source: UUID, destination: UUID) async {
@@ -323,19 +462,230 @@ final class LifeBoardKnowledgeStore {
                 errorMessage = "Files larger than 20 MB are not supported."
                 return nil
             }
-            let attachment = LifeBoardKnowledgeAttachmentValue(
+            return await addAttachment(
                 noteID: noteID,
-                kind: url.pathExtension.lowercased(),
+                data: data,
                 fileName: url.lastPathComponent,
-                payload: data
+                contentType: UTType(filenameExtension: url.pathExtension)?.preferredMIMEType,
+                sourceKind: "file"
             )
-            try await repository.saveKnowledgeAttachment(attachment)
-            _ = try await attachmentFiles.persist(attachment)
-            return attachment
         } catch {
             errorMessage = error.localizedDescription
             return nil
         }
+    }
+
+    func addAttachment(
+        noteID: UUID,
+        data: Data,
+        fileName: String,
+        contentType: String?,
+        sourceKind: String
+    ) async -> LifeBoardKnowledgeAttachmentValue? {
+        guard data.count <= 20_000_000 else {
+            errorMessage = "Attachments larger than 20 MB are not supported."
+            return nil
+        }
+        do {
+            return try await LocalKnowledgeAttachmentPipeline(repository: repository, files: attachmentFiles)
+                .ingest(
+                    data: data,
+                    fileName: fileName,
+                    contentType: contentType,
+                    sourceKind: sourceKind,
+                    noteID: noteID
+                )
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+
+    func lock(_ note: LifeBoardKnowledgeNoteValue) async {
+        guard let secureNotes else {
+            errorMessage = "Locked notes are not enabled in this build."
+            return
+        }
+        do {
+            let attachments = try await repository.fetchKnowledgeAttachments(noteID: note.id)
+            let encryptedLinks = links.filter {
+                $0.sourceNoteID == note.id || $0.destinationNoteID == note.id
+            }
+            let envelope = try await secureNotes.lock(
+                note: note,
+                attachments: attachments,
+                links: encryptedLinks,
+                reason: "Lock “\(note.displayTitle)”"
+            )
+            var redacted = note
+            redacted.title = ""
+            redacted.blocks = []
+            redacted.tagIDs = []
+            redacted.lockPolicy = .deviceAuthentication
+            redacted.updatedAt = Date()
+            let payload = KnowledgeSecurePayloadValue(
+                noteID: note.id,
+                ciphertext: envelope.ciphertext,
+                contentVersion: envelope.contentVersion,
+                algorithmVersion: envelope.algorithmVersion,
+                keyIdentifier: envelope.keyIdentifier
+            )
+            let secureAttachments = attachments.compactMap { attachment -> KnowledgeSecureAttachmentPayloadValue? in
+                guard let ciphertext = envelope.attachmentCiphertexts[attachment.id] else { return nil }
+                return .init(
+                    noteID: note.id,
+                    attachmentID: attachment.id,
+                    ciphertext: ciphertext,
+                    checksum: attachment.checksum,
+                    byteCount: attachment.byteCount ?? Int64(attachment.payload.count)
+                )
+            }
+            try await repository.lockKnowledgeNote(
+                redacted: redacted,
+                payload: payload,
+                attachments: secureAttachments
+            )
+            try? await searchIndex?.remove(noteID: note.id)
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func unlock(_ note: LifeBoardKnowledgeNoteValue) async throws -> KnowledgeUnlockedNoteSession {
+        guard let secureNotes,
+              let (payload, attachments) = try await repository.fetchKnowledgeSecurePayload(noteID: note.id) else {
+            throw CocoaError(.fileReadNoSuchFile)
+        }
+        let envelope = KnowledgeSecureEnvelope(
+            noteID: note.id,
+            keyIdentifier: payload.keyIdentifier,
+            algorithmVersion: payload.algorithmVersion,
+            contentVersion: payload.contentVersion,
+            ciphertext: payload.ciphertext,
+            attachmentCiphertexts: Dictionary(uniqueKeysWithValues: attachments.map { ($0.attachmentID, $0.ciphertext) })
+        )
+        let unlocked = try await secureNotes.unlock(envelope, reason: "Unlock this note")
+        return .init(
+            note: unlocked.0,
+            attachments: unlocked.1,
+            links: unlocked.2,
+            keyIdentifier: payload.keyIdentifier
+        )
+    }
+
+    func saveLocked(_ session: KnowledgeUnlockedNoteSession) async throws {
+        guard let secureNotes else { throw CocoaError(.featureUnsupported) }
+        var note = session.note
+        note.lockPolicy = .deviceAuthentication
+        note.updatedAt = Date()
+        note.contentVersion = max(1, note.contentVersion ?? 1) + 1
+        let envelope = try await secureNotes.reseal(
+            note: note,
+            attachments: session.attachments,
+            links: session.links,
+            keyIdentifier: session.keyIdentifier
+        )
+        var redacted = note
+        redacted.title = ""
+        redacted.blocks = []
+        redacted.tagIDs = []
+        let payload = KnowledgeSecurePayloadValue(
+            noteID: note.id,
+            ciphertext: envelope.ciphertext,
+            contentVersion: envelope.contentVersion,
+            algorithmVersion: envelope.algorithmVersion,
+            keyIdentifier: envelope.keyIdentifier
+        )
+        let secureAttachments = session.attachments.compactMap { attachment -> KnowledgeSecureAttachmentPayloadValue? in
+            guard let ciphertext = envelope.attachmentCiphertexts[attachment.id] else { return nil }
+            return .init(
+                noteID: note.id,
+                attachmentID: attachment.id,
+                ciphertext: ciphertext,
+                checksum: attachment.checksum,
+                byteCount: attachment.byteCount ?? Int64(attachment.payload.count)
+            )
+        }
+        try await repository.lockKnowledgeNote(redacted: redacted, payload: payload, attachments: secureAttachments)
+    }
+
+    func search() {
+        searchTask?.cancel()
+        let terms = searchText
+        guard let searchIndex else {
+            rankedSearchIDs = []
+            return
+        }
+        guard !terms.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            rankedSearchIDs = []
+            isSearching = false
+            return
+        }
+        isSearching = true
+        searchTask = Task {
+            try? await Task.sleep(for: .milliseconds(120))
+            guard !Task.isCancelled else { return }
+            do {
+                let results = try await searchIndex.search(terms, limit: 1_000)
+                guard !Task.isCancelled else { return }
+                rankedSearchIDs = results.map(\.noteID)
+                searchIndexStatus = await searchIndex.status()
+            } catch {
+                errorMessage = "Search is rebuilding. Your notes are still available."
+                rankedSearchIDs = KnowledgeNoteQuery(searchText: terms).apply(to: notes).map(\.id)
+            }
+            isSearching = false
+        }
+    }
+
+    private func rebuildSearchIndex() async {
+        guard let searchIndex else { return }
+        let tagNames = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
+        let documents = notes.map { note in
+            KnowledgeSearchDocument(
+                noteID: note.id,
+                title: note.title,
+                body: note.plainText,
+                tags: note.tagIDs.compactMap { tagNames[$0] }.joined(separator: " "),
+                attachments: note.blocks.compactMap(\.searchableMetadata).joined(separator: " "),
+                updatedAt: note.updatedAt,
+                isLocked: note.resolvedLockPolicy != .unlocked || note.resolvedState == .trashed
+            )
+        }
+        do {
+            try await searchIndex.rebuild(documents)
+            searchIndexStatus = await searchIndex.status()
+            if !searchText.isEmpty { search() }
+        } catch {
+            searchIndexStatus = .failed(error.localizedDescription)
+        }
+    }
+
+    private func index(_ note: LifeBoardKnowledgeNoteValue) async {
+        guard let searchIndex else { return }
+        if note.resolvedLockPolicy != .unlocked || note.resolvedState == .trashed {
+            try? await searchIndex.remove(noteID: note.id)
+            return
+        }
+        let tagNames = Dictionary(uniqueKeysWithValues: tags.map { ($0.id, $0.name) })
+        let attachments = (try? await repository.fetchKnowledgeAttachments(noteID: note.id)) ?? []
+        let metadata = (
+            note.blocks.compactMap(\.searchableMetadata)
+                + attachments.flatMap { [$0.fileName, $0.ocrText, $0.transcript].compactMap { $0 } }
+        ).joined(separator: " ")
+        try? await searchIndex.upsert(
+            .init(
+                noteID: note.id,
+                title: note.title,
+                body: note.plainText,
+                tags: note.tagIDs.compactMap { tagNames[$0] }.joined(separator: " "),
+                attachments: metadata,
+                updatedAt: note.updatedAt,
+                isLocked: false
+            )
+        )
+        if !searchText.isEmpty { search() }
     }
 }
 
@@ -346,8 +696,12 @@ struct LifeBoardKnowledgeModuleView: View {
     @State private var showsNewSpace = false
     @State private var showsNewFolder = false
     @State private var showsTemplates = false
+    @State private var showsSmartCollectionBuilder = false
     @State private var draftName = ""
     @State private var hasOpenedInitialNote = false
+    @State private var isSelecting = false
+    @State private var selectedNoteIDs: Set<UUID> = []
+    @State private var pinnedDropTargetID: UUID?
     @Namespace private var noteTransition
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -407,6 +761,18 @@ struct LifeBoardKnowledgeModuleView: View {
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
         }
+        .sheet(isPresented: $showsSmartCollectionBuilder) {
+            LifeBoardSmartCollectionBuilder(
+                spaceID: store.selectedSpaceID,
+                folders: store.folders,
+                tags: store.tags,
+                onSave: { name, query in
+                    await store.saveSmartCollection(name: name, query: query)
+                    showsSmartCollectionBuilder = false
+                },
+                onCancel: { showsSmartCollectionBuilder = false }
+            )
+        }
         .alert("New Space", isPresented: $showsNewSpace, actions: newSpaceActions)
         .alert("New Folder", isPresented: $showsNewFolder, actions: newFolderActions)
         .alert(
@@ -438,7 +804,9 @@ struct LifeBoardKnowledgeModuleView: View {
             set: { if !$0 { store.errorMessage = nil } }
         )) { Button("OK", role: .cancel) {} } message: { Text(store.errorMessage ?? "") }
         .safeAreaInset(edge: .bottom) {
-            if let message = store.undoMessage {
+            if isSelecting {
+                batchActionBar
+            } else if let message = store.undoMessage {
                 HStack(spacing: 12) {
                     Image(systemName: "checkmark.circle.fill")
                         .foregroundStyle(.tint)
@@ -502,6 +870,9 @@ struct LifeBoardKnowledgeModuleView: View {
                         draftName = ""
                         showsNewFolder = true
                     }
+                    Button("New smart collection", systemImage: "sparkle.magnifyingglass") {
+                        showsSmartCollectionBuilder = true
+                    }
                     Divider()
                     Button("New space", systemImage: "square.grid.2x2") {
                         draftName = ""
@@ -515,6 +886,17 @@ struct LifeBoardKnowledgeModuleView: View {
                 .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
                 .accessibilityLabel("Create a note or folder")
                 .accessibilityIdentifier("notes.create")
+                if !store.visibleNotes.isEmpty {
+                    Button(isSelecting ? "Done" : "Select") {
+                        withAnimation(LifeBoardAnimation.selection) {
+                            isSelecting.toggle()
+                            if !isSelecting { selectedNoteIDs.removeAll() }
+                        }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("notes.select")
+                }
             }
 
             HStack(spacing: 10) {
@@ -525,6 +907,7 @@ struct LifeBoardKnowledgeModuleView: View {
                         .textFieldStyle(.plain)
                         .submitLabel(.search)
                         .accessibilityIdentifier("notes.search")
+                        .onChange(of: store.searchText) { _, _ in store.search() }
                     if !store.searchText.isEmpty {
                         Button {
                             store.searchText = ""
@@ -756,6 +1139,18 @@ struct LifeBoardKnowledgeModuleView: View {
                     ForEach(store.pinnedNotes) { note in
                         noteCard(note, palette: palette, compact: true)
                             .frame(width: 236)
+                            .rotationEffect(.degrees(pinnedDropTargetID == note.id ? 3 : 0))
+                            .scaleEffect(pinnedDropTargetID == note.id ? 1.025 : 1)
+                            .draggable(note.id.uuidString)
+                            .dropDestination(for: String.self) { values, _ in
+                                guard let raw = values.first, let sourceID = UUID(uuidString: raw) else { return false }
+                                Task { await store.reorderPinned(noteID: sourceID, before: note.id) }
+                                return true
+                            } isTargeted: { targeted in
+                                withAnimation(LifeBoardAnimation.cardReflow) {
+                                    pinnedDropTargetID = targeted ? note.id : nil
+                                }
+                            }
                     }
                 }
             }
@@ -806,7 +1201,7 @@ struct LifeBoardKnowledgeModuleView: View {
         palette: LifeBoardDaypartPalette,
         compact: Bool
     ) -> some View {
-        Button { editingNote = note } label: {
+        Button { openOrSelect(note) } label: {
             VStack(alignment: .leading, spacing: 10) {
                 HStack {
                     if note.isPinned {
@@ -842,6 +1237,12 @@ struct LifeBoardKnowledgeModuleView: View {
             .frame(maxWidth: .infinity, minHeight: compact ? 154 : 176, alignment: .topLeading)
             .padding(16)
             .lifeBoardPaperCard()
+            .overlay(alignment: .topTrailing) {
+                if isSelecting {
+                    selectionMark(for: note)
+                        .padding(12)
+                }
+            }
         }
         .buttonStyle(.plain)
         .matchedTransitionSource(id: note.id, in: noteTransition)
@@ -854,7 +1255,7 @@ struct LifeBoardKnowledgeModuleView: View {
         _ note: LifeBoardKnowledgeNoteValue,
         palette: LifeBoardDaypartPalette
     ) -> some View {
-        Button { editingNote = note } label: {
+        Button { openOrSelect(note) } label: {
             HStack(spacing: 14) {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(Color.accentColor.opacity(0.10))
@@ -894,12 +1295,80 @@ struct LifeBoardKnowledgeModuleView: View {
                 RoundedRectangle(cornerRadius: 19, style: .continuous)
                     .fill(Color(uiColor: .secondarySystemBackground).opacity(0.84))
             )
+            .overlay(alignment: .trailing) {
+                if isSelecting {
+                    selectionMark(for: note)
+                        .padding(.trailing, 14)
+                }
+            }
         }
         .buttonStyle(.plain)
         .matchedTransitionSource(id: note.id, in: noteTransition)
         .contextMenu { noteActions(note) }
         .accessibilityIdentifier("notes.note.\(note.id.uuidString)")
         .accessibilityLabel("\(note.displayTitle), edited \(note.updatedAt.formatted(.relative(presentation: .named)))")
+    }
+
+    private func openOrSelect(_ note: LifeBoardKnowledgeNoteValue) {
+        if isSelecting {
+            if !selectedNoteIDs.insert(note.id).inserted {
+                selectedNoteIDs.remove(note.id)
+            }
+        } else {
+            editingNote = note
+        }
+    }
+
+    private func selectionMark(for note: LifeBoardKnowledgeNoteValue) -> some View {
+        Image(systemName: selectedNoteIDs.contains(note.id) ? "checkmark.circle.fill" : "circle")
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(selectedNoteIDs.contains(note.id) ? Color.accentColor : Color.secondary)
+            .symbolEffect(.bounce, value: selectedNoteIDs.contains(note.id))
+            .accessibilityLabel(selectedNoteIDs.contains(note.id) ? "Selected" : "Not selected")
+    }
+
+    private var batchActionBar: some View {
+        HStack(spacing: 4) {
+            Text("\(selectedNoteIDs.count) selected")
+                .font(.subheadline.weight(.semibold))
+                .monospacedDigit()
+                .padding(.leading, 10)
+            Spacer()
+            batchButton("Favorite", symbol: "star") { .favorite }
+            batchButton("Pin", symbol: "pin") { .pin }
+            if store.selectedCollection == .trash {
+                batchButton("Restore", symbol: "arrow.uturn.backward") { .restore }
+            } else {
+                batchButton("Archive", symbol: "archivebox") { .archive }
+                batchButton("Trash", symbol: "trash", role: .destructive) { .trash }
+            }
+        }
+        .padding(.horizontal, 10)
+        .frame(maxWidth: 660, minHeight: 54)
+        .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 8)
+    }
+
+    private func batchButton(
+        _ label: String,
+        symbol: String,
+        role: ButtonRole? = nil,
+        operation: @escaping () -> LifeBoardKnowledgeStore.BatchOperation
+    ) -> some View {
+        Button(role: role) {
+            let ids = selectedNoteIDs
+            Task {
+                await store.performBatch(operation(), noteIDs: ids)
+                selectedNoteIDs.removeAll()
+                isSelecting = false
+            }
+        } label: {
+            Image(systemName: symbol)
+                .frame(width: 42, height: 42)
+        }
+        .disabled(selectedNoteIDs.isEmpty)
+        .accessibilityLabel(label)
     }
 
     @ViewBuilder
@@ -986,22 +1455,40 @@ struct LifeBoardKnowledgeModuleView: View {
         }
     }
 
+    @ViewBuilder
     private func noteEditor(_ note: LifeBoardKnowledgeNoteValue) -> some View {
-        LifeBoardKnowledgeNoteEditor(
-            note: note,
-            allNotes: store.notes,
-            tags: store.tags,
-            links: store.links,
-            repository: store.repository,
-            attachmentFiles: store.attachmentFiles,
-            onSave: { value in await store.save(value) },
-            onCreateTag: { name in await store.saveTag(name: name) },
-            onConnect: { destination in
-                Task { await store.connect(source: note.id, destination: destination) }
-            },
-            onDisconnect: { link in Task { await store.disconnect(link) } },
-            onAttach: { url in await store.addAttachment(noteID: note.id, url: url) }
-        )
+        if note.resolvedLockPolicy == .deviceAuthentication {
+            LifeBoardLockedKnowledgeNoteEditor(
+                placeholder: note,
+                onUnlock: { try await store.unlock(note) },
+                onSave: { try await store.saveLocked($0) }
+            )
+        } else {
+            LifeBoardKnowledgeNoteEditor(
+                note: note,
+                allNotes: store.notes,
+                tags: store.tags,
+                links: store.links,
+                repository: store.repository,
+                attachmentFiles: store.attachmentFiles,
+                onSave: { value in await store.save(value) },
+                onCreateTag: { name in await store.saveTag(name: name) },
+                onConnect: { destination in
+                    Task { await store.connect(source: note.id, destination: destination) }
+                },
+                onDisconnect: { link in Task { await store.disconnect(link) } },
+                onAttach: { url in await store.addAttachment(noteID: note.id, url: url) },
+                onAttachData: { data, fileName, contentType, sourceKind in
+                    await store.addAttachment(
+                        noteID: note.id,
+                        data: data,
+                        fileName: fileName,
+                        contentType: contentType,
+                        sourceKind: sourceKind
+                    )
+                }
+            )
+        }
     }
 
     @ViewBuilder
@@ -1021,6 +1508,9 @@ struct LifeBoardKnowledgeModuleView: View {
                 updated.isFavorite.toggle()
                 updated.updatedAt = Date()
                 Task { await store.save(updated) }
+            }
+            if note.resolvedLockPolicy == .unlocked, V2FeatureFlags.knowledgeNotesSecurityV1Enabled {
+                Button("Lock note", systemImage: "lock") { Task { await store.lock(note) } }
             }
             Button("Duplicate", systemImage: "plus.square.on.square") { Task { await store.duplicate(note) } }
             noteMoveMenu(note)
@@ -1199,6 +1689,16 @@ private struct LifeBoardKnowledgeNoteEditor: View {
     @State private var autosaveTask: Task<Void, Never>?
     @State private var didWriteRevision = false
     @State private var revisions: [KnowledgeNoteRevisionValue] = []
+    @State private var richSelection = NSRange(location: 0, length: 0)
+    @State private var richEditorIsFocused = false
+    @State private var richEditorCommand: KnowledgeEditorCommandInvocation?
+    @State private var showsSlashCommands = false
+    @State private var wikiLinkQuery: String?
+    @State private var photoSelection: PhotosPickerItem?
+    @State private var isImportingPhoto = false
+    @State private var aiProposal: NoteAIProposal?
+    @State private var aiIsPreparing = false
+    @State private var aiErrorMessage: String?
     @FocusState private var titleIsFocused: Bool
     let allNotes: [LifeBoardKnowledgeNoteValue]
     let tags: [LifeBoardKnowledgeTagValue]
@@ -1210,7 +1710,9 @@ private struct LifeBoardKnowledgeNoteEditor: View {
     let onConnect: (UUID) -> Void
     let onDisconnect: (LifeBoardKnowledgeLinkValue) -> Void
     let onAttach: (URL) async -> LifeBoardKnowledgeAttachmentValue?
+    let onAttachData: (Data, String, String?, String) async -> LifeBoardKnowledgeAttachmentValue?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
 
     init(
         note: LifeBoardKnowledgeNoteValue,
@@ -1223,7 +1725,8 @@ private struct LifeBoardKnowledgeNoteEditor: View {
         onCreateTag: @escaping (String) async -> LifeBoardKnowledgeTagValue?,
         onConnect: @escaping (UUID) -> Void,
         onDisconnect: @escaping (LifeBoardKnowledgeLinkValue) -> Void,
-        onAttach: @escaping (URL) async -> LifeBoardKnowledgeAttachmentValue?
+        onAttach: @escaping (URL) async -> LifeBoardKnowledgeAttachmentValue?,
+        onAttachData: @escaping (Data, String, String?, String) async -> LifeBoardKnowledgeAttachmentValue?
     ) {
         _draft = State(initialValue: note)
         _originalSnapshot = State(initialValue: try? JSONEncoder().encode(note))
@@ -1237,6 +1740,7 @@ private struct LifeBoardKnowledgeNoteEditor: View {
         self.onConnect = onConnect
         self.onDisconnect = onDisconnect
         self.onAttach = onAttach
+        self.onAttachData = onAttachData
     }
 
     var body: some View {
@@ -1253,15 +1757,33 @@ private struct LifeBoardKnowledgeNoteEditor: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     tagRail
-                    ForEach($draft.blocks) { $block in
-                        LifeBoardKnowledgeBlockEditor(
-                            block: $block,
-                            allNotes: allNotes.filter { $0.id != draft.id },
-                            attachments: attachments,
-                            onMoveUp: { moveBlock(block.id, offset: -1) },
-                            onMoveDown: { moveBlock(block.id, offset: 1) },
-                            onDelete: { deleteBlock(block) }
+                    if V2FeatureFlags.knowledgeNotesTextKitEditorV2Enabled {
+                        LifeBoardUnifiedNoteEditor(
+                            note: $draft,
+                            selection: $richSelection,
+                            isFocused: $richEditorIsFocused,
+                            command: richEditorCommand,
+                            onSlashCommand: {
+                                showsSlashCommands = true
+                            },
+                            onWikiLink: { query in
+                                wikiLinkQuery = query
+                                showsLinkPicker = true
+                            }
                         )
+                        .frame(minHeight: 280)
+                        .accessibilityIdentifier("notes.editor.textkit2")
+                    } else {
+                        ForEach($draft.blocks) { $block in
+                            LifeBoardKnowledgeBlockEditor(
+                                block: $block,
+                                allNotes: allNotes.filter { $0.id != draft.id },
+                                attachments: attachments,
+                                onMoveUp: { moveBlock(block.id, offset: -1) },
+                                onMoveDown: { moveBlock(block.id, offset: 1) },
+                                onDelete: { deleteBlock(block) }
+                            )
+                        }
                     }
                     if !linksForDraft.isEmpty || !attachments.isEmpty {
                         Divider().padding(.vertical, 4)
@@ -1310,8 +1832,24 @@ private struct LifeBoardKnowledgeNoteEditor: View {
                     .accessibilityLabel(draft.isFavorite ? "Remove favorite" : "Favorite note")
                     Menu {
                         Button("Link another note", systemImage: "link.badge.plus") { showsLinkPicker = true }
+                        PhotosPicker(
+                            selection: $photoSelection,
+                            matching: .images,
+                            preferredItemEncoding: .current
+                        ) {
+                            Label("Choose a photo", systemImage: "photo")
+                        }
                         Button("Attach a file", systemImage: "paperclip") { showsFileImporter = true }
                         Button("Version history", systemImage: "clock.arrow.circlepath") { showsHistory = true }
+                        if V2FeatureFlags.knowledgeNotesEVAV1Enabled {
+                            Menu("Ask EVA", systemImage: "sparkles") {
+                                ForEach(NoteAIAction.allCases, id: \.self) { action in
+                                    Button(aiActionTitle(action), systemImage: aiActionSymbol(action)) {
+                                        Task { await requestAIProposal(action) }
+                                    }
+                                }
+                            }
+                        }
                         ShareLink(item: markdownExport) {
                             Label("Share as Markdown", systemImage: "square.and.arrow.up")
                         }
@@ -1341,13 +1879,27 @@ private struct LifeBoardKnowledgeNoteEditor: View {
                 }
             }
             .quickLookPreview($previewAttachmentURL)
-            .sheet(isPresented: $showsLinkPicker) {
+            .sheet(isPresented: $showsLinkPicker, onDismiss: { wikiLinkQuery = nil }) {
                 NavigationStack {
-                    List(allNotes.filter { $0.id != draft.id }) { note in
-                        Button(note.title.isEmpty ? "Untitled" : note.title) { onConnect(note.id); showsLinkPicker = false }
+                    List(linkPickerNotes) { note in
+                        Button(note.title.isEmpty ? "Untitled" : note.title) {
+                            if wikiLinkQuery != nil {
+                                richEditorCommand = .init(command: .insertWikiLink(noteID: note.id, title: note.displayTitle))
+                            }
+                            onConnect(note.id)
+                            wikiLinkQuery = nil
+                            showsLinkPicker = false
+                        }
                     }
-                    .navigationTitle("Link a Note")
+                    .navigationTitle(wikiLinkQuery == nil ? "Link a Note" : "Mention a Note")
                     .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { showsLinkPicker = false } } }
+                }
+            }
+            .confirmationDialog("Insert a block", isPresented: $showsSlashCommands, titleVisibility: .visible) {
+                ForEach(LifeBoardKnowledgeBlockKind.allCases, id: \.self) { kind in
+                    Button(kindTitle(kind), systemImage: kindSymbol(kind)) {
+                        richEditorCommand = .init(command: .block(kind))
+                    }
                 }
             }
             .sheet(isPresented: $showsHistory) {
@@ -1357,13 +1909,58 @@ private struct LifeBoardKnowledgeNoteEditor: View {
                     onDismiss: { showsHistory = false }
                 )
             }
+            .sheet(item: $aiProposal) { proposal in
+                LifeBoardNoteAIProposalReview(
+                    proposal: proposal,
+                    currentContentVersion: draft.contentVersion ?? 1,
+                    onApply: { editedPreview in
+                        await applyAIProposal(proposal, editedPreview: editedPreview)
+                    },
+                    onDiscard: { aiProposal = nil }
+                )
+            }
+            .overlay {
+                if aiIsPreparing {
+                    ZStack {
+                        Color.black.opacity(0.08).ignoresSafeArea()
+                        VStack(spacing: 12) {
+                            ProgressView()
+                            Text("EVA is preparing a private proposal…")
+                                .font(.subheadline.weight(.semibold))
+                        }
+                        .padding(22)
+                        .lifeBoardSystemGlass(.regular, in: RoundedRectangle(cornerRadius: 22), interactive: false)
+                    }
+                    .transition(.opacity)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("EVA is preparing a proposal")
+                }
+            }
+            .alert("EVA couldn’t prepare that", isPresented: Binding(
+                get: { aiErrorMessage != nil },
+                set: { if !$0 { aiErrorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(aiErrorMessage ?? "")
+            }
             .task {
                 await restoreDraftIfNeeded()
                 await loadAttachments()
                 revisions = (try? await repository.fetchKnowledgeRevisions(noteID: draft.id)) ?? []
                 if !draft.isMeaningful { titleIsFocused = true }
             }
+            .onChange(of: photoSelection) { _, item in
+                guard let item else { return }
+                Task { await importPhoto(item) }
+            }
             .onChange(of: draft) { _, _ in scheduleAutosave() }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase != .active else { return }
+                autosaveTask?.cancel()
+                let value = preparedDraft()
+                Task { await persist(value) }
+            }
             .onDisappear {
                 autosaveTask?.cancel()
                 guard draft.isMeaningful else { return }
@@ -1403,7 +2000,20 @@ private struct LifeBoardKnowledgeNoteEditor: View {
 
     private var editorCommandBar: some View {
         GlassEffectContainer(spacing: 8) {
-            HStack(spacing: 4) {
+            if V2FeatureFlags.knowledgeNotesTextKitEditorV2Enabled, !richEditorIsFocused, !titleIsFocused {
+                Button {
+                    richEditorIsFocused = true
+                } label: {
+                    Label("Edit note", systemImage: "pencil")
+                        .font(.subheadline.weight(.semibold))
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 46)
+                }
+                .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
+                .padding(.vertical, 8)
+                .transition(.scale(scale: 0.92).combined(with: .opacity))
+            } else {
+                HStack(spacing: 4) {
                 Menu {
                     ForEach(LifeBoardKnowledgeBlockKind.allCases, id: \.self) { kind in
                         Button(kindTitle(kind), systemImage: kindSymbol(kind)) { addBlock(kind) }
@@ -1412,15 +2022,40 @@ private struct LifeBoardKnowledgeNoteEditor: View {
                     Label("Insert", systemImage: "plus")
                 }
                 commandButton("Checklist", symbol: "checklist") { addBlock(.checklist) }
+                if isImportingPhoto {
+                    ProgressView()
+                        .controlSize(.small)
+                        .frame(width: 42, height: 42)
+                        .accessibilityLabel("Importing photo")
+                } else {
+                    PhotosPicker(
+                        selection: $photoSelection,
+                        matching: .images,
+                        preferredItemEncoding: .current
+                    ) {
+                        Image(systemName: "photo").frame(width: 42, height: 42)
+                    }
+                    .accessibilityLabel("Choose a photo")
+                }
                 commandButton("Photo or file", symbol: "paperclip") { showsFileImporter = true }
                 commandButton("Link note", symbol: "link") { showsLinkPicker = true }
                 Spacer(minLength: 0)
+                if V2FeatureFlags.knowledgeNotesTextKitEditorV2Enabled {
+                    commandButton("Bold", symbol: "bold") { performEditorCommand(.bold) }
+                    commandButton("Italic", symbol: "italic") { performEditorCommand(.italic) }
+                    commandButton("Highlight", symbol: "highlighter") { performEditorCommand(.highlight) }
+                }
                 Menu {
-                    Button("Paragraph", systemImage: "text.alignleft") { addBlock(.paragraph) }
-                    Button("Heading", systemImage: "textformat.size") { addBlock(.heading2) }
-                    Button("Quote", systemImage: "quote.opening") { addBlock(.quote) }
-                    Button("Code", systemImage: "chevron.left.forwardslash.chevron.right") { addBlock(.code) }
-                    Button("Table", systemImage: "tablecells") { addBlock(.table) }
+                    Button("Paragraph", systemImage: "text.alignleft") { performEditorCommand(.block(.paragraph)) }
+                    Button("Heading", systemImage: "textformat.size") { performEditorCommand(.block(.heading2)) }
+                    Button("Quote", systemImage: "quote.opening") { performEditorCommand(.block(.quote)) }
+                    Button("Code", systemImage: "chevron.left.forwardslash.chevron.right") { performEditorCommand(.block(.code)) }
+                    Button("Indent", systemImage: "increase.indent") { performEditorCommand(.indent(1)) }
+                    Button("Outdent", systemImage: "decrease.indent") { performEditorCommand(.indent(-1)) }
+                    Divider()
+                    Button("Underline", systemImage: "underline") { performEditorCommand(.underline) }
+                    Button("Strike", systemImage: "strikethrough") { performEditorCommand(.strikethrough) }
+                    Button("Inline code", systemImage: "chevron.left.forwardslash.chevron.right") { performEditorCommand(.inlineCode) }
                 } label: {
                     Image(systemName: "textformat")
                         .frame(width: 42, height: 42)
@@ -1432,7 +2067,9 @@ private struct LifeBoardKnowledgeNoteEditor: View {
             .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
             .padding(.horizontal, 18)
             .padding(.vertical, 8)
+            }
         }
+        .animation(LifeBoardAnimation.selection, value: richEditorIsFocused)
     }
 
     private func commandButton(
@@ -1451,6 +2088,20 @@ private struct LifeBoardKnowledgeNoteEditor: View {
         links.filter { $0.sourceNoteID == draft.id || $0.destinationNoteID == draft.id }
     }
 
+    private var linkPickerNotes: [LifeBoardKnowledgeNoteValue] {
+        let available = allNotes.filter { $0.id != draft.id && $0.resolvedState == .active }
+        let query = wikiLinkQuery?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !query.isEmpty else { return available }
+        return available.sorted {
+            let lhs = $0.displayTitle.localizedCaseInsensitiveCompare(query) == .orderedSame ? 0
+                : ($0.displayTitle.localizedCaseInsensitiveContains(query) ? 1 : 2)
+            let rhs = $1.displayTitle.localizedCaseInsensitiveCompare(query) == .orderedSame ? 0
+                : ($1.displayTitle.localizedCaseInsensitiveContains(query) ? 1 : 2)
+            if lhs != rhs { return lhs < rhs }
+            return $0.updatedAt > $1.updatedAt
+        }
+    }
+
     private var noteDateLine: String {
         let date = draft.updatedAt.formatted(date: .abbreviated, time: .shortened)
         let count = draft.plainText.split(whereSeparator: \.isWhitespace).count
@@ -1458,26 +2109,7 @@ private struct LifeBoardKnowledgeNoteEditor: View {
     }
 
     private var markdownExport: String {
-        var lines = ["# \(draft.displayTitle)", ""]
-        for block in draft.blocks {
-            switch block.kind {
-            case .heading1: lines.append("# \(block.text)")
-            case .heading2: lines.append("## \(block.text)")
-            case .bulletedList: lines.append("- \(block.text)")
-            case .numberedList: lines.append("1. \(block.text)")
-            case .checklist: lines.append("- [\(block.isChecked ? "x" : " ")] \(block.text)")
-            case .quote: lines.append("> \(block.text)")
-            case .code: lines.append("```\n\(block.text)\n```")
-            case .divider: lines.append("---")
-            case .bookmark: lines.append("[\(block.text)](\(block.text))")
-            case .noteLink:
-                let title = KnowledgeBlockPayload.decode(from: block).noteLink?.cachedTitle ?? "Linked note"
-                lines.append("[[\(title)]]")
-            default: lines.append(block.text)
-            }
-            lines.append("")
-        }
-        return lines.joined(separator: "\n")
+        KnowledgeMarkdownCodec.render(draft)
     }
 
     private var originalWasMeaningful: Bool {
@@ -1486,6 +2118,147 @@ private struct LifeBoardKnowledgeNoteEditor: View {
             return false
         }
         return note.isMeaningful
+    }
+
+    @MainActor
+    private func importPhoto(_ item: PhotosPickerItem) async {
+        isImportingPhoto = true
+        defer {
+            isImportingPhoto = false
+            photoSelection = nil
+        }
+        do {
+            guard let data = try await item.loadTransferable(type: Data.self) else {
+                throw CocoaError(.fileReadCorruptFile)
+            }
+            guard let attachment = await onAttachData(
+                data,
+                "Photo-\(UUID().uuidString).jpg",
+                "image/*",
+                "photoLibrary"
+            ) else { return }
+            addAttachmentBlock(attachment)
+            await loadAttachments()
+        } catch {
+            aiErrorMessage = "That photo couldn’t be imported. The note was not changed."
+        }
+    }
+
+    @MainActor
+    private func requestAIProposal(_ action: NoteAIAction) async {
+        guard !aiIsPreparing else { return }
+        aiIsPreparing = true
+        defer { aiIsPreparing = false }
+        do {
+            aiProposal = try await FoundationModelsNoteAIProposalService().propose(
+                action: action,
+                note: draft,
+                selectedText: selectedEditorText
+            )
+        } catch {
+            aiErrorMessage = error.localizedDescription
+        }
+    }
+
+    private var selectedEditorText: String? {
+        guard richSelection.length > 0 else { return nil }
+        let text = KnowledgeNoteDocument(note: draft).attributedString.string as NSString
+        guard richSelection.location >= 0, NSMaxRange(richSelection) <= text.length else { return nil }
+        let value = text.substring(with: richSelection).trimmingCharacters(in: .whitespacesAndNewlines)
+        return value.isEmpty ? nil : value
+    }
+
+    @MainActor
+    private func applyAIProposal(_ proposal: NoteAIProposal, editedPreview: String) async {
+        guard !proposal.isStale(for: draft) else {
+            aiProposal = nil
+            aiErrorMessage = "This note changed while the proposal was open. Ask EVA again to avoid overwriting newer work."
+            return
+        }
+        let preview = editedPreview.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !preview.isEmpty else {
+            aiErrorMessage = "Keep at least one line in the proposal before applying it."
+            return
+        }
+        if let snapshot = try? JSONEncoder().encode(draft) {
+            try? await repository.saveKnowledgeRevision(
+                .init(
+                    noteID: draft.id,
+                    snapshot: snapshot,
+                    reason: "Before applying an EVA proposal",
+                    baseContentVersion: draft.contentVersion,
+                    contentVersion: draft.contentVersion,
+                    changeKind: "eva"
+                )
+            )
+        }
+
+        switch proposal.action {
+        case .summarize:
+            draft.blocks.insert(.init(noteID: draft.id, kind: .callout, text: preview), at: 0)
+        case .cleanUp:
+            var replacement = draft.blocks.first ?? .init(noteID: draft.id)
+            replacement.kind = .paragraph
+            replacement.text = preview
+            replacement.richTextData = nil
+            draft.blocks = [replacement]
+        case .continueWriting:
+            draft.blocks.append(.init(noteID: draft.id, kind: .paragraph, text: preview))
+        case .extractTasks:
+            for line in aiProposalLines(preview) {
+                draft.blocks.append(.init(noteID: draft.id, kind: .checklist, text: line))
+            }
+        case .suggestTags:
+            for name in aiProposalLines(preview).prefix(5) {
+                if let existing = tags.first(where: { $0.name.localizedCaseInsensitiveCompare(name) == .orderedSame }) {
+                    draft.tagIDs.insert(existing.id)
+                } else if let created = await onCreateTag(name) {
+                    draft.tagIDs.insert(created.id)
+                }
+            }
+        case .suggestLinks:
+            let lowered = preview.lowercased()
+            for note in allNotes where note.id != draft.id && lowered.contains(note.displayTitle.lowercased()) {
+                onConnect(note.id)
+            }
+        }
+        normalizeOrdinals()
+        draft.updatedAt = Date()
+        draft.contentVersion = max(1, draft.contentVersion ?? 1) + 1
+        aiProposal = nil
+        await persist(preparedDraft())
+    }
+
+    private func aiProposalLines(_ value: String) -> [String] {
+        value
+            .split(whereSeparator: \.isNewline)
+            .map {
+                String($0)
+                    .trimmingCharacters(in: CharacterSet.whitespaces.union(CharacterSet(charactersIn: "-•0123456789.[]")))
+            }
+            .filter { !$0.isEmpty }
+    }
+
+    private func aiActionTitle(_ action: NoteAIAction) -> String {
+        switch action {
+        case .summarize: "Summarize"
+        case .cleanUp: "Clean up writing"
+        case .continueWriting: "Continue writing"
+        case .extractTasks: "Extract checklists"
+        case .suggestTags: "Suggest tags"
+        case .suggestLinks: "Suggest links"
+        }
+    }
+
+    private func aiActionSymbol(_ action: NoteAIAction) -> String {
+        switch action {
+        case .summarize: "text.badge.star"
+        case .cleanUp: "wand.and.sparkles"
+        case .continueWriting: "text.append"
+        case .extractTasks: "checklist"
+        case .suggestTags: "tag"
+        case .suggestLinks: "link"
+        }
     }
 
     private func scheduleAutosave() {
@@ -1674,7 +2447,20 @@ private struct LifeBoardKnowledgeNoteEditor: View {
     }
 
     private func addBlock(_ kind: LifeBoardKnowledgeBlockKind) {
-        draft.blocks.append(.init(noteID: draft.id, kind: kind, ordinal: draft.blocks.count))
+        if V2FeatureFlags.knowledgeNotesTextKitEditorV2Enabled {
+            performEditorCommand(.insertBlock(kind))
+        } else {
+            draft.blocks.append(.init(noteID: draft.id, kind: kind, ordinal: draft.blocks.count))
+        }
+    }
+
+    private func performEditorCommand(_ command: KnowledgeEditorCommand) {
+        if V2FeatureFlags.knowledgeNotesTextKitEditorV2Enabled {
+            richEditorCommand = .init(command: command)
+            richEditorIsFocused = true
+        } else if case let .block(kind) = command {
+            draft.blocks.append(.init(noteID: draft.id, kind: kind, ordinal: draft.blocks.count))
+        }
     }
 
     private func deleteBlock(_ block: LifeBoardKnowledgeBlockValue) {
@@ -1719,38 +2505,23 @@ private struct LifeBoardKnowledgeNoteEditor: View {
         guard url.startAccessingSecurityScopedResource() else { return }
         defer { url.stopAccessingSecurityScopedResource() }
         guard let text = try? String(contentsOf: url, encoding: .utf8) else { return }
-        let imported = text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init)
-        for line in imported where !line.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            let kind: LifeBoardKnowledgeBlockKind
-            let content: String
-            if line.hasPrefix("## ") {
-                kind = .heading2
-                content = String(line.dropFirst(3))
-            } else if line.hasPrefix("# ") {
-                kind = .heading1
-                content = String(line.dropFirst(2))
-            } else if line.hasPrefix("- [ ] ") || line.hasPrefix("- [x] ") {
-                kind = .checklist
-                content = String(line.dropFirst(6))
-            } else if line.hasPrefix("- ") {
-                kind = .bulletedList
-                content = String(line.dropFirst(2))
-            } else if line.hasPrefix("> ") {
-                kind = .quote
-                content = String(line.dropFirst(2))
-            } else {
-                kind = .paragraph
-                content = line
-            }
-            draft.blocks.append(.init(
-                noteID: draft.id,
-                kind: kind,
-                text: content,
-                ordinal: draft.blocks.count,
-                createdAt: Date(),
-                updatedAt: Date()
-            ))
+        if let snapshot = try? JSONEncoder().encode(draft) {
+            try? await repository.saveKnowledgeRevision(
+                .init(
+                    noteID: draft.id,
+                    snapshot: snapshot,
+                    reason: "Before importing \(url.lastPathComponent)",
+                    baseContentVersion: draft.contentVersion,
+                    contentVersion: draft.contentVersion,
+                    changeKind: "import"
+                )
+            )
         }
+        draft.blocks.append(contentsOf: KnowledgeMarkdownCodec.parse(
+            text,
+            noteID: draft.id,
+            startingOrdinal: draft.blocks.count
+        ))
         normalizeOrdinals()
         if draft.title.isEmpty {
             draft.title = url.deletingPathExtension().lastPathComponent
@@ -1843,6 +2614,106 @@ private struct LifeBoardKnowledgeNoteEditor: View {
     }
 }
 
+private struct LifeBoardNoteAIProposalReview: View {
+    let proposal: NoteAIProposal
+    let currentContentVersion: Int
+    let onApply: (String) async -> Void
+    let onDiscard: () -> Void
+
+    @State private var editedPreview: String
+    @State private var isApplying = false
+
+    init(
+        proposal: NoteAIProposal,
+        currentContentVersion: Int,
+        onApply: @escaping (String) async -> Void,
+        onDiscard: @escaping () -> Void
+    ) {
+        self.proposal = proposal
+        self.currentContentVersion = currentContentVersion
+        self.onApply = onApply
+        self.onDiscard = onDiscard
+        _editedPreview = State(initialValue: proposal.preview)
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 18) {
+                    Label("Review before anything changes", systemImage: "checkmark.shield")
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
+                    Text(proposal.explanation)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                    TextEditor(text: $editedPreview)
+                        .font(.body)
+                        .scrollContentBackground(.hidden)
+                        .frame(minHeight: 260)
+                        .padding(16)
+                        .background(
+                            Color(uiColor: .secondarySystemBackground),
+                            in: RoundedRectangle(cornerRadius: 20, style: .continuous)
+                        )
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .stroke(Color.primary.opacity(0.07), lineWidth: 1)
+                        }
+                        .accessibilityLabel("Editable EVA proposal")
+                    if isStale {
+                        Label(
+                            "This proposal is stale because the note changed. Discard it and ask again.",
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.orange)
+                    } else {
+                        Label(
+                            "Only the text shown here will be applied. You can edit it first.",
+                            systemImage: "hand.raised"
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                .frame(maxWidth: 680, alignment: .leading)
+                .padding(24)
+                .frame(maxWidth: .infinity)
+            }
+            .background(Color(uiColor: .systemBackground))
+            .navigationTitle("EVA Proposal")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Discard", role: .destructive, action: onDiscard)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        isApplying = true
+                        Task {
+                            await onApply(editedPreview)
+                            isApplying = false
+                        }
+                    } label: {
+                        if isApplying {
+                            ProgressView().controlSize(.small)
+                        } else {
+                            Text("Apply").fontWeight(.semibold)
+                        }
+                    }
+                    .disabled(isApplying || isStale || editedPreview.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .interactiveDismissDisabled(isApplying)
+    }
+
+    private var isStale: Bool {
+        currentContentVersion != proposal.baseContentVersion
+    }
+}
+
 private struct LifeBoardNoteHistoryView: View {
     let revisions: [KnowledgeNoteRevisionValue]
     let onRestore: (KnowledgeNoteRevisionValue) -> Void
@@ -1880,6 +2751,290 @@ private struct LifeBoardNoteHistoryView: View {
                     Button("Done", action: onDismiss)
                 }
             }
+        }
+    }
+}
+
+private struct LifeBoardLockedKnowledgeNoteEditor: View {
+    let placeholder: LifeBoardKnowledgeNoteValue
+    let onUnlock: () async throws -> KnowledgeUnlockedNoteSession
+    let onSave: (KnowledgeUnlockedNoteSession) async throws -> Void
+
+    @State private var session: KnowledgeUnlockedNoteSession?
+    @State private var isUnlocking = false
+    @State private var errorMessage: String?
+    @State private var selection = NSRange(location: 0, length: 0)
+    @State private var isFocused = false
+    @State private var command: KnowledgeEditorCommandInvocation?
+    @State private var saveTask: Task<Void, Never>?
+    @State private var saveState: NoteEditorSaveState = .idle
+    @State private var isCaptured = false
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.scenePhase) private var scenePhase
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color(uiColor: .systemBackground).ignoresSafeArea()
+                LifeBoardSceneCaptureMonitor(isCaptured: $isCaptured)
+                    .frame(width: 0, height: 0)
+                if let session {
+                    unlockedContent(session)
+                } else {
+                    lockedPlaceholder
+                }
+                if scenePhase != .active || isCaptured {
+                    privacyShield
+                        .transition(.opacity)
+                        .zIndex(10)
+                }
+            }
+            .navigationTitle("")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button {
+                        Task { await saveAndDismiss() }
+                    } label: {
+                        Image(systemName: "xmark")
+                            .frame(width: 36, height: 36)
+                    }
+                    .accessibilityLabel("Close locked note")
+                }
+                ToolbarItem(placement: .principal) {
+                    Label("Locked", systemImage: "lock.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .onChange(of: scenePhase) { _, phase in
+                guard phase != .active else { return }
+                saveTask?.cancel()
+                Task { await saveCurrentSession() }
+            }
+            .onDisappear {
+                saveTask?.cancel()
+                Task { await saveCurrentSession() }
+            }
+            .alert("Locked note unavailable", isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage ?? "")
+            }
+        }
+    }
+
+    private var lockedPlaceholder: some View {
+        VStack(spacing: 18) {
+            ZStack {
+                Circle()
+                    .fill(Color.orange.opacity(0.12))
+                    .frame(width: 88, height: 88)
+                Image(systemName: "lock.fill")
+                    .font(.system(size: 34, weight: .semibold))
+                    .foregroundStyle(.orange)
+                    .symbolEffect(.breathe, options: .nonRepeating)
+            }
+            Text("A private page")
+                .font(.system(.title, design: .rounded, weight: .bold))
+            Text("Authenticate to read or edit this note. Its title, text, links, and attachments stay out of search and previews.")
+                .font(.body)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 390)
+            Button {
+                Task { await unlock() }
+            } label: {
+                HStack(spacing: 10) {
+                    if isUnlocking { ProgressView().controlSize(.small) }
+                    Label(isUnlocking ? "Unlocking" : "Unlock note", systemImage: "faceid")
+                        .fontWeight(.semibold)
+                }
+                .padding(.horizontal, 20)
+                .frame(minHeight: 50)
+            }
+            .disabled(isUnlocking)
+            .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
+            .accessibilityIdentifier("notes.locked.unlock")
+        }
+        .padding(30)
+    }
+
+    private func unlockedContent(_ current: KnowledgeUnlockedNoteSession) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 12) {
+                TextField("Note title", text: Binding(
+                    get: { session?.note.title ?? "" },
+                    set: { value in
+                        session?.note.title = value
+                        scheduleSave()
+                    }
+                ))
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .textFieldStyle(.plain)
+                .accessibilityLabel("Note title")
+
+                LifeBoardUnifiedNoteEditor(
+                    note: Binding(
+                        get: { session?.note ?? current.note },
+                        set: { value in
+                            session?.note = value
+                            scheduleSave()
+                        }
+                    ),
+                    selection: $selection,
+                    isFocused: $isFocused,
+                    command: command,
+                    onSlashCommand: {},
+                    onWikiLink: { _ in }
+                )
+                .frame(minHeight: 320)
+
+                if !current.attachments.isEmpty {
+                    Divider().padding(.vertical, 8)
+                    Text("Encrypted attachments")
+                        .font(.headline)
+                    ForEach(current.attachments) { attachment in
+                        Label(attachment.fileName, systemImage: "lock.doc")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            }
+            .frame(maxWidth: 760, alignment: .leading)
+            .padding(.horizontal, 24)
+            .padding(.vertical, 26)
+            .frame(maxWidth: .infinity)
+        }
+        .safeAreaInset(edge: .bottom) {
+            HStack(spacing: 6) {
+                editorButton("Bold", "bold", .bold)
+                editorButton("Italic", "italic", .italic)
+                editorButton("Highlight", "highlighter", .highlight)
+                Divider().frame(height: 22)
+                editorButton("Checklist", "checklist", .block(.checklist))
+                editorButton("Heading", "textformat.size", .block(.heading2))
+                Spacer()
+                switch saveState {
+                case .saving: ProgressView().controlSize(.small)
+                case .saved: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                case .failed: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                default: EmptyView()
+                }
+            }
+            .padding(.horizontal, 12)
+            .frame(maxWidth: 620, minHeight: 52)
+            .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
+            .padding(12)
+        }
+    }
+
+    private func editorButton(
+        _ label: String,
+        _ symbol: String,
+        _ editorCommand: KnowledgeEditorCommand
+    ) -> some View {
+        Button {
+            command = .init(command: editorCommand)
+            isFocused = true
+        } label: {
+            Image(systemName: symbol).frame(width: 40, height: 40)
+        }
+        .accessibilityLabel(label)
+    }
+
+    private var privacyShield: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "lock.fill")
+                .font(.largeTitle)
+            Text("Locked note")
+                .font(.headline)
+        }
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(uiColor: .systemBackground))
+        .accessibilityElement(children: .combine)
+    }
+
+    @MainActor
+    private func unlock() async {
+        isUnlocking = true
+        defer { isUnlocking = false }
+        do {
+            session = try await onUnlock()
+            isFocused = true
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func scheduleSave() {
+        saveTask?.cancel()
+        saveState = .saving
+        saveTask = Task {
+            try? await Task.sleep(for: .milliseconds(450))
+            guard !Task.isCancelled else { return }
+            await saveCurrentSession()
+        }
+    }
+
+    @MainActor
+    private func saveCurrentSession() async {
+        guard let session else { return }
+        do {
+            try await onSave(session)
+            saveState = .saved(Date())
+        } catch {
+            saveState = .failed(error.localizedDescription)
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    @MainActor
+    private func saveAndDismiss() async {
+        saveTask?.cancel()
+        await saveCurrentSession()
+        session = nil
+        dismiss()
+    }
+}
+
+private struct LifeBoardSceneCaptureMonitor: UIViewRepresentable {
+    @Binding var isCaptured: Bool
+
+    func makeUIView(context: Context) -> CaptureView {
+        let view = CaptureView()
+        view.onChange = { isCaptured = $0 }
+        return view
+    }
+
+    func updateUIView(_ uiView: CaptureView, context: Context) {
+        uiView.onChange = { isCaptured = $0 }
+        uiView.publish()
+    }
+
+    final class CaptureView: UIView {
+        var onChange: ((Bool) -> Void)?
+        private var observesCaptureState = false
+
+        override func didMoveToWindow() {
+            super.didMoveToWindow()
+            if !observesCaptureState {
+                observesCaptureState = true
+                registerForTraitChanges([UITraitSceneCaptureState.self]) { (view: CaptureView, _) in
+                    view.publish()
+                }
+            }
+            publish()
+        }
+
+        func publish() {
+            let captured = traitCollection.sceneCaptureState == .active
+            guard window != nil else { return }
+            DispatchQueue.main.async { [weak self] in self?.onChange?(captured) }
         }
     }
 }
@@ -2187,6 +3342,119 @@ private struct LifeBoardKnowledgeTableEditor: View {
         payload.table = value
         block.metadata = payload.encoded()
         block.text = value.rows.map { $0.joined(separator: ",") }.joined(separator: "\n")
+    }
+}
+
+private struct LifeBoardSmartCollectionBuilder: View {
+    let spaceID: UUID?
+    let folders: [LifeBoardKnowledgeFolderValue]
+    let tags: [LifeBoardKnowledgeTagValue]
+    let onSave: (String, KnowledgeNoteQuery) async -> Void
+    let onCancel: () -> Void
+
+    @State private var name = ""
+    @State private var terms = ""
+    @State private var folderID: UUID?
+    @State private var selectedTagIDs: Set<UUID> = []
+    @State private var requiresAttachments = false
+    @State private var checklist: KnowledgeChecklistFilter = .any
+    @State private var linkFilter: KnowledgeLinkFilter = .any
+    @State private var favoritesOnly = false
+    @State private var pinnedOnly = false
+    @State private var modifiedRecently = false
+    @State private var isSaving = false
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Collection") {
+                    TextField("Name", text: $name)
+                        .accessibilityIdentifier("notes.smartCollection.name")
+                    TextField("Words or phrase", text: $terms)
+                }
+                Section("Location") {
+                    Picker("Folder", selection: $folderID) {
+                        Text("Any folder").tag(UUID?.none)
+                        ForEach(folders) { folder in
+                            Text(folder.title).tag(Optional(folder.id))
+                        }
+                    }
+                    if !tags.isEmpty {
+                        DisclosureGroup(selectedTagIDs.isEmpty ? "Tags" : "Tags · \(selectedTagIDs.count)") {
+                            ForEach(tags) { tag in
+                                Toggle(tag.name, isOn: Binding(
+                                    get: { selectedTagIDs.contains(tag.id) },
+                                    set: { selected in
+                                        if selected { selectedTagIDs.insert(tag.id) }
+                                        else { selectedTagIDs.remove(tag.id) }
+                                    }
+                                ))
+                            }
+                        }
+                    }
+                }
+                Section("Content") {
+                    Toggle("Has attachments", isOn: $requiresAttachments)
+                    Picker("Checklists", selection: $checklist) {
+                        Text("Any").tag(KnowledgeChecklistFilter.any)
+                        Text("Has incomplete items").tag(KnowledgeChecklistFilter.incomplete)
+                        Text("All completed").tag(KnowledgeChecklistFilter.completed)
+                    }
+                    Picker("Connections", selection: $linkFilter) {
+                        Text("Any").tag(KnowledgeLinkFilter.any)
+                        Text("Incoming links").tag(KnowledgeLinkFilter.incoming)
+                        Text("Outgoing links").tag(KnowledgeLinkFilter.outgoing)
+                        Text("Unlinked").tag(KnowledgeLinkFilter.unlinked)
+                    }
+                }
+                Section("Refine") {
+                    Toggle("Favorites only", isOn: $favoritesOnly)
+                    Toggle("Pinned only", isOn: $pinnedOnly)
+                    Toggle("Edited in the last 30 days", isOn: $modifiedRecently)
+                }
+                Section {
+                    Text("Saved collections update automatically as your notes change.")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .navigationTitle("Smart Collection")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button {
+                        isSaving = true
+                        let query = KnowledgeNoteQuery(
+                            collection: .all,
+                            spaceID: spaceID,
+                            folderID: folderID,
+                            tagIDs: selectedTagIDs,
+                            searchText: terms,
+                            modifiedAfter: modifiedRecently
+                                ? Calendar.current.date(byAdding: .day, value: -30, to: Date())
+                                : nil,
+                            requiresAttachments: requiresAttachments ? true : nil,
+                            checklist: checklist == .any ? nil : checklist,
+                            links: linkFilter == .any ? nil : linkFilter,
+                            pinned: pinnedOnly ? true : nil,
+                            favorite: favoritesOnly ? true : nil
+                        )
+                        Task {
+                            await onSave(name, query)
+                            isSaving = false
+                        }
+                    } label: {
+                        if isSaving { ProgressView().controlSize(.small) }
+                        else { Text("Save").fontWeight(.semibold) }
+                    }
+                    .disabled(isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+        .interactiveDismissDisabled(isSaving)
     }
 }
 

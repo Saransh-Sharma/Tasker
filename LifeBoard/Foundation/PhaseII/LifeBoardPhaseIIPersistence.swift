@@ -677,7 +677,9 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
         let (notes, links) = try await (noteValues, linkValues)
         return query.apply(
             to: notes,
-            linkedNoteIDs: Set(links.flatMap { [$0.sourceNoteID, $0.destinationNoteID] })
+            linkedNoteIDs: Set(links.flatMap { [$0.sourceNoteID, $0.destinationNoteID] }),
+            incomingNoteIDs: Set(links.map(\.destinationNoteID)),
+            outgoingNoteIDs: Set(links.map(\.sourceNoteID))
         )
     }
 
@@ -823,7 +825,10 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
                 id: id,
                 noteID: noteID,
                 snapshot: snapshot,
-                updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+                createdAt: Self.attributeValue("createdAt", from: object) as? Date,
+                updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date(),
+                baseContentVersion: (Self.attributeValue("baseContentVersion", from: object) as? NSNumber)?.intValue,
+                sceneID: Self.attributeValue("sceneID", from: object) as? String
             )
         }
     }
@@ -839,6 +844,9 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             object.setValue(value.noteID, forKey: "noteID")
             object.setValue(value.snapshot, forKey: "snapshotData")
             object.setValue(value.updatedAt, forKey: "updatedAt")
+            Self.setAttribute(value.createdAt, key: "createdAt", on: object)
+            Self.setAttribute(value.baseContentVersion, key: "baseContentVersion", on: object)
+            Self.setAttribute(value.sceneID, key: "sceneID", on: object)
         }
     }
 
@@ -864,7 +872,11 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
                     noteID: noteID,
                     snapshot: snapshot,
                     reason: object.value(forKey: "reason") as? String ?? "Edit",
-                    createdAt: object.value(forKey: "createdAt") as? Date ?? Date()
+                    createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
+                    baseContentVersion: (Self.attributeValue("baseContentVersion", from: object) as? NSNumber)?.intValue,
+                    contentVersion: (Self.attributeValue("contentVersion", from: object) as? NSNumber)?.intValue,
+                    sessionID: Self.attributeValue("sessionID", from: object) as? UUID,
+                    changeKind: Self.attributeValue("changeKindRaw", from: object) as? String
                 )
             }
         }
@@ -878,6 +890,100 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             object.setValue(value.snapshot, forKey: "snapshotData")
             object.setValue(value.reason, forKey: "reason")
             object.setValue(value.createdAt, forKey: "createdAt")
+            Self.setAttribute(value.baseContentVersion, key: "baseContentVersion", on: object)
+            Self.setAttribute(value.contentVersion, key: "contentVersion", on: object)
+            Self.setAttribute(value.sessionID, key: "sessionID", on: object)
+            Self.setAttribute(value.changeKind, key: "changeKindRaw", on: object)
+        }
+    }
+
+    public func lockKnowledgeNote(
+        redacted: LifeBoardKnowledgeNoteValue,
+        payload: KnowledgeSecurePayloadValue,
+        attachments: [KnowledgeSecureAttachmentPayloadValue]
+    ) async throws {
+        try await write { context in
+            let secureRequest = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeNoteSecurePayload")
+            secureRequest.predicate = NSPredicate(format: "noteID == %@", payload.noteID as CVarArg)
+            secureRequest.fetchLimit = 1
+            let secure = try context.fetch(secureRequest).first
+                ?? NSEntityDescription.insertNewObject(forEntityName: "KnowledgeNoteSecurePayload", into: context)
+            secure.setValue(secure.value(forKey: "id") as? UUID ?? payload.id, forKey: "id")
+            secure.setValue(payload.noteID, forKey: "noteID")
+            secure.setValue(payload.ciphertext, forKey: "ciphertextData")
+            secure.setValue(payload.updatedAt, forKey: "updatedAt")
+            Self.setAttribute(payload.contentVersion, key: "contentVersion", on: secure)
+            Self.setAttribute(payload.algorithmVersion, key: "algorithmVersion", on: secure)
+            Self.setAttribute(payload.keyIdentifier, key: "keyIdentifier", on: secure)
+
+            let existingSecureAttachments = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeSecureAttachmentPayload")
+            existingSecureAttachments.predicate = NSPredicate(format: "noteID == %@", payload.noteID as CVarArg)
+            for value in try context.fetch(existingSecureAttachments) { context.delete(value) }
+            for value in attachments {
+                let object = NSEntityDescription.insertNewObject(forEntityName: "KnowledgeSecureAttachmentPayload", into: context)
+                object.setValue(value.id, forKey: "id")
+                object.setValue(value.noteID, forKey: "noteID")
+                object.setValue(value.attachmentID, forKey: "attachmentID")
+                object.setValue(value.ciphertext, forKey: "ciphertextData")
+                object.setValue(value.checksum, forKey: "checksum")
+                object.setValue(value.byteCount, forKey: "byteCount")
+                object.setValue(value.algorithmVersion, forKey: "algorithmVersion")
+                object.setValue(value.updatedAt, forKey: "updatedAt")
+            }
+
+            guard let note = try Self.fetchOne(entity: "KnowledgeNote", id: redacted.id, in: context) else {
+                throw CocoaError(.validationMissingMandatoryProperty)
+            }
+            note.setValue("", forKey: "title")
+            note.setValue(redacted.updatedAt, forKey: "updatedAt")
+            note.setValue(redacted.resolvedLockPolicy.rawValue, forKey: "lockPolicyRaw")
+            note.setValue(redacted.contentVersion ?? payload.contentVersion, forKey: "contentVersion")
+            for relationshipName in ["blocks", "tagLinks", "outgoingLinks", "incomingLinks", "attachments"] {
+                let values = (note.value(forKey: relationshipName) as? Set<NSManagedObject>) ?? []
+                for value in values { context.delete(value) }
+            }
+        }
+    }
+
+    public func fetchKnowledgeSecurePayload(
+        noteID: UUID
+    ) async throws -> (KnowledgeSecurePayloadValue, [KnowledgeSecureAttachmentPayloadValue])? {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeNoteSecurePayload")
+            request.predicate = NSPredicate(format: "noteID == %@", noteID as CVarArg)
+            request.fetchLimit = 1
+            guard let object = try context.fetch(request).first,
+                  let id = object.value(forKey: "id") as? UUID,
+                  let ciphertext = object.value(forKey: "ciphertextData") as? Data else {
+                return nil
+            }
+            let payload = KnowledgeSecurePayloadValue(
+                id: id,
+                noteID: noteID,
+                ciphertext: ciphertext,
+                updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date(),
+                contentVersion: (Self.attributeValue("contentVersion", from: object) as? NSNumber)?.intValue ?? 1,
+                algorithmVersion: (Self.attributeValue("algorithmVersion", from: object) as? NSNumber)?.intValue ?? 1,
+                keyIdentifier: Self.attributeValue("keyIdentifier", from: object) as? String ?? noteID.uuidString
+            )
+            let attachmentRequest = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeSecureAttachmentPayload")
+            attachmentRequest.predicate = NSPredicate(format: "noteID == %@", noteID as CVarArg)
+            let attachments = try context.fetch(attachmentRequest).compactMap { value -> KnowledgeSecureAttachmentPayloadValue? in
+                guard let id = value.value(forKey: "id") as? UUID,
+                      let attachmentID = value.value(forKey: "attachmentID") as? UUID,
+                      let ciphertext = value.value(forKey: "ciphertextData") as? Data else { return nil }
+                return .init(
+                    id: id,
+                    noteID: noteID,
+                    attachmentID: attachmentID,
+                    ciphertext: ciphertext,
+                    checksum: value.value(forKey: "checksum") as? String,
+                    byteCount: (value.value(forKey: "byteCount") as? NSNumber)?.int64Value ?? 0,
+                    algorithmVersion: (value.value(forKey: "algorithmVersion") as? NSNumber)?.intValue ?? 1,
+                    updatedAt: value.value(forKey: "updatedAt") as? Date ?? Date()
+                )
+            }
+            return (payload, attachments)
         }
     }
 
@@ -886,13 +992,25 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             let draftCutoff = now.addingTimeInterval(-60 * 60 * 24 * 7)
             let revisionCutoff = now.addingTimeInterval(-60 * 60 * 24 * 30)
             let trashCutoff = now.addingTimeInterval(-60 * 60 * 24 * 30)
-            for (entity, key, cutoff) in [
-                ("KnowledgeNoteDraft", "updatedAt", draftCutoff),
-                ("KnowledgeNoteRevision", "createdAt", revisionCutoff)
-            ] {
-                let request = NSFetchRequest<NSManagedObject>(entityName: entity)
-                request.predicate = NSPredicate(format: "%K < %@", key, cutoff as NSDate)
-                for value in try context.fetch(request) { context.delete(value) }
+            let expiredDrafts = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeNoteDraft")
+            expiredDrafts.predicate = NSPredicate(format: "updatedAt < %@", draftCutoff as NSDate)
+            for value in try context.fetch(expiredDrafts) { context.delete(value) }
+
+            let revisions = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeNoteRevision")
+            revisions.sortDescriptors = [
+                NSSortDescriptor(key: "noteID", ascending: true),
+                NSSortDescriptor(key: "createdAt", ascending: false)
+            ]
+            var counts: [UUID: Int] = [:]
+            for revision in try context.fetch(revisions) {
+                guard let noteID = revision.value(forKey: "noteID") as? UUID else {
+                    context.delete(revision)
+                    continue
+                }
+                let index = counts[noteID, default: 0]
+                counts[noteID] = index + 1
+                let createdAt = revision.value(forKey: "createdAt") as? Date ?? .distantPast
+                if index >= 100 && createdAt < revisionCutoff { context.delete(revision) }
             }
             let trashed = NSFetchRequest<NSManagedObject>(entityName: "KnowledgeNote")
             trashed.predicate = NSPredicate(format: "stateRaw == %@ AND deletedAt < %@", KnowledgeNoteState.trashed.rawValue, trashCutoff as NSDate)
@@ -932,6 +1050,8 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             link.setValue(value.sourceNoteID, forKey: "sourceNoteID")
             link.setValue(value.destinationNoteID, forKey: "destinationNoteID")
             link.setValue(value.label, forKey: "label")
+            Self.setAttribute(value.sourceBlockID, key: "sourceBlockID", on: link)
+            Self.setAttribute(value.kind ?? "noteLink", key: "kindRaw", on: link)
             link.setValue(try Self.fetchOne(entity: "KnowledgeNote", id: value.sourceNoteID, in: context), forKey: "sourceNote")
             link.setValue(try Self.fetchOne(entity: "KnowledgeNote", id: value.destinationNoteID, in: context), forKey: "destinationNote")
         }
@@ -961,7 +1081,12 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             attachment.setValue(value.fileName, forKey: "fileName")
             attachment.setValue(value.payload, forKey: "payloadData")
             attachment.setValue(value.createdAt, forKey: "createdAt")
+            Self.setAttribute(value.modifiedAt ?? Date(), key: "modifiedAt", on: attachment)
             attachment.setValue(value.contentType, forKey: "contentType")
+            Self.setAttribute(value.sourceKind ?? "file", key: "sourceKindRaw", on: attachment)
+            Self.setAttribute(value.processingState ?? "available", key: "processingStateRaw", on: attachment)
+            Self.setAttribute(value.processingErrorCode, key: "processingErrorCode", on: attachment)
+            Self.setAttribute(value.protectedRelativePath, key: "protectedRelativePath", on: attachment)
             attachment.setValue(value.checksum, forKey: "checksum")
             attachment.setValue(value.byteCount ?? Int64(value.payload.count), forKey: "byteCount")
             attachment.setValue(value.availability ?? "available", forKey: "availabilityRaw")
@@ -1006,6 +1131,16 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
     private static func upsert(entity: String, id: UUID, in context: NSManagedObjectContext) throws -> NSManagedObject {
         if let existing = try fetchOne(entity: entity, id: id, in: context) { return existing }
         return NSEntityDescription.insertNewObject(forEntityName: entity, into: context)
+    }
+
+    private static func setAttribute(_ value: Any?, key: String, on object: NSManagedObject) {
+        guard object.entity.attributesByName[key] != nil else { return }
+        object.setValue(value, forKey: key)
+    }
+
+    private static func attributeValue(_ key: String, from object: NSManagedObject) -> Any? {
+        guard object.entity.attributesByName[key] != nil else { return nil }
+        return object.value(forKey: key)
     }
 
     private static func fetchOneLocal(
@@ -1367,7 +1502,14 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
         guard let id = object.value(forKey: "id") as? UUID,
               let source = object.value(forKey: "sourceNoteID") as? UUID,
               let destination = object.value(forKey: "destinationNoteID") as? UUID else { return nil }
-        return .init(id: id, sourceNoteID: source, destinationNoteID: destination, label: object.value(forKey: "label") as? String)
+        return .init(
+            id: id,
+            sourceNoteID: source,
+            destinationNoteID: destination,
+            label: object.value(forKey: "label") as? String,
+            sourceBlockID: attributeValue("sourceBlockID", from: object) as? UUID,
+            kind: attributeValue("kindRaw", from: object) as? String
+        )
     }
 
     private static func attachmentValue(_ object: NSManagedObject) -> LifeBoardKnowledgeAttachmentValue? {
@@ -1390,7 +1532,12 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             duration: (object.value(forKey: "duration") as? NSNumber)?.doubleValue,
             thumbnail: object.value(forKey: "thumbnailData") as? Data,
             ocrText: object.value(forKey: "ocrText") as? String,
-            transcript: object.value(forKey: "transcript") as? String
+            transcript: object.value(forKey: "transcript") as? String,
+            modifiedAt: attributeValue("modifiedAt", from: object) as? Date,
+            sourceKind: attributeValue("sourceKindRaw", from: object) as? String,
+            processingState: attributeValue("processingStateRaw", from: object) as? String,
+            processingErrorCode: attributeValue("processingErrorCode", from: object) as? String,
+            protectedRelativePath: attributeValue("protectedRelativePath", from: object) as? String
         )
     }
 }

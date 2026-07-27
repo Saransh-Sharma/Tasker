@@ -1121,6 +1121,29 @@ public enum KnowledgeNoteSort: String, Codable, CaseIterable, Sendable {
     case manual
 }
 
+public enum KnowledgeChecklistFilter: String, Codable, CaseIterable, Sendable {
+    case any
+    case incomplete
+    case completed
+}
+
+public enum KnowledgeLinkFilter: String, Codable, CaseIterable, Sendable {
+    case any
+    case incoming
+    case outgoing
+    case unlinked
+}
+
+public struct KnowledgeNoteCursor: Codable, Hashable, Sendable {
+    public var updatedAt: Date
+    public var noteID: UUID
+
+    public init(updatedAt: Date, noteID: UUID) {
+        self.updatedAt = updatedAt
+        self.noteID = noteID
+    }
+}
+
 public enum KnowledgeNoteCollection: String, Codable, CaseIterable, Identifiable, Sendable {
     case all
     case pinned
@@ -1144,6 +1167,16 @@ public struct KnowledgeNoteQuery: Codable, Hashable, Sendable {
     public var tagIDs: Set<UUID>
     public var searchText: String
     public var sort: KnowledgeNoteSort
+    public var modifiedAfter: Date?
+    public var modifiedBefore: Date?
+    public var attachmentKinds: Set<String>
+    public var requiresAttachments: Bool?
+    public var checklist: KnowledgeChecklistFilter?
+    public var links: KnowledgeLinkFilter?
+    public var pinned: Bool?
+    public var favorite: Bool?
+    public var limit: Int?
+    public var cursor: KnowledgeNoteCursor?
 
     public init(
         collection: KnowledgeNoteCollection = .all,
@@ -1151,7 +1184,17 @@ public struct KnowledgeNoteQuery: Codable, Hashable, Sendable {
         folderID: UUID? = nil,
         tagIDs: Set<UUID> = [],
         searchText: String = "",
-        sort: KnowledgeNoteSort = .updatedDescending
+        sort: KnowledgeNoteSort = .updatedDescending,
+        modifiedAfter: Date? = nil,
+        modifiedBefore: Date? = nil,
+        attachmentKinds: Set<String> = [],
+        requiresAttachments: Bool? = nil,
+        checklist: KnowledgeChecklistFilter? = nil,
+        links: KnowledgeLinkFilter? = nil,
+        pinned: Bool? = nil,
+        favorite: Bool? = nil,
+        limit: Int? = nil,
+        cursor: KnowledgeNoteCursor? = nil
     ) {
         self.collection = collection
         self.spaceID = spaceID
@@ -1159,11 +1202,23 @@ public struct KnowledgeNoteQuery: Codable, Hashable, Sendable {
         self.tagIDs = tagIDs
         self.searchText = searchText
         self.sort = sort
+        self.modifiedAfter = modifiedAfter
+        self.modifiedBefore = modifiedBefore
+        self.attachmentKinds = attachmentKinds
+        self.requiresAttachments = requiresAttachments
+        self.checklist = checklist
+        self.links = links
+        self.pinned = pinned
+        self.favorite = favorite
+        self.limit = limit
+        self.cursor = cursor
     }
 
     public func apply(
         to values: [LifeBoardKnowledgeNoteValue],
-        linkedNoteIDs: Set<UUID> = []
+        linkedNoteIDs: Set<UUID> = [],
+        incomingNoteIDs: Set<UUID> = [],
+        outgoingNoteIDs: Set<UUID> = []
     ) -> [LifeBoardKnowledgeNoteValue] {
         let needle = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
             .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
@@ -1171,7 +1226,39 @@ public struct KnowledgeNoteQuery: Codable, Hashable, Sendable {
         let filtered = values.filter { note in
             guard spaceID.map({ note.spaceID == $0 }) ?? true,
                   folderID.map({ note.folderID == $0 }) ?? true,
-                  tagIDs.isSubset(of: note.tagIDs) else { return false }
+                  tagIDs.isSubset(of: note.tagIDs),
+                  modifiedAfter.map({ note.updatedAt >= $0 }) ?? true,
+                  modifiedBefore.map({ note.updatedAt <= $0 }) ?? true,
+                  pinned.map({ note.isPinned == $0 }) ?? true,
+                  favorite.map({ note.isFavorite == $0 }) ?? true else { return false }
+            let attachmentBlocks = note.blocks.filter { $0.kind == .image || $0.kind == .file }
+            if let requiresAttachments, requiresAttachments != !attachmentBlocks.isEmpty { return false }
+            if !attachmentKinds.isEmpty {
+                let kinds = Set(attachmentBlocks.map { $0.kind.rawValue })
+                guard !kinds.isDisjoint(with: attachmentKinds) else { return false }
+            }
+            if let checklist, checklist != .any {
+                let checks = note.blocks.filter { $0.kind == .checklist }
+                switch checklist {
+                case .incomplete where !checks.contains(where: { !$0.isChecked }): return false
+                case .completed where checks.isEmpty || checks.contains(where: { !$0.isChecked }): return false
+                default: break
+                }
+            }
+            if let links, links != .any {
+                switch links {
+                case .incoming where !incomingNoteIDs.contains(note.id): return false
+                case .outgoing where !outgoingNoteIDs.contains(note.id): return false
+                case .unlinked where linkedNoteIDs.contains(note.id): return false
+                default: break
+                }
+            }
+            if let cursor {
+                guard note.updatedAt < cursor.updatedAt
+                    || (note.updatedAt == cursor.updatedAt && note.id.uuidString > cursor.noteID.uuidString) else {
+                    return false
+                }
+            }
             let stateMatches: Bool
             switch collection {
             case .archived:
@@ -1208,7 +1295,7 @@ public struct KnowledgeNoteQuery: Codable, Hashable, Sendable {
                 .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
             return haystack.contains(needle)
         }
-        return filtered.sorted { lhs, rhs in
+        let sorted = filtered.sorted { lhs, rhs in
             if !needle.isEmpty {
                 let lhsRank = searchRank(lhs, needle: needle)
                 let rhsRank = searchRank(rhs, needle: needle)
@@ -1226,6 +1313,8 @@ public struct KnowledgeNoteQuery: Codable, Hashable, Sendable {
                 return (lhs.manualSortOrder ?? 0) < (rhs.manualSortOrder ?? 0)
             }
         }
+        if let limit, limit > 0 { return Array(sorted.prefix(limit)) }
+        return sorted
     }
 
     private func searchRank(_ note: LifeBoardKnowledgeNoteValue, needle: String) -> Int {
@@ -1242,6 +1331,32 @@ public struct KnowledgeNoteQuery: Codable, Hashable, Sendable {
                 .contains(needle) == true
         }) { return 220 }
         return 200
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case collection, spaceID, folderID, tagIDs, searchText, sort
+        case modifiedAfter, modifiedBefore, attachmentKinds, requiresAttachments
+        case checklist, links, pinned, favorite, limit, cursor
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        collection = try values.decodeIfPresent(KnowledgeNoteCollection.self, forKey: .collection) ?? .all
+        spaceID = try values.decodeIfPresent(UUID.self, forKey: .spaceID)
+        folderID = try values.decodeIfPresent(UUID.self, forKey: .folderID)
+        tagIDs = try values.decodeIfPresent(Set<UUID>.self, forKey: .tagIDs) ?? []
+        searchText = try values.decodeIfPresent(String.self, forKey: .searchText) ?? ""
+        sort = try values.decodeIfPresent(KnowledgeNoteSort.self, forKey: .sort) ?? .updatedDescending
+        modifiedAfter = try values.decodeIfPresent(Date.self, forKey: .modifiedAfter)
+        modifiedBefore = try values.decodeIfPresent(Date.self, forKey: .modifiedBefore)
+        attachmentKinds = try values.decodeIfPresent(Set<String>.self, forKey: .attachmentKinds) ?? []
+        requiresAttachments = try values.decodeIfPresent(Bool.self, forKey: .requiresAttachments)
+        checklist = try values.decodeIfPresent(KnowledgeChecklistFilter.self, forKey: .checklist)
+        links = try values.decodeIfPresent(KnowledgeLinkFilter.self, forKey: .links)
+        pinned = try values.decodeIfPresent(Bool.self, forKey: .pinned)
+        favorite = try values.decodeIfPresent(Bool.self, forKey: .favorite)
+        limit = try values.decodeIfPresent(Int.self, forKey: .limit)
+        cursor = try values.decodeIfPresent(KnowledgeNoteCursor.self, forKey: .cursor)
     }
 }
 
@@ -1263,26 +1378,69 @@ public struct KnowledgeRichTextPayload: Codable, Hashable, Sendable {
         case inlineCode
     }
 
+    public enum SemanticColor: String, Codable, CaseIterable, Sendable {
+        case cocoa
+        case apricot
+        case sage
+        case rose
+        case sky
+        case secondary
+    }
+
+    public enum ParagraphSemantic: String, Codable, CaseIterable, Sendable {
+        case body
+        case heading1
+        case heading2
+        case quote
+        case code
+        case callout
+    }
+
     public struct Run: Codable, Hashable, Sendable {
         public var location: Int
         public var length: Int
         public var marks: Set<Mark>
         public var link: URL?
+        public var foreground: SemanticColor?
+        public var background: SemanticColor?
+        public var noteID: UUID?
 
-        public init(location: Int, length: Int, marks: Set<Mark> = [], link: URL? = nil) {
+        public init(
+            location: Int,
+            length: Int,
+            marks: Set<Mark> = [],
+            link: URL? = nil,
+            foreground: SemanticColor? = nil,
+            background: SemanticColor? = nil,
+            noteID: UUID? = nil
+        ) {
             self.location = location
             self.length = length
             self.marks = marks
             self.link = link
+            self.foreground = foreground
+            self.background = background
+            self.noteID = noteID
         }
     }
 
     public var version: Int
     public var runs: [Run]
+    public var paragraph: ParagraphSemantic?
+    public var unsupportedVersion: Int? {
+        version > Self.currentVersion ? version : nil
+    }
 
-    public init(version: Int = 1, runs: [Run] = []) {
+    public static let currentVersion = 2
+
+    public init(
+        version: Int = KnowledgeRichTextPayload.currentVersion,
+        runs: [Run] = [],
+        paragraph: ParagraphSemantic? = nil
+    ) {
         self.version = version
         self.runs = runs
+        self.paragraph = paragraph
     }
 }
 
@@ -1318,13 +1476,27 @@ public struct KnowledgeNoteDraftValue: Identifiable, Codable, Hashable, Sendable
     public var id: UUID
     public var noteID: UUID
     public var snapshot: Data
+    public var createdAt: Date?
     public var updatedAt: Date
+    public var baseContentVersion: Int?
+    public var sceneID: String?
 
-    public init(id: UUID = UUID(), noteID: UUID, snapshot: Data, updatedAt: Date = Date()) {
+    public init(
+        id: UUID = UUID(),
+        noteID: UUID,
+        snapshot: Data,
+        createdAt: Date? = Date(),
+        updatedAt: Date = Date(),
+        baseContentVersion: Int? = nil,
+        sceneID: String? = nil
+    ) {
         self.id = id
         self.noteID = noteID
         self.snapshot = snapshot
+        self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.baseContentVersion = baseContentVersion
+        self.sceneID = sceneID
     }
 }
 
@@ -1334,13 +1506,90 @@ public struct KnowledgeNoteRevisionValue: Identifiable, Codable, Hashable, Senda
     public var snapshot: Data
     public var reason: String
     public var createdAt: Date
+    public var baseContentVersion: Int?
+    public var contentVersion: Int?
+    public var sessionID: UUID?
+    public var changeKind: String?
 
-    public init(id: UUID = UUID(), noteID: UUID, snapshot: Data, reason: String, createdAt: Date = Date()) {
+    public init(
+        id: UUID = UUID(),
+        noteID: UUID,
+        snapshot: Data,
+        reason: String,
+        createdAt: Date = Date(),
+        baseContentVersion: Int? = nil,
+        contentVersion: Int? = nil,
+        sessionID: UUID? = nil,
+        changeKind: String? = nil
+    ) {
         self.id = id
         self.noteID = noteID
         self.snapshot = snapshot
         self.reason = reason
         self.createdAt = createdAt
+        self.baseContentVersion = baseContentVersion
+        self.contentVersion = contentVersion
+        self.sessionID = sessionID
+        self.changeKind = changeKind
+    }
+}
+
+public struct KnowledgeSecurePayloadValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var noteID: UUID
+    public var ciphertext: Data
+    public var updatedAt: Date
+    public var contentVersion: Int
+    public var algorithmVersion: Int
+    public var keyIdentifier: String
+
+    public init(
+        id: UUID = UUID(),
+        noteID: UUID,
+        ciphertext: Data,
+        updatedAt: Date = Date(),
+        contentVersion: Int,
+        algorithmVersion: Int,
+        keyIdentifier: String
+    ) {
+        self.id = id
+        self.noteID = noteID
+        self.ciphertext = ciphertext
+        self.updatedAt = updatedAt
+        self.contentVersion = contentVersion
+        self.algorithmVersion = algorithmVersion
+        self.keyIdentifier = keyIdentifier
+    }
+}
+
+public struct KnowledgeSecureAttachmentPayloadValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var noteID: UUID
+    public var attachmentID: UUID
+    public var ciphertext: Data
+    public var checksum: String?
+    public var byteCount: Int64
+    public var algorithmVersion: Int
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        noteID: UUID,
+        attachmentID: UUID,
+        ciphertext: Data,
+        checksum: String? = nil,
+        byteCount: Int64,
+        algorithmVersion: Int = 1,
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.noteID = noteID
+        self.attachmentID = attachmentID
+        self.ciphertext = ciphertext
+        self.checksum = checksum
+        self.byteCount = byteCount
+        self.algorithmVersion = algorithmVersion
+        self.updatedAt = updatedAt
     }
 }
 
@@ -1653,6 +1902,7 @@ public struct LifeBoardKnowledgeNoteValue: Identifiable, Codable, Hashable, Send
     }
 
     public var displayTitle: String {
+        if resolvedLockPolicy != .unlocked { return "Locked note" }
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "Untitled" : trimmed
     }
@@ -1682,12 +1932,23 @@ public struct LifeBoardKnowledgeLinkValue: Identifiable, Codable, Hashable, Send
     public var sourceNoteID: UUID
     public var destinationNoteID: UUID
     public var label: String?
+    public var sourceBlockID: UUID?
+    public var kind: String?
 
-    public init(id: UUID = UUID(), sourceNoteID: UUID, destinationNoteID: UUID, label: String? = nil) {
+    public init(
+        id: UUID = UUID(),
+        sourceNoteID: UUID,
+        destinationNoteID: UUID,
+        label: String? = nil,
+        sourceBlockID: UUID? = nil,
+        kind: String? = nil
+    ) {
         self.id = id
         self.sourceNoteID = sourceNoteID
         self.destinationNoteID = destinationNoteID
         self.label = label
+        self.sourceBlockID = sourceBlockID
+        self.kind = kind
     }
 }
 
@@ -1706,6 +1967,11 @@ public struct LifeBoardKnowledgeAttachmentValue: Identifiable, Codable, Hashable
     public var thumbnail: Data?
     public var ocrText: String?
     public var transcript: String?
+    public var modifiedAt: Date?
+    public var sourceKind: String?
+    public var processingState: String?
+    public var processingErrorCode: String?
+    public var protectedRelativePath: String?
 
     public init(
         id: UUID = UUID(),
@@ -1721,7 +1987,12 @@ public struct LifeBoardKnowledgeAttachmentValue: Identifiable, Codable, Hashable
         duration: Double? = nil,
         thumbnail: Data? = nil,
         ocrText: String? = nil,
-        transcript: String? = nil
+        transcript: String? = nil,
+        modifiedAt: Date? = nil,
+        sourceKind: String? = nil,
+        processingState: String? = nil,
+        processingErrorCode: String? = nil,
+        protectedRelativePath: String? = nil
     ) {
         self.id = id
         self.noteID = noteID
@@ -1737,6 +2008,11 @@ public struct LifeBoardKnowledgeAttachmentValue: Identifiable, Codable, Hashable
         self.thumbnail = thumbnail
         self.ocrText = ocrText
         self.transcript = transcript
+        self.modifiedAt = modifiedAt
+        self.sourceKind = sourceKind
+        self.processingState = processingState
+        self.processingErrorCode = processingErrorCode
+        self.protectedRelativePath = protectedRelativePath
     }
 }
 
@@ -1812,6 +2088,18 @@ public protocol LifeBoardPhaseIIRepository: Sendable {
     func deleteKnowledgeDraft(noteID: UUID) async throws
     func fetchKnowledgeRevisions(noteID: UUID) async throws -> [KnowledgeNoteRevisionValue]
     func saveKnowledgeRevision(_ value: KnowledgeNoteRevisionValue) async throws
+    func lockKnowledgeNote(
+        redacted: LifeBoardKnowledgeNoteValue,
+        payload: KnowledgeSecurePayloadValue,
+        attachments: [KnowledgeSecureAttachmentPayloadValue]
+    ) async throws
+    func fetchKnowledgeSecurePayload(
+        noteID: UUID
+    ) async throws -> (KnowledgeSecurePayloadValue, [KnowledgeSecureAttachmentPayloadValue])?
+    func restoreUnlockedKnowledgeNote(
+        _ note: LifeBoardKnowledgeNoteValue,
+        attachments: [LifeBoardKnowledgeAttachmentValue]
+    ) async throws
     func pruneKnowledgeRecovery(now: Date) async throws
 }
 
@@ -1819,7 +2107,12 @@ public extension LifeBoardPhaseIIRepository {
     func fetchKnowledgeNotes(query: KnowledgeNoteQuery) async throws -> [LifeBoardKnowledgeNoteValue] {
         let values = try await fetchKnowledgeNotes(search: nil, spaceID: query.spaceID)
         let links = try await fetchKnowledgeLinks()
-        return query.apply(to: values, linkedNoteIDs: Set(links.flatMap { [$0.sourceNoteID, $0.destinationNoteID] }))
+        return query.apply(
+            to: values,
+            linkedNoteIDs: Set(links.flatMap { [$0.sourceNoteID, $0.destinationNoteID] }),
+            incomingNoteIDs: Set(links.map(\.destinationNoteID)),
+            outgoingNoteIDs: Set(links.map(\.sourceNoteID))
+        )
     }
 
     func fetchKnowledgeSmartCollections(spaceID: UUID?) async throws -> [KnowledgeSmartCollectionValue] { [] }
@@ -1830,6 +2123,23 @@ public extension LifeBoardPhaseIIRepository {
     func deleteKnowledgeDraft(noteID: UUID) async throws {}
     func fetchKnowledgeRevisions(noteID: UUID) async throws -> [KnowledgeNoteRevisionValue] { [] }
     func saveKnowledgeRevision(_ value: KnowledgeNoteRevisionValue) async throws {}
+    func lockKnowledgeNote(
+        redacted: LifeBoardKnowledgeNoteValue,
+        payload: KnowledgeSecurePayloadValue,
+        attachments: [KnowledgeSecureAttachmentPayloadValue]
+    ) async throws {
+        throw CocoaError(.featureUnsupported)
+    }
+    func fetchKnowledgeSecurePayload(
+        noteID: UUID
+    ) async throws -> (KnowledgeSecurePayloadValue, [KnowledgeSecureAttachmentPayloadValue])? { nil }
+    func restoreUnlockedKnowledgeNote(
+        _ note: LifeBoardKnowledgeNoteValue,
+        attachments: [LifeBoardKnowledgeAttachmentValue]
+    ) async throws {
+        try await saveKnowledgeNote(note)
+        for attachment in attachments { try await saveKnowledgeAttachment(attachment) }
+    }
     func pruneKnowledgeRecovery(now: Date = Date()) async throws {}
 }
 

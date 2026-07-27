@@ -1244,7 +1244,9 @@ private struct LifeBoardMedicationCorrectionView: View {
     }
 }
 
-private struct LifeBoardFastingComposer: View {
+/// Shared with the Track foundation root so fasting is not reachable
+/// only through the legacy Track tree.
+struct LifeBoardFastingComposer: View {
     let onStart: (TimeInterval?, [TimeInterval]) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var usesTarget = false
@@ -1282,7 +1284,9 @@ private struct LifeBoardFastingComposer: View {
 /// Complete fasting history with the recorded meaning of every session —
 /// planned, early, cancelled, or corrected — plus the same 15-minute
 /// correction and undo affordances the inline card offers.
-private struct LifeBoardFastingHistoryView: View {
+/// Shared with the Track foundation root so fasting is not reachable
+/// only through the legacy Track tree.
+struct LifeBoardFastingHistoryView: View {
     let sessions: [LifeBoardFastingSessionValue]
     let activeReceipt: (UUID) -> TrackCorrectionReceipt?
     let onUndo: (TrackCorrectionReceipt) async -> Void
