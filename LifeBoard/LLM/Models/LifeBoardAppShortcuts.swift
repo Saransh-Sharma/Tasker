@@ -388,6 +388,167 @@ struct QuickNoteCaptureIntent: AppIntent {
     }
 }
 
+@available(iOS 18.0, macOS 15.0, *)
+enum NoteTemplateIntentChoice: String, AppEnum {
+    case blank, meeting, project, idea, checklist, research, daily
+
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "Note Template")
+    static let caseDisplayRepresentations: [Self: DisplayRepresentation] = [
+        .blank: "Blank", .meeting: "Meeting", .project: "Project Brief",
+        .idea: "Idea", .checklist: "Checklist", .research: "Research", .daily: "Daily Notes"
+    ]
+}
+
+@available(iOS 18.0, macOS 15.0, *)
+struct NoteAppEntity: AppEntity {
+    static let typeDisplayRepresentation = TypeDisplayRepresentation(name: "LifeBoard Note")
+    static let defaultQuery = NoteAppEntityQuery()
+
+    let id: UUID
+    let title: String
+    let isLocked: Bool
+
+    var displayRepresentation: DisplayRepresentation {
+        DisplayRepresentation(
+            title: LocalizedStringResource(stringLiteral: isLocked ? "Locked note" : title),
+            subtitle: isLocked ? "Authentication required in LifeBoard" : "LifeBoard Notes",
+            image: .init(systemName: isLocked ? "lock.fill" : "note.text")
+        )
+    }
+}
+
+@available(iOS 18.0, macOS 15.0, *)
+struct NoteAppEntityQuery: EntityStringQuery {
+    init() {}
+
+    func entities(for identifiers: [UUID]) async throws -> [NoteAppEntity] {
+        let repository = try await LifeBoardShortcutDependencyResolver.lifeOSRepositories().phaseII
+        let requested = Set(identifiers)
+        return try await repository.fetchKnowledgeNotes(search: nil, spaceID: nil)
+            .filter { requested.contains($0.id) }
+            .map(Self.entity)
+    }
+
+    func suggestedEntities() async throws -> [NoteAppEntity] {
+        let repository = try await LifeBoardShortcutDependencyResolver.lifeOSRepositories().phaseII
+        return try await repository.fetchKnowledgeNotes(query: .init(collection: .recent, limit: 20)).map(Self.entity)
+    }
+
+    func entities(matching string: String) async throws -> [NoteAppEntity] {
+        let repository = try await LifeBoardShortcutDependencyResolver.lifeOSRepositories().phaseII
+        return try await repository.fetchKnowledgeNotes(query: .init(searchText: string, limit: 20))
+            .filter { $0.resolvedLockPolicy == .unlocked }
+            .map(Self.entity)
+    }
+
+    private static func entity(_ note: LifeBoardKnowledgeNoteValue) -> NoteAppEntity {
+        .init(
+            id: note.id,
+            title: note.resolvedLockPolicy == .unlocked ? note.displayTitle : "Locked note",
+            isLocked: note.resolvedLockPolicy != .unlocked
+        )
+    }
+}
+
+@available(iOS 18.0, macOS 15.0, *)
+struct CreateNoteIntent: AppIntent {
+    static let title: LocalizedStringResource = "Create Note"
+    static let description = IntentDescription("Creates a private local-first note in LifeBoard.")
+    static let openAppWhenRun = false
+
+    @Parameter(title: "Title") var noteTitle: String?
+    @Parameter(title: "Body") var body: String?
+    @Parameter(title: "Template", default: .blank) var template: NoteTemplateIntentChoice
+
+    static var parameterSummary: some ParameterSummary {
+        Summary("Create a \(\.$template) note") {
+            \.$noteTitle
+            \.$body
+        }
+    }
+
+    func perform() async throws -> some IntentResult & ReturnsValue<NoteAppEntity> & ProvidesDialog {
+        let title = noteTitle?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let content = body?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        guard !title.isEmpty || !content.isEmpty || template != .blank else {
+            throw $body.needsValueError(IntentDialog("What would you like to keep?"))
+        }
+        let repository = try await LifeBoardShortcutDependencyResolver.lifeOSRepositories().phaseII
+        var spaces = try await repository.fetchKnowledgeSpaces()
+        if spaces.isEmpty {
+            let personal = LifeBoardKnowledgeSpaceValue(title: "Personal", icon: "person.crop.circle")
+            try await repository.saveKnowledgeSpace(personal)
+            spaces = [personal]
+        }
+        guard let space = spaces.first else { throw LifeBoardShortcutRuntimeError.unavailable }
+        let selectedTemplate = KnowledgeNoteTemplate.library.first { $0.id == template.rawValue }
+            ?? KnowledgeNoteTemplate.library[0]
+        let noteID = UUID()
+        var blocks = selectedTemplate.blocks.enumerated().map { index, block in
+            LifeBoardKnowledgeBlockValue(noteID: noteID, kind: block.kind, text: block.text, ordinal: index)
+        }
+        if !content.isEmpty {
+            if selectedTemplate.id == "blank" {
+                blocks = [.init(noteID: noteID, text: content)]
+            } else {
+                blocks.insert(.init(noteID: noteID, text: content), at: 0)
+                for index in blocks.indices { blocks[index].ordinal = index }
+            }
+        }
+        let note = LifeBoardKnowledgeNoteValue(
+            id: noteID,
+            spaceID: space.id,
+            title: title.isEmpty ? (selectedTemplate.id == "blank" ? String(content.prefix(48)) : selectedTemplate.title) : title,
+            blocks: blocks,
+            templateID: selectedTemplate.id,
+            contentVersion: 1
+        )
+        try await repository.saveKnowledgeNote(note)
+        let entity = NoteAppEntity(id: note.id, title: note.displayTitle, isLocked: false)
+        return .result(value: entity, dialog: "Saved a note to LifeBoard.")
+    }
+}
+
+@available(iOS 18.0, macOS 15.0, *)
+struct OpenNoteIntent: AppIntent {
+    static let title: LocalizedStringResource = "Open Note"
+    static let description = IntentDescription("Opens a selected note in LifeBoard.")
+    static let openAppWhenRun = true
+
+    @Parameter(title: "Note") var note: NoteAppEntity
+
+    func perform() async throws -> some IntentResult & OpensIntent & ProvidesDialog {
+        let url = URL(string: "lifeboard://note/\(note.id.uuidString)")!
+        return .result(
+            opensIntent: OpenURLIntent(url),
+            dialog: note.isLocked ? "Authenticate in LifeBoard to open this note." : "Opening your note."
+        )
+    }
+}
+
+@available(iOS 18.0, macOS 15.0, *)
+struct SearchNotesIntent: AppIntent {
+    static let title: LocalizedStringResource = "Search Notes"
+    static let description = IntentDescription("Opens a private search in LifeBoard Notes.")
+    static let openAppWhenRun = true
+
+    @Parameter(title: "Search", requestValueDialog: IntentDialog("What should I search for?"))
+    var terms: String
+
+    func perform() async throws -> some IntentResult & OpensIntent & ProvidesDialog {
+        let query = terms.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { throw $terms.needsValueError(IntentDialog("What should I search for?")) }
+        var components = URLComponents()
+        components.scheme = "lifeboard"
+        components.host = "notes"
+        components.queryItems = [URLQueryItem(name: "search", value: query)]
+        guard let url = components.url else {
+            throw LifeBoardShortcutRuntimeError.handoffFailed("LifeBoard could not prepare that search.")
+        }
+        return .result(opensIntent: OpenURLIntent(url), dialog: "Opening Notes search.")
+    }
+}
+
 @available(iOS 16.0, macOS 13.0, *)
 struct LogWaterIntent: AppIntent {
     static let title: LocalizedStringResource = "Log Water"
@@ -529,7 +690,7 @@ struct CreateCountdownIntent: AppIntent {
     }
 }
 
-@available(iOS 16.0, macOS 13.0, *)
+@available(iOS 18.0, macOS 15.0, *)
 struct LifeBoardAppShortcutsProvider: AppShortcutsProvider {
     @AppShortcutsBuilder
     static var appShortcuts: [AppShortcut] {
@@ -568,7 +729,7 @@ struct LifeBoardAppShortcutsProvider: AppShortcutsProvider {
 
         AppShortcut(intent: QuickJournalCaptureIntent(), phrases: ["Capture a journal moment in \(.applicationName)"], shortTitle: "Journal Moment", systemImageName: "book.closed")
         AppShortcut(
-            intent: QuickNoteCaptureIntent(),
+            intent: CreateNoteIntent(),
             phrases: [
                 "Create a note in \(.applicationName)",
                 "Capture a note in \(.applicationName)"
