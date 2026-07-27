@@ -218,10 +218,20 @@ final class AdaptiveHomeStore {
         UISelectionFeedbackGenerator().selectionChanged()
     }
 
+    /// Cards leaving the board erode away rather than vanishing between
+    /// frames, so it reads as the card being put down rather than lost.
+    private(set) var dissolvingPlacementID: UUID?
+
     func hidePlacement(id: UUID) {
         guard var value = draft else { return }
+        dissolvingPlacementID = id
         value.setVisible(false, id: id)
         draft = value
+    }
+
+    func finishDissolve(id: UUID) {
+        guard dissolvingPlacementID == id else { return }
+        dissolvingPlacementID = nil
     }
 
     func toggleSmartSlot(id: UUID) {
@@ -547,18 +557,18 @@ struct LifeBoardJournalMoodDialSheet: View {
                 .padding(16)
                 .lifeBoardRaisedClayCard(palette: palette)
             if includesEnergy {
-                Slider(value: $energy, in: 1...5, step: 1) {
-                    Text("Energy")
-                } minimumValueLabel: {
-                    Image(systemName: "battery.25")
-                } maximumValueLabel: {
-                    Image(systemName: "battery.100")
-                }
-                .tint(palette.color(for: .celestialCore))
-                .accessibilityValue(energyLabel)
-                .onChange(of: energy) {
-                    UISelectionFeedbackGenerator().selectionChanged()
-                }
+                // A dial rather than a slider: energy is a level being tuned,
+                // not a position on a line, and the arc keeps the five detents
+                // far enough apart to hit without looking.
+                LifeBoardArcDial(
+                    title: "Energy",
+                    value: $energy,
+                    range: 1...5,
+                    step: 1,
+                    format: { _ in energyLabel }
+                )
+                .frame(width: 190, height: 190)
+                .accessibilityIdentifier("journal.mood.energy.dial")
             }
             Button("Skip energy and save") {
                 selectedMood = draftMood
@@ -809,6 +819,10 @@ struct LifeBoardAdaptiveHome: View {
                     requestedTier: preferences.renderingTier,
                     comfortProfile: preferences.comfortProfile
                 )
+                // A static warm tooth so the large flat canvas areas read as
+                // pressed paper. No time input — this must never animate, and
+                // it drops out entirely under Increased Contrast.
+                .lifeboardPaperGrain()
                 .ignoresSafeArea()
                 .accessibilityHidden(true)
             }
@@ -1034,29 +1048,6 @@ struct LifeBoardAdaptiveHome: View {
             )
         }
         return candidates
-    }
-
-    /// Alive, personal header line echoing the reference: the current time and
-    /// weekday, plus a gentle count of what actually needs the user right now.
-    private func headerSubtitle(now: Date, usesCompactDate: Bool = false) -> String {
-        let time = now.formatted(date: .omitted, time: .shortened)
-        let dateStyle = usesCompactDate
-            ? Date.FormatStyle.dateTime.weekday(.abbreviated).month(.abbreviated).day()
-            : Date.FormatStyle.dateTime.weekday(.wide).month(.wide).day()
-        let day = projectionAdapter.snapshot.selectedDate.formatted(dateStyle)
-        let base = usesCompactDate ? "\(time) · \(day)" : "It’s \(time), \(day)"
-        let attention = attentionCount
-        guard attention > 0 else { return base }
-        return "\(base) · \(attention) need\(attention == 1 ? "s" : "") you"
-    }
-
-    /// Count of items honestly asking for a decision: unresolved medication
-    /// windows, Must Do work, and due routines. Never inflated by ambient data.
-    private var attentionCount: Int {
-        let care = lifeOSStore.trackSnapshot?.unresolvedMedicationEvents.filter { $0.status == .unresolved }.count ?? 0
-        let mustDo = lifeOSStore.planSnapshot?.plannedTasks.filter { $0.metadata.commitmentLevel == .mustDo }.count ?? 0
-        let routines = lifeOSStore.trackSnapshot?.dueRoutines.count ?? 0
-        return care + mustDo + routines
     }
 
     /// A section heading carries the section's *state*, not an explanation of
@@ -1496,6 +1487,11 @@ struct LifeBoardAdaptiveHome: View {
                         .dashboardPreset(effectivePreset(for: placement.semanticSize))
                         .accessibilityValue(placement.ownership.accessibilityDescription)
                         .lifeBoardScrollEntrance(intensity: store.isCustomizing ? 0 : 1)
+                        .modifier(HomeCardDissolveModifier(
+                            isDissolving: store.dissolvingPlacementID == placement.id,
+                            tint: palette.color(for: .celestialPrimary),
+                            onFinish: { store.finishDissolve(id: placement.id) }
+                        ))
                 }
             }
         }
@@ -1519,16 +1515,30 @@ struct LifeBoardAdaptiveHome: View {
                     Button("Done") { Task { await store.saveCustomization() } }
                         .fontWeight(.semibold)
                         .frame(minHeight: 44)
-                } else if V2FeatureFlags.dashboardCustomizationV2Enabled {
-                    Button {
-                        store.beginCustomization()
-                    } label: {
-                        Image(systemName: "slider.horizontal.3")
-                            .frame(width: 44, height: 44)
+                } else {
+                    // Layout undo was implemented in the store but its only
+                    // button lived in the never-called adaptive header, so a
+                    // rearrangement could not be taken back.
+                    if store.lastLayoutTransaction != nil {
+                        Button("Undo") {
+                            Task { await store.undoLastLayoutTransaction() }
+                        }
+                        .font(.subheadline.weight(.semibold))
+                        .frame(minHeight: 44)
+                        .accessibilityHint("Restores the previous Home arrangement")
+                        .accessibilityIdentifier("home.layoutUndo")
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Customize Home")
-                    .accessibilityIdentifier("home.customize")
+                    if V2FeatureFlags.dashboardCustomizationV2Enabled {
+                        Button {
+                            store.beginCustomization()
+                        } label: {
+                            Image(systemName: "slider.horizontal.3")
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Customize Home")
+                        .accessibilityIdentifier("home.customize")
+                    }
                 }
             }
 
@@ -1551,157 +1561,6 @@ struct LifeBoardAdaptiveHome: View {
             return .easeInOut(duration: 0.18)
         }
         return .spring(response: 0.38, dampingFraction: 0.86)
-    }
-
-    @ViewBuilder
-    private func adaptiveHeader(daypart: ResolvedDaypart, palette: LifeBoardDaypartPalette) -> some View {
-        let usesInverseInk = LifeBoardAtmosphereDescriptor
-            .descriptor(for: atmosphereSnapshot.phase)
-            .usesInverseHeaderInk
-        let headerPrimary = usesInverseInk
-            ? Color.lifeboard(.textInverse)
-            : palette.color(for: .foreground)
-        let headerSecondary = usesInverseInk
-            ? Color(lifeboardHex: "#E8E1D8")
-            : palette.color(for: .foregroundSecondary)
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Menu {
-                    ForEach(DashboardMode.allCases, id: \.self) { mode in
-                        Button {
-                            router.dashboardMode = mode
-                            UISelectionFeedbackGenerator().selectionChanged()
-                        } label: {
-                            Label(mode.title, systemImage: mode.systemImage)
-                        }
-                    }
-                } label: {
-                    if dynamicTypeSize.isAccessibilitySize {
-                        Image(systemName: router.dashboardMode.systemImage)
-                            .font(.title2.weight(.semibold))
-                            .frame(width: 44, height: 44)
-                    } else {
-                        HStack(spacing: 6) {
-                            Text(router.dashboardMode.title)
-                                .font(LifeBoardFoundationTypography.sectionTitle())
-                            Image(systemName: "chevron.up.chevron.down")
-                                .font(.caption2.weight(.semibold))
-                        }
-                    }
-                }
-                .accessibilityLabel("Dashboard mode, \(router.dashboardMode.title)")
-                .accessibilityIdentifier("home.dashboardMode.menu")
-
-                Spacer()
-
-                if store.isCustomizing {
-                    Button("Cancel") { store.cancelCustomization() }
-                        .frame(minHeight: 44)
-                    Button("Done") { Task { await store.saveCustomization() } }
-                        .fontWeight(.semibold)
-                        .frame(minHeight: 44)
-                } else {
-                    if store.lastLayoutTransaction != nil {
-                        Button("Undo") {
-                            Task { await store.undoLastLayoutTransaction() }
-                        }
-                        .font(.subheadline.weight(.semibold))
-                        .frame(minHeight: 44)
-                        .accessibilityHint("Restores the previous Home arrangement")
-                    }
-                    if V2FeatureFlags.dashboardCustomizationV2Enabled {
-                        Button {
-                            store.beginCustomization()
-                        } label: {
-                            Image(systemName: "square.grid.2x2")
-                                .font(.system(size: 20, weight: .medium))
-                                .frame(width: 44, height: 44)
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Customize Home")
-                        .accessibilityIdentifier("home.customize")
-                    }
-
-                    // Settings previously had no entry point anywhere in the
-                    // Life OS shell — the route existed but only a
-                    // `lifeboard://settings` deep link ever pushed it, so
-                    // notifications, quiet hours, calendar and Life Management
-                    // were unreachable in normal use.
-                    Button {
-                        router.push(.settings, in: .home)
-                    } label: {
-                        Image(systemName: "gearshape")
-                            .font(.title3.weight(.medium))
-                            .frame(width: 44, height: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Settings")
-                    .accessibilityIdentifier("home.settings")
-                }
-            }
-
-            HStack(alignment: .center, spacing: 12) {
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(router.dashboardMode == .lowEnergy ? "Let’s take it gently" : daypart.greeting)
-                        .font(LifeBoardFoundationTypography.hero())
-                        .minimumScaleFactor(0.76)
-                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
-                        .accessibilityIdentifier("home.header")
-                    TimelineView(.periodic(from: .now, by: 30)) { context in
-                        Text(headerSubtitle(
-                            now: context.date,
-                            usesCompactDate: dynamicTypeSize.isAccessibilitySize
-                        ))
-                            .font(LifeBoardFoundationTypography.body())
-                            .foregroundStyle(headerSecondary)
-                            .contentTransition(.numericText())
-                    }
-                }
-                Spacer(minLength: 4)
-                Menu {
-                    ForEach(DaypartSelection.allCases, id: \.self) { selection in
-                        Button {
-                            preferences.daypartSelection = selection
-                            UISelectionFeedbackGenerator().selectionChanged()
-                        } label: {
-                            Label(selection.title, systemImage: selection.systemImage)
-                        }
-                    }
-                    if preferences.activeDaypartOverride != nil {
-                        Divider()
-                        Button("Return to Auto", systemImage: "clock.arrow.circlepath") {
-                            preferences.returnToAutomaticDaypart()
-                        }
-                    }
-                } label: {
-                    ZStack {
-                        Circle()
-                            .fill(palette.color(for: .celestialPrimary))
-                            .frame(width: 58, height: 58)
-                            .shadow(color: palette.color(for: .celestialCore).opacity(0.35), radius: 12)
-                        Image(systemName: DaypartSelection(rawValue: daypart.rawValue)?.systemImage ?? "sun.max")
-                            .font(.system(size: 22, weight: .semibold))
-                            .foregroundStyle(Color(LifeBoardColorTokens.foundationOnCelestialAccent))
-                    }
-                }
-                .accessibilityLabel("Daypart, \(daypart.rawValue)")
-                .accessibilityHint(preferences.activeDaypartOverride == nil ? "Automatic" : "Manual override active")
-                .accessibilityIdentifier("home.daypart.menu")
-            }
-
-            if let override = preferences.activeDaypartOverride {
-                Button {
-                    preferences.returnToAutomaticDaypart()
-                } label: {
-                    Label("Manual until \(override.expiresAt.formatted(date: .omitted, time: .shortened)) · Return to Auto", systemImage: "clock")
-                        .font(.caption.weight(.medium))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                .frame(minHeight: 32)
-            }
-        }
-        .foregroundStyle(headerPrimary)
     }
 
     @ViewBuilder
@@ -2266,29 +2125,73 @@ struct LifeBoardAdaptiveHome: View {
                 honestEmptyState("Nothing is asking for your attention", symbol: "checkmark.circle", palette: palette)
             } else {
                 ForEach(tasks.prefix(router.dashboardMode == .lowEnergy ? 2 : 4)) { task in
-                    Button {
-                        router.navigate(.taskDetail(task.id), in: .home)
-                    } label: {
-                        HStack(spacing: 11) {
+                    // The completion control is a sibling of the navigating
+                    // button, never nested inside it: a Button within a Button
+                    // gives its tap to the outer one, so a nested control would
+                    // silently open the detail instead of completing.
+                    HStack(spacing: 11) {
+                        if V2FeatureFlags.lifeBoardDailyLoopV1Enabled {
+                            LifeBoardCompletionControl(
+                                isComplete: false,
+                                title: task.title
+                            ) { _ in
+                                Task { await lifeOSStore.setTaskCompletion(task, to: true) }
+                            }
+                            .padding(.leading, -11)
+                        } else {
                             Image(systemName: task.metadata.commitmentLevel == .mustDo ? "exclamationmark.circle.fill" : "circle")
                                 .foregroundStyle(palette.color(for: .foregroundSecondary))
-                            Text(task.title)
-                                .font(.subheadline.weight(.medium))
-                                .lineLimit(2)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
                         }
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                        .contentShape(Rectangle())
+                        Button {
+                            router.navigate(.taskDetail(task.id), in: .home)
+                        } label: {
+                            HStack(spacing: 11) {
+                                // The completion control took over the leading
+                                // slot, so Must Do moves beside the title
+                                // rather than being dropped.
+                                if task.metadata.commitmentLevel == .mustDo {
+                                    Image(systemName: "exclamationmark.circle.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                                        .accessibilityLabel("Must do")
+                                }
+                                Text(task.title)
+                                    .font(.subheadline.weight(.medium))
+                                    .lineLimit(2)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+                            }
+                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .lifeBoardTransitionSource("route.task.\(task.id.uuidString)")
+                        .accessibilityIdentifier("home.task.\(task.id.uuidString)")
                     }
-                    .buttonStyle(.plain)
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    .contentShape(Rectangle())
-                    .lifeBoardTransitionSource("route.task.\(task.id.uuidString)")
-                    .accessibilityIdentifier("home.task.\(task.id.uuidString)")
                 }
+            }
+            // A completion is a real mutation, so it gets a receipt here rather
+            // than relying on Plan's Undo, which reads a different PlanStore
+            // instance and can never see a completion made from Home.
+            if let completed = lifeOSStore.lastCompletedTask {
+                HStack(spacing: 8) {
+                    Text("Completed “\(completed.title)”")
+                        .font(.caption)
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Button("Undo") {
+                        Task { await lifeOSStore.undoLastTaskCompletion() }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .frame(minHeight: 44)
+                    .accessibilityHint("Reopens \(completed.title)")
+                    .accessibilityIdentifier("home.tasks.undoCompletion")
+                }
+                .buttonStyle(.plain)
             }
             Button {
                 captureRouter.request(kind: .task, source: .widget)
@@ -2558,7 +2461,11 @@ struct LifeBoardAdaptiveHome: View {
             .font(.caption.weight(.medium))
             Divider().overlay(Color(LifeBoardColorTokens.foundationHairline))
             Button {
+                // The label promises evidence, so open the evidence route with
+                // its disclosure already expanded rather than the Insights
+                // overview the user then has to dig through.
                 router.select(.insights)
+                router.push(.insightEvidence(nil), in: .insights)
             } label: {
                 HStack {
                     Label("See evidence behind today", systemImage: "chart.xyaxis.line")
@@ -2890,6 +2797,41 @@ private struct AdaptiveWidgetGallery: View {
 
 private struct DashboardPresetLayoutKey: LayoutValueKey {
     static let defaultValue: WidgetSizePreset = .standard
+}
+
+/// Drives the one-shot erosion when a card is hidden from Home. The animation
+/// owns only its own progress; the layout draft has already removed the card,
+/// so an interrupted dissolve can never strand the board in a wrong state.
+private struct HomeCardDissolveModifier: ViewModifier {
+    let isDissolving: Bool
+    let tint: Color
+    let onFinish: () -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var progress: Double = 0
+
+    private let duration: TimeInterval = 0.36
+
+    func body(content: Content) -> some View {
+        content
+            .lifeboardDissolveAway(progress: progress, tint: tint)
+            .onChange(of: isDissolving) { _, dissolving in
+                guard dissolving else {
+                    progress = 0
+                    return
+                }
+                guard reduceMotion == false else {
+                    onFinish()
+                    return
+                }
+                withAnimation(.easeIn(duration: duration)) { progress = 1 }
+                Task {
+                    try? await Task.sleep(for: .seconds(duration))
+                    progress = 0
+                    onFinish()
+                }
+            }
+    }
 }
 
 private struct HomeCardReorderModifier: ViewModifier {

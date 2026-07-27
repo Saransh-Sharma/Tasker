@@ -42,6 +42,9 @@ public struct LifeOSFoundationShell: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var compactCaptureState = CaptureOrbPresentationState()
     @State private var measuredChromeHeight: CGFloat = 132
+    /// Roots that have been opened at least once. They stay built afterwards so
+    /// their scroll position and navigation depth survive a root change.
+    @State private var visitedRoots: Set<LifeBoardDestination> = []
     @State private var compactCaptureTargetFrames: [CaptureKind: CGRect] = [:]
     @State private var compactCaptureRippleTrigger = 0
     @State private var planRescueLaunchContext: OverdueRescueLaunchContext?
@@ -54,6 +57,9 @@ public struct LifeOSFoundationShell: View {
     @State private var showsDocumentScanner = false
     @State private var scannedDraft: LifeBoardScannedDraft?
     @State private var lifeBoardActionReceipt: LifeBoardActionReceipt?
+    /// Fires the one-shot background warp when a card zooms into its detail
+    /// route. Incremented on a real push, never on a redraw.
+    @State private var routeTransitionTrigger = 0
     @FocusState private var lifeThreadComposerIsFocused: Bool
     @Namespace private var dockSelectionNamespace
     private let lifeBoardMutationCoordinator: LifeBoardMutationCoordinator
@@ -333,19 +339,47 @@ public struct LifeOSFoundationShell: View {
         // resting under the translucent composer. (A TabView's own
         // safeAreaInset does not propagate into per-tab scroll views.)
         return GeometryReader { geometry in
-            TabView(selection: $router.selectedDestination) {
+            // A plain stack rather than a TabView.
+            //
+            // At compact width the TabView switched nothing: the floating dock
+            // is the switcher and the system tab bar was hidden, so all it
+            // contributed was a container whose cross-dissolve could not be
+            // replaced. Holding the roots in a stack lets a root change read as
+            // travel — the arriving root slides in from the side it sits on in
+            // the dock — while every visited root stays in the hierarchy, so
+            // scroll position and navigation depth survive exactly as before.
+            //
+            // The regular-width shell keeps its TabView: there the sidebar and
+            // top bar are the switcher, and there is nothing to replace it with.
+            ZStack {
                 ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
-                    destinationNavigation(destination, router: router, atmosphereSnapshot: atmosphereSnapshot)
-                        .safeAreaInset(edge: .bottom, spacing: 0) {
-                            Color.clear.frame(height: measuredChromeHeight)
-                        }
-                        // The hide must sit on the tab *content*, not on the
-                        // TabView. Applied to the container it addresses an
-                        // enclosing tab bar, which left the system bar drawing
-                        // underneath our own floating dock — two bars stacked.
-                        .toolbar(.hidden, for: .tabBar)
-                        .tag(destination)
+                    // Built on first visit and kept alive after, matching the
+                    // laziness the TabView gave us. Building all five up front
+                    // would wake every root's stores on launch.
+                    if visitedRoots.contains(destination) {
+                        let isCurrent = router.selectedDestination == destination
+                        destinationNavigation(destination, router: router, atmosphereSnapshot: atmosphereSnapshot)
+                            .safeAreaInset(edge: .bottom, spacing: 0) {
+                                Color.clear.frame(height: measuredChromeHeight)
+                            }
+                            .offset(
+                                x: LifeBoardRootTransition.offset(
+                                    for: destination,
+                                    selected: router.selectedDestination,
+                                    distance: reduceMotion ? 0 : LifeBoardRootTransition.slideDistance
+                                )
+                            )
+                            .opacity(isCurrent ? 1 : 0)
+                            .zIndex(isCurrent ? 1 : 0)
+                            // A root that is not on screen must not take taps or
+                            // hold VoiceOver focus while it sits in the stack.
+                            .allowsHitTesting(isCurrent)
+                            .accessibilityHidden(isCurrent == false)
+                    }
                 }
+            }
+            .onChange(of: router.selectedDestination, initial: true) { _, destination in
+                visitedRoots.insert(destination)
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .background(Color.clear)
@@ -397,6 +431,27 @@ public struct LifeOSFoundationShell: View {
         .background(Color.clear.ignoresSafeArea())
     }
 
+    /// Horizontal centre of a dock slot in unit space, so the refraction lens
+    /// tracks the selection pill rather than sitting at a fixed point.
+    private func dockSelectionCenter(for destination: LifeBoardDestination) -> UnitPoint {
+        let all = LifeBoardDestination.allCases
+        guard let index = all.firstIndex(of: destination), all.isEmpty == false else {
+            return .center
+        }
+        let slot = 1.0 / Double(all.count)
+        return UnitPoint(x: (Double(index) + 0.5) * slot, y: 0.5)
+    }
+
+    private var daypartSelectionBinding: Binding<DaypartSelection> {
+        Binding(
+            get: { runtime.preferences.daypartSelection },
+            set: { selection in
+                runtime.preferences.daypartSelection = selection
+                LifeBoardFeedback.selection()
+            }
+        )
+    }
+
     private var dashboardModeBinding: Binding<DashboardMode> {
         Binding(
             get: { runtime.router.dashboardMode },
@@ -431,6 +486,12 @@ public struct LifeOSFoundationShell: View {
                             VStack(spacing: 3) {
                                 Image(systemName: destination.systemImage)
                                     .font(.system(size: 17, weight: router.selectedDestination == destination ? .semibold : .regular))
+                                    .modifier(
+                                        LifeBoardDockLift(
+                                            isSelected: router.selectedDestination == destination,
+                                            reduceMotion: reduceMotion
+                                        )
+                                    )
                                 if dynamicTypeSize.isAccessibilitySize == false {
                                     Text(destination.title)
                                         .font(.caption2.weight(router.selectedDestination == destination ? .semibold : .regular))
@@ -466,6 +527,14 @@ public struct LifeOSFoundationShell: View {
                 }
                 .padding(.horizontal, 6)
                 .padding(.vertical, 6)
+                // The selected well genuinely bends the content beneath it, so
+                // the dock reads as glass rather than a tinted capsule. Bounded
+                // to six points and centred on the current target.
+                .lifeboardLiquidGlassRefract(
+                    center: dockSelectionCenter(for: router.selectedDestination),
+                    radius: 0.16,
+                    strength: 1
+                )
                 .lifeBoardGlassSurface(cornerRadius: 30, interactive: true)
                 .lifeBoardGlassIdentity(.dockSelection)
                 .overlay { RoundedRectangle(cornerRadius: 30).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
@@ -542,7 +611,10 @@ public struct LifeOSFoundationShell: View {
             title: rootHeaderTitle(for: destination),
             context: rootHeaderContext(for: destination),
             captureAvailable: headerOwnsCapture,
-            secondaryActionTitle: "More"
+            secondaryActionTitle: "More",
+            // Only Home's title is a greeting addressed to the person; the
+            // other roots name a destination.
+            titleRespondsToTouch: destination == .home
         )
         return VStack(alignment: .trailing, spacing: 8) {
             LifeBoardRootHeader(
@@ -571,6 +643,23 @@ public struct LifeOSFoundationShell: View {
                                 }
                             }
                             .pickerStyle(.menu)
+
+                            // The daypart override was stranded in the same
+                            // dead header as the mode picker, so Auto was the
+                            // only reachable behaviour.
+                            Picker("Atmosphere", selection: daypartSelectionBinding) {
+                                ForEach(DaypartSelection.allCases, id: \.self) { selection in
+                                    Label(selection.title, systemImage: selection.systemImage).tag(selection)
+                                }
+                            }
+                            .pickerStyle(.menu)
+
+                            if runtime.preferences.activeDaypartOverride != nil {
+                                Button("Return to Auto", systemImage: "clock.arrow.circlepath") {
+                                    runtime.preferences.returnToAutomaticDaypart()
+                                    LifeBoardFeedback.selection()
+                                }
+                            }
                             Divider()
                         }
                         // Add-to-Home was fully built — placement sheet, receipt
@@ -750,13 +839,20 @@ public struct LifeOSFoundationShell: View {
                 .navigationDestination(for: AppRoute.self) { route in
                     if let transitionID = route.spatialTransitionID {
                         ZStack {
+                            // The warp rides the background plane only. Card
+                            // content, text and charts must never distort.
                             activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
+                                .lifeboardCardMorphWarp(
+                                    origin: .center,
+                                    trigger: routeTransitionTrigger
+                                )
                             LifeBoardScreenScaffold(mode: route.screenMode, placement: .root(destination)) {
                                 routeView(route)
                             }
                         }
                         .lifeBoardZoomDestination(sourceID: transitionID)
                         .toolbar(.visible, for: .navigationBar)
+                        .onAppear { routeTransitionTrigger &+= 1 }
                     } else {
                         ZStack {
                             activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
@@ -1347,10 +1443,8 @@ public struct LifeOSFoundationShell: View {
                 onClose: { runtime.router.pop(in: .plan) }
             )
         case .weeklyReview:
-            FoundationWeeklyReviewRoute(
-                onClose: { runtime.router.pop(in: .plan) }
-            )
-        case .planningReview:
+            // Insights pushes this into its own stack; popping `.plan`
+            // unconditionally meant Close did nothing when opened from there.
             FoundationWeeklyReviewRoute(
                 onClose: { runtime.router.pop(in: runtime.router.selectedDestination) }
             )
@@ -1376,7 +1470,7 @@ public struct LifeOSFoundationShell: View {
                 onOpenHabitBoard: { runtime.router.push(.habitBoard, in: .track) },
                 onOpenHealth: { runtime.router.push(.health, in: .track) }
             )
-        case .insightEvidence:
+        case .insightEvidence(let evidenceID):
             FoundationInsightsDestination(
                 repository: trackFoundationRepository,
                 phaseIIRepository: phaseIIRepository,
@@ -1384,7 +1478,9 @@ public struct LifeOSFoundationShell: View {
                 habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
                 goalSampleProvider: goalSampleProvider,
                 router: runtime.router,
-                initialLens: .overview
+                // A named record wants the widest window, not just today.
+                initialLens: evidenceID == nil ? .overview : .review,
+                focusedEvidenceID: evidenceID
             )
         case .settings:
             FoundationSettingsRouteView()
@@ -1627,6 +1723,11 @@ private struct FoundationInsightsDestination: View {
     @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
     let router: LifeBoardAppRouter
     private let planningRepository: CoreDataPlanningRepository?
+    /// The record a deep link asked for. `.insightEvidence` carried a UUID that
+    /// was discarded, so the route landed on a generic Insights screen and the
+    /// user had to find the record again themselves.
+    private let focusedEvidenceID: UUID?
+    @State private var evidenceExpanded = false
 
     init(
         repository: CoreDataTrackFoundationRepository,
@@ -1635,7 +1736,8 @@ private struct FoundationInsightsDestination: View {
         habitProjectionService: (any TrackHabitProjectionService)?,
         goalSampleProvider: (any GoalSampleProvider)?,
         router: LifeBoardAppRouter,
-        initialLens: InsightsLens = .overview
+        initialLens: InsightsLens = .overview,
+        focusedEvidenceID: UUID? = nil
     ) {
         _store = State(initialValue: TrackFoundationStore(
             repository: repository,
@@ -1645,7 +1747,11 @@ private struct FoundationInsightsDestination: View {
         ))
         self.planningRepository = planningRepository
         self.router = router
+        self.focusedEvidenceID = focusedEvidenceID
         _lens = State(initialValue: initialLens)
+        // A named record means the caller wants the evidence list, not the
+        // interpretation, so the disclosure starts open.
+        _evidenceExpanded = State(initialValue: focusedEvidenceID != nil)
     }
 
     private var authorizedEvents: [NormalizedLifeEvent] {
@@ -1813,16 +1919,34 @@ private struct FoundationInsightsDestination: View {
             .lifeBoardClaySurface(.raised, cornerRadius: 22)
         }
 
-        DisclosureGroup {
-            VStack(alignment: .leading, spacing: 12) {
-                Text(evidenceCompletenessDescription)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                ForEach(events) { event in
-                    FoundationEvidenceRow(event: event) { evidence in open(evidence) }
+        DisclosureGroup(isExpanded: $evidenceExpanded) {
+            ScrollViewReader { proxy in
+                VStack(alignment: .leading, spacing: 12) {
+                    Text(evidenceCompletenessDescription)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    ForEach(events) { event in
+                        FoundationEvidenceRow(event: event) { evidence in open(evidence) }
+                            .id(event.sourceID)
+                            .background {
+                                if event.sourceID == focusedEvidenceID {
+                                    RoundedRectangle(cornerRadius: 12, style: .continuous)
+                                        .fill(Color(LifeBoardColorTokens.foundationSurfaceSelected))
+                                        .padding(.horizontal, -8)
+                                }
+                            }
+                    }
+                }
+                .padding(.top, 12)
+                .onAppear {
+                    guard let focusedEvidenceID else { return }
+                    // Land on the record the deep link named rather than the
+                    // top of a long, undifferentiated evidence list.
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        proxy.scrollTo(focusedEvidenceID, anchor: .center)
+                    }
                 }
             }
-            .padding(.top, 12)
         } label: {
             Label("Evidence", systemImage: "checkmark.shield")
                 .font(.headline)
@@ -2014,13 +2138,16 @@ private struct FoundationInsightsDestination: View {
         switch evidence.kind {
         case "habit": router.push(.habitDetail(id), in: .insights)
         case "tracker": router.push(.trackerDetail(id), in: .insights)
-        case "hydration": router.select(.track)
+        // Hydration, sleep and mood have no detail route of their own; Track's
+        // History lens is where those records actually live, so they open it
+        // directly instead of dropping the user on Track's Today lens.
+        case "hydration", "sleep", "mood": router.push(.trackHistory, in: .insights)
         case "routine": router.push(.routine(id), in: .insights)
         case "goal": router.push(.goal(id), in: .insights)
         case "journal": router.openProtectedJournalRoute(.journalDay(id), in: .insights)
         case "plan", "task": router.select(.plan)
         case "focus": router.push(.focusSession(id), in: .insights)
-        default: router.select(.track)
+        default: router.push(.trackHistory, in: .insights)
         }
     }
 }
@@ -2379,6 +2506,7 @@ private struct FoundationTaskRouteView: View {
     let repository: CoreDataPlanningRepository?
     let router: LifeBoardAppRouter
     @State private var state: FoundationRouteLoadState<PlanningTaskSummary> = .loading
+    @State private var isCompleting = false
 
     var body: some View {
         FoundationEntityRouteScaffold(title: "Task", systemImage: "checkmark.circle", state: state) { task in
@@ -2388,6 +2516,22 @@ private struct FoundationTaskRouteView: View {
                 LabeledContent("Estimate", value: task.estimatedDuration.map(Self.duration) ?? "Not set")
                 LabeledContent("Due", value: task.dueDate?.formatted(date: .abbreviated, time: .shortened) ?? "Not set")
                 Label(task.dependenciesReady ? "Ready to schedule" : "Waiting on a dependency", systemImage: task.dependenciesReady ? "checkmark.seal" : "link.badge.plus")
+                if V2FeatureFlags.lifeBoardDailyLoopV1Enabled {
+                    HStack(spacing: 10) {
+                        LifeBoardCompletionControl(
+                            isComplete: isCompleting,
+                            title: task.title,
+                            isEnabled: task.dependenciesReady
+                        ) { _ in
+                            complete(task)
+                        }
+                        Text(isCompleting ? "Completed" : "Mark complete")
+                            .font(.body.weight(.medium))
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("foundation.task.complete")
+                }
                 Button("Open in Plan", systemImage: "calendar") { router.select(.plan) }
                     .buttonStyle(.borderedProminent)
                     .tint(Color(LifeBoardColorTokens.inkPrimary))
@@ -2401,6 +2545,30 @@ private struct FoundationTaskRouteView: View {
         do {
             state = try await repository.fetchOpenPlanningTasks().first(where: { $0.id == id }).map(FoundationRouteLoadState.loaded) ?? .missing
         } catch { state = .failed(error.localizedDescription) }
+    }
+
+    /// The detail route reads `fetchOpenPlanningTasks()`, so a completed task
+    /// would reload as `.missing` and strand the user on a "not found" screen.
+    /// The write is committed immediately and the route pops once the tick has
+    /// had time to draw — the delay is presentation only, never the mutation.
+    private func complete(_ task: PlanningTaskSummary) {
+        guard let repository, isCompleting == false else { return }
+        isCompleting = true
+        Task {
+            do {
+                let receipt = try await repository.prepare(
+                    .setTaskCompletion(taskID: task.id, before: false, after: true),
+                    source: "plan.task.completion",
+                    summary: "Completed \(task.title)"
+                )
+                try await repository.apply(receiptID: receipt.id)
+                try? await Task.sleep(for: .milliseconds(520))
+                router.pop()
+            } catch {
+                isCompleting = false
+                state = .failed(error.localizedDescription)
+            }
+        }
     }
 
     private static func duration(_ value: TimeInterval) -> String {
@@ -3468,5 +3636,85 @@ private struct FoundationHabitCaptureHost: View {
 
     var body: some View {
         SunriseAddHabitSheetView(viewModel: viewModel)
+    }
+}
+
+/// The one-shot lift a dock icon makes when its root becomes the current one.
+///
+/// A `matchedGeometryEffect` already slides the selected well between slots, but
+/// the icon itself stayed inert, so arriving somewhere read as the background
+/// moving rather than the destination responding. The phases run once per
+/// selection — rest, lift, settle — so the icon acknowledges the tap and then
+/// gets out of the way, rather than looping and pulling the eye back down.
+private struct LifeBoardDockLift: ViewModifier {
+    let isSelected: Bool
+    let reduceMotion: Bool
+
+    enum Phase: CaseIterable {
+        case rest, lift, settle
+
+        var scale: Double {
+            switch self {
+            case .rest, .settle: 1
+            case .lift: 1.18
+            }
+        }
+
+        var offsetY: Double {
+            switch self {
+            case .rest, .settle: 0
+            case .lift: -3
+            }
+        }
+    }
+
+    func body(content: Content) -> some View {
+        if reduceMotion {
+            content
+        } else {
+            content.phaseAnimator(Phase.allCases, trigger: isSelected) { view, phase in
+                view
+                    .scaleEffect(phase.scale)
+                    .offset(y: phase.offsetY)
+            } animation: { phase in
+                switch phase {
+                case .rest: .easeOut(duration: 0.01)
+                case .lift: .spring(response: 0.22, dampingFraction: 0.55)
+                case .settle: .spring(response: 0.32, dampingFraction: 0.78)
+                }
+            }
+        }
+    }
+}
+
+/// Where each root rests relative to the one on screen.
+///
+/// A root change should read as travelling along the dock rather than as one
+/// screen dissolving into another, so a root waits on the side it occupies in
+/// the dock order: roots to the left of the current one wait on the left, roots
+/// to the right wait on the right. Moving from Home to Track therefore carries
+/// the eye left-to-right, the same direction the selected well travels.
+///
+/// The distance is deliberately short. A full-width page slide would fight the
+/// dock's own selection movement and make every root change feel like a journey.
+enum LifeBoardRootTransition {
+    /// Far enough to give the change a direction, near enough to stay calm.
+    static let slideDistance: CGFloat = 24
+
+    /// Horizontal resting offset for `destination` while `selected` is on screen.
+    ///
+    /// The sign comes from dock order, and the magnitude is capped: roots three
+    /// slots away are no further off than roots one slot away, because they are
+    /// invisible either way and a longer throw only makes the arrival slower.
+    static func offset(
+        for destination: LifeBoardDestination,
+        selected: LifeBoardDestination,
+        distance: CGFloat = slideDistance
+    ) -> CGFloat {
+        guard destination != selected else { return 0 }
+        let order = LifeBoardDestination.allCases
+        guard let from = order.firstIndex(of: destination),
+              let to = order.firstIndex(of: selected) else { return 0 }
+        return from < to ? -distance : distance
     }
 }

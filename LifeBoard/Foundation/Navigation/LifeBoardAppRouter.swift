@@ -24,7 +24,10 @@ public enum AppRoute: Codable, Hashable, Sendable {
     case focusSession(UUID?)
     case weeklyPlanner
     case weeklyReview
-    case planningReview
+    // `planningReview` rendered exactly the same weekly-review route as
+    // `weeklyReview` and was never pushed from anywhere. `weeklyReview` now
+    // pops the destination it was actually opened from, which is the only
+    // behaviour the second case ever added.
     case trackHistory
     case insightEvidence(UUID?)
     case settings
