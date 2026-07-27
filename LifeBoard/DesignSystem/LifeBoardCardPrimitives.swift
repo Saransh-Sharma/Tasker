@@ -433,10 +433,71 @@ public struct LifeBoardStreakGrid: View {
 
 // MARK: - Deck stack
 
-/// A bounded card deck for triage surfaces: Overdue Rescue, Plan Repair and
-/// Home customisation. Adapted from the sample project's shuffle concept, but
-/// held to three visible cards and a 3° tilt, and every gesture has a visible
-/// button equivalent supplied by the caller.
+/// Shows that a triage card is the front of a queue.
+///
+/// Plan Repair and Overdue Rescue render one proposal at a time with no hint
+/// that more are waiting, so resolving one felt like it produced another out of
+/// nowhere. This is the sample project's shuffle idea reduced to the part that
+/// carries information: depth. It deliberately does not take over the host's
+/// gesture — Plan Repair maps swipe *direction* to distinct actions, which a
+/// generic dismiss-deck would throw away.
+public struct LifeBoardDeckDepth: ViewModifier {
+    private let remaining: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Two backing cards is enough to read as "more than one"; more just adds
+    /// visual noise at the bottom of the card.
+    private static let maximumBackingCards = 2
+
+    public init(remaining: Int) {
+        self.remaining = remaining
+    }
+
+    private var backingCount: Int {
+        max(0, min(Self.maximumBackingCards, remaining - 1))
+    }
+
+    public func body(content: Content) -> some View {
+        content
+            .background(alignment: .bottom) {
+                if backingCount > 0 {
+                    ZStack {
+                        ForEach(Array((1...backingCount).reversed()), id: \.self) { depth in
+                            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                                .overlay {
+                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
+                                        .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                                }
+                                .scaleEffect(1 - (CGFloat(depth) * 0.035))
+                                .offset(y: CGFloat(depth) * 7)
+                                .opacity(1 - (Double(depth) * 0.25))
+                        }
+                    }
+                    .allowsHitTesting(false)
+                    .animation(
+                        reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.84),
+                        value: backingCount
+                    )
+                }
+            }
+            .accessibilityValue(
+                remaining > 1 ? "1 of \(remaining)" : ""
+            )
+    }
+}
+
+public extension View {
+    /// Renders the card as the front of a queue of `remaining` items.
+    func lifeBoardDeckDepth(remaining: Int) -> some View {
+        modifier(LifeBoardDeckDepth(remaining: remaining))
+    }
+}
+
+/// A bounded card deck for triage surfaces where the gesture really is a plain
+/// advance. Adapted from the sample project's shuffle concept, but held to
+/// three visible cards and a 3° tilt, and every gesture has a visible button
+/// equivalent supplied by the caller.
 public struct LifeBoardDeckStack<Item: Identifiable, Content: View>: View {
     private let items: [Item]
     private let onAdvance: (Item) -> Void

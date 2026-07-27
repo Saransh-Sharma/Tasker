@@ -62,17 +62,23 @@ public struct LifeBoardRootHeaderModel: Equatable, Sendable {
     public let context: String?
     public let captureAvailable: Bool
     public let secondaryActionTitle: String?
+    /// Opts the title into the per-glyph touch response. Only Home's greeting
+    /// uses it: the other roots title a destination rather than address the
+    /// person, and a playful "Insights" would read as noise.
+    public let titleRespondsToTouch: Bool
 
     public init(
         title: String,
         context: String? = nil,
         captureAvailable: Bool = true,
-        secondaryActionTitle: String? = nil
+        secondaryActionTitle: String? = nil,
+        titleRespondsToTouch: Bool = false
     ) {
         self.title = title
         self.context = context
         self.captureAvailable = captureAvailable
         self.secondaryActionTitle = secondaryActionTitle
+        self.titleRespondsToTouch = titleRespondsToTouch
     }
 }
 
@@ -122,6 +128,7 @@ public struct LifeBoardRootHeader: View {
                     .font(.system(.title2, design: .rounded, weight: .bold))
                     .foregroundStyle(primaryInk)
                     .lineLimit(1)
+                    .modifier(LifeBoardOptionalKineticGreeting(isEnabled: model.titleRespondsToTouch))
                 if let context = model.context {
                     Text(context)
                         .font(.subheadline)
