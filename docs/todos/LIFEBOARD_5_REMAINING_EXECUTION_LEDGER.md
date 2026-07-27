@@ -163,10 +163,56 @@ Updated: 2026-07-27
 - [x] Four new contract tests: every registered kind declares a renderable archetype and section; payload decodes absent as `.none` and redacts on demand; each mode has distinct behaviour; the interpretation engine ranks consistency and refuses below its floor.
 - [x] Live simulator verification on iPhone 17 Pro and iPad (iOS 26.5): single bottom bar, composer tray, mode switching changing content, Plan capacity → working hours, iPad sidebar and seam-free backdrop.
 
+### Completion pass (2026-07-27)
+
+- [x] Fasting migrated out of the legacy Track tree. It is a first-class module on `FastingTimerStore`: a live ring in Today while a fast runs, a Body-area entry when none does, plus the reused composer and history with correction and Undo. Verified live — start, ring, Finish/Cancel, and the Today/Areas move all work without the legacy sheet.
+- [x] Journal de-duplicated in Areas; the Mind copy is gone and Library is the single module index.
+- [x] Track History extended past hydration/sleep/mood to fasting, routines and goals, with a shared history row and a range cutoff.
+- [x] `.trackHistory` is reachable: Insights evidence rows for hydration, sleep and mood push it instead of dropping the user on Track's Today lens.
+- [x] `.insightEvidence(UUID)` honours its identifier — the disclosure opens, the named record is highlighted and scrolled to, and the lens widens to Review.
+- [x] `.planningReview` deleted. It rendered the identical weekly-review route as `.weeklyReview` and was never pushed; `.weeklyReview` now pops the destination it was actually opened from, fixing Close doing nothing when opened from Insights.
+- [x] Typed payloads for the remaining providers: body metric and sleep as series, workout / movement / nutrition energy as metrics with history, recent meal as a moment, life moment as a countdown.
+- [x] `WorkoutRecord` and sleep render in Wellness with charts and history so the module matches its own subtitle; the health/care row no longer advertises fasting.
+- [x] The daypart override picker was stranded in the same dead `adaptiveHeader` as the mode picker. Both, plus layout Undo, are now reachable, and `adaptiveHeader` with its orphaned helpers is deleted (150+ lines).
+- [x] Every new shader has a real call site: `paperGrain` on the Home canvas, `dissolveAway` when a card is hidden, `liquidGlassRefract` on the dock selection well, `cardMorphWarp` on the card-to-detail background plane, `chartRevealSweep` in the trend chart.
+- [x] Deck depth added to Plan Repair so queue length is visible. The generic dismiss-deck was deliberately not adopted there — Plan Repair maps swipe direction to distinct actions, which a generic deck would discard.
+- [x] `LifeOSFoundationContractTests`: 131 tests, still only the 5 pre-existing CoreData `writeClosed` failures. The new in-memory fasting lifecycle test passes while the Core Data fasting round-trip fails, localising that failure to persistence rather than domain logic.
+
 ### Open
-- [ ] Migrate Fasting out of the legacy Track tree and retire the legacy `LifeBoardTrackRootView` entry points; Fasting is still legacy-exclusive and Journal still appears twice in Areas.
-- [ ] Deepen Track History beyond hydration/sleep/mood and wire the orphaned `.trackHistory` route.
-- [ ] Render `WorkoutRecord` and sleep in Wellness so the module matches its own subtitle.
-- [ ] Wire `.insightEvidence(UUID)` to honour its ID and `.planningReview`, or delete them.
-- [ ] Populate typed payloads for the wellness, nutrition and life-moment providers (their cards currently fall back to provider strings).
+
+- [ ] Migrate medications and trackers out of the legacy `LifeBoardTrackRootView`. Fasting is done; those two are the only remaining reason the health/care sheet exists, and they need their own schedule/definition UI rather than a re-parented sheet.
 - [ ] Capture the full appearance/daypart/Dynamic Type/Increased Contrast/Reduce Transparency screenshot matrix for the new card archetypes.
+- [ ] Signed-device gates: Core Animation/SwiftUI Instruments for 60/120 fps, sub-100 ms main-thread stalls, warm-up cost of the five new shader functions, and post-transition idle work.
+- [ ] `-SKIP_ONBOARDING` is bypassed when a journey snapshot exists, because `evaluateLaunchIfNeeded` resumes before consulting the eligibility service. Harness-only, but it makes seeded runs unreliable after a partial onboarding.
+- [ ] The composer's voice action can present an empty sheet when the journal store has not loaded; it needs a loading state.
+
+## Notes flagship completion pass (2026-07-27)
+
+### Implemented
+
+- [x] Added the immutable `TaskModelV3_NotesCompletion` model after `TaskModelV3_NotesPro`, with conflict-aware draft/revision metadata, block-addressable links, secure attachment payloads, protected attachment metadata, and LocalOnly durable processing jobs. Cloud/private and LocalOnly boundaries are contract-tested.
+- [x] Added backward-compatible Notes contracts: composable/paginated `KnowledgeNoteQuery`, version-2 rich-text payloads with forward-version fallback, reversible `NoteMutation`, `NoteEditorSession`, search, attachment, secure-note, EVA-proposal, and import/export codec interfaces.
+- [x] Replaced the feature-flagged per-block editor with one TextKit 2 `UITextView(usingTextLayoutManager: true)` document, stable block-range attributes, deterministic split/merge identity, rich formatting, Markdown shortcuts, slash commands, `[[` note mentions, indent/outdent, focused/reading chrome, hardware text behavior, 450 ms autosave, draft recovery, and revision checkpoints. The old block editor remains the rollback path.
+- [x] Added the protected Notes-only SQLite/FTS5 index with exact-title/prefix/tag/body/attachment ranking, transactional rebuilds, incremental updates, corruption-generation recovery, safe snippets, and immediate locked/trash tombstones.
+- [x] Completed adaptive Notes Home organization with the built-in collections, list/grid sorting, folder/tag navigation, saved composable smart collections, multi-selection batch actions with Undo, and bounded 3° pinned-card drag/reorder.
+- [x] Added save-first protected attachment ingestion with checksum deduplication and durable originals, privacy-preserving `PhotosPicker` capture with asynchronous loading, loss-conscious Markdown import/export, import revisions, attachment cleanup after permanent deletion, and cancellable bookmark metadata behavior already present in the block editor.
+- [x] Added per-note AES-GCM envelopes, separately encrypted attachments, authenticated Keychain-backed keys, in-memory-only unlocked editing, encrypted autosaves, scene/screen-capture shielding, search/link/tag/preview redaction, block/link preservation inside ciphertext, and recoverable key-unavailable behavior.
+- [x] Added explicit on-device EVA actions with selection/note-only input, a no-Journal system instruction, editable Apply/Edit/Discard review, content-version stale protection, one revision before Apply, and no automatic mutation.
+- [x] Added content-safe Create/Open/Search Notes App Intents and preserved typed Notes library, note, folder, Universal Capture, search, backlinks, and graph routes.
+- [x] Added staged TextKit/search/media/security/EVA/flagship rollout switches; Release remains rollback-safe while ordinary Debug launches exercise the new path.
+
+### Verification evidence
+
+- [x] Generic iOS Simulator build succeeds after the NotesCompletion model, TextKit editor, search, locking, EVA, smart collections, batch actions, Markdown codec, and intents.
+- [x] Mac Catalyst build succeeds; the app also installs and launches on the available iPhone and iPad simulators. The iPhone Notes library/empty state and iPad split library plus focused unified editor were visually inspected through the typed Notes deep link.
+- [x] Migration from every compiled predecessor, including `TaskModelV3_NotesPro`, passes with stable-ID preservation.
+- [x] Focused contract suites pass for rich-text v2/forward fallback, block split/merge/inverse identity, ranked search and locked exclusion, composable queries, Markdown fidelity, typed deep-link restoration, folder cycles, templates, protected attachment recovery, and model store boundaries.
+- [x] `git diff --check`, Core Data XML validation, and current-version plist validation pass.
+
+### Remaining release gates
+
+- [ ] Finish the durable enrichment worker UI for camera/scanner originals, Pencil drawings, audio recording/transcription, OCR thumbnails, TextBundle attachment staging, PDF export, retry/cancellation after relaunch, and background scheduling. PhotosPicker, protected file ingestion, and job entities are in place; these capture-specific producers are not complete.
+- [ ] Finish permanent unlock/lock-policy removal, cross-device secure-payload conflict recovery, authenticated locked attachment preview/export, synchronizable-Keychain validation, Spotlight/widget/notification publishing, and privacy telemetry on signed devices.
+- [ ] Persist user-dragged graph positions and folder/tag clustering; the accessible connections list, filtering, deterministic layout, pan/zoom, and editor transitions are present.
+- [ ] Add the complete UI automation and screenshot matrix, 10k/500-block performance fixtures, corruption/termination fault injection, and physical-device camera/microphone/Pencil/haptics/authentication/CloudKit/thermal/Metal gates.
+- [ ] The pre-existing isolated `testPhaseIIRepositoryRoundTripsTrackerJournalAndKnowledgeValues` failure remains `writeClosed`; it predates this pass and was reproduced before NotesCompletion changes. Do not promote the flagship Release flag until that baseline persistence defect is resolved.
