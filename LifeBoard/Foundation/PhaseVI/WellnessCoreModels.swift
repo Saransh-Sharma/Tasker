@@ -570,10 +570,20 @@ public struct WellnessHomeCardProvider: HomeCardProvider {
         do {
             switch focus {
             case .bodyMetric(let kind):
-                guard let sample = try await repository.bodyMetricSamples(kind: kind).first else {
+                let samples = try await repository.bodyMetricSamples(kind: kind)
+                guard let sample = samples.first else {
                     return empty(date, "Log a value when it is useful to you.")
                 }
                 let value = try sample.value(in: sample.displayUnit)
+                // Oldest-first so the chart reads left to right; bounded so a
+                // long history cannot make Home do unbounded work.
+                let series = samples
+                    .prefix(60)
+                    .compactMap { entry -> HomeSeriesPoint? in
+                        guard let converted = try? entry.value(in: sample.displayUnit) else { return nil }
+                        return HomeSeriesPoint(date: entry.observedAt, value: converted)
+                    }
+                    .sorted { $0.date < $1.date }
                 return ready(
                     value: Self.formatted(value, unit: sample.displayUnit),
                     detail: densityDetail(
@@ -581,12 +591,15 @@ public struct WellnessHomeCardProvider: HomeCardProvider {
                         compact: "Updated \(sample.observedAt.formatted(date: .abbreviated, time: .omitted))",
                         story: "A private measurement you chose to keep on Home. Open Track to review or correct it."
                     ),
-                    date: sample.updatedAt
+                    date: sample.updatedAt,
+                    payload: series.count > 1 ? .series(series) : .none
                 )
             case .workouts:
-                guard let workout = try await repository.workoutRecords().first else {
+                let workouts = try await repository.workoutRecords()
+                guard let workout = workouts.first else {
                     return empty(date, "Add a workout manually or connect Health.")
                 }
+                let minutes = max(0, workout.duration / 60)
                 return ready(
                     value: workout.activityKind,
                     detail: densityDetail(
@@ -594,12 +607,27 @@ public struct WellnessHomeCardProvider: HomeCardProvider {
                         compact: Self.duration(workout.duration),
                         story: "\(Self.duration(workout.duration)) on \(workout.startedAt.formatted(date: .abbreviated, time: .omitted))."
                     ),
-                    date: workout.updatedAt
+                    date: workout.updatedAt,
+                    payload: .metric(
+                        .init(
+                            amount: minutes,
+                            unit: "min",
+                            history: workouts
+                                .prefix(30)
+                                .map { HomeSeriesPoint(date: $0.startedAt, value: max(0, $0.duration / 60)) }
+                                .sorted { $0.date < $1.date }
+                        )
+                    )
                 )
             case .sleep:
-                guard let sleep = try await repository.sleepNotes().first else {
+                let notes = try await repository.sleepNotes()
+                guard let sleep = notes.first else {
                     return empty(date, "Add a sleep note when reflection would help.")
                 }
+                let series = notes
+                    .prefix(30)
+                    .map { HomeSeriesPoint(date: $0.startedAt, value: max(0, $0.duration / 3_600)) }
+                    .sorted { $0.date < $1.date }
                 return ready(
                     value: Self.duration(sleep.duration),
                     detail: densityDetail(
@@ -607,12 +635,34 @@ public struct WellnessHomeCardProvider: HomeCardProvider {
                         compact: sleep.quality.map { "Quality \($0)/5" } ?? "No rating needed",
                         story: "Your note stays descriptive and is never treated as a diagnosis."
                     ),
-                    date: sleep.updatedAt
+                    date: sleep.updatedAt,
+                    payload: series.count > 1 ? .series(series) : .none
                 )
             case .movement:
-                guard let movement = try await repository.movementRecords().first else {
+                let records = try await repository.movementRecords()
+                guard let movement = records.first else {
                     return empty(date, "Movement appears here when available.")
                 }
+                var stepHistory: [HomeSeriesPoint] = []
+                for record in records.prefix(30) {
+                    guard let steps = record.steps else { continue }
+                    stepHistory.append(
+                        HomeSeriesPoint(date: record.startedAt, value: Double(steps))
+                    )
+                }
+                stepHistory.sort { $0.date < $1.date }
+
+                var movementPayload = HomeCardPayload.none
+                if let steps = movement.steps {
+                    movementPayload = .metric(
+                        HomeMetricValue(
+                            amount: Double(steps),
+                            unit: "steps",
+                            history: stepHistory
+                        )
+                    )
+                }
+
                 return ready(
                     value: movement.steps.map { "\($0) steps" } ?? "Movement",
                     detail: densityDetail(
@@ -620,7 +670,8 @@ public struct WellnessHomeCardProvider: HomeCardProvider {
                         compact: movement.distanceMeters.map { String(format: "%.1f km", $0 / 1_000) } ?? "Latest context",
                         story: "A factual summary from \(movement.source.rawValue); open Track for accessible history."
                     ),
-                    date: movement.updatedAt
+                    date: movement.updatedAt,
+                    payload: movementPayload
                 )
             }
         } catch {
@@ -633,12 +684,18 @@ public struct WellnessHomeCardProvider: HomeCardProvider {
         }
     }
 
-    private func ready(value: String, detail: String?, date: Date) -> HomeCardSnapshot {
+    private func ready(
+        value: String,
+        detail: String?,
+        date: Date,
+        payload: HomeCardPayload = .none
+    ) -> HomeCardSnapshot {
         HomeCardSnapshot(
             availability: .ready,
             title: definition.title,
             value: value,
             detail: detail,
+            payload: payload,
             actions: inlineActions,
             updatedAt: date
         )

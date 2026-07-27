@@ -495,10 +495,24 @@ private struct NutritionLogComposer: View {
 @MainActor @Observable
 final class WellnessHistoryStore {
     private(set) var samples: [BodyMetricSample] = []
+    /// Workouts and sleep have always existed in the model and were never
+    /// rendered, while this module's own row promised "weight, sleep,
+    /// workouts, and trends".
+    private(set) var workouts: [WorkoutRecord] = []
+    private(set) var sleepNotes: [SleepNote] = []
     var errorMessage: String?
     let repository: any WellnessRepository
     init(repository: any WellnessRepository) { self.repository = repository }
-    func load(kind: BodyMetricKind) async { do { samples = try await repository.bodyMetricSamples(kind: kind); errorMessage = nil } catch { errorMessage = "Wellness history is unavailable right now." } }
+    func load(kind: BodyMetricKind) async {
+        do {
+            samples = try await repository.bodyMetricSamples(kind: kind)
+            workouts = try await repository.workoutRecords()
+            sleepNotes = try await repository.sleepNotes()
+            errorMessage = nil
+        } catch {
+            errorMessage = "Wellness history is unavailable right now."
+        }
+    }
     func save(_ sample: BodyMetricSample, kind: BodyMetricKind) async { do { try await repository.save(sample); await load(kind: kind); LifeBoardSystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = "That measurement could not be saved." } }
     func delete(_ sample: BodyMetricSample, kind: BodyMetricKind) async { do { try await repository.delete(kind: .bodyMetric, id: sample.id); await load(kind: kind); LifeBoardSystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = "That measurement could not be removed." } }
 }
@@ -559,6 +573,9 @@ struct LifeBoardWellnessView: View {
                         .padding(12).lifeBoardClaySurface(.raised, cornerRadius: 16)
                     }
                 }.accessibilityElement(children: .contain).accessibilityLabel("\(kind.title) history table")
+
+                workoutsSection
+                sleepSection
             }.padding(20)
         }
         .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
@@ -567,6 +584,86 @@ struct LifeBoardWellnessView: View {
         .toolbar { Button("Add value", systemImage: "plus") { showsCapture = true } }
         .task(id: kind) { await store.load(kind: kind) }
         .sheet(isPresented: $showsCapture) { WellnessMetricCapture(kind: kind) { value in Task { await store.save(value, kind: kind); await LifeBoardHealthRuntime.shared.jitCoordinator.offerConnectAfterReward(leadDomain: .body, trigger: "wellness_body_metric") } } }
+    }
+
+    /// `WorkoutRecord` has existed in the model with no UI at all.
+    @ViewBuilder
+    private var workoutsSection: some View {
+        if store.workouts.isEmpty == false {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Workouts").font(LifeBoardFoundationTypography.sectionTitle())
+                LifeBoardTrendChart(
+                    points: store.workouts
+                        .prefix(30)
+                        .map { HomeSeriesPoint(date: $0.startedAt, value: max(0, $0.duration / 60)) }
+                        .sorted { $0.date < $1.date },
+                    tint: Color(LifeBoardColorTokens.foundationApricotAccent),
+                    unit: "minutes"
+                )
+                .frame(height: 120)
+
+                ForEach(store.workouts.prefix(12)) { workout in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(workout.activityKind).font(.body.weight(.medium))
+                            Text(workout.startedAt.formatted(date: .abbreviated, time: .shortened))
+                                .font(.caption2)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                        Spacer()
+                        Text(Self.durationLabel(workout.duration)).monospacedDigit()
+                    }
+                    .padding(12).lifeBoardClaySurface(.raised, cornerRadius: 16)
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Workout history")
+        }
+    }
+
+    /// Sleep notes were captured in Track's Body area and had no home here,
+    /// even though this module's own description promised them.
+    @ViewBuilder
+    private var sleepSection: some View {
+        if store.sleepNotes.isEmpty == false {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Sleep").font(LifeBoardFoundationTypography.sectionTitle())
+                LifeBoardTrendChart(
+                    points: store.sleepNotes
+                        .prefix(30)
+                        .map { HomeSeriesPoint(date: $0.startedAt, value: max(0, $0.duration / 3_600)) }
+                        .sorted { $0.date < $1.date },
+                    tint: Color(LifeBoardColorTokens.foundationSageAccent),
+                    unit: "hours"
+                )
+                .frame(height: 120)
+
+                ForEach(store.sleepNotes.prefix(12)) { note in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(Self.durationLabel(note.duration)).font(.body.weight(.medium))
+                            Text(note.startedAt.formatted(date: .abbreviated, time: .shortened))
+                                .font(.caption2)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                        Spacer()
+                        if let quality = note.quality {
+                            Text("Quality \(quality)/5")
+                                .font(.caption)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                    }
+                    .padding(12).lifeBoardClaySurface(.raised, cornerRadius: 16)
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("Sleep history")
+        }
+    }
+
+    private static func durationLabel(_ interval: TimeInterval) -> String {
+        let minutes = max(0, Int(interval / 60))
+        return minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
     }
 
     /// Today-first: the day's state and one obvious capture action lead the

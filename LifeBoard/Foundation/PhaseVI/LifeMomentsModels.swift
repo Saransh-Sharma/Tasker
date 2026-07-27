@@ -295,7 +295,10 @@ public struct LifeMomentsOverviewHomeCardProvider: HomeCardProvider {
             return .init(availability: .redacted, title: definition.title, detail: "Choose a moment and allow its date on Home.", actions: inlineActions, updatedAt: date)
         }
         let value = moment.1 == 0 ? "Today" : moment.1 == 1 ? "Tomorrow" : "\(moment.1) days"
-        return .init(availability: .ready, title: moment.0.title, value: value, detail: size == .compact ? nil : moment.0.eventDate.formatted(date: .abbreviated, time: .omitted), actions: inlineActions, updatedAt: moment.0.updatedAt)
+        // The countdown body derives its own numeral from the target date, so
+        // the recurrence expansion stays the single source of "when".
+        let target = Calendar.current.date(byAdding: .day, value: moment.1, to: date) ?? moment.0.eventDate
+        return .init(availability: .ready, title: moment.0.title, value: value, detail: size == .compact ? nil : moment.0.eventDate.formatted(date: .abbreviated, time: .omitted), payload: .countdown(target: target, label: moment.0.title), actions: inlineActions, updatedAt: moment.0.updatedAt)
     }
 }
 

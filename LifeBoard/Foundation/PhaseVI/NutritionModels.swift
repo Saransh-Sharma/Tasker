@@ -398,7 +398,12 @@ public struct NutritionHomeCardProvider: HomeCardProvider {
                 guard let entry = try await repository.logs(from: nil, to: nil).first else {
                     return .init(availability: .empty, title: definition.title, detail: "Nothing logged—and nothing required.", actions: inlineActions, updatedAt: date)
                 }
-                return .init(availability: .ready, title: definition.title, value: entry.foodNameSnapshot, detail: size == .compact ? nil : "\(Int(entry.resolvedMacrosSnapshot.calories.rounded())) kcal · \(entry.mealSlot.rawValue.capitalized)", actions: inlineActions, updatedAt: entry.updatedAt)
+                let mealPreview = HomeMomentPreview(
+                    excerpt: entry.foodNameSnapshot,
+                    moodLabel: entry.mealSlot.rawValue.capitalized,
+                    capturedAt: entry.loggedAt
+                )
+                return .init(availability: .ready, title: definition.title, value: entry.foodNameSnapshot, detail: size == .compact ? nil : "\(Int(entry.resolvedMacrosSnapshot.calories.rounded())) kcal · \(entry.mealSlot.rawValue.capitalized)", payload: .moment(mealPreview), actions: inlineActions, updatedAt: entry.updatedAt)
             case .dailySummary:
                 var calendar = Calendar(identifier: .gregorian)
                 calendar.timeZone = .autoupdatingCurrent
@@ -409,7 +414,30 @@ public struct NutritionHomeCardProvider: HomeCardProvider {
                 case .standard, .wide: "P \(Int(total.proteinGrams.rounded()))g · C \(Int(total.carbohydrateGrams.rounded()))g · F \(Int(total.fatGrams.rounded()))g"
                 case .tall, .expanded: "\(entries.count) logged items. This is a factual summary, not a score or recommendation."
                 }
-                return .init(availability: entries.isEmpty ? .empty : .ready, title: definition.title, value: entries.isEmpty ? nil : "\(Int(total.calories.rounded())) kcal", detail: entries.isEmpty ? "Log only when it is useful to you." : detail, actions: inlineActions, updatedAt: entries.map(\.updatedAt).max() ?? date)
+                // A hero numeral for the day's energy, with the last week's
+                // daily totals behind it. Factual, never a target or a score.
+                let weekStart = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: date))
+                let weekEntries = try await repository.logs(from: weekStart, to: date)
+                var byDay: [Date: Double] = [:]
+                for entry in weekEntries {
+                    let day = calendar.startOfDay(for: entry.loggedAt)
+                    byDay[day, default: 0] += entry.resolvedMacrosSnapshot.calories
+                }
+                let history = byDay
+                    .map { HomeSeriesPoint(date: $0.key, value: $0.value) }
+                    .sorted { $0.date < $1.date }
+
+                var energyPayload = HomeCardPayload.none
+                if entries.isEmpty == false {
+                    energyPayload = .metric(
+                        HomeMetricValue(
+                            amount: total.calories.rounded(),
+                            unit: "kcal",
+                            history: history
+                        )
+                    )
+                }
+                return .init(availability: entries.isEmpty ? .empty : .ready, title: definition.title, value: entries.isEmpty ? nil : "\(Int(total.calories.rounded())) kcal", detail: entries.isEmpty ? "Log only when it is useful to you." : detail, payload: energyPayload, actions: inlineActions, updatedAt: entries.map(\.updatedAt).max() ?? date)
             }
         } catch {
             return .init(availability: .degraded, title: definition.title, detail: "Nutrition is unavailable right now. Your Home layout is unchanged.", updatedAt: date)
