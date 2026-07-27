@@ -3129,6 +3129,12 @@ public struct LifeBoardReferenceDashboard: View {
                 .font(LifeBoardFoundationTypography.hero())
                 .minimumScaleFactor(0.82)
                 .lineLimit(1)
+                // The one line in the app that is addressed to the person
+                // rather than reporting to them, so it is the one line that
+                // answers to a touch. The renderer is identity at rest, and it
+                // suppresses itself entirely under Reduce Motion, accessibility
+                // Dynamic Type, low power, and the screenshot fixtures.
+                .lifeBoardKineticGreeting()
 
             Text(Date.now.formatted(.dateTime.hour().minute().weekday(.wide).month(.wide).day()))
                 .font(LifeBoardFoundationTypography.body())
