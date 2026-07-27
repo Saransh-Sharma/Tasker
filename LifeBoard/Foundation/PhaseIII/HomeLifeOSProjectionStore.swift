@@ -5,6 +5,9 @@ import Observation
 @Observable
 final class HomeLifeOSProjectionStore {
     private(set) var planSnapshot: PlanDaySnapshot?
+    /// The task most recently completed from Home, and the reason its Undo
+    /// control is offered. Cleared once taken back.
+    private(set) var lastCompletedTask: PlanningTaskSummary?
     private(set) var trackSnapshot: TrackTodaySnapshot?
     private(set) var focusTask: PlanningTaskSummary?
     private(set) var focusResult: FocusRankResult?
@@ -72,6 +75,35 @@ final class HomeLifeOSProjectionStore {
                 await self.load()
             }
         }
+    }
+
+    /// Completes or reopens a task from Home.
+    ///
+    /// Home reads plan data through a projection, so it has no writer of its
+    /// own; this delegates to the same receipted `PlanStore` mutation the Plan
+    /// root uses, then rebuilds the projection so the row leaves Today.
+    /// Returns `false` when planning data is unavailable, so the caller can
+    /// leave the control in its previous state rather than lying about a write.
+    @discardableResult
+    func setTaskCompletion(_ task: PlanningTaskSummary, to isComplete: Bool) async -> Bool {
+        guard let planStore else { return false }
+        await planStore.setCompletion(task, to: isComplete)
+        lastCompletedTask = planStore.errorMessage == nil && isComplete ? task : nil
+        await load()
+        return true
+    }
+
+    /// Reopens the task completed from Home.
+    ///
+    /// Plan's Undo control reads *its own* `PlanStore`, and Home holds a
+    /// separate instance, so a completion made here was unreachable from that
+    /// button. Home therefore owns a receipt of its own rather than leaving the
+    /// most repeated mutation in the product one-way.
+    func undoLastTaskCompletion() async {
+        guard let planStore, lastCompletedTask != nil else { return }
+        await planStore.undoLastMutation()
+        lastCompletedTask = nil
+        await load()
     }
 
     func load() async {

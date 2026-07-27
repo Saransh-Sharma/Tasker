@@ -548,6 +548,17 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
             if let object = try fetchOne(entity: "InternalTimeBlock", id: block.id, in: context) {
                 context.delete(object)
             }
+        case .setTaskCompletion(let taskID, _, let after):
+            guard let task = try fetchOne(entity: "TaskDefinition", id: taskID, in: context) else {
+                throw PlanningPersistenceError.taskNotFound(taskID)
+            }
+            let now = Date()
+            task.setValue(after, forKey: "isComplete")
+            // Undoing a completion has to clear the timestamp too, otherwise a
+            // reopened task keeps a completion date and every "completed on"
+            // projection still counts it.
+            task.setValue(after ? now : nil, forKey: "dateCompleted")
+            task.setValue(now, forKey: "updatedAt")
         case .batch(let mutations):
             for mutation in mutations { try apply(mutation, in: context) }
         }

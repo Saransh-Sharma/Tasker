@@ -157,6 +157,29 @@ final class PlanStore {
         } catch { errorMessage = error.localizedDescription }
     }
 
+    /// Completes or reopens a task.
+    ///
+    /// The Foundation shell had no completion path at all: every task row drew a
+    /// decorative `circle` glyph, so the most repeated action in the product was
+    /// only reachable from widgets, notifications, Eva and routine steps. This
+    /// routes through the same prepare/apply receipt as every other planning
+    /// mutation, so a completion is undoable with `undoLastMutation()` rather
+    /// than being a one-way write.
+    ///
+    /// `tasks` is sourced from `fetchOpenPlanningTasks()`, which filters on
+    /// `isComplete == NO`, so a completed row leaves the list on reload. The
+    /// caller animates that removal; the store does not delay the write for it.
+    func setCompletion(_ task: PlanningTaskSummary, to isComplete: Bool) async {
+        do {
+            _ = try await commit(
+                .setTaskCompletion(taskID: task.id, before: !isComplete, after: isComplete),
+                source: "plan.task.completion",
+                summary: isComplete ? "Completed \(task.title)" : "Reopened \(task.title)"
+            )
+            await load()
+        } catch { errorMessage = error.localizedDescription }
+    }
+
     func bulkPlan(_ taskIDs: Set<UUID>, on day: PlanningDay) async {
         let values = tasks.filter { taskIDs.contains($0.id) }.map { task -> PlanningTaskMetadata in
             var metadata = task.metadata
@@ -667,6 +690,7 @@ final class PlanStore {
         case .saveTaskMetadata(_, let after): after.taskID
         case .saveTimeBlock(_, let after): after.id
         case .deleteTimeBlock(let value): value.id
+        case .setTaskCompletion(let taskID, _, _): taskID
         case .batch(let values): values.first.map(sourceID(for:)) ?? UUID()
         }
     }

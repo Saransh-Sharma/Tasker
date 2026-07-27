@@ -109,9 +109,54 @@ private enum PlanScheduledEntry: Identifiable {
     }
 }
 
+/// Resolves a flick on the repair deck into one of four repair actions.
+///
+/// The deck used to read only left and right, so a proposal offering four ways
+/// out could surface just two of them to the hand; the rest were reachable only
+/// by hunting the button row. Vertical intent now carries the third and fourth.
+///
+/// A flick has to commit to an axis. Diagonals resolve to nothing rather than
+/// guessing, because picking wrong here mutates the plan.
 enum PlanRepairDeckDragResolver {
     static let threshold: CGFloat = 96
     static let minimumIntent: CGFloat = 24
+    /// How far the dominant axis must beat the other before the flick counts as
+    /// pointing that way at all.
+    static let dominance: CGFloat = 1.15
+
+    /// Declaration order is the slot order actions are assigned to.
+    enum Direction: CaseIterable, Hashable {
+        case right, left, up, down
+    }
+
+    static func direction(
+        translation: CGSize,
+        predictedEndTranslation: CGSize
+    ) -> Direction? {
+        guard max(abs(translation.width), abs(translation.height)) >= minimumIntent else { return nil }
+        let dx = predictedEndTranslation.width
+        let dy = predictedEndTranslation.height
+        if abs(dx) > abs(dy) * dominance {
+            guard abs(dx) >= threshold else { return nil }
+            return dx > 0 ? .right : .left
+        }
+        if abs(dy) > abs(dx) * dominance {
+            guard abs(dy) >= threshold else { return nil }
+            return dy > 0 ? .down : .up
+        }
+        return nil
+    }
+
+    /// The action a direction carries, or nil when the proposal offers fewer
+    /// ways out than the deck has directions.
+    static func action(
+        for direction: Direction,
+        candidates: [PlanRepairAction]
+    ) -> PlanRepairAction? {
+        guard let slot = Direction.allCases.firstIndex(of: direction),
+              slot < candidates.count else { return nil }
+        return candidates[slot]
+    }
 
     static func action(
         translation: CGSize,
@@ -119,10 +164,176 @@ enum PlanRepairDeckDragResolver {
         candidates: [PlanRepairAction]
     ) -> PlanRepairAction? {
         guard candidates.isEmpty == false,
-              abs(translation.width) >= minimumIntent,
-              abs(predictedEndTranslation.width) > abs(predictedEndTranslation.height) * 1.15,
-              abs(predictedEndTranslation.width) >= threshold else { return nil }
-        return predictedEndTranslation.width > 0 ? candidates[0] : candidates.dropFirst().first
+              let direction = direction(
+                  translation: translation,
+                  predictedEndTranslation: predictedEndTranslation
+              ) else { return nil }
+        return action(for: direction, candidates: candidates)
+    }
+
+    /// Where a committed card leaves the screen.
+    static func exitOffset(for direction: Direction, distance: CGFloat = 420) -> CGSize {
+        switch direction {
+        case .right: CGSize(width: distance, height: 0)
+        case .left: CGSize(width: -distance, height: 0)
+        case .up: CGSize(width: 0, height: -distance)
+        case .down: CGSize(width: 0, height: distance)
+        }
+    }
+}
+
+/// Assigns overlapping timeline items to side-by-side lanes.
+///
+/// The day canvas used to position every commitment and block at the same x with
+/// only a y offset, so anything concurrent was drawn literally on top of
+/// everything else: with three or four overlapping meetings the spine became an
+/// unreadable stack where only the last-drawn title was legible.
+///
+/// Items are grouped into clusters — maximal runs connected by overlap — and
+/// greedily packed into the first free lane inside each cluster. Lane counts are
+/// per cluster rather than per day, so one busy hour cannot narrow the whole
+/// schedule.
+enum PlanTimelineLaneResolver {
+    /// How many lanes are on screen at once.
+    ///
+    /// Two is what a phone can show while a card still reads as a title and a
+    /// time rather than an ellipsis. Dividing the width by the true lane count
+    /// was tried and rejected: at three lanes every title collapsed to "…".
+    /// Anything past the second lane scrolls instead.
+    static let visibleLaneLimit = 2
+
+    struct Item: Equatable {
+        let id: String
+        let start: Date
+        let end: Date
+    }
+
+    struct Placement: Equatable {
+        /// Zero-based column within the cluster.
+        let lane: Int
+        /// How many lanes the cluster needs. Drives width and scrolling.
+        let laneCount: Int
+        /// Stable identifier for the overlapping group this item belongs to.
+        let clusterID: Int
+    }
+
+    /// Packs `items` into lanes, keyed by item id.
+    ///
+    /// Zero-length and reversed intervals are tolerated: a malformed event
+    /// should take a lane, not break the day.
+    static func placements(for items: [Item]) -> [String: Placement] {
+        let sorted = items.sorted {
+            $0.start == $1.start ? $0.id < $1.id : $0.start < $1.start
+        }
+        var result: [String: Placement] = [:]
+        var clusterID = 0
+        var clusterMembers: [String] = []
+        var laneEnds: [Date] = []
+        var clusterEnd: Date?
+
+        func closeCluster() {
+            guard clusterMembers.isEmpty == false else { return }
+            let count = max(1, laneEnds.count)
+            for member in clusterMembers {
+                guard let existing = result[member] else { continue }
+                result[member] = Placement(
+                    lane: existing.lane,
+                    laneCount: count,
+                    clusterID: existing.clusterID
+                )
+            }
+            clusterMembers = []
+            laneEnds = []
+            clusterEnd = nil
+            clusterID += 1
+        }
+
+        for item in sorted {
+            let end = max(item.end, item.start)
+            // A gap with everything placed so far ends the cluster, so the next
+            // item starts a fresh set of lanes back at full width.
+            if let currentEnd = clusterEnd, item.start >= currentEnd {
+                closeCluster()
+            }
+            let lane = laneEnds.firstIndex { $0 <= item.start } ?? laneEnds.count
+            if lane < laneEnds.count {
+                laneEnds[lane] = end
+            } else {
+                laneEnds.append(end)
+            }
+            result[item.id] = Placement(lane: lane, laneCount: laneEnds.count, clusterID: clusterID)
+            clusterMembers.append(item.id)
+            clusterEnd = clusterEnd.map { max($0, end) } ?? end
+        }
+        closeCluster()
+        return result
+    }
+
+    /// Total width a cluster's lanes occupy, including the gaps between them.
+    static func stripWidth(laneCount: Int, laneWidth: CGFloat, spacing: CGFloat) -> CGFloat {
+        let lanes = max(1, laneCount)
+        return laneWidth * CGFloat(lanes) + spacing * CGFloat(lanes - 1)
+    }
+
+    /// Keeps a pan inside the strip: never past the first lane, never beyond the
+    /// last one's trailing edge, so the band cannot be dragged into empty space.
+    static func clampedStripOffset(
+        _ offset: CGFloat,
+        contentWidth: CGFloat,
+        stripWidth: CGFloat
+    ) -> CGFloat {
+        min(0, max(min(0, contentWidth - stripWidth), offset))
+    }
+
+    /// Width of one lane, and whether the cluster extends past the visible edge.
+    ///
+    /// A lane is always sized so that `visibleLaneLimit` of them fill the
+    /// canvas, however many there really are. One overlap splits the width in
+    /// two and sits still; a third and beyond keep that same readable width and
+    /// scroll horizontally, so a busy hour costs a swipe rather than legibility.
+    static func laneMetrics(
+        laneCount: Int,
+        availableWidth: CGFloat,
+        spacing: CGFloat
+    ) -> (laneWidth: CGFloat, scrolls: Bool) {
+        let lanes = max(1, laneCount)
+        let width = max(0, availableWidth)
+        guard lanes > 1 else { return (width, false) }
+        let visible = min(lanes, visibleLaneLimit)
+        let laneWidth = (width - spacing * CGFloat(visible - 1)) / CGFloat(visible)
+        return (max(1, laneWidth), lanes > visibleLaneLimit)
+    }
+}
+
+/// Quantizes a time-block drag onto the schedule grid.
+///
+/// The canvas previously tracked the finger continuously and only snapped on
+/// release, so the grid was invisible during the gesture: there was no detent to
+/// feel, and no way to see which slot the block would land in.
+enum PlanBlockSnapResolver {
+    /// Correction grid, used while the block is close to where it started.
+    static let fineStepMinutes = 5
+    /// Travel grid, used once the drag is a real move.
+    static let coarseStepMinutes = 15
+    /// Below this much travel the drag is treated as a correction.
+    static let fineThresholdMinutes = 30.0
+
+    /// Minutes the block should move for a given finger travel, snapped to the
+    /// grid and clamped to the drawn day.
+    ///
+    /// A single coarse grid makes nudging a block by five minutes impossible; a
+    /// single fine grid makes crossing the day feel notchy. Splitting on travel
+    /// distance keeps both gestures available without a mode switch.
+    static func snappedMinutes(
+        translation: CGFloat,
+        hourHeight: CGFloat,
+        bounds: ClosedRange<Int>
+    ) -> Int {
+        guard hourHeight > 0 else { return 0 }
+        let raw = Double(translation / hourHeight * 60)
+        let step = Double(abs(raw) < fineThresholdMinutes ? fineStepMinutes : coarseStepMinutes)
+        let snapped = Int((raw / step).rounded() * step)
+        return min(max(snapped, bounds.lowerBound), bounds.upperBound)
     }
 }
 
@@ -487,6 +698,11 @@ struct LifeBoardPlanRootView: View {
                     .accessibilityLabel("Edit working hours and buffer")
             }
             ProgressView(value: loadFraction(capacity)).tint(loadColor(capacity))
+            // Capacity says how much room is left; this says how much of the day
+            // is left to spend it in. The two together are the actual question.
+            LifeBoardCelestialDaypartIndicator()
+                .frame(height: 44)
+                .accessibilityIdentifier("plan.capacity.daypart")
             HStack {
                 Label("\(duration(capacity.plannedEstimatedDuration)) planned", systemImage: "checkmark.circle")
                 Spacer()
@@ -742,12 +958,26 @@ struct LifeBoardPlanRootView: View {
 
     private func taskCard(_ task: PlanningTaskSummary, planned: Bool) -> some View {
         HStack(spacing: 12) {
-            Image(systemName: task.dependenciesReady ? "circle" : "lock.circle")
-                .foregroundStyle(
-                    task.dependenciesReady
-                        ? Color(LifeBoardColorTokens.inkTertiary)
-                        : Color(LifeBoardColorTokens.foundationApricotAccent)
-                )
+            if V2FeatureFlags.lifeBoardDailyLoopV1Enabled {
+                // `tasks` comes from `fetchOpenPlanningTasks()`, so a row on
+                // screen is always incomplete; the control's job here is to
+                // make it complete, and the row leaves on the next load.
+                LifeBoardCompletionControl(
+                    isComplete: false,
+                    title: task.title,
+                    isEnabled: task.dependenciesReady
+                ) { _ in
+                    Task { await store.setCompletion(task, to: true) }
+                }
+                .padding(.leading, -11)
+            } else {
+                Image(systemName: task.dependenciesReady ? "circle" : "lock.circle")
+                    .foregroundStyle(
+                        task.dependenciesReady
+                            ? Color(LifeBoardColorTokens.inkTertiary)
+                            : Color(LifeBoardColorTokens.foundationApricotAccent)
+                    )
+            }
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 7) {
                     Text(task.title).font(.body.weight(.medium)).lineLimit(2)
@@ -812,16 +1042,14 @@ struct LifeBoardPlanRootView: View {
 
     private func repairCard(_ proposals: [PlanRepairProposal]) -> some View {
         let proposal = proposals.first
-        let dragCandidates = Array((proposal?.actions ?? []).filter { $0 != .askEva }.prefix(2))
+        let dragCandidates = Array((proposal?.actions ?? []).filter { $0 != .askEva }.prefix(4))
         return VStack(alignment: .leading, spacing: 10) {
             Label("Plan repair", systemImage: "wand.and.stars")
                 .font(.headline)
             Text(proposal?.explanation ?? "Your day has changed. Choose what should move; nothing changes automatically.")
                 .font(.subheadline).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            if dragCandidates.count == 2 {
-                Text("Swipe right for \(repairActionTitle(dragCandidates[0])); left for \(repairActionTitle(dragCandidates[1])).")
-                    .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            if dragCandidates.isEmpty == false {
+                repairDirectionPad(dragCandidates)
             }
             ScrollView(.horizontal) {
                 HStack {
@@ -836,17 +1064,74 @@ struct LifeBoardPlanRootView: View {
             .scrollIndicators(.hidden)
         }
         .foundationClayCard()
-        .offset(x: repairDragOffset.width * 0.22, y: repairDragOffset.height * 0.03)
+        // Resolving one proposal used to appear to conjure another; the deck
+        // depth says up front how many are queued.
+        .lifeBoardDeckDepth(remaining: proposals.count)
+        // Vertical travel is no longer decorative, so it tracks the finger as
+        // openly as horizontal travel does.
+        .offset(x: repairDragOffset.width * 0.22, y: repairDragOffset.height * 0.22)
         .scaleEffect(repairDragOffset == .zero ? 1 : 1.012)
         .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: repairDragOffset)
         .simultaneousGesture(repairGesture(proposal: proposal, candidates: dragCandidates))
-        .accessibilityAction(named: dragCandidates.first.map { Text(repairActionTitle($0)) } ?? Text("Apply first repair")) {
-            if let action = dragCandidates.first { performRepairAction(action, proposal: proposal) }
-        }
-        .accessibilityAction(named: dragCandidates.dropFirst().first.map { Text(repairActionTitle($0)) } ?? Text("Apply second repair")) {
-            if let action = dragCandidates.dropFirst().first { performRepairAction(action, proposal: proposal) }
-        }
+        .modifier(
+            PlanRepairAccessibilityActions(
+                candidates: dragCandidates,
+                title: repairActionTitle,
+                perform: { performRepairAction($0, proposal: proposal) }
+            )
+        )
         .accessibilityIdentifier("plan.repair")
+    }
+
+    /// Says which way each repair lives, and lights the one the current flick
+    /// would commit. Without it the extra two directions are invisible: a swipe
+    /// deck that mutates the plan should never rely on the user guessing.
+    private func repairDirectionPad(_ candidates: [PlanRepairAction]) -> some View {
+        VStack(spacing: 3) {
+            repairDirectionChip(.up, candidates: candidates)
+            HStack(spacing: 6) {
+                repairDirectionChip(.left, candidates: candidates)
+                repairDirectionChip(.right, candidates: candidates)
+            }
+            repairDirectionChip(.down, candidates: candidates)
+        }
+        .frame(maxWidth: .infinity)
+        .accessibilityHidden(true)
+    }
+
+    @ViewBuilder
+    private func repairDirectionChip(
+        _ direction: PlanRepairDeckDragResolver.Direction,
+        candidates: [PlanRepairAction]
+    ) -> some View {
+        if let action = PlanRepairDeckDragResolver.action(for: direction, candidates: candidates) {
+            let armed = repairSnapAction == action
+            HStack(spacing: 4) {
+                Image(systemName: repairDirectionSymbol(direction))
+                Text(repairActionTitle(action)).lineLimit(1)
+            }
+            .font(.caption2.weight(armed ? .bold : .regular))
+            .foregroundStyle(
+                Color(armed ? LifeBoardColorTokens.inkPrimary : LifeBoardColorTokens.inkSecondary)
+            )
+            .padding(.horizontal, 8)
+            .padding(.vertical, 4)
+            .background(
+                Color(LifeBoardColorTokens.foundationApricotAccent)
+                    .opacity(armed ? 0.30 : 0.10),
+                in: Capsule()
+            )
+            .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: armed)
+        }
+    }
+
+    private func repairDirectionSymbol(_ direction: PlanRepairDeckDragResolver.Direction) -> String {
+        switch direction {
+        case .right: "chevron.right"
+        case .left: "chevron.left"
+        case .up: "chevron.up"
+        case .down: "chevron.down"
+        }
     }
 
     private func repairGesture(
@@ -865,13 +1150,15 @@ struct LifeBoardPlanRootView: View {
                 repairSnapAction = candidate
             }
             .onEnded { value in
-                let action = PlanRepairDeckDragResolver.action(
+                let direction = PlanRepairDeckDragResolver.direction(
                     translation: value.translation,
-                    predictedEndTranslation: value.predictedEndTranslation,
-                    candidates: candidates
+                    predictedEndTranslation: value.predictedEndTranslation
                 )
+                let action = direction.flatMap {
+                    PlanRepairDeckDragResolver.action(for: $0, candidates: candidates)
+                }
                 repairSnapAction = nil
-                guard let action else {
+                guard let action, let direction else {
                     withAnimation(reduceMotion ? nil : LifeBoardAnimation.directManipulation) {
                         repairDragOffset = .zero
                     }
@@ -879,7 +1166,9 @@ struct LifeBoardPlanRootView: View {
                 }
                 LifeBoardFeedback.medium()
                 withAnimation(reduceMotion ? nil : LifeBoardAnimation.panelOut) {
-                    repairDragOffset = CGSize(width: value.predictedEndTranslation.width > 0 ? 420 : -420, height: 0)
+                    // The card leaves the way it was thrown, so the gesture and
+                    // the result read as one motion.
+                    repairDragOffset = PlanRepairDeckDragResolver.exitOffset(for: direction)
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0 : 0.18)) {
                     repairDragOffset = .zero
@@ -1355,8 +1644,7 @@ private struct PlanDayTimeCanvas: View {
                 ZStack(alignment: .topLeading) {
                     hourGrid(width: proxy.size.width)
                     freeWindowLayer(width: proxy.size.width)
-                    commitmentLayer(width: proxy.size.width)
-                    blockLayer(width: proxy.size.width)
+                    clusterLayer(width: proxy.size.width)
                 }
             }
             .frame(height: timelineHeight)
@@ -1422,45 +1710,138 @@ private struct PlanDayTimeCanvas: View {
         }
     }
 
-    private func commitmentLayer(width: CGFloat) -> some View {
-        ForEach(snapshot.commitments) { commitment in
-            let conflict = conflicts(
-                start: commitment.startAt,
-                end: commitment.endAt,
-                excludingCommitmentID: commitment.id,
-                excludingBlockID: UUID(uuidString: commitment.id)
+    /// Every scheduled thing on the spine, as intervals the lane resolver can
+    /// pack. Commitments and blocks share one lane space because they overlap
+    /// each other, not just their own kind.
+    private var lanePlacements: [String: PlanTimelineLaneResolver.Placement] {
+        let items = snapshot.commitments.map {
+            PlanTimelineLaneResolver.Item(id: "commitment:\($0.id)", start: $0.startAt, end: $0.endAt)
+        } + snapshot.blocks.map {
+            PlanTimelineLaneResolver.Item(id: "block:\($0.id.uuidString)", start: $0.startAt, end: $0.endAt)
+        }
+        return PlanTimelineLaneResolver.placements(for: items)
+    }
+
+    /// One horizontally scrollable strip per overlapping cluster.
+    ///
+    /// Concurrent items used to be drawn at the same x, so a busy hour rendered
+    /// as an unreadable pile. Each cluster now gets its own lane space: two
+    /// abreast share the width, and anything denser keeps a readable lane width
+    /// and scrolls sideways inside its own time band, so the vertical position
+    /// still tells the truth about when things happen.
+    private func clusterLayer(width: CGFloat) -> some View {
+        let placements = lanePlacements
+        let contentWidth = max(1, width - rulerWidth - 18)
+        let clusters = timelineClusters(placements: placements)
+        return ForEach(clusters) { cluster in
+            let metrics = PlanTimelineLaneResolver.laneMetrics(
+                laneCount: cluster.laneCount,
+                availableWidth: contentWidth,
+                spacing: laneSpacing
             )
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 5) {
-                    Image(systemName: commitment.source == .externalCalendar ? "calendar" : "lock.fill")
-                    Text(commitment.title).lineLimit(1)
-                    if conflict { Image(systemName: "exclamationmark.triangle.fill") }
-                }
-                .font(.caption.weight(.semibold))
-                Text("\(timeLabel(commitment.startAt))–\(timeLabel(commitment.endAt)) · read-only")
-                    .font(.caption2).lineLimit(1)
-            }
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-            .padding(.horizontal, 9)
-            .frame(width: max(1, width - rulerWidth - 18), height: blockHeight(from: commitment.startAt, to: commitment.endAt), alignment: .topLeading)
-            .background(
-                conflict
-                    ? Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.20)
-                    : Color(LifeBoardColorTokens.foundationSurfaceRecessed),
-                in: RoundedRectangle(cornerRadius: 10, style: .continuous)
-            )
-            .overlay { RoundedRectangle(cornerRadius: 10).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
-            .offset(x: rulerWidth + 6, y: yPosition(commitment.startAt))
-            .accessibilityElement(children: .combine)
-            .accessibilityLabel("\(commitment.title), \(timeLabel(commitment.startAt)) to \(timeLabel(commitment.endAt))\(conflict ? ", conflicts with another item" : "")")
+            // Sizing happens inside `clusterBody`. A second frame out here used
+            // to wrap the scrolling case, and the pair of them left the
+            // ScrollView free to size itself to its content: nothing scrolled,
+            // and the lanes past the edge were merely clipped by the card.
+            clusterBody(cluster, metrics: metrics, contentWidth: contentWidth)
+                .offset(x: rulerWidth + 6, y: cluster.top)
         }
     }
 
-    private func blockLayer(width: CGFloat) -> some View {
-        ForEach(snapshot.blocks) { block in
-            PlanCanvasBlock(
+    @ViewBuilder
+    private func clusterBody(
+        _ cluster: TimelineCluster,
+        metrics: (laneWidth: CGFloat, scrolls: Bool),
+        contentWidth: CGFloat
+    ) -> some View {
+        if metrics.scrolls {
+            PlanClusterStrip(
+                contentWidth: contentWidth,
+                laneCount: cluster.laneCount,
+                laneWidth: metrics.laneWidth,
+                spacing: laneSpacing,
+                height: cluster.height
+            ) {
+                clusterLanes(cluster, laneWidth: metrics.laneWidth)
+            }
+            .accessibilityLabel("\(cluster.laneCount) overlapping items, swipe sideways to see the rest")
+        } else {
+            clusterLanes(cluster, laneWidth: metrics.laneWidth)
+                .frame(width: contentWidth, height: cluster.height, alignment: .topLeading)
+        }
+    }
+
+    private func clusterLanes(_ cluster: TimelineCluster, laneWidth: CGFloat) -> some View {
+        ZStack(alignment: .topLeading) {
+            ForEach(cluster.commitments) { entry in
+                commitmentCard(entry.commitment, width: laneWidth)
+                    .offset(
+                        x: CGFloat(entry.lane) * (laneWidth + laneSpacing),
+                        y: yPosition(entry.commitment.startAt) - cluster.top
+                    )
+            }
+            ForEach(cluster.blocks) { entry in
+                blockCard(entry.block, width: laneWidth)
+                    .offset(
+                        x: CGFloat(entry.lane) * (laneWidth + laneSpacing),
+                        y: yPosition(entry.block.startAt) - cluster.top
+                    )
+            }
+        }
+        .frame(
+            width: CGFloat(cluster.laneCount) * laneWidth + CGFloat(max(0, cluster.laneCount - 1)) * laneSpacing,
+            alignment: .topLeading
+        )
+    }
+
+    private func commitmentCard(_ commitment: PlanningFixedCommitment, width: CGFloat) -> some View {
+        let conflict = conflicts(
+            start: commitment.startAt,
+            end: commitment.endAt,
+            excludingCommitmentID: commitment.id,
+            excludingBlockID: UUID(uuidString: commitment.id)
+        )
+        // Same reasoning as the block card: once lanes split the canvas the
+        // icons eat the title, and the tint already says "conflict".
+        let compact = width < 140
+        return VStack(alignment: .leading, spacing: 2) {
+            HStack(spacing: 5) {
+                if compact == false {
+                    Image(systemName: commitment.source == .externalCalendar ? "calendar" : "lock.fill")
+                }
+                Text(commitment.title).lineLimit(1)
+                if conflict, compact == false { Image(systemName: "exclamationmark.triangle.fill") }
+            }
+            .font(.caption.weight(.semibold))
+            Text(
+                compact
+                    ? timeLabel(commitment.startAt)
+                    : "\(timeLabel(commitment.startAt))–\(timeLabel(commitment.endAt)) · read-only"
+            )
+            .font(.caption2).lineLimit(1)
+        }
+        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+        .padding(.horizontal, compact ? 5 : 9)
+        .frame(
+            width: max(1, width),
+            height: blockHeight(from: commitment.startAt, to: commitment.endAt),
+            alignment: .topLeading
+        )
+        .background(
+            conflict
+                ? Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.20)
+                : Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous)
+        )
+        .overlay { RoundedRectangle(cornerRadius: 10).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(commitment.title), \(timeLabel(commitment.startAt)) to \(timeLabel(commitment.endAt))\(conflict ? ", conflicts with another item" : "")")
+    }
+
+    private func blockCard(_ block: InternalTimeBlock, width: CGFloat) -> some View {
+        PlanCanvasBlock(
                 block: block,
-                width: max(1, width - rulerWidth - 30),
+                width: max(1, width),
                 height: blockHeight(from: block.startAt, to: block.endAt),
                 hourHeight: hourHeight,
                 hasConflict: conflicts(
@@ -1469,13 +1850,95 @@ private struct PlanDayTimeCanvas: View {
                     excludingCommitmentID: block.id.uuidString,
                     excludingBlockID: block.id
                 ),
+                // Evaluated against the snapped candidate slot while dragging,
+                // so a conflict is shown on the spine before the drop rather
+                // than reported afterwards.
+                conflictAt: { minutesDelta in
+                    conflicts(
+                        start: block.startAt.addingTimeInterval(TimeInterval(minutesDelta * 60)),
+                        end: block.endAt.addingTimeInterval(TimeInterval(minutesDelta * 60)),
+                        excludingCommitmentID: block.id.uuidString,
+                        excludingBlockID: block.id
+                    )
+                },
+                minuteBounds: minuteBounds(for: block),
                 move: { moveBlock(block, $0) },
                 resize: { resizeBlock(block, $0) },
                 split: { splitBlock(block) },
                 delete: { deleteBlock(block) },
                 focus: { startFocus(block) }
+        )
+    }
+
+    private var laneSpacing: CGFloat { 6 }
+
+    /// A group of items that overlap each other, positioned as one band.
+    struct TimelineCluster: Identifiable {
+        struct CommitmentEntry: Identifiable {
+            let commitment: PlanningFixedCommitment
+            let lane: Int
+            var id: String { commitment.id }
+        }
+
+        struct BlockEntry: Identifiable {
+            let block: InternalTimeBlock
+            let lane: Int
+            var id: UUID { block.id }
+        }
+
+        let id: Int
+        let laneCount: Int
+        let top: CGFloat
+        let height: CGFloat
+        let commitments: [CommitmentEntry]
+        let blocks: [BlockEntry]
+    }
+
+    private func timelineClusters(
+        placements: [String: PlanTimelineLaneResolver.Placement]
+    ) -> [TimelineCluster] {
+        var commitmentsByCluster: [Int: [TimelineCluster.CommitmentEntry]] = [:]
+        var blocksByCluster: [Int: [TimelineCluster.BlockEntry]] = [:]
+        var laneCounts: [Int: Int] = [:]
+        var spans: [Int: (top: CGFloat, bottom: CGFloat)] = [:]
+
+        func extend(_ clusterID: Int, start: Date, end: Date) {
+            let top = yPosition(start)
+            let bottom = top + blockHeight(from: start, to: end)
+            let current = spans[clusterID]
+            spans[clusterID] = (
+                min(current?.top ?? top, top),
+                max(current?.bottom ?? bottom, bottom)
             )
-            .offset(x: rulerWidth + 18, y: yPosition(block.startAt))
+        }
+
+        for commitment in snapshot.commitments {
+            guard let placement = placements["commitment:\(commitment.id)"] else { continue }
+            commitmentsByCluster[placement.clusterID, default: []].append(
+                .init(commitment: commitment, lane: placement.lane)
+            )
+            laneCounts[placement.clusterID] = placement.laneCount
+            extend(placement.clusterID, start: commitment.startAt, end: commitment.endAt)
+        }
+        for block in snapshot.blocks {
+            guard let placement = placements["block:\(block.id.uuidString)"] else { continue }
+            blocksByCluster[placement.clusterID, default: []].append(
+                .init(block: block, lane: placement.lane)
+            )
+            laneCounts[placement.clusterID] = placement.laneCount
+            extend(placement.clusterID, start: block.startAt, end: block.endAt)
+        }
+
+        return laneCounts.keys.sorted().compactMap { clusterID in
+            guard let span = spans[clusterID] else { return nil }
+            return TimelineCluster(
+                id: clusterID,
+                laneCount: laneCounts[clusterID] ?? 1,
+                top: span.top,
+                height: max(1, span.bottom - span.top),
+                commitments: commitmentsByCluster[clusterID] ?? [],
+                blocks: blocksByCluster[clusterID] ?? []
+            )
         }
     }
 
@@ -1499,6 +1962,17 @@ private struct PlanDayTimeCanvas: View {
 
     private var hourSpan: Int { max(4, endHour - startHour) }
     private var timelineHeight: CGFloat { CGFloat(hourSpan) * hourHeight + 1 }
+
+    /// How far a block may travel, in minutes, before it would leave the drawn
+    /// day. The drag rubber-bands past these rather than stopping dead, so the
+    /// edge of the canvas is felt instead of just refusing to move.
+    private func minuteBounds(for block: InternalTimeBlock) -> ClosedRange<Int> {
+        let timelineEnd = timelineStart.addingTimeInterval(TimeInterval(hourSpan) * 3_600)
+        let earliest = Int(timelineStart.timeIntervalSince(block.startAt) / 60)
+        let latest = Int(timelineEnd.timeIntervalSince(block.endAt) / 60)
+        guard earliest <= latest else { return 0...0 }
+        return earliest...latest
+    }
 
     private func yPosition(_ date: Date) -> CGFloat {
         max(0, CGFloat(date.timeIntervalSince(timelineStart) / 3_600) * hourHeight)
@@ -1550,76 +2024,265 @@ private struct PlanDayTimeCanvas: View {
     }
 }
 
+/// A horizontally pannable band of overlapping lanes.
+///
+/// This does by hand what a `ScrollView(.horizontal)` should have done. Nested
+/// inside the canvas — a `GeometryReader` holding a `ZStack` of `.offset` layers,
+/// itself inside the page's vertical scroll — the scroll view never received a
+/// pan: it sized itself to its content and the lanes past the edge were simply
+/// clipped, unreachable. Owning the offset makes the behaviour explicit and
+/// testable instead of dependent on how SwiftUI arbitrates nested scrolling.
+///
+/// The gesture is attached simultaneously so a vertical drag still scrolls the
+/// page underneath; only the horizontal component is consumed here.
+/// One VoiceOver action per repair the deck offers.
+///
+/// Written as a modifier because `accessibilityAction` cannot be applied in a
+/// loop over a variable-length list; each direction needs its own named action
+/// so a flick and a rotor selection reach exactly the same set of repairs.
+private struct PlanRepairAccessibilityActions: ViewModifier {
+    let candidates: [PlanRepairAction]
+    let title: (PlanRepairAction) -> String
+    let perform: (PlanRepairAction) -> Void
+
+    private func action(_ slot: Int) -> PlanRepairAction? {
+        slot < candidates.count ? candidates[slot] : nil
+    }
+
+    func body(content: Content) -> some View {
+        content
+            .accessibilityAction(named: action(0).map { Text(title($0)) } ?? Text("Apply first repair")) {
+                if let value = action(0) { perform(value) }
+            }
+            .accessibilityAction(named: action(1).map { Text(title($0)) } ?? Text("Apply second repair")) {
+                if let value = action(1) { perform(value) }
+            }
+            .accessibilityAction(named: action(2).map { Text(title($0)) } ?? Text("Apply third repair")) {
+                if let value = action(2) { perform(value) }
+            }
+            .accessibilityAction(named: action(3).map { Text(title($0)) } ?? Text("Apply fourth repair")) {
+                if let value = action(3) { perform(value) }
+            }
+    }
+}
+
+private struct PlanClusterStrip<Content: View>: View {
+    let contentWidth: CGFloat
+    let laneCount: Int
+    let laneWidth: CGFloat
+    let spacing: CGFloat
+    let height: CGFloat
+    @ViewBuilder var content: Content
+
+    @State private var committed: CGFloat = 0
+    @GestureState private var live: CGFloat = 0
+
+    private var totalWidth: CGFloat {
+        PlanTimelineLaneResolver.stripWidth(
+            laneCount: laneCount, laneWidth: laneWidth, spacing: spacing
+        )
+    }
+
+    private func clamp(_ value: CGFloat) -> CGFloat {
+        PlanTimelineLaneResolver.clampedStripOffset(
+            value, contentWidth: contentWidth, stripWidth: totalWidth
+        )
+    }
+
+    var body: some View {
+        content
+            .frame(width: totalWidth, alignment: .topLeading)
+            .offset(x: clamp(committed + live))
+            .frame(width: contentWidth, height: height, alignment: .topLeading)
+            .clipped()
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 10)
+                    .updating($live) { value, state, _ in
+                        // Vertical intent belongs to the page, not the strip.
+                        guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                        state = value.translation.width
+                    }
+                    .onEnded { value in
+                        guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                        committed = clamp(committed + value.translation.width)
+                    }
+            )
+            .animation(.interactiveSpring(response: 0.3, dampingFraction: 0.86), value: committed)
+    }
+}
+
 private struct PlanCanvasBlock: View {
     let block: InternalTimeBlock
     let width: CGFloat
     let height: CGFloat
     let hourHeight: CGFloat
     let hasConflict: Bool
+    let conflictAt: (Int) -> Bool
+    let minuteBounds: ClosedRange<Int>
     let move: (Int) -> Void
     let resize: (Int) -> Void
     let split: () -> Void
     let delete: () -> Void
     let focus: () -> Void
 
-    @GestureState private var dragOffset: CGFloat = 0
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// The snapped candidate, in minutes from the block's current start. Held as
+    /// gesture state so an interrupted drag cannot strand the block off-grid.
+    @GestureState private var draggedMinutes: Int = 0
+    /// Mirrors `draggedMinutes` outside the gesture so the detent haptic fires
+    /// exactly once per crossing rather than on every touch sample.
+    @State private var lastDetent: Int = 0
+
+    private func snapped(_ translation: CGFloat) -> Int {
+        PlanBlockSnapResolver.snappedMinutes(
+            translation: translation,
+            hourHeight: hourHeight,
+            bounds: minuteBounds
+        )
+    }
+
+    /// A lane is this narrow as soon as anything overlaps, since two lanes split
+    /// the canvas. At that width the chrome costs more than it says: the accent
+    /// bar, the inline conflict triangle and a full-size menu button together
+    /// squeeze the title down to "Foc…". Conflict still reads from the card's
+    /// tint and border and from the count in the canvas header, so the
+    /// decoration goes and the name stays.
+    private var isCompact: Bool { width < 140 }
 
     var body: some View {
-        HStack(alignment: .top, spacing: 7) {
-            RoundedRectangle(cornerRadius: 3)
-                .fill(Color(LifeBoardColorTokens.foundationApricotAccent))
-                .frame(width: 5)
+        HStack(alignment: .top, spacing: isCompact ? 4 : 7) {
+            if isCompact == false {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color(LifeBoardColorTokens.foundationApricotAccent))
+                    .frame(width: 5)
+            }
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 4) {
                     Text(block.title).lineLimit(1)
-                    if hasConflict { Image(systemName: "exclamationmark.triangle.fill") }
+                    if showsConflict, isCompact == false {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                    }
                 }
                 .font(.caption.weight(.semibold))
-                Text("\(block.startAt.formatted(date: .omitted, time: .shortened))–\(block.endAt.formatted(date: .omitted, time: .shortened))")
+                // While dragging, the row reads out the slot it would land in,
+                // so the commitment is legible before the finger lifts.
+                Text("\(candidateStart.formatted(date: .omitted, time: .shortened))–\(candidateEnd.formatted(date: .omitted, time: .shortened))")
                     .font(.caption2).lineLimit(1)
+                    .monospacedDigit()
             }
             Spacer(minLength: 2)
             Menu {
                 Button("Start focus", systemImage: "timer", action: focus)
-                Button("Move 15 minutes earlier", systemImage: "arrow.up") { move(-15) }
-                Button("Move 15 minutes later", systemImage: "arrow.down") { move(15) }
+                // The drag snaps to five minutes for small corrections, so the
+                // menu has to offer the same granularity or the pointer and
+                // keyboard paths cannot reach every slot the finger can.
+                Button("Move 5 minutes earlier", systemImage: "arrow.up") { move(-5) }
+                Button("Move 5 minutes later", systemImage: "arrow.down") { move(5) }
+                Button("Move 15 minutes earlier", systemImage: "arrow.up.to.line") { move(-15) }
+                Button("Move 15 minutes later", systemImage: "arrow.down.to.line") { move(15) }
                 Button("Add 15 minutes", systemImage: "plus") { resize(15) }
                 Button("Remove 15 minutes", systemImage: "minus") { resize(-15) }
                 Button("Split", systemImage: "rectangle.split.2x1", action: split)
                 Button("Remove", systemImage: "trash", role: .destructive, action: delete)
             } label: {
-                Image(systemName: "ellipsis").frame(width: 30, height: 30)
+                Image(systemName: "ellipsis")
+                    .frame(width: isCompact ? 22 : 30, height: 30)
             }
         }
         .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-        .padding(.leading, 7)
-        .padding(.trailing, 5)
+        .padding(.leading, isCompact ? 5 : 7)
+        .padding(.trailing, isCompact ? 2 : 5)
         .frame(width: width, height: height, alignment: .topLeading)
         .background(
-            hasConflict
+            showsConflict
                 ? Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.34)
                 : Color(LifeBoardColorTokens.foundationSurfaceSelected),
             in: RoundedRectangle(cornerRadius: 11, style: .continuous)
         )
-        .overlay { RoundedRectangle(cornerRadius: 11).stroke(Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.48), lineWidth: 1) }
-        .offset(y: dragOffset)
+        .overlay {
+            RoundedRectangle(cornerRadius: 11)
+                .stroke(
+                    Color(LifeBoardColorTokens.foundationApricotAccent)
+                        .opacity(isDragging ? 0.9 : 0.48),
+                    lineWidth: isDragging ? 2 : 1
+                )
+        }
+        .offset(y: CGFloat(draggedMinutes) / 60 * hourHeight)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: draggedMinutes)
         .contentShape(Rectangle())
+        // Press and hold before moving, the way the system calendar does.
+        //
+        // A plain drag here used to claim every touch that landed on a block,
+        // and blocks cover nearly all of a crowded cluster — so the horizontal
+        // scroll that reaches the lanes past the second one could never win the
+        // gesture, and those items were unreachable. Requiring the press frees
+        // ordinary drags to scroll the strip and keeps the move deliberate.
         .gesture(
-            DragGesture(minimumDistance: 7)
-                .updating($dragOffset) { value, state, _ in state = value.translation.height }
+            LongPressGesture(minimumDuration: 0.28)
+                .sequenced(before: DragGesture(minimumDistance: 0))
+                .updating($draggedMinutes) { value, state, _ in
+                    guard case .second(true, let drag?) = value else { return }
+                    state = PlanBlockSnapResolver.snappedMinutes(
+                        translation: drag.translation.height,
+                        hourHeight: hourHeight,
+                        bounds: minuteBounds
+                    )
+                }
+                .onChanged { value in
+                    switch value {
+                    case .second(true, nil):
+                        // The hold registered: say so, or the block feels dead
+                        // until the finger has already moved.
+                        LifeBoardHaptic.settle.play()
+                    case .second(true, let drag?):
+                        let snapped = snapped(drag.translation.height)
+                        guard snapped != lastDetent else { return }
+                        lastDetent = snapped
+                        LifeBoardHaptic.pick.play()
+                    default:
+                        break
+                    }
+                }
                 .onEnded { value in
-                    let rawMinutes = Double(value.translation.height / hourHeight * 60)
-                    let snapped = Int((rawMinutes / 15).rounded()) * 15
-                    if snapped != 0 { move(snapped) }
+                    lastDetent = 0
+                    guard case .second(true, let drag?) = value else { return }
+                    let snapped = snapped(drag.translation.height)
+                    if snapped != 0 {
+                        LifeBoardHaptic.commit.play()
+                        move(snapped)
+                    } else if abs(drag.translation.height) > 8 {
+                        LifeBoardHaptic.settle.play()
+                    }
                 }
         )
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(block.title), \(block.startAt.formatted(date: .omitted, time: .shortened)) to \(block.endAt.formatted(date: .omitted, time: .shortened))\(hasConflict ? ", conflicts with another item" : "")")
         .accessibilityAdjustableAction { direction in move(direction == .increment ? 15 : -15) }
+        .accessibilityAction(named: "Move 5 minutes earlier") { move(-5) }
+        .accessibilityAction(named: "Move 5 minutes later") { move(5) }
         .accessibilityAction(named: "Add 15 minutes") { resize(15) }
         .accessibilityAction(named: "Remove 15 minutes") { resize(-15) }
         .accessibilityAction(named: "Start focus", focus)
         .accessibilityIdentifier("plan.canvas.block.\(block.id.uuidString)")
+    }
+
+    private var isDragging: Bool { draggedMinutes != 0 }
+
+    private var candidateStart: Date {
+        block.startAt.addingTimeInterval(TimeInterval(draggedMinutes * 60))
+    }
+
+    private var candidateEnd: Date {
+        block.endAt.addingTimeInterval(TimeInterval(draggedMinutes * 60))
+    }
+
+    /// During a drag the block reports the candidate slot's conflict, not its
+    /// current one — otherwise dragging *out* of a clash keeps showing the
+    /// warning and dragging *into* one shows nothing until the drop.
+    private var showsConflict: Bool {
+        isDragging ? conflictAt(draggedMinutes) : hasConflict
     }
 }
 

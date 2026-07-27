@@ -439,6 +439,8 @@ public extension PlanMutation {
             else { .deleteTimeBlock(after) }
         case .deleteTimeBlock(let block):
             .saveTimeBlock(before: nil, after: block)
+        case .setTaskCompletion(let taskID, let before, let after):
+            .setTaskCompletion(taskID: taskID, before: after, after: before)
         case .batch(let mutations):
             .batch(mutations.reversed().map(\.inverse))
         }

@@ -669,6 +669,13 @@ public enum PlanMutation: Codable, Hashable, Sendable {
     case saveTaskMetadata(before: PlanningTaskMetadata, after: PlanningTaskMetadata)
     case saveTimeBlock(before: InternalTimeBlock?, after: InternalTimeBlock)
     case deleteTimeBlock(InternalTimeBlock)
+    /// Completion is planning state, not planning *metadata*: it lives on the
+    /// canonical `TaskDefinition` rather than on `PlanningTaskMetadata`. Routing
+    /// it through `PlanMutation` anyway is what gives a completion the same
+    /// receipt and one-step Undo as every other planning change, which the
+    /// batch-mutation contract requires. Appended last so previously encoded
+    /// `forwardData`/`undoData` payloads keep decoding.
+    case setTaskCompletion(taskID: UUID, before: Bool, after: Bool)
     indirect case batch([PlanMutation])
 }
 
