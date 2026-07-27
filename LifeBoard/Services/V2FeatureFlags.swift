@@ -131,6 +131,36 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_v1") }
     }
 
+    public static var knowledgeNotesTextKitEditorV2Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.knowledge_notes_textkit_v2", argument: "KNOWLEDGE_NOTES_TEXTKIT_V2") }
+        set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_textkit_v2") }
+    }
+
+    public static var knowledgeNotesSearchIndexV2Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.knowledge_notes_search_v2", argument: "KNOWLEDGE_NOTES_SEARCH_V2") }
+        set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_search_v2") }
+    }
+
+    public static var knowledgeNotesMediaPipelineV2Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.knowledge_notes_media_v2", argument: "KNOWLEDGE_NOTES_MEDIA_V2") }
+        set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_media_v2") }
+    }
+
+    public static var knowledgeNotesSecurityV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.knowledge_notes_security_v1", argument: "KNOWLEDGE_NOTES_SECURITY_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_security_v1") }
+    }
+
+    public static var knowledgeNotesEVAV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.knowledge_notes_eva_v1", argument: "KNOWLEDGE_NOTES_EVA_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_eva_v1") }
+    }
+
+    public static var knowledgeNotesFlagshipV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.knowledge_notes_flagship_v1", argument: "KNOWLEDGE_NOTES_FLAGSHIP_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_flagship_v1") }
+    }
+
     public static var planningCoreV1Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.planning_core_v1", argument: "PLANNING_CORE_V1") }
         set { setStagedFeature(newValue, key: "feature.life_os.planning_core_v1") }
@@ -176,6 +206,22 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.starter_packs_v1") }
     }
 
+    /// Stage 2 of the Beyond Notes rollout: the daily execution loop. Gates the
+    /// task completion control and the magnetic schedule spine — both of which
+    /// touch canonical mutations, so the flag has to hide the new presentation
+    /// without hiding work created while it was on.
+    public static var lifeBoardDailyLoopV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.daily_loop_v1", argument: "DAILY_LOOP_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.daily_loop_v1") }
+    }
+
+    /// Stage 3 of the Beyond Notes rollout: the task and project flagship. Gates
+    /// the directional Plan Repair deck.
+    public static var taskProjectFlagshipV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.task_project_flagship_v1", argument: "TASK_PROJECT_FLAGSHIP_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.task_project_flagship_v1") }
+    }
+
     /// Flags whose staged rollout is complete and which now ship on by default.
     ///
     /// Release builds used to fall through to `false` for every staged flag, so a
@@ -212,7 +258,12 @@ public enum V2FeatureFlags {
         "feature.life_os.starter_packs_v1": true,
         // Held back: an A/B phrasing path for Eva's journal answers, not part of
         // the shipped surface. The deterministic evidence answer is the default.
-        "feature.life_os.eva_fm_responder_v1": false
+        "feature.life_os.eva_fm_responder_v1": false,
+        // Held back pending their own verification passes. Both gate surfaces
+        // that write canonical mutations, so neither promotes on the strength of
+        // the screen existing.
+        "feature.life_os.daily_loop_v1": false,
+        "feature.life_os.task_project_flagship_v1": false
     ]
 
     private static func stagedFeatureEnabled(key: String, argument: String) -> Bool {
