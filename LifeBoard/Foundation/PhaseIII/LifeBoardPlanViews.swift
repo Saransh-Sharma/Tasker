@@ -1042,7 +1042,15 @@ struct LifeBoardPlanRootView: View {
 
     private func repairCard(_ proposals: [PlanRepairProposal]) -> some View {
         let proposal = proposals.first
-        let dragCandidates = Array((proposal?.actions ?? []).filter { $0 != .askEva }.prefix(4))
+        // With the flagship stage off the deck keeps its original two
+        // directions, so the rollback is a genuine return to the previous
+        // behaviour rather than a half-lit four-way pad.
+        let directionCount = V2FeatureFlags.taskProjectFlagshipV1Enabled
+            ? PlanRepairDeckDragResolver.Direction.allCases.count
+            : 2
+        let dragCandidates = Array(
+            (proposal?.actions ?? []).filter { $0 != .askEva }.prefix(directionCount)
+        )
         return VStack(alignment: .leading, spacing: 10) {
             Label("Plan repair", systemImage: "wand.and.stars")
                 .font(.headline)
