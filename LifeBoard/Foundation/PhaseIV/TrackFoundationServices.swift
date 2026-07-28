@@ -242,7 +242,7 @@ public final class CanonicalStarterPackMutationApplier: StarterPackCanonicalMuta
             kind: .positive,
             trackingMode: .dailyCheckIn,
             icon: .init(symbolName: itemKind == .reminder ? "bell.fill" : "sparkles", categoryKey: "starter-pack"),
-            colorHex: "#E7BB7E",
+            colorHex: LifeBoardSceneHex.apricot,
             targetConfig: .init(notes: "Created from the \(Self.displayName(pack)) starter pack.", targetCountPerDay: 1),
             cadence: .daily(hour: schedule.hour, minute: schedule.minute),
             reminderWindowStart: itemKind == .reminder ? schedule.windowStart : nil,

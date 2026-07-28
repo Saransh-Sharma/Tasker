@@ -131,10 +131,6 @@ public struct LifeBoardAtmosphereDescriptor: Equatable, Sendable {
     public let compactStarCount: Int
     public let regularStarCount: Int
 
-    /// Celestial anchors deliberately sit in the trailing-top corner across
-    /// every phase. Morning previously anchored at x 0.52 with the largest
-    /// scale in the set, which put a full-strength sun directly behind the
-    /// greeting and the date line. Keeping the celestial off the leading
     /// Whether content resting directly on this phase's scene needs light ink.
     /// Exposed on the phase so headers and overlays can ask without building a
     /// whole descriptor, and so there is one answer rather than each surface
@@ -143,23 +139,27 @@ public struct LifeBoardAtmosphereDescriptor: Equatable, Sendable {
         descriptor(for: phase).usesInverseHeaderInk
     }
 
+    /// Celestial anchors deliberately sit in the trailing-top corner across
+    /// every phase. Morning previously anchored at x 0.52 with the largest
+    /// scale in the set, which put a full-strength sun directly behind the
+    /// greeting and the date line. Keeping the celestial off the leading
     /// reading column preserves the calm negative-space field the design
     /// contract asks for, and lets each phase differ by mood rather than by
     /// how much text it obscures.
     public static func descriptor(for phase: LifeBoardCelestialPhase) -> Self {
         switch phase {
         case .dawn:
-            .init(phase: phase, backgroundAsset: "CelestialDawnBackground", celestialAsset: "CelestialDawn", fallbackHex: "#F2D6B6", usesInverseHeaderInk: false, scrimStrength: 0.10, celestialAnchorX: 0.74, celestialAnchorY: 0.15, celestialScale: 0.52, compactStarCount: 0, regularStarCount: 0)
+            .init(phase: phase, backgroundAsset: "CelestialDawnBackground", celestialAsset: "CelestialDawn", fallbackHex: LifeBoardSceneHex.dawnFallback, usesInverseHeaderInk: false, scrimStrength: 0.10, celestialAnchorX: 0.74, celestialAnchorY: 0.15, celestialScale: 0.52, compactStarCount: 0, regularStarCount: 0)
         case .morning:
-            .init(phase: phase, backgroundAsset: "CelestialMorningBackground", celestialAsset: "CelestialMorning", fallbackHex: "#F4D9A8", usesInverseHeaderInk: false, scrimStrength: 0.08, celestialAnchorX: 0.76, celestialAnchorY: 0.13, celestialScale: 0.54, compactStarCount: 0, regularStarCount: 0)
+            .init(phase: phase, backgroundAsset: "CelestialMorningBackground", celestialAsset: "CelestialMorning", fallbackHex: LifeBoardSceneHex.morningFallback, usesInverseHeaderInk: false, scrimStrength: 0.08, celestialAnchorX: 0.76, celestialAnchorY: 0.13, celestialScale: 0.54, compactStarCount: 0, regularStarCount: 0)
         case .midday:
-            .init(phase: phase, backgroundAsset: "CelestialMiddayBackground", celestialAsset: "CelestialMidday", fallbackHex: "#EDC178", usesInverseHeaderInk: false, scrimStrength: 0.12, celestialAnchorX: 0.78, celestialAnchorY: 0.11, celestialScale: 0.50, compactStarCount: 0, regularStarCount: 0)
+            .init(phase: phase, backgroundAsset: "CelestialMiddayBackground", celestialAsset: "CelestialMidday", fallbackHex: LifeBoardSceneHex.middayFallback, usesInverseHeaderInk: false, scrimStrength: 0.12, celestialAnchorX: 0.78, celestialAnchorY: 0.11, celestialScale: 0.50, compactStarCount: 0, regularStarCount: 0)
         case .goldenHour:
-            .init(phase: phase, backgroundAsset: "CelestialGoldenHourBackground", celestialAsset: "CelestialGoldenHour", fallbackHex: "#E7B875", usesInverseHeaderInk: false, scrimStrength: 0.13, celestialAnchorX: 0.74, celestialAnchorY: 0.17, celestialScale: 0.52, compactStarCount: 0, regularStarCount: 0)
+            .init(phase: phase, backgroundAsset: "CelestialGoldenHourBackground", celestialAsset: "CelestialGoldenHour", fallbackHex: LifeBoardSceneHex.goldenHourFallback, usesInverseHeaderInk: false, scrimStrength: 0.13, celestialAnchorX: 0.74, celestialAnchorY: 0.17, celestialScale: 0.52, compactStarCount: 0, regularStarCount: 0)
         case .twilight:
-            .init(phase: phase, backgroundAsset: "CelestialTwilightBackground", celestialAsset: "CelestialTwilight", fallbackHex: "#B7A5A2", usesInverseHeaderInk: false, scrimStrength: 0.20, celestialAnchorX: 0.76, celestialAnchorY: 0.15, celestialScale: 0.48, compactStarCount: 8, regularStarCount: 12)
+            .init(phase: phase, backgroundAsset: "CelestialTwilightBackground", celestialAsset: "CelestialTwilight", fallbackHex: LifeBoardSceneHex.twilightFallback, usesInverseHeaderInk: false, scrimStrength: 0.20, celestialAnchorX: 0.76, celestialAnchorY: 0.15, celestialScale: 0.48, compactStarCount: 8, regularStarCount: 12)
         case .night:
-            .init(phase: phase, backgroundAsset: "CelestialNightBackground", celestialAsset: "CelestialNight", fallbackHex: "#343545", usesInverseHeaderInk: true, scrimStrength: 0.30, celestialAnchorX: 0.78, celestialAnchorY: 0.14, celestialScale: 0.46, compactStarCount: 14, regularStarCount: 22)
+            .init(phase: phase, backgroundAsset: "CelestialNightBackground", celestialAsset: "CelestialNight", fallbackHex: LifeBoardSceneHex.nightFallback, usesInverseHeaderInk: true, scrimStrength: 0.30, celestialAnchorX: 0.78, celestialAnchorY: 0.14, celestialScale: 0.46, compactStarCount: 14, regularStarCount: 22)
         }
     }
 }
@@ -590,8 +590,8 @@ public struct LifeBoardAdaptiveAtmosphere: View {
                     let opacity = reduceTransparency ? max(0.58, wave) : wave
                     let rect = CGRect(x: x, y: y, width: base, height: base)
                     let color = index.isMultiple(of: 3)
-                        ? Color(lifeboardHex: "#E7DDF1")
-                        : Color(lifeboardHex: "#FFF3D9")
+                        ? Color(lifeboardHex: LifeBoardSceneHex.starCool)
+                        : Color(lifeboardHex: LifeBoardSceneHex.starWarm)
                     graphics.fill(Path(ellipseIn: rect), with: .color(color.opacity(opacity)))
                 }
             }

@@ -373,3 +373,31 @@ public enum LifeBoardFoundationRadius {
     public static let modal: CGFloat = 28
     public static let pill: CGFloat = 999
 }
+
+/// Literal hex values that belong to the token layer rather than to the screens
+/// that draw them.
+///
+/// `scripts/phase1-foundation-guardrails.sh` bans `#RRGGBB` anywhere under
+/// `LifeBoard/Foundation` except this file, and it was failing at `HEAD` on nine
+/// literals that had accumulated in `LifeBoardAtmosphereRenderer` and
+/// `TrackFoundationServices`. The values below are byte-for-byte what those call
+/// sites used, so this is a relocation and not a retint — nothing renders
+/// differently.
+public enum LifeBoardSceneHex {
+    /// Flat colours drawn only when a celestial phase's artwork asset is
+    /// unavailable. Not a palette: never use these for content or chrome.
+    public static let dawnFallback = "#F2D6B6"
+    public static let morningFallback = "#F4D9A8"
+    public static let middayFallback = "#EDC178"
+    public static let goldenHourFallback = "#E7B875"
+    public static let twilightFallback = "#B7A5A2"
+    public static let nightFallback = "#343545"
+
+    /// The two-tone starfield on twilight and night scenes.
+    public static let starCool = "#E7DDF1"
+    public static let starWarm = "#FFF3D9"
+
+    /// Apricot, as a string, for the few models that persist a colour as hex
+    /// rather than resolving a semantic token at render time.
+    public static let apricot = "#E7BB7E"
+}

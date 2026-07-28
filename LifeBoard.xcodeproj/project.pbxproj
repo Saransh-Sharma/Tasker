@@ -771,6 +771,7 @@
 		B0045AC9A4CD19C619A2E2F1 /* EvaLiveWorkingStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDED467BEDE45453B0C91BEF /* EvaLiveWorkingStatusView.swift */; };
 		B02D197549EC54773882C0DC /* TaskExecutionContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCF4693EA4663A4F21990443 /* TaskExecutionContracts.swift */; };
 		A31000000000000000000102 /* InboxCommitCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000101 /* InboxCommitCoordinator.swift */; };
+		A31000000000000000000106 /* CoreDataInboxTaskWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000105 /* CoreDataInboxTaskWriter.swift */; };
 		B07988E6375D66CC8CDB8D47 /* EvaDaySunriseTaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B33EB5C978F76DF3A6A735C /* EvaDaySunriseTaskRowView.swift */; };
 		B07A5646DA7E6D9AC7739710 /* ManageLifeAreasUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E06E18805C2401359A9B0F5B /* ManageLifeAreasUseCase.swift */; };
 		B10B1C2D3E4F506172839401 /* StateLifeAreaMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839401 /* StateLifeAreaMapper.swift */; };
@@ -2366,6 +2367,7 @@
 		DC271661EA08BEAAD92DD4A0 /* LifeBoardClaySurface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardClaySurface.swift; sourceTree = "<group>"; };
 		DCF4693EA4663A4F21990443 /* TaskExecutionContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TaskExecutionContracts.swift; path = Foundation/PhaseIII/TaskExecutionContracts.swift; sourceTree = "<group>"; };
 		A31000000000000000000101 /* InboxCommitCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InboxCommitCoordinator.swift; path = Foundation/PhaseIII/InboxCommitCoordinator.swift; sourceTree = "<group>"; };
+		A31000000000000000000105 /* CoreDataInboxTaskWriter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CoreDataInboxTaskWriter.swift; path = Foundation/PhaseIII/CoreDataInboxTaskWriter.swift; sourceTree = "<group>"; };
 		DD7B0A79A3EE19D37B1FE1CA /* OverdueRescueSunriseHero.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueSunriseHero.swift; sourceTree = SOURCE_ROOT; };
 		DDFDBE1A33B827BB4D7FD04A /* AddTaskPriorityPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskPriorityPicker.swift; sourceTree = "<group>"; };
 		DE2CDAC6D56F874D92E1DD4D /* HomeViewModelRoot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeViewModelRoot.swift; sourceTree = SOURCE_ROOT; };
@@ -2910,6 +2912,7 @@
 				AA28ABC219B4E3710AB87E0E /* LifeBoardInboxView.swift */,
 				DCF4693EA4663A4F21990443 /* TaskExecutionContracts.swift */,
 				A31000000000000000000101 /* InboxCommitCoordinator.swift */,
+				A31000000000000000000105 /* CoreDataInboxTaskWriter.swift */,
 			);
 			name = PhaseIII;
 			sourceTree = "<group>";
@@ -6148,6 +6151,7 @@
 				2D72FE589C5E13FDE039E900 /* HabitViewModelFactoryEnvironment.swift in Sources */,
 				B02D197549EC54773882C0DC /* TaskExecutionContracts.swift in Sources */,
 				A31000000000000000000102 /* InboxCommitCoordinator.swift in Sources */,
+				A31000000000000000000106 /* CoreDataInboxTaskWriter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
