@@ -90,19 +90,40 @@ public struct CaptureRequest: Identifiable, Codable, Hashable, Sendable {
     public let source: Source
     public let draftID: UUID?
     public let presentationContext: CapturePresentationContext?
+    /// Seed text for the editor, used when reviewing an already-captured item.
+    ///
+    /// Carries the *raw* capture, not the parser's rewritten title: review means
+    /// the user sees exactly what they said and decides what it becomes. Decoded
+    /// with `decodeIfPresent` so previously persisted requests keep restoring.
+    public let prefilledText: String?
 
     public init(
         id: UUID = UUID(),
         kind: CaptureKind,
         source: Source,
         draftID: UUID? = nil,
-        presentationContext: CapturePresentationContext? = nil
+        presentationContext: CapturePresentationContext? = nil,
+        prefilledText: String? = nil
     ) {
         self.id = id
         self.kind = kind
         self.source = source
         self.draftID = draftID
         self.presentationContext = presentationContext
+        self.prefilledText = prefilledText
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        kind = try container.decode(CaptureKind.self, forKey: .kind)
+        source = try container.decode(Source.self, forKey: .source)
+        draftID = try container.decodeIfPresent(UUID.self, forKey: .draftID)
+        presentationContext = try container.decodeIfPresent(
+            CapturePresentationContext.self,
+            forKey: .presentationContext
+        )
+        prefilledText = try container.decodeIfPresent(String.self, forKey: .prefilledText)
     }
 }
 

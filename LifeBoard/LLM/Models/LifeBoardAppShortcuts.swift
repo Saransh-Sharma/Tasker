@@ -208,7 +208,7 @@ private func applyShortcutMutation(
 @available(iOS 16.0, macOS 13.0, *)
 struct AddTaskIntent: AppIntent {
     static let title: LocalizedStringResource = "Add Task"
-    static let description = IntentDescription("Creates a new Inbox task without opening the app.")
+    static let description = IntentDescription("Captures a task into your LifeBoard inbox to review.")
     static let openAppWhenRun = false
 
     @Parameter(title: "Title", requestValueDialog: IntentDialog("What task do you want to add?"))
@@ -229,21 +229,28 @@ struct AddTaskIntent: AppIntent {
             throw $taskTitle.needsValueError(IntentDialog("What task do you want to add?"))
         }
 
-        let service = try await LifeBoardShortcutDependencyResolver.inboxTaskCaptureService()
-        let task = try await service.createTask(title: trimmedTitle, details: details)
+        // Queued raw, not parsed and committed.
+        //
+        // This used to run `TaskCaptureParser` through `InboxTaskCaptureService`,
+        // which rewrites the title (stripping the date phrase) and assigns a due
+        // date. Invoked hands-free there is no opportunity to review that, so a
+        // spoken "add task tomorrow 3pm" silently acquired a date the user never
+        // saw — and a parser defect meant it was sometimes the wrong one. The
+        // capture now lands in the Inbox with the parser's proposal shown as
+        // review chips, and only becomes a scheduled task once confirmed.
+        let capture = PendingCapture(
+            rawText: [trimmedTitle, details?.trimmingCharacters(in: .whitespacesAndNewlines)]
+                .compactMap { $0?.isEmpty == false ? $0 : nil }
+                .joined(separator: "\n"),
+            source: "siri"
+        )
+        PendingCaptureInbox.append(capture)
 
-        do {
-            try ShortcutMutationSignalStore.shared.submitTaskCreated(taskID: task.id)
-        } catch {
-            throw LifeBoardShortcutRuntimeError.handoffFailed(
-                error.localizedDescription.isEmpty == false
-                    ? error.localizedDescription
-                    : "LifeBoard created the task but could not refresh the app."
-            )
-        }
-
-        let confirmation = "Added \(task.title) to Inbox."
-        return .result(value: task.title, dialog: IntentDialog(stringLiteral: confirmation))
+        // The dialog states what actually happened. Claiming the task was
+        // scheduled would be the same silent-commit problem wearing a nicer
+        // sentence.
+        let confirmation = "Added “\(trimmedTitle)” to your inbox to review."
+        return .result(value: trimmedTitle, dialog: IntentDialog(stringLiteral: confirmation))
     }
 }
 

@@ -68,12 +68,28 @@ public enum UnscheduledDisposition: String, Codable, CaseIterable, Sendable {
     /// A sync-safe deletion marker. Mutation receipts can restore the canonical task exactly,
     /// while every planning and linked-source projection treats it as removed.
     case deleted
+    /// Kept for lookup, never scheduled and never chased.
+    ///
+    /// Additive and safe on older builds: `CoreDataPlanningRepository` decodes an
+    /// unrecognized disposition as `.inbox`, so a device that has not shipped
+    /// this case shows the item as untriaged again rather than losing it. That
+    /// is the correct degradation — reference material reappearing in the Inbox
+    /// is recoverable, a silently vanished capture is not.
+    case reference
 }
 
 public struct PlanningTaskMetadata: Codable, Hashable, Identifiable, Sendable {
     public var id: UUID { taskID }
     public let taskID: UUID
     public var planningDay: PlanningDay?
+    /// The earliest day work may begin, distinct from `planningDay` (when you
+    /// intend to do it) and `dueDate` (when it must be finished).
+    ///
+    /// Without this the three collapse into one and a task you cannot start
+    /// until next week still appears actionable today. Optional and additive:
+    /// existing metadata decodes with no start constraint, which is the same
+    /// behavior as before.
+    public var startDay: PlanningDay?
     public var commitmentLevel: TaskCommitmentLevel
     public var availability: TaskAvailability
     public var planningContext: PlanningContext
@@ -86,6 +102,7 @@ public struct PlanningTaskMetadata: Codable, Hashable, Identifiable, Sendable {
     public init(
         taskID: UUID,
         planningDay: PlanningDay? = nil,
+        startDay: PlanningDay? = nil,
         commitmentLevel: TaskCommitmentLevel = .standard,
         availability: TaskAvailability = .actionable,
         planningContext: PlanningContext = .neutral,
@@ -97,6 +114,7 @@ public struct PlanningTaskMetadata: Codable, Hashable, Identifiable, Sendable {
     ) {
         self.taskID = taskID
         self.planningDay = planningDay
+        self.startDay = startDay
         self.commitmentLevel = commitmentLevel
         self.availability = availability
         self.planningContext = planningContext
@@ -419,6 +437,13 @@ public enum BacklogGroup: String, Codable, CaseIterable, Sendable {
     case nextWeek
     case later
     case someday
+    /// Kept for lookup, not deferred work.
+    ///
+    /// Distinct from `someday` on purpose: Someday is "not now", Reference is
+    /// "never scheduled". Folding them together would make the Inbox's Reference
+    /// destination silently mean Someday, and reference material would start
+    /// appearing in deferral reviews asking when the user plans to do it.
+    case reference
     case waiting
     case paused
     case archived

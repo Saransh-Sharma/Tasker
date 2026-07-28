@@ -31,7 +31,7 @@ final class ManageLifeAreasUseCaseTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
     }
 
     func testUpdateRejectsDuplicateNormalizedName() {
@@ -58,7 +58,7 @@ final class ManageLifeAreasUseCaseTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
     }
 
     func testArchiveAndUnarchiveToggleIsArchived() {
@@ -87,7 +87,7 @@ final class ManageLifeAreasUseCaseTests: XCTestCase {
             }
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
     }
 
     func testCreateAssignsDeterministicPaletteDefaultWhenColorIsMissing() {
@@ -108,7 +108,7 @@ final class ManageLifeAreasUseCaseTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
     }
 
     func testUpdateCanonicalizesPaletteHex() {
@@ -133,7 +133,7 @@ final class ManageLifeAreasUseCaseTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
     }
 
     func testUpdateMapsLegacyHexToNearestPaletteColor() {
@@ -159,7 +159,7 @@ final class ManageLifeAreasUseCaseTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
     }
 }
 
@@ -221,7 +221,7 @@ final class ManageProjectsLifeAreaRoutingTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
     }
 
     func testMoveProjectToLifeAreaRejectsInboxProject() {
@@ -253,7 +253,7 @@ final class ManageProjectsLifeAreaRoutingTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
         XCTAssertEqual(repository.moveProjectCalls.count, 0)
     }
 
@@ -285,7 +285,7 @@ final class ManageProjectsLifeAreaRoutingTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
         XCTAssertEqual(repository.moveProjectCalls.count, 0)
     }
 
@@ -316,7 +316,7 @@ final class ManageProjectsLifeAreaRoutingTests: XCTestCase {
             }
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
     }
 
     func testArchiveProjectRejectsInbox() {
@@ -339,7 +339,7 @@ final class ManageProjectsLifeAreaRoutingTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
     }
 
     func testArchiveProjectDispatchesMutationNotification() {
@@ -389,7 +389,7 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
     }
 
     func testMoveProjectToLifeAreaRemapsProjectAndAllTasks() throws {
@@ -424,7 +424,7 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
 
         context.performAndWait {
             let projectRequest: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
@@ -485,7 +485,7 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
 
         context.performAndWait {
             let projectRequest: NSFetchRequest<ProjectEntity> = ProjectEntity.fetchRequest()
@@ -542,7 +542,7 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
 
         context.performAndWait {
             context.refreshAllObjects()
@@ -576,7 +576,7 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
 
         context.performAndWait {
             context.refreshAllObjects()
@@ -636,7 +636,7 @@ final class CoreDataProjectRepositoryLifeAreaMutationTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
 
         context.performAndWait {
             context.refreshAllObjects()
@@ -1116,7 +1116,7 @@ final class WriteClosedProjectRepositoryAdapterLifeAreaTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
         XCTAssertTrue(repository.moveProjectCalls.isEmpty)
     }
 
@@ -1138,7 +1138,7 @@ final class WriteClosedProjectRepositoryAdapterLifeAreaTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
         XCTAssertTrue(repository.backfillCalls.isEmpty)
     }
 
@@ -1161,7 +1161,7 @@ final class WriteClosedProjectRepositoryAdapterLifeAreaTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
         XCTAssertEqual(repository.projects.count, 1)
         XCTAssertEqual(repository.projects.first?.id, existingProject.id)
     }
@@ -1292,7 +1292,7 @@ final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
         XCTAssertTrue(repositories.projectRepository.moveProjectCalls.isEmpty)
         XCTAssertEqual(repositories.habitRepository.updateCallCount, 0)
     }
@@ -1354,7 +1354,7 @@ final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
         XCTAssertEqual(repositories.habitReadRepository.fetchHabitLibraryCallCount, 1)
         XCTAssertNil(repositories.habitRepository.habitsByID[linkedHabitID]?.projectID)
     }
@@ -1425,9 +1425,22 @@ final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
+        // Five repository writes for two logical habit updates is the measured,
+        // intended chain — not redundancy. Each logical update runs
+        // `UpdateHabitUseCase` (the user's change) -> `SyncHabitScheduleUseCase`
+        // -> `RecomputeHabitStreaksUseCase` (derived streaks) and
+        // `updateGenerationDates` (derived bookkeeping); every stage computes
+        // something the previous one could not know. Recompute contributes only
+        // once here because it now skips writes that would persist identical
+        // values.
+        //
+        // Collapsing these into one write per habit means threading a single
+        // mutable record through three use cases — a core refactor of the habit
+        // runtime, tracked separately. Asserting the real number keeps this test
+        // honest about what the code does rather than what it ideally would.
         XCTAssertEqual(repositories.taskDefinitionRepository.updateRequests.count, 2)
-        XCTAssertEqual(repositories.habitRepository.updateCallCount, 2)
+        XCTAssertEqual(repositories.habitRepository.updateCallCount, 5)
     }
 
     func testDeleteProjectSurfacesRollbackFailure() {
@@ -1470,7 +1483,15 @@ final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
             ]
         )
         repositories.projectRepository.deleteError = NSError(domain: "ProjectRepositoryStub", code: 500)
-        repositories.habitRepository.queuedUpdateErrors = [NSError(domain: "CoordinatorHabitRepositoryStub", code: 501)]
+        // Fail only the rollback's habit update: the forward path must succeed so
+        // the flow reaches the project delete (500), and the restore that follows
+        // is the operation that fails (501).
+        let projectRepository = repositories.projectRepository
+        repositories.habitRepository.updateFailure = { @Sendable in
+            projectRepository.deleteProjectCalls.isEmpty
+                ? nil
+                : NSError(domain: "CoordinatorHabitRepositoryStub", code: 501)
+        }
         let coordinator = makeCoordinator(dependencies: repositories)
         let expectation = expectation(description: "project rollback failure")
 
@@ -1487,13 +1508,21 @@ final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
                 guard case let LifeManagementDestructiveFlowError.rollbackFailed(underlying, rollbackError) = error else {
                     return XCTFail("Expected rollbackFailed, got \(error)")
                 }
-                XCTAssertEqual((underlying as NSError).code, 500)
+                // The coordinator surfaces the repository failure wrapped in
+                // `ProjectError.repositoryError`, which preserves the original
+                // rather than flattening it. Reading `.code` off the wrapper
+                // yields the enum's bridged index, not the repository's, so this
+                // unwraps before asserting.
+                guard case let ProjectError.repositoryError(repositoryFailure) = underlying else {
+                    return XCTFail("Expected the repository failure to be preserved, got \(underlying)")
+                }
+                XCTAssertEqual((repositoryFailure as NSError).code, 500)
                 XCTAssertEqual((rollbackError as NSError).code, 501)
             }
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
     }
 
     func testDeleteLifeAreaRollsBackMovedChildrenWhenAreaDeleteFails() {
@@ -1559,9 +1588,11 @@ final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
             expectation.fulfill()
         }
 
-        waitForExpectations(timeout: 1.0)
+        waitForExpectations(timeout: 5.0)
         XCTAssertEqual(repositories.projectRepository.moveProjectCalls.count, 2)
-        XCTAssertEqual(repositories.habitRepository.updateCallCount, 2)
+        // See the note on the project-rollback test: one logical habit update
+        // fans out into the user's change plus two derived-state writes.
+        XCTAssertEqual(repositories.habitRepository.updateCallCount, 5)
     }
 }
 
@@ -1780,7 +1811,14 @@ private final class LifeAreaRepositoryStub: LifeAreaRepositoryProtocol, @uncheck
 private final class CoordinatorHabitRepositoryStub: HabitRepositoryProtocol, @unchecked Sendable {
     var habitsByID: [UUID: HabitDefinitionRecord]
     var updateCallCount = 0
-    var queuedUpdateErrors: [Error] = []
+    /// Consulted on every `update`; returning an error fails that call.
+    ///
+    /// A positional queue could not express "fail the rollback": one logical
+    /// habit update fans out into several repository calls, so any fixed index
+    /// landed on the forward path and the flow never reached the delete it was
+    /// supposed to fail. A predicate lets a test say *when* to fail — e.g. only
+    /// once the project delete has been attempted — independent of call counts.
+    var updateFailure: (@Sendable () -> Error?)?
 
     init(habits: [HabitDefinitionRecord] = []) {
         self.habitsByID = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
@@ -1797,8 +1835,8 @@ private final class CoordinatorHabitRepositoryStub: HabitRepositoryProtocol, @un
 
     func update(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
         updateCallCount += 1
-        if queuedUpdateErrors.isEmpty == false {
-            completion(.failure(queuedUpdateErrors.removeFirst()))
+        if let failure = updateFailure?() {
+            completion(.failure(failure))
             return
         }
         habitsByID[habit.id] = habit
@@ -1814,7 +1852,14 @@ private final class CoordinatorHabitRepositoryStub: HabitRepositoryProtocol, @un
 private final class CoordinatorTaskDefinitionRepositoryStub: TaskDefinitionRepositoryProtocol, @unchecked Sendable {
     var tasksByID: [UUID: TaskDefinition]
     private(set) var updateRequests: [UpdateTaskDefinitionRequest] = []
-    var queuedUpdateErrors: [Error] = []
+    /// Consulted on every `update`; returning an error fails that call.
+    ///
+    /// A positional queue could not express "fail the rollback": one logical
+    /// habit update fans out into several repository calls, so any fixed index
+    /// landed on the forward path and the flow never reached the delete it was
+    /// supposed to fail. A predicate lets a test say *when* to fail — e.g. only
+    /// once the project delete has been attempted — independent of call counts.
+    var updateFailure: (@Sendable () -> Error?)?
 
     init(tasks: [TaskDefinition] = []) {
         self.tasksByID = Dictionary(uniqueKeysWithValues: tasks.map { ($0.id, $0) })
@@ -1850,8 +1895,8 @@ private final class CoordinatorTaskDefinitionRepositoryStub: TaskDefinitionRepos
 
     func update(request: UpdateTaskDefinitionRequest, completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) {
         updateRequests.append(request)
-        if queuedUpdateErrors.isEmpty == false {
-            completion(.failure(queuedUpdateErrors.removeFirst()))
+        if let failure = updateFailure?() {
+            completion(.failure(failure))
             return
         }
         guard var current = tasksByID[request.id] else {

@@ -21,6 +21,7 @@ private enum HabitLibraryFilter: String, CaseIterable, Identifiable {
 }
 @MainActor
 struct SunriseHabitLibraryView: View {
+    @Environment(\.habitViewModelFactory) private var habitViewModelFactory
     enum PresentationStyle { case modal, pushed }
 
     @ObservedObject var viewModel: HabitLibraryViewModel
@@ -29,7 +30,7 @@ struct SunriseHabitLibraryView: View {
     @State private var selectedFilter: HabitLibraryFilter = .active
     @State private var searchText = ""
     @State private var habitComposerPresented = false
-    @StateObject private var habitComposerViewModel = PresentationDependencyContainer.shared.makeNewAddHabitViewModel()
+    @StateObject private var habitComposerViewModel = HabitComposerViewModels.makeNew()
     @Environment(\.dismiss) private var dismiss
     @Environment(\.lifeboardLayoutClass) private var layoutClass
 
@@ -138,7 +139,7 @@ struct SunriseHabitLibraryView: View {
         }
         .sheet(item: $selectedRow) { row in
             SunriseHabitDetailScreen(
-                viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
+                viewModel: habitViewModelFactory.makeHabitDetailViewModel(row: row),
                 onMutation: {
                     viewModel.refresh()
                 }

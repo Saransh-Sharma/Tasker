@@ -141,10 +141,13 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_search_v2") }
     }
 
-    public static var knowledgeNotesMediaPipelineV2Enabled: Bool {
-        get { stagedFeatureEnabled(key: "feature.life_os.knowledge_notes_media_v2", argument: "KNOWLEDGE_NOTES_MEDIA_V2") }
-        set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_media_v2") }
-    }
+    // `knowledgeNotesMediaPipelineV2Enabled` and `knowledgeNotesFlagshipV1Enabled`
+    // were removed rather than promoted. Neither had a single call site, so both
+    // gated nothing: the media pipeline (protected attachment ingestion,
+    // checksum deduplication, PhotosPicker capture) already shipped
+    // unconditionally, and the flagship umbrella was never wired to a surface.
+    // Recording a default for a flag that controls nothing only makes the
+    // promotion table lie about what is staged.
 
     public static var knowledgeNotesSecurityV1Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.knowledge_notes_security_v1", argument: "KNOWLEDGE_NOTES_SECURITY_V1") }
@@ -154,11 +157,6 @@ public enum V2FeatureFlags {
     public static var knowledgeNotesEVAV1Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.knowledge_notes_eva_v1", argument: "KNOWLEDGE_NOTES_EVA_V1") }
         set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_eva_v1") }
-    }
-
-    public static var knowledgeNotesFlagshipV1Enabled: Bool {
-        get { stagedFeatureEnabled(key: "feature.life_os.knowledge_notes_flagship_v1", argument: "KNOWLEDGE_NOTES_FLAGSHIP_V1") }
-        set { setStagedFeature(newValue, key: "feature.life_os.knowledge_notes_flagship_v1") }
     }
 
     public static var planningCoreV1Enabled: Bool {
@@ -204,6 +202,16 @@ public enum V2FeatureFlags {
     public static var starterPacksV1Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.starter_packs_v1", argument: "STARTER_PACKS_V1") }
         set { setStagedFeature(newValue, key: "feature.life_os.starter_packs_v1") }
+    }
+
+    /// Stage 1 of the Beyond Notes rollout: trust, recovery and release closure.
+    /// Gates the Recovery Center. Data-preserving by construction — everything
+    /// behind it is a read model over subsystems that already exist, plus
+    /// rebuilds of derived indexes, so turning it off hides a screen and never
+    /// changes a canonical record.
+    public static var lifeBoardTrustClosureV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.trust_closure_v1", argument: "TRUST_CLOSURE_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.trust_closure_v1") }
     }
 
     /// Stage 2 of the Beyond Notes rollout: the daily execution loop. Gates the
@@ -256,14 +264,31 @@ public enum V2FeatureFlags {
         "feature.life_os.goals_routines_v1": true,
         "feature.life_os.care_modules_v2": true,
         "feature.life_os.starter_packs_v1": true,
-        // Held back: an A/B phrasing path for Eva's journal answers, not part of
-        // the shipped surface. The deterministic evidence answer is the default.
-        "feature.life_os.eva_fm_responder_v1": false,
-        // Held back pending their own verification passes. Both gate surfaces
-        // that write canonical mutations, so neither promotes on the strength of
-        // the screen existing.
-        "feature.life_os.daily_loop_v1": false,
-        "feature.life_os.task_project_flagship_v1": false
+        // The Notes flagship. These had no entry at all, so they resolved to
+        // `false` and Release shipped none of the TextKit editor, the ranked
+        // search index, per-note encryption, or the Notes Eva actions — every
+        // one of them reachable and working on an ordinary Debug launch. Each
+        // has a live call site and a rollback path (the block editor, the
+        // unindexed search, the unlocked note), so they ship on.
+        "feature.life_os.knowledge_notes_textkit_v2": true,
+        "feature.life_os.knowledge_notes_search_v2": true,
+        "feature.life_os.knowledge_notes_security_v1": true,
+        "feature.life_os.knowledge_notes_eva_v1": true,
+        // The Recovery Center. Reports real persistent-store health and real
+        // journal-index health, and omits any subsystem it cannot observe rather
+        // than showing it as healthy. Backup/export, restore preview, conflict
+        // resolution and deletion are still to come; the screen is honest about
+        // what it does and does not cover, so it ships.
+        "feature.life_os.trust_closure_v1": true,
+        // The daily execution loop: the task completion control in task detail
+        // and on Plan rows, and the four-direction Plan Repair deck. Both write
+        // canonical mutations through the existing receipt path with Undo.
+        "feature.life_os.daily_loop_v1": true,
+        "feature.life_os.task_project_flagship_v1": true,
+        // Held back: an A/B phrasing path for Eva's journal answers, not a
+        // feature. Its one call site picks between two phrasings of the same
+        // evidence, and the deterministic answer is the shipped default.
+        "feature.life_os.eva_fm_responder_v1": false
     ]
 
     private static func stagedFeatureEnabled(key: String, argument: String) -> Bool {

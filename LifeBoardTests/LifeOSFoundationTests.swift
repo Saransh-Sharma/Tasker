@@ -180,7 +180,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let model = try XCTUnwrap(
             NSManagedObjectModel(
                 contentsOf: try completionModelBundleURL()
-                    .appendingPathComponent("TaskModelV3_NotesCompletion.mom")
+                    .appendingPathComponent("TaskModelV3_TaskStartDay.mom")
             )
         )
         let container = NSPersistentContainer(name: "CompletionRoundTrip", managedObjectModel: model)
@@ -869,6 +869,57 @@ final class LifeOSFoundationContractTests: XCTestCase {
                 else { continuation.resume() }
             }
         }
+    }
+
+    /// The shipping model keeps every health-sensitive entity in both the
+    /// `CloudSync` and `LocalOnly` configurations so
+    /// `HealthPrivacyMigrationCoordinator` can copy each row into its private
+    /// local store, and `HealthPrivacyMigrationAccess.requireValidated` refuses
+    /// writes until that copy is checkpointed. A repository round trip therefore
+    /// has to run against a two-configuration container with a validated
+    /// checkpoint — a single unconfigured store makes the production gate throw
+    /// `writeClosed`, which says nothing about the repository under test.
+    private func makeHealthPrivacyValidatedContainer(
+        name: String
+    ) async throws -> NSPersistentContainer {
+        let model = try XCTUnwrap(
+            NSManagedObjectModel(
+                contentsOf: try completionModelBundleURL()
+                    .appendingPathComponent("TaskModelV3_TaskStartDay.mom")
+            )
+        )
+        let container = NSPersistentContainer(name: name, managedObjectModel: model)
+        let cloud = NSPersistentStoreDescription()
+        cloud.type = NSInMemoryStoreType
+        cloud.configuration = "CloudSync"
+        cloud.url = URL(fileURLWithPath: "/dev/null/cloud-\(UUID().uuidString)")
+        let local = NSPersistentStoreDescription()
+        local.type = NSInMemoryStoreType
+        local.configuration = "LocalOnly"
+        local.url = URL(fileURLWithPath: "/dev/null/local-\(UUID().uuidString)")
+        container.persistentStoreDescriptions = [cloud, local]
+        try await loadCompletionStores(container)
+
+        let localStore = try XCTUnwrap(
+            container.persistentStoreCoordinator.persistentStores.first {
+                $0.configurationName == "LocalOnly"
+            },
+            "The LocalOnly configuration has to load for the health privacy gate to open"
+        )
+        let context = container.newBackgroundContext()
+        try await context.perform {
+            let checkpoint = NSEntityDescription.insertNewObject(
+                forEntityName: "HealthMigrationCheckpoint",
+                into: context
+            )
+            context.assign(checkpoint, to: localStore)
+            checkpoint.setValue("overall", forKey: "id")
+            checkpoint.setValue("validated", forKey: "phaseRaw")
+            checkpoint.setValue(Date(), forKey: "completedAt")
+            checkpoint.setValue(Date(), forKey: "updatedAt")
+            try context.save()
+        }
+        return container
     }
 
     func testCapturePresentationContextRoundTripsWithoutChangingTheMutationRequest() throws {
@@ -1684,31 +1735,40 @@ final class LifeOSFoundationContractTests: XCTestCase {
         }
     }
 
+    /// Every compiled predecessor has to migrate, and "every" is discovered from
+    /// the built `.momd` rather than transcribed.
+    ///
+    /// This list used to be hardcoded, which makes the one mistake that matters
+    /// invisible: add an additive model version, forget the list, and the new
+    /// version ships with no migration fixture while the suite stays green. The
+    /// bundle is the only honest source of what actually shipped.
     @MainActor
     func testEveryPreviousModelMigratesToCurrentModelWithoutChangingStableIDs() throws {
-        let previousModelNames = [
-            "TaskModelV3",
-            "TaskModelV3_Gamification",
-            "TaskModelV3_Habits",
-            "TaskModelV3_PulseProgress",
-            "TaskModelV3_TaskIcons",
-            "TaskModelV3_Timeline",
-            "TaskModelV3_WeeklyPlanning",
-            "TaskModelV3_LifeOSFoundation",
-            "TaskModelV3_AdaptiveHome",
-            "TaskModelV3_Trackers",
-            "TaskModelV3_Journal",
-            "TaskModelV3_KnowledgeNotes",
-            "TaskModelV3_PlanningCore",
-            "TaskModelV3_TrackFoundations",
-            "TaskModelV3_JournalParity",
-            "TaskModelV3_WellnessCore",
-            "TaskModelV3_Nutrition",
-            "TaskModelV3_LifeMoments",
-            "TaskModelV3_HealthPrivacy",
-            "TaskModelV3_NotesPro"
-        ]
         let modelBundleURL = try taskModelBundleURL()
+        let currentVersionName = try currentModelVersionName()
+        let previousModelNames = try FileManager.default
+            .contentsOfDirectory(at: modelBundleURL, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension == "mom" }
+            .map { $0.deletingPathExtension().lastPathComponent }
+            .filter { $0 != currentVersionName }
+            .sorted()
+
+        XCTAssertFalse(
+            previousModelNames.isEmpty,
+            "No compiled predecessor models were found in \(modelBundleURL.lastPathComponent)"
+        )
+        // The count is asserted so a *removed* version is caught too — deleting a
+        // compiled model strands anyone still on it.
+        XCTAssertEqual(
+            previousModelNames.count, 21,
+            """
+            The number of compiled predecessors changed to \(previousModelNames.count). \
+            Adding a version is expected — update this count in the same change. \
+            Removing one strands every store still on it and is almost never right. \
+            Found: \(previousModelNames.joined(separator: ", "))
+            """
+        )
+
         let destinationModel = try XCTUnwrap(NSManagedObjectModel(contentsOf: modelBundleURL))
 
         for modelName in previousModelNames {
@@ -2740,20 +2800,12 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testPhaseIIRepositoryRoundTripsTrackerJournalAndKnowledgeValues() async throws {
-        let modelBundleURL = try taskModelBundleURL()
-        let modelURL = modelBundleURL.appendingPathComponent("TaskModelV3_KnowledgeNotes.mom")
-        let model = try XCTUnwrap(NSManagedObjectModel(contentsOf: modelURL))
-        let container = NSPersistentContainer(name: "PhaseIIRoundTrip", managedObjectModel: model)
-        let description = NSPersistentStoreDescription()
-        description.type = NSInMemoryStoreType
-        container.persistentStoreDescriptions = [description]
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            container.loadPersistentStores { _, error in
-                if let error { continuation.resume(throwing: error) }
-                else { continuation.resume() }
-            }
-        }
-
+        // Runs against the shipping model, not `TaskModelV3_KnowledgeNotes`.
+        // Medication entities are health-sensitive, so their writes pass through
+        // the health privacy gate, and `HealthMigrationCheckpoint` only exists
+        // from `TaskModelV3_HealthPrivacy` onward. Migration from the older
+        // versions stays covered by `assertLightweightMigration`.
+        let container = try await makeHealthPrivacyValidatedContainer(name: "PhaseIIRoundTrip")
         let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
 
         let tracker = LifeBoardTrackerDefinitionValue(title: "Water", kind: .quantity, unitLabel: "ml")
@@ -3797,19 +3849,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testCoreDataWellnessRepositoryRoundTripsAndDeletesCanonicalValues() async throws {
-        let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)]))
-        let container = NSPersistentContainer(name: "WellnessCoreRoundTrip", managedObjectModel: model)
-        let description = NSPersistentStoreDescription()
-        description.type = NSInMemoryStoreType
-        description.configuration = "CloudSync"
-        container.persistentStoreDescriptions = [description]
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            container.loadPersistentStores { _, error in
-                if let error { continuation.resume(throwing: error) }
-                else { continuation.resume(returning: ()) }
-            }
-        }
-
+        let container = try await makeHealthPrivacyValidatedContainer(name: "WellnessCoreRoundTrip")
         let repository = CoreDataWellnessRepository(container: container)
         let timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Kolkata"))
         let metric = try BodyMetricSample(
@@ -3868,20 +3908,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testCoreDataFastingRoundTripPreservesCompletionMeaningAndCorrectionTime() async throws {
-        let model = try XCTUnwrap(
-            NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)])
-        )
-        let container = NSPersistentContainer(name: "FastingCompletionRoundTrip", managedObjectModel: model)
-        let description = NSPersistentStoreDescription()
-        description.type = NSInMemoryStoreType
-        container.persistentStoreDescriptions = [description]
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            container.loadPersistentStores { _, error in
-                if let error { continuation.resume(throwing: error) }
-                else { continuation.resume() }
-            }
-        }
-
+        let container = try await makeHealthPrivacyValidatedContainer(name: "FastingCompletionRoundTrip")
         let startedAt = Date(timeIntervalSince1970: 1_721_430_000)
         let correctedAt = startedAt.addingTimeInterval(7_200)
         let expected = LifeBoardFastingSessionValue(
@@ -3969,28 +3996,54 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertTrue(later)
     }
 
+    /// Asserted against the shipping model rather than `mergedModel`, which
+    /// unions all twenty-one compiled versions and reports a configuration
+    /// membership no store ever loads.
+    ///
+    /// `TaskModelV3_HealthPrivacy` deliberately added the nutrition entities to
+    /// `LocalOnly` alongside `CloudSync`: `HealthPrivacyMigrationCoordinator`
+    /// copies each row into the private local store and only
+    /// `purgeLegacyCloudRowsIfEligible` removes the cloud copy, after the
+    /// upgrade window. Both memberships are load-bearing until that purge runs,
+    /// so this asserts the dual-homing rather than the pre-HealthPrivacy
+    /// exclusivity the entities shipped with.
     func testNutritionAndLifeMomentModelsPreserveStoreBoundaries() throws {
-        let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)]))
+        let model = try XCTUnwrap(
+            NSManagedObjectModel(
+                contentsOf: try completionModelBundleURL()
+                    .appendingPathComponent("TaskModelV3_TaskStartDay.mom")
+            )
+        )
         let cloud = Set(try XCTUnwrap(model.entities(forConfigurationName: "CloudSync")).compactMap(\.name))
         let local = Set(try XCTUnwrap(model.entities(forConfigurationName: "LocalOnly")).compactMap(\.name))
-        for name in ["FoodItem", "NutritionLogEntry", "NutritionGoal", "LifeMoment"] {
-            XCTAssertTrue(cloud.contains(name)); XCTAssertFalse(local.contains(name))
+
+        for name in ["FoodItem", "NutritionLogEntry", "NutritionGoal"] {
+            XCTAssertTrue(cloud.contains(name), "\(name) still syncs until the legacy cloud purge runs")
+            XCTAssertTrue(local.contains(name), "\(name) needs a LocalOnly home for the private health copy")
+            XCTAssertTrue(
+                HealthPrivacyMigrationCoordinator.affectedEntities.contains(name),
+                "\(name) is dual-homed only because the health privacy migration copies it"
+            )
         }
+
+        // Life Moments carry no health payload, so they stay cloud-only.
+        XCTAssertTrue(cloud.contains("LifeMoment"))
+        XCTAssertFalse(local.contains("LifeMoment"))
+        XCTAssertFalse(HealthPrivacyMigrationCoordinator.affectedEntities.contains("LifeMoment"))
+
+        // Derived caches are rebuildable and must never reach the cloud.
         for name in ["FoodSearchIndexEntry", "FoodLookupCache"] {
-            XCTAssertTrue(local.contains(name)); XCTAssertFalse(cloud.contains(name))
+            XCTAssertTrue(local.contains(name), "\(name) is a rebuildable local index")
+            XCTAssertFalse(cloud.contains(name), "\(name) must never sync")
         }
+
+        // The gate the dual-homing exists for has to be present in this model.
+        XCTAssertTrue(local.contains("HealthMigrationCheckpoint"))
+        XCTAssertFalse(cloud.contains("HealthMigrationCheckpoint"))
     }
 
     func testCoreDataNutritionAndLifeMomentsRoundTripImmutableValues() async throws {
-        let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)]))
-        let container = NSPersistentContainer(name: "PhaseVIRoundTrip", managedObjectModel: model)
-        let description = NSPersistentStoreDescription(); description.type = NSInMemoryStoreType
-        container.persistentStoreDescriptions = [description]
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
-            container.loadPersistentStores { _, error in
-                if let error { continuation.resume(throwing: error) } else { continuation.resume() }
-            }
-        }
+        let container = try await makeHealthPrivacyValidatedContainer(name: "PhaseVIRoundTrip")
         let nutrition = CoreDataNutritionRepository(container: container)
         let serving = try FoodServingDefinition(name: "cup", grams: 180)
         let food = try FoodItem(name: "Yogurt", macrosPer100Grams: .init(calories: 60, proteinGrams: 4, carbohydrateGrams: 5, fatGrams: 2), servings: [serving])
@@ -4285,6 +4338,21 @@ final class LifeOSFoundationContractTests: XCTestCase {
             }
         }
         throw XCTSkip("The compiled TaskModelV3.momd is unavailable in this test host")
+    }
+
+    /// The current model version as the *built product* records it, read from
+    /// `VersionInfo.plist` inside the compiled `.momd`. Reading the source
+    /// `.xccurrentversion` instead would let a stale build pass.
+    private func currentModelVersionName() throws -> String {
+        let versionInfo = try taskModelBundleURL().appendingPathComponent("VersionInfo.plist")
+        let data = try Data(contentsOf: versionInfo)
+        let plist = try XCTUnwrap(
+            try PropertyListSerialization.propertyList(from: data, format: nil) as? [String: Any]
+        )
+        return try XCTUnwrap(
+            plist["NSManagedObjectModel_CurrentVersionName"] as? String,
+            "VersionInfo.plist does not name a current version"
+        )
     }
 
     @MainActor
@@ -4819,4 +4887,1385 @@ private actor JournalProjectionInvalidationFixture {
     func reflections(_ ids: Set<UUID>) { reflectionCount += ids.isEmpty ? 0 : 1 }
     func projections() { projectionCount += 1 }
     func counts() -> [Int] { [reflectionCount, projectionCount] }
+}
+
+// MARK: - Recovery Center
+
+final class LifeBoardRecoveryStatusTests: XCTestCase {
+
+    private func makeService(
+        storeMode: LifeBoardRecoveryStatusService.StoreMode = .fullSync,
+        journalIndex: LifeBoardRecoveryStatusService.DerivedIndexState = .ready,
+        notesIndex: LifeBoardRecoveryStatusService.DerivedIndexState = .ready,
+        pendingJobs: Int = 0
+    ) -> LifeBoardRecoveryStatusService {
+        LifeBoardRecoveryStatusService(
+            storeMode: { storeMode },
+            journalIndex: { journalIndex },
+            notesIndex: { notesIndex },
+            pendingJobCount: { pendingJobs },
+            now: { Date(timeIntervalSince1970: 1_700_000_000) }
+        )
+    }
+
+    func testHealthyWorkspaceReportsEverythingUpToDate() {
+        let status = makeService().status()
+        XCTAssertEqual(status.worstHealth, .healthy)
+        XCTAssertEqual(status.headline, "Everything is up to date.")
+        XCTAssertTrue(status.areas.allSatisfy { $0.recovery == nil })
+    }
+
+    /// A read-only store is the most frightening state this screen can show, so
+    /// it has to lead with the fact that nothing was lost.
+    func testReadOnlyStoreLeadsWithSafetyAndNeverNamesTheInternalReason() {
+        let status = makeService(storeMode: .readOnly(reason: "persistent_store_schema_invalid")).status()
+
+        XCTAssertEqual(status.worstHealth, .unavailable)
+        XCTAssertTrue(status.headline.hasPrefix("Your data is safe"))
+
+        let store = try? XCTUnwrap(status.areas.first { $0.id == "store" })
+        XCTAssertEqual(store?.health, .unavailable)
+        XCTAssertFalse(
+            store?.detail.contains("persistent_store_schema_invalid") ?? true,
+            "An internal reason token must never reach primary copy"
+        )
+    }
+
+    /// Rebuilding is offered only when the user can actually fix something.
+    /// A rebuild already in progress is progress, not a call to action.
+    func testOnlyStaleIndexesOfferARebuildAction() {
+        let rebuilding = makeService(journalIndex: .rebuilding).status()
+        let journalRebuilding = rebuilding.areas.first { $0.id == "journal-index" }
+        XCTAssertEqual(journalRebuilding?.health, .working)
+        XCTAssertNil(journalRebuilding?.recovery, "A rebuild in flight needs no button")
+
+        let stale = makeService(journalIndex: .needsRebuild).status()
+        let journalStale = stale.areas.first { $0.id == "journal-index" }
+        XCTAssertEqual(journalStale?.health, .attention)
+        XCTAssertEqual(journalStale?.recovery, .rebuildJournalIndex)
+    }
+
+    /// `working` must not be escalated to a failure, or every ordinary rebuild
+    /// reads as damage.
+    func testWorkInProgressIsNotReportedAsAFailure() {
+        let status = makeService(notesIndex: .rebuilding, pendingJobs: 3).status()
+        XCTAssertEqual(status.worstHealth, .working)
+        XCTAssertEqual(status.headline, "Your data is safe. Some things are still catching up.")
+        XCTAssertEqual(status.areas.first { $0.id == "jobs" }?.detail, "3 attachments are still being processed.")
+    }
+
+    func testPendingJobsAreOmittedEntirelyWhenThereIsNoWork() {
+        XCTAssertNil(makeService(pendingJobs: 0).status().areas.first { $0.id == "jobs" })
+        XCTAssertEqual(
+            makeService(pendingJobs: 1).status().areas.first { $0.id == "jobs" }?.detail,
+            "One attachment is still being processed."
+        )
+    }
+
+    /// Every rebuild offered here is derived-only, and the copy has to say so —
+    /// this is what makes the button safe to press while worried.
+    func testEveryRecoveryActionPromisesCanonicalContentIsUntouched() {
+        for recovery in [
+            LifeBoardRecoveryStatus.Recovery.rebuildJournalIndex,
+            .rebuildNotesIndex,
+            .rebuildHomeProjections
+        ] {
+            XCTAssertTrue(recovery.reassurance.contains("stay exactly as they are"))
+            XCTAssertFalse(recovery.actionTitle.isEmpty)
+        }
+    }
+
+    /// Row identity is stable so a refresh does not re-animate the list.
+    func testAreaIdentityIsStableAcrossRefreshes() {
+        let service = makeService(journalIndex: .needsRebuild)
+        XCTAssertEqual(service.status().areas.map(\.id), service.status().areas.map(\.id))
+    }
+}
+
+// MARK: - Inbox and triage (Stage 1.1)
+
+final class InboxTriageContractTests: XCTestCase {
+
+    private func item(_ title: String, id: UUID = UUID()) -> InboxItem {
+        InboxItem(id: id, origin: .task(id), title: title, capturedAt: Date(timeIntervalSince1970: 0))
+    }
+
+    /// The Inbox must never invite triage on something already gone.
+    func testScopesNeverMatchArchivedOrDeletedWork() {
+        for scope in LifeBoardInboxQuery.Scope.allCases {
+            let matching = LifeBoardInboxQuery(scope: scope).matchingDispositions
+            XCTAssertFalse(matching.contains(.archived), "\(scope) must not surface archived work")
+            XCTAssertFalse(matching.contains(.deleted), "\(scope) must not surface tombstones")
+        }
+        XCTAssertEqual(LifeBoardInboxQuery(scope: .untriaged).matchingDispositions, [.inbox])
+        XCTAssertEqual(LifeBoardInboxQuery(scope: .reference).matchingDispositions, [.reference])
+    }
+
+    /// Someday and Reference mean different things; conflating them makes the
+    /// Reference destination silently mean "ask me about this later".
+    func testReferenceIsDistinctFromSomeday() {
+        XCTAssertNotEqual(UnscheduledDisposition.reference, .someday)
+        XCTAssertNotEqual(BacklogGroup.reference, .someday)
+        XCTAssertTrue(BacklogGroup.allCases.contains(.reference))
+    }
+
+    /// An unrecognized disposition has to degrade to Inbox, not disappear —
+    /// that is what makes adding this case safe for devices on an older build.
+    func testUnknownDispositionDegradesToInboxRatherThanVanishing() {
+        XCTAssertNil(UnscheduledDisposition(rawValue: "somethingFromTheFuture"))
+        let decoded = UnscheduledDisposition(rawValue: "somethingFromTheFuture") ?? .inbox
+        XCTAssertEqual(decoded, .inbox)
+        XCTAssertEqual(UnscheduledDisposition(rawValue: "reference"), .reference)
+    }
+
+    func testPaginationRejectsDegenerateValues() {
+        let query = LifeBoardInboxQuery(scope: .untriaged, limit: 0, offset: -5)
+        XCTAssertEqual(query.limit, 1, "A zero limit would fetch nothing forever")
+        XCTAssertEqual(query.offset, 0)
+    }
+
+    /// Undo has to restore the exact prior day, not a guessed default.
+    func testScheduleInvertsToTheExactPreviousDay() {
+        let taskID = UUID()
+        let monday = PlanningDay(year: 2026, month: 7, day: 27, timeZoneIdentifier: "Asia/Kolkata")
+        let friday = PlanningDay(year: 2026, month: 7, day: 31, timeZoneIdentifier: "Asia/Kolkata")
+
+        let mutation = InboxTriageMutation.schedule(taskID: taskID, before: monday, after: friday)
+        guard case let .schedule(_, before, after) = mutation.inverse else {
+            return XCTFail("Scheduling must invert to a schedule")
+        }
+        XCTAssertEqual(before, friday)
+        XCTAssertEqual(after, monday, "Undo must return the task to the day it came from")
+    }
+
+    /// Undoing a schedule that had no prior day must not pin the task to today.
+    func testSchedulingPreviouslyUnscheduledWorkUndoesToUnscheduled() {
+        let taskID = UUID()
+        let mutation = InboxTriageMutation.schedule(
+            taskID: taskID,
+            before: nil,
+            after: PlanningDay(year: 2026, month: 7, day: 31, timeZoneIdentifier: "Asia/Kolkata")
+        )
+        guard case let .setDisposition(_, _, after) = mutation.inverse else {
+            return XCTFail("Undo of a first-time schedule must return it to the Inbox")
+        }
+        XCTAssertEqual(after, UnscheduledDisposition.inbox)
+    }
+
+    func testDispositionChangeInvertsExactly() {
+        let taskID = UUID()
+        let mutation = InboxTriageMutation.setDisposition(taskID: taskID, before: .inbox, after: .reference)
+        XCTAssertEqual(
+            mutation.inverse,
+            .setDisposition(taskID: taskID, before: .reference, after: .inbox)
+        )
+        XCTAssertEqual(mutation.inverse.inverse, mutation, "Undo of an undo is the original")
+    }
+
+    /// A batch has to unwind last-write-first, or a later mutation can clobber
+    /// the state an earlier one is trying to restore.
+    func testBatchUnwindsInReverseOrder() {
+        let first = UUID()
+        let second = UUID()
+        let batch = InboxTriageMutation.batch([
+            .setDisposition(taskID: first, before: .inbox, after: .someday),
+            .setDisposition(taskID: second, before: .inbox, after: .reference)
+        ])
+        guard case let .batch(inverted) = batch.inverse, inverted.count == 2 else {
+            return XCTFail("A batch must invert to a batch of the same size")
+        }
+        guard case let .setDisposition(leadingID, _, _) = inverted[0] else {
+            return XCTFail("Expected a disposition mutation")
+        }
+        XCTAssertEqual(leadingID, second, "The last write unwinds first")
+    }
+
+    func testSummaryCopyNamesTheDestinationInPlainLanguage() {
+        let id = UUID()
+        XCTAssertEqual(
+            InboxTriageMutation.setDisposition(taskID: id, before: .inbox, after: .reference).summary,
+            "Kept as reference"
+        )
+        XCTAssertEqual(
+            InboxTriageMutation.setDisposition(taskID: id, before: .inbox, after: .someday).summary,
+            "Moved to Someday"
+        )
+    }
+
+    /// A pending capture has not been committed, so it cannot be scheduled yet.
+    func testPendingCapturesAreFlaggedAsNeedingCommitFirst() {
+        let captureID = UUID()
+        let pending = InboxItem(
+            id: captureID,
+            origin: .pendingCapture(captureID),
+            title: "Call the plumber",
+            capturedAt: Date(),
+            captureSource: "widget"
+        )
+        XCTAssertTrue(pending.requiresCommitBeforeScheduling)
+        XCTAssertFalse(item("Already a task").requiresCommitBeforeScheduling)
+    }
+
+    // MARK: Duplicate detection
+
+    func testIdenticalAndNearIdenticalTitlesAreOfferedForReview() {
+        XCTAssertEqual(InboxDuplicatePolicy.similarity("Call the plumber", "call the plumber!"), 1.0)
+        let candidates = InboxDuplicatePolicy.candidates(
+            for: "Call the plumber",
+            among: [item("Call the plumber"), item("Buy milk")]
+        )
+        XCTAssertEqual(candidates.count, 1)
+        XCTAssertEqual(candidates.first?.existing.title, "Call the plumber")
+    }
+
+    /// Detection only decides whether to *ask*. Unrelated captures must not
+    /// interrupt a sub-100ms capture with a duplicate prompt.
+    func testUnrelatedCapturesAreNotFlagged() {
+        XCTAssertTrue(InboxDuplicatePolicy.similarity("Buy milk", "Renew passport") < InboxDuplicatePolicy.askThreshold)
+        XCTAssertTrue(
+            InboxDuplicatePolicy.candidates(for: "Buy milk", among: [item("Renew passport")]).isEmpty
+        )
+    }
+
+    func testEmptyTitlesNeverMatch() {
+        XCTAssertEqual(InboxDuplicatePolicy.similarity("", "Buy milk"), 0)
+        XCTAssertEqual(InboxDuplicatePolicy.similarity("   ", ""), 0)
+    }
+
+    func testCandidatesAreRankedByStrongestMatchFirst() {
+        let candidates = InboxDuplicatePolicy.candidates(
+            for: "Call the plumber today",
+            among: [item("Call the plumber today about the leak"), item("Call the plumber today")]
+        )
+        XCTAssertEqual(candidates.first?.existing.title, "Call the plumber today")
+        XCTAssertTrue(
+            candidates.map(\.similarity) == candidates.map(\.similarity).sorted(by: >),
+            "Strongest match must be offered first"
+        )
+    }
+}
+
+final class InboxReaderTests: XCTestCase {
+
+    private func task(
+        _ title: String,
+        disposition: UnscheduledDisposition = .inbox,
+        day: PlanningDay? = nil,
+        updatedAt: Date = Date(timeIntervalSince1970: 1_000)
+    ) -> PlanningTaskSummary {
+        let id = UUID()
+        return PlanningTaskSummary(
+            id: id,
+            title: title,
+            metadata: PlanningTaskMetadata(
+                taskID: id,
+                planningDay: day,
+                unscheduledDisposition: disposition,
+                updatedAt: updatedAt
+            )
+        )
+    }
+
+    private func reader(
+        tasks: [PlanningTaskSummary] = [],
+        captures: [PendingCapture] = []
+    ) -> InboxReader {
+        InboxReader(openTasks: { tasks }, pendingCaptures: { captures })
+    }
+
+    /// A task with a planning day has been triaged, whatever its disposition
+    /// still says — otherwise scheduled work reappears in the Inbox forever.
+    func testScheduledWorkLeavesTheInboxEvenWhileStillMarkedInbox() async throws {
+        let scheduled = task(
+            "Already planned",
+            day: PlanningDay(year: 2026, month: 7, day: 28, timeZoneIdentifier: "Asia/Kolkata")
+        )
+        let items = try await reader(tasks: [task("Untriaged"), scheduled])
+            .items(for: LifeBoardInboxQuery(scope: .untriaged))
+        XCTAssertEqual(items.map(\.title), ["Untriaged"])
+    }
+
+    /// Out-of-process captures are the likeliest to be forgotten, so they lead.
+    func testPendingCapturesAppearBeforeCanonicalTasks() async throws {
+        let items = try await reader(
+            tasks: [task("A canonical task")],
+            captures: [PendingCapture(rawText: "From the widget", source: "widget")]
+        ).items(for: LifeBoardInboxQuery(scope: .untriaged))
+
+        XCTAssertEqual(items.first?.title, "From the widget")
+        XCTAssertEqual(items.first?.captureSource, "widget")
+        XCTAssertTrue(items.first?.requiresCommitBeforeScheduling ?? false)
+        XCTAssertEqual(items.count, 2)
+    }
+
+    /// Captures are untriaged by definition and must not leak into a scope the
+    /// user opened to review deliberate decisions.
+    func testSomedayAndReferenceScopesExcludePendingCaptures() async throws {
+        let subject = reader(
+            tasks: [task("Deferred", disposition: .someday), task("Kept", disposition: .reference)],
+            captures: [PendingCapture(rawText: "Unreviewed", source: "control")]
+        )
+        let someday = try await subject.items(for: LifeBoardInboxQuery(scope: .someday))
+        XCTAssertEqual(someday.map(\.title), ["Deferred"])
+
+        let reference = try await subject.items(for: LifeBoardInboxQuery(scope: .reference))
+        XCTAssertEqual(reference.map(\.title), ["Kept"])
+    }
+
+    func testArchivedAndDeletedNeverSurface() async throws {
+        let items = try await reader(tasks: [
+            task("Gone", disposition: .deleted),
+            task("Filed", disposition: .archived),
+            task("Real")
+        ]).items(for: LifeBoardInboxQuery(scope: .untriaged))
+        XCTAssertEqual(items.map(\.title), ["Real"])
+    }
+
+    func testPaginationSlicesDeterministically() async throws {
+        let tasks = (1...5).map {
+            task("Task \($0)", updatedAt: Date(timeIntervalSince1970: TimeInterval(1_000 - $0)))
+        }
+        let subject = reader(tasks: tasks)
+        let firstPage = try await subject.items(for: .init(scope: .untriaged, limit: 2, offset: 0))
+        let secondPage = try await subject.items(for: .init(scope: .untriaged, limit: 2, offset: 2))
+
+        XCTAssertEqual(firstPage.map(\.title), ["Task 1", "Task 2"])
+        XCTAssertEqual(secondPage.map(\.title), ["Task 3", "Task 4"])
+    }
+
+    /// The badge must not pay for a full page fetch, and must cap rather than
+    /// scan thousands of rows to render a number nobody reads precisely.
+    func testUntriagedCountCapsWithoutFetchingTasks() async throws {
+        let probe = InboxTaskFetchProbe()
+        let subject = InboxReader(
+            openTasks: { await probe.record(); return [] },
+            pendingCaptures: {
+                (1...150).map { PendingCapture(rawText: "Capture \($0)", source: "widget") }
+            }
+        )
+        let count = try await subject.untriagedCount(cap: 99)
+        XCTAssertEqual(count, 99)
+        let fetched = await probe.didFetch
+        XCTAssertFalse(fetched, "The cap was already reached by captures alone")
+    }
+
+    func testUntriagedCountCombinesBothOrigins() async throws {
+        let count = try await reader(
+            tasks: [task("One"), task("Two"), task("Scheduled", day: PlanningDay(year: 2026, month: 7, day: 28, timeZoneIdentifier: "UTC"))],
+            captures: [PendingCapture(rawText: "Three", source: "control")]
+        ).untriagedCount()
+        XCTAssertEqual(count, 3, "Two untriaged tasks plus one capture; the scheduled task is excluded")
+    }
+}
+
+private actor InboxTaskFetchProbe {
+    private(set) var didFetch = false
+    func record() { didFetch = true }
+}
+
+final class InboxTriageLedgerRoutingTests: XCTestCase {
+
+    private let taskID = UUID()
+
+    private func metadata(
+        day: PlanningDay? = nil,
+        disposition: UnscheduledDisposition = .inbox
+    ) -> PlanningTaskMetadata {
+        PlanningTaskMetadata(
+            taskID: taskID,
+            planningDay: day,
+            unscheduledDisposition: disposition,
+            updatedAt: Date(timeIntervalSince1970: 100)
+        )
+    }
+
+    private func day(_ value: Int) -> PlanningDay {
+        PlanningDay(year: 2026, month: 7, day: value, timeZoneIdentifier: "Asia/Kolkata")
+    }
+
+    /// Triage has to reuse the canonical ledger so it inherits receipts, Undo
+    /// and the Insights projection rather than growing a parallel history.
+    func testSchedulingTranslatesToACanonicalMetadataMutation() throws {
+        let current = metadata()
+        let result = InboxTriageMutation
+            .schedule(taskID: taskID, before: nil, after: day(31))
+            .planMutation(resolve: { _ in current })
+
+        guard case let .success(.saveTaskMetadata(before, after)) = result else {
+            return XCTFail("Expected a canonical metadata mutation, got \(result)")
+        }
+        XCTAssertEqual(before.planningDay, nil, "The before state must be the real one, not a default")
+        XCTAssertEqual(after.planningDay, day(31))
+    }
+
+    /// Taking something off the calendar has to clear its day, or it keeps
+    /// showing up on the Day spine after the user deliberately deferred it.
+    func testDeferringClearsAnyStalePlanningDay() throws {
+        let scheduled = metadata(day: day(28))
+        for disposition in [UnscheduledDisposition.someday, .reference, .deleted] {
+            let result = InboxTriageMutation
+                .setDisposition(taskID: taskID, before: .inbox, after: disposition)
+                .planMutation(resolve: { _ in scheduled })
+
+            guard case let .success(.saveTaskMetadata(_, after)) = result else {
+                return XCTFail("Expected a metadata mutation for \(disposition)")
+            }
+            XCTAssertNil(after.planningDay, "\(disposition) must leave the Day spine")
+            XCTAssertEqual(after.unscheduledDisposition, disposition)
+        }
+    }
+
+    /// Returning something to the Inbox must not silently wipe a day the user
+    /// may still want.
+    func testReturningToInboxPreservesTheExistingDay() throws {
+        let scheduled = metadata(day: day(28), disposition: .someday)
+        let result = InboxTriageMutation
+            .setDisposition(taskID: taskID, before: .someday, after: .inbox)
+            .planMutation(resolve: { _ in scheduled })
+
+        guard case let .success(.saveTaskMetadata(_, after)) = result else {
+            return XCTFail("Expected a metadata mutation")
+        }
+        XCTAssertEqual(after.planningDay, day(28))
+    }
+
+    /// A missing task means there is no real `before`, so Undo would be a guess.
+    /// Failing loudly beats applying something that cannot be reversed.
+    func testUnknownTaskFailsRatherThanSynthesizingABeforeState() {
+        let result = InboxTriageMutation
+            .setDisposition(taskID: taskID, before: .inbox, after: .someday)
+            .planMutation(resolve: { _ in nil })
+        XCTAssertEqual(result, .failure(.unknownTask(taskID)))
+    }
+
+    /// Project membership and capture commits are not planning metadata, and
+    /// saying so explicitly stops a caller silently dropping the decision.
+    func testDecisionsOutsidePlanningMetadataReportTheirRealRequirement() {
+        XCTAssertEqual(
+            InboxTriageMutation.moveToProject(taskID: taskID, before: nil, after: UUID())
+                .planMutation(resolve: { _ in self.metadata() }),
+            .failure(.requiresTaskRepository)
+        )
+        XCTAssertEqual(
+            InboxTriageMutation.commitCapture(captureID: UUID(), createdTaskID: taskID)
+                .planMutation(resolve: { _ in self.metadata() }),
+            .failure(.requiresCaptureCommit)
+        )
+    }
+
+    /// A partially applied batch would leave a half-triaged selection behind a
+    /// receipt that cannot undo what it never recorded.
+    func testBatchIsAllOrNothing() {
+        let known = UUID()
+        let unknown = UUID()
+        let result = InboxTriageMutation.batch([
+            .setDisposition(taskID: known, before: .inbox, after: .someday),
+            .setDisposition(taskID: unknown, before: .inbox, after: .reference)
+        ]).planMutation(resolve: { id in
+            id == known ? PlanningTaskMetadata(taskID: known) : nil
+        })
+        XCTAssertEqual(result, .failure(.unknownTask(unknown)))
+    }
+
+    func testBatchTranslatesToACanonicalBatchPreservingOrder() throws {
+        let first = UUID()
+        let second = UUID()
+        let result = InboxTriageMutation.batch([
+            .setDisposition(taskID: first, before: .inbox, after: .someday),
+            .setDisposition(taskID: second, before: .inbox, after: .reference)
+        ]).planMutation(resolve: { PlanningTaskMetadata(taskID: $0) })
+
+        guard case let .success(.batch(mutations)) = result, mutations.count == 2 else {
+            return XCTFail("Expected a canonical batch of two")
+        }
+        guard case let .saveTaskMetadata(_, leading) = mutations[0] else {
+            return XCTFail("Expected metadata mutations")
+        }
+        XCTAssertEqual(leading.taskID, first, "Application order must be preserved")
+    }
+}
+
+@MainActor
+final class InboxReviewProposalTests: XCTestCase {
+
+    private func store(captures: [PendingCapture]) -> InboxStore {
+        InboxStore(
+            reader: InboxReader(openTasks: { [] }, pendingCaptures: { captures }),
+            planningRepository: NoopInboxPlanningRepository(),
+            mutationRepository: NoopInboxMutationRepository()
+        )
+    }
+
+    private func capture(_ text: String, at date: Date) -> InboxItem {
+        let id = UUID()
+        return InboxItem(
+            id: id,
+            origin: .pendingCapture(id),
+            title: text,
+            capturedAt: date,
+            captureSource: "widget"
+        )
+    }
+
+    /// A proposal is shown, never applied. The Inbox must be able to display
+    /// what filing a capture *would* do without doing it.
+    func testProposalIsOfferedForUnreviewedCapturesOnly() {
+        let subject = store(captures: [])
+        let pending = capture("standup 3pm", at: Date(timeIntervalSince1970: 1_700_000_000))
+        XCTAssertNotNil(subject.proposal(for: pending))
+
+        let taskID = UUID()
+        let committed = InboxItem(
+            id: taskID,
+            origin: .task(taskID),
+            title: "standup 3pm",
+            capturedAt: Date()
+        )
+        XCTAssertNil(
+            subject.proposal(for: committed),
+            "A committed task already has its metadata; re-proposing would invite a double edit"
+        )
+    }
+
+    /// The capture's own timestamp is the reference, not "now" — a capture made
+    /// yesterday saying "3pm" meant yesterday's 3pm.
+    func testProposalResolvesAgainstTheCaptureTimeNotTheCurrentClock() throws {
+        var components = DateComponents()
+        components.year = 2026
+        components.month = 6
+        components.day = 16
+        components.hour = 8
+        let captured = try XCTUnwrap(Calendar.current.date(from: components))
+
+        let proposal = try XCTUnwrap(store(captures: []).proposal(for: capture("standup 3pm", at: captured)))
+        let due = try XCTUnwrap(proposal.dueDate)
+        let day = Calendar.current.dateComponents([.year, .month, .day], from: due)
+
+        XCTAssertEqual(day.year, 2026)
+        XCTAssertEqual(day.month, 6)
+        XCTAssertEqual(day.day, 16, "Must resolve on the capture's day, not today")
+    }
+
+    /// Captures with nothing to propose must not render an empty chip row.
+    func testCapturesWithoutADateProposeNothing() {
+        XCTAssertNil(
+            store(captures: []).proposal(for: capture("buy milk", at: Date())),
+            "No date phrase means no proposal, not a blank one"
+        )
+    }
+
+    /// The proposal strips the date phrase from the title, so the review has to
+    /// show the title as it would actually be filed.
+    func testProposalReportsTheTitleAsItWouldBeFiled() throws {
+        let proposal = try XCTUnwrap(
+            store(captures: []).proposal(for: capture("call mom tomorrow 3pm", at: Date()))
+        )
+        XCTAssertEqual(proposal.cleanTitle, "call mom")
+        XCTAssertNotEqual(proposal.cleanTitle, "call mom tomorrow 3pm")
+    }
+}
+
+private struct NoopInboxPlanningRepository: PlanningRepository {
+    func fetchTaskMetadata(taskIDs: Set<UUID>?) async throws -> [PlanningTaskMetadata] { [] }
+    func saveTaskMetadata(_ value: PlanningTaskMetadata) async throws {}
+    func saveTaskMetadata(_ values: [PlanningTaskMetadata]) async throws {}
+}
+
+private struct NoopInboxMutationRepository: PlanningMutationRepository {
+    func prepare(_ mutation: PlanMutation, source: String, summary: String) async throws -> PlanMutationReceipt {
+        throw NSError(domain: "NoopInboxMutationRepository", code: 1)
+    }
+    func apply(receiptID: UUID) async throws {}
+    func undo(receiptID: UUID) async throws {}
+    func hasAppliedReceipt(source: String) async throws -> Bool { false }
+    func fetchMutationReceipts(since: Date?) async throws -> [PlanningReceiptRecord] { [] }
+}
+
+final class CalendarSelectionSemanticsTests: XCTestCase {
+
+    private func event(_ id: String, calendarID: String) -> LifeBoardCalendarEventSnapshot {
+        LifeBoardCalendarEventSnapshot(
+            id: id,
+            calendarID: calendarID,
+            calendarTitle: calendarID,
+            title: "Event \(id)",
+            startDate: Date(timeIntervalSince1970: 1_000),
+            endDate: Date(timeIntervalSince1970: 2_000),
+            isAllDay: false
+        )
+    }
+
+    private func filter(_ events: [LifeBoardCalendarEventSnapshot], selected: Set<String>) -> [String] {
+        FilterCalendarEventsUseCase().execute(
+            events: events,
+            selectedCalendarIDs: selected,
+            includeDeclined: true,
+            includeCanceled: true,
+            includeAllDayInAgenda: true
+        ).map(\.id)
+    }
+
+    /// Consent, not just consistency: someone who never picked calendars must
+    /// not silently have all of them read.
+    func testEmptySelectionAdmitsNothing() {
+        let events = [event("a", calendarID: "work"), event("b", calendarID: "personal")]
+        XCTAssertTrue(
+            filter(events, selected: []).isEmpty,
+            "An empty selection means no calendars chosen, not every calendar"
+        )
+    }
+
+    func testOnlySelectedCalendarsAreAdmitted() {
+        let events = [
+            event("a", calendarID: "work"),
+            event("b", calendarID: "personal"),
+            event("c", calendarID: "work")
+        ]
+        XCTAssertEqual(filter(events, selected: ["work"]), ["a", "c"])
+        XCTAssertEqual(filter(events, selected: ["work", "personal"]).count, 3)
+    }
+
+    /// A selection naming a calendar the user no longer has must not resurrect
+    /// unselected ones.
+    func testStaleSelectionDoesNotFallBackToEverything() {
+        let events = [event("a", calendarID: "work"), event("b", calendarID: "personal")]
+        XCTAssertTrue(filter(events, selected: ["deleted-calendar"]).isEmpty)
+    }
+}
+
+final class RecoveryIndexClassificationTests: XCTestCase {
+
+    private typealias Service = LifeBoardRecoveryStatusService
+
+    /// An index that cannot report its own contents is omitted, never shown as
+    /// healthy — the Recovery Center must not invent reassurance.
+    func testUnreportableIndexIsOmittedRatherThanAssumedHealthy() {
+        XCTAssertNil(Service.classifyIndex(indexedItemCount: nil, sourceItemCount: 0))
+        XCTAssertNil(Service.classifyIndex(indexedItemCount: nil, sourceItemCount: 42))
+    }
+
+    func testPopulatedIndexIsReady() {
+        XCTAssertEqual(Service.classifyIndex(indexedItemCount: 12, sourceItemCount: 12), .ready)
+        XCTAssertEqual(Service.classifyIndex(indexedItemCount: 1, sourceItemCount: 900), .ready)
+    }
+
+    /// An empty index over an empty journal is correct, not broken — offering a
+    /// rebuild there would invite the user to fix nothing.
+    func testEmptyIndexOverNoContentIsNotAProblem() {
+        XCTAssertEqual(Service.classifyIndex(indexedItemCount: 0, sourceItemCount: 0), .notApplicable)
+    }
+
+    /// An empty index while source content exists is the one case worth acting on.
+    func testEmptyIndexWithContentNeedsRebuild() {
+        XCTAssertEqual(Service.classifyIndex(indexedItemCount: 0, sourceItemCount: 5), .needsRebuild)
+    }
+
+    /// The classification drives whether a rebuild button appears at all.
+    func testOnlyNeedsRebuildSurfacesAnAction() {
+        func status(_ state: Service.DerivedIndexState?) -> LifeBoardRecoveryStatus {
+            Service(
+                storeMode: { .fullSync },
+                journalIndex: { state },
+                notesIndex: { nil },
+                pendingJobCount: { 0 },
+                now: { Date(timeIntervalSince1970: 0) }
+            ).status()
+        }
+
+        XCTAssertNil(status(.ready).areas.first { $0.id == "journal-index" }?.recovery)
+        XCTAssertNil(status(.notApplicable).areas.first { $0.id == "journal-index" }?.recovery)
+        XCTAssertNil(status(.rebuilding).areas.first { $0.id == "journal-index" }?.recovery)
+        XCTAssertEqual(
+            status(.needsRebuild).areas.first { $0.id == "journal-index" }?.recovery,
+            .rebuildJournalIndex
+        )
+        XCTAssertNil(status(nil).areas.first { $0.id == "journal-index" })
+    }
+}
+
+final class TaskExecutionQueryTests: XCTestCase {
+
+    private let today = PlanningDay(year: 2026, month: 7, day: 28, timeZoneIdentifier: "UTC")
+
+    private func day(_ value: Int) -> PlanningDay {
+        PlanningDay(year: 2026, month: 7, day: value, timeZoneIdentifier: "UTC")
+    }
+
+    private func task(
+        _ title: String,
+        day plannedDay: PlanningDay? = nil,
+        disposition: UnscheduledDisposition = .inbox,
+        availability: TaskAvailability = .actionable,
+        due: Date? = nil,
+        projectID: UUID? = nil,
+        pinOrder: Int? = nil,
+        updatedAt: Date = Date(timeIntervalSince1970: 1_000)
+    ) -> PlanningTaskSummary {
+        let id = UUID()
+        return PlanningTaskSummary(
+            id: id,
+            title: title,
+            projectID: projectID,
+            dueDate: due,
+            metadata: PlanningTaskMetadata(
+                taskID: id,
+                planningDay: plannedDay,
+                availability: availability,
+                unscheduledDisposition: disposition,
+                pinOrder: pinOrder,
+                updatedAt: updatedAt
+            )
+        )
+    }
+
+    /// A deleted task must never reappear through any saved filter — that would
+    /// be data loss wearing a feature's clothes.
+    func testTombstonesAreExcludedFromEveryScope() {
+        let deleted = task("Gone", day: today, disposition: .deleted)
+        for scope in TaskExecutionQuery.Scope.allCases {
+            XCTAssertFalse(
+                TaskExecutionQuery(scope: scope).matches(deleted, today: today),
+                "\(scope) must not surface a tombstone"
+            )
+        }
+    }
+
+    /// Overdue work is today's problem, not quietly filed under a day that passed.
+    func testTodayIncludesOverdueWork() {
+        let query = TaskExecutionQuery(scope: .today)
+        XCTAssertTrue(query.matches(task("Overdue", day: day(20)), today: today))
+        XCTAssertTrue(query.matches(task("Due today", day: today), today: today))
+        XCTAssertFalse(query.matches(task("Later", day: day(30)), today: today))
+        XCTAssertFalse(query.matches(task("Unscheduled"), today: today))
+    }
+
+    func testUpcomingIsStrictlyAfterToday() {
+        let query = TaskExecutionQuery(scope: .upcoming)
+        XCTAssertTrue(query.matches(task("Later", day: day(30)), today: today))
+        XCTAssertFalse(query.matches(task("Due today", day: today), today: today))
+        XCTAssertFalse(query.matches(task("Overdue", day: day(20)), today: today))
+    }
+
+    /// Waiting and paused work must not appear in Today: it is not actionable,
+    /// and listing it makes the day look fuller than it is.
+    func testTodayExcludesNonActionableWork() {
+        let query = TaskExecutionQuery(scope: .today)
+        XCTAssertFalse(query.matches(task("Blocked", day: today, availability: .waiting), today: today))
+        XCTAssertFalse(query.matches(task("Paused", day: today, availability: .paused), today: today))
+    }
+
+    func testInboxIsUntriagedAndUnscheduled() {
+        let query = TaskExecutionQuery(scope: .inbox)
+        XCTAssertTrue(query.matches(task("Raw"), today: today))
+        XCTAssertFalse(query.matches(task("Scheduled", day: today), today: today))
+        XCTAssertFalse(query.matches(task("Deferred", disposition: .someday), today: today))
+    }
+
+    func testCompletedScopeOnlyMatchesCompletedWork() {
+        let query = TaskExecutionQuery(scope: .completed)
+        XCTAssertTrue(query.matches(task("Done", day: today), today: today, isComplete: true))
+        XCTAssertFalse(query.matches(task("Open", day: today), today: today, isComplete: false))
+    }
+
+    func testFiltersCombineAsConjunction() {
+        let project = UUID()
+        let area = UUID()
+        let tag = UUID()
+        let query = TaskExecutionQuery(
+            scope: .all,
+            projectID: project,
+            lifeAreaID: area,
+            tagIDs: [tag]
+        )
+        let subject = task("Match", projectID: project)
+
+        XCTAssertTrue(query.matches(subject, today: today, tagIDsForTask: [tag], lifeAreaForTask: area))
+        XCTAssertFalse(query.matches(subject, today: today, tagIDsForTask: [], lifeAreaForTask: area))
+        XCTAssertFalse(query.matches(subject, today: today, tagIDsForTask: [tag], lifeAreaForTask: UUID()))
+        XCTAssertFalse(
+            query.matches(task("Other project"), today: today, tagIDsForTask: [tag], lifeAreaForTask: area)
+        )
+    }
+
+    /// Pagination must not repeat or drop a row, so ties break deterministically.
+    func testSortingIsStableAcrossEqualKeys() {
+        let same = Date(timeIntervalSince1970: 5_000)
+        let tasks = (1...5).map { task("Task \($0)", due: same) }
+        let query = TaskExecutionQuery(scope: .all, sort: .deadline)
+
+        XCTAssertEqual(query.sorted(tasks).map(\.id), query.sorted(tasks.shuffled()).map(\.id))
+    }
+
+    func testTasksWithoutDeadlinesSortLast() {
+        let dated = task("Dated", due: Date(timeIntervalSince1970: 1_000))
+        let undated = task("Undated")
+        XCTAssertEqual(
+            TaskExecutionQuery(scope: .all, sort: .deadline).sorted([undated, dated]).map(\.title),
+            ["Dated", "Undated"]
+        )
+    }
+
+    func testPaginationSlicesWithoutOverlap() {
+        let tasks = (1...6).map { task("T\($0)", due: Date(timeIntervalSince1970: TimeInterval($0))) }
+        let first = TaskExecutionQuery(scope: .all, limit: 2, offset: 0).paginated(tasks).map(\.title)
+        let second = TaskExecutionQuery(scope: .all, limit: 2, offset: 2).paginated(tasks).map(\.title)
+
+        XCTAssertEqual(first, ["T1", "T2"])
+        XCTAssertEqual(second, ["T3", "T4"])
+        XCTAssertTrue(Set(first).isDisjoint(with: Set(second)))
+    }
+
+    func testDegeneratePaginationIsClamped() {
+        let query = TaskExecutionQuery(scope: .all, limit: 0, offset: -3)
+        XCTAssertEqual(query.limit, 1)
+        XCTAssertEqual(query.offset, 0)
+    }
+}
+
+final class ProjectExecutionSnapshotTests: XCTestCase {
+
+    private let projectID = UUID()
+
+    private func task(
+        _ title: String,
+        ready: Bool = true,
+        availability: TaskAvailability = .actionable,
+        due: Date? = nil,
+        pinOrder: Int? = nil
+    ) -> PlanningTaskSummary {
+        let id = UUID()
+        return PlanningTaskSummary(
+            id: id,
+            title: title,
+            projectID: projectID,
+            dueDate: due,
+            metadata: PlanningTaskMetadata(taskID: id, availability: availability, pinOrder: pinOrder),
+            dependenciesReady: ready
+        )
+    }
+
+    private func snapshot(
+        mode: ProjectExecutionMode,
+        tasks: [PlanningTaskSummary],
+        completed: Int = 0,
+        milestones: [ProjectMilestone] = []
+    ) -> ProjectExecutionSnapshot {
+        ProjectExecutionSnapshot(
+            projectID: projectID,
+            name: "Ship it",
+            isArchived: false,
+            executionMode: mode,
+            sections: [],
+            milestones: milestones,
+            tasks: tasks,
+            completedTaskCount: completed,
+            generatedAt: Date(timeIntervalSince1970: 0)
+        )
+    }
+
+    /// Sequential means one next step. Showing five when only the first is
+    /// actionable is how a plan starts lying.
+    func testSequentialProjectsFollowUserOrderNotUrgency() {
+        let subject = snapshot(
+            mode: .sequential,
+            tasks: [
+                task("Third", due: Date(timeIntervalSince1970: 10), pinOrder: 3),
+                task("First", due: Date(timeIntervalSince1970: 9_000), pinOrder: 1),
+                task("Second", due: Date(timeIntervalSince1970: 50), pinOrder: 2)
+            ]
+        )
+        XCTAssertEqual(subject.nextAction?.title, "First")
+    }
+
+    func testParallelProjectsSurfaceTheMostUrgentReadyTask() {
+        let subject = snapshot(
+            mode: .parallel,
+            tasks: [
+                task("Later", due: Date(timeIntervalSince1970: 9_000)),
+                task("Soonest", due: Date(timeIntervalSince1970: 10))
+            ]
+        )
+        XCTAssertEqual(subject.nextAction?.title, "Soonest")
+    }
+
+    func testDependencyBlockedAndWaitingWorkIsNeverTheNextAction() {
+        let subject = snapshot(
+            mode: .parallel,
+            tasks: [task("Blocked", ready: false), task("Waiting", availability: .waiting)]
+        )
+        XCTAssertNil(subject.nextAction)
+        XCTAssertTrue(subject.isBlocked, "Work exists but none of it can start")
+    }
+
+    /// Blocked and finished are different states and must not be conflated.
+    func testFinishedProjectIsNotReportedAsBlocked() {
+        let subject = snapshot(mode: .parallel, tasks: [], completed: 4)
+        XCTAssertNil(subject.nextAction)
+        XCTAssertFalse(subject.isBlocked)
+        XCTAssertEqual(subject.completionFraction, 1.0)
+    }
+
+    /// A brand-new project showing "0%" reads as failure; nothing reads as
+    /// what it is — not started.
+    func testEmptyProjectReportsNoProgressRatherThanZero() {
+        XCTAssertNil(snapshot(mode: .parallel, tasks: []).completionFraction)
+    }
+
+    func testCompletionFractionCountsCompletedAgainstTotal() {
+        let subject = snapshot(mode: .parallel, tasks: [task("A"), task("B")], completed: 2)
+        XCTAssertEqual(subject.totalTaskCount, 4)
+        XCTAssertEqual(subject.completionFraction ?? -1, 0.5, accuracy: 0.0001)
+    }
+
+    func testNextMilestonePrefersTheEarliestIncompleteTarget() {
+        let subject = snapshot(
+            mode: .parallel,
+            tasks: [task("A")],
+            milestones: [
+                ProjectMilestone(projectID: projectID, title: "Done already", completedAt: Date(), sortOrder: 0),
+                ProjectMilestone(
+                    projectID: projectID,
+                    title: "Later",
+                    targetDay: PlanningDay(year: 2026, month: 9, day: 1, timeZoneIdentifier: "UTC"),
+                    sortOrder: 2
+                ),
+                ProjectMilestone(
+                    projectID: projectID,
+                    title: "Sooner",
+                    targetDay: PlanningDay(year: 2026, month: 8, day: 1, timeZoneIdentifier: "UTC"),
+                    sortOrder: 1
+                )
+            ]
+        )
+        XCTAssertEqual(subject.nextMilestone?.title, "Sooner")
+    }
+
+    /// An undated milestone must not outrank a dated one.
+    func testUndatedMilestonesRankAfterDatedOnes() {
+        let subject = snapshot(
+            mode: .parallel,
+            tasks: [],
+            milestones: [
+                ProjectMilestone(projectID: projectID, title: "Someday", sortOrder: 0),
+                ProjectMilestone(
+                    projectID: projectID,
+                    title: "Dated",
+                    targetDay: PlanningDay(year: 2026, month: 12, day: 1, timeZoneIdentifier: "UTC"),
+                    sortOrder: 9
+                )
+            ]
+        )
+        XCTAssertEqual(subject.nextMilestone?.title, "Dated")
+    }
+}
+
+final class TaskExecutionProjectionTests: XCTestCase {
+
+    private let today = PlanningDay(year: 2026, month: 7, day: 28, timeZoneIdentifier: "UTC")
+    private let projectID = UUID()
+
+    private func day(_ value: Int) -> PlanningDay {
+        PlanningDay(year: 2026, month: 7, day: value, timeZoneIdentifier: "UTC")
+    }
+
+    private func task(
+        _ title: String,
+        day plannedDay: PlanningDay? = nil,
+        disposition: UnscheduledDisposition = .inbox,
+        availability: TaskAvailability = .actionable,
+        projectID: UUID? = nil
+    ) -> PlanningTaskSummary {
+        let id = UUID()
+        return PlanningTaskSummary(
+            id: id,
+            title: title,
+            projectID: projectID,
+            metadata: PlanningTaskMetadata(
+                taskID: id,
+                planningDay: plannedDay,
+                availability: availability,
+                unscheduledDisposition: disposition
+            )
+        )
+    }
+
+    private func projection(
+        tasks: [PlanningTaskSummary],
+        projects: [PlanningProjectSummary] = []
+    ) -> TaskExecutionProjection {
+        let reference = today
+        return TaskExecutionProjection(
+            openTasks: { tasks },
+            projects: { projects },
+            today: { reference }
+        )
+    }
+
+    func testEachScopeAnswersTheSameDataDifferently() async throws {
+        let subject = projection(tasks: [
+            task("Untriaged"),
+            task("Overdue", day: day(20)),
+            task("Later", day: day(30)),
+            task("Blocked", day: today, availability: .waiting),
+            task("Deferred", disposition: .someday)
+        ])
+
+        let today = try await subject.tasks(for: .init(scope: .today)).map(\.title)
+        let upcoming = try await subject.tasks(for: .init(scope: .upcoming)).map(\.title)
+        let waiting = try await subject.tasks(for: .init(scope: .waiting)).map(\.title)
+        let someday = try await subject.tasks(for: .init(scope: .someday)).map(\.title)
+        let inbox = try await subject.tasks(for: .init(scope: .inbox)).map(\.title)
+
+        XCTAssertEqual(today, ["Overdue"])
+        XCTAssertEqual(upcoming, ["Later"])
+        XCTAssertEqual(waiting, ["Blocked"])
+        XCTAssertEqual(someday, ["Deferred"])
+        XCTAssertEqual(inbox, ["Untriaged"])
+    }
+
+    /// Header counts must not cost one round trip per scope.
+    func testCountsResolveEveryScopeFromASingleFetch() async throws {
+        let probe = ProjectionFetchProbe()
+        let tasks = [task("Overdue", day: day(20)), task("Later", day: day(30))]
+        let reference = today
+        let subject = TaskExecutionProjection(
+            openTasks: { await probe.record(); return tasks },
+            today: { reference }
+        )
+
+        let counts = try await subject.counts(for: [.today, .upcoming, .waiting])
+
+        XCTAssertEqual(counts[.today], 1)
+        XCTAssertEqual(counts[.upcoming], 1)
+        XCTAssertEqual(counts[.waiting], 0)
+        let fetches = await probe.count
+        XCTAssertEqual(fetches, 1, "Five counts must not cost five fetches")
+    }
+
+    func testUnknownProjectReturnsNilRatherThanAnEmptySnapshot() async throws {
+        let subject = projection(tasks: [], projects: [])
+        let snapshot = try await subject.projectSnapshot(projectID: UUID(), completedTaskCount: 0)
+        XCTAssertNil(snapshot, "A missing project is absent, not empty")
+    }
+
+    func testProjectSnapshotExcludesTombstonesAndUsesSuppliedCompletionCount() async throws {
+        let subject = projection(
+            tasks: [
+                task("Open", projectID: projectID),
+                task("Gone", disposition: .deleted, projectID: projectID),
+                task("Other project", projectID: UUID())
+            ],
+            projects: [PlanningProjectSummary(id: projectID, name: "Ship it", isArchived: false)]
+        )
+
+        let snapshot = try await subject.projectSnapshot(projectID: projectID, completedTaskCount: 3)
+
+        XCTAssertEqual(snapshot?.tasks.map(\.title), ["Open"])
+        // Derived from open work alone this would read 0% forever, because
+        // completed tasks are not in the open-task projection by definition.
+        XCTAssertEqual(snapshot?.completedTaskCount, 3)
+        XCTAssertEqual(snapshot?.totalTaskCount, 4)
+    }
+
+    func testSectionsAndMilestonesArriveInSortOrder() async throws {
+        let subject = projection(
+            tasks: [task("Open", projectID: projectID)],
+            projects: [PlanningProjectSummary(id: projectID, name: "Ship it", isArchived: false)]
+        )
+        let snapshot = try await subject.projectSnapshot(
+            projectID: projectID,
+            completedTaskCount: 0,
+            sections: [
+                LifeBoardProjectSection(projectID: projectID, name: "Second", sortOrder: 2),
+                LifeBoardProjectSection(projectID: projectID, name: "First", sortOrder: 1)
+            ],
+            milestones: [
+                ProjectMilestone(projectID: projectID, title: "Beta", sortOrder: 2),
+                ProjectMilestone(projectID: projectID, title: "Alpha", sortOrder: 1)
+            ]
+        )
+
+        XCTAssertEqual(snapshot?.sections.map(\.name), ["First", "Second"])
+        XCTAssertEqual(snapshot?.milestones.map(\.title), ["Alpha", "Beta"])
+    }
+}
+
+private actor ProjectionFetchProbe {
+    private(set) var count = 0
+    func record() { count += 1 }
+}
+
+@MainActor
+final class InboxAlreadyFiledTests: XCTestCase {
+
+    private func store(items: [InboxItem]) -> InboxStore {
+        let store = InboxStore(
+            reader: InboxReader(openTasks: { [] }, pendingCaptures: { [] }),
+            planningRepository: NoopPlanningRepository(),
+            mutationRepository: NoopPlanningMutationRepository()
+        )
+        store.setItemsForTesting(items)
+        return store
+    }
+
+    private func capture(_ text: String) -> InboxItem {
+        let id = UUID()
+        return InboxItem(
+            id: id,
+            origin: .pendingCapture(id),
+            title: text,
+            capturedAt: Date(timeIntervalSince1970: 0),
+            captureSource: "siri"
+        )
+    }
+
+    private func task(_ title: String) -> InboxItem {
+        let id = UUID()
+        return InboxItem(id: id, origin: .task(id), title: title, capturedAt: Date(timeIntervalSince1970: 0))
+    }
+
+    /// The editor strips the date phrase, so the capture's raw text and the
+    /// resulting task title differ — matching must use the parsed title.
+    func testCaptureIsRecognisedAfterItsDatePhraseWasStripped() {
+        let subject = store(items: [capture("call mom tomorrow"), task("call mom")])
+        XCTAssertTrue(subject.alreadyFiled(subject.items[0]))
+    }
+
+    func testUnfiledCaptureIsNotFlagged() {
+        let subject = store(items: [capture("renew passport"), task("buy milk")])
+        XCTAssertFalse(subject.alreadyFiled(subject.items[0]))
+    }
+
+    /// A canonical task is not itself a capture and can never be "already filed".
+    func testCanonicalTasksAreNeverFlagged() {
+        let subject = store(items: [task("call mom"), capture("call mom")])
+        XCTAssertFalse(subject.alreadyFiled(subject.items[0]))
+    }
+
+    func testCaptureWithNoCanonicalTasksIsNotFlagged() {
+        let subject = store(items: [capture("call mom")])
+        XCTAssertFalse(subject.alreadyFiled(subject.items[0]))
+    }
+}
+
+private struct NoopPlanningRepository: PlanningRepository {
+    func fetchTaskMetadata(taskIDs: Set<UUID>?) async throws -> [PlanningTaskMetadata] { [] }
+    func saveTaskMetadata(_ value: PlanningTaskMetadata) async throws {}
+    func saveTaskMetadata(_ values: [PlanningTaskMetadata]) async throws {}
+}
+
+private struct NoopPlanningMutationRepository: PlanningMutationRepository {
+    func prepare(_ mutation: PlanMutation, source: String, summary: String) async throws -> PlanMutationReceipt {
+        PlanMutationReceipt(
+            id: UUID(),
+            source: source,
+            summary: summary,
+            forwardData: Data(),
+            undoData: Data(),
+            createdAt: Date()
+        )
+    }
+    func apply(receiptID: UUID) async throws {}
+    func undo(receiptID: UUID) async throws {}
+    func hasAppliedReceipt(source: String) async throws -> Bool { false }
+    func fetchMutationReceipts(since: Date?) async throws -> [PlanningReceiptRecord] { [] }
+}
+
+final class TaskStartDayTests: XCTestCase {
+
+    private let today = PlanningDay(year: 2026, month: 7, day: 28, timeZoneIdentifier: "UTC")
+
+    private func day(_ value: Int) -> PlanningDay {
+        PlanningDay(year: 2026, month: 7, day: value, timeZoneIdentifier: "UTC")
+    }
+
+    private func task(planned: PlanningDay?, start: PlanningDay?) -> PlanningTaskSummary {
+        let id = UUID()
+        return PlanningTaskSummary(
+            id: id,
+            title: "Subject",
+            metadata: PlanningTaskMetadata(taskID: id, planningDay: planned, startDay: start)
+        )
+    }
+
+    /// Planned, start and due are three different questions. Collapsing them is
+    /// what makes a day look fuller than it can be.
+    func testTaskThatCannotStartYetIsNotTodaysWork() {
+        let query = TaskExecutionQuery(scope: .today)
+        XCTAssertFalse(
+            query.matches(task(planned: today, start: day(30)), today: today),
+            "Scheduled for today but not startable until the 30th"
+        )
+    }
+
+    func testStartDayInThePastDoesNotBlock() {
+        let query = TaskExecutionQuery(scope: .today)
+        XCTAssertTrue(query.matches(task(planned: today, start: day(20)), today: today))
+        XCTAssertTrue(query.matches(task(planned: today, start: today), today: today))
+    }
+
+    func testAbsentStartDayImposesNoConstraint() {
+        let query = TaskExecutionQuery(scope: .today)
+        XCTAssertTrue(query.matches(task(planned: today, start: nil), today: today))
+    }
+
+    /// Additive on the wire: metadata written before this field existed decodes
+    /// with no start constraint, which is the previous behaviour exactly.
+    func testLegacyMetadataDecodesWithoutAStartDay() throws {
+        let taskID = UUID()
+        let legacy = """
+        {
+          "taskID": "\(taskID.uuidString)",
+          "commitmentLevel": "standard",
+          "availability": "actionable",
+          "planningContext": "neutral",
+          "unscheduledDisposition": "inbox",
+          "updatedAt": 0
+        }
+        """
+        let decoded = try JSONDecoder().decode(
+            PlanningTaskMetadata.self,
+            from: Data(legacy.utf8)
+        )
+        XCTAssertNil(decoded.startDay)
+        XCTAssertEqual(decoded.taskID, taskID)
+    }
+}
+
+final class StartDayPersistenceTests: XCTestCase {
+
+    /// A start date the user sets must survive relaunch, or the field is
+    /// decoration and the Today gate silently forgets its own constraint.
+    func testStartDayRoundTripsThroughCoreData() async throws {
+        let container = try await makeStartDayContainer()
+        let taskID = UUID()
+        let context = container.newBackgroundContext()
+        try await context.perform {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            task.setValue(taskID, forKey: "id")
+            task.setValue("Blocked until August", forKey: "title")
+            try context.save()
+        }
+
+        let repository = CoreDataPlanningRepository(container: container)
+        let start = PlanningDay(year: 2026, month: 8, day: 15, timeZoneIdentifier: "Asia/Kolkata")
+        try await repository.saveTaskMetadata(
+            PlanningTaskMetadata(
+                taskID: taskID,
+                planningDay: PlanningDay(year: 2026, month: 7, day: 28, timeZoneIdentifier: "Asia/Kolkata"),
+                startDay: start
+            )
+        )
+
+        let restored = try await repository.fetchTaskMetadata(taskIDs: [taskID]).first
+        XCTAssertEqual(restored?.startDay, start)
+        XCTAssertEqual(restored?.startDay?.timeZoneIdentifier, "Asia/Kolkata")
+    }
+
+    /// Absent is a real state, not zero. A task with no start constraint must
+    /// come back with none rather than a fabricated date.
+    func testAbsentStartDayStaysAbsent() async throws {
+        let container = try await makeStartDayContainer()
+        let taskID = UUID()
+        let context = container.newBackgroundContext()
+        try await context.perform {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            task.setValue(taskID, forKey: "id")
+            task.setValue("Anytime", forKey: "title")
+            try context.save()
+        }
+
+        let repository = CoreDataPlanningRepository(container: container)
+        try await repository.saveTaskMetadata(PlanningTaskMetadata(taskID: taskID))
+
+        let restored = try await repository.fetchTaskMetadata(taskIDs: [taskID]).first
+        XCTAssertNil(restored?.startDay)
+    }
+
+    /// Clearing a start date must actually clear it, not leave the old one.
+    func testStartDayCanBeCleared() async throws {
+        let container = try await makeStartDayContainer()
+        let taskID = UUID()
+        let context = container.newBackgroundContext()
+        try await context.perform {
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            task.setValue(taskID, forKey: "id")
+            task.setValue("Unblocked", forKey: "title")
+            try context.save()
+        }
+
+        let repository = CoreDataPlanningRepository(container: container)
+        try await repository.saveTaskMetadata(
+            PlanningTaskMetadata(
+                taskID: taskID,
+                startDay: PlanningDay(year: 2026, month: 8, day: 15, timeZoneIdentifier: "UTC")
+            )
+        )
+        try await repository.saveTaskMetadata(PlanningTaskMetadata(taskID: taskID, startDay: nil))
+
+        let restored = try await repository.fetchTaskMetadata(taskIDs: [taskID]).first
+        XCTAssertNil(restored?.startDay)
+    }
+
+    /// The new model must carry the milestone entity the project snapshot needs.
+    func testCurrentModelDeclaresProjectMilestone() throws {
+        let model = try XCTUnwrap(
+            NSManagedObjectModel(
+                contentsOf: try startDayModelBundleURL()
+                    .appendingPathComponent("TaskModelV3_TaskStartDay.mom")
+            )
+        )
+        let milestone = try XCTUnwrap(model.entitiesByName["ProjectMilestone"])
+        for attribute in ["id", "projectID", "title", "completedAt", "sortOrder"] {
+            XCTAssertNotNil(milestone.attributesByName[attribute], "ProjectMilestone needs \(attribute)")
+        }
+        // Ordinary planning data, so it syncs privately rather than staying local.
+        let cloud = Set(try XCTUnwrap(model.entities(forConfigurationName: "CloudSync")).compactMap(\.name))
+        let local = Set(try XCTUnwrap(model.entities(forConfigurationName: "LocalOnly")).compactMap(\.name))
+        XCTAssertTrue(cloud.contains("ProjectMilestone"))
+        XCTAssertFalse(local.contains("ProjectMilestone"))
+    }
+
+    private func startDayModelBundleURL() throws -> URL {
+        for bundle in [Bundle.main, Bundle(for: Self.self)] {
+            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") { return url }
+        }
+        throw XCTSkip("Compiled TaskModelV3.momd unavailable")
+    }
+
+    private func makeStartDayContainer() async throws -> NSPersistentContainer {
+        let model = try XCTUnwrap(
+            NSManagedObjectModel(
+                contentsOf: try startDayModelBundleURL()
+                    .appendingPathComponent("TaskModelV3_TaskStartDay.mom")
+            )
+        )
+        let container = NSPersistentContainer(name: "StartDayRoundTrip", managedObjectModel: model)
+        let cloud = NSPersistentStoreDescription()
+        cloud.type = NSInMemoryStoreType
+        cloud.configuration = "CloudSync"
+        cloud.url = URL(fileURLWithPath: "/dev/null/cloud-\(UUID().uuidString)")
+        let local = NSPersistentStoreDescription()
+        local.type = NSInMemoryStoreType
+        local.configuration = "LocalOnly"
+        local.url = URL(fileURLWithPath: "/dev/null/local-\(UUID().uuidString)")
+        container.persistentStoreDescriptions = [cloud, local]
+        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
+            let lock = NSLock()
+            var remaining = container.persistentStoreDescriptions.count
+            var firstError: (any Error)?
+            container.loadPersistentStores { _, error in
+                lock.lock()
+                if firstError == nil { firstError = error }
+                remaining -= 1
+                let finished = remaining == 0
+                let resolved = firstError
+                lock.unlock()
+                guard finished else { return }
+                if let resolved { continuation.resume(throwing: resolved) }
+                else { continuation.resume() }
+            }
+        }
+        return container
+    }
 }

@@ -338,7 +338,21 @@ public struct TaskListWidgetCalendarSnapshot: Codable, Equatable, Sendable {
         self.errorMessage = errorMessage
     }
 
+    /// The neutral placeholder: a calendar with nothing on it.
+    ///
+    /// Distinct from `.unavailable` below. Use this only where the calendar was
+    /// genuinely consulted and found empty.
     public static let empty = TaskListWidgetCalendarSnapshot()
+
+    /// A snapshot carrying *no calendar information at all*.
+    ///
+    /// `.empty` is a positive claim — the widget renders "nothing scheduled
+    /// today". A payload written before the calendar field existed carries no
+    /// calendar data whatsoever, so decoding it as `.empty` told the user their
+    /// day was clear when the truth was that we had no idea. That is the one
+    /// direction this error can cause a missed meeting, so absent data degrades
+    /// to "calendar unavailable" instead.
+    public static let unavailable = TaskListWidgetCalendarSnapshot(status: .permissionRequired)
 }
 
 public enum TaskListWidgetTimelineItemSource: String, Codable, Equatable, Hashable, Sendable {
@@ -714,7 +728,10 @@ public struct TaskListWidgetSnapshot: Codable, Equatable, Sendable {
         self.openTaskPool = try container.decodeIfPresent([TaskListWidgetTask].self, forKey: .openTaskPool) ?? []
         self.completedTodayTasks = try container.decodeIfPresent([TaskListWidgetTask].self, forKey: .completedTodayTasks) ?? []
         self.snapshotHealth = try container.decodeIfPresent(TaskListWidgetSnapshotHealth.self, forKey: .snapshotHealth) ?? TaskListWidgetSnapshotHealth()
-        self.calendar = try container.decodeIfPresent(TaskListWidgetCalendarSnapshot.self, forKey: .calendar) ?? .empty
+        // `.unavailable`, not `.empty`: a payload with no calendar key predates
+        // the calendar field and carries no information, so it must not render
+        // as "nothing scheduled today".
+        self.calendar = try container.decodeIfPresent(TaskListWidgetCalendarSnapshot.self, forKey: .calendar) ?? .unavailable
         self.timeline = try container.decodeIfPresent(TaskListWidgetTimelineSnapshot.self, forKey: .timeline) ?? .empty
         self.habit = try container.decodeIfPresent(TaskListWidgetHabitSnapshot.self, forKey: .habit) ?? .empty
     }

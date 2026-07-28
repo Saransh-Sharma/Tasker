@@ -201,6 +201,36 @@ public struct LifeOSFoundationShell: View {
                         .navigationBarTitleDisplayMode(.inline)
                     }
                     .presentationDetents([.medium, .large])
+                } else {
+                    // Without this the sheet presented completely empty with no
+                    // way to tell whether it was broken or still working. The
+                    // store is built synchronously in `beginComposerAudioCapture`,
+                    // so reaching here means the state write had not landed when
+                    // the sheet body first evaluated — recoverable, so it rebuilds
+                    // the store rather than stranding the recording the user came
+                    // here to make.
+                    NavigationStack {
+                        VStack(spacing: 12) {
+                            ProgressView()
+                            Text("Preparing voice capture…")
+                                .font(.subheadline)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .navigationTitle("Voice note")
+                        .navigationBarTitleDisplayMode(.inline)
+                        .toolbar {
+                            ToolbarItem(placement: .cancellationAction) {
+                                Button("Cancel") { showsComposerAudioCapture = false }
+                            }
+                        }
+                        .task {
+                            guard composerAudioStore == nil else { return }
+                            composerAudioStore = LifeBoardJournalStore(repository: phaseIIRepository)
+                        }
+                    }
+                    .presentationDetents([.medium, .large])
+                    .accessibilityLabel("Preparing voice capture")
                 }
             }
         }
@@ -988,7 +1018,15 @@ public struct LifeOSFoundationShell: View {
                 onAskEva: { router.select(.eva) },
                 onOpenWeeklyPlanner: { router.push(.weeklyPlanner, in: .plan) },
                 onOpenWeeklyReview: { router.push(.weeklyReview, in: .plan) },
-                onOpenOverdueRescue: presentPlanOverdueRescue
+                onOpenOverdueRescue: presentPlanOverdueRescue,
+                onReviewCapture: { item in
+                    // Filing an unreviewed capture goes through the ordinary task
+                    // editor seeded with the raw text, so the parser's proposal is
+                    // something the user confirms rather than inherits.
+                    runtime.captureRouter.request(
+                        CaptureRequest(kind: .task, source: .shell, prefilledText: item.title)
+                    )
+                }
             )
         } else if destination == .track,
                   V2FeatureFlags.trackFoundationsV2Enabled {
@@ -3116,7 +3154,7 @@ private struct FoundationCaptureSheet: View {
     private var captureContent: some View {
         switch request.kind {
         case .task:
-            FoundationTaskCaptureHost()
+            FoundationTaskCaptureHost(prefilledText: request.prefilledText)
         case .habit:
             FoundationHabitCaptureHost()
         case .journal:
@@ -3309,10 +3347,18 @@ private struct FoundationWeeklyReviewRoute: View {
 }
 
 private struct FoundationTaskCaptureHost: View {
+    /// Raw text of an already-captured item being reviewed, if any.
+    var prefilledText: String?
     @StateObject private var viewModel = PresentationDependencyContainer.shared.makeNewAddTaskViewModel()
 
     var body: some View {
         SunriseAddTaskSheetView(viewModel: viewModel)
+            .task {
+                // Seeded once, and only when the field is still untouched, so a
+                // re-render cannot overwrite what the user has since typed.
+                guard let prefilledText, viewModel.taskName.isEmpty else { return }
+                viewModel.taskName = prefilledText
+            }
     }
 }
 

@@ -52,8 +52,20 @@ final class OnboardingEligibilityService: @unchecked Sendable {
         )
     }
 
+    /// Whether the harness asked for onboarding to be skipped outright.
+    ///
+    /// Exposed separately because `evaluate()` is not the only path to
+    /// presentation: resuming an interrupted journey short-circuits ahead of it,
+    /// and used to bypass this argument entirely, so a seeded run that had
+    /// stored a partial journey would present onboarding despite
+    /// `-SKIP_ONBOARDING`. Every presentation path has to consult one policy,
+    /// and that policy lives here rather than being restated at each call site.
+    var isSuppressedByLaunchArgument: Bool {
+        launchArguments.contains("-SKIP_ONBOARDING")
+    }
+
     func evaluate(version: Int = AppOnboardingState.currentVersion) async -> OnboardingEligibility {
-        if launchArguments.contains("-SKIP_ONBOARDING") {
+        if isSuppressedByLaunchArgument {
             return .suppressed
         }
 

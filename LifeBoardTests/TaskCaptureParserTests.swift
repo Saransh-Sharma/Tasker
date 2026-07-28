@@ -120,6 +120,37 @@ final class TaskCaptureParserTests: XCTestCase {
         XCTAssertNil(result.dueDate)
     }
 
+    /// The bug these time-only tests were catching, stated as its user-visible
+    /// consequence: a capture queued from a widget on one day and drained on
+    /// another must resolve against the capture's own reference time.
+    ///
+    /// NSDataDetector has no reference-date parameter, so it claimed bare times
+    /// and resolved them against the real clock, silently overriding the
+    /// injected `now`. Because captures are committed without review, that put a
+    /// wrong due date on the task and the user never saw it happen.
+    func testBareTimeResolvesAgainstTheSuppliedReferenceNotTheRealClock() {
+        let queuedYesterday = calendar.date(
+            from: DateComponents(year: 2026, month: 6, day: 16, hour: 8, minute: 0)
+        )!
+        let result = parse("standup 3pm", at: queuedYesterday)
+        let c = components(result.dueDate)
+
+        XCTAssertEqual(c.year, 2026)
+        XCTAssertEqual(c.month, 6)
+        XCTAssertEqual(c.day, 16, "Must resolve on the reference day, not today")
+        XCTAssertEqual(c.hour, 15)
+        XCTAssertEqual(c.minute, 0)
+    }
+
+    /// Dates that genuinely carry a day component must still reach the detector.
+    func testAbsoluteDatesAreStillDetected() {
+        let result = parse("file taxes March 5")
+        XCTAssertEqual(result.cleanTitle, "file taxes")
+        XCTAssertNotNil(result.dueDate)
+        XCTAssertEqual(components(result.dueDate).month, 3)
+        XCTAssertEqual(components(result.dueDate).day, 5)
+    }
+
     func testTwentyFourHourTime() {
         let result = parse("deploy build at 15:30")
         XCTAssertEqual(result.cleanTitle, "deploy build")

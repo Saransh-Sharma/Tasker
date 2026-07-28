@@ -38,6 +38,13 @@ extension AppOnboardingCoordinator {
 
         Task { @MainActor [weak self] in
             guard let self else { return }
+            // Checked before the resume branch: resuming an interrupted journey
+            // short-circuits ahead of `evaluate()`, which is where the skip
+            // argument is otherwise honored. A seeded run that had stored a
+            // partial journey therefore presented onboarding anyway, making
+            // `-SKIP_ONBOARDING` runs unreliable after a partial setup.
+            guard self.eligibilityService.isSuppressedByLaunchArgument == false else { return }
+
             let state = self.stateStore.load()
             if state.hasHandledCurrentVersion == false, state.journeySnapshot != nil {
                 self.enqueuePresentation(.fullFlow(source: "resume"))

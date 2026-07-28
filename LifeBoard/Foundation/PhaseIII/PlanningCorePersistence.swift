@@ -66,6 +66,10 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
                 task.setValue(value.planningDay?.month, forKey: "planningDayMonth")
                 task.setValue(value.planningDay?.day, forKey: "planningDayDay")
                 task.setValue(value.planningDay?.timeZoneIdentifier, forKey: "planningDayTimeZoneIdentifier")
+                task.setValue(value.startDay?.year, forKey: "startDayYear")
+                task.setValue(value.startDay?.month, forKey: "startDayMonth")
+                task.setValue(value.startDay?.day, forKey: "startDayDay")
+                task.setValue(value.startDay?.timeZoneIdentifier, forKey: "startDayTimeZoneIdentifier")
                 task.setValue(value.commitmentLevel.rawValue, forKey: "commitmentLevelRaw")
                 task.setValue(value.availability.rawValue, forKey: "availabilityRaw")
                 task.setValue(value.planningContext.rawValue, forKey: "planningContextRaw")
@@ -497,9 +501,30 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
         } else {
             planningDay = nil
         }
+
+        // Mirrors the planningDay quadruple. All four parts must be present for
+        // a day to exist — a partial write is not a date, and reconstructing one
+        // from three fields would invent a time zone the user never chose.
+        let startYear = (object.value(forKey: "startDayYear") as? NSNumber)?.intValue
+        let startMonth = (object.value(forKey: "startDayMonth") as? NSNumber)?.intValue
+        let startDayOfMonth = (object.value(forKey: "startDayDay") as? NSNumber)?.intValue
+        let startTimeZone = object.value(forKey: "startDayTimeZoneIdentifier") as? String
+        let startDay: PlanningDay?
+        if let startYear, let startMonth, let startDayOfMonth, let startTimeZone {
+            startDay = PlanningDay(
+                year: startYear,
+                month: startMonth,
+                day: startDayOfMonth,
+                timeZoneIdentifier: startTimeZone
+            )
+        } else {
+            startDay = nil
+        }
+
         return PlanningTaskMetadata(
             taskID: taskID,
             planningDay: planningDay,
+            startDay: startDay,
             commitmentLevel: (object.value(forKey: "commitmentLevelRaw") as? String)
                 .flatMap(TaskCommitmentLevel.init(rawValue:)) ?? .standard,
             availability: (object.value(forKey: "availabilityRaw") as? String)
@@ -525,6 +550,10 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
             task.setValue(metadata.planningDay?.month, forKey: "planningDayMonth")
             task.setValue(metadata.planningDay?.day, forKey: "planningDayDay")
             task.setValue(metadata.planningDay?.timeZoneIdentifier, forKey: "planningDayTimeZoneIdentifier")
+            task.setValue(metadata.startDay?.year, forKey: "startDayYear")
+            task.setValue(metadata.startDay?.month, forKey: "startDayMonth")
+            task.setValue(metadata.startDay?.day, forKey: "startDayDay")
+            task.setValue(metadata.startDay?.timeZoneIdentifier, forKey: "startDayTimeZoneIdentifier")
             task.setValue(metadata.commitmentLevel.rawValue, forKey: "commitmentLevelRaw")
             task.setValue(metadata.availability.rawValue, forKey: "availabilityRaw")
             task.setValue(metadata.planningContext.rawValue, forKey: "planningContextRaw")

@@ -18,6 +18,9 @@ struct SettingsRootView: View {
     @State private var healthStore = LifeBoardHealthRuntime.shared.connectionStore
     @AppStorage("healthPrivacyLocalOnlyNoticeAcknowledged") private var didAcknowledgeHealthPrivacyNotice = false
     @State private var showsHealthPrivacyNotice = false
+    /// Resolved on appear rather than recomputed per render: opening a SQLite
+    /// index is not something a view body should do on every layout pass.
+    @State private var recoveryStatus = LifeBoardRecoveryStatusService.live().status()
 
     private let dueSoonLeadOptions: [(value: Int, label: String)] = [
         (15, "15m"),
@@ -90,6 +93,13 @@ struct SettingsRootView: View {
             }
             .scrollContentBackground(.hidden)
         }
+        .task {
+            guard V2FeatureFlags.lifeBoardTrustClosureV1Enabled else { return }
+            let journal = await RecoveryServices.journalIndexState()
+            recoveryStatus = LifeBoardRecoveryStatusService.live(
+                journalIndexState: { journal }
+            ).status()
+        }
         .onAppear {
             viewModel.reload()
             timelineAnchorDraft = TimelineAnchorDraft(preferences: viewModel.workspacePreferences)
@@ -129,6 +139,9 @@ struct SettingsRootView: View {
             aiAssistantSection(baseIndex: 10)
             notificationsSection(baseIndex: 12)
             appearanceSection(baseIndex: 20)
+            if V2FeatureFlags.lifeBoardTrustClosureV1Enabled {
+                dataSection(baseIndex: 21)
+            }
             helpSection(baseIndex: 22)
         }
     }
@@ -144,6 +157,9 @@ struct SettingsRootView: View {
                     timelineSection(baseIndex: 8, includeHorizontalPadding: false)
                     aiAssistantSection(baseIndex: 10, includeHorizontalPadding: false)
                     appearanceSection(baseIndex: 20, includeHorizontalPadding: false)
+                    if V2FeatureFlags.lifeBoardTrustClosureV1Enabled {
+                        dataSection(baseIndex: 21, includeHorizontalPadding: false)
+                    }
                     helpSection(baseIndex: 22, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 560, alignment: .top)
@@ -748,6 +764,51 @@ struct SettingsRootView: View {
                 .enhancedStaggeredAppearance(index: baseIndex)
                 .accessibilityIdentifier("settings.appearance.decorativeButtonEffects.card")
             }
+        }
+    }
+
+    /// Data ownership and recovery.
+    ///
+    /// Placed above Help rather than inside it because "is my work safe?" is not
+    /// a support question — someone who suspects data loss should not have to
+    /// look under "About" to find out.
+    private func dataSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
+        SettingsSectionView(
+            title: "Data",
+            subtitle: "Check that everything is safe and recoverable.",
+            topPadding: sectionTopPadding,
+            includeHorizontalPadding: includeHorizontalPadding
+        ) {
+            LifeBoardSettingsCard {
+                NavigationLink {
+                    RecoveryCenterView(
+                        status: recoveryStatus,
+                        onRecover: { recovery in
+                            // Rebuilding needs the source entries to re-index,
+                            // which live in the Journal module rather than here.
+                            // Wiring `invalidate()` alone would clear the index
+                            // without repopulating it — search would get worse,
+                            // not better — so this says where to go instead of
+                            // doing half the job and reporting success.
+                            _ = recovery
+                            return "Open Journal to rebuild its search index."
+                        },
+                        onExportDiagnostics: viewModel.copyRecoveryDiagnostics
+                    )
+                } label: {
+                    SettingsNavigationRow(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
+                            iconName: "lifepreserver.fill",
+                            title: "Recovery",
+                            subtitle: "Sync status, search rebuilds and diagnostics.",
+                            accessibilityIdentifier: "settings.recoveryCenterRow"
+                        ),
+                        action: {}
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .enhancedStaggeredAppearance(index: baseIndex)
         }
     }
 

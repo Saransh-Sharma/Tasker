@@ -455,6 +455,7 @@ struct HabitHomeSectionCard: View {
 }
 
 struct HabitBoardScreen: View {
+    @Environment(\.habitViewModelFactory) private var habitViewModelFactory
     enum PresentationStyle { case modal, pushed }
 
     @ObservedObject var viewModel: HabitBoardViewModel
@@ -528,7 +529,7 @@ struct HabitBoardScreen: View {
         }
         .sheet(item: $selectedHabitRow) { row in
             SunriseHabitDetailScreen(
-                viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
+                viewModel: habitViewModelFactory.makeHabitDetailViewModel(row: row),
                 onMutation: { viewModel.refresh() }
             )
         }

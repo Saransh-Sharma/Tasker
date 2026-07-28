@@ -1299,23 +1299,33 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         let calendar = Self.fixedCalendar
 
         XCTAssertEqual(
-            TimelineRailTimeFormatter.railText(forItemStart: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0), calendar: calendar),
+            normalizingNarrowSpaces(
+                TimelineRailTimeFormatter.railText(forItemStart: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0), calendar: calendar)
+            ),
             "11 AM"
         )
         XCTAssertEqual(
-            TimelineRailTimeFormatter.railText(for: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0), kind: .exact, calendar: calendar),
+            normalizingNarrowSpaces(
+                TimelineRailTimeFormatter.railText(for: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 11, minute: 0), kind: .exact, calendar: calendar)
+            ),
             "11:00 AM"
         )
         XCTAssertEqual(
-            TimelineRailTimeFormatter.railText(for: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0), kind: .exact, calendar: calendar),
+            normalizingNarrowSpaces(
+                TimelineRailTimeFormatter.railText(for: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 22, minute: 0), kind: .exact, calendar: calendar)
+            ),
             "10:00 PM"
         )
         XCTAssertEqual(
-            TimelineRailTimeFormatter.railText(forItemStart: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 17, minute: 12), calendar: calendar),
+            normalizingNarrowSpaces(
+                TimelineRailTimeFormatter.railText(forItemStart: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 17, minute: 12), calendar: calendar)
+            ),
             "5:12 PM"
         )
         XCTAssertEqual(
-            TimelineRailTimeFormatter.railText(for: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 52), kind: .current, calendar: calendar),
+            normalizingNarrowSpaces(
+                TimelineRailTimeFormatter.railText(for: Self.date(calendar: calendar, year: 2026, month: 4, day: 21, hour: 18, minute: 52), kind: .current, calendar: calendar)
+            ),
             "6:52 PM"
         )
     }
@@ -1341,8 +1351,8 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
             subtitle: "Close the day"
         )
 
-        XCTAssertEqual(TimelineRoutineTextFormatter.subtitle(for: wake, subtitle: wake.subtitle, calendar: calendar), "8:00 AM · Start the day")
-        XCTAssertEqual(TimelineRoutineTextFormatter.subtitle(for: sleep, subtitle: sleep.subtitle, calendar: calendar), "10:00 PM · Close the day")
+        XCTAssertEqual(normalizingNarrowSpaces(TimelineRoutineTextFormatter.subtitle(for: wake, subtitle: wake.subtitle, calendar: calendar)), "8:00 AM · Start the day")
+        XCTAssertEqual(normalizingNarrowSpaces(TimelineRoutineTextFormatter.subtitle(for: sleep, subtitle: sleep.subtitle, calendar: calendar)), "10:00 PM · Close the day")
     }
 
     func testRoutineTextZoneStaysSeparatedFromIconBubble() {
@@ -2397,13 +2407,24 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
     }
 
     func testTimelineMeetingCardOmitsVisibleCategoryAndSourceMetadata() throws {
-        let source = try Self.homeTimelineSurfaceSource()
-        let rowSource = try XCTUnwrap(Self.sourceSlice(named: "private struct TimelineMeetingBlockRow", in: source))
+        // Extracted out of the timeline surface into its own file by the
+        // production file-decomposition pass, and no longer `private`.
+        let rowSource = try Self.sourceFile(
+            "LifeBoard",
+            "Presentation",
+            "Home",
+            "Timeline",
+            "Surface",
+            "TimelineMeetingBlockRow.swift"
+        )
 
         XCTAssertFalse(rowSource.contains("Text(labelText)"))
         XCTAssertFalse(rowSource.contains("\"Video Call\""))
         XCTAssertFalse(rowSource.contains("item.subtitle"))
-        XCTAssertFalse(source.contains("Button(\"+ Create task\""))
+
+        // This one is about the surface, not the extracted row.
+        let surfaceSource = try Self.homeTimelineSurfaceSource()
+        XCTAssertFalse(surfaceSource.contains("Button(\"+ Create task\""))
     }
 
     func testLifeBoardDesignTimelinePlacesTypeIconsOnSpine() throws {
@@ -2437,7 +2458,9 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertTrue(screenSource.contains("spineIconAccessibilityLabel: item.isComplete ? \"Reopen \\(item.title)\" : \"Complete \\(item.title)\""))
         XCTAssertTrue(screenSource.contains("spineIconAccessibilityValue: item.isComplete ? \"Completed\" : \"Not completed\""))
         XCTAssertTrue(screenSource.contains("spineIconSystemName: \"calendar\""))
-        XCTAssertTrue(screenSource.contains("spineIconSystemName: \"sparkles\""))
+        // The "sparkles" assistant-gap spine icon was deliberately removed in
+        // f588d73e ("open time reads as restful"); that commit updated the
+        // behavioral tests but missed this source-text assertion.
         XCTAssertTrue(screenSource.contains("anchor.id == \"sleep\" ? \"moon.fill\" : \"sun.max.fill\""))
         XCTAssertTrue(screenSource.contains("return item.isComplete ? \"checkmark.square.fill\" : \"checkmark.square\""))
     }
@@ -2473,7 +2496,11 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         XCTAssertTrue(timelineCardSource.contains(".accessibilityLabel(accessibilityLabel)"))
         XCTAssertTrue(timelineCardSource.contains("model.kind == .task ? (model.isCompleted ? \"Completed\" : \"Not completed\") : \"\""))
         XCTAssertFalse(assistantSource.contains("Image(systemName: \"sparkles\")"))
-        XCTAssertTrue(assistantSource.contains("Image(systemName: \"chevron.right\")"))
+        // The card's trailing symbol moved from a hardcoded `chevron.right` to a
+        // style-driven one. What this test actually guards — that the card does
+        // not repeat the spine's icon — is covered by the assertion above; this
+        // now checks the symbol is parameterized rather than pinning a glyph.
+        XCTAssertTrue(assistantSource.contains("Image(systemName: style.symbolName)"))
         XCTAssertTrue(assistantSource.contains(".accessibilityLabel(\"Assistant prompt, \\(title), \\(subtitle)\")"))
         XCTAssertTrue(routineSource.contains(".frame(width: leadingArtworkReserve)"))
         XCTAssertFalse(routineSource.contains("artworkOffsetX(for: proxy.size.width)"))
@@ -2705,7 +2732,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         let queryTitle = await MainActor.run { state.emptyStateTitle }
         let queryVisible = await MainActor.run { state.shouldShowNoResultsMessage }
         XCTAssertTrue(queryVisible)
-        XCTAssertEqual(queryTitle, "No tasks found")
+        XCTAssertEqual(queryTitle, "Nothing matched \"xyz\"")
     }
 
     func testSearchFocusPolicyAutofocusesPhoneOnly() {
@@ -3197,4 +3224,13 @@ private final class MockHomeSearchEngine: HomeSearchEngine {
         let grouped = Dictionary(grouping: tasks) { $0.projectName ?? "Inbox" }
         return grouped.map { ($0.key, $0.value) }.sorted { $0.project < $1.project }
     }
+}
+
+/// iOS renders a narrow no-break space (U+202F) before AM/PM. That codepoint is
+/// an OS/locale detail, not a product contract, so these assertions compare the
+/// shape of the label rather than the exact separator the system chose.
+private func normalizingNarrowSpaces(_ value: String) -> String {
+    value
+        .replacingOccurrences(of: "\u{202F}", with: " ")
+        .replacingOccurrences(of: "\u{00A0}", with: " ")
 }

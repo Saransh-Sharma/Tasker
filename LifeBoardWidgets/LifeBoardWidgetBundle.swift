@@ -7,6 +7,11 @@ import AppIntents
 @main
 struct LifeBoardWidgetBundle: WidgetBundle {
     var body: some Widget {
+        // Control Center / Lock Screen capture. Gated on iOS 18, where
+        // `ControlWidget` exists; every other surface is unaffected.
+        if #available(iOS 18.0, *) {
+            LifeBoardCaptureControl()
+        }
         FocusLiveActivityWidget()
         FocusSeedWidget()
         JournalDomainWidget()

@@ -27,6 +27,47 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(snapshot.taskCount, 0)
     }
 
+    /// `-SKIP_ONBOARDING` has to hold even when a partial journey is stored.
+    ///
+    /// The coordinator's resume branch runs ahead of `evaluate()`, so it never
+    /// saw the argument and a seeded run that had stored a journey snapshot
+    /// presented onboarding anyway — which made every seeded UI journey after a
+    /// partial setup unreliable. Both paths now read this one property, so this
+    /// covers the property rather than only the `evaluate()` path that already
+    /// worked.
+    func testSkipOnboardingLaunchArgumentSuppressesEveryPresentationPath() async {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let service = OnboardingEligibilityService(
+            stateStore: context.store,
+            launchArguments: ["-SKIP_ONBOARDING"],
+            fetchLifeAreas: { [] },
+            fetchProjects: { [] },
+            fetchTasks: { [] }
+        )
+
+        XCTAssertTrue(
+            service.isSuppressedByLaunchArgument,
+            "The resume path consults this directly and cannot call evaluate()"
+        )
+        guard case .suppressed = await service.evaluate() else {
+            return XCTFail("An empty workspace with -SKIP_ONBOARDING must stay suppressed")
+        }
+
+        let withoutArgument = OnboardingEligibilityService(
+            stateStore: context.store,
+            launchArguments: [],
+            fetchLifeAreas: { [] },
+            fetchProjects: { [] },
+            fetchTasks: { [] }
+        )
+        XCTAssertFalse(
+            withoutArgument.isSuppressedByLaunchArgument,
+            "Suppression must come from the argument, not from being the default"
+        )
+    }
+
     func testEligibilityReturnsPromptOnlyForEstablishedWorkspaceWithoutState() async {
         let context = makeStoreContext()
         defer { context.cleanup() }
@@ -1037,6 +1078,50 @@ final class FeatureFlagPromotionTests: XCTestCase {
             block.contains("\"debug.life_os_foundation_v1\": true"),
             "The shell must be on, or none of Plan/Track/Insights/Eva is reachable"
         )
+    }
+
+    /// Every staged flag whose surface is reachable and working has to be on in
+    /// Release, not just on the Debug launch developers see.
+    ///
+    /// These six had no entry in `promotedDefaults` at all, so they resolved
+    /// through `promotedDefaults[key] ?? false` and a shipped build contained
+    /// none of the TextKit editor, the ranked Notes search, per-note encryption,
+    /// the Notes Eva actions, the task completion control, or the four-direction
+    /// Plan Repair deck — all of which are reachable in Debug. A missing entry
+    /// and a deliberate `false` are indistinguishable at runtime, so this pins
+    /// the promoted value rather than merely requiring one to exist.
+    func testReachableStagedSurfacesArePromotedForRelease() throws {
+        let block = try promotedBlock(flagSource())
+        for key in [
+            "feature.life_os.knowledge_notes_textkit_v2",
+            "feature.life_os.knowledge_notes_search_v2",
+            "feature.life_os.knowledge_notes_security_v1",
+            "feature.life_os.knowledge_notes_eva_v1",
+            "feature.life_os.daily_loop_v1",
+            "feature.life_os.task_project_flagship_v1"
+        ] {
+            XCTAssertTrue(
+                block.contains("\"\(key)\": true"),
+                "\(key) gates a working surface and must ship on"
+            )
+        }
+    }
+
+    /// A flag with no call site gates nothing, so a promoted default for it is a
+    /// claim the table cannot honor. `knowledge_notes_media_v2` and
+    /// `knowledge_notes_flagship_v1` were exactly that and were removed; this
+    /// keeps them from being reintroduced as decoration.
+    func testRemovedDeadFlagsStayRemoved() throws {
+        let source = try flagSource()
+        for key in [
+            "feature.life_os.knowledge_notes_media_v2",
+            "feature.life_os.knowledge_notes_flagship_v1"
+        ] {
+            XCTAssertFalse(
+                source.contains(key),
+                "\(key) had no call site; reintroduce it only with the surface it gates"
+            )
+        }
     }
 
     // MARK: Helpers

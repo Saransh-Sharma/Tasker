@@ -135,6 +135,7 @@
 		2C4A24B77FA545940760F514 /* EvaOverdueRescueSheetV2Root.swift in Sources */ = {isa = PBXBuildFile; fileRef = 269A705710B0EA3EFEDCBE82 /* EvaOverdueRescueSheetV2Root.swift */; };
 		2C9423200947462BB96E027D /* OverdueRescueBackCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51A57B08A1BB4BC36FE63B9B /* OverdueRescueBackCards.swift */; };
 		2CBC973505B2E0B6424541FB /* TimelineCompactLayoutPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC0C44769FFD55EF43FB1B63 /* TimelineCompactLayoutPlan.swift */; };
+		2D72FE589C5E13FDE039E900 /* HabitViewModelFactoryEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1490BF2A474A2702E82EA91C /* HabitViewModelFactoryEnvironment.swift */; };
 		2D8D1185CFE2993F5861CAC2 /* SunriseTimelineSurfaceRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5AE575AEC28DEC3F5464818 /* SunriseTimelineSurfaceRoot.swift */; };
 		2DAC4DF99D4D0356E58AC4C2 /* TimelinePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B764C348624AC32EFC9F04F /* TimelinePalette.swift */; };
 		2E06B9CFB20CCDA8329FA613 /* LifeOSFoundationShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CA209338B20E775DCA3F993 /* LifeOSFoundationShell.swift */; };
@@ -159,7 +160,6 @@
 		32CEC1ABC506CDA117F1CB3B /* SunriseTaskListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E526F0CB3E9299C87861646E /* SunriseTaskListView.swift */; };
 		32FB0E5EB16490C5930975F4 /* OnboardingPermissionHeroIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E66ADE238E28DD2BC20A9C7 /* OnboardingPermissionHeroIcon.swift */; };
 		3367A12ABAB9C8FAB90843C2 /* CoreDataTombstoneRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23A78189DAF93E5F5EA0C769 /* CoreDataTombstoneRepository.swift */; };
-		3375085748668ACC2BDAC35A /* CaptureInboxDrain.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15B4BC1010AA9EDE0F9C1478 /* CaptureInboxDrain.swift */; };
 		3447A60285674490A2726759 /* LifeManagementAreaComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 382D7A14C1F519D843A2365D /* LifeManagementAreaComposerView.swift */; };
 		3464C0D69143BB1C99FBFD7A /* SettingsSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82ACA5EA351487686C155548 /* SettingsSectionHeader.swift */; };
 		3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */; };
@@ -171,6 +171,7 @@
 		3726D051C70DA7D059BBC8F4 /* OverdueRescueCardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE79C7D2227A80F8ECDFDFD2 /* OverdueRescueCardModel.swift */; };
 		37A2B8A6A25F06C72606019E /* TaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592346DCA3C3FE56E12617C2 /* TaskDefinitionMapper.swift */; };
 		3832EF761CF5E6940EC8391C /* TimelineStreamSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = A686073CD1BB07971DFD578B /* TimelineStreamSample.swift */; };
+		385234A92C6E4423B97234BB /* LifeBoardCardPrimitives.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E1D1160B798444BA70D195D /* LifeBoardCardPrimitives.swift */; };
 		38B214F1E69681E0A58C8665 /* OnboardingTrustRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 351390B6BEADE2277EF6ECBA /* OnboardingTrustRow.swift */; };
 		390DB347BE033669B7CF9A28 /* ViewExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53A20FDEE1A1CCD05E76506 /* ViewExtension.swift */; };
 		396F9CD34E10195B8C5FE0F7 /* CompleteTaskDefinitionUseCaseExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E224DFA4DB09C938556B07B /* CompleteTaskDefinitionUseCaseExtension.swift */; };
@@ -198,6 +199,7 @@
 		4204230B763861761BB75AF3 /* CoreDataTagRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD8DED9951762C1A0ACCBDD /* CoreDataTagRepository.swift */; };
 		424A813126216FCDBB3BB9D3 /* HomeRenderInvalidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77DC1194E3FDC7C550953B31 /* HomeRenderInvalidation.swift */; };
 		429BC3BC461278EFC2DCE53B /* HomeViewModel+EvaFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC8C891FA22F9B04EA07D70E /* HomeViewModel+EvaFocus.swift */; };
+		42BF53D74D00FCF839E5BB25 /* LifeBoardCaptureControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D2099A7314A109F91A5A0B3 /* LifeBoardCaptureControl.swift */; };
 		433493DCACF59AC715A519C4 /* GenerateOccurrencesUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F80480EA58FB983550B882B /* GenerateOccurrencesUseCase.swift */; };
 		43672EBCA0F500EAA29B3088 /* HomeViewModel+InsightsLaunch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5991B0FA3A61ED01648C82AC /* HomeViewModel+InsightsLaunch.swift */; };
 		4455C821CEE50484216FDFC3 /* timelineRailText.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD6F79B4F4AF4D2B4E34CD17 /* timelineRailText.swift */; };
@@ -218,6 +220,7 @@
 		49BE8D232D0B830AC1D787AA /* HomeHabitMutationSectionPatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 677222149F21BD5C04EE2EC2 /* HomeHabitMutationSectionPatch.swift */; };
 		49E7E5624BF18A470B23059C /* ChatTimeIntervalExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC5308F1488478AD34963168 /* ChatTimeIntervalExtension.swift */; };
 		4A52BB8E16EAECC2A970E287 /* OnboardingOutcome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6396B895E176C6D9B55C30EC /* OnboardingOutcome.swift */; };
+		4A9FE645E8E5F6F9548CC589 /* LifeBoardRecoveryStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = B83CC3B41C1A6998F3CB6FD9 /* LifeBoardRecoveryStatus.swift */; };
 		4B65F890786EE2C3F5A39C2C /* DailyTimelineCompactView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C6A23DC0DB1740CCDF6D30F /* DailyTimelineCompactView.swift */; };
 		4B6D91346B20578BE27DD080 /* TimelineCanvasLayoutPlan+Positioning.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A85EFA2BA71673BE1DDF31C /* TimelineCanvasLayoutPlan+Positioning.swift */; };
 		4B7CFEBE8C7C67CCB5E4E73C /* GamificationProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9ADCB5DB568A54708322C8E /* GamificationProfile.swift */; };
@@ -264,6 +267,7 @@
 		582890EBB89DC028C4FA8F9D /* OnboardingFlowModel+EvaActivationPreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 256FD8E6876C56256C606CBF /* OnboardingFlowModel+EvaActivationPreparation.swift */; };
 		58361669F430895FBF2918C5 /* FocusPinResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F8E82EED2FB2D349E9F3BE9 /* FocusPinResult.swift */; };
 		58DE2299787427B905EC9D9E /* TimelineStreamGeometry+LaneLayoutAndPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = 120C5DB7F91E3BDB4BF9580F /* TimelineStreamGeometry+LaneLayoutAndPaths.swift */; };
+		590E061676974EDB8A8F2617 /* LifeBoardHomeCardBodies.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4859B4442A41A595012DFD /* LifeBoardHomeCardBodies.swift */; };
 		5986289E16E72070D526991E /* OverdueRescueStateMachine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3CC802FBBE9AFA39AF7CCFA /* OverdueRescueStateMachine.swift */; };
 		599BA3DB81762830929CF142 /* ManageSectionsUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9334755BADE444C8A77BCA3E /* ManageSectionsUseCase.swift */; };
 		59B3E6E34D642F3E46FC1C64 /* HomeTimelineViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFF75A05368C0CA0356AC4F7 /* HomeTimelineViewModel.swift */; };
@@ -298,6 +302,7 @@
 		62E3C0A2BCA96C7A1DB01932 /* LifeManagementComposerInlineMessage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE19A169E4D9F72754B6E3E8 /* LifeManagementComposerInlineMessage.swift */; };
 		63578F35F6200B19F85FE9F0 /* MessageView+AssistantAndUserBubble.swift in Sources */ = {isa = PBXBuildFile; fileRef = E508CD28D9365DD6B35FE330 /* MessageView+AssistantAndUserBubble.swift */; };
 		6372B9063E39D08CCAF5A8C9 /* TimelineCurrentTimeRule.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAB5C7F1C2483D8E113DBBA7 /* TimelineCurrentTimeRule.swift */; };
+		6375DD6EF72D0AD949308284 /* RecoveryCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63526ABC7C203BDAC251960A /* RecoveryCenterView.swift */; };
 		63D0ECF6FEB314DC1FD1AFAD /* ChatScaffoldView+NavigationChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = D974CDFA2F5A901967B485D2 /* ChatScaffoldView+NavigationChrome.swift */; };
 		63D15C0A35A7BF3479A69D30 /* OnboardingSelectableDetailCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50AA968766A5349A2BB45C61 /* OnboardingSelectableDetailCard.swift */; };
 		63F0A29CF92317D22F150D4B /* ReminderRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8D0FFCDBD5039DB8EE185B5E /* ReminderRepositoryProtocol.swift */; };
@@ -508,7 +513,6 @@
 		7C907B3AC77B5CAD3A68E7C1 /* ChatComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F5B152C46928DBD19C7ABC5 /* ChatComposerView.swift */; };
 		7DBF73B54FC410E442F25A41 /* timelineAccessibilityLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04BB26CD286E91AABB2ECF5B /* timelineAccessibilityLabel.swift */; };
 		7DCF1D96DA91EE468916580F /* HomeLifeOSProjectionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77E0CD330501E98375D87E47 /* HomeLifeOSProjectionStore.swift */; };
-		EC5ACC28AB5F41548442B064 /* InsightsInterpretationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E37B40A095A4A51A8411D6B /* InsightsInterpretationEngine.swift */; };
 		7DDFA05C1E835A398268D1EF /* WeeklyScoreboardWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4599EE24B534345B7E5F063 /* WeeklyScoreboardWidget.swift */; };
 		7E4A49A2CC73B3C46AB49388 /* TimelinePlanningShelf.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0791A21C5814ADEF3277BAB1 /* TimelinePlanningShelf.swift */; };
 		7EB9C6A5754FB5403C4D1F43 /* HomeViewModel+ViewState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E5E75330E627DA9E1626E6A /* HomeViewModel+ViewState.swift */; };
@@ -624,20 +628,11 @@
 		A11E00000000000000000107 /* HealthConnectionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E00000000000000000007 /* HealthConnectionStore.swift */; };
 		A11E00000000000000000108 /* HealthObserverCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E00000000000000000008 /* HealthObserverCoordinator.swift */; };
 		A11E00000000000000000109 /* LifeBoardHealthRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E00000000000000000009 /* LifeBoardHealthRuntime.swift */; };
-		AE110000000000000000100A /* NutritionGoalComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE110000000000000000000A /* NutritionGoalComposer.swift */; };
-		AE1100000000000000001009 /* JournalHomeConsentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000009 /* JournalHomeConsentStore.swift */; };
-		AE1100000000000000001008 /* AppOnboardingJourneyView+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000008 /* AppOnboardingJourneyView+Actions.swift */; };
-		AE1100000000000000001007 /* AppOnboardingJourneyView+DayShapeModulesPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000007 /* AppOnboardingJourneyView+DayShapeModulesPermissions.swift */; };
-		AE1100000000000000001006 /* AppOnboardingJourneyView+Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000006 /* AppOnboardingJourneyView+Layout.swift */; };
-		AE1100000000000000001005 /* OnboardingFlowModel+StepTransitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000005 /* OnboardingFlowModel+StepTransitions.swift */; };
-		AE1100000000000000001003 /* OnboardingModuleSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000003 /* OnboardingModuleSelection.swift */; };
-		AE1100000000000000001004 /* OnboardingDayShapeDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000004 /* OnboardingDayShapeDraft.swift */; };
-		AE1100000000000000001001 /* LifeBoardPermissionPriming.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000001 /* LifeBoardPermissionPriming.swift */; };
-		AE1100000000000000001002 /* LifeBoardPermissionPrimingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000002 /* LifeBoardPermissionPrimingSheet.swift */; };
 		A11E0000000000000000010A /* HealthPrivacyMigrationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E0000000000000000000A /* HealthPrivacyMigrationCoordinator.swift */; };
 		A11E0000000000000000010B /* HealthOutboxCoreDataWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E0000000000000000000B /* HealthOutboxCoreDataWriter.swift */; };
 		A11E0000000000000000010C /* LifeBoardHealthHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E0000000000000000000C /* LifeBoardHealthHubView.swift */; };
 		A11E00000000000000000130 /* HealthSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E00000000000000000030 /* HealthSyncTests.swift */; };
+		A13E00000000000000000001 /* LifeBoardKnowledgeCompletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13E00000000000000000002 /* LifeBoardKnowledgeCompletion.swift */; };
 		A195295E32A95E537E16AF8A /* ResolveOccurrenceUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9EF3524C96CA56E66C86177 /* ResolveOccurrenceUseCase.swift */; };
 		A1B2C3D42F90000100AA1001 /* TaskEditorSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D62F90000100AA1001 /* TaskEditorSection.swift */; };
 		A1B2C3D4E5F607080910AB01 /* GradientTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F607080910AB02 /* GradientTokens.swift */; };
@@ -723,12 +718,6 @@
 		A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */; };
 		A97A6E7A7869366C7EF25D0E /* TimelineStemSegments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E2736E49AF3234FCB39F354 /* TimelineStemSegments.swift */; };
 		AA06EBAAFFC153EAB0DA4450 /* LifeBoardClaySurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC271661EA08BEAAD92DD4A0 /* LifeBoardClaySurface.swift */; };
-		B656784F87454EE866376D59 /* LifeBoardKineticText.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0EF94291CEE2D9728DA74D6 /* LifeBoardKineticText.swift */; };
-		CDCE7BDD9D5A5F2FA1356E35 /* LifeBoardCompletionControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */; };
-		CF3B4E5A6D7C8190E2F3A4B5 /* LifeBoardCelestialDaypartIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4C5F6B7E8D9201F3A4B5C6 /* LifeBoardCelestialDaypartIndicator.swift */; };
-		AD1F2C3E4B5A6978C0D1E2F3 /* LifeBoardArcDial.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE2A3D4F5C6B7089D1E2F3A4 /* LifeBoardArcDial.swift */; };
-		385234A92C6E4423B97234BB /* LifeBoardCardPrimitives.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E1D1160B798444BA70D195D /* LifeBoardCardPrimitives.swift */; };
-		590E061676974EDB8A8F2617 /* LifeBoardHomeCardBodies.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4859B4442A41A595012DFD /* LifeBoardHomeCardBodies.swift */; };
 		AA8998042C8A124CBA384F20 /* WatchSnapshotReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20E51E01323F68DC0F47205 /* WatchSnapshotReceiver.swift */; };
 		AAB000000000000000000002 /* HomeRenderState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000001 /* HomeRenderState.swift */; };
 		AAB000000000000000000004 /* HomeStores.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000003 /* HomeStores.swift */; };
@@ -759,7 +748,18 @@
 		AC7C0E8C304EF31908A6EA90 /* DailyRitualsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47ED06CE7EC4F74A9E373158 /* DailyRitualsCard.swift */; };
 		ACE5DE19204D2D1CDBF3A053 /* TaskReadQueries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2856D1EE26429146B60B6633 /* TaskReadQueries.swift */; };
 		ACF0BB7B85C9268CD15869B1 /* SunriseAppShellView+FacesAndSearchChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855AD3CAAA08B951BDD134FD /* SunriseAppShellView+FacesAndSearchChat.swift */; };
+		AD1F2C3E4B5A6978C0D1E2F3 /* LifeBoardArcDial.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE2A3D4F5C6B7089D1E2F3A4 /* LifeBoardArcDial.swift */; };
 		AD8804130CE2160E653414FD /* OnboardingEntryContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9632B2C3609C7092AB65BFF4 /* OnboardingEntryContext.swift */; };
+		AE1100000000000000001001 /* LifeBoardPermissionPriming.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000001 /* LifeBoardPermissionPriming.swift */; };
+		AE1100000000000000001002 /* LifeBoardPermissionPrimingSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000002 /* LifeBoardPermissionPrimingSheet.swift */; };
+		AE1100000000000000001003 /* OnboardingModuleSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000003 /* OnboardingModuleSelection.swift */; };
+		AE1100000000000000001004 /* OnboardingDayShapeDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000004 /* OnboardingDayShapeDraft.swift */; };
+		AE1100000000000000001005 /* OnboardingFlowModel+StepTransitions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000005 /* OnboardingFlowModel+StepTransitions.swift */; };
+		AE1100000000000000001006 /* AppOnboardingJourneyView+Layout.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000006 /* AppOnboardingJourneyView+Layout.swift */; };
+		AE1100000000000000001007 /* AppOnboardingJourneyView+DayShapeModulesPermissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000007 /* AppOnboardingJourneyView+DayShapeModulesPermissions.swift */; };
+		AE1100000000000000001008 /* AppOnboardingJourneyView+Actions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000008 /* AppOnboardingJourneyView+Actions.swift */; };
+		AE1100000000000000001009 /* JournalHomeConsentStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000009 /* JournalHomeConsentStore.swift */; };
+		AE110000000000000000100A /* NutritionGoalComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE110000000000000000000A /* NutritionGoalComposer.swift */; };
 		AE2B20F87AC525CF7E27B3C0 /* LLMContextProjectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88EAC5F41DAFB21D34E6790E /* LLMContextProjectionService.swift */; };
 		AEBA42795685AC315A19847D /* HomeViewModel+DayCompass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8603A229AA6EF804F63AB9F2 /* HomeViewModel+DayCompass.swift */; };
 		AEF06D3B80CB5D968535DDE5 /* LifeArea.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34288F9F2CB1DADA41F1673D /* LifeArea.swift */; };
@@ -768,6 +768,7 @@
 		AF82520CAEE921B7BE04E017 /* OnboardingFlowModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66EEF4F24A54CD971C9612A /* OnboardingFlowModel.swift */; };
 		AFA64782BED04A879157E2A8 /* SectionRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46838AD356183D58300A941 /* SectionRepositoryProtocol.swift */; };
 		B0045AC9A4CD19C619A2E2F1 /* EvaLiveWorkingStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDED467BEDE45453B0C91BEF /* EvaLiveWorkingStatusView.swift */; };
+		B02D197549EC54773882C0DC /* TaskExecutionContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCF4693EA4663A4F21990443 /* TaskExecutionContracts.swift */; };
 		B07988E6375D66CC8CDB8D47 /* EvaDaySunriseTaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B33EB5C978F76DF3A6A735C /* EvaDaySunriseTaskRowView.swift */; };
 		B07A5646DA7E6D9AC7739710 /* ManageLifeAreasUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E06E18805C2401359A9B0F5B /* ManageLifeAreasUseCase.swift */; };
 		B10B1C2D3E4F506172839401 /* StateLifeAreaMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839401 /* StateLifeAreaMapper.swift */; };
@@ -812,6 +813,7 @@
 		B4D7E8213A4F5C6D7E8F9014 /* SharedColorTestHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D7E8213A4F5C6D7E8F9015 /* SharedColorTestHelpers.swift */; };
 		B578F682B59B5EE5ADB3FB30 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 35E5A3CA91F06A962F9FF9FA /* AppIntents.framework */; };
 		B5A18D04B79585D76C0CE5D9 /* HomeHabitMutationFeedbackHaptic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F47DE38B051783EAE99853E /* HomeHabitMutationFeedbackHaptic.swift */; };
+		B656784F87454EE866376D59 /* LifeBoardKineticText.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0EF94291CEE2D9728DA74D6 /* LifeBoardKineticText.swift */; };
 		B696207D77139D62369E4954 /* OnboardingConcentricColorField.swift in Sources */ = {isa = PBXBuildFile; fileRef = F280FDE93AC86C0D82E9C51E /* OnboardingConcentricColorField.swift */; };
 		B77B0891A4A5B4BF8D6162DC /* TaskDetailComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52E1464E13744427AAFDF824 /* TaskDetailComponents.swift */; };
 		B7B914D911EA894F24D58E27 /* CelebrationPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875713F2747185071D35BDF9 /* CelebrationPresentation.swift */; };
@@ -831,6 +833,7 @@
 		B93F762182E74294AC55C6CB /* TaskDefinitionRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA45AF6FFE4463E49D8FEA68 /* TaskDefinitionRepositoryProtocol.swift */; };
 		BA046E8ED5086F9E39ACB225 /* SunriseDailyReflectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2BA3F253548BE9F1EE2AB4B /* SunriseDailyReflectionView.swift */; };
 		BA1DA60A9EB08E7E655CD957 /* OverdueRescueSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571642516EA3BF4BB335B24A /* OverdueRescueSessionStore.swift */; };
+		BB171CA2BA9590EA90197E9A /* LifeBoardInboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA28ABC219B4E3710AB87E0E /* LifeBoardInboxView.swift */; };
 		BD300CBF97B95F0D2A2CA092 /* WatchWidgetSnapshotSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B2B9CCE514C217DC9C76773 /* WatchWidgetSnapshotSync.swift */; };
 		BD46BE503829CCD15E61E839 /* HomeViewModel+HabitMutationPatching.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B303E46398ACDB321C2EC64 /* HomeViewModel+HabitMutationPatching.swift */; };
 		BD8794DA9800CE9FE3355836 /* PlanningCoreModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93A7C80ABBCBC7F4EE837CED /* PlanningCoreModels.swift */; };
@@ -872,7 +875,6 @@
 		C2F200000000000000000003 /* LifeBoardHealthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F100000000000000000003 /* LifeBoardHealthService.swift */; };
 		C2F200000000000000000004 /* LifeBoardTrackAndJournalViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F100000000000000000004 /* LifeBoardTrackAndJournalViews.swift */; };
 		C2F200000000000000000005 /* LifeBoardKnowledgeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F100000000000000000005 /* LifeBoardKnowledgeViews.swift */; };
-		A13E00000000000000000001 /* LifeBoardKnowledgeCompletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13E00000000000000000002 /* LifeBoardKnowledgeCompletion.swift */; };
 		C2F200000000000000000006 /* LifeBoardJournalDerivedIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F100000000000000000006 /* LifeBoardJournalDerivedIndex.swift */; };
 		C2F200000000000000000007 /* LifeBoardJournalReflectionServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F100000000000000000007 /* LifeBoardJournalReflectionServices.swift */; };
 		C2F400000000000000000007 /* SwiftUI-Animations-NOTICE.txt in Resources */ = {isa = PBXBuildFile; fileRef = C2F500000000000000000007 /* SwiftUI-Animations-NOTICE.txt */; };
@@ -927,6 +929,7 @@
 		C7A200000000000000000005 /* LockedResultAccumulator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A200000000000000000006 /* LockedResultAccumulator.swift */; };
 		C7A200000000000000000007 /* HomeTriageAndTop3Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A200000000000000000008 /* HomeTriageAndTop3Tests.swift */; };
 		C7E4C6E991D23697752D8D6C /* EvaDayHabitActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56A37591A5FBC6DAD9309A0E /* EvaDayHabitActionsView.swift */; };
+		C7FD89C2F007B6CA9F682437 /* InboxTriageContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93252D91FE70F1A044FB54C4 /* InboxTriageContracts.swift */; };
 		C8A100012FB0000100C1A001 /* LifeBoardScreenScaffold.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A100002FB0000100C1A001 /* LifeBoardScreenScaffold.swift */; };
 		C8A4F1023D6E4B7A91C2D302 /* HabitBoardViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A4F1023D6E4B7A91C2D301 /* HabitBoardViewModelTests.swift */; };
 		C8A4F1023D6E4B7A91C2D304 /* HabitBoardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A4F1023D6E4B7A91C2D303 /* HabitBoardUITests.swift */; };
@@ -951,11 +954,13 @@
 		CB2585384EDD36506A08BC39 /* EvaChatSunriseGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6406FAAF5EBC202BFD7F2588 /* EvaChatSunriseGlass.swift */; };
 		CD7AADFB07AFA97B5C0D6452 /* HomeViewModel+RecurringTopUp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E23AC0E5DF84E0125F5845 /* HomeViewModel+RecurringTopUp.swift */; };
 		CD83FC6E516299A8FB19F781 /* TodayXPWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A74DF0E9DCAEB8A8179F375 /* TodayXPWidget.swift */; };
+		CDCE7BDD9D5A5F2FA1356E35 /* LifeBoardCompletionControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */; };
 		CDFF51674BB1F653FF14260A /* OnboardingMascotCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B4B8D198A7243A6496C809 /* OnboardingMascotCarousel.swift */; };
 		CE101A5DFCA6C30A72A5CE61 /* PendingOnboardingPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D09C9507B3C691C73DA808A /* PendingOnboardingPresentation.swift */; };
 		CE266F5395572A3FFC2150D1 /* HomeHabitSectionCardHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 425B8A685EE2C485783B0578 /* HomeHabitSectionCardHost.swift */; };
 		CEA4FD3F132804749E69A4B3 /* SectionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6956BC00E9F0B0BC847DD7AA /* SectionMapper.swift */; };
 		CEBD06B0323F598F2C11A5DC /* CelebrationRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B95AB168FC420F7EE412CB09 /* CelebrationRouter.swift */; };
+		CF3B4E5A6D7C8190E2F3A4B5 /* LifeBoardCelestialDaypartIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4C5F6B7E8D9201F3A4B5C6 /* LifeBoardCelestialDaypartIndicator.swift */; };
 		D1855A230115C554ADB92AEA /* DailyXPAggregateDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AF3952DBA8C2ACE185FEF0 /* DailyXPAggregateDefinition.swift */; };
 		D1A200000000000000000001 /* HomeChromeSnapshot+Presentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000001 /* HomeChromeSnapshot+Presentation.swift */; };
 		D1A200000000000000000002 /* HomeScopeSummaryButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000002 /* HomeScopeSummaryButtonView.swift */; };
@@ -1156,6 +1161,7 @@
 		EB9FD2ECFB4D4AD697D091F3 /* OnboardingInlineBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 598CD23D633F1DA652C429A5 /* OnboardingInlineBadge.swift */; };
 		EBEBD8815DECEEB6E6A67CAC /* EvaDayHabitOverlayState.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5669D5D0E7B125A137EBF66 /* EvaDayHabitOverlayState.swift */; };
 		EC45E6BBD381E86DD65D5EDF /* HomeTimelineReplanCandidateSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABDFA484783D44FCE389CA8 /* HomeTimelineReplanCandidateSignature.swift */; };
+		EC5ACC28AB5F41548442B064 /* InsightsInterpretationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E37B40A095A4A51A8411D6B /* InsightsInterpretationEngine.swift */; };
 		ECF7EF4565293CE7F54AD9E8 /* OverdueRescueSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8332C14C05A3610EB0ECA84B /* OverdueRescueSummary.swift */; };
 		ED47AF6B2834E824484A40C5 /* OverdueRescueDeckLayoutMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = F85C5DBA19B19B9611E7B283 /* OverdueRescueDeckLayoutMetrics.swift */; };
 		ED97E21547C8335D58370530 /* TypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38AE057025E85DF89448752B /* TypingIndicator.swift */; };
@@ -1359,8 +1365,8 @@
 		13E7DC8765CCB903348B7B91 /* HomeTimelineReplanPhaseSignature.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeTimelineReplanPhaseSignature.swift; sourceTree = SOURCE_ROOT; };
 		144D7D155E9471F5D9E1CD62 /* OnboardingMiniMetric.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingMiniMetric.swift; sourceTree = SOURCE_ROOT; };
 		147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsNavigationRow.swift; sourceTree = "<group>"; };
+		1490BF2A474A2702E82EA91C /* HabitViewModelFactoryEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitViewModelFactoryEnvironment.swift; sourceTree = "<group>"; };
 		1569108CAE3EA81790B556C3 /* LifeBoardTrackFoundationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTrackFoundationViews.swift; path = Foundation/PhaseIV/LifeBoardTrackFoundationViews.swift; sourceTree = "<group>"; };
-		15B4BC1010AA9EDE0F9C1478 /* CaptureInboxDrain.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CaptureInboxDrain.swift; path = LifeBoard/Services/CaptureInboxDrain.swift; sourceTree = SOURCE_ROOT; };
 		16B708DAB6EC819BECE9B5A8 /* HomeCalendarEventDetailSelection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/HomeCalendarEventDetailSelection.swift; sourceTree = SOURCE_ROOT; };
 		16CA0CB88D6BCF379DD02183 /* OnboardingDownloadStatusStrip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingDownloadStatusStrip.swift; sourceTree = SOURCE_ROOT; };
 		16D60461249FA816620C956F /* TimelineCompactGapRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineCompactGapRow.swift; sourceTree = SOURCE_ROOT; };
@@ -1375,8 +1381,11 @@
 		1BD2CC14C16ACDED405C7814 /* StarterLifeAreaTemplate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/StarterLifeAreaTemplate.swift; sourceTree = SOURCE_ROOT; };
 		1C5FAE972A10C45BCDDB0142 /* GamificationEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Gamification/GamificationEngine.swift; sourceTree = SOURCE_ROOT; };
 		1D1019B77D01322B031EC108 /* InMemoryCacheService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InMemoryCacheService.swift; path = LifeBoard/State/Cache/InMemoryCacheService.swift; sourceTree = SOURCE_ROOT; };
+		1D2099A7314A109F91A5A0B3 /* LifeBoardCaptureControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardCaptureControl.swift; path = LifeBoardWidgets/LifeBoardCaptureControl.swift; sourceTree = SOURCE_ROOT; };
 		1DB65ADBF6B22879FF33FF66 /* OnboardingHabitRecommendationCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingHabitRecommendationCard.swift; sourceTree = SOURCE_ROOT; };
 		1E09A984D40ECCC16F14B36F /* TimelineDayPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineDayPresentation.swift; sourceTree = SOURCE_ROOT; };
+		1E1D1160B798444BA70D195D /* LifeBoardCardPrimitives.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardCardPrimitives.swift; sourceTree = "<group>"; };
+		1E37B40A095A4A51A8411D6B /* InsightsInterpretationEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InsightsInterpretationEngine.swift; path = Foundation/Insights/InsightsInterpretationEngine.swift; sourceTree = "<group>"; };
 		1E3F56B4B6E3DA6111B5E513 /* AddTaskSecondaryDetailsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskSecondaryDetailsSection.swift; sourceTree = "<group>"; };
 		1E69586D6A0661BB639FAE5F /* HomeViewModel+RenderTransaction.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+RenderTransaction.swift"; sourceTree = SOURCE_ROOT; };
 		1E88A3C9B5309D183423ACF8 /* HomeViewModel+DailyAnalytics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+DailyAnalytics.swift"; sourceTree = SOURCE_ROOT; };
@@ -1426,6 +1435,7 @@
 		2FAC5C958944C25B7E561037 /* LifeManagementProjectColorPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementProjectColorPicker.swift; sourceTree = SOURCE_ROOT; };
 		315FEE8A1F6EB8E3768FAEF0 /* OverdueRescueMoveLaterResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueMoveLaterResolver.swift; sourceTree = SOURCE_ROOT; };
 		316921199F513341A93BD753 /* AddTaskDurationPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskDurationPicker.swift; sourceTree = "<group>"; };
+		31B6628C331CCC0C6568E62B /* TaskModelV3_TaskStartDay.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_TaskStartDay.xcdatamodel; sourceTree = "<group>"; };
 		3206AE8D772083ABEFFE26DA /* OnboardingPromptChecklistCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingPromptChecklistCard.swift; sourceTree = SOURCE_ROOT; };
 		32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTokenTests.swift; sourceTree = "<group>"; };
 		33167B1E5D148BC1B8907161 /* timelineCapsuleHeight.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/timelineCapsuleHeight.swift; sourceTree = SOURCE_ROOT; };
@@ -1579,6 +1589,7 @@
 		61DB2B7298DBBD959D03B5D5 /* OnboardingDownloadStatusPill.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingDownloadStatusPill.swift; sourceTree = SOURCE_ROOT; };
 		6243658CCD3FA73A97B58600 /* ConversationView+LiveOutput.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/LLM/Views/Chat/Conversation/ConversationView+LiveOutput.swift"; sourceTree = SOURCE_ROOT; };
 		62AFC1C2CACBCE0FD8CD0EB9 /* DailyTimelineCanvas+RailAndCanvas.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Timeline/Surface/DailyTimelineCanvas+RailAndCanvas.swift"; sourceTree = SOURCE_ROOT; };
+		63526ABC7C203BDAC251960A /* RecoveryCenterView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecoveryCenterView.swift; sourceTree = "<group>"; };
 		6396B895E176C6D9B55C30EC /* OnboardingOutcome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingOutcome.swift; sourceTree = SOURCE_ROOT; };
 		6406FAAF5EBC202BFD7F2588 /* EvaChatSunriseGlass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Chrome/EvaChatSunriseGlass.swift; sourceTree = SOURCE_ROOT; };
 		6425309F28BBC7C61C9C58F3 /* SunriseHomeDatePickerPopover.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseHomeDatePickerPopover.swift; sourceTree = SOURCE_ROOT; };
@@ -1755,7 +1766,6 @@
 		77551CB92362A8FB48666198 /* TimelineEmptyStateCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineEmptyStateCard.swift; sourceTree = SOURCE_ROOT; };
 		77DC1194E3FDC7C550953B31 /* HomeRenderInvalidation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeRenderInvalidation.swift; sourceTree = SOURCE_ROOT; };
 		77E0CD330501E98375D87E47 /* HomeLifeOSProjectionStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeLifeOSProjectionStore.swift; path = Foundation/PhaseIII/HomeLifeOSProjectionStore.swift; sourceTree = "<group>"; };
-		1E37B40A095A4A51A8411D6B /* InsightsInterpretationEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InsightsInterpretationEngine.swift; path = Foundation/Insights/InsightsInterpretationEngine.swift; sourceTree = "<group>"; };
 		77F82FC408C33F7C6D11BC93 /* OnboardingTaskRecommendationCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingTaskRecommendationCard.swift; sourceTree = SOURCE_ROOT; };
 		782F77DA4E5822C3A8AF4305 /* StarterProjectTemplate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/StarterProjectTemplate.swift; sourceTree = SOURCE_ROOT; };
 		786CACDAB366EB8BCBB657A3 /* HomeDenseSurfaceModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/HomeDenseSurfaceModifier.swift; sourceTree = SOURCE_ROOT; };
@@ -1845,6 +1855,7 @@
 		91DC2B1EAEE6DF2FDE3242F1 /* OnboardingWelcomeCinematicOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingWelcomeCinematicOverlay.swift; sourceTree = SOURCE_ROOT; };
 		9251C0BF9A1E5D8BB7B9FC05 /* MaintainOccurrencesUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Schedule/MaintainOccurrencesUseCase.swift; sourceTree = SOURCE_ROOT; };
 		931896F94542B69EC7D8FCB7 /* OverdueRescueTaskCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueTaskCard.swift; sourceTree = SOURCE_ROOT; };
+		93252D91FE70F1A044FB54C4 /* InboxTriageContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InboxTriageContracts.swift; path = Foundation/PhaseIII/InboxTriageContracts.swift; sourceTree = "<group>"; };
 		9334755BADE444C8A77BCA3E /* ManageSectionsUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Section/ManageSectionsUseCase.swift; sourceTree = SOURCE_ROOT; };
 		93A7C80ABBCBC7F4EE837CED /* PlanningCoreModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanningCoreModels.swift; path = Foundation/PhaseIII/PlanningCoreModels.swift; sourceTree = "<group>"; };
 		93D25A779BBE1A1B798EFA4D /* SlashCommandPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlashCommandPickerView.swift; sourceTree = "<group>"; };
@@ -1914,25 +1925,15 @@
 		A11E00000000000000000007 /* HealthConnectionStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthConnectionStore.swift; path = Foundation/PhaseVI/HealthSync/HealthConnectionStore.swift; sourceTree = "<group>"; };
 		A11E00000000000000000008 /* HealthObserverCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthObserverCoordinator.swift; path = Foundation/PhaseVI/HealthSync/HealthObserverCoordinator.swift; sourceTree = "<group>"; };
 		A11E00000000000000000009 /* LifeBoardHealthRuntime.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardHealthRuntime.swift; path = Foundation/PhaseVI/HealthSync/LifeBoardHealthRuntime.swift; sourceTree = "<group>"; };
-		AE110000000000000000000A /* NutritionGoalComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NutritionGoalComposer.swift; path = Foundation/PhaseVI/NutritionGoalComposer.swift; sourceTree = "<group>"; };
-		AE1100000000000000000009 /* JournalHomeConsentStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = JournalHomeConsentStore.swift; path = Foundation/PhaseVI/JournalHomeConsentStore.swift; sourceTree = "<group>"; };
-		AE1100000000000000000008 /* AppOnboardingJourneyView+Actions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "AppOnboardingJourneyView+Actions.swift"; path = "Onboarding/Views/AppOnboardingJourneyView+Actions.swift"; sourceTree = "<group>"; };
-		AE1100000000000000000007 /* AppOnboardingJourneyView+DayShapeModulesPermissions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "AppOnboardingJourneyView+DayShapeModulesPermissions.swift"; path = "Onboarding/Views/AppOnboardingJourneyView+DayShapeModulesPermissions.swift"; sourceTree = "<group>"; };
-		AE1100000000000000000006 /* AppOnboardingJourneyView+Layout.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "AppOnboardingJourneyView+Layout.swift"; path = "Onboarding/Views/AppOnboardingJourneyView+Layout.swift"; sourceTree = "<group>"; };
-		AE1100000000000000000005 /* OnboardingFlowModel+StepTransitions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "OnboardingFlowModel+StepTransitions.swift"; path = "Onboarding/Services/OnboardingFlowModel+StepTransitions.swift"; sourceTree = "<group>"; };
-		AE1100000000000000000003 /* OnboardingModuleSelection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingModuleSelection.swift; path = Onboarding/Models/OnboardingModuleSelection.swift; sourceTree = "<group>"; };
-		AE1100000000000000000004 /* OnboardingDayShapeDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingDayShapeDraft.swift; path = Onboarding/Models/OnboardingDayShapeDraft.swift; sourceTree = "<group>"; };
-		AE1100000000000000000001 /* LifeBoardPermissionPriming.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardPermissionPriming.swift; path = Foundation/Permissions/LifeBoardPermissionPriming.swift; sourceTree = "<group>"; };
-		AE1100000000000000000002 /* LifeBoardPermissionPrimingSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardPermissionPrimingSheet.swift; path = Foundation/Permissions/LifeBoardPermissionPrimingSheet.swift; sourceTree = "<group>"; };
 		A11E0000000000000000000A /* HealthPrivacyMigrationCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthPrivacyMigrationCoordinator.swift; path = Foundation/PhaseVI/HealthSync/HealthPrivacyMigrationCoordinator.swift; sourceTree = "<group>"; };
 		A11E0000000000000000000B /* HealthOutboxCoreDataWriter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HealthOutboxCoreDataWriter.swift; path = Foundation/PhaseVI/HealthSync/HealthOutboxCoreDataWriter.swift; sourceTree = "<group>"; };
 		A11E0000000000000000000C /* LifeBoardHealthHubView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardHealthHubView.swift; path = Foundation/PhaseVI/HealthSync/LifeBoardHealthHubView.swift; sourceTree = "<group>"; };
 		A11E00000000000000000020 /* TaskModelV3_HealthPrivacy.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_HealthPrivacy.xcdatamodel; sourceTree = "<group>"; };
-		A12E00000000000000000021 /* TaskModelV3_NotesPro.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_NotesPro.xcdatamodel; sourceTree = "<group>"; };
-		A12E00000000000000000022 /* TaskModelV3_NotesCompletion.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_NotesCompletion.xcdatamodel; sourceTree = "<group>"; };
 		A11E00000000000000000030 /* HealthSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncTests.swift; sourceTree = "<group>"; };
+		A12E00000000000000000021 /* TaskModelV3_NotesPro.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_NotesPro.xcdatamodel; sourceTree = "<group>"; };
 		A134F2A3EA61AB508E9A3ED9 /* HomeViewController+Keyboard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewController+Keyboard.swift"; sourceTree = "<group>"; };
 		A13C9964C87A904A153CCAC6 /* OnboardingSuccessSummaryRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingSuccessSummaryRow.swift; sourceTree = SOURCE_ROOT; };
+		A13E00000000000000000002 /* LifeBoardKnowledgeCompletion.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardKnowledgeCompletion.swift; sourceTree = "<group>"; };
 		A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMModelRegistryTests.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F607080910AB02 /* GradientTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = GradientTokens.swift; sourceTree = "<group>"; };
 		A1B2C3D62F90000100AA1001 /* TaskEditorSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskEditorSection.swift; sourceTree = "<group>"; };
@@ -1995,6 +1996,7 @@
 		A9ADCB5DB568A54708322C8E /* GamificationProfile.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/GamificationProfile.swift; sourceTree = SOURCE_ROOT; };
 		A9C6F21138AB4C41B2D309E7 /* TaskModelV3_Gamification.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_Gamification.xcdatamodel; sourceTree = "<group>"; };
 		A9E54F6F587FF89056E429DF /* CoreDataOccurrenceRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Repositories/CoreDataOccurrenceRepository.swift; sourceTree = SOURCE_ROOT; };
+		AA28ABC219B4E3710AB87E0E /* LifeBoardInboxView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardInboxView.swift; path = Foundation/PhaseIII/LifeBoardInboxView.swift; sourceTree = "<group>"; };
 		AAB000000000000000000001 /* HomeRenderState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/RenderState/HomeRenderState.swift; sourceTree = SOURCE_ROOT; };
 		AAB000000000000000000003 /* HomeStores.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Stores/HomeStores.swift; sourceTree = SOURCE_ROOT; };
 		AAB000000000000000000008 /* HomeShellTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/HomeShellTypes.swift; sourceTree = SOURCE_ROOT; };
@@ -2030,6 +2032,16 @@
 		AD4BAA321BECAF5FEC00E414 /* TaskModelV3_TrackFoundations.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_TrackFoundations.xcdatamodel; sourceTree = "<group>"; };
 		AD6F79B4F4AF4D2B4E34CD17 /* timelineRailText.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/timelineRailText.swift; sourceTree = SOURCE_ROOT; };
 		ADB62B5450F5D70EBBEC2940 /* ElevationTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ElevationTokens.swift; sourceTree = "<group>"; };
+		AE1100000000000000000001 /* LifeBoardPermissionPriming.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardPermissionPriming.swift; path = Foundation/Permissions/LifeBoardPermissionPriming.swift; sourceTree = "<group>"; };
+		AE1100000000000000000002 /* LifeBoardPermissionPrimingSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardPermissionPrimingSheet.swift; path = Foundation/Permissions/LifeBoardPermissionPrimingSheet.swift; sourceTree = "<group>"; };
+		AE1100000000000000000003 /* OnboardingModuleSelection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingModuleSelection.swift; path = Onboarding/Models/OnboardingModuleSelection.swift; sourceTree = "<group>"; };
+		AE1100000000000000000004 /* OnboardingDayShapeDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = OnboardingDayShapeDraft.swift; path = Onboarding/Models/OnboardingDayShapeDraft.swift; sourceTree = "<group>"; };
+		AE1100000000000000000005 /* OnboardingFlowModel+StepTransitions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "OnboardingFlowModel+StepTransitions.swift"; path = "Onboarding/Services/OnboardingFlowModel+StepTransitions.swift"; sourceTree = "<group>"; };
+		AE1100000000000000000006 /* AppOnboardingJourneyView+Layout.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "AppOnboardingJourneyView+Layout.swift"; path = "Onboarding/Views/AppOnboardingJourneyView+Layout.swift"; sourceTree = "<group>"; };
+		AE1100000000000000000007 /* AppOnboardingJourneyView+DayShapeModulesPermissions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "AppOnboardingJourneyView+DayShapeModulesPermissions.swift"; path = "Onboarding/Views/AppOnboardingJourneyView+DayShapeModulesPermissions.swift"; sourceTree = "<group>"; };
+		AE1100000000000000000008 /* AppOnboardingJourneyView+Actions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "AppOnboardingJourneyView+Actions.swift"; path = "Onboarding/Views/AppOnboardingJourneyView+Actions.swift"; sourceTree = "<group>"; };
+		AE1100000000000000000009 /* JournalHomeConsentStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = JournalHomeConsentStore.swift; path = Foundation/PhaseVI/JournalHomeConsentStore.swift; sourceTree = "<group>"; };
+		AE110000000000000000000A /* NutritionGoalComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NutritionGoalComposer.swift; path = Foundation/PhaseVI/NutritionGoalComposer.swift; sourceTree = "<group>"; };
 		AE5DC87E5EFAD171634D5F0A /* HomeViewController+Presentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewController+Presentation.swift"; sourceTree = "<group>"; };
 		AE79C7D2227A80F8ECDFDFD2 /* OverdueRescueCardModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueCardModel.swift; sourceTree = SOURCE_ROOT; };
 		AFAECD01C463CF2E65F669CB /* LifeManagementAreaDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementAreaDetailView.swift; sourceTree = SOURCE_ROOT; };
@@ -2096,6 +2108,7 @@
 		B7C8D9E32F6A100100ABC123 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		B812E7A0B879607C95C0571B /* ColorTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ColorTokens.swift; sourceTree = "<group>"; };
 		B822ABD8182F921799838D39 /* TimelineSpineMounting.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineSpineMounting.swift; sourceTree = SOURCE_ROOT; };
+		B83CC3B41C1A6998F3CB6FD9 /* LifeBoardRecoveryStatus.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardRecoveryStatus.swift; path = Foundation/Persistence/LifeBoardRecoveryStatus.swift; sourceTree = "<group>"; };
 		B8E100002F70000100A0A001 /* LifeBoardCTABezel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardCTABezel.swift; sourceTree = "<group>"; };
 		B8E100022F70000100A0A001 /* LifeBoardCTABezel.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = Effects/LifeBoardCTABezel.metal; sourceTree = "<group>"; };
 		B8E100042F70000100A0A001 /* LifeBoardCTABezelResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardCTABezelResolverTests.swift; sourceTree = "<group>"; };
@@ -2114,6 +2127,7 @@
 		BCD0B9C7DEE094DB1B55D5BD /* SettingsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModel.swift; sourceTree = "<group>"; };
 		BDD85FEB40E7B6C3538EA14A /* TimelineInboxPlanningCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineInboxPlanningCard.swift; sourceTree = SOURCE_ROOT; };
 		BDED467BEDE45453B0C91BEF /* EvaLiveWorkingStatusView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Conversation/EvaLiveWorkingStatusView.swift; sourceTree = SOURCE_ROOT; };
+		BE2A3D4F5C6B7089D1E2F3A4 /* LifeBoardArcDial.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardArcDial.swift; sourceTree = "<group>"; };
 		BED7C8A4030249843AED943D /* DeleteAreaSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/DeleteAreaSheet.swift; sourceTree = SOURCE_ROOT; };
 		BF3952602FF1A9D756382492 /* LifeManagementTreeInteractionMode.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementTreeInteractionMode.swift; sourceTree = SOURCE_ROOT; };
 		BF5D7161411B42651DF00D60 /* SunriseAppShellView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseAppShellView.swift; sourceTree = "<group>"; };
@@ -2140,6 +2154,7 @@
 		C1B100000000000000000105 /* HabitBoardViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/View/HabitBoardViews.swift; sourceTree = SOURCE_ROOT; };
 		C1B2C3D4E5F60718293A4B5C /* LifeManagementDestructiveFlowCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeManagementDestructiveFlowCoordinator.swift; sourceTree = "<group>"; };
 		C20400B4B017F188A0F00344 /* OverdueRescueDeckState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueDeckState.swift; sourceTree = SOURCE_ROOT; };
+		C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardCompletionControl.swift; sourceTree = "<group>"; };
 		C2BC103F549E15D1F888996A /* OnboardingPastelPalette.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingPastelPalette.swift; sourceTree = SOURCE_ROOT; };
 		C2C66FE334854F296A4203FD /* TagDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/TagDefinition.swift; sourceTree = SOURCE_ROOT; };
 		C2D3E4F5061728394A5B6C7C /* DeleteTaskDefinitionUseCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteTaskDefinitionUseCaseTests.swift; sourceTree = "<group>"; };
@@ -2149,7 +2164,6 @@
 		C2F100000000000000000003 /* LifeBoardHealthService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardHealthService.swift; sourceTree = "<group>"; };
 		C2F100000000000000000004 /* LifeBoardTrackAndJournalViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardTrackAndJournalViews.swift; sourceTree = "<group>"; };
 		C2F100000000000000000005 /* LifeBoardKnowledgeViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardKnowledgeViews.swift; sourceTree = "<group>"; };
-		A13E00000000000000000002 /* LifeBoardKnowledgeCompletion.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardKnowledgeCompletion.swift; sourceTree = "<group>"; };
 		C2F100000000000000000006 /* LifeBoardJournalDerivedIndex.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardJournalDerivedIndex.swift; sourceTree = "<group>"; };
 		C2F100000000000000000007 /* LifeBoardJournalReflectionServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardJournalReflectionServices.swift; sourceTree = "<group>"; };
 		C2F300000000000000000001 /* TaskModelV3_AdaptiveHome.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_AdaptiveHome.xcdatamodel; sourceTree = "<group>"; };
@@ -2248,6 +2262,7 @@
 		CA4596A02DBC4C81BD5D267F /* HomeViewModel+ProjectionInvalidation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+ProjectionInvalidation.swift"; sourceTree = SOURCE_ROOT; };
 		CB037D639903A5E22295113F /* OverdueRescueDeckView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueDeckView.swift; sourceTree = SOURCE_ROOT; };
 		CB45FAF57431067D93F59BA3 /* SunriseAppShellView+FocusTimersAndReflection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+FocusTimersAndReflection.swift"; sourceTree = SOURCE_ROOT; };
+		CC4859B4442A41A595012DFD /* LifeBoardHomeCardBodies.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardHomeCardBodies.swift; sourceTree = "<group>"; };
 		CC4A401D3FB5682FC6804B6F /* OnboardingTaskPreviewCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingTaskPreviewCard.swift; sourceTree = SOURCE_ROOT; };
 		CCBCDF94E1BBCA170FD4E6C2 /* HomeQuickView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickView.swift; sourceTree = "<group>"; };
 		CD059BC932A17FD845CAC6CD /* TombstoneMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Mappers/TombstoneMapper.swift; sourceTree = SOURCE_ROOT; };
@@ -2260,6 +2275,7 @@
 		CFF75A05368C0CA0356AC4F7 /* HomeTimelineViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTimelineViewModel.swift; sourceTree = "<group>"; };
 		CFFC54215415EB867E73F6BC /* HomeViewControllerExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/HomeViewControllerExtension.swift; sourceTree = SOURCE_ROOT; };
 		D07E18D71C702586CD89133E /* lifeManagementNormalizedHex.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/lifeManagementNormalizedHex.swift; sourceTree = SOURCE_ROOT; };
+		D0EF94291CEE2D9728DA74D6 /* LifeBoardKineticText.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardKineticText.swift; sourceTree = "<group>"; };
 		D115AC1607F718EC014575BE /* XPCalculationEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/XPCalculationEngine.swift; sourceTree = SOURCE_ROOT; };
 		D1A100000000000000000001 /* HomeChromeSnapshot+Presentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeChromeSnapshot+Presentation.swift"; sourceTree = "<group>"; };
 		D1A100000000000000000002 /* HomeScopeSummaryButtonView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeScopeSummaryButtonView.swift; sourceTree = "<group>"; };
@@ -2340,16 +2356,12 @@
 		D974CDFA2F5A901967B485D2 /* ChatScaffoldView+NavigationChrome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/LLM/Views/Chat/Chrome/ChatScaffoldView+NavigationChrome.swift"; sourceTree = SOURCE_ROOT; };
 		D9A0B1C2D3E4F506172839AB /* InsightsModuleVisibilityPlannerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsModuleVisibilityPlannerTests.swift; sourceTree = "<group>"; };
 		D9A0B1C2D3E4F506172839AE /* InsightsModuleVisibilityPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Models/InsightsModuleVisibilityPlanner.swift; sourceTree = SOURCE_ROOT; };
+		DA4C5F6B7E8D9201F3A4B5C6 /* LifeBoardCelestialDaypartIndicator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardCelestialDaypartIndicator.swift; sourceTree = "<group>"; };
 		DB3046F068EDB7B40DCD6825 /* HomeViewModel+CompletionProjection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+CompletionProjection.swift"; sourceTree = SOURCE_ROOT; };
 		DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProfileHeaderView.swift; sourceTree = "<group>"; };
 		DC10C732F02AD5EBF16333E3 /* HomeReplanUndoEntry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeReplanUndoEntry.swift; sourceTree = SOURCE_ROOT; };
 		DC271661EA08BEAAD92DD4A0 /* LifeBoardClaySurface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardClaySurface.swift; sourceTree = "<group>"; };
-		D0EF94291CEE2D9728DA74D6 /* LifeBoardKineticText.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardKineticText.swift; sourceTree = "<group>"; };
-		C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardCompletionControl.swift; sourceTree = "<group>"; };
-		DA4C5F6B7E8D9201F3A4B5C6 /* LifeBoardCelestialDaypartIndicator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardCelestialDaypartIndicator.swift; sourceTree = "<group>"; };
-		BE2A3D4F5C6B7089D1E2F3A4 /* LifeBoardArcDial.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardArcDial.swift; sourceTree = "<group>"; };
-		1E1D1160B798444BA70D195D /* LifeBoardCardPrimitives.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardCardPrimitives.swift; sourceTree = "<group>"; };
-		CC4859B4442A41A595012DFD /* LifeBoardHomeCardBodies.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardHomeCardBodies.swift; sourceTree = "<group>"; };
+		DCF4693EA4663A4F21990443 /* TaskExecutionContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TaskExecutionContracts.swift; path = Foundation/PhaseIII/TaskExecutionContracts.swift; sourceTree = "<group>"; };
 		DD7B0A79A3EE19D37B1FE1CA /* OverdueRescueSunriseHero.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueSunriseHero.swift; sourceTree = SOURCE_ROOT; };
 		DDFDBE1A33B827BB4D7FD04A /* AddTaskPriorityPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskPriorityPicker.swift; sourceTree = "<group>"; };
 		DE2CDAC6D56F874D92E1DD4D /* HomeViewModelRoot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeViewModelRoot.swift; sourceTree = SOURCE_ROOT; };
@@ -2642,6 +2654,7 @@
 				F1A2B3C4D5E6F708192A3B4D /* WidgetBrand.swift */,
 				E6095F80ED6FB73CD69363AC /* Info.plist */,
 				FF7B2CAF2B3D23AD9512B999 /* LifeBoardWidgets.entitlements */,
+				1D2099A7314A109F91A5A0B3 /* LifeBoardCaptureControl.swift */,
 			);
 			name = LifeBoardWidgets;
 			sourceTree = "<group>";
@@ -2803,6 +2816,7 @@
 				A91F8E132F44420100AB11C1 /* LifeManagementView.swift */,
 				BCD0B9C7DEE094DB1B55D5BD /* SettingsViewModel.swift */,
 				5DAFF791DE50B3141083F4FD /* Components */,
+				63526ABC7C203BDAC251960A /* RecoveryCenterView.swift */,
 			);
 			path = Settings;
 			sourceTree = "<group>";
@@ -2872,6 +2886,7 @@
 			isa = PBXGroup;
 			children = (
 				9607F4898D2AB18D995135CE /* DashboardLayoutRepository.swift */,
+				B83CC3B41C1A6998F3CB6FD9 /* LifeBoardRecoveryStatus.swift */,
 			);
 			name = Persistence;
 			sourceTree = "<group>";
@@ -2887,6 +2902,9 @@
 				D965280FA6FFAC5E2905AC6A /* PlanStore.swift */,
 				77E0CD330501E98375D87E47 /* HomeLifeOSProjectionStore.swift */,
 				1E37B40A095A4A51A8411D6B /* InsightsInterpretationEngine.swift */,
+				93252D91FE70F1A044FB54C4 /* InboxTriageContracts.swift */,
+				AA28ABC219B4E3710AB87E0E /* LifeBoardInboxView.swift */,
+				DCF4693EA4663A4F21990443 /* TaskExecutionContracts.swift */,
 			);
 			name = PhaseIII;
 			sourceTree = "<group>";
@@ -2919,6 +2937,7 @@
 			isa = PBXGroup;
 			children = (
 				7509A00A2F13D806009162CD /* PresentationDependencyContainer.swift */,
+				1490BF2A474A2702E82EA91C /* HabitViewModelFactoryEnvironment.swift */,
 			);
 			path = DI;
 			sourceTree = "<group>";
@@ -4014,7 +4033,6 @@
 				7F1B2C3D4E5F60718293A4B8 /* LiquidMetalCTARemoteConfigService.swift */,
 				7B2B9CCE514C217DC9C76773 /* WatchWidgetSnapshotSync.swift */,
 				E914385E0C9DBE65D5CC9D88 /* HomeSessionContextStore.swift */,
-				15B4BC1010AA9EDE0F9C1478 /* CaptureInboxDrain.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -4495,6 +4513,23 @@
 			path = Search;
 			sourceTree = "<group>";
 		};
+		AE1100000000000000000F01 /* Permissions */ = {
+			isa = PBXGroup;
+			children = (
+				AE110000000000000000000A /* NutritionGoalComposer.swift */,
+				AE1100000000000000000009 /* JournalHomeConsentStore.swift */,
+				AE1100000000000000000008 /* AppOnboardingJourneyView+Actions.swift */,
+				AE1100000000000000000007 /* AppOnboardingJourneyView+DayShapeModulesPermissions.swift */,
+				AE1100000000000000000006 /* AppOnboardingJourneyView+Layout.swift */,
+				AE1100000000000000000005 /* OnboardingFlowModel+StepTransitions.swift */,
+				AE1100000000000000000003 /* OnboardingModuleSelection.swift */,
+				AE1100000000000000000004 /* OnboardingDayShapeDraft.swift */,
+				AE1100000000000000000001 /* LifeBoardPermissionPriming.swift */,
+				AE1100000000000000000002 /* LifeBoardPermissionPrimingSheet.swift */,
+			);
+			name = Permissions;
+			sourceTree = "<group>";
+		};
 		B4D7E8213A4F5C6D7E8F9013 /* TestSupport */ = {
 			isa = PBXGroup;
 			children = (
@@ -4511,23 +4546,6 @@
 				A1D100042F90000100AA2001 /* LifeBoardPersistentStoreBootstrapService.swift */,
 			);
 			name = DI;
-			sourceTree = "<group>";
-		};
-		AE1100000000000000000F01 /* Permissions */ = {
-			isa = PBXGroup;
-			children = (
-				AE110000000000000000000A /* NutritionGoalComposer.swift */,
-				AE1100000000000000000009 /* JournalHomeConsentStore.swift */,
-				AE1100000000000000000008 /* AppOnboardingJourneyView+Actions.swift */,
-				AE1100000000000000000007 /* AppOnboardingJourneyView+DayShapeModulesPermissions.swift */,
-				AE1100000000000000000006 /* AppOnboardingJourneyView+Layout.swift */,
-				AE1100000000000000000005 /* OnboardingFlowModel+StepTransitions.swift */,
-				AE1100000000000000000003 /* OnboardingModuleSelection.swift */,
-				AE1100000000000000000004 /* OnboardingDayShapeDraft.swift */,
-				AE1100000000000000000001 /* LifeBoardPermissionPriming.swift */,
-				AE1100000000000000000002 /* LifeBoardPermissionPrimingSheet.swift */,
-			);
-			name = Permissions;
 			sourceTree = "<group>";
 		};
 		BDE30CE34D355070830C8B46 /* Foundation */ = {
@@ -5048,6 +5066,7 @@
 				4BB22BF593C5283CF8557AFE /* AppGroupConstants.swift in Sources */,
 				919FF9A13C8BB0FF98385DAA /* WidgetSnapshot.swift in Sources */,
 				BE878BE25AFEF12AB041D3ED /* PendingCapture.swift in Sources */,
+				42BF53D74D00FCF839E5BB25 /* LifeBoardCaptureControl.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6061,7 +6080,6 @@
 				63D0ECF6FEB314DC1FD1AFAD /* ChatScaffoldView+NavigationChrome.swift in Sources */,
 				7391A3B513F14B7C2F43ADA0 /* TaskCaptureParser.swift in Sources */,
 				56963F23411F17C33B977592 /* HomeSessionContextStore.swift in Sources */,
-				3375085748668ACC2BDAC35A /* CaptureInboxDrain.swift in Sources */,
 				D9C770D61EDCF3A952676B96 /* PendingCapture.swift in Sources */,
 				FCC1D77810ED7D9DD2465504 /* LBDayCompassCard.swift in Sources */,
 				6E5B3724B6D36DDFF75020A0 /* DayCompassModels.swift in Sources */,
@@ -6117,6 +6135,12 @@
 				385234A92C6E4423B97234BB /* LifeBoardCardPrimitives.swift in Sources */,
 				590E061676974EDB8A8F2617 /* LifeBoardHomeCardBodies.swift in Sources */,
 				30B037CF850CE7307816AA1A /* LifeBoardInteraction.swift in Sources */,
+				4A9FE645E8E5F6F9548CC589 /* LifeBoardRecoveryStatus.swift in Sources */,
+				6375DD6EF72D0AD949308284 /* RecoveryCenterView.swift in Sources */,
+				C7FD89C2F007B6CA9F682437 /* InboxTriageContracts.swift in Sources */,
+				BB171CA2BA9590EA90197E9A /* LifeBoardInboxView.swift in Sources */,
+				2D72FE589C5E13FDE039E900 /* HabitViewModelFactoryEnvironment.swift in Sources */,
+				B02D197549EC54773882C0DC /* TaskExecutionContracts.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6944,8 +6968,9 @@
 				A11E00000000000000000020 /* TaskModelV3_HealthPrivacy.xcdatamodel */,
 				A12E00000000000000000021 /* TaskModelV3_NotesPro.xcdatamodel */,
 				A12E00000000000000000022 /* TaskModelV3_NotesCompletion.xcdatamodel */,
+				31B6628C331CCC0C6568E62B /* TaskModelV3_TaskStartDay.xcdatamodel */,
 			);
-			currentVersion = A12E00000000000000000022 /* TaskModelV3_NotesCompletion.xcdatamodel */;
+			currentVersion = 31B6628C331CCC0C6568E62B /* TaskModelV3_TaskStartDay.xcdatamodel */;
 			path = TaskModelV3.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;

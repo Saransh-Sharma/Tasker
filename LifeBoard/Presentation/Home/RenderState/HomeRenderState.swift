@@ -326,10 +326,22 @@ struct HomeCalendarSnapshot: Equatable {
     let isLoading: Bool
     let errorMessage: String?
 
+    /// `selectedDate` is the start of the day, not `Date()`.
+    ///
+    /// This is a computed property, so `Date()` produced a new instant on every
+    /// access and two `.empty` values were never equal. `HomeRenderTransaction`
+    /// defaults its calendar slice to `.empty`, so `changedSliceCount` reported
+    /// the calendar as changed on *every* transaction and Home re-rendered that
+    /// slice continuously whether or not any calendar data had moved.
+    ///
+    /// Snapping to `startOfDay` keeps the "today" semantics callers expect while
+    /// making the sentinel stable enough for equality to mean something. A
+    /// `static let` would be a true constant but requires `HomeCalendarSnapshot`
+    /// to be `Sendable`, which pulls in an audit of every nested event type.
     static var empty: HomeCalendarSnapshot {
         HomeCalendarSnapshot(
             moduleState: .permissionRequired,
-            selectedDate: Date(),
+            selectedDate: Calendar.current.startOfDay(for: Date()),
             authorizationStatus: .notDetermined,
             accessAction: .requestPermission,
             selectedCalendarCount: 0,

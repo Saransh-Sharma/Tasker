@@ -464,7 +464,14 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
     }
 
     func testPlanningAndTrackRepositoriesRoundTripAdditiveData() async throws {
-        let model = try XCTUnwrap(NSManagedObjectModel(contentsOf: try modelBundleURL().appendingPathComponent("TaskModelV3_TrackFoundations.mom")))
+        // The shipping model, not `TaskModelV3_TrackFoundations`.
+        //
+        // Track writes pass through the health privacy gate, and
+        // `HealthMigrationCheckpoint` only exists from `TaskModelV3_HealthPrivacy`
+        // onward — an older model reached the gate's fetch for an entity it does
+        // not define. Migration from the earlier versions stays covered by
+        // `assertLightweightMigration`.
+        let model = try XCTUnwrap(NSManagedObjectModel(contentsOf: try modelBundleURL().appendingPathComponent("TaskModelV3_TaskStartDay.mom")))
         let container = NSPersistentContainer(name: "PlanningTrackRoundTrip", managedObjectModel: model)
         let description = NSPersistentStoreDescription()
         description.type = NSInMemoryStoreType
@@ -476,6 +483,24 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         localDescription.url = URL(fileURLWithPath: "/dev/null/local-\(UUID().uuidString)")
         container.persistentStoreDescriptions = [description, localDescription]
         try await load(container)
+
+        // The gate refuses writes until the private local copy is checkpointed.
+        let localStore = try XCTUnwrap(
+            container.persistentStoreCoordinator.persistentStores.first {
+                $0.configurationName == "LocalOnly"
+            }
+        )
+        let checkpointContext = container.newBackgroundContext()
+        try await checkpointContext.perform {
+            let checkpoint = NSEntityDescription.insertNewObject(
+                forEntityName: "HealthMigrationCheckpoint",
+                into: checkpointContext
+            )
+            checkpointContext.assign(checkpoint, to: localStore)
+            checkpoint.setValue("overall", forKey: "id")
+            checkpoint.setValue("validated", forKey: "phaseRaw")
+            try checkpointContext.save()
+        }
 
         let taskID = UUID()
         let projectID = UUID()

@@ -18,6 +18,17 @@ public enum HealthPrivacyMigrationAccess {
         }) else {
             throw AccessError.writeClosed
         }
+        // A model without the checkpoint entity predates the health privacy
+        // migration. `NSFetchRequest` raises an ObjC exception for an unknown
+        // entity name — uncatchable from Swift — so an older store would crash
+        // the app here rather than degrade. Refusing the write is the same
+        // answer this gate gives whenever it cannot confirm the private copy.
+        guard context.persistentStoreCoordinator?
+            .managedObjectModel
+            .entitiesByName["HealthMigrationCheckpoint"] != nil else {
+            throw AccessError.writeClosed
+        }
+
         let request = NSFetchRequest<NSManagedObject>(entityName: "HealthMigrationCheckpoint")
         request.affectedStores = [local]
         request.predicate = NSPredicate(format: "id == %@ AND phaseRaw == %@", "overall", "validated")

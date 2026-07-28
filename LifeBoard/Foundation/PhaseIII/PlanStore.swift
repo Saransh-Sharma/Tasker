@@ -2,6 +2,9 @@ import Foundation
 import Observation
 
 enum PlanLens: String, CaseIterable, Identifiable, Codable, Sendable {
+    /// First because triage precedes planning: deciding what a capture *is*
+    /// comes before deciding when to do it.
+    case inbox = "Inbox"
     case day = "Day"
     case week = "Week"
     case backlog = "Backlog"
@@ -597,6 +600,7 @@ final class PlanStore {
                 let group: BacklogGroup = switch task.metadata.unscheduledDisposition {
                 case .inbox: .inbox
                 case .someday: .someday
+                case .reference: .reference
                 case .archived: .archived
                 case .deleted: .inbox // Filtered by the tombstone guard above.
                 }

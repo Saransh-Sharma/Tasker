@@ -2,11 +2,12 @@ import SwiftUI
 import UIKit
 
 struct LifeManagementView: View {
+    @Environment(\.habitViewModelFactory) private var habitViewModelFactory
 
 
     @StateObject var viewModel: LifeManagementViewModel
 
-    @StateObject var habitComposerViewModel = PresentationDependencyContainer.shared.makeNewAddHabitViewModel()
+    @StateObject var habitComposerViewModel = HabitComposerViewModels.makeNew()
 
     @State var habitComposerPresented = false
 
@@ -133,7 +134,7 @@ struct LifeManagementView: View {
         }
         .sheet(item: $selectedHabitRow) { row in
             SunriseHabitDetailScreen(
-                viewModel: PresentationDependencyContainer.shared.makeHabitDetailViewModel(row: row),
+                viewModel: habitViewModelFactory.makeHabitDetailViewModel(row: row),
                 onMutation: {
                     viewModel.reload()
                 }

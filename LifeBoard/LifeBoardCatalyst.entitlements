@@ -21,9 +21,13 @@
 	<array>
 		<string>group.com.saransh1337.tasker.shared</string>
 	</array>
-	<!-- Present in LifeBoard.entitlements but missing here, so HealthKit
-	     authorization failed outright on Mac Catalyst. -->
-	<key>com.apple.developer.healthkit</key>
-	<true/>
+	<!-- HealthKit is deliberately absent. It is not a provisionable Mac
+	     Catalyst entitlement: adding it here to fix HealthKit authorization
+	     instead failed the whole Catalyst build with "Entitlement
+	     com.apple.developer.healthkit not found and could not be included in
+	     profile", which took Catalyst offline as a verification destination.
+	     iPhone and iPad keep HealthKit through LifeBoard.entitlements; on
+	     Catalyst `HKHealthStore.isHealthDataAvailable()` is false and the
+	     health surfaces degrade to their unavailable states. -->
 </dict>
 </plist>

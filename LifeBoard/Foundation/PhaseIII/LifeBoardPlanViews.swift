@@ -343,8 +343,10 @@ struct LifeBoardPlanRootView: View {
     private let onOpenWeeklyPlanner: () -> Void
     private let onOpenWeeklyReview: () -> Void
     private let onOpenOverdueRescue: (OverdueRescueLaunchContext) -> Void
+    private let onReviewCapture: (InboxItem) -> Void
     private let rescueRefreshGeneration: Int
     @State private var store: PlanStore
+    @State private var inboxStore: InboxStore
     @State private var lens: PlanLens = .day
     @State private var dayPresentation: PlanDayPresentation = .canvas
     @State private var scheduleGrouping: PlanScheduleGrouping = .timeOfDay
@@ -378,9 +380,17 @@ struct LifeBoardPlanRootView: View {
         onAskEva: @escaping () -> Void = {},
         onOpenWeeklyPlanner: @escaping () -> Void = {},
         onOpenWeeklyReview: @escaping () -> Void = {},
-        onOpenOverdueRescue: @escaping (OverdueRescueLaunchContext) -> Void = { _ in }
+        onOpenOverdueRescue: @escaping (OverdueRescueLaunchContext) -> Void = { _ in },
+        onReviewCapture: @escaping (InboxItem) -> Void = { _ in }
     ) {
         _store = State(initialValue: PlanStore(planningRepository: repository, blockRepository: repository))
+        _inboxStore = State(
+            initialValue: InboxStore(
+                reader: InboxReader(repository: repository),
+                planningRepository: repository,
+                mutationRepository: repository
+            )
+        )
         _lens = State(initialValue: initialLens ?? PlanLensRestoration.load())
         self.rescueRefreshGeneration = rescueRefreshGeneration
         self.onOpenFocus = onOpenFocus
@@ -388,6 +398,7 @@ struct LifeBoardPlanRootView: View {
         self.onOpenWeeklyPlanner = onOpenWeeklyPlanner
         self.onOpenWeeklyReview = onOpenWeeklyReview
         self.onOpenOverdueRescue = onOpenOverdueRescue
+        self.onReviewCapture = onReviewCapture
     }
 
     var body: some View {
@@ -416,6 +427,7 @@ struct LifeBoardPlanRootView: View {
                     orientationBar
 
                     switch lens {
+                    case .inbox: inboxContent
                     case .day: dayContent
                     case .week: weekContent
                     case .backlog: backlogContent
@@ -956,6 +968,10 @@ struct LifeBoardPlanRootView: View {
         }
     }
 
+    private var inboxContent: some View {
+        LifeBoardInboxView(store: inboxStore, onReviewCapture: onReviewCapture)
+    }
+
     private func taskCard(_ task: PlanningTaskSummary, planned: Bool) -> some View {
         HStack(spacing: 12) {
             if V2FeatureFlags.lifeBoardDailyLoopV1Enabled {
@@ -1339,7 +1355,8 @@ struct LifeBoardPlanRootView: View {
     private func backlogSymbol(_ group: BacklogGroup) -> String {
         switch group {
         case .inbox: "tray"; case .thisWeek: "calendar"; case .nextWeek: "calendar.badge.plus"
-        case .later: "clock"; case .someday: "sparkles"; case .waiting: "hourglass"; case .paused: "pause.circle"; case .archived: "archivebox"
+        case .later: "clock"; case .someday: "sparkles"; case .reference: "books.vertical"
+        case .waiting: "hourglass"; case .paused: "pause.circle"; case .archived: "archivebox"
         }
     }
 

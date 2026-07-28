@@ -237,12 +237,45 @@ public enum TaskCaptureParser {
         guard let match = detector.firstMatch(in: text, options: [], range: nsRange),
               let date = match.date,
               let range = Range(match.range, in: text) else { return nil }
+
+        // A bare time ("3pm", "at 15:30") must not be claimed here.
+        //
+        // NSDataDetector has no reference-date parameter: it resolves against the
+        // real current date in the device time zone and hands back a fully
+        // resolved instant, which `resolveDueDate` then returns verbatim. That
+        // silently bypassed this parser's injected `now`/`calendar` for every
+        // time-only capture — so a capture queued from a widget yesterday and
+        // drained today resolved to *today* at that time, and the resulting due
+        // date was committed without review.
+        //
+        // The explicit time path below already resolves a bare time against the
+        // injected clock and rolls it to tomorrow when it has passed, so the
+        // correct fix is to let it own this input rather than to re-derive the
+        // detector's answer. Dates carrying a real day component ("Sept 3",
+        // "12/25", "March 5 at 4pm") still belong to the detector.
+        if isTimeOnly(String(text[range])) { return nil }
+
         let matchedSubstring = String(text[range]).lowercased()
         // Treat as a precise instant only if the matched text carried a time component.
         let hasTime = matchedSubstring.contains(":")
             || matchedSubstring.contains("am")
             || matchedSubstring.contains("pm")
         return DateMatch(phrase: hasTime ? .instant(date) : .day(date), range: range)
+    }
+
+    /// Whether a detector match is nothing but a clock time.
+    ///
+    /// Decided by reusing `firstTimeMatch` rather than by pattern-matching the
+    /// substring again: if the time expression covers the whole match once
+    /// surrounding whitespace and a leading "at"/"by"/"@" are accounted for,
+    /// there is no day component and the time-only path should own it.
+    private static func isTimeOnly(_ matched: String) -> Bool {
+        let trimmed = matched.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false, let time = firstTimeMatch(in: trimmed) else { return false }
+        let remainder = trimmed
+            .replacingCharacters(in: time.range, with: "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return remainder.isEmpty
     }
 
     // MARK: - Time matching

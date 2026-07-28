@@ -182,6 +182,37 @@ public actor LocalJournalDerivedIndexRepository: JournalDerivedIndexRepository {
         return references
     }
 
+    /// Whether the index can answer searches, for the Recovery Center.
+    ///
+    /// Derived from what the index actually contains rather than a cached flag,
+    /// so it cannot claim health it does not have. Returns `nil` when the
+    /// database cannot be opened at all — the caller shows no row rather than a
+    /// reassuring one, because "unknown" and "fine" are different answers.
+    public func indexedChunkCount() async -> Int? {
+        do {
+            try ensureDatabase()
+            var statement: OpaquePointer?
+            try prepare("SELECT COUNT(*) FROM journal_chunks;", statement: &statement)
+            defer { sqlite3_finalize(statement) }
+            guard sqlite3_step(statement) == SQLITE_ROW else { return nil }
+            return Int(sqlite3_column_int64(statement, 0))
+        } catch {
+            return nil
+        }
+    }
+
+    /// When the index last changed, or `nil` if it has never been built.
+    public func lastIndexedAt() async -> Date? {
+        do {
+            try ensureDatabase()
+            guard let raw = try metadataValue(key: "updatedAt"),
+                  let seconds = TimeInterval(raw) else { return nil }
+            return Date(timeIntervalSince1970: seconds)
+        } catch {
+            return nil
+        }
+    }
+
     public func invalidate() async throws {
         try ensureDatabase()
         try transaction {

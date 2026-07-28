@@ -954,14 +954,51 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         XCTAssertFalse(legacyFields.contains("lastHistoryRollDate"))
     }
 
-    func testTaskModelCurrentVersionPointsToTrackFoundationsSourceModel() throws {
-        let currentVersionFile = URL(fileURLWithPath: #filePath)
+    /// Guards the failure that actually corrupts a shipped store: a
+    /// `.xccurrentversion` pointing at a model version that is not on disk, so
+    /// the runtime silently falls back to a different schema.
+    ///
+    /// This used to hardcode `TaskModelV3_TrackFoundations` and had gone stale
+    /// eight model versions ago. Naming one version means the test fails on
+    /// every additive migration and says nothing about whether the pointer is
+    /// valid — so it asserts the pointer resolves instead, and separately pins
+    /// the current version so bumping it stays a deliberate, reviewed edit.
+    func testTaskModelCurrentVersionPointsToAnExistingSourceModel() throws {
+        let modelDirectory = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appendingPathComponent("LifeBoard/TaskModelV3.xcdatamodeld/.xccurrentversion")
-        let contents = try String(contentsOf: currentVersionFile, encoding: .utf8)
+            .appendingPathComponent("LifeBoard/TaskModelV3.xcdatamodeld")
+        let contents = try String(
+            contentsOf: modelDirectory.appendingPathComponent(".xccurrentversion"),
+            encoding: .utf8
+        )
 
-        XCTAssertTrue(contents.contains("TaskModelV3_TrackFoundations.xcdatamodel"))
+        let versionName = try XCTUnwrap(
+            contents.range(of: #"<string>([^<]+)</string>"#, options: .regularExpression)
+                .map { String(contents[$0]) }
+                .map { $0.replacingOccurrences(of: "<string>", with: "") }
+                .map { $0.replacingOccurrences(of: "</string>", with: "") },
+            "The current-version plist must name a model"
+        )
+
+        var isDirectory: ObjCBool = false
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: modelDirectory.appendingPathComponent(versionName).path,
+                isDirectory: &isDirectory
+            ) && isDirectory.boolValue,
+            "\(versionName) is the current version but is not present in TaskModelV3.xcdatamodeld"
+        )
+
+        XCTAssertEqual(
+            versionName,
+            "TaskModelV3_TaskStartDay.xcdatamodel",
+            """
+            The current model version changed. This is expected when adding an \
+            additive version — update this expectation in the same change, and \
+            add a migration fixture from every compiled predecessor.
+            """
+        )
     }
 
     func testCoreDataNeedsReplanCandidatesFiltersRepeatPatternDataWithoutUnknownKeypathCrash() throws {
@@ -2984,7 +3021,11 @@ final class ArchitectureBoundaryTests: XCTestCase {
         ]
 
         for relativePath in files {
-            let content = try loadWorkspaceFile(relativePath)
+            // A deleted file satisfies this constraint vacuously. `AddTaskSunriseView`
+            // is gone, and throwing on the missing path turned a passing guarantee
+            // into a failure. `testViewLayerDoesNotUseSingletonDependencyContainers`
+            // scans these directories wholesale, so a rename stays covered.
+            guard let content = try optionalWorkspaceFile(relativePath) else { continue }
             XCTAssertFalse(
                 content.contains("EnhancedDependencyContainer.shared"),
                 "View file must not access EnhancedDependencyContainer.shared directly: \(relativePath)"
@@ -3000,7 +3041,8 @@ final class ArchitectureBoundaryTests: XCTestCase {
         ]
 
         for relativePath in files {
-            let content = try loadWorkspaceFile(relativePath)
+            // `NewProjectViewController` was removed; see the note above.
+            guard let content = try optionalWorkspaceFile(relativePath) else { continue }
             XCTAssertFalse(
                 content.contains("EnhancedDependencyContainer.shared.useCaseCoordinator"),
                 "Controller must not fallback to global coordinator singleton: \(relativePath)"
@@ -3117,6 +3159,13 @@ final class ArchitectureBoundaryTests: XCTestCase {
                 )
             }
         }
+    }
+
+    /// Contents of a file that may legitimately no longer exist.
+    private func optionalWorkspaceFile(_ relativePath: String) throws -> String? {
+        let targetURL = workspaceRootURL().appendingPathComponent(relativePath)
+        guard FileManager.default.fileExists(atPath: targetURL.path) else { return nil }
+        return try String(contentsOf: targetURL, encoding: .utf8)
     }
 
     private func loadWorkspaceFile(_ relativePath: String) throws -> String {
@@ -10139,7 +10188,12 @@ final class HomeViewModelTaskIconTimelineTests: XCTestCase {
             viewModel.timelineSystemImageName(for: task) == "phone.fill"
         }
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
-        let result = XCTWaiter.wait(for: [expectation], timeout: 1.0)
+        // 1.0s was too tight for a cold start, which is why this failed when run
+        // in isolation (where it pays the test host's first-load cost) and passed
+        // inside the full suite (where the view model machinery is already warm).
+        // The wait returns as soon as the predicate holds, so the larger ceiling
+        // costs a healthy run nothing.
+        let result = XCTWaiter.wait(for: [expectation], timeout: 5.0)
         XCTAssertEqual(result, .completed)
         XCTAssertEqual(viewModel.timelineSystemImageName(for: task), "phone.fill")
     }
@@ -11649,11 +11703,21 @@ final class SceneDelegateNotificationRoutingTests: XCTestCase {
         super.tearDown()
     }
 
-    func testHandleNotificationLaunchFallsBackToPendingTaskDetailRouteWhenRuntimeHandlerUnavailable() {
+    /// A task reminder must open that exact task through the typed foundation
+    /// router.
+    ///
+    /// This used to assert against `LifeBoardNotificationRouteBus`, which is the
+    /// pre-foundation path: `handleNotificationLaunch` now routes through
+    /// `LifeOSFoundationRuntime.shared.router` and returns before ever reaching
+    /// the bus. The bus is retained only as the rollback for the disabled flag,
+    /// so asserting on it tested a path the product no longer takes.
+    @MainActor
+    func testTaskReminderPushesTheExactTaskThroughTheFoundationRouter() {
         let taskID = UUID()
-        let sceneDelegate = SceneDelegate()
+        let router = LifeOSFoundationRuntime.shared.router
+        router.select(.plan)
 
-        sceneDelegate.handleNotificationLaunch(
+        SceneDelegate().handleNotificationLaunch(
             request: makeUNNotificationRequest(
                 id: "task.reminder.\(taskID.uuidString)",
                 kind: .taskReminder,
@@ -11662,18 +11726,26 @@ final class SceneDelegateNotificationRoutingTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(LifeBoardNotificationRouteBus.shared.consumePendingRoute(), .taskDetail(taskID: taskID))
+        XCTAssertEqual(router.selectedDestination, .home)
+        XCTAssertEqual(
+            router.paths[.home]?.last, .taskDetail(taskID),
+            "The reminder must open the task it names, not a substitute"
+        )
     }
 
-    func testHandleNotificationLaunchUsesRuntimeActionHandlerWhenAvailable() {
-        let notificationService = CapturingNotificationService()
+    /// A navigation action resolves through the foundation router even when a
+    /// runtime action handler is installed — navigation is the router's job,
+    /// and the handler is reserved for mutations like complete and snooze.
+    @MainActor
+    func testNavigationActionResolvesThroughTheFoundationRouterAheadOfTheActionHandler() {
         LifeBoardNotificationRuntime.actionHandler = LifeBoardNotificationActionHandler(
-            notificationService: notificationService,
+            notificationService: CapturingNotificationService(),
             coordinatorProvider: { nil }
         )
+        let router = LifeOSFoundationRuntime.shared.router
+        router.select(.home)
 
-        let sceneDelegate = SceneDelegate()
-        sceneDelegate.handleNotificationLaunch(
+        SceneDelegate().handleNotificationLaunch(
             request: makeUNNotificationRequest(
                 id: "daily.nightly.20260224",
                 kind: .nightlyRetrospective,
@@ -11683,7 +11755,11 @@ final class SceneDelegateNotificationRoutingTests: XCTestCase {
             actionIdentifier: LifeBoardNotificationActionID.openDone.rawValue
         )
 
-        XCTAssertEqual(LifeBoardNotificationRouteBus.shared.consumePendingRoute(), .homeDone)
+        XCTAssertEqual(router.selectedDestination, .insights, "Done opens Insights")
+        XCTAssertNil(
+            LifeBoardNotificationRouteBus.shared.consumePendingRoute(),
+            "The legacy bus must stay empty while the foundation shell is on"
+        )
     }
 
     nonisolated private static func clearRouteBus() {
@@ -15115,8 +15191,16 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         XCTAssertNotNil(LifeBoardHexColor.normalized(habit.colorHex))
     }
 
+    /// Polls until `condition` holds.
+    ///
+    /// The 1-second default made `testApplyPrefillWithExplicitIconRandomizesMissingColor`
+    /// flaky: it passed 5/5 in isolation and failed only under full-suite load,
+    /// where the view model's initial load exceeded the budget. A longer ceiling
+    /// costs a passing test nothing — the loop exits the moment the condition
+    /// holds — and only ever changes the outcome of a run that was going to be a
+    /// false failure.
     private func waitUntil(
-        timeoutNanoseconds: UInt64 = 1_000_000_000,
+        timeoutNanoseconds: UInt64 = 5_000_000_000,
         pollIntervalNanoseconds: UInt64 = 10_000_000,
         condition: @escaping @MainActor () -> Bool
     ) async {
@@ -15839,8 +15923,16 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         )
     }
 
+    /// Polls until `condition` holds.
+    ///
+    /// The 1-second default made `testApplyPrefillWithExplicitIconRandomizesMissingColor`
+    /// flaky: it passed 5/5 in isolation and failed only under full-suite load,
+    /// where the view model's initial load exceeded the budget. A longer ceiling
+    /// costs a passing test nothing — the loop exits the moment the condition
+    /// holds — and only ever changes the outcome of a run that was going to be a
+    /// false failure.
     private func waitUntil(
-        timeoutNanoseconds: UInt64 = 1_000_000_000,
+        timeoutNanoseconds: UInt64 = 5_000_000_000,
         pollIntervalNanoseconds: UInt64 = 10_000_000,
         condition: @escaping @MainActor () -> Bool
     ) async {
@@ -16613,6 +16705,34 @@ import XCTest
 
 @MainActor
 final class DailyReflectionUseCasesTests: XCTestCase {
+
+    /// Several tests here drive the coordinator built by `V3TestHarness`, which
+    /// resolves workspace preferences through the shared store. Calendar context
+    /// is skipped entirely when no calendars are selected — a correct product
+    /// guard, distinct from `.noCalendarsSelected` elsewhere in the app — so
+    /// without a selection those tests observed "calendar unavailable" and never
+    /// reached the timeout, staleness, or enrichment behavior they exist to
+    /// cover. Seeded here and restored so the global default is not left dirty
+    /// for other suites.
+    private var previousSelectedCalendarIDs: [String] = []
+
+    override func setUp() {
+        super.setUp()
+        let store = LifeBoardWorkspacePreferencesStore.shared
+        let current = store.load()
+        previousSelectedCalendarIDs = current.selectedCalendarIDs
+        var seeded = current
+        seeded.selectedCalendarIDs = ["primary"]
+        store.save(seeded)
+    }
+
+    override func tearDown() {
+        let store = LifeBoardWorkspacePreferencesStore.shared
+        var restored = store.load()
+        restored.selectedCalendarIDs = previousSelectedCalendarIDs
+        store.save(restored)
+        super.tearDown()
+    }
     func testResolveTargetReturnsSameDayWhenYesterdayIsComplete() throws {
         let defaults = UserDefaults(suiteName: "DailyReflectionUseCasesTests.sameDay")!
         defaults.removePersistentDomain(forName: "DailyReflectionUseCasesTests.sameDay")
@@ -16955,7 +17075,16 @@ final class DailyReflectionUseCasesTests: XCTestCase {
                 )
             ]
         )
-        let useCase = BuildNextDayPlanSuggestionUseCase(calendarEventsProvider: provider, calendar: calendar)
+        let suiteName = "DailyReflectionUseCasesTests.workspace.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["primary"]))
+        let useCase = BuildNextDayPlanSuggestionUseCase(
+            calendarEventsProvider: provider,
+            calendar: calendar,
+            workspacePreferencesStore: workspaceStore
+        )
 
         let result = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
 
@@ -16981,7 +17110,16 @@ final class DailyReflectionUseCasesTests: XCTestCase {
                 )
             ]
         )
-        let useCase = BuildNextDayPlanSuggestionUseCase(calendarEventsProvider: provider, calendar: calendar)
+        let suiteName = "DailyReflectionUseCasesTests.workspace.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["primary"]))
+        let useCase = BuildNextDayPlanSuggestionUseCase(
+            calendarEventsProvider: provider,
+            calendar: calendar,
+            workspacePreferencesStore: workspaceStore
+        )
 
         let result = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
 
@@ -16998,7 +17136,16 @@ final class DailyReflectionUseCasesTests: XCTestCase {
             events: [],
             delayNanoseconds: 1_000_000_000
         )
-        let useCase = BuildNextDayPlanSuggestionUseCase(calendarEventsProvider: provider, calendar: calendar)
+        let suiteName = "DailyReflectionUseCasesTests.workspace.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["primary"]))
+        let useCase = BuildNextDayPlanSuggestionUseCase(
+            calendarEventsProvider: provider,
+            calendar: calendar,
+            workspacePreferencesStore: workspaceStore
+        )
 
         let result = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 0.05)
 
@@ -17094,9 +17241,15 @@ final class DailyReflectionUseCasesTests: XCTestCase {
             ]
         )
         let now = Date()
+        let suiteName = "DailyReflectionUseCasesTests.workspace.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["primary"]))
         let useCase = BuildNextDayPlanSuggestionUseCase(
             calendarEventsProvider: provider,
             calendar: calendar,
+            workspacePreferencesStore: workspaceStore,
             nowProvider: { now }
         )
 
@@ -17131,9 +17284,15 @@ final class DailyReflectionUseCasesTests: XCTestCase {
             ]
         )
         let now = LockedTestState(Date())
+        let suiteName = "DailyReflectionUseCasesTests.workspace.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["primary"]))
         let useCase = BuildNextDayPlanSuggestionUseCase(
             calendarEventsProvider: provider,
             calendar: calendar,
+            workspacePreferencesStore: workspaceStore,
             nowProvider: { now.read() }
         )
 

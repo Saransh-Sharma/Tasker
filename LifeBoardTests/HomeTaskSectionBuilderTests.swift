@@ -979,12 +979,24 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         XCTAssertTrue(source.contains("HomeTaskTintResolver.rowAccentHex("))
     }
 
+    /// Both the task list and the Sunrise shell must tint rows through the one
+    /// shared resolver rather than each rolling its own accent.
+    ///
+    /// Searches the whole source tree rather than two fixed paths: the shell was
+    /// split into `SunriseAppShellView+*` extension files by the production
+    /// decomposition pass, which silently broke a per-file assertion while the
+    /// behaviour it guards was still correct.
     func testHomeSurfaceDueTodayAndRescueRowsUseSharedRowResolver() throws {
-        let taskListSource = try loadWorkspaceFile("LifeBoard/View/SunriseTaskListView.swift")
-        let sunriseSource = try loadWorkspaceFile("LifeBoard/View/SunriseAppShellView.swift")
+        let users = try filesContaining("HomeTaskTintResolver.rowAccentHex(")
 
-        XCTAssertTrue(taskListSource.contains("HomeTaskTintResolver.rowAccentHex("))
-        XCTAssertTrue(sunriseSource.contains("HomeTaskTintResolver.rowAccentHex("))
+        XCTAssertTrue(
+            users.contains { $0.contains("SunriseTaskListView") || $0.contains("SunriseTaskSectionView") },
+            "The task list must tint through the shared resolver. Found: \(users)"
+        )
+        XCTAssertTrue(
+            users.contains { $0.contains("SunriseAppShellView") },
+            "The Sunrise shell must tint through the shared resolver. Found: \(users)"
+        )
     }
 
     func testTaskListSectionIDsAvoidRuntimeRandomizedSources() throws {
@@ -995,10 +1007,37 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         XCTAssertTrue(source.contains("timeIntervalSinceReferenceDate"))
     }
 
+    /// Timeline tint resolves through the canonical owning-section resolver.
+    /// Path-independent for the same reason as above — this moved into
+    /// `HomeViewModel+Timeline.swift`.
     func testHomeSurfaceTimelineTintUsesCanonicalOwningResolver() throws {
-        let source = try loadWorkspaceFile("LifeBoard/Presentation/ViewModels/HomeViewModel.swift")
+        let users = try filesContaining("HomeTaskTintResolver.owningSectionAccentHex(")
 
-        XCTAssertTrue(source.contains("HomeTaskTintResolver.owningSectionAccentHex("))
+        XCTAssertTrue(
+            users.contains { $0.contains("HomeViewModel") },
+            "The Home view model must resolve timeline tint canonically. Found: \(users)"
+        )
+    }
+
+    /// Every Swift file under `LifeBoard/` whose contents include `needle`,
+    /// returned as repo-relative paths.
+    private func filesContaining(_ needle: String) throws -> [String] {
+        let root = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+            .appendingPathComponent("LifeBoard")
+        guard let walker = FileManager.default.enumerator(
+            at: root,
+            includingPropertiesForKeys: nil
+        ) else { return [] }
+
+        var matches: [String] = []
+        for case let url as URL in walker where url.pathExtension == "swift" {
+            guard let contents = try? String(contentsOf: url, encoding: .utf8),
+                  contents.contains(needle) else { continue }
+            matches.append(url.lastPathComponent)
+        }
+        return matches.sorted()
     }
 
     private func loadWorkspaceFile(_ relativePath: String) throws -> String {
