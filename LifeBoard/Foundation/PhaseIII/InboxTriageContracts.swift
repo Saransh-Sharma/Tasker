@@ -108,7 +108,13 @@ public struct InboxItem: Identifiable, Equatable, Sendable {
 /// a real `LifeBoardActionReceipt` instead of a one-way trip.
 public enum InboxTriageMutation: Equatable, Sendable {
     case schedule(taskID: UUID, before: PlanningDay?, after: PlanningDay)
-    case moveToProject(taskID: UUID, before: UUID?, after: UUID)
+    /// `after` is optional because "no project" is a destination a user can
+    /// choose *and* the state an Undo must be able to restore. With a
+    /// non-optional `after`, inverting a move for a task that had no project
+    /// was inexpressible, and the old code returned
+    /// `.moveToProject(before: after, after: after)` — a no-op that left the
+    /// task in the project it was supposed to be pulled out of.
+    case moveToProject(taskID: UUID, before: UUID?, after: UUID?)
     case setDisposition(taskID: UUID, before: UnscheduledDisposition, after: UnscheduledDisposition)
     /// Committing a pending capture into a canonical task. Its inverse removes
     /// the created task and restores the queued capture, so an accidental
@@ -127,9 +133,6 @@ public enum InboxTriageMutation: Equatable, Sendable {
             }
             return .schedule(taskID: taskID, before: after, after: before)
         case let .moveToProject(taskID, before, after):
-            guard let before else {
-                return .moveToProject(taskID: taskID, before: after, after: after)
-            }
             return .moveToProject(taskID: taskID, before: after, after: before)
         case let .setDisposition(taskID, before, after):
             return .setDisposition(taskID: taskID, before: after, after: before)
