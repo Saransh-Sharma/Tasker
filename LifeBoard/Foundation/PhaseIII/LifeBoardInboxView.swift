@@ -97,7 +97,12 @@ final class InboxStore {
         let parsed = TaskCaptureParser.parse(item.title, now: item.capturedAt)
         // Resolved against the capture's own timestamp, not "now": a capture
         // made yesterday saying "3pm" meant yesterday's 3pm.
-        return parsed.dueDate == nil ? nil : parsed
+        //
+        // Gated on `hasProposals` rather than on `dueDate` alone: a capture like
+        // "buy milk #groceries" carries a tag and a rewritten title but no date,
+        // and returning nil here would rewrite the title in the editor with no
+        // chip ever explaining why.
+        return parsed.hasProposals ? parsed : nil
     }
 
     /// Seeds items directly. Test-only: the reader is exercised separately, and
@@ -294,14 +299,40 @@ struct LifeBoardInboxView: View {
     /// never saw. These chips are the review step that makes the proposal
     /// visible and disagreeable-with.
     private func reviewChips(for parsed: ParsedCapture) -> some View {
-        HStack(spacing: 6) {
-            if let due = parsed.dueDate {
-                chip(
-                    parsed.isAllDay
-                        ? due.formatted(date: .abbreviated, time: .omitted)
-                        : due.formatted(date: .abbreviated, time: .shortened),
-                    symbol: "calendar"
-                )
+        // Two rows rather than one: scheduling on top, classification beneath.
+        // A single HStack of up to six chips truncates at accessibility text
+        // sizes, and DESIGN.md's rule is to stack metadata before truncating
+        // content that carries meaning.
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 6) {
+                if let due = parsed.dueDate {
+                    chip(
+                        parsed.isAllDay
+                            ? due.formatted(date: .abbreviated, time: .omitted)
+                            : due.formatted(date: .abbreviated, time: .shortened),
+                        symbol: "calendar"
+                    )
+                }
+                if let duration = parsed.duration {
+                    chip(Self.durationLabel(duration), symbol: "timer")
+                }
+                if parsed.repeatPattern != nil {
+                    chip("Repeats", symbol: "arrow.triangle.2.circlepath")
+                }
+                if let priority = parsed.priority {
+                    chip(priority.displayName, symbol: "flag")
+                }
+            }
+            HStack(spacing: 6) {
+                if let project = parsed.projectName {
+                    chip(project, symbol: "folder")
+                }
+                if let context = parsed.context {
+                    chip(context, symbol: "mappin.and.ellipse")
+                }
+                ForEach(parsed.tags, id: \.self) { tag in
+                    chip(tag, symbol: "number")
+                }
             }
             if let matched = parsed.matchedText {
                 chip("from “\(matched)”", symbol: "text.magnifyingglass")
@@ -309,10 +340,34 @@ struct LifeBoardInboxView: View {
         }
         .padding(.top, 2)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(
-            parsed.dueDate.map { "Proposed date \($0.formatted(date: .abbreviated, time: .shortened)), not yet applied" }
-                ?? "No date proposed"
-        )
+        .accessibilityLabel(Self.proposalAccessibilityLabel(parsed))
+    }
+
+    private static func durationLabel(_ seconds: TimeInterval) -> String {
+        let minutes = Int(seconds / 60)
+        guard minutes >= 60 else { return "\(minutes) min" }
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        return remainder == 0 ? "\(hours) hr" : "\(hours) hr \(remainder) min"
+    }
+
+    /// One sentence covering every proposal, ending in the fact that matters
+    /// most: none of it has been applied yet.
+    private static func proposalAccessibilityLabel(_ parsed: ParsedCapture) -> String {
+        var parts: [String] = []
+        if let due = parsed.dueDate {
+            parts.append("date \(due.formatted(date: .abbreviated, time: parsed.isAllDay ? .omitted : .shortened))")
+        }
+        if let duration = parsed.duration { parts.append("duration \(durationLabel(duration))") }
+        if parsed.repeatPattern != nil { parts.append("repeating") }
+        if let priority = parsed.priority { parts.append("priority \(priority.displayName)") }
+        if let project = parsed.projectName { parts.append("project \(project)") }
+        if let context = parsed.context { parts.append("context \(context)") }
+        if parsed.tags.isEmpty == false {
+            parts.append("tags \(ListFormatter.localizedString(byJoining: parsed.tags))")
+        }
+        guard parts.isEmpty == false else { return "Nothing proposed" }
+        return "Proposed \(ListFormatter.localizedString(byJoining: parts)). Not yet applied."
     }
 
     private func chip(_ text: String, symbol: String) -> some View {
