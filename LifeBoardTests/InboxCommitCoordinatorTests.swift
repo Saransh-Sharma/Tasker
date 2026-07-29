@@ -34,6 +34,390 @@ private actor SpyTaskWriter: InboxTaskWriting {
     }
 }
 
+final class TaskBatchMutationCoordinatorTests: XCTestCase {
+
+    func testMoveCompensatesEarlierDefinitionsWhenALaterWriteFails() async throws {
+        let first = TaskDefinition(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+            title: "First"
+        )
+        let second = TaskDefinition(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+            title: "Second"
+        )
+        let tasks = BatchFailingTaskRepository(
+            seed: [first, second],
+            failingUpdateAttempt: 2
+        )
+        let coordinator = TaskBatchMutationCoordinator(
+            tasks: tasks,
+            planning: BatchPlanningRepository()
+        )
+
+        do {
+            _ = try await coordinator.apply(
+                TaskBatchMutationRequest(
+                    taskIDs: [first.id, second.id],
+                    mutation: .move(
+                        projectID: UUID(),
+                        projectName: "Destination",
+                        sectionID: nil
+                    )
+                )
+            )
+            XCTFail("The second repository write should fail")
+        } catch let error as TaskBatchMutationError {
+            guard case .applyFailed = error else {
+                return XCTFail("Expected applyFailed, received \(error)")
+            }
+        }
+
+        XCTAssertEqual(tasks.snapshot()[first.id], first)
+        XCTAssertEqual(tasks.snapshot()[second.id], second)
+        XCTAssertEqual(tasks.updateAttemptCount, 3)
+    }
+
+    func testTagSidecarFailureRestoresTaskAndRelationshipSnapshot() async throws {
+        let originalTag = UUID()
+        let task = TaskDefinition(title: "Tagged", tagIDs: [originalTag])
+        let tasks = BatchFailingTaskRepository(seed: [task])
+        let links = BatchTagLinkRepository(
+            seed: [task.id: [originalTag]],
+            failingReplaceAttempt: 1
+        )
+        let coordinator = TaskBatchMutationCoordinator(
+            tasks: tasks,
+            planning: BatchPlanningRepository(),
+            tagLinks: links
+        )
+
+        do {
+            _ = try await coordinator.apply(
+                TaskBatchMutationRequest(
+                    taskIDs: [task.id],
+                    mutation: .addTags([UUID()])
+                )
+            )
+            XCTFail("The first relationship write should fail")
+        } catch let error as TaskBatchMutationError {
+            guard case .applyFailed = error else {
+                return XCTFail("Expected applyFailed, received \(error)")
+            }
+        }
+
+        XCTAssertEqual(tasks.snapshot()[task.id], task)
+        XCTAssertEqual(links.snapshot()[task.id], [originalTag])
+        XCTAssertEqual(links.replaceAttemptCount, 2)
+    }
+
+    func testScheduleReceiptUndoRestoresDefinitionAndPlanningMetadata() async throws {
+        let task = TaskDefinition(title: "Schedule me")
+        let tasks = BatchFailingTaskRepository(seed: [task])
+        let planning = BatchPlanningRepository()
+        let coordinator = TaskBatchMutationCoordinator(tasks: tasks, planning: planning)
+        let day = PlanningDay(year: 2026, month: 8, day: 4, timeZoneIdentifier: "UTC")
+        let start = Date(timeIntervalSince1970: 1_775_280_400)
+        let end = start.addingTimeInterval(45 * 60)
+
+        let receipt = try await coordinator.apply(
+            TaskBatchMutationRequest(
+                taskIDs: [task.id],
+                mutation: .schedule(planningDay: day, startAt: start, endAt: end)
+            )
+        )
+
+        XCTAssertNotNil(receipt.planningReceiptID)
+        XCTAssertEqual(tasks.snapshot()[task.id]?.scheduledStartAt, start)
+        XCTAssertEqual(tasks.snapshot()[task.id]?.scheduledEndAt, end)
+        let appliedMetadata = await planning.metadata(for: task.id)
+        XCTAssertEqual(appliedMetadata?.planningDay, day)
+
+        try await coordinator.undo(receipt)
+
+        XCTAssertEqual(tasks.snapshot()[task.id], task)
+        let restoredMetadata = await planning.metadata(for: task.id)
+        XCTAssertNil(restoredMetadata?.planningDay)
+    }
+
+    func testInvalidScheduledIntervalMakesNoWrites() async throws {
+        let task = TaskDefinition(title: "Invalid")
+        let tasks = BatchFailingTaskRepository(seed: [task])
+        let coordinator = TaskBatchMutationCoordinator(
+            tasks: tasks,
+            planning: BatchPlanningRepository()
+        )
+        let start = Date(timeIntervalSince1970: 1_775_280_400)
+
+        do {
+            _ = try await coordinator.apply(
+                TaskBatchMutationRequest(
+                    taskIDs: [task.id],
+                    mutation: .schedule(
+                        planningDay: PlanningDay(
+                            year: 2026,
+                            month: 8,
+                            day: 4,
+                            timeZoneIdentifier: "UTC"
+                        ),
+                        startAt: start,
+                        endAt: start
+                    )
+                )
+            )
+            XCTFail("An empty scheduled interval must be rejected")
+        } catch let error as TaskBatchMutationError {
+            XCTAssertEqual(error, .invalidSchedule)
+        }
+
+        XCTAssertEqual(tasks.updateAttemptCount, 0)
+        XCTAssertEqual(tasks.snapshot()[task.id], task)
+    }
+}
+
+private enum BatchMutationTestError: Error {
+    case injectedUpdateFailure
+    case injectedRelationshipFailure
+}
+
+private final class BatchFailingTaskRepository:
+    TaskDefinitionRepositoryProtocol,
+    @unchecked Sendable
+{
+    private struct FailureState {
+        var updateAttempts = 0
+        var failingUpdateAttempt: Int?
+    }
+
+    private let base: InMemoryTaskDefinitionRepositoryStub
+    private let failureState: LockedTestState<FailureState>
+
+    init(seed: [TaskDefinition], failingUpdateAttempt: Int? = nil) {
+        base = InMemoryTaskDefinitionRepositoryStub(seed: seed)
+        failureState = LockedTestState(
+            FailureState(failingUpdateAttempt: failingUpdateAttempt)
+        )
+    }
+
+    var updateAttemptCount: Int { failureState.read().updateAttempts }
+    func snapshot() -> [UUID: TaskDefinition] { base.byID }
+
+    func fetchAll(
+        completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void
+    ) {
+        base.fetchAll(completion: completion)
+    }
+
+    func fetchAll(
+        query: TaskDefinitionQuery?,
+        completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void
+    ) {
+        base.fetchAll(query: query, completion: completion)
+    }
+
+    func fetchTaskDefinition(
+        id: UUID,
+        completion: @escaping @Sendable (Result<TaskDefinition?, Error>) -> Void
+    ) {
+        base.fetchTaskDefinition(id: id, completion: completion)
+    }
+
+    func create(
+        _ task: TaskDefinition,
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
+    ) {
+        base.create(task, completion: completion)
+    }
+
+    func create(
+        request: CreateTaskDefinitionRequest,
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
+    ) {
+        base.create(request: request, completion: completion)
+    }
+
+    func update(
+        _ task: TaskDefinition,
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
+    ) {
+        let shouldFail = failureState.withValue { state in
+            state.updateAttempts += 1
+            if state.failingUpdateAttempt == state.updateAttempts {
+                state.failingUpdateAttempt = nil
+                return true
+            }
+            return false
+        }
+        guard shouldFail == false else {
+            completion(.failure(BatchMutationTestError.injectedUpdateFailure))
+            return
+        }
+        base.update(task, completion: completion)
+    }
+
+    func update(
+        request: UpdateTaskDefinitionRequest,
+        completion: @escaping @Sendable (Result<TaskDefinition, Error>) -> Void
+    ) {
+        base.update(request: request, completion: completion)
+    }
+
+    func fetchChildren(
+        parentTaskID: UUID,
+        completion: @escaping @Sendable (Result<[TaskDefinition], Error>) -> Void
+    ) {
+        base.fetchChildren(parentTaskID: parentTaskID, completion: completion)
+    }
+
+    func delete(
+        id: UUID,
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
+    ) {
+        base.delete(id: id, completion: completion)
+    }
+}
+
+private final class BatchTagLinkRepository:
+    TaskTagLinkRepositoryProtocol,
+    @unchecked Sendable
+{
+    private struct State {
+        var links: [UUID: [UUID]]
+        var replaceAttempts = 0
+        var failingReplaceAttempt: Int?
+    }
+
+    private let state: LockedTestState<State>
+
+    init(seed: [UUID: [UUID]], failingReplaceAttempt: Int? = nil) {
+        state = LockedTestState(
+            State(links: seed, failingReplaceAttempt: failingReplaceAttempt)
+        )
+    }
+
+    var replaceAttemptCount: Int { state.read().replaceAttempts }
+    func snapshot() -> [UUID: [UUID]] { state.read().links }
+
+    func fetchTagIDs(
+        taskID: UUID,
+        completion: @escaping @Sendable (Result<[UUID], Error>) -> Void
+    ) {
+        completion(.success(state.read().links[taskID] ?? []))
+    }
+
+    func replaceTagLinks(
+        taskID: UUID,
+        tagIDs: [UUID],
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
+    ) {
+        let result: Result<Void, Error> = state.withValue { state in
+            state.replaceAttempts += 1
+            if state.failingReplaceAttempt == state.replaceAttempts {
+                state.failingReplaceAttempt = nil
+                return .failure(BatchMutationTestError.injectedRelationshipFailure)
+            }
+            state.links[taskID] = tagIDs
+            return .success(())
+        }
+        completion(result)
+    }
+}
+
+private actor BatchPlanningRepository: PlanningRepository, PlanningMutationRepository {
+    private var metadataByTaskID: [UUID: PlanningTaskMetadata] = [:]
+    private var mutationsByReceiptID: [UUID: PlanMutation] = [:]
+    private var receipts: [UUID: PlanningReceiptRecord] = [:]
+
+    func metadata(for taskID: UUID) -> PlanningTaskMetadata? {
+        metadataByTaskID[taskID]
+    }
+
+    func fetchTaskMetadata(taskIDs: Set<UUID>?) async throws -> [PlanningTaskMetadata] {
+        guard let taskIDs else { return Array(metadataByTaskID.values) }
+        return taskIDs.compactMap { metadataByTaskID[$0] }
+    }
+
+    func saveTaskMetadata(_ value: PlanningTaskMetadata) async throws {
+        metadataByTaskID[value.taskID] = value
+    }
+
+    func saveTaskMetadata(_ values: [PlanningTaskMetadata]) async throws {
+        for value in values { metadataByTaskID[value.taskID] = value }
+    }
+
+    func prepare(
+        _ mutation: PlanMutation,
+        source: String,
+        summary: String
+    ) async throws -> PlanMutationReceipt {
+        let receipt = PlanMutationReceipt(
+            id: UUID(),
+            source: source,
+            summary: summary,
+            forwardData: Data(),
+            undoData: Data(),
+            createdAt: Date()
+        )
+        mutationsByReceiptID[receipt.id] = mutation
+        receipts[receipt.id] = PlanningReceiptRecord(receipt: receipt, state: .prepared)
+        return receipt
+    }
+
+    func apply(receiptID: UUID) async throws {
+        guard let mutation = mutationsByReceiptID[receiptID] else { return }
+        applyForward(mutation)
+        if var record = receipts[receiptID] {
+            record.state = .applied
+            record.appliedAt = Date()
+            receipts[receiptID] = record
+        }
+    }
+
+    func undo(receiptID: UUID) async throws {
+        guard let mutation = mutationsByReceiptID[receiptID] else { return }
+        applyUndo(mutation)
+        if var record = receipts[receiptID] {
+            record.state = .undone
+            record.undoneAt = Date()
+            receipts[receiptID] = record
+        }
+    }
+
+    func hasAppliedReceipt(source: String) async throws -> Bool {
+        receipts.values.contains {
+            $0.receipt.source == source && $0.state == .applied
+        }
+    }
+
+    func fetchMutationReceipts(since: Date?) async throws -> [PlanningReceiptRecord] {
+        receipts.values.filter {
+            guard let since else { return true }
+            return $0.receipt.createdAt >= since
+        }
+    }
+
+    private func applyForward(_ mutation: PlanMutation) {
+        switch mutation {
+        case let .saveTaskMetadata(_, after):
+            metadataByTaskID[after.taskID] = after
+        case let .batch(mutations):
+            for mutation in mutations { applyForward(mutation) }
+        case .saveTimeBlock, .deleteTimeBlock, .setTaskCompletion:
+            break
+        }
+    }
+
+    private func applyUndo(_ mutation: PlanMutation) {
+        switch mutation {
+        case let .saveTaskMetadata(before, _):
+            metadataByTaskID[before.taskID] = before
+        case let .batch(mutations):
+            for mutation in mutations.reversed() { applyUndo(mutation) }
+        case .saveTimeBlock, .deleteTimeBlock, .setTaskCompletion:
+            break
+        }
+    }
+}
+
 final class InboxCommitCoordinatorTests: XCTestCase {
 
     private final class QueueBox: @unchecked Sendable {
@@ -53,9 +437,15 @@ final class InboxCommitCoordinatorTests: XCTestCase {
                 box.lock.lock(); defer { box.lock.unlock() }
                 box.captures.removeAll { ids.contains($0.id) }
             },
-            restore: { capture in
+            restore: { captures in
                 box.lock.lock(); defer { box.lock.unlock() }
-                box.captures.append(capture)
+                for capture in captures {
+                    if let index = box.captures.firstIndex(where: { $0.id == capture.id }) {
+                        box.captures[index] = capture
+                    } else {
+                        box.captures.append(capture)
+                    }
+                }
             }
         )
         return (InboxCommitCoordinator(writer: writer, queue: access), box)
@@ -104,6 +494,69 @@ final class InboxCommitCoordinatorTests: XCTestCase {
         }
 
         XCTAssertEqual(box.captures.map(\.id), [pending.id])
+    }
+
+    func testFailedQueueFinalizationCompensatesTheCreatedTask() async {
+        let writer = SpyTaskWriter()
+        let taskID = UUID()
+        await writer.setCreateResult(.success(taskID))
+        let pending = capture()
+        let queue = InboxCaptureQueueAccess(
+            read: { [pending] },
+            remove: { _ in throw InboxCaptureQueueFailure.writeFailed },
+            restore: { _ in }
+        )
+        let coordinator = InboxCommitCoordinator(writer: writer, queue: queue)
+
+        do {
+            _ = try await coordinator.commit(
+                InboxCaptureCommitRequest(captureID: pending.id, title: "call mom")
+            )
+            XCTFail("expected queue finalization to fail")
+        } catch {
+            guard case InboxCommitFailure.taskWriteFailed = error else {
+                return XCTFail("expected taskWriteFailed, got \(error)")
+            }
+        }
+
+        let deleted = await writer.deleted
+        XCTAssertEqual(deleted, [taskID])
+        XCTAssertEqual(queue.read(), [pending])
+    }
+
+    func testConcurrentCaptureWritesKeepEveryStableIdentityAndDeduplicateRetries() {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let url = directory.appendingPathComponent("PendingCaptureInbox.json")
+        XCTAssertNoThrow(try FileManager.default.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true
+        ))
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let captures = (0..<40).map { index in
+            PendingCapture(
+                id: UUID(),
+                rawText: "capture \(index)",
+                createdAt: Date(timeIntervalSince1970: TimeInterval(index)),
+                source: index.isMultiple(of: 2) ? "widget" : "share-extension"
+            )
+        }
+        DispatchQueue.concurrentPerform(iterations: captures.count) { index in
+            XCTAssertTrue(PendingCaptureInbox.upsert([captures[index]], at: url))
+        }
+        let retried = PendingCapture(
+            id: captures[0].id,
+            rawText: "capture 0, updated",
+            createdAt: captures[0].createdAt,
+            source: "app-intent"
+        )
+        XCTAssertTrue(PendingCaptureInbox.upsert([retried], at: url))
+
+        let stored = PendingCaptureInbox.read(from: url)
+        XCTAssertEqual(stored.count, captures.count)
+        XCTAssertEqual(Set(stored.map(\.id)), Set(captures.map(\.id)))
+        XCTAssertEqual(stored.first(where: { $0.id == retried.id }), retried)
     }
 
     /// Already committed elsewhere, or discarded on another device. Committing
@@ -281,6 +734,124 @@ final class InboxCommitCoordinatorTests: XCTestCase {
             fallbackTitle: "tomorrow"
         )
         XCTAssertEqual(request.title, "tomorrow")
+    }
+
+    func testEditedReviewDraftIsTheOnlySourceOfTheCommitRequest() {
+        let captureID = UUID()
+        let parsed = TaskCaptureParser.parse(
+            "draft proposal tomorrow +Work #writing @desk !high",
+            now: Date(timeIntervalSince1970: 1_700_000_000)
+        )
+        var draft = InboxCaptureReviewDraft(
+            captureID: captureID,
+            parsed: parsed,
+            fallbackTitle: "raw text that must never be reparsed"
+        )
+        let reviewedDate = Date(timeIntervalSince1970: 1_800_000_000)
+        draft.title = "  Final reviewed title  "
+        draft.dueDate = reviewedDate
+        draft.isAllDay = false
+        draft.estimatedDuration = 35 * 60
+        draft.repeatPattern = .weekly([.monday, .thursday])
+        draft.priority = .low
+        draft.projectName = "  Personal "
+        draft.tagNames = ["Writing", " writing ", "Deep work"]
+        draft.contextName = "  home "
+
+        XCTAssertEqual(
+            draft.commitRequest,
+            InboxCaptureCommitRequest(
+                captureID: captureID,
+                title: "Final reviewed title",
+                dueDate: reviewedDate,
+                isAllDay: false,
+                estimatedDuration: 35 * 60,
+                repeatPattern: .weekly([.monday, .thursday]),
+                priority: .low,
+                projectName: "Personal",
+                tagNames: ["Writing", "Deep work"],
+                contextName: "home"
+            )
+        )
+    }
+
+    func testDuplicateMergeRequiresEveryConflictingFieldToBeAcknowledged() {
+        let reviewed = InboxCaptureReviewDraft(
+            captureID: UUID(),
+            title: "Reviewed",
+            dueDate: Date(timeIntervalSince1970: 200),
+            repeatPattern: .daily,
+            priority: .high,
+            projectName: "Personal"
+        )
+        let destination = InboxMergeDestinationSnapshot(
+            title: "Existing",
+            dueDate: Date(timeIntervalSince1970: 100),
+            repeatPattern: .weekly(.friday),
+            priority: .low,
+            projectName: "Work"
+        )
+        let conflicts = DuplicateMergeResolution(
+            finalTitle: "Final",
+            choices: [.date: .destination]
+        )
+
+        XCTAssertEqual(conflicts.conflicts(reviewed: reviewed, destination: destination), [
+            .date, .project, .priority, .recurrence
+        ])
+        XCTAssertFalse(conflicts.isComplete(reviewed: reviewed, destination: destination))
+        XCTAssertNil(conflicts.commitRequest(reviewed: reviewed, destination: destination))
+    }
+
+    func testDuplicateMergeUsesExplicitSourcesAndUnionsTags() throws {
+        let reviewedDate = Date(timeIntervalSince1970: 200)
+        let destinationDate = Date(timeIntervalSince1970: 100)
+        let reviewed = InboxCaptureReviewDraft(
+            captureID: UUID(),
+            title: "Reviewed",
+            dueDate: reviewedDate,
+            isAllDay: false,
+            estimatedDuration: 20 * 60,
+            repeatPattern: .daily,
+            priority: .high,
+            projectName: "Personal",
+            tagNames: ["Writing", "Home"],
+            contextName: "home"
+        )
+        let destination = InboxMergeDestinationSnapshot(
+            title: "Existing",
+            dueDate: destinationDate,
+            isAllDay: true,
+            estimatedDuration: 45 * 60,
+            repeatPattern: .weekly(.friday),
+            priority: .low,
+            projectName: "Work",
+            tagNames: ["writing", "Deep"],
+            contextName: "office"
+        )
+        let resolution = DuplicateMergeResolution(
+            finalTitle: "  Final title ",
+            choices: [
+                .date: .reviewed,
+                .project: .destination,
+                .priority: .reviewed,
+                .recurrence: .destination
+            ],
+            acknowledgedFields: [.date, .project, .priority, .recurrence]
+        )
+
+        let request = try XCTUnwrap(
+            resolution.commitRequest(reviewed: reviewed, destination: destination)
+        )
+        XCTAssertEqual(request.title, "Final title")
+        XCTAssertEqual(request.dueDate, reviewedDate)
+        XCTAssertFalse(request.isAllDay)
+        XCTAssertEqual(request.estimatedDuration, 45 * 60)
+        XCTAssertEqual(request.repeatPattern, .weekly(.friday))
+        XCTAssertEqual(request.priority, .high)
+        XCTAssertEqual(request.projectName, "Work")
+        XCTAssertEqual(request.tagNames, ["writing", "Deep", "Home"])
+        XCTAssertEqual(request.contextName, "office")
     }
 
     func testLegacyPendingCaptureJSONDecodesWithNewOptionalShareFields() throws {

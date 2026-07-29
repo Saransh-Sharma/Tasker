@@ -58,57 +58,105 @@ public struct PendingCapture: Codable, Equatable, Identifiable, Sendable {
 /// Safe to call from extensions (no Core Data, just a small JSON file).
 public enum PendingCaptureInbox {
 
-    public static func append(_ capture: PendingCapture) {
-        mutate { $0.append(capture) }
+    @discardableResult
+    public static func append(_ capture: PendingCapture) -> Bool {
+        // Extension delivery is at-least-once. A retry carrying the same stable
+        // identifier must update the existing row rather than create two
+        // independently fileable captures.
+        upsert(capture)
     }
 
     /// Inserts or replaces a stable capture. Used by provisional drafts so a
     /// relaunch recovers one thought rather than a row for every keystroke.
-    public static func upsert(_ capture: PendingCapture) {
-        mutate { queue in
-            if let index = queue.firstIndex(where: { $0.id == capture.id }) {
-                queue[index] = capture
-            } else {
-                queue.append(capture)
+    @discardableResult
+    public static func upsert(_ capture: PendingCapture) -> Bool {
+        upsert([capture])
+    }
+
+    /// Atomically restores or updates a set of captures. Undo uses one
+    /// coordinated transaction so it can never restore only half of a merge.
+    @discardableResult
+    public static func upsert(_ captures: [PendingCapture]) -> Bool {
+        guard let url = AppGroupConstants.pendingCaptureInboxURL else { return false }
+        return upsert(captures, at: url)
+    }
+
+    @discardableResult
+    static func upsert(_ captures: [PendingCapture], at url: URL) -> Bool {
+        mutate(at: url) { queue in
+            for capture in captures {
+                if let index = queue.firstIndex(where: { $0.id == capture.id }) {
+                    queue[index] = capture
+                } else {
+                    queue.append(capture)
+                }
             }
         }
     }
 
     /// Removes the provisional marker without changing identity or chronology.
-    public static func finalize(id: UUID) {
-        mutate { queue in
+    @discardableResult
+    public static func finalize(id: UUID) -> Bool {
+        guard let url = AppGroupConstants.pendingCaptureInboxURL else { return false }
+        return mutate(at: url) { queue in
             guard let index = queue.firstIndex(where: { $0.id == id }) else { return }
             queue[index] = queue[index].finalized()
         }
     }
 
     public static func read() -> [PendingCapture] {
-        guard let url = AppGroupConstants.pendingCaptureInboxURL,
-              let data = try? Data(contentsOf: url),
-              let queue = try? JSONDecoder().decode([PendingCapture].self, from: data) else {
-            return []
+        guard let url = AppGroupConstants.pendingCaptureInboxURL else { return [] }
+        return read(from: url)
+    }
+
+    static func read(from url: URL) -> [PendingCapture] {
+        let coordinator = NSFileCoordinator(filePresenter: nil)
+        var coordinationError: NSError?
+        var result: [PendingCapture] = []
+        coordinator.coordinate(
+            readingItemAt: url,
+            options: .withoutChanges,
+            error: &coordinationError
+        ) { coordinatedURL in
+            guard let data = try? Data(contentsOf: coordinatedURL),
+                  let queue = try? JSONDecoder().decode([PendingCapture].self, from: data) else {
+                return
+            }
+            result = queue
         }
-        return queue
+        return result
     }
 
     /// Removes the given captures (by id) from the file, preserving any that arrived since.
-    public static func remove(ids: Set<UUID>) {
-        mutate { queue in
+    @discardableResult
+    public static func remove(ids: Set<UUID>) -> Bool {
+        guard let url = AppGroupConstants.pendingCaptureInboxURL else { return false }
+        return remove(ids: ids, at: url)
+    }
+
+    @discardableResult
+    static func remove(ids: Set<UUID>, at url: URL) -> Bool {
+        mutate(at: url) { queue in
             queue.removeAll { ids.contains($0.id) }
         }
     }
 
-    public static func clear() {
-        mutate { $0.removeAll() }
+    @discardableResult
+    public static func clear() -> Bool {
+        guard let url = AppGroupConstants.pendingCaptureInboxURL else { return false }
+        return mutate(at: url) { $0.removeAll() }
     }
 
     /// Coordinates the complete read-modify-write transaction across the app
     /// and extensions. Atomic Data writes alone do not prevent two processes
     /// from both reading the same old queue and losing one another's append.
-    private static func mutate(_ mutation: (inout [PendingCapture]) -> Void) {
-        guard let url = AppGroupConstants.pendingCaptureInboxURL else { return }
+    private static func mutate(
+        at url: URL,
+        _ mutation: (inout [PendingCapture]) -> Void
+    ) -> Bool {
         let coordinator = NSFileCoordinator(filePresenter: nil)
         var coordinationError: NSError?
+        var didWrite = false
         coordinator.coordinate(writingItemAt: url, options: .forMerging, error: &coordinationError) { coordinatedURL in
             var queue: [PendingCapture]
             if let data = try? Data(contentsOf: coordinatedURL),
@@ -118,12 +166,18 @@ public enum PendingCaptureInbox {
                 queue = []
             }
             mutation(&queue)
-            write(queue, to: coordinatedURL)
+            didWrite = write(queue, to: coordinatedURL)
         }
+        return coordinationError == nil && didWrite
     }
 
-    private static func write(_ queue: [PendingCapture], to url: URL) {
-        guard let data = try? JSONEncoder().encode(queue) else { return }
-        try? data.write(to: url, options: .atomic)
+    private static func write(_ queue: [PendingCapture], to url: URL) -> Bool {
+        guard let data = try? JSONEncoder().encode(queue) else { return false }
+        do {
+            try data.write(to: url, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
     }
 }

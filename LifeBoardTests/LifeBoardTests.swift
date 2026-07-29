@@ -5067,7 +5067,16 @@ final class OccurrenceIdentityTests: XCTestCase {
                 completion: completion
             )
         }
-        XCTAssertTrue(secondPass.isEmpty, "Deterministic keying should prevent duplicate generation")
+        XCTAssertEqual(secondPass.map(\.id), generated.map(\.id))
+        XCTAssertEqual(secondPass.map(\.occurrenceKey), generated.map(\.occurrenceKey))
+        XCTAssertEqual(
+            generated[0].id,
+            BehaviorOccurrenceIdentity.make(
+                behaviorID: sourceID,
+                canonicalOccurrenceKey: generated[0].occurrenceKey,
+                timezoneID: try XCTUnwrap(TimeZone(identifier: "UTC")).identifier
+            )
+        )
     }
 
     func testResolveDoesNotMutateOccurrenceKey() throws {
@@ -6494,7 +6503,15 @@ final class ScheduleExceptionRebuildTests: XCTestCase {
                 completion: completion
             )
         }
-        XCTAssertTrue(secondPass.isEmpty, "Exception rebuild should not recreate skipped occurrence with same key")
+        XCTAssertFalse(
+            secondPass.contains(where: { $0.occurrenceKey == target.occurrenceKey }),
+            "Exception rebuild should not recreate the skipped occurrence."
+        )
+        XCTAssertEqual(
+            secondPass.first(where: { $0.occurrenceKey == unaffected.occurrenceKey })?.id,
+            unaffected.id,
+            "Idempotent projections must retain unaffected occurrence identity."
+        )
     }
 }
 

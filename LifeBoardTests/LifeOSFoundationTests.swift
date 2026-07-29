@@ -845,6 +845,42 @@ final class LifeOSFoundationContractTests: XCTestCase {
         )
     }
 
+    func testResizeUsesFiveMinuteGridOnlyNearARealBoundary() {
+        let edge = Date(timeIntervalSince1970: 10_000)
+        let hourHeight: CGFloat = 60
+        let translation: CGFloat = 20 // Twenty raw minutes.
+
+        let nearBoundary = PlanBlockSnapResolver.boundaryAwareSnappedMinutes(
+            translation: translation,
+            hourHeight: hourHeight,
+            movingEdgeAt: edge,
+            boundaries: [edge.addingTimeInterval(22 * 60)],
+            bounds: -120...120
+        )
+        let withoutBoundary = PlanBlockSnapResolver.boundaryAwareSnappedMinutes(
+            translation: translation,
+            hourHeight: hourHeight,
+            movingEdgeAt: edge,
+            boundaries: [],
+            bounds: -120...120
+        )
+
+        XCTAssertEqual(nearBoundary, 20)
+        XCTAssertEqual(withoutBoundary, 15)
+    }
+
+    func testResizeBoundarySnapClampsToFifteenMinuteMinimumBounds() {
+        let edge = Date(timeIntervalSince1970: 10_000)
+        let snapped = PlanBlockSnapResolver.boundaryAwareSnappedMinutes(
+            translation: -500,
+            hourHeight: 60,
+            movingEdgeAt: edge,
+            boundaries: [edge.addingTimeInterval(-480 * 60)],
+            bounds: -45...300
+        )
+        XCTAssertEqual(snapped, -45)
+    }
+
     private func completionModelBundleURL() throws -> URL {
         for bundle in [Bundle.main, Bundle(for: Self.self)] {
             if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") { return url }
@@ -1726,7 +1762,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
             "JournalMediaAttachment", "KnowledgeSpace", "KnowledgeFolder", "KnowledgeNote",
             "KnowledgeBlock", "KnowledgeTag", "KnowledgeNoteTagLink", "KnowledgeLink", "KnowledgeAttachment",
             "KnowledgeSmartCollection", "KnowledgeNoteRevision", "KnowledgeNoteSecurePayload",
-            "GoalStatusEvent"
+            "GoalStatusEvent", "Recipe", "RecipeIngredient", "MealTemplate", "GroceryList",
+            "ServingMemory", "NutritionPreference", "FastingTemplate"
         ] {
             XCTAssertTrue(cloud.contains(name), "\(name) must be in CloudSync")
         }
@@ -1768,6 +1805,21 @@ final class LifeOSFoundationContractTests: XCTestCase {
             Set(statusEvent.attributesByName.keys),
             ["id", "goalID", "statusRaw", "reason", "recordedAt"]
         )
+        for entityName in [
+            "Recipe", "RecipeIngredient", "MealTemplate", "GroceryList",
+            "ServingMemory", "NutritionPreference", "FastingTemplate"
+        ] {
+            XCTAssertNotNil(
+                model.entitiesByName[entityName],
+                "\(entityName) must be locked into the single unshipped Phase 2 model."
+            )
+        }
+        let nutritionLog = try XCTUnwrap(model.entitiesByName["NutritionLogEntry"])
+        XCTAssertTrue(
+            Set(["recipeID", "mealTemplateID", "provenanceRaw", "sourceReference"])
+                .isSubset(of: Set(nutritionLog.attributesByName.keys))
+        )
+        XCTAssertNotNil(model.entitiesByName["FastingSession"]?.attributesByName["templateID"])
     }
 
     /// Every compiled predecessor has to migrate, and "every" is discovered from
@@ -3216,6 +3268,66 @@ final class LifeOSFoundationContractTests: XCTestCase {
         )
     }
 
+    func testContextPolicyGuaranteesOnePrimaryNowAndAtMostOneDayAheadStory() {
+        let now = Date(timeIntervalSince1970: 21_000)
+        let primary = HomeContextCandidate(
+            id: "primary",
+            widgetKind: .focusNow,
+            title: "Write the outline",
+            reason: .init(message: "Actionable now", signal: "task"),
+            destination: .plan,
+            priority: 100,
+            relevantFrom: now,
+            semanticRole: .primaryNow
+        )
+        let higherPriorityCare = HomeContextCandidate(
+            id: "care",
+            widgetKind: .care,
+            title: "Care",
+            reason: .init(message: "A care decision", signal: "care"),
+            destination: .track,
+            priority: 900,
+            relevantFrom: now,
+            semanticRole: .care
+        )
+        let firstStory = HomeContextCandidate(
+            id: "story-a",
+            widgetKind: .compactTimeline,
+            title: "Next meeting",
+            reason: .init(message: "Starts soon", signal: "calendar"),
+            destination: .plan,
+            priority: 800,
+            relevantFrom: now,
+            semanticRole: .dayAheadStory
+        )
+        let secondStory = HomeContextCandidate(
+            id: "story-b",
+            widgetKind: .scheduleCapacity,
+            title: "Later meeting",
+            reason: .init(message: "Later today", signal: "calendar"),
+            destination: .plan,
+            priority: 700,
+            relevantFrom: now,
+            semanticRole: .dayAheadStory
+        )
+
+        let selection = DeterministicHomeContextPolicy().select(
+            candidates: [higherPriorityCare, secondStory, primary, firstStory],
+            dispositions: [:],
+            permitsSensitiveHomeContent: true,
+            now: now
+        )
+        XCTAssertEqual(selection.candidates.first?.id, primary.id)
+        XCTAssertEqual(
+            selection.candidates.filter { $0.resolvedSemanticRole == .primaryNow }.count,
+            1
+        )
+        XCTAssertEqual(
+            selection.candidates.filter { $0.resolvedSemanticRole == .dayAheadStory }.map(\.id),
+            [firstStory.id]
+        )
+    }
+
     func testSmartSlotOwnershipRemainsTransactional() throws {
         let original = DashboardLayoutValue(
             mode: .smart,
@@ -4053,6 +4165,96 @@ final class LifeOSFoundationContractTests: XCTestCase {
         try await repository.deleteLog(id: entry.id)
         let logs = try await repository.logs(from: nil, to: nil)
         XCTAssertTrue(logs.isEmpty)
+    }
+
+    func testNutritionWorkflowPreservesSnapshotsAndReversesCorrection() async throws {
+        let macros = try NutritionMacros(calories: 120, proteinGrams: 8, carbohydrateGrams: 18, fatGrams: 2)
+        let serving = try FoodServingDefinition(name: "bowl", grams: 150)
+        let food = try FoodItem(name: "Yogurt bowl", macrosPer100Grams: macros, servings: [serving])
+        let original = try NutritionLogEntry(
+            food: food,
+            mealSlot: .breakfast,
+            quantity: 1,
+            serving: serving,
+            provenance: .barcodeLocal,
+            sourceReference: "01234567"
+        )
+        let repository = InMemoryNutritionRepository(foods: [food], logs: [original])
+        let service = NutritionWorkflowService(repository: repository)
+
+        let receipt = try await service.correctLog(
+            id: original.id,
+            quantity: 2,
+            mealSlot: .snack,
+            loggedAt: original.loggedAt.addingTimeInterval(60),
+            note: "Shared bowl"
+        )
+        let correctedLogs = try await repository.logs(from: nil, to: nil)
+        let corrected = try XCTUnwrap(correctedLogs.first)
+        XCTAssertEqual(corrected.resolvedMacrosSnapshot.calories, original.resolvedMacrosSnapshot.calories * 2)
+        XCTAssertEqual(corrected.provenance, .barcodeLocal)
+        XCTAssertEqual(corrected.sourceReference, "01234567")
+
+        try await service.undo(receipt)
+        let restoredLogs = try await repository.logs(from: nil, to: nil)
+        let restored = try XCTUnwrap(restoredLogs.first)
+        XCTAssertEqual(restored, original)
+    }
+
+    func testNutritionRecipeTemplateGroceryAndPreferencesRoundTrip() async throws {
+        let container = try await makeHealthPrivacyValidatedContainer(name: "NutritionLibraryRoundTrip")
+        let repository = CoreDataNutritionRepository(container: container)
+        let macros = try NutritionMacros(calories: 100, proteinGrams: 4, carbohydrateGrams: 15, fatGrams: 3)
+        let serving = try FoodServingDefinition(name: "slice", grams: 50)
+        let food = try FoodItem(name: "Bread", macrosPer100Grams: macros, servings: [serving])
+        try await repository.save(food)
+
+        let recipeID = UUID()
+        let ingredient = try RecipeIngredient(
+            recipeID: recipeID,
+            foodID: food.id,
+            nameSnapshot: food.name,
+            quantity: 2,
+            unitLabel: "slices",
+            gramsSnapshot: 100,
+            ordinal: 0
+        )
+        let recipe = try NutritionRecipe(
+            id: recipeID,
+            title: "Toast",
+            servingCount: 1,
+            resolvedNutrition: try food.resolvedMacros(grams: 100),
+            isFavorite: true
+        )
+        try await repository.save(recipe, ingredients: [ingredient])
+
+        let template = try NutritionMealTemplate(
+            title: "Quick breakfast",
+            mealSlot: .breakfast,
+            items: [try MealTemplateItem(source: .recipe, sourceID: recipe.id, quantity: 1)]
+        )
+        try await repository.save(template)
+        let service = NutritionWorkflowService(repository: repository)
+        let receipts = try await service.instantiate(template: template)
+        let grocery = try await service.groceryList(title: "Breakfast shop", recipeIDs: [recipe.id])
+        let preferences = try NutritionPreferences(
+            caloriesHidden: true,
+            macroTargets: macros,
+            micronutrientTargets: ["iron": 18]
+        )
+        try await repository.save(preferences)
+
+        let restoredRecipes = try await repository.recipes()
+        let restoredIngredients = try await repository.ingredients(recipeID: recipe.id)
+        let restoredLogs = try await repository.logs(from: nil, to: nil)
+        let restoredPreferences = try await repository.preferences()
+        XCTAssertEqual(restoredRecipes.map(\.id), [recipe.id])
+        XCTAssertEqual(restoredIngredients, [ingredient])
+        XCTAssertEqual(receipts.count, 1)
+        XCTAssertEqual(restoredLogs.first?.recipeID, recipe.id)
+        XCTAssertEqual(restoredLogs.first?.mealTemplateID, template.id)
+        XCTAssertEqual(grocery.items.first?.sourceRecipeID, recipe.id)
+        XCTAssertEqual(restoredPreferences, preferences)
     }
 
     func testNutritionRemoteLookupRequiresBothExplicitIntentAndReleaseFlag() throws {

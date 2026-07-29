@@ -1596,6 +1596,395 @@ final class LifeManagementDestructiveFlowCoordinatorTests: XCTestCase {
     }
 }
 
+final class ProjectTemplateInstantiationServiceTests: XCTestCase {
+
+    func testInstantiationRemapsTheCompleteTemplateGraphAndUndoRemovesTheCopy() async throws {
+        let sourceID = UUID()
+        let source = Project(
+            id: sourceID,
+            name: "Launch Template",
+            isArchived: true,
+            templateId: UUID()
+        )
+        let projectRepository = ProjectRepositoryStub(projects: [source])
+        let sourceSection = TaskerProjectSection(
+            projectID: sourceID,
+            name: "Build",
+            sortOrder: 2
+        )
+        let sectionRepository = TemplateSectionRepository(seed: [sourceSection])
+        let rootID = UUID()
+        let childID = UUID()
+        let tagID = UUID()
+        let dependencyID = UUID()
+        let recurrenceSeriesID = UUID()
+        let root = TaskDefinition(
+            id: rootID,
+            recurrenceSeriesID: recurrenceSeriesID,
+            projectID: sourceID,
+            projectName: source.name,
+            sectionID: sourceSection.id,
+            title: "Root",
+            tagIDs: [tagID],
+            subtasks: [childID]
+        )
+        let child = TaskDefinition(
+            id: childID,
+            recurrenceSeriesID: recurrenceSeriesID,
+            projectID: sourceID,
+            projectName: source.name,
+            sectionID: sourceSection.id,
+            parentTaskID: rootID,
+            title: "Child",
+            dependencies: [
+                TaskDependencyLinkDefinition(
+                    id: dependencyID,
+                    taskID: childID,
+                    dependsOnTaskID: rootID,
+                    kind: .related
+                )
+            ]
+        )
+        let taskRepository = InMemoryTaskDefinitionRepositoryStub(seed: [root, child])
+        let milestone = ProjectMilestone(
+            projectID: sourceID,
+            title: "Ready",
+            sortOrder: 1
+        )
+        let milestoneRepository = TemplateMilestoneRepository(seed: [milestone])
+        let planningRepository = TemplatePlanningRepository(
+            seed: [
+                PlanningTaskMetadata(taskID: rootID, pinOrder: 4),
+                PlanningTaskMetadata(taskID: childID, pinOrder: 5)
+            ]
+        )
+        let service = ProjectTemplateInstantiationService(
+            projects: projectRepository,
+            sections: sectionRepository,
+            tasks: taskRepository,
+            tagLinks: TemplateTagLinkRepository(),
+            dependencyLinks: TemplateDependencyRepository(),
+            milestones: milestoneRepository,
+            planning: planningRepository
+        )
+
+        let receipt = try await service.instantiate(
+            sourceProjectID: sourceID,
+            name: "Launch"
+        )
+
+        XCTAssertNotEqual(receipt.createdProject.id, sourceID)
+        XCTAssertEqual(receipt.createdProject.name, "Launch")
+        XCTAssertFalse(receipt.createdProject.isArchived)
+        XCTAssertEqual(receipt.createdProject.templateId, sourceID)
+        XCTAssertEqual(receipt.identityMap.sectionIDs[sourceSection.id], receipt.createdSections.first?.id)
+        XCTAssertEqual(receipt.identityMap.milestoneIDs[milestone.id], receipt.createdMilestones.first?.id)
+
+        let copiedRootID = try XCTUnwrap(receipt.identityMap.taskIDs[rootID])
+        let copiedChildID = try XCTUnwrap(receipt.identityMap.taskIDs[childID])
+        let copiedRoot = try XCTUnwrap(
+            receipt.createdTasks.first(where: { $0.id == copiedRootID })
+        )
+        let copiedChild = try XCTUnwrap(
+            receipt.createdTasks.first(where: { $0.id == copiedChildID })
+        )
+        XCTAssertEqual(copiedRoot.subtasks, [copiedChildID])
+        XCTAssertEqual(copiedRoot.tagIDs, [tagID])
+        XCTAssertEqual(copiedChild.parentTaskID, copiedRootID)
+        XCTAssertEqual(copiedChild.dependencies.first?.taskID, copiedChildID)
+        XCTAssertEqual(copiedChild.dependencies.first?.dependsOnTaskID, copiedRootID)
+        XCTAssertNotEqual(copiedRoot.recurrenceSeriesID, recurrenceSeriesID)
+        XCTAssertEqual(copiedRoot.recurrenceSeriesID, copiedChild.recurrenceSeriesID)
+        XCTAssertEqual(
+            copiedRoot.recurrenceSeriesID,
+            receipt.identityMap.recurrenceSeriesIDs[recurrenceSeriesID]
+        )
+        XCTAssertEqual(
+            receipt.createdPlanningMetadata.first {
+                $0.taskID == copiedRootID
+            }?.pinOrder,
+            4
+        )
+        let copiedChildPinOrder = await planningRepository.pinOrder(
+            taskID: copiedChildID
+        )
+        XCTAssertEqual(copiedChildPinOrder, 5)
+        XCTAssertEqual(
+            copiedChild.dependencies.first?.id,
+            receipt.identityMap.dependencyIDs[dependencyID]
+        )
+        XCTAssertFalse(
+            receipt.createdTasks.contains {
+                $0.id == rootID
+                    || $0.id == childID
+                    || $0.parentTaskID == rootID
+                    || $0.subtasks.contains(childID)
+                    || $0.dependencies.contains { $0.dependsOnTaskID == rootID }
+            }
+        )
+
+        try await service.undo(receipt)
+
+        XCTAssertEqual(projectRepository.projects.map(\.id), [sourceID])
+        XCTAssertEqual(Set(taskRepository.byID.keys), [rootID, childID])
+        XCTAssertEqual(sectionRepository.snapshot().map(\.id), [sourceSection.id])
+        let remainingMilestones = try await milestoneRepository.milestones(projectID: sourceID)
+        XCTAssertEqual(remainingMilestones, [milestone])
+        let restoredCopiedRootPinOrder = await planningRepository.pinOrder(
+            taskID: copiedRootID
+        )
+        XCTAssertNil(restoredCopiedRootPinOrder)
+    }
+
+    func testInstantiationRejectsDependenciesThatEscapeTheTemplate() async throws {
+        let source = Project(
+            name: "Unsafe Template",
+            isArchived: true,
+            templateId: UUID()
+        )
+        let task = TaskDefinition(
+            projectID: source.id,
+            title: "Unsafe",
+            dependencies: [
+                TaskDependencyLinkDefinition(
+                    taskID: UUID(),
+                    dependsOnTaskID: UUID(),
+                    kind: .blocks
+                )
+            ]
+        )
+        let service = ProjectTemplateInstantiationService(
+            projects: ProjectRepositoryStub(projects: [source]),
+            sections: TemplateSectionRepository(),
+            tasks: InMemoryTaskDefinitionRepositoryStub(seed: [task]),
+            tagLinks: nil,
+            dependencyLinks: nil,
+            milestones: TemplateMilestoneRepository()
+        )
+
+        do {
+            _ = try await service.instantiate(sourceProjectID: source.id)
+            XCTFail("A source-graph dependency must never leak into a copy")
+        } catch let error as ProjectTemplateInstantiationError {
+            guard case .sourceGraphEscapesTemplate = error else {
+                return XCTFail("Unexpected error \(error)")
+            }
+        }
+    }
+}
+
+private actor TemplatePlanningRepository:
+    PlanningRepository,
+    PlanningMutationRepository
+{
+    private var metadataByTaskID: [UUID: PlanningTaskMetadata]
+    private var mutationsByReceiptID: [UUID: PlanMutation] = [:]
+    private var recordsByReceiptID: [UUID: PlanningReceiptRecord] = [:]
+
+    init(seed: [PlanningTaskMetadata] = []) {
+        metadataByTaskID = Dictionary(uniqueKeysWithValues: seed.map { ($0.taskID, $0) })
+    }
+
+    func pinOrder(taskID: UUID) -> Int? {
+        metadataByTaskID[taskID]?.pinOrder
+    }
+
+    func fetchTaskMetadata(taskIDs: Set<UUID>?) async throws -> [PlanningTaskMetadata] {
+        guard let taskIDs else { return Array(metadataByTaskID.values) }
+        return taskIDs.compactMap { metadataByTaskID[$0] }
+    }
+
+    func saveTaskMetadata(_ value: PlanningTaskMetadata) async throws {
+        metadataByTaskID[value.taskID] = value
+    }
+
+    func saveTaskMetadata(_ values: [PlanningTaskMetadata]) async throws {
+        for value in values { metadataByTaskID[value.taskID] = value }
+    }
+
+    func prepare(
+        _ mutation: PlanMutation,
+        source: String,
+        summary: String
+    ) async throws -> PlanMutationReceipt {
+        let receipt = PlanMutationReceipt(
+            id: UUID(),
+            source: source,
+            summary: summary,
+            forwardData: Data(),
+            undoData: Data(),
+            createdAt: Date()
+        )
+        mutationsByReceiptID[receipt.id] = mutation
+        recordsByReceiptID[receipt.id] = PlanningReceiptRecord(
+            receipt: receipt,
+            state: .prepared
+        )
+        return receipt
+    }
+
+    func apply(receiptID: UUID) async throws {
+        guard let mutation = mutationsByReceiptID[receiptID] else { return }
+        applyForward(mutation)
+        if var record = recordsByReceiptID[receiptID] {
+            record.state = .applied
+            record.appliedAt = Date()
+            recordsByReceiptID[receiptID] = record
+        }
+    }
+
+    func undo(receiptID: UUID) async throws {
+        guard let mutation = mutationsByReceiptID[receiptID] else { return }
+        applyUndo(mutation)
+        if var record = recordsByReceiptID[receiptID] {
+            record.state = .undone
+            record.undoneAt = Date()
+            recordsByReceiptID[receiptID] = record
+        }
+    }
+
+    func hasAppliedReceipt(source: String) async throws -> Bool {
+        recordsByReceiptID.values.contains {
+            $0.receipt.source == source && $0.state == .applied
+        }
+    }
+
+    func fetchMutationReceipts(since: Date?) async throws -> [PlanningReceiptRecord] {
+        recordsByReceiptID.values.filter {
+            guard let since else { return true }
+            return $0.receipt.createdAt >= since
+        }
+    }
+
+    private func applyForward(_ mutation: PlanMutation) {
+        switch mutation {
+        case let .saveTaskMetadata(_, after):
+            metadataByTaskID[after.taskID] = after
+        case let .batch(values):
+            for value in values { applyForward(value) }
+        case .saveTimeBlock, .deleteTimeBlock, .setTaskCompletion:
+            break
+        }
+    }
+
+    private func applyUndo(_ mutation: PlanMutation) {
+        switch mutation {
+        case let .saveTaskMetadata(before, _):
+            metadataByTaskID[before.taskID] = before
+        case let .batch(values):
+            for value in values.reversed() { applyUndo(value) }
+        case .saveTimeBlock, .deleteTimeBlock, .setTaskCompletion:
+            break
+        }
+    }
+}
+
+private final class TemplateSectionRepository:
+    SectionRepositoryProtocol,
+    @unchecked Sendable
+{
+    private let state: LockedTestState<[UUID: TaskerProjectSection]>
+
+    init(seed: [TaskerProjectSection] = []) {
+        state = LockedTestState(
+            Dictionary(uniqueKeysWithValues: seed.map { ($0.id, $0) })
+        )
+    }
+
+    func snapshot() -> [TaskerProjectSection] {
+        Array(state.read().values)
+    }
+
+    func fetchSections(
+        projectID: UUID,
+        completion: @escaping @Sendable (Result<[TaskerProjectSection], Error>) -> Void
+    ) {
+        completion(.success(state.read().values.filter { $0.projectID == projectID }))
+    }
+
+    func create(
+        _ section: TaskerProjectSection,
+        completion: @escaping @Sendable (Result<TaskerProjectSection, Error>) -> Void
+    ) {
+        state.withValue { $0[section.id] = section }
+        completion(.success(section))
+    }
+
+    func update(
+        _ section: TaskerProjectSection,
+        completion: @escaping @Sendable (Result<TaskerProjectSection, Error>) -> Void
+    ) {
+        state.withValue { $0[section.id] = section }
+        completion(.success(section))
+    }
+
+    func delete(
+        id: UUID,
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
+    ) {
+        state.withValue { $0[id] = nil }
+        completion(.success(()))
+    }
+}
+
+private actor TemplateMilestoneRepository: ProjectMilestoneRepository {
+    private var values: [UUID: ProjectMilestone]
+
+    init(seed: [ProjectMilestone] = []) {
+        values = Dictionary(uniqueKeysWithValues: seed.map { ($0.id, $0) })
+    }
+
+    func milestones(projectID: UUID) async throws -> [ProjectMilestone] {
+        values.values
+            .filter { $0.projectID == projectID }
+            .sorted { $0.sortOrder < $1.sortOrder }
+    }
+
+    func saveMilestone(_ milestone: ProjectMilestone) async throws {
+        values[milestone.id] = milestone
+    }
+
+    func deleteMilestone(id: UUID) async throws {
+        values[id] = nil
+    }
+}
+
+private struct TemplateTagLinkRepository: TaskTagLinkRepositoryProtocol {
+    func fetchTagIDs(
+        taskID: UUID,
+        completion: @escaping @Sendable (Result<[UUID], Error>) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func replaceTagLinks(
+        taskID: UUID,
+        tagIDs: [UUID],
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+}
+
+private struct TemplateDependencyRepository: TaskDependencyRepositoryProtocol {
+    func fetchDependencies(
+        taskID: UUID,
+        completion: @escaping @Sendable (
+            Result<[TaskDependencyLinkDefinition], Error>
+        ) -> Void
+    ) {
+        completion(.success([]))
+    }
+
+    func replaceDependencies(
+        taskID: UUID,
+        dependencies: [TaskDependencyLinkDefinition],
+        completion: @escaping @Sendable (Result<Void, Error>) -> Void
+    ) {
+        completion(.success(()))
+    }
+}
+
 private final class ProjectRepositoryStub: ProjectRepositoryProtocol, @unchecked Sendable {
     var projects: [Project]
     var taskCounts: [UUID: Int]

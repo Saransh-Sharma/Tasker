@@ -67,6 +67,176 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertEqual(durations, expected)
     }
 
+    func testFitsNextPairsTasksWithEveryEligibleSpecificGap() {
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let shortID = UUID()
+        let longID = UUID()
+        let short = PlanningTaskSummary(
+            id: shortID,
+            title: "Short",
+            estimatedDuration: 20 * 60,
+            metadata: PlanningTaskMetadata(taskID: shortID),
+            priority: .high
+        )
+        let long = PlanningTaskSummary(
+            id: longID,
+            title: "Long",
+            estimatedDuration: 50 * 60,
+            metadata: PlanningTaskMetadata(taskID: longID)
+        )
+        let first = FreeWindow(
+            startAt: now.addingTimeInterval(10 * 60),
+            endAt: now.addingTimeInterval(40 * 60)
+        )
+        let second = FreeWindow(
+            startAt: now.addingTimeInterval(2 * 60 * 60),
+            endAt: now.addingTimeInterval(3 * 60 * 60)
+        )
+
+        let candidates = FitsNextService.candidates(
+            tasks: [long, short],
+            windows: [second, first],
+            now: now
+        )
+
+        XCTAssertEqual(candidates.map(\.taskID), [shortID, shortID, longID])
+        XCTAssertEqual(candidates.map(\.window), [first, second, second])
+        XCTAssertEqual(Set(candidates.map(\.id)).count, candidates.count)
+    }
+
+    func testMinimumViableDayNeverAppliesAPartialThreePartPlan() {
+        let day = PlanningDay(
+            year: 2026,
+            month: 7,
+            day: 29,
+            timeZoneIdentifier: "Asia/Kolkata"
+        )
+        let empty = PlanDaySnapshot(
+            day: day,
+            capacity: CapacityBudget(
+                workingDuration: 0,
+                fixedCalendarDuration: 0,
+                internalFixedDuration: 0,
+                bufferDuration: 0,
+                plannedEstimatedDuration: 0,
+                missingEstimateCount: 0
+            ),
+            commitments: [],
+            blocks: [],
+            plannedTasks: [],
+            unscheduledTasks: [],
+            generatedAt: Date()
+        )
+
+        let incomplete = MinimumViableDayScenarioBuilder.make(from: empty)
+
+        XCTAssertFalse(incomplete.isReadyToApply)
+        XCTAssertEqual(incomplete.validationIssues.count, 3)
+        XCTAssertTrue(incomplete.proposedMutations.isEmpty)
+
+        let now = Date(timeIntervalSince1970: 2_000)
+        let careID = UUID()
+        let outcomeID = UUID()
+        var completeSnapshot = empty
+        completeSnapshot.unscheduledTasks = [
+            PlanningTaskSummary(
+                id: careID,
+                title: "Drink water",
+                estimatedDuration: 15 * 60,
+                metadata: PlanningTaskMetadata(taskID: careID)
+            ),
+            PlanningTaskSummary(
+                id: outcomeID,
+                title: "Send the note",
+                estimatedDuration: 20 * 60,
+                metadata: PlanningTaskMetadata(taskID: outcomeID)
+            )
+        ]
+        let rest = FreeWindow(
+            startAt: now.addingTimeInterval(60),
+            endAt: now.addingTimeInterval(31 * 60)
+        )
+        completeSnapshot.freeWindows = [rest]
+        let complete = MinimumViableDayScenarioBuilder.make(
+            from: completeSnapshot,
+            selection: MinimumViableDaySelection(
+                careTaskID: careID,
+                outcomeTaskID: outcomeID,
+                restWindowID: rest.id
+            ),
+            now: now
+        )
+
+        XCTAssertTrue(complete.isReadyToApply)
+        XCTAssertEqual(complete.proposedMutations.count, 3)
+    }
+
+    func testScenarioRejectsStaleVersionsAndPreservesItsReceiptSource() async throws {
+        let taskID = UUID()
+        let current = PlanningTaskMetadata(
+            taskID: taskID,
+            updatedAt: Date(timeIntervalSince1970: 200)
+        )
+        let repository = ScenarioPlanningRepository(metadata: [current])
+        let snapshot = PlanDaySnapshot(
+            day: PlanningDay(
+                year: 2026,
+                month: 7,
+                day: 29,
+                timeZoneIdentifier: "UTC"
+            ),
+            capacity: CapacityBudget(
+                workingDuration: 0,
+                fixedCalendarDuration: 0,
+                internalFixedDuration: 0,
+                bufferDuration: 0,
+                plannedEstimatedDuration: 0,
+                missingEstimateCount: 0
+            ),
+            commitments: [],
+            blocks: [],
+            plannedTasks: [],
+            unscheduledTasks: [],
+            generatedAt: Date()
+        )
+        let stale = PlanningScenario(
+            source: .repair,
+            receiptSource: "plan.repair.test",
+            touchedRecords: [
+                PlanningTouchedRecord(
+                    kind: "task",
+                    recordID: taskID,
+                    version: Date(timeIntervalSince1970: 100)
+                )
+            ],
+            proposedMutations: [.batch([])],
+            diff: [PlanningScenarioDiff(title: "Repair")],
+            preview: snapshot
+        )
+        let coordinator = DefaultPlanningScenarioCoordinator(
+            planning: repository,
+            mutations: repository
+        )
+
+        do {
+            _ = try await coordinator.apply(stale)
+            XCTFail("A stale scenario must not apply")
+        } catch let error as PlanningScenarioApplyError {
+            XCTAssertEqual(error, .versionConflict(changedRecordIDs: [taskID]))
+        }
+        let stalePreparedSource = await repository.preparedSource()
+        XCTAssertNil(stalePreparedSource)
+
+        var currentScenario = stale
+        currentScenario.touchedRecords[0].version = current.updatedAt
+        _ = try await coordinator.apply(currentScenario)
+
+        let preparedSource = await repository.preparedSource()
+        let didApply = await repository.didApply()
+        XCTAssertEqual(preparedSource, "plan.repair.test")
+        XCTAssertTrue(didApply)
+    }
+
     func testFocusSessionCommandsAreIdempotentAndNeverCreateNegativeDuration() {
         let sessionID = UUID()
         let startedAt = Date(timeIntervalSince1970: 1_000)
@@ -142,10 +312,10 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         )
     }
 
-    func testFocusStartupRepairEndsExpiredRunningSessionsButPreservesPausedWork() {
+    func testFocusStartupRepairPausesExpiredRunningSessionsForExplicitOutcome() {
         let now = Date(timeIntervalSince1970: 4_000)
         let expired = FocusSessionV2(targetDuration: 1_800, startedAt: now.addingTimeInterval(-1_801))
-        XCTAssertEqual(FocusStartupRepairPolicy.commandKind(for: expired, now: now), .end(.completed))
+        XCTAssertEqual(FocusStartupRepairPolicy.commandKind(for: expired, now: now), .pause)
 
         var paused = expired
         paused.state = .paused
@@ -192,6 +362,99 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
             now: now.addingTimeInterval(7 * 24 * 60 * 60 + 181)
         )
         XCTAssertNil(purged)
+    }
+
+    func testCanonicalFocusCommandsRecoverPomodoroPublishOnceAndPersistReflection() async throws {
+        let model = try XCTUnwrap(
+            NSManagedObjectModel(
+                contentsOf: try modelBundleURL()
+                    .appendingPathComponent("TaskModelV3_BehaviorFlagship.mom")
+            )
+        )
+        let container = NSPersistentContainer(name: "CanonicalFocusCommands", managedObjectModel: model)
+        let cloud = NSPersistentStoreDescription()
+        cloud.type = NSInMemoryStoreType
+        cloud.configuration = "CloudSync"
+        cloud.url = URL(fileURLWithPath: "/dev/null/focus-cloud-\(UUID().uuidString)")
+        let local = NSPersistentStoreDescription()
+        local.type = NSInMemoryStoreType
+        local.configuration = "LocalOnly"
+        local.url = URL(fileURLWithPath: "/dev/null/focus-local-\(UUID().uuidString)")
+        container.persistentStoreDescriptions = [cloud, local]
+        try await load(container)
+
+        let companionRoot = FileManager.default.temporaryDirectory
+            .appendingPathComponent("CanonicalFocusCommands-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: companionRoot) }
+        let companionStore = FocusSessionCompanionStore(rootURL: companionRoot)
+        let repository = CoreDataPlanningRepository(container: container)
+        let events = FocusCompletionReceiptEventStream()
+        let commands = FocusSessionCommands(
+            repository: repository,
+            companionStore: companionStore,
+            completionEvents: events
+        )
+        let eventStream = await events.stream()
+        let startedAt = Date(timeIntervalSinceReferenceDate: 800_100_000)
+        let taskID = UUID()
+        let recovery = try await commands.start(.init(
+            taskID: taskID,
+            mode: .pomodoro(focus: 1_500, breakDuration: 300, rounds: 2),
+            intention: "Make the first pass",
+            startedAt: startedAt
+        ))
+        XCTAssertEqual(recovery.session.taskID, taskID)
+        XCTAssertEqual(recovery.companion?.pomodoroPhase?.kind, .focus)
+        XCTAssertEqual(recovery.companion?.pomodoroPhase?.round, 1)
+
+        let rest = try await commands.advancePomodoro(
+            sessionID: recovery.session.id,
+            at: startedAt.addingTimeInterval(1_500)
+        )
+        XCTAssertEqual(rest.pomodoroPhase?.kind, .rest)
+        let relaunchedCommands = FocusSessionCommands(
+            repository: repository,
+            companionStore: companionStore,
+            completionEvents: events
+        )
+        let relaunched = try await relaunchedCommands.activeRecovery()
+        XCTAssertEqual(relaunched?.companion?.pomodoroPhase, rest.pomodoroPhase)
+
+        _ = try await commands.pause(
+            sessionID: recovery.session.id,
+            interruptionReason: "Unexpected call",
+            at: startedAt.addingTimeInterval(1_600)
+        )
+        _ = try await commands.resume(
+            sessionID: recovery.session.id,
+            at: startedAt.addingTimeInterval(1_660)
+        )
+        let endCommandID = UUID()
+        let receipt = try await commands.end(
+            sessionID: recovery.session.id,
+            outcome: .continueLater,
+            at: startedAt.addingTimeInterval(1_960),
+            commandID: endCommandID
+        )
+        XCTAssertEqual(receipt.id, endCommandID)
+        XCTAssertEqual(receipt.sessionID, recovery.session.id)
+        XCTAssertEqual(receipt.outcome, .continueLater)
+        XCTAssertEqual(receipt.interruptionCount, 1)
+
+        var iterator = eventStream.makeAsyncIterator()
+        let published = await iterator.next()
+        XCTAssertEqual(published, receipt)
+
+        let reflected = try await commands.saveReflection(
+            sessionID: recovery.session.id,
+            energyAfter: 4,
+            note: "The interruption changed the stopping point."
+        )
+        XCTAssertEqual(reflected.energyAfter, 4)
+        XCTAssertEqual(reflected.reflection, "The interruption changed the stopping point.")
+        let persisted = try await repository.session(id: recovery.session.id)
+        XCTAssertEqual(persisted?.energyAfter, 4)
+        XCTAssertEqual(persisted?.reflection, "The interruption changed the stopping point.")
     }
 
     func testDependencyCycleAndReadinessAreDeterministic() {
@@ -278,6 +541,13 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         let proposals = DeterministicPlanRepairService().proposals(for: snapshot, now: now)
         XCTAssertEqual(Set(proposals.map(\.trigger)), [.missedPlannedWork, .overloadedWindow])
         XCTAssertNil(EstimateCalibrationService.suggestion(taskID: taskID, comparableDurations: [600, 900]))
+        XCTAssertNil(
+            EstimateCalibrationService.suggestion(
+                taskID: taskID,
+                comparableDurations: [60, 600, 900]
+            ),
+            "A setup-length session must not count as calibration evidence"
+        )
         let suggestion = try XCTUnwrap(EstimateCalibrationService.suggestion(taskID: taskID, comparableDurations: [600, 920, 1_200]))
         XCTAssertEqual(suggestion.evidenceSessionCount, 3)
         XCTAssertEqual(suggestion.suggestedDuration, 900)
@@ -1008,6 +1278,93 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
                 else { continuation.resume() }
             }
         }
+    }
+}
+
+private actor ScenarioPlanningRepository:
+    PlanningRepository,
+    InternalTimeBlockRepository,
+    PlanningMutationRepository
+{
+    private var metadata: [UUID: PlanningTaskMetadata]
+    private var blocks: [UUID: InternalTimeBlock] = [:]
+    private var prepared: PlanMutationReceipt?
+    private var applied = false
+
+    init(metadata: [PlanningTaskMetadata]) {
+        self.metadata = Dictionary(
+            uniqueKeysWithValues: metadata.map { ($0.taskID, $0) }
+        )
+    }
+
+    func preparedSource() -> String? { prepared?.source }
+    func didApply() -> Bool { applied }
+
+    func fetchTaskMetadata(taskIDs: Set<UUID>?) async throws -> [PlanningTaskMetadata] {
+        guard let taskIDs else { return Array(metadata.values) }
+        return taskIDs.compactMap { metadata[$0] }
+    }
+
+    func saveTaskMetadata(_ value: PlanningTaskMetadata) async throws {
+        metadata[value.taskID] = value
+    }
+
+    func saveTaskMetadata(_ values: [PlanningTaskMetadata]) async throws {
+        for value in values { metadata[value.taskID] = value }
+    }
+
+    func fetchTimeBlocks(from: Date, to: Date) async throws -> [InternalTimeBlock] {
+        Array(blocks.values)
+    }
+
+    func saveTimeBlock(_ value: InternalTimeBlock) async throws {
+        blocks[value.id] = value
+    }
+
+    func deleteTimeBlock(id: UUID) async throws {
+        blocks.removeValue(forKey: id)
+    }
+
+    func fetchWorkingHoursProfiles() async throws -> [WorkingHoursProfile] { [] }
+    func saveWorkingHoursProfile(_ value: WorkingHoursProfile) async throws {}
+
+    func prepare(
+        _ mutation: PlanMutation,
+        source: String,
+        summary: String
+    ) async throws -> PlanMutationReceipt {
+        let receipt = PlanMutationReceipt(
+            id: UUID(),
+            source: source,
+            summary: summary,
+            forwardData: Data(),
+            undoData: Data(),
+            createdAt: Date()
+        )
+        prepared = receipt
+        return receipt
+    }
+
+    func apply(receiptID: UUID) async throws {
+        applied = prepared?.id == receiptID
+    }
+
+    func undo(receiptID: UUID) async throws {
+        if prepared?.id == receiptID { applied = false }
+    }
+
+    func hasAppliedReceipt(source: String) async throws -> Bool {
+        applied && prepared?.source == source
+    }
+
+    func fetchMutationReceipts(since: Date?) async throws -> [PlanningReceiptRecord] {
+        guard let prepared else { return [] }
+        return [
+            PlanningReceiptRecord(
+                receipt: prepared,
+                state: applied ? .applied : .prepared
+            )
+        ]
     }
 }
 
