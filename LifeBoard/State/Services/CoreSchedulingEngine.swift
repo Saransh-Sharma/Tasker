@@ -104,19 +104,38 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol, BehaviorSched
                         self.occurrenceRepository.fetchInRange(start: windowStart, end: windowEnd) { existingResult in
                             switch existingResult {
                             case .success(let existing):
-                                let existingKeys = Set(existing.map(\.occurrenceKey))
+                                let canonicalExistingKeys = Set(existing.compactMap { occurrence in
+                                    OccurrenceKeyCodec.canonicalize(
+                                        occurrence.occurrenceKey,
+                                        fallbackTemplateID: occurrence.scheduleTemplateID,
+                                        fallbackSourceID: occurrence.sourceID
+                                    ) ?? occurrence.occurrenceKey
+                                })
                                 let generated = self.buildOccurrences(
                                     templates: filtered,
                                     rulesByTemplate: metadata.rulesByTemplate,
                                     exceptionsByTemplate: metadata.exceptionsByTemplate,
                                     windowStart: windowStart,
                                     windowEnd: windowEnd,
-                                    existingKeys: existingKeys
+                                    existingKeys: canonicalExistingKeys
                                 )
                                 self.occurrenceRepository.saveOccurrences(generated) { saveResult in
                                     switch saveResult {
                                     case .success:
-                                        completion(.success(generated))
+                                        let templateIDs = Set(filtered.map(\.id))
+                                        let sourceIDs = Set(filtered.map(\.sourceID))
+                                        let retainedExisting = existing.filter {
+                                            templateIDs.contains($0.scheduleTemplateID)
+                                                && sourceIDs.contains($0.sourceID)
+                                        }
+                                        completion(.success(
+                                            (retainedExisting + generated).sorted {
+                                                if $0.scheduledAt != $1.scheduledAt {
+                                                    return $0.scheduledAt < $1.scheduledAt
+                                                }
+                                                return $0.id.uuidString < $1.id.uuidString
+                                            }
+                                        ))
                                     case .failure(let error):
                                         completion(.failure(error))
                                     }
@@ -314,7 +333,11 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol, BehaviorSched
                     }
                     generated.append(
                         OccurrenceDefinition(
-                            id: UUID(),
+                            id: BehaviorOccurrenceIdentity.make(
+                                behaviorID: template.sourceID,
+                                canonicalOccurrenceKey: final.key,
+                                timezoneID: timezone.identifier
+                            ),
                             occurrenceKey: final.key,
                             scheduleTemplateID: template.id,
                             sourceType: template.sourceType,

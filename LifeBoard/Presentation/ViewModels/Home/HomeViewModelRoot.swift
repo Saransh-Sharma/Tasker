@@ -130,6 +130,11 @@ public final class HomeViewModel: ObservableObject {
 
     let needsReplanViewModel: HomeNeedsReplanViewModel
 
+    /// Installed by the Phase 1 composition root. Legacy Home presentation can
+    /// keep its timer models, while every enabled flagship route writes through
+    /// FocusSessionV2 and its canonical command state machine.
+    var canonicalFocusCommands: FocusSessionCommands?
+
     var cancellables = Set<AnyCancellable>()
 
     var retainedInsightsViewModel: InsightsViewModel?

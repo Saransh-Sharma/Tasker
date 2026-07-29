@@ -19,10 +19,15 @@ struct PlanFeatureDependencies {
     let planningRepository: CoreDataPlanningRepository
     let inboxCommitCoordinator: InboxCommitCoordinator
     let taskExecutionProjection: TaskExecutionProjection
+    let taskBatchMutationCoordinator: TaskBatchMutationCoordinator
+    let projectTemplateInstantiationService: ProjectTemplateInstantiationService
+    let focusCommands: FocusSessionCommands
+    let focusXPSubscriber: FocusCompletionXPSubscriber
     let projectMilestoneRepository: any ProjectMilestoneRepository
     let taskDefinitionRepository: any TaskDefinitionRepositoryProtocol
     let projectRepository: any ProjectRepositoryProtocol
     let sectionRepository: (any SectionRepositoryProtocol)?
+    let lifeAreaRepository: (any LifeAreaRepositoryProtocol)?
     let tagRepository: any TagRepositoryProtocol
     let taskTagLinkRepository: (any TaskTagLinkRepositoryProtocol)?
     let taskDependencyRepository: (any TaskDependencyRepositoryProtocol)?
@@ -32,7 +37,9 @@ struct PlanFeatureDependencies {
         taskDefinitionRepository: any TaskDefinitionRepositoryProtocol,
         projectRepository: any ProjectRepositoryProtocol,
         sectionRepository: (any SectionRepositoryProtocol)? = nil,
+        lifeAreaRepository: (any LifeAreaRepositoryProtocol)? = nil,
         tagRepository: any TagRepositoryProtocol,
+        gamificationEngine: GamificationEngine,
         taskTagLinkRepository: (any TaskTagLinkRepositoryProtocol)? = nil,
         taskDependencyRepository: (any TaskDependencyRepositoryProtocol)? = nil
     ) {
@@ -53,10 +60,30 @@ struct PlanFeatureDependencies {
                 }
             }
         )
+        taskBatchMutationCoordinator = TaskBatchMutationCoordinator(
+            tasks: taskDefinitionRepository,
+            planning: planningRepository,
+            tagLinks: taskTagLinkRepository
+        )
+        focusCommands = FocusSessionCommands(repository: planningRepository)
+        focusXPSubscriber = FocusCompletionXPSubscriber(
+            events: focusCommands.completionEvents,
+            engine: gamificationEngine
+        )
         projectMilestoneRepository = planningRepository
+        projectTemplateInstantiationService = ProjectTemplateInstantiationService(
+            projects: projectRepository,
+            sections: sectionRepository,
+            tasks: taskDefinitionRepository,
+            tagLinks: taskTagLinkRepository,
+            dependencyLinks: taskDependencyRepository,
+            milestones: planningRepository,
+            planning: planningRepository
+        )
         self.taskDefinitionRepository = taskDefinitionRepository
         self.projectRepository = projectRepository
         self.sectionRepository = sectionRepository
+        self.lifeAreaRepository = lifeAreaRepository
         self.tagRepository = tagRepository
         self.taskTagLinkRepository = taskTagLinkRepository
         self.taskDependencyRepository = taskDependencyRepository

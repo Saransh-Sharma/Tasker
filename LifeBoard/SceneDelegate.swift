@@ -202,10 +202,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             taskDefinitionRepository: taskRepository,
             projectRepository: state.projectRepository,
             sectionRepository: state.sectionRepository,
+            lifeAreaRepository: state.lifeAreaRepository,
             tagRepository: tagRepository,
+            gamificationEngine: coordinator.gamificationEngine,
             taskTagLinkRepository: state.taskTagLinkRepository,
             taskDependencyRepository: state.taskDependencyRepository
         )
+        homeViewController.viewModel.configureCanonicalFocusCommands(planDependencies.focusCommands)
         let trackFoundationRepository = CoreDataTrackFoundationRepository(container: persistentContainer)
         let habitRuntimeReadRepository = CoreDataHabitRuntimeReadRepository(container: persistentContainer)
         let goalSampleProvider = CoreDataGoalSampleProvider(container: persistentContainer)
