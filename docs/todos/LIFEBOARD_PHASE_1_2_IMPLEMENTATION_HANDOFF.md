@@ -15,9 +15,105 @@ their design and migration warnings.
   the dedicated `LifeBoard Test iPhone`.
 - [x] Added a shared Watch scheme and a serialized Phase 1/2 build-matrix
   script. Watch execution remains device/runtime-gated.
-- [ ] Phase 1 exit blockers: reviewed Inbox draft equality and conflict merge,
-  production task scopes, atomic cross-repository batches, project templates,
-  scenario refresh, canonical focus-only writes, and Home pin invariants.
+- [x] Checkpointed the audited foundation at commit `28559c75` before feature
+  expansion.
+- [x] Stage 1 contract slice: Inbox review is now a mutable
+  `InboxCaptureReviewDraft`; File It no longer reparses raw text; duplicate
+  comparison exposes editable title, field-source decisions, tag union, and
+  explicit Keep Both/Merge/Cancel.
+- [x] Stage 1 durability slice: App Group reads and read-modify-write mutations
+  are file-coordinated, stable-ID retries are idempotent, queue-write failure
+  compensates the canonical task mutation, and multi-capture restoration is
+  atomic.
+- [x] Stage 1 focused verification: 19 Inbox coordinator/queue tests pass,
+  including edited-review equality, conflict acknowledgement, source
+  selection, concurrent writers, compensation, merge restoration, and legacy
+  JSON decoding.
+- [ ] Stage 1 remaining exit evidence: real Core Data pending-to-task merge
+  relationship restoration, seeded process-interruption/relaunch UI coverage,
+  and device App Group writers from every extension surface.
+- [x] Stage 2 canonical-scope slice: `TaskExecutionStore` now feeds the
+  production Inbox, Today, Upcoming, Waiting, Someday, Completed, and All
+  library inside Plan; every row opens the shared canonical task route.
+- [x] Stage 2 batch slice: `TaskBatchMutationCoordinator` snapshots rows,
+  applies deterministic schedule/tag/move/defer/complete/archive/delete
+  mutations, compensates partial definition and relationship failures, returns
+  one receipt, and exposes one Undo. The production task library now provides
+  selection plus 44-point Plan/Organize/Complete/Archive/Delete controls and
+  VoiceOver selection actions. Four focused atomicity/Undo tests pass.
+- [x] Stage 2 editor-contract slice: one `TaskEditorDraft` now carries the
+  complete task and planning state submitted by every canonical task route.
+  The editor adds life area, section, scheduled end, ordered subtasks,
+  dependency cycle rejection, and daily/weekday/weekly/biweekly/monthly/
+  yearly/custom recurrence controls with scheduled/completion anchors. Parent
+  and child writes are one compensating transaction: every changed
+  `parentTaskID`, the parent's ordered subtask array, relationship sidecars,
+  planning data, save, and Undo restore together.
+- [x] Stage 2 template-service slice: archived project template sources are
+  deep-copied through `ProjectTemplateInstantiationService`, with complete
+  project/section/task/milestone/dependency ID maps, hierarchy/tag/dependency
+  remapping, stable recurrence-series remapping, graph-leak rejection,
+  manual planning-order copying, compensating rollback, and Undo. Plan now
+  exposes a 44-point template picker, editable destination name, creation
+  receipt, Undo, and Open action. Project rows and the multi-select task library
+  expose explicit project-section movement through the same atomic batch
+  coordinator. Two focused graph/order identity tests plus four batch
+  atomicity tests pass; the Debug simulator build succeeds.
+- [ ] Stage 2 remaining exit evidence: prove every batch family against real
+  Core Data and remove or redirect every remaining reachable legacy editor.
+- [x] Stage 3 scenario/control slice: Minimum Viable Day, repair actions, and
+  multi-item rescheduling now remain local `PlanningScenario` previews until
+  Apply. MVD refuses partial care/outcome/rest composition and exposes a compact
+  chooser; version conflicts rebuild the same scenario source/parameters,
+  display the previous diff, and require a second explicit Apply. Repair
+  receipt sources remain proposal-specific so acknowledgement suppression and
+  Undo continue to work.
+- [x] Stage 3 schedule-context slice: calendar context has typed not-requested,
+  denied, loading, fresh, stale-cache, offline-cache, and failed states; stale
+  commitments are retained and labeled. Fits Next now pairs each task with
+  every specific eligible gap. Resize edges use the 15-minute grid except
+  within 7.5 minutes of a real neighboring boundary, where five-minute
+  correction activates; live geometry has no animated lag.
+- [x] Stage 3 calibration slice: completed canonical focus history produces an
+  estimate suggestion only after three sessions of at least five minutes,
+  showing median, observed range, and sample count. Acceptance explicitly
+  updates the canonical task estimate. The Debug simulator build and 220
+  Plan/foundation tests pass; the final focused Stage 3 run contains 29 tests,
+  0 failures.
+- [ ] Stage 3 remaining exit evidence: seeded UI page-object journeys for
+  conflict refresh, both resize alternatives, Fits Next, MVD selection,
+  calendar cache/error states, and calibration acceptance.
+- [x] Stage 4 canonical-focus slice: Phase 1 Home and Plan starts now share
+  `FocusSessionCommands` over `FocusSessionV2`; the legacy Home timer models
+  are presentation adapters only while the rollback route retains the old
+  writer. Canonical completion publishes one durable `FocusExecutionReceipt`
+  stream, and XP is an idempotent post-persistence subscriber keyed by the
+  canonical session ID.
+- [x] Stage 4 focus-depth slice: countdown, stopwatch, editable Pomodoro, and
+  open-ended setup are reachable from task, block, and unscoped starts.
+  Pomodoro round/phase, intention, checklist, and timestamped interruptions
+  live in the seven-day companion record. Countdown expiry pauses for an
+  explicit Finish/Continue Later/Abandon decision instead of inferring
+  completion. Plan includes stable timer numerals, explicit interruption
+  reasons, phase advancement, and a short energy/note reflection showing
+  actual versus planned duration.
+- [x] Stage 4 Home-judgment slice: semantic roles deduplicate before the cap,
+  an available primary action deterministically owns Now, only one day-ahead
+  story survives, and Low Energy projects essential care plus one explicitly
+  smaller action. Context actions, edits, resizes, and manual repositioning
+  pin through existing placement persistence; Move to Section remains
+  available. Newly audited action controls meet the 44-point minimum.
+- [x] Stage 4 focused verification: Debug simulator build succeeds and the
+  combined LifeOS/focus foundation suites pass, including Pomodoro relaunch,
+  interruption, terminal receipt, reflection persistence, primary-Now, and
+  day-ahead invariants.
+- [ ] Stage 4 remaining exit evidence: exercise both Live Activity compile
+  branches in the serialized build matrix, add Watch command device coverage,
+  and capture seeded VoiceOver/large-type Home and focus journeys.
+- [ ] Phase 1 exit blockers: the remaining Stage 1/2 evidence, scenario
+  conflict UI evidence, seeded daily-loop UI coverage, both Live Activity
+  compile branches, and the complete accessibility/visual/performance
+  matrices.
 - [ ] Phase 2 exit blockers: domain-rich migration fixtures, deterministic
   occurrence IDs, service-backed native Track mutations, full habit/routine/
   goal workflows, personal-care persistence, cross-surface parity, and
