@@ -699,6 +699,7 @@
     </entity>
     <entity name='FastingSession' representedClassName='NSManagedObject' syncable='YES'>
         <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='templateID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
         <attribute name='startedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
         <attribute name='endedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
         <attribute name='targetDuration' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
@@ -1045,6 +1046,8 @@
     <entity name='NutritionLogEntry' representedClassName='NSManagedObject' syncable='YES'>
         <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
         <attribute name='foodID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='recipeID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='mealTemplateID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
         <attribute name='foodNameSnapshot' optional='YES' attributeType='String'/>
         <attribute name='mealSlotRaw' optional='YES' attributeType='String'/>
         <attribute name='quantity' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
@@ -1054,6 +1057,8 @@
         <attribute name='loggedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
         <attribute name='capturedTimeZoneIdentifier' optional='YES' attributeType='String'/>
         <attribute name='note' optional='YES' attributeType='String'/>
+        <attribute name='provenanceRaw' optional='YES' attributeType='String'/>
+        <attribute name='sourceReference' optional='YES' attributeType='String'/>
         <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
         <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
         <fetchIndex name='byNutritionLogEntryID'><fetchIndexElement property='id' type='Binary' order='ascending'/></fetchIndex>
@@ -1067,6 +1072,80 @@
         <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
         <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
         <fetchIndex name='byNutritionGoalID'><fetchIndexElement property='id' type='Binary' order='ascending'/></fetchIndex>
+    </entity>
+    <entity name='Recipe' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='instructions' optional='YES' attributeType='String'/>
+        <attribute name='servingCount' optional='YES' attributeType='Double' defaultValueString='1' usesScalarValueType='YES'/>
+        <attribute name='resolvedNutritionData' optional='YES' attributeType='Binary'/>
+        <attribute name='sourceRaw' optional='YES' attributeType='String'/>
+        <attribute name='externalReference' optional='YES' attributeType='String'/>
+        <attribute name='isFavorite' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byRecipeID'><fetchIndexElement property='id' type='Binary' order='ascending'/></fetchIndex>
+    </entity>
+    <entity name='RecipeIngredient' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='recipeID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='foodID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='nameSnapshot' optional='YES' attributeType='String'/>
+        <attribute name='quantity' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='unitLabel' optional='YES' attributeType='String'/>
+        <attribute name='gramsSnapshot' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='ordinal' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byRecipeIngredientRecipe'><fetchIndexElement property='recipeID' type='Binary' order='ascending'/><fetchIndexElement property='ordinal' type='Binary' order='ascending'/></fetchIndex>
+    </entity>
+    <entity name='MealTemplate' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='mealSlotRaw' optional='YES' attributeType='String'/>
+        <attribute name='itemsData' optional='YES' attributeType='Binary'/>
+        <attribute name='isFavorite' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='lastUsedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byMealTemplateID'><fetchIndexElement property='id' type='Binary' order='ascending'/></fetchIndex>
+    </entity>
+    <entity name='GroceryList' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='title' optional='YES' attributeType='String'/>
+        <attribute name='itemsData' optional='YES' attributeType='Binary'/>
+        <attribute name='isArchived' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byGroceryListID'><fetchIndexElement property='id' type='Binary' order='ascending'/></fetchIndex>
+    </entity>
+    <entity name='ServingMemory' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='foodID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='servingName' optional='YES' attributeType='String'/>
+        <attribute name='grams' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='lastUsedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='usageCount' optional='YES' attributeType='Integer 32' defaultValueString='0' usesScalarValueType='YES'/>
+        <fetchIndex name='byServingMemoryFood'><fetchIndexElement property='foodID' type='Binary' order='ascending'/></fetchIndex>
+    </entity>
+    <entity name='NutritionPreference' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='caloriesHidden' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='macroTargetsData' optional='YES' attributeType='Binary'/>
+        <attribute name='micronutrientTargetsData' optional='YES' attributeType='Binary'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byNutritionPreferenceID'><fetchIndexElement property='id' type='Binary' order='ascending'/></fetchIndex>
+    </entity>
+    <entity name='FastingTemplate' representedClassName='NSManagedObject' syncable='YES'>
+        <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
+        <attribute name='label' optional='YES' attributeType='String'/>
+        <attribute name='targetDuration' optional='YES' attributeType='Double' usesScalarValueType='YES'/>
+        <attribute name='reminderOffsetsData' optional='YES' attributeType='Binary'/>
+        <attribute name='displayPreferencesData' optional='YES' attributeType='Binary'/>
+        <attribute name='isArchived' optional='YES' attributeType='Boolean' defaultValueString='NO' usesScalarValueType='YES'/>
+        <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <attribute name='updatedAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
+        <fetchIndex name='byFastingTemplateID'><fetchIndexElement property='id' type='Binary' order='ascending'/></fetchIndex>
     </entity>
     <entity name='FoodSearchIndexEntry' representedClassName='NSManagedObject' syncable='YES'>
         <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
@@ -1139,6 +1218,13 @@
         <memberEntity name='FoodItem'/>
         <memberEntity name='NutritionLogEntry'/>
         <memberEntity name='NutritionGoal'/>
+        <memberEntity name='Recipe'/>
+        <memberEntity name='RecipeIngredient'/>
+        <memberEntity name='MealTemplate'/>
+        <memberEntity name='GroceryList'/>
+        <memberEntity name='ServingMemory'/>
+        <memberEntity name='NutritionPreference'/>
+        <memberEntity name='FastingTemplate'/>
         <memberEntity name='LifeMoment'/>
         <memberEntity name='JournalDay'/>
         <memberEntity name='JournalBlock'/>
@@ -1203,6 +1289,13 @@
         <memberEntity name='FoodItem'/>
         <memberEntity name='NutritionLogEntry'/>
         <memberEntity name='NutritionGoal'/>
+        <memberEntity name='Recipe'/>
+        <memberEntity name='RecipeIngredient'/>
+        <memberEntity name='MealTemplate'/>
+        <memberEntity name='GroceryList'/>
+        <memberEntity name='ServingMemory'/>
+        <memberEntity name='NutritionPreference'/>
+        <memberEntity name='FastingTemplate'/>
         <memberEntity name='HydrationLog'/>
         <memberEntity name='HydrationTarget'/>
         <memberEntity name='SleepContextRecord'/>
