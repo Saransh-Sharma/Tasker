@@ -27,7 +27,10 @@ enum FocusStartupRepairPolicy {
         guard session.state == .running,
               session.targetDuration > 0,
               session.focusedDuration(at: now) >= session.targetDuration else { return nil }
-        return .end(.completed)
+        // Reaching zero is a prompt, never an inferred completion. Pausing
+        // preserves the exact focused duration and asks the user to Finish,
+        // Continue Later, or Abandon when LifeBoard becomes active again.
+        return .pause
     }
 }
 
