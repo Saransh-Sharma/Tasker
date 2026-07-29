@@ -142,6 +142,15 @@ public enum NutritionMealSlot: String, Codable, CaseIterable, Hashable, Sendable
     case snack
 }
 
+public enum NutritionLogProvenance: String, Codable, Hashable, Sendable {
+    case foodLibrary
+    case recipe
+    case mealTemplate
+    case barcodeLocal
+    case barcodeRemote
+    case manual
+}
+
 public struct NutritionLogEntry: Codable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public let foodID: UUID
@@ -155,6 +164,10 @@ public struct NutritionLogEntry: Codable, Hashable, Identifiable, Sendable {
     public var loggedAt: Date
     public var capturedTimeZoneIdentifier: String
     public var note: String?
+    public var recipeID: UUID?
+    public var mealTemplateID: UUID?
+    public var provenance: NutritionLogProvenance
+    public var sourceReference: String?
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -167,6 +180,10 @@ public struct NutritionLogEntry: Codable, Hashable, Identifiable, Sendable {
         loggedAt: Date = Date(),
         capturedTimeZone: TimeZone = .autoupdatingCurrent,
         note: String? = nil,
+        recipeID: UUID? = nil,
+        mealTemplateID: UUID? = nil,
+        provenance: NutritionLogProvenance = .foodLibrary,
+        sourceReference: String? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) throws {
@@ -182,6 +199,10 @@ public struct NutritionLogEntry: Codable, Hashable, Identifiable, Sendable {
         self.loggedAt = loggedAt
         capturedTimeZoneIdentifier = capturedTimeZone.identifier
         self.note = note?.nutritionTrimmed
+        self.recipeID = recipeID
+        self.mealTemplateID = mealTemplateID
+        self.provenance = provenance
+        self.sourceReference = sourceReference?.nutritionTrimmed
         self.createdAt = createdAt
         self.updatedAt = max(updatedAt, createdAt)
     }
@@ -198,6 +219,10 @@ public struct NutritionLogEntry: Codable, Hashable, Identifiable, Sendable {
         loggedAt: Date,
         capturedTimeZoneIdentifier: String,
         note: String?,
+        recipeID: UUID? = nil,
+        mealTemplateID: UUID? = nil,
+        provenance: NutritionLogProvenance = .foodLibrary,
+        sourceReference: String? = nil,
         createdAt: Date,
         updatedAt: Date
     ) throws {
@@ -216,8 +241,265 @@ public struct NutritionLogEntry: Codable, Hashable, Identifiable, Sendable {
         self.loggedAt = loggedAt
         self.capturedTimeZoneIdentifier = capturedTimeZoneIdentifier
         self.note = note?.nutritionTrimmed
+        self.recipeID = recipeID
+        self.mealTemplateID = mealTemplateID
+        self.provenance = provenance
+        self.sourceReference = sourceReference?.nutritionTrimmed
         self.createdAt = createdAt
         self.updatedAt = max(updatedAt, createdAt)
+    }
+}
+
+public struct RecipeIngredient: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public let recipeID: UUID
+    public var foodID: UUID?
+    public var nameSnapshot: String
+    public var quantity: Double
+    public var unitLabel: String
+    public var gramsSnapshot: Double
+    public var ordinal: Int
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        recipeID: UUID,
+        foodID: UUID? = nil,
+        nameSnapshot: String,
+        quantity: Double,
+        unitLabel: String,
+        gramsSnapshot: Double,
+        ordinal: Int,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) throws {
+        guard let name = nameSnapshot.nutritionTrimmed,
+              let unit = unitLabel.nutritionTrimmed,
+              quantity.isFinite, quantity > 0,
+              gramsSnapshot.isFinite, gramsSnapshot > 0,
+              ordinal >= 0 else { throw NutritionError.invalidRecipe }
+        self.id = id
+        self.recipeID = recipeID
+        self.foodID = foodID
+        self.nameSnapshot = name
+        self.quantity = quantity
+        self.unitLabel = unit
+        self.gramsSnapshot = gramsSnapshot
+        self.ordinal = ordinal
+        self.createdAt = createdAt
+        self.updatedAt = max(updatedAt, createdAt)
+    }
+}
+
+public struct NutritionRecipe: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public var title: String
+    public var instructions: String?
+    public var servingCount: Double
+    /// A durable snapshot recomputed only when the recipe itself is edited.
+    public var resolvedNutrition: NutritionMacros
+    public var source: FoodSource
+    public var externalReference: String?
+    public var isFavorite: Bool
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        title: String,
+        instructions: String? = nil,
+        servingCount: Double,
+        resolvedNutrition: NutritionMacros,
+        source: FoodSource = .userCreated,
+        externalReference: String? = nil,
+        isFavorite: Bool = false,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) throws {
+        guard let title = title.nutritionTrimmed,
+              servingCount.isFinite, servingCount > 0 else { throw NutritionError.invalidRecipe }
+        self.id = id
+        self.title = title
+        self.instructions = instructions?.nutritionTrimmed
+        self.servingCount = servingCount
+        self.resolvedNutrition = resolvedNutrition
+        self.source = source
+        self.externalReference = externalReference?.nutritionTrimmed
+        self.isFavorite = isFavorite
+        self.createdAt = createdAt
+        self.updatedAt = max(updatedAt, createdAt)
+    }
+}
+
+public enum MealTemplateItemSource: String, Codable, Hashable, Sendable {
+    case food
+    case recipe
+}
+
+public struct MealTemplateItem: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public var source: MealTemplateItemSource
+    public var sourceID: UUID
+    public var quantity: Double
+    public var servingID: UUID?
+
+    public init(
+        id: UUID = UUID(),
+        source: MealTemplateItemSource,
+        sourceID: UUID,
+        quantity: Double,
+        servingID: UUID? = nil
+    ) throws {
+        guard quantity.isFinite, quantity > 0 else { throw NutritionError.invalidServing }
+        self.id = id
+        self.source = source
+        self.sourceID = sourceID
+        self.quantity = quantity
+        self.servingID = servingID
+    }
+}
+
+public struct NutritionMealTemplate: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public var title: String
+    public var mealSlot: NutritionMealSlot
+    public var items: [MealTemplateItem]
+    public var isFavorite: Bool
+    public var lastUsedAt: Date?
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        title: String,
+        mealSlot: NutritionMealSlot,
+        items: [MealTemplateItem],
+        isFavorite: Bool = false,
+        lastUsedAt: Date? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) throws {
+        guard let title = title.nutritionTrimmed, !items.isEmpty else {
+            throw NutritionError.invalidMealTemplate
+        }
+        self.id = id
+        self.title = title
+        self.mealSlot = mealSlot
+        self.items = items
+        self.isFavorite = isFavorite
+        self.lastUsedAt = lastUsedAt
+        self.createdAt = createdAt
+        self.updatedAt = max(updatedAt, createdAt)
+    }
+}
+
+public struct GroceryListItem: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public var title: String
+    public var quantity: Double?
+    public var unitLabel: String?
+    public var isChecked: Bool
+    public var sourceRecipeID: UUID?
+
+    public init(
+        id: UUID = UUID(),
+        title: String,
+        quantity: Double? = nil,
+        unitLabel: String? = nil,
+        isChecked: Bool = false,
+        sourceRecipeID: UUID? = nil
+    ) throws {
+        guard let title = title.nutritionTrimmed,
+              quantity.map({ $0.isFinite && $0 > 0 }) ?? true else {
+            throw NutritionError.invalidGroceryList
+        }
+        self.id = id
+        self.title = title
+        self.quantity = quantity
+        self.unitLabel = unitLabel?.nutritionTrimmed
+        self.isChecked = isChecked
+        self.sourceRecipeID = sourceRecipeID
+    }
+}
+
+public struct NutritionGroceryList: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public var title: String
+    public var items: [GroceryListItem]
+    public var isArchived: Bool
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        title: String,
+        items: [GroceryListItem] = [],
+        isArchived: Bool = false,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) throws {
+        guard let title = title.nutritionTrimmed else { throw NutritionError.invalidGroceryList }
+        self.id = id
+        self.title = title
+        self.items = items
+        self.isArchived = isArchived
+        self.createdAt = createdAt
+        self.updatedAt = max(updatedAt, createdAt)
+    }
+}
+
+public struct NutritionServingMemory: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public let foodID: UUID
+    public var servingName: String
+    public var grams: Double
+    public var lastUsedAt: Date
+    public var usageCount: Int
+
+    public init(
+        id: UUID = UUID(),
+        foodID: UUID,
+        servingName: String,
+        grams: Double,
+        lastUsedAt: Date = Date(),
+        usageCount: Int = 1
+    ) throws {
+        guard let servingName = servingName.nutritionTrimmed,
+              grams.isFinite, grams > 0, usageCount >= 0 else { throw NutritionError.invalidServing }
+        self.id = id
+        self.foodID = foodID
+        self.servingName = servingName
+        self.grams = grams
+        self.lastUsedAt = lastUsedAt
+        self.usageCount = usageCount
+    }
+}
+
+public struct NutritionPreferences: Codable, Hashable, Identifiable, Sendable {
+    public static let canonicalID = UUID(uuidString: "9D985D6B-5D3D-4A13-A0B0-5B3CE68276D9")!
+
+    public let id: UUID
+    public var caloriesHidden: Bool
+    public var macroTargets: NutritionMacros?
+    public var micronutrientTargets: [String: Double]
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = canonicalID,
+        caloriesHidden: Bool = false,
+        macroTargets: NutritionMacros? = nil,
+        micronutrientTargets: [String: Double] = [:],
+        updatedAt: Date = Date()
+    ) throws {
+        guard micronutrientTargets.allSatisfy({
+            $0.key.nutritionTrimmed != nil && $0.value.isFinite && $0.value >= 0
+        }) else { throw NutritionError.invalidMacros }
+        self.id = id
+        self.caloriesHidden = caloriesHidden
+        self.macroTargets = macroTargets
+        self.micronutrientTargets = micronutrientTargets
+        self.updatedAt = updatedAt
     }
 }
 
@@ -261,6 +543,9 @@ public enum NutritionError: Error, Equatable, Sendable {
     case invalidServing
     case invalidFood
     case invalidBarcode
+    case invalidRecipe
+    case invalidMealTemplate
+    case invalidGroceryList
     case recordNotFound
     case externalLookupNotEnabled
 }
@@ -274,6 +559,17 @@ public protocol NutritionRepository: Sendable {
     func save(_ entry: NutritionLogEntry) async throws
     func goals() async throws -> [NutritionGoal]
     func save(_ goal: NutritionGoal) async throws
+    func recipes() async throws -> [NutritionRecipe]
+    func ingredients(recipeID: UUID) async throws -> [RecipeIngredient]
+    func mealTemplates() async throws -> [NutritionMealTemplate]
+    func groceryLists(includeArchived: Bool) async throws -> [NutritionGroceryList]
+    func servingMemory(foodID: UUID) async throws -> NutritionServingMemory?
+    func preferences() async throws -> NutritionPreferences
+    func save(_ recipe: NutritionRecipe, ingredients: [RecipeIngredient]) async throws
+    func save(_ template: NutritionMealTemplate) async throws
+    func save(_ groceryList: NutritionGroceryList) async throws
+    func save(_ memory: NutritionServingMemory) async throws
+    func save(_ preferences: NutritionPreferences) async throws
     func deleteFood(id: UUID) async throws
     func deleteLog(id: UUID) async throws
 }
@@ -281,10 +577,17 @@ public protocol NutritionRepository: Sendable {
 public actor InMemoryNutritionRepository: NutritionRepository {
     private var foodsByID: [UUID: FoodItem]
     private var logsByID: [UUID: NutritionLogEntry]
+    private var recipesByID: [UUID: NutritionRecipe] = [:]
+    private var ingredientsByRecipeID: [UUID: [RecipeIngredient]] = [:]
+    private var templatesByID: [UUID: NutritionMealTemplate] = [:]
+    private var groceryListsByID: [UUID: NutritionGroceryList] = [:]
+    private var servingMemoryByFoodID: [UUID: NutritionServingMemory] = [:]
+    private var storedPreferences: NutritionPreferences
 
     public init(foods: [FoodItem] = [], logs: [NutritionLogEntry] = []) {
         foodsByID = Dictionary(uniqueKeysWithValues: foods.map { ($0.id, $0) })
         logsByID = Dictionary(uniqueKeysWithValues: logs.map { ($0.id, $0) })
+        storedPreferences = try! NutritionPreferences()
     }
 
     public func foods(query: String) -> [FoodItem] {
@@ -330,12 +633,245 @@ public actor InMemoryNutritionRepository: NutritionRepository {
 
     public func save(_ goal: NutritionGoal) { goalsByID[goal.id] = goal }
 
+    public func recipes() -> [NutritionRecipe] {
+        recipesByID.values.sorted {
+            if $0.isFavorite != $1.isFavorite { return $0.isFavorite }
+            if $0.title != $1.title { return $0.title.localizedStandardCompare($1.title) == .orderedAscending }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+    }
+
+    public func ingredients(recipeID: UUID) -> [RecipeIngredient] {
+        (ingredientsByRecipeID[recipeID] ?? []).sorted {
+            if $0.ordinal != $1.ordinal { return $0.ordinal < $1.ordinal }
+            return $0.id.uuidString < $1.id.uuidString
+        }
+    }
+
+    public func mealTemplates() -> [NutritionMealTemplate] {
+        templatesByID.values.sorted {
+            if $0.isFavorite != $1.isFavorite { return $0.isFavorite }
+            return ($0.lastUsedAt ?? .distantPast) > ($1.lastUsedAt ?? .distantPast)
+        }
+    }
+
+    public func groceryLists(includeArchived: Bool) -> [NutritionGroceryList] {
+        groceryListsByID.values
+            .filter { includeArchived || !$0.isArchived }
+            .sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    public func servingMemory(foodID: UUID) -> NutritionServingMemory? {
+        servingMemoryByFoodID[foodID]
+    }
+
+    public func preferences() -> NutritionPreferences { storedPreferences }
+
+    public func save(_ recipe: NutritionRecipe, ingredients: [RecipeIngredient]) throws {
+        guard ingredients.allSatisfy({ $0.recipeID == recipe.id }) else { throw NutritionError.invalidRecipe }
+        recipesByID[recipe.id] = recipe
+        ingredientsByRecipeID[recipe.id] = ingredients
+    }
+
+    public func save(_ template: NutritionMealTemplate) { templatesByID[template.id] = template }
+    public func save(_ groceryList: NutritionGroceryList) { groceryListsByID[groceryList.id] = groceryList }
+    public func save(_ memory: NutritionServingMemory) { servingMemoryByFoodID[memory.foodID] = memory }
+    public func save(_ preferences: NutritionPreferences) { storedPreferences = preferences }
+
     public func deleteFood(id: UUID) throws {
         guard foodsByID.removeValue(forKey: id) != nil else { throw NutritionError.recordNotFound }
     }
 
     public func deleteLog(id: UUID) throws {
         guard logsByID.removeValue(forKey: id) != nil else { throw NutritionError.recordNotFound }
+    }
+}
+
+public struct NutritionLogMutationReceipt: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public let before: NutritionLogEntry?
+    public let after: NutritionLogEntry?
+    public let createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        before: NutritionLogEntry?,
+        after: NutritionLogEntry?,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.before = before
+        self.after = after
+        self.createdAt = createdAt
+    }
+}
+
+/// Canonical mutation boundary for nutrition logs and reusable library data.
+///
+/// The service deliberately derives corrections from the saved snapshot rather
+/// than today's food library, preserving what the user actually reviewed.
+public actor NutritionWorkflowService {
+    private let repository: any NutritionRepository
+
+    public init(repository: any NutritionRepository) {
+        self.repository = repository
+    }
+
+    public func correctLog(
+        id: UUID,
+        quantity: Double,
+        mealSlot: NutritionMealSlot,
+        loggedAt: Date,
+        note: String?,
+        at date: Date = Date()
+    ) async throws -> NutritionLogMutationReceipt {
+        guard quantity.isFinite, quantity > 0,
+              let before = try await repository.logs(from: nil, to: nil).first(where: { $0.id == id }) else {
+            throw NutritionError.recordNotFound
+        }
+        let factor = quantity / before.quantity
+        let corrected = try NutritionLogEntry(
+            id: before.id,
+            foodID: before.foodID,
+            foodNameSnapshot: before.foodNameSnapshot,
+            mealSlot: mealSlot,
+            quantity: quantity,
+            servingNameSnapshot: before.servingNameSnapshot,
+            servingGramsSnapshot: before.servingGramsSnapshot,
+            resolvedMacrosSnapshot: try before.resolvedMacrosSnapshot.scaled(by: factor),
+            loggedAt: loggedAt,
+            capturedTimeZoneIdentifier: before.capturedTimeZoneIdentifier,
+            note: note,
+            recipeID: before.recipeID,
+            mealTemplateID: before.mealTemplateID,
+            provenance: before.provenance,
+            sourceReference: before.sourceReference,
+            createdAt: before.createdAt,
+            updatedAt: date
+        )
+        try await repository.save(corrected)
+        return .init(before: before, after: corrected, createdAt: date)
+    }
+
+    public func deleteLog(id: UUID, at date: Date = Date()) async throws -> NutritionLogMutationReceipt {
+        guard let before = try await repository.logs(from: nil, to: nil).first(where: { $0.id == id }) else {
+            throw NutritionError.recordNotFound
+        }
+        try await repository.deleteLog(id: id)
+        return .init(before: before, after: nil, createdAt: date)
+    }
+
+    public func undo(_ receipt: NutritionLogMutationReceipt) async throws {
+        switch (receipt.before, receipt.after) {
+        case let (before?, _):
+            try await repository.save(before)
+        case let (nil, after?):
+            try await repository.deleteLog(id: after.id)
+        case (nil, nil):
+            break
+        }
+    }
+
+    public func instantiate(
+        template: NutritionMealTemplate,
+        loggedAt: Date = Date(),
+        timeZone: TimeZone = .autoupdatingCurrent
+    ) async throws -> [NutritionLogMutationReceipt] {
+        let foods = Dictionary(uniqueKeysWithValues: try await repository.foods(query: "").map { ($0.id, $0) })
+        let recipes = Dictionary(uniqueKeysWithValues: try await repository.recipes().map { ($0.id, $0) })
+        var applied: [NutritionLogMutationReceipt] = []
+
+        do {
+            for item in template.items {
+                let entry: NutritionLogEntry
+                switch item.source {
+                case .food:
+                    guard let food = foods[item.sourceID] else { throw NutritionError.recordNotFound }
+                    let selectedServing = item.servingID.flatMap { id in
+                        food.servings.first(where: { $0.id == id })
+                    } ?? food.servings.first
+                    let serving: FoodServingDefinition
+                    if let selectedServing {
+                        serving = selectedServing
+                    } else {
+                        serving = try FoodServingDefinition(name: "100 g", grams: 100)
+                    }
+                    entry = try NutritionLogEntry(
+                        food: food,
+                        mealSlot: template.mealSlot,
+                        quantity: item.quantity,
+                        serving: serving,
+                        loggedAt: loggedAt,
+                        capturedTimeZone: timeZone,
+                        mealTemplateID: template.id,
+                        provenance: .mealTemplate,
+                        sourceReference: template.title
+                    )
+                case .recipe:
+                    guard let recipe = recipes[item.sourceID] else { throw NutritionError.recordNotFound }
+                    let perServing = try recipe.resolvedNutrition.scaled(by: item.quantity / recipe.servingCount)
+                    entry = try NutritionLogEntry(
+                        id: UUID(),
+                        foodID: recipe.id,
+                        foodNameSnapshot: recipe.title,
+                        mealSlot: template.mealSlot,
+                        quantity: item.quantity,
+                        servingNameSnapshot: "recipe serving",
+                        servingGramsSnapshot: 1,
+                        resolvedMacrosSnapshot: perServing,
+                        loggedAt: loggedAt,
+                        capturedTimeZoneIdentifier: timeZone.identifier,
+                        note: nil,
+                        recipeID: recipe.id,
+                        mealTemplateID: template.id,
+                        provenance: .mealTemplate,
+                        sourceReference: template.title,
+                        createdAt: loggedAt,
+                        updatedAt: loggedAt
+                    )
+                }
+                try await repository.save(entry)
+                applied.append(.init(before: nil, after: entry, createdAt: loggedAt))
+            }
+        } catch {
+            for receipt in applied.reversed() {
+                try? await undo(receipt)
+            }
+            throw error
+        }
+
+        var usedTemplate = template
+        usedTemplate.lastUsedAt = loggedAt
+        usedTemplate.updatedAt = loggedAt
+        try await repository.save(usedTemplate)
+        return applied
+    }
+
+    public func groceryList(
+        title: String,
+        recipeIDs: [UUID],
+        at date: Date = Date()
+    ) async throws -> NutritionGroceryList {
+        var items: [GroceryListItem] = []
+        for recipeID in recipeIDs {
+            let ingredients = try await repository.ingredients(recipeID: recipeID)
+            items.append(contentsOf: try ingredients.map {
+                try GroceryListItem(
+                    title: $0.nameSnapshot,
+                    quantity: $0.quantity,
+                    unitLabel: $0.unitLabel,
+                    sourceRecipeID: recipeID
+                )
+            })
+        }
+        let list = try NutritionGroceryList(
+            title: title,
+            items: items,
+            createdAt: date,
+            updatedAt: date
+        )
+        try await repository.save(list)
+        return list
     }
 }
 

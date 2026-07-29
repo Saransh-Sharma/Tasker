@@ -67,6 +67,75 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
         }
     }
 
+    public func recipes() async throws -> [NutritionRecipe] {
+        try await read { [decoder] context in
+            let request = Self.localRequest(entity: "Recipe", context: context)
+            request.sortDescriptors = [
+                NSSortDescriptor(key: "isFavorite", ascending: false),
+                NSSortDescriptor(key: "title", ascending: true)
+            ]
+            return try context.fetch(request).compactMap { Self.recipe($0, decoder: decoder) }
+        }
+    }
+
+    public func ingredients(recipeID: UUID) async throws -> [RecipeIngredient] {
+        try await read { context in
+            let request = Self.localRequest(entity: "RecipeIngredient", context: context)
+            request.predicate = NSPredicate(format: "recipeID == %@", recipeID as CVarArg)
+            request.sortDescriptors = [
+                NSSortDescriptor(key: "ordinal", ascending: true),
+                NSSortDescriptor(key: "id", ascending: true)
+            ]
+            return try context.fetch(request).compactMap(Self.ingredient)
+        }
+    }
+
+    public func mealTemplates() async throws -> [NutritionMealTemplate] {
+        try await read { [decoder] context in
+            let request = Self.localRequest(entity: "MealTemplate", context: context)
+            request.sortDescriptors = [
+                NSSortDescriptor(key: "isFavorite", ascending: false),
+                NSSortDescriptor(key: "lastUsedAt", ascending: false),
+                NSSortDescriptor(key: "title", ascending: true)
+            ]
+            return try context.fetch(request).compactMap { Self.mealTemplate($0, decoder: decoder) }
+        }
+    }
+
+    public func groceryLists(includeArchived: Bool) async throws -> [NutritionGroceryList] {
+        try await read { [decoder] context in
+            let request = Self.localRequest(entity: "GroceryList", context: context)
+            if !includeArchived {
+                request.predicate = NSPredicate(format: "isArchived == NO")
+            }
+            request.sortDescriptors = [NSSortDescriptor(key: "updatedAt", ascending: false)]
+            return try context.fetch(request).compactMap { Self.groceryList($0, decoder: decoder) }
+        }
+    }
+
+    public func servingMemory(foodID: UUID) async throws -> NutritionServingMemory? {
+        try await read { context in
+            let request = Self.localRequest(entity: "ServingMemory", context: context)
+            request.predicate = NSPredicate(format: "foodID == %@", foodID as CVarArg)
+            request.sortDescriptors = [NSSortDescriptor(key: "lastUsedAt", ascending: false)]
+            request.fetchLimit = 1
+            return try context.fetch(request).first.flatMap(Self.servingMemory)
+        }
+    }
+
+    public func preferences() async throws -> NutritionPreferences {
+        try await read { [decoder] context in
+            guard let object = try Self.fetch(
+                "NutritionPreference",
+                id: NutritionPreferences.canonicalID,
+                context: context
+            ), let value = Self.preferences(object, decoder: decoder) else {
+                return try NutritionPreferences()
+            }
+            return value
+        }
+    }
+
     public func save(_ food: FoodItem) async throws {
         let macros = try encoder.encode(food.macrosPer100Grams)
         let servings = try encoder.encode(food.servings)
@@ -91,6 +160,8 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
                 "servingNameSnapshot": entry.servingNameSnapshot, "servingGramsSnapshot": entry.servingGramsSnapshot,
                 "resolvedMacrosSnapshotData": macros, "loggedAt": entry.loggedAt,
                 "capturedTimeZoneIdentifier": entry.capturedTimeZoneIdentifier, "note": entry.note,
+                "recipeID": entry.recipeID, "mealTemplateID": entry.mealTemplateID,
+                "provenanceRaw": entry.provenance.rawValue, "sourceReference": entry.sourceReference,
                 "createdAt": entry.createdAt, "updatedAt": entry.updatedAt
             ])
             let macroValues: [(HealthMetric, String, Double)] = [
@@ -123,6 +194,92 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
                 "id": goal.id, "targetMacrosData": macros, "effectiveFrom": goal.effectiveFrom,
                 "capturedTimeZoneIdentifier": goal.capturedTimeZoneIdentifier,
                 "createdAt": goal.createdAt, "updatedAt": goal.updatedAt
+            ])
+        }
+    }
+
+    public func save(_ recipe: NutritionRecipe, ingredients: [RecipeIngredient]) async throws {
+        guard ingredients.allSatisfy({ $0.recipeID == recipe.id }) else {
+            throw NutritionError.invalidRecipe
+        }
+        let nutrition = try encoder.encode(recipe.resolvedNutrition)
+        try await write { context in
+            let object = try Self.upsert("Recipe", id: recipe.id, context: context)
+            Self.set(object, values: [
+                "id": recipe.id, "title": recipe.title, "instructions": recipe.instructions,
+                "servingCount": recipe.servingCount, "resolvedNutritionData": nutrition,
+                "sourceRaw": recipe.source.rawValue, "externalReference": recipe.externalReference,
+                "isFavorite": recipe.isFavorite, "createdAt": recipe.createdAt, "updatedAt": recipe.updatedAt
+            ])
+
+            let request = Self.localRequest(entity: "RecipeIngredient", context: context)
+            request.predicate = NSPredicate(format: "recipeID == %@", recipe.id as CVarArg)
+            let incomingIDs = Set(ingredients.map(\.id))
+            for stale in try context.fetch(request) {
+                let staleID = stale.value(forKey: "id") as? UUID
+                if staleID.map(incomingIDs.contains) != true {
+                    context.delete(stale)
+                }
+            }
+            for ingredient in ingredients {
+                let ingredientObject = try Self.upsert("RecipeIngredient", id: ingredient.id, context: context)
+                Self.set(ingredientObject, values: [
+                    "id": ingredient.id, "recipeID": ingredient.recipeID, "foodID": ingredient.foodID,
+                    "nameSnapshot": ingredient.nameSnapshot, "quantity": ingredient.quantity,
+                    "unitLabel": ingredient.unitLabel, "gramsSnapshot": ingredient.gramsSnapshot,
+                    "ordinal": ingredient.ordinal, "createdAt": ingredient.createdAt, "updatedAt": ingredient.updatedAt
+                ])
+            }
+        }
+    }
+
+    public func save(_ template: NutritionMealTemplate) async throws {
+        let items = try encoder.encode(template.items)
+        try await write { context in
+            let object = try Self.upsert("MealTemplate", id: template.id, context: context)
+            Self.set(object, values: [
+                "id": template.id, "title": template.title, "mealSlotRaw": template.mealSlot.rawValue,
+                "itemsData": items, "isFavorite": template.isFavorite, "lastUsedAt": template.lastUsedAt,
+                "createdAt": template.createdAt, "updatedAt": template.updatedAt
+            ])
+        }
+    }
+
+    public func save(_ groceryList: NutritionGroceryList) async throws {
+        let items = try encoder.encode(groceryList.items)
+        try await write { context in
+            let object = try Self.upsert("GroceryList", id: groceryList.id, context: context)
+            Self.set(object, values: [
+                "id": groceryList.id, "title": groceryList.title, "itemsData": items,
+                "isArchived": groceryList.isArchived, "createdAt": groceryList.createdAt,
+                "updatedAt": groceryList.updatedAt
+            ])
+        }
+    }
+
+    public func save(_ memory: NutritionServingMemory) async throws {
+        try await write { context in
+            let request = Self.localRequest(entity: "ServingMemory", context: context)
+            request.predicate = NSPredicate(format: "foodID == %@", memory.foodID as CVarArg)
+            request.fetchLimit = 1
+            let object = try context.fetch(request).first
+                ?? Self.upsert("ServingMemory", id: memory.id, context: context)
+            Self.set(object, values: [
+                "id": memory.id, "foodID": memory.foodID, "servingName": memory.servingName,
+                "grams": memory.grams, "lastUsedAt": memory.lastUsedAt, "usageCount": memory.usageCount
+            ])
+        }
+    }
+
+    public func save(_ preferences: NutritionPreferences) async throws {
+        let macros = try preferences.macroTargets.map(encoder.encode)
+        let micronutrients = try encoder.encode(preferences.micronutrientTargets)
+        try await write { context in
+            let object = try Self.upsert("NutritionPreference", id: preferences.id, context: context)
+            Self.set(object, values: [
+                "id": preferences.id, "caloriesHidden": preferences.caloriesHidden,
+                "macroTargetsData": macros, "micronutrientTargetsData": micronutrients,
+                "updatedAt": preferences.updatedAt
             ])
         }
     }
@@ -189,6 +346,11 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
             resolvedMacrosSnapshot: macros, loggedAt: loggedAt,
             capturedTimeZoneIdentifier: object.value(forKey: "capturedTimeZoneIdentifier") as? String ?? TimeZone.autoupdatingCurrent.identifier,
             note: object.value(forKey: "note") as? String,
+            recipeID: object.value(forKey: "recipeID") as? UUID,
+            mealTemplateID: object.value(forKey: "mealTemplateID") as? UUID,
+            provenance: (object.value(forKey: "provenanceRaw") as? String)
+                .flatMap(NutritionLogProvenance.init(rawValue:)) ?? .foodLibrary,
+            sourceReference: object.value(forKey: "sourceReference") as? String,
             createdAt: object.value(forKey: "createdAt") as? Date ?? loggedAt,
             updatedAt: object.value(forKey: "updatedAt") as? Date ?? loggedAt
         )
@@ -204,6 +366,93 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
             capturedTimeZone: TimeZone(identifier: object.value(forKey: "capturedTimeZoneIdentifier") as? String ?? "") ?? .autoupdatingCurrent,
             createdAt: object.value(forKey: "createdAt") as? Date ?? effective,
             updatedAt: object.value(forKey: "updatedAt") as? Date ?? effective
+        )
+    }
+
+    private static func recipe(_ object: NSManagedObject, decoder: JSONDecoder) -> NutritionRecipe? {
+        guard let id = object.value(forKey: "id") as? UUID,
+              let title = object.value(forKey: "title") as? String,
+              let data = object.value(forKey: "resolvedNutritionData") as? Data,
+              let nutrition = try? decoder.decode(NutritionMacros.self, from: data) else { return nil }
+        return try? NutritionRecipe(
+            id: id, title: title, instructions: object.value(forKey: "instructions") as? String,
+            servingCount: (object.value(forKey: "servingCount") as? NSNumber)?.doubleValue ?? 1,
+            resolvedNutrition: nutrition,
+            source: (object.value(forKey: "sourceRaw") as? String).flatMap(FoodSource.init(rawValue:)) ?? .userCreated,
+            externalReference: object.value(forKey: "externalReference") as? String,
+            isFavorite: (object.value(forKey: "isFavorite") as? NSNumber)?.boolValue ?? false,
+            createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+        )
+    }
+
+    private static func ingredient(_ object: NSManagedObject) -> RecipeIngredient? {
+        guard let id = object.value(forKey: "id") as? UUID,
+              let recipeID = object.value(forKey: "recipeID") as? UUID,
+              let name = object.value(forKey: "nameSnapshot") as? String else { return nil }
+        return try? RecipeIngredient(
+            id: id, recipeID: recipeID, foodID: object.value(forKey: "foodID") as? UUID,
+            nameSnapshot: name,
+            quantity: (object.value(forKey: "quantity") as? NSNumber)?.doubleValue ?? 1,
+            unitLabel: object.value(forKey: "unitLabel") as? String ?? "serving",
+            gramsSnapshot: (object.value(forKey: "gramsSnapshot") as? NSNumber)?.doubleValue ?? 100,
+            ordinal: (object.value(forKey: "ordinal") as? NSNumber)?.intValue ?? 0,
+            createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+        )
+    }
+
+    private static func mealTemplate(_ object: NSManagedObject, decoder: JSONDecoder) -> NutritionMealTemplate? {
+        guard let id = object.value(forKey: "id") as? UUID,
+              let title = object.value(forKey: "title") as? String,
+              let slotRaw = object.value(forKey: "mealSlotRaw") as? String,
+              let slot = NutritionMealSlot(rawValue: slotRaw),
+              let itemsData = object.value(forKey: "itemsData") as? Data,
+              let items = try? decoder.decode([MealTemplateItem].self, from: itemsData) else { return nil }
+        return try? NutritionMealTemplate(
+            id: id, title: title, mealSlot: slot, items: items,
+            isFavorite: (object.value(forKey: "isFavorite") as? NSNumber)?.boolValue ?? false,
+            lastUsedAt: object.value(forKey: "lastUsedAt") as? Date,
+            createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+        )
+    }
+
+    private static func groceryList(_ object: NSManagedObject, decoder: JSONDecoder) -> NutritionGroceryList? {
+        guard let id = object.value(forKey: "id") as? UUID,
+              let title = object.value(forKey: "title") as? String else { return nil }
+        let items = (object.value(forKey: "itemsData") as? Data)
+            .flatMap { try? decoder.decode([GroceryListItem].self, from: $0) } ?? []
+        return try? NutritionGroceryList(
+            id: id, title: title, items: items,
+            isArchived: (object.value(forKey: "isArchived") as? NSNumber)?.boolValue ?? false,
+            createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+        )
+    }
+
+    private static func servingMemory(_ object: NSManagedObject) -> NutritionServingMemory? {
+        guard let id = object.value(forKey: "id") as? UUID,
+              let foodID = object.value(forKey: "foodID") as? UUID,
+              let name = object.value(forKey: "servingName") as? String else { return nil }
+        return try? NutritionServingMemory(
+            id: id, foodID: foodID, servingName: name,
+            grams: (object.value(forKey: "grams") as? NSNumber)?.doubleValue ?? 100,
+            lastUsedAt: object.value(forKey: "lastUsedAt") as? Date ?? Date(),
+            usageCount: (object.value(forKey: "usageCount") as? NSNumber)?.intValue ?? 0
+        )
+    }
+
+    private static func preferences(_ object: NSManagedObject, decoder: JSONDecoder) -> NutritionPreferences? {
+        let macros = (object.value(forKey: "macroTargetsData") as? Data)
+            .flatMap { try? decoder.decode(NutritionMacros.self, from: $0) }
+        let micronutrients = (object.value(forKey: "micronutrientTargetsData") as? Data)
+            .flatMap { try? decoder.decode([String: Double].self, from: $0) } ?? [:]
+        return try? NutritionPreferences(
+            id: object.value(forKey: "id") as? UUID ?? NutritionPreferences.canonicalID,
+            caloriesHidden: (object.value(forKey: "caloriesHidden") as? NSNumber)?.boolValue ?? false,
+            macroTargets: macros, micronutrientTargets: micronutrients,
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
         )
     }
 
@@ -228,6 +477,12 @@ public final class CoreDataNutritionRepository: NutritionRepository, @unchecked 
         request.predicate = NSPredicate(format: "id == %@", id as CVarArg)
         request.fetchLimit = 1
         return try context.fetch(request).first
+    }
+
+    private static func localRequest(entity: String, context: NSManagedObjectContext) -> NSFetchRequest<NSManagedObject> {
+        let request = NSFetchRequest<NSManagedObject>(entityName: entity)
+        request.affectedStores = localStores(in: context)
+        return request
     }
 
     private static func upsert(_ entity: String, id: UUID, context: NSManagedObjectContext) throws -> NSManagedObject {
