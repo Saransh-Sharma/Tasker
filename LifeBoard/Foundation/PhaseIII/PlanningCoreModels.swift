@@ -284,6 +284,21 @@ public enum PlanningCalendarAuthorization: String, Codable, CaseIterable, Sendab
     case unavailable
 }
 
+/// User-facing freshness and failure state for read-only calendar context.
+///
+/// Authorization alone cannot distinguish an empty fresh calendar from a
+/// failed fetch or an offline cache. Keeping that distinction typed prevents
+/// Plan from presenting stale openings as current availability.
+public enum PlanningCalendarState: Codable, Equatable, Sendable {
+    case notRequested
+    case denied
+    case loading
+    case fresh(fetchedAt: Date)
+    case staleCached(fetchedAt: Date, message: String)
+    case offlineCached(fetchedAt: Date)
+    case failed(message: String)
+}
+
 /// A read-only view of an EventKit commitment. LifeBoard never persists or mutates it.
 public struct CalendarCommitment: Codable, Hashable, Identifiable, Sendable {
     public let id: String
@@ -326,6 +341,26 @@ public struct FreeWindow: Codable, Hashable, Identifiable, Sendable {
     }
 
     public var duration: TimeInterval { max(0, endAt.timeIntervalSince(startAt)) }
+}
+
+public struct TaskFreeWindowCandidate: Codable, Hashable, Identifiable, Sendable {
+    public var id: String { "\(taskID.uuidString):\(window.id)" }
+    public let taskID: UUID
+    public let taskTitle: String
+    public let estimate: TimeInterval
+    public let window: FreeWindow
+
+    public init(
+        taskID: UUID,
+        taskTitle: String,
+        estimate: TimeInterval,
+        window: FreeWindow
+    ) {
+        self.taskID = taskID
+        self.taskTitle = taskTitle
+        self.estimate = max(0, estimate)
+        self.window = window
+    }
 }
 
 public struct PlanningCalendarContext: Codable, Equatable, Sendable {
@@ -410,7 +445,9 @@ public struct PlanDaySnapshot: Codable, Equatable, Sendable {
     public var capacity: CapacityBudget
     public var commitments: [PlanningFixedCommitment]
     public var calendarAuthorization: PlanningCalendarAuthorization = .notDetermined
+    public var calendarState: PlanningCalendarState = .notRequested
     public var freeWindows: [FreeWindow] = []
+    public var fitsNextCandidates: [TaskFreeWindowCandidate] = []
     public var blocks: [InternalTimeBlock]
     public var plannedTasks: [PlanningTaskSummary]
     public var unscheduledTasks: [PlanningTaskSummary]
@@ -631,6 +668,33 @@ public enum FocusMode: Codable, Hashable, Sendable {
     }
 }
 
+public enum FocusPomodoroPhaseKind: String, Codable, CaseIterable, Sendable {
+    case focus
+    case rest
+}
+
+/// Durable phase state for an active Pomodoro session. Keeping the phase in the
+/// companion record means a process restart cannot silently reset the user to
+/// round one while the canonical FocusSession remains active.
+public struct FocusPomodoroPhase: Codable, Hashable, Sendable {
+    public var kind: FocusPomodoroPhaseKind
+    public var round: Int
+    public var phaseStartedAt: Date
+    public var phaseEndsAt: Date
+
+    public init(
+        kind: FocusPomodoroPhaseKind = .focus,
+        round: Int = 1,
+        phaseStartedAt: Date,
+        phaseEndsAt: Date
+    ) {
+        self.kind = kind
+        self.round = max(1, round)
+        self.phaseStartedAt = phaseStartedAt
+        self.phaseEndsAt = max(phaseEndsAt, phaseStartedAt)
+    }
+}
+
 public struct FocusInterruptionEvent: Codable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public var recordedAt: Date
@@ -652,6 +716,7 @@ public struct FocusSessionCompanion: Codable, Hashable, Identifiable, Sendable {
     public var subtaskID: UUID?
     public var checkedSubtaskIDs: Set<UUID>
     public var interruptions: [FocusInterruptionEvent]
+    public var pomodoroPhase: FocusPomodoroPhase?
     public var createdAt: Date
     public var updatedAt: Date
     public var completedAt: Date?
@@ -663,6 +728,7 @@ public struct FocusSessionCompanion: Codable, Hashable, Identifiable, Sendable {
         subtaskID: UUID? = nil,
         checkedSubtaskIDs: Set<UUID> = [],
         interruptions: [FocusInterruptionEvent] = [],
+        pomodoroPhase: FocusPomodoroPhase? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date(),
         completedAt: Date? = nil
@@ -673,6 +739,7 @@ public struct FocusSessionCompanion: Codable, Hashable, Identifiable, Sendable {
         self.subtaskID = subtaskID
         self.checkedSubtaskIDs = checkedSubtaskIDs
         self.interruptions = interruptions
+        self.pomodoroPhase = pomodoroPhase
         self.createdAt = createdAt
         self.updatedAt = updatedAt
         self.completedAt = completedAt
@@ -681,6 +748,7 @@ public struct FocusSessionCompanion: Codable, Hashable, Identifiable, Sendable {
 
 public struct FocusExecutionReceipt: Codable, Hashable, Identifiable, Sendable {
     public let id: UUID
+    public var sessionID: UUID
     public var taskID: UUID?
     public var timeBlockID: UUID?
     public var targetDuration: TimeInterval
@@ -691,6 +759,92 @@ public struct FocusExecutionReceipt: Codable, Hashable, Identifiable, Sendable {
     public var reflection: String?
     public var startedAt: Date
     public var endedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        sessionID: UUID,
+        taskID: UUID?,
+        timeBlockID: UUID?,
+        targetDuration: TimeInterval,
+        actualFocusedDuration: TimeInterval,
+        interruptionCount: Int,
+        outcome: FocusCompletionOutcome,
+        energyAfter: Int?,
+        reflection: String?,
+        startedAt: Date,
+        endedAt: Date
+    ) {
+        self.id = id
+        self.sessionID = sessionID
+        self.taskID = taskID
+        self.timeBlockID = timeBlockID
+        self.targetDuration = max(0, targetDuration)
+        self.actualFocusedDuration = max(0, actualFocusedDuration)
+        self.interruptionCount = max(0, interruptionCount)
+        self.outcome = outcome
+        self.energyAfter = energyAfter
+        self.reflection = reflection
+        self.startedAt = startedAt
+        self.endedAt = max(endedAt, startedAt)
+    }
+}
+
+public struct FocusSessionStartRequest: Codable, Hashable, Sendable {
+    public var taskID: UUID?
+    public var timeBlockID: UUID?
+    public var mode: FocusMode
+    public var intention: String
+    public var subtaskID: UUID?
+    public var startedAt: Date
+
+    public init(
+        taskID: UUID? = nil,
+        timeBlockID: UUID? = nil,
+        mode: FocusMode,
+        intention: String = "",
+        subtaskID: UUID? = nil,
+        startedAt: Date = Date()
+    ) {
+        self.taskID = taskID
+        self.timeBlockID = timeBlockID
+        self.mode = mode
+        self.intention = intention.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.subtaskID = subtaskID
+        self.startedAt = startedAt
+    }
+}
+
+public struct FocusSessionRecovery: Codable, Hashable, Sendable {
+    public var session: FocusSessionV2
+    public var companion: FocusSessionCompanion?
+
+    public init(session: FocusSessionV2, companion: FocusSessionCompanion?) {
+        self.session = session
+        self.companion = companion
+    }
+}
+
+public enum FocusSessionCommandError: LocalizedError, Sendable {
+    case alreadyActive(UUID)
+    case sessionNotFound(UUID)
+    case sessionAlreadyEnded(UUID)
+    case notPomodoro(UUID)
+    case pomodoroComplete(UUID)
+
+    public var errorDescription: String? {
+        switch self {
+        case .alreadyActive:
+            "A focus session is already active."
+        case .sessionNotFound:
+            "That focus session could not be found."
+        case .sessionAlreadyEnded:
+            "That focus session has already ended."
+        case .notPomodoro:
+            "This focus session is not using a Pomodoro rhythm."
+        case .pomodoroComplete:
+            "Every Pomodoro round is complete."
+        }
+    }
 }
 
 public struct EstimateCalibrationSuggestion: Codable, Equatable, Sendable {
@@ -785,6 +939,22 @@ public enum PlanningScenarioSource: String, Codable, CaseIterable, Sendable {
     case multiItemReschedule
 }
 
+public struct MinimumViableDaySelection: Codable, Equatable, Sendable {
+    public var careTaskID: UUID?
+    public var outcomeTaskID: UUID?
+    public var restWindowID: String?
+
+    public init(
+        careTaskID: UUID? = nil,
+        outcomeTaskID: UUID? = nil,
+        restWindowID: String? = nil
+    ) {
+        self.careTaskID = careTaskID
+        self.outcomeTaskID = outcomeTaskID
+        self.restWindowID = restWindowID
+    }
+}
+
 public struct PlanningTouchedRecord: Codable, Hashable, Identifiable, Sendable {
     public var id: String { "\(kind):\(recordID.uuidString)" }
     public var kind: String
@@ -815,33 +985,63 @@ public struct PlanningScenarioDiff: Codable, Hashable, Identifiable, Sendable {
 public struct PlanningScenario: Codable, Identifiable, Sendable {
     public let id: UUID
     public var source: PlanningScenarioSource
+    public var receiptSource: String?
     public var touchedRecords: [PlanningTouchedRecord]
     public var proposedMutations: [PlanMutation]
     public var diff: [PlanningScenarioDiff]
     public var preview: PlanDaySnapshot
+    public var validationIssues: [String]
     public var createdAt: Date
 
     public init(
         id: UUID = UUID(),
         source: PlanningScenarioSource,
+        receiptSource: String? = nil,
         touchedRecords: [PlanningTouchedRecord],
         proposedMutations: [PlanMutation],
         diff: [PlanningScenarioDiff],
         preview: PlanDaySnapshot,
+        validationIssues: [String] = [],
         createdAt: Date = Date()
     ) {
         self.id = id
         self.source = source
+        self.receiptSource = receiptSource
         self.touchedRecords = touchedRecords
         self.proposedMutations = proposedMutations
         self.diff = diff
         self.preview = preview
+        self.validationIssues = validationIssues
         self.createdAt = createdAt
     }
+
+    public var isReadyToApply: Bool { validationIssues.isEmpty }
 }
 
 public enum PlanningScenarioApplyError: Error, Equatable, Sendable {
     case versionConflict(changedRecordIDs: [UUID])
+}
+
+public struct PlanningScenarioRefreshResult: Sendable {
+    public let source: PlanningScenarioSource
+    public let changedRecordIDs: [UUID]
+    public let previousDiff: [PlanningScenarioDiff]
+    public let refreshedScenario: PlanningScenario
+    public let refreshedAt: Date
+
+    public init(
+        source: PlanningScenarioSource,
+        changedRecordIDs: [UUID],
+        previousDiff: [PlanningScenarioDiff],
+        refreshedScenario: PlanningScenario,
+        refreshedAt: Date = Date()
+    ) {
+        self.source = source
+        self.changedRecordIDs = changedRecordIDs
+        self.previousDiff = previousDiff
+        self.refreshedScenario = refreshedScenario
+        self.refreshedAt = refreshedAt
+    }
 }
 
 public enum FocusSessionState: String, Codable, CaseIterable, Sendable {
@@ -1051,6 +1251,7 @@ public protocol FocusExecutionCoordinator: Sendable {
     func commandReceipts(since: Date?) async throws -> [FocusCommandReceipt]
     func start(taskID: UUID?, timeBlockID: UUID?, targetDuration: TimeInterval, at: Date) async throws -> FocusSessionV2
     func handle(_ command: FocusSessionCommand) async throws -> FocusSessionV2
+    func updateReflection(sessionID: UUID, energyAfter: Int?, reflection: String?) async throws -> FocusSessionV2
 }
 
 public protocol InternalTimeBlockRepository: Sendable {

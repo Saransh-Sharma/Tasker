@@ -41,7 +41,8 @@ public struct DefaultPlanningScenarioCoordinator: PlanningScenarioCoordinating {
 
         let receipt = try await mutations.prepare(
             .batch(scenario.proposedMutations),
-            source: "planning.scenario.\(scenario.source.rawValue)",
+            source: scenario.receiptSource
+                ?? "planning.scenario.\(scenario.source.rawValue)",
             summary: scenario.diff.map(\.title).joined(separator: ", ")
         )
         try await mutations.apply(receiptID: receipt.id)
@@ -55,21 +56,29 @@ public enum MinimumViableDayScenarioBuilder {
     /// priority".
     public static func make(
         from snapshot: PlanDaySnapshot,
+        selection: MinimumViableDaySelection = .init(),
         now: Date = Date()
     ) -> PlanningScenario {
         let available = snapshot.unscheduledTasks.filter(\.dependenciesReady)
         let careWords = ["care", "medication", "medicine", "water", "meal", "eat", "rest"]
-        let care = available.first { task in
-            let title = task.title.lowercased()
-            return careWords.contains(where: title.contains)
+        let inferredCare = available.first { task in
+            careWords.contains { task.title.lowercased().contains($0) }
         }
-        let outcome = available
+        let care = selection.careTaskID
+            .flatMap { id in available.first { $0.id == id } }
+            ?? inferredCare
+        let inferredOutcome = available
             .filter { $0.id != care?.id && ($0.estimatedDuration ?? .infinity) <= 30 * 60 }
             .sorted {
                 if $0.priority != $1.priority { return priorityRank($0.priority) > priorityRank($1.priority) }
                 return $0.id.uuidString < $1.id.uuidString
             }
             .first
+        let outcome = selection.outcomeTaskID
+            .flatMap { id in
+                available.first { $0.id == id && $0.id != care?.id }
+            }
+            ?? inferredOutcome
         let selected = [care, outcome].compactMap { $0 }
 
         let taskMutations = selected.map { task -> PlanMutation in
@@ -79,11 +88,13 @@ public enum MinimumViableDayScenarioBuilder {
             after.updatedAt = now
             return .saveTaskMetadata(before: task.metadata, after: after)
         }
-        let restMutation: PlanMutation? = snapshot.freeWindows
+        let eligibleRestWindows = snapshot.freeWindows
             .filter { $0.endAt > now && $0.duration >= 15 * 60 }
             .sorted { $0.startAt < $1.startAt }
-            .first
-            .map { window in
+        let restWindow = selection.restWindowID
+            .flatMap { id in eligibleRestWindows.first { $0.id == id } }
+            ?? eligibleRestWindows.first
+        let restMutation: PlanMutation? = restWindow.map { window in
                 .saveTimeBlock(
                     before: nil,
                     after: InternalTimeBlock(
@@ -131,6 +142,11 @@ public enum MinimumViableDayScenarioBuilder {
                 )
             ],
             preview: preview,
+            validationIssues: [
+                care == nil ? "Choose one essential-care item." : nil,
+                outcome == nil ? "Choose one achievable outcome." : nil,
+                restMutation == nil ? "Choose a protected-rest window." : nil
+            ].compactMap { $0 },
             createdAt: now
         )
     }
@@ -165,6 +181,61 @@ public struct DefaultPlanningDayResolver: PlanningDayResolver {
         case .followAbsoluteDate:
             guard let absoluteStart = day.startDate(calendar: calendar) else { return day }
             return PlanningDay(date: absoluteStart, timeZone: destinationTimeZone, calendar: calendar)
+        }
+    }
+}
+
+public enum FitsNextService {
+    /// Produces every task-to-gap pairing that can actually fit.
+    ///
+    /// A task can appear more than once when several real openings work. The
+    /// candidate owns its chosen gap, so tapping it never silently substitutes
+    /// the first future window.
+    public static func candidates(
+        tasks: [PlanningTaskSummary],
+        windows: [FreeWindow],
+        now: Date = Date()
+    ) -> [TaskFreeWindowCandidate] {
+        let eligibleWindows = windows
+            .filter { $0.endAt > now && $0.duration >= 15 * 60 }
+            .sorted {
+                if $0.startAt != $1.startAt { return $0.startAt < $1.startAt }
+                return $0.endAt < $1.endAt
+            }
+        let eligibleTasks = tasks
+            .filter {
+                $0.dependenciesReady
+                    && ($0.estimatedDuration ?? 0) >= 15 * 60
+            }
+            .sorted {
+                if $0.priority != $1.priority {
+                    return priorityRank($0.priority) > priorityRank($1.priority)
+                }
+                return $0.id.uuidString < $1.id.uuidString
+            }
+
+        return eligibleWindows.flatMap { window in
+            eligibleTasks.compactMap { task in
+                guard
+                    let estimate = task.estimatedDuration,
+                    estimate <= window.duration
+                else { return nil }
+                return TaskFreeWindowCandidate(
+                    taskID: task.id,
+                    taskTitle: task.title,
+                    estimate: estimate,
+                    window: window
+                )
+            }
+        }
+    }
+
+    private static func priorityRank(_ priority: FocusPriorityBand) -> Int {
+        switch priority {
+        case .low: 0
+        case .medium: 1
+        case .high: 2
+        case .urgent: 3
         }
     }
 }
@@ -527,7 +598,8 @@ public enum EstimateCalibrationService {
         comparableDurations: [TimeInterval],
         now: Date = Date()
     ) -> EstimateCalibrationSuggestion? {
-        let evidence = comparableDurations.filter { $0 > 0 }.sorted()
+        // Very short starts/stops are setup noise, not an estimate sample.
+        let evidence = comparableDurations.filter { $0 >= 5 * 60 }.sorted()
         guard evidence.count >= 3 else { return nil }
         let median = evidence[evidence.count / 2]
         let rounded = max(5 * 60, (median / (5 * 60)).rounded() * (5 * 60))
@@ -571,6 +643,294 @@ public enum FocusSessionStateMachine {
             updated.state = .ended
         }
         return updated
+    }
+}
+
+/// A process-local event stream emitted only after a canonical focus end command
+/// has been durably saved. Subscribers may update projections or award XP, but
+/// they never write another focus-session row.
+public actor FocusCompletionReceiptEventStream {
+    private var continuations: [UUID: AsyncStream<FocusExecutionReceipt>.Continuation] = [:]
+    private var publishedReceiptIDs: Set<UUID> = []
+
+    public init() {}
+
+    public func stream() -> AsyncStream<FocusExecutionReceipt> {
+        let subscriberID = UUID()
+        return AsyncStream { continuation in
+            continuations[subscriberID] = continuation
+            continuation.onTermination = { @Sendable _ in
+                Task { await self.removeSubscriber(subscriberID) }
+            }
+        }
+    }
+
+    public func publish(_ receipt: FocusExecutionReceipt) {
+        guard publishedReceiptIDs.insert(receipt.id).inserted else { return }
+        for continuation in continuations.values {
+            continuation.yield(receipt)
+        }
+    }
+
+    private func removeSubscriber(_ id: UUID) {
+        continuations[id] = nil
+    }
+}
+
+/// The sole command surface for new focus UX. It owns companion recovery,
+/// canonical state-machine commands, completion receipts, and system-surface
+/// synchronization. Callers can preserve legacy presentation models without
+/// preserving a legacy persistence writer.
+public actor FocusSessionCommands {
+    private let repository: any FocusExecutionCoordinator
+    private let companionStore: FocusSessionCompanionStore
+    public let completionEvents: FocusCompletionReceiptEventStream
+
+    public init(
+        repository: any FocusExecutionCoordinator,
+        companionStore: FocusSessionCompanionStore = .shared,
+        completionEvents: FocusCompletionReceiptEventStream = .init()
+    ) {
+        self.repository = repository
+        self.companionStore = companionStore
+        self.completionEvents = completionEvents
+    }
+
+    public func activeRecovery() async throws -> FocusSessionRecovery? {
+        try await companionStore.purge()
+        guard let session = try await repository.activeSession() else { return nil }
+        let companion = try await companionStore.companion(sessionID: session.id)
+        await synchronizePresentation(session)
+        return .init(session: session, companion: companion)
+    }
+
+    public func start(_ request: FocusSessionStartRequest) async throws -> FocusSessionRecovery {
+        if let active = try await repository.activeSession() {
+            throw FocusSessionCommandError.alreadyActive(active.id)
+        }
+        let session = try await repository.start(
+            taskID: request.taskID,
+            timeBlockID: request.timeBlockID,
+            targetDuration: request.mode.initialTargetDuration,
+            at: request.startedAt
+        )
+        let initialPhase: FocusPomodoroPhase?
+        if case let .pomodoro(focus, _, _) = request.mode {
+            initialPhase = .init(
+                kind: .focus,
+                round: 1,
+                phaseStartedAt: request.startedAt,
+                phaseEndsAt: request.startedAt.addingTimeInterval(max(0, focus))
+            )
+        } else {
+            initialPhase = nil
+        }
+        let companion = FocusSessionCompanion(
+            sessionID: session.id,
+            mode: request.mode,
+            intention: request.intention,
+            subtaskID: request.subtaskID,
+            pomodoroPhase: initialPhase,
+            createdAt: request.startedAt,
+            updatedAt: request.startedAt
+        )
+        try await companionStore.save(companion, now: request.startedAt)
+        await synchronizePresentation(session)
+        return .init(session: session, companion: companion)
+    }
+
+    @discardableResult
+    public func pause(
+        sessionID: UUID,
+        interruptionReason: String? = nil,
+        at date: Date = Date(),
+        commandID: UUID = UUID()
+    ) async throws -> FocusSessionRecovery {
+        if interruptionReason != nil {
+            _ = try await companionStore.recordInterruption(
+                sessionID: sessionID,
+                reason: interruptionReason,
+                at: date
+            )
+        }
+        let session = try await repository.handle(.init(
+            id: commandID,
+            sessionID: sessionID,
+            kind: .pause,
+            occurredAt: date
+        ))
+        let companion = try await companionStore.companion(sessionID: sessionID, now: date)
+        await synchronizePresentation(session)
+        return .init(session: session, companion: companion)
+    }
+
+    @discardableResult
+    public func resume(
+        sessionID: UUID,
+        at date: Date = Date(),
+        commandID: UUID = UUID()
+    ) async throws -> FocusSessionRecovery {
+        let session = try await repository.handle(.init(
+            id: commandID,
+            sessionID: sessionID,
+            kind: .resume,
+            occurredAt: date
+        ))
+        let companion = try await companionStore.companion(sessionID: sessionID, now: date)
+        await synchronizePresentation(session)
+        return .init(session: session, companion: companion)
+    }
+
+    public func updateChecklist(
+        sessionID: UUID,
+        checkedSubtaskIDs: Set<UUID>,
+        at date: Date = Date()
+    ) async throws -> FocusSessionCompanion? {
+        try await companionStore.updateChecklist(
+            sessionID: sessionID,
+            checkedSubtaskIDs: checkedSubtaskIDs,
+            at: date
+        )
+    }
+
+    public func advancePomodoro(
+        sessionID: UUID,
+        at date: Date = Date()
+    ) async throws -> FocusSessionCompanion {
+        guard var companion = try await companionStore.companion(sessionID: sessionID, now: date) else {
+            throw FocusSessionCommandError.sessionNotFound(sessionID)
+        }
+        guard case let .pomodoro(focus, breakDuration, rounds) = companion.mode,
+              let current = companion.pomodoroPhase else {
+            throw FocusSessionCommandError.notPomodoro(sessionID)
+        }
+        let next: FocusPomodoroPhase
+        switch current.kind {
+        case .focus:
+            next = .init(
+                kind: .rest,
+                round: current.round,
+                phaseStartedAt: date,
+                phaseEndsAt: date.addingTimeInterval(max(0, breakDuration))
+            )
+        case .rest:
+            guard current.round < max(1, rounds) else {
+                throw FocusSessionCommandError.pomodoroComplete(sessionID)
+            }
+            next = .init(
+                kind: .focus,
+                round: current.round + 1,
+                phaseStartedAt: date,
+                phaseEndsAt: date.addingTimeInterval(max(0, focus))
+            )
+        }
+        companion.pomodoroPhase = next
+        try await companionStore.save(companion, now: date)
+        return companion
+    }
+
+    public func end(
+        sessionID: UUID,
+        outcome: FocusCompletionOutcome,
+        at date: Date = Date(),
+        commandID: UUID = UUID()
+    ) async throws -> FocusExecutionReceipt {
+        guard let existing = try await repository.session(id: sessionID) else {
+            throw FocusSessionCommandError.sessionNotFound(sessionID)
+        }
+        if existing.state == .ended {
+            return try receipt(for: existing, id: commandID)
+        }
+        let ended = try await repository.handle(.init(
+            id: commandID,
+            sessionID: sessionID,
+            kind: .end(outcome),
+            occurredAt: date
+        ))
+        try await companionStore.markCompleted(sessionID: sessionID, at: date)
+        let receipt = try receipt(for: ended, id: commandID)
+        await synchronizePresentation(ended)
+        await completionEvents.publish(receipt)
+        return receipt
+    }
+
+    public func saveReflection(
+        sessionID: UUID,
+        energyAfter: Int?,
+        note: String?
+    ) async throws -> FocusExecutionReceipt {
+        let session = try await repository.updateReflection(
+            sessionID: sessionID,
+            energyAfter: energyAfter,
+            reflection: note
+        )
+        return try receipt(
+            for: session,
+            id: session.appliedCommandIDs.sorted(by: { $0.uuidString < $1.uuidString }).last ?? session.id
+        )
+    }
+
+    private func receipt(for session: FocusSessionV2, id: UUID) throws -> FocusExecutionReceipt {
+        guard let endedAt = session.endedAt, let outcome = session.outcome else {
+            throw FocusSessionCommandError.sessionAlreadyEnded(session.id)
+        }
+        return .init(
+            id: id,
+            sessionID: session.id,
+            taskID: session.taskID,
+            timeBlockID: session.timeBlockID,
+            targetDuration: session.targetDuration,
+            actualFocusedDuration: session.focusedDuration(at: endedAt),
+            interruptionCount: session.interruptionCount,
+            outcome: outcome,
+            energyAfter: session.energyAfter,
+            reflection: session.reflection,
+            startedAt: session.startedAt,
+            endedAt: endedAt
+        )
+    }
+
+    private func synchronizePresentation(_ session: FocusSessionV2) async {
+        let liveActivitiesAvailable = await FocusLiveActivityCoordinator.shared.synchronize(session: session)
+        await FocusNotificationFallbackCoordinator.shared.synchronize(
+            session: session,
+            title: "Focus session",
+            liveActivitiesAvailable: liveActivitiesAvailable
+        )
+    }
+}
+
+/// XP is a downstream projection of a durable canonical completion receipt.
+/// Gamification's existing session-key idempotency makes replay safe.
+public final class FocusCompletionXPSubscriber: @unchecked Sendable {
+    private var observationTask: Task<Void, Never>?
+
+    public init(
+        events: FocusCompletionReceiptEventStream,
+        engine: GamificationEngine
+    ) {
+        observationTask = Task {
+            let stream = await events.stream()
+            for await receipt in stream {
+                let context = XPEventContext(
+                    category: .focus,
+                    source: .manual,
+                    taskID: receipt.taskID,
+                    sessionID: receipt.sessionID,
+                    completedAt: receipt.endedAt,
+                    focusDurationSeconds: Int(receipt.actualFocusedDuration.rounded())
+                )
+                _ = await withCheckedContinuation { continuation in
+                    engine.recordEvent(context: context) { result in
+                        continuation.resume(returning: result)
+                    }
+                }
+            }
+        }
+    }
+
+    deinit {
+        observationTask?.cancel()
     }
 }
 

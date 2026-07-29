@@ -74,6 +74,32 @@ public actor FocusSessionCompanionStore {
         return values[index]
     }
 
+    public func updateChecklist(
+        sessionID: UUID,
+        checkedSubtaskIDs: Set<UUID>,
+        at date: Date = Date()
+    ) throws -> FocusSessionCompanion? {
+        var values = try loadPurgingExpired(now: date)
+        guard let index = values.firstIndex(where: { $0.sessionID == sessionID }) else { return nil }
+        values[index].checkedSubtaskIDs = checkedSubtaskIDs
+        values[index].updatedAt = date
+        try persist(values)
+        return values[index]
+    }
+
+    public func updatePomodoroPhase(
+        sessionID: UUID,
+        phase: FocusPomodoroPhase,
+        at date: Date = Date()
+    ) throws -> FocusSessionCompanion? {
+        var values = try loadPurgingExpired(now: date)
+        guard let index = values.firstIndex(where: { $0.sessionID == sessionID }) else { return nil }
+        values[index].pomodoroPhase = phase
+        values[index].updatedAt = date
+        try persist(values)
+        return values[index]
+    }
+
     public func markCompleted(sessionID: UUID, at date: Date = Date()) throws {
         var values = try loadPurgingExpired(now: date)
         guard let index = values.firstIndex(where: { $0.sessionID == sessionID }) else { return }
@@ -602,6 +628,27 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
             try Self.write(updated, to: object, commandReceipts: receipts)
             if context.hasChanges { try context.save() }
             return updated
+        }
+    }
+
+    public func updateReflection(
+        sessionID: UUID,
+        energyAfter: Int?,
+        reflection: String?
+    ) async throws -> FocusSessionV2 {
+        let context = container.newBackgroundContext()
+        context.mergePolicy = NSMergePolicy(merge: .mergeByPropertyObjectTrumpMergePolicyType)
+        return try await context.perform {
+            guard let object = try Self.fetchOne(entity: "FocusSession", id: sessionID, in: context),
+                  var session = Self.focusSession(object) else {
+                throw FocusSessionCommandError.sessionNotFound(sessionID)
+            }
+            session.energyAfter = energyAfter.map { min(5, max(1, $0)) }
+            let cleaned = reflection?.trimmingCharacters(in: .whitespacesAndNewlines)
+            session.reflection = cleaned?.isEmpty == false ? cleaned : nil
+            try Self.write(session, to: object, commandReceipts: Self.focusCommandReceipts(object))
+            if context.hasChanges { try context.save() }
+            return session
         }
     }
 
