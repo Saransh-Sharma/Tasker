@@ -147,9 +147,10 @@ final class InboxStore {
     /// Commits exactly the parser proposal and title shown in the review sheet.
     /// The capture stays queued on every failure.
     @discardableResult
-    func fileCapture(_ item: InboxItem, reviewedTitle: String) async -> Bool {
+    func fileCapture(_ item: InboxItem, draft: InboxCaptureReviewDraft) async -> Bool {
         guard let commitCoordinator,
               case let .pendingCapture(captureID) = item.origin,
+              draft.captureID == captureID,
               let capture = captureQueue.read().first(where: { $0.id == captureID })
         else {
             mutationError = "This capture can’t be filed from the current route."
@@ -160,7 +161,7 @@ final class InboxStore {
         mutationError = nil
         defer { isMutating = false }
 
-        let editedRequest = reviewedRequest(for: item, title: reviewedTitle, captureID: captureID)
+        let editedRequest = draft.commitRequest
 
         guard editedRequest.title.isEmpty == false else {
             mutationError = "Add a title before filing this capture."
@@ -183,17 +184,17 @@ final class InboxStore {
     @discardableResult
     func mergeCapture(
         _ item: InboxItem,
-        reviewedTitle: String,
+        request: InboxCaptureCommitRequest,
         with duplicate: InboxItem
     ) async -> Bool {
         guard let commitCoordinator,
               case let .pendingCapture(captureID) = item.origin,
+              request.captureID == captureID,
               captureQueue.read().contains(where: { $0.id == captureID })
         else {
             mutationError = "This capture can’t be merged from the current route."
             return false
         }
-        let request = reviewedRequest(for: item, title: reviewedTitle, captureID: captureID)
         guard request.title.isEmpty == false else {
             mutationError = "Add a title before merging this capture."
             return false
@@ -215,29 +216,23 @@ final class InboxStore {
         }
     }
 
-    private func reviewedRequest(
-        for item: InboxItem,
-        title: String,
-        captureID: UUID
-    ) -> InboxCaptureCommitRequest {
-        let parsed = TaskCaptureParser.parse(item.title, now: item.capturedAt)
-        let request = InboxCaptureCommitRequest.reviewed(
+    func reviewDraft(for item: InboxItem) -> InboxCaptureReviewDraft? {
+        guard case let .pendingCapture(captureID) = item.origin else { return nil }
+        return InboxCaptureReviewDraft(
             captureID: captureID,
-            parsed: parsed,
-            fallbackTitle: title
+            parsed: TaskCaptureParser.parse(item.title, now: item.capturedAt),
+            fallbackTitle: item.title
         )
-        return InboxCaptureCommitRequest(
-            captureID: request.captureID,
-            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
-            dueDate: request.dueDate,
-            isAllDay: request.isAllDay,
-            estimatedDuration: request.estimatedDuration,
-            repeatPattern: request.repeatPattern,
-            priority: request.priority,
-            projectName: request.projectName,
-            tagNames: request.tagNames,
-            contextName: request.contextName
-        )
+    }
+
+    func mergeDestination(for item: InboxItem) async -> InboxMergeDestinationSnapshot? {
+        guard let commitCoordinator else { return nil }
+        do {
+            return try await commitCoordinator.mergeDestination(for: item.origin)
+        } catch {
+            mutationError = "Couldn’t load the existing item for comparison."
+            return nil
+        }
     }
 
     /// What the parser *would* extract from an unreviewed capture.
@@ -637,54 +632,48 @@ private struct InboxCaptureReviewSheet: View {
     let item: InboxItem
     @Bindable var store: InboxStore
     let onClose: () -> Void
-    @State private var title: String
+    @State private var draft: InboxCaptureReviewDraft
+    @State private var tagText: String
+    @State private var projectText: String
+    @State private var contextText: String
+    @State private var selectedDuplicateID: UUID?
+    @State private var mergeDestination: InboxMergeDestinationSnapshot?
+    @State private var mergeResolution: DuplicateMergeResolution
 
     init(item: InboxItem, store: InboxStore, onClose: @escaping () -> Void) {
         self.item = item
         self.store = store
         self.onClose = onClose
         let parsed = TaskCaptureParser.parse(item.title, now: item.capturedAt)
-        _title = State(initialValue: parsed.cleanTitle.isEmpty ? item.title : parsed.cleanTitle)
+        let captureID: UUID
+        if case let .pendingCapture(id) = item.origin { captureID = id }
+        else { captureID = item.id }
+        let initialDraft = InboxCaptureReviewDraft(
+            captureID: captureID,
+            parsed: parsed,
+            fallbackTitle: item.title
+        )
+        _draft = State(initialValue: initialDraft)
+        _tagText = State(initialValue: initialDraft.tagNames.joined(separator: ", "))
+        _projectText = State(initialValue: initialDraft.projectName ?? "")
+        _contextText = State(initialValue: initialDraft.contextName ?? "")
+        let duplicateID = store.duplicateCandidates(for: item).first?.existing.id
+        _selectedDuplicateID = State(initialValue: duplicateID)
+        _mergeResolution = State(initialValue: DuplicateMergeResolution(finalTitle: initialDraft.title))
     }
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("What should this become?") {
-                    TextField("Task title", text: $title, axis: .vertical)
+                    TextField("Task title", text: $draft.title, axis: .vertical)
                         .accessibilityIdentifier("plan.inbox.review.title")
                 }
 
-                let duplicates = store.duplicateCandidates(for: item)
+                metadataSection
+
                 if duplicates.isEmpty == false {
-                    Section("Possible duplicate") {
-                        ForEach(duplicates.prefix(3), id: \.existing.id) { candidate in
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(candidate.existing.title)
-                                Text("\(Int((candidate.similarity * 100).rounded()))% title match")
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        if let candidate = duplicates.first {
-                            Button("Merge into “\(candidate.existing.title)”") {
-                                Task {
-                                    if await store.mergeCapture(
-                                        item,
-                                        reviewedTitle: title,
-                                        with: candidate.existing
-                                    ) {
-                                        onClose()
-                                    }
-                                }
-                            }
-                            .disabled(store.isMutating)
-                            .accessibilityIdentifier("plan.inbox.review.merge")
-                        }
-                        Text("Merge keeps the existing item’s populated date, project, priority, and recurrence; it fills missing fields, combines tags, and uses the title above. Choosing Merge confirms those conflict choices. Keep Both creates a separate task. Cancel makes no changes.")
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                    }
+                    duplicateSection
                 }
 
                 if let error = store.mutationError {
@@ -701,19 +690,246 @@ private struct InboxCaptureReviewSheet: View {
                     Button("Cancel", action: onClose)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(store.duplicateCandidates(for: item).isEmpty ? "File It" : "Keep Both") {
+                    Button(duplicates.isEmpty ? "File It" : "Keep Both") {
                         Task {
-                            if await store.fileCapture(item, reviewedTitle: title) {
+                            if await store.fileCapture(item, draft: draft) {
                                 onClose()
                             }
                         }
                     }
-                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isMutating)
+                    .disabled(draft.commitRequest.title.isEmpty || store.isMutating)
                     .accessibilityIdentifier("plan.inbox.review.file")
                 }
             }
             .interactiveDismissDisabled(store.isMutating)
+            .onChange(of: draft.title) { _, newValue in
+                mergeResolution.finalTitle = newValue
+            }
+            .onChange(of: tagText) { _, newValue in
+                draft.tagNames = newValue
+                    .split(separator: ",")
+                    .map { String($0).trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { $0.isEmpty == false }
+            }
+            .onChange(of: projectText) { _, newValue in
+                draft.projectName = newValue
+            }
+            .onChange(of: contextText) { _, newValue in
+                draft.contextName = newValue
+            }
+            .task(id: selectedDuplicateID) {
+                guard let selectedDuplicate else {
+                    mergeDestination = nil
+                    return
+                }
+                mergeDestination = await store.mergeDestination(for: selectedDuplicate.existing)
+                mergeResolution = DuplicateMergeResolution(finalTitle: draft.title)
+            }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.large])
+    }
+
+    private var duplicates: [InboxDuplicateCandidate] {
+        store.duplicateCandidates(for: item)
+    }
+
+    private var selectedDuplicate: InboxDuplicateCandidate? {
+        guard let selectedDuplicateID else { return nil }
+        return duplicates.first { $0.existing.id == selectedDuplicateID }
+    }
+
+    @ViewBuilder
+    private var metadataSection: some View {
+        Section("Reviewed details") {
+            Toggle("Include date", isOn: Binding(
+                get: { draft.dueDate != nil },
+                set: { includesDate in
+                    draft.dueDate = includesDate ? (draft.dueDate ?? item.capturedAt) : nil
+                    if includesDate == false { draft.isAllDay = false }
+                }
+            ))
+            if draft.dueDate != nil {
+                DatePicker(
+                    "Date",
+                    selection: Binding(
+                        get: { draft.dueDate ?? item.capturedAt },
+                        set: { draft.dueDate = $0 }
+                    ),
+                    displayedComponents: draft.isAllDay ? .date : [.date, .hourAndMinute]
+                )
+                Toggle("All day", isOn: $draft.isAllDay)
+            }
+
+            Picker("Estimate", selection: $draft.estimatedDuration) {
+                Text("None").tag(nil as TimeInterval?)
+                Text("15 min").tag(15 * 60 as TimeInterval?)
+                Text("30 min").tag(30 * 60 as TimeInterval?)
+                Text("45 min").tag(45 * 60 as TimeInterval?)
+                Text("1 hour").tag(60 * 60 as TimeInterval?)
+                Text("90 min").tag(90 * 60 as TimeInterval?)
+                Text("2 hours").tag(120 * 60 as TimeInterval?)
+            }
+
+            Picker("Priority", selection: $draft.priority) {
+                Text("Not set").tag(nil as TaskPriority?)
+                ForEach(TaskPriority.allCases, id: \.self) { priority in
+                    Text(priority.displayName).tag(priority as TaskPriority?)
+                }
+            }
+
+            Picker("Repeat", selection: $draft.repeatPattern) {
+                ForEach(Array(Self.recurrenceOptions.enumerated()), id: \.offset) { _, option in
+                    Text(option.title).tag(option.pattern)
+                }
+            }
+
+            TextField("Project", text: $projectText)
+                .textInputAutocapitalization(.words)
+                .accessibilityHint("Unknown projects remain visible but file to Inbox")
+            TextField("Context", text: $contextText)
+                .textInputAutocapitalization(.never)
+            TextField("Tags, separated by commas", text: $tagText)
+                .textInputAutocapitalization(.never)
+        }
+    }
+
+    @ViewBuilder
+    private var duplicateSection: some View {
+        Section("Possible duplicate") {
+            if duplicates.count > 1 {
+                Picker("Compare with", selection: $selectedDuplicateID) {
+                    ForEach(duplicates.prefix(3), id: \.existing.id) { candidate in
+                        Text(candidate.existing.title).tag(candidate.existing.id as UUID?)
+                    }
+                }
+            } else if let candidate = duplicates.first {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(candidate.existing.title)
+                    Text("\(Int((candidate.similarity * 100).rounded()))% title match")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            if let destination = mergeDestination, let selectedDuplicate {
+                comparisonRow(
+                    "Date",
+                    existing: Self.dateDescription(destination.dueDate, isAllDay: destination.isAllDay),
+                    reviewed: Self.dateDescription(draft.dueDate, isAllDay: draft.isAllDay)
+                )
+                comparisonRow(
+                    "Project",
+                    existing: destination.projectName ?? "Inbox",
+                    reviewed: draft.projectName ?? "Inbox"
+                )
+                comparisonRow(
+                    "Priority",
+                    existing: destination.priority?.displayName ?? "Not set",
+                    reviewed: draft.priority?.displayName ?? "Not set"
+                )
+                comparisonRow(
+                    "Repeat",
+                    existing: destination.repeatPattern?.displayName ?? "Never",
+                    reviewed: draft.repeatPattern?.displayName ?? "Never"
+                )
+                comparisonRow(
+                    "Tags",
+                    existing: destination.tagNames.isEmpty ? "None" : destination.tagNames.joined(separator: ", "),
+                    reviewed: draft.tagNames.isEmpty ? "None" : draft.tagNames.joined(separator: ", ")
+                )
+
+                let conflicts = mergeResolution.conflicts(reviewed: draft, destination: destination)
+                if conflicts.isEmpty == false {
+                    Text("Confirm each highlighted choice before merging.")
+                        .font(.footnote)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+                ForEach(DuplicateMergeResolution.Field.allCases.filter(conflicts.contains), id: \.self) { field in
+                    Picker("Use \(field.title)", selection: conflictBinding(field)) {
+                        Text("Existing").tag(DuplicateMergeResolution.Choice.destination)
+                        Text("Reviewed").tag(DuplicateMergeResolution.Choice.reviewed)
+                    }
+                    .accessibilityValue(
+                        mergeResolution.acknowledgedFields.contains(field)
+                            ? "Confirmed"
+                            : "Existing selected, confirmation required"
+                    )
+                    .accessibilityHint("Choose a source to confirm the conflicting \(field.title.lowercased())")
+                }
+
+                Button("Merge into “\(selectedDuplicate.existing.title)”") {
+                    guard let request = mergeResolution.commitRequest(
+                        reviewed: draft,
+                        destination: destination
+                    ) else { return }
+                    Task {
+                        if await store.mergeCapture(item, request: request, with: selectedDuplicate.existing) {
+                            onClose()
+                        }
+                    }
+                }
+                .disabled(
+                    store.isMutating ||
+                    mergeResolution.isComplete(reviewed: draft, destination: destination) == false
+                )
+                .accessibilityIdentifier("plan.inbox.review.merge")
+            } else {
+                ProgressView("Loading comparison…")
+            }
+        }
+    }
+
+    private func comparisonRow(_ label: String, existing: String, reviewed: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(label)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            HStack(alignment: .firstTextBaseline) {
+                Text("Existing: \(existing)")
+                Spacer(minLength: 12)
+                Text("Reviewed: \(reviewed)")
+            }
+            .font(.footnote)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func conflictBinding(
+        _ field: DuplicateMergeResolution.Field
+    ) -> Binding<DuplicateMergeResolution.Choice> {
+        Binding(
+            get: { mergeResolution.choices[field] ?? .destination },
+            set: { mergeResolution.select($0, for: field) }
+        )
+    }
+
+    private static var recurrenceOptions: [(title: String, pattern: TaskRepeatPattern?)] {
+        [
+            ("Never", nil),
+            ("Daily", .daily),
+            ("Weekdays", .weekdays),
+            ("Weekly", .weekly(.allDays)),
+            ("Monthly", .monthly(.onDate(Calendar.current.component(.day, from: Date())))),
+            ("Yearly", .yearly(.onDate(
+                month: Calendar.current.component(.month, from: Date()),
+                day: Calendar.current.component(.day, from: Date())
+            )))
+        ]
+    }
+
+    private static func dateDescription(_ date: Date?, isAllDay: Bool) -> String {
+        guard let date else { return "Not set" }
+        return date.formatted(date: .abbreviated, time: isAllDay ? .omitted : .shortened)
+    }
+}
+
+private extension DuplicateMergeResolution.Field {
+    var title: String {
+        switch self {
+        case .date: "Date"
+        case .project: "Project"
+        case .priority: "Priority"
+        case .recurrence: "Repeat"
+        }
     }
 }

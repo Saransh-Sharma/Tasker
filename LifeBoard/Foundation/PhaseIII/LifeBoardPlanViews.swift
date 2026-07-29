@@ -317,6 +317,9 @@ enum PlanBlockSnapResolver {
     static let coarseStepMinutes = 15
     /// Below this much travel the drag is treated as a correction.
     static let fineThresholdMinutes = 30.0
+    /// Proximity within which a real neighboring edge unlocks the five-minute
+    /// correction grid.
+    static let boundaryProximityMinutes = 7.5
 
     /// Minutes the block should move for a given finger travel, snapped to the
     /// grid and clamped to the drawn day.
@@ -335,6 +338,564 @@ enum PlanBlockSnapResolver {
         let snapped = Int((raw / step).rounded() * step)
         return min(max(snapped, bounds.lowerBound), bounds.upperBound)
     }
+
+    /// Resize snapping is driven by nearby schedule edges, not by how far the
+    /// finger happened to travel. Away from an event/block boundary the edge
+    /// remains on the calm 15-minute grid; close to a real edge it gains a
+    /// five-minute correction grid.
+    static func boundaryAwareSnappedMinutes(
+        translation: CGFloat,
+        hourHeight: CGFloat,
+        movingEdgeAt: Date,
+        boundaries: [Date],
+        bounds: ClosedRange<Int>,
+        proximityMinutes: Double = boundaryProximityMinutes
+    ) -> Int {
+        guard hourHeight > 0 else { return 0 }
+        let raw = Double(translation / hourHeight * 60)
+        let nearestBoundaryDelta = boundaries
+            .map { $0.timeIntervalSince(movingEdgeAt) / 60 }
+            .min { abs($0 - raw) < abs($1 - raw) }
+        let isNearBoundary = nearestBoundaryDelta.map {
+            abs($0 - raw) <= proximityMinutes
+        } ?? false
+        let step = Double(isNearBoundary ? fineStepMinutes : coarseStepMinutes)
+        let source = isNearBoundary ? (nearestBoundaryDelta ?? raw) : raw
+        let snapped = Int((source / step).rounded() * step)
+        return min(max(snapped, bounds.lowerBound), bounds.upperBound)
+    }
+}
+
+/// The production surface for every canonical task scope.
+///
+/// This intentionally lives inside Plan rather than becoming a sixth root.
+/// `TaskExecutionStore` supplies every row and count, and selection routes to
+/// the same task editor used by project, Home, search, and deep links.
+private struct TaskExecutionLibraryView: View {
+    @Bindable var store: TaskExecutionStore
+    let batchCoordinator: TaskBatchMutationCoordinator
+    let projectRepository: any ProjectRepositoryProtocol
+    let sectionRepository: (any SectionRepositoryProtocol)?
+    let tagRepository: any TagRepositoryProtocol
+    let onOpenTask: (UUID) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var selectedTaskIDs: Set<UUID> = []
+    @State private var projects: [Project] = []
+    @State private var sectionsByProjectID: [UUID: [LifeBoardProjectSection]] = [:]
+    @State private var tags: [TagDefinition] = []
+    @State private var isApplyingBatch = false
+    @State private var batchReceipt: TaskBatchReceipt?
+    @State private var batchError: String?
+    @State private var destructiveMutation: TaskBatchMutation?
+
+    var body: some View {
+        List(selection: $selectedTaskIDs) {
+            Section {
+                Picker("Task view", selection: $store.query.scope) {
+                    ForEach(TaskExecutionQuery.Scope.allCases, id: \.self) { scope in
+                        Text(scope.titleWithCount(store.counts[scope]))
+                            .tag(scope)
+                    }
+                }
+                .pickerStyle(.menu)
+                .accessibilityIdentifier("plan.taskLibrary.scope")
+            }
+
+            switch store.state {
+            case .loading where store.tasks.isEmpty:
+                Section {
+                    HStack {
+                        Spacer()
+                        ProgressView("Loading tasks…")
+                        Spacer()
+                    }
+                    .frame(minHeight: 88)
+                }
+            case .empty:
+                Section {
+                    ContentUnavailableView(
+                        store.query.scope.emptyTitle,
+                        systemImage: store.query.scope.emptySymbol,
+                        description: Text(store.query.scope.emptyDetail)
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 180)
+                }
+            case .failed(let message):
+                Section {
+                    ContentUnavailableView {
+                        Label("Tasks couldn’t be loaded", systemImage: "exclamationmark.triangle")
+                    } description: {
+                        Text(message)
+                    } actions: {
+                        Button("Try Again") { Task { await store.load() } }
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 180)
+                }
+            case .permissionDenied:
+                Section {
+                    ContentUnavailableView(
+                        "Task access unavailable",
+                        systemImage: "lock",
+                        description: Text("LifeBoard can’t read this task view right now.")
+                    )
+                    .frame(maxWidth: .infinity, minHeight: 180)
+                }
+            case .stale(let lastUpdatedAt):
+                taskRows
+                Section {
+                    Label(
+                        "Showing tasks from \(lastUpdatedAt.formatted(date: .omitted, time: .shortened))",
+                        systemImage: "clock.arrow.circlepath"
+                    )
+                    .font(.footnote)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+            case .loaded, .loading:
+                taskRows
+            }
+        }
+        .listStyle(.insetGrouped)
+        .navigationTitle("Tasks")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                EditButton()
+                    .accessibilityIdentifier("plan.taskLibrary.select")
+            }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") { dismiss() }
+            }
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if selectedTaskIDs.isEmpty == false {
+                batchActionBar
+            } else if let batchReceipt {
+                batchUndoBar(batchReceipt)
+            }
+        }
+        .task {
+            async let loadTasks: Void = store.load()
+            async let loadChoices: Void = loadBatchChoices()
+            _ = await (loadTasks, loadChoices)
+        }
+        .onChange(of: store.query) {
+            selectedTaskIDs.removeAll()
+            Task { await store.load() }
+        }
+        .refreshable { await store.load() }
+        .alert(
+            "Batch action couldn’t finish",
+            isPresented: Binding(
+                get: { batchError != nil },
+                set: { if $0 == false { batchError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { batchError = nil }
+        } message: {
+            Text(batchError ?? "")
+        }
+        .confirmationDialog(
+            destructiveTitle,
+            isPresented: Binding(
+                get: { destructiveMutation != nil },
+                set: { if $0 == false { destructiveMutation = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let destructiveMutation {
+                Button(destructiveActionTitle, role: .destructive) {
+                    applyBatch(destructiveMutation)
+                    self.destructiveMutation = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { destructiveMutation = nil }
+        } message: {
+            Text("This applies once to every selected task and can be undone as one action.")
+        }
+        .accessibilityIdentifier("plan.taskLibrary")
+    }
+
+    @ViewBuilder
+    private var taskRows: some View {
+        Section(store.query.scope.sectionTitle) {
+            ForEach(store.tasks) { task in
+                Button {
+                    onOpenTask(task.id)
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: store.query.scope == .completed ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(
+                                store.query.scope == .completed
+                                    ? Color(LifeBoardColorTokens.foundationSageAccent)
+                                    : Color(LifeBoardColorTokens.inkSecondary)
+                            )
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(task.title)
+                                .font(.body.weight(.medium))
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                                .multilineTextAlignment(.leading)
+                            Text(taskMetadata(task))
+                                .font(.caption)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .lineLimit(2)
+                        }
+                        Spacer(minLength: 8)
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
+                    .frame(minHeight: 52)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .tag(task.id)
+                .accessibilityHint("Opens the canonical task editor")
+                .accessibilityAction(
+                    named: selectedTaskIDs.contains(task.id)
+                        ? "Remove from batch selection"
+                        : "Add to batch selection"
+                ) {
+                    if selectedTaskIDs.contains(task.id) {
+                        selectedTaskIDs.remove(task.id)
+                    } else {
+                        selectedTaskIDs.insert(task.id)
+                    }
+                }
+                .accessibilityIdentifier("plan.taskLibrary.task.\(task.id.uuidString)")
+            }
+        }
+    }
+
+    private var batchActionBar: some View {
+        HStack(spacing: 10) {
+            Text("\(selectedTaskIDs.count) selected")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .accessibilityLabel("\(selectedTaskIDs.count) tasks selected")
+
+            Spacer(minLength: 4)
+
+            Menu {
+                Button("Today") {
+                    applyBatch(
+                        .schedule(
+                            planningDay: PlanningDay(date: Date()),
+                            startAt: nil,
+                            endAt: nil
+                        )
+                    )
+                }
+                Button("Tomorrow") {
+                    applyBatch(.deferTo(planningDay(daysFromToday: 1)))
+                }
+                Button("Next week") {
+                    applyBatch(.deferTo(planningDay(daysFromToday: 7)))
+                }
+            } label: {
+                Label("Plan", systemImage: "calendar")
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .disabled(isApplyingBatch)
+            .accessibilityIdentifier("plan.taskLibrary.batch.plan")
+
+            Menu {
+                if tags.isEmpty == false {
+                    Section("Add tag") {
+                        ForEach(tags, id: \.id) { tag in
+                            Button(tag.name) {
+                                applyBatch(.addTags([tag.id]))
+                            }
+                        }
+                    }
+                }
+                if projects.isEmpty == false {
+                    Section("Move to project") {
+                        ForEach(projects, id: \.id) { project in
+                            Menu(project.name) {
+                                Button("No section") {
+                                    applyBatch(
+                                        .move(
+                                            projectID: project.id,
+                                            projectName: project.name,
+                                            sectionID: nil
+                                        )
+                                    )
+                                }
+                                ForEach(
+                                    sectionsByProjectID[project.id] ?? [],
+                                    id: \.id
+                                ) { section in
+                                    Button(section.name) {
+                                        applyBatch(
+                                            .move(
+                                                projectID: project.id,
+                                                projectName: project.name,
+                                                sectionID: section.id
+                                            )
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if tags.isEmpty && projects.isEmpty {
+                    Text("No tags or projects available")
+                }
+            } label: {
+                Label("Organize", systemImage: "tray.full")
+                    .frame(minWidth: 44, minHeight: 44)
+            }
+            .disabled(isApplyingBatch)
+            .accessibilityIdentifier("plan.taskLibrary.batch.organize")
+
+            Button {
+                applyBatch(.setCompletion(store.query.scope != .completed))
+            } label: {
+                Label(
+                    store.query.scope == .completed ? "Reopen" : "Complete",
+                    systemImage: store.query.scope == .completed
+                        ? "arrow.uturn.backward.circle"
+                        : "checkmark.circle"
+                )
+                .frame(minWidth: 44, minHeight: 44)
+            }
+            .disabled(isApplyingBatch)
+            .accessibilityIdentifier("plan.taskLibrary.batch.complete")
+
+            Menu {
+                Button("Archive", role: .destructive) {
+                    destructiveMutation = .archive
+                }
+                Button("Delete", role: .destructive) {
+                    destructiveMutation = .delete
+                }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .frame(width: 44, height: 44)
+            }
+            .disabled(isApplyingBatch)
+            .accessibilityLabel("More batch actions")
+            .accessibilityIdentifier("plan.taskLibrary.batch.more")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.regularMaterial)
+        .overlay(alignment: .top) {
+            Divider()
+        }
+    }
+
+    private func batchUndoBar(_ receipt: TaskBatchReceipt) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+            Text(receiptSummary(receipt))
+                .font(.subheadline)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            Spacer()
+            Button("Undo") { undoBatch(receipt) }
+                .font(.subheadline.weight(.semibold))
+                .frame(minWidth: 44, minHeight: 44)
+                .disabled(isApplyingBatch)
+                .accessibilityIdentifier("plan.taskLibrary.batch.undo")
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(.regularMaterial)
+        .overlay(alignment: .top) { Divider() }
+    }
+
+    private var destructiveTitle: String {
+        switch destructiveMutation {
+        case .archive: "Archive selected tasks?"
+        case .delete: "Delete selected tasks?"
+        default: "Apply to selected tasks?"
+        }
+    }
+
+    private var destructiveActionTitle: String {
+        switch destructiveMutation {
+        case .archive: "Archive Tasks"
+        case .delete: "Delete Tasks"
+        default: "Apply"
+        }
+    }
+
+    private func applyBatch(_ mutation: TaskBatchMutation) {
+        let taskIDs = selectedTaskIDs
+        guard taskIDs.isEmpty == false, isApplyingBatch == false else { return }
+        isApplyingBatch = true
+        Task {
+            do {
+                let receipt = try await batchCoordinator.apply(
+                    TaskBatchMutationRequest(
+                        taskIDs: taskIDs,
+                        mutation: mutation,
+                        source: "plan.task-library"
+                    )
+                )
+                batchReceipt = receipt
+                selectedTaskIDs.removeAll()
+                await store.load()
+            } catch {
+                batchError = error.localizedDescription
+            }
+            isApplyingBatch = false
+        }
+    }
+
+    private func undoBatch(_ receipt: TaskBatchReceipt) {
+        guard isApplyingBatch == false else { return }
+        isApplyingBatch = true
+        Task {
+            do {
+                try await batchCoordinator.undo(receipt)
+                batchReceipt = nil
+                await store.load()
+            } catch {
+                batchError = error.localizedDescription
+            }
+            isApplyingBatch = false
+        }
+    }
+
+    private func receiptSummary(_ receipt: TaskBatchReceipt) -> String {
+        let count = receipt.before.count
+        return "\(count) task\(count == 1 ? "" : "s") updated"
+    }
+
+    private func planningDay(daysFromToday offset: Int) -> PlanningDay {
+        let date = Calendar.current.date(byAdding: .day, value: offset, to: Date()) ?? Date()
+        return PlanningDay(date: date)
+    }
+
+    private func loadBatchChoices() async {
+        async let loadedProjects = withCheckedContinuation {
+            (continuation: CheckedContinuation<[Project], Never>) in
+            projectRepository.fetchAllProjects { result in
+                continuation.resume(returning: (try? result.get()) ?? [])
+            }
+        }
+        async let loadedTags = withCheckedContinuation {
+            (continuation: CheckedContinuation<[TagDefinition], Never>) in
+            tagRepository.fetchAll { result in
+                continuation.resume(returning: (try? result.get()) ?? [])
+            }
+        }
+        projects = await loadedProjects
+            .filter { $0.isArchived == false }
+            .sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
+        tags = await loadedTags
+            .sorted {
+                if $0.sortOrder != $1.sortOrder { return $0.sortOrder < $1.sortOrder }
+                return $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
+            }
+        guard let sectionRepository else {
+            sectionsByProjectID = [:]
+            return
+        }
+        var loadedSections: [UUID: [LifeBoardProjectSection]] = [:]
+        for project in projects {
+            let values = await withCheckedContinuation {
+                (continuation: CheckedContinuation<[LifeBoardProjectSection], Never>) in
+                sectionRepository.fetchSections(projectID: project.id) { result in
+                    continuation.resume(returning: (try? result.get()) ?? [])
+                }
+            }
+            loadedSections[project.id] = values.sorted { $0.sortOrder < $1.sortOrder }
+        }
+        sectionsByProjectID = loadedSections
+    }
+
+    private func taskMetadata(_ task: PlanningTaskSummary) -> String {
+        var values: [String] = []
+        if let day = task.metadata.planningDay?.startDate() {
+            values.append(day.formatted(date: .abbreviated, time: .omitted))
+        }
+        if let due = task.dueDate {
+            values.append("Due \(due.formatted(date: .abbreviated, time: .omitted))")
+        }
+        if let estimate = task.estimatedDuration {
+            let minutes = max(1, Int((estimate / 60).rounded()))
+            values.append(minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h \(minutes % 60)m")
+        }
+        if task.dependenciesReady == false { values.append("Waiting on dependency") }
+        return values.isEmpty ? "No date or estimate" : values.joined(separator: " · ")
+    }
+}
+
+private extension TaskExecutionQuery.Scope {
+    func titleWithCount(_ count: Int?) -> String {
+        guard let count else { return sectionTitle }
+        return "\(sectionTitle) (\(count))"
+    }
+
+    var sectionTitle: String {
+        switch self {
+        case .inbox: "Inbox"
+        case .today: "Today"
+        case .upcoming: "Upcoming"
+        case .waiting: "Waiting"
+        case .someday: "Someday"
+        case .completed: "Completed"
+        case .all: "All"
+        }
+    }
+
+    var emptyTitle: String {
+        switch self {
+        case .inbox: "Inbox clear"
+        case .today: "A spacious day"
+        case .upcoming: "Nothing queued ahead"
+        case .waiting: "Nothing waiting"
+        case .someday: "Someday is open"
+        case .completed: "No completed tasks yet"
+        case .all: "No tasks yet"
+        }
+    }
+
+    var emptyDetail: String {
+        switch self {
+        case .inbox: "Every filed task has somewhere to be."
+        case .today: "Choose something intentionally when you’re ready."
+        case .upcoming: "Future planned work will appear here."
+        case .waiting: "Blocked and delegated work will appear here."
+        case .someday: "Ideas you deliberately set aside will appear here."
+        case .completed: "Finished work remains available without crowding Today."
+        case .all: "Captured and planned work will appear here."
+        }
+    }
+
+    var emptySymbol: String {
+        switch self {
+        case .inbox: "tray"
+        case .today: "sun.max"
+        case .upcoming: "calendar"
+        case .waiting: "hourglass"
+        case .someday: "sparkles"
+        case .completed: "checkmark.circle"
+        case .all: "checklist"
+        }
+    }
+}
+
+private struct FocusSetupContext: Identifiable {
+    let id = UUID()
+    var taskID: UUID?
+    var timeBlockID: UUID?
+    var title: String
+    var suggestedDuration: TimeInterval
+    var subtaskID: UUID?
+}
+
+private enum FocusSetupMode: String, CaseIterable, Identifiable {
+    case countdown = "Countdown"
+    case stopwatch = "Stopwatch"
+    case pomodoro = "Pomodoro"
+    case openEnded = "Open-ended"
+
+    var id: String { rawValue }
 }
 
 struct LifeBoardPlanRootView: View {
@@ -344,14 +905,26 @@ struct LifeBoardPlanRootView: View {
     private let onOpenWeeklyReview: () -> Void
     private let onOpenOverdueRescue: (OverdueRescueLaunchContext) -> Void
     private let onReviewCapture: (InboxItem) -> Void
+    private let onOpenTask: (UUID) -> Void
+    private let onOpenProject: (UUID) -> Void
+    private let taskBatchCoordinator: TaskBatchMutationCoordinator
+    private let projectTemplateService: ProjectTemplateInstantiationService
+    private let projectRepository: any ProjectRepositoryProtocol
+    private let sectionRepository: (any SectionRepositoryProtocol)?
+    private let tagRepository: any TagRepositoryProtocol
     private let rescueRefreshGeneration: Int
     @State private var store: PlanStore
     @State private var inboxStore: InboxStore
+    @State private var taskExecutionStore: TaskExecutionStore
     @State private var lens: PlanLens = .day
     @State private var dayPresentation: PlanDayPresentation = .canvas
     @State private var scheduleGrouping: PlanScheduleGrouping = .timeOfDay
     @State private var showsBlockComposer = false
     @State private var showsWorkingHours = false
+    @State private var showsTaskLibrary = false
+    @State private var showsProjectTemplates = false
+    @State private var projectTemplateReceipt: ProjectTemplateCreationReceipt?
+    @State private var projectTemplateError: String?
     @State private var selectedTaskIDs: Set<UUID> = []
     @State private var pendingBacklogDeletionTaskIDs: Set<UUID> = []
     @State private var showsBacklogDeletionConfirmation = false
@@ -364,6 +937,9 @@ struct LifeBoardPlanRootView: View {
     @State private var backlogProjectFilter: BacklogProjectFilter = .all
     @State private var repairDragOffset: CGSize = .zero
     @State private var repairSnapAction: PlanRepairAction?
+    @State private var focusReflectionEnergy = 3
+    @State private var focusReflectionNote = ""
+    @State private var pendingFocusSetup: FocusSetupContext?
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -381,7 +957,9 @@ struct LifeBoardPlanRootView: View {
         onOpenWeeklyPlanner: @escaping () -> Void = {},
         onOpenWeeklyReview: @escaping () -> Void = {},
         onOpenOverdueRescue: @escaping (OverdueRescueLaunchContext) -> Void = { _ in },
-        onReviewCapture: @escaping (InboxItem) -> Void = { _ in }
+        onReviewCapture: @escaping (InboxItem) -> Void = { _ in },
+        onOpenTask: @escaping (UUID) -> Void = { _ in },
+        onOpenProject: @escaping (UUID) -> Void = { _ in }
     ) {
         let repository = dependencies.planningRepository
         _store = State(initialValue: PlanStore(
@@ -390,7 +968,9 @@ struct LifeBoardPlanRootView: View {
             scenarioCoordinator: DefaultPlanningScenarioCoordinator(
                 planning: repository,
                 mutations: repository
-            )
+            ),
+            taskDefinitionRepository: dependencies.taskDefinitionRepository,
+            focusCommands: dependencies.focusCommands
         ))
         _inboxStore = State(
             initialValue: InboxStore(
@@ -398,6 +978,12 @@ struct LifeBoardPlanRootView: View {
                 planningRepository: repository,
                 mutationRepository: repository,
                 commitCoordinator: dependencies.inboxCommitCoordinator
+            )
+        )
+        _taskExecutionStore = State(
+            initialValue: TaskExecutionStore(
+                query: TaskExecutionQuery(scope: .all, sort: .recentlyUpdated),
+                projection: dependencies.taskExecutionProjection
             )
         )
         _lens = State(initialValue: initialLens ?? PlanLensRestoration.load())
@@ -408,6 +994,13 @@ struct LifeBoardPlanRootView: View {
         self.onOpenWeeklyReview = onOpenWeeklyReview
         self.onOpenOverdueRescue = onOpenOverdueRescue
         self.onReviewCapture = onReviewCapture
+        self.onOpenTask = onOpenTask
+        self.onOpenProject = onOpenProject
+        taskBatchCoordinator = dependencies.taskBatchMutationCoordinator
+        projectTemplateService = dependencies.projectTemplateInstantiationService
+        projectRepository = dependencies.projectRepository
+        sectionRepository = dependencies.sectionRepository
+        tagRepository = dependencies.tagRepository
     }
 
     var body: some View {
@@ -449,6 +1042,30 @@ struct LifeBoardPlanRootView: View {
         }
         .navigationTitle("Plan")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button {
+                    pendingFocusSetup = .init(
+                        taskID: nil,
+                        timeBlockID: nil,
+                        title: "Unscoped focus",
+                        suggestedDuration: 25 * 60,
+                        subtaskID: nil
+                    )
+                } label: {
+                    Label("Start unscoped focus", systemImage: "timer")
+                }
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityIdentifier("plan.focus.startUnscoped")
+                Button {
+                    showsProjectTemplates = true
+                } label: {
+                    Label("New project from template", systemImage: "folder.badge.plus")
+                }
+                .frame(minWidth: 44, minHeight: 44)
+                .accessibilityIdentifier("plan.projectTemplates.open")
+            }
+        }
         .task(id: rescueRefreshGeneration) { await store.load() }
         .onChange(of: lens) { _, selectedLens in
             PlanLensRestoration.save(selectedLens)
@@ -466,6 +1083,53 @@ struct LifeBoardPlanRootView: View {
         .sheet(isPresented: $showsWorkingHours) {
             PlanWorkingHoursComposer(profile: store.workingProfile) { weekdays, start, end, buffer in
                 Task { await store.saveWorkingHours(activeWeekdays: weekdays, startMinute: start, endMinute: end, bufferDuration: buffer) }
+            }
+        }
+        .sheet(isPresented: $showsTaskLibrary) {
+            NavigationStack {
+                TaskExecutionLibraryView(
+                    store: taskExecutionStore,
+                    batchCoordinator: taskBatchCoordinator,
+                    projectRepository: projectRepository,
+                    sectionRepository: sectionRepository,
+                    tagRepository: tagRepository
+                ) { taskID in
+                    showsTaskLibrary = false
+                    onOpenTask(taskID)
+                }
+            }
+        }
+        .sheet(isPresented: $showsProjectTemplates) {
+            ProjectTemplatePicker(
+                service: projectTemplateService
+            ) { receipt in
+                projectTemplateReceipt = receipt
+                showsProjectTemplates = false
+            }
+        }
+        .sheet(item: $pendingFocusSetup) { context in
+            FocusSetupSheet(
+                context: context,
+                onCancel: { pendingFocusSetup = nil },
+                onStart: { mode, intention in
+                    pendingFocusSetup = nil
+                    Task {
+                        await store.startFocus(
+                            taskID: context.taskID,
+                            timeBlockID: context.timeBlockID,
+                            targetDuration: mode.initialTargetDuration,
+                            mode: mode,
+                            intention: intention,
+                            subtaskID: context.subtaskID
+                        )
+                        if let taskID = context.taskID { onOpenFocus(taskID) }
+                    }
+                }
+            )
+        }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if let receipt = projectTemplateReceipt {
+                projectTemplateReceiptBar(receipt)
             }
         }
         .alert("Plan needs attention", isPresented: errorBinding) {
@@ -486,6 +1150,60 @@ struct LifeBoardPlanRootView: View {
         } message: {
             Text("These items will disappear from Plan and linked-source pickers on every synced device. You can undo this planning change immediately; LifeBoard keeps a tombstone instead of physically destroying the canonical task.")
         }
+        .alert(
+            "Project template needs attention",
+            isPresented: Binding(
+                get: { projectTemplateError != nil },
+                set: { if $0 == false { projectTemplateError = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { projectTemplateError = nil }
+        } message: {
+            Text(projectTemplateError ?? "")
+        }
+    }
+
+    private func projectTemplateReceiptBar(
+        _ receipt: ProjectTemplateCreationReceipt
+    ) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "folder.fill.badge.checkmark")
+                .foregroundStyle(Color.lifeboard(.statusSuccess))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Project created")
+                    .font(.subheadline.weight(.semibold))
+                Text(receipt.createdProject.name)
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Button("Undo") {
+                Task {
+                    do {
+                        try await projectTemplateService.undo(receipt)
+                        projectTemplateReceipt = nil
+                    } catch {
+                        projectTemplateError = error.localizedDescription
+                    }
+                }
+            }
+            .frame(minHeight: 44)
+            Button("Open") {
+                projectTemplateReceipt = nil
+                onOpenProject(receipt.createdProject.id)
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(minHeight: 44)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color.lifeboard(.surfacePrimary).opacity(0.98))
+        .overlay(alignment: .top) {
+            Divider().opacity(0.35)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("plan.projectTemplates.receipt")
     }
 
     private var orientationBar: some View {
@@ -548,6 +1266,7 @@ struct LifeBoardPlanRootView: View {
             )
         } else if let snapshot = store.daySnapshot {
             if let session = store.activeFocusSession { activeFocusCard(session) }
+            if let receipt = store.pendingFocusReflection { focusReflectionCard(receipt) }
             calendarState(snapshot)
 
             // Capacity was computed, rendered as a one-line summary in the
@@ -580,10 +1299,7 @@ struct LifeBoardPlanRootView: View {
                     splitBlock: { block in Task { await store.splitBlock(block) } },
                     deleteBlock: { block in Task { await store.deleteBlock(block) } },
                     startFocus: { block in
-                        Task {
-                            await store.startFocus(taskID: block.taskID, timeBlockID: block.id, targetDuration: block.duration)
-                            if let taskID = block.taskID { onOpenFocus(taskID) }
-                        }
+                        presentFocusSetup(for: block)
                     }
                 )
             } else {
@@ -634,8 +1350,28 @@ struct LifeBoardPlanRootView: View {
     private var minimumViableDayControl: some View {
         if let scenario = store.pendingScenario {
             VStack(alignment: .leading, spacing: 10) {
-                Label("Minimum Viable Day", systemImage: "leaf.fill")
+                Label(
+                    scenarioTitle(scenario.source),
+                    systemImage: scenarioSymbol(scenario.source)
+                )
                     .font(.headline)
+                if let refresh = store.scenarioRefreshResult {
+                    Label(
+                        "Plan changed · review this refreshed proposal",
+                        systemImage: "arrow.triangle.2.circlepath"
+                    )
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                    .accessibilityIdentifier("plan.minimumViableDay.refreshed")
+                    DisclosureGroup("What changed") {
+                        ForEach(refresh.previousDiff) { change in
+                            Text("\(change.title): \(change.after ?? "No selection")")
+                                .font(.caption)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                    }
+                    .font(.caption)
+                }
                 ForEach(scenario.diff) { change in
                     VStack(alignment: .leading, spacing: 2) {
                         Text(change.title).font(.subheadline.weight(.semibold))
@@ -646,13 +1382,30 @@ struct LifeBoardPlanRootView: View {
                         }
                     }
                 }
+                ForEach(scenario.validationIssues, id: \.self) { issue in
+                    Label(issue, systemImage: "exclamationmark.circle")
+                        .font(.caption)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+                if scenario.source == .minimumViableDay,
+                   scenario.isReadyToApply == false,
+                   let snapshot = store.daySnapshot {
+                    minimumViableDayChooser(snapshot)
+                }
                 HStack {
-                    Button("Keep current day") { store.dismissScenario() }
+                    Button(
+                        scenario.source == .minimumViableDay
+                            ? "Keep current day"
+                            : "Keep current plan"
+                    ) { store.dismissScenario() }
                         .buttonStyle(.bordered)
-                    Button("Apply reduced day") {
+                    Button(
+                        scenarioApplyTitle(scenario.source)
+                    ) {
                         Task { await store.applyPendingScenario() }
                     }
                     .buttonStyle(.borderedProminent)
+                    .disabled(scenario.isReadyToApply == false)
                 }
             }
             .foundationClayCard()
@@ -669,6 +1422,91 @@ struct LifeBoardPlanRootView: View {
             .accessibilityHint("Previews essential care, one achievable outcome, and protected rest before changing the plan")
             .accessibilityIdentifier("plan.minimumViableDay")
         }
+    }
+
+    private func scenarioTitle(_ source: PlanningScenarioSource) -> String {
+        switch source {
+        case .minimumViableDay: "Minimum Viable Day"
+        case .repair: "Plan repair preview"
+        case .multiItemReschedule: "Reschedule preview"
+        case .manual: "Plan preview"
+        }
+    }
+
+    private func scenarioSymbol(_ source: PlanningScenarioSource) -> String {
+        switch source {
+        case .minimumViableDay: "leaf.fill"
+        case .repair: "wand.and.stars"
+        case .multiItemReschedule: "calendar.badge.clock"
+        case .manual: "list.bullet.clipboard"
+        }
+    }
+
+    private func scenarioApplyTitle(_ source: PlanningScenarioSource) -> String {
+        switch source {
+        case .minimumViableDay: "Apply reduced day"
+        case .repair: "Apply repair"
+        case .multiItemReschedule: "Apply reschedule"
+        case .manual: "Apply changes"
+        }
+    }
+
+    private func minimumViableDayChooser(
+        _ snapshot: PlanDaySnapshot
+    ) -> some View {
+        let readyTasks = snapshot.unscheduledTasks.filter(\.dependenciesReady)
+        let selected = store.minimumViableDaySelection
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("Complete the three-part day")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(readyTasks) { task in
+                        Button(task.title) {
+                            var next = selected
+                            next.careTaskID = task.id
+                            if next.outcomeTaskID == task.id {
+                                next.outcomeTaskID = nil
+                            }
+                            store.previewMinimumViableDay(selection: next)
+                        }
+                    }
+                } label: {
+                    Label("Essential care", systemImage: "heart")
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+
+                Menu {
+                    ForEach(readyTasks.filter { $0.id != selected.careTaskID }) { task in
+                        Button(task.title) {
+                            var next = selected
+                            next.outcomeTaskID = task.id
+                            store.previewMinimumViableDay(selection: next)
+                        }
+                    }
+                } label: {
+                    Label("One outcome", systemImage: "scope")
+                        .frame(minHeight: 44)
+                }
+                .buttonStyle(.bordered)
+            }
+            Menu {
+                ForEach(snapshot.freeWindows.filter { $0.duration >= 15 * 60 }) { window in
+                    Button("\(time(window.startAt))–\(time(window.endAt))") {
+                        var next = selected
+                        next.restWindowID = window.id
+                        store.previewMinimumViableDay(selection: next)
+                    }
+                }
+            } label: {
+                Label("Protected rest", systemImage: "moon.zzz")
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.bordered)
+        }
+        .accessibilityIdentifier("plan.minimumViableDay.chooser")
     }
 
     @ViewBuilder private var weekContent: some View {
@@ -799,15 +1637,22 @@ struct LifeBoardPlanRootView: View {
                 Label(session.state == .paused ? "Focus paused" : "Focus in progress", systemImage: session.state == .paused ? "pause.circle.fill" : "timer")
                     .font(.headline)
                 Spacer()
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    Text(duration(session.focusedDuration(at: context.date)))
-                        .font(.title3.monospacedDigit().weight(.semibold))
-                }
+                focusClock(session)
             }
             if let companion = store.focusCompanion {
-                Text(focusModeLabel(companion.mode))
-                    .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                HStack {
+                    Text(focusModeLabel(companion.mode))
+                    if let phase = companion.pomodoroPhase,
+                       case let .pomodoro(_, _, rounds) = companion.mode {
+                        Text("· \(phase.kind == .focus ? "Focus" : "Rest") \(phase.round) of \(rounds)")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                if companion.intention.isEmpty == false {
+                    Text(companion.intention)
+                        .font(.subheadline)
+                }
             }
             if session.targetDuration > 0 {
                 ProgressView(value: min(1, session.focusedDuration() / max(1, session.targetDuration)))
@@ -821,6 +1666,24 @@ struct LifeBoardPlanRootView: View {
                     Button("Pause", systemImage: "pause.fill") { Task { await store.pauseFocus() } }
                         .buttonStyle(.borderedProminent)
                 }
+                if store.focusCompanion?.pomodoroPhase != nil {
+                    Button("Next phase", systemImage: "forward.end.fill") {
+                        Task { await store.advancePomodoro() }
+                    }
+                    .buttonStyle(.bordered)
+                }
+                Menu("Interrupted", systemImage: "bell.slash") {
+                    Button("Call or message") {
+                        Task { await store.recordInterruption(reason: "Call or message") }
+                    }
+                    Button("Someone needed me") {
+                        Task { await store.recordInterruption(reason: "Someone needed me") }
+                    }
+                    Button("Lost focus") {
+                        Task { await store.recordInterruption(reason: "Lost focus") }
+                    }
+                }
+                .buttonStyle(.bordered)
                 Menu("End", systemImage: "stop.fill") {
                     Button("Finish") { Task { await store.endFocus(outcome: .completed) } }
                     Button("Continue Later") { Task { await store.endFocus(outcome: .continueLater) } }
@@ -835,6 +1698,108 @@ struct LifeBoardPlanRootView: View {
         .accessibilityIdentifier("plan.activeFocus")
     }
 
+    @ViewBuilder
+    private func focusClock(_ session: FocusSessionV2) -> some View {
+        if case .openEnded? = store.focusCompanion?.mode {
+            Text("Here with you")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .accessibilityLabel("Open-ended focus has no time limit")
+        } else {
+            TimelineView(.periodic(from: .now, by: 1)) { context in
+                let display = focusClockDisplay(session, at: context.date)
+                Text(duration(display.value))
+                    .font(.title3.monospacedDigit().weight(.semibold))
+                    .contentTransition(.numericText())
+                    .accessibilityLabel(display.label)
+            }
+        }
+    }
+
+    private func focusClockDisplay(
+        _ session: FocusSessionV2,
+        at date: Date
+    ) -> (value: TimeInterval, label: String) {
+        switch store.focusCompanion?.mode {
+        case .countdown:
+            let value = max(0, session.targetDuration - session.focusedDuration(at: date))
+            return (
+                value,
+                value == 0 ? "Time is up. Choose what happens next." : "\(duration(value)) remaining"
+            )
+        case .pomodoro:
+            let value = max(
+                0,
+                (store.focusCompanion?.pomodoroPhase?.phaseEndsAt ?? date).timeIntervalSince(date)
+            )
+            return (value, value == 0 ? "This phase is complete." : "\(duration(value)) in this phase")
+        case .stopwatch, .none:
+            let value = session.focusedDuration(at: date)
+            return (value, "\(duration(value)) elapsed")
+        case .openEnded:
+            return (0, "Open-ended focus")
+        }
+    }
+
+    private func focusReflectionCard(_ receipt: FocusExecutionReceipt) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("How did that feel?")
+                        .font(.headline)
+                    Text(
+                        "\(duration(receipt.actualFocusedDuration)) focused · "
+                            + "\(duration(receipt.targetDuration)) planned"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+                Spacer()
+                Button {
+                    store.dismissFocusReflection()
+                } label: {
+                    Image(systemName: "xmark")
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Skip reflection")
+            }
+            Picker("Energy after focus", selection: $focusReflectionEnergy) {
+                ForEach(1...5, id: \.self) { value in
+                    Text("\(value)").tag(value)
+                }
+            }
+            .pickerStyle(.segmented)
+            .accessibilityValue("\(focusReflectionEnergy) out of 5")
+            TextField("A short note, if useful", text: $focusReflectionNote, axis: .vertical)
+                .lineLimit(2...4)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityIdentifier("plan.focus.reflection.note")
+            HStack {
+                if receipt.interruptionCount > 0 {
+                    Label(
+                        "\(receipt.interruptionCount) interruption\(receipt.interruptionCount == 1 ? "" : "s")",
+                        systemImage: "bell.slash"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+                Spacer()
+                Button("Save reflection", systemImage: "checkmark") {
+                    let energy = focusReflectionEnergy
+                    let note = focusReflectionNote
+                    focusReflectionNote = ""
+                    focusReflectionEnergy = 3
+                    Task { await store.saveFocusReflection(energy: energy, note: note) }
+                }
+                .buttonStyle(.borderedProminent)
+                .frame(minHeight: 44)
+            }
+        }
+        .foundationClayCard()
+        .accessibilityIdentifier("plan.focus.reflection")
+    }
+
     private func focusModeLabel(_ mode: FocusMode) -> String {
         switch mode {
         case .countdown: "Countdown"
@@ -846,8 +1811,8 @@ struct LifeBoardPlanRootView: View {
 
     @ViewBuilder
     private func calendarState(_ snapshot: PlanDaySnapshot) -> some View {
-        switch snapshot.calendarAuthorization {
-        case .notDetermined:
+        switch snapshot.calendarState {
+        case .notRequested:
             HStack(spacing: 12) {
                 Image(systemName: "calendar.badge.plus")
                 VStack(alignment: .leading, spacing: 3) {
@@ -871,8 +1836,8 @@ struct LifeBoardPlanRootView: View {
             .padding(.vertical, 8)
             .frame(minHeight: 52)
             .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
-            .accessibilityIdentifier("plan.calendar.inline")
-        case .denied, .restricted:
+            .accessibilityIdentifier("plan.calendar.notRequested")
+        case .denied:
             HStack(spacing: 10) {
                 Label("Calendar off · planning still works", systemImage: "calendar.badge.exclamationmark")
                     .font(.caption)
@@ -888,10 +1853,96 @@ struct LifeBoardPlanRootView: View {
             .padding(.vertical, 6)
             .frame(minHeight: 44)
             .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
-            .accessibilityIdentifier("plan.calendar.inline")
-        case .authorized, .unavailable:
-            EmptyView()
+            .accessibilityIdentifier("plan.calendar.denied")
+        case .loading:
+            HStack(spacing: 10) {
+                ProgressView()
+                    .controlSize(.small)
+                Text("Refreshing read-only calendar context")
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                Spacer()
+            }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 44)
+            .background(
+                Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+            .accessibilityIdentifier("plan.calendar.loading")
+        case .fresh(let fetchedAt):
+            Label(
+                "\(snapshot.commitments.count) read-only commitment\(snapshot.commitments.count == 1 ? "" : "s") · updated \(fetchedAt.formatted(date: .omitted, time: .shortened))",
+                systemImage: "calendar.badge.checkmark"
+            )
+            .font(.caption)
+            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .accessibilityIdentifier("plan.calendar.fresh")
+        case .staleCached(let fetchedAt, let message):
+            calendarCacheWarning(
+                title: "Calendar may be stale",
+                detail: "Last updated \(fetchedAt.formatted(date: .omitted, time: .shortened)). \(message)",
+                symbol: "clock.arrow.circlepath",
+                identifier: "plan.calendar.stale"
+            )
+        case .offlineCached(let fetchedAt):
+            calendarCacheWarning(
+                title: "Offline calendar cache",
+                detail: "Openings use events from \(fetchedAt.formatted(date: .omitted, time: .shortened)).",
+                symbol: "wifi.slash",
+                identifier: "plan.calendar.offline"
+            )
+        case .failed(let message):
+            HStack(spacing: 10) {
+                Image(systemName: "calendar.badge.exclamationmark")
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Calendar couldn’t refresh")
+                        .font(.caption.weight(.semibold))
+                    Text(message)
+                        .font(.caption2)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .lineLimit(2)
+                }
+                Spacer()
+                Button("Retry") { Task { await store.load() } }
+                    .frame(minHeight: 44)
+            }
+            .padding(.horizontal, 12)
+            .background(
+                Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+            )
+            .accessibilityIdentifier("plan.calendar.failed")
         }
+    }
+
+    private func calendarCacheWarning(
+        title: String,
+        detail: String,
+        symbol: String,
+        identifier: String
+    ) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.caption.weight(.semibold))
+                Text(detail)
+                    .font(.caption2)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .lineLimit(2)
+            }
+            Spacer()
+            Button("Retry") { Task { await store.load() } }
+                .frame(minHeight: 44)
+        }
+        .padding(.horizontal, 12)
+        .background(
+            Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+        .accessibilityIdentifier(identifier)
     }
 
     private func freeWindowButton(_ window: FreeWindow) -> some View {
@@ -932,52 +1983,51 @@ struct LifeBoardPlanRootView: View {
 
     @ViewBuilder
     private func fitsNextSurface(_ snapshot: PlanDaySnapshot) -> some View {
-        if let window = snapshot.freeWindows
-            .filter({ $0.endAt > Date() })
-            .sorted(by: { $0.startAt < $1.startAt })
-            .first {
-            let fitting = snapshot.unscheduledTasks.filter {
-                guard $0.dependenciesReady, let estimate = $0.estimatedDuration else { return false }
-                return estimate <= window.duration
-            }
-            if fitting.isEmpty == false {
-                sectionHeader("Fits next", systemImage: "sparkles.rectangle.stack")
-                ScrollView(.horizontal) {
-                    HStack(spacing: 10) {
-                        ForEach(fitting.prefix(5)) { task in
-                            Button {
-                                Task {
-                                    await store.createBlock(
-                                        title: task.title,
-                                        start: window.startAt,
-                                        duration: task.estimatedDuration ?? 15 * 60,
-                                        taskID: task.id
-                                    )
-                                }
-                            } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(task.title)
-                                        .font(.subheadline.weight(.semibold))
-                                        .lineLimit(1)
-                                    Text("\(duration(task.estimatedDuration ?? 0)) · starts \(time(window.startAt))")
-                                        .font(.caption)
-                                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                                }
-                                .padding(.horizontal, 14)
-                                .padding(.vertical, 11)
-                                .background(
-                                    Color(LifeBoardColorTokens.foundationSageAccent).opacity(0.14),
-                                    in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+        if snapshot.fitsNextCandidates.isEmpty == false {
+            sectionHeader("Fits next", systemImage: "sparkles.rectangle.stack")
+            ScrollView(.horizontal) {
+                HStack(spacing: 10) {
+                    ForEach(snapshot.fitsNextCandidates.prefix(12)) { candidate in
+                        Button {
+                            Task {
+                                await store.createBlock(
+                                    title: candidate.taskTitle,
+                                    start: candidate.window.startAt,
+                                    duration: candidate.estimate,
+                                    taskID: candidate.taskID
                                 )
                             }
-                            .buttonStyle(.plain)
-                            .accessibilityHint("Schedules this task into the next free window")
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(candidate.taskTitle)
+                                    .font(.subheadline.weight(.semibold))
+                                    .lineLimit(1)
+                                Text(
+                                    "\(duration(candidate.estimate)) · \(time(candidate.window.startAt))–\(time(candidate.window.endAt))"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 11)
+                            .frame(minHeight: 52)
+                            .background(
+                                Color(LifeBoardColorTokens.foundationSageAccent).opacity(0.14),
+                                in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+                            )
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityHint(
+                            "Schedules this task into the displayed free window"
+                        )
+                        .accessibilityIdentifier(
+                            "plan.fitsNext.\(candidate.taskID.uuidString)"
+                        )
                     }
                 }
-                .scrollIndicators(.hidden)
-                .accessibilityIdentifier("plan.fitsNext")
             }
+            .scrollIndicators(.hidden)
+            .accessibilityIdentifier("plan.fitsNext")
         }
     }
 
@@ -1007,10 +2057,7 @@ struct LifeBoardPlanRootView: View {
             Spacer()
             Menu {
                 Button("Start focus", systemImage: "timer") {
-                    Task {
-                        await store.startFocus(taskID: block.taskID, timeBlockID: block.id, targetDuration: block.duration)
-                        if let taskID = block.taskID { onOpenFocus(taskID) }
-                    }
+                    presentFocusSetup(for: block)
                 }
                 Button("Add 15 minutes", systemImage: "plus") { Task { await store.resizeBlock(block, minutesDelta: 15) } }
                 Button("Remove 15 minutes", systemImage: "minus") { Task { await store.resizeBlock(block, minutesDelta: -15) } }
@@ -1106,7 +2153,8 @@ struct LifeBoardPlanRootView: View {
     }
 
     private func taskCard(_ task: PlanningTaskSummary, planned: Bool) -> some View {
-        HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
             if V2FeatureFlags.lifeBoardDailyLoopV1Enabled {
                 // `tasks` comes from `fetchOpenPlanningTasks()`, so a row on
                 // screen is always incomplete; the control's job here is to
@@ -1172,21 +2220,65 @@ struct LifeBoardPlanRootView: View {
                 }
                 Button("Start focus", systemImage: "timer") {
                     UIImpactFeedbackGenerator(style: .light).impactOccurred()
-                    Task {
-                        await store.startFocus(
-                            taskID: task.id,
-                            timeBlockID: nil,
-                            targetDuration: task.estimatedDuration ?? 25 * 60
-                        )
-                        onOpenFocus(task.id)
-                    }
+                    pendingFocusSetup = .init(
+                        taskID: task.id,
+                        timeBlockID: nil,
+                        title: task.title,
+                        suggestedDuration: task.estimatedDuration ?? 25 * 60,
+                        subtaskID: nil
+                    )
                 }
             } label: { Image(systemName: "ellipsis.circle") }
             .accessibilityLabel("Actions for \(task.title)")
+            }
+            if let suggestion = store.calibrationSuggestions[task.id] {
+                calibrationSuggestionRow(suggestion)
+            }
         }
         .foundationClayCard()
         .draggable(task.id.uuidString)
         .accessibilityIdentifier("plan.task.\(task.id.uuidString)")
+    }
+
+    private func presentFocusSetup(for block: InternalTimeBlock) {
+        pendingFocusSetup = .init(
+            taskID: block.taskID,
+            timeBlockID: block.id,
+            title: block.title,
+            suggestedDuration: block.duration,
+            subtaskID: nil
+        )
+    }
+
+    private func calibrationSuggestionRow(
+        _ suggestion: EstimateCalibrationSuggestion
+    ) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: "timer.square")
+                .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Observed median: \(duration(suggestion.suggestedDuration))")
+                    .font(.caption.weight(.semibold))
+                Text(
+                    "\(suggestion.evidenceSessionCount) sessions · \(duration(suggestion.observedMinimum))–\(duration(suggestion.observedMaximum)) observed"
+                )
+                .font(.caption2)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            Spacer(minLength: 4)
+            Button("Use estimate") {
+                Task { await store.acceptCalibration(suggestion) }
+            }
+            .font(.caption.weight(.semibold))
+            .frame(minHeight: 44)
+        }
+        .overlay(alignment: .top) {
+            Divider()
+                .offset(y: -5)
+        }
+        .accessibilityIdentifier(
+            "plan.calibration.\(suggestion.taskID.uuidString)"
+        )
     }
 
     private func repairCard(_ proposals: [PlanRepairProposal]) -> some View {
@@ -1339,7 +2431,7 @@ struct LifeBoardPlanRootView: View {
         if action == .askEva {
             onAskEva()
         } else if let proposal {
-            Task { await store.applyRepair(proposal, action: action) }
+            store.previewRepair(proposal, action: action)
         }
     }
 
@@ -1495,6 +2587,22 @@ struct LifeBoardPlanRootView: View {
 
     private var backlogControls: some View {
         VStack(spacing: 10) {
+            Button {
+                showsTaskLibrary = true
+            } label: {
+                HStack {
+                    Label("Browse every task view", systemImage: "checklist")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens canonical Inbox, Today, Upcoming, Waiting, Someday, Completed, and All views")
+            .accessibilityIdentifier("plan.taskLibrary.open")
+
             TextField("Search backlog", text: $backlogSearch)
                 .textFieldStyle(.roundedBorder)
                 .accessibilityIdentifier("plan.backlog.search")
@@ -1543,7 +2651,11 @@ struct LifeBoardPlanRootView: View {
             ScrollView(.horizontal) {
                 HStack {
                     Button("Plan today", systemImage: "calendar") {
-                        Task { await store.bulkPlan(selectedTaskIDs, on: PlanningDay(date: Date())); selectedTaskIDs.removeAll() }
+                        store.previewBulkPlan(
+                            selectedTaskIDs,
+                            on: PlanningDay(date: Date())
+                        )
+                        selectedTaskIDs.removeAll()
                     }
                     Button("Someday", systemImage: "sparkles") {
                         Task { await store.bulkUpdate(selectedTaskIDs, disposition: .someday); selectedTaskIDs.removeAll() }
@@ -1768,6 +2880,178 @@ struct LifeBoardPlanRootView: View {
             get: { store.errorMessage != nil && store.daySnapshot != nil },
             set: { if $0 == false { store.errorMessage = nil } }
         )
+    }
+}
+
+private struct FocusSetupSheet: View {
+    let context: FocusSetupContext
+    let onCancel: () -> Void
+    let onStart: (FocusMode, String) -> Void
+
+    @State private var mode: FocusSetupMode = .countdown
+    @State private var countdownMinutes: Int
+    @State private var pomodoroFocusMinutes = 25
+    @State private var pomodoroBreakMinutes = 5
+    @State private var pomodoroRounds = 4
+    @State private var intention = ""
+
+    init(
+        context: FocusSetupContext,
+        onCancel: @escaping () -> Void,
+        onStart: @escaping (FocusMode, String) -> Void
+    ) {
+        self.context = context
+        self.onCancel = onCancel
+        self.onStart = onStart
+        _countdownMinutes = State(
+            initialValue: max(5, Int((context.suggestedDuration / 60).rounded()))
+        )
+    }
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                VStack(alignment: .leading, spacing: 20) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text(context.title)
+                            .font(.title2.weight(.semibold))
+                        Text("Choose the rhythm that fits this moment.")
+                            .font(.subheadline)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
+
+                    Picker("Focus mode", selection: $mode) {
+                        ForEach(FocusSetupMode.allCases) { mode in
+                            Text(mode.rawValue).tag(mode)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .accessibilityIdentifier("plan.focus.setup.mode")
+
+                    modeControls
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Intention")
+                            .font(.subheadline.weight(.semibold))
+                        TextField("What would make this session enough?", text: $intention, axis: .vertical)
+                            .lineLimit(2...4)
+                            .textFieldStyle(.roundedBorder)
+                            .accessibilityIdentifier("plan.focus.setup.intention")
+                    }
+
+                    Button {
+                        onStart(resolvedMode, intention)
+                    } label: {
+                        Label(startTitle, systemImage: "play.fill")
+                            .frame(maxWidth: .infinity, minHeight: 48)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .accessibilityIdentifier("plan.focus.setup.start")
+                }
+                .padding(20)
+            }
+            .background(Color.lifeboard(.bgCanvas).ignoresSafeArea())
+            .navigationTitle("Start focus")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onCancel)
+                        .frame(minHeight: 44)
+                }
+            }
+        }
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
+    }
+
+    @ViewBuilder
+    private var modeControls: some View {
+        switch mode {
+        case .countdown:
+            Stepper(value: $countdownMinutes, in: 5...240, step: 5) {
+                settingLabel("Duration", value: "\(countdownMinutes) min")
+            }
+            .frame(minHeight: 44)
+        case .stopwatch:
+            settingExplanation(
+                title: "Count upward",
+                detail: "Elapsed time stays primary. Stop whenever the work reaches a natural edge.",
+                symbol: "stopwatch"
+            )
+        case .pomodoro:
+            VStack(spacing: 12) {
+                Stepper(value: $pomodoroFocusMinutes, in: 5...90, step: 5) {
+                    settingLabel("Focus", value: "\(pomodoroFocusMinutes) min")
+                }
+                Stepper(value: $pomodoroBreakMinutes, in: 1...30) {
+                    settingLabel("Rest", value: "\(pomodoroBreakMinutes) min")
+                }
+                Stepper(value: $pomodoroRounds, in: 1...8) {
+                    settingLabel("Rounds", value: "\(pomodoroRounds)")
+                }
+            }
+            .frame(minHeight: 44)
+        case .openEnded:
+            settingExplanation(
+                title: "No clock pressure",
+                detail: "The timer recedes. This session ends only when you choose Finish, Continue Later, or Abandon.",
+                symbol: "infinity"
+            )
+        }
+    }
+
+    private var resolvedMode: FocusMode {
+        switch mode {
+        case .countdown:
+            .countdown(duration: TimeInterval(countdownMinutes * 60))
+        case .stopwatch:
+            .stopwatch
+        case .pomodoro:
+            .pomodoro(
+                focus: TimeInterval(pomodoroFocusMinutes * 60),
+                breakDuration: TimeInterval(pomodoroBreakMinutes * 60),
+                rounds: pomodoroRounds
+            )
+        case .openEnded:
+            .openEnded
+        }
+    }
+
+    private var startTitle: String {
+        switch mode {
+        case .countdown: "Start \(countdownMinutes)-minute focus"
+        case .stopwatch: "Start stopwatch"
+        case .pomodoro: "Start Pomodoro"
+        case .openEnded: "Begin open-ended focus"
+        }
+    }
+
+    private func settingLabel(_ title: String, value: String) -> some View {
+        HStack {
+            Text(title)
+            Spacer()
+            Text(value)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .monospacedDigit()
+        }
+    }
+
+    private func settingExplanation(title: String, detail: String, symbol: String) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: symbol)
+                .frame(width: 32, height: 32)
+                .background(
+                    Color(LifeBoardColorTokens.foundationSageAccent).opacity(0.16),
+                    in: RoundedRectangle(cornerRadius: 10)
+                )
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.subheadline.weight(.semibold))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+        }
+        .frame(minHeight: 52)
     }
 }
 
@@ -2021,6 +3305,7 @@ private struct PlanDayTimeCanvas: View {
                     )
                 },
                 minuteBounds: minuteBounds(for: block),
+                boundaryDates: boundaryDates(excluding: block.id),
                 move: { moveBlock(block, $0) },
                 resize: { resizeBlock(block, $0) },
                 resizeEdges: { resizeBlockEdges(block, $0, $1) },
@@ -2028,6 +3313,13 @@ private struct PlanDayTimeCanvas: View {
                 delete: { deleteBlock(block) },
                 focus: { startFocus(block) }
         )
+    }
+
+    private func boundaryDates(excluding blockID: UUID) -> [Date] {
+        snapshot.commitments.flatMap { [$0.startAt, $0.endAt] }
+            + snapshot.blocks
+                .filter { $0.id != blockID }
+                .flatMap { [$0.startAt, $0.endAt] }
     }
 
     private var laneSpacing: CGFloat { 6 }
@@ -2280,14 +3572,13 @@ private struct PlanCanvasBlock: View {
     let hasConflict: Bool
     let conflictAt: (Int) -> Bool
     let minuteBounds: ClosedRange<Int>
+    let boundaryDates: [Date]
     let move: (Int) -> Void
     let resize: (Int) -> Void
     let resizeEdges: (Int, Int) -> Void
     let split: () -> Void
     let delete: () -> Void
     let focus: () -> Void
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// The snapped candidate, in minutes from the block's current start. Held as
     /// gesture state so an interrupted drag cannot strand the block off-grid.
@@ -2380,7 +3671,6 @@ private struct PlanCanvasBlock: View {
                 )
         }
         .offset(y: CGFloat(draggedMinutes + topResizeMinutes) / 60 * hourHeight)
-        .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: draggedMinutes)
         .contentShape(Rectangle())
         // Press and hold before moving, the way the system calendar does.
         //
@@ -2434,13 +3724,15 @@ private struct PlanCanvasBlock: View {
                         .updating($topResizeMinutes) { value, state, _ in
                             state = resizeSnap(
                                 value.translation.height,
-                                bounds: -1_440...max(0, Int(block.duration / 60) - 15)
+                                bounds: -1_440...max(0, Int(block.duration / 60) - 15),
+                                movingEdgeAt: block.startAt
                             )
                         }
                         .onEnded { value in
                             let delta = resizeSnap(
                                 value.translation.height,
-                                bounds: -1_440...max(0, Int(block.duration / 60) - 15)
+                                bounds: -1_440...max(0, Int(block.duration / 60) - 15),
+                                movingEdgeAt: block.startAt
                             )
                             guard delta != 0 else { return }
                             LifeBoardHaptic.commit.play()
@@ -2455,13 +3747,15 @@ private struct PlanCanvasBlock: View {
                         .updating($bottomResizeMinutes) { value, state, _ in
                             state = resizeSnap(
                                 value.translation.height,
-                                bounds: min(0, 15 - Int(block.duration / 60))...1_440
+                                bounds: min(0, 15 - Int(block.duration / 60))...1_440,
+                                movingEdgeAt: block.endAt
                             )
                         }
                         .onEnded { value in
                             let delta = resizeSnap(
                                 value.translation.height,
-                                bounds: min(0, 15 - Int(block.duration / 60))...1_440
+                                bounds: min(0, 15 - Int(block.duration / 60))...1_440,
+                                movingEdgeAt: block.endAt
                             )
                             guard delta != 0 else { return }
                             LifeBoardHaptic.commit.play()
@@ -2492,10 +3786,16 @@ private struct PlanCanvasBlock: View {
         block.endAt.addingTimeInterval(TimeInterval((draggedMinutes + bottomResizeMinutes) * 60))
     }
 
-    private func resizeSnap(_ translation: CGFloat, bounds: ClosedRange<Int>) -> Int {
-        PlanBlockSnapResolver.snappedMinutes(
+    private func resizeSnap(
+        _ translation: CGFloat,
+        bounds: ClosedRange<Int>,
+        movingEdgeAt: Date
+    ) -> Int {
+        PlanBlockSnapResolver.boundaryAwareSnappedMinutes(
             translation: translation,
             hourHeight: hourHeight,
+            movingEdgeAt: movingEdgeAt,
+            boundaries: boundaryDates,
             bounds: bounds
         )
     }
@@ -2516,6 +3816,182 @@ private struct PlanCanvasBlock: View {
     /// warning and dragging *into* one shows nothing until the drop.
     private var showsConflict: Bool {
         isDragging ? conflictAt(draggedMinutes) : hasConflict
+    }
+}
+
+private struct ProjectTemplatePicker: View {
+    let service: ProjectTemplateInstantiationService
+    let onCreated: (ProjectTemplateCreationReceipt) -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var templates: [Project] = []
+    @State private var selectedTemplateID: UUID?
+    @State private var projectName = ""
+    @State private var isLoading = true
+    @State private var isCreating = false
+    @State private var errorMessage: String?
+
+    var body: some View {
+        NavigationStack {
+            Group {
+                if isLoading {
+                    ProgressView("Finding project templates…")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else if templates.isEmpty {
+                    ContentUnavailableView(
+                        "No project templates",
+                        systemImage: "folder.badge.plus",
+                        description: Text(
+                            "Archive a project marked as a template source, then return here to create a fresh copy."
+                        )
+                    )
+                } else {
+                    List {
+                        Section("Choose a template") {
+                            ForEach(templates, id: \.id) { template in
+                                templateButton(template)
+                            }
+                        }
+
+                        Section("New project") {
+                            TextField("Project name", text: $projectName)
+                                .textInputAutocapitalization(.words)
+                                .frame(minHeight: 44)
+                                .accessibilityIdentifier("plan.projectTemplates.name")
+
+                            Button {
+                                createProject()
+                            } label: {
+                                HStack {
+                                    if isCreating {
+                                        ProgressView()
+                                            .controlSize(.small)
+                                    }
+                                    Text(isCreating ? "Creating…" : "Create project")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .frame(minHeight: 44)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(
+                                selectedTemplateID == nil
+                                    || projectName.trimmingCharacters(
+                                        in: .whitespacesAndNewlines
+                                    ).isEmpty
+                                    || isCreating
+                            )
+                            .accessibilityIdentifier("plan.projectTemplates.create")
+                        }
+                    }
+                    .listStyle(.insetGrouped)
+                }
+            }
+            .navigationTitle("Project template")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+        .task { await loadTemplates() }
+        .alert(
+            "Template unavailable",
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if $0 == false { errorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) { errorMessage = nil }
+        } message: {
+            Text(errorMessage ?? "")
+        }
+    }
+
+    @MainActor
+    private func loadTemplates() async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            templates = try await service.templates()
+            if let first = templates.first {
+                selectedTemplateID = first.id
+                projectName = defaultName(for: first)
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func createProject() {
+        guard let selectedTemplateID else { return }
+        let resolvedName = projectName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard resolvedName.isEmpty == false else { return }
+        isCreating = true
+        Task {
+            do {
+                let receipt = try await service.instantiate(
+                    sourceProjectID: selectedTemplateID,
+                    name: resolvedName
+                )
+                await MainActor.run {
+                    isCreating = false
+                    onCreated(receipt)
+                }
+            } catch {
+                await MainActor.run {
+                    isCreating = false
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func defaultName(for template: Project) -> String {
+        template.name.replacingOccurrences(of: " Template", with: "")
+    }
+
+    private func templateButton(_ template: Project) -> some View {
+        let isSelected = selectedTemplateID == template.id
+        let identifier = "plan.projectTemplates.template." + template.id.uuidString
+        return Button {
+            selectedTemplateID = template.id
+            projectName = defaultName(for: template)
+        } label: {
+            templateRow(template)
+        }
+        .buttonStyle(.plain)
+        .accessibilityValue(isSelected ? "Selected" : "Not selected")
+        .accessibilityIdentifier(identifier)
+    }
+
+    private func templateRow(_ template: Project) -> some View {
+        let isSelected = selectedTemplateID == template.id
+        return HStack(spacing: 12) {
+            Image(systemName: template.icon.rawValue)
+                .frame(width: 28)
+                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(template.name)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                if let description = template.projectDescription,
+                   description.isEmpty == false {
+                    Text(description)
+                        .font(.caption)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .lineLimit(2)
+                }
+            }
+            Spacer()
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(
+                    isSelected
+                        ? Color.lifeboard(.statusSuccess)
+                        : Color(LifeBoardColorTokens.inkSecondary)
+                )
+        }
+        .frame(minHeight: 52)
+        .contentShape(Rectangle())
     }
 }
 
