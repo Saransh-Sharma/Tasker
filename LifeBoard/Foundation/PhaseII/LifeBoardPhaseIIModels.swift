@@ -10,6 +10,35 @@ public enum LifeBoardTrackerKind: String, Codable, CaseIterable, Sendable {
     case quantity
     case rating
     case duration
+    case text
+    case choice
+    case timestamp
+}
+
+public enum TrackerValue: Codable, Hashable, Sendable {
+    case boolean(Bool)
+    case count(Int)
+    case quantity(Double, unit: String?)
+    case rating(Double)
+    case duration(TimeInterval)
+    case text(String)
+    case choice(String)
+    case timestamp(Date)
+}
+
+public enum TrackerAggregation: String, Codable, CaseIterable, Sendable {
+    case latest
+    case sum
+    case average
+    case minimum
+    case maximum
+    case count
+}
+
+public enum TrackerPrivacyClass: String, Codable, CaseIterable, Sendable {
+    case standard
+    case personal
+    case sensitive
 }
 
 public struct LifeBoardTrackerDefinitionValue: Identifiable, Codable, Hashable, Sendable {
@@ -23,6 +52,13 @@ public struct LifeBoardTrackerDefinitionValue: Identifiable, Codable, Hashable, 
     public var isArchived: Bool
     public var createdAt: Date
     public var updatedAt: Date
+    public var valueType: LifeBoardTrackerKind?
+    public var rangeMin: Double?
+    public var rangeMax: Double?
+    public var aggregation: TrackerAggregation?
+    public var privacyClass: TrackerPrivacyClass?
+    public var isHomeEligible: Bool?
+    public var choiceOptions: [String]?
 
     public init(
         id: UUID = UUID(),
@@ -34,7 +70,14 @@ public struct LifeBoardTrackerDefinitionValue: Identifiable, Codable, Hashable, 
         reminderMinutes: Int? = nil,
         isArchived: Bool = false,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        valueType: LifeBoardTrackerKind? = nil,
+        rangeMin: Double? = nil,
+        rangeMax: Double? = nil,
+        aggregation: TrackerAggregation? = nil,
+        privacyClass: TrackerPrivacyClass? = nil,
+        isHomeEligible: Bool? = nil,
+        choiceOptions: [String]? = nil
     ) {
         self.id = id
         self.title = title
@@ -46,6 +89,19 @@ public struct LifeBoardTrackerDefinitionValue: Identifiable, Codable, Hashable, 
         self.isArchived = isArchived
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.valueType = valueType
+        self.rangeMin = rangeMin
+        self.rangeMax = rangeMax
+        self.aggregation = aggregation
+        self.privacyClass = privacyClass
+        self.isHomeEligible = isHomeEligible
+        self.choiceOptions = choiceOptions
+    }
+
+    public var effectiveValueType: LifeBoardTrackerKind { valueType ?? kind }
+    public var effectivePrivacyClass: TrackerPrivacyClass { privacyClass ?? .sensitive }
+    public var permitsHomeProjection: Bool {
+        effectivePrivacyClass != .sensitive && isHomeEligible == true
     }
 }
 
@@ -56,6 +112,7 @@ public struct LifeBoardTrackerEntryValue: Identifiable, Codable, Hashable, Senda
     public var numericValue: Double?
     public var booleanValue: Bool?
     public var note: String?
+    public var value: TrackerValue?
 
     public init(
         id: UUID = UUID(),
@@ -63,7 +120,8 @@ public struct LifeBoardTrackerEntryValue: Identifiable, Codable, Hashable, Senda
         timestamp: Date = Date(),
         numericValue: Double? = nil,
         booleanValue: Bool? = nil,
-        note: String? = nil
+        note: String? = nil,
+        value: TrackerValue? = nil
     ) {
         self.id = id
         self.trackerID = trackerID
@@ -71,6 +129,7 @@ public struct LifeBoardTrackerEntryValue: Identifiable, Codable, Hashable, Senda
         self.numericValue = numericValue
         self.booleanValue = booleanValue
         self.note = note
+        self.value = value
     }
 }
 
@@ -124,6 +183,13 @@ public struct LifeBoardMedicationDefinitionValue: Identifiable, Codable, Hashabl
     public var isArchived: Bool
     public var createdAt: Date
     public var updatedAt: Date
+    public var formRaw: String?
+    public var startDate: Date?
+    public var endDate: Date?
+    public var refillQuantity: Double?
+    public var refillRemaining: Double?
+    public var refillThreshold: Double?
+    public var lastRefilledAt: Date?
 
     public init(
         id: UUID = UUID(),
@@ -133,7 +199,14 @@ public struct LifeBoardMedicationDefinitionValue: Identifiable, Codable, Hashabl
         healthCorrelationID: String? = nil,
         isArchived: Bool = false,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        formRaw: String? = nil,
+        startDate: Date? = nil,
+        endDate: Date? = nil,
+        refillQuantity: Double? = nil,
+        refillRemaining: Double? = nil,
+        refillThreshold: Double? = nil,
+        lastRefilledAt: Date? = nil
     ) {
         self.id = id
         self.name = name
@@ -143,6 +216,13 @@ public struct LifeBoardMedicationDefinitionValue: Identifiable, Codable, Hashabl
         self.isArchived = isArchived
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.formRaw = formRaw
+        self.startDate = startDate
+        self.endDate = endDate
+        self.refillQuantity = refillQuantity
+        self.refillRemaining = refillRemaining
+        self.refillThreshold = refillThreshold
+        self.lastRefilledAt = lastRefilledAt
     }
 }
 

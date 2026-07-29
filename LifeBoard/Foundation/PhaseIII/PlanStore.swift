@@ -42,9 +42,11 @@ final class PlanStore {
     private(set) var backlogSnapshot: PlanBacklogSnapshot?
     private(set) var repairProposals: [PlanRepairProposal] = []
     private(set) var activeFocusSession: FocusSessionV2?
+    private(set) var focusCompanion: FocusSessionCompanion?
     private(set) var normalizedEvents: [NormalizedLifeEvent] = []
     private(set) var lastMutationReceiptID: UUID?
     private(set) var backlogDeletionUndoState: BacklogDeletionUndoState?
+    private(set) var pendingScenario: PlanningScenario?
     private(set) var isLoading = false
     var errorMessage: String?
     var selectedDay: PlanningDay
@@ -53,6 +55,8 @@ final class PlanStore {
     private let blockRepository: any InternalTimeBlockRepository
     private let calendarRepository: any PlanningCalendarContextRepository
     private let repairService: any PlanRepairService
+    private let scenarioCoordinator: (any PlanningScenarioCoordinating)?
+    private let focusCompanionStore: FocusSessionCompanionStore
     private var allBlocks: [InternalTimeBlock] = []
     private(set) var workingProfile: WorkingHoursProfile?
     private var calendarContext = PlanningCalendarContext(authorization: .notDetermined)
@@ -63,6 +67,8 @@ final class PlanStore {
         blockRepository: any InternalTimeBlockRepository,
         calendarRepository: any PlanningCalendarContextRepository = SystemPlanningCalendarContextRepository(),
         repairService: any PlanRepairService = DeterministicPlanRepairService(),
+        scenarioCoordinator: (any PlanningScenarioCoordinating)? = nil,
+        focusCompanionStore: FocusSessionCompanionStore = .shared,
         now: Date = Date(),
         calendar: Calendar = .current
     ) {
@@ -70,8 +76,36 @@ final class PlanStore {
         self.blockRepository = blockRepository
         self.calendarRepository = calendarRepository
         self.repairService = repairService
+        self.scenarioCoordinator = scenarioCoordinator
+        self.focusCompanionStore = focusCompanionStore
         self.calendar = calendar
         selectedDay = PlanningDay(date: now, timeZone: calendar.timeZone, calendar: calendar)
+    }
+
+    func previewMinimumViableDay() {
+        guard let daySnapshot else { return }
+        pendingScenario = MinimumViableDayScenarioBuilder.make(from: daySnapshot)
+    }
+
+    func dismissScenario() {
+        pendingScenario = nil
+    }
+
+    func applyPendingScenario() async {
+        guard let pendingScenario, let scenarioCoordinator else { return }
+        do {
+            let receipt = try await scenarioCoordinator.apply(pendingScenario)
+            lastMutationReceiptID = receipt.id
+            self.pendingScenario = nil
+            await load()
+        } catch PlanningScenarioApplyError.versionConflict {
+            errorMessage = "Your plan changed while this preview was open. Review the refreshed day before applying."
+            self.pendingScenario = daySnapshot.map {
+                MinimumViableDayScenarioBuilder.make(from: $0)
+            }
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     func load() async {
@@ -86,6 +120,11 @@ final class PlanStore {
             async let fetchedCalendarContext = safeCalendarContext(from: bounds.start, to: bounds.end)
             tasks = try await fetchedTasks
             activeFocusSession = try await planningRepository.activeSession()
+            if let activeFocusSession {
+                focusCompanion = try? await focusCompanionStore.companion(sessionID: activeFocusSession.id)
+            } else {
+                focusCompanion = nil
+            }
             if let session = activeFocusSession,
                let repair = FocusStartupRepairPolicy.commandKind(for: session, now: Date()) {
                 let repaired = try await planningRepository.handle(.init(
@@ -369,8 +408,20 @@ final class PlanStore {
     }
 
     func resizeBlock(_ block: InternalTimeBlock, minutesDelta: Int) async {
+        await resizeBlockEdges(block, startMinutesDelta: 0, endMinutesDelta: minutesDelta)
+    }
+
+    func resizeBlockEdges(
+        _ block: InternalTimeBlock,
+        startMinutesDelta: Int,
+        endMinutesDelta: Int
+    ) async {
         var value = block
-        value.endAt = max(value.startAt.addingTimeInterval(15 * 60), value.endAt.addingTimeInterval(TimeInterval(minutesDelta * 60)))
+        let proposedStart = value.startAt.addingTimeInterval(TimeInterval(startMinutesDelta * 60))
+        let proposedEnd = value.endAt.addingTimeInterval(TimeInterval(endMinutesDelta * 60))
+        guard proposedEnd.timeIntervalSince(proposedStart) >= 15 * 60 else { return }
+        value.startAt = proposedStart
+        value.endAt = proposedEnd
         value.updatedAt = Date()
         do {
             try await commit(.saveTimeBlock(before: block, after: value), source: "plan.block", summary: "Resized \(block.title)")
@@ -449,7 +500,14 @@ final class PlanStore {
         } catch { errorMessage = error.localizedDescription }
     }
 
-    func startFocus(taskID: UUID?, timeBlockID: UUID?, targetDuration: TimeInterval) async {
+    func startFocus(
+        taskID: UUID?,
+        timeBlockID: UUID?,
+        targetDuration: TimeInterval,
+        mode: FocusMode? = nil,
+        intention: String = "",
+        subtaskID: UUID? = nil
+    ) async {
         do {
             activeFocusSession = try await planningRepository.start(
                 taskID: taskID,
@@ -458,6 +516,14 @@ final class PlanStore {
                 at: Date()
             )
             if let activeFocusSession {
+                let companion = FocusSessionCompanion(
+                    sessionID: activeFocusSession.id,
+                    mode: mode ?? .countdown(duration: targetDuration),
+                    intention: intention,
+                    subtaskID: subtaskID
+                )
+                try await focusCompanionStore.save(companion)
+                focusCompanion = companion
                 normalizedEvents.append(NormalizedLifeEventProjector().event(
                     sourceID: activeFocusSession.id,
                     domain: "focus",
@@ -474,7 +540,22 @@ final class PlanStore {
 
     func pauseFocus() async { await sendFocusCommand(.pause) }
     func resumeFocus() async { await sendFocusCommand(.resume) }
-    func endFocus(outcome: FocusCompletionOutcome) async { await sendFocusCommand(.end(outcome)) }
+    func endFocus(outcome: FocusCompletionOutcome) async {
+        let sessionID = activeFocusSession?.id
+        await sendFocusCommand(.end(outcome))
+        if let sessionID {
+            try? await focusCompanionStore.markCompleted(sessionID: sessionID)
+        }
+    }
+
+    func recordInterruption(reason: String? = nil) async {
+        guard let sessionID = activeFocusSession?.id else { return }
+        focusCompanion = try? await focusCompanionStore.recordInterruption(
+            sessionID: sessionID,
+            reason: reason
+        )
+        await pauseFocus()
+    }
 
     private func sendFocusCommand(_ kind: FocusSessionCommandKind) async {
         guard let session = activeFocusSession else { return }

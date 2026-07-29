@@ -222,6 +222,9 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
     public func saveGoal(_ value: GoalDefinition) async throws {
         try await write { context in
             let object = try Self.upsert(entity: "GoalDefinition", id: value.id, in: context)
+            let isNewGoal = object.isInserted
+            let previousStatus = (object.value(forKey: "statusRaw") as? String)
+                .flatMap(GoalStatus.init(rawValue:))
             object.setValue(value.id, forKey: "id")
             object.setValue(value.title, forKey: "title")
             object.setValue(value.type.rawValue, forKey: "typeRaw")
@@ -232,6 +235,28 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
             object.setValue(value.isArchived, forKey: "isArchived")
             object.setValue(value.createdAt, forKey: "createdAt")
             object.setValue(value.updatedAt, forKey: "updatedAt")
+            object.setValue(value.effectiveIntent.rawValue, forKey: "intentRaw")
+            object.setValue(value.effectiveStatus.rawValue, forKey: "statusRaw")
+            object.setValue(value.baselineValue, forKey: "baselineValue")
+            object.setValue(value.confidenceRaw, forKey: "confidenceRaw")
+            object.setValue(value.whyItMatters, forKey: "whyItMatters")
+            object.setValue(value.checkInCadenceRaw, forKey: "checkInCadenceRaw")
+            object.setValue(value.pausedAt, forKey: "pausedAt")
+
+            if isNewGoal || previousStatus != value.effectiveStatus {
+                let event = NSEntityDescription.insertNewObject(forEntityName: "GoalStatusEvent", into: context)
+                let eventValue = GoalStatusEvent(
+                    goalID: value.id,
+                    status: value.effectiveStatus,
+                    recordedAt: value.updatedAt
+                )
+                event.setValue(eventValue.id, forKey: "id")
+                event.setValue(eventValue.goalID, forKey: "goalID")
+                event.setValue(eventValue.status.rawValue, forKey: "statusRaw")
+                event.setValue(eventValue.reason, forKey: "reason")
+                event.setValue(eventValue.recordedAt, forKey: "recordedAt")
+                event.setValue(object, forKey: "goal")
+            }
         }
     }
 
@@ -709,6 +734,14 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
               let title = object.value(forKey: "title") as? String,
               let raw = object.value(forKey: "typeRaw") as? String,
               let type = GoalType(rawValue: raw) else { return nil }
+        let events = ((object.value(forKey: "statusEvents") as? NSSet)?.allObjects ?? [])
+            .compactMap { $0 as? NSManagedObject }
+            .compactMap(goalStatusEvent)
+            .sorted {
+                $0.recordedAt == $1.recordedAt
+                    ? $0.id.uuidString < $1.id.uuidString
+                    : $0.recordedAt < $1.recordedAt
+            }
         return .init(
             id: id, areaID: object.value(forKey: "areaID") as? UUID, title: title, type: type,
             targetValue: (object.value(forKey: "targetValue") as? NSNumber)?.doubleValue,
@@ -716,7 +749,29 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
             targetDate: object.value(forKey: "targetDate") as? Date,
             isArchived: (object.value(forKey: "isArchived") as? NSNumber)?.boolValue ?? false,
             createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
-            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date(),
+            intent: (object.value(forKey: "intentRaw") as? String).flatMap(GoalIntent.init(rawValue:)),
+            status: (object.value(forKey: "statusRaw") as? String).flatMap(GoalStatus.init(rawValue:)),
+            baselineValue: (object.value(forKey: "baselineValue") as? NSNumber)?.doubleValue,
+            confidenceRaw: object.value(forKey: "confidenceRaw") as? String,
+            whyItMatters: object.value(forKey: "whyItMatters") as? String,
+            checkInCadenceRaw: object.value(forKey: "checkInCadenceRaw") as? String,
+            pausedAt: object.value(forKey: "pausedAt") as? Date,
+            statusEvents: events
+        )
+    }
+
+    private static func goalStatusEvent(_ object: NSManagedObject) -> GoalStatusEvent? {
+        guard let id = object.value(forKey: "id") as? UUID,
+              let goalID = object.value(forKey: "goalID") as? UUID,
+              let raw = object.value(forKey: "statusRaw") as? String,
+              let status = GoalStatus(rawValue: raw) else { return nil }
+        return GoalStatusEvent(
+            id: id,
+            goalID: goalID,
+            status: status,
+            reason: object.value(forKey: "reason") as? String,
+            recordedAt: object.value(forKey: "recordedAt") as? Date ?? .distantPast
         )
     }
 

@@ -992,7 +992,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
 
         XCTAssertEqual(
             versionName,
-            "TaskModelV3_TaskStartDay.xcdatamodel",
+            "TaskModelV3_BehaviorFlagship.xcdatamodel",
             """
             The current model version changed. This is expected when adding an \
             additive version — update this expectation in the same change, and \
@@ -11009,6 +11009,63 @@ private extension XCTestCase {
 
 @MainActor
 final class TaskDefinitionClearFlagPersistenceTests: XCTestCase {
+    func testCompletionAnchoredRecurrenceMaterializesExactlyOneNextOccurrence() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataTaskDefinitionRepository(container: container)
+        let taskID = UUID()
+        let seriesID = UUID()
+        let scheduled = Calendar.current.startOfDay(for: Date())
+        let completedAt = scheduled.addingTimeInterval(13 * 3_600)
+
+        _ = try awaitResult { completion in
+            repository.create(
+                request: CreateTaskDefinitionRequest(
+                    id: taskID,
+                    recurrenceSeriesID: seriesID,
+                    title: "Evening reflection",
+                    projectID: ProjectConstants.inboxProjectID,
+                    dueDate: scheduled,
+                    repeatPattern: .daily,
+                    recurrenceAnchor: .completionDate
+                ),
+                completion: completion
+            )
+        }
+
+        _ = try awaitResult { completion in
+            repository.update(
+                request: UpdateTaskDefinitionRequest(
+                    id: taskID,
+                    isComplete: true,
+                    dateCompleted: completedAt
+                ),
+                completion: completion
+            )
+        }
+        // Replaying the same completion is idempotent.
+        _ = try awaitResult { completion in
+            repository.update(
+                request: UpdateTaskDefinitionRequest(
+                    id: taskID,
+                    isComplete: true,
+                    dateCompleted: completedAt
+                ),
+                completion: completion
+            )
+        }
+
+        let all = try awaitResult { repository.fetchAll(completion: $0) }
+        let series = all.filter { $0.recurrenceSeriesID == seriesID }
+        XCTAssertEqual(series.count, 2)
+        let next = try XCTUnwrap(series.first(where: { $0.id != taskID }))
+        XCTAssertEqual(next.recurrenceAnchor, .completionDate)
+        XCTAssertEqual(next.repeatPattern, .daily)
+        XCTAssertEqual(
+            next.dueDate,
+            Calendar.current.date(byAdding: .day, value: 1, to: completedAt)
+        )
+    }
+
     func testUpdateRequestClearFlagsRemovePersistedOptionalFields() throws {
         let container = try makeInMemoryV2Container()
         let repository = CoreDataTaskDefinitionRepository(container: container)

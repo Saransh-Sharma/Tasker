@@ -1255,6 +1255,10 @@
 		FF5BDB5653D5CB66DA106A16 /* XPEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F3DEB89B5BEB05F1972CA7 /* XPEvent.swift */; };
 		FFCF1FC469B2AE9FC88CF3D1 /* InsightsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EDFF0556DE6F60CD19AA39 /* InsightsViewModel.swift */; };
 		FFE402DD68D4595A5B90EC4B /* LifeManagementAreaIconPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DEE0B3DA1576389071E8CEA /* LifeManagementAreaIconPicker.swift */; };
+		5A1100000000000000000001 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1100000000000000000101 /* ShareViewController.swift */; };
+		5A1100000000000000000002 /* AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E40B0ED12A11ACC6A161C8 /* AppGroupConstants.swift */; };
+		5A1100000000000000000003 /* PendingCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5489B0A74568225DD433C75F /* PendingCapture.swift */; };
+		5A1100000000000000000004 /* LifeBoardShareExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5A1100000000000000000104 /* LifeBoardShareExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1286,6 +1290,13 @@
 			remoteGlobalIDString = 4056B5567C982A9516EE30A5;
 			remoteInfo = LifeBoardWatchWidgets;
 		};
+		5A1100000000000000000402 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 753EFC922445A24500A739E3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5A1100000000000000000401;
+			remoteInfo = LifeBoardShareExtension;
+		};
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -1296,6 +1307,7 @@
 			dstSubfolderSpec = 13;
 			files = (
 				C6182C050AFE59B731DAD798 /* LifeBoardWidgets.appex in Embed App Extensions */,
+				5A1100000000000000000004 /* LifeBoardShareExtension.appex in Embed App Extensions */,
 			);
 			name = "Embed App Extensions";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1314,6 +1326,10 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		5A1100000000000000000101 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		5A1100000000000000000102 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		5A1100000000000000000103 /* LifeBoardShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LifeBoardShareExtension.entitlements; sourceTree = "<group>"; };
+		5A1100000000000000000104 /* LifeBoardShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LifeBoardShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		017ECAA6FA89C9A7825A3E8A /* EnhancedDependencyContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EnhancedDependencyContainer.swift; path = LifeBoard/State/DI/EnhancedDependencyContainer.swift; sourceTree = SOURCE_ROOT; };
 		01EE7EB5F53129BCEE1A8679 /* TimelineDayCurrentState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineDayCurrentState.swift; sourceTree = SOURCE_ROOT; };
 		02140BA5618285E3AC49CA18 /* CalendarCardChromeModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/CalendarCardChromeModifier.swift; sourceTree = SOURCE_ROOT; };
@@ -1439,6 +1455,7 @@
 		315FEE8A1F6EB8E3768FAEF0 /* OverdueRescueMoveLaterResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueMoveLaterResolver.swift; sourceTree = SOURCE_ROOT; };
 		316921199F513341A93BD753 /* AddTaskDurationPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskDurationPicker.swift; sourceTree = "<group>"; };
 		31B6628C331CCC0C6568E62B /* TaskModelV3_TaskStartDay.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_TaskStartDay.xcdatamodel; sourceTree = "<group>"; };
+		31B6628C331CCC0C6568E62C /* TaskModelV3_BehaviorFlagship.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_BehaviorFlagship.xcdatamodel; sourceTree = "<group>"; };
 		3206AE8D772083ABEFFE26DA /* OnboardingPromptChecklistCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingPromptChecklistCard.swift; sourceTree = SOURCE_ROOT; };
 		32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTokenTests.swift; sourceTree = "<group>"; };
 		33167B1E5D148BC1B8907161 /* timelineCapsuleHeight.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/timelineCapsuleHeight.swift; sourceTree = SOURCE_ROOT; };
@@ -2553,6 +2570,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		5A1100000000000000000302 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		5DD278C315D0944686F74D34 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -2622,6 +2646,16 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		5A1100000000000000000201 /* LifeBoardShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				5A1100000000000000000101 /* ShareViewController.swift */,
+				5A1100000000000000000102 /* Info.plist */,
+				5A1100000000000000000103 /* LifeBoardShareExtension.entitlements */,
+			);
+			path = LifeBoardShareExtension;
+			sourceTree = "<group>";
+		};
 		017D42D408C7902DAA40A8ED /* DataSources */ = {
 			isa = PBXGroup;
 			children = (
@@ -3075,6 +3109,7 @@
 				755F74D72F46270F0046BBE9 /* Recovered References */,
 				06EADEB512102BE373776667 /* LifeBoardWatch */,
 				5FB0DDB390A3AF7DE27461B7 /* LifeBoardWatchWidgets */,
+				5A1100000000000000000201 /* LifeBoardShareExtension */,
 			);
 			sourceTree = "<group>";
 		};
@@ -3087,6 +3122,7 @@
 				F9A8B91DCC93833939CAE3C6 /* LifeBoardWidgets.appex */,
 				E4B4D0D6C85806F24EEF40AD /* LifeBoardWatch.app */,
 				7FA441E9098F3D735062B78C /* LifeBoardWatchWidgets.appex */,
+				5A1100000000000000000104 /* LifeBoardShareExtension.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -4776,6 +4812,23 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		5A1100000000000000000401 /* LifeBoardShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5A1100000000000000000503 /* Build configuration list for PBXNativeTarget "LifeBoardShareExtension" */;
+			buildPhases = (
+				5A1100000000000000000301 /* Sources */,
+				5A1100000000000000000302 /* Frameworks */,
+				5A1100000000000000000303 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LifeBoardShareExtension;
+			productName = LifeBoardShareExtension;
+			productReference = 5A1100000000000000000104 /* LifeBoardShareExtension.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		4056B5567C982A9516EE30A5 /* LifeBoardWatchWidgets */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4BC9EFAF85D3D25404A3EB61 /* Build configuration list for PBXNativeTarget "LifeBoardWatchWidgets" */;
@@ -4806,6 +4859,7 @@
 			);
 			dependencies = (
 				0C1A82D27C2126E88A97EF07 /* PBXTargetDependency */,
+				5A1100000000000000000403 /* PBXTargetDependency */,
 			);
 			name = LifeBoard;
 			packageProductDependencies = (
@@ -4933,6 +4987,9 @@
 					C0879A7BE527DE0BE4109879 = {
 						CreatedOnToolsVersion = 26.2;
 					};
+					5A1100000000000000000401 = {
+						CreatedOnToolsVersion = 26.5;
+					};
 				};
 			};
 			buildConfigurationList = 753EFC952445A24500A739E3 /* Build configuration list for PBXProject "LifeBoard" */;
@@ -4962,11 +5019,19 @@
 				7E3A3EE5163CF5A9C1350CFA /* LifeBoardWidgets */,
 				C0879A7BE527DE0BE4109879 /* LifeBoardWatch */,
 				4056B5567C982A9516EE30A5 /* LifeBoardWatchWidgets */,
+				5A1100000000000000000401 /* LifeBoardShareExtension */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		5A1100000000000000000303 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		1FC5738A5DCC1166EBE74EE7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -5028,6 +5093,16 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		5A1100000000000000000301 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5A1100000000000000000001 /* ShareViewController.swift in Sources */,
+				5A1100000000000000000002 /* AppGroupConstants.swift in Sources */,
+				5A1100000000000000000003 /* PendingCapture.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		444890A941D398EA707E7C3D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -6285,6 +6360,13 @@
 			target = 7E3A3EE5163CF5A9C1350CFA /* LifeBoardWidgets */;
 			targetProxy = 4366910C09CA606756C5083A /* PBXContainerItemProxy */;
 		};
+		5A1100000000000000000403 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = LifeBoardShareExtension;
+			platformFilter = ios;
+			target = 5A1100000000000000000401 /* LifeBoardShareExtension */;
+			targetProxy = 5A1100000000000000000402 /* PBXContainerItemProxy */;
+		};
 		753EFCB22445A24700A739E3 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 753EFC992445A24500A739E3 /* LifeBoard */;
@@ -6323,6 +6405,63 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		5A1100000000000000000501 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = LifeBoardShareExtension/LifeBoardShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = CJ43UNM3AR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LifeBoardShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(LIFEBOARD_MARKETING_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.ShareExtension";
+				PRODUCT_NAME = LifeBoardShareExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5A1100000000000000000502 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = LifeBoardShareExtension/LifeBoardShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = CJ43UNM3AR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LifeBoardShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(LIFEBOARD_MARKETING_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.ShareExtension";
+				PRODUCT_NAME = LifeBoardShareExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		0067B3688B45AFA44F8C264C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -6761,6 +6900,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		5A1100000000000000000503 /* Build configuration list for PBXNativeTarget "LifeBoardShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5A1100000000000000000501 /* Debug */,
+				5A1100000000000000000502 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		0FCE1ACBB578969949385A6B /* Build configuration list for PBXNativeTarget "LifeBoardWidgets" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -6981,8 +7129,9 @@
 				A12E00000000000000000021 /* TaskModelV3_NotesPro.xcdatamodel */,
 				A12E00000000000000000022 /* TaskModelV3_NotesCompletion.xcdatamodel */,
 				31B6628C331CCC0C6568E62B /* TaskModelV3_TaskStartDay.xcdatamodel */,
+				31B6628C331CCC0C6568E62C /* TaskModelV3_BehaviorFlagship.xcdatamodel */,
 			);
-			currentVersion = 31B6628C331CCC0C6568E62B /* TaskModelV3_TaskStartDay.xcdatamodel */;
+			currentVersion = 31B6628C331CCC0C6568E62C /* TaskModelV3_BehaviorFlagship.xcdatamodel */;
 			path = TaskModelV3.xcdatamodeld;
 			sourceTree = "<group>";
 			versionGroupType = wrapper.xcdatamodel;

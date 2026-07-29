@@ -39,6 +39,7 @@ public struct TaskDefinition: Codable, Equatable, Hashable, Identifiable, Sendab
     public var actualDuration: TimeInterval?
     public var subtasks: [UUID]
     public var repeatPattern: TaskRepeatPattern?
+    public var recurrenceAnchor: TaskRecurrenceRule.Anchor
     public var planningBucket: TaskPlanningBucket
     public var weeklyOutcomeID: UUID?
     public var deferredFromWeekStart: Date?
@@ -80,6 +81,7 @@ public struct TaskDefinition: Codable, Equatable, Hashable, Identifiable, Sendab
         actualDuration: TimeInterval? = nil,
         subtasks: [UUID] = [],
         repeatPattern: TaskRepeatPattern? = nil,
+        recurrenceAnchor: TaskRecurrenceRule.Anchor = .scheduledDate,
         planningBucket: TaskPlanningBucket = .thisWeek,
         weeklyOutcomeID: UUID? = nil,
         deferredFromWeekStart: Date? = nil,
@@ -119,6 +121,7 @@ public struct TaskDefinition: Codable, Equatable, Hashable, Identifiable, Sendab
         self.actualDuration = actualDuration
         self.subtasks = subtasks
         self.repeatPattern = repeatPattern
+        self.recurrenceAnchor = recurrenceAnchor
         self.planningBucket = planningBucket
         self.weeklyOutcomeID = weeklyOutcomeID
         self.deferredFromWeekStart = deferredFromWeekStart
@@ -498,6 +501,7 @@ extension TaskDefinition {
         case actualDuration
         case subtasks
         case repeatPattern
+        case recurrenceAnchor
         case planningBucket
         case weeklyOutcomeID
         case deferredFromWeekStart
@@ -539,6 +543,10 @@ extension TaskDefinition {
         self.actualDuration = try container.decodeIfPresent(TimeInterval.self, forKey: .actualDuration)
         self.subtasks = try container.decodeIfPresent([UUID].self, forKey: .subtasks) ?? []
         self.repeatPattern = try container.decodeIfPresent(TaskRepeatPattern.self, forKey: .repeatPattern)
+        self.recurrenceAnchor = try container.decodeIfPresent(
+            TaskRecurrenceRule.Anchor.self,
+            forKey: .recurrenceAnchor
+        ) ?? .scheduledDate
         self.planningBucket = try container.decodeIfPresent(TaskPlanningBucket.self, forKey: .planningBucket) ?? .thisWeek
         self.weeklyOutcomeID = try container.decodeIfPresent(UUID.self, forKey: .weeklyOutcomeID)
         self.deferredFromWeekStart = try container.decodeIfPresent(Date.self, forKey: .deferredFromWeekStart)
@@ -624,6 +632,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable, Sendabl
     public var alertReminderTime: Date?
     public var estimatedDuration: TimeInterval?
     public var repeatPattern: TaskRepeatPattern?
+    public var recurrenceAnchor: TaskRecurrenceRule.Anchor
     public var planningBucket: TaskPlanningBucket
     public var weeklyOutcomeID: UUID?
     public var deferredFromWeekStart: Date?
@@ -659,6 +668,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable, Sendabl
         alertReminderTime: Date? = nil,
         estimatedDuration: TimeInterval? = nil,
         repeatPattern: TaskRepeatPattern? = nil,
+        recurrenceAnchor: TaskRecurrenceRule.Anchor = .scheduledDate,
         planningBucket: TaskPlanningBucket = .thisWeek,
         weeklyOutcomeID: UUID? = nil,
         deferredFromWeekStart: Date? = nil,
@@ -692,6 +702,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable, Sendabl
         self.alertReminderTime = alertReminderTime
         self.estimatedDuration = estimatedDuration
         self.repeatPattern = repeatPattern
+        self.recurrenceAnchor = recurrenceAnchor
         self.planningBucket = planningBucket
         self.weeklyOutcomeID = weeklyOutcomeID
         self.deferredFromWeekStart = deferredFromWeekStart
@@ -734,6 +745,7 @@ public struct CreateTaskDefinitionRequest: Codable, Equatable, Hashable, Sendabl
             actualDuration: nil,
             subtasks: [],
             repeatPattern: repeatPattern,
+            recurrenceAnchor: recurrenceAnchor,
             planningBucket: planningBucket,
             weeklyOutcomeID: weeklyOutcomeID,
             deferredFromWeekStart: deferredFromWeekStart,
@@ -782,6 +794,7 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable, Sendabl
     public var clearEstimatedDuration: Bool
     public var actualDuration: TimeInterval?
     public var repeatPattern: TaskRepeatPattern?
+    public var recurrenceAnchor: TaskRecurrenceRule.Anchor?
     public var clearRepeatPattern: Bool
     public var planningBucket: TaskPlanningBucket?
     public var weeklyOutcomeID: UUID?
@@ -830,6 +843,7 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable, Sendabl
         clearEstimatedDuration: Bool = false,
         actualDuration: TimeInterval? = nil,
         repeatPattern: TaskRepeatPattern? = nil,
+        recurrenceAnchor: TaskRecurrenceRule.Anchor? = nil,
         clearRepeatPattern: Bool = false,
         planningBucket: TaskPlanningBucket? = nil,
         weeklyOutcomeID: UUID? = nil,
@@ -876,6 +890,7 @@ public struct UpdateTaskDefinitionRequest: Codable, Equatable, Hashable, Sendabl
         self.clearEstimatedDuration = clearEstimatedDuration
         self.actualDuration = actualDuration
         self.repeatPattern = repeatPattern
+        self.recurrenceAnchor = recurrenceAnchor
         self.clearRepeatPattern = clearRepeatPattern
         self.planningBucket = planningBucket
         self.weeklyOutcomeID = weeklyOutcomeID

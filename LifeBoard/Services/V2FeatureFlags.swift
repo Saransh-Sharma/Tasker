@@ -230,6 +230,22 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.task_project_flagship_v1") }
     }
 
+    /// Phase 2 umbrella gate for the behavior, goal, medication, and tracker
+    /// flagship surfaces. The additive schema remains readable when this is
+    /// disabled; only the new presentation and mutation entry points disappear.
+    public static var trackBehaviorFlagshipV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.track_behavior_flagship_v1", argument: "TRACK_BEHAVIOR_FLAGSHIP_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.track_behavior_flagship_v1") }
+    }
+
+    /// Route-level Phase 1 gate. New Plan roots and their stores are composed
+    /// only when both halves of the execution flagship are enabled. This is
+    /// deliberately stronger than sprinkling flags over individual buttons:
+    /// either rollback switch restores the previous Home task experience.
+    public static var phase1ExecutionFlagshipEnabled: Bool {
+        lifeBoardDailyLoopV1Enabled && taskProjectFlagshipV1Enabled
+    }
+
     /// Flags whose staged rollout is complete and which now ship on by default.
     ///
     /// Release builds used to fall through to `false` for every staged flag, so a
@@ -285,6 +301,10 @@ public enum V2FeatureFlags {
         // canonical mutations through the existing receipt path with Undo.
         "feature.life_os.daily_loop_v1": true,
         "feature.life_os.task_project_flagship_v1": true,
+        // Held back until the complete behavior/personal-care exit gate passes.
+        // The model migration is additive and remains safe to ship while the
+        // surfaces themselves are disabled.
+        "feature.life_os.track_behavior_flagship_v1": false,
         // Held back: an A/B phrasing path for Eva's journal answers, not a
         // feature. Its one call site picks between two phrasings of the same
         // evidence, and the deterministic answer is the shipped default.

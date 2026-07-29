@@ -25,6 +25,7 @@ public struct LifeOSFoundationShell: View {
     private let dashboardLayoutRepository: any DashboardLayoutRepository
     private let phaseIIRepository: any LifeBoardPhaseIIRepository
     private let planningRepository: CoreDataPlanningRepository
+    private let planDependencies: PlanFeatureDependencies
     private let trackFoundationRepository: CoreDataTrackFoundationRepository
     private let habitRuntimeReadRepository: any HabitRuntimeReadRepositoryProtocol
     private let routineLinkedMutationApplier: any RoutineLinkedMutationApplying
@@ -60,6 +61,7 @@ public struct LifeOSFoundationShell: View {
     /// Fires the one-shot background warp when a card zooms into its detail
     /// route. Incremented on a real push, never on a redraw.
     @State private var routeTransitionTrigger = 0
+    @AppStorage("lifeOS.home.dashboardDensity.v1") private var dashboardDensity: DashboardDensity = .balanced
     @FocusState private var lifeThreadComposerIsFocused: Bool
     @Namespace private var dockSelectionNamespace
     private let lifeBoardMutationCoordinator: LifeBoardMutationCoordinator
@@ -73,6 +75,7 @@ public struct LifeOSFoundationShell: View {
         dashboardLayoutRepository: any DashboardLayoutRepository,
         phaseIIRepository: any LifeBoardPhaseIIRepository,
         planningRepository: CoreDataPlanningRepository,
+        planDependencies: PlanFeatureDependencies,
         trackFoundationRepository: CoreDataTrackFoundationRepository,
         habitRuntimeReadRepository: any HabitRuntimeReadRepositoryProtocol,
         routineLinkedMutationApplier: any RoutineLinkedMutationApplying,
@@ -91,6 +94,7 @@ public struct LifeOSFoundationShell: View {
         self.dashboardLayoutRepository = dashboardLayoutRepository
         self.phaseIIRepository = phaseIIRepository
         self.planningRepository = planningRepository
+        self.planDependencies = planDependencies
         self.trackFoundationRepository = trackFoundationRepository
         self.habitRuntimeReadRepository = habitRuntimeReadRepository
         self.routineLinkedMutationApplier = routineLinkedMutationApplier
@@ -494,6 +498,18 @@ public struct LifeOSFoundationShell: View {
         )
     }
 
+    private var dashboardDensityBinding: Binding<DashboardDensity> {
+        Binding(
+            get: { dashboardDensity },
+            set: { density in
+                withAnimation(LifeBoardMotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
+                    dashboardDensity = density
+                }
+                LifeBoardFeedback.selection()
+            }
+        )
+    }
+
     /// Eva owns its own keyboard-safe composer; a second text field in the
     /// shared chrome would put two on screen at once.
     private func showsFloatingComposer(for destination: LifeBoardDestination) -> Bool {
@@ -670,6 +686,13 @@ public struct LifeOSFoundationShell: View {
                             Picker("Mode", selection: dashboardModeBinding) {
                                 ForEach(DashboardMode.allCases, id: \.self) { mode in
                                     Label(mode.title, systemImage: mode.systemImage).tag(mode)
+                                }
+                            }
+                            .pickerStyle(.menu)
+
+                            Picker("Density", selection: dashboardDensityBinding) {
+                                ForEach(DashboardDensity.allCases, id: \.self) { density in
+                                    Text(density.title).tag(density)
                                 }
                             }
                             .pickerStyle(.menu)
@@ -1010,9 +1033,10 @@ public struct LifeOSFoundationShell: View {
         } else if destination == .home, showsReferenceHome == false {
             LegacyHomeControllerHost(controller: legacyHomeController)
                 .ignoresSafeArea()
-        } else if destination == .plan {
+        } else if destination == .plan,
+                  V2FeatureFlags.phase1ExecutionFlagshipEnabled {
             LifeBoardPlanRootView(
-                repository: planningRepository,
+                dependencies: planDependencies,
                 rescueRefreshGeneration: planRescueRefreshGeneration,
                 onOpenFocus: { _ in router.select(.plan) },
                 onAskEva: { router.select(.eva) },
@@ -1028,6 +1052,8 @@ public struct LifeOSFoundationShell: View {
                     )
                 }
             )
+        } else if destination == .plan {
+            FoundationPlanRollbackRouteView(router: router)
         } else if destination == .track,
                   V2FeatureFlags.trackFoundationsV2Enabled {
             LifeBoardTrackFoundationRootView(
@@ -1051,8 +1077,9 @@ public struct LifeOSFoundationShell: View {
                 onOpenHealth: { router.push(.health, in: .track) }
             )
         } else if destination == .track {
-            LifeBoardTrackRootView(
+            LifeBoardBehaviorAreaRouteView(
                 repository: phaseIIRepository,
+                initialArea: .medication,
                 onOpenHabitBoard: { router.push(.habitBoard, in: .track) },
                 onOpenHealth: { router.push(.health, in: .track) }
             )
@@ -1449,16 +1476,20 @@ public struct LifeOSFoundationShell: View {
 
     @ViewBuilder
     private func planRoute(lens: PlanLens, title: String, systemImage: String) -> some View {
-        LifeBoardPlanRootView(
-            repository: planningRepository,
-            initialLens: lens,
-            rescueRefreshGeneration: planRescueRefreshGeneration,
-            onOpenFocus: { _ in runtime.router.select(.plan) },
-            onAskEva: { runtime.router.select(.eva) },
-            onOpenWeeklyPlanner: { runtime.router.push(.weeklyPlanner, in: .plan) },
-            onOpenWeeklyReview: { runtime.router.push(.weeklyReview, in: .plan) },
-            onOpenOverdueRescue: presentPlanOverdueRescue
-        )
+        if V2FeatureFlags.phase1ExecutionFlagshipEnabled {
+            LifeBoardPlanRootView(
+                dependencies: planDependencies,
+                initialLens: lens,
+                rescueRefreshGeneration: planRescueRefreshGeneration,
+                onOpenFocus: { _ in runtime.router.select(.plan) },
+                onAskEva: { runtime.router.select(.eva) },
+                onOpenWeeklyPlanner: { runtime.router.push(.weeklyPlanner, in: .plan) },
+                onOpenWeeklyReview: { runtime.router.push(.weeklyReview, in: .plan) },
+                onOpenOverdueRescue: presentPlanOverdueRescue
+            )
+        } else {
+            FoundationPlanRollbackRouteView(router: runtime.router)
+        }
     }
 
     @ViewBuilder
@@ -1523,7 +1554,7 @@ public struct LifeOSFoundationShell: View {
         case .settings:
             FoundationSettingsRouteView()
         case .taskDetail(let id):
-            FoundationTaskRouteView(id: id, repository: planningRepository, router: runtime.router)
+            FoundationTaskRouteView(id: id, dependencies: planDependencies, router: runtime.router)
         case .habitDetail(let id):
             FoundationHabitRouteView(id: id, repository: habitRuntimeReadRepository, router: runtime.router)
         case .habitBoard:
@@ -1540,9 +1571,9 @@ public struct LifeOSFoundationShell: View {
         case .trackerDetail(let id):
             FoundationTrackerRouteView(id: id, repository: phaseIIRepository)
         case .careLibrary:
-            LifeBoardTrackRootView(
+            LifeBoardBehaviorAreaRouteView(
                 repository: phaseIIRepository,
-                initialModule: .overview,
+                initialArea: .medication,
                 onOpenHabitBoard: { runtime.router.push(.habitBoard, in: .track) },
                 onOpenHealth: { runtime.router.push(.health, in: .track) }
             )
@@ -1553,7 +1584,7 @@ public struct LifeOSFoundationShell: View {
                 nutritionRepository: nutritionRepository
             )
         case .project(let id):
-            FoundationProjectRouteView(id: id, repository: planningRepository, router: runtime.router)
+            FoundationProjectRouteView(id: id, dependencies: planDependencies, router: runtime.router)
         case .routine(let id):
             FoundationRoutineRouteView(id: id, repository: trackFoundationRepository, router: runtime.router)
         case .goal(let id):
@@ -1596,7 +1627,7 @@ public struct LifeOSFoundationShell: View {
         case .focusSession(let id):
             FoundationFocusSessionRouteView(
                 sessionID: id,
-                repository: planningRepository,
+                dependencies: planDependencies,
                 router: runtime.router,
                 rescueRefreshGeneration: planRescueRefreshGeneration,
                 onOpenOverdueRescue: presentPlanOverdueRescue
@@ -1676,6 +1707,59 @@ private struct LegacyHomeControllerHost: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }
 
+/// Data-preserving rollback destination for the Phase 1 route graph.
+///
+/// Work created while the flagship was enabled remains in the canonical task
+/// repositories and is therefore visible through the previous Home task
+/// experience. No Phase 1 store is initialized from this route.
+private struct FoundationPlanRollbackRouteView: View {
+    let router: LifeBoardAppRouter
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: "checklist")
+                .font(LifeBoardFoundationTypography.screenTitle())
+                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                .frame(width: 62, height: 62)
+                .background(
+                    Color(LifeBoardColorTokens.foundationSurfaceSelected),
+                    in: RoundedRectangle(cornerRadius: 22, style: .continuous)
+                )
+            VStack(spacing: 7) {
+                Text("Your tasks are on Home")
+                    .font(LifeBoardFoundationTypography.sectionTitle())
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                Text("The daily planning workspace is currently turned off. Nothing has been removed or rewritten.")
+                    .font(LifeBoardFoundationTypography.body())
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .multilineTextAlignment(.center)
+            }
+            Button {
+                router.select(.home)
+            } label: {
+                Text("Open Home")
+                    .font(LifeBoardFoundationTypography.body().weight(.semibold))
+                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                    .frame(minWidth: 132, minHeight: 44)
+                    .padding(.horizontal, 12)
+                    .background(
+                        Color(LifeBoardColorTokens.inkPrimary),
+                        in: Capsule(style: .continuous)
+                    )
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("plan.rollback.openHome")
+        }
+        .padding(28)
+        .frame(maxWidth: 430)
+        .lifeBoardPaperCard()
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid).ignoresSafeArea())
+        .navigationTitle("Plan")
+        .accessibilityIdentifier("plan.rollback")
+    }
+}
+
 private enum FoundationRouteLoadState<Value> {
     case loading
     case loaded(Value)
@@ -1685,11 +1769,15 @@ private enum FoundationRouteLoadState<Value> {
 
 private struct FoundationFocusSessionRouteView: View {
     let sessionID: UUID?
-    let repository: CoreDataPlanningRepository
+    let dependencies: PlanFeatureDependencies
     let router: LifeBoardAppRouter
     let rescueRefreshGeneration: Int
     let onOpenOverdueRescue: (OverdueRescueLaunchContext) -> Void
     @State private var state: FoundationRouteLoadState<FocusSessionV2> = .loading
+
+    private var repository: CoreDataPlanningRepository {
+        dependencies.planningRepository
+    }
 
     var body: some View {
         Group {
@@ -1699,7 +1787,7 @@ private struct FoundationFocusSessionRouteView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             case let .loaded(session) where session.state == .running || session.state == .paused:
                 LifeBoardPlanRootView(
-                    repository: repository,
+                    dependencies: dependencies,
                     initialLens: .day,
                     rescueRefreshGeneration: rescueRefreshGeneration,
                     onOpenFocus: { _ in },
@@ -2541,81 +2629,434 @@ private struct FoundationThirdPartyNoticesView: View {
 
 private struct FoundationTaskRouteView: View {
     let id: UUID
-    let repository: CoreDataPlanningRepository?
+    let dependencies: PlanFeatureDependencies
     let router: LifeBoardAppRouter
-    @State private var state: FoundationRouteLoadState<PlanningTaskSummary> = .loading
-    @State private var isCompleting = false
+    @State private var store: TaskEditorStore
+    @State private var confirmsDelete = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    init(id: UUID, dependencies: PlanFeatureDependencies, router: LifeBoardAppRouter) {
+        self.id = id
+        self.dependencies = dependencies
+        self.router = router
+        _store = State(initialValue: TaskEditorStore(taskID: id, dependencies: dependencies))
+    }
 
     var body: some View {
-        FoundationEntityRouteScaffold(title: "Task", systemImage: "checkmark.circle", state: state) { task in
-            VStack(alignment: .leading, spacing: 16) {
-                Text(task.title).font(.title2.weight(.semibold))
-                LabeledContent("Priority", value: task.priority.rawValue.capitalized)
-                LabeledContent("Estimate", value: task.estimatedDuration.map(Self.duration) ?? "Not set")
-                LabeledContent("Due", value: task.dueDate?.formatted(date: .abbreviated, time: .shortened) ?? "Not set")
-                Label(task.dependenciesReady ? "Ready to schedule" : "Waiting on a dependency", systemImage: task.dependenciesReady ? "checkmark.seal" : "link.badge.plus")
-                if V2FeatureFlags.lifeBoardDailyLoopV1Enabled {
-                    HStack(spacing: 10) {
-                        LifeBoardCompletionControl(
-                            isComplete: isCompleting,
-                            title: task.title,
-                            isEnabled: task.dependenciesReady
-                        ) { _ in
-                            complete(task)
-                        }
-                        Text(isCompleting ? "Completed" : "Mark complete")
-                            .font(.body.weight(.medium))
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-                    }
-                    .accessibilityElement(children: .contain)
-                    .accessibilityIdentifier("foundation.task.complete")
+        Group {
+            switch store.loadState {
+            case .loading:
+                ProgressView("Opening task…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            case .missing:
+                ContentUnavailableView(
+                    "Task not found",
+                    systemImage: "checkmark.circle.badge.questionmark",
+                    description: Text("It may have been removed on another device.")
+                )
+            case .failed(let message):
+                ContentUnavailableView {
+                    Label("Task could not be opened", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(message)
+                } actions: {
+                    Button("Try Again") { Task { await store.load() } }
                 }
-                Button("Open in Plan", systemImage: "calendar") { router.select(.plan) }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(LifeBoardColorTokens.inkPrimary))
+            case .ready:
+                editor
+            }
+        }
+        .navigationTitle("Task")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button("Save") { Task { _ = await store.save() } }
+                    .fontWeight(.semibold)
+                    .disabled(store.hasUnsavedChanges == false || store.mutationState == .saving)
+                    .accessibilityIdentifier("task.editor.save")
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Menu {
+                    Button("Open in Plan", systemImage: "calendar") { router.select(.plan) }
+                    Button("Archive", systemImage: "archivebox") {
+                        Task {
+                            await store.archive()
+                            if case .saved = store.mutationState { router.pop() }
+                        }
+                    }
+                    Button("Delete", systemImage: "trash", role: .destructive) {
+                        confirmsDelete = true
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .accessibilityLabel("Task actions")
             }
         }
         .task(id: id) { await load() }
-    }
-
-    private func load() async {
-        guard let repository else { state = .failed("Planning data is unavailable."); return }
-        do {
-            state = try await repository.fetchOpenPlanningTasks().first(where: { $0.id == id }).map(FoundationRouteLoadState.loaded) ?? .missing
-        } catch { state = .failed(error.localizedDescription) }
-    }
-
-    /// The detail route reads `fetchOpenPlanningTasks()`, so a completed task
-    /// would reload as `.missing` and strand the user on a "not found" screen.
-    /// The write is committed immediately and the route pops once the tick has
-    /// had time to draw — the delay is presentation only, never the mutation.
-    private func complete(_ task: PlanningTaskSummary) {
-        guard let repository, isCompleting == false else { return }
-        isCompleting = true
-        Task {
-            do {
-                let receipt = try await repository.prepare(
-                    .setTaskCompletion(taskID: task.id, before: false, after: true),
-                    source: "plan.task.completion",
-                    summary: "Completed \(task.title)"
+        .safeAreaInset(edge: .bottom) {
+            if let receipt = store.activeReceipt {
+                HStack(spacing: 12) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+                    Text("Task updated")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Button("Undo") { Task { await store.undo() } }
+                        .font(.subheadline.weight(.bold))
+                }
+                .padding(.horizontal, 16)
+                .frame(minHeight: 52)
+                .background(.regularMaterial, in: Capsule())
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+                .transition(
+                    reduceMotion
+                        ? .opacity
+                        : .asymmetric(
+                            insertion: .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity),
+                            removal: .opacity
+                        )
                 )
-                try await repository.apply(receiptID: receipt.id)
-                try? await Task.sleep(for: .milliseconds(520))
-                router.pop()
-            } catch {
-                isCompleting = false
-                state = .failed(error.localizedDescription)
+                .animation(LifeBoardAnimation.contentInsertion, value: receipt.id)
+            }
+        }
+        .confirmationDialog(
+            "Delete this task?",
+            isPresented: $confirmsDelete,
+            titleVisibility: .visible
+        ) {
+            Button("Delete task", role: .destructive) {
+                Task {
+                    await store.delete()
+                    if case .saved = store.mutationState { router.pop() }
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The task is removed from every task view. The receipt can restore it without rebuilding a second task.")
+        }
+    }
+
+    private var editor: some View {
+        @Bindable var editor = store
+        return ScrollView {
+            VStack(spacing: 16) {
+                VStack(alignment: .leading, spacing: 14) {
+                    TextField("What needs doing?", text: $editor.draft.title, axis: .vertical)
+                        .font(.title2.weight(.semibold))
+                        .textInputAutocapitalization(.sentences)
+                        .accessibilityIdentifier("task.editor.title")
+                    TextField(
+                        "Notes, links, or the useful context future-you will need",
+                        text: Binding(
+                            get: { editor.draft.details ?? "" },
+                            set: { editor.draft.details = $0.isEmpty ? nil : $0 }
+                        ),
+                        axis: .vertical
+                    )
+                    .lineLimit(3...10)
+                    .accessibilityIdentifier("task.editor.notes")
+                }
+                .taskEditorSurface()
+
+                VStack(alignment: .leading, spacing: 16) {
+                    taskEditorHeader("Shape the work", symbol: "slider.horizontal.3")
+                    Picker("Project", selection: $editor.draft.projectID) {
+                        ForEach(editor.projects, id: \.id) { project in
+                            Text(project.name).tag(project.id)
+                        }
+                    }
+                    .onChange(of: editor.draft.projectID) {
+                        editor.draft.projectName = editor.projects.first {
+                            $0.id == editor.draft.projectID
+                        }?.name
+                    }
+                    LabeledContent("Priority") {
+                        Picker("Priority", selection: $editor.draft.priority) {
+                            ForEach(TaskPriority.allCases, id: \.self) {
+                                Text($0.displayName).tag($0)
+                            }
+                        }
+                        .labelsHidden()
+                    }
+                    LabeledContent("Energy") {
+                        Picker("Energy", selection: $editor.draft.energy) {
+                            ForEach(TaskEnergy.allCases, id: \.self) {
+                                Text($0.rawValue.capitalized).tag($0)
+                            }
+                        }
+                        .labelsHidden()
+                    }
+                    LabeledContent("Context") {
+                        Picker("Context", selection: $editor.draft.context) {
+                            ForEach(TaskContext.allCases, id: \.self) {
+                                Text($0.rawValue.capitalized).tag($0)
+                            }
+                        }
+                        .labelsHidden()
+                    }
+                    estimateControl(editor: $editor)
+                }
+                .taskEditorSurface()
+
+                dateAndPlanning(editor: $editor)
+                recurrence(editor: $editor)
+                tags(editor: $editor)
+
+                Toggle(isOn: Binding(
+                    get: { editor.draft.isComplete },
+                    set: {
+                        editor.draft.isComplete = $0
+                        editor.draft.dateCompleted = $0 ? Date() : nil
+                    }
+                )) {
+                    Label(
+                        editor.draft.isComplete ? "Completed" : "Mark complete",
+                        systemImage: editor.draft.isComplete ? "checkmark.circle.fill" : "circle"
+                    )
+                    .font(.headline)
+                }
+                .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                .taskEditorSurface()
+
+                if case .failed(let message) = store.mutationState {
+                    Label(message, systemImage: "exclamationmark.triangle")
+                        .font(.footnote)
+                        .foregroundStyle(Color(LifeBoardColorTokens.foundationDanger))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .taskEditorSurface()
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+            .padding(.bottom, 70)
+        }
+        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid).ignoresSafeArea())
+    }
+
+    private func dateAndPlanning(editor: Bindable<TaskEditorStore>) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            taskEditorHeader("Place it gently", symbol: "calendar")
+            optionalDate(
+                "Deadline",
+                value: Binding(
+                    get: { editor.wrappedValue.draft.dueDate },
+                    set: { editor.wrappedValue.draft.dueDate = $0 }
+                )
+            )
+            optionalPlanningDay(
+                "Start day",
+                value: Binding(
+                    get: { editor.wrappedValue.planning.startDay },
+                    set: { editor.wrappedValue.planning.startDay = $0 }
+                )
+            )
+            optionalPlanningDay(
+                "Planned day",
+                value: Binding(
+                    get: { editor.wrappedValue.planning.planningDay },
+                    set: { editor.wrappedValue.planning.planningDay = $0 }
+                )
+            )
+            optionalDate(
+                "Scheduled start",
+                value: Binding(
+                    get: { editor.wrappedValue.draft.scheduledStartAt },
+                    set: { newValue in
+                        editor.wrappedValue.draft.scheduledStartAt = newValue
+                        if let newValue, editor.wrappedValue.draft.scheduledEndAt == nil {
+                            editor.wrappedValue.draft.scheduledEndAt = newValue.addingTimeInterval(
+                                editor.wrappedValue.draft.estimatedDuration ?? 30 * 60
+                            )
+                        }
+                    }
+                ),
+                components: [.date, .hourAndMinute]
+            )
+        }
+        .taskEditorSurface()
+    }
+
+    private func recurrence(editor: Bindable<TaskEditorStore>) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            taskEditorHeader("Rhythm", symbol: "repeat")
+            Picker(
+                "Repeat",
+                selection: Binding(
+                    get: { recurrenceChoice(editor.wrappedValue.draft.repeatPattern) },
+                    set: { editor.wrappedValue.draft.repeatPattern = repeatPattern($0) }
+                )
+            ) {
+                Text("Never").tag(0)
+                Text("Daily").tag(1)
+                Text("Weekdays").tag(2)
+                Text("Weekly").tag(3)
+                Text("Monthly").tag(4)
+            }
+            if editor.wrappedValue.draft.repeatPattern != nil {
+                Picker("Anchor", selection: editor.draft.recurrenceAnchor) {
+                    Text("Scheduled date").tag(TaskRecurrenceRule.Anchor.scheduledDate)
+                    Text("When completed").tag(TaskRecurrenceRule.Anchor.completionDate)
+                }
+                .pickerStyle(.segmented)
+                Text(
+                    editor.wrappedValue.draft.recurrenceAnchor == .completionDate
+                        ? "The next occurrence begins from the day you finish this one."
+                        : "Future occurrences stay on their intended calendar rhythm."
+                )
+                .font(.caption)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+        }
+        .taskEditorSurface()
+    }
+
+    private func tags(editor: Bindable<TaskEditorStore>) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            taskEditorHeader("Tags", symbol: "tag")
+            if editor.wrappedValue.tags.isEmpty {
+                Text("No tags yet")
+                    .font(.subheadline)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            } else {
+                LazyVGrid(
+                    columns: [GridItem(.adaptive(minimum: 104), spacing: 8)],
+                    alignment: .leading,
+                    spacing: 8
+                ) {
+                    ForEach(editor.wrappedValue.tags, id: \.id) { tag in
+                        let selected = editor.wrappedValue.draft.tagIDs.contains(tag.id)
+                        Button {
+                            if selected {
+                                editor.wrappedValue.draft.tagIDs.removeAll { $0 == tag.id }
+                            } else {
+                                editor.wrappedValue.draft.tagIDs.append(tag.id)
+                            }
+                        } label: {
+                            Label(tag.name, systemImage: selected ? "checkmark" : "plus")
+                                .font(.caption.weight(.semibold))
+                                .frame(minHeight: 32)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(selected
+                            ? Color(LifeBoardColorTokens.foundationSageAccent)
+                            : Color(LifeBoardColorTokens.inkSecondary))
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                    }
+                }
+            }
+        }
+        .taskEditorSurface()
+    }
+
+    private func estimateControl(editor: Bindable<TaskEditorStore>) -> some View {
+        let minutes = Int((editor.wrappedValue.draft.estimatedDuration ?? 0) / 60)
+        return HStack {
+            Text("Estimate")
+            Spacer()
+            Button {
+                editor.wrappedValue.draft.estimatedDuration = max(0, minutes - 5) == 0
+                    ? nil
+                    : TimeInterval(max(0, minutes - 5) * 60)
+            } label: {
+                Image(systemName: "minus")
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Reduce estimate")
+            Text(minutes == 0 ? "Not set" : "\(minutes) min")
+                .font(.body.monospacedDigit())
+                .frame(minWidth: 72)
+            Button {
+                editor.wrappedValue.draft.estimatedDuration = TimeInterval(max(5, minutes + 5) * 60)
+            } label: {
+                Image(systemName: "plus")
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Increase estimate")
+        }
+    }
+
+    private func optionalDate(
+        _ title: String,
+        value: Binding<Date?>,
+        components: DatePickerComponents = .date
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(title, isOn: Binding(
+                get: { value.wrappedValue != nil },
+                set: { value.wrappedValue = $0 ? (value.wrappedValue ?? Date()) : nil }
+            ))
+            if value.wrappedValue != nil {
+                DatePicker(
+                    title,
+                    selection: Binding(
+                        get: { value.wrappedValue ?? Date() },
+                        set: { value.wrappedValue = $0 }
+                    ),
+                    displayedComponents: components
+                )
+                .labelsHidden()
             }
         }
     }
 
-    private static func duration(_ value: TimeInterval) -> String {
-        let minutes = max(0, Int(value / 60))
-        let hours = minutes / 60
-        let remainder = minutes % 60
-        if hours == 0 { return "\(remainder)m" }
-        if remainder == 0 { return "\(hours)h" }
-        return "\(hours)h \(remainder)m"
+    private func optionalPlanningDay(
+        _ title: String,
+        value: Binding<PlanningDay?>
+    ) -> some View {
+        optionalDate(
+            title,
+            value: Binding(
+                get: { value.wrappedValue?.startDate() },
+                set: { date in
+                    value.wrappedValue = date.map { PlanningDay(date: $0) }
+                }
+            )
+        )
+    }
+
+    private func taskEditorHeader(_ title: String, symbol: String) -> some View {
+        Label(title, systemImage: symbol)
+            .font(.headline)
+            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+    }
+
+    private func recurrenceChoice(_ pattern: TaskRepeatPattern?) -> Int {
+        switch pattern {
+        case nil: 0
+        case .daily: 1
+        case .weekdays: 2
+        case .weekly: 3
+        case .monthly: 4
+        default: 1
+        }
+    }
+
+    private func repeatPattern(_ choice: Int) -> TaskRepeatPattern? {
+        switch choice {
+        case 1: .daily
+        case 2: .weekdays
+        case 3: .weekly(.allDays)
+        case 4: .monthly(.onDate(Calendar.current.component(.day, from: Date())))
+        default: nil
+        }
+    }
+
+    private func load() async {
+        await store.load()
+    }
+}
+
+private extension View {
+    func taskEditorSurface() -> some View {
+        padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lifeBoardClaySurface(.raised, cornerRadius: 20)
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+            }
     }
 }
 
@@ -2723,32 +3164,440 @@ private struct FoundationTrackerRouteView: View {
 }
 
 private struct FoundationProjectRouteView: View {
+    private enum DisplayMode: String, CaseIterable {
+        case list = "List"
+        case board = "Board"
+    }
+
     let id: UUID
-    let repository: CoreDataPlanningRepository?
+    let dependencies: PlanFeatureDependencies
     let router: LifeBoardAppRouter
-    @State private var state: FoundationRouteLoadState<[PlanningTaskSummary]> = .loading
+    @State private var state: FoundationRouteLoadState<ProjectExecutionSnapshot> = .loading
+    @State private var displayMode: DisplayMode = .list
+    @State private var showsMilestoneComposer = false
+    @State private var milestoneTitle = ""
+    @State private var lastReceiptID: UUID?
+    @State private var archivedProjectSnapshot: Project?
 
     var body: some View {
         FoundationEntityRouteScaffold(title: "Project", systemImage: "folder", state: state) { tasks in
-            VStack(alignment: .leading, spacing: 14) {
-                Text(tasks.isEmpty ? "No open work" : "\(tasks.count) open tasks")
-                    .font(.title2.weight(.semibold))
-                ForEach(tasks.prefix(12)) { task in
-                    Label(task.title, systemImage: task.dependenciesReady ? "circle" : "link")
-                        .font(.body)
+            VStack(alignment: .leading, spacing: 16) {
+                projectHeader(tasks)
+                Picker("Project view", selection: $displayMode) {
+                    ForEach(DisplayMode.allCases, id: \.self) {
+                        Text($0.rawValue).tag($0)
+                    }
                 }
-                Button("Open project work in Plan", systemImage: "calendar") { router.select(.plan) }
-                    .buttonStyle(.borderedProminent)
-                    .tint(Color(LifeBoardColorTokens.inkPrimary))
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("project.mode")
+
+                milestones(tasks)
+
+                if displayMode == .list {
+                    taskList(tasks)
+                } else {
+                    taskBoard(tasks)
+                }
             }
         }
         .task(id: id) { await load() }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Menu {
+                    Button("Add milestone", systemImage: "flag") {
+                        milestoneTitle = ""
+                        showsMilestoneComposer = true
+                    }
+                    Button("Open in Plan", systemImage: "calendar") { router.select(.plan) }
+                    Button("Archive project", systemImage: "archivebox") {
+                        Task { await archiveProject() }
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+                .accessibilityLabel("Project actions")
+            }
+        }
+        .sheet(isPresented: $showsMilestoneComposer) {
+            NavigationStack {
+                Form {
+                    TextField("Milestone", text: $milestoneTitle)
+                    Text("A milestone marks progress; it never appears as a task in Today.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .navigationTitle("New Milestone")
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Cancel") { showsMilestoneComposer = false }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Save") {
+                            Task { await saveMilestone() }
+                        }
+                        .disabled(milestoneTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+            }
+        }
+        .safeAreaInset(edge: .bottom) {
+            if lastReceiptID != nil || archivedProjectSnapshot != nil {
+                HStack {
+                    Text(archivedProjectSnapshot == nil ? "Project reordered" : "Project archived")
+                        .font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Button("Undo") { Task { await undoLastProjectAction() } }
+                        .font(.subheadline.weight(.bold))
+                }
+                .padding(.horizontal, 18)
+                .frame(minHeight: 52)
+                .background(.regularMaterial, in: Capsule())
+                .padding(.horizontal, 16)
+                .padding(.bottom, 8)
+            }
+        }
     }
 
     private func load() async {
-        guard let repository else { state = .failed("Planning data is unavailable."); return }
-        do { state = .loaded(try await repository.fetchOpenPlanningTasks().filter { $0.projectID == id }) }
-        catch { state = .failed(error.localizedDescription) }
+        state = .loading
+        do {
+            async let sections = fetchSections()
+            async let milestones = dependencies.projectMilestoneRepository.milestones(projectID: id)
+            guard let snapshot = try await dependencies.taskExecutionProjection.projectSnapshot(
+                projectID: id,
+                completedTaskCount: 0,
+                sections: sections,
+                milestones: milestones
+            ) else {
+                state = .missing
+                return
+            }
+            state = .loaded(snapshot)
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+    }
+
+    private func projectHeader(_ snapshot: ProjectExecutionSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(snapshot.name)
+                        .font(.title2.weight(.semibold))
+                    Text(projectStatus(snapshot))
+                        .font(.subheadline)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+                Spacer()
+                if let fraction = snapshot.completionFraction {
+                    Text("\(Int((fraction * 100).rounded()))%")
+                        .font(.title3.monospacedDigit().weight(.semibold))
+                }
+            }
+            if let fraction = snapshot.completionFraction {
+                ProgressView(value: fraction)
+                    .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+            }
+            if let next = snapshot.nextAction {
+                Button {
+                    router.push(.taskDetail(next.id), in: .plan)
+                } label: {
+                    HStack {
+                        Label("Next: \(next.title)", systemImage: "arrow.right.circle.fill")
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .frame(minHeight: 44)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .taskEditorSurface()
+    }
+
+    private func milestones(_ snapshot: ProjectExecutionSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("Milestones", systemImage: "flag")
+                    .font(.headline)
+                Spacer()
+                Button("Add", systemImage: "plus") {
+                    milestoneTitle = ""
+                    showsMilestoneComposer = true
+                }
+                .font(.subheadline.weight(.semibold))
+            }
+            if snapshot.milestones.isEmpty {
+                Text("No milestones yet")
+                    .font(.subheadline)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            } else {
+                ForEach(snapshot.milestones) { milestone in
+                    HStack(spacing: 10) {
+                        Button {
+                            Task { await toggleMilestone(milestone) }
+                        } label: {
+                            Image(systemName: milestone.isComplete ? "checkmark.circle.fill" : "circle")
+                                .frame(width: 44, height: 44)
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(
+                            milestone.isComplete ? "Mark \(milestone.title) incomplete" : "Complete \(milestone.title)"
+                        )
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(milestone.title)
+                                .strikethrough(milestone.isComplete)
+                            if let target = milestone.targetDay?.startDate() {
+                                Text(target.formatted(date: .abbreviated, time: .omitted))
+                                    .font(.caption)
+                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
+                        }
+                        Spacer()
+                    }
+                }
+            }
+        }
+        .taskEditorSurface()
+    }
+
+    private func taskList(_ snapshot: ProjectExecutionSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(
+                snapshot.tasks.isEmpty ? "No open work" : "\(snapshot.tasks.count) open tasks",
+                systemImage: "checklist"
+            )
+            .font(.headline)
+            ForEach(orderedTasks(snapshot)) { task in
+                taskRow(task, snapshot: snapshot)
+            }
+        }
+        .taskEditorSurface()
+    }
+
+    private func taskBoard(_ snapshot: ProjectExecutionSnapshot) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(alignment: .top, spacing: 12) {
+                ForEach(boardSections(snapshot), id: \.id) { section in
+                    VStack(alignment: .leading, spacing: 10) {
+                        Text(section.name)
+                            .font(.headline)
+                        let tasks = orderedTasks(snapshot).filter {
+                            section.sortOrder == Int.max
+                                ? snapshot.sectionIDByTaskID[$0.id] == nil
+                                : snapshot.sectionIDByTaskID[$0.id] == section.id
+                        }
+                        if tasks.isEmpty {
+                            Text("No tasks")
+                                .font(.caption)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .frame(maxWidth: .infinity, minHeight: 70)
+                        } else {
+                            ForEach(tasks) { task in
+                                taskRow(task, snapshot: snapshot)
+                            }
+                        }
+                    }
+                    .frame(width: 286, alignment: .topLeading)
+                    .taskEditorSurface()
+                }
+            }
+            .padding(.vertical, 2)
+        }
+        .accessibilityIdentifier("project.board")
+    }
+
+    private func taskRow(
+        _ task: PlanningTaskSummary,
+        snapshot: ProjectExecutionSnapshot
+    ) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                router.push(.taskDetail(task.id), in: .plan)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: task.dependenciesReady ? "circle" : "link")
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(task.title)
+                            .font(.body.weight(.medium))
+                            .multilineTextAlignment(.leading)
+                        Text(task.estimatedDuration.map(Self.duration) ?? "No estimate")
+                            .font(.caption)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
+                    Spacer()
+                }
+                .frame(minHeight: 52)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Menu {
+                Button("Move earlier", systemImage: "arrow.up") {
+                    Task { await move(task, offset: -1, snapshot: snapshot) }
+                }
+                Button("Move later", systemImage: "arrow.down") {
+                    Task { await move(task, offset: 1, snapshot: snapshot) }
+                }
+            } label: {
+                Image(systemName: "line.3.horizontal")
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Reorder \(task.title)")
+        }
+        .padding(.horizontal, 12)
+        .background(
+            Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+            in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+        )
+    }
+
+    private func fetchSections() async throws -> [LifeBoardProjectSection] {
+        guard let repository = dependencies.sectionRepository else { return [] }
+        return try await withCheckedThrowingContinuation { continuation in
+            repository.fetchSections(projectID: id) { continuation.resume(with: $0) }
+        }
+    }
+
+    private func saveMilestone() async {
+        let title = milestoneTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard title.isEmpty == false else { return }
+        do {
+            let existing = try await dependencies.projectMilestoneRepository.milestones(projectID: id)
+            try await dependencies.projectMilestoneRepository.saveMilestone(
+                ProjectMilestone(projectID: id, title: title, sortOrder: existing.count)
+            )
+            showsMilestoneComposer = false
+            await load()
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+    }
+
+    private func toggleMilestone(_ milestone: ProjectMilestone) async {
+        var changed = milestone
+        changed.completedAt = milestone.isComplete ? nil : Date()
+        do {
+            try await dependencies.projectMilestoneRepository.saveMilestone(changed)
+            await load()
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+    }
+
+    private func move(
+        _ task: PlanningTaskSummary,
+        offset: Int,
+        snapshot: ProjectExecutionSnapshot
+    ) async {
+        var ordered = orderedTasks(snapshot)
+        guard
+            let source = ordered.firstIndex(where: { $0.id == task.id }),
+            ordered.indices.contains(source + offset)
+        else { return }
+        ordered.swapAt(source, source + offset)
+        let mutations = ordered.enumerated().map { index, item in
+            var after = item.metadata
+            after.pinOrder = index
+            after.updatedAt = Date()
+            return PlanMutation.saveTaskMetadata(before: item.metadata, after: after)
+        }
+        do {
+            let receipt = try await dependencies.planningRepository.prepare(
+                .batch(mutations),
+                source: "project.manual-order.\(id.uuidString)",
+                summary: "Reordered \(snapshot.name)"
+            )
+            try await dependencies.planningRepository.apply(receiptID: receipt.id)
+            lastReceiptID = receipt.id
+            await load()
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+    }
+
+    private func archiveProject() async {
+        do {
+            let project = try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<Project?, any Error>) in
+                dependencies.projectRepository.fetchProject(withId: id) {
+                    continuation.resume(with: $0)
+                }
+            }
+            guard var project else { return }
+            archivedProjectSnapshot = project
+            project.isArchived = true
+            project.status = .onHold
+            project.modifiedDate = Date()
+            _ = try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<Project, any Error>) in
+                dependencies.projectRepository.updateProject(project) {
+                    continuation.resume(with: $0)
+                }
+            }
+            await load()
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+    }
+
+    private func undoLastProjectAction() async {
+        do {
+            if let receiptID = lastReceiptID {
+                try await dependencies.planningRepository.undo(receiptID: receiptID)
+                lastReceiptID = nil
+            }
+            if let project = archivedProjectSnapshot {
+                _ = try await withCheckedThrowingContinuation {
+                    (continuation: CheckedContinuation<Project, any Error>) in
+                    dependencies.projectRepository.updateProject(project) {
+                        continuation.resume(with: $0)
+                    }
+                }
+                archivedProjectSnapshot = nil
+            }
+            await load()
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+    }
+
+    private func orderedTasks(_ snapshot: ProjectExecutionSnapshot) -> [PlanningTaskSummary] {
+        snapshot.tasks.sorted {
+            ($0.metadata.pinOrder ?? Int.max, $0.id.uuidString)
+                < ($1.metadata.pinOrder ?? Int.max, $1.id.uuidString)
+        }
+    }
+
+    private func boardSections(_ snapshot: ProjectExecutionSnapshot) -> [LifeBoardProjectSection] {
+        var sections = snapshot.sections.sorted { $0.sortOrder < $1.sortOrder }
+        if snapshot.tasks.contains(where: { snapshot.sectionIDByTaskID[$0.id] == nil }) {
+            sections.append(
+                LifeBoardProjectSection(
+                    id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
+                    projectID: id,
+                    name: "Unsectioned",
+                    sortOrder: Int.max
+                )
+            )
+        }
+        return sections
+    }
+
+    private func projectStatus(_ snapshot: ProjectExecutionSnapshot) -> String {
+        if snapshot.isArchived { return "Archived" }
+        if snapshot.isBlocked { return "Blocked — no task is ready yet" }
+        if let milestone = snapshot.nextMilestone { return "Next milestone: \(milestone.title)" }
+        return snapshot.tasks.isEmpty ? "A quiet project" : "\(snapshot.completedTaskCount) completed"
+    }
+
+    private static func duration(_ value: TimeInterval) -> String {
+        let minutes = max(0, Int(value / 60))
+        let hours = minutes / 60
+        let remainder = minutes % 60
+        if hours == 0 { return "\(remainder)m" }
+        if remainder == 0 { return "\(hours)h" }
+        return "\(hours)h \(remainder)m"
     }
 }
 
@@ -3174,9 +4023,9 @@ private struct FoundationCaptureSheet: View {
         case .trackerEntry:
             if V2FeatureFlags.trackersV1Enabled, let phaseIIRepository {
                 NavigationStack {
-                    LifeBoardTrackRootView(
+                    LifeBoardBehaviorAreaRouteView(
                         repository: phaseIIRepository,
-                        initialModule: .trackers,
+                        initialArea: .trackers,
                         onOpenHabitBoard: onOpenHabitBoard
                     )
                 }
@@ -3350,14 +4199,39 @@ private struct FoundationTaskCaptureHost: View {
     /// Raw text of an already-captured item being reviewed, if any.
     var prefilledText: String?
     @StateObject private var viewModel = PresentationDependencyContainer.shared.makeNewAddTaskViewModel()
+    @State private var provisionalID = UUID()
 
     var body: some View {
         SunriseAddTaskSheetView(viewModel: viewModel)
             .task {
                 // Seeded once, and only when the field is still untouched, so a
                 // re-render cannot overwrite what the user has since typed.
-                guard let prefilledText, viewModel.taskName.isEmpty else { return }
-                viewModel.taskName = prefilledText
+                if let prefilledText, viewModel.taskName.isEmpty {
+                    viewModel.taskName = prefilledText
+                    return
+                }
+                guard prefilledText == nil,
+                      viewModel.taskName.isEmpty,
+                      let recovered = PendingCaptureInbox.read()
+                        .filter({ $0.source == "in-app" && $0.isProvisional })
+                        .max(by: { ($0.provisionalAt ?? $0.createdAt) < ($1.provisionalAt ?? $1.createdAt) })
+                else { return }
+                provisionalID = recovered.id
+                viewModel.taskName = recovered.rawText
+            }
+            .onChange(of: viewModel.taskName) { _, newValue in
+                let meaningful = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard meaningful.count >= 3, viewModel.isTaskCreated == false else { return }
+                PendingCaptureInbox.upsert(PendingCapture(
+                    id: provisionalID,
+                    rawText: newValue,
+                    source: "in-app",
+                    provisionalAt: Date()
+                ))
+            }
+            .onChange(of: viewModel.isTaskCreated) { _, created in
+                guard created else { return }
+                PendingCaptureInbox.remove(ids: [provisionalID])
             }
     }
 }

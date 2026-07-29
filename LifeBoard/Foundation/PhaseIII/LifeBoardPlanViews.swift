@@ -373,7 +373,7 @@ struct LifeBoardPlanRootView: View {
     @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
 
     init(
-        repository: CoreDataPlanningRepository,
+        dependencies: PlanFeatureDependencies,
         initialLens: PlanLens? = nil,
         rescueRefreshGeneration: Int = 0,
         onOpenFocus: @escaping (UUID) -> Void = { _ in },
@@ -383,12 +383,21 @@ struct LifeBoardPlanRootView: View {
         onOpenOverdueRescue: @escaping (OverdueRescueLaunchContext) -> Void = { _ in },
         onReviewCapture: @escaping (InboxItem) -> Void = { _ in }
     ) {
-        _store = State(initialValue: PlanStore(planningRepository: repository, blockRepository: repository))
+        let repository = dependencies.planningRepository
+        _store = State(initialValue: PlanStore(
+            planningRepository: repository,
+            blockRepository: repository,
+            scenarioCoordinator: DefaultPlanningScenarioCoordinator(
+                planning: repository,
+                mutations: repository
+            )
+        ))
         _inboxStore = State(
             initialValue: InboxStore(
                 reader: InboxReader(repository: repository),
                 planningRepository: repository,
-                mutationRepository: repository
+                mutationRepository: repository,
+                commitCoordinator: dependencies.inboxCommitCoordinator
             )
         )
         _lens = State(initialValue: initialLens ?? PlanLensRestoration.load())
@@ -516,8 +525,9 @@ struct LifeBoardPlanRootView: View {
             }
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, 4)
+        .padding(.horizontal, 12)
         .frame(minHeight: 52)
+        .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
         .accessibilityIdentifier("plan.header")
     }
 
@@ -546,6 +556,7 @@ struct LifeBoardPlanRootView: View {
             // trigger. Plan was showing a number derived from inputs the user
             // could not edit.
             capacityCard(snapshot.capacity)
+            minimumViableDayControl
 
             dayPresentationControl
             if effectiveDayPresentation == .canvas {
@@ -557,6 +568,15 @@ struct LifeBoardPlanRootView: View {
                     },
                     moveBlock: { block, minutes in Task { await store.moveBlock(block, minutesDelta: minutes) } },
                     resizeBlock: { block, minutes in Task { await store.resizeBlock(block, minutesDelta: minutes) } },
+                    resizeBlockEdges: { block, start, end in
+                        Task {
+                            await store.resizeBlockEdges(
+                                block,
+                                startMinutesDelta: start,
+                                endMinutesDelta: end
+                            )
+                        }
+                    },
                     splitBlock: { block in Task { await store.splitBlock(block) } },
                     deleteBlock: { block in Task { await store.deleteBlock(block) } },
                     startFocus: { block in
@@ -576,6 +596,7 @@ struct LifeBoardPlanRootView: View {
                     }
                     .scrollIndicators(.hidden)
                 }
+                fitsNextSurface(snapshot)
 
                 if scheduleGrouping == .timeOfDay {
                     daypartGroupedSchedule(snapshot)
@@ -606,6 +627,47 @@ struct LifeBoardPlanRootView: View {
             if !store.repairProposals.isEmpty {
                 repairCard(store.repairProposals)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var minimumViableDayControl: some View {
+        if let scenario = store.pendingScenario {
+            VStack(alignment: .leading, spacing: 10) {
+                Label("Minimum Viable Day", systemImage: "leaf.fill")
+                    .font(.headline)
+                ForEach(scenario.diff) { change in
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(change.title).font(.subheadline.weight(.semibold))
+                        if let after = change.after {
+                            Text(after)
+                                .font(.caption)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                    }
+                }
+                HStack {
+                    Button("Keep current day") { store.dismissScenario() }
+                        .buttonStyle(.bordered)
+                    Button("Apply reduced day") {
+                        Task { await store.applyPendingScenario() }
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
+            }
+            .foundationClayCard()
+            .accessibilityIdentifier("plan.minimumViableDay.preview")
+        } else {
+            Button {
+                store.previewMinimumViableDay()
+            } label: {
+                Label("Shape a Minimum Viable Day", systemImage: "leaf")
+                    .frame(minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .accessibilityHint("Previews essential care, one achievable outcome, and protected rest before changing the plan")
+            .accessibilityIdentifier("plan.minimumViableDay")
         }
     }
 
@@ -742,8 +804,15 @@ struct LifeBoardPlanRootView: View {
                         .font(.title3.monospacedDigit().weight(.semibold))
                 }
             }
-            ProgressView(value: min(1, session.focusedDuration() / max(1, session.targetDuration)))
-                .tint(Color(LifeBoardColorTokens.foundationFocusRing))
+            if let companion = store.focusCompanion {
+                Text(focusModeLabel(companion.mode))
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            if session.targetDuration > 0 {
+                ProgressView(value: min(1, session.focusedDuration() / max(1, session.targetDuration)))
+                    .tint(Color(LifeBoardColorTokens.foundationFocusRing))
+            }
             HStack {
                 if session.state == .paused {
                     Button("Resume", systemImage: "play.fill") { Task { await store.resumeFocus() } }
@@ -753,10 +822,9 @@ struct LifeBoardPlanRootView: View {
                         .buttonStyle(.borderedProminent)
                 }
                 Menu("End", systemImage: "stop.fill") {
-                    Button("Completed") { Task { await store.endFocus(outcome: .completed) } }
-                    Button("Stopped") { Task { await store.endFocus(outcome: .stopped) } }
-                    Button("Interrupted") { Task { await store.endFocus(outcome: .interrupted) } }
-                    Button("Intentionally deferred") { Task { await store.endFocus(outcome: .intentionallyDeferred) } }
+                    Button("Finish") { Task { await store.endFocus(outcome: .completed) } }
+                    Button("Continue Later") { Task { await store.endFocus(outcome: .continueLater) } }
+                    Button("Abandon", role: .destructive) { Task { await store.endFocus(outcome: .abandoned) } }
                 }
                 .buttonStyle(.bordered)
             }
@@ -765,6 +833,15 @@ struct LifeBoardPlanRootView: View {
         .background(Color(LifeBoardColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: 20))
         .overlay { RoundedRectangle(cornerRadius: 20).stroke(Color(LifeBoardColorTokens.foundationFocusRing).opacity(0.25), lineWidth: 1) }
         .accessibilityIdentifier("plan.activeFocus")
+    }
+
+    private func focusModeLabel(_ mode: FocusMode) -> String {
+        switch mode {
+        case .countdown: "Countdown"
+        case .stopwatch: "Stopwatch"
+        case let .pomodoro(_, _, rounds): "Pomodoro · \(rounds) rounds"
+        case .openEnded: "Open-ended focus"
+        }
     }
 
     @ViewBuilder
@@ -790,8 +867,10 @@ struct LifeBoardPlanRootView: View {
                 }
                 .buttonStyle(.bordered)
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
             .frame(minHeight: 52)
+            .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
             .accessibilityIdentifier("plan.calendar.inline")
         case .denied, .restricted:
             HStack(spacing: 10) {
@@ -805,7 +884,10 @@ struct LifeBoardPlanRootView: View {
                 }
                 .font(.caption.weight(.semibold))
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
             .frame(minHeight: 44)
+            .lifeBoardGlassSurface(cornerRadius: 18, interactive: true)
             .accessibilityIdentifier("plan.calendar.inline")
         case .authorized, .unavailable:
             EmptyView()
@@ -846,6 +928,57 @@ struct LifeBoardPlanRootView: View {
             }
             return true
         } isTargeted: { _ in }
+    }
+
+    @ViewBuilder
+    private func fitsNextSurface(_ snapshot: PlanDaySnapshot) -> some View {
+        if let window = snapshot.freeWindows
+            .filter({ $0.endAt > Date() })
+            .sorted(by: { $0.startAt < $1.startAt })
+            .first {
+            let fitting = snapshot.unscheduledTasks.filter {
+                guard $0.dependenciesReady, let estimate = $0.estimatedDuration else { return false }
+                return estimate <= window.duration
+            }
+            if fitting.isEmpty == false {
+                sectionHeader("Fits next", systemImage: "sparkles.rectangle.stack")
+                ScrollView(.horizontal) {
+                    HStack(spacing: 10) {
+                        ForEach(fitting.prefix(5)) { task in
+                            Button {
+                                Task {
+                                    await store.createBlock(
+                                        title: task.title,
+                                        start: window.startAt,
+                                        duration: task.estimatedDuration ?? 15 * 60,
+                                        taskID: task.id
+                                    )
+                                }
+                            } label: {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(task.title)
+                                        .font(.subheadline.weight(.semibold))
+                                        .lineLimit(1)
+                                    Text("\(duration(task.estimatedDuration ?? 0)) · starts \(time(window.startAt))")
+                                        .font(.caption)
+                                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                }
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 11)
+                                .background(
+                                    Color(LifeBoardColorTokens.foundationSageAccent).opacity(0.14),
+                                    in: RoundedRectangle(cornerRadius: 13, style: .continuous)
+                                )
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Schedules this task into the next free window")
+                        }
+                    }
+                }
+                .scrollIndicators(.hidden)
+                .accessibilityIdentifier("plan.fitsNext")
+            }
+        }
     }
 
     private func commitmentCard(_ commitment: PlanningFixedCommitment) -> some View {
@@ -1644,6 +1777,7 @@ private struct PlanDayTimeCanvas: View {
     let createBlock: (String, Date, TimeInterval, UUID?) -> Void
     let moveBlock: (InternalTimeBlock, Int) -> Void
     let resizeBlock: (InternalTimeBlock, Int) -> Void
+    let resizeBlockEdges: (InternalTimeBlock, Int, Int) -> Void
     let splitBlock: (InternalTimeBlock) -> Void
     let deleteBlock: (InternalTimeBlock) -> Void
     let startFocus: (InternalTimeBlock) -> Void
@@ -1889,6 +2023,7 @@ private struct PlanDayTimeCanvas: View {
                 minuteBounds: minuteBounds(for: block),
                 move: { moveBlock(block, $0) },
                 resize: { resizeBlock(block, $0) },
+                resizeEdges: { resizeBlockEdges(block, $0, $1) },
                 split: { splitBlock(block) },
                 delete: { deleteBlock(block) },
                 focus: { startFocus(block) }
@@ -2147,6 +2282,7 @@ private struct PlanCanvasBlock: View {
     let minuteBounds: ClosedRange<Int>
     let move: (Int) -> Void
     let resize: (Int) -> Void
+    let resizeEdges: (Int, Int) -> Void
     let split: () -> Void
     let delete: () -> Void
     let focus: () -> Void
@@ -2156,6 +2292,8 @@ private struct PlanCanvasBlock: View {
     /// The snapped candidate, in minutes from the block's current start. Held as
     /// gesture state so an interrupted drag cannot strand the block off-grid.
     @GestureState private var draggedMinutes: Int = 0
+    @GestureState private var topResizeMinutes: Int = 0
+    @GestureState private var bottomResizeMinutes: Int = 0
     /// Mirrors `draggedMinutes` outside the gesture so the detent haptic fires
     /// exactly once per crossing rather than on every touch sample.
     @State private var lastDetent: Int = 0
@@ -2219,7 +2357,14 @@ private struct PlanCanvasBlock: View {
         .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
         .padding(.leading, isCompact ? 5 : 7)
         .padding(.trailing, isCompact ? 2 : 5)
-        .frame(width: width, height: height, alignment: .topLeading)
+        .frame(
+            width: width,
+            height: max(
+                16,
+                height + CGFloat(bottomResizeMinutes - topResizeMinutes) / 60 * hourHeight
+            ),
+            alignment: .topLeading
+        )
         .background(
             showsConflict
                 ? Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.34)
@@ -2234,7 +2379,7 @@ private struct PlanCanvasBlock: View {
                     lineWidth: isDragging ? 2 : 1
                 )
         }
-        .offset(y: CGFloat(draggedMinutes) / 60 * hourHeight)
+        .offset(y: CGFloat(draggedMinutes + topResizeMinutes) / 60 * hourHeight)
         .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: draggedMinutes)
         .contentShape(Rectangle())
         // Press and hold before moving, the way the system calendar does.
@@ -2282,6 +2427,48 @@ private struct PlanCanvasBlock: View {
                     }
                 }
         )
+        .overlay(alignment: .top) {
+            resizeHandle(label: "Resize start")
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .updating($topResizeMinutes) { value, state, _ in
+                            state = resizeSnap(
+                                value.translation.height,
+                                bounds: -1_440...max(0, Int(block.duration / 60) - 15)
+                            )
+                        }
+                        .onEnded { value in
+                            let delta = resizeSnap(
+                                value.translation.height,
+                                bounds: -1_440...max(0, Int(block.duration / 60) - 15)
+                            )
+                            guard delta != 0 else { return }
+                            LifeBoardHaptic.commit.play()
+                            resizeEdges(delta, 0)
+                        }
+                )
+        }
+        .overlay(alignment: .bottom) {
+            resizeHandle(label: "Resize end")
+                .gesture(
+                    DragGesture(minimumDistance: 0)
+                        .updating($bottomResizeMinutes) { value, state, _ in
+                            state = resizeSnap(
+                                value.translation.height,
+                                bounds: min(0, 15 - Int(block.duration / 60))...1_440
+                            )
+                        }
+                        .onEnded { value in
+                            let delta = resizeSnap(
+                                value.translation.height,
+                                bounds: min(0, 15 - Int(block.duration / 60))...1_440
+                            )
+                            guard delta != 0 else { return }
+                            LifeBoardHaptic.commit.play()
+                            resizeEdges(0, delta)
+                        }
+                )
+        }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(block.title), \(block.startAt.formatted(date: .omitted, time: .shortened)) to \(block.endAt.formatted(date: .omitted, time: .shortened))\(hasConflict ? ", conflicts with another item" : "")")
         .accessibilityAdjustableAction { direction in move(direction == .increment ? 15 : -15) }
@@ -2293,14 +2480,35 @@ private struct PlanCanvasBlock: View {
         .accessibilityIdentifier("plan.canvas.block.\(block.id.uuidString)")
     }
 
-    private var isDragging: Bool { draggedMinutes != 0 }
+    private var isDragging: Bool {
+        draggedMinutes != 0 || topResizeMinutes != 0 || bottomResizeMinutes != 0
+    }
 
     private var candidateStart: Date {
-        block.startAt.addingTimeInterval(TimeInterval(draggedMinutes * 60))
+        block.startAt.addingTimeInterval(TimeInterval((draggedMinutes + topResizeMinutes) * 60))
     }
 
     private var candidateEnd: Date {
-        block.endAt.addingTimeInterval(TimeInterval(draggedMinutes * 60))
+        block.endAt.addingTimeInterval(TimeInterval((draggedMinutes + bottomResizeMinutes) * 60))
+    }
+
+    private func resizeSnap(_ translation: CGFloat, bounds: ClosedRange<Int>) -> Int {
+        PlanBlockSnapResolver.snappedMinutes(
+            translation: translation,
+            hourHeight: hourHeight,
+            bounds: bounds
+        )
+    }
+
+    private func resizeHandle(label: String) -> some View {
+        Capsule()
+            .fill(Color(LifeBoardColorTokens.foundationApricotAccent))
+            .frame(width: 30, height: 4)
+            .frame(maxWidth: .infinity)
+            .frame(height: 44)
+            .contentShape(Rectangle())
+            .accessibilityLabel(label)
+            .accessibilityHint("Drag, or use the duration actions in the menu")
     }
 
     /// During a drag the block reports the candidate slot's conflict, not its

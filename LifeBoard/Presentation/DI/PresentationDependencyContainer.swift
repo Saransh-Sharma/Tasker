@@ -10,6 +10,59 @@
 import Foundation
 import UIKit
 
+/// Explicit capabilities required by Plan and Inbox.
+///
+/// The composition root resolves repositories once and passes this value down
+/// through the shell. SwiftUI views therefore never name either dependency
+/// container and previews/tests can provide focused substitutes.
+struct PlanFeatureDependencies {
+    let planningRepository: CoreDataPlanningRepository
+    let inboxCommitCoordinator: InboxCommitCoordinator
+    let taskExecutionProjection: TaskExecutionProjection
+    let projectMilestoneRepository: any ProjectMilestoneRepository
+    let taskDefinitionRepository: any TaskDefinitionRepositoryProtocol
+    let projectRepository: any ProjectRepositoryProtocol
+    let sectionRepository: (any SectionRepositoryProtocol)?
+    let tagRepository: any TagRepositoryProtocol
+    let taskTagLinkRepository: (any TaskTagLinkRepositoryProtocol)?
+    let taskDependencyRepository: (any TaskDependencyRepositoryProtocol)?
+
+    init(
+        planningRepository: CoreDataPlanningRepository,
+        taskDefinitionRepository: any TaskDefinitionRepositoryProtocol,
+        projectRepository: any ProjectRepositoryProtocol,
+        sectionRepository: (any SectionRepositoryProtocol)? = nil,
+        tagRepository: any TagRepositoryProtocol,
+        taskTagLinkRepository: (any TaskTagLinkRepositoryProtocol)? = nil,
+        taskDependencyRepository: (any TaskDependencyRepositoryProtocol)? = nil
+    ) {
+        self.planningRepository = planningRepository
+        inboxCommitCoordinator = InboxCommitCoordinator(
+            writer: CoreDataInboxTaskWriter(
+                tasks: taskDefinitionRepository,
+                projects: projectRepository,
+                tags: tagRepository,
+                taskTagLinks: taskTagLinkRepository
+            )
+        )
+        taskExecutionProjection = TaskExecutionProjection(
+            repository: planningRepository,
+            taskDefinitions: {
+                try await withCheckedThrowingContinuation { continuation in
+                    taskDefinitionRepository.fetchAll { continuation.resume(with: $0) }
+                }
+            }
+        )
+        projectMilestoneRepository = planningRepository
+        self.taskDefinitionRepository = taskDefinitionRepository
+        self.projectRepository = projectRepository
+        self.sectionRepository = sectionRepository
+        self.tagRepository = tagRepository
+        self.taskTagLinkRepository = taskTagLinkRepository
+        self.taskDependencyRepository = taskDependencyRepository
+    }
+}
+
 /// Dependency container for Clean Architecture ViewModels
 /// Receives dependencies from EnhancedDependencyContainer (State layer)
 /// and provides ViewModels to the Presentation layer

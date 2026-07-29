@@ -44,15 +44,18 @@ public struct HomePlacementMetadata: Codable, Hashable, Sendable {
     public var ownership: HomeCardOwnership
     public var gridPosition: HomeGridPosition?
     public var smartSlot: HomeSmartSlotConfiguration?
+    public var sectionOverride: HomeSectionRole?
 
     public init(
         ownership: HomeCardOwnership = .pinned,
         gridPosition: HomeGridPosition? = nil,
-        smartSlot: HomeSmartSlotConfiguration? = nil
+        smartSlot: HomeSmartSlotConfiguration? = nil,
+        sectionOverride: HomeSectionRole? = nil
     ) {
         self.ownership = ownership
         self.gridPosition = gridPosition
         self.smartSlot = smartSlot
+        self.sectionOverride = sectionOverride
     }
 }
 
@@ -112,6 +115,10 @@ public struct DashboardWidgetPlacementValue: Codable, Hashable, Identifiable, Se
 
     public var smartSlot: HomeSmartSlotConfiguration? {
         homeConfiguration.placement.smartSlot
+    }
+
+    public var sectionOverride: HomeSectionRole? {
+        homeConfiguration.placement.sectionOverride
     }
 
     public mutating func updateHomeConfiguration(
@@ -547,6 +554,15 @@ public struct HomeLayoutDraft: Equatable, Sendable {
         guard let index = current.placements.firstIndex(where: { $0.id == id }) else { return }
         current.placements[index].updateHomeConfiguration { configuration in
             configuration.source = source
+        }
+        touch()
+    }
+
+    public mutating func setSection(_ section: HomeSectionRole?, id: UUID) {
+        guard let index = current.placements.firstIndex(where: { $0.id == id }) else { return }
+        current.placements[index].updateHomeConfiguration {
+            $0.placement.sectionOverride = section
+            $0.placement.ownership = .pinned
         }
         touch()
     }

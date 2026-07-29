@@ -885,7 +885,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let model = try XCTUnwrap(
             NSManagedObjectModel(
                 contentsOf: try completionModelBundleURL()
-                    .appendingPathComponent("TaskModelV3_TaskStartDay.mom")
+                    .appendingPathComponent("TaskModelV3_BehaviorFlagship.mom")
             )
         )
         let container = NSPersistentContainer(name: name, managedObjectModel: model)
@@ -1725,7 +1725,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
             "MedicationSchedule", "MedicationEvent", "FastingSession", "JournalDay", "JournalBlock",
             "JournalMediaAttachment", "KnowledgeSpace", "KnowledgeFolder", "KnowledgeNote",
             "KnowledgeBlock", "KnowledgeTag", "KnowledgeNoteTagLink", "KnowledgeLink", "KnowledgeAttachment",
-            "KnowledgeSmartCollection", "KnowledgeNoteRevision", "KnowledgeNoteSecurePayload"
+            "KnowledgeSmartCollection", "KnowledgeNoteRevision", "KnowledgeNoteSecurePayload",
+            "GoalStatusEvent"
         ] {
             XCTAssertTrue(cloud.contains(name), "\(name) must be in CloudSync")
         }
@@ -1733,6 +1734,40 @@ final class LifeOSFoundationContractTests: XCTestCase {
             XCTAssertTrue(local.contains(name), "\(name) must be LocalOnly")
             XCTAssertFalse(cloud.contains(name), "\(name) must never enter CloudSync")
         }
+    }
+
+    func testBehaviorFlagshipModelContainsOnlyTheAdditiveBehaviorFields() throws {
+        let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)]))
+        let expected: [String: Set<String>] = [
+            "MedicationDefinition": [
+                "formRaw", "startDate", "endDate", "refillQuantity", "refillRemaining",
+                "refillThreshold", "lastRefilledAt"
+            ],
+            "TrackerDefinition": [
+                "valueTypeRaw", "rangeMin", "rangeMax", "aggregationRaw",
+                "privacyClassRaw", "isHomeEligible", "choiceOptionsData"
+            ],
+            "TrackerEntry": ["valueData"],
+            "GoalDefinition": [
+                "intentRaw", "statusRaw", "baselineValue", "confidenceRaw",
+                "whyItMatters", "checkInCadenceRaw", "pausedAt"
+            ],
+            "HabitDefinition": [
+                "quotaTargetCount", "quotaPeriodRaw", "timedTargetSeconds", "minimumTargetData"
+            ]
+        ]
+        for (entityName, fields) in expected {
+            let entity = try XCTUnwrap(model.entitiesByName[entityName])
+            XCTAssertTrue(
+                fields.isSubset(of: Set(entity.attributesByName.keys)),
+                "\(entityName) is missing \(fields.subtracting(entity.attributesByName.keys))"
+            )
+        }
+        let statusEvent = try XCTUnwrap(model.entitiesByName["GoalStatusEvent"])
+        XCTAssertEqual(
+            Set(statusEvent.attributesByName.keys),
+            ["id", "goalID", "statusRaw", "reason", "recordedAt"]
+        )
     }
 
     /// Every compiled predecessor has to migrate, and "every" is discovered from
@@ -1760,7 +1795,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         // The count is asserted so a *removed* version is caught too — deleting a
         // compiled model strands anyone still on it.
         XCTAssertEqual(
-            previousModelNames.count, 21,
+            previousModelNames.count, 22,
             """
             The number of compiled predecessors changed to \(previousModelNames.count). \
             Adding a version is expected — update this count in the same change. \
@@ -2025,6 +2060,13 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertFalse(lowEnergy.showsToday)
         XCTAssertFalse(lowEnergy.showsNeedsAttention)
         XCTAssertEqual(lowEnergy.queueLimit, 1)
+
+        let workBudget = policy.sectionBudget(for: .work)
+        XCTAssertEqual(workBudget.applying(.minimal).queueLimit, 2)
+        XCTAssertFalse(workBudget.applying(.minimal).showsDayAhead)
+        XCTAssertEqual(workBudget.applying(.balanced).queueLimit, 4)
+        XCTAssertEqual(workBudget.applying(.rich).queueLimit, 6)
+        XCTAssertTrue(workBudget.applying(.minimal).showsToday)
     }
 
     /// Ranking by row count always named the chattiest tracker; consistency is
@@ -2808,14 +2850,32 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let container = try await makeHealthPrivacyValidatedContainer(name: "PhaseIIRoundTrip")
         let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
 
-        let tracker = LifeBoardTrackerDefinitionValue(title: "Water", kind: .quantity, unitLabel: "ml")
+        let tracker = LifeBoardTrackerDefinitionValue(
+            title: "Water",
+            kind: .quantity,
+            unitLabel: "ml",
+            valueType: .quantity,
+            rangeMin: 0,
+            rangeMax: 5_000,
+            aggregation: .sum,
+            privacyClass: .personal,
+            isHomeEligible: true
+        )
         try await repository.saveTracker(tracker)
-        let trackerEntry = LifeBoardTrackerEntryValue(trackerID: tracker.id, numericValue: 450)
+        let trackerEntry = LifeBoardTrackerEntryValue(
+            trackerID: tracker.id,
+            numericValue: 450,
+            value: .quantity(450, unit: "ml")
+        )
         try await repository.saveTrackerEntry(trackerEntry)
         let fetchedTrackers = try await repository.fetchTrackers()
         let fetchedEntries = try await repository.fetchTrackerEntries(trackerID: tracker.id)
         XCTAssertEqual(fetchedTrackers.map(\.id), [tracker.id])
         XCTAssertEqual(fetchedEntries.first?.numericValue, 450)
+        XCTAssertEqual(fetchedTrackers.first?.aggregation, .sum)
+        XCTAssertEqual(fetchedTrackers.first?.privacyClass, .personal)
+        XCTAssertEqual(fetchedTrackers.first?.isHomeEligible, true)
+        XCTAssertEqual(fetchedEntries.first?.value, .quantity(450, unit: "ml"))
         var correctedTrackerEntry = trackerEntry
         correctedTrackerEntry.numericValue = 500
         correctedTrackerEntry.note = "Corrected from the bottle"
@@ -2834,7 +2894,16 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let deletedTrackerEntries = try await repository.fetchTrackerEntries(trackerID: tracker.id)
         XCTAssertTrue(deletedTrackerEntries.isEmpty)
 
-        let medication = LifeBoardMedicationDefinitionValue(name: "Vitamin D")
+        let medicationStart = journalDateForRepositoryTest().addingTimeInterval(-86_400)
+        let medication = LifeBoardMedicationDefinitionValue(
+            name: "Vitamin D",
+            formRaw: "tablet",
+            startDate: medicationStart,
+            refillQuantity: 30,
+            refillRemaining: 12,
+            refillThreshold: 5,
+            lastRefilledAt: medicationStart
+        )
         let medicationSchedule = LifeBoardMedicationScheduleValue(
             medicationID: medication.id,
             windowStartMinutes: 480,
@@ -2858,6 +2927,11 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(medicationEvents.count, 1)
         XCTAssertEqual(medicationEvents.first?.status, .taken)
         XCTAssertEqual(medicationEvents.first?.note, "Corrected after review")
+        let fetchedMedications = try await repository.fetchMedications()
+        let fetchedMedication = try XCTUnwrap(fetchedMedications.first)
+        XCTAssertEqual(fetchedMedication.formRaw, "tablet")
+        XCTAssertEqual(fetchedMedication.refillRemaining, 12)
+        XCTAssertEqual(fetchedMedication.lastRefilledAt, medicationStart)
         try await repository.deleteMedication(id: medication.id)
         let deletedMedications = try await repository.fetchMedications()
         let deletedMedicationSchedules = try await repository.fetchMedicationSchedules(medicationID: medication.id)
@@ -3121,7 +3195,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         // One hero plus up to three in "Needs attention". The old cap of two
         // meant nine domain providers competed for a section that could only
         // ever render a single row, and only when exactly two survived.
-        XCTAssertEqual(privateSelection.candidates.map(\.id), ["active", "next", "lower"])
+        XCTAssertEqual(privateSelection.candidates.map(\.id), ["active", "next"])
 
         let permittedSelection = policy.select(
             candidates: [medication, lower, next, active],
@@ -3131,7 +3205,11 @@ final class LifeOSFoundationContractTests: XCTestCase {
         )
         // `medication` is sensitive and penalised by `suggestLess`, so it still
         // sorts last even once sensitive content is permitted.
-        XCTAssertEqual(permittedSelection.candidates.map(\.id), ["active", "next", "lower", "medication"])
+        XCTAssertEqual(permittedSelection.candidates.map(\.id), ["active", "next", "medication"])
+        XCTAssertEqual(
+            Set(permittedSelection.candidates.map(\.resolvedSemanticRole)).count,
+            permittedSelection.candidates.count
+        )
         XCTAssertLessThanOrEqual(
             permittedSelection.candidates.count,
             HomeContextSelection.maximumCandidates
@@ -3151,8 +3229,10 @@ final class LifeOSFoundationContractTests: XCTestCase {
             smartSlot: .init(allowedDestinations: [.plan, .track], schedule: .morning),
             id: placement.id
         )
+        draft.setSection(.keepSteady, id: placement.id)
 
-        XCTAssertEqual(draft.current.placements.first?.ownership, .smart)
+        XCTAssertEqual(draft.current.placements.first?.ownership, .pinned)
+        XCTAssertEqual(draft.current.placements.first?.sectionOverride, .keepSteady)
         XCTAssertEqual(draft.current.placements.first?.smartSlot?.schedule, .morning)
         draft.cancel()
         XCTAssertEqual(draft.current, original)
@@ -5940,6 +6020,45 @@ final class TaskExecutionProjectionTests: XCTestCase {
         XCTAssertEqual(counts[.waiting], 0)
         let fetches = await probe.count
         XCTAssertEqual(fetches, 1, "Five counts must not cost five fetches")
+    }
+
+    func testCompletedAndCanonicalFiltersUseTaskDefinitions() async throws {
+        let completed = task("Shipped")
+        let open = task("Draft")
+        let wantedTag = UUID()
+        let reference = today
+        let subject = TaskExecutionProjection(
+            openTasks: { [completed, open] },
+            taskDefinitions: {
+                [
+                    TaskDefinition(
+                        id: completed.id,
+                        lifeAreaID: UUID(),
+                        title: completed.title,
+                        context: .computer,
+                        isComplete: true,
+                        tagIDs: [wantedTag]
+                    ),
+                    TaskDefinition(
+                        id: open.id,
+                        title: open.title,
+                        context: .anywhere,
+                        isComplete: false
+                    )
+                ]
+            },
+            today: { reference }
+        )
+
+        let completedRows = try await subject.tasks(for: .init(
+            scope: .completed,
+            tagIDs: [wantedTag],
+            context: .computer
+        ))
+        let allOpenRows = try await subject.tasks(for: .init(scope: .all))
+
+        XCTAssertEqual(completedRows.map(\.id), [completed.id])
+        XCTAssertEqual(Set(allOpenRows.map(\.id)), Set([completed.id, open.id]))
     }
 
     func testUnknownProjectReturnsNilRatherThanAnEmptySnapshot() async throws {

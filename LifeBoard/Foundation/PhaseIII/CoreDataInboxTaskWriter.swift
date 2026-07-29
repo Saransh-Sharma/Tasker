@@ -86,6 +86,54 @@ public struct CoreDataInboxTaskWriter: InboxTaskWriting {
         }
     }
 
+    public func task(id: UUID) async throws -> TaskDefinition? {
+        try await withCheckedThrowingContinuation { continuation in
+            tasks.fetchTaskDefinition(id: id) { continuation.resume(with: $0) }
+        }
+    }
+
+    public func mergeTask(id: UUID, request: InboxCaptureCommitRequest) async throws -> TaskDefinition {
+        guard let existing = try await task(id: id) else {
+            throw InboxCommitFailure.mergeUnavailable
+        }
+        let resolvedContext = Self.context(for: request.contextName)
+        var incomingTagNames = request.tagNames
+        if let contextName = request.contextName, resolvedContext == nil {
+            incomingTagNames.append(contextName)
+        }
+        let incomingTagIDs = try await resolveTagIDs(named: incomingTagNames)
+
+        var update = UpdateTaskDefinitionRequest(id: id)
+        update.title = request.title
+        update.tagIDs = Array(Set(existing.tagIDs).union(incomingTagIDs))
+            .sorted { $0.uuidString < $1.uuidString }
+        if existing.dueDate == nil, let dueDate = request.dueDate {
+            update.dueDate = dueDate
+            update.isAllDay = request.isAllDay
+        }
+        if existing.estimatedDuration == nil {
+            update.estimatedDuration = request.estimatedDuration
+        }
+        if existing.repeatPattern == nil {
+            update.repeatPattern = request.repeatPattern
+        }
+        if existing.priority == .low {
+            update.priority = request.priority
+        }
+        if existing.context == .anywhere {
+            update.context = resolvedContext
+        }
+        return try await withCheckedThrowingContinuation { continuation in
+            tasks.update(request: update) { continuation.resume(with: $0) }
+        }
+    }
+
+    public func restoreTask(_ snapshot: TaskDefinition) async throws {
+        let _: TaskDefinition = try await withCheckedThrowingContinuation { continuation in
+            tasks.update(snapshot) { continuation.resume(with: $0) }
+        }
+    }
+
     // MARK: - Resolution
 
     /// Maps a parsed `@token` onto the closed `TaskContext` enum.

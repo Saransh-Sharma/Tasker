@@ -321,13 +321,14 @@ final class AdaptiveHomeStore {
         )
     }
 
-    func pinContext(_ candidate: HomeContextCandidate) {
+    func pinContext(_ candidate: HomeContextCandidate, section: HomeSectionRole? = nil) {
         if draft == nil { beginCustomization() }
         guard let descriptor = registry.descriptor(for: candidate.widgetKind) else { return }
         addWidget(descriptor)
         if var value = draft,
            let placement = value.current.placements.last(where: { $0.widgetKind == candidate.widgetKind.rawValue }) {
             value.setOwnership(.pinned, id: placement.id)
+            value.setSection(section, id: placement.id)
             draft = value
         }
         contextPreferences.set(.pinned, for: candidate.id)
@@ -738,6 +739,7 @@ struct LifeBoardAdaptiveHome: View {
     @State private var composerText = ""
     @FocusState private var composerIsFocused: Bool
     @AppStorage("lifeOS.home.sensitive_cards.enabled") private var permitsSensitiveHomeContent = false
+    @AppStorage("lifeOS.home.dashboardDensity.v1") private var dashboardDensity: DashboardDensity = .balanced
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -839,7 +841,9 @@ struct LifeBoardAdaptiveHome: View {
                         )
                     }
 
-                    let budget = modePolicy.sectionBudget(for: router.dashboardMode)
+                    let budget = modePolicy
+                        .sectionBudget(for: router.dashboardMode)
+                        .applying(dashboardDensity)
 
                     nowSection(palette: palette)
 
@@ -1190,6 +1194,17 @@ struct LifeBoardAdaptiveHome: View {
                         store.pinContext(candidate)
                         Task { await store.saveCustomization() }
                     }
+                    Menu("Move to Section", systemImage: "rectangle.3.group") {
+                        ForEach(
+                            [HomeSectionRole.today, .keepSteady, .closeLoop, .userSpace],
+                            id: \.self
+                        ) { section in
+                            Button(section.title) {
+                                store.pinContext(candidate, section: section)
+                                Task { await store.saveCustomization() }
+                            }
+                        }
+                    }
                     Button("Hide for today", systemImage: "sun.horizon") {
                         store.hideContextForToday(candidate)
                     }
@@ -1439,14 +1454,18 @@ struct LifeBoardAdaptiveHome: View {
                 // the user deliberately pinned stays reachable in "Your space"
                 // — the repository preserves those, so dropping them here left
                 // them persisted forever and never drawn.
-                if descriptor.sectionRole == .anchored, placement.ownership != .pinned { return false }
+                if effectiveSectionRole(for: placement) == .anchored, placement.ownership != .pinned { return false }
                 return modePolicy.permits(descriptor, in: mode)
             }
             .sorted { $0.ordinal < $1.ordinal }
     }
 
     private func placements(in role: HomeSectionRole) -> [DashboardWidgetPlacementValue] {
-        visiblePlacements.filter { descriptor(for: $0)?.sectionRole == role }
+        visiblePlacements.filter { effectiveSectionRole(for: $0) == role }
+    }
+
+    private func effectiveSectionRole(for placement: DashboardWidgetPlacementValue) -> HomeSectionRole {
+        placement.sectionOverride ?? descriptor(for: placement)?.sectionRole ?? .userSpace
     }
 
     private var todayPlacements: [DashboardWidgetPlacementValue] {
@@ -1690,7 +1709,10 @@ struct LifeBoardAdaptiveHome: View {
                 palette: palette,
                 title: descriptor?.title ?? "LifeBoard",
                 symbol: symbol(for: kind),
-                queueLimit: modePolicy.sectionBudget(for: router.dashboardMode).queueLimit,
+                queueLimit: modePolicy
+                    .sectionBudget(for: router.dashboardMode)
+                    .applying(dashboardDensity)
+                    .queueLimit,
                 onAction: { action in
                     if let destination = action.destination {
                         router.select(destination)

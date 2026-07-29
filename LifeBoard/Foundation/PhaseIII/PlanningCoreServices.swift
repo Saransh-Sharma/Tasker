@@ -1,5 +1,150 @@
 import Foundation
 
+public struct DefaultPlanningScenarioCoordinator: PlanningScenarioCoordinating {
+    private let planning: any PlanningRepository & InternalTimeBlockRepository
+    private let mutations: any PlanningMutationRepository
+
+    public init(
+        planning: any PlanningRepository & InternalTimeBlockRepository,
+        mutations: any PlanningMutationRepository
+    ) {
+        self.planning = planning
+        self.mutations = mutations
+    }
+
+    public func apply(_ scenario: PlanningScenario) async throws -> PlanMutationReceipt {
+        let taskIDs = Set(
+            scenario.touchedRecords
+                .filter { $0.kind == "task" }
+                .map(\.recordID)
+        )
+        let taskVersions = Dictionary(
+            uniqueKeysWithValues: try await planning.fetchTaskMetadata(taskIDs: taskIDs)
+                .map { ($0.taskID, $0.updatedAt) }
+        )
+        let blockVersions = Dictionary(
+            uniqueKeysWithValues: try await planning
+                .fetchTimeBlocks(from: .distantPast, to: .distantFuture)
+                .map { ($0.id, $0.updatedAt) }
+        )
+        let changed = scenario.touchedRecords.compactMap { touched -> UUID? in
+            let current = touched.kind == "timeBlock"
+                ? blockVersions[touched.recordID]
+                : taskVersions[touched.recordID]
+            return current == touched.version ? nil : touched.recordID
+        }
+        guard changed.isEmpty else {
+            throw PlanningScenarioApplyError.versionConflict(
+                changedRecordIDs: changed.sorted { $0.uuidString < $1.uuidString }
+            )
+        }
+
+        let receipt = try await mutations.prepare(
+            .batch(scenario.proposedMutations),
+            source: "planning.scenario.\(scenario.source.rawValue)",
+            summary: scenario.diff.map(\.title).joined(separator: ", ")
+        )
+        try await mutations.apply(receiptID: receipt.id)
+        return receipt
+    }
+}
+
+public enum MinimumViableDayScenarioBuilder {
+    /// A deliberately small day: essential care, one achievable outcome, and a
+    /// protected rest block. It never relabels the entire backlog as "low
+    /// priority".
+    public static func make(
+        from snapshot: PlanDaySnapshot,
+        now: Date = Date()
+    ) -> PlanningScenario {
+        let available = snapshot.unscheduledTasks.filter(\.dependenciesReady)
+        let careWords = ["care", "medication", "medicine", "water", "meal", "eat", "rest"]
+        let care = available.first { task in
+            let title = task.title.lowercased()
+            return careWords.contains(where: title.contains)
+        }
+        let outcome = available
+            .filter { $0.id != care?.id && ($0.estimatedDuration ?? .infinity) <= 30 * 60 }
+            .sorted {
+                if $0.priority != $1.priority { return priorityRank($0.priority) > priorityRank($1.priority) }
+                return $0.id.uuidString < $1.id.uuidString
+            }
+            .first
+        let selected = [care, outcome].compactMap { $0 }
+
+        let taskMutations = selected.map { task -> PlanMutation in
+            var after = task.metadata
+            after.planningDay = snapshot.day
+            after.commitmentLevel = .mustDo
+            after.updatedAt = now
+            return .saveTaskMetadata(before: task.metadata, after: after)
+        }
+        let restMutation: PlanMutation? = snapshot.freeWindows
+            .filter { $0.endAt > now && $0.duration >= 15 * 60 }
+            .sorted { $0.startAt < $1.startAt }
+            .first
+            .map { window in
+                .saveTimeBlock(
+                    before: nil,
+                    after: InternalTimeBlock(
+                        title: "Protected rest",
+                        startAt: window.startAt,
+                        endAt: window.startAt.addingTimeInterval(min(30 * 60, window.duration)),
+                        planningContext: .personal,
+                        createdAt: now,
+                        updatedAt: now
+                    )
+                )
+            }
+
+        var preview = snapshot
+        preview.plannedTasks.append(contentsOf: selected.map { task in
+            var copy = task
+            copy.metadata.planningDay = snapshot.day
+            copy.metadata.commitmentLevel = .mustDo
+            return copy
+        })
+        let selectedIDs = Set(selected.map(\.id))
+        preview.unscheduledTasks.removeAll { selectedIDs.contains($0.id) }
+        if case let .saveTimeBlock(_, rest)? = restMutation {
+            preview.blocks.append(rest)
+        }
+
+        return PlanningScenario(
+            source: .minimumViableDay,
+            touchedRecords: selected.map {
+                PlanningTouchedRecord(kind: "task", recordID: $0.id, version: $0.metadata.updatedAt)
+            },
+            proposedMutations: taskMutations + [restMutation].compactMap { $0 },
+            diff: [
+                PlanningScenarioDiff(
+                    title: "Keep essential care",
+                    after: care?.title ?? "No care item was inferred"
+                ),
+                PlanningScenarioDiff(
+                    title: "Choose one achievable outcome",
+                    after: outcome?.title ?? "No short ready task was found"
+                ),
+                PlanningScenarioDiff(
+                    title: "Protect rest",
+                    after: restMutation == nil ? "No reliable opening was available" : "30 minutes or the available window"
+                )
+            ],
+            preview: preview,
+            createdAt: now
+        )
+    }
+
+    private static func priorityRank(_ priority: FocusPriorityBand) -> Int {
+        switch priority {
+        case .low: 0
+        case .medium: 1
+        case .high: 2
+        case .urgent: 3
+        }
+    }
+}
+
 public struct DefaultPlanningDayResolver: PlanningDayResolver {
     public init() {}
 

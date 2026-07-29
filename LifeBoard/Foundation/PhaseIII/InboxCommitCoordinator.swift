@@ -100,6 +100,19 @@ public protocol InboxTaskWriting: Sendable {
     func deleteTask(id: UUID) async throws
     /// Moves a task between projects. `nil` means no project.
     func moveTask(id: UUID, toProject projectID: UUID?) async throws
+    func task(id: UUID) async throws -> TaskDefinition?
+    func mergeTask(id: UUID, request: InboxCaptureCommitRequest) async throws -> TaskDefinition
+    func restoreTask(_ snapshot: TaskDefinition) async throws
+}
+
+public extension InboxTaskWriting {
+    func task(id: UUID) async throws -> TaskDefinition? { nil }
+    func mergeTask(id: UUID, request: InboxCaptureCommitRequest) async throws -> TaskDefinition {
+        throw InboxCommitFailure.mergeUnavailable
+    }
+    func restoreTask(_ snapshot: TaskDefinition) async throws {
+        throw InboxCommitFailure.mergeUnavailable
+    }
 }
 
 /// Reading and writing the App Group capture queue, injectable for tests.
@@ -128,6 +141,12 @@ public enum InboxCommitFailure: Error, Equatable, Sendable {
     case captureNotFound(UUID)
     /// The task write failed. The capture is left in the queue.
     case taskWriteFailed(String)
+    case mergeUnavailable
+}
+
+public enum InboxMergeReceipt: Equatable, Sendable {
+    case created(taskID: UUID, captures: [PendingCapture])
+    case updated(before: TaskDefinition, after: TaskDefinition, captures: [PendingCapture])
 }
 
 /// Performs the two triage decisions the planning ledger cannot express.
@@ -183,6 +202,61 @@ public struct InboxCommitCoordinator: Sendable {
             throw InboxCommitFailure.taskWriteFailed(String(describing: error))
         }
         queue.restore(capture)
+    }
+
+    /// Resolves either pending-to-pending or pending-to-task duplicates. Queue
+    /// rows are removed only after the canonical write succeeds.
+    public func merge(
+        _ request: InboxCaptureCommitRequest,
+        with duplicate: InboxItem.Origin
+    ) async throws -> InboxMergeReceipt {
+        guard let capture = queue.read().first(where: { $0.id == request.captureID }) else {
+            throw InboxCommitFailure.captureNotFound(request.captureID)
+        }
+
+        switch duplicate {
+        case .pendingCapture(let duplicateCaptureID):
+            guard let duplicateCapture = queue.read().first(where: { $0.id == duplicateCaptureID }) else {
+                throw InboxCommitFailure.captureNotFound(duplicateCaptureID)
+            }
+            let taskID: UUID
+            do {
+                taskID = try await writer.createTask(request)
+            } catch {
+                throw InboxCommitFailure.taskWriteFailed(String(describing: error))
+            }
+            let captures = [capture, duplicateCapture]
+            queue.remove(Set(captures.map(\.id)))
+            return .created(taskID: taskID, captures: captures)
+
+        case .task(let taskID):
+            guard let before = try await writer.task(id: taskID) else {
+                throw InboxCommitFailure.mergeUnavailable
+            }
+            let after: TaskDefinition
+            do {
+                after = try await writer.mergeTask(id: taskID, request: request)
+            } catch {
+                throw InboxCommitFailure.taskWriteFailed(String(describing: error))
+            }
+            queue.remove([capture.id])
+            return .updated(before: before, after: after, captures: [capture])
+        }
+    }
+
+    public func undoMerge(_ receipt: InboxMergeReceipt) async throws {
+        do {
+            switch receipt {
+            case let .created(taskID, captures):
+                try await writer.deleteTask(id: taskID)
+                captures.forEach(queue.restore)
+            case let .updated(before, _, captures):
+                try await writer.restoreTask(before)
+                captures.forEach(queue.restore)
+            }
+        } catch {
+            throw InboxCommitFailure.taskWriteFailed(String(describing: error))
+        }
     }
 
     /// Moves a task between projects, returning the mutation that records it.

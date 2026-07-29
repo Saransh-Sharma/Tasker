@@ -10,6 +10,316 @@ struct TrackerReminderRequest: Equatable, Sendable {
     var minute: Int
 }
 
+public enum TrackerDefinitionServiceError: LocalizedError, Equatable, Sendable {
+    case emptyTitle
+    case invalidRange
+    case invalidChoiceOptions
+    case valueTypeMismatch
+    case valueOutOfRange
+    case unknownChoice
+    case sensitiveHomeProjection
+
+    public var errorDescription: String? {
+        switch self {
+        case .emptyTitle: "Give this tracker a name."
+        case .invalidRange: "The tracker range is not valid."
+        case .invalidChoiceOptions: "Choice trackers need distinct, non-empty options."
+        case .valueTypeMismatch: "That value does not match this tracker."
+        case .valueOutOfRange: "That value is outside this tracker’s range."
+        case .unknownChoice: "Choose one of this tracker’s saved options."
+        case .sensitiveHomeProjection: "Sensitive trackers must be authorized before appearing on Home."
+        }
+    }
+}
+
+public enum TrackerExportFormat: Sendable {
+    case json
+    case csv
+}
+
+/// Validation and privacy policy boundary for the legacy tracker repository.
+/// Views never write tagged values directly.
+public struct TrackerDefinitionService: Sendable {
+    private struct ExportEnvelope: Codable {
+        var schemaVersion = 1
+        var exportedAt: Date
+        var definitions: [LifeBoardTrackerDefinitionValue]
+        var entries: [LifeBoardTrackerEntryValue]
+        var provenance = "LifeBoard user-entered tracker data"
+    }
+
+    private let repository: any LifeBoardPhaseIIRepository
+
+    public init(repository: any LifeBoardPhaseIIRepository) {
+        self.repository = repository
+    }
+
+    public func saveDefinition(
+        _ definition: LifeBoardTrackerDefinitionValue,
+        sensitiveHomeAuthorized: Bool = false
+    ) async throws {
+        try validate(definition, sensitiveHomeAuthorized: sensitiveHomeAuthorized)
+        try await repository.saveTracker(definition)
+    }
+
+    public func saveEntry(_ entry: LifeBoardTrackerEntryValue) async throws {
+        guard let definition = try await repository.fetchTrackers().first(where: { $0.id == entry.trackerID }) else {
+            throw TrackerDefinitionServiceError.valueTypeMismatch
+        }
+        try validate(entry, against: definition)
+        try await repository.saveTrackerEntry(entry)
+    }
+
+    public func export(
+        trackerIDs: Set<UUID>,
+        format: TrackerExportFormat,
+        authorizedSensitiveIDs: Set<UUID> = []
+    ) async throws -> Data {
+        let definitions = try await repository.fetchTrackers().filter {
+            trackerIDs.contains($0.id)
+                && ($0.effectivePrivacyClass != .sensitive || authorizedSensitiveIDs.contains($0.id))
+        }
+        let allowed = Set(definitions.map(\.id))
+        let entries = try await repository.fetchTrackerEntries(trackerID: nil)
+            .filter { allowed.contains($0.trackerID) }
+        switch format {
+        case .json:
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            return try encoder.encode(ExportEnvelope(
+                exportedAt: Date(),
+                definitions: definitions,
+                entries: entries
+            ))
+        case .csv:
+            let formatter = ISO8601DateFormatter()
+            let rows = entries.map { entry in
+                let definition = definitions.first { $0.id == entry.trackerID }
+                return [
+                    entry.id.uuidString,
+                    entry.trackerID.uuidString,
+                    definition?.title ?? "",
+                    formatter.string(from: entry.timestamp),
+                    entry.value.map { String(describing: $0) }
+                        ?? entry.numericValue.map { String($0) }
+                        ?? entry.booleanValue.map { String($0) }
+                        ?? "",
+                    entry.note ?? "",
+                    "user-entered"
+                ].map(Self.csvField).joined(separator: ",")
+            }
+            return Data(([
+                "entry_id,tracker_id,tracker_title,timestamp,value,note,provenance"
+            ] + rows).joined(separator: "\n").utf8)
+        }
+    }
+
+    private func validate(
+        _ definition: LifeBoardTrackerDefinitionValue,
+        sensitiveHomeAuthorized: Bool
+    ) throws {
+        guard definition.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            throw TrackerDefinitionServiceError.emptyTitle
+        }
+        if let minimum = definition.rangeMin, let maximum = definition.rangeMax, minimum > maximum {
+            throw TrackerDefinitionServiceError.invalidRange
+        }
+        if definition.effectiveValueType == .choice {
+            let options = definition.choiceOptions ?? []
+            let cleaned = options.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            guard cleaned.isEmpty == false,
+                  cleaned.allSatisfy({ $0.isEmpty == false }),
+                  Set(cleaned).count == cleaned.count else {
+                throw TrackerDefinitionServiceError.invalidChoiceOptions
+            }
+        }
+        if definition.effectivePrivacyClass == .sensitive,
+           definition.isHomeEligible == true,
+           sensitiveHomeAuthorized == false {
+            throw TrackerDefinitionServiceError.sensitiveHomeProjection
+        }
+    }
+
+    private func validate(
+        _ entry: LifeBoardTrackerEntryValue,
+        against definition: LifeBoardTrackerDefinitionValue
+    ) throws {
+        let value = entry.value ?? Self.legacyValue(entry, kind: definition.effectiveValueType)
+        guard let value else { throw TrackerDefinitionServiceError.valueTypeMismatch }
+        let numeric: Double?
+        switch (definition.effectiveValueType, value) {
+        case (.boolean, .boolean), (.text, .text), (.timestamp, .timestamp):
+            numeric = nil
+        case (.count, .count(let count)):
+            guard count >= 0 else { throw TrackerDefinitionServiceError.valueOutOfRange }
+            numeric = Double(count)
+        case (.quantity, .quantity(let value, _)), (.rating, .rating(let value)):
+            numeric = value
+        case (.duration, .duration(let value)):
+            guard value >= 0 else { throw TrackerDefinitionServiceError.valueOutOfRange }
+            numeric = value
+        case (.choice, .choice(let choice)):
+            guard definition.choiceOptions?.contains(choice) == true else {
+                throw TrackerDefinitionServiceError.unknownChoice
+            }
+            numeric = nil
+        default:
+            throw TrackerDefinitionServiceError.valueTypeMismatch
+        }
+        if let numeric,
+           (definition.rangeMin.map { numeric < $0 } == true
+            || definition.rangeMax.map { numeric > $0 } == true) {
+            throw TrackerDefinitionServiceError.valueOutOfRange
+        }
+    }
+
+    private static func legacyValue(
+        _ entry: LifeBoardTrackerEntryValue,
+        kind: LifeBoardTrackerKind
+    ) -> TrackerValue? {
+        if let boolean = entry.booleanValue { return .boolean(boolean) }
+        guard let numeric = entry.numericValue else {
+            return entry.note.map(TrackerValue.text)
+        }
+        switch kind {
+        case .count: return .count(Int(numeric))
+        case .quantity: return .quantity(numeric, unit: nil)
+        case .rating: return .rating(numeric)
+        case .duration: return .duration(numeric)
+        default: return nil
+        }
+    }
+
+    private static func csvField(_ value: String) -> String {
+        guard value.contains(where: { $0 == "," || $0 == "\"" || $0 == "\n" }) else { return value }
+        return "\"\(value.replacingOccurrences(of: "\"", with: "\"\""))\""
+    }
+}
+
+public enum MedicationScheduleServiceError: LocalizedError, Equatable, Sendable {
+    case emptyName
+    case invalidActiveRange
+    case invalidRefillState
+    case eventOutsideActiveRange
+
+    public var errorDescription: String? {
+        switch self {
+        case .emptyName: "Give this medication a name."
+        case .invalidActiveRange: "The medication end date must follow its start date."
+        case .invalidRefillState: "Refill values cannot be negative or exceed the refill quantity."
+        case .eventOutsideActiveRange: "That event is outside this medication’s active dates."
+        }
+    }
+}
+
+/// Neutral medication lifecycle and history boundary. It records user choices;
+/// it intentionally contains no dosage, interaction, diagnosis, or adherence
+/// inference.
+public struct MedicationScheduleService: Sendable {
+    private struct ExportEnvelope: Codable {
+        var schemaVersion = 1
+        var exportedAt: Date
+        var medication: LifeBoardMedicationDefinitionValue
+        var schedules: [LifeBoardMedicationScheduleValue]
+        var events: [LifeBoardMedicationEventValue]
+        var provenance = "LifeBoard user-entered medication history"
+        var disclaimer = "Informational record; not medical advice"
+    }
+
+    private let repository: any LifeBoardPhaseIIRepository
+
+    public init(repository: any LifeBoardPhaseIIRepository) {
+        self.repository = repository
+    }
+
+    public func saveDefinition(_ value: LifeBoardMedicationDefinitionValue) async throws {
+        guard value.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            throw MedicationScheduleServiceError.emptyName
+        }
+        if let start = value.startDate, let end = value.endDate, end < start {
+            throw MedicationScheduleServiceError.invalidActiveRange
+        }
+        let refillValues = [value.refillQuantity, value.refillRemaining, value.refillThreshold].compactMap { $0 }
+        guard refillValues.allSatisfy({ $0 >= 0 }),
+              value.refillRemaining.map({ remaining in
+                  value.refillQuantity.map { remaining <= $0 } ?? true
+              }) ?? true else {
+            throw MedicationScheduleServiceError.invalidRefillState
+        }
+        try await repository.saveMedication(value)
+    }
+
+    public func saveSchedule(_ value: LifeBoardMedicationScheduleValue) async throws {
+        try await repository.saveMedicationSchedule(value)
+    }
+
+    @discardableResult
+    public func resolve(
+        medication: LifeBoardMedicationDefinitionValue,
+        event: LifeBoardMedicationEventValue,
+        as status: LifeBoardMedicationEventStatus,
+        at date: Date = Date(),
+        note: String? = nil
+    ) async throws -> LifeBoardMedicationEventValue {
+        if medication.startDate.map({ event.scheduledAt < $0 }) == true
+            || medication.endDate.map({ event.scheduledAt > $0 }) == true {
+            throw MedicationScheduleServiceError.eventOutsideActiveRange
+        }
+        var updated = event
+        updated.status = status
+        updated.resolvedAt = status == .scheduled || status == .unresolved ? nil : date
+        updated.note = note
+        try await repository.saveMedicationEvent(updated)
+        return updated
+    }
+
+    public func updateRefill(
+        medication: LifeBoardMedicationDefinitionValue,
+        remaining: Double,
+        refilledAt: Date? = nil
+    ) async throws -> LifeBoardMedicationDefinitionValue {
+        var updated = medication
+        updated.refillRemaining = remaining
+        updated.lastRefilledAt = refilledAt ?? medication.lastRefilledAt
+        updated.updatedAt = Date()
+        try await saveDefinition(updated)
+        return updated
+    }
+
+    public func history(
+        medicationID: UUID,
+        from start: Date,
+        to end: Date
+    ) async throws -> [LifeBoardMedicationEventValue] {
+        try await repository.fetchMedicationEvents(from: start, to: end)
+            .filter { $0.medicationID == medicationID }
+            .sorted {
+                $0.scheduledAt == $1.scheduledAt
+                    ? $0.id.uuidString < $1.id.uuidString
+                    : $0.scheduledAt < $1.scheduledAt
+            }
+    }
+
+    public func export(
+        medication: LifeBoardMedicationDefinitionValue,
+        from start: Date = .distantPast,
+        to end: Date = .distantFuture
+    ) async throws -> Data {
+        let schedules = try await repository.fetchMedicationSchedules(medicationID: medication.id)
+        let events = try await history(medicationID: medication.id, from: start, to: end)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(ExportEnvelope(
+            exportedAt: Date(),
+            medication: medication,
+            schedules: schedules,
+            events: events
+        ))
+    }
+}
+
 enum TrackerReminderPolicy {
     static func requests(for tracker: LifeBoardTrackerDefinitionValue) -> [TrackerReminderRequest] {
         guard tracker.isArchived == false, let minutes = tracker.reminderMinutes else { return [] }
@@ -284,6 +594,13 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             object.setValue(value.createdAt, forKey: "createdAt")
             object.setValue(value.updatedAt, forKey: "updatedAt")
             object.setValue(1, forKey: "version")
+            object.setValue(value.effectiveValueType.rawValue, forKey: "valueTypeRaw")
+            object.setValue(value.rangeMin, forKey: "rangeMin")
+            object.setValue(value.rangeMax, forKey: "rangeMax")
+            object.setValue(value.aggregation?.rawValue, forKey: "aggregationRaw")
+            object.setValue(value.effectivePrivacyClass.rawValue, forKey: "privacyClassRaw")
+            object.setValue(value.permitsHomeProjection, forKey: "isHomeEligible")
+            object.setValue(try value.choiceOptions.map(Self.encode), forKey: "choiceOptionsData")
         }
     }
 
@@ -319,6 +636,7 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             object.setValue(value.numericValue.map(NSNumber.init(value:)), forKey: "numericValue")
             object.setValue(value.booleanValue.map(NSNumber.init(value:)), forKey: "booleanValue")
             object.setValue(value.note, forKey: "note")
+            object.setValue(try value.value.map(Self.encode), forKey: "valueData")
             object.setValue(Date(), forKey: "createdAt")
             object.setValue(try Self.fetchOne(entity: "TrackerDefinition", id: value.trackerID, in: context), forKey: "tracker")
         }
@@ -381,6 +699,13 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             object.setValue(value.dosageText, forKey: "dosageText")
             object.setValue(value.instructions, forKey: "instructions")
             object.setValue(value.healthCorrelationID, forKey: "healthCorrelationID")
+            object.setValue(value.formRaw, forKey: "formRaw")
+            object.setValue(value.startDate, forKey: "startDate")
+            object.setValue(value.endDate, forKey: "endDate")
+            object.setValue(value.refillQuantity, forKey: "refillQuantity")
+            object.setValue(value.refillRemaining, forKey: "refillRemaining")
+            object.setValue(value.refillThreshold, forKey: "refillThreshold")
+            object.setValue(value.lastRefilledAt, forKey: "lastRefilledAt")
             object.setValue(value.isArchived, forKey: "isArchived")
             object.setValue(value.createdAt, forKey: "createdAt")
             object.setValue(value.updatedAt, forKey: "updatedAt")
@@ -1274,7 +1599,14 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             reminderMinutes: (object.value(forKey: "reminderMinutes") as? NSNumber)?.intValue,
             isArchived: (object.value(forKey: "isArchived") as? NSNumber)?.boolValue ?? false,
             createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
-            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date(),
+            valueType: (object.value(forKey: "valueTypeRaw") as? String).flatMap(LifeBoardTrackerKind.init(rawValue:)),
+            rangeMin: (object.value(forKey: "rangeMin") as? NSNumber)?.doubleValue,
+            rangeMax: (object.value(forKey: "rangeMax") as? NSNumber)?.doubleValue,
+            aggregation: (object.value(forKey: "aggregationRaw") as? String).flatMap(TrackerAggregation.init(rawValue:)),
+            privacyClass: (object.value(forKey: "privacyClassRaw") as? String).flatMap(TrackerPrivacyClass.init(rawValue:)),
+            isHomeEligible: (object.value(forKey: "isHomeEligible") as? NSNumber)?.boolValue,
+            choiceOptions: decode([String].self, from: object.value(forKey: "choiceOptionsData") as? Data)
         )
     }
 
@@ -1287,7 +1619,8 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             timestamp: object.value(forKey: "timestamp") as? Date ?? Date(),
             numericValue: (object.value(forKey: "numericValue") as? NSNumber)?.doubleValue,
             booleanValue: (object.value(forKey: "booleanValue") as? NSNumber)?.boolValue,
-            note: object.value(forKey: "note") as? String
+            note: object.value(forKey: "note") as? String,
+            value: decode(TrackerValue.self, from: object.value(forKey: "valueData") as? Data)
         )
     }
 
@@ -1316,7 +1649,14 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             healthCorrelationID: object.value(forKey: "healthCorrelationID") as? String,
             isArchived: (object.value(forKey: "isArchived") as? NSNumber)?.boolValue ?? false,
             createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
-            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date(),
+            formRaw: object.value(forKey: "formRaw") as? String,
+            startDate: object.value(forKey: "startDate") as? Date,
+            endDate: object.value(forKey: "endDate") as? Date,
+            refillQuantity: (object.value(forKey: "refillQuantity") as? NSNumber)?.doubleValue,
+            refillRemaining: (object.value(forKey: "refillRemaining") as? NSNumber)?.doubleValue,
+            refillThreshold: (object.value(forKey: "refillThreshold") as? NSNumber)?.doubleValue,
+            lastRefilledAt: object.value(forKey: "lastRefilledAt") as? Date
         )
     }
 

@@ -172,6 +172,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let state = EnhancedDependencyContainer.shared
         guard let taskRepository = state.taskDefinitionRepository,
               let habitRepository = state.habitRuntimeReadRepository,
+              let tagRepository = state.tagRepository,
               let coordinator = state.useCaseCoordinator else {
             showBootstrapFailureRoot(message: "LifeBoard’s canonical task and habit services did not finish setup.")
             return nil
@@ -196,6 +197,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let layoutRepository = CoreDataDashboardLayoutRepository(container: persistentContainer)
         let phaseIIRepository = CoreDataLifeBoardPhaseIIRepository(container: persistentContainer)
         let planningRepository = CoreDataPlanningRepository(container: persistentContainer)
+        let planDependencies = PlanFeatureDependencies(
+            planningRepository: planningRepository,
+            taskDefinitionRepository: taskRepository,
+            projectRepository: state.projectRepository,
+            sectionRepository: state.sectionRepository,
+            tagRepository: tagRepository,
+            taskTagLinkRepository: state.taskTagLinkRepository,
+            taskDependencyRepository: state.taskDependencyRepository
+        )
         let trackFoundationRepository = CoreDataTrackFoundationRepository(container: persistentContainer)
         let habitRuntimeReadRepository = CoreDataHabitRuntimeReadRepository(container: persistentContainer)
         let goalSampleProvider = CoreDataGoalSampleProvider(container: persistentContainer)
@@ -253,6 +263,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 dashboardLayoutRepository: layoutRepository,
                 phaseIIRepository: phaseIIRepository,
                 planningRepository: planningRepository,
+                planDependencies: planDependencies,
                 trackFoundationRepository: trackFoundationRepository,
                 habitRuntimeReadRepository: habitRuntimeReadRepository,
                 routineLinkedMutationApplier: routineLinkedMutationApplier,

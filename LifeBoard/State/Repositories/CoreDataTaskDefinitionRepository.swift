@@ -285,7 +285,11 @@ enum TaskDefinitionMutationApplier {
         setAttribute("isAllDay", value: request.isAllDay, on: entity)
         setAttribute("estimatedDuration", value: request.estimatedDuration, on: entity)
         setAttribute("actualDuration", value: nil, on: entity)
-        setAttribute("repeatPatternData", value: encodeRepeatPattern(request.repeatPattern), on: entity)
+        setAttribute(
+            "repeatPatternData",
+            value: encodeRepeatPattern(request.repeatPattern, anchor: request.recurrenceAnchor),
+            on: entity
+        )
         setAttribute("planningBucketRaw", value: request.planningBucket.rawValue, on: entity)
         setAttribute("weeklyOutcomeID", value: request.weeklyOutcomeID, on: entity)
         setAttribute("deferredFromWeekStart", value: request.deferredFromWeekStart, on: entity)
@@ -394,7 +398,14 @@ enum TaskDefinitionMutationApplier {
         if request.clearRepeatPattern {
             setAttribute("repeatPatternData", value: nil, on: entity)
         } else if let repeatPattern = request.repeatPattern {
-            setAttribute("repeatPatternData", value: encodeRepeatPattern(repeatPattern), on: entity)
+            setAttribute(
+                "repeatPatternData",
+                value: encodeRepeatPattern(
+                    repeatPattern,
+                    anchor: request.recurrenceAnchor ?? .scheduledDate
+                ),
+                on: entity
+            )
         }
         if let planningBucket = request.planningBucket {
             setAttribute("planningBucketRaw", value: planningBucket.rawValue, on: entity)
@@ -423,9 +434,12 @@ enum TaskDefinitionMutationApplier {
         entity.setValue(value, forKey: key)
     }
 
-    static func encodeRepeatPattern(_ repeatPattern: TaskRepeatPattern?) -> Data? {
+    static func encodeRepeatPattern(
+        _ repeatPattern: TaskRepeatPattern?,
+        anchor: TaskRecurrenceRule.Anchor = .scheduledDate
+    ) -> Data? {
         guard let repeatPattern else { return nil }
-        return try? JSONEncoder().encode(repeatPattern)
+        return try? JSONEncoder().encode(TaskRecurrenceRule(pattern: repeatPattern, anchor: anchor))
     }
 }
 
@@ -574,6 +588,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             alertReminderTime: task.alertReminderTime,
             estimatedDuration: task.estimatedDuration,
             repeatPattern: task.repeatPattern,
+            recurrenceAnchor: task.recurrenceAnchor,
             planningBucket: task.planningBucket,
             weeklyOutcomeID: task.weeklyOutcomeID,
             deferredFromWeekStart: task.deferredFromWeekStart,
@@ -651,6 +666,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             estimatedDuration: task.estimatedDuration,
             actualDuration: task.actualDuration,
             repeatPattern: task.repeatPattern,
+            recurrenceAnchor: task.recurrenceAnchor,
             planningBucket: task.planningBucket,
             weeklyOutcomeID: task.weeklyOutcomeID,
             clearWeeklyOutcomeLink: task.weeklyOutcomeID == nil,
@@ -687,13 +703,120 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
                     )))
                     return
                 }
+                let wasComplete = (entity.value(forKey: "isComplete") as? Bool) ?? false
                 TaskDefinitionMutationApplier.applyUpdateRequest(request, to: entity)
+                if wasComplete == false, request.isComplete == true {
+                    try Self.materializeCompletionAnchoredNextIfNeeded(
+                        from: entity,
+                        in: self.backgroundContext
+                    )
+                }
                 try self.backgroundContext.save()
                 completion(.success(try Self.mapTaskDefinitions([entity], context: self.backgroundContext).first ?? Self.mapTaskDefinition(entity)))
             } catch {
                 completion(.failure(error))
             }
         }
+    }
+
+    /// Completion-anchored recurrences deliberately materialize only after a
+    /// completion. Scheduled-date recurrences continue to use the horizon
+    /// materializer. Keeping this at the canonical repository boundary means
+    /// Home, Plan, widgets, shortcuts, and batch completion all obey the same
+    /// rule instead of relying on whichever screen issued the command.
+    private static func materializeCompletionAnchoredNextIfNeeded(
+        from completedEntity: NSManagedObject,
+        in context: NSManagedObjectContext
+    ) throws {
+        guard
+            let data = completedEntity.value(forKey: "repeatPatternData") as? Data,
+            let rule = decodeRecurrenceRule(data),
+            rule.anchor == .completionDate
+        else {
+            return
+        }
+
+        let completed = try mapTaskDefinitions([completedEntity], context: context).first
+        guard let completed else { return }
+        let completedAt = completed.dateCompleted ?? Date()
+        let scheduledAnchor = completed.dueDate ?? completed.scheduledStartAt ?? completedAt
+        guard let nextDate = rule.nextOccurrence(
+            scheduledDate: scheduledAnchor,
+            completedAt: completedAt
+        ) else {
+            return
+        }
+
+        let seriesID = completed.recurrenceSeriesID ?? completed.id
+        let startOfDay = Calendar.current.startOfDay(for: nextDate)
+        let endOfDay = Calendar.current.date(byAdding: .day, value: 1, to: startOfDay)
+            ?? startOfDay.addingTimeInterval(86_400)
+        let duplicateRequest = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
+        duplicateRequest.fetchLimit = 1
+        duplicateRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+            NSPredicate(format: "recurrenceSeriesID == %@", seriesID as CVarArg),
+            NSPredicate(format: "dueDate >= %@", startOfDay as CVarArg),
+            NSPredicate(format: "dueDate < %@", endOfDay as CVarArg)
+        ])
+        guard try context.fetch(duplicateRequest).isEmpty else { return }
+
+        let duration = completed.scheduledStartAt.flatMap { start in
+            completed.scheduledEndAt.map { max(60, $0.timeIntervalSince(start)) }
+        } ?? completed.estimatedDuration
+        let normalized = TaskScheduleNormalizer.normalize(
+            deadlineDate: nextDate,
+            existingScheduledStartAt: completed.scheduledStartAt,
+            existingScheduledEndAt: completed.scheduledEndAt,
+            estimatedDuration: duration,
+            preserveExistingDuration: true,
+            allDayIntent: completed.isAllDay
+        )
+        let nextID = UUID()
+        let next = try V2CoreDataRepositorySupport.upsertByID(
+            in: context,
+            entityName: "TaskDefinition",
+            id: nextID
+        )
+        TaskDefinitionMutationApplier.applyCreateRequest(
+            CreateTaskDefinitionRequest(
+                id: nextID,
+                recurrenceSeriesID: seriesID,
+                habitDefinitionID: completed.habitDefinitionID,
+                title: completed.title,
+                details: completed.details,
+                projectID: completed.projectID,
+                projectName: completed.projectName,
+                iconSymbolName: completed.iconSymbolName,
+                lifeAreaID: completed.lifeAreaID,
+                sectionID: completed.sectionID,
+                dueDate: normalized.dueDate,
+                scheduledStartAt: normalized.scheduledStartAt,
+                scheduledEndAt: normalized.scheduledEndAt,
+                isAllDay: normalized.isAllDay,
+                parentTaskID: completed.parentTaskID,
+                tagIDs: completed.tagIDs,
+                dependencies: completed.dependencies.map {
+                    TaskDependencyLinkDefinition(
+                        taskID: nextID,
+                        dependsOnTaskID: $0.dependsOnTaskID,
+                        kind: $0.kind
+                    )
+                },
+                priority: completed.priority,
+                type: completed.type,
+                energy: completed.energy,
+                category: completed.category,
+                context: completed.context,
+                isEveningTask: completed.isEveningTask,
+                estimatedDuration: completed.estimatedDuration,
+                repeatPattern: rule.pattern,
+                recurrenceAnchor: rule.anchor,
+                planningBucket: completed.planningBucket,
+                weeklyOutcomeID: completed.weeklyOutcomeID,
+                createdAt: Date()
+            ),
+            to: next
+        )
     }
 
     /// Executes fetchChildren.
@@ -738,7 +861,8 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         let energy = TaskEnergy(rawValue: snapshot.energyRaw) ?? .medium
         let category = TaskCategory(rawValue: snapshot.categoryRaw) ?? .general
         let context = TaskContext(rawValue: snapshot.contextRaw) ?? .anywhere
-        let repeatPattern = snapshot.repeatPatternData.flatMap { try? JSONDecoder().decode(TaskRepeatPattern.self, from: $0) }
+        let recurrenceRule = snapshot.repeatPatternData.flatMap(Self.decodeRecurrenceRule)
+        let repeatPattern = recurrenceRule?.pattern
         let projectName = snapshot.fallbackProjectName ?? ProjectConstants.inboxProjectName
         let planningBucket = TaskPlanningBucket(rawValue: snapshot.planningBucketRaw ?? "") ?? .thisWeek
 
@@ -773,6 +897,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             estimatedDuration: snapshot.estimatedDuration,
             actualDuration: snapshot.actualDuration,
             repeatPattern: repeatPattern,
+            recurrenceAnchor: recurrenceRule?.anchor ?? .scheduledDate,
             planningBucket: planningBucket,
             weeklyOutcomeID: snapshot.weeklyOutcomeID,
             deferredFromWeekStart: snapshot.deferredFromWeekStart,
@@ -830,7 +955,8 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         let category = TaskCategory(rawValue: attributeValue("category", from: entity) ?? "") ?? .general
         let context = TaskContext(rawValue: attributeValue("context", from: entity) ?? "") ?? .anywhere
         let projectName = resolvedProjectName(from: entity) ?? ProjectConstants.inboxProjectName
-        let repeatPattern = decodeRepeatPattern(from: entity)
+        let recurrenceRule = decodeRecurrenceRule(from: entity)
+        let repeatPattern = recurrenceRule?.pattern
         let estimatedDuration = (attributeValue("estimatedDuration", from: entity) as Double?).flatMap { $0 > 0 ? $0 : nil }
         let actualDuration = (attributeValue("actualDuration", from: entity) as Double?).flatMap { $0 > 0 ? $0 : nil }
         let planningBucket = TaskPlanningBucket(rawValue: attributeValue("planningBucketRaw", from: entity) ?? "") ?? .thisWeek
@@ -868,6 +994,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             estimatedDuration: estimatedDuration,
             actualDuration: actualDuration,
             repeatPattern: repeatPattern,
+            recurrenceAnchor: recurrenceRule?.anchor ?? .scheduledDate,
             planningBucket: planningBucket,
             weeklyOutcomeID: attributeValue("weeklyOutcomeID", from: entity),
             deferredFromWeekStart: attributeValue("deferredFromWeekStart", from: entity),
@@ -1118,13 +1245,32 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
 
     /// Executes decodeRepeatPattern.
     private static func decodeRepeatPattern(from entity: NSManagedObject) -> TaskRepeatPattern? {
+        decodeRecurrenceRule(from: entity)?.pattern
+    }
+
+    private static func decodeRecurrenceRule(from entity: NSManagedObject) -> TaskRecurrenceRule? {
         guard
             let data = attributeValue("repeatPatternData", from: entity) as Data?,
             data.isEmpty == false
         else {
             return nil
         }
-        return try? JSONDecoder().decode(TaskRepeatPattern.self, from: data)
+        return decodeRecurrenceRule(data)
+    }
+
+    private static func decodeRepeatPattern(_ data: Data) -> TaskRepeatPattern? {
+        decodeRecurrenceRule(data)?.pattern
+    }
+
+    private static func decodeRecurrenceRule(_ data: Data) -> TaskRecurrenceRule? {
+        let decoder = JSONDecoder()
+        if let rule = try? decoder.decode(TaskRecurrenceRule.self, from: data) {
+            return rule
+        }
+        guard let legacy = try? decoder.decode(TaskRepeatPattern.self, from: data) else {
+            return nil
+        }
+        return TaskRecurrenceRule(pattern: legacy, anchor: .scheduledDate)
     }
 }
 

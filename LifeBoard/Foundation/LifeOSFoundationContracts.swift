@@ -219,6 +219,18 @@ public enum DashboardMode: String, Codable, CaseIterable, Hashable, Sendable {
     }
 }
 
+/// Visual information density is orthogonal to Home's content mode.
+///
+/// Work mode can be Minimal or Rich, and Low Energy remains a semantic mode
+/// rather than being overloaded as the only way to see less.
+public enum DashboardDensity: String, Codable, CaseIterable, Hashable, Sendable {
+    case minimal
+    case balanced
+    case rich
+
+    public var title: String { rawValue.capitalized }
+}
+
 /// Life context a card's content belongs to. Mirrors planning's own context so
 /// Home can filter without the foundation layer depending on planning types.
 public enum HomeContentContext: String, Codable, CaseIterable, Hashable, Sendable {
@@ -251,6 +263,21 @@ public struct HomeSectionBudget: Hashable, Sendable {
         self.showsCloseLoop = showsCloseLoop
         self.showsUserSpace = showsUserSpace
         self.queueLimit = queueLimit
+    }
+
+    public func applying(_ density: DashboardDensity) -> HomeSectionBudget {
+        var result = self
+        switch density {
+        case .minimal:
+            result.showsDayAhead = false
+            result.showsCloseLoop = false
+            result.queueLimit = min(result.queueLimit, 2)
+        case .balanced:
+            break
+        case .rich:
+            result.queueLimit = max(result.queueLimit, 6)
+        }
+        return result
     }
 }
 
@@ -444,6 +471,14 @@ public struct HomeContextReason: Codable, Hashable, Sendable {
     }
 }
 
+public enum HomeCandidateSemanticRole: String, Codable, CaseIterable, Hashable, Sendable {
+    case primaryNow
+    case dayAheadStory
+    case attention
+    case care
+    case reflection
+}
+
 public enum HomeContextDisposition: String, Codable, CaseIterable, Hashable, Sendable {
     case available
     case hiddenToday
@@ -604,6 +639,9 @@ public struct HomeContextCandidate: Codable, Hashable, Identifiable, Sendable {
     public let relevantFrom: Date
     public let relevantUntil: Date?
     public let isUserStartedActiveState: Bool
+    /// Optional only for decoding pre-role persisted candidates. Every new
+    /// candidate receives a concrete role during initialization.
+    public let semanticRole: HomeCandidateSemanticRole?
 
     public init(
         id: String,
@@ -615,7 +653,8 @@ public struct HomeContextCandidate: Codable, Hashable, Identifiable, Sendable {
         priority: Int,
         relevantFrom: Date = Date(),
         relevantUntil: Date? = nil,
-        isUserStartedActiveState: Bool = false
+        isUserStartedActiveState: Bool = false,
+        semanticRole: HomeCandidateSemanticRole? = nil
     ) {
         self.id = id
         self.widgetKind = widgetKind
@@ -627,6 +666,26 @@ public struct HomeContextCandidate: Codable, Hashable, Identifiable, Sendable {
         self.relevantFrom = relevantFrom
         self.relevantUntil = relevantUntil
         self.isUserStartedActiveState = isUserStartedActiveState
+        self.semanticRole = semanticRole ?? Self.defaultSemanticRole(for: widgetKind)
+    }
+
+    public var resolvedSemanticRole: HomeCandidateSemanticRole {
+        semanticRole ?? Self.defaultSemanticRole(for: widgetKind)
+    }
+
+    private static func defaultSemanticRole(for kind: DashboardWidgetKind) -> HomeCandidateSemanticRole {
+        switch kind {
+        case .focusNow, .tasks:
+            .primaryNow
+        case .scheduleCapacity, .compactTimeline:
+            .dayAheadStory
+        case .care, .bodyMetric, .workout, .sleep, .fasting:
+            .care
+        case .journal, .progressReflection:
+            .reflection
+        default:
+            .attention
+        }
     }
 }
 
@@ -820,8 +879,12 @@ public struct DeterministicHomeContextPolicy: HomeContextPolicy {
             }
             return lhs.id < rhs.id
         }
+        var claimedRoles = Set<HomeCandidateSemanticRole>()
+        let semanticallyUnique = sorted.filter {
+            claimedRoles.insert($0.resolvedSemanticRole).inserted
+        }
         return HomeContextSelection(
-            candidates: Array(sorted.prefix(HomeContextSelection.maximumCandidates)),
+            candidates: Array(semanticallyUnique.prefix(HomeContextSelection.maximumCandidates)),
             evaluatedAt: now
         )
     }
@@ -2133,6 +2196,16 @@ public enum HomeSectionRole: String, Codable, CaseIterable, Hashable, Sendable {
     case closeLoop
     /// Whatever the user chose to pin.
     case userSpace
+
+    public var title: String {
+        switch self {
+        case .anchored: "Now"
+        case .today: "Today"
+        case .keepSteady: "Keep steady"
+        case .closeLoop: "Close the loop"
+        case .userSpace: "Your space"
+        }
+    }
 }
 
 public struct DashboardWidgetDescriptor: Codable, Hashable, Sendable {

@@ -603,6 +603,80 @@ public enum FocusCompletionOutcome: String, Codable, CaseIterable, Sendable {
     case stopped
     case interrupted
     case intentionallyDeferred
+    case abandoned
+    case continueLater
+}
+
+public enum FocusMode: Codable, Hashable, Sendable {
+    case countdown(duration: TimeInterval)
+    case stopwatch
+    case pomodoro(focus: TimeInterval, breakDuration: TimeInterval, rounds: Int)
+    case openEnded
+
+    public static let standardPomodoro = FocusMode.pomodoro(
+        focus: 25 * 60,
+        breakDuration: 5 * 60,
+        rounds: 4
+    )
+
+    public var initialTargetDuration: TimeInterval {
+        switch self {
+        case .countdown(let duration):
+            max(0, duration)
+        case .pomodoro(let focus, _, _):
+            max(0, focus)
+        case .stopwatch, .openEnded:
+            0
+        }
+    }
+}
+
+public struct FocusInterruptionEvent: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public var recordedAt: Date
+    public var reason: String?
+
+    public init(id: UUID = UUID(), recordedAt: Date = Date(), reason: String? = nil) {
+        self.id = id
+        self.recordedAt = recordedAt
+        let cleanedReason = reason?.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.reason = cleanedReason?.isEmpty == false ? cleanedReason : nil
+    }
+}
+
+public struct FocusSessionCompanion: Codable, Hashable, Identifiable, Sendable {
+    public var id: UUID { sessionID }
+    public let sessionID: UUID
+    public var mode: FocusMode
+    public var intention: String
+    public var subtaskID: UUID?
+    public var checkedSubtaskIDs: Set<UUID>
+    public var interruptions: [FocusInterruptionEvent]
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var completedAt: Date?
+
+    public init(
+        sessionID: UUID,
+        mode: FocusMode,
+        intention: String = "",
+        subtaskID: UUID? = nil,
+        checkedSubtaskIDs: Set<UUID> = [],
+        interruptions: [FocusInterruptionEvent] = [],
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        completedAt: Date? = nil
+    ) {
+        self.sessionID = sessionID
+        self.mode = mode
+        self.intention = intention
+        self.subtaskID = subtaskID
+        self.checkedSubtaskIDs = checkedSubtaskIDs
+        self.interruptions = interruptions
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.completedAt = completedAt
+    }
 }
 
 public struct FocusExecutionReceipt: Codable, Hashable, Identifiable, Sendable {
@@ -702,6 +776,72 @@ public enum PlanMutation: Codable, Hashable, Sendable {
     /// `forwardData`/`undoData` payloads keep decoding.
     case setTaskCompletion(taskID: UUID, before: Bool, after: Bool)
     indirect case batch([PlanMutation])
+}
+
+public enum PlanningScenarioSource: String, Codable, CaseIterable, Sendable {
+    case manual
+    case repair
+    case minimumViableDay
+    case multiItemReschedule
+}
+
+public struct PlanningTouchedRecord: Codable, Hashable, Identifiable, Sendable {
+    public var id: String { "\(kind):\(recordID.uuidString)" }
+    public var kind: String
+    public var recordID: UUID
+    public var version: Date
+
+    public init(kind: String, recordID: UUID, version: Date) {
+        self.kind = kind
+        self.recordID = recordID
+        self.version = version
+    }
+}
+
+public struct PlanningScenarioDiff: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public var title: String
+    public var before: String?
+    public var after: String?
+
+    public init(id: UUID = UUID(), title: String, before: String? = nil, after: String? = nil) {
+        self.id = id
+        self.title = title
+        self.before = before
+        self.after = after
+    }
+}
+
+public struct PlanningScenario: Codable, Identifiable, Sendable {
+    public let id: UUID
+    public var source: PlanningScenarioSource
+    public var touchedRecords: [PlanningTouchedRecord]
+    public var proposedMutations: [PlanMutation]
+    public var diff: [PlanningScenarioDiff]
+    public var preview: PlanDaySnapshot
+    public var createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        source: PlanningScenarioSource,
+        touchedRecords: [PlanningTouchedRecord],
+        proposedMutations: [PlanMutation],
+        diff: [PlanningScenarioDiff],
+        preview: PlanDaySnapshot,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.source = source
+        self.touchedRecords = touchedRecords
+        self.proposedMutations = proposedMutations
+        self.diff = diff
+        self.preview = preview
+        self.createdAt = createdAt
+    }
+}
+
+public enum PlanningScenarioApplyError: Error, Equatable, Sendable {
+    case versionConflict(changedRecordIDs: [UUID])
 }
 
 public enum FocusSessionState: String, Codable, CaseIterable, Sendable {
@@ -877,7 +1017,17 @@ public struct PlanningHomeContextCandidateProvider: HomeContextCandidateProvider
 
 public protocol PlanningProjectionRepository: Sendable {
     func fetchOpenPlanningTasks() async throws -> [PlanningTaskSummary]
+    func fetchPlanningTasks(includeCompleted: Bool) async throws -> [PlanningTaskSummary]
     func fetchPlanningProjects() async throws -> [PlanningProjectSummary]
+}
+
+public extension PlanningProjectionRepository {
+    /// Compatibility default for projections that predate completed-task
+    /// queries. Production persistence overrides this so Completed and All are
+    /// backed by the same canonical rows as every other task scope.
+    func fetchPlanningTasks(includeCompleted: Bool) async throws -> [PlanningTaskSummary] {
+        try await fetchOpenPlanningTasks()
+    }
 }
 
 public protocol PlanningCalendarContextRepository: Sendable {
@@ -917,4 +1067,8 @@ public protocol FocusRankingService: Sendable {
 
 public protocol PlanRepairService: Sendable {
     func proposals(for snapshot: PlanDaySnapshot, now: Date) -> [PlanRepairProposal]
+}
+
+public protocol PlanningScenarioCoordinating: Sendable {
+    func apply(_ scenario: PlanningScenario) async throws -> PlanMutationReceipt
 }

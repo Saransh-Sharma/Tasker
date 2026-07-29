@@ -17,7 +17,110 @@ private struct FocusCommandLedger: Codable, Sendable {
     var receipts: [FocusCommandReceipt]
 }
 
-public final class CoreDataPlanningRepository: PlanningRepository, PlanningProjectionRepository, PlanningCalendarContextRepository, InternalTimeBlockRepository, PlanningMutationRepository, FocusExecutionCoordinator, @unchecked Sendable {
+/// Atomic local recovery for the UX state that deliberately does not belong in
+/// the canonical focus entity. Completed records are retained briefly so an
+/// interrupted reflection can be recovered.
+public actor FocusSessionCompanionStore {
+    private struct Envelope: Codable {
+        var schemaVersion = 1
+        var companions: [FocusSessionCompanion]
+    }
+
+    public static let shared = FocusSessionCompanionStore()
+
+    private let fileURL: URL
+    private let fileManager: FileManager
+    private let retention: TimeInterval
+
+    public init(
+        rootURL: URL? = nil,
+        fileManager: FileManager = .default,
+        retention: TimeInterval = 7 * 24 * 60 * 60
+    ) {
+        let root = rootURL
+            ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory
+        fileURL = root
+            .appendingPathComponent("LifeBoard/FocusRecovery", isDirectory: true)
+            .appendingPathComponent("FocusCompanions.v1.json", isDirectory: false)
+        self.fileManager = fileManager
+        self.retention = retention
+    }
+
+    public func companion(sessionID: UUID, now: Date = Date()) throws -> FocusSessionCompanion? {
+        let values = try loadPurgingExpired(now: now)
+        return values.first { $0.sessionID == sessionID }
+    }
+
+    public func save(_ companion: FocusSessionCompanion, now: Date = Date()) throws {
+        var values = try loadPurgingExpired(now: now)
+        var updated = companion
+        updated.updatedAt = now
+        values.removeAll { $0.sessionID == companion.sessionID }
+        values.append(updated)
+        try persist(values)
+    }
+
+    public func recordInterruption(
+        sessionID: UUID,
+        reason: String? = nil,
+        at date: Date = Date()
+    ) throws -> FocusSessionCompanion? {
+        var values = try loadPurgingExpired(now: date)
+        guard let index = values.firstIndex(where: { $0.sessionID == sessionID }) else { return nil }
+        values[index].interruptions.append(.init(recordedAt: date, reason: reason))
+        values[index].updatedAt = date
+        try persist(values)
+        return values[index]
+    }
+
+    public func markCompleted(sessionID: UUID, at date: Date = Date()) throws {
+        var values = try loadPurgingExpired(now: date)
+        guard let index = values.firstIndex(where: { $0.sessionID == sessionID }) else { return }
+        values[index].completedAt = date
+        values[index].updatedAt = date
+        try persist(values)
+    }
+
+    public func purge(now: Date = Date()) throws {
+        _ = try loadPurgingExpired(now: now)
+    }
+
+    private func loadPurgingExpired(now: Date) throws -> [FocusSessionCompanion] {
+        let values = try load()
+        let retained = values.filter {
+            guard let completedAt = $0.completedAt else { return true }
+            return now.timeIntervalSince(completedAt) < retention
+        }
+        if retained.count != values.count { try persist(retained) }
+        return retained
+    }
+
+    private func load() throws -> [FocusSessionCompanion] {
+        guard fileManager.fileExists(atPath: fileURL.path) else { return [] }
+        let data = try Data(contentsOf: fileURL)
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let envelope = try decoder.decode(Envelope.self, from: data)
+        return envelope.schemaVersion == 1 ? envelope.companions : []
+    }
+
+    private func persist(_ companions: [FocusSessionCompanion]) throws {
+        let directory = fileURL.deletingLastPathComponent()
+        try fileManager.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.complete]
+        )
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
+        try encoder.encode(Envelope(companions: companions))
+            .write(to: fileURL, options: [.atomic, .completeFileProtection])
+    }
+}
+
+public final class CoreDataPlanningRepository: PlanningRepository, PlanningProjectionRepository, PlanningCalendarContextRepository, InternalTimeBlockRepository, PlanningMutationRepository, FocusExecutionCoordinator, ProjectMilestoneRepository, @unchecked Sendable {
     // Read-only calendar context stays an EventKit concern; this repository
     // only forwards so callers can treat planning as one composed boundary.
     private lazy var calendarContext = SystemPlanningCalendarContextRepository()
@@ -38,6 +141,42 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
 
     public init(container: NSPersistentContainer) {
         self.container = container
+    }
+
+    public func milestones(projectID: UUID) async throws -> [ProjectMilestone] {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "ProjectMilestone")
+            request.predicate = NSPredicate(format: "projectID == %@", projectID as CVarArg)
+            request.sortDescriptors = [
+                NSSortDescriptor(key: "sortOrder", ascending: true),
+                NSSortDescriptor(key: "id", ascending: true)
+            ]
+            return try context.fetch(request).compactMap(Self.projectMilestone)
+        }
+    }
+
+    public func saveMilestone(_ milestone: ProjectMilestone) async throws {
+        try await write { context in
+            let object = try Self.fetchOne(entity: "ProjectMilestone", id: milestone.id, in: context)
+                ?? NSEntityDescription.insertNewObject(forEntityName: "ProjectMilestone", into: context)
+            object.setValue(milestone.id, forKey: "id")
+            object.setValue(milestone.projectID, forKey: "projectID")
+            object.setValue(milestone.title, forKey: "title")
+            object.setValue(milestone.targetDay?.year, forKey: "targetDayYear")
+            object.setValue(milestone.targetDay?.month, forKey: "targetDayMonth")
+            object.setValue(milestone.targetDay?.day, forKey: "targetDayDay")
+            object.setValue(milestone.targetDay?.timeZoneIdentifier, forKey: "targetDayTimeZoneIdentifier")
+            object.setValue(milestone.completedAt, forKey: "completedAt")
+            object.setValue(milestone.sortOrder, forKey: "sortOrder")
+        }
+    }
+
+    public func deleteMilestone(id: UUID) async throws {
+        try await write { context in
+            if let object = try Self.fetchOne(entity: "ProjectMilestone", id: id, in: context) {
+                context.delete(object)
+            }
+        }
     }
 
     public func fetchTaskMetadata(taskIDs: Set<UUID>?) async throws -> [PlanningTaskMetadata] {
@@ -83,10 +222,13 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
     }
 
     public func fetchOpenPlanningTasks() async throws -> [PlanningTaskSummary] {
+        try await fetchPlanningTasks(includeCompleted: false)
+    }
+
+    public func fetchPlanningTasks(includeCompleted: Bool) async throws -> [PlanningTaskSummary] {
         try await read { context in
             let taskRequest = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
-            taskRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
-                NSPredicate(format: "isComplete == NO"),
+            var predicates: [NSPredicate] = [
                 NSPredicate(format: "parentTaskID == nil"),
                 NSCompoundPredicate(orPredicateWithSubpredicates: [
                     NSPredicate(format: "unscheduledDispositionRaw == nil"),
@@ -95,7 +237,11 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
                         UnscheduledDisposition.deleted.rawValue
                     )
                 ])
-            ])
+            ]
+            if includeCompleted == false {
+                predicates.insert(NSPredicate(format: "isComplete == NO"), at: 0)
+            }
+            taskRequest.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: predicates)
             taskRequest.sortDescriptors = [
                 NSSortDescriptor(key: "dueDate", ascending: true),
                 NSSortDescriptor(key: "sortOrder", ascending: true),
@@ -104,6 +250,10 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
             taskRequest.fetchBatchSize = 250
             let tasks = try context.fetch(taskRequest)
             let taskIDs = Set(tasks.compactMap { $0.value(forKey: "id") as? UUID })
+            let openTaskIDs = Set(tasks.compactMap { object -> UUID? in
+                guard (object.value(forKey: "isComplete") as? NSNumber)?.boolValue != true else { return nil }
+                return object.value(forKey: "id") as? UUID
+            })
 
             let projectIDs = Set(tasks.compactMap { $0.value(forKey: "projectID") as? UUID })
             let projectRequest = NSFetchRequest<NSManagedObject>(entityName: "Project")
@@ -164,11 +314,16 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
 
             // Sequential projects expose only their first dependency-ready task as actionable.
             var firstReadyTaskByProject: [UUID: UUID] = [:]
-            for summary in summaries where summary.projectExecutionMode == .sequential && summary.dependenciesReady {
+            for summary in summaries
+            where summary.projectExecutionMode == .sequential
+                && summary.dependenciesReady
+                && openTaskIDs.contains(summary.id) {
                 guard let projectID = summary.projectID, firstReadyTaskByProject[projectID] == nil else { continue }
                 firstReadyTaskByProject[projectID] = summary.id
             }
-            for index in summaries.indices where summaries[index].projectExecutionMode == .sequential {
+            for index in summaries.indices
+            where summaries[index].projectExecutionMode == .sequential
+                && openTaskIDs.contains(summaries[index].id) {
                 guard let projectID = summaries[index].projectID else { continue }
                 summaries[index].dependenciesReady = summaries[index].dependenciesReady
                     && firstReadyTaskByProject[projectID] == summaries[index].id
@@ -673,6 +828,36 @@ public final class CoreDataPlanningRepository: PlanningRepository, PlanningProje
         )
         object.setValue(try JSONEncoder().encode(ledger), forKey: "appliedCommandIDsData")
         object.setValue(object.value(forKey: "createdAt") as? Date ?? session.startedAt, forKey: "createdAt")
+    }
+
+    private static func projectMilestone(_ object: NSManagedObject) -> ProjectMilestone? {
+        guard let id = object.value(forKey: "id") as? UUID,
+              let projectID = object.value(forKey: "projectID") as? UUID,
+              let title = object.value(forKey: "title") as? String else {
+            return nil
+        }
+        let targetDay: PlanningDay?
+        if let year = (object.value(forKey: "targetDayYear") as? NSNumber)?.intValue,
+           let month = (object.value(forKey: "targetDayMonth") as? NSNumber)?.intValue,
+           let day = (object.value(forKey: "targetDayDay") as? NSNumber)?.intValue {
+            targetDay = PlanningDay(
+                year: year,
+                month: month,
+                day: day,
+                timeZoneIdentifier: object.value(forKey: "targetDayTimeZoneIdentifier") as? String
+                    ?? TimeZone.current.identifier
+            )
+        } else {
+            targetDay = nil
+        }
+        return ProjectMilestone(
+            id: id,
+            projectID: projectID,
+            title: title,
+            targetDay: targetDay,
+            completedAt: object.value(forKey: "completedAt") as? Date,
+            sortOrder: (object.value(forKey: "sortOrder") as? NSNumber)?.intValue ?? 0
+        )
     }
 
     private static func timeBlock(_ object: NSManagedObject) -> InternalTimeBlock? {

@@ -70,6 +70,44 @@ public enum GoalType: String, Codable, CaseIterable, Sendable {
     case targetDate
 }
 
+public enum GoalIntent: String, Codable, CaseIterable, Sendable {
+    case outcome
+    case maintenance
+    case milestone
+    case cumulative
+    case directional
+}
+
+public enum GoalStatus: String, Codable, CaseIterable, Sendable {
+    case active
+    case paused
+    case revised
+    case completed
+    case archived
+}
+
+public struct GoalStatusEvent: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public var goalID: UUID
+    public var status: GoalStatus
+    public var reason: String?
+    public var recordedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        goalID: UUID,
+        status: GoalStatus,
+        reason: String? = nil,
+        recordedAt: Date = Date()
+    ) {
+        self.id = id
+        self.goalID = goalID
+        self.status = status
+        self.reason = reason
+        self.recordedAt = recordedAt
+    }
+}
+
 public enum GoalLinkSource: String, Codable, CaseIterable, Sendable {
     case project
     case task
@@ -89,6 +127,14 @@ public struct GoalDefinition: Codable, Hashable, Identifiable, Sendable {
     public var isArchived: Bool
     public var createdAt: Date
     public var updatedAt: Date
+    public var intent: GoalIntent?
+    public var status: GoalStatus?
+    public var baselineValue: Double?
+    public var confidenceRaw: String?
+    public var whyItMatters: String?
+    public var checkInCadenceRaw: String?
+    public var pausedAt: Date?
+    public var statusEvents: [GoalStatusEvent]?
 
     public init(
         id: UUID = UUID(),
@@ -100,7 +146,15 @@ public struct GoalDefinition: Codable, Hashable, Identifiable, Sendable {
         targetDate: Date? = nil,
         isArchived: Bool = false,
         createdAt: Date = Date(),
-        updatedAt: Date = Date()
+        updatedAt: Date = Date(),
+        intent: GoalIntent? = nil,
+        status: GoalStatus? = nil,
+        baselineValue: Double? = nil,
+        confidenceRaw: String? = nil,
+        whyItMatters: String? = nil,
+        checkInCadenceRaw: String? = nil,
+        pausedAt: Date? = nil,
+        statusEvents: [GoalStatusEvent]? = nil
     ) {
         self.id = id
         self.areaID = areaID
@@ -112,6 +166,19 @@ public struct GoalDefinition: Codable, Hashable, Identifiable, Sendable {
         self.isArchived = isArchived
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.intent = intent
+        self.status = status
+        self.baselineValue = baselineValue
+        self.confidenceRaw = confidenceRaw
+        self.whyItMatters = whyItMatters
+        self.checkInCadenceRaw = checkInCadenceRaw
+        self.pausedAt = pausedAt
+        self.statusEvents = statusEvents
+    }
+
+    public var effectiveIntent: GoalIntent { intent ?? .outcome }
+    public var effectiveStatus: GoalStatus {
+        status ?? (isArchived ? .archived : .active)
     }
 }
 

@@ -155,6 +155,45 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertNil(FocusStartupRepairPolicy.commandKind(for: active, now: now))
     }
 
+    func testFocusCompanionRestoresInterruptionsAndPurgesSevenDaysAfterCompletion() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("FocusCompanionTests-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = FocusSessionCompanionStore(rootURL: root, retention: 7 * 24 * 60 * 60)
+        let sessionID = UUID()
+        let now = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        let companion = FocusSessionCompanion(
+            sessionID: sessionID,
+            mode: .pomodoro(focus: 1_500, breakDuration: 300, rounds: 4),
+            intention: "Finish the draft",
+            checkedSubtaskIDs: [UUID()],
+            createdAt: now,
+            updatedAt: now
+        )
+
+        try await store.save(companion, now: now)
+        _ = try await store.recordInterruption(
+            sessionID: sessionID,
+            reason: "Unexpected call",
+            at: now.addingTimeInterval(60)
+        )
+        let restored = try await store.companion(sessionID: sessionID, now: now.addingTimeInterval(120))
+        XCTAssertEqual(restored?.intention, "Finish the draft")
+        XCTAssertEqual(restored?.interruptions.first?.reason, "Unexpected call")
+
+        try await store.markCompleted(sessionID: sessionID, at: now.addingTimeInterval(180))
+        let retained = try await store.companion(
+            sessionID: sessionID,
+            now: now.addingTimeInterval(7 * 24 * 60 * 60 - 1)
+        )
+        XCTAssertNotNil(retained)
+        let purged = try await store.companion(
+            sessionID: sessionID,
+            now: now.addingTimeInterval(7 * 24 * 60 * 60 + 181)
+        )
+        XCTAssertNil(purged)
+    }
+
     func testDependencyCycleAndReadinessAreDeterministic() {
         let first = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
         let second = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
@@ -471,7 +510,7 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         // onward — an older model reached the gate's fetch for an entity it does
         // not define. Migration from the earlier versions stays covered by
         // `assertLightweightMigration`.
-        let model = try XCTUnwrap(NSManagedObjectModel(contentsOf: try modelBundleURL().appendingPathComponent("TaskModelV3_TaskStartDay.mom")))
+        let model = try XCTUnwrap(NSManagedObjectModel(contentsOf: try modelBundleURL().appendingPathComponent("TaskModelV3_BehaviorFlagship.mom")))
         let container = NSPersistentContainer(name: "PlanningTrackRoundTrip", managedObjectModel: model)
         let description = NSPersistentStoreDescription()
         description.type = NSInMemoryStoreType
@@ -676,7 +715,16 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         habitPolicy.streakPresentation = .countsOnly
         habitPolicy.updatedAt = Date()
         try await track.saveHabitResiliencePolicy(habitPolicy)
-        var goal = GoalDefinition(title: "Ship", type: .completion)
+        var goal = GoalDefinition(
+            title: "Ship",
+            type: .completion,
+            intent: .milestone,
+            status: .active,
+            baselineValue: 0,
+            confidenceRaw: "medium",
+            whyItMatters: "Make daily planning calmer",
+            checkInCadenceRaw: "weekly"
+        )
         try await track.saveGoal(goal)
         let goalLink = GoalLink(goalID: goal.id, source: .task, sourceID: taskID)
         try await track.saveGoalLink(goalLink)
@@ -692,6 +740,8 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         let goalSamples = try await CoreDataGoalSampleProvider(container: container).samples(for: [goalLink], asOf: Date())
         XCTAssertEqual(goalSamples.first?.isComplete, true)
         goal.title = "Ship LifeBoard"
+        goal.status = .paused
+        goal.pausedAt = Date()
         goal.updatedAt = Date()
         try await track.saveGoal(goal)
 
@@ -748,6 +798,17 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertEqual(fetchedHabitPolicies, [habitPolicy])
         XCTAssertEqual(fetchedHabitGroups, [habitGroup])
         XCTAssertEqual(fetchedGoals.first?.title, "Ship LifeBoard")
+        XCTAssertEqual(fetchedGoals.first?.intent, .milestone)
+        XCTAssertEqual(fetchedGoals.first?.status, .paused)
+        XCTAssertEqual(fetchedGoals.first?.whyItMatters, "Make daily planning calmer")
+        XCTAssertEqual(fetchedGoals.first?.statusEvents?.map(\.status), [.active, .paused])
+        XCTAssertEqual(
+            fetchedGoals.first?.statusEvents?.sorted {
+                ($0.recordedAt, $0.id.uuidString) < ($1.recordedAt, $1.id.uuidString)
+            }.map(\.id),
+            fetchedGoals.first?.statusEvents?.map(\.id),
+            "Status history must use deterministic date-and-ID ordering"
+        )
         XCTAssertEqual(fetchedRoutines.first?.steps.count, 2)
         XCTAssertEqual(fetchedRoutines.first?.version, 2)
         XCTAssertEqual(fetchedSchedules.first, schedule)

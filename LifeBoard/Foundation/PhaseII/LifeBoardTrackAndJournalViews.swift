@@ -115,6 +115,14 @@ final class LifeBoardTrackStore {
         var corrected = entry
         corrected.numericValue = numericValue
         corrected.booleanValue = booleanValue
+        if let tracker = trackers.first(where: { $0.id == entry.trackerID }) {
+            corrected.value = Self.trackerValue(
+                for: tracker,
+                numericValue: numericValue,
+                booleanValue: booleanValue,
+                note: note
+            )
+        }
         let trimmedNote = note?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         corrected.note = trimmedNote.isEmpty ? nil : trimmedNote
         do {
@@ -128,11 +136,43 @@ final class LifeBoardTrackStore {
             try await repository.saveTrackerEntry(.init(
                 trackerID: tracker.id,
                 numericValue: numericValue,
-                booleanValue: booleanValue
+                booleanValue: booleanValue,
+                value: Self.trackerValue(
+                    for: tracker,
+                    numericValue: numericValue,
+                    booleanValue: booleanValue,
+                    note: nil
+                )
             ))
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             await load()
         } catch { errorMessage = error.localizedDescription }
+    }
+
+    private static func trackerValue(
+        for tracker: LifeBoardTrackerDefinitionValue,
+        numericValue: Double?,
+        booleanValue: Bool?,
+        note: String?
+    ) -> TrackerValue? {
+        switch tracker.effectiveValueType {
+        case .boolean:
+            return booleanValue.map(TrackerValue.boolean)
+        case .count:
+            return numericValue.map { .count(Int($0.rounded())) }
+        case .quantity:
+            return numericValue.map { .quantity($0, unit: tracker.unitLabel) }
+        case .rating:
+            return numericValue.map(TrackerValue.rating)
+        case .duration:
+            return numericValue.map(TrackerValue.duration)
+        case .text:
+            return note.flatMap { $0.isEmpty ? nil : .text($0) }
+        case .choice:
+            return note.flatMap { $0.isEmpty ? nil : .choice($0) }
+        case .timestamp:
+            return .timestamp(Date())
+        }
     }
 
     func saveMedication(
@@ -827,6 +867,9 @@ struct LifeBoardTrackRootView: View {
         case .quantity: "ruler"
         case .rating: "slider.horizontal.3"
         case .duration: "timer"
+        case .text: "text.cursor"
+        case .choice: "list.bullet.circle"
+        case .timestamp: "clock.badge.checkmark"
         }
     }
 
@@ -834,6 +877,414 @@ struct LifeBoardTrackRootView: View {
         let hours = Int(interval) / 3_600
         let minutes = (Int(interval) % 3_600) / 60
         return "\(hours)h \(minutes)m elapsed"
+    }
+}
+
+/// Native Phase 2 Track areas.
+///
+/// This is intentionally not another root or modal mini-app. It is the
+/// Medication/Tracker content mounted by `TrackLens.areas`, deep links, and
+/// universal capture. All entry points share this store and the same composer,
+/// history, correction, and receipt components.
+struct LifeBoardBehaviorNativeAreasView: View {
+    enum Area: String, CaseIterable, Identifiable {
+        case medication = "Medication"
+        case trackers = "Trackers"
+        var id: String { rawValue }
+    }
+
+    @State private var store: LifeBoardTrackStore
+    @State private var area: Area
+    @State private var showsTrackerComposer = false
+    @State private var editingTracker: LifeBoardTrackerDefinitionValue?
+    @State private var historyTracker: LifeBoardTrackerDefinitionValue?
+    @State private var deletingTracker: LifeBoardTrackerDefinitionValue?
+    @State private var showsMedicationComposer = false
+    @State private var editingMedication: LifeBoardMedicationDefinitionValue?
+    @State private var historyMedication: LifeBoardMedicationDefinitionValue?
+    @State private var deletingMedication: LifeBoardMedicationDefinitionValue?
+
+    init(
+        repository: any LifeBoardPhaseIIRepository,
+        initialArea: Area = .medication
+    ) {
+        _store = State(initialValue: LifeBoardTrackStore(repository: repository))
+        _area = State(initialValue: initialArea)
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(spacing: 16) {
+                Picker("Care area", selection: $area) {
+                    ForEach(Area.allCases) { Text($0.rawValue).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .accessibilityIdentifier("track.behavior.area")
+
+                switch area {
+                case .medication: medicationArea
+                case .trackers: trackerArea
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.vertical, 16)
+        }
+        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid).ignoresSafeArea())
+        .navigationTitle(area.rawValue)
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await store.load() }
+        .refreshable { await store.load() }
+        .alert("Track needs attention", isPresented: Binding(
+            get: { store.errorMessage != nil },
+            set: { if $0 == false { store.errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { store.errorMessage = nil }
+        } message: {
+            Text(store.errorMessage ?? "")
+        }
+        .sheet(isPresented: $showsTrackerComposer, onDismiss: { editingTracker = nil }) {
+            LifeBoardTrackerComposer(existing: editingTracker) { tracker in
+                Task { await store.saveTracker(tracker) }
+            }
+        }
+        .sheet(item: $historyTracker) { tracker in
+            LifeBoardTrackerHistoryView(
+                tracker: tracker,
+                entries: store.trackerEntries.filter { $0.trackerID == tracker.id },
+                activeReceipt: { store.activeCorrection(domain: .tracker, sourceID: $0) },
+                onUndo: { await store.undoCorrection($0) },
+                onCorrect: { entry, numeric, boolean, note in
+                    await store.correct(
+                        entry,
+                        numericValue: numeric,
+                        booleanValue: boolean,
+                        note: note
+                    )
+                }
+            )
+        }
+        .sheet(isPresented: $showsMedicationComposer, onDismiss: { editingMedication = nil }) {
+            LifeBoardMedicationComposer(
+                existing: editingMedication,
+                existingSchedule: editingMedication.flatMap { medication in
+                    store.medicationSchedules.first { $0.medicationID == medication.id }
+                }
+            ) { medication, schedule in
+                Task {
+                    await store.saveMedication(medication, schedule: schedule)
+                    await LifeBoardPermissionPrimingCoordinator.shared.offerAfterReward(
+                        kind: .notifications,
+                        trigger: "medication_scheduled"
+                    )
+                }
+            }
+        }
+        .sheet(item: $historyMedication) { medication in
+            LifeBoardMedicationHistoryView(
+                medication: medication,
+                events: store.medicationEvents.filter { $0.medicationID == medication.id },
+                activeReceipt: { store.activeCorrection(domain: .medication, sourceID: $0) },
+                onUndo: { await store.undoCorrection($0) },
+                onCorrect: { event, status, scheduledAt, resolvedAt, note in
+                    await store.correctMedicationEvent(
+                        event,
+                        status: status,
+                        scheduledAt: scheduledAt,
+                        resolvedAt: resolvedAt,
+                        note: note
+                    )
+                }
+            )
+        }
+        .confirmationDialog(
+            "Delete tracker and its history?",
+            isPresented: Binding(
+                get: { deletingTracker != nil },
+                set: { if $0 == false { deletingTracker = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete tracker", role: .destructive) {
+                guard let tracker = deletingTracker else { return }
+                deletingTracker = nil
+                Task { await store.deleteTracker(tracker) }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+        .confirmationDialog(
+            "Delete medication and its history?",
+            isPresented: Binding(
+                get: { deletingMedication != nil },
+                set: { if $0 == false { deletingMedication = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Delete medication", role: .destructive) {
+                guard let medication = deletingMedication else { return }
+                deletingMedication = nil
+                Task { await store.deleteMedication(medication) }
+            }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    private var medicationArea: some View {
+        VStack(spacing: 12) {
+            areaHeader(
+                title: "Medication",
+                detail: "Only the status you choose is recorded. Silence remains unresolved.",
+                symbol: "pills",
+                actionTitle: "Add"
+            ) {
+                editingMedication = nil
+                showsMedicationComposer = true
+            }
+            if store.medications.isEmpty {
+                nativeEmpty(
+                    "No medication reminders",
+                    detail: "Add one only when a neutral schedule and history would be useful.",
+                    symbol: "pills"
+                )
+            } else {
+                ForEach(store.medications) { medication in
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: "pills.fill")
+                                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                                .frame(width: 32, height: 32)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(medication.name).font(.headline)
+                                Text(medication.dosageText ?? "No dose label")
+                                    .font(.caption)
+                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
+                            Spacer()
+                            Menu {
+                                Button("History", systemImage: "clock.arrow.circlepath") {
+                                    historyMedication = medication
+                                }
+                                Button("Edit", systemImage: "pencil") {
+                                    editingMedication = medication
+                                    showsMedicationComposer = true
+                                }
+                                Button("Archive", systemImage: "archivebox") {
+                                    Task { await store.archiveMedication(medication) }
+                                }
+                                Button("Delete", systemImage: "trash", role: .destructive) {
+                                    deletingMedication = medication
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
+                                    .frame(width: 44, height: 44)
+                            }
+                            .accessibilityLabel("Actions for \(medication.name)")
+                        }
+
+                        let event = store.medicationEvents
+                            .filter { $0.medicationID == medication.id }
+                            .sorted { $0.scheduledAt > $1.scheduledAt }
+                            .first
+                        if let event, event.status == .scheduled || event.status == .unresolved {
+                            HStack(spacing: 8) {
+                                medicationResolution("Taken", event: event, status: .taken)
+                                medicationResolution("Skipped", event: event, status: .skipped)
+                                medicationResolution("Snooze", event: event, status: .snoozed)
+                            }
+                        } else {
+                            Label("No decision waiting", systemImage: "checkmark.circle")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+                        }
+                    }
+                    .nativeBehaviorSurface()
+                }
+            }
+        }
+    }
+
+    private var trackerArea: some View {
+        VStack(spacing: 12) {
+            areaHeader(
+                title: "Trackers",
+                detail: "Boolean, count, quantity, rating, duration, text, choice, and time.",
+                symbol: "chart.bar.doc.horizontal",
+                actionTitle: "New"
+            ) {
+                editingTracker = nil
+                showsTrackerComposer = true
+            }
+            if store.trackers.isEmpty {
+                nativeEmpty(
+                    "Nothing to track yet",
+                    detail: "Start with one signal that helps you make a decision.",
+                    symbol: "chart.xyaxis.line"
+                )
+            } else {
+                ForEach(store.trackers) { tracker in
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 12) {
+                            Image(systemName: trackerSymbol(tracker.kind))
+                                .foregroundStyle(Color(LifeBoardColorTokens.foundationFocusRing))
+                                .frame(width: 32, height: 32)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(tracker.title).font(.headline)
+                                Text(tracker.kind.rawValue.capitalized)
+                                    .font(.caption)
+                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
+                            Spacer()
+                            Menu {
+                                Button("History", systemImage: "clock.arrow.circlepath") {
+                                    historyTracker = tracker
+                                }
+                                Button("Edit", systemImage: "pencil") {
+                                    editingTracker = tracker
+                                    showsTrackerComposer = true
+                                }
+                                Button("Archive", systemImage: "archivebox") {
+                                    Task { await store.archiveTracker(tracker) }
+                                }
+                                Button("Delete", systemImage: "trash", role: .destructive) {
+                                    deletingTracker = tracker
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis.circle")
+                                    .frame(width: 44, height: 44)
+                            }
+                            .accessibilityLabel("Actions for \(tracker.title)")
+                        }
+                        Button(tracker.kind == .boolean ? "Check in" : "Add 1") {
+                            Task {
+                                await store.log(
+                                    tracker,
+                                    numericValue: tracker.kind == .boolean ? nil : 1,
+                                    booleanValue: tracker.kind == .boolean ? true : nil
+                                )
+                            }
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(Color(LifeBoardColorTokens.inkPrimary))
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("track.tracker.log.\(tracker.id.uuidString)")
+                    }
+                    .nativeBehaviorSurface()
+                    .privacySensitive(tracker.effectivePrivacyClass != .standard)
+                }
+            }
+        }
+    }
+
+    private func areaHeader(
+        title: String,
+        detail: String,
+        symbol: String,
+        actionTitle: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 5) {
+                Label(title, systemImage: symbol)
+                    .font(.title3.weight(.semibold))
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            Spacer()
+            Button(actionTitle, systemImage: "plus", action: action)
+                .buttonStyle(.bordered)
+                .frame(minHeight: 44)
+        }
+        .nativeBehaviorSurface()
+    }
+
+    private func medicationResolution(
+        _ title: String,
+        event: LifeBoardMedicationEventValue,
+        status: LifeBoardMedicationEventStatus
+    ) -> some View {
+        Button(title) {
+            Task {
+                if status == .snoozed {
+                    await store.correctMedicationEvent(
+                        event,
+                        status: .snoozed,
+                        scheduledAt: event.scheduledAt,
+                        resolvedAt: Date(),
+                        note: event.note
+                    )
+                } else {
+                    guard let medication = store.medications.first(where: {
+                        $0.id == event.medicationID
+                    }) else { return }
+                    await store.resolveMedication(medication, status: status)
+                }
+            }
+        }
+        .buttonStyle(.bordered)
+        .controlSize(.small)
+        .frame(minHeight: 44)
+    }
+
+    private func nativeEmpty(_ title: String, detail: String, symbol: String) -> some View {
+        ContentUnavailableView {
+            Label(title, systemImage: symbol)
+        } description: {
+            Text(detail)
+        }
+        .frame(maxWidth: .infinity, minHeight: 190)
+        .nativeBehaviorSurface()
+    }
+
+    private func trackerSymbol(_ kind: LifeBoardTrackerKind) -> String {
+        switch kind {
+        case .boolean: "checkmark.circle"
+        case .count: "number.circle"
+        case .quantity: "ruler"
+        case .rating: "slider.horizontal.3"
+        case .duration: "timer"
+        case .text: "text.cursor"
+        case .choice: "list.bullet.circle"
+        case .timestamp: "clock.badge.checkmark"
+        }
+    }
+}
+
+/// Route-level rollback for the Phase 2 behavior flagship. The disabled branch
+/// restores the previous production Track composer; it does not initialize any
+/// of the new native-area state.
+struct LifeBoardBehaviorAreaRouteView: View {
+    let repository: any LifeBoardPhaseIIRepository
+    var initialArea: LifeBoardBehaviorNativeAreasView.Area = .medication
+    var onOpenHabitBoard: () -> Void = {}
+    var onOpenHealth: () -> Void = {}
+
+    @ViewBuilder
+    var body: some View {
+        if V2FeatureFlags.trackBehaviorFlagshipV1Enabled {
+            LifeBoardBehaviorNativeAreasView(
+                repository: repository,
+                initialArea: initialArea
+            )
+        } else {
+            LifeBoardTrackRootView(
+                repository: repository,
+                initialModule: initialArea == .trackers ? .trackers : .overview,
+                onOpenHabitBoard: onOpenHabitBoard,
+                onOpenHealth: onOpenHealth
+            )
+        }
+    }
+}
+
+private extension View {
+    func nativeBehaviorSurface() -> some View {
+        padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lifeBoardClaySurface(.raised, cornerRadius: 20)
+            .overlay {
+                RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+            }
     }
 }
 
@@ -877,7 +1328,9 @@ struct LifeBoardTrackerComposer: View {
                     ForEach(LifeBoardTrackerKind.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
                 }
                 if kind == .quantity { TextField("Unit", text: $unit) }
-                if kind != .boolean { Stepper("Daily target: \(target, format: .number)", value: $target, in: 1...10_000) }
+                if [.count, .quantity, .rating, .duration].contains(kind) {
+                    Stepper("Daily target: \(target, format: .number)", value: $target, in: 1...10_000)
+                }
                 Section("Schedule") {
                     HStack {
                         ForEach(1...7, id: \.self) { weekday in
@@ -912,7 +1365,7 @@ struct LifeBoardTrackerComposer: View {
                             title: title,
                             kind: kind,
                             unitLabel: unit.isEmpty ? nil : unit,
-                            targetValue: kind == .boolean ? nil : target,
+                            targetValue: [.count, .quantity, .rating, .duration].contains(kind) ? target : nil,
                             schedule: weekdays,
                             reminderMinutes: reminderMinutes,
                             isArchived: existing?.isArchived ?? false,

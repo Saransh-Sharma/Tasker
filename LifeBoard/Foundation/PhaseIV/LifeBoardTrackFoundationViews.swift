@@ -27,7 +27,6 @@ struct LifeBoardTrackFoundationRootView: View {
     @State private var showsHabitResilience = false
     @State private var editingRoutine: RoutineDefinition?
     @State private var routinePendingDeletion: RoutineDefinition?
-    @State private var showsCareLibrary = false
     @State private var showsHydrationTarget = false
     // Fasting used to exist only inside the legacy Track root, which was
     // presented as a sheet from inside this one. It is a first-class module
@@ -202,14 +201,6 @@ struct LifeBoardTrackFoundationRootView: View {
                         trigger: "routine_scheduled"
                     )
                 }
-            }
-        }
-        .sheet(isPresented: $showsCareLibrary) {
-            NavigationStack {
-                LifeBoardTrackRootView(
-                    repository: store.phaseIIRepository,
-                    onOpenHabitBoard: onOpenHabitBoard
-                )
             }
         }
         .sheet(isPresented: $showsHydrationTarget) {
@@ -708,9 +699,12 @@ struct LifeBoardTrackFoundationRootView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
                 hydrationTile
                 careButton(title: "Mood + energy", value: latestMood, symbol: "face.smiling") { presentMoodComposer() }
-                careButton(title: "Medication", value: store.snapshot.unresolvedMedicationEvents.isEmpty ? "Up to date" : "Decision needed", symbol: "pills") {
-                    showsCareLibrary = true
-                }
+                behaviorAreaLink(
+                    area: .medication,
+                    title: "Medication",
+                    value: store.snapshot.unresolvedMedicationEvents.isEmpty ? "Up to date" : "Decision needed",
+                    symbol: "pills"
+                )
                 careButton(title: "Sleep context", value: latestSleep, symbol: "moon.zzz") { showsSleep = true }
                     .privacySensitive()
             }
@@ -722,9 +716,12 @@ struct LifeBoardTrackFoundationRootView: View {
             trackSectionHeader("Body", symbol: "heart.text.square")
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
                 hydrationTile
-                careButton(title: "Medication", value: store.snapshot.unresolvedMedicationEvents.isEmpty ? "Up to date" : "Decision needed", symbol: "pills") {
-                    showsCareLibrary = true
-                }
+                behaviorAreaLink(
+                    area: .medication,
+                    title: "Medication",
+                    value: store.snapshot.unresolvedMedicationEvents.isEmpty ? "Up to date" : "Decision needed",
+                    symbol: "pills"
+                )
                 careButton(title: "Sleep context", value: latestSleep, symbol: "moon.zzz") { showsSleep = true }
                     .privacySensitive()
             }
@@ -934,11 +931,18 @@ struct LifeBoardTrackFoundationRootView: View {
                 NavigationLink { LifeBoardLifeMomentsView(repository: lifeMomentRepository) } label: { moduleRow("Life Moments", detail: "Countdowns and dates that matter", symbol: "calendar.badge.heart") }
                     .buttonStyle(.plain)
             }
-            // Trackers, medications and their schedules still live in the
-            // older Track surface. Fasting used to be stranded there too and
-            // is now a first-class module above; the remaining domains need
-            // their own migration before this row can retire.
-            Button { showsCareLibrary = true } label: { moduleRow("Trackers and medication", detail: "Your trackers, medications, and schedules", symbol: "square.grid.3x3") }
+            NavigationLink {
+                LifeBoardBehaviorAreaRouteView(
+                    repository: store.phaseIIRepository,
+                    initialArea: .trackers
+                )
+            } label: {
+                moduleRow(
+                    "Trackers and medication",
+                    detail: "Typed values, neutral schedules, corrections, and history",
+                    symbol: "square.grid.3x3"
+                )
+            }
                 .buttonStyle(.plain)
         }
     }
@@ -1035,6 +1039,33 @@ struct LifeBoardTrackFoundationRootView: View {
                 Text(value).font(.subheadline.weight(.semibold))
                 Spacer(minLength: 0)
                 Image(systemName: "plus.circle").frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .frame(minHeight: 112, alignment: .topLeading)
+            .trackClayCard()
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func behaviorAreaLink(
+        area: LifeBoardBehaviorNativeAreasView.Area,
+        title: String,
+        value: String,
+        symbol: String
+    ) -> some View {
+        NavigationLink {
+            LifeBoardBehaviorAreaRouteView(
+                repository: store.phaseIIRepository,
+                initialArea: area,
+                onOpenHabitBoard: onOpenHabitBoard,
+                onOpenHealth: onOpenHealth
+            )
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(title, systemImage: symbol).font(.headline)
+                Text(value).font(.subheadline.weight(.semibold))
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
             .frame(minHeight: 112, alignment: .topLeading)
             .trackClayCard()

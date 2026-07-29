@@ -259,6 +259,7 @@ public final class CreateTaskDefinitionUseCase: @unchecked Sendable {
     ) {
         guard
             let repeatPattern = rootRequest.repeatPattern,
+            rootRequest.recurrenceAnchor == .scheduledDate,
             rootTask.dueDate != nil
         else {
             completion(.success(()))
@@ -332,6 +333,7 @@ private final class RecurringTaskMaterializer: @unchecked Sendable {
                         alertReminderTime: root.alertReminderTime,
                         estimatedDuration: root.estimatedDuration,
                         repeatPattern: repeatPattern,
+                        recurrenceAnchor: root.recurrenceAnchor,
                         createdAt: root.createdAt
                     )
 

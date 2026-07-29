@@ -1,6 +1,6 @@
 import Foundation
 
-public final class CoreSchedulingEngine: SchedulingEngineProtocol, @unchecked Sendable {
+public final class CoreSchedulingEngine: SchedulingEngineProtocol, BehaviorScheduleResolving, @unchecked Sendable {
     private struct TemplateMetadata {
         let rulesByTemplate: [UUID: [ScheduleRuleDefinition]]
         let exceptionsByTemplate: [UUID: [ScheduleExceptionDefinition]]
@@ -58,6 +58,31 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol, @unchecked Se
     ) {
         self.scheduleRepository = scheduleRepository
         self.occurrenceRepository = occurrenceRepository
+    }
+
+    public func occurrences(
+        for behavior: BehaviorDefinition,
+        from start: Date,
+        to end: Date
+    ) async throws -> [OccurrenceDefinition] {
+        guard behavior.isActive else { return [] }
+        let sourceType: ScheduleSourceType = behavior.domain == .habit ? .habit : .tracker
+        return try await withCheckedThrowingContinuation { continuation in
+            generateOccurrences(windowStart: start, windowEnd: end, sourceFilter: sourceType) { result in
+                continuation.resume(with: result.map { occurrences in
+                    occurrences
+                        .filter {
+                            $0.scheduleTemplateID == behavior.scheduleTemplateID
+                                && $0.sourceID == behavior.domainID
+                        }
+                        .sorted {
+                            $0.scheduledAt == $1.scheduledAt
+                                ? $0.id.uuidString < $1.id.uuidString
+                                : $0.scheduledAt < $1.scheduledAt
+                        }
+                })
+            }
+        }
     }
 
     /// Executes generateOccurrences.

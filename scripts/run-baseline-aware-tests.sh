@@ -7,7 +7,7 @@ cd "$ROOT_DIR"
 
 BASELINE_FILE="${LIFEBOARD_TEST_BASELINE_FILE:-scripts/lifeboard-test-failure-baseline.txt}"
 RESULT_BUNDLE="${LIFEBOARD_TEST_RESULT_BUNDLE:-build/test-results/LifeBoardTests.xcresult}"
-DESTINATION="${LIFEBOARD_TEST_DESTINATION:-platform=iOS Simulator,name=iPhone 17}"
+DESTINATION="${LIFEBOARD_TEST_DESTINATION:-platform=iOS Simulator,name=LifeBoard Test iPhone,OS=latest}"
 FAILURES_FILE="$(mktemp /tmp/lifeboard-test-failures.XXXXXX)"
 SUMMARY_FILE="$(mktemp /tmp/lifeboard-test-summary.XXXXXX.json)"
 BASELINE_NORMALIZED="$(mktemp /tmp/lifeboard-test-baseline.XXXXXX)"

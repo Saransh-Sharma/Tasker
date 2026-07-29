@@ -166,6 +166,32 @@ final class InboxCommitCoordinatorTests: XCTestCase {
         XCTAssertTrue(box.captures.isEmpty)
     }
 
+    func testPendingToPendingMergeCreatesOneTaskAndUndoRestoresBothCaptures() async throws {
+        let writer = SpyTaskWriter()
+        let taskID = UUID()
+        await writer.setCreateResult(.success(taskID))
+        let first = capture("call mom tomorrow")
+        let second = capture("call mom")
+        let (coordinator, box) = makeCoordinator(writer: writer, seeded: [first, second])
+
+        let receipt = try await coordinator.merge(
+            InboxCaptureCommitRequest(captureID: first.id, title: "Call Mom"),
+            with: .pendingCapture(second.id)
+        )
+
+        guard case let .created(createdID, captures) = receipt else {
+            return XCTFail("expected a created merge receipt")
+        }
+        XCTAssertEqual(createdID, taskID)
+        XCTAssertEqual(Set(captures.map(\.id)), Set([first.id, second.id]))
+        XCTAssertTrue(box.captures.isEmpty)
+
+        try await coordinator.undoMerge(receipt)
+        XCTAssertEqual(Set(box.captures.map(\.id)), Set([first.id, second.id]))
+        let deleted = await writer.deleted
+        XCTAssertEqual(deleted, [taskID])
+    }
+
     // MARK: - Project moves
 
     func testMoveToProjectRecordsBeforeSoUndoIsExact() async throws {
@@ -255,5 +281,38 @@ final class InboxCommitCoordinatorTests: XCTestCase {
             fallbackTitle: "tomorrow"
         )
         XCTAssertEqual(request.title, "tomorrow")
+    }
+
+    func testLegacyPendingCaptureJSONDecodesWithNewOptionalShareFields() throws {
+        let id = UUID()
+        let json = """
+        {
+          "id": "\(id.uuidString)",
+          "rawText": "Save this",
+          "createdAt": 0,
+          "source": "widget"
+        }
+        """
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        let capture = try decoder.decode(PendingCapture.self, from: Data(json.utf8))
+        XCTAssertEqual(capture.id, id)
+        XCTAssertNil(capture.sharedURL)
+        XCTAssertNil(capture.sourceTitle)
+        XCTAssertNil(capture.provisionalAt)
+    }
+
+    func testRecurrenceRuleDecodesLegacyPatternAsScheduledDateAnchor() throws {
+        let legacy = try JSONEncoder().encode(TaskRepeatPattern.daily)
+        let decodedLegacy = try JSONDecoder().decode(TaskRepeatPattern.self, from: legacy)
+        let rule = TaskRecurrenceRule(pattern: decodedLegacy)
+        XCTAssertEqual(rule.anchor, .scheduledDate)
+
+        let newData = try JSONEncoder().encode(
+            TaskRecurrenceRule(pattern: .daily, anchor: .completionDate)
+        )
+        let decoded = try JSONDecoder().decode(TaskRecurrenceRule.self, from: newData)
+        XCTAssertEqual(decoded.anchor, .completionDate)
+        XCTAssertEqual(decoded.pattern, .daily)
     }
 }

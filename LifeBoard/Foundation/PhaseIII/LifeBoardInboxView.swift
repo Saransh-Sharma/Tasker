@@ -14,6 +14,16 @@ final class InboxStore {
     /// Set after a triage applies; drives the Undo affordance.
     private(set) var lastReceipt: PlanMutationReceipt?
     private(set) var lastSummary: String?
+    private(set) var isMutating = false
+    private(set) var mutationError: String?
+
+    private struct CommitUndoState {
+        let mutation: InboxTriageMutation
+        let capture: PendingCapture
+    }
+
+    private var commitUndoState: CommitUndoState?
+    private var mergeUndoState: InboxMergeReceipt?
 
     var scope: LifeBoardInboxQuery.Scope = .untriaged {
         didSet { guard oldValue != scope else { return }; Task { await load() } }
@@ -22,15 +32,21 @@ final class InboxStore {
     private let reader: InboxReader
     private let planningRepository: any PlanningRepository
     private let mutationRepository: any PlanningMutationRepository
+    private let commitCoordinator: InboxCommitCoordinator?
+    private let captureQueue: InboxCaptureQueueAccess
 
     init(
         reader: InboxReader,
         planningRepository: any PlanningRepository,
-        mutationRepository: any PlanningMutationRepository
+        mutationRepository: any PlanningMutationRepository,
+        commitCoordinator: InboxCommitCoordinator? = nil,
+        captureQueue: InboxCaptureQueueAccess = InboxCaptureQueueAccess()
     ) {
         self.reader = reader
         self.planningRepository = planningRepository
         self.mutationRepository = mutationRepository
+        self.commitCoordinator = commitCoordinator
+        self.captureQueue = captureQueue
     }
 
     func load() async {
@@ -50,6 +66,9 @@ final class InboxStore {
 
     /// Applies a triage decision and keeps its receipt for Undo.
     func apply(_ mutation: InboxTriageMutation) async {
+        isMutating = true
+        mutationError = nil
+        defer { isMutating = false }
         let metadata = (try? await planningRepository.fetchTaskMetadata(taskIDs: nil)) ?? []
         let byID = Dictionary(uniqueKeysWithValues: metadata.map { ($0.taskID, $0) })
 
@@ -67,6 +86,7 @@ final class InboxStore {
                 await load()
             } catch {
                 loadFailed = true
+                mutationError = "That change couldn’t be saved. Your inbox is unchanged."
             }
         case .failure:
             // `moveToProject` and `commitCapture` need the task repository
@@ -74,15 +94,150 @@ final class InboxStore {
             // yet, so reaching here means a decision could not be honored and
             // must not look like it was.
             loadFailed = true
+            mutationError = "This inbox action is not available from the current route."
         }
     }
 
     func undoLast() async {
+        if let mergeUndoState, let commitCoordinator {
+            isMutating = true
+            mutationError = nil
+            defer { isMutating = false }
+            do {
+                try await commitCoordinator.undoMerge(mergeUndoState)
+                self.mergeUndoState = nil
+                lastSummary = nil
+                await load()
+            } catch {
+                mutationError = "The merge is still in place. Please try Undo again."
+            }
+            return
+        }
+        if let commitUndoState, let commitCoordinator {
+            isMutating = true
+            mutationError = nil
+            defer { isMutating = false }
+            do {
+                try await commitCoordinator.undoCommit(
+                    commitUndoState.mutation,
+                    restoring: commitUndoState.capture
+                )
+                self.commitUndoState = nil
+                lastSummary = nil
+                await load()
+            } catch {
+                mutationError = "The task is still filed. Nothing else was changed."
+            }
+            return
+        }
         guard let receipt = lastReceipt else { return }
-        try? await mutationRepository.undo(receiptID: receipt.id)
-        lastReceipt = nil
-        lastSummary = nil
-        await load()
+        isMutating = true
+        mutationError = nil
+        defer { isMutating = false }
+        do {
+            try await mutationRepository.undo(receiptID: receipt.id)
+            lastReceipt = nil
+            lastSummary = nil
+            await load()
+        } catch {
+            mutationError = "The change is still in place. Please try Undo again."
+        }
+    }
+
+    /// Commits exactly the parser proposal and title shown in the review sheet.
+    /// The capture stays queued on every failure.
+    @discardableResult
+    func fileCapture(_ item: InboxItem, reviewedTitle: String) async -> Bool {
+        guard let commitCoordinator,
+              case let .pendingCapture(captureID) = item.origin,
+              let capture = captureQueue.read().first(where: { $0.id == captureID })
+        else {
+            mutationError = "This capture can’t be filed from the current route."
+            return false
+        }
+
+        isMutating = true
+        mutationError = nil
+        defer { isMutating = false }
+
+        let editedRequest = reviewedRequest(for: item, title: reviewedTitle, captureID: captureID)
+
+        guard editedRequest.title.isEmpty == false else {
+            mutationError = "Add a title before filing this capture."
+            return false
+        }
+
+        do {
+            let mutation = try await commitCoordinator.commit(editedRequest)
+            commitUndoState = CommitUndoState(mutation: mutation, capture: capture)
+            lastReceipt = nil
+            lastSummary = mutation.summary
+            await load()
+            return true
+        } catch {
+            mutationError = "Couldn’t file this capture. It is still safely in your inbox."
+            return false
+        }
+    }
+
+    @discardableResult
+    func mergeCapture(
+        _ item: InboxItem,
+        reviewedTitle: String,
+        with duplicate: InboxItem
+    ) async -> Bool {
+        guard let commitCoordinator,
+              case let .pendingCapture(captureID) = item.origin,
+              captureQueue.read().contains(where: { $0.id == captureID })
+        else {
+            mutationError = "This capture can’t be merged from the current route."
+            return false
+        }
+        let request = reviewedRequest(for: item, title: reviewedTitle, captureID: captureID)
+        guard request.title.isEmpty == false else {
+            mutationError = "Add a title before merging this capture."
+            return false
+        }
+
+        isMutating = true
+        mutationError = nil
+        defer { isMutating = false }
+        do {
+            mergeUndoState = try await commitCoordinator.merge(request, with: duplicate.origin)
+            commitUndoState = nil
+            lastReceipt = nil
+            lastSummary = "Merged without losing either capture"
+            await load()
+            return true
+        } catch {
+            mutationError = "Couldn’t merge these items. Both originals are unchanged."
+            return false
+        }
+    }
+
+    private func reviewedRequest(
+        for item: InboxItem,
+        title: String,
+        captureID: UUID
+    ) -> InboxCaptureCommitRequest {
+        let parsed = TaskCaptureParser.parse(item.title, now: item.capturedAt)
+        let request = InboxCaptureCommitRequest.reviewed(
+            captureID: captureID,
+            parsed: parsed,
+            fallbackTitle: title
+        )
+        return InboxCaptureCommitRequest(
+            captureID: request.captureID,
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            dueDate: request.dueDate,
+            isAllDay: request.isAllDay,
+            estimatedDuration: request.estimatedDuration,
+            repeatPattern: request.repeatPattern,
+            priority: request.priority,
+            projectName: request.projectName,
+            tagNames: request.tagNames,
+            contextName: request.contextName
+        )
     }
 
     /// What the parser *would* extract from an unreviewed capture.
@@ -133,6 +288,16 @@ final class InboxStore {
             .isEmpty == false
     }
 
+    func duplicateCandidates(for item: InboxItem) -> [InboxDuplicateCandidate] {
+        guard item.requiresCommitBeforeScheduling else { return [] }
+        let parsed = TaskCaptureParser.parse(item.title, now: item.capturedAt)
+        let candidateTitle = parsed.cleanTitle.isEmpty ? item.title : parsed.cleanTitle
+        return InboxDuplicatePolicy.candidates(
+            for: candidateTitle,
+            among: items.filter { $0.id != item.id }
+        )
+    }
+
     /// Removes an unreviewed capture from the App Group queue.
     ///
     /// Safe to offer without a receipt because nothing canonical exists yet —
@@ -153,6 +318,7 @@ struct LifeBoardInboxView: View {
     /// chance to disagree with the parser — as anything typed by hand.
     var onReviewCapture: ((InboxItem) -> Void)?
     @State private var selection: Set<UUID> = []
+    @State private var filingItem: InboxItem?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -181,8 +347,19 @@ struct LifeBoardInboxView: View {
             if let summary = store.lastSummary {
                 undoRow(summary)
             }
+            if let mutationError = store.mutationError {
+                Label(mutationError, systemImage: "exclamationmark.circle")
+                    .font(.footnote)
+                    .foregroundStyle(Color.lifeboard.statusWarning)
+                    .accessibilityIdentifier("plan.inbox.mutation-error")
+            }
         }
         .task { await store.load() }
+        .sheet(item: $filingItem) { item in
+            InboxCaptureReviewSheet(item: item, store: store) {
+                filingItem = nil
+            }
+        }
         .accessibilityIdentifier("plan.inbox")
     }
 
@@ -245,7 +422,7 @@ struct LifeBoardInboxView: View {
                     .font(.body)
                     .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
                 if store.alreadyFiled(item) {
-                    Text("Already added — safe to clear")
+                    Text("Possible duplicate — choose what to keep")
                         .font(.caption)
                         .foregroundStyle(Color.lifeboard.statusSuccess)
                 } else if let source = item.captureSource {
@@ -264,6 +441,10 @@ struct LifeBoardInboxView: View {
 
             if item.requiresCommitBeforeScheduling {
                 HStack(spacing: 10) {
+                    Button("File It") { filingItem = item }
+                        .font(.footnote.weight(.semibold))
+                        .disabled(store.isMutating)
+                        .accessibilityIdentifier("plan.inbox.file.\(item.id.uuidString)")
                     if let onReviewCapture {
                         Button("Review") { onReviewCapture(item) }
                             .font(.footnote.weight(.medium))
@@ -449,5 +630,90 @@ struct LifeBoardInboxView: View {
         }
         selection.removeAll()
         Task { await store.apply(.batch(mutations)) }
+    }
+}
+
+private struct InboxCaptureReviewSheet: View {
+    let item: InboxItem
+    @Bindable var store: InboxStore
+    let onClose: () -> Void
+    @State private var title: String
+
+    init(item: InboxItem, store: InboxStore, onClose: @escaping () -> Void) {
+        self.item = item
+        self.store = store
+        self.onClose = onClose
+        let parsed = TaskCaptureParser.parse(item.title, now: item.capturedAt)
+        _title = State(initialValue: parsed.cleanTitle.isEmpty ? item.title : parsed.cleanTitle)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("What should this become?") {
+                    TextField("Task title", text: $title, axis: .vertical)
+                        .accessibilityIdentifier("plan.inbox.review.title")
+                }
+
+                let duplicates = store.duplicateCandidates(for: item)
+                if duplicates.isEmpty == false {
+                    Section("Possible duplicate") {
+                        ForEach(duplicates.prefix(3), id: \.existing.id) { candidate in
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(candidate.existing.title)
+                                Text("\(Int((candidate.similarity * 100).rounded()))% title match")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        if let candidate = duplicates.first {
+                            Button("Merge into “\(candidate.existing.title)”") {
+                                Task {
+                                    if await store.mergeCapture(
+                                        item,
+                                        reviewedTitle: title,
+                                        with: candidate.existing
+                                    ) {
+                                        onClose()
+                                    }
+                                }
+                            }
+                            .disabled(store.isMutating)
+                            .accessibilityIdentifier("plan.inbox.review.merge")
+                        }
+                        Text("Merge keeps the existing item’s populated date, project, priority, and recurrence; it fills missing fields, combines tags, and uses the title above. Choosing Merge confirms those conflict choices. Keep Both creates a separate task. Cancel makes no changes.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                if let error = store.mutationError {
+                    Section {
+                        Label(error, systemImage: "exclamationmark.circle")
+                            .foregroundStyle(Color.lifeboard.statusWarning)
+                    }
+                }
+            }
+            .navigationTitle("Review capture")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", action: onClose)
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button(store.duplicateCandidates(for: item).isEmpty ? "File It" : "Keep Both") {
+                        Task {
+                            if await store.fileCapture(item, reviewedTitle: title) {
+                                onClose()
+                            }
+                        }
+                    }
+                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || store.isMutating)
+                    .accessibilityIdentifier("plan.inbox.review.file")
+                }
+            }
+            .interactiveDismissDisabled(store.isMutating)
+        }
+        .presentationDetents([.medium, .large])
     }
 }

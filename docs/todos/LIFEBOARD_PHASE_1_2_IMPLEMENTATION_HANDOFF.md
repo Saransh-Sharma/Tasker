@@ -1,5 +1,34 @@
 # LifeBoard — Phase 1 & Phase 2 Implementation Handoff
 
+## 2026-07-29 completion ledger
+
+This ledger supersedes the older point-in-time counts below while preserving
+their design and migration warnings.
+
+- [x] Audited the current 4,691-line WIP and confirmed the 23-model chain,
+  feature rollback routes, Share Extension target, Phase 1 dependency
+  composition, and native behavior route gate.
+- [x] Re-ran the baseline on `LifeBoard Test iPhone`: 1,924 tests, 0 failures.
+- [x] Phase 1 foundation, premium UI, token-law, target-membership, legacy
+  runtime/test, and Core Data codegen guardrails pass.
+- [x] Changed the baseline script default from the unavailable `iPhone 17` to
+  the dedicated `LifeBoard Test iPhone`.
+- [x] Added a shared Watch scheme and a serialized Phase 1/2 build-matrix
+  script. Watch execution remains device/runtime-gated.
+- [ ] Phase 1 exit blockers: reviewed Inbox draft equality and conflict merge,
+  production task scopes, atomic cross-repository batches, project templates,
+  scenario refresh, canonical focus-only writes, and Home pin invariants.
+- [ ] Phase 2 exit blockers: domain-rich migration fixtures, deterministic
+  occurrence IDs, service-backed native Track mutations, full habit/routine/
+  goal workflows, personal-care persistence, cross-surface parity, and
+  device-only gates.
+
+### Verification policy
+
+Run `./scripts/run-baseline-aware-tests.sh`, all guardrails, then
+`./scripts/run-phase1-phase2-build-matrix.sh`. Never run two `xcodebuild`
+processes concurrently. Record device-only results separately.
+
 **Date:** 2026-07-28
 **Branch:** `lifeOS` (head `f91af671`)
 **Supersedes as the active tracker:** `LIFEBOARD_BEYOND_NOTES_HANDOFF.md` (still accurate except where noted in §2 and §11)
