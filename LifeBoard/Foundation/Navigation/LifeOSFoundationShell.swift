@@ -1050,7 +1050,9 @@ public struct LifeOSFoundationShell: View {
                     runtime.captureRouter.request(
                         CaptureRequest(kind: .task, source: .shell, prefilledText: item.title)
                     )
-                }
+                },
+                onOpenTask: { router.push(.taskDetail($0), in: .plan) },
+                onOpenProject: { router.push(.project($0), in: .plan) }
             )
         } else if destination == .plan {
             FoundationPlanRollbackRouteView(router: router)
@@ -1485,7 +1487,9 @@ public struct LifeOSFoundationShell: View {
                 onAskEva: { runtime.router.select(.eva) },
                 onOpenWeeklyPlanner: { runtime.router.push(.weeklyPlanner, in: .plan) },
                 onOpenWeeklyReview: { runtime.router.push(.weeklyReview, in: .plan) },
-                onOpenOverdueRescue: presentPlanOverdueRescue
+                onOpenOverdueRescue: presentPlanOverdueRescue,
+                onOpenTask: { runtime.router.push(.taskDetail($0), in: .plan) },
+                onOpenProject: { runtime.router.push(.project($0), in: .plan) }
             )
         } else {
             FoundationPlanRollbackRouteView(router: runtime.router)
@@ -1792,7 +1796,9 @@ private struct FoundationFocusSessionRouteView: View {
                     rescueRefreshGeneration: rescueRefreshGeneration,
                     onOpenFocus: { _ in },
                     onAskEva: { router.select(.eva) },
-                    onOpenOverdueRescue: onOpenOverdueRescue
+                    onOpenOverdueRescue: onOpenOverdueRescue,
+                    onOpenTask: { router.push(.taskDetail($0), in: .plan) },
+                    onOpenProject: { router.push(.project($0), in: .plan) }
                 )
                 .accessibilityIdentifier("focus.session.\(session.id.uuidString)")
             case let .loaded(session):
@@ -2771,7 +2777,46 @@ private struct FoundationTaskRouteView: View {
                         editor.draft.projectName = editor.projects.first {
                             $0.id == editor.draft.projectID
                         }?.name
+                        if editor.sections.contains(where: {
+                            $0.id == editor.draft.sectionID
+                                && $0.projectID == editor.draft.projectID
+                        }) == false {
+                            editor.draft.sectionID = nil
+                        }
                     }
+                    Picker(
+                        "Section",
+                        selection: Binding(
+                            get: { editor.draft.sectionID },
+                            set: { editor.draft.sectionID = $0 }
+                        )
+                    ) {
+                        Text("No section").tag(UUID?.none)
+                        ForEach(
+                            editor.sections.filter { $0.projectID == editor.draft.projectID },
+                            id: \.id
+                        ) { section in
+                            Text(section.name).tag(Optional(section.id))
+                        }
+                    }
+                    .disabled(
+                        editor.sections.contains { $0.projectID == editor.draft.projectID } == false
+                    )
+                    .accessibilityIdentifier("task.editor.section")
+                    Picker(
+                        "Life area",
+                        selection: Binding(
+                            get: { editor.draft.lifeAreaID },
+                            set: { editor.draft.lifeAreaID = $0 }
+                        )
+                    ) {
+                        Text("No life area").tag(UUID?.none)
+                        ForEach(editor.lifeAreas, id: \.id) { area in
+                            Text(area.name).tag(Optional(area.id))
+                        }
+                    }
+                    .disabled(editor.lifeAreas.isEmpty)
+                    .accessibilityIdentifier("task.editor.life-area")
                     LabeledContent("Priority") {
                         Picker("Priority", selection: $editor.draft.priority) {
                             ForEach(TaskPriority.allCases, id: \.self) {
@@ -2803,6 +2848,8 @@ private struct FoundationTaskRouteView: View {
                 dateAndPlanning(editor: $editor)
                 recurrence(editor: $editor)
                 tags(editor: $editor)
+                subtasks(editor: $editor)
+                dependencies(editor: $editor)
 
                 Toggle(isOn: Binding(
                     get: { editor.draft.isComplete },
@@ -2874,6 +2921,25 @@ private struct FoundationTaskRouteView: View {
                 ),
                 components: [.date, .hourAndMinute]
             )
+            optionalDate(
+                "Scheduled end",
+                value: Binding(
+                    get: { editor.wrappedValue.draft.scheduledEndAt },
+                    set: { editor.wrappedValue.draft.scheduledEndAt = $0 }
+                ),
+                components: [.date, .hourAndMinute]
+            )
+            if let start = editor.wrappedValue.draft.scheduledStartAt,
+               let end = editor.wrappedValue.draft.scheduledEndAt,
+               end <= start {
+                Label(
+                    "Scheduled end must be after the start.",
+                    systemImage: "exclamationmark.triangle"
+                )
+                .font(.caption)
+                .foregroundStyle(Color(LifeBoardColorTokens.foundationDanger))
+                .accessibilityIdentifier("task.editor.schedule-error")
+            }
         }
         .taskEditorSurface()
     }
@@ -2892,9 +2958,14 @@ private struct FoundationTaskRouteView: View {
                 Text("Daily").tag(1)
                 Text("Weekdays").tag(2)
                 Text("Weekly").tag(3)
-                Text("Monthly").tag(4)
+                Text("Every two weeks").tag(4)
+                Text("Monthly on a date").tag(5)
+                Text("Monthly by weekday").tag(6)
+                Text("Yearly").tag(7)
+                Text("Custom interval").tag(8)
             }
             if editor.wrappedValue.draft.repeatPattern != nil {
+                recurrenceDetails(editor: editor)
                 Picker("Anchor", selection: editor.draft.recurrenceAnchor) {
                     Text("Scheduled date").tag(TaskRecurrenceRule.Anchor.scheduledDate)
                     Text("When completed").tag(TaskRecurrenceRule.Anchor.completionDate)
@@ -2910,6 +2981,219 @@ private struct FoundationTaskRouteView: View {
             }
         }
         .taskEditorSurface()
+    }
+
+    @ViewBuilder
+    private func recurrenceDetails(editor: Bindable<TaskEditorStore>) -> some View {
+        switch editor.wrappedValue.draft.repeatPattern {
+        case .weekly(let days):
+            weekdayButtons(days: days) {
+                editor.wrappedValue.draft.repeatPattern = .weekly($0)
+            }
+        case .biweekly(let days):
+            weekdayButtons(days: days) {
+                editor.wrappedValue.draft.repeatPattern = .biweekly($0)
+            }
+        case .monthly(.onDate(let day)):
+            Stepper(
+                "Day \(day) of each month",
+                value: Binding(
+                    get: { day },
+                    set: {
+                        editor.wrappedValue.draft.repeatPattern = .monthly(
+                            .onDate(min(max(1, $0), 31))
+                        )
+                    }
+                ),
+                in: 1...31
+            )
+        case .monthly(.onWeekday(let week, let weekday)):
+            Picker(
+                "Week",
+                selection: Binding(
+                    get: { week },
+                    set: {
+                        editor.wrappedValue.draft.repeatPattern = .monthly(
+                            .onWeekday(weekOfMonth: $0, dayOfWeek: weekday)
+                        )
+                    }
+                )
+            ) {
+                Text("First").tag(1)
+                Text("Second").tag(2)
+                Text("Third").tag(3)
+                Text("Fourth").tag(4)
+                Text("Fifth").tag(5)
+            }
+            Picker(
+                "Weekday",
+                selection: Binding(
+                    get: { weekday },
+                    set: {
+                        editor.wrappedValue.draft.repeatPattern = .monthly(
+                            .onWeekday(weekOfMonth: week, dayOfWeek: $0)
+                        )
+                    }
+                )
+            ) {
+                ForEach(Array(Calendar.current.weekdaySymbols.enumerated()), id: \.offset) {
+                    index, name in
+                    Text(name).tag(index + 1)
+                }
+            }
+        case .monthly(.lastWeekday(let weekday)):
+            Picker(
+                "Last weekday",
+                selection: Binding(
+                    get: { weekday },
+                    set: {
+                        editor.wrappedValue.draft.repeatPattern = .monthly(
+                            .lastWeekday(dayOfWeek: $0)
+                        )
+                    }
+                )
+            ) {
+                ForEach(Array(Calendar.current.weekdaySymbols.enumerated()), id: \.offset) {
+                    index, name in
+                    Text(name).tag(index + 1)
+                }
+            }
+        case .yearly(let pattern):
+            DatePicker(
+                "Repeat date",
+                selection: Binding(
+                    get: { recurrenceYearlyDate(pattern) },
+                    set: {
+                        let components = Calendar.current.dateComponents(
+                            [.month, .day],
+                            from: $0
+                        )
+                        editor.wrappedValue.draft.repeatPattern = .yearly(
+                            .onDate(
+                                month: components.month ?? 1,
+                                day: components.day ?? 1
+                            )
+                        )
+                    }
+                ),
+                displayedComponents: .date
+            )
+        case .custom(let pattern):
+            Stepper(
+                "Every \(pattern.intervalDays) days",
+                value: Binding(
+                    get: { pattern.intervalDays },
+                    set: {
+                        editor.wrappedValue.draft.repeatPattern = .custom(
+                            .init(
+                                intervalDays: min(max(1, $0), 365),
+                                endDate: pattern.endDate,
+                                maxOccurrences: pattern.maxOccurrences
+                            )
+                        )
+                    }
+                ),
+                in: 1...365
+            )
+            optionalDate(
+                "End repeat",
+                value: Binding(
+                    get: { pattern.endDate },
+                    set: {
+                        editor.wrappedValue.draft.repeatPattern = .custom(
+                            .init(
+                                intervalDays: pattern.intervalDays,
+                                endDate: $0,
+                                maxOccurrences: pattern.maxOccurrences
+                            )
+                        )
+                    }
+                )
+            )
+            Toggle(
+                "Limit occurrences",
+                isOn: Binding(
+                    get: { pattern.maxOccurrences != nil },
+                    set: {
+                        editor.wrappedValue.draft.repeatPattern = .custom(
+                            .init(
+                                intervalDays: pattern.intervalDays,
+                                endDate: pattern.endDate,
+                                maxOccurrences: $0 ? (pattern.maxOccurrences ?? 10) : nil
+                            )
+                        )
+                    }
+                )
+            )
+            if let maximum = pattern.maxOccurrences {
+                Stepper(
+                    "Stop after \(maximum)",
+                    value: Binding(
+                        get: { maximum },
+                        set: {
+                            editor.wrappedValue.draft.repeatPattern = .custom(
+                                .init(
+                                    intervalDays: pattern.intervalDays,
+                                    endDate: pattern.endDate,
+                                    maxOccurrences: min(max(1, $0), 999)
+                                )
+                            )
+                        }
+                    ),
+                    in: 1...999
+                )
+            }
+        case .daily, .weekdays, nil:
+            EmptyView()
+        }
+    }
+
+    private func weekdayButtons(
+        days: TaskRepeatPattern.DaysOfWeek,
+        onChange: @escaping (TaskRepeatPattern.DaysOfWeek) -> Void
+    ) -> some View {
+        let values: [(String, TaskRepeatPattern.DaysOfWeek)] = [
+            ("S", .sunday),
+            ("M", .monday),
+            ("T", .tuesday),
+            ("W", .wednesday),
+            ("T", .thursday),
+            ("F", .friday),
+            ("S", .saturday)
+        ]
+        return HStack(spacing: 6) {
+            ForEach(Array(values.enumerated()), id: \.offset) { index, value in
+                let selected = days.contains(value.1)
+                Button {
+                    var updated = days
+                    if selected {
+                        updated.remove(value.1)
+                    } else {
+                        updated.insert(value.1)
+                    }
+                    guard updated.isEmpty == false else { return }
+                    onChange(updated)
+                } label: {
+                    Text(value.0)
+                        .font(.caption.weight(.bold))
+                        .frame(width: 36, height: 44)
+                        .background(
+                            selected
+                                ? Color(LifeBoardColorTokens.foundationSageAccent)
+                                : Color(LifeBoardColorTokens.foundationSurfaceSolid),
+                            in: Capsule()
+                        )
+                        .foregroundStyle(
+                            selected
+                                ? Color(LifeBoardColorTokens.inkPrimary)
+                                : Color(LifeBoardColorTokens.inkSecondary)
+                        )
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(Calendar.current.weekdaySymbols[index])
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
     }
 
     private func tags(editor: Bindable<TaskEditorStore>) -> some View {
@@ -2948,6 +3232,163 @@ private struct FoundationTaskRouteView: View {
             }
         }
         .taskEditorSurface()
+    }
+
+    private func subtasks(editor: Bindable<TaskEditorStore>) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                taskEditorHeader("Subtasks", symbol: "list.bullet.indent")
+                Spacer()
+                Menu {
+                    let available = editor.wrappedValue.taskCandidates.filter {
+                        $0.parentTaskID == nil
+                            && editor.wrappedValue.draft.subtasks.contains($0.id) == false
+                    }
+                    if available.isEmpty {
+                        Text("No available tasks")
+                    } else {
+                        ForEach(available, id: \.id) { candidate in
+                            Button(candidate.title) {
+                                editor.wrappedValue.toggleSubtask(candidate.id)
+                            }
+                        }
+                    }
+                } label: {
+                    Label("Add", systemImage: "plus")
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .accessibilityIdentifier("task.editor.subtask.add")
+            }
+
+            if editor.wrappedValue.draft.subtasks.isEmpty {
+                Text("Break this down by linking an existing task.")
+                    .font(.subheadline)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            } else {
+                ForEach(
+                    Array(editor.wrappedValue.draft.subtasks.enumerated()),
+                    id: \.element
+                ) { index, subtaskID in
+                    HStack(spacing: 8) {
+                        Text(taskTitle(subtaskID, editor: editor.wrappedValue))
+                            .font(.subheadline)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        Button {
+                            guard index > 0 else { return }
+                            editor.wrappedValue.moveSubtask(
+                                fromOffsets: IndexSet(integer: index),
+                                toOffset: index - 1
+                            )
+                        } label: {
+                            Image(systemName: "arrow.up")
+                                .frame(width: 44, height: 44)
+                        }
+                        .disabled(index == 0)
+                        .accessibilityLabel("Move subtask earlier")
+                        Button {
+                            guard index + 1 < editor.wrappedValue.draft.subtasks.count else {
+                                return
+                            }
+                            editor.wrappedValue.moveSubtask(
+                                fromOffsets: IndexSet(integer: index),
+                                toOffset: index + 2
+                            )
+                        } label: {
+                            Image(systemName: "arrow.down")
+                                .frame(width: 44, height: 44)
+                        }
+                        .disabled(index + 1 == editor.wrappedValue.draft.subtasks.count)
+                        .accessibilityLabel("Move subtask later")
+                        Button(role: .destructive) {
+                            editor.wrappedValue.toggleSubtask(subtaskID)
+                        } label: {
+                            Image(systemName: "minus.circle")
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Remove subtask")
+                    }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("task.editor.subtask.\(subtaskID.uuidString)")
+                }
+            }
+        }
+        .taskEditorSurface()
+    }
+
+    private func dependencies(editor: Bindable<TaskEditorStore>) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack {
+                taskEditorHeader("Dependencies", symbol: "link")
+                Spacer()
+                Menu {
+                    let linked = Set(
+                        editor.wrappedValue.draft.dependencies.map(\.dependsOnTaskID)
+                    )
+                    let available = editor.wrappedValue.taskCandidates.filter {
+                        linked.contains($0.id) == false
+                    }
+                    if available.isEmpty {
+                        Text("No available tasks")
+                    } else {
+                        ForEach(available, id: \.id) { candidate in
+                            Button(candidate.title) {
+                                editor.wrappedValue.toggleDependency(on: candidate.id)
+                            }
+                        }
+                    }
+                } label: {
+                    Label("Add", systemImage: "plus")
+                        .frame(minWidth: 44, minHeight: 44)
+                }
+                .accessibilityIdentifier("task.editor.dependency.add")
+            }
+
+            if editor.wrappedValue.draft.dependencies.isEmpty {
+                Text("Nothing else has to finish first.")
+                    .font(.subheadline)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            } else {
+                ForEach(editor.wrappedValue.draft.dependencies, id: \.id) { link in
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(taskTitle(link.dependsOnTaskID, editor: editor.wrappedValue))
+                                .font(.subheadline.weight(.medium))
+                            Text(link.kind == .blocks ? "Must finish first" : "Related")
+                                .font(.caption)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                        Spacer()
+                        Menu {
+                            ForEach(TaskDependencyKind.allCases, id: \.self) { kind in
+                                Button(kind == .blocks ? "Must finish first" : "Related") {
+                                    guard let index = editor.wrappedValue.draft.dependencies
+                                        .firstIndex(where: { $0.id == link.id }) else {
+                                        return
+                                    }
+                                    editor.wrappedValue.draft.dependencies[index].kind = kind
+                                }
+                            }
+                            Button("Remove", role: .destructive) {
+                                editor.wrappedValue.toggleDependency(on: link.dependsOnTaskID)
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis.circle")
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Dependency actions")
+                    }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier(
+                        "task.editor.dependency.\(link.dependsOnTaskID.uuidString)"
+                    )
+                }
+            }
+        }
+        .taskEditorSurface()
+    }
+
+    private func taskTitle(_ id: UUID, editor: TaskEditorStore) -> String {
+        editor.taskCandidates.first(where: { $0.id == id })?.title ?? "Unavailable task"
     }
 
     private func estimateControl(editor: Bindable<TaskEditorStore>) -> some View {
@@ -3028,19 +3469,61 @@ private struct FoundationTaskRouteView: View {
         case .daily: 1
         case .weekdays: 2
         case .weekly: 3
-        case .monthly: 4
-        default: 1
+        case .biweekly: 4
+        case .monthly(.onDate): 5
+        case .monthly: 6
+        case .yearly: 7
+        case .custom: 8
         }
     }
 
     private func repeatPattern(_ choice: Int) -> TaskRepeatPattern? {
-        switch choice {
+        let components = Calendar.current.dateComponents([.month, .day], from: Date())
+        return switch choice {
         case 1: .daily
         case 2: .weekdays
         case 3: .weekly(.allDays)
-        case 4: .monthly(.onDate(Calendar.current.component(.day, from: Date())))
+        case 4: .biweekly(.allDays)
+        case 5: .monthly(.onDate(Calendar.current.component(.day, from: Date())))
+        case 6: .monthly(
+            .onWeekday(
+                weekOfMonth: max(
+                    1,
+                    Calendar.current.component(.weekOfMonth, from: Date())
+                ),
+                dayOfWeek: Calendar.current.component(.weekday, from: Date())
+            )
+        )
+        case 7: .yearly(
+            .onDate(month: components.month ?? 1, day: components.day ?? 1)
+        )
+        case 8: .custom(.init(intervalDays: 3))
         default: nil
         }
+    }
+
+    private func recurrenceYearlyDate(_ pattern: TaskRepeatPattern.YearlyPattern) -> Date {
+        let month: Int
+        let day: Int
+        switch pattern {
+        case let .onDate(valueMonth, valueDay):
+            month = valueMonth
+            day = valueDay
+        case let .onWeekday(valueMonth, weekOfMonth, dayOfWeek):
+            var components = DateComponents()
+            components.year = Calendar.current.component(.year, from: Date())
+            components.month = valueMonth
+            components.weekOfMonth = weekOfMonth
+            components.weekday = dayOfWeek
+            return Calendar.current.date(from: components) ?? Date()
+        }
+        return Calendar.current.date(
+            from: DateComponents(
+                year: Calendar.current.component(.year, from: Date()),
+                month: month,
+                day: day
+            )
+        ) ?? Date()
     }
 
     private func load() async {
@@ -3177,6 +3660,7 @@ private struct FoundationProjectRouteView: View {
     @State private var showsMilestoneComposer = false
     @State private var milestoneTitle = ""
     @State private var lastReceiptID: UUID?
+    @State private var taskBatchReceipt: TaskBatchReceipt?
     @State private var archivedProjectSnapshot: Project?
 
     var body: some View {
@@ -3241,9 +3725,11 @@ private struct FoundationProjectRouteView: View {
             }
         }
         .safeAreaInset(edge: .bottom) {
-            if lastReceiptID != nil || archivedProjectSnapshot != nil {
+            if lastReceiptID != nil
+                || taskBatchReceipt != nil
+                || archivedProjectSnapshot != nil {
                 HStack {
-                    Text(archivedProjectSnapshot == nil ? "Project reordered" : "Project archived")
+                    Text(projectReceiptMessage)
                         .font(.subheadline.weight(.semibold))
                     Spacer()
                     Button("Undo") { Task { await undoLastProjectAction() } }
@@ -3439,6 +3925,24 @@ private struct FoundationProjectRouteView: View {
                 Button("Move later", systemImage: "arrow.down") {
                     Task { await move(task, offset: 1, snapshot: snapshot) }
                 }
+                Section("Move to section") {
+                    Button("Unsectioned") {
+                        Task {
+                            await moveToSection(task, sectionID: nil, snapshot: snapshot)
+                        }
+                    }
+                    ForEach(snapshot.sections, id: \.id) { section in
+                        Button(section.name) {
+                            Task {
+                                await moveToSection(
+                                    task,
+                                    sectionID: section.id,
+                                    snapshot: snapshot
+                                )
+                            }
+                        }
+                    }
+                }
             } label: {
                 Image(systemName: "line.3.horizontal")
                     .frame(width: 44, height: 44)
@@ -3510,6 +4014,8 @@ private struct FoundationProjectRouteView: View {
             )
             try await dependencies.planningRepository.apply(receiptID: receipt.id)
             lastReceiptID = receipt.id
+            taskBatchReceipt = nil
+            archivedProjectSnapshot = nil
             await load()
         } catch {
             state = .failed(error.localizedDescription)
@@ -3535,6 +4041,8 @@ private struct FoundationProjectRouteView: View {
                     continuation.resume(with: $0)
                 }
             }
+            lastReceiptID = nil
+            taskBatchReceipt = nil
             await load()
         } catch {
             state = .failed(error.localizedDescription)
@@ -3543,6 +4051,10 @@ private struct FoundationProjectRouteView: View {
 
     private func undoLastProjectAction() async {
         do {
+            if let taskBatchReceipt {
+                try await dependencies.taskBatchMutationCoordinator.undo(taskBatchReceipt)
+                self.taskBatchReceipt = nil
+            }
             if let receiptID = lastReceiptID {
                 try await dependencies.planningRepository.undo(receiptID: receiptID)
                 lastReceiptID = nil
@@ -3560,6 +4072,38 @@ private struct FoundationProjectRouteView: View {
         } catch {
             state = .failed(error.localizedDescription)
         }
+    }
+
+    private func moveToSection(
+        _ task: PlanningTaskSummary,
+        sectionID: UUID?,
+        snapshot: ProjectExecutionSnapshot
+    ) async {
+        guard snapshot.sectionIDByTaskID[task.id] != sectionID else { return }
+        do {
+            taskBatchReceipt = try await dependencies.taskBatchMutationCoordinator.apply(
+                TaskBatchMutationRequest(
+                    taskIDs: [task.id],
+                    mutation: .move(
+                        projectID: id,
+                        projectName: snapshot.name,
+                        sectionID: sectionID
+                    ),
+                    source: "project.section-move.\(id.uuidString)"
+                )
+            )
+            lastReceiptID = nil
+            archivedProjectSnapshot = nil
+            await load()
+        } catch {
+            state = .failed(error.localizedDescription)
+        }
+    }
+
+    private var projectReceiptMessage: String {
+        if archivedProjectSnapshot != nil { return "Project archived" }
+        if taskBatchReceipt != nil { return "Task moved" }
+        return "Project reordered"
     }
 
     private func orderedTasks(_ snapshot: ProjectExecutionSnapshot) -> [PlanningTaskSummary] {

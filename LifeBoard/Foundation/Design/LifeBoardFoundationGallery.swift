@@ -188,6 +188,7 @@ final class AdaptiveHomeStore {
         let target = min(max(0, source + offset), placements.count - 1)
         guard source != target else { return }
         value.move(fromOffsets: IndexSet(integer: source), toOffset: target > source ? target + 1 : target)
+        value.setOwnership(.pinned, id: id)
         draft = value
     }
 
@@ -198,12 +199,14 @@ final class AdaptiveHomeStore {
               let target = placements.firstIndex(where: { $0.id == targetID }),
               source != target else { return }
         value.move(fromOffsets: IndexSet(integer: source), toOffset: target > source ? target + 1 : target)
+        value.setOwnership(.pinned, id: id)
         draft = value
     }
 
     func resizePlacement(id: UUID, to size: WidgetSizePreset) {
         guard var value = draft else { return }
         value.resize(id: id, to: size, registry: registry)
+        value.setOwnership(.pinned, id: id)
         draft = value
     }
 
@@ -324,13 +327,22 @@ final class AdaptiveHomeStore {
     func pinContext(_ candidate: HomeContextCandidate, section: HomeSectionRole? = nil) {
         if draft == nil { beginCustomization() }
         guard let descriptor = registry.descriptor(for: candidate.widgetKind) else { return }
-        addWidget(descriptor)
-        if var value = draft,
-           let placement = value.current.placements.last(where: { $0.widgetKind == candidate.widgetKind.rawValue }) {
+        guard var value = draft else { return }
+        if let existing = value.current.placements.first(where: {
+            $0.widgetKind == candidate.widgetKind.rawValue && $0.isVisible
+        }) {
+            value.setOwnership(.pinned, id: existing.id)
+            value.setSection(section, id: existing.id)
+        } else {
+            value.add(kind: descriptor.kind, size: descriptor.defaultSize, registry: registry)
+            guard let placement = value.current.placements.last(where: {
+                $0.widgetKind == candidate.widgetKind.rawValue
+            }) else { return }
+            value.setVisible(true, id: placement.id)
             value.setOwnership(.pinned, id: placement.id)
             value.setSection(section, id: placement.id)
-            draft = value
         }
+        draft = value
         contextPreferences.set(.pinned, for: candidate.id)
     }
 
@@ -987,17 +999,64 @@ struct LifeBoardAdaptiveHome: View {
     ) {
         let local = homeContextCandidates(now: now)
         let permitsSensitive = permitsSensitiveHomeContent
+        let mode = router.dashboardMode
         Task {
             let domainCandidates = await contextProviderRegistry.candidates(
                 context: .init(date: now, refreshBoundary: boundary)
             )
+            let candidates = mode == .lowEnergy
+                ? lowEnergyCandidates(from: local + domainCandidates, now: now)
+                : local + domainCandidates
             store.refreshContext(
-                candidates: local + domainCandidates,
+                candidates: candidates,
                 permitsSensitiveHomeContent: permitsSensitive,
                 now: now
             )
             await refreshCardSnapshots(now: now)
         }
+    }
+
+    private func lowEnergyCandidates(
+        from candidates: [HomeContextCandidate],
+        now: Date
+    ) -> [HomeContextCandidate] {
+        let care = candidates
+            .filter { $0.resolvedSemanticRole == .care }
+            .sorted { $0.priority > $1.priority }
+            .first
+            ?? .init(
+                id: "low-energy-essential-care",
+                widgetKind: .care,
+                title: "A small care check-in",
+                reason: .init(
+                    message: "Water, medication you already planned, food, or one quiet minute can come first.",
+                    signal: "Low Energy mode"
+                ),
+                destination: .track,
+                priority: 900,
+                relevantFrom: now,
+                semanticRole: .care
+            )
+        let sourceAction = candidates
+            .filter { $0.resolvedSemanticRole == .primaryNow }
+            .sorted { $0.priority > $1.priority }
+            .first
+        let smallAction = HomeContextCandidate(
+            id: "low-energy-small-action:\(sourceAction?.id ?? "choose")",
+            widgetKind: .focusNow,
+            title: sourceAction.map { "One gentle step: \($0.title)" } ?? "Choose one five-minute action",
+            reason: .init(
+                message: "Keep the outcome intentionally small so recovery still has room.",
+                signal: "Low Energy mode"
+            ),
+            destination: sourceAction?.destination ?? .plan,
+            sensitivity: sourceAction?.sensitivity ?? .privateStandard,
+            priority: 1_000,
+            relevantFrom: now,
+            relevantUntil: sourceAction?.relevantUntil,
+            semanticRole: .primaryNow
+        )
+        return [smallAction, care]
     }
 
     /// Resolves provider snapshots for every currently visible placement at
@@ -1136,6 +1195,7 @@ struct LifeBoardAdaptiveHome: View {
             )
             ForEach(candidates) { candidate in
                 Button {
+                    pinContextAfterAction(candidate)
                     router.select(candidate.destination)
                 } label: {
                     HStack(spacing: 12) {
@@ -1216,13 +1276,14 @@ struct LifeBoardAdaptiveHome: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .frame(width: 36, height: 36)
+                        .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                 }
                 .accessibilityLabel("Options for \(candidate.title)")
             }
 
             Button {
+                pinContextAfterAction(candidate)
                 router.select(candidate.destination)
                 UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             } label: {
@@ -1248,6 +1309,17 @@ struct LifeBoardAdaptiveHome: View {
                 .onChanged { _ in store.setContextFrozen(true, reason: "context-touch") }
                 .onEnded { _ in store.setContextFrozen(false, reason: "context-touch") }
         )
+    }
+
+    private func pinContextAfterAction(_ candidate: HomeContextCandidate) {
+        let section: HomeSectionRole = switch candidate.resolvedSemanticRole {
+        case .primaryNow, .dayAheadStory: .today
+        case .care: .keepSteady
+        case .reflection: .closeLoop
+        case .attention: .userSpace
+        }
+        store.pinContext(candidate, section: section)
+        Task { await store.saveCustomization() }
     }
 
     private func contextReasonSheet(
@@ -1382,7 +1454,7 @@ struct LifeBoardAdaptiveHome: View {
             } label: {
                 Image(systemName: "plus")
                     .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 42, height: 42)
+                    .frame(width: 44, height: 44)
             }
             .accessibilityLabel("Capture something")
 
@@ -1401,7 +1473,7 @@ struct LifeBoardAdaptiveHome: View {
                       : "arrow.up")
                     .font(.system(size: 16, weight: .bold))
                     .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
-                    .frame(width: 42, height: 42)
+                    .frame(width: 44, height: 44)
                     .background(Color(LifeBoardColorTokens.inkPrimary), in: Circle())
             }
             .accessibilityLabel(
@@ -2707,7 +2779,7 @@ struct LifeBoardAdaptiveHome: View {
         } label: {
             Image(systemName: "ellipsis")
                 .font(.headline)
-                .frame(width: 38, height: 38)
+                .frame(width: 44, height: 44)
                 .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: Circle())
                 .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow), radius: 6, y: 2)
         }

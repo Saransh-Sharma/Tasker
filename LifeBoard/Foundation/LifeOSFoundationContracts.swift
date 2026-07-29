@@ -883,10 +883,28 @@ public struct DeterministicHomeContextPolicy: HomeContextPolicy {
         let semanticallyUnique = sorted.filter {
             claimedRoles.insert($0.resolvedSemanticRole).inserted
         }
+        // "Now" is a decision, not merely the highest numeric score. If any
+        // actionable candidate exists it owns the hero; day-ahead and care
+        // stories follow without displacing it.
+        let orderedBySemanticRole = semanticallyUnique.sorted { lhs, rhs in
+            let lhsRank = Self.semanticRank(lhs.resolvedSemanticRole)
+            let rhsRank = Self.semanticRank(rhs.resolvedSemanticRole)
+            if lhsRank != rhsRank { return lhsRank < rhsRank }
+            let lhsIndex = sorted.firstIndex(of: lhs) ?? Int.max
+            let rhsIndex = sorted.firstIndex(of: rhs) ?? Int.max
+            return lhsIndex < rhsIndex
+        }
         return HomeContextSelection(
-            candidates: Array(semanticallyUnique.prefix(HomeContextSelection.maximumCandidates)),
+            candidates: Array(orderedBySemanticRole.prefix(HomeContextSelection.maximumCandidates)),
             evaluatedAt: now
         )
+    }
+
+    private static func semanticRank(_ role: HomeCandidateSemanticRole) -> Int {
+        switch role {
+        case .primaryNow: 0
+        case .care, .attention, .dayAheadStory, .reflection: 1
+        }
     }
 }
 
