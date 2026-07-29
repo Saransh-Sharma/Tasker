@@ -92,6 +92,28 @@ public struct CoreDataInboxTaskWriter: InboxTaskWriting {
         }
     }
 
+    public func mergeDestination(id: UUID) async throws -> InboxMergeDestinationSnapshot? {
+        guard let task = try await task(id: id) else { return nil }
+        let allTags: [TagDefinition] = try await withCheckedThrowingContinuation { continuation in
+            tags.fetchAll { continuation.resume(with: $0) }
+        }
+        let tagNamesByID = Dictionary(uniqueKeysWithValues: allTags.map { ($0.id, $0.name) })
+        let project: Project? = try await withCheckedThrowingContinuation { continuation in
+            projects.fetchProject(withId: task.projectID) { continuation.resume(with: $0) }
+        }
+        return InboxMergeDestinationSnapshot(
+            title: task.title,
+            dueDate: task.dueDate,
+            isAllDay: task.isAllDay,
+            estimatedDuration: task.estimatedDuration,
+            repeatPattern: task.repeatPattern,
+            priority: task.priority == .none ? nil : task.priority,
+            projectName: project?.isInbox == true ? nil : project?.name,
+            tagNames: task.tagIDs.compactMap { tagNamesByID[$0] },
+            contextName: task.context == .anywhere ? nil : task.context.rawValue
+        )
+    }
+
     public func mergeTask(id: UUID, request: InboxCaptureCommitRequest) async throws -> TaskDefinition {
         guard let existing = try await task(id: id) else {
             throw InboxCommitFailure.mergeUnavailable
@@ -107,21 +129,28 @@ public struct CoreDataInboxTaskWriter: InboxTaskWriting {
         update.title = request.title
         update.tagIDs = Array(Set(existing.tagIDs).union(incomingTagIDs))
             .sorted { $0.uuidString < $1.uuidString }
-        if existing.dueDate == nil, let dueDate = request.dueDate {
+        if let dueDate = request.dueDate {
             update.dueDate = dueDate
             update.isAllDay = request.isAllDay
         }
-        if existing.estimatedDuration == nil {
+        if let estimatedDuration = request.estimatedDuration {
+            update.estimatedDuration = estimatedDuration
+        } else if existing.estimatedDuration == nil {
             update.estimatedDuration = request.estimatedDuration
         }
-        if existing.repeatPattern == nil {
+        if let repeatPattern = request.repeatPattern {
+            update.repeatPattern = repeatPattern
+        } else if existing.repeatPattern == nil {
             update.repeatPattern = request.repeatPattern
         }
-        if existing.priority == .low {
-            update.priority = request.priority
+        if let priority = request.priority {
+            update.priority = priority
         }
-        if existing.context == .anywhere {
+        if let resolvedContext {
             update.context = resolvedContext
+        }
+        if let projectName = request.projectName {
+            update.projectID = try await resolveProjectID(named: projectName)
         }
         return try await withCheckedThrowingContinuation { continuation in
             tasks.update(request: update) { continuation.resume(with: $0) }

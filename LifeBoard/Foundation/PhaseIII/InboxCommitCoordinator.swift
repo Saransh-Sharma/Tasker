@@ -16,6 +16,94 @@ import Foundation
 
 // MARK: - What the user reviewed
 
+/// Mutable review state whose values are rendered by the Inbox review sheet.
+///
+/// Parsing happens once when this value is created. Every later edit changes
+/// this value directly, and the commit request is derived from it without
+/// consulting the raw capture again.
+public struct InboxCaptureReviewDraft: Equatable, Sendable {
+    public let captureID: UUID
+    public var title: String
+    public var dueDate: Date?
+    public var isAllDay: Bool
+    public var estimatedDuration: TimeInterval?
+    public var repeatPattern: TaskRepeatPattern?
+    public var priority: TaskPriorityConfig.Priority?
+    public var projectName: String?
+    public var tagNames: [String]
+    public var contextName: String?
+
+    public init(
+        captureID: UUID,
+        title: String,
+        dueDate: Date? = nil,
+        isAllDay: Bool = false,
+        estimatedDuration: TimeInterval? = nil,
+        repeatPattern: TaskRepeatPattern? = nil,
+        priority: TaskPriorityConfig.Priority? = nil,
+        projectName: String? = nil,
+        tagNames: [String] = [],
+        contextName: String? = nil
+    ) {
+        self.captureID = captureID
+        self.title = title
+        self.dueDate = dueDate
+        self.isAllDay = isAllDay
+        self.estimatedDuration = estimatedDuration
+        self.repeatPattern = repeatPattern
+        self.priority = priority
+        self.projectName = projectName
+        self.tagNames = tagNames
+        self.contextName = contextName
+    }
+
+    public init(captureID: UUID, parsed: ParsedCapture, fallbackTitle: String) {
+        let parsedTitle = parsed.cleanTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        self.init(
+            captureID: captureID,
+            title: parsedTitle.isEmpty ? fallbackTitle : parsedTitle,
+            dueDate: parsed.dueDate,
+            isAllDay: parsed.isAllDay,
+            estimatedDuration: parsed.duration,
+            repeatPattern: parsed.repeatPattern,
+            priority: parsed.priority,
+            projectName: parsed.projectName,
+            tagNames: parsed.tags,
+            contextName: parsed.context
+        )
+    }
+
+    public var commitRequest: InboxCaptureCommitRequest {
+        InboxCaptureCommitRequest(
+            captureID: captureID,
+            title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            dueDate: dueDate,
+            isAllDay: dueDate == nil ? false : isAllDay,
+            estimatedDuration: estimatedDuration,
+            repeatPattern: repeatPattern,
+            priority: priority,
+            projectName: Self.trimmed(projectName),
+            tagNames: Self.normalizedNames(tagNames),
+            contextName: Self.trimmed(contextName)
+        )
+    }
+
+    private static func trimmed(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
+    }
+
+    private static func normalizedNames(_ values: [String]) -> [String] {
+        var seen = Set<String>()
+        return values.compactMap { value in
+            guard let trimmed = trimmed(value) else { return nil }
+            let key = trimmed.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            return seen.insert(key).inserted ? trimmed : nil
+        }
+    }
+}
+
 /// A commit request built from what the user actually saw and agreed to.
 ///
 /// Carries names rather than IDs for project, tags and context because the
@@ -70,19 +158,170 @@ public struct InboxCaptureCommitRequest: Equatable, Sendable {
         parsed: ParsedCapture,
         fallbackTitle: String
     ) -> Self {
-        let title = parsed.cleanTitle.trimmingCharacters(in: .whitespacesAndNewlines)
-        return InboxCaptureCommitRequest(
+        InboxCaptureReviewDraft(
             captureID: captureID,
-            title: title.isEmpty ? fallbackTitle : title,
-            dueDate: parsed.dueDate,
-            isAllDay: parsed.isAllDay,
-            estimatedDuration: parsed.duration,
-            repeatPattern: parsed.repeatPattern,
-            priority: parsed.priority,
-            projectName: parsed.projectName,
-            tagNames: parsed.tags,
-            contextName: parsed.context
-        )
+            parsed: parsed,
+            fallbackTitle: fallbackTitle
+        ).commitRequest
+    }
+}
+
+public struct InboxMergeDestinationSnapshot: Equatable, Sendable {
+    public let title: String
+    public let dueDate: Date?
+    public let isAllDay: Bool
+    public let estimatedDuration: TimeInterval?
+    public let repeatPattern: TaskRepeatPattern?
+    public let priority: TaskPriorityConfig.Priority?
+    public let projectName: String?
+    public let tagNames: [String]
+    public let contextName: String?
+
+    public init(
+        title: String,
+        dueDate: Date? = nil,
+        isAllDay: Bool = false,
+        estimatedDuration: TimeInterval? = nil,
+        repeatPattern: TaskRepeatPattern? = nil,
+        priority: TaskPriorityConfig.Priority? = nil,
+        projectName: String? = nil,
+        tagNames: [String] = [],
+        contextName: String? = nil
+    ) {
+        self.title = title
+        self.dueDate = dueDate
+        self.isAllDay = isAllDay
+        self.estimatedDuration = estimatedDuration
+        self.repeatPattern = repeatPattern
+        self.priority = priority
+        self.projectName = projectName
+        self.tagNames = tagNames
+        self.contextName = contextName
+    }
+}
+
+/// Explicit decisions for metadata where both the reviewed capture and the
+/// destination already contain different values.
+public struct DuplicateMergeResolution: Equatable, Sendable {
+    public enum Field: String, CaseIterable, Hashable, Sendable {
+        case date
+        case project
+        case priority
+        case recurrence
+    }
+
+    public enum Choice: String, CaseIterable, Sendable {
+        case destination
+        case reviewed
+    }
+
+    public var finalTitle: String
+    public var choices: [Field: Choice]
+    public var acknowledgedFields: Set<Field>
+
+    public init(
+        finalTitle: String,
+        choices: [Field: Choice] = [:],
+        acknowledgedFields: Set<Field> = []
+    ) {
+        self.finalTitle = finalTitle
+        self.choices = choices
+        self.acknowledgedFields = acknowledgedFields
+    }
+
+    public mutating func select(_ choice: Choice, for field: Field) {
+        choices[field] = choice
+        acknowledgedFields.insert(field)
+    }
+
+    public func conflicts(
+        reviewed: InboxCaptureReviewDraft,
+        destination: InboxMergeDestinationSnapshot
+    ) -> Set<Field> {
+        var result = Set<Field>()
+        if let destinationDate = destination.dueDate,
+           let reviewedDate = reviewed.dueDate,
+           destinationDate != reviewedDate || destination.isAllDay != reviewed.isAllDay {
+            result.insert(.date)
+        }
+        if let destinationProject = normalized(destination.projectName),
+           let reviewedProject = normalized(reviewed.projectName),
+           destinationProject != reviewedProject {
+            result.insert(.project)
+        }
+        if let destinationPriority = destination.priority,
+           destinationPriority != .none,
+           let reviewedPriority = reviewed.priority,
+           reviewedPriority != .none,
+           destinationPriority != reviewedPriority {
+            result.insert(.priority)
+        }
+        if let destinationRecurrence = destination.repeatPattern,
+           let reviewedRecurrence = reviewed.repeatPattern,
+           destinationRecurrence != reviewedRecurrence {
+            result.insert(.recurrence)
+        }
+        return result
+    }
+
+    public func isComplete(
+        reviewed: InboxCaptureReviewDraft,
+        destination: InboxMergeDestinationSnapshot
+    ) -> Bool {
+        let titleIsValid = finalTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        let conflicts = conflicts(reviewed: reviewed, destination: destination)
+        return titleIsValid &&
+            conflicts.isSubset(of: Set(choices.keys)) &&
+            conflicts.isSubset(of: acknowledgedFields)
+    }
+
+    public func commitRequest(
+        reviewed: InboxCaptureReviewDraft,
+        destination: InboxMergeDestinationSnapshot
+    ) -> InboxCaptureCommitRequest? {
+        guard isComplete(reviewed: reviewed, destination: destination) else { return nil }
+
+        let dateChoice = choices[.date] ?? .destination
+        let projectChoice = choices[.project] ?? .destination
+        let priorityChoice = choices[.priority] ?? .destination
+        let recurrenceChoice = choices[.recurrence] ?? .destination
+
+        let dueDate = destination.dueDate == nil || dateChoice == .reviewed
+            ? reviewed.dueDate
+            : destination.dueDate
+        let isAllDay = destination.dueDate == nil || dateChoice == .reviewed
+            ? reviewed.isAllDay
+            : destination.isAllDay
+        let projectName = destination.projectName == nil || projectChoice == .reviewed
+            ? reviewed.projectName
+            : destination.projectName
+        let destinationHasPriority = destination.priority.map { $0 != .none } ?? false
+        let priority = destinationHasPriority == false || priorityChoice == .reviewed
+            ? reviewed.priority
+            : destination.priority
+        let recurrence = destination.repeatPattern == nil || recurrenceChoice == .reviewed
+            ? reviewed.repeatPattern
+            : destination.repeatPattern
+
+        return InboxCaptureReviewDraft(
+            captureID: reviewed.captureID,
+            title: finalTitle,
+            dueDate: dueDate,
+            isAllDay: isAllDay,
+            estimatedDuration: destination.estimatedDuration ?? reviewed.estimatedDuration,
+            repeatPattern: recurrence,
+            priority: priority,
+            projectName: projectName,
+            tagNames: destination.tagNames + reviewed.tagNames,
+            contextName: destination.contextName ?? reviewed.contextName
+        ).commitRequest
+    }
+
+    private func normalized(_ value: String?) -> String? {
+        guard let value else { return nil }
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return nil }
+        return trimmed.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
     }
 }
 
@@ -101,12 +340,26 @@ public protocol InboxTaskWriting: Sendable {
     /// Moves a task between projects. `nil` means no project.
     func moveTask(id: UUID, toProject projectID: UUID?) async throws
     func task(id: UUID) async throws -> TaskDefinition?
+    func mergeDestination(id: UUID) async throws -> InboxMergeDestinationSnapshot?
     func mergeTask(id: UUID, request: InboxCaptureCommitRequest) async throws -> TaskDefinition
     func restoreTask(_ snapshot: TaskDefinition) async throws
 }
 
 public extension InboxTaskWriting {
     func task(id: UUID) async throws -> TaskDefinition? { nil }
+    func mergeDestination(id: UUID) async throws -> InboxMergeDestinationSnapshot? {
+        guard let task = try await task(id: id) else { return nil }
+        return InboxMergeDestinationSnapshot(
+            title: task.title,
+            dueDate: task.dueDate,
+            isAllDay: task.isAllDay,
+            estimatedDuration: task.estimatedDuration,
+            repeatPattern: task.repeatPattern,
+            priority: task.priority == .none ? nil : task.priority,
+            projectName: task.projectName,
+            contextName: task.context == .anywhere ? nil : task.context.rawValue
+        )
+    }
     func mergeTask(id: UUID, request: InboxCaptureCommitRequest) async throws -> TaskDefinition {
         throw InboxCommitFailure.mergeUnavailable
     }
@@ -118,18 +371,30 @@ public extension InboxTaskWriting {
 /// Reading and writing the App Group capture queue, injectable for tests.
 public struct InboxCaptureQueueAccess: Sendable {
     public var read: @Sendable () -> [PendingCapture]
-    public var remove: @Sendable (Set<UUID>) -> Void
-    public var restore: @Sendable (PendingCapture) -> Void
+    public var remove: @Sendable (Set<UUID>) throws -> Void
+    public var restore: @Sendable ([PendingCapture]) throws -> Void
 
     public init(
         read: @escaping @Sendable () -> [PendingCapture] = { PendingCaptureInbox.read() },
-        remove: @escaping @Sendable (Set<UUID>) -> Void = { PendingCaptureInbox.remove(ids: $0) },
-        restore: @escaping @Sendable (PendingCapture) -> Void = { PendingCaptureInbox.append($0) }
+        remove: @escaping @Sendable (Set<UUID>) throws -> Void = {
+            guard PendingCaptureInbox.remove(ids: $0) else {
+                throw InboxCaptureQueueFailure.writeFailed
+            }
+        },
+        restore: @escaping @Sendable ([PendingCapture]) throws -> Void = {
+            guard PendingCaptureInbox.upsert($0) else {
+                throw InboxCaptureQueueFailure.writeFailed
+            }
+        }
     ) {
         self.read = read
         self.remove = remove
         self.restore = restore
     }
+}
+
+public enum InboxCaptureQueueFailure: Error, Equatable, Sendable {
+    case writeFailed
 }
 
 // MARK: - Coordinator
@@ -178,7 +443,21 @@ public struct InboxCommitCoordinator: Sendable {
             throw InboxCommitFailure.taskWriteFailed(String(describing: error))
         }
 
-        queue.remove([request.captureID])
+        do {
+            try queue.remove([request.captureID])
+        } catch {
+            // The canonical task and the queue row form one user-visible
+            // transaction. If the queue cannot durably finalize, remove the
+            // task we just created so retrying cannot create a duplicate.
+            do {
+                try await writer.deleteTask(id: taskID)
+            } catch {
+                throw InboxCommitFailure.taskWriteFailed(
+                    "Queue finalization and task compensation both failed: \(error)"
+                )
+            }
+            throw InboxCommitFailure.taskWriteFailed("Capture queue finalization failed")
+        }
         return .commitCapture(captureID: request.captureID, createdTaskID: taskID)
     }
 
@@ -201,7 +480,11 @@ public struct InboxCommitCoordinator: Sendable {
         } catch {
             throw InboxCommitFailure.taskWriteFailed(String(describing: error))
         }
-        queue.restore(capture)
+        do {
+            try queue.restore([capture])
+        } catch {
+            throw InboxCommitFailure.taskWriteFailed("Capture queue restoration failed")
+        }
     }
 
     /// Resolves either pending-to-pending or pending-to-task duplicates. Queue
@@ -226,7 +509,18 @@ public struct InboxCommitCoordinator: Sendable {
                 throw InboxCommitFailure.taskWriteFailed(String(describing: error))
             }
             let captures = [capture, duplicateCapture]
-            queue.remove(Set(captures.map(\.id)))
+            do {
+                try queue.remove(Set(captures.map(\.id)))
+            } catch {
+                do {
+                    try await writer.deleteTask(id: taskID)
+                } catch {
+                    throw InboxCommitFailure.taskWriteFailed(
+                        "Queue finalization and task compensation both failed: \(error)"
+                    )
+                }
+                throw InboxCommitFailure.taskWriteFailed("Capture queue finalization failed")
+            }
             return .created(taskID: taskID, captures: captures)
 
         case .task(let taskID):
@@ -239,8 +533,51 @@ public struct InboxCommitCoordinator: Sendable {
             } catch {
                 throw InboxCommitFailure.taskWriteFailed(String(describing: error))
             }
-            queue.remove([capture.id])
+            do {
+                try queue.remove([capture.id])
+            } catch {
+                do {
+                    try await writer.restoreTask(before)
+                } catch {
+                    throw InboxCommitFailure.taskWriteFailed(
+                        "Queue finalization and task compensation both failed: \(error)"
+                    )
+                }
+                throw InboxCommitFailure.taskWriteFailed("Capture queue finalization failed")
+            }
             return .updated(before: before, after: after, captures: [capture])
+        }
+    }
+
+    public func mergeDestination(for origin: InboxItem.Origin) async throws -> InboxMergeDestinationSnapshot {
+        switch origin {
+        case .pendingCapture(let captureID):
+            guard let capture = queue.read().first(where: { $0.id == captureID }) else {
+                throw InboxCommitFailure.captureNotFound(captureID)
+            }
+            let parsed = TaskCaptureParser.parse(capture.rawText, now: capture.createdAt)
+            let draft = InboxCaptureReviewDraft(
+                captureID: capture.id,
+                parsed: parsed,
+                fallbackTitle: capture.rawText
+            )
+            let request = draft.commitRequest
+            return InboxMergeDestinationSnapshot(
+                title: request.title,
+                dueDate: request.dueDate,
+                isAllDay: request.isAllDay,
+                estimatedDuration: request.estimatedDuration,
+                repeatPattern: request.repeatPattern,
+                priority: request.priority,
+                projectName: request.projectName,
+                tagNames: request.tagNames,
+                contextName: request.contextName
+            )
+        case .task(let taskID):
+            guard let snapshot = try await writer.mergeDestination(id: taskID) else {
+                throw InboxCommitFailure.mergeUnavailable
+            }
+            return snapshot
         }
     }
 
@@ -249,10 +586,10 @@ public struct InboxCommitCoordinator: Sendable {
             switch receipt {
             case let .created(taskID, captures):
                 try await writer.deleteTask(id: taskID)
-                captures.forEach(queue.restore)
+                try queue.restore(captures)
             case let .updated(before, _, captures):
                 try await writer.restoreTask(before)
-                captures.forEach(queue.restore)
+                try queue.restore(captures)
             }
         } catch {
             throw InboxCommitFailure.taskWriteFailed(String(describing: error))
