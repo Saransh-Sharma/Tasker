@@ -81,12 +81,13 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertEqual(chrome.frame.height, restingFrame.height, accuracy: 2)
         XCTAssertEqual(chrome.frame.maxY, restingFrame.maxY, accuracy: 2)
 
-        let capture = app.buttons["foundation.capture"]
+        let capture = app.buttons["lifeThread.composer.toolsToggle"]
         XCTAssertTrue(capture.waitForExistence(timeout: 5))
         capture.tap()
-        let taskCapture = app.buttons["Capture Task"]
+        let taskCapture = app.buttons["lifeThread.composer.tool.task"]
         XCTAssertTrue(taskCapture.waitForExistence(timeout: 5))
-        XCTAssertLessThan(taskCapture.frame.maxY, chrome.frame.minY)
+        XCTAssertGreaterThanOrEqual(taskCapture.frame.minY, chrome.frame.minY)
+        XCTAssertLessThanOrEqual(taskCapture.frame.maxY, chrome.frame.maxY)
         XCTAssertTrue(taskCapture.isHittable)
         try saveVisualEvidenceScreenshot(named: "home-compact-chrome-capture", platform: "iphone")
     }
@@ -94,7 +95,8 @@ class LifeBoardUITests: XCTestCase {
     func testAdaptiveHomeCustomizationCancelAndComposerHandoff() {
         let app = launchFoundationApp(
             accessibilityCategory: "UICTContentSizeCategoryL",
-            seedEstablishedWorkspace: true
+            seedEstablishedWorkspace: true,
+            seedHomeUserSpace: true
         )
         defer { app.terminate() }
 
@@ -105,19 +107,21 @@ class LifeBoardUITests: XCTestCase {
 
         XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["Done"].exists)
-        let firstCardMenu = app.buttons["Edit widget"].firstMatch
-        scrollUntilHittable(firstCardMenu, in: app, maximumSwipes: 8)
-        XCTAssertTrue(firstCardMenu.isHittable)
-        firstCardMenu.tap()
+        let seededCardMenu = app.buttons[
+            "home.widget.edit.D6ED45B2-1267-4C2C-9A91-A3F5503D51AF"
+        ]
+        scrollUntilHittable(seededCardMenu, in: app, maximumSwipes: 8)
+        XCTAssertTrue(seededCardMenu.isHittable)
+        seededCardMenu.tap()
         XCTAssertTrue(app.buttons["Glance"].waitForExistence(timeout: 5))
         app.buttons["Glance"].tap()
-        app.buttons["Cancel"].tap()
+        app.buttons["home.customization.cancel"].tap()
         XCTAssertTrue(customize.waitForExistence(timeout: 5), "Cancel should restore the pre-edit Home transaction.")
 
-        let capture = app.buttons["foundation.capture"]
+        let capture = app.buttons["lifeThread.composer.toolsToggle"]
         XCTAssertTrue(capture.waitForExistence(timeout: 5))
         capture.tap()
-        app.buttons["Capture Task"].tap()
+        app.buttons["lifeThread.composer.tool.task"].tap()
         XCTAssertTrue(app.buttons["foundation.capture.dismiss"].waitForExistence(timeout: 8))
     }
 
@@ -151,7 +155,10 @@ class LifeBoardUITests: XCTestCase {
         defer { app.terminate() }
 
         assertFoundationDestination("plan", rootIdentifier: "plan.header", in: app)
-        let addMenu = app.buttons["Add a card from Plan to Home"]
+        let more = app.buttons["foundation.more.plan"]
+        XCTAssertTrue(more.waitForExistence(timeout: 8))
+        more.tap()
+        let addMenu = app.buttons["home.addToHome.plan"]
         XCTAssertTrue(addMenu.waitForExistence(timeout: 8))
         addMenu.tap()
 
@@ -183,6 +190,9 @@ class LifeBoardUITests: XCTestCase {
         defer { app.terminate() }
 
         assertFoundationDestination("track", rootIdentifier: "track.header", in: app)
+        let areas = app.buttons["track.lens.areas"]
+        XCTAssertTrue(areas.waitForExistence(timeout: 8))
+        areas.tap()
         let resilience = app.buttons["track.habits.resilience"]
         scrollUntilHittable(resilience, in: app, maximumSwipes: 12)
         XCTAssertTrue(resilience.isHittable, "Resilience settings must remain operable at accessibility XXXL.")
@@ -201,7 +211,7 @@ class LifeBoardUITests: XCTestCase {
             recoveryToggle.waitForExistence(timeout: 8),
             "The recovery policy must remain operable at accessibility XXXL."
         )
-        XCTAssertTrue(app.buttons["Save"].exists)
+        XCTAssertTrue(app.buttons["track.resilience.commit"].exists)
 
         let historyHeader = app.staticTexts["30-day history"]
         scrollUntilHittable(historyHeader, in: app, maximumSwipes: 10)
@@ -281,11 +291,9 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["home.signalRow"].exists)
 
         let orderedSections = [
-            "home.widget.care",
             "home.widget.tasks",
+            "home.widget.care",
             "home.widget.routines",
-            "home.widget.scheduleCapacity",
-            "home.widget.compactTimeline",
             "home.widget.journal",
             "home.widget.progressReflection"
         ]
@@ -656,6 +664,7 @@ class LifeBoardUITests: XCTestCase {
         accessibilityCategory: String,
         seedHabits: Bool = false,
         seedEstablishedWorkspace: Bool = false,
+        seedHomeUserSpace: Bool = false,
         seedFullTimeline: Bool = false,
         seedRescueWorkspace: Bool = false,
         appearance: String? = nil
@@ -695,6 +704,7 @@ class LifeBoardUITests: XCTestCase {
         app.launchArguments.append("-LIFEBOARD_ENABLE_ADAPTIVE_HOME_V2")
         if seedHabits { app.launchArguments.append("-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE") }
         if seedEstablishedWorkspace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE") }
+        if seedHomeUserSpace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_HOME_USER_SPACE") }
         if seedFullTimeline { app.launchArguments.append("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE") }
         if seedRescueWorkspace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_RESCUE_WORKSPACE") }
         if let appearance {

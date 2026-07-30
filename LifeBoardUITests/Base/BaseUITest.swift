@@ -58,7 +58,15 @@ class BaseUITest: XCTestCase {
     /// Wait for app to finish launching and be ready for interaction
     func waitForAppLaunch() {
         let homeIndicator = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
-        let homeExists = homeIndicator.waitForExistence(timeout: shouldSkipOnboarding ? 12 : 6)
+        let foundationHome = app.buttons["foundation.destination.home"]
+        let predicate = NSPredicate { _, _ in
+            homeIndicator.exists || foundationHome.exists
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
+        let homeExists = XCTWaiter.wait(
+            for: [expectation],
+            timeout: shouldSkipOnboarding ? 12 : 6
+        ) == .completed
 
         if homeExists {
             return
@@ -173,7 +181,8 @@ class BaseUITest: XCTestCase {
         while Date() < deadline {
             let home = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
             let bottomBar = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.bottomBar]
-            if home.exists || bottomBar.exists {
+            let foundationHome = app.buttons["foundation.destination.home"]
+            if home.exists || bottomBar.exists || foundationHome.exists {
                 return true
             }
 

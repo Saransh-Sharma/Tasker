@@ -85,7 +85,31 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.cardMorphWarp))
         XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.paperGrain))
         XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.dissolveAway))
+        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.triageSettle))
         XCTAssertEqual(Set(LifeBoardSignatureEffect.allCases).count, LifeBoardSignatureEffect.allCases.count)
+    }
+
+    @MainActor
+    func testSignatureShaderRegistryExactlyMatchesMetalDeclarations() throws {
+        let projectRoot = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .deletingLastPathComponent()
+        let metalURL = projectRoot
+            .appendingPathComponent("LifeBoard/View/Effects/LifeBoardSignatureEffects.metal")
+        let source = try String(contentsOf: metalURL, encoding: .utf8)
+        let expression = try NSRegularExpression(
+            pattern: #"\[\[\s*stitchable\s*\]\]\s+\w+\s+(LifeBoard\w+)\s*\("#
+        )
+        let sourceRange = NSRange(source.startIndex..<source.endIndex, in: source)
+        let declaredNames: [String] = expression.matches(in: source, range: sourceRange).compactMap { match in
+            guard let range = Range(match.range(at: 1), in: source) else { return nil }
+            return String(source[range])
+        }
+        let declared = Set(declaredNames)
+        let registered = Set(LifeBoardSignatureShaders.functionNames)
+
+        XCTAssertEqual(registered.count, 17)
+        XCTAssertEqual(declared, registered)
     }
 
     // MARK: Completion control
@@ -1357,6 +1381,45 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(phases[1], .running(progress: 0.42))
         XCTAssertEqual(phases[2], .success(receipt: receipt))
         XCTAssertEqual(phases[3], .recoverableFailure(.init(message: "The export was interrupted.", recovery: .retry)))
+    }
+
+    func testFocusDialProgressUsesElapsedFractionAndClampsDomainEdges() throws {
+        XCTAssertNil(
+            LifeBoardFocusDialMetrics.elapsedFraction(
+                totalDuration: nil,
+                remainingDuration: 60
+            )
+        )
+        XCTAssertNil(
+            LifeBoardFocusDialMetrics.elapsedFraction(
+                totalDuration: 0,
+                remainingDuration: 0
+            )
+        )
+        XCTAssertEqual(
+            try XCTUnwrap(
+                LifeBoardFocusDialMetrics.elapsedFraction(
+                    totalDuration: 1_200,
+                    remainingDuration: 900
+                )
+            ),
+            0.25,
+            accuracy: 0.000_1
+        )
+        XCTAssertEqual(
+            LifeBoardFocusDialMetrics.elapsedFraction(
+                totalDuration: 1_200,
+                remainingDuration: 1_500
+            ),
+            0
+        )
+        XCTAssertEqual(
+            LifeBoardFocusDialMetrics.elapsedFraction(
+                totalDuration: 1_200,
+                remainingDuration: -10
+            ),
+            1
+        )
     }
 
     func testCaptureOrbDragSelectionRequiresAVisibleTargetHit() {

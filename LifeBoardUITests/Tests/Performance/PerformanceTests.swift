@@ -622,7 +622,141 @@ class PerformanceTests: BaseUITest {
         }
     }
 
+    func testFoundationEstablishedEvaDashboardCyclePerformance() throws {
+        try measureFoundationEvaDashboardCycles(evaActivationCompleted: true)
+    }
+
+    func testFoundationOnboardingEvaDashboardCyclePerformance() throws {
+        try measureFoundationEvaDashboardCycles(evaActivationCompleted: false)
+    }
+
+    func testFoundationShellLaunchPerformance() throws {
+        app.terminate()
+        app = foundationPerformanceApplication(evaActivationCompleted: true)
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 10
+        measure(metrics: [XCTApplicationLaunchMetric()], options: options) {
+            app.terminate()
+            app.launch()
+        }
+
+        homePage = HomePage(app: app)
+        XCTAssertTrue(ensurePerformanceAppReady(timeout: 14))
+        XCTAssertTrue(app.buttons["foundation.destination.home"].waitForExistence(timeout: 8))
+    }
+
     // MARK: - Helper
+
+    private func measureFoundationEvaDashboardCycles(evaActivationCompleted: Bool) throws {
+        relaunchFoundationPerformanceWorkspace(evaActivationCompleted: evaActivationCompleted)
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 1
+        var metrics: [XCTMetric] = [
+            PerformanceMetrics.signpostMetric(named: "EvaTabOpenToInteractive"),
+            XCTMemoryMetric(application: app)
+        ]
+        if #available(iOS 19.0, *) {
+            metrics.append(XCTHitchMetric(application: app))
+        }
+
+        measure(metrics: metrics, options: options) {
+            for _ in 0..<10 {
+                openFoundationDestination("plan", readyIdentifier: "plan.header")
+                openFoundationDestination("track", readyIdentifier: "track.header")
+                openFoundationDestination("insights", readyIdentifier: "foundation.insights")
+
+                let evaButton = app.buttons["foundation.destination.eva"]
+                XCTAssertTrue(evaButton.waitForExistence(timeout: 2))
+                tapElement(evaButton)
+                let evaIsInteractive = waitForEvaInteractive(
+                    activationCompleted: evaActivationCompleted,
+                    timeout: 4
+                )
+                if evaIsInteractive == false {
+                    let attachment = XCTAttachment(screenshot: app.screenshot())
+                    attachment.name = "Eva readiness failure"
+                    attachment.lifetime = .keepAlways
+                    add(attachment)
+                }
+                XCTAssertTrue(evaIsInteractive, "Eva should become interactive without a user-visible hang")
+
+                openFoundationDestination("home", readyIdentifier: "home.header")
+                XCTAssertFalse(
+                    app.descendants(matching: .any)["foundation.eva"].exists,
+                    "Eva should leave the accessibility hierarchy after eviction"
+                )
+            }
+        }
+    }
+
+    private func relaunchFoundationPerformanceWorkspace(evaActivationCompleted: Bool) {
+        app.terminate()
+        app = foundationPerformanceApplication(evaActivationCompleted: evaActivationCompleted)
+        app.launch()
+        homePage = HomePage(app: app)
+        XCTAssertTrue(ensurePerformanceAppReady(timeout: 14))
+        XCTAssertTrue(app.buttons["foundation.destination.home"].waitForExistence(timeout: 8))
+    }
+
+    private func foundationPerformanceApplication(evaActivationCompleted: Bool) -> XCUIApplication {
+        let application = XCUIApplication()
+        application.launchArguments = [
+            XCUIApplication.LaunchArgumentKey.resetAppState.rawValue,
+            XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableAnimations.rawValue,
+            XCUIApplication.LaunchArgumentKey.skipOnboarding.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
+            XCUIApplication.LaunchArgumentKey.testSeedFullTimelineWorkspace.rawValue,
+            XCUIApplication.LaunchArgumentKey.testCalendarStub.rawValue,
+            "\(XCUIApplication.LaunchArgumentKey.testCalendarMode.rawValue):active",
+            "-LIFEBOARD_ENABLE_LIFE_OS_FOUNDATION",
+            "-LIFEBOARD_ENABLE_LIFE_OS_UNIFIED_PRESENTATION_V2",
+            "-LIFEBOARD_ENABLE_ADAPTIVE_HOME_V2",
+            "-LIFEBOARD_ENABLE_PREMIUM_IA_V5",
+            "-LIFEBOARD_ENABLE_PLAN_DESTINATION_V1",
+            "-LIFEBOARD_ENABLE_TRACK_FOUNDATIONS_V2"
+        ]
+        if evaActivationCompleted {
+            application.launchArguments.append(XCUIApplication.LaunchArgumentKey.testEvaActivationCompleted.rawValue)
+        }
+        application.launchEnvironment["PERFORMANCE_TEST"] = "1"
+        return application
+    }
+
+    private func openFoundationDestination(_ destination: String, readyIdentifier: String) {
+        let button = app.buttons["foundation.destination.\(destination)"]
+        XCTAssertTrue(button.waitForExistence(timeout: 2), "\(destination) destination should exist")
+        tapElement(button)
+        XCTAssertTrue(
+            app.descendants(matching: .any)[readyIdentifier].waitForExistence(timeout: 2),
+            "\(destination) should expose \(readyIdentifier)"
+        )
+    }
+
+    private func waitForEvaInteractive(activationCompleted: Bool, timeout: TimeInterval) -> Bool {
+        let expectedElements: [XCUIElement]
+        if activationCompleted {
+            expectedElements = [
+                app.descendants(matching: .any)["chat.composer.container"],
+                app.descendants(matching: .any)["chat.emptyState.container"],
+                app.descendants(matching: .any)["eva.store.loading"],
+                app.descendants(matching: .any)["foundation.eva"]
+            ]
+        } else {
+            expectedElements = [
+                app.descendants(matching: .any)["eva.activation.intro"],
+                app.descendants(matching: .any)["eva.store.loading"],
+                app.descendants(matching: .any)["foundation.eva"]
+            ]
+        }
+        let predicate = NSPredicate { _, _ in
+            expectedElements.contains(where: \.exists)
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
+        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
+    }
 
     private func exerciseCriticalJourneyCreationFlow() {
         tapSunriseFilter("tasks")
