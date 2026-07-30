@@ -304,6 +304,50 @@ final class InboxStore {
     }
 }
 
+/// Persists how many times each capture has been passed over in the Inbox deck.
+///
+/// Lives in the App Group domain so it clears with `resetAppState()` alongside
+/// every other launch-scoped preference, and stores counts by capture id rather
+/// than touching the capture queue itself — a skip must leave the captured text,
+/// timestamp and identity completely untouched.
+private enum InboxSkipLedger {
+    private static let key = "lifeboard.inbox.skipCounts.v1"
+
+    private static var defaults: UserDefaults {
+        UserDefaults(suiteName: AppGroupConstants.suiteName) ?? .standard
+    }
+
+    static func load() -> [UUID: Int] {
+        guard let raw = defaults.dictionary(forKey: key) as? [String: Int] else { return [:] }
+        return raw.reduce(into: [:]) { result, entry in
+            guard let id = UUID(uuidString: entry.key) else { return }
+            result[id] = entry.value
+        }
+    }
+
+    static func record(count: Int, for id: UUID) {
+        var raw = (defaults.dictionary(forKey: key) as? [String: Int]) ?? [:]
+        raw[id.uuidString] = count
+        defaults.set(raw, forKey: key)
+    }
+
+    static func forget(_ id: UUID) {
+        var raw = (defaults.dictionary(forKey: key) as? [String: Int]) ?? [:]
+        raw[id.uuidString] = nil
+        defaults.set(raw, forKey: key)
+    }
+
+    /// Drops every entry whose capture has left the queue.
+    static func retain(only ids: Set<UUID>) -> [UUID: Int] {
+        let surviving = load().filter { ids.contains($0.key) }
+        defaults.set(
+            Dictionary(uniqueKeysWithValues: surviving.map { ($0.key.uuidString, $0.value) }),
+            forKey: key
+        )
+        return surviving
+    }
+}
+
 struct LifeBoardInboxView: View {
     @Bindable var store: InboxStore
     /// Opens the normal task editor seeded with the capture's raw text.
@@ -314,10 +358,13 @@ struct LifeBoardInboxView: View {
     var onReviewCapture: ((InboxItem) -> Void)?
     @State private var selection: Set<UUID> = []
     @State private var filingItem: InboxItem?
-    /// Captures the user chose to come back to, in the order they were skipped.
-    /// Local presentation only — skipping is explicitly not a mutation, so a
-    /// capture is never altered just because it was not the one you wanted next.
-    @State private var skipped: [UUID] = []
+    /// How many times each capture has been passed over.
+    ///
+    /// Presentation only — skipping is explicitly not a mutation, so a capture is
+    /// never altered just because it was not the one you wanted next. The count
+    /// lives beside the view rather than in the capture record, whose text,
+    /// timestamp and id must stay exactly as captured.
+    @State private var skipCounts: [UUID: Int] = [:]
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Which way a flick can send the front capture.
@@ -377,7 +424,11 @@ struct LifeBoardInboxView: View {
                     .accessibilityIdentifier("plan.inbox.mutation-error")
             }
         }
-        .task { await store.load() }
+        .task {
+            await store.load()
+            pruneSkipLedger()
+        }
+        .onChange(of: store.items.map(\.id)) { _, _ in pruneSkipLedger() }
         .sheet(item: $filingItem) { item in
             InboxCaptureReviewSheet(item: item, store: store) {
                 filingItem = nil
@@ -391,16 +442,33 @@ struct LifeBoardInboxView: View {
     /// losing something.
     private var orderedCaptures: [InboxItem] {
         let captures = store.items.filter(\.requiresCommitBeforeScheduling)
-        guard skipped.isEmpty == false else { return captures }
-        let skippedSet = Set(skipped)
-        let front = captures.filter { skippedSet.contains($0.id) == false }
-        let back = skipped.compactMap { id in captures.first { $0.id == id } }
-        return front + back
+        guard skipCounts.isEmpty == false else { return captures }
+        // Fewer passes first, then the reader's own newest-first order. A skipped
+        // capture sinks but never leaves, so the deck can be cycled indefinitely
+        // without anything falling out of it.
+        return captures.enumerated().sorted { left, right in
+            let leftSkips = skipCounts[left.element.id] ?? 0
+            let rightSkips = skipCounts[right.element.id] ?? 0
+            if leftSkips != rightSkips { return leftSkips < rightSkips }
+            return left.offset < right.offset
+        }
+        .map(\.element)
     }
+
+    /// A capture passed over this often gets one line acknowledging it, so nothing
+    /// quietly rots at the back of the deck.
+    private static let repeatedSkipThreshold = 3
 
     /// Rows that are already real records; they need a disposition, not a review.
     private var settledItems: [InboxItem] {
         store.items.filter { $0.requiresCommitBeforeScheduling == false }
+    }
+
+    /// Reconciles the persisted skip counts against the captures that are actually
+    /// queued, so filing or discarding a capture takes its count with it.
+    private func pruneSkipLedger() {
+        let liveIDs = Set(store.items.filter(\.requiresCommitBeforeScheduling).map(\.id))
+        skipCounts = InboxSkipLedger.retain(only: liveIDs)
     }
 
     private var scopePicker: some View {
@@ -485,6 +553,8 @@ struct LifeBoardInboxView: View {
                 reviewChips(for: parsed)
             }
 
+            repeatedSkipNote(for: item)
+
             // The armed decision is named on the card itself. A directional
             // gesture the user cannot see resolving is a guess, and filing is a
             // real mutation.
@@ -494,6 +564,26 @@ struct LifeBoardInboxView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .lifeBoardClaySurface(.raised, cornerRadius: LifeBoardFoundationRadius.largeCard)
         .accessibilityIdentifier("plan.inbox.row.\(item.id.uuidString)")
+    }
+
+    /// States the fact and nothing more.
+    ///
+    /// `DESIGN.md` rules out moralised productivity language, so this counts the
+    /// passes and leaves the judgement to the reader — it does not imply the
+    /// capture should have been dealt with, and Discard is already one tap away in
+    /// the row's menu.
+    @ViewBuilder
+    private func repeatedSkipNote(for item: InboxItem) -> some View {
+        let passes = skipCounts[item.id] ?? 0
+        if passes >= Self.repeatedSkipThreshold {
+            Label(
+                "You've come back to this \(passes) times.",
+                systemImage: "arrow.uturn.forward.circle"
+            )
+            .font(.caption)
+            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .accessibilityIdentifier("plan.inbox.repeatedSkip.\(item.id.uuidString)")
+        }
     }
 
     @ViewBuilder
@@ -556,6 +646,7 @@ struct LifeBoardInboxView: View {
 
             Menu {
                 Button("Discard capture", systemImage: "trash", role: .destructive) {
+                    forgetSkips(for: item)
                     Task { await store.discardCapture(item) }
                 }
             } label: {
@@ -580,14 +671,22 @@ struct LifeBoardInboxView: View {
         filingItem = item
     }
 
-    /// Moves the capture to the back of the deck. No mutation, no receipt: the
-    /// capture is untouched and will be waiting next time.
+    /// Sinks the capture in the deck. No mutation, no receipt: the capture is
+    /// untouched and will be waiting next time — including after a relaunch.
     private func skip(_ item: InboxItem) {
         LifeBoardFeedback.selection()
+        let next = (skipCounts[item.id] ?? 0) + 1
+        InboxSkipLedger.record(count: next, for: item.id)
         withAnimation(LifeBoardMotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
-            skipped.removeAll { $0 == item.id }
-            skipped.append(item.id)
+            skipCounts[item.id] = next
         }
+    }
+
+    /// Drops a capture's skip count once it is no longer in the queue, so the
+    /// ledger cannot outlive the captures it describes.
+    private func forgetSkips(for item: InboxItem) {
+        InboxSkipLedger.forget(item.id)
+        skipCounts[item.id] = nil
     }
 
     // MARK: - Settled rows
