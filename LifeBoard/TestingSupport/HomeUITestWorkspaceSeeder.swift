@@ -17,6 +17,65 @@ final class HomeUITestWorkspaceSeeder {
     private static var hasSeededUITestQuietTrackingWorkspace = false
     private static var hasSeededUITestFullTimelineWorkspace = false
     private static var hasSeededAppStoreScreenshotWorkspace = false
+    private static var hasSeededUITestInboxCaptures = false
+
+    /// Stages the App Group pending-capture queue.
+    ///
+    /// Nothing else seeded `PendingCapture`, so the Inbox's File It / Review /
+    /// Discard actions and its whole duplicate-merge path were unreachable in any
+    /// automated run — they are gated on
+    /// `InboxItem.requiresCommitBeforeScheduling`, which is only true for a
+    /// `.pendingCapture` origin. Canonical task rows alone never exercise them.
+    ///
+    /// Synchronous and dependency-free on purpose: this is one small JSON file in
+    /// the App Group, not Core Data, so it needs no container and no place in the
+    /// async seeder ladder. It must run after `resetAppState()`, which clears the
+    /// same file.
+    static func seedUITestInboxCapturesIfNeeded() {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_INBOX_CAPTURES") else { return }
+        guard hasSeededUITestInboxCaptures == false else { return }
+        hasSeededUITestInboxCaptures = true
+
+        // Fixed identifiers so `plan.inbox.row.<uuid>` is addressable from a test,
+        // and descending offsets so the newest-first order is deterministic.
+        let reference = Date()
+        let captures = [
+            // Rich parse: date, duration, tag and context all produce chips. The
+            // parser needs the literal "for" before a duration and a letter after
+            // "@", so this text is shaped to exercise all four grammars at once.
+            PendingCapture(
+                id: UUID(uuidString: "A1B2C3D4-0001-4000-8000-00000000FEED")!,
+                rawText: "Email the studio tomorrow 3pm for 45 min #admin @home",
+                createdAt: reference.addingTimeInterval(-5 * 60),
+                source: "widget"
+            ),
+            // Deliberately identical to a title created by the established
+            // workspace seed, so `InboxStore.alreadyFiled` ranks it as a duplicate
+            // and Keep Both / Merge / Cancel becomes reachable.
+            PendingCapture(
+                id: UUID(uuidString: "A1B2C3D4-0002-4000-8000-00000000FEED")!,
+                rawText: "Draft update",
+                createdAt: reference.addingTimeInterval(-12 * 60),
+                source: "control"
+            ),
+            // Plain prose with nothing to parse: the row must stay honest and show
+            // no proposal chips rather than inventing a date.
+            PendingCapture(
+                id: UUID(uuidString: "A1B2C3D4-0003-4000-8000-00000000FEED")!,
+                rawText: "Look into the noise complaint",
+                createdAt: reference.addingTimeInterval(-30 * 60),
+                source: "share-extension"
+            )
+        ]
+
+        guard PendingCaptureInbox.upsert(captures) else {
+            logError(
+                event: "ui_test_inbox_capture_seed_failed",
+                message: "Could not write the seeded pending-capture queue to the App Group container"
+            )
+            return
+        }
+    }
 
     func seedUITestEstablishedWorkspaceIfNeeded(presentationDependencyContainer: PresentationDependencyContainer?, completion: @escaping () -> Void) {
         guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE") else {

@@ -284,6 +284,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             }
         }
 
+        // Seeded outside the `-UI_TESTING` branch but after it, so a manual
+        // simulator launch can stage the same Inbox as an automated journey. It
+        // must follow `resetAppState()`, which now clears this queue.
+        HomeUITestWorkspaceSeeder.seedUITestInboxCapturesIfNeeded()
+
         // Configure UIAppearance to make ShyHeaderController's dummy table view transparent
         UITableView.appearance().backgroundColor = UIColor.clear
         UITableView.appearance().isOpaque = false
@@ -767,6 +772,13 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
             sharedDefaults.removePersistentDomain(forName: AppGroupConstants.suiteName)
             sharedDefaults.synchronize()
         }
+
+        // The pending-capture queue is a JSON *file* in the App Group container,
+        // not a defaults key, so removing the domains above left it intact.
+        // Captures then survived `-RESET_APP_STATE` and reappeared in the Inbox of
+        // a later launch, which is both a leak between supposedly isolated UI
+        // journeys and a way for a real user's reset to keep unreviewed text.
+        _ = PendingCaptureInbox.clear()
 
         // UI tests launch before the persistent container is bootstrapped, so remove
         // store files only from this explicit test reset path.

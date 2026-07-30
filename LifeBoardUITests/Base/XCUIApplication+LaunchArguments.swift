@@ -37,6 +37,11 @@ extension XCUIApplication {
         case testSeedHabitBoardWorkspace = "-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE"
         case testSeedQuietTrackingWorkspace = "-LIFEBOARD_TEST_SEED_QUIET_TRACKING_WORKSPACE"
         case testSeedFullTimelineWorkspace = "-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE"
+        /// Stages the App Group pending-capture queue so the Inbox's commit and
+        /// duplicate-merge paths are reachable. Pair with
+        /// `testSeedEstablishedWorkspace`: one seeded capture deliberately
+        /// duplicates a task title that seed creates.
+        case testSeedInboxCaptures = "-LIFEBOARD_TEST_SEED_INBOX_CAPTURES"
         case testSeedAppStoreScreenshots = "-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS"
         case testExpandedAppStoreOnboarding = "-LIFEBOARD_TEST_EXPANDED_APP_STORE_ONBOARDING"
         case testPresentHabitBoard = "-LIFEBOARD_TEST_PRESENT_HABIT_BOARD"
