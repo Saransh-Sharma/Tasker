@@ -301,6 +301,15 @@ public enum V2FeatureFlags {
         // canonical mutations through the existing receipt path with Undo.
         "feature.life_os.daily_loop_v1": true,
         "feature.life_os.task_project_flagship_v1": true,
+        // Universal input. Routing ships on so the home capture box stops
+        // routing every typed line to Eva and instead opens the right
+        // activity. Live dictation ships on (SpeechAnalyzer is the modern
+        // path on iOS 26). The semantic classifier (Apple Foundation Models
+        // + MLX-LLM-JSON fallback) ships on so paraphrases resolve without
+        // an exact command match. Each has a staged-feature rollback path.
+        "feature.universal_input.routing_v1": true,
+        "feature.universal_input.dictation_v1": true,
+        "feature.universal_input.semantic_v1": true,
         // Held back until the complete behavior/personal-care exit gate passes.
         // The model migration is additive and remains safe to ship while the
         // surfaces themselves are disabled.
@@ -638,6 +647,26 @@ public enum V2FeatureFlags {
                 forKey: "feature.task_list.widgets"
             )
         }
+    }
+
+    /// Kill switch for universal intent routing. When off, all composer
+    /// submissions go to EVA conversation (pre-existing behavior).
+    public static var universalInputRoutingEnabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.universal_input.routing_v1", argument: "UNIVERSAL_INPUT_ROUTING") }
+        set { setStagedFeature(newValue, key: "feature.universal_input.routing_v1") }
+    }
+
+    /// Kill switch for live composer dictation. When off, the microphone
+    /// button opens the Journal audio-attachment flow (pre-existing behavior).
+    public static var universalInputDictationEnabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.universal_input.dictation_v1", argument: "UNIVERSAL_INPUT_DICTATION") }
+        set { setStagedFeature(newValue, key: "feature.universal_input.dictation_v1") }
+    }
+
+    /// Gate for Foundation Models semantic classifier in the intent pipeline.
+    public static var universalInputSemanticClassifierEnabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.universal_input.semantic_v1", argument: "UNIVERSAL_INPUT_SEMANTIC") }
+        set { setStagedFeature(newValue, key: "feature.universal_input.semantic_v1") }
     }
 
     public static var interactiveTaskWidgetsEnabled: Bool {

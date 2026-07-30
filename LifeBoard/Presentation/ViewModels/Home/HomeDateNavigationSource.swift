@@ -21,4 +21,6 @@ public enum HomeDateNavigationSource: String {
     case backToToday
     case replan
     case dailyReflection
+    /// Triggered by the universal input composer (e.g. "check my meetings").
+    case universalInput
 }

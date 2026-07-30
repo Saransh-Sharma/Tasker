@@ -16,7 +16,7 @@ import Foundation
 /// Every field is a *proposal*. The caller is expected to render each one as a
 /// correctable chip and commit nothing the user has not seen — see
 /// `InboxStore.proposal(for:)`, which is the only production reader.
-public struct ParsedCapture: Equatable, Sendable {
+public struct ParsedCapture: Codable, Equatable, Hashable, Sendable {
     /// The title with any recognized tokens removed and whitespace collapsed.
     public let cleanTitle: String
     /// The resolved due date, if a date or time phrase was recognized.

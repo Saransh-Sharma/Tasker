@@ -155,6 +155,18 @@ extension HomeViewModel {
         needsReplanCandidates.filter { $0.kind != .unscheduledBacklog }
     }
 
+    /// Today's "needs replan" candidates promoted to a `TaskDefinition`
+    /// dictionary for the modified-overdue-rescue-like Day-Rescue deck
+    /// (`Origin.universalInputDayRescue`). Mirrors `evaRescueTasksByID`
+    /// (the overdue pool) in shape so `OverdueRescuePresentationHost`
+    /// can swap task sources purely on `launchContext.origin`.
+    var dayRescueTasksByID: [UUID: TaskDefinition] {
+        Dictionary(
+            dayCompassReplanCandidates.map { ($0.task.id, $0.task) },
+            uniquingKeysWith: { first, _ in first }
+        )
+    }
+
     var dayCompassInboxCandidates: [HomeReplanCandidate] {
         needsReplanCandidates.filter { $0.kind == .unscheduledBacklog }
     }
