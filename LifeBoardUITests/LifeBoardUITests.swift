@@ -664,6 +664,13 @@ class LifeBoardUITests: XCTestCase {
         app.launchArguments = [
             "-RESET_APP_STATE",
             "-UI_TESTING",
+            // Deliberately NOT `-DISABLE_ANIMATIONS`. That calls
+            // `UIView.setAnimationsEnabled(false)`, which also disables the UIKit
+            // animation machinery XCUITest's `swipeUp()` drives — six tests here
+            // fail their "reachable by scrolling" assertions with it set.
+            // `LifeBoardAnimation.areProcessAnimationsDisabled` already treats
+            // `-UI_TESTING` as animations-off, so token-routed motion and the
+            // zoom route transition are suppressed without it.
             "-SKIP_ONBOARDING",
             "-DISABLE_CLOUD_SYNC",
             "-LIFEBOARD_ENABLE_LIFE_OS_FOUNDATION",

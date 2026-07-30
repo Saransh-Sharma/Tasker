@@ -117,34 +117,25 @@ private enum PlanScheduledEntry: Identifiable {
 ///
 /// A flick has to commit to an axis. Diagonals resolve to nothing rather than
 /// guessing, because picking wrong here mutates the plan.
+/// The physics now live in `LifeBoardDeckPhysics` so the Inbox triage deck feels
+/// identical to this one. This remains the Plan-facing name — it is what the
+/// repair-deck tests and call sites spell — but it owns no behaviour of its own.
 enum PlanRepairDeckDragResolver {
-    static let threshold: CGFloat = 96
-    static let minimumIntent: CGFloat = 24
-    /// How far the dominant axis must beat the other before the flick counts as
-    /// pointing that way at all.
-    static let dominance: CGFloat = 1.15
+    static let threshold = LifeBoardDeckPhysics.threshold
+    static let minimumIntent = LifeBoardDeckPhysics.minimumIntent
+    static let dominance = LifeBoardDeckPhysics.dominance
 
     /// Declaration order is the slot order actions are assigned to.
-    enum Direction: CaseIterable, Hashable {
-        case right, left, up, down
-    }
+    typealias Direction = LifeBoardDeckDirection
 
     static func direction(
         translation: CGSize,
         predictedEndTranslation: CGSize
     ) -> Direction? {
-        guard max(abs(translation.width), abs(translation.height)) >= minimumIntent else { return nil }
-        let dx = predictedEndTranslation.width
-        let dy = predictedEndTranslation.height
-        if abs(dx) > abs(dy) * dominance {
-            guard abs(dx) >= threshold else { return nil }
-            return dx > 0 ? .right : .left
-        }
-        if abs(dy) > abs(dx) * dominance {
-            guard abs(dy) >= threshold else { return nil }
-            return dy > 0 ? .down : .up
-        }
-        return nil
+        LifeBoardDeckPhysics.direction(
+            translation: translation,
+            predictedEndTranslation: predictedEndTranslation
+        )
     }
 
     /// The action a direction carries, or nil when the proposal offers fewer
@@ -153,9 +144,7 @@ enum PlanRepairDeckDragResolver {
         for direction: Direction,
         candidates: [PlanRepairAction]
     ) -> PlanRepairAction? {
-        guard let slot = Direction.allCases.firstIndex(of: direction),
-              slot < candidates.count else { return nil }
-        return candidates[slot]
+        LifeBoardDeckPhysics.action(for: direction, candidates: candidates)
     }
 
     static func action(
@@ -163,22 +152,16 @@ enum PlanRepairDeckDragResolver {
         predictedEndTranslation: CGSize,
         candidates: [PlanRepairAction]
     ) -> PlanRepairAction? {
-        guard candidates.isEmpty == false,
-              let direction = direction(
-                  translation: translation,
-                  predictedEndTranslation: predictedEndTranslation
-              ) else { return nil }
-        return action(for: direction, candidates: candidates)
+        LifeBoardDeckPhysics.action(
+            translation: translation,
+            predictedEndTranslation: predictedEndTranslation,
+            candidates: candidates
+        )
     }
 
     /// Where a committed card leaves the screen.
-    static func exitOffset(for direction: Direction, distance: CGFloat = 420) -> CGSize {
-        switch direction {
-        case .right: CGSize(width: distance, height: 0)
-        case .left: CGSize(width: -distance, height: 0)
-        case .up: CGSize(width: 0, height: -distance)
-        case .down: CGSize(width: 0, height: distance)
-        }
+    static func exitOffset(for direction: Direction, distance: CGFloat = LifeBoardDeckPhysics.exitDistance) -> CGSize {
+        direction.exitOffset(distance: distance)
     }
 }
 
@@ -2407,19 +2390,27 @@ struct LifeBoardPlanRootView: View {
                     PlanRepairDeckDragResolver.action(for: $0, candidates: candidates)
                 }
                 repairSnapAction = nil
+                let animationsOff = LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion)
                 guard let action, let direction else {
-                    withAnimation(reduceMotion ? nil : LifeBoardAnimation.directManipulation) {
+                    withAnimation(LifeBoardMotionProfile.directManipulation.animation(reduceMotion: reduceMotion)) {
                         repairDragOffset = .zero
                     }
                     return
                 }
                 LifeBoardFeedback.medium()
-                withAnimation(reduceMotion ? nil : LifeBoardAnimation.panelOut) {
+                guard animationsOff == false else {
+                    repairDragOffset = .zero
+                    performRepairAction(action, proposal: proposal)
+                    return
+                }
+                withAnimation(LifeBoardAnimation.panelOut) {
                     // The card leaves the way it was thrown, so the gesture and
                     // the result read as one motion.
                     repairDragOffset = PlanRepairDeckDragResolver.exitOffset(for: direction)
-                }
-                DispatchQueue.main.asyncAfter(deadline: .now() + (reduceMotion ? 0 : 0.18)) {
+                } completion: {
+                    // Commits on the animation's real completion. This was a
+                    // hardcoded 0.18 s `asyncAfter`, which mutated the plan while
+                    // the card was still on screen whenever the device ran slow.
                     repairDragOffset = .zero
                     performRepairAction(action, proposal: proposal)
                 }

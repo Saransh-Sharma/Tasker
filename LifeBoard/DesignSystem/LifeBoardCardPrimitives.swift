@@ -494,79 +494,8 @@ public extension View {
     }
 }
 
-/// A bounded card deck for triage surfaces where the gesture really is a plain
-/// advance. Adapted from the sample project's shuffle concept, but held to
-/// three visible cards and a 3° tilt, and every gesture has a visible button
-/// equivalent supplied by the caller.
-public struct LifeBoardDeckStack<Item: Identifiable, Content: View>: View {
-    private let items: [Item]
-    private let onAdvance: (Item) -> Void
-    private let content: (Item, Bool) -> Content
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var dragTranslation: CGSize = .zero
-
-    private static var visibleDepth: Int { 3 }
-    private static var dismissThreshold: CGFloat { 96 }
-
-    public init(
-        items: [Item],
-        onAdvance: @escaping (Item) -> Void,
-        @ViewBuilder content: @escaping (Item, Bool) -> Content
-    ) {
-        self.items = items
-        self.onAdvance = onAdvance
-        self.content = content
-    }
-
-    public var body: some View {
-        ZStack {
-            ForEach(Array(visibleItems.enumerated().reversed()), id: \.element.id) { index, item in
-                let isTop = index == 0
-                content(item, isTop)
-                    .scaleEffect(1 - (CGFloat(index) * 0.04))
-                    .offset(y: CGFloat(index) * 8)
-                    .rotationEffect(.degrees(isTop ? tiltDegrees : 0))
-                    .offset(x: isTop ? dragTranslation.width : 0)
-                    .opacity(index < Self.visibleDepth ? 1 : 0)
-                    .zIndex(Double(Self.visibleDepth - index))
-                    .allowsHitTesting(isTop)
-                    .gesture(isTop ? dragGesture(for: item) : nil)
-            }
-        }
-        .animation(
-            reduceMotion ? .easeInOut(duration: 0.18) : .spring(response: 0.4, dampingFraction: 0.82),
-            value: items.map(\.id.hashValue)
-        )
-    }
-
-    private var visibleItems: [Item] {
-        Array(items.prefix(Self.visibleDepth))
-    }
-
-    /// Tilt tracks the drag but is clamped, so a fast flick can never spin the
-    /// card into an unreadable angle.
-    private var tiltDegrees: Double {
-        guard reduceMotion == false else { return 0 }
-        return Double(max(-3, min(3, dragTranslation.width / 34)))
-    }
-
-    private func dragGesture(for item: Item) -> some Gesture {
-        DragGesture(minimumDistance: 12)
-            .onChanged { value in
-                dragTranslation = value.translation
-            }
-            .onEnded { value in
-                // Project where the flick would land rather than reading raw
-                // displacement, so a short fast swipe still commits.
-                let projected = value.translation.width + value.predictedEndTranslation.width * 0.35
-                if abs(projected) > Self.dismissThreshold {
-                    LifeBoardFeedback.light()
-                    onAdvance(item)
-                }
-                withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) {
-                    dragTranslation = .zero
-                }
-            }
-    }
-}
+/// A plain-advance deck is now the degenerate case of
+/// `LifeBoardDirectionalDeck` (a single candidate action fills the `right`
+/// slot), so `LifeBoardDeckStack` was removed rather than left as a second deck
+/// idiom with its own hardcoded springs and horizontal-only gesture. It had no
+/// call sites. See `LifeBoard/DesignSystem/LifeBoardDirectionalDeck.swift`.

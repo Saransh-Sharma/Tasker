@@ -268,7 +268,12 @@ private struct LifeBoardZoomDestinationModifier: ViewModifier {
 
     @ViewBuilder
     func body(content: Content) -> some View {
-        if let namespace, reduceMotion == false, ProcessInfo.processInfo.isMacCatalystApp == false {
+        // Gated on `animationsDisabled` rather than `reduceMotion` alone: a zoom
+        // route is a real 380-500 ms window, and the Foundation UI suite used to
+        // pay it on every push because `-UI_TESTING` does not imply Reduce Motion.
+        if let namespace,
+           LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false,
+           ProcessInfo.processInfo.isMacCatalystApp == false {
             content.navigationTransition(.zoom(sourceID: sourceID, in: namespace))
         } else {
             content

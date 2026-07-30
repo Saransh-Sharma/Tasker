@@ -79,6 +79,38 @@ public extension LifeBoardMotionProfile {
     }
 }
 
+/// Reads Reduce Motion for the caller and resolves it through the semantic role
+/// table, so a feature never spells the accessibility check itself.
+///
+/// Feature code had been writing `reduceMotion ? nil : LifeBoardAnimation.x`
+/// inline. That honours Reduce Motion but not `-UI_TESTING` or
+/// `-DISABLE_ANIMATIONS`, so those animations still ran during UI tests and
+/// charged every assertion their settle time. Routing through
+/// `LifeBoardMotionProfile.animation(reduceMotion:)` picks up
+/// `LifeBoardAnimation.animationsDisabled` for free.
+private struct LifeBoardMotionRoleModifier<Value: Equatable>: ViewModifier {
+    let profile: LifeBoardMotionProfile
+    let value: Value
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func body(content: Content) -> some View {
+        content.animation(profile.animation(reduceMotion: reduceMotion), value: value)
+    }
+}
+
+public extension View {
+    /// Animates changes to `value` with the curve for a semantic motion role.
+    ///
+    /// Prefer this over `.animation(_:value:)` in feature code: it is the only
+    /// form that resolves accessibility *and* process animation flags centrally.
+    func lifeBoardMotion<Value: Equatable>(
+        _ profile: LifeBoardMotionProfile,
+        value: Value
+    ) -> some View {
+        modifier(LifeBoardMotionRoleModifier(profile: profile, value: value))
+    }
+}
+
 public struct AsyncActionFailure: Error, Equatable, Sendable {
     public enum Recovery: String, Equatable, Sendable { case retry, edit, discard, reopen }
 
