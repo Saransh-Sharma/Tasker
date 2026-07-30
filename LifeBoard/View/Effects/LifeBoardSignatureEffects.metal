@@ -393,6 +393,34 @@ namespace LifeBoardSignature {
     return currentColor * half(visibility);
 }
 
+// triageSettle: a short directional ember beneath the Inbox card deck after a
+// decision lands. It paints only a narrow travelling streak, then returns to a
+// transparent, static plane. Direction is +1 for file/review and -1 for skip.
+[[ stitchable ]] half4 LifeBoardTriageSettle(
+    float2 position,
+    half4 currentColor,
+    float2 size,
+    float progress,
+    float direction,
+    float3 tint
+) {
+    if (size.x <= 0.0 || size.y <= 0.0 || progress <= 0.001 || progress >= 0.999) {
+        return currentColor;
+    }
+
+    float2 uv = position / size;
+    float travel = direction >= 0.0 ? progress : 1.0 - progress;
+    float distance = abs(uv.x - travel);
+    float streak = 1.0 - smoothstep(0.0, 0.22, distance);
+    float vertical = 1.0 - smoothstep(0.05, 0.72, abs(uv.y - 0.52));
+    float envelope = sin(progress * M_PI_F);
+    float texture = 0.82 + 0.18 * LifeBoardSignature::hash21(floor(position * 0.28));
+    float energy = streak * vertical * envelope * texture;
+    half alpha = max(currentColor.a, half(energy * 0.26));
+    half3 lit = currentColor.rgb + half3(tint) * half(energy * 0.52);
+    return half4(min(lit, half3(1.0)), alpha);
+}
+
 // liquidGlassRefract: the selected dock/composer well bending the content
 // beneath it. A shallow lens centred on the well, falling off to zero well
 // inside its own bounds so neighbouring targets never smear. Displacement is

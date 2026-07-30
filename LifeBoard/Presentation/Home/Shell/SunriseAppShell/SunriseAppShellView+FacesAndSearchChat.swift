@@ -286,9 +286,8 @@ extension SunriseAppShellView {
         .accessibilityIdentifier("search.view")
     }
 
-    @ViewBuilder
     func sunriseChatFace() -> some View {
-        if let container = LLMDataController.shared {
+        LLMStoreContainerHost { container in
             let chatContent = ChatContainerView(
                 promptFocusRequestID: faceCoordinator.chatPromptFocusRequestID,
                 onNavigationChromeChange: { state in
@@ -316,19 +315,19 @@ extension SunriseAppShellView {
             .modelContainer(container)
 
             if layoutMetrics.keyboardOverlapHeight > 0.5 {
-                chatContent
+                return AnyView(chatContent
                     .safeAreaInset(edge: .bottom, spacing: 0) {
                         Color.clear
                             .frame(height: layoutMetrics.chatComposerBottomInset)
                             .allowsHitTesting(false)
                             .accessibilityHidden(true)
                     }
+                )
             } else {
-                chatContent
+                return AnyView(chatContent
                     .padding(.bottom, layoutMetrics.chatComposerBottomInset + spacing.s16)
+                )
             }
-        } else {
-            LLMStoreUnavailableView()
         }
     }
 

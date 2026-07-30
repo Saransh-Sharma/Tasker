@@ -445,6 +445,36 @@ public enum LifeBoardPerformanceTrace {
     }
 }
 
+/// Measures the complete user-visible Eva navigation, beginning before the
+/// selected root changes and ending only when Eva has usable content.
+///
+/// This sits above `ChatOpenToFirstTranscriptRender`: the chat-local interval
+/// begins after SwiftUI has already constructed the activation hierarchy and
+/// therefore cannot detect metadata stalls during the tab switch itself.
+@MainActor
+enum EvaNavigationPerformanceTrace {
+    private static var openInterval: LifeBoardPerformanceInterval?
+
+    static func begin() {
+        cancel(reason: "superseded")
+        openInterval = LifeBoardPerformanceTrace.begin("EvaTabOpenToInteractive")
+    }
+
+    static func markInteractive() {
+        guard let openInterval else { return }
+        LifeBoardPerformanceTrace.end(openInterval)
+        self.openInterval = nil
+        LifeBoardPerformanceTrace.event("EvaTabInteractive")
+    }
+
+    static func cancel(reason: StaticString = "navigation_cancelled") {
+        guard let openInterval else { return }
+        LifeBoardPerformanceTrace.end(openInterval)
+        self.openInterval = nil
+        LifeBoardPerformanceTrace.event(reason)
+    }
+}
+
 /// Stable, content-free instrumentation for the Life OS orchestration paths.
 /// Callers may attach counts, but never titles, notes, transcripts, prompts, or
 /// other user-authored values. This keeps Instruments useful without making

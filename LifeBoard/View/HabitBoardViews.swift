@@ -547,7 +547,7 @@ struct HabitBoardScreen: View {
                     .transition(reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 0.92)))
             }
         }
-        .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: mode)
+        .lifeBoardMotion(.selection, value: mode)
     }
 
     @ViewBuilder
@@ -1740,9 +1740,7 @@ private struct HabitBoardModeSelector: View {
                 Button {
                     guard candidate != mode else { return }
                     HabitBoardHaptics.selection()
-                    withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.roleLocalState) {
-                        mode = candidate
-                    }
+                    mode = candidate
                 } label: {
                     HStack(spacing: 5) {
                         Image(systemName: candidate.symbolName)
@@ -1767,6 +1765,7 @@ private struct HabitBoardModeSelector: View {
                 .accessibilityLabel(candidate.title)
                 .accessibilityValue(isSelected ? "Selected" : "")
                 .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+                .accessibilityIdentifier("habitBoard.lens.\(candidate.rawValue)")
             }
         }
         .padding(3)
@@ -2121,6 +2120,8 @@ private struct HabitGraphGrid: View {
 
     private let cellSize: CGFloat = 11
     private let cellSpacing: CGFloat = 2.5
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var revealProgress = 0.0
 
     private var columns: [[HabitBoardCell?]] { Self.buildColumns(from: cells) }
 
@@ -2149,7 +2150,21 @@ private struct HabitGraphGrid: View {
             }
         }
         .defaultScrollAnchor(.trailing)
+        .lifeboardChartRevealSweep(progress: revealProgress)
+        .onAppear { reveal() }
+        .onChange(of: cells.count) { _, _ in reveal() }
         .accessibilityHidden(true)
+    }
+
+    private func reveal() {
+        guard reduceMotion == false else {
+            revealProgress = 1
+            return
+        }
+        revealProgress = 0
+        withAnimation(.easeOut(duration: 0.58)) {
+            revealProgress = 1
+        }
     }
 
     private var monthLabels: some View {

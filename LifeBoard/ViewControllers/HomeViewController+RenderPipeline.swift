@@ -579,28 +579,26 @@ extension HomeViewController {
     }
 
     func makeChatInspectorRoot(layoutClass: LifeBoardLayoutClass) -> AnyView {
-        guard let container = LLMDataController.shared else {
-            return AnyView(
-                LLMStoreUnavailableView()
-                    .lifeboardLayoutClass(layoutClass)
-            )
-        }
-
+        let chatAppManager = homeChatAppManager
         return AnyView(
-            ChatContainerView(
-                onOpenTaskDetail: { [weak self] task in
-                    self?.handleTaskTap(task)
-                },
-                onPerformDayTaskAction: { [weak self] action, card, completion in
-                    self?.performEmbeddedChatDayTaskAction(action, card: card, completion: completion)
-                },
-                onPerformDayHabitAction: { [weak self] action, card, completion in
-                    self?.performEmbeddedChatDayHabitAction(action, card: card, completion: completion)
-                }
-            )
-            .environmentObject(homeChatAppManager)
-            .environment(LLMRuntimeCoordinator.shared.evaluator)
-            .modelContainer(container)
+            LLMStoreContainerHost { [weak self] container in
+                AnyView(
+                    ChatContainerView(
+                        onOpenTaskDetail: { [weak self] task in
+                            self?.handleTaskTap(task)
+                        },
+                        onPerformDayTaskAction: { [weak self] action, card, completion in
+                            self?.performEmbeddedChatDayTaskAction(action, card: card, completion: completion)
+                        },
+                        onPerformDayHabitAction: { [weak self] action, card, completion in
+                            self?.performEmbeddedChatDayHabitAction(action, card: card, completion: completion)
+                        }
+                    )
+                    .environmentObject(chatAppManager)
+                    .environment(LLMRuntimeCoordinator.shared.evaluator)
+                    .modelContainer(container)
+                )
+            }
             .lifeboardLayoutClass(layoutClass)
         )
     }

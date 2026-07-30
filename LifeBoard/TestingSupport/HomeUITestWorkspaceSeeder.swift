@@ -1239,7 +1239,7 @@ final class HomeUITestWorkspaceSeeder {
                     payload: reflectionPayload
                 )
 
-                try seedAppStoreScreenshotEvaThread(referenceDate: now)
+                try await seedAppStoreScreenshotEvaThread(referenceDate: now)
                 UserDefaults.standard.set(
                     [partnerBriefID.uuidString, pricingNotesID.uuidString, handoffID.uuidString],
                     forKey: "home.focus.pinnedTaskIDs.v2"
@@ -1337,8 +1337,8 @@ final class HomeUITestWorkspaceSeeder {
         }
     }
 
-    private func seedAppStoreScreenshotEvaThread(referenceDate: Date) throws {
-        guard let container = LLMDataController.shared else {
+    private func seedAppStoreScreenshotEvaThread(referenceDate: Date) async throws {
+        guard let container = await LLMDataController.load() else {
             throw NSError(
                 domain: "AppStoreScreenshotSeed",
                 code: 1,
