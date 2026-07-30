@@ -1594,7 +1594,12 @@ struct LifeBoardAdaptiveHome: View {
         palette: LifeBoardDaypartPalette,
         ambientPalette: LifeBoardDaypartPalette
     ) -> some View {
-        if supportingPlacements.isEmpty == false || store.isCustomizing {
+        // Rendered even with nothing in it. This section used to appear only once
+        // `supportingPlacements` was non-empty or customization was already
+        // running, which made customization unreachable: the only control that
+        // starts it lives here, and the only way to get a placement is to start it.
+        // A fresh Home therefore had no route into "Add a widget" at all.
+        Group {
             HStack(alignment: .center, spacing: 8) {
                 homeSectionHeading(
                     store.isCustomizing ? "Your space · drag to arrange" : "Your space",
@@ -1603,9 +1608,11 @@ struct LifeBoardAdaptiveHome: View {
                 if store.isCustomizing {
                     Button("Cancel") { store.cancelCustomization() }
                         .frame(minHeight: 44)
+                        .fixedSize()
                     Button("Done") { Task { await store.saveCustomization() } }
                         .fontWeight(.semibold)
                         .frame(minHeight: 44)
+                        .fixedSize()
                 } else {
                     // Layout undo was implemented in the store but its only
                     // button lived in the never-called adaptive header, so a
@@ -1616,6 +1623,7 @@ struct LifeBoardAdaptiveHome: View {
                         }
                         .font(.subheadline.weight(.semibold))
                         .frame(minHeight: 44)
+                        .fixedSize()
                         .accessibilityHint("Restores the previous Home arrangement")
                         .accessibilityIdentifier("home.layoutUndo")
                     }
@@ -1625,23 +1633,39 @@ struct LifeBoardAdaptiveHome: View {
                         } label: {
                             Image(systemName: "slider.horizontal.3")
                                 .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
+                        // `homeSectionHeading` ends in a greedy `Spacer`, which
+                        // compressed this control to 17 x 14 points — well under the
+                        // 44-point minimum, and small enough that the hit test
+                        // missed it entirely.
+                        .fixedSize()
                         .accessibilityLabel("Customize Home")
                         .accessibilityIdentifier("home.customize")
                     }
                 }
             }
 
-            DashboardFlowLayout(
-                isRegular: horizontalSizeClass == .regular,
-                usesSingleColumn: dynamicTypeSize.isAccessibilitySize
-            ) {
-                ForEach(supportingPlacements) { placement in
-                    dashboardWidget(for: placement, daypart: daypart, palette: palette)
-                        .dashboardPreset(effectivePreset(for: placement.semanticSize))
-                        .accessibilityValue(placement.ownership.accessibilityDescription)
-                        .lifeBoardScrollEntrance(intensity: store.isCustomizing ? 0 : 1)
+            if supportingPlacements.isEmpty, store.isCustomizing == false {
+                // Empty is a success state here, so this says what the space is
+                // for and points at the one control that fills it.
+                Text("Room for the widgets you choose.")
+                    .font(.subheadline)
+                    .foregroundStyle(ambientPalette.color(for: .foregroundSecondary))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .accessibilityIdentifier("home.userSpace.empty")
+            } else {
+                DashboardFlowLayout(
+                    isRegular: horizontalSizeClass == .regular,
+                    usesSingleColumn: dynamicTypeSize.isAccessibilitySize
+                ) {
+                    ForEach(supportingPlacements) { placement in
+                        dashboardWidget(for: placement, daypart: daypart, palette: palette)
+                            .dashboardPreset(effectivePreset(for: placement.semanticSize))
+                            .accessibilityValue(placement.ownership.accessibilityDescription)
+                            .lifeBoardScrollEntrance(intensity: store.isCustomizing ? 0 : 1)
+                    }
                 }
             }
         }
@@ -3041,7 +3065,61 @@ private struct DashboardFlowLayout: Layout {
                 columnHeights[column] = nextHeight
             }
         }
-        return (result, max(0, (columnHeights.max() ?? 0) - spacing))
+
+        widenRowsWithNoNeighbour(&result, subviews: subviews, fullWidth: width)
+
+        return (result, max(0, result.map(\.maxY).max() ?? 0))
+    }
+
+    /// Gives a card the full content width when nothing sits beside it.
+    ///
+    /// Spans are declared against the semantic grid, so a two-column card in a
+    /// section that only ever contains one card rendered at half width with the
+    /// other half left empty — Home's "Today" section did exactly that, squeezing
+    /// three-word task titles onto two lines each while the space next to them
+    /// stayed blank. The same happened to a trailing odd card in a longer section.
+    ///
+    /// A card alone in its vertical band is safe to widen: because nothing overlaps
+    /// that band, re-measuring only changes its own height, so everything below it
+    /// shifts by that delta and no repacking is needed. Subview order is untouched,
+    /// which matters because the Home hierarchy test walks widgets top to bottom
+    /// and cannot scroll back.
+    private func widenRowsWithNoNeighbour(
+        _ frames: inout [CGRect],
+        subviews: Subviews,
+        fullWidth: CGFloat
+    ) {
+        let tolerance: CGFloat = 0.5
+        for index in frames.indices {
+            let original = frames[index]
+            guard original.width < fullWidth - tolerance else { continue }
+            let hasNeighbour = frames.indices.contains { other in
+                guard other != index else { return false }
+                let candidate = frames[other]
+                let entirelyBelow = candidate.minY >= original.maxY - tolerance
+                let entirelyAbove = candidate.maxY <= original.minY + tolerance
+                return entirelyBelow == false && entirelyAbove == false
+            }
+            guard hasNeighbour == false else { continue }
+
+            let measured = subviews[index].sizeThatFits(
+                ProposedViewSize(width: fullWidth, height: nil)
+            )
+            frames[index] = CGRect(
+                x: 0,
+                y: original.minY,
+                width: fullWidth,
+                height: measured.height
+            )
+
+            let delta = measured.height - original.height
+            guard abs(delta) > tolerance else { continue }
+            for other in frames.indices where other != index {
+                if frames[other].minY >= original.maxY - tolerance {
+                    frames[other].origin.y += delta
+                }
+            }
+        }
     }
 }
 
