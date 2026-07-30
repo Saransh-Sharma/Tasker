@@ -82,6 +82,87 @@ public struct LifeBoardNumericRoll: View {
     }
 }
 
+// MARK: - Focus dial
+
+enum LifeBoardFocusDialMetrics {
+    static func elapsedFraction(
+        totalDuration: TimeInterval?,
+        remainingDuration: TimeInterval?
+    ) -> Double? {
+        guard let totalDuration, let remainingDuration, totalDuration > 0 else { return nil }
+        return min(1, max(0, 1 - (remainingDuration / totalDuration)))
+    }
+}
+
+/// A presentation-only focus dial. Timer ownership stays with the Focus domain;
+/// this view only turns a supplied progress value into one calm, interruptible arc.
+public struct LifeBoardFocusDial<Content: View>: View {
+    private let progress: Double?
+    private let isPaused: Bool
+    private let accessibilityValue: String
+    private let content: Content
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    public init(
+        progress: Double?,
+        isPaused: Bool,
+        accessibilityValue: String,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.progress = progress.map { min(1, max(0, $0)) }
+        self.isPaused = isPaused
+        self.accessibilityValue = accessibilityValue
+        self.content = content()
+    }
+
+    public var body: some View {
+        ZStack {
+            Circle()
+                .stroke(
+                    Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                    style: StrokeStyle(lineWidth: 11)
+                )
+
+            if let progress {
+                Circle()
+                    .trim(from: 0, to: max(0.018, progress))
+                    .stroke(
+                        isPaused
+                            ? Color(LifeBoardColorTokens.foundationSageAccent)
+                            : Color(LifeBoardColorTokens.foundationApricotAccent),
+                        style: StrokeStyle(lineWidth: 11, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+                    .shadow(
+                        color: Color(LifeBoardColorTokens.foundationApricotAccent)
+                            .opacity(isPaused ? 0 : 0.2),
+                        radius: 8
+                    )
+                    .animation(
+                        reduceMotion ? nil : .spring(response: 0.48, dampingFraction: 0.9),
+                        value: progress
+                    )
+            } else {
+                Circle()
+                    .trim(from: 0, to: 0.72)
+                    .stroke(
+                        Color(LifeBoardColorTokens.foundationSageAccent),
+                        style: StrokeStyle(lineWidth: 11, lineCap: .round)
+                    )
+                    .rotationEffect(.degrees(-90))
+            }
+
+            content
+                .padding(26)
+        }
+        .aspectRatio(1, contentMode: .fit)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Focus timer")
+        .accessibilityValue(accessibilityValue)
+    }
+}
+
 /// Change against the comparison window. Never colour alone — the arrow and the
 /// spoken label both carry the direction.
 public struct LifeBoardTrendBadge: View {

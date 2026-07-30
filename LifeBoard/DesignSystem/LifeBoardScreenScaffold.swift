@@ -94,6 +94,7 @@ public struct LifeBoardRootHeader: View {
     public let usesInverseInk: Bool
     public let onCapture: () -> Void
     public let secondaryActions: AnyView?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     public init(
         model: LifeBoardRootHeaderModel,
@@ -122,21 +123,34 @@ public struct LifeBoardRootHeader: View {
     }
 
     public var body: some View {
-        HStack(alignment: .center, spacing: 14) {
+        let usesAccessibilityLayout = dynamicTypeSize.isAccessibilitySize
+        let layout = usesAccessibilityLayout
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 10))
+            : AnyLayout(HStackLayout(alignment: .center, spacing: 14))
+
+        layout {
             VStack(alignment: .leading, spacing: 3) {
                 Text(model.title)
-                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .font(.system(
+                        usesAccessibilityLayout ? .title3 : .title2,
+                        design: .rounded,
+                        weight: .bold
+                    ))
                     .foregroundStyle(primaryInk)
-                    .lineLimit(1)
+                    .lineLimit(usesAccessibilityLayout ? 2 : 1)
+                    .fixedSize(horizontal: false, vertical: true)
                     .modifier(LifeBoardOptionalKineticGreeting(isEnabled: model.titleRespondsToTouch))
                 if let context = model.context {
                     Text(context)
-                        .font(.subheadline)
+                        .font(usesAccessibilityLayout ? .body : .subheadline)
                         .foregroundStyle(secondaryInk)
-                        .lineLimit(2)
+                        .lineLimit(usesAccessibilityLayout ? nil : 2)
+                        .fixedSize(horizontal: false, vertical: true)
                 }
             }
-            Spacer(minLength: 8)
+            if usesAccessibilityLayout == false {
+                Spacer(minLength: 8)
+            }
             GlassEffectContainer(spacing: 8) {
                 HStack(spacing: 8) {
                     if let secondaryActions {
@@ -158,6 +172,10 @@ public struct LifeBoardRootHeader: View {
                     }
                 }
             }
+            .frame(
+                maxWidth: usesAccessibilityLayout ? .infinity : nil,
+                alignment: .trailing
+            )
         }
         .frame(minHeight: 52)
         .accessibilityElement(children: .contain)

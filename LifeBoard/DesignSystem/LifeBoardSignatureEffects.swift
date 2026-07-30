@@ -338,7 +338,7 @@ public enum LifeBoardSignatureShaders {
     public private(set) static var preloadState: PreloadState = .idle
     private static var preloadTask: Task<Void, Never>?
 
-    private static let functionNames = [
+    public static let functionNames = [
         "LifeBoardDaypartBloom",
         "LifeBoardEvaInkReveal",
         "LifeBoardJournalMediaReveal",
@@ -354,7 +354,8 @@ public enum LifeBoardSignatureShaders {
         "LifeBoardLiquidGlassRefract",
         "LifeBoardCardMorphWarp",
         "LifeBoardPaperGrain",
-        "LifeBoardDissolveAway"
+        "LifeBoardDissolveAway",
+        "LifeBoardTriageSettle"
     ]
 
     /// Whether custom shaders may run at all right now (flag + energy/thermal, not accessibility —
@@ -911,6 +912,14 @@ public extension View {
         modifier(ChartRevealSweepModifierEnvironment(progress: progress))
     }
 
+    /// A one-shot directional warmth beneath the Inbox deck after a real triage
+    /// decision. Positive direction travels forward/right; negative direction
+    /// reverses for Skip. The plane is fully static outside the bounded pulse.
+    @MainActor
+    func lifeboardTriageSettle(trigger: Int, direction: Double) -> some View {
+        modifier(TriageSettleModifierEnvironment(trigger: trigger, direction: direction))
+    }
+
     /// Refracts content beneath a moving selection well. Control plane only.
     @MainActor
     func lifeboardLiquidGlassRefract(center: UnitPoint, radius: Double, strength: Double) -> some View {
@@ -934,6 +943,91 @@ public extension View {
     @MainActor
     func lifeboardDissolveAway(progress: Double, tint: Color) -> some View {
         modifier(DissolveAwayModifierEnvironment(progress: progress, tint: tint))
+    }
+}
+
+// MARK: - triageSettle
+
+private struct TriageSettleModifierEnvironment: ViewModifier {
+    let trigger: Int
+    let direction: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+
+    func body(content: Content) -> some View {
+        content.modifier(TriageSettleModifier(
+            trigger: trigger,
+            direction: direction,
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+struct TriageSettleModifier: ViewModifier {
+    let trigger: Int
+    let direction: Double
+    let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let sceneIsActive: Bool
+
+    @State private var startDate: Date?
+    private let duration: TimeInterval = 0.48
+
+    func body(content: Content) -> some View {
+        content
+            .overlay { settlePlane }
+            .onChange(of: trigger) { _, _ in
+                guard sceneIsActive else { return }
+                startDate = Date()
+            }
+    }
+
+    @ViewBuilder
+    private var settlePlane: some View {
+        if let startDate, sceneIsActive {
+            TimelineView(.animation) { context in
+                let elapsed = context.date.timeIntervalSince(startDate)
+                if elapsed <= duration {
+                    let progress = max(0, min(1, elapsed / duration))
+                    if usesFallback {
+                        Color(LifeBoardColorTokens.foundationApricotAccent)
+                            .opacity(0.16 * sin(progress * .pi))
+                    } else {
+                        GeometryReader { proxy in
+                            Color.white.opacity(0.001)
+                                .colorEffect(Shader(
+                                    function: ShaderFunction(
+                                        library: .default,
+                                        name: "LifeBoardTriageSettle"
+                                    ),
+                                    arguments: [
+                                        .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                                        .float(Float(progress)),
+                                        .float(Float(direction >= 0 ? 1 : -1)),
+                                        .float3(0.94, 0.47, 0.25)
+                                    ]
+                                ))
+                        }
+                    }
+                } else {
+                    Color.clear
+                }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private var usesFallback: Bool {
+#if targetEnvironment(macCatalyst)
+        true
+#else
+        reduceMotion || reduceTransparency
+            || LifeBoardSignatureShaders.isReadyForRendering == false
+#endif
     }
 }
 
