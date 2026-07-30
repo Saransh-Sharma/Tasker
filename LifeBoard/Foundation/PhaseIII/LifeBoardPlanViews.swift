@@ -2220,6 +2220,13 @@ struct LifeBoardPlanRootView: View {
         }
         .foundationClayCard()
         .draggable(task.id.uuidString)
+        // No `lifeBoardTransitionSource` here yet, deliberately. A zoom source is
+        // only meaningful opposite a push, and this card cannot reach the
+        // canonical task route at all: its menu offers Select, Plan for this day,
+        // Mark Must Do, Waiting, Paused, Archive, Delete and Start focus, but no
+        // Open, and the card body is not a control. `onOpenTask` is reachable only
+        // from the task-library sheet. That navigation gap has to close before a
+        // shared-element source here is anything but decorative.
         .accessibilityIdentifier("plan.task.\(task.id.uuidString)")
     }
 
