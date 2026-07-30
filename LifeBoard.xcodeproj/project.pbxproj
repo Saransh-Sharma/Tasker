@@ -543,6 +543,10 @@
 		84F7B021F3EAE4E07C455703 /* TimelineRailTypography.swift in Sources */ = {isa = PBXBuildFile; fileRef = 433D1B69B2B63A326822F611 /* TimelineRailTypography.swift */; };
 		858A4B4BBFF2BD3553D36F21 /* AssistantActionPipelineUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98955AE7E300D2E682AE486B /* AssistantActionPipelineUseCase.swift */; };
 		85B8C1EE718877179BEF4F97 /* LifeOSFoundationContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F46945F09E390576B10B72 /* LifeOSFoundationContracts.swift */; };
+		85B8C1EE718877179BEF4F98 /* UniversalInputAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F46945F09E390576B10B73 /* UniversalInputAdapters.swift */; };
+		85B8C1EE718877179BEF4F99 /* UniversalInputCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F46945F09E390576B10B74 /* UniversalInputCoordinator.swift */; };
+		85B8C1EE718877179BEF4F9A /* UniversalInputSemanticAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F46945F09E390576B10B75 /* UniversalInputSemanticAdapter.swift */; };
+		85B8C1EE718877179BEF4F9B /* UniversalDictationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F46945F09E390576B10B76 /* UniversalDictationController.swift */; };
 		863B6B92EB0A96ED4BAB5BA6 /* CoreDataGamificationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1134D09887CAA3CD8F14E808 /* CoreDataGamificationRepository.swift */; };
 		8689D743382AFB9679125174 /* AppOnboardingJourneyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030D7ED39864D654D71BF1CE /* AppOnboardingJourneyView.swift */; };
 		8693C29C9C7147AC903DA772 /* OverdueRescueSafeFixesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E8131362E7A314733E26CDF /* OverdueRescueSafeFixesView.swift */; };
@@ -2538,6 +2542,10 @@
 		F5B000000000000000000011 /* WatchJournalCaptureStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchJournalCaptureStore.swift; sourceTree = "<group>"; };
 		F5B000000000000000000012 /* WatchAudioRecorder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchAudioRecorder.swift; sourceTree = "<group>"; };
 		F5F46945F09E390576B10B72 /* LifeOSFoundationContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeOSFoundationContracts.swift; path = Foundation/LifeOSFoundationContracts.swift; sourceTree = "<group>"; };
+		F5F46945F09E390576B10B73 /* UniversalInputAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UniversalInputAdapters.swift; path = Foundation/UniversalInputAdapters.swift; sourceTree = "<group>"; };
+		F5F46945F09E390576B10B74 /* UniversalInputCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UniversalInputCoordinator.swift; path = Foundation/UniversalInputCoordinator.swift; sourceTree = "<group>"; };
+		F5F46945F09E390576B10B75 /* UniversalInputSemanticAdapter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UniversalInputSemanticAdapter.swift; path = Foundation/UniversalInputSemanticAdapter.swift; sourceTree = "<group>"; };
+		F5F46945F09E390576B10B76 /* UniversalDictationController.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UniversalDictationController.swift; path = Foundation/UniversalDictationController.swift; sourceTree = "<group>"; };
 		F63D95372962F61A5E50E9F9 /* OverdueRescueDeleteOverlay.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueDeleteOverlay.swift; sourceTree = SOURCE_ROOT; };
 		F65EA7E811D99F9A2999C0D5 /* AppOnboardingJourneyView+SetupSteps.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Onboarding/Views/AppOnboardingJourneyView+SetupSteps.swift"; sourceTree = SOURCE_ROOT; };
 		F66EEF4F24A54CD971C9612A /* OnboardingFlowModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Services/OnboardingFlowModel.swift; sourceTree = SOURCE_ROOT; };
@@ -4607,6 +4615,10 @@
 				648C2A73960F8088CA262145 /* Persistence */,
 				C2F100000000000000000010 /* PhaseII */,
 				F5F46945F09E390576B10B72 /* LifeOSFoundationContracts.swift */,
+				F5F46945F09E390576B10B73 /* UniversalInputAdapters.swift */,
+				F5F46945F09E390576B10B74 /* UniversalInputCoordinator.swift */,
+				F5F46945F09E390576B10B75 /* UniversalInputSemanticAdapter.swift */,
+				F5F46945F09E390576B10B76 /* UniversalDictationController.swift */,
 				64C9467C6266C1E4602328DB /* PhaseIII */,
 				5C9400AEFBA64276AA6DAA8C /* PhaseIV */,
 				C5F5000000000000000000A0 /* PhaseV */,
@@ -6177,6 +6189,10 @@
 				E327378D16D77A603A05C536 /* DayCompassSnoozeStore.swift in Sources */,
 				AEBA42795685AC315A19847D /* HomeViewModel+DayCompass.swift in Sources */,
 				85B8C1EE718877179BEF4F97 /* LifeOSFoundationContracts.swift in Sources */,
+				85B8C1EE718877179BEF4F98 /* UniversalInputAdapters.swift in Sources */,
+				85B8C1EE718877179BEF4F99 /* UniversalInputCoordinator.swift in Sources */,
+				85B8C1EE718877179BEF4F9A /* UniversalInputSemanticAdapter.swift in Sources */,
+				85B8C1EE718877179BEF4F9B /* UniversalDictationController.swift in Sources */,
 				567AED5F70FFD1AB3987B195 /* LifeBoardAppRouter.swift in Sources */,
 				2E06B9CFB20CCDA8329FA613 /* LifeOSFoundationShell.swift in Sources */,
 				4B940A3013BEBAB7A2D8B4FE /* LifeBoardDaypartTokens.swift in Sources */,
