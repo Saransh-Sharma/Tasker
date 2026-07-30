@@ -731,11 +731,27 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertTrue(app.textFields["plan.backlog.search"].waitForExistence(timeout: 8))
     }
 
+    /// Opens a backlog task's action menu.
+    ///
+    /// This used to tap the task element itself. The card body now opens the
+    /// canonical task route instead — tapping it would push a detail screen rather
+    /// than surface Delete — so the row's actions are reached through their own
+    /// control, which is also the only affordance that was ever a 44-point target.
     private func requestBacklogDeletion(for task: XCUIElement, in app: XCUIApplication) {
         scrollUntilHittable(task, in: app, maximumSwipes: 8)
         XCTAssertTrue(task.waitForExistence(timeout: 5))
-        XCTAssertTrue(task.isHittable)
-        task.tap()
+        // `plan.taskMenu.` rather than `plan.task.menu.`: the test's own row query
+        // matches on the `plan.task.` prefix, so a nested menu identifier would be
+        // counted as a task and break every cardinality assertion below.
+        let menuIdentifier = task.identifier.replacingOccurrences(
+            of: "plan.task.",
+            with: "plan.taskMenu."
+        )
+        let menu = app.buttons[menuIdentifier]
+        scrollUntilHittable(menu, in: app, maximumSwipes: 4)
+        XCTAssertTrue(menu.waitForExistence(timeout: 5))
+        XCTAssertTrue(menu.isHittable)
+        menu.tap()
         let deletion = app.buttons["Delete from LifeBoard"]
         XCTAssertTrue(deletion.waitForExistence(timeout: 5))
         deletion.tap()

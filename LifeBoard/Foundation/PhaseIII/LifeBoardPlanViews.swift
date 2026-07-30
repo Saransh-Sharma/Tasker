@@ -2158,18 +2158,32 @@ struct LifeBoardPlanRootView: View {
                             : Color(LifeBoardColorTokens.foundationApricotAccent)
                     )
             }
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 7) {
-                    Text(task.title).font(.body.weight(.medium)).lineLimit(2)
-                    if task.metadata.commitmentLevel == .mustDo {
-                        Text("MUST DO").font(.caption2.weight(.bold)).padding(.horizontal, 6).padding(.vertical, 3)
-                            .background(Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.22), in: Capsule())
+            // The body opens the task. It previously did nothing at all: the card
+            // was a plain `VStack`, the menu offered no Open, and `onOpenTask` was
+            // reachable only from the task-library sheet — so Plan could not reach
+            // the canonical task route despite the Stage 2 ledger claiming every
+            // row did. Being a real control is also what lets the backlog test's
+            // `app.buttons["plan.task.*"]` query resolve.
+            Button {
+                onOpenTask(task.id)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 7) {
+                        Text(task.title).font(.body.weight(.medium)).lineLimit(2)
+                        if task.metadata.commitmentLevel == .mustDo {
+                            Text("MUST DO").font(.caption2.weight(.bold)).padding(.horizontal, 6).padding(.vertical, 3)
+                                .background(Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.22), in: Capsule())
+                        }
                     }
+                    Text(taskMetadataLine(task))
+                        .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                 }
-                Text(taskMetadataLine(task))
-                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            Spacer()
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("plan.task.\(task.id.uuidString)")
+            .accessibilityHint("Opens the task")
             Menu {
                 if lens == .backlog {
                     Button(selectedTaskIDs.contains(task.id) ? "Deselect" : "Select", systemImage: selectedTaskIDs.contains(task.id) ? "checkmark.circle.fill" : "circle") {
@@ -2211,8 +2225,13 @@ struct LifeBoardPlanRootView: View {
                         subtaskID: nil
                     )
                 }
-            } label: { Image(systemName: "ellipsis.circle") }
+            } label: {
+                Image(systemName: "ellipsis.circle")
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
             .accessibilityLabel("Actions for \(task.title)")
+            .accessibilityIdentifier("plan.taskMenu.\(task.id.uuidString)")
             }
             if let suggestion = store.calibrationSuggestions[task.id] {
                 calibrationSuggestionRow(suggestion)
@@ -2220,14 +2239,10 @@ struct LifeBoardPlanRootView: View {
         }
         .foundationClayCard()
         .draggable(task.id.uuidString)
-        // No `lifeBoardTransitionSource` here yet, deliberately. A zoom source is
-        // only meaningful opposite a push, and this card cannot reach the
-        // canonical task route at all: its menu offers Select, Plan for this day,
-        // Mark Must Do, Waiting, Paused, Archive, Delete and Start focus, but no
-        // Open, and the card body is not a control. `onOpenTask` is reachable only
-        // from the task-library sheet. That navigation gap has to close before a
-        // shared-element source here is anything but decorative.
-        .accessibilityIdentifier("plan.task.\(task.id.uuidString)")
+        // Pairs with the `lifeBoardZoomDestination` already on the canonical task
+        // route, so opening a task grows out of the card you tapped rather than
+        // sliding in from the edge as an unrelated screen.
+        .lifeBoardTransitionSource("route.task.\(task.id.uuidString)")
     }
 
     private func presentFocusSetup(for block: InternalTimeBlock) {
@@ -2800,12 +2815,20 @@ struct LifeBoardPlanRootView: View {
 
     private func weekTaskRow(_ task: PlanningTaskSummary) -> some View {
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(task.title).font(.body.weight(.medium))
-                Text(task.metadata.planningDay.map(shortDayTitle) ?? "No day")
-                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            Button {
+                onOpenTask(task.id)
+            } label: {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(task.title).font(.body.weight(.medium))
+                    Text(task.metadata.planningDay.map(shortDayTitle) ?? "No day")
+                        .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
             }
-            Spacer()
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("plan.week.task.\(task.id.uuidString)")
+            .accessibilityHint("Opens the task")
             Menu {
                 Button("Move one day earlier", systemImage: "arrow.left") {
                     if let day = task.metadata.planningDay, let moved = shifted(day, by: -1) {
@@ -2820,7 +2843,13 @@ struct LifeBoardPlanRootView: View {
                 Button("Remove from week", systemImage: "tray") {
                     Task { await store.updateTask(task, planningDay: nil) }
                 }
-            } label: { Image(systemName: "arrow.left.arrow.right.circle") }
+            } label: {
+                Image(systemName: "arrow.left.arrow.right.circle")
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Move \(task.title)")
+            .accessibilityIdentifier("plan.weekTaskMenu.\(task.id.uuidString)")
         }
         .padding(.vertical, 8)
         .contentShape(Rectangle())
@@ -2836,7 +2865,7 @@ struct LifeBoardPlanRootView: View {
             moveWeekTask(task, by: 1)
             return .handled
         }
-        .accessibilityIdentifier("plan.week.task.\(task.id.uuidString)")
+        .lifeBoardTransitionSource("route.task.\(task.id.uuidString)")
     }
 
     private func moveWeekTask(_ task: PlanningTaskSummary, by offset: Int) {
