@@ -112,10 +112,6 @@ public struct LifeBoardDirectionalDeck<Item: Identifiable, Action, Card: View>: 
     @State private var exitOffset: CGSize = .zero
     @State private var committingID: Item.ID?
 
-    /// Two backing cards read as "more than one" without turning the bottom of
-    /// the card into visual noise.
-    private static var visibleDepth: Int { 3 }
-
     public init(
         items: [Item],
         candidates: @escaping (Item) -> [Action],
@@ -131,48 +127,42 @@ public struct LifeBoardDirectionalDeck<Item: Identifiable, Action, Card: View>: 
     }
 
     public var body: some View {
-        let identities: [Item.ID] = items.map(\.id)
-        return ZStack {
-            ForEach(Array(visibleItems.enumerated().reversed()), id: \.element.id) { pair in
-                cardLayer(item: pair.element, index: pair.offset)
+        ZStack {
+            if let front = items.first {
+                cardLayer(item: front)
             }
         }
-        .lifeBoardMotion(.cardReflow, value: identities)
+        .lifeBoardMotion(.cardReflow, value: items.first?.id)
     }
 
-    /// Every geometry value is hoisted into a local before the modifier chain.
-    /// Inline ternaries here put this past the Swift type-checker's budget.
-    private func cardLayer(item: Item, index: Int) -> some View {
-        let isTop: Bool = index == 0
-        let depth = CGFloat(index)
-        let scale: CGFloat = isTop ? 1 : 1 - (depth * 0.04)
-        let stackOffset: CGFloat = isTop ? 0 : depth * 8
-        let tilt: Double = isTop ? liveTilt : 0
-        let translation: CGSize = isTop ? liveOffset : .zero
-        let isLeaving: Bool = isTop && committingID == item.id
-        let remaining: Int = isTop ? items.count : 0
+    /// Only the front card is a real card.
+    ///
+    /// Rendering the next two items as live siblings looked right until the deck
+    /// held cards of different heights — a tall backing card then poked out from
+    /// behind a short front one and leaked its content. `lifeBoardDeckDepth`
+    /// already draws abstract backing shapes sized to the *front* card, which is
+    /// the only thing the stack needs to communicate, so depth comes from there
+    /// and never from a second card's geometry.
+    ///
+    /// Every geometry value is hoisted into a local before the modifier chain;
+    /// inline ternaries here put this past the Swift type-checker's budget.
+    private func cardLayer(item: Item) -> some View {
+        let isLeaving: Bool = committingID == item.id
         let voiceOver = DeckVoiceOverActions(
             pairs: availablePairs(for: item),
             label: actionLabel,
             perform: { action in commit(item: item, action: action, direction: nil) }
         )
 
-        return card(item, isTop ? armedDirection : nil)
-            .lifeBoardDeckDepth(remaining: remaining)
-            .scaleEffect(scale)
-            .offset(y: stackOffset)
-            .rotationEffect(.degrees(tilt))
-            .offset(translation)
+        return card(item, armedDirection)
+            .lifeBoardDeckDepth(remaining: items.count)
+            .rotationEffect(.degrees(liveTilt))
+            .offset(liveOffset)
             .opacity(isLeaving ? 0 : 1)
-            .zIndex(Double(Self.visibleDepth - index))
-            .allowsHitTesting(isTop)
-            .gesture(isTop ? dragGesture(for: item) : nil)
+            .gesture(dragGesture(for: item))
             .accessibilityElement(children: .contain)
             .modifier(voiceOver)
-    }
-
-    private var visibleItems: [Item] {
-        Array(items.prefix(Self.visibleDepth))
+            .transition(.opacity)
     }
 
     /// Reduce Motion keeps the card square and still under the finger: the

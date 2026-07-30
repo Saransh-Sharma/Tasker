@@ -314,34 +314,62 @@ struct LifeBoardInboxView: View {
     var onReviewCapture: ((InboxItem) -> Void)?
     @State private var selection: Set<UUID> = []
     @State private var filingItem: InboxItem?
+    /// Captures the user chose to come back to, in the order they were skipped.
+    /// Local presentation only — skipping is explicitly not a mutation, so a
+    /// capture is never altered just because it was not the one you wanted next.
+    @State private var skipped: [UUID] = []
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Which way a flick can send the front capture.
+    ///
+    /// Only two, because only two honest decisions exist here. A capture is not a
+    /// task yet, so there is no disposition to set: `InboxStore` offers
+    /// `fileCapture`, `mergeCapture` and `discardCapture` and nothing else.
+    /// Someday and Reference would have to commit the capture first, which is
+    /// exactly the silent commit this screen exists to prevent.
+    private enum CaptureFlick {
+        case file
+        case skip
+
+        var label: String {
+            switch self {
+            case .file: "File it"
+            case .skip: "Skip for now"
+            }
+        }
+
+        var symbol: String {
+            switch self {
+            case .file: "tray.and.arrow.down"
+            case .skip: "arrow.uturn.forward"
+            }
+        }
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             scopePicker
 
-            if store.isLoading && store.items.isEmpty {
-                ProgressView("Loading…")
-                    .frame(maxWidth: .infinity, alignment: .center)
-                    .padding(.vertical, 24)
-            } else if store.loadFailed {
-                stateMessage(
-                    title: "Couldn’t load your inbox",
-                    detail: "Nothing has been lost. Pull to try again.",
-                    symbol: "exclamationmark.circle"
-                )
-            } else if store.items.isEmpty {
-                emptyState
-            } else {
-                if selection.isEmpty == false { batchBar }
-                ForEach(store.items) { item in
-                    row(item)
-                    Divider().overlay(Color.lifeboard.strokeHairline)
-                }
-            }
-
+            // Directly under the lens, not at the foot of the screen. Filing is
+            // reversible for one step and the receipt is the only way back, so it
+            // has to be in view the moment the sheet closes — at the bottom of the
+            // stack it landed beneath the floating composer and had to be
+            // scrolled for.
             if let summary = store.lastSummary {
                 undoRow(summary)
             }
+
+            if store.isLoading && store.items.isEmpty {
+                loadingSkeleton
+            } else if store.loadFailed {
+                loadFailure
+            } else if store.items.isEmpty {
+                emptyState
+            } else {
+                if orderedCaptures.isEmpty == false { captureDeckSection }
+                if settledItems.isEmpty == false { settledSection }
+            }
+
             if let mutationError = store.mutationError {
                 Label(mutationError, systemImage: "exclamationmark.circle")
                     .font(.footnote)
@@ -358,6 +386,23 @@ struct LifeBoardInboxView: View {
         .accessibilityIdentifier("plan.inbox")
     }
 
+    /// Captures still awaiting a first decision. A skipped capture moves to the
+    /// back rather than disappearing, so the deck can be cycled without ever
+    /// losing something.
+    private var orderedCaptures: [InboxItem] {
+        let captures = store.items.filter(\.requiresCommitBeforeScheduling)
+        guard skipped.isEmpty == false else { return captures }
+        let skippedSet = Set(skipped)
+        let front = captures.filter { skippedSet.contains($0.id) == false }
+        let back = skipped.compactMap { id in captures.first { $0.id == id } }
+        return front + back
+    }
+
+    /// Rows that are already real records; they need a disposition, not a review.
+    private var settledItems: [InboxItem] {
+        store.items.filter { $0.requiresCommitBeforeScheduling == false }
+    }
+
     private var scopePicker: some View {
         Picker("Inbox scope", selection: Binding(
             get: { store.scope },
@@ -369,6 +414,264 @@ struct LifeBoardInboxView: View {
         }
         .pickerStyle(.segmented)
         .accessibilityIdentifier("plan.inbox.scope")
+    }
+
+    // MARK: - Capture deck
+
+    /// The decision surface. One capture is in the hand at a time because each
+    /// one is a separate judgement, and a flat list of five equally weighted rows
+    /// invites skimming past things that were captured in a hurry.
+    private var captureDeckSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .firstTextBaseline) {
+                Text("Needs review")
+                    .font(.headline)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                Spacer(minLength: 8)
+                Text(deckPositionLabel)
+                    .font(.caption)
+                    .monospacedDigit()
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .accessibilityIdentifier("plan.inbox.deck.position")
+            }
+
+            LifeBoardDirectionalDeck(
+                items: orderedCaptures,
+                candidates: { _ in [CaptureFlick.file, CaptureFlick.skip] },
+                actionLabel: \.label,
+                onCommit: { item, action in resolveFlick(action, for: item) },
+                card: { item, armed in captureCard(item, armed: armed) }
+            )
+            .accessibilityIdentifier("plan.inbox.deck")
+
+            if let front = orderedCaptures.first {
+                captureActions(for: front)
+            }
+        }
+    }
+
+    private var deckPositionLabel: String {
+        let total = orderedCaptures.count
+        return total == 1 ? "1 capture" : "\(total) captures"
+    }
+
+    /// Raised clay, deliberately. These rows used to sit straight on the canvas,
+    /// and on Plan's scenic backdrop the title and its actions landed on top of
+    /// the bright sun with no readable field behind them.
+    private func captureCard(_ item: InboxItem, armed: LifeBoardDeckDirection?) -> some View {
+        let flick = armedFlick(for: armed)
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .top, spacing: 8) {
+                Text(proposalTitle(for: item))
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+            }
+
+            if store.alreadyFiled(item) {
+                Label("Possible duplicate — choose what to keep", systemImage: "square.on.square")
+                    .font(.caption)
+                    .foregroundStyle(Color.lifeboard.statusSuccess)
+            } else if let source = item.captureSource {
+                // Named so an unreviewed capture is visibly different from a
+                // task the user created deliberately in the app.
+                Text("Captured from \(source) · needs review")
+                    .font(.caption)
+                    .foregroundStyle(Color.lifeboard.textTertiary)
+            }
+
+            if let parsed = store.proposal(for: item) {
+                reviewChips(for: parsed)
+            }
+
+            // The armed decision is named on the card itself. A directional
+            // gesture the user cannot see resolving is a guess, and filing is a
+            // real mutation.
+            armedBanner(flick)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lifeBoardClaySurface(.raised, cornerRadius: LifeBoardFoundationRadius.largeCard)
+        .accessibilityIdentifier("plan.inbox.row.\(item.id.uuidString)")
+    }
+
+    @ViewBuilder
+    private func armedBanner(_ flick: CaptureFlick?) -> some View {
+        if let flick {
+            Label(flick.label, systemImage: flick.symbol)
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(
+                    Capsule().fill(Color(LifeBoardColorTokens.foundationSurfaceSelected))
+                )
+                .transition(.opacity)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func armedFlick(for direction: LifeBoardDeckDirection?) -> CaptureFlick? {
+        guard let direction else { return nil }
+        return LifeBoardDeckPhysics.action(
+            for: direction,
+            candidates: [CaptureFlick.file, CaptureFlick.skip]
+        )
+    }
+
+    /// One dominant action, then quieter equivalents.
+    ///
+    /// This replaced three same-size `.footnote` text buttons crowded against the
+    /// trailing edge — none of which reached the 44-point minimum, and which gave
+    /// Discard exactly as much visual weight as File It.
+    private func captureActions(for item: InboxItem) -> some View {
+        HStack(spacing: 10) {
+            Button("File it") { beginFiling(item) }
+                .buttonStyle(.lifeBoardPrimary)
+                .disabled(store.isMutating)
+                .accessibilityIdentifier("plan.inbox.file.\(item.id.uuidString)")
+
+            if let onReviewCapture {
+                Button {
+                    onReviewCapture(item)
+                } label: {
+                    Image(systemName: "square.and.pencil")
+                        .frame(width: 44, height: 44)
+                }
+                .buttonStyle(.lifeBoardClay(.resting, cornerRadius: LifeBoardFoundationRadius.compact, fill: nil))
+                .accessibilityLabel("Review \(item.title) in the editor")
+                .accessibilityIdentifier("plan.inbox.review.\(item.id.uuidString)")
+            }
+
+            Button {
+                skip(item)
+            } label: {
+                Image(systemName: "arrow.uturn.forward")
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.lifeBoardClay(.resting, cornerRadius: LifeBoardFoundationRadius.compact, fill: nil))
+            .accessibilityLabel("Skip \(item.title) for now")
+            .accessibilityIdentifier("plan.inbox.skip.\(item.id.uuidString)")
+
+            Menu {
+                Button("Discard capture", systemImage: "trash", role: .destructive) {
+                    Task { await store.discardCapture(item) }
+                }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .frame(width: 44, height: 44)
+            }
+            .buttonStyle(.lifeBoardClay(.resting, cornerRadius: LifeBoardFoundationRadius.compact, fill: nil))
+            .accessibilityLabel("More actions for \(item.title)")
+            .accessibilityIdentifier("plan.inbox.discard.\(item.id.uuidString)")
+        }
+    }
+
+    private func resolveFlick(_ action: CaptureFlick, for item: InboxItem) {
+        switch action {
+        case .file: beginFiling(item)
+        case .skip: skip(item)
+        }
+    }
+
+    private func beginFiling(_ item: InboxItem) {
+        LifeBoardFeedback.light()
+        filingItem = item
+    }
+
+    /// Moves the capture to the back of the deck. No mutation, no receipt: the
+    /// capture is untouched and will be waiting next time.
+    private func skip(_ item: InboxItem) {
+        LifeBoardFeedback.selection()
+        withAnimation(LifeBoardMotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
+            skipped.removeAll { $0 == item.id }
+            skipped.append(item.id)
+        }
+    }
+
+    // MARK: - Settled rows
+
+    /// Records that already exist and only need a disposition. Open rows rather
+    /// than cards: this is ordinary grouping, and `DESIGN.md` reserves a card for
+    /// one decision or one movable module.
+    private var settledSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Already in your system")
+                .font(.headline)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            if selection.isEmpty == false { batchBar }
+            ForEach(settledItems) { item in
+                settledRow(item)
+                if item.id != settledItems.last?.id {
+                    Divider().overlay(Color.lifeboard.strokeHairline)
+                }
+            }
+        }
+    }
+
+    private func settledRow(_ item: InboxItem) -> some View {
+        HStack(alignment: .top, spacing: 10) {
+            Button {
+                if selection.contains(item.id) { selection.remove(item.id) }
+                else { selection.insert(item.id) }
+            } label: {
+                Image(systemName: selection.contains(item.id) ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .frame(width: 44, height: 44, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(selection.contains(item.id) ? "Deselect \(item.title)" : "Select \(item.title)")
+
+            Text(item.title)
+                .font(.body)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .frame(minHeight: 44, alignment: .leading)
+
+            Spacer(minLength: 0)
+
+            triageMenu(for: item)
+                .frame(width: 44, height: 44)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("plan.inbox.row.\(item.id.uuidString)")
+    }
+
+    // MARK: - Non-content states
+
+    /// Geometry-matched rather than a spinner, so the deck does not jump into
+    /// place when the real captures arrive.
+    private var loadingSkeleton: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(0..<2, id: \.self) { index in
+                RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.largeCard, style: .continuous)
+                    .fill(Color(LifeBoardColorTokens.foundationSurfaceRecessed))
+                    .frame(height: index == 0 ? 132 : 96)
+                    .opacity(index == 0 ? 1 : 0.55)
+            }
+        }
+        .accessibilityLabel("Loading your inbox")
+        .accessibilityIdentifier("plan.inbox.loading")
+    }
+
+    /// Deliberately not shaped like `emptyState`. A failed fetch that looks like
+    /// an empty inbox congratulates someone for a load that never completed.
+    private var loadFailure: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Couldn’t load your inbox", systemImage: "exclamationmark.arrow.circlepath")
+                .font(.headline)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            Text("Nothing has been lost. Your captures are still saved.")
+                .font(.subheadline)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            Button("Try again") { Task { await store.load() } }
+                .buttonStyle(.lifeBoardPrimary)
+                .accessibilityIdentifier("plan.inbox.retry")
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lifeBoardClaySurface(.resting, cornerRadius: LifeBoardFoundationRadius.card)
+        .accessibilityIdentifier("plan.inbox.loadFailure")
     }
 
     /// An empty Inbox is a success state, not a void.
@@ -398,64 +701,6 @@ struct LifeBoardInboxView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 28)
         .accessibilityElement(children: .combine)
-    }
-
-    private func row(_ item: InboxItem) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Button {
-                if selection.contains(item.id) { selection.remove(item.id) }
-                else { selection.insert(item.id) }
-            } label: {
-                Image(systemName: selection.contains(item.id) ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(selection.contains(item.id) ? "Deselect \(item.title)" : "Select \(item.title)")
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(proposalTitle(for: item))
-                    .font(.body)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-                if store.alreadyFiled(item) {
-                    Text("Possible duplicate — choose what to keep")
-                        .font(.caption)
-                        .foregroundStyle(Color.lifeboard.statusSuccess)
-                } else if let source = item.captureSource {
-                    // Named so an unreviewed capture is visibly different from a
-                    // task the user created deliberately in the app.
-                    Text("Captured from \(source) · needs review")
-                        .font(.caption)
-                        .foregroundStyle(Color.lifeboard.textTertiary)
-                }
-                if let parsed = store.proposal(for: item) {
-                    reviewChips(for: parsed)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            if item.requiresCommitBeforeScheduling {
-                HStack(spacing: 10) {
-                    Button("File It") { filingItem = item }
-                        .font(.footnote.weight(.semibold))
-                        .disabled(store.isMutating)
-                        .accessibilityIdentifier("plan.inbox.file.\(item.id.uuidString)")
-                    if let onReviewCapture {
-                        Button("Review") { onReviewCapture(item) }
-                            .font(.footnote.weight(.medium))
-                            .accessibilityIdentifier("plan.inbox.review.\(item.id.uuidString)")
-                    }
-                    Button("Discard") { Task { await store.discardCapture(item) } }
-                        .font(.footnote)
-                        .accessibilityIdentifier("plan.inbox.discard.\(item.id.uuidString)")
-                }
-            } else {
-                triageMenu(for: item)
-            }
-        }
-        .padding(.vertical, 6)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("plan.inbox.row.\(item.id.uuidString)")
     }
 
     /// The title as it would be filed: the parser strips the date phrase, so
@@ -591,16 +836,24 @@ struct LifeBoardInboxView: View {
     }
 
     private func undoRow(_ summary: String) -> some View {
-        HStack {
+        HStack(spacing: 10) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Color.lifeboard.statusSuccess)
             Text(summary)
                 .font(.footnote)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            Spacer()
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 8)
             Button("Undo") { Task { await store.undoLast() } }
-                .font(.footnote.weight(.medium))
+                .font(.footnote.weight(.semibold))
+                .frame(minWidth: 44, minHeight: 44)
                 .accessibilityIdentifier("plan.inbox.undo")
         }
-        .padding(.vertical, 6)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 4)
+        .lifeBoardClaySurface(.resting, cornerRadius: LifeBoardFoundationRadius.card)
+        .transition(.opacity)
+        .lifeBoardMotion(.contentInsertion, value: summary)
     }
 
     private func triage(_ item: InboxItem, to disposition: UnscheduledDisposition) {
@@ -669,11 +922,14 @@ private struct InboxCaptureReviewSheet: View {
                     TextField("Task title", text: $draft.title, axis: .vertical)
                         .accessibilityIdentifier("plan.inbox.review.title")
                 }
+                .lifeBoardFormRowSurface()
 
                 metadataSection
+                    .lifeBoardFormRowSurface()
 
                 if duplicates.isEmpty == false {
                     duplicateSection
+                        .lifeBoardFormRowSurface()
                 }
 
                 if let error = store.mutationError {
@@ -681,8 +937,13 @@ private struct InboxCaptureReviewSheet: View {
                         Label(error, systemImage: "exclamationmark.circle")
                             .foregroundStyle(Color.lifeboard.statusWarning)
                     }
+                    .lifeBoardFormRowSurface()
                 }
             }
+            // A bare `Form` renders on `systemGroupedBackground` — a cool grey
+            // that belongs to no part of this design system, and which read as a
+            // different app from the warm canvas the capture was flicked out of.
+            .lifeBoardFormSurface()
             .navigationTitle("Review capture")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -783,13 +1044,26 @@ private struct InboxCaptureReviewSheet: View {
                 }
             }
 
-            TextField("Project", text: $projectText)
-                .textInputAutocapitalization(.words)
-                .accessibilityHint("Unknown projects remain visible but file to Inbox")
-            TextField("Context", text: $contextText)
-                .textInputAutocapitalization(.never)
-            TextField("Tags, separated by commas", text: $tagText)
-                .textInputAutocapitalization(.never)
+            // Labelled rather than placeholder-only. A `TextField` loses its
+            // placeholder the moment it has a value, so a parsed capture showed
+            // two unexplained rows reading "home" and "admin" beneath a column of
+            // labelled pickers — the parse was correct but unreadable.
+            LabeledContent("Project") {
+                TextField("None", text: $projectText)
+                    .multilineTextAlignment(.trailing)
+                    .textInputAutocapitalization(.words)
+                    .accessibilityHint("Unknown projects remain visible but file to Inbox")
+            }
+            LabeledContent("Context") {
+                TextField("None", text: $contextText)
+                    .multilineTextAlignment(.trailing)
+                    .textInputAutocapitalization(.never)
+            }
+            LabeledContent("Tags") {
+                TextField("Comma separated", text: $tagText)
+                    .multilineTextAlignment(.trailing)
+                    .textInputAutocapitalization(.never)
+            }
         }
     }
 
