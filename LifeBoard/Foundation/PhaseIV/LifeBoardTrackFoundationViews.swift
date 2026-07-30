@@ -22,6 +22,7 @@ struct LifeBoardTrackFoundationRootView: View {
     @State private var showsGoal = false
     @State private var editingGoal: GoalDefinition?
     @State private var goalPendingDeletion: GoalDefinition?
+    @State private var goalUndoReceipt: GoalTransitionReceipt?
     @State private var showsStarterPacks = false
     @State private var showsRoutineComposer = false
     @State private var showsHabitResilience = false
@@ -163,8 +164,8 @@ struct LifeBoardTrackFoundationRootView: View {
             SleepContextComposer(existing: editingSleep) { record in Task { await store.saveSleep(record) } }
         }
         .sheet(isPresented: $showsGoal, onDismiss: { editingGoal = nil }) {
-            GoalComposer(existing: editingGoal) { title, type, target, unit, targetDate in
-                Task { await store.saveGoal(existing: editingGoal, title: title, type: type, target: target, unit: unit, targetDate: targetDate) }
+            GoalComposer(existing: editingGoal) { draft in
+                Task { await store.saveGoal(existing: editingGoal, draft: draft) }
             }
         }
         .sheet(item: $linkingGoal) { goal in
@@ -213,13 +214,40 @@ struct LifeBoardTrackFoundationRootView: View {
             set: { if !$0 && store.activeRoutineRun != nil { Task { await store.abandonRoutine() } } }
         )) {
             if let run = store.activeRoutineRun {
-                RoutineRunner(run: run, advance: { response, skip in Task { await store.advanceRoutine(response: response, skip: skip) } }, abandon: { Task { await store.abandonRoutine() } })
+                RoutineRunner(
+                    run: run,
+                    advance: { response, skip in
+                        Task { await store.advanceRoutine(response: response, skip: skip) }
+                    },
+                    pause: { Task { await store.pauseRoutine() } },
+                    resume: { Task { await store.resumeRoutine() } },
+                    abandon: { Task { await store.abandonRoutine() } }
+                )
                     .interactiveDismissDisabled()
             }
         }
         .alert("Track needs attention", isPresented: Binding(
             get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } }
         )) { Button("OK", role: .cancel) { store.errorMessage = nil } } message: { Text(store.errorMessage ?? "") }
+        .safeAreaInset(edge: .bottom) {
+            if let receipt = goalUndoReceipt {
+                HStack(spacing: 12) {
+                    Text("Goal \(receipt.after.effectiveStatus.rawValue).")
+                        .font(.subheadline)
+                    Spacer()
+                    Button("Undo") {
+                        goalUndoReceipt = nil
+                        Task { await store.undoGoalTransition(receipt) }
+                    }
+                    .frame(minHeight: 44)
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(.regularMaterial, in: Capsule())
+                .padding(.horizontal, 20)
+                .accessibilityElement(children: .contain)
+            }
+        }
         .confirmationDialog(
             "Delete this routine?",
             isPresented: Binding(get: { routinePendingDeletion != nil }, set: { if !$0 { routinePendingDeletion = nil } }),
@@ -872,13 +900,35 @@ struct LifeBoardTrackFoundationRootView: View {
                     let progress = store.snapshot.goals.first(where: { $0.goalID == goal.id })
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
-                            Text(goal.title).font(.headline)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(goal.title).font(.headline)
+                                Text("\(goal.effectiveIntent.rawValue.capitalized) · \(goal.effectiveStatus.rawValue.capitalized)")
+                                    .font(.caption)
+                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
                             Spacer()
                             Text(progressLabel(progress)).font(.caption.weight(.semibold))
                             Menu {
                                 Button("Link progress source", systemImage: "link.badge.plus") { linkingGoal = goal }
                                 Button("Edit goal", systemImage: "pencil") { editingGoal = goal; showsGoal = true }
-                                Button("Archive goal", systemImage: "archivebox") { Task { await store.archiveGoal(goal) } }
+                                switch goal.effectiveStatus {
+                                case .active, .revised:
+                                    Button("Pause goal", systemImage: "pause.circle") { transition(goal, to: .paused, reason: "Paused by user") }
+                                    Button("Complete goal", systemImage: "checkmark.circle") { transition(goal, to: .completed, reason: "Completed by user") }
+                                    Button("Revise goal", systemImage: "arrow.triangle.2.circlepath") {
+                                        transition(goal, to: .revised, reason: "Revision started by user", editAfter: true)
+                                    }
+                                case .paused:
+                                    Button("Resume goal", systemImage: "play.circle") { transition(goal, to: .active, reason: "Resumed by user") }
+                                    Button("Revise goal", systemImage: "arrow.triangle.2.circlepath") {
+                                        transition(goal, to: .revised, reason: "Revision started by user", editAfter: true)
+                                    }
+                                case .completed:
+                                    Button("Reactivate goal", systemImage: "arrow.uturn.backward.circle") { transition(goal, to: .active, reason: "Reactivated by user") }
+                                case .archived:
+                                    Button("Restore goal", systemImage: "tray.and.arrow.up") { transition(goal, to: .active, reason: "Restored by user") }
+                                }
+                                Button("Archive goal", systemImage: "archivebox") { transition(goal, to: .archived, reason: "Archived by user") }
                                 Button("Delete goal", systemImage: "trash", role: .destructive) { goalPendingDeletion = goal }
                             } label: {
                                 Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
@@ -886,6 +936,11 @@ struct LifeBoardTrackFoundationRootView: View {
                             .accessibilityLabel("Actions for \(goal.title)")
                         }
                         if let fraction = progress?.progressFraction { ProgressView(value: fraction).tint(Color(LifeBoardColorTokens.foundationFocusRing)) }
+                        if let why = goal.whyItMatters, !why.isEmpty {
+                            Text(why)
+                                .font(.subheadline)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        }
                         Text(progress?.nextUsefulAction ?? "Link a source to measure progress.")
                             .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                     }
@@ -1133,6 +1188,22 @@ struct LifeBoardTrackFoundationRootView: View {
         if let fraction = progress.progressFraction { return "\(Int(fraction * 100))%" }
         return progress.missingLinkCount > 0 ? "Data incomplete" : "Ready"
     }
+
+    private func transition(
+        _ goal: GoalDefinition,
+        to status: GoalStatus,
+        reason: String,
+        editAfter: Bool = false
+    ) {
+        Task {
+            let receipt = await store.transitionGoal(goal, to: status, reason: reason)
+            goalUndoReceipt = receipt
+            if editAfter, let receipt {
+                editingGoal = receipt.after
+                showsGoal = true
+            }
+        }
+    }
 }
 
 struct TrackUniversalCaptureView: View {
@@ -1195,7 +1266,15 @@ struct TrackUniversalCaptureView: View {
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
                 .sheet(isPresented: Binding(get: { store.activeRoutineRun != nil }, set: { _ in })) {
                     if let run = store.activeRoutineRun {
-                        RoutineRunner(run: run, advance: { response, skip in Task { await store.advanceRoutine(response: response, skip: skip) } }, abandon: { Task { await store.abandonRoutine() } })
+                        RoutineRunner(
+                            run: run,
+                            advance: { response, skip in
+                                Task { await store.advanceRoutine(response: response, skip: skip) }
+                            },
+                            pause: { Task { await store.pauseRoutine() } },
+                            resume: { Task { await store.resumeRoutine() } },
+                            abandon: { Task { await store.abandonRoutine() } }
+                        )
                     }
                 }
             default:
@@ -1283,8 +1362,11 @@ private struct HydrationTargetComposer: View {
 private struct RoutineRunner: View {
     let run: RoutineRun
     let advance: (String?, Bool) -> Void
+    let pause: () -> Void
+    let resume: () -> Void
     let abandon: () -> Void
     @State private var response: String?
+    @State private var isChoosingSkipReason = false
 
     private var step: RoutineStep? { run.versionSnapshot.steps.first { $0.id == run.currentStepID } }
     private var index: Int { max(0, run.versionSnapshot.steps.firstIndex(where: { $0.id == run.currentStepID }) ?? 0) }
@@ -1320,14 +1402,52 @@ private struct RoutineRunner: View {
                         }
                     }
                     Spacer()
-                    primaryAction
-                    if step?.isSkippable == true { Button("Skip this step") { advance(nil, true) }.buttonStyle(.bordered) }
+                    if run.status == .running {
+                        primaryAction
+                        if step?.isSkippable == true {
+                            Button("Skip this step") { isChoosingSkipReason = true }
+                                .buttonStyle(.bordered)
+                                .frame(minHeight: 44)
+                        }
+                    } else {
+                        VStack(spacing: 10) {
+                            Text(run.status == .interrupted ? "Routine interrupted" : "Routine paused")
+                                .font(LifeBoardFoundationTypography.sectionTitle())
+                            Text("Your place and timer are saved.")
+                                .font(.subheadline)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            Button("Resume", action: resume)
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.large)
+                        }
+                    }
                 }
                 .padding(28)
             }
             .navigationTitle(run.versionSnapshot.title)
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("End", role: .destructive) { abandon() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("End", role: .destructive) { abandon() }
+                }
+                if run.status == .running {
+                    ToolbarItem(placement: .primaryAction) {
+                        Button("Pause", systemImage: "pause.fill", action: pause)
+                    }
+                }
+            }
+            .confirmationDialog(
+                "Why are you skipping this step?",
+                isPresented: $isChoosingSkipReason,
+                titleVisibility: .visible
+            ) {
+                Button("Not needed today") { advance("Not needed today", true) }
+                Button("Not now") { advance("Not now", true) }
+                Button("Blocked") { advance("Blocked", true) }
+                Button("Cancel", role: .cancel) {}
+            } message: {
+                Text("The reason appears in the run review without changing the routine template.")
+            }
         }
     }
 
@@ -1355,7 +1475,12 @@ private struct RoutineRunner: View {
 
     private func timerRemaining(duration: TimeInterval, at date: Date) -> TimeInterval {
         let activatedAt = run.events.last?.occurredAt ?? run.startedAt
-        return max(0, duration - date.timeIntervalSince(activatedAt))
+        let effectiveDate = run.pausedAt ?? date
+        let elapsed = max(
+            0,
+            effectiveDate.timeIntervalSince(activatedAt) - run.effectiveCurrentStepPausedDuration
+        )
+        return max(0, duration - elapsed)
     }
 
     private func durationLabel(_ interval: TimeInterval) -> String {
@@ -1502,7 +1627,8 @@ private struct HabitResilienceLibrary: View {
     private func policySummary(_ policy: HabitResiliencePolicy) -> String {
         let recovery = policy.recoveryEnabled ? "recovery on" : "recovery off"
         let framing = policy.streakPresentation == .gradeAndStreak ? "grade + streak" : "counts only"
-        let offDays = policy.offDays.isEmpty ? "no exceptions" : "\(policy.offDays.count) off-day exception\(policy.offDays.count == 1 ? "" : "s")"
+        let exceptionCount = policy.offDays.count + policy.vacationRanges.count
+        let offDays = exceptionCount == 0 ? "no exceptions" : "\(exceptionCount) intentional exception\(exceptionCount == 1 ? "" : "s")"
         return "\(recovery) · \(framing) · \(offDays)"
     }
 }
@@ -1559,6 +1685,21 @@ private struct HabitGroupEditor: View {
 }
 
 private struct HabitResilienceEditor: View {
+    private enum MinimumKind: String, CaseIterable, Identifiable {
+        case none, binary, avoidance, quota, timed, quantitative
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .none: "None"
+            case .binary: "One small check-in"
+            case .avoidance: "Stay within the boundary"
+            case .quota: "Reduced count"
+            case .timed: "Reduced time"
+            case .quantitative: "Reduced amount"
+            }
+        }
+    }
+
     let habit: TypedSourcePickerItem
     let originalPolicy: HabitResiliencePolicy
     let groups: [HabitGroup]
@@ -1573,6 +1714,13 @@ private struct HabitResilienceEditor: View {
     @State private var offDays: Set<PlanningDay>
     @State private var groupID: UUID?
     @State private var recoveryReceipts: [HabitRecoveryReceipt]
+    @State private var vacationRanges: [HabitVacationRange]
+    @State private var backfillDays: Int
+    @State private var minimumKind: MinimumKind
+    @State private var minimumValue: Double
+    @State private var minimumUnit: String
+    @State private var vacationStart = Date()
+    @State private var vacationEnd = Date()
     @State private var mutatingDays: Set<PlanningDay> = []
 
     init(
@@ -1596,6 +1744,11 @@ private struct HabitResilienceEditor: View {
         _offDays = State(initialValue: policy.offDays)
         _groupID = State(initialValue: policy.groupID)
         _recoveryReceipts = State(initialValue: policy.recoveryReceipts)
+        _vacationRanges = State(initialValue: policy.vacationRanges)
+        _backfillDays = State(initialValue: policy.backfillPolicy.allowedDays)
+        _minimumKind = State(initialValue: Self.minimumKind(for: policy.minimumTarget))
+        _minimumValue = State(initialValue: Self.minimumValue(for: policy.minimumTarget))
+        _minimumUnit = State(initialValue: Self.minimumUnit(for: policy.minimumTarget))
     }
 
     var body: some View {
@@ -1621,6 +1774,73 @@ private struct HabitResilienceEditor: View {
                     Text("Counts only").tag(HabitStreakPresentation.countsOnly)
                 }
                 .pickerStyle(.inline)
+            }
+
+            Section("Gentle fallback") {
+                Picker("Low-energy minimum", selection: $minimumKind) {
+                    ForEach(MinimumKind.allCases) { kind in
+                        Text(kind.title).tag(kind)
+                    }
+                }
+                if [.quota, .timed, .quantitative].contains(minimumKind) {
+                    HStack {
+                        TextField("Amount", value: $minimumValue, format: .number)
+                            .keyboardType(.decimalPad)
+                        if minimumKind == .quantitative {
+                            TextField("Unit", text: $minimumUnit)
+                                .multilineTextAlignment(.trailing)
+                        } else {
+                            Text(minimumKind == .timed ? "minutes" : "times")
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                    }
+                }
+                Text("Low Energy can offer this kinder version without changing the full target or silently completing it.")
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+
+            Section {
+                Picker("Correction window", selection: $backfillDays) {
+                    Text("Same day only").tag(0)
+                    Text("7 days").tag(7)
+                    Text("30 days").tag(30)
+                }
+                DatePicker("Vacation starts", selection: $vacationStart, displayedComponents: .date)
+                DatePicker("Vacation ends", selection: $vacationEnd, in: vacationStart..., displayedComponents: .date)
+                Button {
+                    let calendar = Calendar.current
+                    vacationRanges.append(HabitVacationRange(
+                        startDay: PlanningDay(date: vacationStart, timeZone: calendar.timeZone, calendar: calendar),
+                        endDay: PlanningDay(date: vacationEnd, timeZone: calendar.timeZone, calendar: calendar),
+                        label: "Vacation"
+                    ))
+                } label: {
+                    Label("Add vacation range", systemImage: "plus.circle")
+                        .frame(minHeight: 44)
+                }
+                ForEach(vacationRanges) { range in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(range.label ?? "Intentional pause")
+                            Text(vacationSummary(range))
+                                .font(.caption)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                        Spacer()
+                        Button(role: .destructive) {
+                            vacationRanges.removeAll { $0.id == range.id }
+                        } label: {
+                            Image(systemName: "trash")
+                                .frame(width: 44, height: 44)
+                        }
+                        .accessibilityLabel("Remove vacation range")
+                    }
+                }
+            } header: {
+                Text("Backfill and vacation")
+            } footer: {
+                Text("Vacation days and intentional off days remain distinct from missing data and never lower the eligible grade denominator.")
             }
 
             Section {
@@ -1682,6 +1902,9 @@ private struct HabitResilienceEditor: View {
                     policy.streakPresentation = streakPresentation
                     policy.offDays = offDays
                     policy.recoveryReceipts = recoveryReceipts
+                    policy.vacationRanges = vacationRanges
+                    policy.backfillPolicy = backfillDays == 0 ? .disabled : .window(days: backfillDays)
+                    policy.minimumTarget = resolvedMinimumTarget
                     policy.updatedAt = Date()
                     save(policy)
                     dismiss()
@@ -1749,11 +1972,66 @@ private struct HabitResilienceEditor: View {
         if offDays.contains(occurrence.day) { return "Intentional off day" }
         if recovered { return "Recovered · counts toward grade" }
         switch occurrence.resolution {
-        case .due: return "Due · not completed"
+        case .due, .missing: return "No data"
+        case .explicitZero: return "Recorded zero"
+        case .partial:
+            if let value = occurrence.recordedValue { return "In progress · \(value.formatted())" }
+            return "In progress"
         case .completed: return "Completed"
+        case .abstained: return "Abstained"
+        case .lapsed: return "Lapsed"
         case .manuallySkipped: return "Skipped"
+        case .offDay: return "Intentional off day"
+        case .paused: return "Paused"
+        case .failed: return occurrence.failureReason.map { "Couldn’t update · \($0)" } ?? "Couldn’t update"
+        case .unresolved: return "Needs review"
         case .recovered: return "Recovered · counts toward grade"
         }
+    }
+
+    private var resolvedMinimumTarget: HabitTarget? {
+        let positiveValue = max(0, minimumValue)
+        switch minimumKind {
+        case .none: return nil
+        case .binary: return .binary
+        case .avoidance: return .avoidance
+        case .quota: return positiveValue >= 1 ? .quota(count: Int(positiveValue.rounded()), period: .day) : nil
+        case .timed: return positiveValue > 0 ? .timed(seconds: positiveValue * 60) : nil
+        case .quantitative:
+            let unit = minimumUnit.trimmingCharacters(in: .whitespacesAndNewlines)
+            return positiveValue > 0 && !unit.isEmpty ? .quantitative(value: positiveValue, unit: unit) : nil
+        }
+    }
+
+    private static func minimumKind(for target: HabitTarget?) -> MinimumKind {
+        switch target {
+        case nil: .none
+        case .binary: .binary
+        case .avoidance: .avoidance
+        case .quota: .quota
+        case .timed: .timed
+        case .quantitative: .quantitative
+        }
+    }
+
+    private static func minimumValue(for target: HabitTarget?) -> Double {
+        switch target {
+        case let .quota(count, _): Double(count)
+        case let .timed(seconds): seconds / 60
+        case let .quantitative(value, _): value
+        default: 1
+        }
+    }
+
+    private static func minimumUnit(for target: HabitTarget?) -> String {
+        if case let .quantitative(_, unit) = target { return unit }
+        return ""
+    }
+
+    private func vacationSummary(_ range: HabitVacationRange) -> String {
+        let start = range.startDay.startDate()?.formatted(.dateTime.month(.abbreviated).day()) ?? "Start"
+        let end = range.endDay.startDate()?.formatted(.dateTime.month(.abbreviated).day()) ?? "End"
+        return "\(start) – \(end)"
     }
 
     private var exceptionDays: [PlanningDay] {
@@ -1782,6 +2060,7 @@ private struct RoutineComposer: View {
         var isRequired: Bool
         var isSkippable: Bool
         var choices: String
+        var branches: [RoutineBranchCondition]
         var linkedID: String
         var linkedTitle: String
 
@@ -1793,6 +2072,7 @@ private struct RoutineComposer: View {
             isRequired = step?.isRequired ?? true
             isSkippable = step?.isSkippable ?? false
             choices = step?.choices.joined(separator: ", ") ?? ""
+            branches = step?.branches ?? []
             linkedID = step?.linkedEntityID?.uuidString ?? ""
             linkedTitle = step?.linkedEntityID == nil ? "" : "Linked \((step?.kind ?? .task) == .habit ? "habit" : "task")"
         }
@@ -1834,6 +2114,17 @@ private struct RoutineComposer: View {
             Form {
                 Section("Routine") {
                     TextField("Routine title", text: $title)
+                    if existing == nil {
+                        Menu("Start from a template", systemImage: "sparkles.rectangle.stack") {
+                            ForEach(
+                                RoutineTemplateKind.allCases.filter { $0 != .custom },
+                                id: \.self
+                            ) { kind in
+                                Button(templateTitle(kind)) { applyTemplate(kind) }
+                            }
+                        }
+                        .frame(minHeight: 44)
+                    }
                     Picker("Daypart", selection: $daypart) {
                         Text("Any daypart").tag(ResolvedDaypart?.none)
                         ForEach(ResolvedDaypart.allCases, id: \.self) { Text($0.rawValue.capitalized).tag(ResolvedDaypart?.some($0)) }
@@ -1865,6 +2156,20 @@ private struct RoutineComposer: View {
                             }
                             if step.kind == .choice {
                                 TextField("Choices, separated by commas", text: $step.choices)
+                                ForEach(parsedChoices(step.choices), id: \.self) { choice in
+                                    Picker(
+                                        "If “\(choice)”",
+                                        selection: branchDestinationBinding(
+                                            stepID: step.id,
+                                            response: choice
+                                        )
+                                    ) {
+                                        Text("Continue in order").tag(UUID?.none)
+                                        ForEach(forwardDestinations(after: step.id)) { destination in
+                                            Text(destination.title).tag(UUID?.some(destination.id))
+                                        }
+                                    }
+                                }
                             }
                             if step.kind == .task || step.kind == .habit {
                                 Button {
@@ -1924,10 +2229,17 @@ private struct RoutineComposer: View {
             && weekdays.isEmpty == false
             && steps.isEmpty == false
             && steps.allSatisfy { $0.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
+            && RoutineValidator().validate(
+                RoutineDefinition(title: title, steps: routineSteps())
+            ).isValid
     }
 
     private func saveRoutine() {
-        let values = steps.enumerated().map { index, draft in
+        save(title, routineSteps(), weekdays, daypart)
+    }
+
+    private func routineSteps() -> [RoutineStep] {
+        steps.enumerated().map { index, draft in
             let linkedID = UUID(uuidString: draft.linkedID.trimmingCharacters(in: .whitespacesAndNewlines))
             return RoutineStep(
                 id: draft.id,
@@ -1940,11 +2252,79 @@ private struct RoutineComposer: View {
                 linkedEntityID: linkedID,
                 linkedMutation: draft.kind == .task ? .completeTask : draft.kind == .habit ? .completeHabitOccurrence : nil,
                 choices: draft.kind == .choice
-                    ? draft.choices.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+                    ? parsedChoices(draft.choices)
+                    : [],
+                branches: draft.kind == .choice
+                    ? draft.branches.filter { branch in
+                        parsedChoices(draft.choices).contains(branch.expectedResponse)
+                            && forwardDestinations(after: draft.id).contains(where: { destination in
+                                destination.id == branch.destinationStepID
+                            })
+                    }
                     : []
             )
         }
-        save(title, values, weekdays, daypart)
+    }
+
+    private func parsedChoices(_ value: String) -> [String] {
+        value.split(separator: ",", omittingEmptySubsequences: false)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private func forwardDestinations(after stepID: UUID) -> [DraftStep] {
+        guard let index = steps.firstIndex(where: { $0.id == stepID }) else { return [] }
+        return Array(steps.dropFirst(index + 1))
+    }
+
+    private func branchDestinationBinding(
+        stepID: UUID,
+        response: String
+    ) -> Binding<UUID?> {
+        Binding(
+            get: {
+                steps.first(where: { $0.id == stepID })?.branches.first(where: {
+                    $0.sourceStepID == stepID && $0.expectedResponse == response
+                })?.destinationStepID
+            },
+            set: { destinationID in
+                guard let index = steps.firstIndex(where: { $0.id == stepID }) else { return }
+                steps[index].branches.removeAll {
+                    $0.sourceStepID == stepID && $0.expectedResponse == response
+                }
+                if let destinationID {
+                    steps[index].branches.append(.init(
+                        sourceStepID: stepID,
+                        operation: .equals,
+                        expectedResponse: response,
+                        destinationStepID: destinationID
+                    ))
+                }
+            }
+        )
+    }
+
+    private func applyTemplate(_ kind: RoutineTemplateKind) {
+        guard let template = RoutineTemplateCatalog.definition(for: kind) else { return }
+        title = template.title
+        steps = template.steps.map { DraftStep(step: $0) }
+        daypart = switch kind {
+        case .morning, .workStart: .morning
+        case .evening, .shutdown: .evening
+        case .workout, .care, .custom: nil
+        }
+    }
+
+    private func templateTitle(_ kind: RoutineTemplateKind) -> String {
+        switch kind {
+        case .morning: "Morning"
+        case .evening: "Evening"
+        case .workStart: "Work start"
+        case .shutdown: "Shutdown"
+        case .workout: "Workout"
+        case .care: "Care"
+        case .custom: "Custom"
+        }
     }
 }
 
@@ -2108,17 +2488,23 @@ private struct SleepContextComposer: View {
 
 private struct GoalComposer: View {
     let existing: GoalDefinition?
-    let save: (String, GoalType, Double?, String?, Date?) -> Void
+    let save: (GoalDraft) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
     @State private var type: GoalType
     @State private var target: Double
+    @State private var hasBaseline: Bool
+    @State private var baseline: Double
     @State private var unit: String
     @State private var targetDate: Date
+    @State private var intent: GoalIntent
+    @State private var confidence: GoalConfidence?
+    @State private var whyItMatters: String
+    @State private var checkInCadence: GoalCheckInCadence
 
     init(
         existing: GoalDefinition? = nil,
-        save: @escaping (String, GoalType, Double?, String?, Date?) -> Void
+        save: @escaping (GoalDraft) -> Void
     ) {
         self.existing = existing
         self.save = save
@@ -2126,8 +2512,16 @@ private struct GoalComposer: View {
         _type = State(initialValue: existing?.type ?? .completion)
         let storedTarget = existing?.targetValue ?? 1
         _target = State(initialValue: existing?.type == .duration ? storedTarget / 60 : storedTarget)
+        _hasBaseline = State(initialValue: existing?.baselineValue != nil)
+        _baseline = State(initialValue: existing?.type == .duration
+            ? (existing?.baselineValue ?? 0) / 60
+            : existing?.baselineValue ?? 0)
         _unit = State(initialValue: existing?.unitLabel == "seconds" ? "" : existing?.unitLabel ?? "")
         _targetDate = State(initialValue: existing?.targetDate ?? Calendar.current.date(byAdding: .month, value: 1, to: Date()) ?? Date())
+        _intent = State(initialValue: existing?.effectiveIntent ?? .outcome)
+        _confidence = State(initialValue: existing?.confidenceRaw.flatMap(GoalConfidence.init(rawValue:)))
+        _whyItMatters = State(initialValue: existing?.whyItMatters ?? "")
+        _checkInCadence = State(initialValue: existing?.checkInCadenceRaw.flatMap(GoalCheckInCadence.init(rawValue:)) ?? .weekly)
     }
 
     var body: some View {
@@ -2137,12 +2531,38 @@ private struct GoalComposer: View {
                 Picker("Goal type", selection: $type) {
                     ForEach(GoalType.allCases, id: \.self) { Text(goalTypeTitle($0)).tag($0) }
                 }
+                Picker("Intent", selection: $intent) {
+                    ForEach(GoalIntent.allCases, id: \.self) { Text(goalIntentTitle($0)).tag($0) }
+                }
                 if usesNumericTarget {
                     TextField(type == .duration ? "Target minutes" : "Target", value: $target, format: .number)
                         .keyboardType(.decimalPad)
+                        .frame(minHeight: 44)
+                    Toggle("Use a baseline", isOn: $hasBaseline)
+                        .frame(minHeight: 44)
+                    if hasBaseline {
+                        TextField(type == .duration ? "Baseline minutes" : "Baseline", value: $baseline, format: .number)
+                            .keyboardType(.decimalPad)
+                            .frame(minHeight: 44)
+                    }
                     if type == .quantity { TextField("Unit (optional)", text: $unit) }
                 }
                 if type == .targetDate { DatePicker("Target date", selection: $targetDate, displayedComponents: .date) }
+                Picker("Confidence", selection: $confidence) {
+                    Text("Not set").tag(GoalConfidence?.none)
+                    ForEach(GoalConfidence.allCases, id: \.self) { value in
+                        Text(value.rawValue.capitalized).tag(GoalConfidence?.some(value))
+                    }
+                }
+                Picker("Check in", selection: $checkInCadence) {
+                    ForEach(GoalCheckInCadence.allCases, id: \.self) { value in
+                        Text(checkInTitle(value)).tag(value)
+                    }
+                }
+                Section("Why it matters") {
+                    TextEditor(text: $whyItMatters)
+                        .frame(minHeight: 88)
+                }
                 Text("Progress comes only from sources you explicitly link after creating the goal.")
                     .font(.caption)
                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
@@ -2151,13 +2571,21 @@ private struct GoalComposer: View {
             .navigationTitle(existing == nil ? "New goal" : "Edit goal")
             .toolbar {
                 composerToolbar(disabled: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (usesNumericTarget && target <= 0)) {
-                    save(
-                        title,
-                        type,
-                        usesNumericTarget ? (type == .duration ? target * 60 : target) : nil,
-                        type == .quantity ? unit : type == .duration ? "seconds" : nil,
-                        type == .targetDate ? targetDate : nil
-                    )
+                    save(GoalDraft(
+                        areaID: existing?.areaID,
+                        title: title,
+                        type: type,
+                        intent: intent,
+                        targetValue: usesNumericTarget ? (type == .duration ? target * 60 : target) : nil,
+                        baselineValue: usesNumericTarget && hasBaseline
+                            ? (type == .duration ? baseline * 60 : baseline)
+                            : nil,
+                        unitLabel: type == .quantity ? unit : type == .duration ? "seconds" : nil,
+                        targetDate: type == .targetDate ? targetDate : nil,
+                        confidence: confidence,
+                        whyItMatters: whyItMatters,
+                        checkInCadence: checkInCadence
+                    ))
                     dismiss()
                 }
             }
@@ -2172,6 +2600,23 @@ private struct GoalComposer: View {
         case .quantity: "Quantity"
         case .duration: "Duration"
         case .targetDate: "Target date"
+        }
+    }
+    private func goalIntentTitle(_ intent: GoalIntent) -> String {
+        switch intent {
+        case .outcome: "Outcome"
+        case .maintenance: "Maintenance"
+        case .milestone: "Milestone"
+        case .cumulative: "Cumulative"
+        case .directional: "Directional"
+        }
+    }
+    private func checkInTitle(_ cadence: GoalCheckInCadence) -> String {
+        switch cadence {
+        case .weekly: "Weekly"
+        case .biweekly: "Every two weeks"
+        case .monthly: "Monthly"
+        case .manual: "When I choose"
         }
     }
 }

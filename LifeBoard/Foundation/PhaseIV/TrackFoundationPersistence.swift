@@ -245,11 +245,17 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
 
             if isNewGoal || previousStatus != value.effectiveStatus {
                 let event = NSEntityDescription.insertNewObject(forEntityName: "GoalStatusEvent", into: context)
-                let eventValue = GoalStatusEvent(
-                    goalID: value.id,
-                    status: value.effectiveStatus,
-                    recordedAt: value.updatedAt
-                )
+                let eventValue = value.statusEvents?
+                    .filter { $0.status == value.effectiveStatus }
+                    .max {
+                        $0.recordedAt == $1.recordedAt
+                            ? $0.id.uuidString < $1.id.uuidString
+                            : $0.recordedAt < $1.recordedAt
+                    } ?? GoalStatusEvent(
+                        goalID: value.id,
+                        status: value.effectiveStatus,
+                        recordedAt: value.updatedAt
+                    )
                 event.setValue(eventValue.id, forKey: "id")
                 event.setValue(eventValue.goalID, forKey: "goalID")
                 event.setValue(eventValue.status.rawValue, forKey: "statusRaw")
@@ -308,7 +314,10 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
             object.setValue(
                 try Self.encode(HabitPolicyDayMetadata(
                     offDays: value.offDays,
-                    recoveryReceipts: value.recoveryReceipts
+                    recoveryReceipts: value.recoveryReceipts,
+                    vacationRanges: value.vacationRanges,
+                    backfillPolicy: value.backfillPolicy,
+                    minimumTarget: value.minimumTarget
                 )),
                 forKey: "offDayKeysData"
             )
@@ -435,6 +444,9 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
             object.setValue(value.startedAt, forKey: "startedAt")
             object.setValue(value.endedAt, forKey: "endedAt")
             object.setValue(value.updatedAt, forKey: "updatedAt")
+            object.setValue(value.pausedAt, forKey: "pausedAt")
+            object.setValue(value.effectivePausedDuration, forKey: "accumulatedPausedDuration")
+            object.setValue(value.effectiveCurrentStepPausedDuration, forKey: "currentStepPausedDuration")
             for event in value.events {
                 let eventObject = try Self.upsert(entity: "RoutineStepEvent", id: event.id, in: context)
                 eventObject.setValue(event.id, forKey: "id")
@@ -800,6 +812,9 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
             streakPresentation: (object.value(forKey: "streakPresentationRaw") as? String)
                 .flatMap(HabitStreakPresentation.init(rawValue:)) ?? .gradeAndStreak,
             recoveryReceipts: metadata?.recoveryReceipts ?? [],
+            vacationRanges: metadata?.vacationRanges ?? [],
+            backfillPolicy: metadata?.backfillPolicy ?? .disabled,
+            minimumTarget: metadata?.minimumTarget,
             updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
         )
     }
@@ -807,6 +822,36 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
     private struct HabitPolicyDayMetadata: Codable {
         var offDays: Set<PlanningDay>
         var recoveryReceipts: [HabitRecoveryReceipt]
+        var vacationRanges: [HabitVacationRange] = []
+        var backfillPolicy: HabitBackfillPolicy = .disabled
+        var minimumTarget: HabitTarget?
+
+        private enum CodingKeys: String, CodingKey {
+            case offDays, recoveryReceipts, vacationRanges, backfillPolicy, minimumTarget
+        }
+
+        init(
+            offDays: Set<PlanningDay>,
+            recoveryReceipts: [HabitRecoveryReceipt],
+            vacationRanges: [HabitVacationRange] = [],
+            backfillPolicy: HabitBackfillPolicy = .disabled,
+            minimumTarget: HabitTarget? = nil
+        ) {
+            self.offDays = offDays
+            self.recoveryReceipts = recoveryReceipts
+            self.vacationRanges = vacationRanges
+            self.backfillPolicy = backfillPolicy
+            self.minimumTarget = minimumTarget
+        }
+
+        init(from decoder: any Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            offDays = try values.decodeIfPresent(Set<PlanningDay>.self, forKey: .offDays) ?? []
+            recoveryReceipts = try values.decodeIfPresent([HabitRecoveryReceipt].self, forKey: .recoveryReceipts) ?? []
+            vacationRanges = try values.decodeIfPresent([HabitVacationRange].self, forKey: .vacationRanges) ?? []
+            backfillPolicy = try values.decodeIfPresent(HabitBackfillPolicy.self, forKey: .backfillPolicy) ?? .disabled
+            minimumTarget = try values.decodeIfPresent(HabitTarget.self, forKey: .minimumTarget)
+        }
     }
 
     private static func habitGroup(_ object: NSManagedObject) -> HabitGroup? {
@@ -844,7 +889,10 @@ public final class CoreDataTrackFoundationRepository: TrackFoundationRepository,
             id: id, routineID: routineID, versionSnapshot: snapshot, status: status,
             currentStepID: object.value(forKey: "currentStepID") as? UUID, events: events,
             startedAt: startedAt, endedAt: object.value(forKey: "endedAt") as? Date,
-            updatedAt: object.value(forKey: "updatedAt") as? Date ?? startedAt
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? startedAt,
+            pausedAt: object.value(forKey: "pausedAt") as? Date,
+            accumulatedPausedDuration: (object.value(forKey: "accumulatedPausedDuration") as? NSNumber)?.doubleValue,
+            currentStepPausedDuration: (object.value(forKey: "currentStepPausedDuration") as? NSNumber)?.doubleValue
         )
     }
 

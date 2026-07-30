@@ -62,6 +62,17 @@ public struct TrackerDefinitionService: Sendable {
         try await repository.saveTracker(definition)
     }
 
+    public func archiveDefinition(_ definition: LifeBoardTrackerDefinitionValue, at date: Date = Date()) async throws {
+        var archived = definition
+        archived.isArchived = true
+        archived.updatedAt = date
+        try await saveDefinition(archived, sensitiveHomeAuthorized: true)
+    }
+
+    public func deleteDefinition(id: UUID) async throws {
+        try await repository.deleteTracker(id: id)
+    }
+
     public func saveEntry(_ entry: LifeBoardTrackerEntryValue) async throws {
         guard let definition = try await repository.fetchTrackers().first(where: { $0.id == entry.trackerID }) else {
             throw TrackerDefinitionServiceError.valueTypeMismatch
@@ -122,13 +133,16 @@ public struct TrackerDefinitionService: Sendable {
         guard definition.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
             throw TrackerDefinitionServiceError.emptyTitle
         }
-        if let minimum = definition.rangeMin, let maximum = definition.rangeMax, minimum > maximum {
+        if definition.rangeMin.map(\.isFinite) == false
+            || definition.rangeMax.map(\.isFinite) == false
+            || (definition.rangeMin != nil && definition.rangeMax != nil
+                && definition.rangeMin! > definition.rangeMax!) {
             throw TrackerDefinitionServiceError.invalidRange
         }
         if definition.effectiveValueType == .choice {
             let options = definition.choiceOptions ?? []
             let cleaned = options.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-            guard cleaned.isEmpty == false,
+            guard cleaned.count >= 2,
                   cleaned.allSatisfy({ $0.isEmpty == false }),
                   Set(cleaned).count == cleaned.count else {
                 throw TrackerDefinitionServiceError.invalidChoiceOptions
@@ -155,9 +169,10 @@ public struct TrackerDefinitionService: Sendable {
             guard count >= 0 else { throw TrackerDefinitionServiceError.valueOutOfRange }
             numeric = Double(count)
         case (.quantity, .quantity(let value, _)), (.rating, .rating(let value)):
+            guard value.isFinite else { throw TrackerDefinitionServiceError.valueOutOfRange }
             numeric = value
         case (.duration, .duration(let value)):
-            guard value >= 0 else { throw TrackerDefinitionServiceError.valueOutOfRange }
+            guard value.isFinite, value >= 0 else { throw TrackerDefinitionServiceError.valueOutOfRange }
             numeric = value
         case (.choice, .choice(let choice)):
             guard definition.choiceOptions?.contains(choice) == true else {
@@ -201,6 +216,7 @@ public enum MedicationScheduleServiceError: LocalizedError, Equatable, Sendable 
     case emptyName
     case invalidActiveRange
     case invalidRefillState
+    case invalidSchedule
     case eventOutsideActiveRange
 
     public var errorDescription: String? {
@@ -208,6 +224,7 @@ public enum MedicationScheduleServiceError: LocalizedError, Equatable, Sendable 
         case .emptyName: "Give this medication a name."
         case .invalidActiveRange: "The medication end date must follow its start date."
         case .invalidRefillState: "Refill values cannot be negative or exceed the refill quantity."
+        case .invalidSchedule: "Choose at least one day and a valid medication window."
         case .eventOutsideActiveRange: "That event is outside this medication’s active dates."
         }
     }
@@ -250,8 +267,48 @@ public struct MedicationScheduleService: Sendable {
         try await repository.saveMedication(value)
     }
 
+    public func validateSchedule(_ value: LifeBoardMedicationScheduleValue) throws {
+        guard value.weekdays.isEmpty == false,
+              value.weekdays.allSatisfy((1...7).contains),
+              (0..<1_440).contains(value.windowStartMinutes),
+              (1...1_440).contains(value.windowEndMinutes),
+              value.windowEndMinutes > value.windowStartMinutes else {
+            throw MedicationScheduleServiceError.invalidSchedule
+        }
+    }
+
     public func saveSchedule(_ value: LifeBoardMedicationScheduleValue) async throws {
+        try validateSchedule(value)
         try await repository.saveMedicationSchedule(value)
+    }
+
+    public func saveEvent(
+        medication: LifeBoardMedicationDefinitionValue,
+        event: LifeBoardMedicationEventValue
+    ) async throws {
+        if medication.startDate.map({ event.scheduledAt < $0 }) == true
+            || medication.endDate.map({ event.scheduledAt > $0 }) == true {
+            throw MedicationScheduleServiceError.eventOutsideActiveRange
+        }
+        var normalized = event
+        if normalized.status == .scheduled || normalized.status == .unresolved {
+            normalized.resolvedAt = nil
+        }
+        try await repository.saveMedicationEvent(normalized)
+    }
+
+    public func archiveDefinition(
+        _ medication: LifeBoardMedicationDefinitionValue,
+        at date: Date = Date()
+    ) async throws {
+        var archived = medication
+        archived.isArchived = true
+        archived.updatedAt = date
+        try await saveDefinition(archived)
+    }
+
+    public func deleteDefinition(id: UUID) async throws {
+        try await repository.deleteMedication(id: id)
     }
 
     @discardableResult
@@ -270,7 +327,7 @@ public struct MedicationScheduleService: Sendable {
         updated.status = status
         updated.resolvedAt = status == .scheduled || status == .unresolved ? nil : date
         updated.note = note
-        try await repository.saveMedicationEvent(updated)
+        try await saveEvent(medication: medication, event: updated)
         return updated
     }
 
@@ -799,6 +856,9 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             try HealthPrivacyMigrationAccess.requireValidated(in: context)
             let object = try Self.upsertLocal(entity: "FastingSession", id: value.id, in: context)
             object.setValue(value.id, forKey: "id")
+            if object.entity.attributesByName["templateID"] != nil {
+                object.setValue(value.templateID, forKey: "templateID")
+            }
             object.setValue(value.startedAt, forKey: "startedAt")
             object.setValue(value.endedAt, forKey: "endedAt")
             object.setValue(value.targetDuration.map(NSNumber.init(value:)), forKey: "targetDuration")
@@ -811,6 +871,36 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             if object.entity.attributesByName["updatedAt"] != nil {
                 object.setValue(value.updatedAt ?? Date(), forKey: "updatedAt")
             }
+        }
+    }
+
+    public func fetchFastingTemplates(includeArchived: Bool) async throws -> [LifeBoardFastingTemplateValue] {
+        try await read { context in
+            let request = NSFetchRequest<NSManagedObject>(entityName: "FastingTemplate")
+            request.affectedStores = Self.localStores(in: context)
+            if !includeArchived {
+                request.predicate = NSPredicate(format: "isArchived == NO")
+            }
+            request.sortDescriptors = [
+                NSSortDescriptor(key: "updatedAt", ascending: false),
+                NSSortDescriptor(key: "label", ascending: true)
+            ]
+            return try context.fetch(request).compactMap(Self.fastingTemplateValue)
+        }
+    }
+
+    public func saveFastingTemplate(_ value: LifeBoardFastingTemplateValue) async throws {
+        try await write { context in
+            try HealthPrivacyMigrationAccess.requireValidated(in: context)
+            let object = try Self.upsertLocal(entity: "FastingTemplate", id: value.id, in: context)
+            object.setValue(value.id, forKey: "id")
+            object.setValue(value.label, forKey: "label")
+            object.setValue(value.targetDuration.map(NSNumber.init(value:)), forKey: "targetDuration")
+            object.setValue(try Self.encode(value.reminderOffsets), forKey: "reminderOffsetsData")
+            object.setValue(try Self.encode(value.displayPreferences), forKey: "displayPreferencesData")
+            object.setValue(value.isArchived, forKey: "isArchived")
+            object.setValue(value.createdAt, forKey: "createdAt")
+            object.setValue(value.updatedAt, forKey: "updatedAt")
         }
     }
 
@@ -1694,6 +1784,9 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
               let startedAt = object.value(forKey: "startedAt") as? Date else { return nil }
         return .init(
             id: id,
+            templateID: object.entity.attributesByName["templateID"] == nil
+                ? nil
+                : object.value(forKey: "templateID") as? UUID,
             startedAt: startedAt,
             endedAt: object.value(forKey: "endedAt") as? Date,
             targetDuration: (object.value(forKey: "targetDuration") as? NSNumber)?.doubleValue,
@@ -1705,6 +1798,27 @@ public final class CoreDataLifeBoardPhaseIIRepository: LifeBoardPhaseIIRepositor
             updatedAt: object.entity.attributesByName["updatedAt"] == nil
                 ? nil
                 : object.value(forKey: "updatedAt") as? Date
+        )
+    }
+
+    private static func fastingTemplateValue(_ object: NSManagedObject) -> LifeBoardFastingTemplateValue? {
+        guard let id = object.value(forKey: "id") as? UUID,
+              let label = object.value(forKey: "label") as? String else { return nil }
+        return try? .init(
+            id: id,
+            label: label,
+            targetDuration: (object.value(forKey: "targetDuration") as? NSNumber)?.doubleValue,
+            reminderOffsets: decode(
+                [TimeInterval].self,
+                from: object.value(forKey: "reminderOffsetsData") as? Data
+            ) ?? [],
+            displayPreferences: decode(
+                LifeBoardFastingDisplayPreferences.self,
+                from: object.value(forKey: "displayPreferencesData") as? Data
+            ) ?? .init(),
+            isArchived: (object.value(forKey: "isArchived") as? NSNumber)?.boolValue ?? false,
+            createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
+            updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
         )
     }
 

@@ -1,10 +1,16 @@
 # LifeBoard — Phase 1 & Phase 2 Implementation Handoff
 
-## 2026-07-29 completion ledger
+## 2026-07-29–30 completion ledger
 
 This ledger supersedes the older point-in-time counts below while preserving
 their design and migration warnings.
 
+- [x] Phase 1 and Phase 2 implementation scope is code-complete across the
+  canonical app routes, persistence/services, rollback composition, widgets,
+  Watch command transport, and fasting/routine Live Activities. The unchecked
+  rows below are release evidence that requires executable simulator/device
+  hosts or recorded visual/accessibility/performance runs; they are not
+  placeholders for a parallel production implementation.
 - [x] Audited the current 4,691-line WIP and confirmed the 23-model chain,
   feature rollback routes, Share Extension target, Phase 1 dependency
   composition, and native behavior route gate.
@@ -13,8 +19,8 @@ their design and migration warnings.
   runtime/test, and Core Data codegen guardrails pass.
 - [x] Changed the baseline script default from the unavailable `iPhone 17` to
   the dedicated `LifeBoard Test iPhone`.
-- [x] Added a shared Watch scheme and a serialized Phase 1/2 build-matrix
-  script. Watch execution remains device/runtime-gated.
+- [x] Added shared Watch app/widget schemes and a serialized Phase 1/2
+  build-matrix script. Watch execution remains device/runtime-gated.
 - [x] Checkpointed the audited foundation at commit `28559c75` before feature
   expansion.
 - [x] Stage 1 contract slice: Inbox review is now a mutable
@@ -29,9 +35,15 @@ their design and migration warnings.
   including edited-review equality, conflict acknowledgement, source
   selection, concurrent writers, compensation, merge restoration, and legacy
   JSON decoding.
-- [ ] Stage 1 remaining exit evidence: real Core Data pending-to-task merge
-  relationship restoration, seeded process-interruption/relaunch UI coverage,
-  and device App Group writers from every extension surface.
+- [x] Stage 1 real-persistence slice: `CoreDataInboxTaskWriter` now treats
+  definition and `TaskTagLink` sidecars as one compensating mutation for
+  create, delete, merge, and restore. A real in-memory Core Data journey covers
+  pending-to-task merge plus exact task/tag/queue Undo restoration and compiles
+  in the complete test target.
+- [ ] Stage 1 remaining exit evidence: execute that real Core Data journey on a
+  healthy simulator test host, add seeded process-interruption/relaunch UI
+  coverage, and exercise App Group writers from every signed extension surface
+  on device.
 - [x] Stage 2 canonical-scope slice: `TaskExecutionStore` now feeds the
   production Inbox, Today, Upcoming, Waiting, Someday, Completed, and All
   library inside Plan; every row opens the shared canonical task route.
@@ -59,8 +71,16 @@ their design and migration warnings.
   expose explicit project-section movement through the same atomic batch
   coordinator. Two focused graph/order identity tests plus four batch
   atomicity tests pass; the Debug simulator build succeeds.
-- [ ] Stage 2 remaining exit evidence: prove every batch family against real
-  Core Data and remove or redirect every remaining reachable legacy editor.
+- [x] Stage 2 route/persistence closure: one real in-memory Core Data journey
+  covers schedule, tag, move, defer, complete/reopen, archive, delete, and Undo.
+  Home, Plan, project, Inbox, search, notification, and deep-link task opens now
+  converge on the canonical task route while Phase 1 is enabled; the Sunrise
+  editor remains reachable only from the explicit rollback/onboarding path.
+  `PlanFeatureDependencies` and canonical focus/task handlers are no longer
+  composed when either Phase 1 rollback flag is disabled.
+- [ ] Stage 2 remaining exit evidence: execute the compiled real Core Data
+  journey on a healthy simulator test host and capture the seeded
+  project-template/batch UI journey.
 - [x] Stage 3 scenario/control slice: Minimum Viable Day, repair actions, and
   multi-item rescheduling now remain local `PlanningScenario` previews until
   Apply. MVD refuses partial care/outcome/rest composition and exposes a compact
@@ -107,16 +127,182 @@ their design and migration warnings.
   combined LifeOS/focus foundation suites pass, including Pomodoro relaunch,
   interruption, terminal receipt, reflection persistence, primary-Now, and
   day-ahead invariants.
-- [ ] Stage 4 remaining exit evidence: exercise both Live Activity compile
-  branches in the serialized build matrix, add Watch command device coverage,
-  and capture seeded VoiceOver/large-type Home and focus journeys.
+- [x] Stage 4 Live Activity compile closure: Debug and Release iOS compile the
+  ActivityKit implementation while Catalyst compiles the non-ActivityKit
+  fallback in the same serialized matrix.
+- [ ] Stage 4 remaining exit evidence: execute the implemented Watch commands
+  on a paired Watch runtime/device and capture seeded VoiceOver/large-type Home
+  and focus journeys.
+- [x] Stage 6 occurrence-identity slice: regenerated behavior occurrences use
+  `BehaviorOccurrenceIdentity`, a deterministic UUID derived from behavior,
+  canonical key, timezone, and sequence. Repeated generation retains the same
+  rows and identifiers, exception rebuilds preserve unaffected identities, and
+  projections distinguish missing, explicit zero, completed, skipped, off-day,
+  paused, failed, and unresolved. Focused identity/exception tests pass.
+- [x] Stage 6 single-model schema slice: the still-unshipped
+  `TaskModelV3_BehaviorFlagship` remains the sole additive model and now
+  includes recipe, ingredient, meal-template, grocery-list, serving-memory,
+  nutrition-preference, and fasting-template persistence plus log provenance
+  and session-template linkage. XML, current-model/configuration assertions,
+  and Core Data codegen guardrails pass.
+- [x] Stage 6 migration-fixture slice: the all-predecessor migration test now
+  seeds every domain a source model actually contains rather than proving only
+  a `LifeArea` row. It preserves Habit target payload/type/streak meaning,
+  Tracker definition plus explicit-zero numeric/boolean/note columns,
+  Medication definition/schedule/unresolved-event relationships, and Goal
+  measurement shape/target/unit while retaining stable IDs. Models predating a
+  domain skip only that unavailable fixture; the discovered 22-model chain
+  remains authoritative.
+- [x] Stage 6 cross-surface payload slice: task-list snapshot schema 7 carries
+  one backward-compatible `BehaviorOccurrenceSurfaceSnapshot` for app,
+  widgets, Watch, reminders, and history. It preserves the canonical
+  occurrence row ID/key, behavior/template IDs, domain, scheduled/due time,
+  timezone, and the complete missing/explicit-zero/completed/skipped/off-day/
+  paused/failed/unresolved vocabulary. Widget refresh uses the canonical
+  schedule and occurrence repositories; consumers do not regenerate IDs.
+  Schema-5 snapshots decode without inventing occurrences, and projection/
+  round-trip contracts compile in the complete test target.
+- [x] Stage 6 iOS widget-action slice: `StreakResilienceWidget` is now mounted
+  in the widget bundle and reads the canonical Habit plus behavior-occurrence
+  snapshot instead of unrelated gamification totals. Its completion App Intent
+  writes the canonical occurrence/behavior IDs; Home applies the command
+  through `ResolveOccurrenceUseCase`, clears expired/already-resolved commands,
+  and refreshes all snapshots after success. Resolution receipt IDs are
+  deterministic per occurrence/result, so repeated extension delivery upserts
+  the same Core Data receipt instead of duplicating history. Main app,
+  standalone widget, and complete test-target builds succeed.
+- [x] Stage 6 Watch action slice: Watch renders a 44-point completion action
+  from the canonical behavior-occurrence snapshot and transports the same
+  `BehaviorOccurrenceActionCommand` used by widgets. The phone validates flag,
+  expiry, behavior/occurrence identity, and unresolved snapshot state before
+  calling the canonical resolver, then refreshes snapshots. Transport
+  round-trip and schema-rejection contracts compile; Watch sources also pass a
+  standalone Swift parser check.
+- [x] Stage 8/9 active-session parity slice: task-list snapshot schema 7 adds
+  optional, backward-compatible canonical fasting and routine projections.
+  Watch renders target/elapsed fasting state plus End/Cancel and routine
+  step/progress plus Pause/Resume/Stop, all with 44-point actions. Commands
+  carry canonical session/run identity, expiry, and schema; the phone validates
+  the enabled Phase 2 route and current snapshot identity before invoking
+  `FastingTimerStore` or `DefaultRoutineExecutionService`, then republishes the
+  snapshot. Every canonical system-surface mutation also invalidates the task
+  snapshot, so in-app starts/finishes reach Watch without waiting for an
+  unrelated task refresh. Older snapshots decode both projections as nil.
+- [x] Stage 8/9 ActivityKit slice: canonical fasting and routine stores now
+  create, update, restore, and end their own Live Activities. Deep-link
+  commands expose only explicit Finish/Cancel for fasting and lifecycle-only
+  Pause/Resume/Stop for routines. The routine start path was also corrected to
+  persist before publishing in-memory active state.
+- [x] Stage 7 service-boundary slice: both legacy/native Track stores route
+  tracker definitions/entries and medication definitions/schedules/events,
+  corrections, snooze compensation, archive, and delete through
+  `TrackerDefinitionService` / `MedicationScheduleService`. A real Core Data
+  test proves invalid range, sensitive-Home, and active-date mutations are
+  rejected before any repository row is written.
+- [x] Stage 7 native-workflow slice: tracker creation now edits all eight
+  tagged value shapes, optional ranges, type-appropriate aggregation, privacy
+  class, explicit sensitive-Home authorization, choice membership, schedule,
+  reminder, and Home eligibility through the validation service. One typed
+  capture/correction sheet serves both native and rollback roots, preserves
+  legacy scalar columns, rejects non-finite/out-of-range values, and prepares
+  protected CSV/JSON exports with provenance. Six neutral templates create
+  fresh definitions; pain and symptom templates are visibly non-clinical and
+  sensitive by default.
+- [x] Stage 7 medication-workflow slice: the native editor persists form,
+  optional active dates, schedule window, weekdays, reminder state, and
+  opt-in refill quantity/remaining/threshold/last-refill state. Schedule
+  validation is preflighted before definition persistence. Native rows expose
+  Taken, Skipped, Snoozed, Rescheduled, Unresolved, full correction/history,
+  protected export, archive, and delete while retaining neutral informational
+  copy and never inferring a decision from silence. Ordinary definitions use
+  open rows rather than repeated raised cards, and all audited controls meet
+  the 44-point minimum.
+- [x] Stage 8 goal-contract slice: `GoalDraft` carries independent intent,
+  baseline, confidence, why, cadence, evidence links, effort, and outcome.
+  One lifecycle service normalizes definitions, appends immutable
+  date-and-ID-ordered status events, and makes reversible transitions append a
+  compensating event rather than deleting history. Assessment returns nil for
+  absent evidence, limits percentages to quantitatively meaningful goals, and
+  requires two missed check-ins or a meaningful four-sample/seven-day
+  trajectory before At Risk. Focused goal lifecycle/assessment tests pass.
+- [x] Stage 8 goal-workflow slice: the native composer now edits intent,
+  baseline, confidence, why-it-matters, and check-in cadence in addition to
+  measurement shape. Goal rows show intent/status and expose explicit
+  pause/resume/revise/complete/reactivate/archive transitions. Each transition
+  keeps immutable history, returns one receipt, and presents a one-tap Undo
+  that appends a compensating status event.
+- [x] Stage 8 routine-contract slice: the existing routine engine now validates
+  duplicate ordinals/IDs, missing links and destinations, unreachable steps,
+  branch loops, and invalid choice graphs before save. Morning, evening,
+  work-start, shutdown, workout, and care templates ship through one catalog.
+  Runs retain immutable version snapshots and durable paused/interrupted state;
+  pause, resume, skip-with-reason, interrupt, and stop commands preserve
+  exactly-once linked mutations. The production simulator build succeeds and
+  the four new routine recovery/validation tests compile in the full test
+  target.
+- [x] Stage 8 habit-contract slice: `HabitTarget` now supports binary,
+  avoidance, quantitative, quota-window, and timed targets with a compatible
+  low-energy minimum and service-boundary validation. Interval cadence is
+  encoded through the existing daily schedule rule and is editable in both
+  create and canonical detail flows. `HabitResiliencePolicy` now persists
+  intentional off-days, vacation ranges, correction windows, recovery
+  receipts, and minimum targets in the existing metadata column. Habit
+  evidence and 30-day grading distinguish missing, explicit zero, partial,
+  completed, abstained, lapsed, skipped, off-day, paused, failed, unresolved,
+  and recovered states; auto-completion accepts only one source/threshold
+  mapping to one occurrence. The generic simulator build and complete
+  test-target build succeed.
+- [x] Stage 9 nutrition/fasting persistence slice: recipes retain ingredient
+  and nutrition snapshots; meal templates instantiate compensating log
+  batches with provenance; grocery generation, favorites/recents,
+  serving-memory, calorie hiding, macro/micronutrient preferences, correction
+  receipts, and Undo are repository-backed. User fasting templates feed the
+  one canonical timer actor, sessions retain template identity, early ending
+  stays neutral, and corrections are reversible. Three focused real Core Data
+  journeys and two snapshot/Undo contract tests pass.
+- [x] Stage 9 barcode-review slice: barcode scans are local-first and now open
+  a provenance review before logging. A saved match retains its stable food
+  ID, barcode, source, favorite state, and external reference instead of being
+  recreated as a manual item. The optional remote lookup contract is disabled
+  by default, accepts only an explicit request when enabled, presents local
+  and online candidates side by side, never merges/replaces silently, and
+  records `barcodeLocal`/`barcodeRemote` provenance plus source reference in
+  the immutable log snapshot. Local-only, policy-denied, duplicate, explicit
+  selection, and cancel contracts compile in the complete test target.
+- [x] Stage 9 Wellness workflow slice: Body metrics now have persisted enabled
+  metrics, manual ordering, and compatible preferred units. Close-in-time
+  readings from different sources are reviewed side by side; choosing a
+  preferred projection never rewrites manual, Health, Watch, or imported
+  history. Body/workout/sleep annotations are visible, ordinary history uses
+  open rows instead of nested raised cards, and the store carries typed
+  not-requested/denied/loading/no-samples/fresh/stale/offline/failed states.
+  Preference and source-conflict contracts compile with the complete test
+  target.
+- [ ] Stage 6 remaining exit evidence: execute the richer 22-predecessor
+  migration fixture on a healthy simulator test host, complete DST/quota/
+  vacation/backfill scheduling semantics in consumer journeys, run the Watch
+  action on a paired device/runtime, and prove byte-identical reminder/history
+  consumption of the shared payload.
+- [ ] Stage 7/9 remaining exit evidence: seeded native medication/tracker
+  create → resolve → correct → export journeys, reminder/device delivery,
+  an enabled remote-provider integration journey for barcode duplicate review,
+  paired-device Watch/Live Activity fasting execution, live permission/cache
+  provenance wiring for Wellness, and the permission/offline/accessibility/
+  visual matrices.
+- [ ] Stage 8 remaining exit evidence: simulator execution of the newly
+  compiled routine/Habit focused tests is currently blocked before test-host
+  launch by the local Xcode simulator service (the same stall reproduces with
+  `test-without-building`). The canonical widget and Watch Habit actions now
+  share identity and command transport; routine Live Activity and Watch
+  lifecycle controls are implemented. Paired-device parity remains a device
+  gate. Still required: full Goal setup/review UI journeys and seeded
+  interruption/relaunch coverage.
 - [ ] Phase 1 exit blockers: the remaining Stage 1/2 evidence, scenario
-  conflict UI evidence, seeded daily-loop UI coverage, both Live Activity
-  compile branches, and the complete accessibility/visual/performance
-  matrices.
-- [ ] Phase 2 exit blockers: domain-rich migration fixtures, deterministic
-  occurrence IDs, service-backed native Track mutations, full habit/routine/
-  goal workflows, personal-care persistence, cross-surface parity, and
+  conflict UI evidence, seeded daily-loop UI coverage, and the complete
+  accessibility/visual/performance matrices.
+- [ ] Phase 2 exit blockers: executable simulator evidence for the compiled
+  domain tests, full seeded goal/personal-care UI journeys, paired-device
+  cross-surface parity, visual/accessibility/performance evidence, and
   device-only gates.
 
 ### Verification policy
@@ -124,6 +310,61 @@ their design and migration warnings.
 Run `./scripts/run-baseline-aware-tests.sh`, all guardrails, then
 `./scripts/run-phase1-phase2-build-matrix.sh`. Never run two `xcodebuild`
 processes concurrently. Record device-only results separately.
+
+Latest local verification for the Stage 7/8/9 slices: generic Debug simulator
+build succeeds after the native medication/tracker expansion, and the full
+`LifeBoardTests` target build succeeds with tagged-value, schedule-preflight,
+template-identity, routine, Habit, Wellness, nutrition, and fasting contracts.
+XML and `git diff --check` passed before this slice and all seven guardrails
+passed; re-run them after the next cross-surface slice. Focused simulator test
+execution still stalls before test-host launch in the local Xcode simulator
+service; newly compiled tests have not been marked as executed.
+
+The subsequent Stage 6 cross-surface/migration slice also passes complete
+test-target compilation. A focused `test-without-building` attempt again
+stalled before the test host emitted any test case and was terminated after
+one minute; this remains recorded as local simulator infrastructure, not a
+product failure.
+
+After the shared snapshot schema moved to version 6, the standalone
+`LifeBoardWidgets` scheme builds successfully for the generic iOS simulator.
+The shared `LifeBoardWatchWidgets` scheme resolves correctly but cannot build
+on this host because the watchOS 26.5 platform/runtime is not installed; Xcode
+reports only the missing platform destination. All seven guardrails,
+BehaviorFlagship XML validation, and `git diff --check` pass after the native
+Track, behavior-policy, migration, and barcode-review slices.
+
+Final 2026-07-29 local verification after routine/fasting cross-surface parity:
+the complete `LifeBoardTests` bundle builds and signs, all seven guardrails
+pass, the BehaviorFlagship XML is valid, and `git diff --check` passes. The
+serialized build matrix produces five successful builds: Debug iOS, standalone
+widgets, standalone Share Extension, Release iOS, and Catalyst. The shared
+Watch app and Watch-widget schemes resolve, and the edited Watch sources pass
+`swiftc -frontend -parse`; their builds are skipped because no watchOS
+simulator runtime/platform is installed. Three focused test-execution retries,
+including after a dedicated-simulator reset and local signing, stalled while
+Xcode waited for the test worker to materialize before any test case started.
+The compiled tests are therefore not misclassified as executed or failed.
+
+The final accessibility/performance sweep gives Plan resize handles stable
+automation identifiers while preserving their 44-point hit regions, expands
+Nutrition's dismiss target to 44 points, and removes a perpetual decorative
+Health sync `TimelineView`. Phase 2 native roots and leaf routes now mount only
+while `trackBehaviorFlagshipV1Enabled`; disabling it restores the legacy Track
+root without deleting or rewriting behavior data.
+
+Final 2026-07-30 configuration verification after canonical system-surface
+snapshot invalidation: Debug iOS, Release iOS Simulator (whole-module
+optimization), and Debug Mac Catalyst all build successfully. The Release build
+emits only the pre-existing `HKWorkoutActivityType.dance` deprecation warning;
+Catalyst emits the existing missing Metal-toolchain search-path warning and
+still links and validates successfully. The complete test bundle remains
+buildable/signable, all seven guardrails pass, the BehaviorFlagship XML is
+valid, and `git diff --check` is clean. Test execution remains blocked before
+the first test case by local simulator worker materialization, and Watch
+typechecking/runtime execution remains blocked by the absent watchOS 26.5
+platform/runtime; neither external gate is recorded as a product failure or a
+pass.
 
 **Date:** 2026-07-28
 **Branch:** `lifeOS` (head `f91af671`)

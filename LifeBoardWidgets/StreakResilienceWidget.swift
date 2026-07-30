@@ -1,5 +1,8 @@
 import SwiftUI
 import WidgetKit
+#if canImport(AppIntents)
+import AppIntents
+#endif
 
 struct StreakResilienceWidget: Widget {
     let kind = "StreakResilienceWidget"
@@ -17,7 +20,7 @@ struct StreakResilienceWidget: Widget {
 
 struct StreakResilienceProvider: TimelineProvider {
     func placeholder(in context: Context) -> StreakResilienceEntry {
-        StreakResilienceEntry(date: Date(), snapshot: GamificationWidgetSnapshot())
+        StreakResilienceEntry(date: Date(), snapshot: TaskListWidgetSnapshot())
     }
 
     func getSnapshot(in context: Context, completion: @escaping (StreakResilienceEntry) -> Void) {
@@ -33,18 +36,54 @@ struct StreakResilienceProvider: TimelineProvider {
 
 struct StreakResilienceEntry: TimelineEntry {
     let date: Date
-    let snapshot: GamificationWidgetSnapshot
+    let snapshot: TaskListWidgetSnapshot
 }
 
 struct StreakResilienceWidgetView: View {
     let entry: StreakResilienceEntry
 
-    private var streakProgress: CGFloat {
-        guard entry.snapshot.bestStreak > 0 else { return 0 }
-        return min(1.0, CGFloat(entry.snapshot.streakDays) / CGFloat(entry.snapshot.bestStreak))
+    private var primary: TaskListWidgetHabitPrimary? {
+        entry.snapshot.habit.primaryHabit
     }
 
+    private var actionableOccurrence: BehaviorOccurrenceSurfaceSnapshot? {
+        guard let primary else { return nil }
+        return entry.snapshot.behaviorOccurrences.first {
+            $0.domain == .habit
+                && $0.behaviorID == primary.habitID
+                && $0.result == .unresolved
+        }
+    }
+
+    private var streakProgress: CGFloat {
+        guard let primary, primary.bestStreak > 0 else { return 0 }
+        return min(1.0, CGFloat(primary.currentStreak) / CGFloat(primary.bestStreak))
+    }
+
+    @ViewBuilder
     var body: some View {
+        #if canImport(AppIntents)
+        if let occurrence = actionableOccurrence {
+            Button(intent: ResolveBehaviorOccurrenceIntent(
+                occurrenceID: occurrence.occurrenceID.uuidString,
+                behaviorID: occurrence.behaviorID.uuidString
+            )) {
+                content
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Marks today’s canonical occurrence complete")
+        } else {
+            content
+                .widgetURL(primary.map { URL(string: "lifeboard://habits/\($0.habitID.uuidString)")! }
+                    ?? URL(string: "lifeboard://habits"))
+        }
+        #else
+        content
+            .widgetURL(URL(string: "lifeboard://habits"))
+        #endif
+    }
+
+    private var content: some View {
         TaskWidgetScene { context in
             VStack(alignment: .leading, spacing: context.sectionSpacing) {
                 TaskWidgetSectionHeader(eyebrow: "Consistency", title: "Active Days", detail: nil, accent: WidgetBrand.textPrimary)
@@ -55,18 +94,21 @@ struct StreakResilienceWidgetView: View {
                     Image(systemName: "leaf.fill")
                         .widgetAccentedRenderingMode(.accented)
                         .font(.system(size: 54, weight: .semibold, design: .rounded))
-                        .foregroundStyle(entry.snapshot.streakDays > 0 ? WidgetBrand.sunriseGold : WidgetBrand.line)
+                        .foregroundStyle((primary?.currentStreak ?? 0) > 0 ? WidgetBrand.sunriseGold : WidgetBrand.line)
                         .widgetAccentable()
 
                     VStack(alignment: .leading, spacing: 5) {
-                        Text("\(entry.snapshot.streakDays)")
+                        Text("\(primary?.currentStreak ?? 0)")
                             .font(TaskWidgetTypography.display)
                             .foregroundStyle(WidgetBrand.textPrimary)
-                            .taskWidgetNumericTransition(Double(entry.snapshot.streakDays), reduceMotion: context.reduceMotion)
+                            .taskWidgetNumericTransition(Double(primary?.currentStreak ?? 0), reduceMotion: context.reduceMotion)
                         Text("days active")
                             .font(TaskWidgetTypography.support)
                             .foregroundStyle(WidgetBrand.textSecondary)
-                        TaskWidgetInlineMetadata(items: ["Best \(entry.snapshot.bestStreak)", "Keep the rhythm"])
+                        TaskWidgetInlineMetadata(items: [
+                            "Best \(primary?.bestStreak ?? 0)",
+                            actionableOccurrence == nil ? "No action waiting" : "Tap to record"
+                        ])
                     }
                 }
 
@@ -75,7 +117,9 @@ struct StreakResilienceWidgetView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
         }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("Current active rhythm \(entry.snapshot.streakDays) days. Best rhythm \(entry.snapshot.bestStreak) days.")
-        .widgetURL(URL(string: "lifeboard://insights"))
+        .accessibilityLabel(
+            "Current active rhythm \(primary?.currentStreak ?? 0) days. "
+                + "Best rhythm \(primary?.bestStreak ?? 0) days."
+        )
     }
 }

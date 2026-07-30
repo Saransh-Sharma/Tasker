@@ -553,7 +553,7 @@ private struct HealthSyncBridgeHero: View {
             .clipShape(RoundedRectangle(cornerRadius: 24))
             HStack(spacing: 12) {
                 node(symbol: "hexagon.fill", title: "LifeBoard")
-                SyncBridgeChannel(reduceMotion: reduceMotion)
+                SyncBridgeChannel()
                     .frame(maxWidth: .infinity)
                 node(symbol: "heart.fill", title: "Apple Health")
             }
@@ -586,41 +586,12 @@ private struct HealthSyncBridgeHero: View {
 }
 
 private struct SyncBridgeChannel: View {
-    let reduceMotion: Bool
-
     var body: some View {
-        if reduceMotion {
-            Image(systemName: "arrow.left.arrow.right")
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Color.lifeboard(.accentPrimary))
-                .accessibilityHidden(true)
-        } else {
-            TimelineView(.animation) { context in
-                Canvas { ctx, size in
-                    let phase = context.date.timeIntervalSinceReferenceDate
-                    drawLane(ctx, size: size, y: size.height / 2 - 6, phase: phase, forward: true)
-                    drawLane(ctx, size: size, y: size.height / 2 + 6, phase: phase, forward: false)
-                }
-            }
+        Image(systemName: "arrow.left.arrow.right")
+            .font(.title3.weight(.semibold))
+            .foregroundStyle(Color.lifeboard(.accentPrimary))
             .frame(height: 34)
             .accessibilityHidden(true)
-        }
-    }
-
-    private func drawLane(_ ctx: GraphicsContext, size: CGSize, y: CGFloat, phase: Double, forward: Bool) {
-        let dotCount = 4
-        let speed = 0.32
-        let tint = Color.lifeboard(forward ? .accentPrimary : .accentSecondary)
-        for index in 0 ..< dotCount {
-            var progress = (phase * speed + Double(index) / Double(dotCount))
-                .truncatingRemainder(dividingBy: 1)
-            if progress < 0 { progress += 1 }
-            let travel = forward ? progress : 1 - progress
-            let x = size.width * travel
-            let fade = sin(progress * .pi)
-            let rect = CGRect(x: x - 2.5, y: y - 2.5, width: 5, height: 5)
-            ctx.fill(Path(ellipseIn: rect), with: .color(tint.opacity(0.3 + 0.55 * fade)))
-        }
     }
 }
 

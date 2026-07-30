@@ -35,12 +35,12 @@ public final class CanonicalTrackHabitProjectionService: TrackHabitProjectionSer
                 case .success:
                     return .init(habitID: window.habitID, day: day, resolution: .completed)
                 case .failure:
-                    return .init(habitID: window.habitID, day: day, resolution: .due)
+                    return .init(habitID: window.habitID, day: day, resolution: .failed)
                 case .skipped:
                     return .init(habitID: window.habitID, day: day, resolution: .manuallySkipped)
                 case .none:
                     return mark.date <= upperBound
-                        ? .init(habitID: window.habitID, day: day, resolution: .due)
+                        ? .init(habitID: window.habitID, day: day, resolution: .missing)
                         : nil
                 case .future:
                     return .init(habitID: window.habitID, day: day, isDue: false)
@@ -308,15 +308,20 @@ public struct DefaultHabitGradeEngine: HabitGradeEngine {
                 return occurrence
             }
             .sorted { $0.day < $1.day }
-        let eligible = relevant.filter { policy.offDays.contains($0.day) == false }
-        let completed = eligible.filter { $0.resolution == .completed || $0.resolution == .recovered }
+        let eligible = relevant.filter {
+            policy.isIntentionalOffDay($0.day) == false
+                && ![.offDay, .paused, .manuallySkipped, .unresolved].contains($0.resolution)
+        }
+        let completed = eligible.filter {
+            [.completed, .recovered, .abstained].contains($0.resolution)
+        }
         let grade = eligible.isEmpty ? nil : Double(completed.count) / Double(eligible.count)
 
         let byDay = Dictionary(relevant.map { ($0.day, $0) }, uniquingKeysWith: { _, newer in newer })
         var streak = 0
         var cursor = today
         while cursor >= firstDay {
-            if policy.offDays.contains(cursor) {
+            if policy.isIntentionalOffDay(cursor) {
                 guard let previous = previousDay(cursor, calendar: calendar) else { break }
                 cursor = previous
                 continue
@@ -326,14 +331,30 @@ public struct DefaultHabitGradeEngine: HabitGradeEngine {
                 cursor = previous
                 continue
             }
-            if occurrence.resolution == .completed || occurrence.resolution == .recovered {
+            if [.completed, .recovered, .abstained].contains(occurrence.resolution) {
                 streak += 1
+            } else if [.offDay, .paused, .manuallySkipped, .unresolved].contains(occurrence.resolution) {
+                guard let previous = previousDay(cursor, calendar: calendar) else { break }
+                cursor = previous
+                continue
             } else {
                 break
             }
             guard let previous = previousDay(cursor, calendar: calendar) else { break }
             cursor = previous
         }
+
+        let distribution = Dictionary(grouping: relevant, by: \.resolution)
+            .mapValues { $0.count }
+        let completionMinutes = completed.compactMap { occurrence -> Int? in
+            guard let recordedAt = occurrence.recordedAt else { return nil }
+            let components = calendar.dateComponents([.hour, .minute], from: recordedAt)
+            guard let hour = components.hour, let minute = components.minute else { return nil }
+            return hour * 60 + minute
+        }
+        let bestTime = completionMinutes.isEmpty
+            ? nil
+            : completionMinutes.sorted()[completionMinutes.count / 2]
 
         return HabitGradeSnapshot(
             habitID: habitID,
@@ -342,6 +363,9 @@ public struct DefaultHabitGradeEngine: HabitGradeEngine {
             grade: grade,
             streak: streak,
             recoveredDays: eligible.filter { $0.resolution == .recovered }.map(\.day),
+            distribution: distribution,
+            bestTimeMinutesFromMidnight: bestTime,
+            recoveryCount: eligible.filter { $0.resolution == .recovered }.count,
             generatedAt: now
         )
     }
@@ -351,6 +375,268 @@ public struct DefaultHabitGradeEngine: HabitGradeEngine {
               let previous = calendar.date(byAdding: .day, value: -1, to: date) else { return nil }
         let zone = TimeZone(identifier: day.timeZoneIdentifier) ?? calendar.timeZone
         return PlanningDay(date: previous, timeZone: zone, calendar: calendar)
+    }
+}
+
+public enum RoutineTemplateCatalog {
+    public static func definition(for kind: RoutineTemplateKind) -> RoutineDefinition? {
+        switch kind {
+        case .morning:
+            make("Morning", [
+                step("Arrive gently", .checkIn, minutes: 1, optional: true),
+                step("Choose today’s anchor", .instruction),
+                step("Begin the first small action", .timer, minutes: 10, optional: true)
+            ])
+        case .evening:
+            make("Evening", [
+                step("Close open loops", .instruction, optional: true),
+                step("Set down tomorrow’s first step", .instruction),
+                step("Quiet the space", .timer, minutes: 5, optional: true)
+            ])
+        case .workStart:
+            make("Work start", [
+                step("Clear the work surface", .timer, minutes: 2, optional: true),
+                step("Name the outcome", .checkIn),
+                step("Start a focus block", .timer, minutes: 25, optional: true)
+            ])
+        case .shutdown:
+            make("Shutdown", [
+                step("Capture unfinished thoughts", .instruction),
+                step("Choose the next starting point", .instruction),
+                step("Close work", .checkIn, optional: true)
+            ])
+        case .workout:
+            make("Workout", [
+                step("Set your intention", .checkIn, optional: true),
+                step("Move in the way you planned", .timer, minutes: 20, optional: true),
+                step("Cool down and note how it felt", .checkIn, optional: true)
+            ])
+        case .care:
+            make("Care", [
+                step("Check what you need", .checkIn),
+                step("Take one care action", .instruction),
+                step("Pause before continuing", .timer, minutes: 2, optional: true)
+            ])
+        case .custom:
+            nil
+        }
+    }
+
+    private static func make(_ title: String, _ steps: [RoutineStep]) -> RoutineDefinition {
+        RoutineDefinition(title: title, steps: steps.enumerated().map { index, value in
+            RoutineStep(
+                id: value.id,
+                title: value.title,
+                kind: value.kind,
+                ordinal: index,
+                duration: value.duration,
+                isRequired: value.isRequired,
+                isSkippable: value.isSkippable,
+                linkedEntityID: value.linkedEntityID,
+                linkedMutation: value.linkedMutation,
+                choices: value.choices,
+                branches: value.branches
+            )
+        })
+    }
+
+    private static func step(
+        _ title: String,
+        _ kind: RoutineStepKind,
+        minutes: Double? = nil,
+        optional: Bool = false
+    ) -> RoutineStep {
+        RoutineStep(
+            title: title,
+            kind: kind,
+            ordinal: 0,
+            duration: minutes.map { $0 * 60 },
+            isRequired: !optional,
+            isSkippable: optional
+        )
+    }
+}
+
+public struct RoutineValidator: Sendable {
+    public init() {}
+
+    public func validate(
+        _ routine: RoutineDefinition,
+        availableLinkedEntityIDs: Set<UUID>? = nil
+    ) -> RoutineValidationReport {
+        let steps = routine.steps.sorted {
+            ($0.ordinal, $0.id.uuidString) < ($1.ordinal, $1.id.uuidString)
+        }
+        guard !steps.isEmpty else {
+            return RoutineValidationReport(issues: [.noSteps])
+        }
+
+        var issues: [RoutineValidationIssue] = []
+        let ids = Set(steps.map(\.id))
+        let duplicateIDs = Dictionary(grouping: steps, by: \.id)
+            .filter { $0.value.count > 1 }
+            .keys
+            .sorted { $0.uuidString < $1.uuidString }
+        issues.append(contentsOf: duplicateIDs.map(RoutineValidationIssue.duplicateStepID))
+        let duplicateOrdinals = Dictionary(grouping: steps, by: \.ordinal)
+            .filter { $0.value.count > 1 }
+            .keys
+            .sorted()
+        issues.append(contentsOf: duplicateOrdinals.map(RoutineValidationIssue.duplicateOrdinal))
+
+        var edges: [UUID: Set<UUID>] = [:]
+        for (index, step) in steps.enumerated() {
+            if step.title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                issues.append(.emptyTitle(stepID: step.id))
+            }
+            let normalizedChoices = step.choices.map {
+                $0.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            let choiceCounts = Dictionary(grouping: normalizedChoices, by: { $0 })
+            let invalidChoices = normalizedChoices.filter {
+                $0.isEmpty || (choiceCounts[$0]?.count ?? 0) > 1
+            }
+            for choice in Set(invalidChoices).sorted() {
+                issues.append(.invalidChoice(stepID: step.id, choice: choice))
+            }
+            if step.linkedMutation != nil, step.linkedEntityID == nil {
+                issues.append(.missingLinkedEntity(stepID: step.id))
+            }
+            if let linkedID = step.linkedEntityID,
+               let availableLinkedEntityIDs,
+               !availableLinkedEntityIDs.contains(linkedID) {
+                issues.append(.linkedEntityUnavailable(stepID: step.id, linkedEntityID: linkedID))
+            }
+            for branch in step.branches {
+                if branch.sourceStepID != step.id {
+                    issues.append(.branchSourceMismatch(
+                        stepID: step.id,
+                        sourceStepID: branch.sourceStepID
+                    ))
+                }
+                if !ids.contains(branch.destinationStepID) {
+                    issues.append(.missingBranchDestination(
+                        sourceStepID: branch.sourceStepID,
+                        destinationStepID: branch.destinationStepID
+                    ))
+                } else {
+                    edges[step.id, default: []].insert(branch.destinationStepID)
+                }
+                let expected = branch.expectedResponse.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !step.choices.isEmpty, !normalizedChoices.contains(expected) {
+                    issues.append(.invalidChoice(stepID: step.id, choice: expected))
+                }
+            }
+            let explicitlyBranchedResponses = Set(
+                step.branches
+                    .filter { $0.operation == .equals }
+                    .map { $0.expectedResponse.trimmingCharacters(in: .whitespacesAndNewlines) }
+            )
+            let isExhaustiveChoice = step.kind == .choice
+                && !normalizedChoices.isEmpty
+                && Set(normalizedChoices).isSubset(of: explicitlyBranchedResponses)
+            if !isExhaustiveChoice,
+               let next = steps.indices.contains(index + 1) ? steps[index + 1] : nil {
+                edges[step.id, default: []].insert(next.id)
+            }
+        }
+
+        var visited: Set<UUID> = []
+        var visiting: Set<UUID> = []
+        var stack: [UUID] = []
+        var loops: Set<[UUID]> = []
+        func walk(_ id: UUID) {
+            if visiting.contains(id) {
+                if let start = stack.firstIndex(of: id) {
+                    loops.insert(Array(stack[start...]) + [id])
+                }
+                return
+            }
+            guard !visited.contains(id) else { return }
+            visiting.insert(id)
+            stack.append(id)
+            for destination in (edges[id] ?? []).sorted(by: { $0.uuidString < $1.uuidString }) {
+                walk(destination)
+            }
+            _ = stack.popLast()
+            visiting.remove(id)
+            visited.insert(id)
+        }
+        if let first = steps.first { walk(first.id) }
+        for id in ids.subtracting(visited).sorted(by: { $0.uuidString < $1.uuidString }) {
+            issues.append(.unreachableStep(id))
+        }
+        issues.append(contentsOf: loops.sorted {
+            $0.map(\.uuidString).joined() < $1.map(\.uuidString).joined()
+        }.map(RoutineValidationIssue.loop))
+        return RoutineValidationReport(issues: issues)
+    }
+}
+
+public extension RoutineExecutionService {
+    func apply(
+        command: RoutineRunCommand,
+        to run: RoutineRun,
+        at date: Date
+    ) -> RoutineTransition {
+        switch command {
+        case let .advance(response, idempotencyKey):
+            return advance(
+                run: run,
+                response: response,
+                skip: false,
+                idempotencyKey: idempotencyKey,
+                at: date
+            )
+        case let .skip(reason, idempotencyKey):
+            return advance(
+                run: run,
+                response: reason.trimmingCharacters(in: .whitespacesAndNewlines),
+                skip: true,
+                idempotencyKey: idempotencyKey,
+                at: date
+            )
+        case .pause:
+            guard run.status == .running else {
+                return .init(run: run, linkedMutation: nil, linkedEntityID: nil, didApplyEvent: false)
+            }
+            var updated = run
+            updated.status = .paused
+            updated.pausedAt = date
+            updated.updatedAt = date
+            return .init(run: updated, linkedMutation: nil, linkedEntityID: nil, didApplyEvent: true)
+        case .interrupt:
+            guard run.status == .running else {
+                return .init(run: run, linkedMutation: nil, linkedEntityID: nil, didApplyEvent: false)
+            }
+            var updated = run
+            updated.status = .interrupted
+            updated.pausedAt = date
+            updated.updatedAt = date
+            return .init(run: updated, linkedMutation: nil, linkedEntityID: nil, didApplyEvent: true)
+        case .resume:
+            guard run.status == .paused || run.status == .interrupted else {
+                return .init(run: run, linkedMutation: nil, linkedEntityID: nil, didApplyEvent: false)
+            }
+            var updated = run
+            if let pausedAt = run.pausedAt {
+                let pausedDuration = max(0, date.timeIntervalSince(pausedAt))
+                updated.accumulatedPausedDuration = run.effectivePausedDuration + pausedDuration
+                updated.currentStepPausedDuration = run.effectiveCurrentStepPausedDuration + pausedDuration
+            }
+            updated.pausedAt = nil
+            updated.status = .running
+            updated.updatedAt = date
+            return .init(run: updated, linkedMutation: nil, linkedEntityID: nil, didApplyEvent: true)
+        case .stop:
+            let updated = abandon(run: run, at: date)
+            return .init(
+                run: updated,
+                linkedMutation: nil,
+                linkedEntityID: nil,
+                didApplyEvent: updated != run
+            )
+        }
     }
 }
 
@@ -399,6 +685,7 @@ public struct DefaultRoutineExecutionService: RoutineExecutionService {
             ?? nextStep(after: step, in: run.versionSnapshot)?.id
         updated.currentStepID = nextID
         updated.updatedAt = date
+        updated.currentStepPausedDuration = 0
         if nextID == nil {
             updated.status = .completed
             updated.endedAt = date
@@ -412,7 +699,9 @@ public struct DefaultRoutineExecutionService: RoutineExecutionService {
     }
 
     public func abandon(run: RoutineRun, at date: Date) -> RoutineRun {
-        guard run.status == .running else { return run }
+        guard run.status == .running || run.status == .paused || run.status == .interrupted else {
+            return run
+        }
         var updated = run
         updated.status = run.events.isEmpty ? .abandoned : .partial
         updated.endedAt = date
@@ -464,9 +753,16 @@ public struct DefaultGoalProgressService: GoalProgressService {
         let target: Double? = goal.type == .completion
             ? Double(max(1, relevantLinks.count))
             : goal.type == .targetDate ? 1 : goal.targetValue
-        let fraction = currentValue.flatMap { current in
-            target.flatMap { $0 > 0 ? min(1, max(0, current / $0)) : nil }
-        }
+        let supportsPercentage = [.count, .quantity, .duration].contains(goal.type)
+            && goal.effectiveIntent != .directional
+        let fraction: Double? = supportsPercentage ? currentValue.flatMap { current -> Double? in
+            target.flatMap { target in
+                let baseline = goal.baselineValue ?? 0
+                let span = target - baseline
+                guard span.isFinite, span != 0 else { return nil }
+                return min(1, max(0, (current - baseline) / span))
+            }
+        } : nil
         let confidence = relevantLinks.isEmpty ? 0 : Double(resolved.count) / Double(relevantLinks.count)
         let nextAction: String
         if relevantLinks.isEmpty { nextAction = "Link a project, task, habit, routine, or measure." }
@@ -484,6 +780,194 @@ public struct DefaultGoalProgressService: GoalProgressService {
             missingLinkCount: missingCount,
             nextUsefulAction: nextAction
         )
+    }
+}
+
+public enum GoalLifecycleError: LocalizedError, Equatable, Sendable {
+    case emptyTitle
+    case invalidTarget
+    case unchangedStatus
+
+    public var errorDescription: String? {
+        switch self {
+        case .emptyTitle: "Give this goal a name."
+        case .invalidTarget: "This goal needs a finite target that differs from its baseline."
+        case .unchangedStatus: "The goal already has that status."
+        }
+    }
+}
+
+public struct GoalLifecycleService: Sendable {
+    private let repository: any TrackFoundationRepository
+
+    public init(repository: any TrackFoundationRepository) {
+        self.repository = repository
+    }
+
+    public func save(
+        draft: GoalDraft,
+        existing: GoalDefinition? = nil,
+        at date: Date = Date()
+    ) async throws -> GoalDefinition {
+        let title = draft.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !title.isEmpty else { throw GoalLifecycleError.emptyTitle }
+        if [.count, .quantity, .duration].contains(draft.type) {
+            guard let target = draft.targetValue, target.isFinite,
+                  draft.baselineValue.map({ $0.isFinite && $0 != target }) ?? true else {
+                throw GoalLifecycleError.invalidTarget
+            }
+        }
+        let unit = draft.unitLabel?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let why = draft.whyItMatters?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let status = existing?.effectiveStatus ?? .active
+        let statusEvents = existing?.statusEvents ?? [
+            GoalStatusEvent(goalID: existing?.id ?? UUID(), status: status, recordedAt: date)
+        ]
+        let goalID = existing?.id ?? statusEvents[0].goalID
+        let value = GoalDefinition(
+            id: goalID,
+            areaID: draft.areaID,
+            title: title,
+            type: draft.type,
+            targetValue: draft.targetValue,
+            unitLabel: unit?.isEmpty == true ? nil : unit,
+            targetDate: draft.targetDate,
+            isArchived: existing?.isArchived ?? false,
+            createdAt: existing?.createdAt ?? date,
+            updatedAt: date,
+            intent: draft.intent,
+            status: status,
+            baselineValue: draft.baselineValue,
+            confidenceRaw: draft.confidence?.rawValue,
+            whyItMatters: why?.isEmpty == true ? nil : why,
+            checkInCadenceRaw: draft.checkInCadence.rawValue,
+            pausedAt: existing?.pausedAt,
+            statusEvents: statusEvents
+        )
+        try await repository.saveGoal(value)
+        return value
+    }
+
+    public func transition(
+        _ goal: GoalDefinition,
+        to status: GoalStatus,
+        reason: String?,
+        at date: Date = Date()
+    ) async throws -> GoalTransitionReceipt {
+        guard goal.effectiveStatus != status else { throw GoalLifecycleError.unchangedStatus }
+        let normalizedReason = reason?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let event = GoalStatusEvent(
+            goalID: goal.id,
+            status: status,
+            reason: normalizedReason?.isEmpty == true ? nil : normalizedReason,
+            recordedAt: date
+        )
+        var updated = goal
+        updated.status = status
+        updated.isArchived = status == .archived
+        updated.pausedAt = status == .paused ? date : nil
+        updated.updatedAt = date
+        updated.statusEvents = (goal.statusEvents ?? []) + [event]
+        try await repository.saveGoal(updated)
+        return .init(before: goal, after: updated, event: event, createdAt: date)
+    }
+
+    /// Undo appends a compensating status event. Existing history is never
+    /// deleted or rewritten.
+    @discardableResult
+    public func undo(
+        _ receipt: GoalTransitionReceipt,
+        at date: Date = Date()
+    ) async throws -> GoalTransitionReceipt {
+        let current = receipt.after
+        return try await transition(
+            current,
+            to: receipt.before.effectiveStatus,
+            reason: "Undid \(receipt.event.status.rawValue) transition",
+            at: date
+        )
+    }
+}
+
+public struct GoalAssessmentService: Sendable {
+    public init() {}
+
+    public func assess(
+        goal: GoalDefinition,
+        samples: [GoalProgressSample],
+        missedCheckIns: Int,
+        asOf date: Date = Date()
+    ) -> GoalProgressAssessment {
+        let ordered = samples.sorted {
+            $0.measuredAt == $1.measuredAt
+                ? $0.linkID.uuidString < $1.linkID.uuidString
+                : $0.measuredAt < $1.measuredAt
+        }
+        let numeric = ordered.compactMap { sample -> (Date, Double)? in
+            sample.value.map { (sample.measuredAt, $0) }
+        }
+        let percentageEligible = [.count, .quantity, .duration].contains(goal.type)
+            && goal.effectiveIntent != .directional
+            && goal.targetValue.map(\.isFinite) == true
+            && goal.targetValue != goal.baselineValue
+        let current = numeric.last?.1
+        let progress: Double? = percentageEligible ? current.flatMap { current -> Double? in
+            guard let target = goal.targetValue else { return nil }
+            let baseline = goal.baselineValue ?? 0
+            let span = target - baseline
+            guard span.isFinite, span != 0 else { return nil }
+            return min(1, max(0, (current - baseline) / span))
+        } : nil
+
+        var missing: [String] = []
+        if ordered.isEmpty { missing.append("No linked evidence yet") }
+        if missedCheckIns > 0 { missing.append("\(missedCheckIns) scheduled check-in\(missedCheckIns == 1 ? "" : "s") missing") }
+
+        let riskReason: GoalRiskReason?
+        if missedCheckIns >= 2 {
+            riskReason = .missedCheckIns(count: missedCheckIns)
+        } else {
+            riskReason = trajectoryRisk(goal: goal, values: numeric, asOf: date)
+        }
+        let presentation: GoalProgressPresentation = percentageEligible
+            ? .percentage
+            : goal.effectiveIntent == .directional ? .checkIns : .evidenceSummary
+        return GoalProgressAssessment(
+            goalID: goal.id,
+            presentation: presentation,
+            progressFraction: progress,
+            isAtRisk: riskReason != nil,
+            riskReason: riskReason,
+            missingEvidence: missing,
+            evidenceCount: ordered.count
+        )
+    }
+
+    private func trajectoryRisk(
+        goal: GoalDefinition,
+        values: [(Date, Double)],
+        asOf date: Date
+    ) -> GoalRiskReason? {
+        guard values.count >= 4,
+              let target = goal.targetValue,
+              let targetDate = goal.targetDate,
+              targetDate > date,
+              let first = values.first,
+              let last = values.last,
+              last.0.timeIntervalSince(first.0) >= 7 * 86_400 else { return nil }
+        let baseline = goal.baselineValue ?? first.1
+        let totalDuration = targetDate.timeIntervalSince(goal.createdAt)
+        guard totalDuration > 0 else { return nil }
+        let elapsedFraction = min(1, max(0, last.0.timeIntervalSince(goal.createdAt) / totalDuration))
+        let expected = baseline + ((target - baseline) * elapsedFraction)
+        let meaningfulGap = abs(target - baseline) * 0.1
+        if target >= baseline, last.1 < expected - meaningfulGap {
+            return .behindTrajectory(observed: last.1, expected: expected)
+        }
+        if target < baseline, last.1 > expected + meaningfulGap {
+            return .behindTrajectory(observed: last.1, expected: expected)
+        }
+        return nil
     }
 }
 

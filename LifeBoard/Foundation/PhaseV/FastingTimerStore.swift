@@ -3,15 +3,31 @@ import Foundation
 public protocol LifeBoardFastingSessionRepository: Sendable {
     func fetchFastingSessions(limit: Int) async throws -> [LifeBoardFastingSessionValue]
     func saveFastingSession(_ value: LifeBoardFastingSessionValue) async throws
+    func fetchFastingTemplates(includeArchived: Bool) async throws -> [LifeBoardFastingTemplateValue]
+    func saveFastingTemplate(_ value: LifeBoardFastingTemplateValue) async throws
+}
+
+public extension LifeBoardFastingSessionRepository {
+    func fetchFastingTemplates(includeArchived: Bool) async throws -> [LifeBoardFastingTemplateValue] { [] }
+
+    func saveFastingTemplate(_ value: LifeBoardFastingTemplateValue) async throws {
+        throw FastingTimerStoreError.invalidTarget
+    }
 }
 
 public struct LifeBoardFastingRepositoryAdapter: LifeBoardFastingSessionRepository, Sendable {
     private let fetch: @Sendable (Int) async throws -> [LifeBoardFastingSessionValue]
     private let save: @Sendable (LifeBoardFastingSessionValue) async throws -> Void
+    private let fetchTemplates: @Sendable (Bool) async throws -> [LifeBoardFastingTemplateValue]
+    private let saveTemplate: @Sendable (LifeBoardFastingTemplateValue) async throws -> Void
 
     public init(repository: any LifeBoardPhaseIIRepository) {
         fetch = { limit in try await repository.fetchFastingSessions(limit: limit) }
         save = { value in try await repository.saveFastingSession(value) }
+        fetchTemplates = { includeArchived in
+            try await repository.fetchFastingTemplates(includeArchived: includeArchived)
+        }
+        saveTemplate = { value in try await repository.saveFastingTemplate(value) }
     }
 
     public func fetchFastingSessions(limit: Int) async throws -> [LifeBoardFastingSessionValue] {
@@ -20,6 +36,14 @@ public struct LifeBoardFastingRepositoryAdapter: LifeBoardFastingSessionReposito
 
     public func saveFastingSession(_ value: LifeBoardFastingSessionValue) async throws {
         try await save(value)
+    }
+
+    public func fetchFastingTemplates(includeArchived: Bool) async throws -> [LifeBoardFastingTemplateValue] {
+        try await fetchTemplates(includeArchived)
+    }
+
+    public func saveFastingTemplate(_ value: LifeBoardFastingTemplateValue) async throws {
+        try await saveTemplate(value)
     }
 }
 
@@ -69,12 +93,53 @@ public actor FastingTimerStore {
         try await recover(limit: 100).first(where: { $0.endedAt == nil })
     }
 
+    public func templates(includeArchived: Bool = false) async throws -> [LifeBoardFastingTemplateValue] {
+        try await repository.fetchFastingTemplates(includeArchived: includeArchived)
+    }
+
+    public func saveTemplate(_ value: LifeBoardFastingTemplateValue) async throws {
+        try await repository.saveFastingTemplate(value)
+        LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
+    }
+
+    @discardableResult
+    public func start(
+        template: LifeBoardFastingTemplateValue,
+        note: String? = nil,
+        at startDate: Date? = nil
+    ) async throws -> LifeBoardFastingSessionValue {
+        guard !template.isArchived else { throw FastingTimerStoreError.invalidTarget }
+        return try await start(
+            templateID: template.id,
+            targetDuration: template.targetDuration,
+            reminderOffsets: template.reminderOffsets,
+            note: note,
+            at: startDate
+        )
+    }
+
     @discardableResult
     public func start(
         targetDuration: TimeInterval?,
         reminderOffsets: [TimeInterval] = [],
         note: String? = nil,
         at startDate: Date? = nil
+    ) async throws -> LifeBoardFastingSessionValue {
+        try await start(
+            templateID: nil,
+            targetDuration: targetDuration,
+            reminderOffsets: reminderOffsets,
+            note: note,
+            at: startDate
+        )
+    }
+
+    private func start(
+        templateID: UUID?,
+        targetDuration: TimeInterval?,
+        reminderOffsets: [TimeInterval],
+        note: String?,
+        at startDate: Date?
     ) async throws -> LifeBoardFastingSessionValue {
         if let targetDuration, targetDuration <= 0 {
             throw FastingTimerStoreError.invalidTarget
@@ -92,6 +157,7 @@ public actor FastingTimerStore {
             .sorted()
         let trimmedNote = note?.trimmingCharacters(in: .whitespacesAndNewlines)
         let session = LifeBoardFastingSessionValue(
+            templateID: templateID,
             startedAt: startDate,
             targetDuration: targetDuration,
             reminderOffsets: Array(Set(validReminders)).sorted(),
@@ -99,6 +165,7 @@ public actor FastingTimerStore {
             updatedAt: startDate
         )
         try await repository.saveFastingSession(session)
+        await FastingLiveActivityCoordinator.shared.synchronize(session: session)
         LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
         return session
     }
@@ -116,6 +183,7 @@ public actor FastingTimerStore {
         session.completionKind = session.targetEnd.map { endDate >= $0 ? .planned : .early } ?? .planned
         session.updatedAt = endDate
         try await repository.saveFastingSession(session)
+        await FastingLiveActivityCoordinator.shared.synchronize(session: session)
         LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
         return session
     }
@@ -133,6 +201,7 @@ public actor FastingTimerStore {
         session.completionKind = .cancelled
         session.updatedAt = endDate
         try await repository.saveFastingSession(session)
+        await FastingLiveActivityCoordinator.shared.synchronize(session: session)
         LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
         return session
     }
@@ -168,8 +237,35 @@ public actor FastingTimerStore {
         session.completionKind = .corrected
         session.updatedAt = now()
         try await repository.saveFastingSession(session)
+        await FastingLiveActivityCoordinator.shared.synchronize(session: session)
         LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
         return session
+    }
+
+    public func correctWithReceipt(
+        sessionID: UUID,
+        startedAt: Date,
+        endedAt: Date?,
+        targetDuration: TimeInterval?,
+        note: String?
+    ) async throws -> FastingSessionMutationReceipt {
+        guard let before = try await recover(limit: 100).first(where: { $0.id == sessionID }) else {
+            throw FastingTimerStoreError.sessionNotFound
+        }
+        let after = try await correct(
+            sessionID: sessionID,
+            startedAt: startedAt,
+            endedAt: endedAt,
+            targetDuration: targetDuration,
+            note: note
+        )
+        return .init(before: before, after: after, createdAt: now())
+    }
+
+    public func undo(_ receipt: FastingSessionMutationReceipt) async throws {
+        try await repository.saveFastingSession(receipt.before)
+        await FastingLiveActivityCoordinator.shared.synchronize(session: receipt.before)
+        LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
     }
 
     /// Repairs legacy duplicate-active states deterministically. The newest
@@ -193,6 +289,144 @@ public actor FastingTimerStore {
             try await repository.saveFastingSession(values[index])
         }
         return values
+    }
+}
+
+public enum FastingLiveActivityAction: String, Codable, Hashable, Sendable {
+    case finish
+    case cancel
+}
+
+public struct FastingLiveActivityCommand: Codable, Hashable, Sendable {
+    public var id: UUID
+    public var sessionID: UUID
+    public var action: FastingLiveActivityAction
+
+    public init(id: UUID, sessionID: UUID, action: FastingLiveActivityAction) {
+        self.id = id
+        self.sessionID = sessionID
+        self.action = action
+    }
+}
+
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
+import ActivityKit
+import OSLog
+
+actor FastingLiveActivityCoordinator {
+    static let shared = FastingLiveActivityCoordinator()
+    private let logger = Logger(
+        subsystem: "com.saransh1337.To-Do-List",
+        category: "FastingLiveActivity"
+    )
+
+    @discardableResult
+    func synchronize(
+        session: LifeBoardFastingSessionValue,
+        title: String = "Fasting",
+        now: Date = Date()
+    ) async -> Bool {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return false }
+        let phase = session.endedAt == nil ? "active" : "ended"
+        let state = LifeBoardFastingActivityAttributes.ContentState(
+            phase: phase,
+            startedAt: session.startedAt,
+            targetEndAt: session.endedAt == nil ? session.targetEnd : nil,
+            elapsedDuration: session.elapsed(at: now),
+            updatedAt: session.updatedAt ?? now
+        )
+        let content = ActivityContent(
+            state: state,
+            staleDate: session.endedAt == nil ? session.targetEnd : nil
+        )
+        let existing = Activity<LifeBoardFastingActivityAttributes>.activities.first {
+            $0.attributes.sessionID == session.id
+        }
+
+        if session.endedAt != nil {
+            if let existing {
+                await existing.end(content, dismissalPolicy: .immediate)
+            }
+            return true
+        }
+        if let existing {
+            await existing.update(content)
+            return true
+        }
+        do {
+            _ = try Activity.request(
+                attributes: LifeBoardFastingActivityAttributes(
+                    sessionID: session.id,
+                    title: title
+                ),
+                content: content,
+                pushType: nil
+            )
+            return true
+        } catch {
+            logger.error(
+                "Live Activity start failed; canonical fasting state is unchanged: \(String(describing: error), privacy: .public)"
+            )
+            return false
+        }
+    }
+
+    func endOrphanedActivities(except sessionID: UUID?) async {
+        for activity in Activity<LifeBoardFastingActivityAttributes>.activities
+        where activity.attributes.sessionID != sessionID {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+}
+
+enum FastingLiveActivityDeepLink {
+    static func command(from url: URL) -> FastingLiveActivityCommand? {
+        guard
+            url.scheme?.lowercased() == "lifeboard",
+            url.host?.lowercased() == "fasting",
+            let sessionID = url.pathComponents.last.flatMap(UUID.init(uuidString:)),
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+            let rawAction = components.queryItems?.first(where: { $0.name == "command" })?.value,
+            let action = FastingLiveActivityAction(rawValue: rawAction),
+            let token = components.queryItems?.first(where: { $0.name == "token" })?.value
+                .flatMap(UUID.init(uuidString:))
+        else { return nil }
+        return FastingLiveActivityCommand(id: token, sessionID: sessionID, action: action)
+    }
+}
+#else
+actor FastingLiveActivityCoordinator {
+    static let shared = FastingLiveActivityCoordinator()
+    @discardableResult
+    func synchronize(
+        session: LifeBoardFastingSessionValue,
+        title: String = "Fasting",
+        now: Date = Date()
+    ) async -> Bool { false }
+    func endOrphanedActivities(except sessionID: UUID?) async {}
+}
+
+enum FastingLiveActivityDeepLink {
+    static func command(from url: URL) -> FastingLiveActivityCommand? { nil }
+}
+#endif
+
+public struct FastingSessionMutationReceipt: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public let before: LifeBoardFastingSessionValue
+    public let after: LifeBoardFastingSessionValue
+    public let createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        before: LifeBoardFastingSessionValue,
+        after: LifeBoardFastingSessionValue,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.before = before
+        self.after = after
+        self.createdAt = createdAt
     }
 }
 

@@ -27,11 +27,15 @@ final class LifeBoardTrackStore {
     private(set) var medicationEvents: [LifeBoardMedicationEventValue] = []
     private(set) var fastingSessions: [LifeBoardFastingSessionValue] = []
     private(set) var correctionReceipts: [TrackCorrectionReceipt] = []
+    private(set) var trackerExportURLs: [UUID: URL] = [:]
+    private(set) var medicationExportURLs: [UUID: URL] = [:]
     private(set) var isLoading = false
     var errorMessage: String?
 
     let healthStore: LifeBoardHealthStore
     let repository: any LifeBoardPhaseIIRepository
+    private let trackerService: TrackerDefinitionService
+    private let medicationService: MedicationScheduleService
     private let fastingTimerStore: FastingTimerStore
     private let correctionReceiptRepository: any TrackCorrectionReceiptRepository
 
@@ -42,6 +46,8 @@ final class LifeBoardTrackStore {
     ) {
         self.repository = repository
         self.healthStore = healthStore
+        trackerService = TrackerDefinitionService(repository: repository)
+        medicationService = MedicationScheduleService(repository: repository)
         fastingTimerStore = FastingTimerStore(
             repository: LifeBoardFastingRepositoryAdapter(repository: repository)
         )
@@ -86,19 +92,28 @@ final class LifeBoardTrackStore {
         } catch { errorMessage = error.localizedDescription }
     }
 
-    func saveTracker(_ tracker: LifeBoardTrackerDefinitionValue) async {
+    func saveTracker(
+        _ tracker: LifeBoardTrackerDefinitionValue,
+        sensitiveHomeAuthorized: Bool = false
+    ) async {
         do {
-            try await repository.saveTracker(tracker)
+            try await trackerService.saveDefinition(
+                tracker,
+                sensitiveHomeAuthorized: sensitiveHomeAuthorized
+            )
             await TrackerReminderCoordinator.shared.synchronize(tracker)
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
 
     func archiveTracker(_ tracker: LifeBoardTrackerDefinitionValue) async {
-        var archived = tracker
-        archived.isArchived = true
-        archived.updatedAt = Date()
-        await saveTracker(archived)
+        do {
+            try await trackerService.archiveDefinition(tracker)
+            var archived = tracker
+            archived.isArchived = true
+            await TrackerReminderCoordinator.shared.synchronize(archived)
+            await load()
+        } catch { errorMessage = error.localizedDescription }
     }
 
     func deleteTracker(_ tracker: LifeBoardTrackerDefinitionValue) async {
@@ -106,23 +121,37 @@ final class LifeBoardTrackStore {
         archived.isArchived = true
         do {
             await TrackerReminderCoordinator.shared.synchronize(archived)
-            try await repository.deleteTracker(id: tracker.id)
+            try await trackerService.deleteDefinition(id: tracker.id)
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
 
     func correct(_ entry: LifeBoardTrackerEntryValue, numericValue: Double?, booleanValue: Bool?, note: String?) async {
-        var corrected = entry
-        corrected.numericValue = numericValue
-        corrected.booleanValue = booleanValue
         if let tracker = trackers.first(where: { $0.id == entry.trackerID }) {
-            corrected.value = Self.trackerValue(
+            let value = Self.trackerValue(
                 for: tracker,
                 numericValue: numericValue,
                 booleanValue: booleanValue,
                 note: note
             )
+            guard let value else {
+                errorMessage = TrackerDefinitionServiceError.valueTypeMismatch.localizedDescription
+                return
+            }
+            await correct(entry, tracker: tracker, value: value, note: note)
+            return
         }
+        errorMessage = TrackerDefinitionServiceError.valueTypeMismatch.localizedDescription
+    }
+
+    func correct(
+        _ entry: LifeBoardTrackerEntryValue,
+        tracker: LifeBoardTrackerDefinitionValue,
+        value: TrackerValue,
+        note: String?
+    ) async {
+        var corrected = entry
+        Self.apply(value, to: &corrected, tracker: tracker)
         let trimmedNote = note?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         corrected.note = trimmedNote.isEmpty ? nil : trimmedNote
         do {
@@ -132,20 +161,68 @@ final class LifeBoardTrackStore {
     }
 
     func log(_ tracker: LifeBoardTrackerDefinitionValue, numericValue: Double? = nil, booleanValue: Bool? = nil) async {
+        guard let value = Self.trackerValue(
+            for: tracker,
+            numericValue: numericValue,
+            booleanValue: booleanValue,
+            note: nil
+        ) else {
+            errorMessage = TrackerDefinitionServiceError.valueTypeMismatch.localizedDescription
+            return
+        }
+        await log(tracker, value: value)
+    }
+
+    func log(
+        _ tracker: LifeBoardTrackerDefinitionValue,
+        value: TrackerValue,
+        note: String? = nil,
+        at timestamp: Date = Date()
+    ) async {
+        var entry = LifeBoardTrackerEntryValue(
+            trackerID: tracker.id,
+            timestamp: timestamp,
+            note: note,
+            value: value
+        )
+        Self.apply(value, to: &entry, tracker: tracker)
         do {
-            try await repository.saveTrackerEntry(.init(
-                trackerID: tracker.id,
-                numericValue: numericValue,
-                booleanValue: booleanValue,
-                value: Self.trackerValue(
-                    for: tracker,
-                    numericValue: numericValue,
-                    booleanValue: booleanValue,
-                    note: nil
-                )
-            ))
+            try await trackerService.saveEntry(entry)
             UINotificationFeedbackGenerator().notificationOccurred(.success)
             await load()
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    func prepareTrackerExport(
+        _ tracker: LifeBoardTrackerDefinitionValue,
+        format: TrackerExportFormat
+    ) async {
+        do {
+            let authorized = tracker.effectivePrivacyClass == .sensitive ? Set([tracker.id]) : []
+            let data = try await trackerService.export(
+                trackerIDs: Set([tracker.id]),
+                format: format,
+                authorizedSensitiveIDs: authorized
+            )
+            let fileExtension: String
+            switch format {
+            case .csv: fileExtension = "csv"
+            case .json: fileExtension = "json"
+            }
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("LifeBoard-\(tracker.id.uuidString).\(fileExtension)")
+            try data.write(to: url, options: [.atomic, .completeFileProtection])
+            trackerExportURLs[tracker.id] = url
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    func prepareMedicationExport(_ medication: LifeBoardMedicationDefinitionValue) async {
+        do {
+            let data = try await medicationService.export(medication: medication)
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("LifeBoard-Medication-\(medication.id.uuidString).json")
+            try data.write(to: url, options: [.atomic, .completeFileProtection])
+            medicationExportURLs[medication.id] = url
         } catch { errorMessage = error.localizedDescription }
     }
 
@@ -175,13 +252,43 @@ final class LifeBoardTrackStore {
         }
     }
 
+    private static func apply(
+        _ value: TrackerValue,
+        to entry: inout LifeBoardTrackerEntryValue,
+        tracker: LifeBoardTrackerDefinitionValue
+    ) {
+        entry.value = value
+        entry.numericValue = nil
+        entry.booleanValue = nil
+        switch value {
+        case .boolean(let value):
+            entry.booleanValue = value
+        case .count(let value):
+            entry.numericValue = Double(value)
+        case .quantity(let value, _), .rating(let value), .duration(let value):
+            entry.numericValue = value
+        case .text(let value), .choice(let value):
+            if entry.note?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty != false {
+                entry.note = value
+            }
+        case .timestamp(let value):
+            entry.timestamp = value
+        }
+        if case .quantity(let value, let unit) = value,
+           unit == nil,
+           tracker.unitLabel != nil {
+            entry.value = .quantity(value, unit: tracker.unitLabel)
+        }
+    }
+
     func saveMedication(
         _ medication: LifeBoardMedicationDefinitionValue,
         schedule: LifeBoardMedicationScheduleValue
     ) async {
         do {
-            try await repository.saveMedication(medication)
-            try await repository.saveMedicationSchedule(schedule)
+            try medicationService.validateSchedule(schedule)
+            try await medicationService.saveDefinition(medication)
+            try await medicationService.saveSchedule(schedule)
             await MedicationReminderCoordinator.shared.synchronize(medication: medication, schedule: schedule)
             if let scheduledAt = Self.nextScheduledDate(for: schedule, after: Date()) {
                 let existing = medicationEvents.first(where: {
@@ -189,7 +296,7 @@ final class LifeBoardTrackStore {
                         && $0.status == .scheduled
                         && Calendar.current.isDate($0.scheduledAt, inSameDayAs: scheduledAt)
                 })
-                try await repository.saveMedicationEvent(.init(
+                try await medicationService.saveEvent(medication: medication, event: .init(
                     id: existing?.id ?? UUID(),
                     medicationID: medication.id,
                     scheduledAt: scheduledAt,
@@ -205,7 +312,7 @@ final class LifeBoardTrackStore {
         value.isArchived = true
         value.updatedAt = Date()
         do {
-            try await repository.saveMedication(value)
+            try await medicationService.archiveDefinition(value)
             if let schedule = medicationSchedules.first(where: { $0.medicationID == medication.id }) {
                 await MedicationReminderCoordinator.shared.synchronize(medication: value, schedule: schedule)
             }
@@ -220,7 +327,7 @@ final class LifeBoardTrackStore {
             for schedule in medicationSchedules where schedule.medicationID == medication.id {
                 await MedicationReminderCoordinator.shared.synchronize(medication: archived, schedule: schedule)
             }
-            try await repository.deleteMedication(id: medication.id)
+            try await medicationService.deleteDefinition(id: medication.id)
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -239,7 +346,27 @@ final class LifeBoardTrackStore {
             resolvedAt: Date()
         )
         do {
-            try await repository.saveMedicationEvent(event)
+            _ = try await medicationService.resolve(
+                medication: medication,
+                event: event,
+                as: status,
+                at: event.resolvedAt ?? Date()
+            )
+            await load()
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    func resolveMedication(
+        _ medication: LifeBoardMedicationDefinitionValue,
+        event: LifeBoardMedicationEventValue,
+        status: LifeBoardMedicationEventStatus
+    ) async {
+        do {
+            _ = try await medicationService.resolve(
+                medication: medication,
+                event: event,
+                as: status
+            )
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -338,9 +465,13 @@ final class LifeBoardTrackStore {
 
     private func saveCorrectionPayload(_ payload: TrackCorrectionPayload) async throws {
         switch payload {
-        case .tracker(let value): try await repository.saveTrackerEntry(value)
+        case .tracker(let value): try await trackerService.saveEntry(value)
         case .mood(let value): try await repository.saveMoodCheckIn(value)
-        case .medication(let value): try await repository.saveMedicationEvent(value)
+        case .medication(let value):
+            guard let medication = medications.first(where: { $0.id == value.medicationID }) else {
+                throw MedicationScheduleServiceError.eventOutsideActiveRange
+            }
+            try await medicationService.saveEvent(medication: medication, event: value)
         case .fasting(let value): try await repository.saveFastingSession(value)
         case .hydration, .sleep: throw TrackCorrectionReceiptFailure.mismatchedPayload
         }
@@ -379,6 +510,9 @@ struct LifeBoardTrackRootView: View {
     @State private var mood: LifeBoardJournalMood = .none
     @State private var showsTrackerComposer = false
     @State private var editingTracker: LifeBoardTrackerDefinitionValue?
+    @State private var loggingTracker: LifeBoardTrackerDefinitionValue?
+    @State private var trackerTemplateSeed: LifeBoardTrackerDefinitionValue?
+    @State private var showsTrackerTemplates = false
     @State private var historyTracker: LifeBoardTrackerDefinitionValue?
     @State private var showsMedicationComposer = false
     @State private var editingMedication: LifeBoardMedicationDefinitionValue?
@@ -441,8 +575,34 @@ struct LifeBoardTrackRootView: View {
                 Task { await store.saveMood(mood, energy: energy) }
             }
         }
-        .sheet(isPresented: $showsTrackerComposer, onDismiss: { editingTracker = nil }) {
-            LifeBoardTrackerComposer(existing: editingTracker) { tracker in Task { await store.saveTracker(tracker) } }
+        .sheet(isPresented: $showsTrackerComposer, onDismiss: {
+            editingTracker = nil
+            trackerTemplateSeed = nil
+        }) {
+            LifeBoardTrackerComposer(
+                existing: editingTracker,
+                seed: trackerTemplateSeed
+            ) { tracker, sensitiveHomeAuthorized in
+                Task {
+                    await store.saveTracker(
+                        tracker,
+                        sensitiveHomeAuthorized: sensitiveHomeAuthorized
+                    )
+                }
+            }
+        }
+        .sheet(isPresented: $showsTrackerTemplates) {
+            LifeBoardTrackerTemplatePicker { template in
+                trackerTemplateSeed = template.instantiate()
+                showsTrackerTemplates = false
+                showsTrackerComposer = true
+            }
+        }
+        .sheet(item: $loggingTracker) { tracker in
+            LifeBoardTrackerValueCaptureView(tracker: tracker) { value, note, timestamp in
+                await store.log(tracker, value: value, note: note, at: timestamp)
+                loggingTracker = nil
+            }
         }
         .sheet(item: $historyTracker) { tracker in
             LifeBoardTrackerHistoryView(
@@ -450,8 +610,8 @@ struct LifeBoardTrackRootView: View {
                 entries: store.trackerEntries.filter { $0.trackerID == tracker.id },
                 activeReceipt: { store.activeCorrection(domain: .tracker, sourceID: $0) },
                 onUndo: { await store.undoCorrection($0) },
-                onCorrect: { entry, numeric, boolean, note in
-                    await store.correct(entry, numericValue: numeric, booleanValue: boolean, note: note)
+                onCorrect: { entry, value, note in
+                    await store.correct(entry, tracker: tracker, value: value, note: note)
                 }
             )
         }
@@ -775,14 +935,8 @@ struct LifeBoardTrackRootView: View {
                 Text(tracker.kind.rawValue.capitalized).font(.caption).foregroundStyle(palette.color(for: .foregroundSecondary))
             }
             Spacer()
-            Button(tracker.kind == .boolean ? "Check" : "+1") {
-                Task {
-                    await store.log(
-                        tracker,
-                        numericValue: tracker.kind == .boolean ? nil : 1,
-                        booleanValue: tracker.kind == .boolean ? true : nil
-                    )
-                }
+            Button("Record") {
+                loggingTracker = tracker
             }
             .buttonStyle(.bordered)
             Menu {
@@ -897,6 +1051,9 @@ struct LifeBoardBehaviorNativeAreasView: View {
     @State private var area: Area
     @State private var showsTrackerComposer = false
     @State private var editingTracker: LifeBoardTrackerDefinitionValue?
+    @State private var loggingTracker: LifeBoardTrackerDefinitionValue?
+    @State private var trackerTemplateSeed: LifeBoardTrackerDefinitionValue?
+    @State private var showsTrackerTemplates = false
     @State private var historyTracker: LifeBoardTrackerDefinitionValue?
     @State private var deletingTracker: LifeBoardTrackerDefinitionValue?
     @State private var showsMedicationComposer = false
@@ -942,9 +1099,33 @@ struct LifeBoardBehaviorNativeAreasView: View {
         } message: {
             Text(store.errorMessage ?? "")
         }
-        .sheet(isPresented: $showsTrackerComposer, onDismiss: { editingTracker = nil }) {
-            LifeBoardTrackerComposer(existing: editingTracker) { tracker in
-                Task { await store.saveTracker(tracker) }
+        .sheet(isPresented: $showsTrackerComposer, onDismiss: {
+            editingTracker = nil
+            trackerTemplateSeed = nil
+        }) {
+            LifeBoardTrackerComposer(
+                existing: editingTracker,
+                seed: trackerTemplateSeed
+            ) { tracker, sensitiveHomeAuthorized in
+                Task {
+                    await store.saveTracker(
+                        tracker,
+                        sensitiveHomeAuthorized: sensitiveHomeAuthorized
+                    )
+                }
+            }
+        }
+        .sheet(isPresented: $showsTrackerTemplates) {
+            LifeBoardTrackerTemplatePicker { template in
+                trackerTemplateSeed = template.instantiate()
+                showsTrackerTemplates = false
+                showsTrackerComposer = true
+            }
+        }
+        .sheet(item: $loggingTracker) { tracker in
+            LifeBoardTrackerValueCaptureView(tracker: tracker) { value, note, timestamp in
+                await store.log(tracker, value: value, note: note, at: timestamp)
+                loggingTracker = nil
             }
         }
         .sheet(item: $historyTracker) { tracker in
@@ -953,13 +1134,8 @@ struct LifeBoardBehaviorNativeAreasView: View {
                 entries: store.trackerEntries.filter { $0.trackerID == tracker.id },
                 activeReceipt: { store.activeCorrection(domain: .tracker, sourceID: $0) },
                 onUndo: { await store.undoCorrection($0) },
-                onCorrect: { entry, numeric, boolean, note in
-                    await store.correct(
-                        entry,
-                        numericValue: numeric,
-                        booleanValue: boolean,
-                        note: note
-                    )
+                onCorrect: { entry, value, note in
+                    await store.correct(entry, tracker: tracker, value: value, note: note)
                 }
             )
         }
@@ -1057,6 +1233,9 @@ struct LifeBoardBehaviorNativeAreasView: View {
                                 Text(medication.dosageText ?? "No dose label")
                                     .font(.caption)
                                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                Text(medicationDefinitionSummary(medication))
+                                    .font(.caption2)
+                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                             }
                             Spacer()
                             Menu {
@@ -1069,6 +1248,9 @@ struct LifeBoardBehaviorNativeAreasView: View {
                                 }
                                 Button("Archive", systemImage: "archivebox") {
                                     Task { await store.archiveMedication(medication) }
+                                }
+                                Button("Prepare history export", systemImage: "square.and.arrow.up") {
+                                    Task { await store.prepareMedicationExport(medication) }
                                 }
                                 Button("Delete", systemImage: "trash", role: .destructive) {
                                     deletingMedication = medication
@@ -1088,15 +1270,49 @@ struct LifeBoardBehaviorNativeAreasView: View {
                             HStack(spacing: 8) {
                                 medicationResolution("Taken", event: event, status: .taken)
                                 medicationResolution("Skipped", event: event, status: .skipped)
-                                medicationResolution("Snooze", event: event, status: .snoozed)
+                                Menu {
+                                    medicationResolutionMenu(
+                                        "Snooze 15 minutes",
+                                        event: event,
+                                        status: .snoozed,
+                                        scheduledAt: event.scheduledAt.addingTimeInterval(15 * 60)
+                                    )
+                                    medicationResolutionMenu(
+                                        "Reschedule one hour",
+                                        event: event,
+                                        status: .rescheduled,
+                                        scheduledAt: event.scheduledAt.addingTimeInterval(60 * 60)
+                                    )
+                                    medicationResolutionMenu(
+                                        "Leave unresolved",
+                                        event: event,
+                                        status: .unresolved,
+                                        scheduledAt: event.scheduledAt
+                                    )
+                                    Button("Choose another time", systemImage: "calendar.badge.clock") {
+                                        historyMedication = medication
+                                    }
+                                } label: {
+                                    Label("More", systemImage: "ellipsis")
+                                        .frame(minHeight: 44)
+                                }
+                                .buttonStyle(.bordered)
+                                .accessibilityLabel("More status choices for \(medication.name)")
                             }
                         } else {
                             Label("No decision waiting", systemImage: "checkmark.circle")
                                 .font(.caption.weight(.semibold))
                                 .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
                         }
+                        if let exportURL = store.medicationExportURLs[medication.id] {
+                            ShareLink(item: exportURL) {
+                                Label("Share history export", systemImage: "square.and.arrow.up")
+                                    .frame(minHeight: 44)
+                            }
+                            .font(.caption.weight(.semibold))
+                        }
                     }
-                    .nativeBehaviorSurface()
+                    .nativeBehaviorOpenRow()
                 }
             }
         }
@@ -1113,6 +1329,14 @@ struct LifeBoardBehaviorNativeAreasView: View {
                 editingTracker = nil
                 showsTrackerComposer = true
             }
+            Button {
+                showsTrackerTemplates = true
+            } label: {
+                Label("Start from a template", systemImage: "square.grid.2x2")
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("track.tracker.templates")
             if store.trackers.isEmpty {
                 nativeEmpty(
                     "Nothing to track yet",
@@ -1128,7 +1352,7 @@ struct LifeBoardBehaviorNativeAreasView: View {
                                 .frame(width: 32, height: 32)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(tracker.title).font(.headline)
-                                Text(tracker.kind.rawValue.capitalized)
+                                Text(trackerDefinitionSummary(tracker))
                                     .font(.caption)
                                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                             }
@@ -1144,6 +1368,12 @@ struct LifeBoardBehaviorNativeAreasView: View {
                                 Button("Archive", systemImage: "archivebox") {
                                     Task { await store.archiveTracker(tracker) }
                                 }
+                                Button("Prepare CSV export", systemImage: "tablecells") {
+                                    Task { await store.prepareTrackerExport(tracker, format: .csv) }
+                                }
+                                Button("Prepare JSON export", systemImage: "curlybraces") {
+                                    Task { await store.prepareTrackerExport(tracker, format: .json) }
+                                }
                                 Button("Delete", systemImage: "trash", role: .destructive) {
                                     deletingTracker = tracker
                                 }
@@ -1153,21 +1383,22 @@ struct LifeBoardBehaviorNativeAreasView: View {
                             }
                             .accessibilityLabel("Actions for \(tracker.title)")
                         }
-                        Button(tracker.kind == .boolean ? "Check in" : "Add 1") {
-                            Task {
-                                await store.log(
-                                    tracker,
-                                    numericValue: tracker.kind == .boolean ? nil : 1,
-                                    booleanValue: tracker.kind == .boolean ? true : nil
-                                )
-                            }
+                        Button("Record value") {
+                            loggingTracker = tracker
                         }
                         .buttonStyle(.borderedProminent)
                         .tint(Color(LifeBoardColorTokens.inkPrimary))
                         .frame(minHeight: 44)
                         .accessibilityIdentifier("track.tracker.log.\(tracker.id.uuidString)")
+                        if let exportURL = store.trackerExportURLs[tracker.id] {
+                            ShareLink(item: exportURL) {
+                                Label("Share prepared export", systemImage: "square.and.arrow.up")
+                                    .frame(minHeight: 44)
+                            }
+                            .font(.caption.weight(.semibold))
+                        }
                     }
-                    .nativeBehaviorSurface()
+                    .nativeBehaviorOpenRow()
                     .privacySensitive(tracker.effectivePrivacyClass != .standard)
                 }
             }
@@ -1216,13 +1447,32 @@ struct LifeBoardBehaviorNativeAreasView: View {
                     guard let medication = store.medications.first(where: {
                         $0.id == event.medicationID
                     }) else { return }
-                    await store.resolveMedication(medication, status: status)
+                    await store.resolveMedication(medication, event: event, status: status)
                 }
             }
         }
         .buttonStyle(.bordered)
         .controlSize(.small)
         .frame(minHeight: 44)
+    }
+
+    private func medicationResolutionMenu(
+        _ title: String,
+        event: LifeBoardMedicationEventValue,
+        status: LifeBoardMedicationEventStatus,
+        scheduledAt: Date
+    ) -> some View {
+        Button(title) {
+            Task {
+                await store.correctMedicationEvent(
+                    event,
+                    status: status,
+                    scheduledAt: scheduledAt,
+                    resolvedAt: status == .unresolved ? nil : Date(),
+                    note: event.note
+                )
+            }
+        }
     }
 
     private func nativeEmpty(_ title: String, detail: String, symbol: String) -> some View {
@@ -1246,6 +1496,28 @@ struct LifeBoardBehaviorNativeAreasView: View {
         case .choice: "list.bullet.circle"
         case .timestamp: "clock.badge.checkmark"
         }
+    }
+
+    private func trackerDefinitionSummary(_ tracker: LifeBoardTrackerDefinitionValue) -> String {
+        var parts = [tracker.effectiveValueType.rawValue.capitalized]
+        parts.append(tracker.effectiveAggregation.displayName)
+        parts.append(tracker.effectivePrivacyClass.displayName)
+        if tracker.permitsHomeProjection { parts.append("Home allowed") }
+        return parts.joined(separator: " · ")
+    }
+
+    private func medicationDefinitionSummary(_ medication: LifeBoardMedicationDefinitionValue) -> String {
+        var parts: [String] = []
+        if let form = medication.formRaw, form.isEmpty == false { parts.append(form.capitalized) }
+        if let end = medication.endDate {
+            parts.append("through \(end.formatted(date: .abbreviated, time: .omitted))")
+        } else if medication.startDate != nil {
+            parts.append("no end date")
+        }
+        if let remaining = medication.refillRemaining {
+            parts.append("\(remaining.formatted()) remaining")
+        }
+        return parts.isEmpty ? "Active schedule" : parts.joined(separator: " · ")
     }
 }
 
@@ -1286,29 +1558,129 @@ private extension View {
                     .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
             }
     }
+
+    func nativeBehaviorOpenRow() -> some View {
+        padding(.horizontal, 4)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color(LifeBoardColorTokens.foundationHairline))
+                    .frame(height: 1)
+            }
+    }
+}
+
+private extension TrackerAggregation {
+    var displayName: String {
+        switch self {
+        case .latest: "Latest"
+        case .sum: "Total"
+        case .average: "Average"
+        case .minimum: "Minimum"
+        case .maximum: "Maximum"
+        case .count: "Entry count"
+        }
+    }
+}
+
+private extension TrackerPrivacyClass {
+    var displayName: String {
+        switch self {
+        case .standard: "Standard"
+        case .personal: "Personal"
+        case .sensitive: "Sensitive"
+        }
+    }
+}
+
+private struct LifeBoardTrackerTemplatePicker: View {
+    let onSelect: (LifeBoardTrackerTemplate) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List(LifeBoardTrackerTemplate.allCases) { template in
+                Button {
+                    onSelect(template)
+                } label: {
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack {
+                            Text(template.title)
+                                .font(.headline)
+                            if template.isHealthLike {
+                                Text("NON-CLINICAL")
+                                    .font(.caption2.weight(.semibold))
+                                    .padding(.horizontal, 7)
+                                    .padding(.vertical, 3)
+                                    .background(
+                                        Color(LifeBoardColorTokens.foundationSurfaceSelected),
+                                        in: Capsule()
+                                    )
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                        Text(template.detail)
+                            .font(.caption)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
+                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Creates an editable tracker draft")
+            }
+            .navigationTitle("Tracker templates")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+            }
+        }
+    }
 }
 
 struct LifeBoardTrackerComposer: View {
-    let onSave: (LifeBoardTrackerDefinitionValue) -> Void
+    let onSave: (LifeBoardTrackerDefinitionValue, Bool) -> Void
     private let existing: LifeBoardTrackerDefinitionValue?
     @Environment(\.dismiss) private var dismiss
     @State private var title = ""
     @State private var kind: LifeBoardTrackerKind = .boolean
     @State private var unit = ""
     @State private var target = 1.0
+    @State private var rangeEnabled = false
+    @State private var rangeMinimum = 0.0
+    @State private var rangeMaximum = 10.0
+    @State private var aggregation: TrackerAggregation = .latest
+    @State private var privacyClass: TrackerPrivacyClass = .personal
+    @State private var isHomeEligible = false
+    @State private var choiceOptionsText = ""
     @State private var weekdays = Set(1...7)
     @State private var reminderEnabled = false
     @State private var reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
 
-    init(existing: LifeBoardTrackerDefinitionValue? = nil, onSave: @escaping (LifeBoardTrackerDefinitionValue) -> Void) {
+    init(
+        existing: LifeBoardTrackerDefinitionValue? = nil,
+        seed: LifeBoardTrackerDefinitionValue? = nil,
+        onSave: @escaping (LifeBoardTrackerDefinitionValue, Bool) -> Void
+    ) {
         self.existing = existing
         self.onSave = onSave
-        _title = State(initialValue: existing?.title ?? "")
-        _kind = State(initialValue: existing?.kind ?? .boolean)
-        _unit = State(initialValue: existing?.unitLabel ?? "")
-        _target = State(initialValue: existing?.targetValue ?? 1)
-        _weekdays = State(initialValue: existing?.schedule ?? Set(1...7))
-        let minutes = existing?.reminderMinutes
+        let source = existing ?? seed
+        _title = State(initialValue: source?.title ?? "")
+        _kind = State(initialValue: source?.kind ?? .boolean)
+        _unit = State(initialValue: source?.unitLabel ?? "")
+        _target = State(initialValue: source?.targetValue ?? 1)
+        _rangeEnabled = State(initialValue: source?.rangeMin != nil || source?.rangeMax != nil)
+        _rangeMinimum = State(initialValue: source?.rangeMin ?? 0)
+        _rangeMaximum = State(initialValue: source?.rangeMax ?? 10)
+        _aggregation = State(initialValue: source?.effectiveAggregation ?? .latest)
+        _privacyClass = State(initialValue: source?.effectivePrivacyClass ?? .personal)
+        _isHomeEligible = State(initialValue: source?.isHomeEligible ?? false)
+        _choiceOptionsText = State(initialValue: (source?.choiceOptions ?? []).joined(separator: "\n"))
+        _weekdays = State(initialValue: source?.schedule ?? Set(1...7))
+        let minutes = source?.reminderMinutes
         _reminderEnabled = State(initialValue: minutes != nil)
         if let minutes {
             _reminderTime = State(initialValue: Calendar.current.date(
@@ -1323,14 +1695,66 @@ struct LifeBoardTrackerComposer: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Tracker name", text: $title)
-                Picker("Kind", selection: $kind) {
-                    ForEach(LifeBoardTrackerKind.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+                Section("Signal") {
+                    TextField("Tracker name", text: $title)
+                    Picker("Value type", selection: $kind) {
+                        ForEach(LifeBoardTrackerKind.allCases, id: \.self) {
+                            Text($0.rawValue.capitalized).tag($0)
+                        }
+                    }
+                    if kind == .quantity || kind == .duration {
+                        TextField(kind == .duration ? "Display unit (optional)" : "Unit", text: $unit)
+                    }
+                    if numericKinds.contains(kind) {
+                        TextField("Target (optional)", value: $target, format: .number)
+                            .keyboardType(.decimalPad)
+                        Toggle("Limit accepted range", isOn: $rangeEnabled)
+                        if rangeEnabled {
+                            HStack {
+                                TextField("Minimum", value: $rangeMinimum, format: .number)
+                                    .keyboardType(.decimalPad)
+                                TextField("Maximum", value: $rangeMaximum, format: .number)
+                                    .keyboardType(.decimalPad)
+                            }
+                        }
+                    }
+                    if kind == .choice {
+                        TextField(
+                            "Choices, one per line",
+                            text: $choiceOptionsText,
+                            axis: .vertical
+                        )
+                        .lineLimit(3...8)
+                        Text("Choices stay explicit so corrections and exports retain their meaning.")
+                            .font(.caption)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
+                    Picker("Summary", selection: $aggregation) {
+                        ForEach(availableAggregations, id: \.self) {
+                            Text($0.displayName).tag($0)
+                        }
+                    }
                 }
-                if kind == .quantity { TextField("Unit", text: $unit) }
-                if [.count, .quantity, .rating, .duration].contains(kind) {
-                    Stepper("Daily target: \(target, format: .number)", value: $target, in: 1...10_000)
+
+                Section("Privacy") {
+                    Picker("Classification", selection: $privacyClass) {
+                        ForEach(TrackerPrivacyClass.allCases, id: \.self) {
+                            Text($0.displayName).tag($0)
+                        }
+                    }
+                    Toggle("May appear on Home", isOn: $isHomeEligible)
+                    if privacyClass == .sensitive {
+                        Label(
+                            isHomeEligible
+                                ? "You explicitly authorized this tracker for Home. Widgets, summaries, notifications, and ordinary exports remain excluded."
+                                : "Sensitive trackers stay off Home, widgets, summaries, notifications, and ordinary exports until you authorize that tracker.",
+                            systemImage: "lock.fill"
+                        )
+                        .font(.caption)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
                 }
+
                 Section("Schedule") {
                     HStack {
                         ForEach(1...7, id: \.self) { weekday in
@@ -1339,10 +1763,12 @@ struct LifeBoardTrackerComposer: View {
                             } label: {
                                 Text(Calendar.current.veryShortStandaloneWeekdaySymbols[weekday - 1])
                                     .font(.caption.weight(.semibold))
-                                    .frame(maxWidth: .infinity, minHeight: 36)
+                                    .frame(maxWidth: .infinity, minHeight: 44)
                                     .background(weekdays.contains(weekday) ? Color(LifeBoardColorTokens.foundationSurfaceSelected) : .clear, in: Capsule())
                             }
                             .buttonStyle(.plain)
+                            .contentShape(Rectangle())
+                            .accessibilityLabel(Calendar.current.weekdaySymbols[weekday - 1])
                             .accessibilityAddTraits(weekdays.contains(weekday) ? .isSelected : [])
                         }
                     }
@@ -1352,6 +1778,11 @@ struct LifeBoardTrackerComposer: View {
             }
             .lifeBoardFormSurface()
             .navigationTitle(existing == nil ? "New Tracker" : "Edit Tracker")
+            .onChange(of: kind) { _, newKind in
+                if availableAggregations.contains(aggregation) == false {
+                    aggregation = defaultAggregation(for: newKind)
+                }
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
@@ -1360,23 +1791,257 @@ struct LifeBoardTrackerComposer: View {
                         let reminderMinutes = reminderEnabled
                             ? calendar.component(.hour, from: reminderTime) * 60 + calendar.component(.minute, from: reminderTime)
                             : nil
-                        onSave(.init(
+                        let definition = LifeBoardTrackerDefinitionValue(
                             id: existing?.id ?? UUID(),
                             title: title,
                             kind: kind,
                             unitLabel: unit.isEmpty ? nil : unit,
-                            targetValue: [.count, .quantity, .rating, .duration].contains(kind) ? target : nil,
+                            targetValue: numericKinds.contains(kind) ? target : nil,
                             schedule: weekdays,
                             reminderMinutes: reminderMinutes,
                             isArchived: existing?.isArchived ?? false,
                             createdAt: existing?.createdAt ?? Date(),
-                            updatedAt: Date()
-                        ))
+                            updatedAt: Date(),
+                            valueType: kind,
+                            rangeMin: rangeEnabled && numericKinds.contains(kind) ? rangeMinimum : nil,
+                            rangeMax: rangeEnabled && numericKinds.contains(kind) ? rangeMaximum : nil,
+                            aggregation: aggregation,
+                            privacyClass: privacyClass,
+                            isHomeEligible: isHomeEligible,
+                            choiceOptions: kind == .choice ? choiceOptions : nil
+                        )
+                        onSave(
+                            definition,
+                            privacyClass == .sensitive && isHomeEligible
+                        )
                         dismiss()
                     }
-                    .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || weekdays.isEmpty)
+                    .disabled(isInvalid)
                 }
             }
+        }
+    }
+
+    private var numericKinds: Set<LifeBoardTrackerKind> {
+        [.count, .quantity, .rating, .duration]
+    }
+
+    private var choiceOptions: [String] {
+        choiceOptionsText
+            .components(separatedBy: CharacterSet(charactersIn: ",\n"))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+            .reduce(into: [String]()) { result, option in
+                if result.contains(option) == false { result.append(option) }
+            }
+    }
+
+    private var availableAggregations: [TrackerAggregation] {
+        switch kind {
+        case .boolean: [.latest, .count]
+        case .count, .quantity, .duration: [.latest, .sum, .average, .minimum, .maximum, .count]
+        case .rating: [.latest, .average, .minimum, .maximum, .count]
+        case .text, .choice, .timestamp: [.latest, .count]
+        }
+    }
+
+    private func defaultAggregation(for kind: LifeBoardTrackerKind) -> TrackerAggregation {
+        switch kind {
+        case .count, .quantity, .duration: .sum
+        case .rating: .average
+        case .boolean, .text, .choice, .timestamp: .latest
+        }
+    }
+
+    private var isInvalid: Bool {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || weekdays.isEmpty
+            || (rangeEnabled && rangeMinimum > rangeMaximum)
+            || (kind == .choice && choiceOptions.count < 2)
+    }
+}
+
+private struct LifeBoardTrackerValueCaptureView: View {
+    let tracker: LifeBoardTrackerDefinitionValue
+    let title: String
+    let onSave: (TrackerValue, String?, Date) async -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var booleanValue: Bool
+    @State private var countValue: Int
+    @State private var numericValue: Double
+    @State private var durationMinutes: Double
+    @State private var textValue: String
+    @State private var choiceValue: String
+    @State private var timestampValue: Date
+    @State private var note: String
+
+    init(
+        tracker: LifeBoardTrackerDefinitionValue,
+        entry: LifeBoardTrackerEntryValue? = nil,
+        title: String = "Record value",
+        onSave: @escaping (TrackerValue, String?, Date) async -> Void
+    ) {
+        self.tracker = tracker
+        self.title = title
+        self.onSave = onSave
+        let value = entry?.value
+        if case .boolean(let current) = value {
+            _booleanValue = State(initialValue: current)
+        } else {
+            _booleanValue = State(initialValue: entry?.booleanValue ?? true)
+        }
+        if case .count(let current) = value {
+            _countValue = State(initialValue: current)
+        } else {
+            _countValue = State(initialValue: Int(entry?.numericValue ?? 0))
+        }
+        switch value {
+        case .quantity(let current, _), .rating(let current):
+            _numericValue = State(initialValue: current)
+        default:
+            _numericValue = State(initialValue: entry?.numericValue ?? tracker.rangeMin ?? 0)
+        }
+        if case .duration(let seconds) = value {
+            _durationMinutes = State(initialValue: seconds / 60)
+        } else {
+            _durationMinutes = State(initialValue: (entry?.numericValue ?? 0) / 60)
+        }
+        if case .text(let current) = value {
+            _textValue = State(initialValue: current)
+        } else {
+            _textValue = State(initialValue: tracker.effectiveValueType == .text ? entry?.note ?? "" : "")
+        }
+        if case .choice(let current) = value {
+            _choiceValue = State(initialValue: current)
+        } else {
+            _choiceValue = State(initialValue: tracker.choiceOptions?.first ?? "")
+        }
+        if case .timestamp(let current) = value {
+            _timestampValue = State(initialValue: current)
+        } else {
+            _timestampValue = State(initialValue: entry?.timestamp ?? Date())
+        }
+        _note = State(initialValue: tracker.effectiveValueType == .text ? "" : entry?.note ?? "")
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(tracker.title) {
+                    valueEditor
+                    if tracker.effectiveValueType != .text {
+                        TextField("Note (optional)", text: $note, axis: .vertical)
+                            .lineLimit(2...5)
+                    }
+                }
+                if let minimum = tracker.rangeMin, let maximum = tracker.rangeMax {
+                    LabeledContent(
+                        "Accepted range",
+                        value: "\(minimum.formatted())–\(maximum.formatted())"
+                    )
+                }
+                if tracker.effectivePrivacyClass != .standard {
+                    Label(
+                        tracker.effectivePrivacyClass == .sensitive
+                            ? "This value is treated as sensitive."
+                            : "This value is treated as personal.",
+                        systemImage: "lock.fill"
+                    )
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+            }
+            .lifeBoardFormSurface()
+            .navigationTitle(title)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        guard let value = typedValue else { return }
+                        Task {
+                            let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+                            await onSave(
+                                value,
+                                trimmedNote.isEmpty ? nil : trimmedNote,
+                                timestampValue
+                            )
+                            dismiss()
+                        }
+                    }
+                    .disabled(typedValue == nil)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var valueEditor: some View {
+        switch tracker.effectiveValueType {
+        case .boolean:
+            Toggle("Yes", isOn: $booleanValue)
+                .frame(minHeight: 44)
+        case .count:
+            TextField("Count", value: $countValue, format: .number)
+                .keyboardType(.numberPad)
+        case .quantity:
+            TextField(
+                tracker.unitLabel.map { "Value (\($0))" } ?? "Value",
+                value: $numericValue,
+                format: .number
+            )
+            .keyboardType(.decimalPad)
+        case .rating:
+            TextField("Rating", value: $numericValue, format: .number)
+                .keyboardType(.decimalPad)
+        case .duration:
+            TextField("Minutes", value: $durationMinutes, format: .number)
+                .keyboardType(.decimalPad)
+        case .text:
+            TextField("What did you notice?", text: $textValue, axis: .vertical)
+                .lineLimit(3...8)
+        case .choice:
+            if let choices = tracker.choiceOptions, choices.isEmpty == false {
+                Picker("Choice", selection: $choiceValue) {
+                    ForEach(choices, id: \.self) { Text($0).tag($0) }
+                }
+            } else {
+                Text("This tracker has no saved choices.")
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+        case .timestamp:
+            DatePicker("Time", selection: $timestampValue)
+        }
+    }
+
+    private var typedValue: TrackerValue? {
+        let numericCandidate: Double?
+        switch tracker.effectiveValueType {
+        case .count: numericCandidate = Double(countValue)
+        case .quantity, .rating: numericCandidate = numericValue
+        case .duration: numericCandidate = durationMinutes * 60
+        default: numericCandidate = nil
+        }
+        if let numericCandidate {
+            guard numericCandidate.isFinite,
+                  tracker.rangeMin.map({ numericCandidate >= $0 }) ?? true,
+                  tracker.rangeMax.map({ numericCandidate <= $0 }) ?? true else {
+                return nil
+            }
+        }
+        switch tracker.effectiveValueType {
+        case .boolean: return .boolean(booleanValue)
+        case .count: return countValue >= 0 ? .count(countValue) : nil
+        case .quantity: return .quantity(numericValue, unit: tracker.unitLabel)
+        case .rating: return .rating(numericValue)
+        case .duration: return durationMinutes >= 0 ? .duration(durationMinutes * 60) : nil
+        case .text:
+            let value = textValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            return value.isEmpty ? nil : .text(value)
+        case .choice:
+            return tracker.choiceOptions?.contains(choiceValue) == true ? .choice(choiceValue) : nil
+        case .timestamp: return .timestamp(timestampValue)
         }
     }
 }
@@ -1386,7 +2051,7 @@ private struct LifeBoardTrackerHistoryView: View {
     let entries: [LifeBoardTrackerEntryValue]
     let activeReceipt: (UUID) -> TrackCorrectionReceipt?
     let onUndo: (TrackCorrectionReceipt) async -> Void
-    let onCorrect: (LifeBoardTrackerEntryValue, Double?, Bool?, String?) async -> Void
+    let onCorrect: (LifeBoardTrackerEntryValue, TrackerValue, String?) async -> Void
     @State private var correcting: LifeBoardTrackerEntryValue?
     @Environment(\.dismiss) private var dismiss
 
@@ -1420,8 +2085,12 @@ private struct LifeBoardTrackerHistoryView: View {
             .navigationTitle(tracker.title)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(item: $correcting) { entry in
-                LifeBoardTrackerCorrectionView(tracker: tracker, entry: entry) { numeric, boolean, note in
-                    await onCorrect(entry, numeric, boolean, note)
+                LifeBoardTrackerValueCaptureView(
+                    tracker: tracker,
+                    entry: entry,
+                    title: "Correct entry"
+                ) { value, note, _ in
+                    await onCorrect(entry, value, note)
                     correcting = nil
                 }
             }
@@ -1429,60 +2098,22 @@ private struct LifeBoardTrackerHistoryView: View {
     }
 
     private func value(_ entry: LifeBoardTrackerEntryValue) -> String {
-        if let number = entry.numericValue { return [number.formatted(), tracker.unitLabel].compactMap { $0 }.joined(separator: " ") }
-        if let boolean = entry.booleanValue { return boolean ? "Done" : "Not done" }
-        return "Recorded"
-    }
-}
-
-private struct LifeBoardTrackerCorrectionView: View {
-    let tracker: LifeBoardTrackerDefinitionValue
-    let entry: LifeBoardTrackerEntryValue
-    let onSave: (Double?, Bool?, String?) async -> Void
-    @State private var numericValue: Double
-    @State private var booleanValue: Bool
-    @State private var note: String
-    @Environment(\.dismiss) private var dismiss
-
-    init(
-        tracker: LifeBoardTrackerDefinitionValue,
-        entry: LifeBoardTrackerEntryValue,
-        onSave: @escaping (Double?, Bool?, String?) async -> Void
-    ) {
-        self.tracker = tracker
-        self.entry = entry
-        self.onSave = onSave
-        _numericValue = State(initialValue: entry.numericValue ?? 0)
-        _booleanValue = State(initialValue: entry.booleanValue ?? false)
-        _note = State(initialValue: entry.note ?? "")
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                if tracker.kind == .boolean {
-                    Toggle("Completed", isOn: $booleanValue)
-                } else {
-                    TextField("Value", value: $numericValue, format: .number)
-                        .keyboardType(.decimalPad)
-                }
-                TextField("Correction note", text: $note, axis: .vertical)
-                LabeledContent("Recorded", value: entry.timestamp.formatted(date: .abbreviated, time: .shortened))
-            }
-            .lifeBoardFormSurface()
-            .navigationTitle("Correct entry")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        Task {
-                            await onSave(tracker.kind == .boolean ? nil : numericValue, tracker.kind == .boolean ? booleanValue : nil, note)
-                            dismiss()
-                        }
-                    }
-                }
+        if let value = entry.value {
+            switch value {
+            case .boolean(let value): return value ? "Yes" : "No"
+            case .count(let value): return value.formatted()
+            case .quantity(let value, let unit):
+                return [value.formatted(), unit].compactMap { $0 }.joined(separator: " ")
+            case .rating(let value): return value.formatted()
+            case .duration(let seconds):
+                return Duration.seconds(seconds).formatted(.units(allowed: [.hours, .minutes]))
+            case .text(let value), .choice(let value): return value
+            case .timestamp(let value): return value.formatted(date: .abbreviated, time: .shortened)
             }
         }
+        if let number = entry.numericValue { return [number.formatted(), tracker.unitLabel].compactMap { $0 }.joined(separator: " ") }
+        if let boolean = entry.booleanValue { return boolean ? "Done" : "Not done" }
+        return entry.note ?? "Recorded"
     }
 }
 
@@ -1492,6 +2123,17 @@ private struct LifeBoardMedicationComposer: View {
     @State private var name = ""
     @State private var dosage = ""
     @State private var instructions = ""
+    @State private var form = ""
+    @State private var hasStartDate = false
+    @State private var startDate = Date()
+    @State private var hasEndDate = false
+    @State private var endDate = Date()
+    @State private var refillEnabled = false
+    @State private var refillQuantity = 30.0
+    @State private var refillRemaining = 30.0
+    @State private var refillThreshold = 5.0
+    @State private var recordsLastRefill = false
+    @State private var lastRefilledAt = Date()
     @State private var windowStart = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var windowEnd = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
     @State private var weekdays = Set(1...7)
@@ -1510,6 +2152,20 @@ private struct LifeBoardMedicationComposer: View {
         _name = State(initialValue: existing?.name ?? "")
         _dosage = State(initialValue: existing?.dosageText ?? "")
         _instructions = State(initialValue: existing?.instructions ?? "")
+        _form = State(initialValue: existing?.formRaw ?? "")
+        _hasStartDate = State(initialValue: existing?.startDate != nil)
+        _startDate = State(initialValue: existing?.startDate ?? Date())
+        _hasEndDate = State(initialValue: existing?.endDate != nil)
+        _endDate = State(initialValue: existing?.endDate ?? Date())
+        let hasRefill = existing?.refillQuantity != nil
+            || existing?.refillRemaining != nil
+            || existing?.refillThreshold != nil
+        _refillEnabled = State(initialValue: hasRefill)
+        _refillQuantity = State(initialValue: existing?.refillQuantity ?? 30)
+        _refillRemaining = State(initialValue: existing?.refillRemaining ?? existing?.refillQuantity ?? 30)
+        _refillThreshold = State(initialValue: existing?.refillThreshold ?? 5)
+        _recordsLastRefill = State(initialValue: existing?.lastRefilledAt != nil)
+        _lastRefilledAt = State(initialValue: existing?.lastRefilledAt ?? Date())
         let startMinutes = existingSchedule?.windowStartMinutes ?? 8 * 60
         let endMinutes = existingSchedule?.windowEndMinutes ?? 9 * 60
         _windowStart = State(initialValue: Calendar.current.date(
@@ -1527,11 +2183,41 @@ private struct LifeBoardMedicationComposer: View {
             Form {
                 Section("Medication") {
                     TextField("Name", text: $name)
+                    TextField("Form (optional, for example tablet)", text: $form)
                     TextField("Dose label (optional)", text: $dosage)
                     TextField("Instructions (optional)", text: $instructions, axis: .vertical)
                 }
                 Section {
-                    Text("LifeBoard records only the status you choose. A passed window becomes unresolved, not missed.")
+                    Text("LifeBoard keeps an informational record only. It does not provide dose, interaction, diagnosis, or treatment advice.")
+                        .font(.caption)
+                }
+                Section("Active dates") {
+                    Toggle("Use a start date", isOn: $hasStartDate)
+                    if hasStartDate {
+                        DatePicker("Starts", selection: $startDate, displayedComponents: .date)
+                    }
+                    Toggle("Use an end date", isOn: $hasEndDate)
+                    if hasEndDate {
+                        DatePicker("Ends", selection: $endDate, displayedComponents: .date)
+                    }
+                }
+                Section("Refill information") {
+                    Toggle("Track refill count", isOn: $refillEnabled)
+                    if refillEnabled {
+                        TextField("Quantity after refill", value: $refillQuantity, format: .number)
+                            .keyboardType(.decimalPad)
+                        TextField("Remaining", value: $refillRemaining, format: .number)
+                            .keyboardType(.decimalPad)
+                        TextField("Inform me at or below", value: $refillThreshold, format: .number)
+                            .keyboardType(.decimalPad)
+                        Toggle("Record last refill date", isOn: $recordsLastRefill)
+                        if recordsLastRefill {
+                            DatePicker("Last refilled", selection: $lastRefilledAt, displayedComponents: .date)
+                        }
+                        Text("Refill tracking is opt-in and informational. LifeBoard does not tell you when or how to take medication.")
+                            .font(.caption)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
                 }
                 Section("Schedule") {
                     DatePicker("Window starts", selection: $windowStart, displayedComponents: .hourAndMinute)
@@ -1543,10 +2229,12 @@ private struct LifeBoardMedicationComposer: View {
                             } label: {
                                 Text(Calendar.current.veryShortStandaloneWeekdaySymbols[weekday - 1])
                                     .font(.caption.weight(.semibold))
-                                    .frame(maxWidth: .infinity, minHeight: 36)
+                                    .frame(maxWidth: .infinity, minHeight: 44)
                                     .background(weekdays.contains(weekday) ? Color(LifeBoardColorTokens.foundationSurfaceSelected) : .clear, in: Capsule())
                             }
                             .buttonStyle(.plain)
+                            .contentShape(Rectangle())
+                            .accessibilityLabel(Calendar.current.weekdaySymbols[weekday - 1])
                             .accessibilityAddTraits(weekdays.contains(weekday) ? .isSelected : [])
                         }
                     }
@@ -1559,6 +2247,7 @@ private struct LifeBoardMedicationComposer: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Save") {
+                        let trimmedForm = form.trimmingCharacters(in: .whitespacesAndNewlines)
                         let medication = LifeBoardMedicationDefinitionValue(
                             id: existing?.id ?? UUID(),
                             name: name,
@@ -1567,7 +2256,19 @@ private struct LifeBoardMedicationComposer: View {
                             healthCorrelationID: existing?.healthCorrelationID,
                             isArchived: existing?.isArchived ?? false,
                             createdAt: existing?.createdAt ?? Date(),
-                            updatedAt: Date()
+                            updatedAt: Date(),
+                            formRaw: trimmedForm.isEmpty ? nil : trimmedForm,
+                            startDate: hasStartDate ? Calendar.current.startOfDay(for: startDate) : nil,
+                            endDate: hasEndDate ? Calendar.current.date(
+                                bySettingHour: 23,
+                                minute: 59,
+                                second: 59,
+                                of: endDate
+                            ) : nil,
+                            refillQuantity: refillEnabled ? refillQuantity : nil,
+                            refillRemaining: refillEnabled ? refillRemaining : nil,
+                            refillThreshold: refillEnabled ? refillThreshold : nil,
+                            lastRefilledAt: refillEnabled && recordsLastRefill ? lastRefilledAt : nil
                         )
                         let calendar = Calendar.current
                         let startMinutes = calendar.component(.hour, from: windowStart) * 60 + calendar.component(.minute, from: windowStart)
@@ -1582,10 +2283,26 @@ private struct LifeBoardMedicationComposer: View {
                         ))
                         dismiss()
                     }
-                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || weekdays.isEmpty || windowEnd <= windowStart)
+                    .disabled(isInvalid)
                 }
             }
         }
+    }
+
+    private var isInvalid: Bool {
+        name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || weekdays.isEmpty
+            || windowEnd <= windowStart
+            || (hasStartDate && hasEndDate && Calendar.current.startOfDay(for: endDate) < Calendar.current.startOfDay(for: startDate))
+            || (refillEnabled && (
+                refillQuantity.isFinite == false
+                    || refillRemaining.isFinite == false
+                    || refillThreshold.isFinite == false
+                    || refillQuantity < 0
+                    || refillRemaining < 0
+                    || refillThreshold < 0
+                    || refillRemaining > refillQuantity
+            ))
     }
 }
 

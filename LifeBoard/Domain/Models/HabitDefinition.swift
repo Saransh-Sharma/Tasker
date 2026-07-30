@@ -22,6 +22,10 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable, Sendable {
     public var successMask14Raw: Int16
     public var failureMask14Raw: Int16
     public var lastHistoryRollDate: Date?
+    public var quotaTargetCount: Int?
+    public var quotaPeriodRaw: String?
+    public var timedTargetSeconds: TimeInterval?
+    public var minimumTargetData: Data?
     public var createdAt: Date
     public var updatedAt: Date
 
@@ -47,6 +51,10 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable, Sendable {
         case successMask14Raw
         case failureMask14Raw
         case lastHistoryRollDate
+        case quotaTargetCount
+        case quotaPeriodRaw
+        case timedTargetSeconds
+        case minimumTargetData
         case createdAt
         case updatedAt
     }
@@ -74,6 +82,10 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable, Sendable {
         successMask14Raw: Int16 = 0,
         failureMask14Raw: Int16 = 0,
         lastHistoryRollDate: Date? = nil,
+        quotaTargetCount: Int? = nil,
+        quotaPeriodRaw: String? = nil,
+        timedTargetSeconds: TimeInterval? = nil,
+        minimumTargetData: Data? = nil,
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -98,6 +110,10 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable, Sendable {
         self.successMask14Raw = successMask14Raw
         self.failureMask14Raw = failureMask14Raw
         self.lastHistoryRollDate = lastHistoryRollDate
+        self.quotaTargetCount = quotaTargetCount
+        self.quotaPeriodRaw = quotaPeriodRaw
+        self.timedTargetSeconds = timedTargetSeconds
+        self.minimumTargetData = minimumTargetData
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }
@@ -126,6 +142,10 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable, Sendable {
             successMask14Raw: try container.decodeIfPresent(Int16.self, forKey: .successMask14Raw) ?? 0,
             failureMask14Raw: try container.decodeIfPresent(Int16.self, forKey: .failureMask14Raw) ?? 0,
             lastHistoryRollDate: try container.decodeIfPresent(Date.self, forKey: .lastHistoryRollDate),
+            quotaTargetCount: try container.decodeIfPresent(Int.self, forKey: .quotaTargetCount),
+            quotaPeriodRaw: try container.decodeIfPresent(String.self, forKey: .quotaPeriodRaw),
+            timedTargetSeconds: try container.decodeIfPresent(TimeInterval.self, forKey: .timedTargetSeconds),
+            minimumTargetData: try container.decodeIfPresent(Data.self, forKey: .minimumTargetData),
             createdAt: try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date(),
             updatedAt: try container.decodeIfPresent(Date.self, forKey: .updatedAt) ?? Date()
         )
@@ -154,6 +174,10 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable, Sendable {
         try container.encode(successMask14Raw, forKey: .successMask14Raw)
         try container.encode(failureMask14Raw, forKey: .failureMask14Raw)
         try container.encodeIfPresent(lastHistoryRollDate, forKey: .lastHistoryRollDate)
+        try container.encodeIfPresent(quotaTargetCount, forKey: .quotaTargetCount)
+        try container.encodeIfPresent(quotaPeriodRaw, forKey: .quotaPeriodRaw)
+        try container.encodeIfPresent(timedTargetSeconds, forKey: .timedTargetSeconds)
+        try container.encodeIfPresent(minimumTargetData, forKey: .minimumTargetData)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encode(updatedAt, forKey: .updatedAt)
     }
@@ -211,15 +235,54 @@ public extension HabitDefinitionRecord {
 
     var targetConfig: HabitTargetConfig? {
         get {
-            guard let targetConfigData else { return nil }
-            return try? JSONDecoder().decode(HabitTargetConfig.self, from: targetConfigData)
+            if let targetConfigData,
+               let decoded = try? JSONDecoder().decode(HabitTargetConfig.self, from: targetConfigData) {
+                return decoded
+            }
+            let target: HabitTarget?
+            if let seconds = timedTargetSeconds, seconds > 0 {
+                target = .timed(seconds: seconds)
+            } else if let count = quotaTargetCount, count > 0 {
+                target = .quota(
+                    count: count,
+                    period: quotaPeriodRaw.flatMap(HabitQuotaPeriod.init(rawValue:)) ?? .day
+                )
+            } else {
+                target = nil
+            }
+            let minimum = minimumTargetData.flatMap {
+                try? JSONDecoder().decode(HabitTarget.self, from: $0)
+            }
+            guard target != nil || minimum != nil else { return nil }
+            return HabitTargetConfig(target: target, minimumTarget: minimum)
         }
         set {
             guard let newValue else {
                 targetConfigData = nil
+                quotaTargetCount = nil
+                quotaPeriodRaw = nil
+                timedTargetSeconds = nil
+                minimumTargetData = nil
                 return
             }
             targetConfigData = try? JSONEncoder().encode(newValue)
+            switch newValue.effectiveTarget {
+            case let .quota(count, period):
+                quotaTargetCount = count
+                quotaPeriodRaw = period.rawValue
+                timedTargetSeconds = nil
+            case let .timed(seconds):
+                quotaTargetCount = nil
+                quotaPeriodRaw = nil
+                timedTargetSeconds = seconds
+            case .binary, .avoidance, .quantitative:
+                quotaTargetCount = nil
+                quotaPeriodRaw = nil
+                timedTargetSeconds = nil
+            }
+            minimumTargetData = newValue.minimumTarget.flatMap {
+                try? JSONEncoder().encode($0)
+            }
         }
     }
 

@@ -57,6 +57,55 @@ public protocol BehaviorScheduleResolving: Sendable {
     ) async throws -> [OccurrenceDefinition]
 }
 
+public struct BehaviorSchedulePolicy: Codable, Hashable, Sendable {
+    public var pausedRanges: [DateInterval]
+    public var vacationRanges: [DateInterval]
+    public var maximumBackfillDays: Int
+
+    public init(
+        pausedRanges: [DateInterval] = [],
+        vacationRanges: [DateInterval] = [],
+        maximumBackfillDays: Int = 0
+    ) {
+        self.pausedRanges = pausedRanges.sorted { $0.start < $1.start }
+        self.vacationRanges = vacationRanges.sorted { $0.start < $1.start }
+        self.maximumBackfillDays = max(0, maximumBackfillDays)
+    }
+}
+
+public struct BehaviorOccurrenceProjection: Codable, Hashable, Identifiable, Sendable {
+    public var id: UUID { occurrence.id }
+    public var occurrence: OccurrenceDefinition
+    public var result: BehaviorOccurrenceResultState
+    public var quotaWindowKey: String?
+    public var quotaTarget: Int?
+    public var timedTargetSeconds: TimeInterval?
+
+    public init(
+        occurrence: OccurrenceDefinition,
+        result: BehaviorOccurrenceResultState,
+        quotaWindowKey: String? = nil,
+        quotaTarget: Int? = nil,
+        timedTargetSeconds: TimeInterval? = nil
+    ) {
+        self.occurrence = occurrence
+        self.result = result
+        self.quotaWindowKey = quotaWindowKey
+        self.quotaTarget = quotaTarget
+        self.timedTargetSeconds = timedTargetSeconds
+    }
+}
+
+public protocol BehaviorOccurrenceProjecting: Sendable {
+    func projections(
+        for behavior: BehaviorDefinition,
+        policy: BehaviorSchedulePolicy,
+        from start: Date,
+        to end: Date,
+        referenceDate: Date
+    ) async throws -> [BehaviorOccurrenceProjection]
+}
+
 public enum TemporalReference: String, Codable, Sendable {
     case floating
     case anchored

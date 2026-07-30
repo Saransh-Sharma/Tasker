@@ -10,6 +10,7 @@ import SwiftUI
 private enum SunriseHabitCadencePreset: String, CaseIterable, Identifiable {
     case daily
     case weekly
+    case interval
 
     var id: String { rawValue }
 
@@ -17,6 +18,7 @@ private enum SunriseHabitCadencePreset: String, CaseIterable, Identifiable {
         switch self {
         case .daily: return "Daily"
         case .weekly: return "Weekly"
+        case .interval: return "Interval"
         }
     }
 }
@@ -349,9 +351,19 @@ struct SunriseHabitDetailScreen: View {
                 if cadencePresetBinding.wrappedValue == .weekly {
                     SunriseHabitWeekdayPickerRow(selectedDays: weeklyDaysBinding)
                 }
+                if cadencePresetBinding.wrappedValue == .interval {
+                    Stepper(
+                        "Every \(intervalDaysBinding.wrappedValue) days",
+                        value: intervalDaysBinding,
+                        in: 2...30
+                    )
+                    .frame(minHeight: 44)
+                }
 
                 DatePicker("Check-in time", selection: cadenceTimeBinding, displayedComponents: .hourAndMinute)
                     .datePickerStyle(.compact)
+
+                SunriseHabitTargetEditor(config: $viewModel.draft.targetConfig)
 
                 SunriseHabitReminderWindowPicker(
                     isEnabled: viewModel.draft.hasReminderWindow,
@@ -596,6 +608,8 @@ struct SunriseHabitDetailScreen: View {
             return "Daily at \(formattedTime(hour: hour, minute: minute))"
         case .weekly(let days, let hour, let minute):
             return "\(weekdaySummary(days)) at \(formattedTime(hour: hour, minute: minute))"
+        case .interval(let days, let hour, let minute):
+            return "Every \(max(1, days)) days at \(formattedTime(hour: hour, minute: minute))"
         }
     }
 
@@ -640,6 +654,7 @@ struct SunriseHabitDetailScreen: View {
                 switch viewModel.draft.cadence {
                 case .daily: return .daily
                 case .weekly: return .weekly
+                case .interval: return .interval
                 }
             },
             set: { preset in
@@ -650,6 +665,8 @@ struct SunriseHabitDetailScreen: View {
                 case .weekly:
                     let days = weeklyDays(from: viewModel.draft.cadence)
                     viewModel.draft.cadence = .weekly(daysOfWeek: days.isEmpty ? [2, 3, 4, 5, 6] : days, hour: time.hour, minute: time.minute)
+                case .interval:
+                    viewModel.draft.cadence = .interval(days: intervalDays(from: viewModel.draft.cadence), hour: time.hour, minute: time.minute)
                 }
             }
         )
@@ -684,6 +701,8 @@ struct SunriseHabitDetailScreen: View {
                     viewModel.draft.cadence = .daily(hour: hour, minute: minute)
                 case .weekly(let days, _, _):
                     viewModel.draft.cadence = .weekly(daysOfWeek: days, hour: hour, minute: minute)
+                case .interval(let days, _, _):
+                    viewModel.draft.cadence = .interval(days: days, hour: hour, minute: minute)
                 }
             }
         )
@@ -693,6 +712,7 @@ struct SunriseHabitDetailScreen: View {
         switch cadence {
         case .daily(let hour, let minute): return (hour, minute)
         case .weekly(_, let hour, let minute): return (hour, minute)
+        case .interval(_, let hour, let minute): return (hour, minute)
         }
     }
 
@@ -700,7 +720,23 @@ struct SunriseHabitDetailScreen: View {
         switch cadence {
         case .daily: return []
         case .weekly(let days, _, _): return days
+        case .interval: return []
         }
+    }
+
+    private var intervalDaysBinding: Binding<Int> {
+        Binding(
+            get: { intervalDays(from: viewModel.draft.cadence) },
+            set: { days in
+                let time = cadenceTime(from: viewModel.draft.cadence)
+                viewModel.draft.cadence = .interval(days: max(2, days), hour: time.hour, minute: time.minute)
+            }
+        )
+    }
+
+    private func intervalDays(from cadence: HabitCadenceDraft) -> Int {
+        if case let .interval(days, _, _) = cadence { return max(2, days) }
+        return 2
     }
 
     private func mutate(_ cell: HabitDetailDayCell) {

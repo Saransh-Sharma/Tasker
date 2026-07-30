@@ -95,6 +95,7 @@ public final class AddHabitViewModel: ObservableObject {
     @Published public var selectedKind: AddHabitKind = .positive
     @Published public var selectedTrackingMode: AddHabitTrackingMode = .dailyCheckIn
     @Published public var selectedCadence: HabitCadenceDraft = .daily()
+    @Published public var targetConfig = HabitTargetConfig(target: .binary)
     @Published public var selectedLifeAreaID: UUID?
     @Published public var selectedProjectID: UUID?
     @Published public var reminderWindowStart: String = ""
@@ -113,6 +114,7 @@ public final class AddHabitViewModel: ObservableObject {
     private var pristineKind: AddHabitKind = .positive
     private var pristineTrackingMode: AddHabitTrackingMode = .dailyCheckIn
     private var pristineCadence: HabitCadenceDraft = .daily()
+    private var pristineTargetConfig = HabitTargetConfig(target: .binary)
     private var pristineLifeAreaID: UUID?
     private var pristineProjectID: UUID?
     private var pristineReminderWindowStart: String = ""
@@ -229,6 +231,7 @@ public final class AddHabitViewModel: ObservableObject {
             || selectedKind != pristineKind
             || selectedTrackingMode != pristineTrackingMode
             || selectedCadence != pristineCadence
+            || targetConfig != pristineTargetConfig
             || selectedLifeAreaID != pristineLifeAreaID
             || selectedProjectID != pristineProjectID
             || reminderWindowStart.trimmingCharacters(in: .whitespacesAndNewlines) != pristineReminderWindowStart
@@ -320,6 +323,13 @@ public final class AddHabitViewModel: ObservableObject {
         if selectedKind == .positive, selectedTrackingMode != .dailyCheckIn {
             selectedTrackingMode = .dailyCheckIn
         }
+        if selectedKind == .negative, targetConfig.effectiveTarget == .binary {
+            targetConfig.target = .avoidance
+            targetConfig.minimumTarget = nil
+        } else if selectedKind == .positive, targetConfig.effectiveTarget == .avoidance {
+            targetConfig.target = .binary
+            targetConfig.minimumTarget = nil
+        }
 
         normalizeProjectSelection()
 
@@ -372,6 +382,8 @@ public final class AddHabitViewModel: ObservableObject {
         let normalizedStart = reminderWindowStart.nilIfBlank?.normalizedHHmm
         let normalizedEnd = reminderWindowEnd.nilIfBlank?.normalizedHHmm
         let icon = resolvedCreateIconMetadata()
+        var reviewedTargetConfig = targetConfig
+        reviewedTargetConfig.notes = habitNotes.nilIfBlank
         let request = CreateHabitRequest(
             title: trimmedName,
             lifeAreaID: lifeAreaID,
@@ -380,7 +392,7 @@ public final class AddHabitViewModel: ObservableObject {
             trackingMode: selectedTrackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly,
             icon: icon,
             colorHex: LifeBoardHexColor.normalized(selectedColorHex.nilIfBlank),
-            targetConfig: HabitTargetConfig(notes: habitNotes.nilIfBlank, targetCountPerDay: 1),
+            targetConfig: reviewedTargetConfig,
             metricConfig: HabitMetricConfig(
                 unitLabel: nil,
                 showNotesOnCompletion: habitNotes.nilIfBlank != nil
@@ -414,6 +426,10 @@ public final class AddHabitViewModel: ObservableObject {
         selectedKind = template.kind
         selectedTrackingMode = template.trackingMode
         selectedCadence = template.cadence
+        targetConfig = HabitTargetConfig(
+            notes: template.notes,
+            target: template.kind == .negative ? .avoidance : .binary
+        )
         reminderWindowStart = template.reminderWindowStart ?? ""
         reminderWindowEnd = template.reminderWindowEnd ?? ""
         selectedColorHex = ""
@@ -431,6 +447,7 @@ public final class AddHabitViewModel: ObservableObject {
         selectedKind = .positive
         selectedTrackingMode = .dailyCheckIn
         selectedCadence = .daily()
+        targetConfig = HabitTargetConfig(target: .binary)
         selectedProjectID = nil
         reminderWindowStart = ""
         reminderWindowEnd = ""
@@ -450,6 +467,7 @@ public final class AddHabitViewModel: ObservableObject {
         pristineKind = selectedKind
         pristineTrackingMode = selectedTrackingMode
         pristineCadence = selectedCadence
+        pristineTargetConfig = targetConfig
         pristineLifeAreaID = selectedLifeAreaID
         pristineProjectID = selectedProjectID
         pristineReminderWindowStart = reminderWindowStart.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -681,6 +699,7 @@ public struct HabitEditorDraft: Equatable {
     public var kind: AddHabitKind
     public var trackingMode: AddHabitTrackingMode
     public var cadence: HabitCadenceDraft
+    public var targetConfig: HabitTargetConfig
     public var lifeAreaID: UUID?
     public var projectID: UUID?
     public var reminderWindowStart: String
@@ -695,6 +714,10 @@ public struct HabitEditorDraft: Equatable {
         kind = row.kind == .positive ? .positive : .negative
         trackingMode = row.trackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly
         cadence = row.cadence
+        targetConfig = row.targetConfig ?? HabitTargetConfig(
+            notes: row.notes,
+            target: row.kind == .negative ? .avoidance : .binary
+        )
         lifeAreaID = row.lifeAreaID
         projectID = row.projectID
         reminderWindowStart = row.reminderWindowStart ?? ""
@@ -1178,6 +1201,10 @@ enum HabitDetailCalendarBuilder {
                 return true
             }
             return daysOfWeek.contains(weekday)
+        case .interval(let days, _, _):
+            let epoch = calendar.startOfDay(for: Date(timeIntervalSinceReferenceDate: 0))
+            let offset = calendar.dateComponents([.day], from: epoch, to: calendar.startOfDay(for: date)).day ?? 0
+            return offset.isMultiple(of: max(1, days))
         }
     }
 
@@ -1479,7 +1506,8 @@ public final class HabitDetailViewModel: ObservableObject {
                         lastCompletedAt: latestRow.lastCompletedAt,
                         reminderWindowStart: latestRow.reminderWindowStart,
                         reminderWindowEnd: latestRow.reminderWindowEnd,
-                        notes: latestRow.notes
+                        notes: latestRow.notes,
+                        targetConfig: latestRow.targetConfig
                     )
                 }
                 if self.draftRevision == self.savedDraftRevision {
@@ -1541,6 +1569,13 @@ public final class HabitDetailViewModel: ObservableObject {
     public func normalizeDraftSelection() {
         if draft.kind == .positive, draft.trackingMode != .dailyCheckIn {
             draft.trackingMode = .dailyCheckIn
+        }
+        if draft.kind == .negative, draft.targetConfig.effectiveTarget == .binary {
+            draft.targetConfig.target = .avoidance
+            draft.targetConfig.minimumTarget = nil
+        } else if draft.kind == .positive, draft.targetConfig.effectiveTarget == .avoidance {
+            draft.targetConfig.target = .binary
+            draft.targetConfig.minimumTarget = nil
         }
         normalizeDraftProjectSelection()
         if let selectedIconSymbolName = draft.selectedIconSymbolName,
@@ -1922,7 +1957,9 @@ public final class HabitDetailViewModel: ObservableObject {
     }
 
     private func makeUpdateRequest() -> UpdateHabitRequest {
-        UpdateHabitRequest(
+        var reviewedTargetConfig = draft.targetConfig
+        reviewedTargetConfig.notes = draft.notes.nilIfBlank
+        return UpdateHabitRequest(
             id: row.habitID,
             title: draft.title.trimmingCharacters(in: .whitespacesAndNewlines),
             lifeAreaID: draft.lifeAreaID,
@@ -1932,7 +1969,7 @@ public final class HabitDetailViewModel: ObservableObject {
             trackingMode: draft.trackingMode == .dailyCheckIn ? .dailyCheckIn : .lapseOnly,
             icon: selectedIconOption.map { HabitIconMetadata(symbolName: $0.symbolName, categoryKey: $0.categoryKey) },
             colorHex: LifeBoardHexColor.normalized(draft.colorHex.nilIfBlank),
-            targetConfig: HabitTargetConfig(notes: draft.notes.nilIfBlank, targetCountPerDay: 1),
+            targetConfig: reviewedTargetConfig,
             metricConfig: HabitMetricConfig(unitLabel: nil, showNotesOnCompletion: draft.notes.nilIfBlank != nil),
             cadence: draft.cadence,
             reminderWindowStart: draft.reminderWindowStart.nilIfBlank?.normalizedHHmm,

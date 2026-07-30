@@ -637,6 +637,109 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertEqual(decoded.habitID, habitID)
         XCTAssertEqual(decoded.offDays, [day])
         XCTAssertTrue(decoded.recoveryReceipts.isEmpty)
+        XCTAssertTrue(decoded.vacationRanges.isEmpty)
+        XCTAssertEqual(decoded.backfillPolicy, .disabled)
+        XCTAssertNil(decoded.minimumTarget)
+    }
+
+    func testHabitTypedTargetsValidateAndPreserveLegacyColumns() throws {
+        let valid = HabitTargetConfig(
+            target: .quota(count: 5, period: .week),
+            minimumTarget: .quota(count: 2, period: .week)
+        )
+        XCTAssertNil(HabitTargetValidator.validate(valid))
+        XCTAssertEqual(
+            HabitTargetValidator.validate(.init(
+                target: .timed(seconds: 10 * 60),
+                minimumTarget: .timed(seconds: 15 * 60)
+            )),
+            .minimumExceedsTarget
+        )
+        XCTAssertEqual(
+            HabitTargetValidator.validate(.init(
+                target: .quantitative(value: 8, unit: "pages"),
+                minimumTarget: .quantitative(value: 2, unit: "minutes")
+            )),
+            .incompatibleMinimum
+        )
+
+        var record = HabitDefinitionRecord(title: "Read", habitType: "check_in")
+        record.targetConfig = valid
+        XCTAssertEqual(record.quotaTargetCount, 5)
+        XCTAssertEqual(record.quotaPeriodRaw, HabitQuotaPeriod.week.rawValue)
+        XCTAssertNotNil(record.minimumTargetData)
+        XCTAssertEqual(record.targetConfig, valid)
+
+        let decoded = try JSONDecoder().decode(
+            HabitDefinitionRecord.self,
+            from: JSONEncoder().encode(record)
+        )
+        XCTAssertEqual(decoded.targetConfig, valid)
+
+        let rules = HabitRuntimeSupport.buildScheduleRules(
+            templateID: UUID(),
+            cadence: .interval(days: 3, hour: 8, minute: 15),
+            createdAt: Date()
+        )
+        XCTAssertEqual(rules.first?.ruleType, "daily")
+        XCTAssertEqual(rules.first?.interval, 3)
+        XCTAssertEqual(HabitRuntimeSupport.cadence(from: nil, rules: rules), .interval(days: 3, hour: 8, minute: 15))
+    }
+
+    func testHabitGradeDistinguishesMissingZeroFailurePausedAndVacation() throws {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Kolkata"))
+        let now = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 7, day: 14, hour: 12)))
+        let habitID = UUID()
+        func day(_ value: Int) -> PlanningDay {
+            PlanningDay(year: 2026, month: 7, day: value, timeZoneIdentifier: calendar.timeZone.identifier)
+        }
+        let vacation = HabitVacationRange(startDay: day(11), endDay: day(11), label: "Rest")
+        let snapshot = DefaultHabitGradeEngine().evaluate(
+            habitID: habitID,
+            occurrences: [
+                .init(habitID: habitID, day: day(8), resolution: .completed),
+                .init(habitID: habitID, day: day(9), resolution: .explicitZero, recordedValue: 0),
+                .init(habitID: habitID, day: day(10), resolution: .failed, failureReason: "Sync unavailable"),
+                .init(habitID: habitID, day: day(11), resolution: .missing),
+                .init(habitID: habitID, day: day(12), resolution: .paused),
+                .init(habitID: habitID, day: day(13), resolution: .abstained),
+                .init(habitID: habitID, day: day(14), resolution: .manuallySkipped)
+            ],
+            policy: .init(habitID: habitID, vacationRanges: [vacation]),
+            now: now,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(snapshot.eligibleDueCount, 4)
+        XCTAssertEqual(snapshot.completedEligibleCount, 2)
+        XCTAssertEqual(snapshot.grade, 0.5)
+        XCTAssertEqual(snapshot.distribution[.explicitZero], 1)
+        XCTAssertEqual(snapshot.distribution[.paused], 1)
+        XCTAssertEqual(snapshot.distribution[.missing], 1)
+    }
+
+    func testHabitAutoCompletionRequiresOneUnambiguousOccurrence() {
+        let occurrenceID = UUID()
+        let valid = HabitAutoCompletionMapping(
+            source: .tracker,
+            sourceID: UUID(),
+            threshold: 8,
+            candidateOccurrenceIDs: [occurrenceID]
+        )
+        XCTAssertEqual(valid.resolvedOccurrenceID, occurrenceID)
+        XCTAssertNil(HabitAutoCompletionMapping(
+            source: .healthKit,
+            sourceID: UUID(),
+            threshold: 8,
+            candidateOccurrenceIDs: [occurrenceID, UUID()]
+        ).resolvedOccurrenceID)
+        XCTAssertNil(HabitAutoCompletionMapping(
+            source: .tracker,
+            sourceID: UUID(),
+            threshold: 0,
+            candidateOccurrenceIDs: [occurrenceID]
+        ).resolvedOccurrenceID)
     }
 
     func testRoutineBranchingSnapshotAndRepeatedTapAreIdempotent() throws {
@@ -666,6 +769,184 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertTrue(edited.steps.isEmpty)
     }
 
+    func testRoutineValidatorRejectsBrokenBranchesLoopsAndUnreachableSteps() {
+        let choiceID = UUID()
+        let forwardID = UUID()
+        let unreachableID = UUID()
+        let missingID = UUID()
+        let routine = RoutineDefinition(title: "Broken graph", steps: [
+            .init(
+                id: choiceID,
+                title: "Choose",
+                kind: .choice,
+                ordinal: 0,
+                choices: ["Forward", "Missing"],
+                branches: [
+                    .init(
+                        sourceStepID: choiceID,
+                        operation: .equals,
+                        expectedResponse: "Forward",
+                        destinationStepID: forwardID
+                    ),
+                    .init(
+                        sourceStepID: choiceID,
+                        operation: .equals,
+                        expectedResponse: "Missing",
+                        destinationStepID: missingID
+                    )
+                ]
+            ),
+            .init(
+                id: unreachableID,
+                title: "Never selected",
+                kind: .instruction,
+                ordinal: 1
+            ),
+            .init(
+                id: forwardID,
+                title: "Linked task",
+                kind: .task,
+                ordinal: 2,
+                linkedMutation: .completeTask,
+                branches: [
+                    .init(
+                        sourceStepID: forwardID,
+                        operation: .equals,
+                        expectedResponse: "Again",
+                        destinationStepID: choiceID
+                    )
+                ]
+            )
+        ])
+
+        let report = RoutineValidator().validate(routine)
+        XCTAssertFalse(report.isValid)
+        XCTAssertTrue(report.issues.contains(.missingBranchDestination(
+            sourceStepID: choiceID,
+            destinationStepID: missingID
+        )))
+        XCTAssertTrue(report.issues.contains(.unreachableStep(unreachableID)))
+        XCTAssertTrue(report.issues.contains(.missingLinkedEntity(stepID: forwardID)))
+        XCTAssertTrue(report.issues.contains {
+            if case .loop = $0 { true } else { false }
+        })
+    }
+
+    func testRoutineTemplatesAreDistinctCompleteAndValid() throws {
+        let templates = try RoutineTemplateKind.allCases
+            .filter { $0 != .custom }
+            .map { kind in
+                (kind, try XCTUnwrap(RoutineTemplateCatalog.definition(for: kind)))
+            }
+        XCTAssertEqual(Set(templates.map { $0.1.title }).count, templates.count)
+        for (_, routine) in templates {
+            XCTAssertFalse(routine.steps.isEmpty)
+            XCTAssertTrue(RoutineValidator().validate(routine).isValid)
+            XCTAssertEqual(
+                routine.steps.map(\.ordinal),
+                Array(routine.steps.indices)
+            )
+        }
+        XCTAssertNil(RoutineTemplateCatalog.definition(for: .custom))
+    }
+
+    func testRoutineCommandsPauseResumeSkipWithReasonAndDecodeLegacyState() throws {
+        let startedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let routine = RoutineDefinition(title: "Care", steps: [
+            .init(
+                title: "Take a breath",
+                kind: .timer,
+                ordinal: 0,
+                duration: 120,
+                isRequired: false,
+                isSkippable: true
+            )
+        ])
+        let service = DefaultRoutineExecutionService()
+        let running = service.begin(routine, at: startedAt)
+        let paused = service.apply(
+            command: .pause,
+            to: running,
+            at: startedAt.addingTimeInterval(10)
+        )
+        XCTAssertEqual(paused.run.status, .paused)
+        XCTAssertEqual(paused.run.pausedAt, startedAt.addingTimeInterval(10))
+
+        let resumed = service.apply(
+            command: .resume,
+            to: paused.run,
+            at: startedAt.addingTimeInterval(40)
+        )
+        XCTAssertEqual(resumed.run.status, .running)
+        XCTAssertNil(resumed.run.pausedAt)
+        XCTAssertEqual(resumed.run.effectivePausedDuration, 30)
+        XCTAssertEqual(resumed.run.effectiveCurrentStepPausedDuration, 30)
+
+        let skipped = service.apply(
+            command: .skip(reason: "Not needed today", idempotencyKey: "skip-1"),
+            to: resumed.run,
+            at: startedAt.addingTimeInterval(50)
+        )
+        XCTAssertEqual(skipped.run.status, .completed)
+        XCTAssertEqual(skipped.run.events.first?.response, "Not needed today")
+        XCTAssertEqual(skipped.run.events.first?.wasSkipped, true)
+        let duplicate = service.apply(
+            command: .skip(reason: "Not needed today", idempotencyKey: "skip-1"),
+            to: skipped.run,
+            at: startedAt.addingTimeInterval(51)
+        )
+        XCTAssertFalse(duplicate.didApplyEvent)
+        XCTAssertEqual(duplicate.run.events.count, 1)
+
+        var encoded = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder().encode(running)) as? [String: Any]
+        )
+        encoded.removeValue(forKey: "pausedAt")
+        encoded.removeValue(forKey: "accumulatedPausedDuration")
+        encoded.removeValue(forKey: "currentStepPausedDuration")
+        let legacyData = try JSONSerialization.data(withJSONObject: encoded)
+        let decoded = try JSONDecoder().decode(RoutineRun.self, from: legacyData)
+        XCTAssertNil(decoded.pausedAt)
+        XCTAssertEqual(decoded.effectivePausedDuration, 0)
+        XCTAssertEqual(decoded.effectiveCurrentStepPausedDuration, 0)
+    }
+
+    func testPausedRoutineRunRoundTripsForInterruptionRecovery() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let repository = CoreDataTrackFoundationRepository(container: container)
+        let routine = RoutineDefinition(title: "Shutdown", steps: [
+            .init(title: "Close the loop", kind: .instruction, ordinal: 0)
+        ])
+        try await repository.saveRoutine(routine)
+        let service = DefaultRoutineExecutionService()
+        let running = service.begin(routine, at: Date(timeIntervalSince1970: 1_800_000_000))
+        let paused = service.apply(
+            command: .pause,
+            to: running,
+            at: running.startedAt.addingTimeInterval(30)
+        ).run
+        let resumed = service.apply(
+            command: .resume,
+            to: paused,
+            at: running.startedAt.addingTimeInterval(75)
+        ).run
+        let rePaused = service.apply(
+            command: .interrupt,
+            to: resumed,
+            at: running.startedAt.addingTimeInterval(90)
+        ).run
+        try await repository.saveRoutineRun(rePaused)
+
+        let runs = try await repository.fetchRoutineRuns(routineID: routine.id)
+        let restored = try XCTUnwrap(runs.first)
+        XCTAssertEqual(restored.status, .interrupted)
+        XCTAssertEqual(restored.currentStepID, running.currentStepID)
+        XCTAssertEqual(restored.pausedAt, running.startedAt.addingTimeInterval(90))
+        XCTAssertEqual(restored.effectivePausedDuration, 45)
+        XCTAssertEqual(restored.effectiveCurrentStepPausedDuration, 45)
+        XCTAssertEqual(restored.versionSnapshot, routine)
+    }
+
     func testGoalProgressReportsIncompleteDataWithoutInferringCompletion() throws {
         let goal = GoalDefinition(title: "Read", type: .count, targetValue: 10)
         let first = GoalLink(goalID: goal.id, source: .trackerMeasure, sourceID: UUID())
@@ -679,6 +960,128 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertEqual(snapshot.progressFraction, 0.4)
         XCTAssertEqual(snapshot.confidence, 0.5)
         XCTAssertEqual(snapshot.missingLinkCount, 1)
+    }
+
+    func testGoalAssessmentRequiresValidQuantitativeMeaningAndEnoughRiskEvidence() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        let directional = GoalDefinition(
+            title: "Feel more present",
+            type: .quantity,
+            targetValue: 10,
+            targetDate: now.addingTimeInterval(30 * 86_400),
+            createdAt: now.addingTimeInterval(-10 * 86_400),
+            intent: .directional,
+            baselineValue: 2
+        )
+        let service = GoalAssessmentService()
+        let noEvidence = service.assess(
+            goal: directional,
+            samples: [],
+            missedCheckIns: 1,
+            asOf: now
+        )
+        XCTAssertEqual(noEvidence.presentation, .checkIns)
+        XCTAssertNil(noEvidence.progressFraction)
+        XCTAssertFalse(noEvidence.isAtRisk)
+        XCTAssertEqual(noEvidence.missingEvidence, [
+            "No linked evidence yet",
+            "1 scheduled check-in missing"
+        ])
+
+        let missed = service.assess(
+            goal: directional,
+            samples: [],
+            missedCheckIns: 2,
+            asOf: now
+        )
+        XCTAssertTrue(missed.isAtRisk)
+        XCTAssertEqual(missed.riskReason, .missedCheckIns(count: 2))
+
+        let quantitative = GoalDefinition(
+            title: "Read 40 pages",
+            type: .count,
+            targetValue: 40,
+            targetDate: now.addingTimeInterval(20 * 86_400),
+            createdAt: now.addingTimeInterval(-20 * 86_400),
+            intent: .cumulative,
+            baselineValue: 0
+        )
+        let measurements = [0, 2, 4, 5].enumerated().map { offset, value in
+            GoalProgressSample(
+                linkID: UUID(),
+                value: Double(value),
+                isComplete: nil,
+                measuredAt: now.addingTimeInterval(Double(offset - 3) * 3 * 86_400)
+            )
+        }
+        let behind = service.assess(
+            goal: quantitative,
+            samples: measurements,
+            missedCheckIns: 0,
+            asOf: now
+        )
+        XCTAssertEqual(behind.presentation, .percentage)
+        XCTAssertEqual(behind.progressFraction, 0.125)
+        XCTAssertTrue(behind.isAtRisk)
+        guard case let .behindTrajectory(observed, expected) = behind.riskReason else {
+            return XCTFail("Expected an evidence-backed trajectory reason")
+        }
+        XCTAssertEqual(observed, 5)
+        XCTAssertGreaterThan(expected, observed)
+    }
+
+    func testGoalLifecyclePersistsImmutableStatusHistoryAndUndoAppendsCompensation() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let repository = CoreDataTrackFoundationRepository(container: container)
+        let service = GoalLifecycleService(repository: repository)
+        let createdAt = Date(timeIntervalSince1970: 1_800_000_000)
+        let goal = try await service.save(
+            draft: GoalDraft(
+                title: "  Ship a calmer weekly review  ",
+                type: .count,
+                intent: .milestone,
+                targetValue: 12,
+                baselineValue: 2,
+                unitLabel: "reviews",
+                targetDate: createdAt.addingTimeInterval(90 * 86_400),
+                confidence: .possible,
+                whyItMatters: "  Make progress visible  ",
+                checkInCadence: .biweekly
+            ),
+            at: createdAt
+        )
+        let pauseDate = createdAt.addingTimeInterval(86_400)
+        let paused = try await service.transition(
+            goal,
+            to: .paused,
+            reason: "  Protecting recovery time  ",
+            at: pauseDate
+        )
+        let resumed = try await service.undo(
+            paused,
+            at: pauseDate.addingTimeInterval(3_600)
+        )
+
+        XCTAssertEqual(resumed.after.effectiveStatus, .active)
+        XCTAssertEqual(resumed.after.statusEvents?.map(\.status), [.active, .paused, .active])
+        XCTAssertNil(resumed.after.statusEvents?.first?.reason)
+        XCTAssertEqual(resumed.after.statusEvents?[1].reason, "Protecting recovery time")
+        XCTAssertEqual(
+            resumed.after.statusEvents?.last?.reason,
+            "Undid paused transition"
+        )
+
+        let goals = try await repository.fetchGoals()
+        let restored = try XCTUnwrap(goals.first(where: { $0.id == goal.id }))
+        XCTAssertEqual(restored.title, "Ship a calmer weekly review")
+        XCTAssertEqual(restored.effectiveIntent, .milestone)
+        XCTAssertEqual(restored.baselineValue, 2)
+        XCTAssertEqual(restored.confidenceRaw, GoalConfidence.possible.rawValue)
+        XCTAssertEqual(restored.whyItMatters, "Make progress visible")
+        XCTAssertEqual(restored.checkInCadenceRaw, GoalCheckInCadence.biweekly.rawValue)
+        XCTAssertEqual(restored.effectiveStatus, .active)
+        XCTAssertEqual(restored.statusEvents?.map(\.id), resumed.after.statusEvents?.map(\.id))
+        XCTAssertEqual(restored.statusEvents?.map(\.reason), resumed.after.statusEvents?.map(\.reason))
     }
 
     func testHydrationConversionAndSleepPrivacy() {
@@ -742,7 +1145,7 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
             now: now,
             calendar: calendar
         )
-        XCTAssertEqual(evidence[habitID]?.map(\.resolution), [.completed, .manuallySkipped, .due])
+        XCTAssertEqual(evidence[habitID]?.map(\.resolution), [.completed, .manuallySkipped, .missing])
         XCTAssertEqual(evidence[habitID]?.last?.isDue, false)
     }
 
@@ -978,7 +1381,12 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
                     occurrenceID: UUID(),
                     previousState: .missed
                 )
-            ]
+            ],
+            vacationRanges: [
+                HabitVacationRange(startDay: day, endDay: day, label: "Time away")
+            ],
+            backfillPolicy: .window(days: 7),
+            minimumTarget: .timed(seconds: 300)
         )
         try await track.saveHabitResiliencePolicy(habitPolicy)
         habitPolicy.recoveryEnabled = false
@@ -1251,6 +1659,81 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertLessThan(payloadSize, 2_048)
         XCTAssertEqual(attributes.title.count, 80)
     }
+
+    func testFastingLiveActivityContractUsesCanonicalSessionAndExplicitCommands() throws {
+        let sessionID = UUID()
+        let commandID = UUID()
+        let finishURL = LifeBoardFastingActivityLink.url(
+            sessionID: sessionID,
+            command: "finish",
+            token: commandID
+        )
+        let command = try XCTUnwrap(FastingLiveActivityDeepLink.command(from: finishURL))
+
+        XCTAssertEqual(command.id, commandID)
+        XCTAssertEqual(command.sessionID, sessionID)
+        XCTAssertEqual(command.action, .finish)
+        XCTAssertNil(FastingLiveActivityDeepLink.command(from: LifeBoardFastingActivityLink.url(
+            sessionID: sessionID,
+            command: "infer-finished",
+            token: commandID
+        )))
+
+        let attributes = LifeBoardFastingActivityAttributes(
+            sessionID: sessionID,
+            title: String(repeating: "Personal fasting target ", count: 10)
+        )
+        let state = LifeBoardFastingActivityAttributes.ContentState(
+            phase: "active",
+            startedAt: Date(timeIntervalSince1970: 100),
+            targetEndAt: Date(timeIntervalSince1970: 200),
+            elapsedDuration: 50,
+            updatedAt: Date(timeIntervalSince1970: 150)
+        )
+        let payloadSize = try JSONEncoder().encode(attributes).count
+            + JSONEncoder().encode(state).count
+        XCTAssertLessThan(payloadSize, 2_048)
+        XCTAssertEqual(attributes.title.count, 80)
+    }
+
+    func testRoutineLiveActivityContractExposesOnlyIdempotentLifecycleCommands() throws {
+        let runID = UUID()
+        let routineID = UUID()
+        let commandID = UUID()
+        let pauseURL = LifeBoardRoutineActivityLink.url(
+            runID: runID,
+            command: "pause",
+            token: commandID
+        )
+        let command = try XCTUnwrap(RoutineLiveActivityDeepLink.command(from: pauseURL))
+
+        XCTAssertEqual(command.id, commandID)
+        XCTAssertEqual(command.runID, runID)
+        XCTAssertEqual(command.action, .pause)
+        XCTAssertNil(RoutineLiveActivityDeepLink.command(from: LifeBoardRoutineActivityLink.url(
+            runID: runID,
+            command: "advance",
+            token: commandID
+        )))
+
+        let attributes = LifeBoardRoutineActivityAttributes(
+            runID: runID,
+            routineID: routineID,
+            title: String(repeating: "Morning care routine ", count: 10)
+        )
+        let state = LifeBoardRoutineActivityAttributes.ContentState(
+            status: "running",
+            stepTitle: String(repeating: "Prepare the next gentle step ", count: 10),
+            completedStepCount: 2,
+            totalStepCount: 5,
+            updatedAt: Date()
+        )
+        let payloadSize = try JSONEncoder().encode(attributes).count
+            + JSONEncoder().encode(state).count
+        XCTAssertLessThan(payloadSize, 2_048)
+        XCTAssertEqual(attributes.title.count, 80)
+        XCTAssertEqual(state.stepTitle.count, 100)
+    }
     #endif
 
     private func modelBundleURL() throws -> URL {
@@ -1258,6 +1741,49 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
             if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") { return url }
         }
         throw NSError(domain: "LifeBoardPlanningTrackFoundationTests", code: 1)
+    }
+
+    private func makeTrackFoundationContainer() async throws -> NSPersistentContainer {
+        let model = try XCTUnwrap(
+            NSManagedObjectModel(
+                contentsOf: try modelBundleURL()
+                    .appendingPathComponent("TaskModelV3_BehaviorFlagship.mom")
+            )
+        )
+        let container = NSPersistentContainer(
+            name: "GoalLifecycle-\(UUID().uuidString)",
+            managedObjectModel: model
+        )
+        let cloud = NSPersistentStoreDescription()
+        cloud.type = NSInMemoryStoreType
+        cloud.configuration = "CloudSync"
+        cloud.url = URL(fileURLWithPath: "/dev/null/cloud-\(UUID().uuidString)")
+        let local = NSPersistentStoreDescription()
+        local.type = NSInMemoryStoreType
+        local.configuration = "LocalOnly"
+        local.url = URL(fileURLWithPath: "/dev/null/local-\(UUID().uuidString)")
+        container.persistentStoreDescriptions = [cloud, local]
+        try await load(container)
+
+        let localStore = try XCTUnwrap(
+            container.persistentStoreCoordinator.persistentStores.first {
+                $0.configurationName == "LocalOnly"
+            }
+        )
+        let context = container.newBackgroundContext()
+        try await context.perform {
+            let checkpoint = NSEntityDescription.insertNewObject(
+                forEntityName: "HealthMigrationCheckpoint",
+                into: context
+            )
+            context.assign(checkpoint, to: localStore)
+            checkpoint.setValue("overall", forKey: "id")
+            checkpoint.setValue("validated", forKey: "phaseRaw")
+            checkpoint.setValue(Date(), forKey: "completedAt")
+            checkpoint.setValue(Date(), forKey: "updatedAt")
+            try context.save()
+        }
+        return container
     }
 
     private func load(_ container: NSPersistentContainer) async throws {

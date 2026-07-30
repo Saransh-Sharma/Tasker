@@ -627,9 +627,124 @@ public struct TaskListWidgetHabitSnapshot: Codable, Equatable, Hashable, Sendabl
     public static let empty = TaskListWidgetHabitSnapshot()
 }
 
+public enum BehaviorSurfaceDomain: String, Codable, Equatable, Hashable, Sendable {
+    case habit
+    case tracker
+}
+
+public enum BehaviorSurfaceResultState: String, Codable, CaseIterable, Equatable, Hashable, Sendable {
+    case missing
+    case explicitZero
+    case completed
+    case skipped
+    case offDay
+    case paused
+    case failed
+    case unresolved
+}
+
+/// The exact occurrence payload shared by app, widgets, Watch, reminders, and
+/// history. Consumers render this value; they do not regenerate schedules or
+/// derive a new identifier.
+public struct BehaviorOccurrenceSurfaceSnapshot: Codable, Equatable, Hashable, Identifiable, Sendable {
+    public var id: UUID { occurrenceID }
+    public var occurrenceID: UUID
+    public var behaviorID: UUID
+    public var scheduleTemplateID: UUID
+    public var canonicalOccurrenceKey: String
+    public var domain: BehaviorSurfaceDomain
+    public var scheduledAt: Date
+    public var dueAt: Date?
+    public var timezoneID: String
+    public var sequence: Int
+    public var result: BehaviorSurfaceResultState
+
+    public init(
+        occurrenceID: UUID,
+        behaviorID: UUID,
+        scheduleTemplateID: UUID,
+        canonicalOccurrenceKey: String,
+        domain: BehaviorSurfaceDomain,
+        scheduledAt: Date,
+        dueAt: Date? = nil,
+        timezoneID: String,
+        sequence: Int = 0,
+        result: BehaviorSurfaceResultState
+    ) {
+        self.occurrenceID = occurrenceID
+        self.behaviorID = behaviorID
+        self.scheduleTemplateID = scheduleTemplateID
+        self.canonicalOccurrenceKey = canonicalOccurrenceKey
+        self.domain = domain
+        self.scheduledAt = scheduledAt
+        self.dueAt = dueAt
+        self.timezoneID = timezoneID
+        self.sequence = max(0, sequence)
+        self.result = result
+    }
+}
+
+public struct FastingSessionSurfaceSnapshot: Codable, Equatable, Hashable, Identifiable, Sendable {
+    public var id: UUID { sessionID }
+    public var sessionID: UUID
+    public var startedAt: Date
+    public var targetEndAt: Date?
+    public var updatedAt: Date
+
+    public init(
+        sessionID: UUID,
+        startedAt: Date,
+        targetEndAt: Date?,
+        updatedAt: Date
+    ) {
+        self.sessionID = sessionID
+        self.startedAt = startedAt
+        self.targetEndAt = targetEndAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public enum RoutineRunSurfaceStatus: String, Codable, Equatable, Hashable, Sendable {
+    case running
+    case paused
+    case interrupted
+}
+
+public struct RoutineRunSurfaceSnapshot: Codable, Equatable, Hashable, Identifiable, Sendable {
+    public var id: UUID { runID }
+    public var runID: UUID
+    public var routineID: UUID
+    public var title: String
+    public var status: RoutineRunSurfaceStatus
+    public var currentStepTitle: String?
+    public var completedStepCount: Int
+    public var totalStepCount: Int
+    public var updatedAt: Date
+
+    public init(
+        runID: UUID,
+        routineID: UUID,
+        title: String,
+        status: RoutineRunSurfaceStatus,
+        currentStepTitle: String?,
+        completedStepCount: Int,
+        totalStepCount: Int,
+        updatedAt: Date
+    ) {
+        self.runID = runID
+        self.routineID = routineID
+        self.title = title
+        self.status = status
+        self.currentStepTitle = currentStepTitle
+        self.completedStepCount = max(0, completedStepCount)
+        self.totalStepCount = max(0, totalStepCount)
+        self.updatedAt = updatedAt
+    }
+}
+
 /// Data snapshot for task-list widgets, serialized in the App Group container.
 public struct TaskListWidgetSnapshot: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 5
+    public static let currentSchemaVersion = 7
 
     public var schemaVersion: Int
     public var updatedAt: Date
@@ -649,6 +764,9 @@ public struct TaskListWidgetSnapshot: Codable, Equatable, Sendable {
     public var calendar: TaskListWidgetCalendarSnapshot
     public var timeline: TaskListWidgetTimelineSnapshot
     public var habit: TaskListWidgetHabitSnapshot
+    public var behaviorOccurrences: [BehaviorOccurrenceSurfaceSnapshot]
+    public var activeFastingSession: FastingSessionSurfaceSnapshot?
+    public var activeRoutineRun: RoutineRunSurfaceSnapshot?
 
     public init(
         schemaVersion: Int = TaskListWidgetSnapshot.currentSchemaVersion,
@@ -668,7 +786,10 @@ public struct TaskListWidgetSnapshot: Codable, Equatable, Sendable {
         snapshotHealth: TaskListWidgetSnapshotHealth = TaskListWidgetSnapshotHealth(),
         calendar: TaskListWidgetCalendarSnapshot = .empty,
         timeline: TaskListWidgetTimelineSnapshot = .empty,
-        habit: TaskListWidgetHabitSnapshot = .empty
+        habit: TaskListWidgetHabitSnapshot = .empty,
+        behaviorOccurrences: [BehaviorOccurrenceSurfaceSnapshot] = [],
+        activeFastingSession: FastingSessionSurfaceSnapshot? = nil,
+        activeRoutineRun: RoutineRunSurfaceSnapshot? = nil
     ) {
         self.schemaVersion = schemaVersion
         self.updatedAt = updatedAt
@@ -688,6 +809,9 @@ public struct TaskListWidgetSnapshot: Codable, Equatable, Sendable {
         self.calendar = calendar
         self.timeline = timeline
         self.habit = habit
+        self.behaviorOccurrences = behaviorOccurrences
+        self.activeFastingSession = activeFastingSession
+        self.activeRoutineRun = activeRoutineRun
     }
 
     private enum CodingKeys: String, CodingKey {
@@ -709,6 +833,9 @@ public struct TaskListWidgetSnapshot: Codable, Equatable, Sendable {
         case calendar
         case timeline
         case habit
+        case behaviorOccurrences
+        case activeFastingSession
+        case activeRoutineRun
     }
 
     public init(from decoder: Decoder) throws {
@@ -734,6 +861,18 @@ public struct TaskListWidgetSnapshot: Codable, Equatable, Sendable {
         self.calendar = try container.decodeIfPresent(TaskListWidgetCalendarSnapshot.self, forKey: .calendar) ?? .unavailable
         self.timeline = try container.decodeIfPresent(TaskListWidgetTimelineSnapshot.self, forKey: .timeline) ?? .empty
         self.habit = try container.decodeIfPresent(TaskListWidgetHabitSnapshot.self, forKey: .habit) ?? .empty
+        self.behaviorOccurrences = try container.decodeIfPresent(
+            [BehaviorOccurrenceSurfaceSnapshot].self,
+            forKey: .behaviorOccurrences
+        ) ?? []
+        self.activeFastingSession = try container.decodeIfPresent(
+            FastingSessionSurfaceSnapshot.self,
+            forKey: .activeFastingSession
+        )
+        self.activeRoutineRun = try container.decodeIfPresent(
+            RoutineRunSurfaceSnapshot.self,
+            forKey: .activeRoutineRun
+        )
     }
 
     public static func load() -> TaskListWidgetSnapshot {
@@ -769,6 +908,103 @@ public struct TaskListWidgetSnapshot: Codable, Equatable, Sendable {
         }
         try? data.write(to: url, options: .atomic)
         try? data.write(to: backupURL, options: .atomic)
+    }
+}
+
+public enum FastingWatchAction: String, Codable, Equatable, Sendable {
+    case finish
+    case cancel
+}
+
+public struct FastingWatchCommand: Codable, Equatable, Sendable {
+    public static let transportPayloadKey = "lifeboard.fasting.command"
+    public static let transportSchemaKey = "lifeboard.fasting.schema"
+    public static let transportSchemaVersion = 1
+
+    public var commandID: UUID
+    public var sessionID: UUID
+    public var action: FastingWatchAction
+    public var createdAt: Date
+    public var expiresAt: Date
+
+    public init(
+        commandID: UUID = UUID(),
+        sessionID: UUID,
+        action: FastingWatchAction,
+        createdAt: Date = Date(),
+        expiresAt: Date = Date().addingTimeInterval(15 * 60)
+    ) {
+        self.commandID = commandID
+        self.sessionID = sessionID
+        self.action = action
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+    }
+
+    public func watchUserInfoPayload() throws -> [String: Any] {
+        [
+            Self.transportSchemaKey: Self.transportSchemaVersion,
+            Self.transportPayloadKey: try JSONEncoder().encode(self)
+        ]
+    }
+
+    public static func decodeWatchUserInfo(_ userInfo: [String: Any]) -> Self? {
+        guard
+            (userInfo[transportSchemaKey] as? Int) == transportSchemaVersion,
+            let data = userInfo[transportPayloadKey] as? Data
+        else {
+            return nil
+        }
+        return try? JSONDecoder().decode(Self.self, from: data)
+    }
+}
+
+public enum RoutineWatchAction: String, Codable, Equatable, Sendable {
+    case pause
+    case resume
+    case stop
+}
+
+public struct RoutineWatchCommand: Codable, Equatable, Sendable {
+    public static let transportPayloadKey = "lifeboard.routine.command"
+    public static let transportSchemaKey = "lifeboard.routine.schema"
+    public static let transportSchemaVersion = 1
+
+    public var commandID: UUID
+    public var runID: UUID
+    public var action: RoutineWatchAction
+    public var createdAt: Date
+    public var expiresAt: Date
+
+    public init(
+        commandID: UUID = UUID(),
+        runID: UUID,
+        action: RoutineWatchAction,
+        createdAt: Date = Date(),
+        expiresAt: Date = Date().addingTimeInterval(15 * 60)
+    ) {
+        self.commandID = commandID
+        self.runID = runID
+        self.action = action
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+    }
+
+    public func watchUserInfoPayload() throws -> [String: Any] {
+        [
+            Self.transportSchemaKey: Self.transportSchemaVersion,
+            Self.transportPayloadKey: try JSONEncoder().encode(self)
+        ]
+    }
+
+    public static func decodeWatchUserInfo(_ userInfo: [String: Any]) -> Self? {
+        guard
+            (userInfo[transportSchemaKey] as? Int) == transportSchemaVersion,
+            let data = userInfo[transportPayloadKey] as? Data
+        else {
+            return nil
+        }
+        return try? JSONDecoder().decode(Self.self, from: data)
     }
 }
 
@@ -825,5 +1061,87 @@ public struct TaskListWidgetActionCommand: Codable, Equatable, Sendable {
     public static func clearPending() {
         guard let url = AppGroupConstants.taskListActionCommandURL else { return }
         try? FileManager.default.removeItem(at: url)
+    }
+}
+
+public enum BehaviorOccurrenceActionType: String, Codable, Equatable, Sendable {
+    case complete
+    case skip
+}
+
+public struct BehaviorOccurrenceActionCommand: Codable, Equatable, Sendable {
+    public static let transportPayloadKey = "lifeboard.behavior_occurrence.command"
+    public static let transportSchemaKey = "lifeboard.behavior_occurrence.schema"
+    public static let transportSchemaVersion = 1
+
+    public var commandID: UUID
+    public var occurrenceID: UUID
+    public var behaviorID: UUID
+    public var action: BehaviorOccurrenceActionType
+    public var createdAt: Date
+    public var expiresAt: Date
+
+    public init(
+        occurrenceID: UUID,
+        behaviorID: UUID,
+        action: BehaviorOccurrenceActionType,
+        createdAt: Date = Date(),
+        expiresAt: Date = Date().addingTimeInterval(15 * 60)
+    ) {
+        commandID = occurrenceID
+        self.occurrenceID = occurrenceID
+        self.behaviorID = behaviorID
+        self.action = action
+        self.createdAt = createdAt
+        self.expiresAt = expiresAt
+    }
+
+    @discardableResult
+    public func savePending() -> Bool {
+        guard let url = AppGroupConstants.behaviorOccurrenceActionCommandURL,
+              let data = try? JSONEncoder().encode(self) else {
+            return false
+        }
+        do {
+            try data.write(to: url, options: .atomic)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    public static func loadPending() -> BehaviorOccurrenceActionCommand? {
+        guard let url = AppGroupConstants.behaviorOccurrenceActionCommandURL,
+              let data = try? Data(contentsOf: url) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(BehaviorOccurrenceActionCommand.self, from: data)
+    }
+
+    public static func clearPending() {
+        guard let url = AppGroupConstants.behaviorOccurrenceActionCommandURL else { return }
+        try? FileManager.default.removeItem(at: url)
+    }
+
+    /// Cross-device payload used by the Watch app. The same `Codable` command
+    /// is also used by widgets, so phone and Watch cannot drift on identity,
+    /// expiry, or action meaning.
+    public func watchUserInfoPayload() throws -> [String: Any] {
+        [
+            Self.transportSchemaKey: Self.transportSchemaVersion,
+            Self.transportPayloadKey: try JSONEncoder().encode(self)
+        ]
+    }
+
+    public static func decodeWatchUserInfo(
+        _ userInfo: [String: Any]
+    ) -> BehaviorOccurrenceActionCommand? {
+        guard
+            (userInfo[transportSchemaKey] as? Int) == transportSchemaVersion,
+            let data = userInfo[transportPayloadKey] as? Data
+        else {
+            return nil
+        }
+        return try? JSONDecoder().decode(Self.self, from: data)
     }
 }

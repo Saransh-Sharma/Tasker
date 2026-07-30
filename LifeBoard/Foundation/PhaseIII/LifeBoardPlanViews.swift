@@ -3718,7 +3718,10 @@ private struct PlanCanvasBlock: View {
                 }
         )
         .overlay(alignment: .top) {
-            resizeHandle(label: "Resize start")
+            resizeHandle(
+                label: "Resize start",
+                identifier: "plan.canvas.block.\(block.id.uuidString).resizeStart"
+            )
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .updating($topResizeMinutes) { value, state, _ in
@@ -3741,7 +3744,10 @@ private struct PlanCanvasBlock: View {
                 )
         }
         .overlay(alignment: .bottom) {
-            resizeHandle(label: "Resize end")
+            resizeHandle(
+                label: "Resize end",
+                identifier: "plan.canvas.block.\(block.id.uuidString).resizeEnd"
+            )
                 .gesture(
                     DragGesture(minimumDistance: 0)
                         .updating($bottomResizeMinutes) { value, state, _ in
@@ -3800,7 +3806,7 @@ private struct PlanCanvasBlock: View {
         )
     }
 
-    private func resizeHandle(label: String) -> some View {
+    private func resizeHandle(label: String, identifier: String) -> some View {
         Capsule()
             .fill(Color(LifeBoardColorTokens.foundationApricotAccent))
             .frame(width: 30, height: 4)
@@ -3809,6 +3815,7 @@ private struct PlanCanvasBlock: View {
             .contentShape(Rectangle())
             .accessibilityLabel(label)
             .accessibilityHint("Drag, or use the duration actions in the menu")
+            .accessibilityIdentifier(identifier)
     }
 
     /// During a drag the block reports the candidate slot's conflict, not its

@@ -476,7 +476,7 @@ public struct LifeBoardNotificationPreferences: Codable, Equatable {
     }
 }
 
-public struct LifeBoardWorkspacePreferences: Codable, Equatable {
+public struct LifeBoardWorkspacePreferences: Codable, Equatable, Sendable {
     public var weekStartsOn: Weekday
     public var selectedCalendarIDs: [String]
     public var includeDeclinedCalendarEvents: Bool

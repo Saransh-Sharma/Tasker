@@ -118,6 +118,8 @@ struct OnboardingHabitRecommendationCard: View {
             return template.isPositive ? "Daily" : "Daily check-in"
         case .weekly(let daysOfWeek, _, _):
             return daysOfWeek.count > 1 ? "Weekdays" : "Weekly"
+        case .interval(let days, _, _):
+            return "Every \(max(1, days)) days"
         }
     }
 

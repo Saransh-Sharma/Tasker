@@ -1,3 +1,4 @@
+import CoreData
 import XCTest
 @testable import LifeBoard
 
@@ -171,6 +172,332 @@ final class TaskBatchMutationCoordinatorTests: XCTestCase {
 
         XCTAssertEqual(tasks.updateAttemptCount, 0)
         XCTAssertEqual(tasks.snapshot()[task.id], task)
+    }
+}
+
+@MainActor
+final class PhaseOneRealCoreDataMutationJourneyTests: XCTestCase {
+
+    func testEveryBatchFamilyPersistsAndUndoRestoresCanonicalRows() async throws {
+        let container = try makeContainer()
+        let tasks = CoreDataTaskDefinitionRepository(container: container)
+        let planning = CoreDataPlanningRepository(container: container)
+        let tagLinks = CoreDataTaskTagLinkRepository(container: container)
+        let coordinator = TaskBatchMutationCoordinator(
+            tasks: tasks,
+            planning: planning,
+            tagLinks: tagLinks
+        )
+        let originalProjectID = ProjectConstants.inboxProjectID
+        let destinationProjectID = UUID()
+        let destinationSectionID = UUID()
+        let tagID = UUID()
+        let scheduledDay = PlanningDay(
+            year: 2026,
+            month: 8,
+            day: 4,
+            timeZoneIdentifier: "UTC"
+        )
+        let deferredDay = PlanningDay(
+            year: 2026,
+            month: 8,
+            day: 9,
+            timeZoneIdentifier: "UTC"
+        )
+        let scheduledStart = Date(timeIntervalSince1970: 1_775_280_400)
+        let scheduledEnd = scheduledStart.addingTimeInterval(45 * 60)
+        let mutations: [TaskBatchMutation] = [
+            .schedule(
+                planningDay: scheduledDay,
+                startAt: scheduledStart,
+                endAt: scheduledEnd
+            ),
+            .addTags([tagID]),
+            .move(
+                projectID: destinationProjectID,
+                projectName: "Deep Work",
+                sectionID: destinationSectionID
+            ),
+            .deferTo(deferredDay),
+            .setCompletion(true),
+            .archive,
+            .delete
+        ]
+
+        for (index, mutation) in mutations.enumerated() {
+            let taskID = UUID()
+            let original = try await createTask(
+                id: taskID,
+                title: "Batch \(index)",
+                projectID: originalProjectID,
+                repository: tasks
+            )
+            let receipt = try await coordinator.apply(
+                TaskBatchMutationRequest(
+                    taskIDs: [taskID],
+                    mutation: mutation,
+                    source: "tests.real-core-data"
+                )
+            )
+
+            let appliedTaskValue = try await fetchTask(id: taskID, repository: tasks)
+            let appliedTask = try XCTUnwrap(appliedTaskValue)
+            let appliedMetadataValues = try await planning.fetchTaskMetadata(taskIDs: [taskID])
+            let appliedMetadata = appliedMetadataValues.first
+                ?? PlanningTaskMetadata(taskID: taskID)
+            switch mutation {
+            case .schedule:
+                XCTAssertEqual(appliedTask.scheduledStartAt, scheduledStart)
+                XCTAssertEqual(appliedTask.scheduledEndAt, scheduledEnd)
+                XCTAssertEqual(appliedMetadata.planningDay, scheduledDay)
+            case .addTags:
+                let savedTagIDs = try await fetchTagIDs(
+                    taskID: taskID,
+                    repository: tagLinks
+                )
+                XCTAssertEqual(
+                    savedTagIDs,
+                    [tagID]
+                )
+            case .move:
+                XCTAssertEqual(appliedTask.projectID, destinationProjectID)
+                XCTAssertEqual(appliedTask.sectionID, destinationSectionID)
+            case .deferTo:
+                XCTAssertEqual(appliedMetadata.planningDay, deferredDay)
+                XCTAssertEqual(appliedMetadata.startDay, deferredDay)
+            case .setCompletion:
+                XCTAssertTrue(appliedTask.isComplete)
+                XCTAssertNotNil(appliedTask.dateCompleted)
+            case .archive:
+                XCTAssertEqual(appliedMetadata.unscheduledDisposition, .archived)
+            case .delete:
+                XCTAssertEqual(appliedMetadata.unscheduledDisposition, .deleted)
+            }
+
+            try await coordinator.undo(receipt)
+
+            let restoredTaskValue = try await fetchTask(id: taskID, repository: tasks)
+            let restoredTask = try XCTUnwrap(restoredTaskValue)
+            let restoredMetadataValues = try await planning.fetchTaskMetadata(taskIDs: [taskID])
+            let restoredMetadata = restoredMetadataValues.first
+                ?? PlanningTaskMetadata(taskID: taskID)
+            XCTAssertEqual(restoredTask, original)
+            XCTAssertEqual(
+                restoredMetadata,
+                PlanningTaskMetadata(taskID: taskID),
+                "Undo must restore the absence of planning metadata for \(mutation)"
+            )
+            if case .addTags = mutation {
+                let restoredTagIDs = try await fetchTagIDs(
+                    taskID: taskID,
+                    repository: tagLinks
+                )
+                XCTAssertEqual(
+                    restoredTagIDs,
+                    []
+                )
+            }
+        }
+    }
+
+    func testPendingToTaskMergeUndoRestoresCoreDataTagRelationshipsExactly() async throws {
+        let container = try makeContainer()
+        let tasks = CoreDataTaskDefinitionRepository(container: container)
+        let projects = CoreDataProjectRepository(container: container)
+        let tags = CoreDataTagRepository(container: container)
+        let tagLinks = CoreDataTaskTagLinkRepository(container: container)
+        let originalTag = TagDefinition(name: "Existing", sortOrder: 0)
+        _ = try await createTag(originalTag, repository: tags)
+        let taskID = UUID()
+        _ = try await createTask(
+            id: taskID,
+            title: "Original title",
+            projectID: ProjectConstants.inboxProjectID,
+            repository: tasks
+        )
+        try await replaceTagIDs(
+            taskID: taskID,
+            tagIDs: [originalTag.id],
+            repository: tagLinks
+        )
+
+        let pending = PendingCapture(
+            rawText: "Merged title #Incoming",
+            createdAt: Date(timeIntervalSince1970: 1_700_000_000),
+            source: "share-extension"
+        )
+        let queue = RealCoreDataCaptureQueue([pending])
+        let coordinator = InboxCommitCoordinator(
+            writer: CoreDataInboxTaskWriter(
+                tasks: tasks,
+                projects: projects,
+                tags: tags,
+                taskTagLinks: tagLinks
+            ),
+            queue: queue.access
+        )
+
+        let receipt = try await coordinator.merge(
+            InboxCaptureCommitRequest(
+                captureID: pending.id,
+                title: "Merged title",
+                tagNames: ["Incoming"]
+            ),
+            with: .task(taskID)
+        )
+        XCTAssertTrue(queue.values.isEmpty)
+        let mergedValue = try await fetchTask(id: taskID, repository: tasks)
+        let merged = try XCTUnwrap(mergedValue)
+        XCTAssertEqual(merged.title, "Merged title")
+        XCTAssertEqual(merged.tagIDs.count, 2)
+        let mergedTagIDs = try await fetchTagIDs(taskID: taskID, repository: tagLinks)
+        XCTAssertEqual(
+            Set(mergedTagIDs),
+            Set(merged.tagIDs)
+        )
+
+        try await coordinator.undoMerge(receipt)
+
+        XCTAssertEqual(queue.values, [pending])
+        let restoredValue = try await fetchTask(id: taskID, repository: tasks)
+        let restored = try XCTUnwrap(restoredValue)
+        XCTAssertEqual(restored.title, "Original title")
+        XCTAssertEqual(restored.tagIDs, [originalTag.id])
+        let restoredTagIDs = try await fetchTagIDs(taskID: taskID, repository: tagLinks)
+        XCTAssertEqual(
+            restoredTagIDs,
+            [originalTag.id]
+        )
+    }
+
+    private func makeContainer() throws -> NSPersistentContainer {
+        let bundles = [Bundle.main, Bundle(for: type(of: self))]
+        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
+              model.entitiesByName["TaskDefinition"] != nil,
+              model.entitiesByName["PlanningMutationReceipt"] != nil else {
+            throw NSError(
+                domain: "PhaseOneRealCoreDataMutationJourneyTests",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3"]
+            )
+        }
+        let container = NSPersistentContainer(
+            name: "PhaseOneRealCoreDataMutationJourney",
+            managedObjectModel: model
+        )
+        let description = NSPersistentStoreDescription()
+        description.type = NSInMemoryStoreType
+        description.shouldAddStoreAsynchronously = false
+        container.persistentStoreDescriptions = [description]
+        var loadError: Error?
+        container.loadPersistentStores { _, error in loadError = error }
+        if let loadError { throw loadError }
+        container.viewContext.automaticallyMergesChangesFromParent = true
+        return container
+    }
+
+    private func createTask(
+        id: UUID,
+        title: String,
+        projectID: UUID,
+        repository: any TaskDefinitionRepositoryProtocol
+    ) async throws -> TaskDefinition {
+        try await withCheckedThrowingContinuation { continuation in
+            repository.create(
+                request: CreateTaskDefinitionRequest(
+                    id: id,
+                    title: title,
+                    projectID: projectID,
+                    projectName: ProjectConstants.inboxProjectName,
+                    createdAt: Date(timeIntervalSince1970: 1_700_000_000)
+                )
+            ) {
+                continuation.resume(with: $0)
+            }
+        }
+    }
+
+    private func fetchTask(
+        id: UUID,
+        repository: any TaskDefinitionRepositoryProtocol
+    ) async throws -> TaskDefinition? {
+        try await withCheckedThrowingContinuation { continuation in
+            repository.fetchTaskDefinition(id: id) {
+                continuation.resume(with: $0)
+            }
+        }
+    }
+
+    private func createTag(
+        _ tag: TagDefinition,
+        repository: any TagRepositoryProtocol
+    ) async throws -> TagDefinition {
+        try await withCheckedThrowingContinuation { continuation in
+            repository.create(tag) { continuation.resume(with: $0) }
+        }
+    }
+
+    private func replaceTagIDs(
+        taskID: UUID,
+        tagIDs: [UUID],
+        repository: any TaskTagLinkRepositoryProtocol
+    ) async throws {
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Void, Error>) in
+            repository.replaceTagLinks(taskID: taskID, tagIDs: tagIDs) {
+                continuation.resume(with: $0)
+            }
+        }
+    }
+
+    private func fetchTagIDs(
+        taskID: UUID,
+        repository: any TaskTagLinkRepositoryProtocol
+    ) async throws -> [UUID] {
+        try await withCheckedThrowingContinuation { continuation in
+            repository.fetchTagIDs(taskID: taskID) {
+                continuation.resume(with: $0)
+            }
+        }
+    }
+}
+
+private final class RealCoreDataCaptureQueue: @unchecked Sendable {
+    private let lock = NSLock()
+    private var storage: [PendingCapture]
+
+    init(_ captures: [PendingCapture]) {
+        storage = captures
+    }
+
+    var values: [PendingCapture] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
+
+    var access: InboxCaptureQueueAccess {
+        InboxCaptureQueueAccess(
+            read: { [weak self] in self?.values ?? [] },
+            remove: { [weak self] ids in
+                guard let self else { return }
+                self.lock.lock()
+                self.storage.removeAll { ids.contains($0.id) }
+                self.lock.unlock()
+            },
+            restore: { [weak self] captures in
+                guard let self else { return }
+                self.lock.lock()
+                for capture in captures {
+                    if let index = self.storage.firstIndex(where: { $0.id == capture.id }) {
+                        self.storage[index] = capture
+                    } else {
+                        self.storage.append(capture)
+                    }
+                }
+                self.lock.unlock()
+            }
+        )
     }
 }
 

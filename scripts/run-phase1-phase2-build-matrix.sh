@@ -22,6 +22,27 @@ build \
   ONLY_ACTIVE_ARCH=YES \
   build
 
+# Build extension schemes independently as well as through the containing app.
+# This catches target-membership and conditional-import regressions that an
+# incremental app build can otherwise mask.
+build \
+  -project LifeBoard.xcodeproj \
+  -scheme LifeBoardWidgets \
+  -configuration Debug \
+  -destination "$IOS_DESTINATION" \
+  -derivedDataPath "$DERIVED_DATA" \
+  ONLY_ACTIVE_ARCH=YES \
+  build
+
+build \
+  -project LifeBoard.xcodeproj \
+  -scheme LifeBoardShareExtension \
+  -configuration Debug \
+  -destination "$IOS_DESTINATION" \
+  -derivedDataPath "$DERIVED_DATA" \
+  ONLY_ACTIVE_ARCH=YES \
+  build
+
 build \
   -workspace LifeBoard.xcworkspace \
   -scheme LifeBoard \
@@ -47,6 +68,13 @@ if xcrun simctl list devices available | grep -q "Apple Watch"; then
     -destination "generic/platform=watchOS Simulator" \
     -derivedDataPath "$DERIVED_DATA" \
     build
+  build \
+    -project LifeBoard.xcodeproj \
+    -scheme LifeBoardWatchWidgets \
+    -configuration Debug \
+    -destination "generic/platform=watchOS Simulator" \
+    -derivedDataPath "$DERIVED_DATA" \
+    build
 else
-  echo "⚠️  Watch build skipped: no available watchOS simulator runtime."
+  echo "⚠️  Watch app/widget builds skipped: no available watchOS simulator runtime."
 fi

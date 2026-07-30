@@ -49,7 +49,7 @@ public enum OccurrenceResolutionType: String, Codable, Sendable {
 
 /// A cross-surface result vocabulary. In particular, `.missing` and
 /// `.explicitZero` are never interchangeable.
-public enum BehaviorOccurrenceResultState: String, Codable, CaseIterable, Sendable {
+public enum BehaviorOccurrenceResultState: String, Codable, CaseIterable, Hashable, Sendable {
     case missing
     case explicitZero
     case completed

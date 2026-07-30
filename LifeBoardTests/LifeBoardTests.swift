@@ -5012,6 +5012,23 @@ private final class CapturingHabitRuntimeReadRepository: HabitRuntimeReadReposit
     }
 }
 
+private struct StubBehaviorScheduleResolver: BehaviorScheduleResolving {
+    var values: [OccurrenceDefinition]
+
+    func occurrences(
+        for behavior: BehaviorDefinition,
+        from start: Date,
+        to end: Date
+    ) async throws -> [OccurrenceDefinition] {
+        values.filter {
+            $0.sourceID == behavior.domainID
+                && $0.scheduleTemplateID == behavior.scheduleTemplateID
+                && $0.scheduledAt >= start
+                && $0.scheduledAt <= end
+        }
+    }
+}
+
 @MainActor
 final class OccurrenceIdentityTests: XCTestCase {
     func testGeneratedOccurrenceKeyContainsTemplateScheduledDateAndSourceID() throws {
@@ -5077,6 +5094,296 @@ final class OccurrenceIdentityTests: XCTestCase {
                 timezoneID: try XCTUnwrap(TimeZone(identifier: "UTC")).identifier
             )
         )
+    }
+
+    func testBehaviorSurfaceProjectionPreservesCanonicalIdentityAndEveryResultMeaning() throws {
+        let templateID = UUID()
+        let behaviorID = UUID()
+        let date = Date(timeIntervalSince1970: 1_704_067_200)
+        let states = BehaviorOccurrenceResultState.allCases
+        let occurrences = states.enumerated().map { index, _ in
+            let scheduledAt = date.addingTimeInterval(Double(index * 60))
+            let key = OccurrenceKeyCodec.encode(
+                scheduleTemplateID: templateID,
+                scheduledAt: scheduledAt,
+                sourceID: behaviorID
+            )
+            return OccurrenceDefinition(
+                id: BehaviorOccurrenceIdentity.make(
+                    behaviorID: behaviorID,
+                    canonicalOccurrenceKey: key,
+                    timezoneID: "UTC",
+                    sequence: index
+                ),
+                occurrenceKey: key,
+                scheduleTemplateID: templateID,
+                sourceType: .habit,
+                sourceID: behaviorID,
+                scheduledAt: scheduledAt,
+                dueAt: scheduledAt.addingTimeInterval(3_600),
+                state: .pending,
+                isGenerated: true,
+                generationWindow: "surface-test",
+                createdAt: date,
+                updatedAt: date
+            )
+        }
+        let overrides = Dictionary(
+            uniqueKeysWithValues: zip(occurrences.map(\.id), states)
+        )
+
+        let projected = BehaviorOccurrenceSurfaceProjection.make(
+            occurrences: occurrences.reversed(),
+            timezoneByTemplateID: [templateID: "UTC"],
+            resultOverrides: overrides
+        )
+
+        XCTAssertEqual(projected.map(\.occurrenceID), occurrences.map(\.id))
+        XCTAssertEqual(Set(projected.map(\.result)), Set(BehaviorSurfaceResultState.allCases))
+        XCTAssertTrue(projected.allSatisfy { $0.canonicalOccurrenceKey.contains(behaviorID.uuidString) })
+        XCTAssertTrue(projected.allSatisfy { $0.timezoneID == "UTC" })
+
+        let snapshot = TaskListWidgetSnapshot(behaviorOccurrences: projected)
+        let roundTripped = try JSONDecoder().decode(
+            TaskListWidgetSnapshot.self,
+            from: JSONEncoder().encode(snapshot)
+        )
+        XCTAssertEqual(roundTripped.behaviorOccurrences, projected)
+    }
+
+    func testLegacyWidgetSnapshotDecodesWithoutInventingBehaviorOccurrences() throws {
+        let payload = """
+        {"schemaVersion":5,"updatedAt":0}
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(TaskListWidgetSnapshot.self, from: payload)
+
+        XCTAssertEqual(decoded.schemaVersion, 5)
+        XCTAssertTrue(decoded.behaviorOccurrences.isEmpty)
+        XCTAssertNil(decoded.activeFastingSession)
+        XCTAssertNil(decoded.activeRoutineRun)
+    }
+
+    func testSharedBehaviorProjectionAppliesVacationPauseBackfillQuotaAndTimedSemantics() async throws {
+        let behaviorID = UUID()
+        let templateID = UUID()
+        let timezone = try XCTUnwrap(TimeZone(identifier: "America/New_York"))
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timezone
+        func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int = 9) -> Date {
+            calendar.date(from: DateComponents(
+                timeZone: timezone,
+                year: year,
+                month: month,
+                day: day,
+                hour: hour
+            ))!
+        }
+        let days = [
+            date(2026, 3, 7),
+            date(2026, 3, 8), // DST transition in this timezone
+            date(2026, 3, 9),
+            date(2026, 3, 10)
+        ]
+        let occurrences = days.enumerated().map { index, scheduledAt in
+            let key = OccurrenceKeyCodec.encode(
+                scheduleTemplateID: templateID,
+                scheduledAt: scheduledAt,
+                sourceID: behaviorID
+            )
+            return OccurrenceDefinition(
+                id: BehaviorOccurrenceIdentity.make(
+                    behaviorID: behaviorID,
+                    canonicalOccurrenceKey: key,
+                    timezoneID: timezone.identifier,
+                    sequence: index
+                ),
+                occurrenceKey: key,
+                scheduleTemplateID: templateID,
+                sourceType: .habit,
+                sourceID: behaviorID,
+                scheduledAt: scheduledAt,
+                dueAt: nil,
+                state: .pending,
+                isGenerated: true,
+                generationWindow: "projection",
+                createdAt: scheduledAt,
+                updatedAt: scheduledAt
+            )
+        }
+        let service = SharedBehaviorOccurrenceProjectionService(
+            resolver: StubBehaviorScheduleResolver(values: occurrences)
+        )
+        let behavior = BehaviorDefinition(
+            domain: .habit,
+            domainID: behaviorID,
+            scheduleTemplateID: templateID,
+            responseShape: .quota(target: 3, period: "weekly"),
+            timezoneID: timezone.identifier
+        )
+        let policy = BehaviorSchedulePolicy(
+            pausedRanges: [DateInterval(
+                start: days[1].addingTimeInterval(-60),
+                end: days[1].addingTimeInterval(60)
+            )],
+            vacationRanges: [DateInterval(
+                start: days[0].addingTimeInterval(-60),
+                end: days[0].addingTimeInterval(60)
+            )],
+            maximumBackfillDays: 1
+        )
+
+        let projected = try await service.projections(
+            for: behavior,
+            policy: policy,
+            from: days[0],
+            to: days[3],
+            referenceDate: date(2026, 3, 10, 12)
+        )
+
+        XCTAssertEqual(projected.map(\.occurrence.id), occurrences.map(\.id))
+        XCTAssertEqual(projected.map(\.result), [.offDay, .paused, .unresolved, .unresolved])
+        XCTAssertTrue(projected.allSatisfy { $0.quotaTarget == 3 })
+        XCTAssertTrue(projected.allSatisfy { $0.quotaWindowKey?.hasPrefix("weekly:") == true })
+
+        let timed = BehaviorDefinition(
+            domain: .habit,
+            domainID: behaviorID,
+            scheduleTemplateID: templateID,
+            responseShape: .timed(targetSeconds: 1_500),
+            timezoneID: timezone.identifier
+        )
+        let timedProjection = try await service.projections(
+            for: timed,
+            policy: .init(maximumBackfillDays: 0),
+            from: days[0],
+            to: days[3],
+            referenceDate: date(2026, 3, 10, 12)
+        )
+        XCTAssertTrue(timedProjection.allSatisfy { $0.timedTargetSeconds == 1_500 })
+        XCTAssertEqual(timedProjection.map(\.result), [.missing, .missing, .missing, .unresolved])
+    }
+
+    func testRepeatedOccurrenceResolutionUsesOneDeterministicReceiptIdentity() throws {
+        let occurrenceID = UUID()
+        let repository = InMemoryOccurrenceRepository()
+        let engine = CoreSchedulingEngine(
+            scheduleRepository: InMemoryScheduleRepository(),
+            occurrenceRepository: repository
+        )
+
+        for _ in 0..<2 {
+            try awaitResult { completion in
+                engine.resolveOccurrence(
+                    id: occurrenceID,
+                    resolution: .completed,
+                    actor: .user,
+                    completion: completion
+                )
+            }
+        }
+
+        XCTAssertEqual(repository.resolutions.count, 2)
+        XCTAssertEqual(repository.resolutions[0].id, repository.resolutions[1].id)
+        XCTAssertEqual(
+            repository.resolutions[0].id,
+            BehaviorOccurrenceIdentity.make(
+                behaviorID: occurrenceID,
+                canonicalOccurrenceKey: "resolution:completed",
+                timezoneID: "UTC"
+            )
+        )
+    }
+
+    func testBehaviorOccurrenceActionCommandRoundTripKeepsCanonicalIDs() throws {
+        let occurrenceID = UUID()
+        let behaviorID = UUID()
+        let command = BehaviorOccurrenceActionCommand(
+            occurrenceID: occurrenceID,
+            behaviorID: behaviorID,
+            action: .complete,
+            createdAt: Date(timeIntervalSince1970: 100),
+            expiresAt: Date(timeIntervalSince1970: 200)
+        )
+
+        let decoded = try JSONDecoder().decode(
+            BehaviorOccurrenceActionCommand.self,
+            from: JSONEncoder().encode(command)
+        )
+
+        XCTAssertEqual(decoded, command)
+        XCTAssertEqual(decoded.commandID, occurrenceID)
+        XCTAssertEqual(decoded.behaviorID, behaviorID)
+
+        let watchPayload = try command.watchUserInfoPayload()
+        XCTAssertEqual(
+            BehaviorOccurrenceActionCommand.decodeWatchUserInfo(watchPayload),
+            command
+        )
+        var wrongSchema = watchPayload
+        wrongSchema[BehaviorOccurrenceActionCommand.transportSchemaKey] = 99
+        XCTAssertNil(BehaviorOccurrenceActionCommand.decodeWatchUserInfo(wrongSchema))
+    }
+
+    func testWatchSessionSurfacesAndCommandsRoundTripWithoutChangingIdentity() throws {
+        let now = Date(timeIntervalSince1970: 1_778_000_000)
+        let sessionID = UUID()
+        let runID = UUID()
+        let routineID = UUID()
+        let snapshot = TaskListWidgetSnapshot(
+            activeFastingSession: FastingSessionSurfaceSnapshot(
+                sessionID: sessionID,
+                startedAt: now,
+                targetEndAt: now.addingTimeInterval(3_600),
+                updatedAt: now
+            ),
+            activeRoutineRun: RoutineRunSurfaceSnapshot(
+                runID: runID,
+                routineID: routineID,
+                title: "Evening reset",
+                status: .paused,
+                currentStepTitle: "Clear the desk",
+                completedStepCount: 2,
+                totalStepCount: 5,
+                updatedAt: now
+            )
+        )
+        let decoded = try JSONDecoder().decode(
+            TaskListWidgetSnapshot.self,
+            from: JSONEncoder().encode(snapshot)
+        )
+        XCTAssertEqual(decoded.activeFastingSession, snapshot.activeFastingSession)
+        XCTAssertEqual(decoded.activeRoutineRun, snapshot.activeRoutineRun)
+
+        let fasting = FastingWatchCommand(
+            commandID: UUID(),
+            sessionID: sessionID,
+            action: .finish,
+            createdAt: now,
+            expiresAt: now.addingTimeInterval(60)
+        )
+        XCTAssertEqual(
+            FastingWatchCommand.decodeWatchUserInfo(try fasting.watchUserInfoPayload()),
+            fasting
+        )
+        var invalidFasting = try fasting.watchUserInfoPayload()
+        invalidFasting[FastingWatchCommand.transportSchemaKey] = 99
+        XCTAssertNil(FastingWatchCommand.decodeWatchUserInfo(invalidFasting))
+
+        let routine = RoutineWatchCommand(
+            commandID: UUID(),
+            runID: runID,
+            action: .resume,
+            createdAt: now,
+            expiresAt: now.addingTimeInterval(60)
+        )
+        XCTAssertEqual(
+            RoutineWatchCommand.decodeWatchUserInfo(try routine.watchUserInfoPayload()),
+            routine
+        )
+        var invalidRoutine = try routine.watchUserInfoPayload()
+        invalidRoutine[RoutineWatchCommand.transportSchemaKey] = 99
+        XCTAssertNil(RoutineWatchCommand.decodeWatchUserInfo(invalidRoutine))
     }
 
     func testResolveDoesNotMutateOccurrenceKey() throws {

@@ -355,7 +355,8 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                         lastCompletedAt: lastCompletedAt,
                         reminderWindowStart: schedule?.reminderWindowStart,
                         reminderWindowEnd: schedule?.reminderWindowEnd,
-                        notes: habit.notes
+                        notes: habit.notes,
+                        targetConfig: habit.targetConfig
                     )
                 }
 
@@ -457,7 +458,8 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
                         lastCompletedAt: lastCompletedAt,
                         reminderWindowStart: schedule?.reminderWindowStart,
                         reminderWindowEnd: schedule?.reminderWindowEnd,
-                        notes: habit.notes
+                        notes: habit.notes,
+                        targetConfig: habit.targetConfig
                     )
                 }
 
@@ -571,7 +573,8 @@ public final class CoreDataHabitRuntimeReadRepository: HabitRuntimeReadRepositor
             lastCompletedAt: lastCompletedAt,
             reminderWindowStart: schedule?.reminderWindowStart,
             reminderWindowEnd: schedule?.reminderWindowEnd,
-            notes: habit.notes
+            notes: habit.notes,
+            targetConfig: habit.targetConfig
         )
     }
 

@@ -14,9 +14,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "C0879A7BE527DE0BE4109879"
-               BuildableName = "LifeBoardWatch.app"
-               BlueprintName = "LifeBoardWatch"
+               BlueprintIdentifier = "4056B5567C982A9516EE30A5"
+               BuildableName = "LifeBoardWatchWidgets.appex"
+               BlueprintName = "LifeBoardWatchWidgets"
                ReferencedContainer = "container:LifeBoard.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -44,9 +44,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "C0879A7BE527DE0BE4109879"
-            BuildableName = "LifeBoardWatch.app"
-            BlueprintName = "LifeBoardWatch"
+            BlueprintIdentifier = "4056B5567C982A9516EE30A5"
+            BuildableName = "LifeBoardWatchWidgets.appex"
+            BlueprintName = "LifeBoardWatchWidgets"
             ReferencedContainer = "container:LifeBoard.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -61,9 +61,9 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "C0879A7BE527DE0BE4109879"
-            BuildableName = "LifeBoardWatch.app"
-            BlueprintName = "LifeBoardWatch"
+            BlueprintIdentifier = "4056B5567C982A9516EE30A5"
+            BuildableName = "LifeBoardWatchWidgets.appex"
+            BlueprintName = "LifeBoardWatchWidgets"
             ReferencedContainer = "container:LifeBoard.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
@@ -73,7 +73,7 @@
    </AnalyzeAction>
    <ArchiveAction
       buildConfiguration = "Release"
-      customArchiveName = "LifeBoardWatch"
+      customArchiveName = "LifeBoardWatchWidgets"
       revealArchiveInOrganizer = "YES">
    </ArchiveAction>
 </Scheme>

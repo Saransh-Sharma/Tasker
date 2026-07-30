@@ -160,7 +160,11 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol, BehaviorSched
         completion: @escaping @Sendable (Result<Void, Error>) -> Void
     ) {
         let resolutionRecord = OccurrenceResolutionDefinition(
-            id: UUID(),
+            id: BehaviorOccurrenceIdentity.make(
+                behaviorID: id,
+                canonicalOccurrenceKey: "resolution:\(resolution.rawValue)",
+                timezoneID: "UTC"
+            ),
             occurrenceID: id,
             resolutionType: resolution,
             resolvedAt: Date(),
@@ -606,5 +610,119 @@ public final class CoreSchedulingEngine: SchedulingEngineProtocol, BehaviorSched
             return nil
         }
         return ISO8601DateFormatter().date(from: value)
+    }
+}
+
+/// Adds pause, vacation, backfill, quota-window, and timed-target meaning to
+/// canonical occurrences produced by the existing scheduling engine.
+public struct SharedBehaviorOccurrenceProjectionService: BehaviorOccurrenceProjecting, Sendable {
+    private let resolver: any BehaviorScheduleResolving
+
+    public init(resolver: any BehaviorScheduleResolving) {
+        self.resolver = resolver
+    }
+
+    public func projections(
+        for behavior: BehaviorDefinition,
+        policy: BehaviorSchedulePolicy,
+        from start: Date,
+        to end: Date,
+        referenceDate: Date = Date()
+    ) async throws -> [BehaviorOccurrenceProjection] {
+        let occurrences = try await resolver.occurrences(
+            for: behavior,
+            from: start,
+            to: end
+        )
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: behavior.timezoneID) ?? .current
+        return occurrences.map { occurrence in
+            BehaviorOccurrenceProjection(
+                occurrence: occurrence,
+                result: result(
+                    for: occurrence,
+                    policy: policy,
+                    referenceDate: referenceDate,
+                    calendar: calendar
+                ),
+                quotaWindowKey: quotaWindowKey(
+                    for: occurrence.scheduledAt,
+                    responseShape: behavior.responseShape,
+                    calendar: calendar
+                ),
+                quotaTarget: quotaTarget(for: behavior.responseShape),
+                timedTargetSeconds: timedTarget(for: behavior.responseShape)
+            )
+        }
+    }
+
+    private func result(
+        for occurrence: OccurrenceDefinition,
+        policy: BehaviorSchedulePolicy,
+        referenceDate: Date,
+        calendar: Calendar
+    ) -> BehaviorOccurrenceResultState {
+        switch occurrence.state {
+        case .completed: return .completed
+        case .skipped: return .skipped
+        case .missed: return .missing
+        case .failed: return .failed
+        case .pending: break
+        }
+        if policy.pausedRanges.contains(where: { $0.contains(occurrence.scheduledAt) }) {
+            return .paused
+        }
+        if policy.vacationRanges.contains(where: { $0.contains(occurrence.scheduledAt) }) {
+            return .offDay
+        }
+        let scheduledDay = calendar.startOfDay(for: occurrence.scheduledAt)
+        let referenceDay = calendar.startOfDay(for: referenceDate)
+        let age = calendar.dateComponents([.day], from: scheduledDay, to: referenceDay).day ?? 0
+        if age > policy.maximumBackfillDays {
+            return .missing
+        }
+        return .unresolved
+    }
+
+    private func quotaTarget(for shape: BehaviorResponseShape) -> Int? {
+        guard case .quota(let target, _) = shape else { return nil }
+        return max(1, target)
+    }
+
+    private func timedTarget(for shape: BehaviorResponseShape) -> TimeInterval? {
+        guard case .timed(let seconds) = shape else { return nil }
+        return max(0, seconds)
+    }
+
+    private func quotaWindowKey(
+        for date: Date,
+        responseShape: BehaviorResponseShape,
+        calendar: Calendar
+    ) -> String? {
+        guard case .quota(_, let rawPeriod) = responseShape else { return nil }
+        let period = rawPeriod.lowercased()
+        let components: DateComponents
+        let suffix: String
+        switch period {
+        case "week", "weekly":
+            components = calendar.dateComponents([.yearForWeekOfYear, .weekOfYear], from: date)
+            suffix = String(
+                format: "%04d-W%02d",
+                components.yearForWeekOfYear ?? 0,
+                components.weekOfYear ?? 0
+            )
+        case "month", "monthly":
+            components = calendar.dateComponents([.year, .month], from: date)
+            suffix = String(format: "%04d-%02d", components.year ?? 0, components.month ?? 0)
+        default:
+            components = calendar.dateComponents([.year, .month, .day], from: date)
+            suffix = String(
+                format: "%04d-%02d-%02d",
+                components.year ?? 0,
+                components.month ?? 0,
+                components.day ?? 0
+            )
+        }
+        return "\(period):\(suffix)"
     }
 }

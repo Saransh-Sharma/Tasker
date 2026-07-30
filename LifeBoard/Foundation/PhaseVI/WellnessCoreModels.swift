@@ -60,6 +60,89 @@ public enum BodyMetricKind: String, Codable, CaseIterable, Hashable, Sendable {
     }
 }
 
+public enum WellnessDataState: Equatable, Sendable {
+    case notRequested
+    case denied
+    case loading
+    case noSamples
+    case fresh(lastSyncAt: Date)
+    case stale(lastSyncAt: Date)
+    case offlineCached(lastSyncAt: Date)
+    case failed(message: String)
+}
+
+public struct WellnessDisplayPreferences: Codable, Hashable, Sendable {
+    public static let currentSchemaVersion = 1
+
+    public var schemaVersion: Int
+    public var enabledMetrics: [BodyMetricKind]
+    public var preferredUnits: [BodyMetricKind: WellnessDisplayUnit]
+    public var preferredSampleIDsByConflict: [String: UUID]
+    public var updatedAt: Date
+
+    public init(
+        schemaVersion: Int = currentSchemaVersion,
+        enabledMetrics: [BodyMetricKind] = BodyMetricKind.allCases,
+        preferredUnits: [BodyMetricKind: WellnessDisplayUnit] = [:],
+        preferredSampleIDsByConflict: [String: UUID] = [:],
+        updatedAt: Date = Date()
+    ) {
+        self.schemaVersion = schemaVersion
+        var seen = Set<BodyMetricKind>()
+        self.enabledMetrics = enabledMetrics.filter { seen.insert($0).inserted }
+        self.preferredUnits = preferredUnits.filter { entry in
+            Self.units(for: entry.key).contains(entry.value)
+        }
+        self.preferredSampleIDsByConflict = preferredSampleIDsByConflict
+        self.updatedAt = updatedAt
+    }
+
+    public func preferredUnit(for kind: BodyMetricKind) -> WellnessDisplayUnit {
+        preferredUnits[kind] ?? kind.canonicalUnit
+    }
+
+    public static func units(for kind: BodyMetricKind) -> [WellnessDisplayUnit] {
+        switch kind {
+        case .bodyMass: [.kilograms, .pounds]
+        case .bodyFatPercentage: [.percent]
+        case .waistCircumference: [.centimeters, .inches]
+        case .restingHeartRate: [.beatsPerMinute]
+        }
+    }
+}
+
+public protocol WellnessPreferenceStore: Sendable {
+    func load() -> WellnessDisplayPreferences
+    func save(_ preferences: WellnessDisplayPreferences)
+}
+
+public final class UserDefaultsWellnessPreferenceStore: WellnessPreferenceStore, @unchecked Sendable {
+    private let defaults: UserDefaults
+    private let key: String
+
+    public init(
+        defaults: UserDefaults = .standard,
+        key: String = "lifeboard.wellness.display-preferences.v1"
+    ) {
+        self.defaults = defaults
+        self.key = key
+    }
+
+    public func load() -> WellnessDisplayPreferences {
+        guard let data = defaults.data(forKey: key),
+              let value = try? JSONDecoder().decode(WellnessDisplayPreferences.self, from: data),
+              value.schemaVersion <= WellnessDisplayPreferences.currentSchemaVersion else {
+            return WellnessDisplayPreferences()
+        }
+        return value
+    }
+
+    public func save(_ preferences: WellnessDisplayPreferences) {
+        guard let data = try? JSONEncoder().encode(preferences) else { return }
+        defaults.set(data, forKey: key)
+    }
+}
+
 public protocol MeasurementSampleValue: Codable, Hashable, Identifiable, Sendable {
     var id: UUID { get }
     var normalizedValue: Double { get }
@@ -162,6 +245,61 @@ public struct BodyMetricSample: MeasurementSampleValue {
         case (.restingHeartRate, .beatsPerMinute): value
         default: throw WellnessRepositoryError.incompatibleUnit
         }
+    }
+}
+
+public struct WellnessSourceConflict: Hashable, Identifiable, Sendable {
+    public var id: String
+    public var kind: BodyMetricKind
+    public var samples: [BodyMetricSample]
+
+    public init(kind: BodyMetricKind, samples: [BodyMetricSample]) {
+        self.kind = kind
+        self.samples = samples.sorted {
+            ($0.observedAt, $0.id.uuidString) < ($1.observedAt, $1.id.uuidString)
+        }
+        id = Self.identifier(kind: kind, sampleIDs: self.samples.map(\.id))
+    }
+
+    public func preferredSample(using preferences: WellnessDisplayPreferences) -> BodyMetricSample? {
+        if let preferredID = preferences.preferredSampleIDsByConflict[id],
+           let preferred = samples.first(where: { $0.id == preferredID }) {
+            return preferred
+        }
+        return samples.sorted {
+            ($0.updatedAt, $0.id.uuidString) > ($1.updatedAt, $1.id.uuidString)
+        }.first
+    }
+
+    private static func identifier(kind: BodyMetricKind, sampleIDs: [UUID]) -> String {
+        "\(kind.rawValue):\(sampleIDs.map(\.uuidString).sorted().joined(separator: ":"))"
+    }
+}
+
+public struct WellnessSourceConflictDetector: Sendable {
+    public var proximity: TimeInterval
+
+    public init(proximity: TimeInterval = 15 * 60) {
+        self.proximity = max(0, proximity)
+    }
+
+    public func conflicts(in samples: [BodyMetricSample]) -> [WellnessSourceConflict] {
+        let sorted = samples.sorted {
+            ($0.observedAt, $0.id.uuidString) < ($1.observedAt, $1.id.uuidString)
+        }
+        var rows: [WellnessSourceConflict] = []
+        for leftIndex in sorted.indices {
+            for rightIndex in sorted.indices where rightIndex > leftIndex {
+                let left = sorted[leftIndex]
+                let right = sorted[rightIndex]
+                guard left.kind == right.kind else { continue }
+                let distance = right.observedAt.timeIntervalSince(left.observedAt)
+                if distance > proximity { break }
+                guard left.source != right.source else { continue }
+                rows.append(.init(kind: left.kind, samples: [left, right]))
+            }
+        }
+        return rows
     }
 }
 

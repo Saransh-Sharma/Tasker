@@ -328,6 +328,12 @@ extension HomeViewController {
 
     /// Executes handleTaskTap.
     func handleTaskTap(_ task: TaskDefinition) {
+        if V2FeatureFlags.phase1ExecutionFlagshipEnabled,
+           let canonicalTaskRouteHandler {
+            HomeSessionContextStore.recordTaskOpened(task.id)
+            canonicalTaskRouteHandler(task.id)
+            return
+        }
         if isUsingIPadNativeShell, currentLayoutClass == .padExpanded {
             iPadShellState.selectedTask = task
             return
@@ -434,6 +440,12 @@ extension HomeViewController {
 
     /// Executes presentTaskDetailView.
     func presentTaskDetailView(for task: TaskDefinition) {
+        if V2FeatureFlags.phase1ExecutionFlagshipEnabled,
+           let canonicalTaskRouteHandler {
+            HomeSessionContextStore.recordTaskOpened(task.id)
+            canonicalTaskRouteHandler(task.id)
+            return
+        }
         HomeSessionContextStore.recordTaskOpened(task.id)
         let detailView = makeTaskDetailView(for: task, containerMode: .sheet)
 
@@ -997,14 +1009,47 @@ extension HomeViewController {
     func processPendingWidgetActionCommand() {
         guard V2FeatureFlags.interactiveTaskWidgetsEnabled else { return }
         guard AppDelegate.isWriteClosed == false else { return }
-        guard let command = TaskListWidgetActionCommand.loadPending() else { return }
+        if let command = TaskListWidgetActionCommand.loadPending() {
+            if command.expiresAt <= Date() {
+                TaskListWidgetActionCommand.clearPending()
+            } else {
+                processWidgetActionCommand(command, attemptsRemaining: 2)
+            }
+        }
+        processPendingBehaviorOccurrenceActionCommand()
+    }
 
-        if command.expiresAt <= Date() {
-            TaskListWidgetActionCommand.clearPending()
+    func processPendingBehaviorOccurrenceActionCommand() {
+        guard let command = BehaviorOccurrenceActionCommand.loadPending() else { return }
+        guard command.expiresAt > Date() else {
+            BehaviorOccurrenceActionCommand.clearPending()
             return
         }
-
-        processWidgetActionCommand(command, attemptsRemaining: 2)
+        let snapshot = TaskListWidgetSnapshot.load()
+        if let occurrence = snapshot.behaviorOccurrences.first(where: {
+            $0.occurrenceID == command.occurrenceID
+        }), occurrence.result == .completed || occurrence.result == .skipped {
+            BehaviorOccurrenceActionCommand.clearPending()
+            return
+        }
+        guard let coordinator = EnhancedDependencyContainer.shared.useCaseCoordinator else {
+            return
+        }
+        let resolution: OccurrenceResolutionType = command.action == .complete
+            ? .completed
+            : .skipped
+        coordinator.resolveOccurrence.execute(
+            id: command.occurrenceID,
+            resolution: resolution,
+            actor: .user
+        ) { result in
+            if case .success = result {
+                BehaviorOccurrenceActionCommand.clearPending()
+                TaskListWidgetSnapshotService.shared.scheduleRefresh(
+                    reason: "behavior_widget_resolution"
+                )
+            }
+        }
     }
 
     func processWidgetActionCommand(_ command: TaskListWidgetActionCommand, attemptsRemaining: Int) {
@@ -1217,7 +1262,11 @@ extension HomeViewController {
         }
 
         if let task = viewModel?.taskSnapshot(for: taskID) {
-            if isUsingIPadNativeShell {
+            if V2FeatureFlags.phase1ExecutionFlagshipEnabled,
+               let canonicalTaskRouteHandler {
+                HomeSessionContextStore.recordTaskOpened(task.id)
+                canonicalTaskRouteHandler(task.id)
+            } else if isUsingIPadNativeShell {
                 iPadShellState.destination = .tasks
                 if currentLayoutClass == .padExpanded {
                     iPadShellState.selectedTask = task

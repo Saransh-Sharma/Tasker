@@ -213,13 +213,49 @@ final class LifeBoardWatchConnectivityCoordinator: NSObject, WCSessionDelegate, 
     private var pendingAudioEnvelopes: [UUID: WatchCaptureEnvelope] = [:]
     private let lock = NSLock()
     private var importer: LifeBoardWatchCaptureImporter?
+    private var resolveBehaviorOccurrence: (
+        @Sendable (
+            BehaviorOccurrenceActionCommand,
+            @escaping @Sendable (Result<Void, Error>) -> Void
+        ) -> Void
+    )?
+    private var resolveFasting: (
+        @Sendable (
+            FastingWatchCommand,
+            @escaping @Sendable (Result<Void, Error>) -> Void
+        ) -> Void
+    )?
+    private var resolveRoutine: (
+        @Sendable (
+            RoutineWatchCommand,
+            @escaping @Sendable (Result<Void, Error>) -> Void
+        ) -> Void
+    )?
     private let recoveryStore = LifeBoardWatchCaptureRecoveryStore()
 
     private override init() { super.init() }
 
-    func configure(repository: any LifeBoardPhaseIIRepository, container: NSPersistentContainer) {
+    func configure(
+        repository: any LifeBoardPhaseIIRepository,
+        container: NSPersistentContainer,
+        resolveBehaviorOccurrence: @escaping @Sendable (
+            BehaviorOccurrenceActionCommand,
+            @escaping @Sendable (Result<Void, Error>) -> Void
+        ) -> Void,
+        resolveFasting: @escaping @Sendable (
+            FastingWatchCommand,
+            @escaping @Sendable (Result<Void, Error>) -> Void
+        ) -> Void,
+        resolveRoutine: @escaping @Sendable (
+            RoutineWatchCommand,
+            @escaping @Sendable (Result<Void, Error>) -> Void
+        ) -> Void
+    ) {
         lock.lock()
         importer = LifeBoardWatchCaptureImporter(repository: repository, container: container)
+        self.resolveBehaviorOccurrence = resolveBehaviorOccurrence
+        self.resolveFasting = resolveFasting
+        self.resolveRoutine = resolveRoutine
         lock.unlock()
         activate()
         Task { await restorePendingCaptures() }
@@ -308,6 +344,18 @@ final class LifeBoardWatchConnectivityCoordinator: NSObject, WCSessionDelegate, 
     }
 
     func session(_ session: WCSession, didReceiveUserInfo userInfo: [String: Any] = [:]) {
+        if let command = BehaviorOccurrenceActionCommand.decodeWatchUserInfo(userInfo) {
+            acceptBehaviorOccurrence(command)
+            return
+        }
+        if let command = FastingWatchCommand.decodeWatchUserInfo(userInfo) {
+            acceptFasting(command)
+            return
+        }
+        if let command = RoutineWatchCommand.decodeWatchUserInfo(userInfo) {
+            acceptRoutine(command)
+            return
+        }
         do {
             let envelope = try WatchCaptureEnvelope.decoded(
                 from: userInfo,
@@ -317,6 +365,56 @@ final class LifeBoardWatchConnectivityCoordinator: NSObject, WCSessionDelegate, 
             accept(envelope)
         } catch {
             quarantineMalformedPayload(userInfo[WatchCaptureTransportNamespace.lifeBoard.capturePayloadKey] as? Data)
+        }
+    }
+
+    private func acceptBehaviorOccurrence(_ command: BehaviorOccurrenceActionCommand) {
+        guard command.expiresAt > Date() else { return }
+        guard TaskListWidgetSnapshot.load().behaviorOccurrences.contains(where: {
+            $0.occurrenceID == command.occurrenceID
+                && $0.behaviorID == command.behaviorID
+                && $0.result != .completed
+                && $0.result != .skipped
+        }) else { return }
+        lock.lock()
+        let resolver = resolveBehaviorOccurrence
+        lock.unlock()
+        guard let resolver else { return }
+        resolver(command) { result in
+            guard case .success = result else { return }
+            TaskListWidgetSnapshotService.shared.scheduleRefresh(
+                reason: "behavior_watch_resolution"
+            )
+        }
+    }
+
+    private func acceptFasting(_ command: FastingWatchCommand) {
+        guard command.expiresAt > Date() else { return }
+        guard TaskListWidgetSnapshot.load().activeFastingSession?.sessionID == command.sessionID else {
+            return
+        }
+        lock.lock()
+        let resolver = resolveFasting
+        lock.unlock()
+        guard let resolver else { return }
+        resolver(command) { result in
+            guard case .success = result else { return }
+            TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "fasting_watch_resolution")
+        }
+    }
+
+    private func acceptRoutine(_ command: RoutineWatchCommand) {
+        guard command.expiresAt > Date() else { return }
+        guard TaskListWidgetSnapshot.load().activeRoutineRun?.runID == command.runID else {
+            return
+        }
+        lock.lock()
+        let resolver = resolveRoutine
+        lock.unlock()
+        guard let resolver else { return }
+        resolver(command) { result in
+            guard case .success = result else { return }
+            TaskListWidgetSnapshotService.shared.scheduleRefresh(reason: "routine_watch_resolution")
         }
     }
 

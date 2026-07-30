@@ -1856,6 +1856,8 @@ enum StarterWorkspaceCatalog {
             score += 8
         case .weekly:
             score += 4
+        case .interval:
+            score += 5
         }
         if habit.reason.localizedCaseInsensitiveContains("easy")
             || habit.reason.localizedCaseInsensitiveContains("seconds")

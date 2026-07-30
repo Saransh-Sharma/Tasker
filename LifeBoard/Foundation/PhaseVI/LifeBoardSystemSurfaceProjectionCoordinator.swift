@@ -44,11 +44,17 @@ public enum LifeBoardSystemSurfaceRefresher {
 
     public static func requestRefresh() async {
         await state.scheduleRefresh()
+        TaskListWidgetSnapshotService.shared.scheduleRefresh(
+            reason: "canonical_system_surface_mutation"
+        )
     }
 
     /// Fire-and-forget variant for synchronous mutation sites.
     public static func requestRefreshSoon() {
         Task { await state.scheduleRefresh() }
+        TaskListWidgetSnapshotService.shared.scheduleRefresh(
+            reason: "canonical_system_surface_mutation"
+        )
     }
 }
 

@@ -197,18 +197,31 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let layoutRepository = CoreDataDashboardLayoutRepository(container: persistentContainer)
         let phaseIIRepository = CoreDataLifeBoardPhaseIIRepository(container: persistentContainer)
         let planningRepository = CoreDataPlanningRepository(container: persistentContainer)
-        let planDependencies = PlanFeatureDependencies(
-            planningRepository: planningRepository,
-            taskDefinitionRepository: taskRepository,
-            projectRepository: state.projectRepository,
-            sectionRepository: state.sectionRepository,
-            lifeAreaRepository: state.lifeAreaRepository,
-            tagRepository: tagRepository,
-            gamificationEngine: coordinator.gamificationEngine,
-            taskTagLinkRepository: state.taskTagLinkRepository,
-            taskDependencyRepository: state.taskDependencyRepository
-        )
-        homeViewController.viewModel.configureCanonicalFocusCommands(planDependencies.focusCommands)
+        let planDependencies: PlanFeatureDependencies? = {
+            guard V2FeatureFlags.phase1ExecutionFlagshipEnabled else { return nil }
+            return PlanFeatureDependencies(
+                planningRepository: planningRepository,
+                taskDefinitionRepository: taskRepository,
+                projectRepository: state.projectRepository,
+                sectionRepository: state.sectionRepository,
+                lifeAreaRepository: state.lifeAreaRepository,
+                tagRepository: tagRepository,
+                gamificationEngine: coordinator.gamificationEngine,
+                taskTagLinkRepository: state.taskTagLinkRepository,
+                taskDependencyRepository: state.taskDependencyRepository
+            )
+        }()
+        if let planDependencies {
+            homeViewController.viewModel.configureCanonicalFocusCommands(
+                planDependencies.focusCommands
+            )
+            homeViewController.canonicalTaskRouteHandler = { taskID in
+                _ = LifeOSFoundationRuntime.shared.router.navigate(
+                    .taskDetail(taskID),
+                    in: .home
+                )
+            }
+        }
         let trackFoundationRepository = CoreDataTrackFoundationRepository(container: persistentContainer)
         let habitRuntimeReadRepository = CoreDataHabitRuntimeReadRepository(container: persistentContainer)
         let goalSampleProvider = CoreDataGoalSampleProvider(container: persistentContainer)
@@ -218,7 +231,98 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         #if canImport(WatchConnectivity) && os(iOS)
         LifeBoardWatchConnectivityCoordinator.shared.configure(
             repository: phaseIIRepository,
-            container: persistentContainer
+            container: persistentContainer,
+            resolveBehaviorOccurrence: { command, completion in
+                guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled else {
+                    completion(.failure(NSError(
+                        domain: "LifeBoardWatchBehavior",
+                        code: 403,
+                        userInfo: [
+                            NSLocalizedDescriptionKey:
+                                "Behavior actions are unavailable while the flagship is disabled."
+                        ]
+                    )))
+                    return
+                }
+                coordinator.resolveOccurrence.execute(
+                    id: command.occurrenceID,
+                    resolution: command.action == .complete ? .completed : .skipped,
+                    actor: .user,
+                    completion: completion
+                )
+            },
+            resolveFasting: { command, completion in
+                guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled else {
+                    completion(.failure(NSError(
+                        domain: "LifeBoardWatchFasting",
+                        code: 403,
+                        userInfo: [NSLocalizedDescriptionKey: "Fasting controls are unavailable while the flagship is disabled."]
+                    )))
+                    return
+                }
+                Task {
+                    do {
+                        let store = FastingTimerStore(
+                            repository: LifeBoardFastingRepositoryAdapter(repository: phaseIIRepository)
+                        )
+                        guard try await store.activeSession()?.id == command.sessionID else {
+                            throw NSError(
+                                domain: "LifeBoardWatchFasting",
+                                code: 409,
+                                userInfo: [NSLocalizedDescriptionKey: "That fasting session is no longer active."]
+                            )
+                        }
+                        switch command.action {
+                        case .finish:
+                            _ = try await store.finish()
+                        case .cancel:
+                            _ = try await store.cancel()
+                        }
+                        completion(.success(()))
+                    } catch {
+                        completion(.failure(error))
+                    }
+                }
+            },
+            resolveRoutine: { command, completion in
+                guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled else {
+                    completion(.failure(NSError(
+                        domain: "LifeBoardWatchRoutine",
+                        code: 403,
+                        userInfo: [NSLocalizedDescriptionKey: "Routine controls are unavailable while the flagship is disabled."]
+                    )))
+                    return
+                }
+                Task {
+                    do {
+                        guard let run = try await trackFoundationRepository
+                            .fetchRoutineRuns(routineID: nil)
+                            .first(where: { $0.id == command.runID }) else {
+                            throw NSError(
+                                domain: "LifeBoardWatchRoutine",
+                                code: 404,
+                                userInfo: [NSLocalizedDescriptionKey: "That routine run is no longer available."]
+                            )
+                        }
+                        let runCommand: RoutineRunCommand = switch command.action {
+                        case .pause: .pause
+                        case .resume: .resume
+                        case .stop: .stop
+                        }
+                        let transition = DefaultRoutineExecutionService().apply(
+                            command: runCommand,
+                            to: run,
+                            at: Date()
+                        )
+                        try await trackFoundationRepository.saveRoutineRun(transition.run)
+                        await RoutineLiveActivityCoordinator.shared.synchronize(run: transition.run)
+                        LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
+                        completion(.success(()))
+                    } catch {
+                        completion(.failure(error))
+                    }
+                }
+            }
         )
         #endif
         if V2FeatureFlags.lifeOSSystemSurfacesV2Enabled,
@@ -495,6 +599,95 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     private func handleIncomingURL(_ url: URL) {
+        if let command = RoutineLiveActivityDeepLink.command(from: url) {
+            _ = LifeOSFoundationRuntime.shared.handle(url: url)
+            guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled else {
+                LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                    title: "Routine controls unavailable",
+                    message: "Open Track to review the current run."
+                )
+                return
+            }
+            guard let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {
+                LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                    title: "Routine command pending",
+                    message: "LifeBoard is still opening. Use the in-app routine controls once Track appears."
+                )
+                return
+            }
+            let repository = CoreDataTrackFoundationRepository(container: container)
+            Task {
+                do {
+                    guard let run = try await repository
+                        .fetchRoutineRuns(routineID: nil)
+                        .first(where: { $0.id == command.runID }) else {
+                        throw NSError(
+                            domain: "RoutineLiveActivity",
+                            code: 404,
+                            userInfo: [NSLocalizedDescriptionKey: "Routine run not found"]
+                        )
+                    }
+                    let transition = DefaultRoutineExecutionService().apply(
+                        command: command.action.runCommand,
+                        to: run,
+                        at: Date()
+                    )
+                    try await repository.saveRoutineRun(transition.run)
+                    await RoutineLiveActivityCoordinator.shared.synchronize(run: transition.run)
+                    LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
+                } catch {
+                    await MainActor.run {
+                        LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                            title: "Routine command not applied",
+                            message: "The run may already have ended. Open Track to review its current state."
+                        )
+                    }
+                }
+            }
+            return
+        }
+        if let command = FastingLiveActivityDeepLink.command(from: url) {
+            _ = LifeOSFoundationRuntime.shared.handle(url: url)
+            guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled else {
+                LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                    title: "Fasting controls unavailable",
+                    message: "Open Track to review the current session."
+                )
+                return
+            }
+            guard let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {
+                LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                    title: "Fasting command pending",
+                    message: "LifeBoard is still opening. Use the in-app fasting controls once Track appears."
+                )
+                return
+            }
+            let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
+            let store = FastingTimerStore(
+                repository: LifeBoardFastingRepositoryAdapter(repository: repository)
+            )
+            Task {
+                do {
+                    guard try await store.activeSession()?.id == command.sessionID else {
+                        throw FastingTimerStoreError.noActiveSession
+                    }
+                    switch command.action {
+                    case .finish:
+                        _ = try await store.finish()
+                    case .cancel:
+                        _ = try await store.cancel()
+                    }
+                } catch {
+                    await MainActor.run {
+                        LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                            title: "Fasting command not applied",
+                            message: "The session may already have ended. Open Track to review its current state."
+                        )
+                    }
+                }
+            }
+            return
+        }
         if let command = FocusLiveActivityDeepLink.command(from: url) {
             _ = LifeOSFoundationRuntime.shared.handle(url: url)
             guard let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {

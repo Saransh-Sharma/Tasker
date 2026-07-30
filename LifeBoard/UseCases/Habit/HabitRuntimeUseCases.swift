@@ -69,6 +69,7 @@ public enum HabitRuntimeError: LocalizedError, Sendable {
     case habitNotFound
     case scheduleTemplateNotFound
     case occurrenceNotFound
+    case invalidCadence
 
     public var errorDescription: String? {
         switch self {
@@ -82,6 +83,8 @@ public enum HabitRuntimeError: LocalizedError, Sendable {
             return "The habit schedule template could not be found."
         case .occurrenceNotFound:
             return "The habit occurrence could not be found."
+        case .invalidCadence:
+            return "The habit interval must be at least one day."
         }
     }
 }
@@ -285,6 +288,21 @@ enum HabitRuntimeSupport {
                     createdAt: createdAt
                 )
             ]
+        case .interval(let days, let hour, let minute):
+            return [
+                ScheduleRuleDefinition(
+                    id: UUID(),
+                    scheduleTemplateID: templateID,
+                    ruleType: "daily",
+                    interval: max(1, days),
+                    byDayMask: nil,
+                    byMonthDay: nil,
+                    byHour: hour,
+                    byMinute: minute,
+                    rawRuleData: nil,
+                    createdAt: createdAt
+                )
+            ]
         }
     }
 
@@ -321,6 +339,12 @@ enum HabitRuntimeSupport {
                 daysOfWeek: days.isEmpty ? [2, 3, 4, 5, 6] : days,
                 hour: hour,
                 minute: minute
+            )
+        case "daily" where (primaryRule?.interval ?? 1) > 1:
+            return .interval(
+                days: max(1, primaryRule?.interval ?? 1),
+                hour: hour ?? fallbackMinutes.map { $0 / 60 },
+                minute: minute ?? fallbackMinutes.map { $0 % 60 }
             )
         default:
             return .daily(
@@ -558,6 +582,14 @@ public final class CreateHabitUseCase: @unchecked Sendable {
         request: CreateHabitRequest,
         completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void
     ) {
+        if let targetError = HabitTargetValidator.validate(request.targetConfig) {
+            completion(.failure(targetError))
+            return
+        }
+        if case let .interval(days, _, _) = request.cadence, days < 1 {
+            completion(.failure(HabitRuntimeError.invalidCadence))
+            return
+        }
         validate(lifeAreaID: request.lifeAreaID, projectID: request.projectID) { validationResult in
             switch validationResult {
             case .failure(let error):
@@ -747,6 +779,15 @@ public final class UpdateHabitUseCase: @unchecked Sendable {
         request: UpdateHabitRequest,
         completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void
     ) {
+        if let targetConfig = request.targetConfig,
+           let targetError = HabitTargetValidator.validate(targetConfig) {
+            completion(.failure(targetError))
+            return
+        }
+        if case let .interval(days, _, _)? = request.cadence, days < 1 {
+            completion(.failure(HabitRuntimeError.invalidCadence))
+            return
+        }
         habitRepository.fetchAll { result in
             switch result {
             case .failure(let error):

@@ -45,6 +45,12 @@ final class HomeViewController: UIViewController, HomeViewControllerProtocol, Pr
 
     var viewModel: HomeViewModel!
     var presentationDependencyContainer: PresentationDependencyContainer?
+    /// Phase 1 canonical task navigation supplied by the app composition root.
+    ///
+    /// The legacy controller remains the rollback root, but when the flagship
+    /// is enabled every Home/search/chat/deep-link task tap leaves this
+    /// controller and opens the shell's single `TaskEditorStore` route.
+    var canonicalTaskRouteHandler: ((UUID) -> Void)?
 
     // MARK: - UI
 

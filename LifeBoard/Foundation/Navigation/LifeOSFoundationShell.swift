@@ -25,7 +25,7 @@ public struct LifeOSFoundationShell: View {
     private let dashboardLayoutRepository: any DashboardLayoutRepository
     private let phaseIIRepository: any LifeBoardPhaseIIRepository
     private let planningRepository: CoreDataPlanningRepository
-    private let planDependencies: PlanFeatureDependencies
+    private let planDependencies: PlanFeatureDependencies?
     private let trackFoundationRepository: CoreDataTrackFoundationRepository
     private let habitRuntimeReadRepository: any HabitRuntimeReadRepositoryProtocol
     private let routineLinkedMutationApplier: any RoutineLinkedMutationApplying
@@ -75,7 +75,7 @@ public struct LifeOSFoundationShell: View {
         dashboardLayoutRepository: any DashboardLayoutRepository,
         phaseIIRepository: any LifeBoardPhaseIIRepository,
         planningRepository: CoreDataPlanningRepository,
-        planDependencies: PlanFeatureDependencies,
+        planDependencies: PlanFeatureDependencies?,
         trackFoundationRepository: CoreDataTrackFoundationRepository,
         habitRuntimeReadRepository: any HabitRuntimeReadRepositoryProtocol,
         routineLinkedMutationApplier: any RoutineLinkedMutationApplying,
@@ -1034,7 +1034,8 @@ public struct LifeOSFoundationShell: View {
             LegacyHomeControllerHost(controller: legacyHomeController)
                 .ignoresSafeArea()
         } else if destination == .plan,
-                  V2FeatureFlags.phase1ExecutionFlagshipEnabled {
+                  V2FeatureFlags.phase1ExecutionFlagshipEnabled,
+                  let planDependencies {
             LifeBoardPlanRootView(
                 dependencies: planDependencies,
                 rescueRefreshGeneration: planRescueRefreshGeneration,
@@ -1057,7 +1058,8 @@ public struct LifeOSFoundationShell: View {
         } else if destination == .plan {
             FoundationPlanRollbackRouteView(router: router)
         } else if destination == .track,
-                  V2FeatureFlags.trackFoundationsV2Enabled {
+                  V2FeatureFlags.trackFoundationsV2Enabled,
+                  V2FeatureFlags.trackBehaviorFlagshipV1Enabled {
             LifeBoardTrackFoundationRootView(
                 repository: trackFoundationRepository,
                 phaseIIRepository: phaseIIRepository,
@@ -1478,7 +1480,8 @@ public struct LifeOSFoundationShell: View {
 
     @ViewBuilder
     private func planRoute(lens: PlanLens, title: String, systemImage: String) -> some View {
-        if V2FeatureFlags.phase1ExecutionFlagshipEnabled {
+        if V2FeatureFlags.phase1ExecutionFlagshipEnabled,
+           let planDependencies {
             LifeBoardPlanRootView(
                 dependencies: planDependencies,
                 initialLens: lens,
@@ -1522,27 +1525,36 @@ public struct LifeOSFoundationShell: View {
                 onClose: { runtime.router.pop(in: runtime.router.selectedDestination) }
             )
         case .trackHistory:
-            LifeBoardTrackFoundationRootView(
-                repository: trackFoundationRepository,
-                phaseIIRepository: phaseIIRepository,
-                habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
-                linkedMutationApplier: routineLinkedMutationApplier,
-                goalSampleProvider: goalSampleProvider,
-                starterPackMutationApplier: starterPackMutationApplier,
-                habitRecoveryMutationApplier: habitRecoveryMutationApplier,
-                sourcePickerRepository: ComposedTypedSourcePickerRepository(
-                    planningProjection: planningRepository,
-                    trackFoundation: trackFoundationRepository,
-                    phaseII: phaseIIRepository,
-                    habitRuntime: habitRuntimeReadRepository
-                ),
-                nutritionRepository: nutritionRepository,
-                lifeMomentRepository: lifeMomentRepository,
-                wellnessRepository: wellnessRepository,
-                initialLens: .history,
-                onOpenHabitBoard: { runtime.router.push(.habitBoard, in: .track) },
-                onOpenHealth: { runtime.router.push(.health, in: .track) }
-            )
+            if V2FeatureFlags.trackBehaviorFlagshipV1Enabled {
+                LifeBoardTrackFoundationRootView(
+                    repository: trackFoundationRepository,
+                    phaseIIRepository: phaseIIRepository,
+                    habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
+                    linkedMutationApplier: routineLinkedMutationApplier,
+                    goalSampleProvider: goalSampleProvider,
+                    starterPackMutationApplier: starterPackMutationApplier,
+                    habitRecoveryMutationApplier: habitRecoveryMutationApplier,
+                    sourcePickerRepository: ComposedTypedSourcePickerRepository(
+                        planningProjection: planningRepository,
+                        trackFoundation: trackFoundationRepository,
+                        phaseII: phaseIIRepository,
+                        habitRuntime: habitRuntimeReadRepository
+                    ),
+                    nutritionRepository: nutritionRepository,
+                    lifeMomentRepository: lifeMomentRepository,
+                    wellnessRepository: wellnessRepository,
+                    initialLens: .history,
+                    onOpenHabitBoard: { runtime.router.push(.habitBoard, in: .track) },
+                    onOpenHealth: { runtime.router.push(.health, in: .track) }
+                )
+            } else {
+                LifeBoardBehaviorAreaRouteView(
+                    repository: phaseIIRepository,
+                    initialArea: .medication,
+                    onOpenHabitBoard: { runtime.router.push(.habitBoard, in: .track) },
+                    onOpenHealth: { runtime.router.push(.health, in: .track) }
+                )
+            }
         case .insightEvidence(let evidenceID):
             FoundationInsightsDestination(
                 repository: trackFoundationRepository,
@@ -1558,7 +1570,15 @@ public struct LifeOSFoundationShell: View {
         case .settings:
             FoundationSettingsRouteView()
         case .taskDetail(let id):
-            FoundationTaskRouteView(id: id, dependencies: planDependencies, router: runtime.router)
+            if let planDependencies {
+                FoundationTaskRouteView(
+                    id: id,
+                    dependencies: planDependencies,
+                    router: runtime.router
+                )
+            } else {
+                FoundationPlanRollbackRouteView(router: runtime.router)
+            }
         case .habitDetail(let id):
             FoundationHabitRouteView(id: id, repository: habitRuntimeReadRepository, router: runtime.router)
         case .habitBoard:
@@ -1573,7 +1593,14 @@ public struct LifeOSFoundationShell: View {
                 presentationStyle: .pushed
             )
         case .trackerDetail(let id):
-            FoundationTrackerRouteView(id: id, repository: phaseIIRepository)
+            if V2FeatureFlags.trackBehaviorFlagshipV1Enabled {
+                FoundationTrackerRouteView(id: id, repository: phaseIIRepository)
+            } else {
+                LifeBoardBehaviorAreaRouteView(
+                    repository: phaseIIRepository,
+                    initialArea: .trackers
+                )
+            }
         case .careLibrary:
             LifeBoardBehaviorAreaRouteView(
                 repository: phaseIIRepository,
@@ -1588,22 +1615,42 @@ public struct LifeOSFoundationShell: View {
                 nutritionRepository: nutritionRepository
             )
         case .project(let id):
-            FoundationProjectRouteView(id: id, dependencies: planDependencies, router: runtime.router)
+            if let planDependencies {
+                FoundationProjectRouteView(
+                    id: id,
+                    dependencies: planDependencies,
+                    router: runtime.router
+                )
+            } else {
+                FoundationPlanRollbackRouteView(router: runtime.router)
+            }
         case .routine(let id):
-            FoundationRoutineRouteView(id: id, repository: trackFoundationRepository, router: runtime.router)
+            if V2FeatureFlags.trackBehaviorFlagshipV1Enabled {
+                FoundationRoutineRouteView(
+                    id: id,
+                    repository: trackFoundationRepository,
+                    router: runtime.router
+                )
+            } else {
+                LifeBoardBehaviorAreaRouteView(repository: phaseIIRepository)
+            }
         case .goal(let id):
-            FoundationGoalRouteView(
-                id: id,
-                repository: trackFoundationRepository,
-                sampleProvider: goalSampleProvider,
-                sourceRepository: ComposedTypedSourcePickerRepository(
-                    planningProjection: planningRepository,
-                    trackFoundation: trackFoundationRepository,
-                    phaseII: phaseIIRepository,
-                    habitRuntime: habitRuntimeReadRepository
-                ),
-                router: runtime.router
-            )
+            if V2FeatureFlags.trackBehaviorFlagshipV1Enabled {
+                FoundationGoalRouteView(
+                    id: id,
+                    repository: trackFoundationRepository,
+                    sampleProvider: goalSampleProvider,
+                    sourceRepository: ComposedTypedSourcePickerRepository(
+                        planningProjection: planningRepository,
+                        trackFoundation: trackFoundationRepository,
+                        phaseII: phaseIIRepository,
+                        habitRuntime: habitRuntimeReadRepository
+                    ),
+                    router: runtime.router
+                )
+            } else {
+                LifeBoardBehaviorAreaRouteView(repository: phaseIIRepository)
+            }
         case .journalDay(let id):
             FoundationJournalDayRouteView(id: id, repository: phaseIIRepository)
         case .journalSearch:
@@ -1629,13 +1676,17 @@ public struct LifeOSFoundationShell: View {
         case .knowledgeFolder(let id):
             LifeBoardKnowledgeModuleView(repository: phaseIIRepository, initialFolderID: id)
         case .focusSession(let id):
-            FoundationFocusSessionRouteView(
-                sessionID: id,
-                dependencies: planDependencies,
-                router: runtime.router,
-                rescueRefreshGeneration: planRescueRefreshGeneration,
-                onOpenOverdueRescue: presentPlanOverdueRescue
-            )
+            if let planDependencies {
+                FoundationFocusSessionRouteView(
+                    sessionID: id,
+                    dependencies: planDependencies,
+                    router: runtime.router,
+                    rescueRefreshGeneration: planRescueRefreshGeneration,
+                    onOpenOverdueRescue: presentPlanOverdueRescue
+                )
+            } else {
+                FoundationPlanRollbackRouteView(router: runtime.router)
+            }
         }
     }
 
@@ -4222,7 +4273,11 @@ private struct FoundationRoutineRouteView: View {
     }
 
     private func routineDuration(_ run: RoutineRun) -> String {
-        let seconds = max(0, (run.endedAt ?? run.updatedAt).timeIntervalSince(run.startedAt))
+        let seconds = max(
+            0,
+            (run.endedAt ?? run.updatedAt).timeIntervalSince(run.startedAt)
+                - run.effectivePausedDuration
+        )
         let minutes = max(1, Int((seconds / 60).rounded()))
         return minutes < 60 ? "\(minutes)m" : "\(minutes / 60)h \(minutes % 60)m"
     }
@@ -4230,6 +4285,8 @@ private struct FoundationRoutineRouteView: View {
     private func routineStatusSymbol(_ status: RoutineRunStatus) -> String {
         switch status {
         case .running: "play.circle"
+        case .paused: "pause.circle"
+        case .interrupted: "exclamationmark.circle"
         case .completed: "checkmark.circle.fill"
         case .partial: "circle.lefthalf.filled"
         case .abandoned: "xmark.circle"

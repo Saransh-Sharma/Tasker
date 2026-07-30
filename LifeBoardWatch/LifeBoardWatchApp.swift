@@ -40,6 +40,12 @@ private struct WatchHomeView: View {
                 VStack(alignment: .leading, spacing: 10) {
                     header
                     todayCard
+                    if let fast = snapshot.activeFastingSession {
+                        fastingCard(fast)
+                    }
+                    if let run = snapshot.activeRoutineRun {
+                        routineCard(run)
+                    }
 
                     Text("Journal")
                         .font(.caption.weight(.semibold))
@@ -131,6 +137,29 @@ private struct WatchHomeView: View {
                     .foregroundStyle(WatchStyle.secondary)
                     .lineLimit(1)
             }
+            if let occurrence = actionableBehaviorOccurrence {
+                Divider().overlay(WatchStyle.separator)
+                Button {
+                    let command = BehaviorOccurrenceActionCommand(
+                        occurrenceID: occurrence.occurrenceID,
+                        behaviorID: occurrence.behaviorID,
+                        action: .complete
+                    )
+                    try? WatchSnapshotReceiver.shared.transferBehaviorOccurrence(command)
+                    snapshot.behaviorOccurrences = snapshot.behaviorOccurrences.map {
+                        guard $0.occurrenceID == occurrence.occurrenceID else { return $0 }
+                        var updated = $0
+                        updated.result = .completed
+                        return updated
+                    }
+                } label: {
+                    Label("Mark habit done", systemImage: "checkmark.circle.fill")
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+                .buttonStyle(WatchPressStyle())
+                .accessibilityHint("Sends one idempotent completion to your iPhone")
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(11)
@@ -142,6 +171,106 @@ private struct WatchHomeView: View {
         let items = snapshot.timeline.day.timedItems + snapshot.timeline.day.inboxItems
         return items.first(where: \.isCurrent)
             ?? items.filter { ($0.startDate ?? .distantFuture) >= Date() }.min { ($0.startDate ?? .distantFuture) < ($1.startDate ?? .distantFuture) }
+    }
+
+    private var actionableBehaviorOccurrence: BehaviorOccurrenceSurfaceSnapshot? {
+        snapshot.behaviorOccurrences.first {
+            $0.domain == .habit && $0.result == .unresolved
+        }
+    }
+
+    private func fastingCard(_ fast: FastingSessionSurfaceSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Label("Fasting", systemImage: "timer")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(WatchStyle.mint)
+            if let targetEnd = fast.targetEndAt {
+                Text(timerInterval: Date()...max(Date(), targetEnd), countsDown: true)
+                    .font(.title3.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(WatchStyle.primary)
+                    .accessibilityLabel("Time remaining")
+            } else {
+                Text(timerInterval: fast.startedAt...Date.distantFuture, countsDown: false)
+                    .font(.title3.monospacedDigit().weight(.semibold))
+                    .foregroundStyle(WatchStyle.primary)
+                    .accessibilityLabel("Elapsed fasting time")
+            }
+            HStack(spacing: 8) {
+                Button("End") {
+                    sendFasting(.finish, session: fast)
+                }
+                .buttonStyle(WatchCapsuleButtonStyle(tint: WatchStyle.mint))
+                .frame(minHeight: 44)
+                Button("Cancel") {
+                    sendFasting(.cancel, session: fast)
+                }
+                .buttonStyle(WatchCapsuleButtonStyle(tint: WatchStyle.coral))
+                .frame(minHeight: 44)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(11)
+        .background(WatchStyle.paperStrong, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .accessibilityElement(children: .contain)
+    }
+
+    private func routineCard(_ run: RoutineRunSurfaceSnapshot) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Label(run.title, systemImage: "repeat")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(WatchStyle.lavender)
+                .lineLimit(1)
+            Text(run.currentStepTitle ?? "Ready for the next step")
+                .font(.callout.weight(.semibold))
+                .foregroundStyle(WatchStyle.primary)
+                .lineLimit(2)
+            Text("\(run.completedStepCount) of \(run.totalStepCount) complete")
+                .font(.caption2)
+                .foregroundStyle(WatchStyle.secondary)
+            HStack(spacing: 8) {
+                Button(run.status == .paused ? "Resume" : "Pause") {
+                    sendRoutine(run.status == .paused ? .resume : .pause, run: run)
+                }
+                .buttonStyle(WatchCapsuleButtonStyle(tint: WatchStyle.lavender))
+                .frame(minHeight: 44)
+                Button("Stop") {
+                    sendRoutine(.stop, run: run)
+                }
+                .buttonStyle(WatchCapsuleButtonStyle(tint: WatchStyle.coral))
+                .frame(minHeight: 44)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(11)
+        .background(WatchStyle.paperStrong, in: RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .accessibilityElement(children: .contain)
+    }
+
+    private func sendFasting(
+        _ action: FastingWatchAction,
+        session: FastingSessionSurfaceSnapshot
+    ) {
+        try? WatchSnapshotReceiver.shared.transferFasting(
+            FastingWatchCommand(sessionID: session.sessionID, action: action)
+        )
+        snapshot.activeFastingSession = nil
+    }
+
+    private func sendRoutine(
+        _ action: RoutineWatchAction,
+        run: RoutineRunSurfaceSnapshot
+    ) {
+        try? WatchSnapshotReceiver.shared.transferRoutine(
+            RoutineWatchCommand(runID: run.runID, action: action)
+        )
+        switch action {
+        case .pause:
+            snapshot.activeRoutineRun?.status = .paused
+        case .resume:
+            snapshot.activeRoutineRun?.status = .running
+        case .stop:
+            snapshot.activeRoutineRun = nil
+        }
     }
 }
 

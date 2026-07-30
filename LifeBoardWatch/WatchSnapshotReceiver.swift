@@ -40,6 +40,21 @@ final class WatchSnapshotReceiver: NSObject, ObservableObject {
         )
     }
 
+    func transferBehaviorOccurrence(_ command: BehaviorOccurrenceActionCommand) throws {
+        guard WCSession.isSupported() else { return }
+        WCSession.default.transferUserInfo(try command.watchUserInfoPayload())
+    }
+
+    func transferFasting(_ command: FastingWatchCommand) throws {
+        guard WCSession.isSupported() else { return }
+        WCSession.default.transferUserInfo(try command.watchUserInfoPayload())
+    }
+
+    func transferRoutine(_ command: RoutineWatchCommand) throws {
+        guard WCSession.isSupported() else { return }
+        WCSession.default.transferUserInfo(try command.watchUserInfoPayload())
+    }
+
     private func copySnapshot(from sourceURL: URL, fileName: String) {
         guard let destinationURL = destinationURL(for: fileName) else { return }
         do {
@@ -114,6 +129,9 @@ final class WatchSnapshotReceiver: ObservableObject {
     func activate() {}
     func transfer(_ envelope: WatchCaptureEnvelope) throws {}
     func transferAudio(fileURL: URL, envelope: WatchCaptureEnvelope) throws {}
+    func transferBehaviorOccurrence(_ command: BehaviorOccurrenceActionCommand) throws {}
+    func transferFasting(_ command: FastingWatchCommand) throws {}
+    func transferRoutine(_ command: RoutineWatchCommand) throws {}
 }
 #endif
 

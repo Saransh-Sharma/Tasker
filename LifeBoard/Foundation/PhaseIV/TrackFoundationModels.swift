@@ -70,7 +70,7 @@ public enum GoalType: String, Codable, CaseIterable, Sendable {
     case targetDate
 }
 
-public enum GoalIntent: String, Codable, CaseIterable, Sendable {
+public enum GoalIntent: String, Codable, CaseIterable, Hashable, Sendable {
     case outcome
     case maintenance
     case milestone
@@ -78,7 +78,7 @@ public enum GoalIntent: String, Codable, CaseIterable, Sendable {
     case directional
 }
 
-public enum GoalStatus: String, Codable, CaseIterable, Sendable {
+public enum GoalStatus: String, Codable, CaseIterable, Hashable, Sendable {
     case active
     case paused
     case revised
@@ -222,6 +222,136 @@ public struct GoalProgressSnapshot: Codable, Equatable, Sendable {
     public var nextUsefulAction: String
 }
 
+public enum GoalConfidence: String, Codable, CaseIterable, Hashable, Sendable {
+    case uncertain
+    case possible
+    case confident
+}
+
+public enum GoalCheckInCadence: String, Codable, CaseIterable, Hashable, Sendable {
+    case weekly
+    case biweekly
+    case monthly
+    case manual
+}
+
+public struct GoalDraft: Codable, Hashable, Sendable {
+    public var areaID: UUID?
+    public var title: String
+    public var type: GoalType
+    public var intent: GoalIntent
+    public var targetValue: Double?
+    public var baselineValue: Double?
+    public var unitLabel: String?
+    public var targetDate: Date?
+    public var confidence: GoalConfidence?
+    public var whyItMatters: String?
+    public var checkInCadence: GoalCheckInCadence
+
+    public init(
+        areaID: UUID? = nil,
+        title: String,
+        type: GoalType,
+        intent: GoalIntent = .outcome,
+        targetValue: Double? = nil,
+        baselineValue: Double? = nil,
+        unitLabel: String? = nil,
+        targetDate: Date? = nil,
+        confidence: GoalConfidence? = nil,
+        whyItMatters: String? = nil,
+        checkInCadence: GoalCheckInCadence = .weekly
+    ) {
+        self.areaID = areaID
+        self.title = title
+        self.type = type
+        self.intent = intent
+        self.targetValue = targetValue
+        self.baselineValue = baselineValue
+        self.unitLabel = unitLabel
+        self.targetDate = targetDate
+        self.confidence = confidence
+        self.whyItMatters = whyItMatters
+        self.checkInCadence = checkInCadence
+    }
+
+    public init(goal: GoalDefinition) {
+        self.init(
+            areaID: goal.areaID,
+            title: goal.title,
+            type: goal.type,
+            intent: goal.effectiveIntent,
+            targetValue: goal.targetValue,
+            baselineValue: goal.baselineValue,
+            unitLabel: goal.unitLabel,
+            targetDate: goal.targetDate,
+            confidence: goal.confidenceRaw.flatMap(GoalConfidence.init(rawValue:)),
+            whyItMatters: goal.whyItMatters,
+            checkInCadence: goal.checkInCadenceRaw.flatMap(GoalCheckInCadence.init(rawValue:)) ?? .weekly
+        )
+    }
+}
+
+public struct GoalTransitionReceipt: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public let before: GoalDefinition
+    public let after: GoalDefinition
+    public let event: GoalStatusEvent
+    public let createdAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        before: GoalDefinition,
+        after: GoalDefinition,
+        event: GoalStatusEvent,
+        createdAt: Date = Date()
+    ) {
+        self.id = id
+        self.before = before
+        self.after = after
+        self.event = event
+        self.createdAt = createdAt
+    }
+}
+
+public enum GoalRiskReason: Codable, Hashable, Sendable {
+    case missedCheckIns(count: Int)
+    case behindTrajectory(observed: Double, expected: Double)
+}
+
+public enum GoalProgressPresentation: String, Codable, Sendable {
+    case percentage
+    case evidenceSummary
+    case checkIns
+}
+
+public struct GoalProgressAssessment: Codable, Hashable, Sendable {
+    public var goalID: UUID
+    public var presentation: GoalProgressPresentation
+    public var progressFraction: Double?
+    public var isAtRisk: Bool
+    public var riskReason: GoalRiskReason?
+    public var missingEvidence: [String]
+    public var evidenceCount: Int
+
+    public init(
+        goalID: UUID,
+        presentation: GoalProgressPresentation,
+        progressFraction: Double?,
+        isAtRisk: Bool,
+        riskReason: GoalRiskReason?,
+        missingEvidence: [String],
+        evidenceCount: Int
+    ) {
+        self.goalID = goalID
+        self.presentation = presentation
+        self.progressFraction = progressFraction
+        self.isAtRisk = isAtRisk
+        self.riskReason = riskReason
+        self.missingEvidence = missingEvidence
+        self.evidenceCount = evidenceCount
+    }
+}
+
 // MARK: - Habit resilience
 
 public struct HabitGroup: Codable, Hashable, Identifiable, Sendable {
@@ -276,6 +406,41 @@ public struct HabitRecoveryReceipt: Codable, Hashable, Identifiable, Sendable {
     }
 }
 
+public enum HabitBackfillPolicy: Codable, Hashable, Sendable {
+    case disabled
+    case window(days: Int)
+
+    public var allowedDays: Int {
+        switch self {
+        case .disabled: 0
+        case let .window(days): max(0, days)
+        }
+    }
+}
+
+public struct HabitVacationRange: Codable, Hashable, Identifiable, Sendable {
+    public let id: UUID
+    public var startDay: PlanningDay
+    public var endDay: PlanningDay
+    public var label: String?
+
+    public init(
+        id: UUID = UUID(),
+        startDay: PlanningDay,
+        endDay: PlanningDay,
+        label: String? = nil
+    ) {
+        self.id = id
+        self.startDay = min(startDay, endDay)
+        self.endDay = max(startDay, endDay)
+        self.label = label?.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    public func contains(_ day: PlanningDay) -> Bool {
+        startDay <= day && day <= endDay
+    }
+}
+
 public struct HabitResiliencePolicy: Codable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public var habitID: UUID
@@ -284,6 +449,9 @@ public struct HabitResiliencePolicy: Codable, Hashable, Identifiable, Sendable {
     public var recoveryEnabled: Bool
     public var streakPresentation: HabitStreakPresentation
     public var recoveryReceipts: [HabitRecoveryReceipt]
+    public var vacationRanges: [HabitVacationRange]
+    public var backfillPolicy: HabitBackfillPolicy
+    public var minimumTarget: HabitTarget?
     public var updatedAt: Date
 
     public init(
@@ -294,6 +462,9 @@ public struct HabitResiliencePolicy: Codable, Hashable, Identifiable, Sendable {
         recoveryEnabled: Bool = true,
         streakPresentation: HabitStreakPresentation = .gradeAndStreak,
         recoveryReceipts: [HabitRecoveryReceipt] = [],
+        vacationRanges: [HabitVacationRange] = [],
+        backfillPolicy: HabitBackfillPolicy = .disabled,
+        minimumTarget: HabitTarget? = nil,
         updatedAt: Date = Date()
     ) {
         self.id = id
@@ -303,6 +474,9 @@ public struct HabitResiliencePolicy: Codable, Hashable, Identifiable, Sendable {
         self.recoveryEnabled = recoveryEnabled
         self.streakPresentation = streakPresentation
         self.recoveryReceipts = recoveryReceipts
+        self.vacationRanges = vacationRanges
+        self.backfillPolicy = backfillPolicy
+        self.minimumTarget = minimumTarget
         self.updatedAt = updatedAt
     }
 
@@ -310,8 +484,13 @@ public struct HabitResiliencePolicy: Codable, Hashable, Identifiable, Sendable {
         Set(recoveryReceipts.map(\.day))
     }
 
+    public func isIntentionalOffDay(_ day: PlanningDay) -> Bool {
+        offDays.contains(day) || vacationRanges.contains { $0.contains(day) }
+    }
+
     private enum CodingKeys: String, CodingKey {
-        case id, habitID, groupID, offDays, recoveryEnabled, streakPresentation, recoveryReceipts, updatedAt
+        case id, habitID, groupID, offDays, recoveryEnabled, streakPresentation, recoveryReceipts
+        case vacationRanges, backfillPolicy, minimumTarget, updatedAt
     }
 
     public init(from decoder: any Decoder) throws {
@@ -323,6 +502,9 @@ public struct HabitResiliencePolicy: Codable, Hashable, Identifiable, Sendable {
         recoveryEnabled = try values.decodeIfPresent(Bool.self, forKey: .recoveryEnabled) ?? true
         streakPresentation = try values.decodeIfPresent(HabitStreakPresentation.self, forKey: .streakPresentation) ?? .gradeAndStreak
         recoveryReceipts = try values.decodeIfPresent([HabitRecoveryReceipt].self, forKey: .recoveryReceipts) ?? []
+        vacationRanges = try values.decodeIfPresent([HabitVacationRange].self, forKey: .vacationRanges) ?? []
+        backfillPolicy = try values.decodeIfPresent(HabitBackfillPolicy.self, forKey: .backfillPolicy) ?? .disabled
+        minimumTarget = try values.decodeIfPresent(HabitTarget.self, forKey: .minimumTarget)
         updatedAt = try values.decodeIfPresent(Date.self, forKey: .updatedAt) ?? .distantPast
     }
 
@@ -335,15 +517,36 @@ public struct HabitResiliencePolicy: Codable, Hashable, Identifiable, Sendable {
         try values.encode(recoveryEnabled, forKey: .recoveryEnabled)
         try values.encode(streakPresentation, forKey: .streakPresentation)
         try values.encode(recoveryReceipts, forKey: .recoveryReceipts)
+        try values.encode(vacationRanges, forKey: .vacationRanges)
+        try values.encode(backfillPolicy, forKey: .backfillPolicy)
+        try values.encodeIfPresent(minimumTarget, forKey: .minimumTarget)
         try values.encode(updatedAt, forKey: .updatedAt)
     }
 }
 
-public enum HabitOccurrenceResolution: String, Codable, CaseIterable, Sendable {
+public enum HabitOccurrenceResolution: String, Codable, CaseIterable, Hashable, Sendable {
     case due
+    case missing
+    case explicitZero
+    case partial
     case completed
+    case abstained
+    case lapsed
     case manuallySkipped
+    case offDay
+    case paused
+    case failed
+    case unresolved
     case recovered
+}
+
+public enum HabitEvidenceSource: String, Codable, CaseIterable, Sendable {
+    case manual
+    case tracker
+    case healthKit
+    case widget
+    case watch
+    case imported
 }
 
 public struct HabitOccurrenceEvidence: Codable, Hashable, Identifiable, Sendable {
@@ -352,17 +555,35 @@ public struct HabitOccurrenceEvidence: Codable, Hashable, Identifiable, Sendable
     public var day: PlanningDay
     public var isDue: Bool
     public var resolution: HabitOccurrenceResolution
+    public var recordedValue: Double?
+    public var target: HabitTarget?
+    public var source: HabitEvidenceSource?
+    public var lastSyncedAt: Date?
+    public var recordedAt: Date?
+    public var failureReason: String?
 
     public init(
         habitID: UUID,
         day: PlanningDay,
         isDue: Bool = true,
-        resolution: HabitOccurrenceResolution = .due
+        resolution: HabitOccurrenceResolution = .due,
+        recordedValue: Double? = nil,
+        target: HabitTarget? = nil,
+        source: HabitEvidenceSource? = nil,
+        lastSyncedAt: Date? = nil,
+        recordedAt: Date? = nil,
+        failureReason: String? = nil
     ) {
         self.habitID = habitID
         self.day = day
         self.isDue = isDue
         self.resolution = resolution
+        self.recordedValue = recordedValue
+        self.target = target
+        self.source = source
+        self.lastSyncedAt = lastSyncedAt
+        self.recordedAt = recordedAt
+        self.failureReason = failureReason
     }
 }
 
@@ -373,10 +594,108 @@ public struct HabitGradeSnapshot: Codable, Equatable, Sendable {
     public var grade: Double?
     public var streak: Int
     public var recoveredDays: [PlanningDay]
+    public var distribution: [HabitOccurrenceResolution: Int]
+    public var bestTimeMinutesFromMidnight: Int?
+    public var recoveryCount: Int
     public var generatedAt: Date
+
+    public init(
+        habitID: UUID,
+        completedEligibleCount: Int,
+        eligibleDueCount: Int,
+        grade: Double?,
+        streak: Int,
+        recoveredDays: [PlanningDay],
+        distribution: [HabitOccurrenceResolution: Int] = [:],
+        bestTimeMinutesFromMidnight: Int? = nil,
+        recoveryCount: Int? = nil,
+        generatedAt: Date
+    ) {
+        self.habitID = habitID
+        self.completedEligibleCount = completedEligibleCount
+        self.eligibleDueCount = eligibleDueCount
+        self.grade = grade
+        self.streak = streak
+        self.recoveredDays = recoveredDays
+        self.distribution = distribution
+        self.bestTimeMinutesFromMidnight = bestTimeMinutesFromMidnight
+        self.recoveryCount = recoveryCount ?? recoveredDays.count
+        self.generatedAt = generatedAt
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case habitID, completedEligibleCount, eligibleDueCount, grade, streak, recoveredDays
+        case distribution, bestTimeMinutesFromMidnight, recoveryCount, generatedAt
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        habitID = try values.decode(UUID.self, forKey: .habitID)
+        completedEligibleCount = try values.decode(Int.self, forKey: .completedEligibleCount)
+        eligibleDueCount = try values.decode(Int.self, forKey: .eligibleDueCount)
+        grade = try values.decodeIfPresent(Double.self, forKey: .grade)
+        streak = try values.decode(Int.self, forKey: .streak)
+        recoveredDays = try values.decodeIfPresent([PlanningDay].self, forKey: .recoveredDays) ?? []
+        distribution = try values.decodeIfPresent([HabitOccurrenceResolution: Int].self, forKey: .distribution) ?? [:]
+        bestTimeMinutesFromMidnight = try values.decodeIfPresent(Int.self, forKey: .bestTimeMinutesFromMidnight)
+        recoveryCount = try values.decodeIfPresent(Int.self, forKey: .recoveryCount) ?? recoveredDays.count
+        generatedAt = try values.decode(Date.self, forKey: .generatedAt)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var values = encoder.container(keyedBy: CodingKeys.self)
+        try values.encode(habitID, forKey: .habitID)
+        try values.encode(completedEligibleCount, forKey: .completedEligibleCount)
+        try values.encode(eligibleDueCount, forKey: .eligibleDueCount)
+        try values.encodeIfPresent(grade, forKey: .grade)
+        try values.encode(streak, forKey: .streak)
+        try values.encode(recoveredDays, forKey: .recoveredDays)
+        try values.encode(distribution, forKey: .distribution)
+        try values.encodeIfPresent(bestTimeMinutesFromMidnight, forKey: .bestTimeMinutesFromMidnight)
+        try values.encode(recoveryCount, forKey: .recoveryCount)
+        try values.encode(generatedAt, forKey: .generatedAt)
+    }
+}
+
+public struct HabitAutoCompletionMapping: Codable, Hashable, Sendable {
+    public var source: HabitEvidenceSource
+    public var sourceID: UUID
+    public var threshold: Double
+    public var candidateOccurrenceIDs: [UUID]
+    public var lastSyncedAt: Date?
+
+    public init(
+        source: HabitEvidenceSource,
+        sourceID: UUID,
+        threshold: Double,
+        candidateOccurrenceIDs: [UUID],
+        lastSyncedAt: Date? = nil
+    ) {
+        self.source = source
+        self.sourceID = sourceID
+        self.threshold = threshold
+        self.candidateOccurrenceIDs = candidateOccurrenceIDs
+        self.lastSyncedAt = lastSyncedAt
+    }
+
+    public var resolvedOccurrenceID: UUID? {
+        guard threshold.isFinite, threshold > 0,
+              candidateOccurrenceIDs.count == 1 else { return nil }
+        return candidateOccurrenceIDs[0]
+    }
 }
 
 // MARK: - Routines
+
+public enum RoutineTemplateKind: String, Codable, CaseIterable, Sendable {
+    case morning
+    case evening
+    case workStart
+    case shutdown
+    case workout
+    case care
+    case custom
+}
 
 public enum RoutineStepKind: String, Codable, CaseIterable, Sendable {
     case task
@@ -474,6 +793,8 @@ public struct RoutineDefinition: Codable, Hashable, Identifiable, Sendable {
 
 public enum RoutineRunStatus: String, Codable, CaseIterable, Sendable {
     case running
+    case paused
+    case interrupted
     case completed
     case partial
     case abandoned
@@ -499,6 +820,17 @@ public struct RoutineRun: Codable, Hashable, Identifiable, Sendable {
     public var startedAt: Date
     public var endedAt: Date?
     public var updatedAt: Date
+    public var pausedAt: Date? = nil
+    public var accumulatedPausedDuration: TimeInterval? = nil
+    public var currentStepPausedDuration: TimeInterval? = nil
+
+    public var effectivePausedDuration: TimeInterval {
+        max(0, accumulatedPausedDuration ?? 0)
+    }
+
+    public var effectiveCurrentStepPausedDuration: TimeInterval {
+        max(0, currentStepPausedDuration ?? 0)
+    }
 }
 
 public struct RoutineTransition: Codable, Hashable, Sendable {
@@ -506,6 +838,39 @@ public struct RoutineTransition: Codable, Hashable, Sendable {
     public var linkedMutation: RoutineLinkedMutationKind?
     public var linkedEntityID: UUID?
     public var didApplyEvent: Bool
+}
+
+public enum RoutineRunCommand: Codable, Hashable, Sendable {
+    case advance(response: String?, idempotencyKey: String)
+    case skip(reason: String, idempotencyKey: String)
+    case pause
+    case resume
+    case interrupt
+    case stop
+}
+
+public enum RoutineValidationIssue: Codable, Hashable, Sendable {
+    case noSteps
+    case emptyTitle(stepID: UUID)
+    case duplicateStepID(UUID)
+    case duplicateOrdinal(Int)
+    case invalidChoice(stepID: UUID, choice: String)
+    case branchSourceMismatch(stepID: UUID, sourceStepID: UUID)
+    case missingBranchDestination(sourceStepID: UUID, destinationStepID: UUID)
+    case unreachableStep(UUID)
+    case loop([UUID])
+    case missingLinkedEntity(stepID: UUID)
+    case linkedEntityUnavailable(stepID: UUID, linkedEntityID: UUID)
+}
+
+public struct RoutineValidationReport: Codable, Hashable, Sendable {
+    public var issues: [RoutineValidationIssue]
+
+    public init(issues: [RoutineValidationIssue] = []) {
+        self.issues = issues
+    }
+
+    public var isValid: Bool { issues.isEmpty }
 }
 
 public struct RoutineSchedule: Codable, Hashable, Identifiable, Sendable {

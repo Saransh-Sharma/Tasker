@@ -889,6 +889,127 @@ public struct NutritionLookupPolicy: Sendable {
     }
 }
 
+public protocol NutritionRemoteFoodLookingUp: Sendable {
+    func food(barcode: String) async throws -> FoodItem?
+}
+
+public enum NutritionBarcodeReviewKind: Hashable, Sendable {
+    case noMatchRemoteDisabled
+    case local(FoodItem)
+    case remote(FoodItem)
+    case duplicate(local: FoodItem, remote: FoodItem)
+}
+
+public struct NutritionBarcodeReview: Identifiable, Hashable, Sendable {
+    public var id: String { barcode }
+    public var barcode: String
+    public var kind: NutritionBarcodeReviewKind
+    public var remoteLookupWasExplicit: Bool
+
+    public init(
+        barcode: String,
+        kind: NutritionBarcodeReviewKind,
+        remoteLookupWasExplicit: Bool
+    ) {
+        self.barcode = barcode
+        self.kind = kind
+        self.remoteLookupWasExplicit = remoteLookupWasExplicit
+    }
+}
+
+public enum NutritionBarcodeResolution: Hashable, Sendable {
+    case useLocal
+    case useRemote
+    case cancel
+}
+
+public struct NutritionBarcodeSelection: Hashable, Sendable {
+    public var food: FoodItem
+    public var provenance: NutritionLogProvenance
+    public var sourceReference: String
+}
+
+/// Local-first barcode review. Remote lookup is attempted only when the
+/// caller explicitly requests it and the policy has been enabled.
+public struct NutritionBarcodeReviewService: Sendable {
+    private let repository: any NutritionRepository
+    private let remoteLookup: (any NutritionRemoteFoodLookingUp)?
+    private let policy: NutritionLookupPolicy
+
+    public init(
+        repository: any NutritionRepository,
+        remoteLookup: (any NutritionRemoteFoodLookingUp)? = nil,
+        policy: NutritionLookupPolicy = .init()
+    ) {
+        self.repository = repository
+        self.remoteLookup = remoteLookup
+        self.policy = policy
+    }
+
+    public func review(
+        barcode rawBarcode: String,
+        scope: NutritionLookupScope
+    ) async throws -> NutritionBarcodeReview {
+        let barcode = rawBarcode.filter(\.isNumber)
+        guard (8...14).contains(barcode.count) else { throw NutritionError.invalidBarcode }
+        let local = try await repository.food(barcode: barcode)
+        guard scope == .explicitRemoteRequest else {
+            return NutritionBarcodeReview(
+                barcode: barcode,
+                kind: local.map(NutritionBarcodeReviewKind.local) ?? .noMatchRemoteDisabled,
+                remoteLookupWasExplicit: false
+            )
+        }
+        _ = try policy.permitsRemoteLookup(scope: scope)
+        guard let remoteLookup else {
+            return NutritionBarcodeReview(
+                barcode: barcode,
+                kind: local.map(NutritionBarcodeReviewKind.local) ?? .noMatchRemoteDisabled,
+                remoteLookupWasExplicit: true
+            )
+        }
+        let remote = try await remoteLookup.food(barcode: barcode)
+        let kind: NutritionBarcodeReviewKind
+        switch (local, remote) {
+        case let (.some(local), .some(remote)):
+            kind = local == remote ? .local(local) : .duplicate(local: local, remote: remote)
+        case let (.some(local), .none): kind = .local(local)
+        case let (.none, .some(remote)): kind = .remote(remote)
+        case (.none, .none): kind = .noMatchRemoteDisabled
+        }
+        return NutritionBarcodeReview(
+            barcode: barcode,
+            kind: kind,
+            remoteLookupWasExplicit: true
+        )
+    }
+
+    public func selection(
+        from review: NutritionBarcodeReview,
+        resolution: NutritionBarcodeResolution
+    ) -> NutritionBarcodeSelection? {
+        let food: FoodItem
+        let provenance: NutritionLogProvenance
+        switch (review.kind, resolution) {
+        case let (.local(value), .useLocal),
+             let (.duplicate(local: value, remote: _), .useLocal):
+            food = value
+            provenance = .barcodeLocal
+        case let (.remote(value), .useRemote),
+             let (.duplicate(local: _, remote: value), .useRemote):
+            food = value
+            provenance = .barcodeRemote
+        default:
+            return nil
+        }
+        return NutritionBarcodeSelection(
+            food: food,
+            provenance: provenance,
+            sourceReference: food.externalReference ?? review.barcode
+        )
+    }
+}
+
 public actor NutritionScanDeduplicator {
     private var lastSeen: [String: Date] = [:]
     private let window: TimeInterval

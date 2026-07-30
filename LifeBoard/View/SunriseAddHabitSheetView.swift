@@ -231,9 +231,19 @@ public struct SunriseAddHabitSheetView: View {
                     if cadencePresetBinding.wrappedValue == .weekly {
                         SunriseAddHabitWeekdayPickerRow(selectedDays: weeklyDaysBinding)
                     }
+                    if cadencePresetBinding.wrappedValue == .interval {
+                        Stepper(
+                            "Every \(intervalDaysBinding.wrappedValue) days",
+                            value: intervalDaysBinding,
+                            in: 2...30
+                        )
+                        .frame(minHeight: 44)
+                    }
 
                     DatePicker("Check-in time", selection: cadenceTimeBinding, displayedComponents: .hourAndMinute)
                         .datePickerStyle(.compact)
+
+                    SunriseHabitTargetEditor(config: $viewModel.targetConfig)
 
                     if viewModel.lifeAreas.isEmpty == false {
                         AddTaskEntityPicker(
@@ -451,6 +461,7 @@ public struct SunriseAddHabitSheetView: View {
 private enum SunriseAddHabitCadencePreset: String, CaseIterable, Identifiable {
     case daily
     case weekly
+    case interval
 
     var id: String { rawValue }
 
@@ -458,6 +469,7 @@ private enum SunriseAddHabitCadencePreset: String, CaseIterable, Identifiable {
         switch self {
         case .daily: return "Daily"
         case .weekly: return "Weekly"
+        case .interval: return "Interval"
         }
     }
 }
@@ -469,6 +481,7 @@ private extension SunriseAddHabitSheetView {
                 switch viewModel.selectedCadence {
                 case .daily: return .daily
                 case .weekly: return .weekly
+                case .interval: return .interval
                 }
             },
             set: { preset in
@@ -479,6 +492,8 @@ private extension SunriseAddHabitSheetView {
                 case .weekly:
                     let days = weeklyDays(from: viewModel.selectedCadence)
                     viewModel.selectedCadence = .weekly(daysOfWeek: days.isEmpty ? [2, 3, 4, 5, 6] : days, hour: time.hour, minute: time.minute)
+                case .interval:
+                    viewModel.selectedCadence = .interval(days: intervalDays(from: viewModel.selectedCadence), hour: time.hour, minute: time.minute)
                 }
             }
         )
@@ -513,6 +528,8 @@ private extension SunriseAddHabitSheetView {
                     viewModel.selectedCadence = .daily(hour: hour, minute: minute)
                 case .weekly(let days, _, _):
                     viewModel.selectedCadence = .weekly(daysOfWeek: days, hour: hour, minute: minute)
+                case .interval(let days, _, _):
+                    viewModel.selectedCadence = .interval(days: days, hour: hour, minute: minute)
                 }
             }
         )
@@ -524,6 +541,8 @@ private extension SunriseAddHabitSheetView {
             return "Daily at \(formattedTime(hour: hour, minute: minute))"
         case .weekly(let days, let hour, let minute):
             return "\(weekdaySummary(days)) at \(formattedTime(hour: hour, minute: minute))"
+        case .interval(let days, let hour, let minute):
+            return "Every \(max(1, days)) days at \(formattedTime(hour: hour, minute: minute))"
         }
     }
 
@@ -531,6 +550,7 @@ private extension SunriseAddHabitSheetView {
         switch cadence {
         case .daily(let hour, let minute): return (hour, minute)
         case .weekly(_, let hour, let minute): return (hour, minute)
+        case .interval(_, let hour, let minute): return (hour, minute)
         }
     }
 
@@ -538,7 +558,23 @@ private extension SunriseAddHabitSheetView {
         switch cadence {
         case .daily: return []
         case .weekly(let days, _, _): return days
+        case .interval: return []
         }
+    }
+
+    var intervalDaysBinding: Binding<Int> {
+        Binding(
+            get: { intervalDays(from: viewModel.selectedCadence) },
+            set: { days in
+                let time = cadenceTime(from: viewModel.selectedCadence)
+                viewModel.selectedCadence = .interval(days: max(2, days), hour: time.hour, minute: time.minute)
+            }
+        )
+    }
+
+    func intervalDays(from cadence: HabitCadenceDraft) -> Int {
+        if case let .interval(days, _, _) = cadence { return max(2, days) }
+        return 2
     }
 
     func formattedTime(hour: Int?, minute: Int?) -> String {
@@ -574,6 +610,8 @@ private struct SunriseHabitCadenceDots: View {
             return Set(order)
         case .weekly(let days, _, _):
             return days.isEmpty ? Set([2, 3, 4, 5, 6]) : Set(days)
+        case .interval:
+            return Set(order)
         }
     }
 
@@ -590,6 +628,234 @@ private struct SunriseHabitCadenceDots: View {
         }
         .animation(LifeBoardAnimation.stateChange, value: activeDays)
         .accessibilityHidden(true)
+    }
+}
+
+struct SunriseHabitTargetEditor: View {
+    private enum TargetKind: String, CaseIterable, Identifiable {
+        case binary, avoidance, quantitative, quota, timed
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .binary: "Check-in"
+            case .avoidance: "Avoidance"
+            case .quantitative: "Amount"
+            case .quota: "Quota"
+            case .timed: "Timed"
+            }
+        }
+    }
+
+    @Binding var config: HabitTargetConfig
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Picker("Target", selection: kindBinding) {
+                ForEach(TargetKind.allCases) { kind in
+                    Text(kind.title).tag(kind)
+                }
+            }
+            .pickerStyle(.menu)
+            .frame(minHeight: 44)
+
+            switch kindBinding.wrappedValue {
+            case .binary, .avoidance:
+                EmptyView()
+            case .quantitative:
+                HStack {
+                    TextField("Amount", value: targetValueBinding, format: .number)
+                        .keyboardType(.decimalPad)
+                    TextField("Unit", text: unitBinding)
+                        .multilineTextAlignment(.trailing)
+                }
+                .frame(minHeight: 44)
+            case .quota:
+                HStack {
+                    Stepper(
+                        "\(Int(targetValueBinding.wrappedValue.rounded())) times",
+                        value: targetValueBinding,
+                        in: 1...100,
+                        step: 1
+                    )
+                    Picker("Period", selection: quotaPeriodBinding) {
+                        ForEach(HabitQuotaPeriod.allCases, id: \.self) { period in
+                            Text(period.rawValue.capitalized).tag(period)
+                        }
+                    }
+                    .labelsHidden()
+                }
+                .frame(minHeight: 44)
+            case .timed:
+                Stepper(
+                    "\(Int(targetValueBinding.wrappedValue.rounded())) minutes",
+                    value: targetValueBinding,
+                    in: 1...480,
+                    step: 5
+                )
+                .frame(minHeight: 44)
+            }
+
+            Toggle("Offer a low-energy minimum", isOn: minimumEnabledBinding)
+                .frame(minHeight: 44)
+            if config.minimumTarget != nil,
+               ![TargetKind.binary, .avoidance].contains(kindBinding.wrappedValue) {
+                HStack {
+                    Text("Minimum")
+                    Spacer()
+                    TextField("Minimum", value: minimumValueBinding, format: .number)
+                        .keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                        .frame(maxWidth: 100)
+                    Text(kindBinding.wrappedValue == .timed ? "minutes" : unitSuffix)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+    }
+
+    private var kindBinding: Binding<TargetKind> {
+        Binding(
+            get: {
+                switch config.effectiveTarget {
+                case .binary: .binary
+                case .avoidance: .avoidance
+                case .quantitative: .quantitative
+                case .quota: .quota
+                case .timed: .timed
+                }
+            },
+            set: { kind in
+                config.targetCountPerDay = nil
+                config.target = defaultTarget(for: kind)
+                config.minimumTarget = nil
+            }
+        )
+    }
+
+    private var targetValueBinding: Binding<Double> {
+        Binding(
+            get: {
+                switch config.effectiveTarget {
+                case let .quantitative(value, _): value
+                case let .quota(count, _): Double(count)
+                case let .timed(seconds): seconds / 60
+                case .binary, .avoidance: 1
+                }
+            },
+            set: { value in
+                let safe = max(1, value)
+                switch config.effectiveTarget {
+                case let .quantitative(_, unit):
+                    config.target = .quantitative(value: safe, unit: unit)
+                case let .quota(_, period):
+                    config.target = .quota(count: Int(safe.rounded()), period: period)
+                case .timed:
+                    config.target = .timed(seconds: safe * 60)
+                case .binary, .avoidance:
+                    break
+                }
+                if let minimum = config.minimumTarget,
+                   HabitTargetValidator.validate(.init(target: config.target, minimumTarget: minimum)) != nil {
+                    config.minimumTarget = nil
+                }
+            }
+        )
+    }
+
+    private var unitBinding: Binding<String> {
+        Binding(
+            get: {
+                if case let .quantitative(_, unit) = config.effectiveTarget { return unit }
+                return "units"
+            },
+            set: { unit in
+                if case let .quantitative(value, _) = config.effectiveTarget {
+                    config.target = .quantitative(value: value, unit: unit)
+                }
+            }
+        )
+    }
+
+    private var quotaPeriodBinding: Binding<HabitQuotaPeriod> {
+        Binding(
+            get: {
+                if case let .quota(_, period) = config.effectiveTarget { return period }
+                return .day
+            },
+            set: { period in
+                if case let .quota(count, _) = config.effectiveTarget {
+                    config.target = .quota(count: count, period: period)
+                    config.minimumTarget = nil
+                }
+            }
+        )
+    }
+
+    private var minimumEnabledBinding: Binding<Bool> {
+        Binding(
+            get: { config.minimumTarget != nil },
+            set: { enabled in
+                config.minimumTarget = enabled ? defaultMinimum(for: config.effectiveTarget) : nil
+            }
+        )
+    }
+
+    private var minimumValueBinding: Binding<Double> {
+        Binding(
+            get: {
+                switch config.minimumTarget {
+                case let .quantitative(value, _): value
+                case let .quota(count, _): Double(count)
+                case let .timed(seconds): seconds / 60
+                default: 1
+                }
+            },
+            set: { value in
+                let fullValue = targetValueBinding.wrappedValue
+                let safe = min(fullValue, max(1, value))
+                switch config.effectiveTarget {
+                case let .quantitative(_, unit):
+                    config.minimumTarget = .quantitative(value: safe, unit: unit)
+                case let .quota(_, period):
+                    config.minimumTarget = .quota(count: Int(safe.rounded()), period: period)
+                case .timed:
+                    config.minimumTarget = .timed(seconds: safe * 60)
+                case .binary:
+                    config.minimumTarget = .binary
+                case .avoidance:
+                    config.minimumTarget = .avoidance
+                }
+            }
+        )
+    }
+
+    private var unitSuffix: String {
+        switch config.effectiveTarget {
+        case let .quantitative(_, unit): unit
+        case .quota: "times"
+        default: ""
+        }
+    }
+
+    private func defaultTarget(for kind: TargetKind) -> HabitTarget {
+        switch kind {
+        case .binary: .binary
+        case .avoidance: .avoidance
+        case .quantitative: .quantitative(value: 1, unit: "units")
+        case .quota: .quota(count: 3, period: .week)
+        case .timed: .timed(seconds: 15 * 60)
+        }
+    }
+
+    private func defaultMinimum(for target: HabitTarget) -> HabitTarget {
+        switch target {
+        case .binary: .binary
+        case .avoidance: .avoidance
+        case let .quantitative(value, unit): .quantitative(value: value / 2, unit: unit)
+        case let .quota(count, period): .quota(count: max(1, count / 2), period: period)
+        case let .timed(seconds): .timed(seconds: seconds / 2)
+        }
     }
 }
 

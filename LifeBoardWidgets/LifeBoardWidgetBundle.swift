@@ -13,6 +13,8 @@ struct LifeBoardWidgetBundle: WidgetBundle {
             LifeBoardCaptureControl()
         }
         FocusLiveActivityWidget()
+        FastingLiveActivityWidget()
+        RoutineLiveActivityWidget()
         FocusSeedWidget()
         JournalDomainWidget()
         FastingDomainWidget()
@@ -21,6 +23,7 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         LifeMomentsDomainWidget()
         GoalsDomainWidget()
         RoutinesDomainWidget()
+        StreakResilienceWidget()
 
         TaskListStaticWidget(
             kind: "TopTaskNowWidget",
@@ -1073,6 +1076,43 @@ public struct DeferTaskFromWidgetIntent: AppIntent {
         }
 
         return .result(opensIntent: OpenURLIntent(TaskWidgetRoutes.task(id)))
+    }
+}
+
+public struct ResolveBehaviorOccurrenceIntent: AppIntent {
+    public static let title: LocalizedStringResource = "Complete Habit Occurrence"
+
+    @Parameter(title: "Occurrence ID")
+    public var occurrenceID: String
+
+    @Parameter(title: "Behavior ID")
+    public var behaviorID: String
+
+    public init() {
+        occurrenceID = ""
+        behaviorID = ""
+    }
+
+    public init(occurrenceID: String, behaviorID: String) {
+        self.occurrenceID = occurrenceID
+        self.behaviorID = behaviorID
+    }
+
+    public func perform() async throws -> some IntentResult & OpensIntent {
+        guard let occurrenceID = UUID(uuidString: occurrenceID),
+              let behaviorID = UUID(uuidString: behaviorID) else {
+            return .result(opensIntent: OpenURLIntent(TaskWidgetRoutes.today))
+        }
+        if TaskWidgetFeatureGate.interactiveTaskWidgetsEnabled {
+            _ = BehaviorOccurrenceActionCommand(
+                occurrenceID: occurrenceID,
+                behaviorID: behaviorID,
+                action: .complete
+            ).savePending()
+        }
+        return .result(
+            opensIntent: OpenURLIntent(URL(string: "lifeboard://habits/\(behaviorID.uuidString)")!)
+        )
     }
 }
 #endif

@@ -4,7 +4,7 @@ import ReflectionKit
 
 // MARK: - Trackers and care
 
-public enum LifeBoardTrackerKind: String, Codable, CaseIterable, Sendable {
+public enum LifeBoardTrackerKind: String, Codable, CaseIterable, Hashable, Sendable {
     case boolean
     case count
     case quantity
@@ -26,7 +26,7 @@ public enum TrackerValue: Codable, Hashable, Sendable {
     case timestamp(Date)
 }
 
-public enum TrackerAggregation: String, Codable, CaseIterable, Sendable {
+public enum TrackerAggregation: String, Codable, CaseIterable, Hashable, Sendable {
     case latest
     case sum
     case average
@@ -35,7 +35,7 @@ public enum TrackerAggregation: String, Codable, CaseIterable, Sendable {
     case count
 }
 
-public enum TrackerPrivacyClass: String, Codable, CaseIterable, Sendable {
+public enum TrackerPrivacyClass: String, Codable, CaseIterable, Hashable, Sendable {
     case standard
     case personal
     case sensitive
@@ -99,6 +99,7 @@ public struct LifeBoardTrackerDefinitionValue: Identifiable, Codable, Hashable, 
     }
 
     public var effectiveValueType: LifeBoardTrackerKind { valueType ?? kind }
+    public var effectiveAggregation: TrackerAggregation { aggregation ?? .latest }
     public var effectivePrivacyClass: TrackerPrivacyClass { privacyClass ?? .sensitive }
     public var permitsHomeProjection: Bool {
         effectivePrivacyClass != .sensitive && isHomeEligible == true
@@ -133,6 +134,126 @@ public struct LifeBoardTrackerEntryValue: Identifiable, Codable, Hashable, Senda
     }
 }
 
+public enum LifeBoardTrackerTemplate: String, CaseIterable, Identifiable, Hashable, Sendable {
+    case pain
+    case symptoms
+    case caffeine
+    case reading
+    case spending
+    case screenTime
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .pain: "Pain note"
+        case .symptoms: "Symptom note"
+        case .caffeine: "Caffeine"
+        case .reading: "Reading"
+        case .spending: "Spending"
+        case .screenTime: "Screen time"
+        }
+    }
+
+    public var detail: String {
+        switch self {
+        case .pain: "A personal 0–10 observation. Non-clinical."
+        case .symptoms: "A private text observation. Non-clinical."
+        case .caffeine: "Record an amount in milligrams."
+        case .reading: "Record time spent reading."
+        case .spending: "Record an amount in your preferred currency."
+        case .screenTime: "Record a duration without judgment."
+        }
+    }
+
+    public var isHealthLike: Bool {
+        self == .pain || self == .symptoms
+    }
+
+    public func instantiate(at date: Date = Date()) -> LifeBoardTrackerDefinitionValue {
+        switch self {
+        case .pain:
+            LifeBoardTrackerDefinitionValue(
+                title: title,
+                kind: .rating,
+                targetValue: nil,
+                createdAt: date,
+                updatedAt: date,
+                valueType: .rating,
+                rangeMin: 0,
+                rangeMax: 10,
+                aggregation: .average,
+                privacyClass: .sensitive,
+                isHomeEligible: false
+            )
+        case .symptoms:
+            LifeBoardTrackerDefinitionValue(
+                title: title,
+                kind: .text,
+                targetValue: nil,
+                createdAt: date,
+                updatedAt: date,
+                valueType: .text,
+                aggregation: .latest,
+                privacyClass: .sensitive,
+                isHomeEligible: false
+            )
+        case .caffeine:
+            LifeBoardTrackerDefinitionValue(
+                title: title,
+                kind: .quantity,
+                unitLabel: "mg",
+                targetValue: nil,
+                createdAt: date,
+                updatedAt: date,
+                valueType: .quantity,
+                aggregation: .sum,
+                privacyClass: .personal,
+                isHomeEligible: false
+            )
+        case .reading:
+            LifeBoardTrackerDefinitionValue(
+                title: title,
+                kind: .duration,
+                unitLabel: "minutes",
+                targetValue: nil,
+                createdAt: date,
+                updatedAt: date,
+                valueType: .duration,
+                aggregation: .sum,
+                privacyClass: .personal,
+                isHomeEligible: true
+            )
+        case .spending:
+            LifeBoardTrackerDefinitionValue(
+                title: title,
+                kind: .quantity,
+                unitLabel: "currency",
+                targetValue: nil,
+                createdAt: date,
+                updatedAt: date,
+                valueType: .quantity,
+                aggregation: .sum,
+                privacyClass: .personal,
+                isHomeEligible: false
+            )
+        case .screenTime:
+            LifeBoardTrackerDefinitionValue(
+                title: title,
+                kind: .duration,
+                unitLabel: "minutes",
+                targetValue: nil,
+                createdAt: date,
+                updatedAt: date,
+                valueType: .duration,
+                aggregation: .sum,
+                privacyClass: .personal,
+                isHomeEligible: false
+            )
+        }
+    }
+}
+
 public struct LifeBoardMoodEnergyCheckInValue: Identifiable, Codable, Hashable, Sendable {
     public var id: UUID
     public var mood: LifeBoardJournalMood
@@ -158,7 +279,7 @@ public struct LifeBoardMoodEnergyCheckInValue: Identifiable, Codable, Hashable, 
     }
 }
 
-public enum LifeBoardMedicationEventStatus: String, Codable, CaseIterable, Sendable {
+public enum LifeBoardMedicationEventStatus: String, Codable, CaseIterable, Hashable, Sendable {
     case scheduled
     case taken
     case skipped
@@ -285,6 +406,7 @@ public enum LifeBoardFastingCompletionKind: String, Codable, CaseIterable, Senda
 
 public struct LifeBoardFastingSessionValue: Identifiable, Codable, Hashable, Sendable {
     public var id: UUID
+    public var templateID: UUID?
     public var startedAt: Date
     public var endedAt: Date?
     public var targetDuration: TimeInterval?
@@ -297,6 +419,7 @@ public struct LifeBoardFastingSessionValue: Identifiable, Codable, Hashable, Sen
 
     public init(
         id: UUID = UUID(),
+        templateID: UUID? = nil,
         startedAt: Date = Date(),
         endedAt: Date? = nil,
         targetDuration: TimeInterval? = nil,
@@ -306,6 +429,7 @@ public struct LifeBoardFastingSessionValue: Identifiable, Codable, Hashable, Sen
         updatedAt: Date? = nil
     ) {
         self.id = id
+        self.templateID = templateID
         self.startedAt = startedAt
         self.endedAt = endedAt
         self.targetDuration = targetDuration
@@ -326,6 +450,53 @@ public struct LifeBoardFastingSessionValue: Identifiable, Codable, Hashable, Sen
     public func progress(at now: Date = Date()) -> Double? {
         guard let targetDuration, targetDuration > 0 else { return nil }
         return min(1, elapsed(at: now) / targetDuration)
+    }
+}
+
+public struct LifeBoardFastingDisplayPreferences: Codable, Hashable, Sendable {
+    public var showsElapsedTime: Bool
+    public var showsTargetProgress: Bool
+
+    public init(showsElapsedTime: Bool = true, showsTargetProgress: Bool = true) {
+        self.showsElapsedTime = showsElapsedTime
+        self.showsTargetProgress = showsTargetProgress
+    }
+}
+
+public struct LifeBoardFastingTemplateValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var label: String
+    public var targetDuration: TimeInterval?
+    public var reminderOffsets: [TimeInterval]
+    public var displayPreferences: LifeBoardFastingDisplayPreferences
+    public var isArchived: Bool
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        label: String,
+        targetDuration: TimeInterval? = nil,
+        reminderOffsets: [TimeInterval] = [],
+        displayPreferences: LifeBoardFastingDisplayPreferences = .init(),
+        isArchived: Bool = false,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) throws {
+        let normalizedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedLabel.isEmpty,
+              targetDuration.map({ $0.isFinite && $0 > 0 }) ?? true,
+              reminderOffsets.allSatisfy({ offset in
+                  offset.isFinite && offset >= 0 && (targetDuration.map { offset <= $0 } ?? true)
+              }) else { throw FastingTimerStoreError.invalidTarget }
+        self.id = id
+        self.label = normalizedLabel
+        self.targetDuration = targetDuration
+        self.reminderOffsets = Array(Set(reminderOffsets)).sorted()
+        self.displayPreferences = displayPreferences
+        self.isArchived = isArchived
+        self.createdAt = createdAt
+        self.updatedAt = max(updatedAt, createdAt)
     }
 }
 
@@ -2134,6 +2305,8 @@ public protocol LifeBoardPhaseIIRepository: Sendable {
 
     func fetchFastingSessions(limit: Int) async throws -> [LifeBoardFastingSessionValue]
     func saveFastingSession(_ value: LifeBoardFastingSessionValue) async throws
+    func fetchFastingTemplates(includeArchived: Bool) async throws -> [LifeBoardFastingTemplateValue]
+    func saveFastingTemplate(_ value: LifeBoardFastingTemplateValue) async throws
 
     func fetchJournalDays(search: String?, starredOnly: Bool, mood: LifeBoardJournalMood?) async throws -> [LifeBoardJournalDayValue]
     func fetchJournalDay(containing date: Date) async throws -> LifeBoardJournalDayValue?

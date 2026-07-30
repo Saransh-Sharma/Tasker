@@ -6,6 +6,14 @@ import UIKit
 import XCTest
 @testable import LifeBoard
 
+private struct StubNutritionRemoteLookup: NutritionRemoteFoodLookingUp {
+    var value: FoodItem?
+
+    func food(barcode: String) async throws -> FoodItem? {
+        value?.barcode == barcode.filter(\.isNumber) ? value : nil
+    }
+}
+
 final class LifeOSFoundationContractTests: XCTestCase {
     func testVisualFixtureCatalogCoversEveryRootAndReleaseState() {
         let fixtures = LifeBoardVisualFixture.catalog
@@ -881,14 +889,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(snapped, -45)
     }
 
-    private func completionModelBundleURL() throws -> URL {
+    private nonisolated func completionModelBundleURL() throws -> URL {
         for bundle in [Bundle.main, Bundle(for: Self.self)] {
             if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") { return url }
         }
         throw NSError(domain: "LifeOSFoundationContractTests", code: 1)
     }
 
-    private func loadCompletionStores(_ container: NSPersistentContainer) async throws {
+    private nonisolated func loadCompletionStores(_ container: NSPersistentContainer) async throws {
         try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, any Error>) in
             let lock = NSLock()
             var remaining = container.persistentStoreDescriptions.count
@@ -915,7 +923,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     /// has to run against a two-configuration container with a validated
     /// checkpoint — a single unconfigured store makes the production gate throw
     /// `writeClosed`, which says nothing about the repository under test.
-    private func makeHealthPrivacyValidatedContainer(
+    private nonisolated func makeHealthPrivacyValidatedContainer(
         name: String
     ) async throws -> NSPersistentContainer {
         let model = try XCTUnwrap(
@@ -4028,6 +4036,67 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertFalse(message.lowercased().contains("unhealthy"))
     }
 
+    func testWellnessPreferencesPersistOrderingUnitsAndConflictChoices() throws {
+        let suiteName = "LifeBoardTests.WellnessPreferences.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = UserDefaultsWellnessPreferenceStore(defaults: defaults)
+        let preferredSampleID = UUID()
+        let preferences = WellnessDisplayPreferences(
+            enabledMetrics: [.waistCircumference, .bodyMass, .waistCircumference],
+            preferredUnits: [
+                .waistCircumference: .inches,
+                .bodyMass: .pounds,
+                .restingHeartRate: .kilograms
+            ],
+            preferredSampleIDsByConflict: ["conflict": preferredSampleID]
+        )
+
+        store.save(preferences)
+        let restored = store.load()
+        XCTAssertEqual(restored.enabledMetrics, [.waistCircumference, .bodyMass])
+        XCTAssertEqual(restored.preferredUnit(for: .waistCircumference), .inches)
+        XCTAssertEqual(restored.preferredUnit(for: .bodyMass), .pounds)
+        XCTAssertEqual(restored.preferredUnit(for: .restingHeartRate), .beatsPerMinute)
+        XCTAssertEqual(restored.preferredSampleIDsByConflict["conflict"], preferredSampleID)
+    }
+
+    func testWellnessSourceConflictKeepsBothSamplesAndChangesProjectionOnly() throws {
+        let observedAt = Date(timeIntervalSinceReferenceDate: 800_000_000)
+        let manual = try BodyMetricSample(
+            kind: .bodyMass,
+            value: 70,
+            unit: .kilograms,
+            observedAt: observedAt,
+            source: .manual
+        )
+        let health = try BodyMetricSample(
+            kind: .bodyMass,
+            value: 70.5,
+            unit: .kilograms,
+            observedAt: observedAt.addingTimeInterval(5 * 60),
+            source: .healthKit,
+            sourceIdentifier: "health-sample"
+        )
+        let distant = try BodyMetricSample(
+            kind: .bodyMass,
+            value: 71,
+            unit: .kilograms,
+            observedAt: observedAt.addingTimeInterval(60 * 60),
+            source: .watch
+        )
+
+        let conflicts = WellnessSourceConflictDetector().conflicts(in: [manual, health, distant])
+        let conflict = try XCTUnwrap(conflicts.first)
+        XCTAssertEqual(conflicts.count, 1)
+        XCTAssertEqual(Set(conflict.samples.map(\.id)), [manual.id, health.id])
+
+        var preferences = WellnessDisplayPreferences()
+        preferences.preferredSampleIDsByConflict[conflict.id] = manual.id
+        XCTAssertEqual(conflict.preferredSample(using: preferences)?.id, manual.id)
+        XCTAssertEqual(conflict.samples.count, 2, "Choosing a projection must not rewrite source history")
+    }
+
     func testWellnessCoreModelPlacesAdditiveEntitiesInCloudSync() throws {
         let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)]))
         let cloud = Set(try XCTUnwrap(model.entities(forConfigurationName: "CloudSync")).compactMap(\.name))
@@ -4124,6 +4193,184 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(fetched.note, expected.note)
     }
 
+    func testFastingTemplateStartsCanonicalSessionAndCorrectionUndoRestoresHistory() async throws {
+        let container = try await makeHealthPrivacyValidatedContainer(name: "FastingTemplateRoundTrip")
+        let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let repository = LifeBoardFastingRepositoryAdapter(repository: phaseII)
+        let now = Date(timeIntervalSince1970: 1_721_430_000)
+        let store = FastingTimerStore(repository: repository, now: { now })
+        let template = try LifeBoardFastingTemplateValue(
+            label: "My quiet timer",
+            targetDuration: 7_200,
+            reminderOffsets: [3_600],
+            displayPreferences: .init(showsElapsedTime: true, showsTargetProgress: false),
+            createdAt: now,
+            updatedAt: now
+        )
+
+        try await store.saveTemplate(template)
+        let session = try await store.start(template: template, note: "User-selected", at: now)
+        XCTAssertEqual(session.templateID, template.id)
+        XCTAssertEqual(session.targetDuration, 7_200)
+        let templates = try await store.templates()
+        XCTAssertEqual(templates.first, template)
+
+        _ = try await store.finish(at: now.addingTimeInterval(3_600))
+        let receipt = try await store.correctWithReceipt(
+            sessionID: session.id,
+            startedAt: now.addingTimeInterval(-300),
+            endedAt: now.addingTimeInterval(4_000),
+            targetDuration: 7_200,
+            note: "Corrected"
+        )
+        XCTAssertEqual(receipt.after.completionKind, .corrected)
+        try await store.undo(receipt)
+        let sessions = try await store.sessions()
+        let restored = try XCTUnwrap(sessions.first(where: { $0.id == session.id }))
+        XCTAssertEqual(restored.startedAt, now)
+        XCTAssertEqual(restored.endedAt, now.addingTimeInterval(3_600))
+        XCTAssertEqual(restored.completionKind, .early)
+        XCTAssertEqual(restored.templateID, template.id)
+    }
+
+    func testNativeTrackStoreRoutesTrackerAndMedicationWritesThroughValidationServices() async throws {
+        let container = try await makeHealthPrivacyValidatedContainer(name: "NativeTrackValidationBoundary")
+        let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let store = await LifeBoardTrackStore(repository: repository)
+
+        let invalidTracker = LifeBoardTrackerDefinitionValue(
+            title: "Pain",
+            kind: .rating,
+            rangeMin: 10,
+            rangeMax: 1,
+            privacyClass: .sensitive,
+            isHomeEligible: true
+        )
+        await store.saveTracker(invalidTracker)
+        let trackerError = await store.errorMessage
+        XCTAssertNotNil(trackerError)
+        let trackers = try await repository.fetchTrackers()
+        XCTAssertTrue(trackers.isEmpty)
+
+        let invalidMedication = LifeBoardMedicationDefinitionValue(
+            name: "Personal record",
+            startDate: Date(),
+            endDate: Date().addingTimeInterval(-60)
+        )
+        let schedule = LifeBoardMedicationScheduleValue(
+            medicationID: invalidMedication.id,
+            windowStartMinutes: 480,
+            windowEndMinutes: 540
+        )
+        await store.saveMedication(invalidMedication, schedule: schedule)
+        let medicationError = await store.errorMessage
+        XCTAssertNotNil(medicationError)
+        let medications = try await repository.fetchMedications()
+        let schedules = try await repository.fetchMedicationSchedules(medicationID: nil)
+        XCTAssertTrue(medications.isEmpty)
+        XCTAssertTrue(schedules.isEmpty)
+    }
+
+    func testMedicationScheduleIsPreflightedBeforeDefinitionPersistence() async throws {
+        let container = try await makeHealthPrivacyValidatedContainer(name: "MedicationSchedulePreflight")
+        let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let store = await LifeBoardTrackStore(repository: repository)
+        let medication = LifeBoardMedicationDefinitionValue(name: "Personal record")
+        let invalidSchedule = LifeBoardMedicationScheduleValue(
+            medicationID: medication.id,
+            windowStartMinutes: 600,
+            windowEndMinutes: 500,
+            weekdays: []
+        )
+
+        await store.saveMedication(medication, schedule: invalidSchedule)
+
+        let error = await store.errorMessage
+        let medications = try await repository.fetchMedications()
+        let schedules = try await repository.fetchMedicationSchedules(medicationID: nil)
+        XCTAssertEqual(error, MedicationScheduleServiceError.invalidSchedule.localizedDescription)
+        XCTAssertTrue(medications.isEmpty)
+        XCTAssertTrue(schedules.isEmpty)
+    }
+
+    func testTrackerServiceRejectsAmbiguousChoicesAndNonFiniteValues() async throws {
+        let container = try await makeHealthPrivacyValidatedContainer(name: "TrackerFiniteValidation")
+        let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let service = TrackerDefinitionService(repository: repository)
+        let ambiguousChoice = LifeBoardTrackerDefinitionValue(
+            title: "Signal",
+            kind: .choice,
+            valueType: .choice,
+            privacyClass: .personal,
+            choiceOptions: ["Only one"]
+        )
+
+        do {
+            try await service.saveDefinition(ambiguousChoice)
+            XCTFail("A choice tracker with fewer than two options must be rejected.")
+        } catch {
+            XCTAssertEqual(error as? TrackerDefinitionServiceError, .invalidChoiceOptions)
+        }
+
+        let quantity = LifeBoardTrackerDefinitionValue(
+            title: "Quantity",
+            kind: .quantity,
+            valueType: .quantity,
+            privacyClass: .personal
+        )
+        try await service.saveDefinition(quantity)
+        do {
+            try await service.saveEntry(.init(
+                trackerID: quantity.id,
+                value: .quantity(.nan, unit: nil)
+            ))
+            XCTFail("Non-finite tracker values must be rejected.")
+        } catch {
+            XCTAssertEqual(error as? TrackerDefinitionServiceError, .valueOutOfRange)
+        }
+    }
+
+    func testTrackerServicePersistsEveryTaggedValueShape() async throws {
+        let container = try await makeHealthPrivacyValidatedContainer(name: "TrackerTaggedValues")
+        let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
+        let service = TrackerDefinitionService(repository: repository)
+        let definitions: [(LifeBoardTrackerDefinitionValue, TrackerValue)] = [
+            (.init(title: "Boolean", kind: .boolean, valueType: .boolean, privacyClass: .personal), .boolean(false)),
+            (.init(title: "Count", kind: .count, valueType: .count, privacyClass: .personal), .count(0)),
+            (.init(title: "Quantity", kind: .quantity, valueType: .quantity, privacyClass: .personal), .quantity(2.5, unit: "cups")),
+            (.init(title: "Rating", kind: .rating, valueType: .rating, rangeMin: 0, rangeMax: 5, privacyClass: .personal), .rating(0)),
+            (.init(title: "Duration", kind: .duration, valueType: .duration, privacyClass: .personal), .duration(1_200)),
+            (.init(title: "Text", kind: .text, valueType: .text, privacyClass: .personal), .text("steady")),
+            (.init(title: "Choice", kind: .choice, valueType: .choice, privacyClass: .personal, choiceOptions: ["Low", "High"]), .choice("Low")),
+            (.init(title: "Timestamp", kind: .timestamp, valueType: .timestamp, privacyClass: .personal), .timestamp(Date(timeIntervalSince1970: 1_721_430_000)))
+        ]
+
+        for (definition, value) in definitions {
+            try await service.saveDefinition(definition)
+            try await service.saveEntry(.init(trackerID: definition.id, value: value))
+        }
+
+        let entries = try await repository.fetchTrackerEntries(trackerID: nil)
+        XCTAssertEqual(entries.count, definitions.count)
+        XCTAssertEqual(Set(entries.compactMap(\.value)), Set(definitions.map(\.1)))
+    }
+
+    func testTrackerTemplatesCreateFreshNeutralPrivacyAwareDefinitions() {
+        let first = LifeBoardTrackerTemplate.pain.instantiate(
+            at: Date(timeIntervalSince1970: 1_721_430_000)
+        )
+        let second = LifeBoardTrackerTemplate.pain.instantiate(
+            at: Date(timeIntervalSince1970: 1_721_430_000)
+        )
+
+        XCTAssertNotEqual(first.id, second.id)
+        XCTAssertEqual(first.effectiveValueType, .rating)
+        XCTAssertEqual(first.effectivePrivacyClass, .sensitive)
+        XCTAssertFalse(first.permitsHomeProjection)
+        XCTAssertTrue(LifeBoardTrackerTemplate.pain.detail.localizedCaseInsensitiveContains("non-clinical"))
+        XCTAssertEqual(LifeBoardTrackerTemplate.allCases.count, 6)
+    }
+
     func testNutritionServingConversionCreatesAnImmutableHistoricalSnapshot() throws {
         let macros = try NutritionMacros(
             calories: 250,
@@ -4147,6 +4394,71 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(entry.resolvedMacrosSnapshot.calories, 600, accuracy: 0.001)
         XCTAssertEqual(entry.resolvedMacrosSnapshot.proteinGrams, 24, accuracy: 0.001)
         XCTAssertEqual(entry.foodNameSnapshot, "Oats")
+    }
+
+    func testBarcodeReviewIsLocalFirstAndRequiresExplicitRemoteResolution() async throws {
+        let barcode = "12345678"
+        let macros = try NutritionMacros(
+            calories: 100,
+            proteinGrams: 2,
+            carbohydrateGrams: 20,
+            fatGrams: 1
+        )
+        let local = try FoodItem(
+            name: "Saved oats",
+            barcode: barcode,
+            macrosPer100Grams: macros,
+            source: .userCreated
+        )
+        let remote = try FoodItem(
+            name: "Online oats",
+            barcode: barcode,
+            macrosPer100Grams: try NutritionMacros(
+                calories: 120,
+                proteinGrams: 3,
+                carbohydrateGrams: 22,
+                fatGrams: 2
+            ),
+            source: .openFoodFacts,
+            externalReference: "open-food-facts:\(barcode)"
+        )
+        let repository = InMemoryNutritionRepository(foods: [local])
+        let localOnly = NutritionBarcodeReviewService(
+            repository: repository,
+            remoteLookup: StubNutritionRemoteLookup(value: remote)
+        )
+
+        let localReview = try await localOnly.review(barcode: barcode, scope: .localOnly)
+        XCTAssertEqual(localReview.kind, .local(local))
+        XCTAssertFalse(localReview.remoteLookupWasExplicit)
+        do {
+            _ = try await localOnly.review(barcode: barcode, scope: .explicitRemoteRequest)
+            XCTFail("Remote lookup must remain disabled by default.")
+        } catch {
+            XCTAssertEqual(error as? NutritionError, .externalLookupNotEnabled)
+        }
+
+        let enabled = NutritionBarcodeReviewService(
+            repository: repository,
+            remoteLookup: StubNutritionRemoteLookup(value: remote),
+            policy: .init(externalLookupEnabled: true)
+        )
+        let comparison = try await enabled.review(
+            barcode: barcode,
+            scope: .explicitRemoteRequest
+        )
+        XCTAssertEqual(comparison.kind, .duplicate(local: local, remote: remote))
+        XCTAssertEqual(
+            enabled.selection(from: comparison, resolution: .useLocal)?.provenance,
+            .barcodeLocal
+        )
+        let remoteSelection = try XCTUnwrap(
+            enabled.selection(from: comparison, resolution: .useRemote)
+        )
+        XCTAssertEqual(remoteSelection.food, remote)
+        XCTAssertEqual(remoteSelection.provenance, .barcodeRemote)
+        XCTAssertEqual(remoteSelection.sourceReference, remote.externalReference)
+        XCTAssertNil(enabled.selection(from: comparison, resolution: .cancel))
     }
 
     func testNutritionRepositoryIsLocalFirstStableAndUndoable() async throws {
@@ -4666,10 +4978,16 @@ final class LifeOSFoundationContractTests: XCTestCase {
         )
         let sourceContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
         sourceContext.persistentStoreCoordinator = sourceCoordinator
+        var domainFixtures: [DomainMigrationFixture] = []
         try sourceContext.performAndWait {
             let area = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: sourceContext)
             area.setValue(fixtureID, forKey: "id")
             area.setValue(fixtureName, forKey: "name")
+            domainFixtures = seedDomainMigrationFixtures(
+                sourceModel: sourceModel,
+                context: sourceContext,
+                modelName: sourceModelName
+            )
             try sourceContext.save()
         }
         try sourceCoordinator.remove(sourceStore)
@@ -4714,6 +5032,182 @@ final class LifeOSFoundationContractTests: XCTestCase {
         }
         XCTAssertEqual(fetched.id, fixtureID)
         XCTAssertEqual(fetched.name, fixtureName)
+        try assertDomainMigrationFixtures(
+            domainFixtures,
+            in: destinationContext,
+            sourceModelName: sourceModelName
+        )
+    }
+
+    private struct DomainMigrationFixture {
+        var entityName: String
+        var id: UUID
+        var attributes: [String: NSObject]
+        var relationshipIDs: [String: UUID] = [:]
+    }
+
+    private func seedDomainMigrationFixtures(
+        sourceModel: NSManagedObjectModel,
+        context: NSManagedObjectContext,
+        modelName: String
+    ) -> [DomainMigrationFixture] {
+        let cloudEntities = Set(
+            sourceModel.entities(forConfigurationName: "CloudSync")?.compactMap(\.name) ?? []
+        )
+        var fixtures: [DomainMigrationFixture] = []
+
+        func insert(
+            _ entityName: String,
+            values: [String: NSObject]
+        ) -> (NSManagedObject, DomainMigrationFixture)? {
+            guard cloudEntities.contains(entityName),
+                  let entity = sourceModel.entitiesByName[entityName] else {
+                return nil
+            }
+            let object = NSManagedObject(entity: entity, insertInto: context)
+            let id = UUID()
+            object.setValue(id, forKey: "id")
+            var retained: [String: NSObject] = ["id": id as NSUUID]
+            for (key, value) in values where entity.attributesByName[key] != nil {
+                object.setValue(value, forKey: key)
+                retained[key] = value
+            }
+            return (
+                object,
+                DomainMigrationFixture(
+                    entityName: entityName,
+                    id: id,
+                    attributes: retained
+                )
+            )
+        }
+
+        let semanticPayload = Data("meaning:\(modelName)".utf8) as NSData
+        if let (_, fixture) = insert("HabitDefinition", values: [
+            "title": "Migrated habit" as NSString,
+            "habitType": "daily" as NSString,
+            "kindRaw": "positive" as NSString,
+            "trackingModeRaw": "completion" as NSString,
+            "targetConfigData": semanticPayload,
+            "streakCurrent": NSNumber(value: 4),
+            "streakBest": NSNumber(value: 9)
+        ]) {
+            fixtures.append(fixture)
+        }
+
+        var trackerObject: NSManagedObject?
+        var trackerID: UUID?
+        if let (object, fixture) = insert("TrackerDefinition", values: [
+            "title": "Migrated tracker" as NSString,
+            "kindRaw": "quantity" as NSString,
+            "unitLabel": "cups" as NSString,
+            "targetValue": NSNumber(value: 3.5),
+            "isArchived": NSNumber(value: false)
+        ]) {
+            trackerObject = object
+            trackerID = fixture.id
+            fixtures.append(fixture)
+        }
+        if let trackerID,
+           var (entry, fixture) = insert("TrackerEntry", values: [
+               "trackerID": trackerID as NSUUID,
+               "timestamp": NSDate(timeIntervalSince1970: 1_721_430_000),
+               "numericValue": NSNumber(value: 0),
+               "booleanValue": NSNumber(value: false),
+               "note": "Explicit zero remains data" as NSString
+           ]) {
+            if let trackerObject,
+               entry.entity.relationshipsByName["tracker"] != nil {
+                entry.setValue(trackerObject, forKey: "tracker")
+                fixture.relationshipIDs["tracker"] = trackerID
+            }
+            fixtures.append(fixture)
+        }
+
+        var medicationObject: NSManagedObject?
+        var medicationID: UUID?
+        if let (object, fixture) = insert("MedicationDefinition", values: [
+            "name": "Migrated medication record" as NSString,
+            "dosageText": "User label" as NSString,
+            "instructions": "User note" as NSString,
+            "isArchived": NSNumber(value: false)
+        ]) {
+            medicationObject = object
+            medicationID = fixture.id
+            fixtures.append(fixture)
+        }
+        if let medicationID,
+           var (schedule, fixture) = insert("MedicationSchedule", values: [
+               "medicationID": medicationID as NSUUID,
+               "windowStartMinutes": NSNumber(value: 480),
+               "windowEndMinutes": NSNumber(value: 540),
+               "reminderEnabled": NSNumber(value: true)
+           ]) {
+            if let medicationObject,
+               schedule.entity.relationshipsByName["medication"] != nil {
+                schedule.setValue(medicationObject, forKey: "medication")
+                fixture.relationshipIDs["medication"] = medicationID
+            }
+            fixtures.append(fixture)
+        }
+        if let medicationID,
+           var (event, fixture) = insert("MedicationEvent", values: [
+               "medicationID": medicationID as NSUUID,
+               "scheduledAt": NSDate(timeIntervalSince1970: 1_721_430_000),
+               "statusRaw": "unresolved" as NSString,
+               "note": "Silence was not inferred" as NSString
+           ]) {
+            if let medicationObject,
+               event.entity.relationshipsByName["medication"] != nil {
+                event.setValue(medicationObject, forKey: "medication")
+                fixture.relationshipIDs["medication"] = medicationID
+            }
+            fixtures.append(fixture)
+        }
+
+        if let (_, fixture) = insert("GoalDefinition", values: [
+            "title": "Migrated goal" as NSString,
+            "typeRaw": "quantity" as NSString,
+            "targetValue": NSNumber(value: 12.5),
+            "unitLabel": "hours" as NSString,
+            "isArchived": NSNumber(value: false)
+        ]) {
+            fixtures.append(fixture)
+        }
+        return fixtures
+    }
+
+    private func assertDomainMigrationFixtures(
+        _ fixtures: [DomainMigrationFixture],
+        in context: NSManagedObjectContext,
+        sourceModelName: String
+    ) throws {
+        try context.performAndWait {
+            for fixture in fixtures {
+                let request = NSFetchRequest<NSManagedObject>(entityName: fixture.entityName)
+                request.predicate = NSPredicate(format: "id == %@", fixture.id as CVarArg)
+                request.fetchLimit = 1
+                let object = try XCTUnwrap(
+                    context.fetch(request).first,
+                    "\(fixture.entityName) was lost migrating \(sourceModelName)"
+                )
+                for (key, expected) in fixture.attributes {
+                    let actual = object.value(forKey: key) as? NSObject
+                    XCTAssertTrue(
+                        actual?.isEqual(expected) == true,
+                        "\(fixture.entityName).\(key) changed migrating \(sourceModelName): \(String(describing: actual)) != \(expected)"
+                    )
+                }
+                for (relationship, expectedID) in fixture.relationshipIDs {
+                    let related = object.value(forKey: relationship) as? NSManagedObject
+                    XCTAssertEqual(
+                        related?.value(forKey: "id") as? UUID,
+                        expectedID,
+                        "\(fixture.entityName).\(relationship) was not preserved migrating \(sourceModelName)"
+                    )
+                }
+            }
+        }
     }
 
     func testKnowledgeNoteQueryAppliesSmartCollectionsSearchAndSort() {

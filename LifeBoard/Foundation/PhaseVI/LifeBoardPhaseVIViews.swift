@@ -11,8 +11,12 @@ final class NutritionTimelineStore {
     private(set) var recentlyDeleted: NutritionLogEntry?
     var errorMessage: String?
     let repository: any NutritionRepository
+    private let barcodeReviewService: NutritionBarcodeReviewService
 
-    init(repository: any NutritionRepository) { self.repository = repository }
+    init(repository: any NutritionRepository) {
+        self.repository = repository
+        barcodeReviewService = NutritionBarcodeReviewService(repository: repository)
+    }
 
     func load() async {
         do {
@@ -44,10 +48,24 @@ final class NutritionTimelineStore {
         }
     }
 
-    func log(food: FoodItem, serving: FoodServingDefinition, quantity: Double, slot: NutritionMealSlot) async {
+    func log(
+        food: FoodItem,
+        serving: FoodServingDefinition,
+        quantity: Double,
+        slot: NutritionMealSlot,
+        provenance: NutritionLogProvenance,
+        sourceReference: String?
+    ) async {
         do {
             try await repository.save(food)
-            try await repository.save(NutritionLogEntry(food: food, mealSlot: slot, quantity: quantity, serving: serving))
+            try await repository.save(NutritionLogEntry(
+                food: food,
+                mealSlot: slot,
+                quantity: quantity,
+                serving: serving,
+                provenance: provenance,
+                sourceReference: sourceReference
+            ))
             await load()
             LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
         } catch { errorMessage = "That meal could not be saved. Review the serving and try again." }
@@ -109,6 +127,22 @@ final class NutritionTimelineStore {
         catch { errorMessage = "The local food library could not be checked right now."; return nil }
     }
 
+    func review(barcode: String) async -> NutritionBarcodeReview? {
+        do {
+            return try await barcodeReviewService.review(barcode: barcode, scope: .localOnly)
+        } catch {
+            errorMessage = "That barcode could not be reviewed."
+            return nil
+        }
+    }
+
+    func selection(
+        from review: NutritionBarcodeReview,
+        resolution: NutritionBarcodeResolution
+    ) -> NutritionBarcodeSelection? {
+        barcodeReviewService.selection(from: review, resolution: resolution)
+    }
+
     var total: NutritionMacros { entries.reduce(.zero) { $0.adding($1.resolvedMacrosSnapshot) } }
 }
 
@@ -117,6 +151,9 @@ struct LifeBoardNutritionView: View {
     @State private var showsComposer = false
     @State private var pendingDeletion: NutritionLogEntry?
     @State private var scannedFood: FoodItem?
+    @State private var scannedProvenance: NutritionLogProvenance = .manual
+    @State private var scannedSourceReference: String?
+    @State private var barcodeReview: NutritionBarcodeReview?
     @State private var showsBarcodeScanner = false
     @State private var scanMessage: String?
     @State private var showsVoiceCapture = false
@@ -139,7 +176,26 @@ struct LifeBoardNutritionView: View {
         .task { await store.load() }
         .refreshable { await store.load() }
         .sheet(isPresented: $showsComposer) {
-            NutritionLogComposer(prefilledFood: scannedFood, prefilledName: voiceFoodName, onSave: logMeal)
+            NutritionLogComposer(
+                prefilledFood: scannedFood,
+                prefilledName: voiceFoodName,
+                provenance: scannedProvenance,
+                sourceReference: scannedSourceReference,
+                onSave: logMeal
+            )
+        }
+        .sheet(item: $barcodeReview) { review in
+            NutritionBarcodeReviewSheet(review: review) { resolution in
+                guard let selection = store.selection(from: review, resolution: resolution) else {
+                    barcodeReview = nil
+                    return
+                }
+                scannedFood = selection.food
+                scannedProvenance = selection.provenance
+                scannedSourceReference = selection.sourceReference
+                barcodeReview = nil
+                showsComposer = true
+            }
         }
         .sheet(isPresented: $showsVoiceCapture) {
             voiceCaptureSheet
@@ -178,6 +234,8 @@ struct LifeBoardNutritionView: View {
             Button("Log by voice", systemImage: "waveform") { showsVoiceCapture = true }
             Button("Log meal", systemImage: "plus") {
                 scannedFood = nil
+                scannedProvenance = .manual
+                scannedSourceReference = nil
                 voiceFoodName = nil
                 showsComposer = true
             }
@@ -192,9 +250,23 @@ struct LifeBoardNutritionView: View {
         showsBarcodeScanner = true
     }
 
-    private func logMeal(food: FoodItem, serving: FoodServingDefinition, quantity: Double, slot: NutritionMealSlot) {
+    private func logMeal(
+        food: FoodItem,
+        serving: FoodServingDefinition,
+        quantity: Double,
+        slot: NutritionMealSlot,
+        provenance: NutritionLogProvenance,
+        sourceReference: String?
+    ) {
         Task {
-            await store.log(food: food, serving: serving, quantity: quantity, slot: slot)
+            await store.log(
+                food: food,
+                serving: serving,
+                quantity: quantity,
+                slot: slot,
+                provenance: provenance,
+                sourceReference: sourceReference
+            )
             await LifeBoardHealthRuntime.shared.jitCoordinator.offerConnectAfterReward(
                 leadDomain: .nutrition,
                 trigger: "nutrition_log_meal"
@@ -213,13 +285,14 @@ struct LifeBoardNutritionView: View {
         case .success(let barcode):
             Task {
                 guard await scanDeduplicator.shouldAccept(barcode: barcode) else { return }
-                if let food = await store.food(barcode: barcode) {
-                    scannedFood = food
-                    showsComposer = true
-                } else {
+                guard let review = await store.review(barcode: barcode) else { return }
+                switch review.kind {
+                case .noMatchRemoteDisabled:
                     // Remote lookup stays an explicit future opt-in; today the
                     // library is local-first only, and we say so plainly.
                     scanMessage = "No local match. You can enter the food manually; online lookup is currently off."
+                case .local, .remote, .duplicate:
+                    barcodeReview = review
                 }
             }
         case .failure(let error):
@@ -265,6 +338,8 @@ struct LifeBoardNutritionView: View {
             guard trimmed.isEmpty == false else { return false }
             voiceFoodName = trimmed
             scannedFood = nil
+            scannedProvenance = .manual
+            scannedSourceReference = nil
             showsVoiceCapture = false
             showsComposer = true
             return true
@@ -288,7 +363,9 @@ struct LifeBoardNutritionView: View {
             Button {
                 store.dismissUndo()
             } label: {
-                Image(systemName: "xmark").font(.caption2.weight(.bold)).frame(width: 32, height: 32)
+                Image(systemName: "xmark")
+                    .font(.caption2.weight(.bold))
+                    .frame(width: 44, height: 44)
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Dismiss undo")
@@ -348,6 +425,100 @@ struct LifeBoardNutritionView: View {
         }
     }
 
+}
+
+private struct NutritionBarcodeReviewSheet: View {
+    let review: NutritionBarcodeReview
+    let onResolve: (NutritionBarcodeResolution) -> Void
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    LabeledContent("Barcode", value: review.barcode)
+                    LabeledContent(
+                        "Online lookup",
+                        value: review.remoteLookupWasExplicit ? "Explicitly requested" : "Off"
+                    )
+                }
+                switch review.kind {
+                case .local(let food):
+                    Section("Local match") {
+                        foodRow(food, provenance: "Saved in your LifeBoard library")
+                        Button("Use local match") {
+                            onResolve(.useLocal)
+                            dismiss()
+                        }
+                        .frame(minHeight: 44)
+                    }
+                case .remote(let food):
+                    Section("Online match") {
+                        foodRow(food, provenance: "Returned by the named online source")
+                        Button("Use online match") {
+                            onResolve(.useRemote)
+                            dismiss()
+                        }
+                        .frame(minHeight: 44)
+                    }
+                case .duplicate(let local, let remote):
+                    Section("Saved locally") {
+                        foodRow(local, provenance: "Your existing library value")
+                        Button("Use saved value") {
+                            onResolve(.useLocal)
+                            dismiss()
+                        }
+                        .frame(minHeight: 44)
+                    }
+                    Section("Online candidate") {
+                        foodRow(remote, provenance: remote.externalReference ?? "Online source")
+                        Button("Use online candidate") {
+                            onResolve(.useRemote)
+                            dismiss()
+                        }
+                        .frame(minHeight: 44)
+                    }
+                    Section {
+                        Text("Nothing is merged or replaced automatically. Review the name, brand, serving, and nutrition values before choosing.")
+                            .font(.caption)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
+                case .noMatchRemoteDisabled:
+                    ContentUnavailableView(
+                        "No local match",
+                        systemImage: "barcode",
+                        description: Text("Online lookup is off. You can enter this food manually.")
+                    )
+                }
+            }
+            .navigationTitle("Review barcode")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        onResolve(.cancel)
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func foodRow(_ food: FoodItem, provenance: String) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(food.name).font(.headline)
+            if let brand = food.brand { Text(brand).font(.subheadline) }
+            Text(provenance)
+                .font(.caption)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            Text(
+                "\(food.macrosPer100Grams.calories.formatted()) kcal · "
+                    + "\(food.macrosPer100Grams.proteinGrams.formatted()) g protein per 100 g"
+            )
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+        }
+        .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+    }
 }
 
 private struct NutritionMealSectionView: View {
@@ -423,7 +594,17 @@ private struct NutritionMealSectionView: View {
 }
 
 private struct NutritionLogComposer: View {
-    let onSave: (FoodItem, FoodServingDefinition, Double, NutritionMealSlot) -> Void
+    let onSave: (
+        FoodItem,
+        FoodServingDefinition,
+        Double,
+        NutritionMealSlot,
+        NutritionLogProvenance,
+        String?
+    ) -> Void
+    private let prefilledFood: FoodItem?
+    private let provenance: NutritionLogProvenance
+    private let sourceReference: String?
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var calories = ""
@@ -438,8 +619,20 @@ private struct NutritionLogComposer: View {
     init(
         prefilledFood: FoodItem? = nil,
         prefilledName: String? = nil,
-        onSave: @escaping (FoodItem, FoodServingDefinition, Double, NutritionMealSlot) -> Void
+        provenance: NutritionLogProvenance = .manual,
+        sourceReference: String? = nil,
+        onSave: @escaping (
+            FoodItem,
+            FoodServingDefinition,
+            Double,
+            NutritionMealSlot,
+            NutritionLogProvenance,
+            String?
+        ) -> Void
     ) {
+        self.prefilledFood = prefilledFood
+        self.provenance = provenance
+        self.sourceReference = sourceReference
         self.onSave = onSave
         _name = State(initialValue: prefilledFood?.name ?? prefilledName ?? "")
         _calories = State(initialValue: prefilledFood.map { String($0.macrosPer100Grams.calories) } ?? "")
@@ -453,6 +646,19 @@ private struct NutritionLogComposer: View {
         NavigationStack {
             Form {
                 Section("Food") { TextField("Name", text: $name); Picker("Meal", selection: $slot) { ForEach(NutritionMealSlot.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } } }
+                if provenance == .barcodeLocal || provenance == .barcodeRemote {
+                    Section("Source") {
+                        Label(
+                            provenance == .barcodeLocal ? "Saved local barcode match" : "Explicit online barcode match",
+                            systemImage: provenance == .barcodeLocal ? "internaldrive" : "network"
+                        )
+                        if let sourceReference {
+                            Text(sourceReference)
+                                .font(.caption)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                    }
+                }
                 Section("Per 100 grams") {
                     TextField("Calories", text: $calories).keyboardType(.decimalPad)
                     TextField("Protein (g)", text: $protein).keyboardType(.decimalPad)
@@ -481,8 +687,21 @@ private struct NutritionLogComposer: View {
                 carbohydrateGrams: try number(carbohydrates), fatGrams: try number(fat)
             )
             let serving = try FoodServingDefinition(name: "serving", grams: try number(servingGrams))
-            let food = try FoodItem(name: name, macrosPer100Grams: macros, servings: [serving])
-            onSave(food, serving, quantity, slot); dismiss()
+            let food = try FoodItem(
+                id: prefilledFood?.id ?? UUID(),
+                name: name,
+                brand: prefilledFood?.brand,
+                barcode: prefilledFood?.barcode,
+                macrosPer100Grams: macros,
+                servings: [serving],
+                source: prefilledFood?.source ?? .userCreated,
+                externalReference: prefilledFood?.externalReference,
+                isFavorite: prefilledFood?.isFavorite ?? false,
+                createdAt: prefilledFood?.createdAt ?? Date(),
+                updatedAt: Date()
+            )
+            onSave(food, serving, quantity, slot, provenance, sourceReference)
+            dismiss()
         } catch { errorMessage = "Check the name, macros, and serving before logging." }
     }
 
@@ -500,29 +719,68 @@ final class WellnessHistoryStore {
     /// workouts, and trends".
     private(set) var workouts: [WorkoutRecord] = []
     private(set) var sleepNotes: [SleepNote] = []
+    private(set) var state: WellnessDataState = .notRequested
+    private(set) var conflicts: [WellnessSourceConflict] = []
+    private(set) var preferences: WellnessDisplayPreferences
     var errorMessage: String?
     let repository: any WellnessRepository
-    init(repository: any WellnessRepository) { self.repository = repository }
+    let preferenceStore: any WellnessPreferenceStore
+    init(
+        repository: any WellnessRepository,
+        preferenceStore: any WellnessPreferenceStore = UserDefaultsWellnessPreferenceStore()
+    ) {
+        self.repository = repository
+        self.preferenceStore = preferenceStore
+        preferences = preferenceStore.load()
+    }
     func load(kind: BodyMetricKind) async {
+        state = .loading
         do {
             samples = try await repository.bodyMetricSamples(kind: kind)
             workouts = try await repository.workoutRecords()
             sleepNotes = try await repository.sleepNotes()
+            conflicts = WellnessSourceConflictDetector().conflicts(in: samples)
             errorMessage = nil
+            state = samples.isEmpty && workouts.isEmpty && sleepNotes.isEmpty
+                ? .noSamples
+                : .fresh(lastSyncAt: Date())
         } catch {
             errorMessage = "Wellness history is unavailable right now."
+            state = .failed(message: errorMessage ?? "Wellness history is unavailable right now.")
         }
     }
     func save(_ sample: BodyMetricSample, kind: BodyMetricKind) async { do { try await repository.save(sample); await load(kind: kind); LifeBoardSystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = "That measurement could not be saved." } }
     func delete(_ sample: BodyMetricSample, kind: BodyMetricKind) async { do { try await repository.delete(kind: .bodyMetric, id: sample.id); await load(kind: kind); LifeBoardSystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = "That measurement could not be removed." } }
+
+    func savePreferences(_ value: WellnessDisplayPreferences) {
+        var normalized = value
+        normalized.updatedAt = Date()
+        preferences = normalized
+        preferenceStore.save(normalized)
+    }
+
+    func prefer(sampleID: UUID, for conflictID: String) {
+        var updated = preferences
+        updated.preferredSampleIDsByConflict[conflictID] = sampleID
+        savePreferences(updated)
+    }
 }
 
 struct LifeBoardWellnessView: View {
     @State private var store: WellnessHistoryStore
     @State private var kind: BodyMetricKind = .bodyMass
     @State private var showsCapture = false
+    @State private var showsCustomization = false
     @State private var searchText = ""
-    init(repository: any WellnessRepository) { _store = State(initialValue: WellnessHistoryStore(repository: repository)) }
+    init(
+        repository: any WellnessRepository,
+        preferenceStore: any WellnessPreferenceStore = UserDefaultsWellnessPreferenceStore()
+    ) {
+        _store = State(initialValue: WellnessHistoryStore(
+            repository: repository,
+            preferenceStore: preferenceStore
+        ))
+    }
 
     private var todaySamples: [BodyMetricSample] {
         store.samples.filter { Calendar.current.isDateInToday($0.observedAt) }
@@ -540,9 +798,21 @@ struct LifeBoardWellnessView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Picker("Metric", selection: $kind) { ForEach(BodyMetricKind.allCases, id: \.self) { Text($0.title).tag($0) } }.pickerStyle(.segmented)
+                Picker("Metric", selection: $kind) {
+                    ForEach(enabledMetrics, id: \.self) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
                 todayCard
-                if store.samples.isEmpty {
+                if case let .failed(message) = store.state {
+                    ContentUnavailableView(
+                        "Wellness is unavailable",
+                        systemImage: "exclamationmark.triangle",
+                        description: Text(message)
+                    )
+                } else if store.state == .loading {
+                    ProgressView("Loading wellness history")
+                        .frame(maxWidth: .infinity, minHeight: 140)
+                } else if store.samples.isEmpty {
                     ContentUnavailableView(
                         "No \(kind.title.lowercased()) entries",
                         systemImage: "waveform.path.ecg",
@@ -553,6 +823,7 @@ struct LifeBoardWellnessView: View {
                 } else {
                     wellnessChart
                 }
+                sourceConflictsSection
                 VStack(alignment: .leading, spacing: 10) {
                     Text("History").font(LifeBoardFoundationTypography.sectionTitle())
                     if filteredSamples.isEmpty, searchText.isEmpty == false {
@@ -566,11 +837,16 @@ struct LifeBoardWellnessView: View {
                                 if sample.source == .healthKit {
                                     Text("From Health").font(.caption2).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                                 }
+                                if let note = sample.note {
+                                    Text(note).font(.caption2).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                }
                             }
                             Spacer(); Text(display(sample)).monospacedDigit()
                             Menu { Button("Delete", role: .destructive) { Task { await store.delete(sample, kind: kind) } } } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }
                         }
-                        .padding(12).lifeBoardClaySurface(.raised, cornerRadius: 16)
+                        .frame(minHeight: 44)
+                        .padding(.vertical, 8)
+                        .overlay(alignment: .bottom) { Divider() }
                     }
                 }.accessibilityElement(children: .contain).accessibilityLabel("\(kind.title) history table")
 
@@ -581,9 +857,22 @@ struct LifeBoardWellnessView: View {
         .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
         .navigationTitle("Wellness")
         .searchable(text: $searchText, prompt: "Search values or dates")
-        .toolbar { Button("Add value", systemImage: "plus") { showsCapture = true } }
+        .toolbar {
+            ToolbarItemGroup(placement: .primaryAction) {
+                Button("Customize", systemImage: "slider.horizontal.3") { showsCustomization = true }
+                Button("Add value", systemImage: "plus") { showsCapture = true }
+            }
+        }
         .task(id: kind) { await store.load(kind: kind) }
         .sheet(isPresented: $showsCapture) { WellnessMetricCapture(kind: kind) { value in Task { await store.save(value, kind: kind); await LifeBoardHealthRuntime.shared.jitCoordinator.offerConnectAfterReward(leadDomain: .body, trigger: "wellness_body_metric") } } }
+        .sheet(isPresented: $showsCustomization) {
+            WellnessCustomizationView(preferences: store.preferences) { updated in
+                store.savePreferences(updated)
+                if !enabledMetrics.contains(kind), let first = enabledMetrics.first {
+                    kind = first
+                }
+            }
+        }
     }
 
     /// `WorkoutRecord` has existed in the model with no UI at all.
@@ -609,11 +898,16 @@ struct LifeBoardWellnessView: View {
                             Text(workout.startedAt.formatted(date: .abbreviated, time: .shortened))
                                 .font(.caption2)
                                 .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            if let note = workout.note {
+                                Text(note).font(.caption2).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
                         }
                         Spacer()
                         Text(Self.durationLabel(workout.duration)).monospacedDigit()
                     }
-                    .padding(12).lifeBoardClaySurface(.raised, cornerRadius: 16)
+                    .frame(minHeight: 44)
+                    .padding(.vertical, 8)
+                    .overlay(alignment: .bottom) { Divider() }
                 }
             }
             .accessibilityElement(children: .contain)
@@ -645,6 +939,9 @@ struct LifeBoardWellnessView: View {
                             Text(note.startedAt.formatted(date: .abbreviated, time: .shortened))
                                 .font(.caption2)
                                 .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            if let annotation = note.note {
+                                Text(annotation).font(.caption2).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
                         }
                         Spacer()
                         if let quality = note.quality {
@@ -653,7 +950,9 @@ struct LifeBoardWellnessView: View {
                                 .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                         }
                     }
-                    .padding(12).lifeBoardClaySurface(.raised, cornerRadius: 16)
+                    .frame(minHeight: 44)
+                    .padding(.vertical, 8)
+                    .overlay(alignment: .bottom) { Divider() }
                 }
             }
             .accessibilityElement(children: .contain)
@@ -722,11 +1021,164 @@ struct LifeBoardWellnessView: View {
         .accessibilityValue(store.samples.isEmpty ? "No data" : "\(store.samples.count) entries. Latest \(display(store.samples[0])).")
     }
 
-    private func displayValue(_ sample: BodyMetricSample) -> Double {
-        (try? sample.value(in: sample.displayUnit)) ?? sample.normalizedValue
+    @ViewBuilder
+    private var sourceConflictsSection: some View {
+        if !store.conflicts.isEmpty {
+            VStack(alignment: .leading, spacing: 10) {
+                Text("Source review").font(LifeBoardFoundationTypography.sectionTitle())
+                Text("These readings arrived close together from different sources. Choosing one changes only the display; source history stays intact.")
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                ForEach(store.conflicts) { conflict in
+                    VStack(alignment: .leading, spacing: 8) {
+                        ForEach(conflict.samples) { sample in
+                            let isPreferred = conflict.preferredSample(using: store.preferences)?.id == sample.id
+                            Button {
+                                store.prefer(sampleID: sample.id, for: conflict.id)
+                            } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(display(sample))
+                                            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                                        Text("\(sourceLabel(sample.source)) · \(sample.observedAt.formatted(date: .abbreviated, time: .shortened))")
+                                            .font(.caption)
+                                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    }
+                                    Spacer()
+                                    Image(systemName: isPreferred ? "checkmark.circle.fill" : "circle")
+                                        .foregroundStyle(isPreferred
+                                            ? Color(LifeBoardColorTokens.foundationSageAccent)
+                                            : Color(LifeBoardColorTokens.inkTertiary))
+                                }
+                                .frame(minHeight: 44)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("\(display(sample)), \(sourceLabel(sample.source))")
+                            .accessibilityValue(isPreferred ? "Preferred display reading" : "Not preferred")
+                        }
+                    }
+                    .padding(.vertical, 8)
+                    .overlay(alignment: .bottom) { Divider() }
+                }
+            }
+        }
     }
 
-    private func display(_ sample: BodyMetricSample) -> String { let value = displayValue(sample); return "\(value.formatted(.number.precision(.fractionLength(0...1)))) \(sample.displayUnit.symbol)" }
+    private var enabledMetrics: [BodyMetricKind] {
+        store.preferences.enabledMetrics.isEmpty ? BodyMetricKind.allCases : store.preferences.enabledMetrics
+    }
+
+    private func displayValue(_ sample: BodyMetricSample) -> Double {
+        (try? sample.value(in: store.preferences.preferredUnit(for: sample.kind))) ?? sample.normalizedValue
+    }
+
+    private func display(_ sample: BodyMetricSample) -> String {
+        let value = displayValue(sample)
+        let unit = store.preferences.preferredUnit(for: sample.kind)
+        return "\(value.formatted(.number.precision(.fractionLength(0...1)))) \(unit.symbol)"
+    }
+
+    private func sourceLabel(_ source: WellnessCaptureSource) -> String {
+        switch source {
+        case .manual: "Manual"
+        case .healthKit: "Health"
+        case .watch: "Watch"
+        case .imported: "Imported"
+        }
+    }
+}
+
+private struct WellnessCustomizationView: View {
+    @Environment(\.dismiss) private var dismiss
+    @State private var draft: WellnessDisplayPreferences
+    let save: (WellnessDisplayPreferences) -> Void
+
+    init(
+        preferences: WellnessDisplayPreferences,
+        save: @escaping (WellnessDisplayPreferences) -> Void
+    ) {
+        _draft = State(initialValue: preferences)
+        self.save = save
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    ForEach(draft.enabledMetrics, id: \.self) { kind in
+                        HStack {
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(kind.title)
+                                Text("Position \(displayOrder(for: kind))")
+                                    .font(.caption)
+                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
+                            Spacer()
+                            Picker("\(kind.title) unit", selection: unitBinding(for: kind)) {
+                                ForEach(WellnessDisplayPreferences.units(for: kind), id: \.self) { unit in
+                                    Text(unit.symbol).tag(unit)
+                                }
+                            }
+                            .labelsHidden()
+                            Button {
+                                draft.enabledMetrics.removeAll { $0 == kind }
+                            } label: {
+                                Image(systemName: "eye.slash")
+                                    .frame(width: 44, height: 44)
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Hide \(kind.title)")
+                        }
+                    }
+                    .onMove { source, destination in
+                        draft.enabledMetrics.move(fromOffsets: source, toOffset: destination)
+                    }
+                } header: {
+                    Text("Body dashboard")
+                } footer: {
+                    Text("Enabled metrics keep their order. Source readings and history are never deleted when a metric is hidden.")
+                }
+                if !hiddenMetrics.isEmpty {
+                    Section("Hidden metrics") {
+                        ForEach(hiddenMetrics, id: \.self) { kind in
+                            Button {
+                                draft.enabledMetrics.append(kind)
+                            } label: {
+                                Label("Show \(kind.title)", systemImage: "plus.circle")
+                                    .frame(minHeight: 44)
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Customize Wellness")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .topBarLeading) { EditButton() }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { save(draft); dismiss() }
+                        .disabled(draft.enabledMetrics.isEmpty)
+                }
+            }
+        }
+    }
+
+    private func unitBinding(for kind: BodyMetricKind) -> Binding<WellnessDisplayUnit> {
+        Binding(
+            get: { draft.preferredUnit(for: kind) },
+            set: { draft.preferredUnits[kind] = $0 }
+        )
+    }
+
+    private func displayOrder(for kind: BodyMetricKind) -> Int {
+        (draft.enabledMetrics.firstIndex(of: kind) ?? BodyMetricKind.allCases.firstIndex(of: kind) ?? 0) + 1
+    }
+
+    private var hiddenMetrics: [BodyMetricKind] {
+        BodyMetricKind.allCases.filter { !draft.enabledMetrics.contains($0) }
+    }
 }
 
 private struct WellnessMetricCapture: View {

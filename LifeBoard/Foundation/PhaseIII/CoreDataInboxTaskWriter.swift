@@ -58,12 +58,31 @@ public struct CoreDataInboxTaskWriter: InboxTaskWriting {
         let created: TaskDefinition = try await withCheckedThrowingContinuation { continuation in
             tasks.create(request: create) { continuation.resume(with: $0) }
         }
+        do {
+            try await replaceTagLinks(taskID: created.id, tagIDs: tagIDs)
+        } catch {
+            // The canonical definition row and its relationship sidecar are one
+            // visible mutation. Leaving a partially-created task behind would
+            // make retrying the capture create a duplicate.
+            try? await deleteTask(id: created.id)
+            throw error
+        }
         return created.id
     }
 
     public func deleteTask(id: UUID) async throws {
-        try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
-            tasks.delete(id: id) { continuation.resume(with: $0) }
+        let current = try await task(id: id)
+        try await replaceTagLinks(taskID: id, tagIDs: [])
+        do {
+            try await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<Void, Error>) in
+                tasks.delete(id: id) { continuation.resume(with: $0) }
+            }
+        } catch {
+            if let current {
+                try? await replaceTagLinks(taskID: current.id, tagIDs: current.tagIDs)
+            }
+            throw error
         }
     }
 
@@ -152,14 +171,41 @@ public struct CoreDataInboxTaskWriter: InboxTaskWriting {
         if let projectName = request.projectName {
             update.projectID = try await resolveProjectID(named: projectName)
         }
-        return try await withCheckedThrowingContinuation { continuation in
+        let updated: TaskDefinition = try await withCheckedThrowingContinuation { continuation in
             tasks.update(request: update) { continuation.resume(with: $0) }
+        }
+        do {
+            try await replaceTagLinks(taskID: id, tagIDs: updated.tagIDs)
+            return updated
+        } catch {
+            // A failed relationship write must not leak the already-updated
+            // definition. Restore both representations before surfacing the
+            // error so the queue can safely remain untouched.
+            _ = try? await withCheckedThrowingContinuation {
+                (continuation: CheckedContinuation<TaskDefinition, Error>) in
+                tasks.update(existing) { continuation.resume(with: $0) }
+            }
+            try? await replaceTagLinks(taskID: id, tagIDs: existing.tagIDs)
+            throw error
         }
     }
 
     public func restoreTask(_ snapshot: TaskDefinition) async throws {
+        let current = try await task(id: snapshot.id)
         let _: TaskDefinition = try await withCheckedThrowingContinuation { continuation in
             tasks.update(snapshot) { continuation.resume(with: $0) }
+        }
+        do {
+            try await replaceTagLinks(taskID: snapshot.id, tagIDs: snapshot.tagIDs)
+        } catch {
+            if let current {
+                _ = try? await withCheckedThrowingContinuation {
+                    (continuation: CheckedContinuation<TaskDefinition, Error>) in
+                    tasks.update(current) { continuation.resume(with: $0) }
+                }
+                try? await replaceTagLinks(taskID: current.id, tagIDs: current.tagIDs)
+            }
+            throw error
         }
     }
 
@@ -236,5 +282,15 @@ public struct CoreDataInboxTaskWriter: InboxTaskWriting {
             result.append(created.id)
         }
         return result
+    }
+
+    private func replaceTagLinks(taskID: UUID, tagIDs: [UUID]) async throws {
+        guard let taskTagLinks else { return }
+        try await withCheckedThrowingContinuation {
+            (continuation: CheckedContinuation<Void, Error>) in
+            taskTagLinks.replaceTagLinks(taskID: taskID, tagIDs: tagIDs) {
+                continuation.resume(with: $0)
+            }
+        }
     }
 }

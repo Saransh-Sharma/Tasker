@@ -30,8 +30,12 @@ final class TrackFoundationStore {
 
     let repository: any TrackFoundationRepository
     let phaseIIRepository: any LifeBoardPhaseIIRepository
+    private let trackerService: TrackerDefinitionService
+    private let medicationService: MedicationScheduleService
     private let routineService: any RoutineExecutionService
+    private let routineValidator: RoutineValidator
     private let goalService: any GoalProgressService
+    private let goalLifecycleService: GoalLifecycleService
     private let goalSampleProvider: (any GoalSampleProvider)?
     private let habitProjectionService: (any TrackHabitProjectionService)?
     private let habitGradeEngine: any HabitGradeEngine
@@ -55,8 +59,12 @@ final class TrackFoundationStore {
     ) {
         self.repository = repository
         self.phaseIIRepository = phaseIIRepository
+        trackerService = TrackerDefinitionService(repository: phaseIIRepository)
+        medicationService = MedicationScheduleService(repository: phaseIIRepository)
         self.routineService = routineService
+        routineValidator = RoutineValidator()
         self.goalService = goalService
+        goalLifecycleService = GoalLifecycleService(repository: repository)
         self.goalSampleProvider = goalSampleProvider
         self.habitProjectionService = habitProjectionService
         self.habitGradeEngine = habitGradeEngine
@@ -119,7 +127,9 @@ final class TrackFoundationStore {
                    Self.medicationWindowEnded(event, schedules: medicationSchedules, now: Date()) {
                     copy.status = .unresolved
                     copy.resolvedAt = nil
-                    try await phaseIIRepository.saveMedicationEvent(copy)
+                    if let medication = medications.first(where: { $0.id == copy.medicationID }) {
+                        try await medicationService.saveEvent(medication: medication, event: copy)
+                    }
                 }
                 unresolved.append(copy)
             }
@@ -186,7 +196,15 @@ final class TrackFoundationStore {
                 completeness: .complete,
                 generatedAt: Date()
             )
-            if let running = routineRuns.first(where: { $0.status == .running }) { activeRoutineRun = running }
+            if let recoverable = routineRuns.first(where: {
+                $0.status == .running || $0.status == .paused || $0.status == .interrupted
+            }) {
+                activeRoutineRun = recoverable
+                await RoutineLiveActivityCoordinator.shared.synchronize(run: recoverable)
+            } else {
+                activeRoutineRun = nil
+                await RoutineLiveActivityCoordinator.shared.endOrphanedActivities(except: nil)
+            }
             errorMessage = nil
         } catch { errorMessage = error.localizedDescription }
     }
@@ -252,10 +270,15 @@ final class TrackFoundationStore {
     }
 
     func resolveMedication(event: LifeBoardMedicationEventValue, status: LifeBoardMedicationEventStatus) async {
-        var value = event
-        value.status = status
-        value.resolvedAt = Date()
         do {
+            guard let medication = medications.first(where: { $0.id == event.medicationID }) else {
+                throw MedicationScheduleServiceError.eventOutsideActiveRange
+            }
+            let value = try await medicationService.resolve(
+                medication: medication,
+                event: event,
+                as: status
+            )
             try await applyCorrection(previous: .medication(event), corrected: .medication(value))
             await load()
         } catch { errorMessage = error.localizedDescription }
@@ -272,8 +295,16 @@ final class TrackFoundationStore {
             note: "Rescheduled from \(event.id.uuidString)"
         )
         do {
-            try await phaseIIRepository.saveMedicationEvent(original)
-            try await phaseIIRepository.saveMedicationEvent(replacement)
+            guard let medication = medications.first(where: { $0.id == event.medicationID }) else {
+                throw MedicationScheduleServiceError.eventOutsideActiveRange
+            }
+            try await medicationService.saveEvent(medication: medication, event: original)
+            do {
+                try await medicationService.saveEvent(medication: medication, event: replacement)
+            } catch {
+                try? await medicationService.saveEvent(medication: medication, event: event)
+                throw error
+            }
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
@@ -377,9 +408,14 @@ final class TrackFoundationStore {
 
     func startRoutine(_ routine: RoutineDefinition) async {
         let run = routineService.begin(routine, at: Date())
-        activeRoutineRun = run
-        do { try await repository.saveRoutineRun(run) }
-        catch { errorMessage = error.localizedDescription }
+        do {
+            try await repository.saveRoutineRun(run)
+            activeRoutineRun = run
+            await RoutineLiveActivityCoordinator.shared.synchronize(run: run)
+        } catch {
+            activeRoutineRun = nil
+            errorMessage = error.localizedDescription
+        }
     }
 
     func saveRoutineSchedule(_ schedule: RoutineSchedule) async {
@@ -423,6 +459,11 @@ final class TrackFoundationStore {
             createdAt: existing?.createdAt ?? Date(),
             updatedAt: Date()
         )
+        let validation = routineValidator.validate(routine)
+        guard validation.isValid else {
+            errorMessage = Self.routineValidationMessage(validation)
+            return
+        }
         do {
             try await repository.saveRoutine(routine)
             let existingSchedule = existing.flatMap { definition in
@@ -478,11 +519,36 @@ final class TrackFoundationStore {
     func advanceRoutine(response: String? = nil, skip: Bool = false) async {
         guard let activeRoutineRun else { return }
         let key = "\(activeRoutineRun.id.uuidString):\(activeRoutineRun.currentStepID?.uuidString ?? "end"):user"
-        let transition = routineService.advance(run: activeRoutineRun, response: response, skip: skip, idempotencyKey: key, at: Date())
+        let command: RoutineRunCommand = skip
+            ? .skip(reason: response ?? "Skipped by user", idempotencyKey: key)
+            : .advance(response: response, idempotencyKey: key)
+        await applyRoutineCommand(command)
+    }
+
+    func pauseRoutine() async {
+        await applyRoutineCommand(.pause)
+    }
+
+    func resumeRoutine() async {
+        await applyRoutineCommand(.resume)
+    }
+
+    func interruptRoutine() async {
+        await applyRoutineCommand(.interrupt)
+    }
+
+    private func applyRoutineCommand(_ command: RoutineRunCommand) async {
+        guard let activeRoutineRun else { return }
+        let transition = routineService.apply(command: command, to: activeRoutineRun, at: Date())
+        let idempotencyKey: String? = switch command {
+        case let .advance(_, key), let .skip(_, key): key
+        case .pause, .resume, .interrupt, .stop: nil
+        }
         do {
             if transition.didApplyEvent,
                let mutation = transition.linkedMutation,
-               let targetID = transition.linkedEntityID {
+               let targetID = transition.linkedEntityID,
+               let idempotencyKey {
                 guard let linkedMutationApplier else {
                     throw NSError(
                         domain: "TrackFoundationStore.Routine",
@@ -491,13 +557,13 @@ final class TrackFoundationStore {
                     )
                 }
                 let stepID = activeRoutineRun.currentStepID ?? transition.run.events.last?.stepID ?? UUID()
-                var receipt = try await repository.fetchRoutineLinkedMutationReceipt(idempotencyKey: key)
+                var receipt = try await repository.fetchRoutineLinkedMutationReceipt(idempotencyKey: idempotencyKey)
                     ?? RoutineLinkedMutationReceipt(
                         runID: activeRoutineRun.id,
                         stepID: stepID,
                         mutation: mutation,
                         targetID: targetID,
-                        idempotencyKey: key
+                        idempotencyKey: idempotencyKey
                     )
                 if receipt.status == .prepared {
                     try await repository.saveRoutineLinkedMutationReceipt(receipt)
@@ -513,18 +579,20 @@ final class TrackFoundationStore {
                 }
             }
             try await repository.saveRoutineRun(transition.run)
-            self.activeRoutineRun = transition.run.status == .running ? transition.run : nil
-            if transition.run.status != .running { UINotificationFeedbackGenerator().notificationOccurred(.success) }
+            await RoutineLiveActivityCoordinator.shared.synchronize(run: transition.run)
+            self.activeRoutineRun = switch transition.run.status {
+            case .running, .paused, .interrupted: transition.run
+            case .completed, .partial, .abandoned, .skipped: nil
+            }
+            if transition.run.status == .completed {
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+            }
             await load()
         } catch { errorMessage = error.localizedDescription }
     }
 
     func abandonRoutine() async {
-        guard let activeRoutineRun else { return }
-        let run = routineService.abandon(run: activeRoutineRun, at: Date())
-        self.activeRoutineRun = nil
-        do { try await repository.saveRoutineRun(run); await load() }
-        catch { errorMessage = error.localizedDescription }
+        await applyRoutineCommand(.stop)
     }
 
     func saveGoal(
@@ -533,33 +601,75 @@ final class TrackFoundationStore {
         type: GoalType,
         target: Double?,
         unit: String?,
-        targetDate: Date?
+        targetDate: Date?,
+        intent: GoalIntent? = nil,
+        baseline: Double? = nil,
+        confidence: GoalConfidence? = nil,
+        whyItMatters: String? = nil,
+        checkInCadence: GoalCheckInCadence? = nil
     ) async {
-        let normalizedUnit = unit?.trimmingCharacters(in: .whitespacesAndNewlines)
-        do {
-            try await repository.saveGoal(.init(
-                id: existing?.id ?? UUID(),
+        await saveGoal(
+            existing: existing,
+            draft: .init(
                 areaID: existing?.areaID,
-                title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+                title: title,
                 type: type,
+                intent: intent ?? existing?.effectiveIntent ?? .outcome,
                 targetValue: target,
-                unitLabel: normalizedUnit.flatMap { $0.isEmpty ? nil : $0 },
+                baselineValue: baseline ?? existing?.baselineValue,
+                unitLabel: unit,
                 targetDate: targetDate,
-                isArchived: existing?.isArchived ?? false,
-                createdAt: existing?.createdAt ?? Date(),
-                updatedAt: Date()
-            ))
+                confidence: confidence
+                    ?? existing?.confidenceRaw.flatMap(GoalConfidence.init(rawValue:)),
+                whyItMatters: whyItMatters ?? existing?.whyItMatters,
+                checkInCadence: checkInCadence
+                    ?? existing?.checkInCadenceRaw.flatMap(GoalCheckInCadence.init(rawValue:))
+                    ?? .weekly
+            )
+        )
+    }
+
+    func saveGoal(
+        existing: GoalDefinition? = nil,
+        draft: GoalDraft
+    ) async {
+        do {
+            _ = try await goalLifecycleService.save(
+                draft: draft,
+                existing: existing
+            )
             await load()
             LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
         } catch { errorMessage = error.localizedDescription }
     }
 
     func archiveGoal(_ goal: GoalDefinition) async {
-        var archived = goal
-        archived.isArchived = true
-        archived.updatedAt = Date()
         do {
-            try await repository.saveGoal(archived)
+            _ = try await goalLifecycleService.transition(goal, to: .archived, reason: "Archived by user")
+            await load()
+            LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
+        } catch { errorMessage = error.localizedDescription }
+    }
+
+    func transitionGoal(
+        _ goal: GoalDefinition,
+        to status: GoalStatus,
+        reason: String? = nil
+    ) async -> GoalTransitionReceipt? {
+        do {
+            let receipt = try await goalLifecycleService.transition(goal, to: status, reason: reason)
+            await load()
+            LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
+            return receipt
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+
+    func undoGoalTransition(_ receipt: GoalTransitionReceipt) async {
+        do {
+            _ = try await goalLifecycleService.undo(receipt)
             await load()
             LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
         } catch { errorMessage = error.localizedDescription }
@@ -731,8 +841,13 @@ final class TrackFoundationStore {
         case .hydration(let value): try await repository.saveHydrationLog(value)
         case .sleep(let value): try await repository.saveSleepContextRecord(value)
         case .mood(let value): try await phaseIIRepository.saveMoodCheckIn(value)
-        case .medication(let value): try await phaseIIRepository.saveMedicationEvent(value)
-        case .tracker(let value): try await phaseIIRepository.saveTrackerEntry(value)
+        case .medication(let value):
+            guard let medication = medications.first(where: { $0.id == value.medicationID }) else {
+                throw MedicationScheduleServiceError.eventOutsideActiveRange
+            }
+            try await medicationService.saveEvent(medication: medication, event: value)
+        case .tracker(let value):
+            try await trackerService.saveEntry(value)
         case .fasting(let value): try await phaseIIRepository.saveFastingSession(value)
         }
     }
@@ -740,6 +855,34 @@ final class TrackFoundationStore {
     private static func todayBounds() -> (start: Date, end: Date) {
         let start = Calendar.current.startOfDay(for: Date())
         return (start, Calendar.current.date(byAdding: .day, value: 1, to: start) ?? start.addingTimeInterval(86_400))
+    }
+
+    private static func routineValidationMessage(_ report: RoutineValidationReport) -> String {
+        guard let first = report.issues.first else { return "This routine is ready." }
+        return switch first {
+        case .noSteps:
+            "Add at least one step."
+        case .emptyTitle:
+            "Every routine step needs a title."
+        case .duplicateStepID:
+            "Two steps share the same identity. Recreate one of them."
+        case .duplicateOrdinal:
+            "Two steps occupy the same position. Reorder the routine and try again."
+        case .invalidChoice:
+            "Choice labels must be unique, non-empty, and match their branch rules."
+        case .branchSourceMismatch:
+            "A branch is attached to the wrong source step."
+        case .missingBranchDestination:
+            "A branch points to a step that no longer exists."
+        case .unreachableStep:
+            "A step cannot be reached from the start of this routine."
+        case .loop:
+            "This routine contains a loop. Choose a forward destination."
+        case .missingLinkedEntity:
+            "A linked step needs a task or habit."
+        case .linkedEntityUnavailable:
+            "A linked task or habit is no longer available."
+        }
     }
 
     private static func medicationWindowEnded(
@@ -998,3 +1141,126 @@ final class TrackFoundationStore {
         return (context, events)
     }
 }
+
+enum RoutineLiveActivityAction: String, Codable, Hashable, Sendable {
+    case pause
+    case resume
+    case stop
+
+    var runCommand: RoutineRunCommand {
+        switch self {
+        case .pause: .pause
+        case .resume: .resume
+        case .stop: .stop
+        }
+    }
+}
+
+struct RoutineLiveActivityCommand: Codable, Hashable, Sendable {
+    var id: UUID
+    var runID: UUID
+    var action: RoutineLiveActivityAction
+}
+
+#if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
+import ActivityKit
+import OSLog
+
+actor RoutineLiveActivityCoordinator {
+    static let shared = RoutineLiveActivityCoordinator()
+    private let logger = Logger(
+        subsystem: "com.saransh1337.To-Do-List",
+        category: "RoutineLiveActivity"
+    )
+
+    @discardableResult
+    func synchronize(run: RoutineRun) async -> Bool {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return false }
+        let state = contentState(for: run)
+        let content = ActivityContent(state: state, staleDate: nil)
+        let existing = Activity<LifeBoardRoutineActivityAttributes>.activities.first {
+            $0.attributes.runID == run.id
+        }
+        let isTerminal = switch run.status {
+        case .completed, .partial, .abandoned, .skipped: true
+        case .running, .paused, .interrupted: false
+        }
+        if isTerminal {
+            if let existing {
+                await existing.end(content, dismissalPolicy: .immediate)
+            }
+            return true
+        }
+        if let existing {
+            await existing.update(content)
+            return true
+        }
+        do {
+            _ = try Activity.request(
+                attributes: LifeBoardRoutineActivityAttributes(
+                    runID: run.id,
+                    routineID: run.routineID,
+                    title: run.versionSnapshot.title
+                ),
+                content: content,
+                pushType: nil
+            )
+            return true
+        } catch {
+            logger.error(
+                "Live Activity start failed; canonical routine state is unchanged: \(String(describing: error), privacy: .public)"
+            )
+            return false
+        }
+    }
+
+    func endOrphanedActivities(except runID: UUID?) async {
+        for activity in Activity<LifeBoardRoutineActivityAttributes>.activities
+        where activity.attributes.runID != runID {
+            await activity.end(nil, dismissalPolicy: .immediate)
+        }
+    }
+
+    private func contentState(
+        for run: RoutineRun
+    ) -> LifeBoardRoutineActivityAttributes.ContentState {
+        let currentTitle = run.currentStepID.flatMap { currentID in
+            run.versionSnapshot.steps.first(where: { $0.id == currentID })?.title
+        } ?? "Review complete"
+        return .init(
+            status: run.status.rawValue,
+            stepTitle: currentTitle,
+            completedStepCount: run.events.count,
+            totalStepCount: run.versionSnapshot.steps.count,
+            updatedAt: run.updatedAt
+        )
+    }
+}
+
+enum RoutineLiveActivityDeepLink {
+    static func command(from url: URL) -> RoutineLiveActivityCommand? {
+        guard
+            url.scheme?.lowercased() == "lifeboard",
+            url.host?.lowercased() == "routine",
+            let runID = url.pathComponents.last.flatMap(UUID.init(uuidString:)),
+            let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+            let rawAction = components.queryItems?.first(where: { $0.name == "command" })?.value,
+            let action = RoutineLiveActivityAction(rawValue: rawAction),
+            let token = components.queryItems?.first(where: { $0.name == "token" })?.value
+                .flatMap(UUID.init(uuidString:))
+        else { return nil }
+        return RoutineLiveActivityCommand(id: token, runID: runID, action: action)
+    }
+}
+#else
+actor RoutineLiveActivityCoordinator {
+    static let shared = RoutineLiveActivityCoordinator()
+    @discardableResult
+    func synchronize(run: RoutineRun) async -> Bool { false }
+    func endOrphanedActivities(except runID: UUID?) async {}
+}
+
+enum RoutineLiveActivityDeepLink {
+    static func command(from url: URL) -> RoutineLiveActivityCommand? { nil }
+}
+#endif
