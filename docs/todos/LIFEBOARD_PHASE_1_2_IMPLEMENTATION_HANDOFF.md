@@ -5,6 +5,56 @@
 This ledger supersedes the older point-in-time counts below while preserving
 their design and migration warnings.
 
+### 2026-07-30 UI/UX completion addendum
+
+The Phase 1/2 UI/UX overhaul is implemented. Its canonical detailed record is
+[`LIFEBOARD_UI_UX_OVERHAUL_HANDOFF.md`](LIFEBOARD_UI_UX_OVERHAUL_HANDOFF.md).
+The following decisions and contracts supersede older “remaining UI work”
+statements later in this document:
+
+| Area | Final state |
+|---|---|
+| Home capture | One shared Life Thread composer; no duplicate header capture |
+| Home defaults | Tasks, care, routines, journal, progress/reflection |
+| Home customization | Transactional mode; dock/composer hidden; one Cancel/Done bar |
+| Plan | Scheduled-row entrance, rolling capacity value, canonical task zoom |
+| Focus | Presentation-only dial, one primary Pause/Resume action, receipt-driven outcomes |
+| Track | Intrinsic AX header, one-column accessibility layout, reachable hydration/resilience |
+| Track editors | Bottom safe-area commit controls driven by awaited store mutations |
+| Habit | Central lens motion and bounded first-data/material-range chart reveal |
+| Routine | One non-interactively-dismissible full-screen runner with explicit abandonment |
+| Signature effects | 17 exact Swift/Metal functions, including `triageSettle` |
+| Automation | Feature-qualified identifiers and deterministic UI-test-only Home seed |
+
+The final UI/UX verification record on the documented working tree is:
+
+- five targeted Foundation UI journeys pass together;
+- Focus dial progress mapping and exact shader-registry tests pass;
+- target membership, token-law, premium UI, Phase 1 foundation, and no-print
+  guardrails pass;
+- `git diff --check` passes;
+- iPhone 17 Pro, iPad A16 on iOS 26.5, and Mac Catalyst builds pass.
+
+Known non-blocking output remains the existing HealthKit `dance` deprecation,
+Catalyst Metal-toolchain search-path warnings, test-target Core Data concurrency
+warnings, and occasional Xcode LLDB version-store diagnostics during UI test
+launch. New warnings must still be investigated.
+
+This completion record does not claim that every release-only manual/device gate
+has been executed. VoiceOver rotor/order, right-to-left layout, the complete
+light/dark accessibility matrix, device haptics, lifecycle termination, and
+Instruments profiling remain recommended promotion evidence.
+
+- [x] 2026-07-30 UI-suite correction: the historical “suite is green” statement
+  referred to the Swift/unit gate, not the Foundation XCUITest suite. Five
+  targeted UI tests were still failing: four contained stale product
+  assumptions and one exposed an AX XXXL Track layout defect. The tests now use
+  the single Home composer, stable Add-to-Home/widget/lens identifiers, canonical
+  Home defaults, independent navigation, and the Areas lens. Track now collapses
+  to one column at accessibility sizes, uses an intrinsic header, reserves
+  floating-chrome space, and keeps hydration and resilience controls reachable.
+  Do not restore a second Home header capture button or treat the historical UI
+  suite as previously verified.
 - [x] Phase 1 and Phase 2 implementation scope is code-complete across the
   canonical app routes, persistence/services, rollback composition, widgets,
   Watch command transport, and fasting/routine Live Activities. The unchecked
@@ -375,14 +425,18 @@ pass.
 
 ## 1. Read this first
 
-### The suite is green and the baseline is empty. That means something.
+### The Swift/unit suite was green; the UI suite had a separate stale baseline.
 
 ```
 LifeBoardTests: 1917 executed, 3 skipped, 0 failures
 scripts/lifeboard-test-failure-baseline.txt: 0 bytes
 ```
 
-All four guardrail scripts pass. Both destinations build. **Any failure you see is one you introduced.** Do not add entries to the baseline. The previous 51 baseline entries were all investigated and *not one was a flake* — eight were user-visible defects.
+The recorded Swift/unit gate and guardrails passed at that point, but this did not
+establish that the Foundation XCUITest suite was green. Five targeted UI failures
+were later reproduced: four stale expectations and one real AX XXXL Track defect.
+Those contracts and layouts were repaired in the 2026-07-30 UI overhaul. Keep the
+failure baseline empty; investigate new failures rather than normalizing them.
 
 ### Two status documents disagreed; this one is the resolution
 
@@ -515,9 +569,13 @@ Currently promoted **on**: `trust_closure_v1`, `daily_loop_v1`, `task_project_fl
 
 ---
 
-## 7. Phase 1 — Flagship Daily Execution Loop
+## 7. Phase 1 — Historical 2026-07-28 gap analysis
 
-### 7.1 Capture and Inbox — 4 of 5 done
+This section preserves the investigation that informed later implementation.
+Its “Done,” “Missing,” and “Next” labels are point-in-time notes, not the current
+status. The completion ledger above and the final UI/UX handoff supersede them.
+
+### 7.1 Capture and Inbox — historical status
 
 **Done:** contracts (`InboxTriageContracts.swift`), `LifeBoardInboxView` mounted as the *first* Plan lens, raw-text capture from Siri/widget/Control Center, extended parser, `InboxCommitCoordinator`, `CoreDataInboxTaskWriter`.
 
@@ -536,7 +594,7 @@ Currently promoted **on**: `trust_closure_v1`, `daily_loop_v1`, `task_project_fl
 
 **(d) Provisional drafts surviving interruption.** Local-only until applied; store in the App Group `PendingCapture` queue with a `provisional` marker rather than inventing storage.
 
-### 7.2 Tasks and Projects — contracts exist, consumers do not
+### 7.2 Tasks and Projects — historical status
 
 This is the largest single item. `TaskExecutionContracts.swift` is complete and unwired.
 
@@ -548,7 +606,7 @@ This is the largest single item. `TaskExecutionContracts.swift` is complete and 
 - Batch schedule/tag/move/defer/complete/archive/delete — reuse `InboxTriageMutation.batch`, which already inverts correctly (last write unwinds first, all-or-nothing).
 - `TaskBreakdownService` must emit **proposals**, never mutations.
 
-### 7.3 Plan, Calendar, Capacity — mostly built
+### 7.3 Plan, Calendar, Capacity — historical status
 
 **Already good:** four `PlanLens` cases; `PlanDayTimeCanvas` (:1641) with hour grid, free-window drop targets, lane resolution, overlap clustering; `PlanBlockSnapResolver` (:313) with a real dual grid (5 min fine / 15 min coarse, switching at 30 min of travel); the four-direction Plan Repair deck (:1059) with accessibility actions; the capacity card (:548) → `PlanWorkingHoursComposer` (:2350).
 
@@ -560,7 +618,13 @@ This is the largest single item. `TaskExecutionContracts.swift` is complete and 
 - **Surface `EstimateCalibrationSuggestion`** (`PlanningCoreModels.swift:622`, service `PlanningCoreServices.swift:379`), fed by completed focus sessions.
 - Calendar freshness/permission/offline states via `PlanningCalendarAuthorization`. External events stay **read-only** and visually distinct.
 
-### 7.4 Focus — works end to end, needs depth
+### 7.4 Focus — historical gap list; UI depth is now implemented
+
+Current UI update: Focus now has a presentation-only dial, one primary
+Pause/Resume action, a secondary command menu, receipt-driven end outcomes, and
+receipt-driven reflection. The dial’s elapsed mapping is unit-tested. A failed
+end command cannot mark the companion completed. The legacy-stack convergence
+warning below remains architecturally relevant.
 
 **Already wired:** `FocusSessionV2` (:714), `FocusSessionCommand` (:774), `PlanStore.startFocus/pause/resume/end` → `FocusLiveActivityCoordinator.shared.synchronize`, orphan cleanup on load, session restore (`SceneDelegate.swift:497`), `activeFocusCard` (:734), `LifeBoardWidgets/FocusLiveActivityWidget.swift`.
 
@@ -572,7 +636,13 @@ This is the largest single item. `TaskExecutionContracts.swift` is complete and 
 
 ⚠️ `FocusLiveActivityCoordinator` declares the same actor **twice** (:89 and :166) under mutually exclusive availability branches. Verify both compile paths before extending.
 
-### 7.5 Adaptive Home — decision quality only, do not add cards
+### 7.5 Adaptive Home — historical gap list
+
+Current UI update: production defaults remain curated, global chrome yields
+during transactional customization, widget controls have stable identifiers,
+and the UI-test workspace can seed one deterministic user-space widget without
+changing production defaults. The semantic-dedup and decision-quality guidance
+below remains valid.
 
 **Already present:** `HomeContextDisposition` with all five cases (`LifeOSFoundationContracts.swift:447`); "Why this?" rendering reason + signal (`LifeBoardFoundationGallery.swift:1186`); the four disposition actions (:1189-1201); `DashboardModePolicy`; the candidate-cap contract test (`LifeOSFoundationTests.swift:3089`).
 
@@ -588,7 +658,12 @@ This is the largest single item. `TaskExecutionContracts.swift` is complete and 
 
 ---
 
-## 8. Phase 2 — Behaviour, Goals, Personal Care
+## 8. Phase 2 — Historical 2026-07-28 gap analysis
+
+This section is retained for domain-model rationale and constraints. The
+completion ledger records the later native implementations. Treat “Add” and
+“Missing” language as historical unless it also appears in the current release
+ledger.
 
 New flag `trackBehaviorFlagshipV1Enabled`, `promotedDefaults` entry `false`, flipped at stage exit.
 
@@ -625,13 +700,19 @@ Engine, immutable version snapshots (`RoutineDefinition.version`), run history, 
 
 Add: a real visual builder incl. branches and optional steps; the template set (morning, evening, work-start, shutdown, workout, care, custom); full-screen guided mode + Live Activity + Watch controls; pause / resume / skip-with-reason / stop / recover-interrupted-run; **linked-action exactly-once** (the receipt entity exists, so idempotency is a named test, not new storage); routine review.
 
+Current UI update: both runner entry points now use one full-screen route with
+interactive dismissal disabled. Running, paused, and interrupted states expose
+explicit End; abandonment is confirmed through the canonical mutation;
+Continue/Resume is primary; step transitions crossfade under Reduce Motion; and
+the runner uses persisted active-run state.
+
 ### 8.4 Goals
 
 `GoalType` is `completion / count / quantity / duration / targetDate`; the roadmap wants outcome / maintenance / milestone / cumulative / directional. **These are measurement shapes vs intent shapes — add the intent axis as a new field. Do not rewrite `typeRaw`; it would break every persisted row.**
 
 `GoalLinkSource` already covers project/task/habit/routine/trackerMeasure. Add baseline, confidence, why-it-matters, check-in cadence, status history, pause/revise/complete/archive, and a review separating effort / outcome / evidence. "At risk" needs a transparent rule **and** sufficient data. No generic percentage for qualitative goals; absent-vs-zero is a named test.
 
-### 8.5 Medication and Trackers — the clearest unfinished area
+### 8.5 Medication and Trackers — historical gap list
 
 Both still live in the legacy sheet: `LifeBoardTrackRootView` (`LifeBoardTrackAndJournalViews.swift:326`) with `LifeBoardTrackerComposer` (:840), `TrackerHistoryView` (:931), `TrackerCorrectionView` (:985), `MedicationComposer` (:1036), `MedicationHistoryView` (:1139), `MedicationCorrectionView` (:1197). Mounted from **four** call sites: `LifeOSFoundationShell.swift:1054, 1543, 3177` and `LifeBoardTrackFoundationViews.swift:209`.
 
@@ -670,6 +751,54 @@ Rollout order and new contracts, all currently **zero hits** in the codebase:
 
 ## 10. Verification
 
+### Current UI/UX overhaul gate (2026-07-30)
+
+Run the following after any change to the revised surfaces:
+
+```bash
+./scripts/check-xcode-target-membership.sh
+./scripts/token-law-guardrails.sh
+./scripts/premium-ui-guardrails.sh
+./scripts/phase1-foundation-guardrails.sh
+./scripts/check-no-print-logs.sh
+```
+
+Focused contracts:
+
+```bash
+xcodebuild \
+  -project LifeBoard.xcodeproj \
+  -scheme LifeBoard \
+  -destination 'platform=iOS Simulator,id=A2C21181-4F6B-4883-B2FF-1D1B0DB04BBF' \
+  test \
+  -only-testing:LifeBoardTests/LifeOSFoundationTests/testFocusDialProgressUsesElapsedFractionAndClampsDomainEdges \
+  -only-testing:LifeBoardTests/LifeOSFoundationTests/testSignatureShaderRegistryExactlyMatchesMetalDeclarations
+```
+
+Targeted UI regression set:
+
+```text
+testAdaptiveHomeCustomizationCancelAndComposerHandoff
+testFoundationCompactChromeRemainsReadableAcrossScrollAndCapture
+testFoundationHabitResilienceThirtyDayEditorAtLargestAccessibilitySize
+testAddToHomeUsesSizePreviewAndProducesUndoReceipt
+testFoundationHomeExposesCompletePhaseIIHierarchy
+```
+
+Build iPhone, iPad, and Catalyst serially. The dedicated test devices used for
+the final pass were:
+
+```text
+LifeBoard Test iPhone
+A2C21181-4F6B-4883-B2FF-1D1B0DB04BBF
+
+LifeBoard Test iPad (iPad A16, iOS 26.5)
+DB626ACE-A9C1-4163-98E2-A4EF68C869F1
+```
+
+Do not add `-DISABLE_ANIMATIONS` to Foundation UI tests. It disables UIKit’s
+scroll animation machinery and makes real reachability assertions fail.
+
 Per stage, **serially**:
 
 ```bash
@@ -698,6 +827,13 @@ Use the dedicated simulator **`LifeBoard Test iPhone`** (`A2C21181-4F6B-4883-B2F
 ---
 
 ## 11. Known open items and corrections
+
+The bullets below are the original 2026-07-28 snapshot and are retained for
+historical architecture context. They are not the active UI/UX work list. In
+particular, Inbox commit wiring, the Phase 1/2 UI overhaul, AX XXXL Track, Focus
+depth, Routine full-screen behavior, and shader registry enforcement were
+subsequently implemented. Use the completion ledger and the final UI/UX handoff
+for current status.
 
 - **`LIFEBOARD_BEYOND_NOTES_HANDOFF.md` §2 is wrong about the `xcodeproj` gem.** See §2 here. Fix that line when you next touch the doc.
 - **`LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md`'s Milestone 10 row claims 44 failing methods.** Stale — the gate is green. Update it.
@@ -728,7 +864,12 @@ Approved signature effects are a closed list in `DESIGN.md`. Add new stitchable 
 
 ---
 
-## 13. Suggested order of work
+## 13. Historical suggested order of work
+
+This sequence records the plan at the 2026-07-28 handoff. Do not restart it as a
+current backlog: multiple steps were completed by the later Phase 1/2 slices and
+the UI/UX overhaul. Derive new work from current code, test results, and the
+remaining release-evidence gates.
 
 1. **Wire the Inbox commit path and verify it in the simulator** (§7.1a). Everything else in 7.1 depends on it, and it converts four commits of contract work into a working feature.
 2. Duplicate resolution UI (§7.1b) — small, high user value, contracts already exist.

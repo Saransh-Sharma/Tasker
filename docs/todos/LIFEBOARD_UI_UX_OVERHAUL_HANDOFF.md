@@ -1,362 +1,663 @@
-# LifeBoard Phase 1 & 2 UI/UX Overhaul — Handoff
+# LifeBoard Phase 1 & 2 UI/UX Overhaul — Final Implementation Record
 
-**Date:** 2026-07-30
+**Status:** implemented and locally verified
+
+**Last updated:** 2026-07-30
+
 **Branch:** `lifeOS`
-**Baseline commit:** `cd4a96a6` (pre-overhaul checkpoint)
-**Head at handoff:** `c4e2eefb`
-**Audience:** the engineer continuing this work
+
+**Pre-overhaul baseline:** `cd4a96a6`
+
+**Implementation state:** working-tree changes; not staged or committed at the time of this record
+
+**Audience:** product, design, engineering, QA, and future coding agents
+
+This document is the canonical handoff for the Phase 1 and Phase 2 UI/UX
+overhaul. It supersedes the earlier “remaining work” status in this file. The
+historical implementation handoff remains useful for persistence and migration
+context, but this record is authoritative for the current interaction design,
+accessibility behavior, motion system, test contracts, and verification results.
+
+Normative references:
+
+- [`DESIGN.md`](../../DESIGN.md) defines the visual and implementation laws.
+- [`LIFEBOARD_PRODUCT_UI_UX_GUIDE.md`](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md)
+  defines cross-feature product behavior.
+- [`LIFEBOARD_PHASE_1_2_IMPLEMENTATION_HANDOFF.md`](LIFEBOARD_PHASE_1_2_IMPLEMENTATION_HANDOFF.md)
+  contains the broader Phase 1/2 architecture and migration history.
 
 ---
 
-## 1. Read this first — three corrections to the existing docs
+## 1. Executive summary
 
-These matter more than anything else here. Acting on the old docs will cost you hours.
+The overhaul is implemented across Home, Inbox, Plan, Focus, Track, Habit, and
+guided Routines. It preserves the warm paper/clay design language and canonical
+domain semantics while making the experience more focused, truthful, accessible,
+and motion-rich.
 
-### 1.1 The Foundation UI suite is NOT green
+The final result includes:
 
-`LIFEBOARD_PHASE_1_2_IMPLEMENTATION_HANDOFF.md` says *"the suite is green and the
-baseline is empty… Any failure you see is one you introduced."* **That is false for
-the UI suite.** It also repeatedly records that UI test execution "stalls before
-test-host launch" on this machine. **It does not** — tests run fine, 15–55 s each.
+- an accessibility-safe Track layout through AX XXXL;
+- focused Home customization with no overlapping global chrome;
+- stable, feature-qualified automation identifiers;
+- real async commit state for task, Focus, reflection, and Track composer saves;
+- a presentation-only Focus dial with one-Hz numeric updates;
+- bounded Habit graph and Routine step motion;
+- a non-interactively-dismissible full-screen Routine runner;
+- a one-shot Inbox triage shader and semantic daypart bloom;
+- an exact 17-function Swift/Metal shader registry contract;
+- corrected UI tests that encode current product decisions instead of obsolete UI;
+- reconciled design and implementation documentation.
 
-Because the doc believed UI tests were unrunnable, the UI suite was evidently never
-executed while Phase 1/2 landed. Six tests failed on a clean tree at `cd4a96a6`,
-verified by stashing every local change and re-running.
+No external API, production persistence schema, or production Home-default change
+was required. A deterministic user-space widget is injected only in the UI-test
+workspace.
 
-**Current status of those six:**
+### Acceptance status
 
-| Test | Status |
-|---|---|
-| `testFoundationBacklogDeletionConfirmsUndoesAndPersistsAcrossRelaunch` | ✅ **fixed** in `f753f0fb` |
-| `testFoundationHomeExposesCompletePhaseIIHierarchy` | ❌ stale expectation — see §5.1 |
-| `testAddToHomeUsesSizePreviewAndProducesUndoReceipt` | ❌ needs seeded user-space widget — §5.1 |
-| `testAdaptiveHomeCustomizationCancelAndComposerHandoff` | ❌ needs seeded user-space widget — §5.1 |
-| `testFoundationCompactChromeRemainsReadableAcrossScrollAndCapture` | ❌ stale expectation — §5.1 |
-| `testFoundationHabitResilienceThirtyDayEditorAtLargestAccessibilitySize` | ❌ not yet investigated |
-
-**Working baseline: those five.** Anything beyond them is yours.
-`scripts/lifeboard-test-failure-baseline.txt` is empty and per repo policy must stay
-empty — do not add them there.
-
-### 1.2 `-DISABLE_ANIMATIONS` breaks XCUITest scrolling
-
-Do **not** add it to `launchFoundationApp`. It calls
-`UIView.setAnimationsEnabled(false)`, which also disables the UIKit animation
-machinery `swipeUp()` drives — six tests then fail their "reachable by scrolling"
-assertions for a second, unrelated reason. I tried this and reverted it; the reason
-is recorded at the call site.
-
-`LifeBoardAnimation.areProcessAnimationsDisabled` already treats plain `-UI_TESTING`
-as animations-off, so anything routed through
-`LifeBoardMotionProfile.animation(reduceMotion:)` is suppressed in tests without it.
-
-**Consequence:** zoom route transitions are suppressed under `-UI_TESTING`. To *see*
-a zoom morph you must launch without that flag (see §6).
-
-### 1.3 The Core Data model check is stale
-
-`LIFEBOARD_PHASE_1_2_IMPLEMENTATION_HANDOFF.md` §2 says the `XCVersionGroup` child
-count "must print 22". **It is 23** — `TaskModelV3_BehaviorFlagship` was added by
-Phase 2, and there are 23 `.xcdatamodel` directories on disk. Use:
-
-```bash
-python3 -c "import re;s=open('LifeBoard.xcodeproj/project.pbxproj').read();m=re.search(r'isa = XCVersionGroup.*?children = \((.*?)\);',s,re.S);print(len(re.findall(r'xcdatamodel \*/',m.group(1))))"
-```
-
-Expect **23**. Everything else in that section (hand-edit the pbxproj, never use the
-`xcodeproj` gem) is correct and still applies.
+| Slice | Status | Evidence |
+|---|---:|---|
+| Baseline contract and AX blocker | Complete | Five targeted UI journeys pass together |
+| Home and Plan density | Complete | Focused customization test and visual evidence |
+| Truthful async commits | Complete | Real store phases; focused unit/UI coverage |
+| Signature Focus experience | Complete | Dial mapping test and successful platform builds |
+| Habit, Track, and Routine motion | Complete | Central motion policies and build/test validation |
+| Triage and daypart effects | Complete | Exact Swift/Metal registry test; count is 17 |
+| Documentation and provenance | Complete | This record plus canonical guide updates |
+| Platform compilation | Complete | iPhone 17 Pro, iPad A16, and Mac Catalyst |
 
 ---
 
-## 2. Environment (better than the old doc claims)
+## 2. Product decisions that are now locked
 
-- iOS **26.5** simulator runtime installed; `LifeBoard Test iPhone`
-  (`A2C21181-4F6B-4883-B2FF-1D1B0DB04BBF`) boots and runs tests.
-- Xcode 26.5, iOS 26.0 deployment target, Swift 6.
-- Disk had 69 GB free. Still check `df -h /System/Volumes/Data` before long sessions.
-- **Never run two `xcodebuild` processes concurrently** against this DerivedData.
-  `until ! pgrep -q xcodebuild; do sleep 5; done` before each invocation.
-- SourceKit is badly unreliable here — it reports `No such module 'UIKit'` and
-  `Cannot find type 'InboxItem' in scope` for perfectly valid same-target code.
-  **Only `xcodebuild` is ground truth.** Ignore editor diagnostics entirely.
-- `timeout` is not available on macOS; don't wrap `xcodebuild` in it.
+These decisions are deliberate. Do not reverse them to satisfy an old screenshot
+or stale test.
 
----
+### Home
 
-## 3. What shipped (8 commits, `cd4a96a6..c4e2eefb`)
+- Home has one capture entry point: the shared Life Thread composer. Do not restore
+  a second header capture button.
+- Production defaults remain tasks, care, routines, journal, and
+  progress/reflection.
+- Schedule capacity and compact timeline remain optional widgets.
+- Home customization is a distinct work mode. The dock and composer disappear
+  while editing; one restrained Cancel/Done bar owns the bottom safe area.
+- User-space emptiness is an intentional state, not an error.
+- The UI-test-only seeded Life Moment does not alter persisted production defaults.
 
-| Commit | Content |
-|---|---|
-| `2b7adb49` | Shared directional deck primitive; central motion routing; Plan Repair `asyncAfter` correctness fix |
-| `3beb0193` | Pending-capture seeder + `resetAppState` leak fix |
-| `9ed30f86` | Inbox capture-deck redesign |
-| `efd16932` | Documented why Plan rows had no zoom source (superseded by `f753f0fb`) |
-| `f753f0fb` | Plan rows open the canonical task route + zoom continuity |
-| `0ec813af` | Home solo-card width + customization bootstrap fix |
-| `da0dcf28` | Inbox skip persistence + repeated-pass nudge |
-| `c4e2eefb` | `LifeBoardCommitControl` + Inbox review sheet primary action |
+### Inbox
 
-### 3.1 New design-system API you should reuse
+- The deck has two flick directions: right opens review; left skips.
+- Right flick never silently commits a capture.
+- Skip preserves the capture and records only skip history.
+- Discard remains menu-only.
+- `triageSettle` is decorative confirmation on the under-deck plane. It never
+  communicates state by itself and never blocks input.
 
-**`LifeBoard/DesignSystem/LifeBoardDirectionalDeck.swift`**
-- `LifeBoardDeckDirection` — non-generic top-level enum (`right/left/up/down`). Kept
-  non-generic deliberately so `Direction.allCases.count` still works at its Plan call
-  site.
-- `LifeBoardDeckPhysics` — `direction(translation:predictedEndTranslation:)`,
-  `action(for:candidates:)` (generic over action type), `exitOffset`, `tiltDegrees`.
-  Thresholds: 96 pt commit, 24 pt minimum intent, 1.15 axis dominance.
-- `LifeBoardDirectionalDeck` — renders **only the front card**; depth comes from
-  `lifeBoardDeckDepth(remaining:)`. Rendering live sibling cards leaked their content
-  when heights differed; don't reintroduce that.
-- `PlanRepairDeckDragResolver` (`LifeBoardPlanViews.swift:120`) is now a forwarding
-  shim so its 13 test references are untouched.
-- `LifeBoardDeckStack` was **deleted** — zero call sites, duplicated the concept with
-  its own hardcoded springs.
+### Plan and Focus
 
-**`LifeBoard/DesignSystem/LifeBoardCommitControl.swift`**
-```swift
-LifeBoardCommitControl(
-    title: "File It", runningTitle: "Filing", successTitle: "Filed",
-    phase: commitPhase,          // AsyncActionPhase<Receipt>
-    isEnabled: draft.isValid,
-    action: commit
-)
-```
-Label → 48 pt circle → orbiting arc → drawn tick. Uses `KeyframeAnimator` with one
-value carrying both mark progress and settle scale, over the existing animatable
-`LifeBoardCompletionMark`. Reduce Motion → system indicator + pre-drawn tick.
+- Task rows route to the canonical task editor with shared-element zoom continuity.
+- Capacity is supporting context, not a second primary action.
+- Active Focus has one dominant Pause/Resume action.
+- Interruption, phase advance, completion, continuation, and abandonment live in
+  the secondary menu.
+- Ending Focus and saving reflection use real mutation state. Success is never
+  synthesized with a timer.
+- A failed Focus end must not mark its companion completed.
 
-**`.lifeBoardMotion(_ profile:value:)`** (in `LifeBoardSignatureEffects.swift`) —
-use this instead of `.animation(_:value:)` in feature code. It is the only form that
-resolves accessibility *and* process-animation flags centrally. Feature code was
-writing `reduceMotion ? nil : LifeBoardAnimation.x`, which still animates under
-`-UI_TESTING`.
+### Track and Routines
 
-### 3.2 Testing support
-
-- **`-LIFEBOARD_TEST_SEED_INBOX_CAPTURES`** stages three `PendingCapture`s with fixed
-  UUIDs (`A1B2C3D4-000{1,2,3}-4000-8000-00000000FEED`): a rich parse (date + duration
-  + tag + context), one that duplicates a title the established seed creates (reaches
-  the merge path), and one with nothing to parse. Pair it with
-  `-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE`.
-- Before this, **nothing seeded `PendingCapture`**, so the Inbox commit and
-  duplicate-merge paths were unreachable in any automated run — they gate on
-  `InboxItem.requiresCommitBeforeScheduling`, true only for a `.pendingCapture` origin.
-- `AppDelegate.resetAppState()` now also clears the App Group pending-capture JSON.
-  It previously leaked captures across `-RESET_APP_STATE` launches.
+- Track has Today, Areas, and History lenses. Resilience settings live under Areas.
+- Accessibility text sizes collapse multi-column card grids to one column.
+- Hydration quick logging stays immediate; target editing is a quiet header action.
+- Guided Routines use one full-screen presentation path.
+- The runner cannot be dismissed by a swipe. Explicit End is always reachable and
+  abandonment requires confirmation.
+- Continue/Resume is primary. Pause and Skip are secondary.
 
 ---
 
-## 4. Product decisions already made — do not silently reverse
+## 3. Architecture and ownership
 
-| Decision | Rationale |
-|---|---|
-| **Inbox deck has exactly two flick directions** (right = File it, left = Skip) | Only two honest decisions exist. A capture is not a task yet, so there is no disposition to set — `InboxStore` offers `fileCapture`, `mergeCapture`, `discardCapture` and nothing else. Someday/Reference would have to commit first, which is the silent commit this screen exists to prevent. |
-| **Right-flick opens review, never commits** | Preserves the locked "captures never commit silently" decision. |
-| **Discard is menu-only, never a gesture** | A capture is often the only copy of something typed once from a lock screen. |
-| **Skip is not a mutation** | The count lives in `InboxSkipLedger` (App Group defaults), never in the capture record; text, timestamp and id must survive a skip untouched. |
-| **Nudge states the count and stops** | `DESIGN.md` bans moralised productivity language. "You've come back to this N times." — no implication it should already be done. |
-| **Review sheet stays open until the write succeeds** | A capture survives a failed file by design; dismissing first leaves the failure nowhere to report. |
-| **Task card body opens the task; ellipsis owns the menu** | Chosen over tap-for-menu. Required updating `requestBacklogDeletion`. |
-| **Menu identifiers are `plan.taskMenu.` / `plan.weekTaskMenu.`** | **Not** `plan.task.menu.` — the backlog test's row query matches the `plan.task.` prefix, so a nested identifier is counted as an extra task and breaks every cardinality assertion. This bit me; don't undo it. |
+The overhaul intentionally separates domain state, presentation state, motion,
+and effects.
 
----
-
-## 5. Remaining work
-
-Ordered. Each step should end buildable with the §1.1 baseline unchanged.
-
-### 5.1 Finish the Home test failures (needs a product decision first)
-
-Three of the five remaining failures encode expectations the product moved past.
-**Each needs a decision about the canonical default Home, then a test update:**
-
-- `testFoundationCompactChromeRemainsReadableAcrossScrollAndCapture` expects
-  `app.buttons["foundation.capture"]` on Home. The header deliberately yields capture
-  to the floating composer on every root except Eva
-  (`LifeOSFoundationShell.swift:655`, `headerOwnsCapture`), so two "+" controls don't
-  offer the same tray twice. **Decide:** update the test to drive the composer's
-  capture control, or restore a header "+" on Home.
-- `testFoundationHomeExposesCompletePhaseIIHierarchy` walks seven widgets in a fixed
-  order with cumulative `swipeUp()` and no scroll-back, expecting `care` before
-  `tasks`. `sectionRole` now places tasks in Today and care in Keep steady, so the
-  walk can never succeed. Two of the seven (`scheduleCapacity`, `compactTimeline`) are
-  also not placed by default at all. **Decide:** the canonical default placement set
-  and order, then rewrite the expected list.
-- `testAddToHome…` and `testAdaptiveHomeCustomization…` need at least one user-space
-  widget present to find an "Edit widget" control. **Likely fix:** extend the
-  established-workspace seed with one user-space placement.
-- `testFoundationHabitResilienceThirtyDayEditorAtLargestAccessibilitySize` — not yet
-  investigated. Its constraints are strict: the `Toggle` must keep its switch trait,
-  `Save` must survive, `"30-day history"` must be reachable by **real vertical
-  scrolling** (a plain `VStack` makes the helper spin 10 times and fail), and
-  horizontal bounds must hold at AX XXXL.
-
-### 5.2 R4 remainder — Focus depth
-
-`LifeBoardCommitControl` is built and adopted in the Inbox. Still to do:
-
-- Adopt at `task.editor.save` (`LifeOSFoundationShell.swift:2729`), the Focus session
-  end (`LifeBoardPlanViews.swift` `activeFocusCard`, ~:1634), and the Track composers.
-- Focus countdown: arc-dial / ember treatment on `focusClock` (~:1701). **Leave the
-  `.contentTransition(.numericText())` alone** — it already works.
-- `focusReflectionCard` (~:1744) onto clay.
-- `LifeBoardNumericRoll` on the Plan capacity figure (`capacityCard`, ~:1594).
-- `scrollTransition` rise on the daypart-grouped schedule (~:2084).
-
-### 5.3 R5 — Habit graph + Track polish (**riskiest surface**)
-
-- `chartRevealSweep` on `HabitGraphGrid` (`HabitBoardViews.swift:2118`). Note this
-  effect is **already live** inside `LifeBoardTrendChart`
-  (`LifeBoardCardPrimitives.swift:270`) — only `daypartBloom` is genuinely unmounted.
-- Day/Week/Graph lens change via `.lifeBoardMotion(.selection)`.
-- Hydration quick-add chips stack vertically and inflate their card, which is what
-  drags the row partner into dead space (`LifeBoardTrackFoundationViews.swift`, the
-  `hydrationTile` region).
-- **Do not** swap `HabitGraphGrid` for `LifeBoardStreakGrid`. It would lose month
-  labels and the year-scale horizontal layout — a feature regression the tests cannot
-  catch, because the Graph lens is `accessibilityHidden(true)`.
-- **HabitBoard tests assert element *types* and pixel geometry**
-  (`HabitBoardUITests.swift:112`, `:175`): `habitBoard.pinned.header` and
-  `habitBoard.cell.*` must be `otherElements`, `rangeTitle`/`pinnedTitle.*` must be
-  `staticTexts`, `window.previous/next` must be `buttons` ≥44×44 with exact labels,
-  exactly 7 day headers, and `abs(firstPinnedTitle.minX - pinnedHeader.minX) < 40`.
-  Wrapping a row in a `Button` or adding `.accessibilityElement(children: .combine)`
-  breaks them.
-
-### 5.4 R6 — Routine guided mode full-screen
-
-- `.sheet` → `.fullScreenCover` at `LifeBoardTrackFoundationViews.swift:212`. It
-  already draws full-bleed canvas inside a sheet.
-- **Critical:** verify an explicit abandon is reachable in **every** status, including
-  `.paused` and `.interrupted` where the body swaps to a Resume block (`RoutineRunner`,
-  ~:1362, branch ~:1409). `fullScreenCover` removes the swipe-dismiss path that
-  currently triggers `store.abandonRoutine()` via the sheet's `isPresented` setter
-  (:213–216), so without this a paused routine becomes an inescapable modal.
-- `RoutineRunner`'s body carries two `.font(.system(` lines (~:1381, ~:1389).
-  Tokenize them in a separate prior commit **or touch only the call site** — reflowing
-  that body makes them added lines and token law fires.
-
-### 5.5 R7 — One new shader + mount `daypartBloom`
-
-- Add `LifeBoardTriageSettle(position, currentColor, size, direction, progress, tint)`
-  to the **existing** `LifeBoard/View/Effects/LifeBoardSignatureEffects.metal` and to
-  `functionNames` (`LifeBoardSignatureEffects.swift:309`). A one-shot directional warm
-  streak on the plane under the Inbox deck, so the surface remembers which way a
-  capture went. Nothing in the current list expresses "this went somewhere specific."
-- **Never create a new `.metal` file.** `check-xcode-target-membership.sh` only scans
-  `.swift`, so an orphaned `.metal` passes CI and then fails
-  `LifeBoardSignatureShaders.warmUp()`, which is all-or-nothing and disables **every**
-  effect at runtime.
-- **Mandatory test:** assert `functionNames.count` equals the `[[stitchable]]` count in
-  the `.metal` source. That agreement is currently unenforced, and a misspelling
-  silently kills all 16 effects with no failing test.
-- Mount `daypartBloom` as a one-shot on a daypart boundary. It takes a `time`
-  parameter but must **not** become an ambient loop — `paperGrain` is the only
-  sanctioned non-one-shot.
-
-### 5.6 R8 — Documentation truth-up
-
-- `DESIGN.md:344` lists **16** approved effects;
-  `docs/design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md:141` lists **11** and omits five that
-  already ship (`chartRevealSweep`, `liquidGlassRefract`, `cardMorphWarp`,
-  `paperGrain`, `dissolveAway`). Reconcile both, then add `triageSettle`.
-- Fold §1 of this document into
-  `LIFEBOARD_PHASE_1_2_IMPLEMENTATION_HANDOFF.md` so the false "suite is green" and
-  "tests stall" claims stop misleading the next person.
-
-### 5.7 R9 — Verification matrix (not yet started)
-
-All verification so far has been **iPhone, light appearance only**. Owed:
-
-- **iPad** regular width: Home 8/12-column spans, Plan Week's seven day destinations,
-  sidebar navigation. `DashboardFlowLayout`'s new solo-widen pass has only been
-  exercised at 4 columns.
-- **Mac Catalyst**: proves graceful degradation (shaders and haptics are disabled by
-  policy there). Keep `com.apple.developer.healthkit` **out of**
-  `LifeBoardCatalyst.entitlements` or the entire Catalyst build fails.
-- **Dark appearance** — a designed warm-indigo composition, not an inversion, so it
-  breaks independently. Launch with `-AppleInterfaceStyle Dark`.
-- Per surface: Reduce Motion, Reduce Transparency, accessibility XXXL, and a VoiceOver
-  action for every gesture.
-- **No snapshot tests exist anywhere** in this repo (`ChatTranscriptSnapshotTests` and
-  `HomeChromeSnapshotPresentationTests` assert on presentation *models*, not images).
-  Visual regressions are caught only by looking.
-
----
-
-## 6. How to run and verify
-
-Per step, serially:
-
-```bash
-bash scripts/check-xcode-target-membership.sh && bash scripts/token-law-guardrails.sh && bash scripts/premium-ui-guardrails.sh && bash scripts/phase1-foundation-guardrails.sh && bash scripts/check-no-print-logs.sh
-```
-
-Build and install:
-
-```bash
-xcodebuild build -workspace LifeBoard.xcworkspace -scheme LifeBoard -destination 'platform=iOS Simulator,id=A2C21181-4F6B-4883-B2FF-1D1B0DB04BBF' -quiet
-```
-
-```bash
-xcrun simctl install A2C21181-4F6B-4883-B2FF-1D1B0DB04BBF ~/Library/Developer/Xcode/DerivedData/LifeBoard-fqsmzjbjnruqkvdrfnfoftpzpiez/Build/Products/Debug-iphonesimulator/LifeBoard.app
-```
-
-Launch with the seeded Inbox. **Omit `-UI_TESTING` when you want to see motion** —
-it suppresses token-routed animation and zoom transitions:
-
-```bash
-xcrun simctl launch A2C21181-4F6B-4883-B2FF-1D1B0DB04BBF com.saransh1337.To-Do-List -RESET_APP_STATE -SKIP_ONBOARDING -DISABLE_CLOUD_SYNC -LIFEBOARD_ENABLE_LIFE_OS_FOUNDATION -LIFEBOARD_ENABLE_ADAPTIVE_HOME_V2 -LIFEBOARD_ENABLE_LIFE_OS_UNIFIED_PRESENTATION_V2 -LIFEBOARD_ENABLE_PLANNING_CORE_V1 -LIFEBOARD_ENABLE_PLAN_DESTINATION_V1 -LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE -LIFEBOARD_TEST_SEED_INBOX_CAPTURES
-```
-
-Reaching the Inbox deck: **Plan** tab → **Inbox** lens.
-
-### Gotchas found while verifying
-
-- Editing the App Group plist with `PlistBuddy` while the app is installed **has no
-  effect** — `cfprefsd` caches the domain. Drive state through the app, or delete the
-  container.
-- Card heights differ, so the deck's control row moves vertically between captures.
-  Tall card (with parse chips) puts it near y≈507 pt; short cards near y≈429 pt. Don't
-  blind-repeat taps at one coordinate.
-- Phase 2 surfaces are gated by `track_behavior_flagship_v1`, which is `false` in
-  `promotedDefaults`. They appear on Debug launches only (DEBUG returns `true` for any
-  staged flag without an explicit override).
-
----
-
-## 7. Known defects found but not fixed
-
-| Defect | Location | Notes |
+| Concern | Owner | Rule |
 |---|---|---|
-| Plan task cards had no route to the task detail | fixed in `f753f0fb` | Contradicted the Stage 2 ledger claim that "every row opens the shared canonical task route" — worth auditing that ledger's other claims. |
-| Home customization was unreachable on a fresh install | fixed in `0ec813af` | Bootstrap dead-end: the only control that starts customization lived in a section that only rendered once customization had produced a placement. |
-| `homeSectionHeading` ends in a greedy `Spacer` | `LifeBoardFoundationGallery.swift:1150` | It compresses every sibling in its row. It squashed the customize control to 17×14 pt. **Any control you put beside a section heading needs `.fixedSize()`.** |
-| Competing zoom identity for notes | `LifeBoardKnowledgeViews.swift:755`, `:1248`, `:1306` | Declares `matchedTransitionSource(id: note.id, in: noteTransition)` in a *private* namespace while `AppRoute.note` also produces `route.note.<uuid>` in the shared one. Resolve before adding note sources. |
-| `scheduleCapacity` / `compactTimeline` widgets never placed by default | Home | Surfaced by the hierarchy test; may be intentional, needs a decision. |
-| 2-up Home cards with internal `Spacer`s show large dead space | e.g. `careWidget` | The layout no longer force-stretches; the remaining empty space is each widget's own content distribution. Per-widget fix. |
+| Task persistence | `TaskEditorStore` and canonical mutation services | Views observe `commitPhase`; they do not invent success |
+| Focus timer/session state | `PlanStore` and Focus command services | `LifeBoardFocusDial` never owns or advances time |
+| Track persistence | `TrackFoundationStore` and Phase II/IV repositories | Composer sheets await canonical store calls |
+| Routine lifecycle | `TrackFoundationStore` and routine execution service | The full-screen runner dispatches canonical commands |
+| Home layout transaction | `AdaptiveHomeStore` and `HomeLayoutDraft` | Cancel restores the pre-edit transaction |
+| Motion timing | `LifeBoardMotionProfile` / `.lifeBoardMotion` | Feature views do not add independent implicit paths |
+| Shader availability | `LifeBoardSignatureShaders` | Warm-up is all-or-nothing; every declaration must match |
+| Accessibility fallback | environment and `LifeBoardMotionPolicy` | Meaning and operability cannot depend on animation |
+
+### Key files
+
+| Area | Primary implementation |
+|---|---|
+| Root chrome, capture, routing, daypart boundary | `LifeBoard/Foundation/Navigation/LifeOSFoundationShell.swift` |
+| Adaptive Home and customization | `LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift` |
+| Inbox deck and triage mounting | `LifeBoard/Foundation/PhaseIII/LifeBoardInboxView.swift` |
+| Plan, Focus dial composition, reflection | `LifeBoard/Foundation/PhaseIII/LifeBoardPlanViews.swift` |
+| Focus commit state | `LifeBoard/Foundation/PhaseIII/PlanStore.swift` |
+| Task commit state | `LifeBoard/Foundation/PhaseIII/TaskExecutionContracts.swift` |
+| Track, composers, and Routine runner | `LifeBoard/Foundation/PhaseIV/LifeBoardTrackFoundationViews.swift` |
+| Habit lens and graph reveal | `LifeBoard/View/HabitBoardViews.swift` |
+| Shared Focus dial | `LifeBoard/DesignSystem/LifeBoardCardPrimitives.swift` |
+| Swift shader wrappers and policy | `LifeBoard/DesignSystem/LifeBoardSignatureEffects.swift` |
+| Metal stitchables | `LifeBoard/View/Effects/LifeBoardSignatureEffects.metal` |
 
 ---
 
-## 8. Design contract reminders that bit me
+## 4. Detailed implementation
 
-- **Token law scans newly-added lines only**, under
-  `LifeBoard/{View,Views,ViewControllers,Presentation,Foundation,LLM/Views,Onboarding}`.
-  Forbidden: `.shadow(`, `.spring(`, `.glassEffect(`, `.font(.system(`, `UIColor(`,
-  `Color.{red,…,white,black}`, `foregroundStyle(.white)`.
-- **`LifeBoard/DesignSystem/` is not scanned at all.** That is where raw springs and
-  font construction legally live. This dictates file placement — put new primitives
-  there, not in `Foundation/`.
-- An **untracked file counts as 100% additions**, so a new file may not carry a line
-  that passes today inside a tracked file. `LifeBoardFoundationGallery.swift` holds 25
-  `.font(.system(` + 5 `.shadow(` + 2 `.spring(`; extracting any of it requires
-  tokenizing first.
-- No `#RRGGBB` under `LifeBoard/Foundation` except `LifeBoardDaypartTokens.swift`
-  (`LifeBoardSceneHex` is the sanctioned escape hatch).
-- Every new `.swift` must be referenced by **basename** in `project.pbxproj`. Four
-  hand-edits: `PBXBuildFile`, `PBXFileReference`, group `children`, Sources phase.
-  Mirror a sibling in the same group. Then re-check the model count from §1.3.
-- Long SwiftUI modifier chains exceed the type-checker's budget in this project. Hoist
-  ternaries into locals before the chain — I hit this twice in
-  `LifeBoardDirectionalDeck`.
+### 4.1 Track accessibility and layout
+
+The high-severity baseline defect was fixed at the layout level rather than hidden
+with truncation.
+
+- `LifeBoardScreenScaffold` uses intrinsic geometry and switches header layout at
+  accessibility sizes.
+- Track avoids mounting a duplicate atmosphere when the shell already hosts it.
+- The Track atmosphere header is compact at accessibility sizes and cannot clip
+  the readable header.
+- Care and area card grids use one column when
+  `dynamicTypeSize.isAccessibilitySize`.
+- Scroll content reserves additional bottom space for floating chrome.
+- Lens controls remain horizontally reachable.
+- Hydration uses two 44-point quick actions, `+250 ml` and `+500 ml`.
+- Hydration target editing moved out of the quick-action row.
+- The resilience editor remains vertically scrollable and preserves the native
+  switch trait of “Allow recovery completions.”
+
+The layout must continue to prefer stacking and scrolling over smaller type,
+compressed controls, or letter-by-letter wrapping.
+
+### 4.2 Home density and customization
+
+Normal Home remains calm and curated. Customization becomes a focused editing
+workspace:
+
+- global dock and composer are hidden;
+- the shell reserves no phantom chrome height;
+- one bottom action bar exposes Cancel and Done;
+- placement drag handles and edit menus use stable identifiers;
+- persistent “Pinned” badges were removed;
+- card edit chrome is subordinate to card content;
+- UI-test seeding adds one pinned Life Moment in user space using deterministic ID
+  `D6ED45B2-1267-4C2C-9A91-A3F5503D51AF`;
+- the seed is gated by `-LIFEBOARD_TEST_SEED_HOME_USER_SPACE`.
+
+The seed is built in memory after Home loads. It is not part of
+`curatedHomePlacements()` and must never migrate into production defaults.
+
+### 4.3 Plan density
+
+- Scheduled entries use the shared scroll entrance.
+- Capacity duration uses `LifeBoardNumericRoll`.
+- Existing canonical task zoom transitions are preserved.
+- Existing numeric Focus clock transitions are preserved.
+- Supporting metrics remain visually quieter than the active planning decision.
+
+### 4.4 Truthful async commit controls
+
+`LifeBoardCommitControl` is the only full success-state commit animation used in
+the overhaul. It consumes `AsyncActionPhase<Receipt>`:
+
+```swift
+enum AsyncActionPhase<Receipt> {
+    case idle
+    case running(progress: Double?)
+    case success(receipt: Receipt)
+    case recoverableFailure(RecoverableActionError)
+    case cancelled
+}
+```
+
+Behavioral contract:
+
+1. The view validates local input.
+2. The store sets `.running` immediately before the canonical mutation.
+3. Duplicate taps are disabled while running.
+4. The sheet or surface remains mounted.
+5. Only a successful mutation produces a receipt and `.success`.
+6. Failure preserves input and exposes inline recovery.
+7. Dismissal occurs only after confirmed success.
+
+Adopted surfaces:
+
+- task editor save: `task.editor.save`;
+- Focus end/continue/abandon: `plan.focus.commit`;
+- Focus reflection: `plan.focus.reflection.commit`;
+- Track mood, sleep, routine, hydration target, goal, and resilience composers.
+
+Track mutations that do not return a domain receipt use `TrackComposerReceipt`,
+containing only an operation ID and completion date created after the awaited store
+call succeeds.
+
+One-tap hydration logging intentionally does not use the full commit morph. It gives
+immediate intent feedback and updates the numeric state.
+
+### 4.5 Focus dial and active-session hierarchy
+
+`LifeBoardFocusDial` is a presentation-only generic component. It receives settled
+progress, pause state, an accessibility value, and center content. It does not own
+a timer, session command, or persistence.
+
+`LifeBoardFocusDialMetrics.elapsedFraction` maps total and remaining duration to a
+clamped `0...1` elapsed fraction:
+
+- absent or non-positive total duration produces `nil`;
+- remaining time greater than total clamps to `0`;
+- negative remaining time clamps to `1`.
+
+The active Focus card:
+
+- is one dominant opaque clay surface;
+- presents the session phase and intention;
+- centers the dial and numeric clock;
+- updates through a one-Hz `TimelineView`;
+- uses Pause/Resume as the sole primary action;
+- moves interruption, next phase, and end outcomes into a More menu;
+- asks for an explicit outcome before mounting the commit control;
+- announces values such as “18 minutes remaining, paused.”
+
+Reduce Motion keeps the dial static between supplied values. There is no
+continuously running shader.
+
+### 4.6 Habit graph motion
+
+- Habit lens selection uses `.lifeBoardMotion(.selection, value:)`.
+- Duplicate implicit animation paths were removed.
+- `chartRevealSweep` runs once when valid chart data first appears or the material
+  range changes.
+- Reduce Motion presents the settled chart immediately.
+- The existing month/year graph, labels, navigation buttons, accessibility element
+  types, and geometry contracts remain intact.
+
+Do not replace the graph with a generic streak grid. That would remove month labels
+and year-scale layout.
+
+### 4.7 Full-screen Routine runner
+
+Both routine entry points route to the same `fullScreenCover`.
+
+The runner is split into focused presentation components:
+
+- `RoutineRunnerProgressHeader`;
+- `RoutineStepCard`;
+- `RoutineTimerProgress`;
+- `RoutineResponseMenu`.
+
+Lifecycle rules:
+
+- interactive dismissal is disabled;
+- End is present in running, paused, and interrupted states;
+- abandonment uses a confirmation dialog and the canonical stop mutation;
+- Continue/Resume is primary;
+- Pause and Skip remain secondary;
+- the current step uses a restrained card-swap spring;
+- Reduce Motion uses crossfade-only transitions;
+- type uses semantic design tokens;
+- state restoration comes from the persisted `activeRoutineRun`.
+
+The runner must never infer abandonment from presentation dismissal.
+
+### 4.8 Inbox triage and daypart effects
+
+`LifeBoardTriageSettle` was added to the existing Metal source. Its Swift wrapper is
+bounded to approximately 480 ms and returns the plane to a static state.
+
+Direction contract:
+
+- skip/left triggers the reverse warm streak only after skip persistence succeeds;
+- review/right triggers the forward streak as the review transition commits.
+
+`daypartBloom` mounts at the root atmosphere boundary. It triggers only when the
+semantic daypart changes, not on every body update or clock tick.
+
+Both effects:
+
+- mount behind readable content;
+- do not change layout;
+- do not block interaction;
+- are never required to understand state;
+- fall back to a short token-based tint crossfade under Reduce Motion, Reduce
+  Transparency, Low Power Mode, Catalyst, shader unavailability, or failed warm-up.
+
+---
+
+## 5. Stable automation and accessibility identifiers
+
+Identifiers are public test contracts. Prefer feature-qualified semantic names over
+labels, localized copy, or element position.
+
+### Global and Home
+
+| Identifier | Meaning |
+|---|---|
+| `LifeBoardCompactChrome` | Shared compact composer/dock chrome |
+| `lifeThread.composer.toolsToggle` | Opens the shared capture tools |
+| `lifeThread.composer.tool.<type>` | A capture tool chip |
+| `foundation.more.<destination>` | Root destination in overflow |
+| `home.addToHome.<destination>` | Add-to-Home destination |
+| `home.customize` | Enter Home customization |
+| `home.customization.cancel` | Roll back the draft transaction |
+| `home.customization.done` | Commit the draft transaction |
+| `home.widget.drag.<placementID>` | Placement drag handle |
+| `home.widget.edit.<placementID>` | Placement context menu |
+
+### Plan and Focus
+
+| Identifier | Meaning |
+|---|---|
+| `task.editor.save` | Canonical task commit control |
+| `plan.activeFocus` | Active Focus surface |
+| `plan.focus.more` | Secondary Focus command menu |
+| `plan.focus.commit` | Focus outcome commit |
+| `plan.focus.reflection.commit` | Reflection commit |
+
+### Track and Habit
+
+| Identifier | Meaning |
+|---|---|
+| `track.lens.<lens>` | Today, Areas, or History |
+| `track.habits.resilience` | Opens resilience settings |
+| `track.habit.resilience.<habitID>` | A habit resilience policy |
+| `track.resilience.commit` | Saves resilience policy |
+| `track.hydration.target` | Opens hydration target editing |
+| `track.hydration.add250` | Immediate 250 ml log |
+| `track.hydration.add500` | Immediate 500 ml log |
+| `habitBoard.lens.<lens>` | Habit Day, Week, or Graph selection |
+
+Do not nest menu identifiers under a row prefix when cardinality tests query that
+prefix. Existing Plan menu identifiers intentionally use `plan.taskMenu.` and
+`plan.weekTaskMenu.` rather than `plan.task.menu.`.
+
+---
+
+## 6. Accessibility contract
+
+The overhaul treats accessibility as layout and interaction design, not as labels
+added after the fact.
+
+### Dynamic Type
+
+- Primary and recovery controls remain reachable through accessibility XXXL.
+- Multi-column content collapses before type shrinks.
+- Headers use intrinsic height.
+- Metadata and decorative atmosphere yield before meaningful text.
+- Bottom commit actions live in the safe area and can wrap.
+- Runner typography uses semantic roles.
+
+### VoiceOver and non-gesture access
+
+- Directional decks expose visible buttons and named accessibility actions.
+- Focus dial exposes one combined timer value.
+- Routine commands are visible controls; step motion is not the only cue.
+- Graphs retain textual equivalents.
+- Error, progress, and retry state remain in the same mounted context.
+
+### Motion and transparency
+
+- Reduce Motion removes spring travel, chart sweep, dial interpolation, and shader
+  distortion while keeping immediate state changes.
+- Reduce Transparency replaces glass-dependent readability with opaque surfaces.
+- Increased Contrast and Differentiate Without Color retain shape, text, and border
+  distinctions.
+
+### Minimum targets
+
+All new primary, menu, drag, hydration, and navigation controls have at least a
+44-point effective hit area or an equivalent accessible action.
+
+---
+
+## 7. Motion and shader registry
+
+The registry contains exactly 17 names, and the test suite asserts exact set
+equality against Metal `[[ stitchable ]]` declarations.
+
+| Effect | Mounting and trigger |
+|---|---|
+| `daypartBloom` | Root atmosphere; semantic daypart boundary |
+| `evaInkReveal` | EVA response reveal |
+| `journalMediaReveal` | Journal media boundary |
+| `memoryDevelopReveal` | Memory reveal |
+| `fastingEmberRing` | Bounded fasting state transition |
+| `healthSyncPulse` | Health sync boundary |
+| `vitalOrbWarp` | Bounded vital transition |
+| `clayPressBloom` | Approved control plane |
+| `daypartCrossDissolve` | Daypart scene handoff |
+| `completionBurst` | Confirmed completion |
+| `contextLens` | Capture/EVA control/background plane; maximum 8-point offset |
+| `chartRevealSweep` | First valid/materially changed chart range |
+| `liquidGlassRefract` | Approved glass control transition |
+| `cardMorphWarp` | Bounded card morph |
+| `paperGrain` | Static paper treatment; only non-one-shot visual treatment |
+| `dissolveAway` | Confirmed removal |
+| `triageSettle` | Inbox under-deck plane after committed direction |
+
+Never add a second Metal file for signature effects. `warmUp()` resolves every
+function as one registry; one missing or misspelled declaration disables the whole
+signature set.
+
+---
+
+## 8. Verification record
+
+### Static guardrails
+
+The following passed on the final documented source state:
+
+```bash
+./scripts/check-xcode-target-membership.sh
+./scripts/token-law-guardrails.sh
+./scripts/premium-ui-guardrails.sh
+./scripts/phase1-foundation-guardrails.sh
+./scripts/check-no-print-logs.sh
+```
+
+`git diff --check` also passed.
+
+### Focused unit tests
+
+Passed:
+
+- `testFocusDialProgressUsesElapsedFractionAndClampsDomainEdges`;
+- `testSignatureShaderRegistryExactlyMatchesMetalDeclarations`;
+- existing `AsyncActionPhase` and directional resolver contracts compile and remain
+  part of the test target.
+
+The shader test expects:
+
+- 17 registered Swift function names;
+- 17 Metal stitchable declarations;
+- exact set equality, not only matching counts.
+
+### Targeted UI regression suite
+
+These five journeys pass together:
+
+- `testAdaptiveHomeCustomizationCancelAndComposerHandoff`;
+- `testFoundationCompactChromeRemainsReadableAcrossScrollAndCapture`;
+- `testFoundationHabitResilienceThirtyDayEditorAtLargestAccessibilitySize`;
+- `testAddToHomeUsesSizePreviewAndProducesUndoReceipt`;
+- `testFoundationHomeExposesCompletePhaseIIHierarchy`.
+
+Run them serially in one `xcodebuild` invocation:
+
+```bash
+xcodebuild \
+  -project LifeBoard.xcodeproj \
+  -scheme LifeBoard \
+  -destination 'platform=iOS Simulator,id=A2C21181-4F6B-4883-B2FF-1D1B0DB04BBF' \
+  test \
+  -only-testing:LifeBoardUITests/LifeBoardUITests/testAdaptiveHomeCustomizationCancelAndComposerHandoff \
+  -only-testing:LifeBoardUITests/LifeBoardUITests/testFoundationCompactChromeRemainsReadableAcrossScrollAndCapture \
+  -only-testing:LifeBoardUITests/LifeBoardUITests/testFoundationHabitResilienceThirtyDayEditorAtLargestAccessibilitySize \
+  -only-testing:LifeBoardUITests/LifeBoardUITests/testAddToHomeUsesSizePreviewAndProducesUndoReceipt \
+  -only-testing:LifeBoardUITests/LifeBoardUITests/testFoundationHomeExposesCompletePhaseIIHierarchy
+```
+
+The old failures represented:
+
+- four stale UI/product assumptions;
+- one real AX XXXL Track layout defect.
+
+Tests now navigate by section or lens, use stable identifiers, and do not restore
+obsolete controls to satisfy stale labels.
+
+### Platform builds
+
+Passed serially:
+
+| Destination | Runtime | Result |
+|---|---|---:|
+| iPhone 17 Pro | iOS 26.5 simulator | Pass |
+| iPad A16 (`LifeBoard Test iPad`) | iOS 26.5 simulator | Pass |
+| My Mac | Mac Catalyst | Pass |
+
+Final build commands:
+
+```bash
+xcodebuild -project LifeBoard.xcodeproj -scheme LifeBoard \
+  -destination 'platform=iOS Simulator,id=A3ABF0F1-98A9-4D82-A075-9F9C560D66D3' \
+  build -quiet
+
+xcodebuild -project LifeBoard.xcodeproj -scheme LifeBoard \
+  -destination 'platform=iOS Simulator,id=DB626ACE-A9C1-4163-98E2-A4EF68C869F1' \
+  build -quiet
+
+xcodebuild -project LifeBoard.xcodeproj -scheme LifeBoard \
+  -destination 'platform=macOS,variant=Mac Catalyst,name=My Mac' \
+  build -quiet
+```
+
+The existing iPad A16 on iOS 18.6 was not a valid destination because the app’s
+deployment target is iOS 26. A dedicated iOS 26.5 simulator was created with UDID
+`DB626ACE-A9C1-4163-98E2-A4EF68C869F1`.
+
+### Visual evidence
+
+The targeted UI journeys refreshed:
+
+- `docs/evidence/lifeboard-5/root-state-fixtures/iphone/home-compact-chrome-capture.png`.
+
+During implementation, simulator recordings/screenshots were also inspected for:
+
+- focused Home customization;
+- compact Home composer/chrome;
+- AX XXXL Track resilience editing.
+
+### Manual/device verification still recommended
+
+The implementation and automated acceptance gates are complete. Before production
+promotion, run the broader release-quality matrix that requires sustained visual or
+device judgment:
+
+- VoiceOver rotor/order and custom actions on every gesture surface;
+- right-to-left layout;
+- dark appearance across all revised roots;
+- Increase Contrast, grayscale, Reduce Transparency, and Reduce Motion;
+- iPad sidebar/window resizing and keyboard traversal;
+- device haptics and Low Power Mode;
+- Instruments animation-hitch, SwiftUI update, offscreen-rendering, and Metal-cost
+  profiling;
+- lifecycle restoration after real background termination during Focus and Routine.
+
+These are release QA gates, not claims of already captured automated evidence.
+
+---
+
+## 9. Known warnings and non-blocking environment issues
+
+The final builds emit only established warnings:
+
+- `HKWorkoutActivityType.dance` is deprecated; migrate to social/cardio dance in a
+  separate HealthKit cleanup.
+- Catalyst linker search paths may reference a missing optional Metal toolchain
+  cryptex path. The target still links successfully.
+- The test target emits existing Swift concurrency warnings around Core Data
+  non-Sendable types.
+- Xcode may log `DebuggerLLDB.DebuggerVersionStore.StoreError` during UI test
+  launches. The tests continue and pass.
+
+Do not add these to a failure baseline. Investigate any new compiler, linker, test,
+or shader warm-up warning introduced by touched code.
+
+---
+
+## 10. Maintenance rules
+
+### Async state
+
+- Never set `.success` before the canonical mutation returns.
+- Never dismiss a composer before success.
+- Never complete related state, such as a Focus companion, when the primary command
+  failed.
+- Keep retry idempotent and suppress duplicate taps while running.
+
+### Motion
+
+- Use `.lifeBoardMotion` in feature code.
+- Keep direct-manipulation springs interruptible and velocity-aware.
+- Completion may overshoot once; decorative bounce is not global.
+- Do not use a shader as ambient animation.
+- Do not distort text, charts, evidence, or sensitive content.
+
+### Accessibility
+
+- Preserve element roles and native traits when restructuring views.
+- Prefer exact stable identifiers over localized labels.
+- Test accessibility sizes with real scrolling.
+- Do not disable UIKit animations globally in UI tests:
+  `-DISABLE_ANIMATIONS` breaks `swipeUp()` behavior.
+
+### Build hygiene
+
+- Run `xcodebuild` serially against shared DerivedData.
+- Treat `xcodebuild`, not SourceKit editor diagnostics, as ground truth.
+- Keep HealthKit out of Catalyst entitlements.
+- Add signature functions to the existing Metal file and registry together.
+- Keep the failure baseline empty.
+
+---
+
+## 11. Provenance
+
+The sample repository at
+`/Users/saransh1337/Developer/Projects/SwiftUI-Animations-master` informed motion
+behavior:
+
+- circular progress timing informed the Focus dial;
+- cards-swap timing informed Routine step transitions.
+
+The implementation uses LifeBoard’s own tokens, motion policies, data contracts, and
+view composition. No source was copied or substantially derived for these two
+adaptations, so the existing SwiftUI-Animations attribution remains sufficient.
+
+---
+
+## 12. Historical corrections
+
+Earlier versions of this handoff said the Foundation UI suite was not green and
+listed five remaining failures. That was accurate during diagnosis but is no longer
+the current state.
+
+The final resolution is:
+
+- compact Home capture drives `lifeThread.composer.toolsToggle`;
+- Home hierarchy asserts the canonical default placement set;
+- Add to Home uses stable destination identifiers;
+- customization uses a deterministic UI-test-only user-space placement;
+- Track resilience first selects `track.lens.areas`;
+- AX XXXL Track uses adaptive layout and safe-area behavior;
+- all five targeted tests pass together.
+
+Earlier documentation also said the Core Data model child count “must print 22.”
+Phase 2 added `TaskModelV3_BehaviorFlagship`; the correct count at that point became
+23. Continue to inspect the actual project/model state rather than preserving a
+historical number as a universal invariant.
