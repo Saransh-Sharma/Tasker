@@ -98,6 +98,16 @@ struct LLMGenerationProfile: Sendable {
         )
     }
     static let addTaskSuggestion = LLMGenerationProfile(timeoutSeconds: 6)
+    static let universalInputClassification = LLMGenerationProfile(
+        timeoutSeconds: 4,
+        regularMaxRawTokens: 160,
+        reasoningMaxRawTokens: 160,
+        temperature: 0,
+        topP: 0.8,
+        stripReasoningBlocks: true,
+        stripTemplateArtifacts: true,
+        maxVisibleCharacters: 1_000
+    )
     static let dynamicChips = LLMGenerationProfile(timeoutSeconds: 6)
     static let dailyBrief = LLMGenerationProfile(timeoutSeconds: 8)
     static let topThree = LLMGenerationProfile(timeoutSeconds: 10)

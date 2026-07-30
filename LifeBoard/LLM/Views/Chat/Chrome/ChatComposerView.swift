@@ -54,6 +54,7 @@ struct ChatComposerView: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
 
     @State var structuredDeferredFeedback: String?
+    @State var dictationController = UniversalDictationController()
 
     var body: some View {
         if #available(iOS 26.0, *) {

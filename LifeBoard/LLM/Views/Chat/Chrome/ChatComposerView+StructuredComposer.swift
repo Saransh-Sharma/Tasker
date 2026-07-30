@@ -48,21 +48,41 @@ extension ChatComposerView {
                     .padding(.horizontal, LifeBoardTheme.Spacing.md)
                     .padding(.vertical, LifeBoardTheme.Spacing.sm)
                     .frame(minHeight: 52)
+                    .disabled(isStructuredDictationActive)
                     .onSubmit(onSubmitPrompt)
 
-                if V2FeatureFlags.evaVoiceDeferred {
+                if isStructuredDictationActive {
+                    structuredDictationButton(
+                        systemName: "xmark",
+                        label: "Cancel dictation",
+                        action: cancelStructuredDictation
+                    )
+                    structuredDictationButton(
+                        systemName: "stop.fill",
+                        label: "Stop dictation",
+                        action: stopStructuredDictation
+                    )
+                } else if V2FeatureFlags.universalInputDictationEnabled {
+                    structuredDictationButton(
+                        systemName: "mic.fill",
+                        label: "Start dictation",
+                        action: startStructuredDictation
+                    )
+                } else if V2FeatureFlags.evaVoiceDeferred {
                     structuredDeferredIcon(systemName: "mic.fill", label: "Voice planning")
                 }
-                if V2FeatureFlags.evaScanDeferred {
+                if V2FeatureFlags.evaScanDeferred && isStructuredDictationActive == false {
                     structuredDeferredIcon(systemName: "viewfinder", label: "Scan planning")
                 }
 
-                if isGenerationInFlight {
-                    stopButton
-                        .padding(.leading, 0)
-                } else {
-                    generateButton
-                        .padding(.leading, 0)
+                if isStructuredDictationActive == false {
+                    if isGenerationInFlight {
+                        stopButton
+                            .padding(.leading, 0)
+                    } else {
+                        generateButton
+                            .padding(.leading, 0)
+                    }
                 }
             }
 
@@ -89,6 +109,82 @@ extension ChatComposerView {
         .onTapGesture {
             isPromptFocused = true
         }
+        .onChange(of: dictationController.draftText) { _, newValue in
+            guard isStructuredDictationActive else { return }
+            if prompt != newValue {
+                prompt = newValue
+            }
+        }
+        .onChange(of: dictationController.recovery) { _, recovery in
+            guard let recovery else { return }
+            structuredDeferredFeedback = recovery.message
+        }
+        .onChange(of: dictationController.phase) { _, phase in
+            switch phase {
+            case .preparing:
+                structuredDeferredFeedback = "Preparing on-device dictation…"
+            case .recording:
+                structuredDeferredFeedback = "Listening… Tap stop when you’re done."
+            case .finalizing:
+                structuredDeferredFeedback = "Finalizing transcript…"
+            case .idle:
+                if dictationController.recovery == nil {
+                    structuredDeferredFeedback = nil
+                }
+            case .denied, .unsupportedLocale, .assetInstallFailed, .failed:
+                break
+            }
+        }
+        .onDisappear {
+            guard isStructuredDictationActive else { return }
+            Task { await dictationController.cancel() }
+        }
+    }
+
+    var isStructuredDictationActive: Bool {
+        dictationController.phase == .preparing
+            || dictationController.phase == .recording
+            || dictationController.phase == .finalizing
+    }
+
+    func startStructuredDictation() {
+        structuredDeferredFeedback = "Preparing on-device dictation…"
+        dictationController.start(existingDraft: prompt)
+        isPromptFocused = false
+    }
+
+    func stopStructuredDictation() {
+        Task { @MainActor in
+            await dictationController.stop()
+            prompt = dictationController.draftText
+            structuredDeferredFeedback = dictationController.recovery?.message
+        }
+    }
+
+    func cancelStructuredDictation() {
+        Task { @MainActor in
+            await dictationController.cancel()
+            prompt = dictationController.draftText
+            structuredDeferredFeedback = nil
+            isPromptFocused = true
+        }
+    }
+
+    func structuredDictationButton(
+        systemName: String,
+        label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .font(.system(size: 20, weight: .semibold))
+                .foregroundStyle(Color.lifeboard(.link, on: .dockChrome))
+                .frame(width: 44, height: 44)
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(label)
+        .accessibilityIdentifier("eva.structured.dictation.\(systemName)")
     }
 
     func structuredDeferredIcon(systemName: String, label: String) -> some View {
