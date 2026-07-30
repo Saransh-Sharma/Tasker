@@ -365,6 +365,8 @@ struct LifeBoardInboxView: View {
     /// lives beside the view rather than in the capture record, whose text,
     /// timestamp and id must stay exactly as captured.
     @State private var skipCounts: [UUID: Int] = [:]
+    @State private var triageSettleTrigger = 0
+    @State private var triageSettleDirection = 1.0
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Which way a flick can send the front capture.
@@ -503,13 +505,23 @@ struct LifeBoardInboxView: View {
                     .accessibilityIdentifier("plan.inbox.deck.position")
             }
 
-            LifeBoardDirectionalDeck(
-                items: orderedCaptures,
-                candidates: { _ in [CaptureFlick.file, CaptureFlick.skip] },
-                actionLabel: \.label,
-                onCommit: { item, action in resolveFlick(action, for: item) },
-                card: { item, armed in captureCard(item, armed: armed) }
-            )
+            ZStack {
+                RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.card, style: .continuous)
+                    .fill(Color.clear)
+                    .lifeboardTriageSettle(
+                        trigger: triageSettleTrigger,
+                        direction: triageSettleDirection
+                    )
+                    .allowsHitTesting(false)
+
+                LifeBoardDirectionalDeck(
+                    items: orderedCaptures,
+                    candidates: { _ in [CaptureFlick.file, CaptureFlick.skip] },
+                    actionLabel: \.label,
+                    onCommit: { item, action in resolveFlick(action, for: item) },
+                    card: { item, armed in captureCard(item, armed: armed) }
+                )
+            }
             .accessibilityIdentifier("plan.inbox.deck")
 
             if let front = orderedCaptures.first {
@@ -668,6 +680,8 @@ struct LifeBoardInboxView: View {
 
     private func beginFiling(_ item: InboxItem) {
         LifeBoardFeedback.light()
+        triageSettleDirection = 1
+        triageSettleTrigger &+= 1
         filingItem = item
     }
 
@@ -677,6 +691,8 @@ struct LifeBoardInboxView: View {
         LifeBoardFeedback.selection()
         let next = (skipCounts[item.id] ?? 0) + 1
         InboxSkipLedger.record(count: next, for: item.id)
+        triageSettleDirection = -1
+        triageSettleTrigger &+= 1
         withAnimation(LifeBoardMotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
             skipCounts[item.id] = next
         }

@@ -44,6 +44,8 @@ final class PlanStore {
     private(set) var activeFocusSession: FocusSessionV2?
     private(set) var focusCompanion: FocusSessionCompanion?
     private(set) var pendingFocusReflection: FocusExecutionReceipt?
+    private(set) var focusCommitPhase: AsyncActionPhase<FocusExecutionReceipt> = .idle
+    private(set) var focusReflectionCommitPhase: AsyncActionPhase<FocusExecutionReceipt> = .idle
     private(set) var normalizedEvents: [NormalizedLifeEvent] = []
     private(set) var lastMutationReceiptID: UUID?
     private(set) var backlogDeletionUndoState: BacklogDeletionUndoState?
@@ -623,6 +625,8 @@ final class PlanStore {
         intention: String = "",
         subtaskID: UUID? = nil
     ) async {
+        focusCommitPhase = .idle
+        focusReflectionCommitPhase = .idle
         do {
             let resolvedMode = mode ?? .countdown(duration: targetDuration)
             if let focusCommands {
@@ -671,18 +675,30 @@ final class PlanStore {
     func pauseFocus() async { await sendFocusCommand(.pause) }
     func resumeFocus() async { await sendFocusCommand(.resume) }
     func endFocus(outcome: FocusCompletionOutcome) async {
+        guard activeFocusSession != nil else { return }
+        focusCommitPhase = .running(progress: nil)
         let sessionID = activeFocusSession?.id
-        await sendFocusCommand(.end(outcome))
-        if let sessionID {
+        let succeeded = await sendFocusCommand(.end(outcome))
+        if succeeded, let sessionID {
             try? await focusCompanionStore.markCompleted(sessionID: sessionID)
+        }
+        if succeeded, let receipt = pendingFocusReflection {
+            focusCommitPhase = .success(receipt: receipt)
+        } else if succeeded == false {
+            focusCommitPhase = .recoverableFailure(.init(
+                message: errorMessage ?? "Focus could not be ended.",
+                recovery: .retry
+            ))
         }
     }
 
     func saveFocusReflection(energy: Int?, note: String?) async {
         guard let pendingFocusReflection else { return }
+        focusReflectionCommitPhase = .running(progress: nil)
         do {
+            let saved: FocusExecutionReceipt
             if let focusCommands {
-                _ = try await focusCommands.saveReflection(
+                saved = try await focusCommands.saveReflection(
                     sessionID: pendingFocusReflection.sessionID,
                     energyAfter: energy,
                     note: note
@@ -693,11 +709,20 @@ final class PlanStore {
                     energyAfter: energy,
                     reflection: note
                 )
+                var persistedReceipt = pendingFocusReflection
+                persistedReceipt.energyAfter = energy
+                persistedReceipt.reflection = note
+                saved = persistedReceipt
             }
+            focusReflectionCommitPhase = .success(receipt: saved)
             self.pendingFocusReflection = nil
             await load()
         } catch {
             errorMessage = error.localizedDescription
+            focusReflectionCommitPhase = .recoverableFailure(.init(
+                message: error.localizedDescription,
+                recovery: .retry
+            ))
         }
     }
 
@@ -746,8 +771,9 @@ final class PlanStore {
         await pauseFocus()
     }
 
-    private func sendFocusCommand(_ kind: FocusSessionCommandKind) async {
-        guard let session = activeFocusSession else { return }
+    @discardableResult
+    private func sendFocusCommand(_ kind: FocusSessionCommandKind) async -> Bool {
+        guard let session = activeFocusSession else { return false }
         do {
             let occurredAt = Date()
             let commandID = UUID()
@@ -811,7 +837,11 @@ final class PlanStore {
             await synchronizeFocusPresentation(updated)
             activeFocusSession = updated.state == .ended ? nil : updated
             await load()
-        } catch { errorMessage = error.localizedDescription }
+            return true
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
     }
 
     private func appendFocusCommandEvent(

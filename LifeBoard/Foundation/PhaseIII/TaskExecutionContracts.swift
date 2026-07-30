@@ -1101,6 +1101,20 @@ public final class TaskEditorStore {
         return draft != TaskEditorDraft(task: persistedTask, planning: persistedPlanning)
     }
 
+    public var commitPhase: AsyncActionPhase<TaskEditorReceipt> {
+        switch mutationState {
+        case .idle, .undoing:
+            return .idle
+        case .saving:
+            return .running(progress: nil)
+        case .saved:
+            if hasUnsavedChanges { return .idle }
+            return activeReceipt.map(AsyncActionPhase.success(receipt:)) ?? .idle
+        case .failed(let message):
+            return .recoverableFailure(.init(message: message, recovery: .edit))
+        }
+    }
+
     public func load() async {
         loadState = .loading
         do {

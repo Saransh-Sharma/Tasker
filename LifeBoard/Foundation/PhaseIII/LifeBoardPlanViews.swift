@@ -923,6 +923,7 @@ struct LifeBoardPlanRootView: View {
     @State private var focusReflectionEnergy = 3
     @State private var focusReflectionNote = ""
     @State private var pendingFocusSetup: FocusSetupContext?
+    @State private var pendingFocusEndOutcome: FocusCompletionOutcome?
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -1585,8 +1586,11 @@ struct LifeBoardPlanRootView: View {
                         .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                 }
                 Spacer()
-                Text(duration(capacity.usableDuration))
-                    .font(.title3.weight(.semibold))
+                LifeBoardNumericRoll(
+                    value: capacity.usableDuration / 3_600,
+                    fractionDigits: capacity.usableDuration.truncatingRemainder(dividingBy: 3_600) == 0 ? 0 : 1,
+                    unit: "hours"
+                )
                     .accessibilityLabel("\(duration(capacity.usableDuration)) usable")
                 Button { showsWorkingHours = true } label: { Image(systemName: "slider.horizontal.3") }
                     .buttonStyle(.plain)
@@ -1615,13 +1619,13 @@ struct LifeBoardPlanRootView: View {
     }
 
     private func activeFocusCard(_ session: FocusSessionV2) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Label(session.state == .paused ? "Focus paused" : "Focus in progress", systemImage: session.state == .paused ? "pause.circle.fill" : "timer")
-                    .font(.headline)
-                Spacer()
-                focusClock(session)
-            }
+        VStack(alignment: .leading, spacing: 16) {
+            Label(
+                session.state == .paused ? "Focus paused" : "Focus in progress",
+                systemImage: session.state == .paused ? "pause.circle.fill" : "timer"
+            )
+            .font(.headline)
+
             if let companion = store.focusCompanion {
                 HStack {
                     Text(focusModeLabel(companion.mode))
@@ -1637,65 +1641,155 @@ struct LifeBoardPlanRootView: View {
                         .font(.subheadline)
                 }
             }
-            if session.targetDuration > 0 {
-                ProgressView(value: min(1, session.focusedDuration() / max(1, session.targetDuration)))
-                    .tint(Color(LifeBoardColorTokens.foundationFocusRing))
+
+            focusDial(session)
+                .frame(maxWidth: 246)
+                .frame(maxWidth: .infinity)
+
+            HStack(spacing: 10) {
+                Group {
+                    if session.state == .paused {
+                        Button("Resume", systemImage: "play.fill") { Task { await store.resumeFocus() } }
+                            .buttonStyle(.borderedProminent)
+                    } else {
+                        Button("Pause", systemImage: "pause.fill") { Task { await store.pauseFocus() } }
+                            .buttonStyle(.borderedProminent)
+                    }
+                }
+                .frame(maxWidth: .infinity, minHeight: 48)
+
+                Menu("More", systemImage: "ellipsis.circle") {
+                    if store.focusCompanion?.pomodoroPhase != nil {
+                        Button("Next phase", systemImage: "forward.end.fill") {
+                            Task { await store.advancePomodoro() }
+                        }
+                    }
+                    Menu("Record interruption", systemImage: "bell.slash") {
+                        Button("Call or message") {
+                            Task { await store.recordInterruption(reason: "Call or message") }
+                        }
+                        Button("Someone needed me") {
+                            Task { await store.recordInterruption(reason: "Someone needed me") }
+                        }
+                        Button("Lost focus") {
+                            Task { await store.recordInterruption(reason: "Lost focus") }
+                        }
+                    }
+                    Divider()
+                    Button("Finish focus", systemImage: "checkmark.circle") {
+                        pendingFocusEndOutcome = .completed
+                    }
+                    Button("Continue later", systemImage: "clock.arrow.circlepath") {
+                        pendingFocusEndOutcome = .continueLater
+                    }
+                    Button("Abandon focus", systemImage: "xmark.circle", role: .destructive) {
+                        pendingFocusEndOutcome = .abandoned
+                    }
+                }
+                .buttonStyle(.bordered)
+                .frame(minHeight: 48)
+                .accessibilityIdentifier("plan.focus.more")
             }
-            HStack {
-                if session.state == .paused {
-                    Button("Resume", systemImage: "play.fill") { Task { await store.resumeFocus() } }
-                        .buttonStyle(.borderedProminent)
-                } else {
-                    Button("Pause", systemImage: "pause.fill") { Task { await store.pauseFocus() } }
-                        .buttonStyle(.borderedProminent)
-                }
-                if store.focusCompanion?.pomodoroPhase != nil {
-                    Button("Next phase", systemImage: "forward.end.fill") {
-                        Task { await store.advancePomodoro() }
+
+            if let outcome = pendingFocusEndOutcome {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text(focusEndPrompt(outcome))
+                            .font(.subheadline)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        Spacer(minLength: 8)
+                        Button("Cancel") { pendingFocusEndOutcome = nil }
+                            .font(.subheadline.weight(.semibold))
                     }
-                    .buttonStyle(.bordered)
-                }
-                Menu("Interrupted", systemImage: "bell.slash") {
-                    Button("Call or message") {
-                        Task { await store.recordInterruption(reason: "Call or message") }
+                    LifeBoardCommitControl(
+                        title: focusEndTitle(outcome),
+                        runningTitle: "Ending focus",
+                        successTitle: "Focus saved",
+                        phase: store.focusCommitPhase
+                    ) {
+                        Task { await store.endFocus(outcome: outcome) }
                     }
-                    Button("Someone needed me") {
-                        Task { await store.recordInterruption(reason: "Someone needed me") }
-                    }
-                    Button("Lost focus") {
-                        Task { await store.recordInterruption(reason: "Lost focus") }
-                    }
+                    .accessibilityIdentifier("plan.focus.commit")
                 }
-                .buttonStyle(.bordered)
-                Menu("End", systemImage: "stop.fill") {
-                    Button("Finish") { Task { await store.endFocus(outcome: .completed) } }
-                    Button("Continue Later") { Task { await store.endFocus(outcome: .continueLater) } }
-                    Button("Abandon", role: .destructive) { Task { await store.endFocus(outcome: .abandoned) } }
-                }
-                .buttonStyle(.bordered)
+                .padding(12)
+                .lifeBoardClaySurface(.well, cornerRadius: 16)
+                .transition(.opacity.combined(with: .scale(scale: 0.96, anchor: .bottom)))
             }
         }
-        .padding(18)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: 20))
-        .overlay { RoundedRectangle(cornerRadius: 20).stroke(Color(LifeBoardColorTokens.foundationFocusRing).opacity(0.25), lineWidth: 1) }
+        .foundationClayCard()
+        .overlay {
+            RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.card)
+                .stroke(Color(LifeBoardColorTokens.foundationFocusRing).opacity(0.25), lineWidth: 1)
+        }
+        .lifeBoardMotion(.contentInsertion, value: pendingFocusEndOutcome)
         .accessibilityIdentifier("plan.activeFocus")
     }
 
     @ViewBuilder
-    private func focusClock(_ session: FocusSessionV2) -> some View {
-        if case .openEnded? = store.focusCompanion?.mode {
-            Text("Here with you")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                .accessibilityLabel("Open-ended focus has no time limit")
-        } else {
-            TimelineView(.periodic(from: .now, by: 1)) { context in
-                let display = focusClockDisplay(session, at: context.date)
-                Text(duration(display.value))
-                    .font(.title3.monospacedDigit().weight(.semibold))
-                    .contentTransition(.numericText())
-                    .accessibilityLabel(display.label)
+    private func focusDial(_ session: FocusSessionV2) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let display = focusClockDisplay(session, at: context.date)
+            let pausedSuffix = session.state == .paused ? ", paused" : ""
+            LifeBoardFocusDial(
+                progress: focusProgress(session, at: context.date),
+                isPaused: session.state == .paused,
+                accessibilityValue: display.label + pausedSuffix
+            ) {
+                VStack(spacing: 5) {
+                    if case .openEnded? = store.focusCompanion?.mode {
+                        Text("Here with you")
+                            .font(.headline)
+                            .multilineTextAlignment(.center)
+                    } else {
+                        Text(duration(display.value))
+                            .font(LifeBoardFoundationTypography.screenTitle().weight(.bold))
+                            .monospacedDigit()
+                            .contentTransition(.numericText())
+                    }
+                    Text(session.state == .paused ? "Paused" : "In focus")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
             }
+        }
+    }
+
+    private func focusProgress(_ session: FocusSessionV2, at date: Date) -> Double? {
+        switch store.focusCompanion?.mode {
+        case .countdown:
+            guard session.targetDuration > 0 else { return nil }
+            return LifeBoardFocusDialMetrics.elapsedFraction(
+                totalDuration: session.targetDuration,
+                remainingDuration: session.targetDuration - session.focusedDuration(at: date)
+            )
+        case .pomodoro:
+            guard let phase = store.focusCompanion?.pomodoroPhase else { return nil }
+            let duration = phase.phaseEndsAt.timeIntervalSince(phase.phaseStartedAt)
+            guard duration > 0 else { return 1 }
+            return LifeBoardFocusDialMetrics.elapsedFraction(
+                totalDuration: duration,
+                remainingDuration: phase.phaseEndsAt.timeIntervalSince(date)
+            )
+        case .stopwatch, .openEnded, .none:
+            return nil
+        }
+    }
+
+    private func focusEndTitle(_ outcome: FocusCompletionOutcome) -> String {
+        switch outcome {
+        case .completed: "Finish focus"
+        case .continueLater, .intentionallyDeferred: "Save for later"
+        case .abandoned: "Abandon focus"
+        case .stopped, .interrupted: "End focus"
+        }
+    }
+
+    private func focusEndPrompt(_ outcome: FocusCompletionOutcome) -> String {
+        switch outcome {
+        case .completed: "Save this session as complete?"
+        case .continueLater, .intentionallyDeferred: "Keep the context so it is easy to return?"
+        case .abandoned: "End this session without marking it complete?"
+        case .stopped, .interrupted: "End and keep the time already focused?"
         }
     }
 
@@ -1758,7 +1852,7 @@ struct LifeBoardPlanRootView: View {
                 .lineLimit(2...4)
                 .textFieldStyle(.roundedBorder)
                 .accessibilityIdentifier("plan.focus.reflection.note")
-            HStack {
+            VStack(alignment: .leading, spacing: 10) {
                 if receipt.interruptionCount > 0 {
                     Label(
                         "\(receipt.interruptionCount) interruption\(receipt.interruptionCount == 1 ? "" : "s")",
@@ -1767,16 +1861,23 @@ struct LifeBoardPlanRootView: View {
                     .font(.caption)
                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                 }
-                Spacer()
-                Button("Save reflection", systemImage: "checkmark") {
+                LifeBoardCommitControl(
+                    title: "Save reflection",
+                    runningTitle: "Saving reflection",
+                    successTitle: "Reflection saved",
+                    phase: store.focusReflectionCommitPhase
+                ) {
                     let energy = focusReflectionEnergy
                     let note = focusReflectionNote
-                    focusReflectionNote = ""
-                    focusReflectionEnergy = 3
-                    Task { await store.saveFocusReflection(energy: energy, note: note) }
+                    Task {
+                        await store.saveFocusReflection(energy: energy, note: note)
+                        if store.pendingFocusReflection == nil {
+                            focusReflectionNote = ""
+                            focusReflectionEnergy = 3
+                        }
+                    }
                 }
-                .buttonStyle(.borderedProminent)
-                .frame(minHeight: 44)
+                .accessibilityIdentifier("plan.focus.reflection.commit")
             }
         }
         .foundationClayCard()
@@ -2074,7 +2175,10 @@ struct LifeBoardPlanRootView: View {
                 let items = entries.filter { PlanScheduleDaypart.daypart(for: $0.startAt) == daypart }
                 if items.isEmpty == false {
                     daypartSubheader(daypart, count: items.count)
-                    ForEach(items) { scheduledEntryCard($0) }
+                    ForEach(items) {
+                        scheduledEntryCard($0)
+                            .lifeBoardScrollEntrance()
+                    }
                 }
             }
         }
