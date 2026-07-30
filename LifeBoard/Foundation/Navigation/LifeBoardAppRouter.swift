@@ -96,6 +96,8 @@ public struct CaptureRequest: Identifiable, Codable, Hashable, Sendable {
     /// the user sees exactly what they said and decides what it becomes. Decoded
     /// with `decodeIfPresent` so previously persisted requests keep restoring.
     public let prefilledText: String?
+    /// Structured capture metadata including proposals from universal input.
+    public let captureSeed: CaptureSeed?
 
     public init(
         id: UUID = UUID(),
@@ -103,7 +105,8 @@ public struct CaptureRequest: Identifiable, Codable, Hashable, Sendable {
         source: Source,
         draftID: UUID? = nil,
         presentationContext: CapturePresentationContext? = nil,
-        prefilledText: String? = nil
+        prefilledText: String? = nil,
+        captureSeed: CaptureSeed? = nil
     ) {
         self.id = id
         self.kind = kind
@@ -111,6 +114,7 @@ public struct CaptureRequest: Identifiable, Codable, Hashable, Sendable {
         self.draftID = draftID
         self.presentationContext = presentationContext
         self.prefilledText = prefilledText
+        self.captureSeed = captureSeed
     }
 
     public init(from decoder: any Decoder) throws {
@@ -124,6 +128,7 @@ public struct CaptureRequest: Identifiable, Codable, Hashable, Sendable {
             forKey: .presentationContext
         )
         prefilledText = try container.decodeIfPresent(String.self, forKey: .prefilledText)
+        captureSeed = try container.decodeIfPresent(CaptureSeed.self, forKey: .captureSeed)
     }
 }
 
@@ -165,6 +170,29 @@ public final class CaptureRouter {
             source: source,
             draftID: draftID,
             presentationContext: presentationContext
+        ))
+    }
+
+    /// Universal-input convenience: requests a capture while passing
+    /// through the prefilled raw text and the structured `CaptureSeed`
+    /// (parsed task proposals + input source) so editors can prefill
+    /// and present correctable chips. The convenience keeps existing
+    /// callers source-compatible.
+    public func request(
+        kind: CaptureKind,
+        source: CaptureRequest.Source,
+        prefilledText: String? = nil,
+        captureSeed: CaptureSeed? = nil,
+        draftID: UUID? = nil,
+        presentationContext: CapturePresentationContext? = nil
+    ) {
+        _ = request(CaptureRequest(
+            kind: kind,
+            source: source,
+            draftID: draftID,
+            presentationContext: presentationContext,
+            prefilledText: prefilledText,
+            captureSeed: captureSeed
         ))
     }
 

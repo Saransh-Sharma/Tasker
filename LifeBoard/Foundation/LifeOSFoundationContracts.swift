@@ -983,6 +983,7 @@ public enum LifeThreadComposerState: String, Codable, CaseIterable, Hashable, Se
     case working
     case review
     case settling
+    case dictating
 }
 
 public enum LifeThreadComposerRecovery: String, Codable, Hashable, Sendable {
@@ -1141,17 +1142,54 @@ public struct LifeThreadIntentInput: Hashable, Sendable {
     public let attachments: [String]
     public let destination: LifeBoardDestination
     public let origin: LifeBoardInteractionOrigin
+    /// Whether the text arrived via keyboard or live dictation.
+    public let inputSource: InputSource
+    /// The day the user is looking at (may differ from today on Plan/Track).
+    public let selectedDate: Date?
+    /// Semantic time of day from the atmosphere clock.
+    public let daypart: ResolvedDaypart?
+    /// Active dashboard mode (smart/work/personal/lowEnergy).
+    public let dashboardMode: DashboardMode?
+    /// Whether readable calendar access has been granted.
+    public let calendarAvailable: Bool
+    /// Whether the Day Compass considers a rescue eligible right now.
+    public let dayRescueEligible: Bool
+    /// Whether there are overdue tasks that qualify for the rescue deck.
+    public let overdueRescueEligible: Bool
+    /// Count of overdue tasks so adapters can tailor messaging.
+    public let overdueTaskCount: Int
+
+    public enum InputSource: String, Codable, Hashable, Sendable {
+        case typed
+        case dictated
+    }
 
     public init(
         text: String,
         attachments: [String] = [],
         destination: LifeBoardDestination,
-        origin: LifeBoardInteractionOrigin = .conversation
+        origin: LifeBoardInteractionOrigin = .conversation,
+        inputSource: InputSource = .typed,
+        selectedDate: Date? = nil,
+        daypart: ResolvedDaypart? = nil,
+        dashboardMode: DashboardMode? = nil,
+        calendarAvailable: Bool = false,
+        dayRescueEligible: Bool = false,
+        overdueRescueEligible: Bool = false,
+        overdueTaskCount: Int = 0
     ) {
         self.text = text
         self.attachments = attachments
         self.destination = destination
         self.origin = origin
+        self.inputSource = inputSource
+        self.selectedDate = selectedDate
+        self.daypart = daypart
+        self.dashboardMode = dashboardMode
+        self.calendarAvailable = calendarAvailable
+        self.dayRescueEligible = dayRescueEligible
+        self.overdueRescueEligible = overdueRescueEligible
+        self.overdueTaskCount = overdueTaskCount
     }
 }
 
@@ -1171,29 +1209,66 @@ public struct LifeThreadCaptureDraft: Hashable, Sendable {
     public let text: String
     public let attachments: [String]
     public let destination: LifeBoardDestination
+    /// Structured seed carrying the raw text, optional parsed proposals, and
+    /// input source so editors can prefill and present correctable chips.
+    public let seed: CaptureSeed?
 
     public init(
         id: UUID = UUID(),
         kind: CaptureKind,
         text: String,
         attachments: [String] = [],
-        destination: LifeBoardDestination
+        destination: LifeBoardDestination,
+        seed: CaptureSeed? = nil
     ) {
         self.id = id
         self.kind = kind
         self.text = text
         self.attachments = attachments
         self.destination = destination
+        self.seed = seed
+    }
+}
+
+/// Carries raw text, optional structured `ParsedCapture`, and the input source
+/// through the resolution pipeline so editors can prefill and present proposals.
+///
+/// Every field is a *proposal*: the editor renders each as a correctable chip
+/// and commits nothing the user has not explicitly reviewed.
+public struct CaptureSeed: Codable, Hashable, Sendable {
+    public let rawText: String
+    public let parsedCapture: ParsedCapture?
+    public let inputSource: LifeThreadIntentInput.InputSource
+
+    public init(
+        rawText: String,
+        parsedCapture: ParsedCapture? = nil,
+        inputSource: LifeThreadIntentInput.InputSource = .typed
+    ) {
+        self.rawText = rawText
+        self.parsedCapture = parsedCapture
+        self.inputSource = inputSource
     }
 }
 
 public struct LifeThreadNavigationRequest: Hashable, Sendable {
     public let destination: LifeBoardDestination
     public let sourceReference: String?
+    /// Optional route to push within the destination's navigation stack.
+    public let route: AppRoute?
+    /// Human-readable label for the interpretation row (e.g. "Day Plan").
+    public let routeLabel: String?
 
-    public init(destination: LifeBoardDestination, sourceReference: String? = nil) {
+    public init(
+        destination: LifeBoardDestination,
+        sourceReference: String? = nil,
+        route: AppRoute? = nil,
+        routeLabel: String? = nil
+    ) {
         self.destination = destination
         self.sourceReference = sourceReference
+        self.route = route
+        self.routeLabel = routeLabel
     }
 }
 
@@ -1202,6 +1277,74 @@ public enum LifeThreadIntentResolution: Hashable, Sendable {
     case captureDraft(LifeThreadCaptureDraft)
     case transactionPreview(LifeBoardTransactionPreview)
     case navigation(LifeThreadNavigationRequest)
+    /// The input is ambiguous — present concrete choices to the user.
+    case clarification(ClarificationRequest)
+    /// An in-app action that doesn't fit capture/navigation (rescue, schedule).
+    case surfaceAction(UniversalInputSurfaceAction)
+}
+
+// MARK: - Clarification
+
+/// Presented when the intent is ambiguous. The original text stays editable
+/// in the composer while the user picks one of the concrete options.
+public struct ClarificationRequest: Hashable, Sendable {
+    public let question: String
+    public let options: [ClarificationOption]
+    /// Preserved so the user can edit and resubmit instead of picking.
+    public let originalText: String
+
+    public init(question: String, options: [ClarificationOption], originalText: String) {
+        self.question = question
+        self.options = options
+        self.originalText = originalText
+    }
+}
+
+public struct ClarificationOption: Identifiable, Hashable, Sendable {
+    public let id: UUID
+    public let label: String
+    public let systemImage: String
+    public let resolution: LifeThreadIntentResolution
+
+    public init(
+        id: UUID = UUID(),
+        label: String,
+        systemImage: String,
+        resolution: LifeThreadIntentResolution
+    ) {
+        self.id = id
+        self.label = label
+        self.systemImage = systemImage
+        self.resolution = resolution
+    }
+}
+
+/// Actions triggered from the universal input that are not captures or navigation:
+/// they operate on existing surfaces or flows.
+public enum UniversalInputSurfaceAction: String, Codable, Hashable, Sendable {
+    /// Select Home and focus the calendar timeline / schedule glance.
+    case showTodaySchedule
+    /// Present the Day Compass rescue flow.
+    case dayRescue
+    /// Present the Overdue Rescue deck.
+    case overdueRescue
+
+    /// Compact label for the interpretation chip row.
+    public var interpretationLabel: String {
+        switch self {
+        case .showTodaySchedule: return "Open · Meetings"
+        case .dayRescue: return "Open · Day Rescue"
+        case .overdueRescue: return "Open · Overdue Rescue"
+        }
+    }
+
+    public var systemImage: String {
+        switch self {
+        case .showTodaySchedule: return "calendar"
+        case .dayRescue: return "lifepreserver"
+        case .overdueRescue: return "exclamationmark.triangle"
+        }
+    }
 }
 
 public protocol LifeThreadIntentAdapter: Sendable {
@@ -1373,6 +1516,15 @@ public final class LifeThreadComposerCoordinator {
     public private(set) var preview: LifeBoardTransactionPreview?
     public private(set) var recovery: LifeThreadComposerRecovery?
     public private(set) var recoveryMessage: String?
+    /// Structured understanding of the user's input, shown as a chip row
+    /// for review before opening an editor.
+    public private(set) var interpretation: ComposerInterpretation?
+    /// Disambiguation when the intent is ambiguous. The original draft text
+    /// stays editable while the user picks one of the concrete options.
+    public private(set) var clarification: ClarificationRequest?
+    /// Tracks whether the last input came from typing or dictation so the
+    /// intent resolver can use input source as a classification signal.
+    public private(set) var lastInputSource: LifeThreadIntentInput.InputSource = .typed
 
     public init(destination: LifeBoardDestination = .home) {
         self.destination = destination
@@ -1392,9 +1544,28 @@ public final class LifeThreadComposerCoordinator {
     public func beginRecording() { state = .recording }
     public func beginScanning() { state = .scanning }
 
+    public func beginDictating() {
+        lastInputSource = .dictated
+        state = .dictating
+    }
+
+    public func finishDictating(composedText: String) {
+        draftText = composedText
+        lastInputSource = .dictated
+        state = .focused
+    }
+
+    public func cancelDictating(restoringText: String) {
+        draftText = restoringText
+        lastInputSource = .typed
+        state = hasDraft ? .focused : .resting
+    }
+
     public func beginWorking(_ truthfulLabel: String) {
         recovery = nil
         recoveryMessage = nil
+        interpretation = nil
+        clarification = nil
         workingLabel = truthfulLabel
         state = .working
     }
@@ -1412,11 +1583,110 @@ public final class LifeThreadComposerCoordinator {
         state = .review
     }
 
+    // MARK: - Interpretation
+
+    public func showInterpretation(_ interp: ComposerInterpretation) {
+        interpretation = interp
+        clarification = nil
+        workingLabel = nil
+        state = .review
+    }
+
+    public func showInterpretation(for draft: LifeThreadCaptureDraft) {
+        var chips: [InterpretationChip] = []
+        if let parsed = draft.seed?.parsedCapture {
+            if let date = parsed.dueDate {
+                let fmt = DateFormatter()
+                fmt.dateStyle = .medium
+                fmt.timeStyle = parsed.isAllDay ? .none : .short
+                chips.append(.init(label: "📅 \(fmt.string(from: date))"))
+            }
+            if let priority = parsed.priority {
+                chips.append(.init(label: "!\(priority)"))
+            }
+            if let project = parsed.projectName {
+                chips.append(.init(label: "+\(project)"))
+            }
+            for tag in parsed.tags {
+                chips.append(.init(label: "#\(tag)"))
+            }
+        }
+        let image: String
+        switch draft.kind {
+        case .task: image = "checkmark.circle"
+        case .journal: image = "book"
+        case .note: image = "note.text"
+        case .habit: image = "repeat"
+        default: image = "square.and.pencil"
+        }
+        showInterpretation(.init(
+            label: draft.kind.title,
+            systemImage: image,
+            chips: chips,
+            resolution: .captureDraft(draft)
+        ))
+    }
+
+    /// Compact interpretation row for navigation resolutions (e.g. "Open ·
+    /// Day Plan", "Navigate · Plan · Weekly Planner"). The user gets a
+    /// one-tap confirm/Cancel before the navigation executes, so a
+    /// mis-classification doesn't whisk them away.
+    public func showInterpretation(for navigation: LifeThreadNavigationRequest) {
+        var chips: [InterpretationChip] = []
+        let label = navigation.routeLabel ?? navigation.destination.title
+        if navigation.destination != .home {
+            chips.append(.init(label: navigation.destination.title))
+        }
+        if let routeLabel = navigation.routeLabel, routeLabel != navigation.destination.title {
+            chips.append(.init(label: routeLabel))
+        }
+        showInterpretation(.init(
+            label: "Open · \(label)",
+            systemImage: "arrow.up.forward.app",
+            chips: chips,
+            resolution: .navigation(navigation)
+        ))
+    }
+
+    /// Compact interpretation row for surface-action resolutions (e.g.
+    /// "Open · Overdue Rescue" or "Open · Day Rescue"). Surface actions
+    /// preserve the draft and don't autofocus the composer, so the user
+    /// can resume after the deck dismisses.
+    public func showInterpretation(for action: UniversalInputSurfaceAction) {
+        showInterpretation(.init(
+            label: action.interpretationLabel,
+            systemImage: action.systemImage,
+            chips: [],
+            resolution: .surfaceAction(action)
+        ))
+    }
+
+    public func dismissInterpretation() {
+        interpretation = nil
+        state = hasDraft ? .focused : .resting
+    }
+
+    // MARK: - Clarification
+
+    public func showClarification(_ request: ClarificationRequest) {
+        clarification = request
+        interpretation = nil
+        workingLabel = nil
+        state = .review
+    }
+
+    public func dismissClarification() {
+        clarification = nil
+        state = hasDraft ? .focused : .resting
+    }
+
     public func settle() {
         preview = nil
         workingLabel = nil
         recovery = nil
         recoveryMessage = nil
+        interpretation = nil
+        clarification = nil
         state = .settling
     }
 
@@ -1440,7 +1710,36 @@ public final class LifeThreadComposerCoordinator {
         workingLabel = nil
         recovery = nil
         recoveryMessage = nil
+        interpretation = nil
+        clarification = nil
+        lastInputSource = .typed
         state = .resting
+    }
+}
+
+/// Structured understanding of the user's input, shown as a compact chip row
+/// inside the composer for review before opening an editor.
+public struct ComposerInterpretation: Hashable, Sendable {
+    public let label: String
+    public let systemImage: String
+    public let chips: [InterpretationChip]
+    public let resolution: LifeThreadIntentResolution
+
+    public init(label: String, systemImage: String, chips: [InterpretationChip], resolution: LifeThreadIntentResolution) {
+        self.label = label
+        self.systemImage = systemImage
+        self.chips = chips
+        self.resolution = resolution
+    }
+}
+
+public struct InterpretationChip: Identifiable, Hashable, Sendable {
+    public let id: UUID
+    public let label: String
+
+    public init(id: UUID = UUID(), label: String) {
+        self.id = id
+        self.label = label
     }
 }
 

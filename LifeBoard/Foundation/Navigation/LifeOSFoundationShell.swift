@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import TranscriptionKit
 import UIKit
 import VisionKit
 
@@ -70,6 +71,7 @@ public struct LifeOSFoundationShell: View {
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.scenePhase) private var scenePhase
     @State private var compactCaptureState = CaptureOrbPresentationState()
     @State private var measuredChromeHeight: CGFloat = 132
     /// Roots that have been opened at least once. Dashboard roots stay built so
@@ -86,6 +88,8 @@ public struct LifeOSFoundationShell: View {
     @State private var composerAudioStore: LifeBoardJournalStore?
     @State private var showsComposerAudioCapture = false
     @State private var lifeThreadComposer = LifeThreadComposerCoordinator()
+    @State private var dictationController = UniversalDictationController()
+    @State private var liveIntentResolveTask: Task<Void, Never>?
     @State private var showsDocumentScanner = false
     @State private var scannedDraft: LifeBoardScannedDraft?
     @State private var lifeBoardActionReceipt: LifeBoardActionReceipt?
@@ -98,7 +102,7 @@ public struct LifeOSFoundationShell: View {
     @FocusState private var lifeThreadComposerIsFocused: Bool
     @Namespace private var dockSelectionNamespace
     private let lifeBoardMutationCoordinator: LifeBoardMutationCoordinator
-    private let lifeThreadIntentResolver: LifeThreadIntentResolver
+    private let universalInputCoordinator: UniversalInputCoordinator
 
     init(
         legacyHomeController: UIViewController,
@@ -142,7 +146,7 @@ public struct LifeOSFoundationShell: View {
         self.showsReferenceHome = showsReferenceHome
         let mutationCoordinator = LifeBoardMutationCoordinator()
         lifeBoardMutationCoordinator = mutationCoordinator
-        lifeThreadIntentResolver = LifeThreadIntentResolver(mutationCoordinator: mutationCoordinator)
+        universalInputCoordinator = UniversalInputCoordinator(mutationCoordinator: mutationCoordinator)
     }
 
     public var body: some View {
@@ -352,7 +356,9 @@ public struct LifeOSFoundationShell: View {
             if let planRescueLaunchContext {
                 OverdueRescuePresentationHost(
                     viewModel: homeViewModel,
-                    tasksByID: homeViewModel.evaRescueTasksByID,
+                    tasksByID: planRescueLaunchContext.origin == .universalInputDayRescue
+                        ? homeViewModel.dayRescueTasksByID
+                        : homeViewModel.evaRescueTasksByID,
                     projectsByID: Dictionary(uniqueKeysWithValues: homeViewModel.projects.map { ($0.id, $0) }),
                     bottomInset: 0,
                     launchContext: planRescueLaunchContext,
@@ -381,6 +387,19 @@ public struct LifeOSFoundationShell: View {
         }
         .onChange(of: router.selectedDestination, initial: true) { _, destination in
             lifeThreadComposer.move(to: destination)
+        }
+        .onChange(of: scenePhase) { _, phase in
+            // Interrupt live dictation when the app loses the foreground so
+            // SpeechAnalyzer's audio engine doesn't keep recording into
+            // the void and the user's draft is preserved.
+            if phase != .active,
+               (
+                    dictationController.phase == .preparing
+                        || dictationController.phase == .recording
+                        || dictationController.phase == .finalizing
+               ) {
+                cancelComposerDictation()
+            }
         }
         .preferredColorScheme(visualAppearanceFixture?.preferredColorScheme)
         .contrast(visualAppearanceFixture?.usesHighContrast == true ? 1.16 : 1)
@@ -1228,6 +1247,136 @@ public struct LifeOSFoundationShell: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
+            if let clarification = composer.clarification {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack {
+                        Text(clarification.question)
+                            .font(.caption.weight(.medium))
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        Spacer()
+                        Button {
+                            composer.dismissClarification()
+                        } label: {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Dismiss clarification")
+                    }
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(clarification.options) { option in
+                                Button {
+                                    composer.dismissClarification()
+                                    handleLifeThreadResolution(option.resolution, router: router)
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Image(systemName: option.systemImage)
+                                        Text(option.label)
+                                    }
+                                    .font(.subheadline.weight(.medium))
+                                    .padding(.horizontal, 12)
+                                    .frame(minHeight: 44)
+                                    .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: Capsule())
+                                    .overlay {
+                                        Capsule()
+                                            .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+                .padding(12)
+                .lifeBoardClaySurface(.raised, cornerRadius: LifeBoardFoundationRadius.card)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            if let interpretation = composer.interpretation {
+                HStack(spacing: 8) {
+                    Button {
+                        let res = interpretation.resolution
+                        composer.dismissInterpretation()
+                        handleLifeThreadResolution(res, router: router)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: interpretation.systemImage)
+                                .foregroundColor(Color.lifeboard(.accentPrimary))
+                            Text(interpretation.label)
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+
+                            ForEach(interpretation.chips) { chip in
+                                Text(chip.label)
+                                    .font(.caption2.weight(.medium))
+                                    .padding(.horizontal, 6)
+                                    .padding(.vertical, 3)
+                                    .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: Capsule())
+                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
+                            Spacer()
+                            Image(systemName: "arrow.right.circle.fill")
+                                .foregroundStyle(Color.lifeboard(.accentPrimary))
+                        }
+                        .padding(.horizontal, 12)
+                        .frame(minHeight: 44)
+                        .background(Color.lifeboard(.surfaceSecondary), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+
+                    Button {
+                        composer.dismissInterpretation()
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundColor(Color(LifeBoardColorTokens.inkSecondary))
+                            .frame(width: 26, height: 26)
+                            .background(Color.lifeboard(.surfaceSecondary), in: Circle())
+                            .frame(width: 44, height: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Dismiss interpretation")
+                }
+                .padding(.horizontal, 4)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
+            if dictationController.isRecording || dictationController.phase == .preparing || dictationController.phase == .finalizing {
+                HStack(spacing: 8) {
+                    let phaseLabel: String = {
+                        switch dictationController.phase {
+                        case .preparing: return "Preparing…"
+                        case .finalizing: return "Finalizing…"
+                        default: return "Recording"
+                        }
+                    }()
+                    Circle()
+                        .fill(dictationController.phase == .preparing || dictationController.phase == .finalizing
+                              ? Color(LifeBoardColorTokens.inkSecondary)
+                              : Color.lifeboard(.statusDanger))
+                        .frame(width: 8, height: 8)
+                        .opacity(dictationController.phase == .recording ? (reduceMotion ? 1 : 0.55) : 1)
+                        .scaleEffect(dictationController.phase == .recording && !reduceMotion ? 1.1 : 1)
+                        .animation(reduceMotion ? nil : .easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: dictationController.isRecording)
+                    Text("\(phaseLabel) \(formatElapsedSeconds(dictationController.elapsedSeconds))")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .accessibilityLabel("\(phaseLabel) elapsed \(dictationController.elapsedSeconds) seconds")
+                        .accessibilityIdentifier("lifeThread.composer.dictation.badge")
+                    Spacer()
+                }
+                .padding(.horizontal, 4)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+
             if composer.state == .tools {
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {
@@ -1291,6 +1440,12 @@ public struct LifeOSFoundationShell: View {
                         .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(
+                    composer.state == .working
+                        || dictationController.phase == .preparing
+                        || dictationController.phase == .recording
+                        || dictationController.phase == .finalizing
+                )
                 .accessibilityLabel(composer.state == .tools ? "Close capture tools" : "Open capture tools")
                 .accessibilityIdentifier("lifeThread.composer.toolsToggle")
 
@@ -1299,30 +1454,108 @@ public struct LifeOSFoundationShell: View {
                         .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                 }
                     .lineLimit(1...4)
+                    .disabled(
+                        composer.state == .working
+                            || dictationController.phase == .preparing
+                            || dictationController.phase == .recording
+                            || dictationController.phase == .finalizing
+                    )
                     .focused($lifeThreadComposerIsFocused)
                     .submitLabel(.send)
                     .onSubmit { submitLifeThreadComposer(router: router) }
                     .onChange(of: lifeThreadComposerIsFocused) { _, focused in
                         if focused { composer.focus() }
                     }
+                    .onChange(of: composer.draftText) { _, _ in
+                        liveResolveComposerIntent(router: router)
+                    }
+                    .onChange(of: dictationController.draftText) { _, newValue in
+                        // Pull the live transcript back into the composer's
+                        // editable text during recording. Don't run intent
+                        // resolution from here — it's driven by the
+                        // `composer.draftText` change above (and is
+                        // suppressed during active recording).
+                        guard dictationController.isRecording else { return }
+                        if lifeThreadComposer.draftText != newValue {
+                            lifeThreadComposer.draftText = newValue
+                        }
+                    }
+                    .onChange(of: dictationController.recovery) { _, recovery in
+                        guard let recovery else { return }
+                        switch recovery.phase {
+                        case .denied, .unsupportedLocale, .assetInstallFailed:
+                            runtime.router.activeAlert = .init(
+                                title: "Dictation isn't available",
+                                message: recovery.message
+                            )
+                            lifeThreadComposer.cancelDictating(
+                                restoringText: dictationController.draftText.isEmpty ? lifeThreadComposer.draftText : dictationController.draftText
+                            )
+                        case .failed:
+                            runtime.router.activeAlert = .init(
+                                title: "Dictation paused",
+                                message: recovery.message
+                            )
+                            lifeThreadComposer.finishDictating(composedText: dictationController.draftText)
+                        case .idle, .preparing, .recording, .finalizing:
+                            break
+                        }
+                    }
                     .accessibilityIdentifier("home.lifeThread.composer")
 
-                Button {
-                    if composer.hasDraft {
-                        submitLifeThreadComposer(router: router)
-                    } else {
-                        beginComposerAudioCapture()
+                if dictationController.isRecording || dictationController.phase == .preparing || dictationController.phase == .finalizing {
+                    Button {
+                        cancelComposerDictation()
+                    } label: {
+                        Label("Cancel", systemImage: "xmark.circle.fill")
+                            .labelStyle(.iconOnly)
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .frame(width: 44, height: 44)
+                            .background(Color.lifeboard(.surfaceSecondary), in: Circle())
                     }
-                } label: {
-                    Image(systemName: composer.hasDraft ? "arrow.up" : "waveform")
-                        .font(.system(size: 16, weight: .bold))
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
-                        .frame(width: 44, height: 44)
-                        .background(Color(LifeBoardColorTokens.inkPrimary), in: Circle())
+                    .buttonStyle(.plain)
+                    .disabled(composer.state == .working)
+                    .accessibilityLabel("Cancel dictation")
+                    .accessibilityIdentifier("lifeThread.composer.dictation.cancel")
+
+                    Button {
+                        stopComposerDictation()
+                    } label: {
+                        Label("Done", systemImage: "stop.fill")
+                            .labelStyle(.iconOnly)
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                            .frame(width: 44, height: 44)
+                            .background(Color(LifeBoardColorTokens.inkPrimary), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(composer.state == .working)
+                    .accessibilityLabel("Stop dictation")
+                    .accessibilityIdentifier("lifeThread.composer.dictation.done")
+                } else {
+                    Button {
+                        if composer.hasDraft {
+                            submitLifeThreadComposer(router: router)
+                        } else {
+                            beginComposerAudioCapture()
+                        }
+                    } label: {
+                        Image(systemName: composer.hasDraft ? "arrow.up" : "waveform")
+                            .font(.system(size: 16, weight: .bold))
+                            .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                            .frame(width: 44, height: 44)
+                            .background(Color(LifeBoardColorTokens.inkPrimary), in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(composer.state == .working)
+                    .accessibilityLabel(
+                        composer.hasDraft
+                            ? "Interpret input"
+                            : (V2FeatureFlags.universalInputDictationEnabled ? "Start dictation" : "Record journal audio")
+                    )
+                    .accessibilityIdentifier("lifeThread.composer.send")
                 }
-                .buttonStyle(.plain)
-                .disabled(composer.state == .working)
-                .accessibilityLabel(composer.hasDraft ? "Send to Eva" : "Record audio")
             }
             .padding(8)
             .lifeBoardGlassSurface(cornerRadius: 27, interactive: true)
@@ -1437,17 +1670,55 @@ public struct LifeOSFoundationShell: View {
 
     /// Mounts the existing save-first Journal audio controls directly in the
     /// shared composer's recording state instead of detouring through the
-    /// full Journal module.
+    /// full Journal module. When the universal-input dictation kill switch
+    /// is on, the microphone falls back to the Journal audio-attachment
+    /// flow (pre-existing behavior) when the universal-input dictation kill
+    /// switch is off.
     private func beginComposerAudioCapture() {
-        guard V2FeatureFlags.journalV1Enabled else {
-            runtime.captureRouter.request(kind: .journal, source: .shell)
+        guard V2FeatureFlags.universalInputDictationEnabled else {
+            guard V2FeatureFlags.journalV1Enabled else {
+                runtime.captureRouter.request(kind: .journal, source: .shell)
+                return
+            }
+            if composerAudioStore == nil {
+                composerAudioStore = LifeBoardJournalStore(repository: phaseIIRepository)
+            }
+            lifeThreadComposer.beginRecording()
+            showsComposerAudioCapture = true
             return
         }
-        if composerAudioStore == nil {
-            composerAudioStore = LifeBoardJournalStore(repository: phaseIIRepository)
+        if dictationController.isRecording || dictationController.phase == .preparing || dictationController.phase == .finalizing {
+            stopComposerDictation()
+            return
         }
-        lifeThreadComposer.beginRecording()
-        showsComposerAudioCapture = true
+        lifeThreadComposer.beginDictating()
+        dictationController.start(existingDraft: lifeThreadComposer.draftText)
+    }
+
+    /// Stop the live dictation session: end input, await analyzer
+    /// finalization, and retain the final transcript in the draft. The
+    /// composer returns to the focused state with the combined typed +
+    /// dictated text.
+    private func stopComposerDictation() {
+        Task { @MainActor in
+            await dictationController.stop()
+            if let recovery = dictationController.recovery, recovery.phase == .failed {
+                runtime.router.activeAlert = .init(
+                    title: "Dictation paused",
+                    message: recovery.message
+                )
+            }
+            lifeThreadComposer.finishDictating(composedText: dictationController.draftText)
+        }
+    }
+
+    /// Cancel the live dictation session: tear down audio and restore the
+    /// pre-dictation draft so the user can keep typing.
+    private func cancelComposerDictation() {
+        Task { @MainActor in
+            await dictationController.cancel()
+            lifeThreadComposer.cancelDictating(restoringText: dictationController.draftText)
+        }
     }
 
     private func beginDocumentScan(router: LifeBoardAppRouter) {
@@ -1472,43 +1743,218 @@ public struct LifeOSFoundationShell: View {
         }
     }
 
+    private func formatElapsedSeconds(_ seconds: Int) -> String {
+        let minutes = max(0, seconds) / 60
+        let remainder = max(0, seconds) % 60
+        return String(format: "%d:%02d", minutes, remainder)
+    }
+
+    private func liveResolveComposerIntent(router: LifeBoardAppRouter) {
+        guard V2FeatureFlags.universalInputRoutingEnabled else { return }
+        liveIntentResolveTask?.cancel()
+        // An interpretation belongs to the exact draft that produced it.
+        // Clear it synchronously before debouncing the replacement so a
+        // quick edit-then-submit can never execute a stale action.
+        lifeThreadComposer.dismissInterpretation()
+        lifeThreadComposer.dismissClarification()
+        // Don't interpret while recording — the composer text is volatile
+        // (live transcript) and the user can't yet act on an interpretation
+        // row. Resolution runs once on stop, via `submitLifeThreadComposer`.
+        guard dictationController.isRecording == false else { return }
+        let text = lifeThreadComposer.draftText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.isEmpty == false else {
+            return
+        }
+        liveIntentResolveTask = Task {
+            try? await Task.sleep(for: .milliseconds(320))
+            guard !Task.isCancelled else { return }
+            let input = LifeThreadIntentInput(
+                text: text,
+                attachments: lifeThreadComposer.attachments.map(\.localIdentifier),
+                destination: lifeThreadComposer.destination,
+                origin: .conversation,
+                inputSource: lifeThreadComposer.lastInputSource,
+                selectedDate: router.selectedDestination == .home ? homeViewModel.selectedDate : nil,
+                daypart: runtime.preferences.resolvedDaypart(),
+                dashboardMode: router.dashboardMode,
+                calendarAvailable: homeViewModel.homeCalendarSnapshot.authorizationStatus.isAuthorizedForRead,
+                dayRescueEligible: !homeViewModel.dayRescueTasksByID.isEmpty,
+                overdueRescueEligible: !homeViewModel.evaRescueTasksByID.isEmpty,
+                overdueTaskCount: homeViewModel.evaRescueTasksByID.count
+            )
+            let resolution = await universalInputCoordinator.resolvePreview(input)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                switch resolution {
+                case .captureDraft(let draft):
+                    lifeThreadComposer.showInterpretation(for: draft)
+                case .navigation(let navigation):
+                    lifeThreadComposer.showInterpretation(for: navigation)
+                case .surfaceAction(let action):
+                    lifeThreadComposer.showInterpretation(for: action)
+                case .clarification(let clarification):
+                    lifeThreadComposer.showClarification(clarification)
+                case .answer, .transactionPreview:
+                    // No preview interpretation to show for free-text or
+                    // transaction previews that already drive their own
+                    // affordance. Leave the composer ready to submit
+                    // directly via the Send button.
+                    lifeThreadComposer.dismissInterpretation()
+                    lifeThreadComposer.dismissClarification()
+                }
+            }
+        }
+    }
+
     private func submitLifeThreadComposer(router: LifeBoardAppRouter) {
+        liveIntentResolveTask?.cancel()
+        liveIntentResolveTask = nil
+        if let interpretation = lifeThreadComposer.interpretation {
+            let res = interpretation.resolution
+            lifeThreadComposer.dismissInterpretation()
+            handleLifeThreadResolution(res, router: router)
+            return
+        }
         let text = lifeThreadComposer.draftText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard text.isEmpty == false else { return }
+        guard V2FeatureFlags.universalInputRoutingEnabled else {
+            do {
+                try EvaChatLaunchRequestStore.shared.submit(.init(prompt: text))
+                lifeThreadComposer.dismissDraft()
+                lifeThreadComposerIsFocused = false
+                router.activateRoot(.eva)
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            } catch {
+                lifeThreadComposer.focus()
+                router.activeAlert = .init(
+                    title: "Couldn’t open Eva",
+                    message: "Your draft is still here. Please try again."
+                )
+            }
+            return
+        }
         let input = LifeThreadIntentInput(
             text: text,
             attachments: lifeThreadComposer.attachments.map(\.localIdentifier),
-            destination: lifeThreadComposer.destination
+            destination: lifeThreadComposer.destination,
+            origin: .conversation,
+            inputSource: lifeThreadComposer.lastInputSource,
+            selectedDate: router.selectedDestination == .home ? homeViewModel.selectedDate : nil,
+            daypart: runtime.preferences.resolvedDaypart(),
+            dashboardMode: router.dashboardMode,
+            calendarAvailable: homeViewModel.homeCalendarSnapshot.authorizationStatus.isAuthorizedForRead,
+            dayRescueEligible: !homeViewModel.dayRescueTasksByID.isEmpty,
+            overdueRescueEligible: !homeViewModel.evaRescueTasksByID.isEmpty,
+            overdueTaskCount: homeViewModel.evaRescueTasksByID.count
         )
         lifeThreadComposer.beginWorking("Understanding what you need")
         Task {
-            let resolution = await lifeThreadIntentResolver.resolve(input)
+            let resolution = await universalInputCoordinator.resolve(input)
             await MainActor.run {
-                switch resolution {
-                case .answer(let request):
-                    do {
-                        try EvaChatLaunchRequestStore.shared.submit(.init(prompt: request.prompt))
-                        lifeThreadComposer.dismissDraft()
-                        lifeThreadComposerIsFocused = false
-                        router.activateRoot(.eva)
-                        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                    } catch {
-                        lifeThreadComposer.focus()
-                        router.activeAlert = .init(
-                            title: "Couldn’t open Eva",
-                            message: "Your draft is still here. Please try again."
-                        )
-                    }
-                case .captureDraft(let draft):
-                    lifeThreadComposer.focus()
-                    runtime.captureRouter.request(kind: draft.kind, source: .shell)
-                case .transactionPreview(let preview):
-                    lifeThreadComposer.review(preview)
-                case .navigation(let request):
-                    lifeThreadComposer.focus()
-                    router.activateRoot(request.destination)
-                }
+                handleLifeThreadResolution(resolution, router: router)
             }
+        }
+    }
+
+    private func handleLifeThreadResolution(_ resolution: LifeThreadIntentResolution, router: LifeBoardAppRouter) {
+        switch resolution {
+        case .answer(let request):
+            do {
+                try EvaChatLaunchRequestStore.shared.submit(.init(prompt: request.prompt))
+                lifeThreadComposer.dismissDraft()
+                lifeThreadComposerIsFocused = false
+                router.activateRoot(.eva)
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            } catch {
+                lifeThreadComposer.focus()
+                router.activeAlert = .init(
+                    title: "Couldn’t open Eva",
+                    message: "Your draft is still here. Please try again."
+                )
+            }
+        case .captureDraft(let draft):
+            lifeThreadComposer.focus()
+            runtime.captureRouter.request(
+                kind: draft.kind,
+                source: .shell,
+                prefilledText: draft.seed?.rawText,
+                captureSeed: draft.seed
+            )
+        case .transactionPreview(let preview):
+            lifeThreadComposer.review(preview)
+        case .navigation(let request):
+            lifeThreadComposer.focus()
+            router.activateRoot(request.destination)
+            if let route = request.route {
+                router.push(route, in: request.destination)
+            }
+        case .clarification(let clarification):
+            lifeThreadComposer.showClarification(clarification)
+        case .surfaceAction(let action):
+            // Surface actions preserve the composer draft so the user can
+            // resume if the action is cancelled. We don't dismiss the
+            // keyboard or the draft; only the deck navigates over the
+            // composer.
+            lifeThreadComposerIsFocused = false
+            switch action {
+            case .showTodaySchedule:
+                let calendarAvailable = homeViewModel.homeCalendarSnapshot
+                    .authorizationStatus.isAuthorizedForRead
+                router.activateRoot(.home)
+                // Always focus today so "check my meetings" lands on the
+                // current day even if Home was scrubbed.
+                if calendarAvailable {
+                    homeViewModel.returnToToday(source: .universalInput)
+                    presentCalendarSchedule(router: router)
+                } else {
+                    // Calendar-unavailable: navigate to Home and surface
+                    // the canonical permission-guidance body copy as a
+                    // toast so the user can grant access and retry.
+                    let accessAction = homeViewModel.homeCalendarSnapshot.accessAction
+                    let guidance: String
+                    switch accessAction {
+                    case .requestPermission:
+                        guidance = "Connect Calendar to surface next meetings and free windows."
+                    case .openSystemSettings:
+                        guidance = "Calendar access is denied. Enable LifeBoard in Settings > Privacy & Security > Calendars to see your meetings here."
+                    case .unavailable:
+                        guidance = "Calendar access is restricted by system policy."
+                    case .noneNeeded:
+                        guidance = "Calendar is connected, but no calendars are selected. Pick one in Home to see your meetings."
+                    }
+                    router.activeAlert = .init(
+                        title: "Calendar isn’t connected",
+                        message: guidance
+                    )
+                }
+            case .dayRescue:
+                presentPlanOverdueRescue(
+                    OverdueRescueLaunchContext.universalInputDayRescue(
+                        referenceDate: Date()
+                    )
+                )
+            case .overdueRescue:
+                presentPlanOverdueRescue(
+                    OverdueRescueLaunchContext.home(
+                        referenceDate: Date()
+                    )
+                )
+            }
+        }
+    }
+
+    /// Presents the calendar schedule for "check my meetings" navigation
+    /// using the existing HomeViewController deep-link path. On iPad it
+    /// switches the native shell's face to `.schedule`; on iPhone it
+    /// presents the modal `SunriseScheduleScreen` scoped to today.
+    private func presentCalendarSchedule(router: LifeBoardAppRouter) {
+        // The Foundation shell holds the legacy UIKit home controller as its
+        // base `UIViewController` type; the calendar-schedule deep link is
+        // an extension on `HomeViewController`. Fall back silently if the
+        // cast fails (e.g. for reference/preview home shells) — focus today
+        // still happened via `homeViewModel.returnToToday`.
+        if let homeController = legacyHomeController as? HomeViewController {
+            homeController.homeNavigationOpenCalendarSchedule()
         }
     }
 
@@ -4703,12 +5149,21 @@ private struct FoundationCaptureSheet: View {
     private var captureContent: some View {
         switch request.kind {
         case .task:
-            FoundationTaskCaptureHost(prefilledText: request.prefilledText)
+            FoundationTaskCaptureHost(
+                prefilledText: request.prefilledText,
+                captureSeed: request.captureSeed
+            )
         case .habit:
             FoundationHabitCaptureHost()
         case .journal:
             if V2FeatureFlags.journalV1Enabled, let phaseIIRepository {
-                NavigationStack { LifeBoardJournalModuleView(repository: phaseIIRepository) }
+                NavigationStack {
+                    LifeBoardJournalModuleView(
+                        repository: phaseIIRepository,
+                        initialText: request.captureSeed?.rawText ?? request.prefilledText,
+                        startsWithTextComposer: request.captureSeed != nil || request.prefilledText != nil
+                    )
+                }
             } else { EmptyView() }
         case .note:
             if V2FeatureFlags.knowledgeNotesV1Enabled, let phaseIIRepository {
@@ -4716,7 +5171,8 @@ private struct FoundationCaptureSheet: View {
                     LifeBoardKnowledgeModuleView(
                         repository: phaseIIRepository,
                         startsWithNewNote: true,
-                        captureDraftID: request.draftID
+                        captureDraftID: request.draftID,
+                        initialText: request.captureSeed?.rawText ?? request.prefilledText
                     )
                 }
             } else { EmptyView() }
@@ -4898,6 +5354,7 @@ private struct FoundationWeeklyReviewRoute: View {
 private struct FoundationTaskCaptureHost: View {
     /// Raw text of an already-captured item being reviewed, if any.
     var prefilledText: String?
+    var captureSeed: CaptureSeed? = nil
     @StateObject private var viewModel = PresentationDependencyContainer.shared.makeNewAddTaskViewModel()
     @State private var provisionalID = UUID()
 
@@ -4906,11 +5363,25 @@ private struct FoundationTaskCaptureHost: View {
             .task {
                 // Seeded once, and only when the field is still untouched, so a
                 // re-render cannot overwrite what the user has since typed.
+                if let seed = captureSeed, viewModel.taskName.isEmpty {
+                    if let parsed = seed.parsedCapture {
+                        viewModel.taskName = parsed.cleanTitle.isEmpty ? seed.rawText : parsed.cleanTitle
+                        if let date = parsed.dueDate { viewModel.dueDate = date }
+                        if let priority = parsed.priority { viewModel.selectedPriority = priority }
+                        if let duration = parsed.duration { viewModel.estimatedDuration = duration }
+                        if let repeatPattern = parsed.repeatPattern { viewModel.repeatPattern = repeatPattern }
+                        if let project = parsed.projectName { viewModel.selectedProject = project }
+                    } else {
+                        viewModel.taskName = seed.rawText
+                    }
+                    return
+                }
                 if let prefilledText, viewModel.taskName.isEmpty {
                     viewModel.taskName = prefilledText
                     return
                 }
-                guard prefilledText == nil,
+                guard captureSeed == nil,
+                      prefilledText == nil,
                       viewModel.taskName.isEmpty,
                       let recovered = PendingCaptureInbox.read()
                         .filter({ $0.source == "in-app" && $0.isProvisional })
