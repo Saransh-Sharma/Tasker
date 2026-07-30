@@ -39,6 +39,8 @@ struct LifeBoardTrackFoundationRootView: View {
     @State private var linkingGoal: GoalDefinition?
     @State private var selectedLens: TrackLens = .today
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
 
     init(
         repository: CoreDataTrackFoundationRepository,
@@ -96,12 +98,16 @@ struct LifeBoardTrackFoundationRootView: View {
     var body: some View {
         ZStack(alignment: .top) {
             Color.clear.ignoresSafeArea()
-            LifeBoardAtmosphereView(
-                daypart: preferences.resolvedDaypart(),
-                requestedTier: preferences.renderingTier,
-                comfortProfile: preferences.comfortProfile
-            )
-            .frame(height: 230).clipped().ignoresSafeArea(edges: .top)
+            if atmosphereIsHosted == false {
+                LifeBoardAtmosphereView(
+                    daypart: preferences.resolvedDaypart(),
+                    requestedTier: preferences.renderingTier,
+                    comfortProfile: preferences.comfortProfile
+                )
+                .frame(height: dynamicTypeSize.isAccessibilitySize ? 112 : 180)
+                .clipped()
+                .ignoresSafeArea(edges: .top)
+            }
 
             ScrollView {
                 LazyVStack(spacing: 16) {
@@ -109,7 +115,7 @@ struct LifeBoardTrackFoundationRootView: View {
                     categoryContent
                 }
                 .padding(.horizontal, 20)
-                .padding(.bottom, 36)
+                .padding(.bottom, dynamicTypeSize.isAccessibilitySize ? 56 : 36)
             }
             .refreshable { await store.load() }
         }
@@ -155,17 +161,22 @@ struct LifeBoardTrackFoundationRootView: View {
         }
         .sheet(isPresented: $showsMood, onDismiss: { editingMood = nil }) {
             MoodEnergyComposer(checkIn: editingMood) { value in
-                Task { await store.saveMood(value) }
+                await store.saveMood(value)
+                return store.errorMessage == nil
             } delete: { value in
                 Task { await store.deleteMood(value) }
             }
         }
         .sheet(isPresented: $showsSleep, onDismiss: { editingSleep = nil }) {
-            SleepContextComposer(existing: editingSleep) { record in Task { await store.saveSleep(record) } }
+            SleepContextComposer(existing: editingSleep) { record in
+                await store.saveSleep(record)
+                return store.errorMessage == nil
+            }
         }
         .sheet(isPresented: $showsGoal, onDismiss: { editingGoal = nil }) {
             GoalComposer(existing: editingGoal) { draft in
-                Task { await store.saveGoal(existing: editingGoal, draft: draft) }
+                await store.saveGoal(existing: editingGoal, draft: draft)
+                return store.errorMessage == nil
             }
         }
         .sheet(item: $linkingGoal) { goal in
@@ -180,7 +191,10 @@ struct LifeBoardTrackFoundationRootView: View {
                 policies: store.habitPolicies,
                 groups: store.habitGroups,
                 history: store.habitOccurrenceHistory,
-                save: { policy in Task { await store.saveHabitPolicy(policy) } },
+                save: { policy in
+                    await store.saveHabitPolicy(policy)
+                    return store.errorMessage == nil
+                },
                 recover: { habitID, day in await store.recoverHabit(habitID: habitID, day: day) },
                 undoRecovery: { habitID, day in await store.undoHabitRecovery(habitID: habitID, day: day) },
                 saveGroup: { group in Task { await store.saveHabitGroup(group) } },
@@ -193,25 +207,26 @@ struct LifeBoardTrackFoundationRootView: View {
                 schedule: editingRoutine.flatMap { routine in store.routineSchedules.first(where: { $0.routineID == routine.id }) },
                 sourcePickerRepository: sourcePickerRepository
             ) { title, steps, weekdays, daypart in
-                Task {
-                    await store.saveRoutine(existing: editingRoutine, title: title, steps: steps, weekdays: weekdays, daypart: daypart)
-                    // A scheduled routine that cannot notify is a routine that
-                    // silently never arrives. Offer once, after the save lands.
+                await store.saveRoutine(existing: editingRoutine, title: title, steps: steps, weekdays: weekdays, daypart: daypart)
+                let succeeded = store.errorMessage == nil
+                if succeeded {
                     await LifeBoardPermissionPrimingCoordinator.shared.offerAfterReward(
                         kind: .notifications,
                         trigger: "routine_scheduled"
                     )
                 }
+                return succeeded
             }
         }
         .sheet(isPresented: $showsHydrationTarget) {
             HydrationTargetComposer(currentTarget: store.snapshot.hydrationTargetMilliliters) { milliliters in
-                Task { await store.setHydrationTarget(milliliters) }
+                await store.setHydrationTarget(milliliters)
+                return store.errorMessage == nil
             }
         }
-        .sheet(isPresented: Binding(
+        .fullScreenCover(isPresented: Binding(
             get: { store.activeRoutineRun != nil },
-            set: { if !$0 && store.activeRoutineRun != nil { Task { await store.abandonRoutine() } } }
+            set: { _ in }
         )) {
             if let run = store.activeRoutineRun {
                 RoutineRunner(
@@ -281,11 +296,13 @@ struct LifeBoardTrackFoundationRootView: View {
     private var categoryRail: some View {
         Picker("Track lens", selection: $selectedLens) {
             ForEach(TrackLens.allCases) { lens in
-                Text(lens.title).tag(lens)
+                Text(lens.title)
+                    .tag(lens)
+                    .accessibilityIdentifier("track.lens.\(lens.rawValue)")
             }
         }
         .pickerStyle(.segmented)
-        .animation(LifeBoardAnimation.selection, value: selectedLens)
+        .lifeBoardMotion(.selection, value: selectedLens)
         .accessibilityIdentifier("track.lens")
     }
 
@@ -724,7 +741,7 @@ struct LifeBoardTrackFoundationRootView: View {
     private var careSnapshot: some View {
         VStack(spacing: 12) {
             trackSectionHeader("Care snapshot", symbol: "heart.text.square")
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
+            LazyVGrid(columns: careGridColumns, spacing: 12) {
                 hydrationTile
                 careButton(title: "Mood + energy", value: latestMood, symbol: "face.smiling") { presentMoodComposer() }
                 behaviorAreaLink(
@@ -742,7 +759,7 @@ struct LifeBoardTrackFoundationRootView: View {
     private var bodyCare: some View {
         VStack(spacing: 12) {
             trackSectionHeader("Body", symbol: "heart.text.square")
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: 12)], spacing: 12) {
+            LazyVGrid(columns: careGridColumns, spacing: 12) {
                 hydrationTile
                 behaviorAreaLink(
                     area: .medication,
@@ -850,27 +867,40 @@ struct LifeBoardTrackFoundationRootView: View {
         }
     }
 
-    @ViewBuilder
-    private var hydrationQuickActions: some View {
-        Button("+250") { Task { await store.quickAddHydration(250); await offerHealthConnect() } }
-        Button("+500") { Task { await store.quickAddHydration(500); await offerHealthConnect() } }
-        Button("Target") { showsHydrationTarget = true }
+    private var careGridColumns: [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize {
+            return [GridItem(.flexible(), spacing: 12)]
+        }
+        return [GridItem(.adaptive(minimum: 150), spacing: 12)]
     }
 
     private var hydrationTile: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Label("Hydration", systemImage: "drop.fill").font(.headline)
+            HStack(alignment: .firstTextBaseline) {
+                Label("Hydration", systemImage: "drop.fill").font(.headline)
+                Spacer(minLength: 8)
+                Button("Edit target") { showsHydrationTarget = true }
+                    .font(.caption.weight(.semibold))
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("track.hydration.target")
+            }
             Text(hydrationLabel).font(.title3.weight(.semibold))
             if let amount = store.snapshot.hydrationAmountMilliliters, let target = store.snapshot.hydrationTargetMilliliters, target > 0 {
                 ProgressView(value: min(1, amount / target)).tint(Color(LifeBoardColorTokens.foundationSageAccent))
             } else {
                 Text("Set your own target").font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
             }
-            // Three chips do not fit across a half-width card, so they stack
-            // rather than wrapping their own labels mid-word.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 6) { hydrationQuickActions }
-                VStack(alignment: .leading, spacing: 6) { hydrationQuickActions }
+            HStack(spacing: 8) {
+                Button("+250 ml") {
+                    Task { await store.quickAddHydration(250); await offerHealthConnect() }
+                }
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .accessibilityIdentifier("track.hydration.add250")
+                Button("+500 ml") {
+                    Task { await store.quickAddHydration(500); await offerHealthConnect() }
+                }
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .accessibilityIdentifier("track.hydration.add500")
             }
             .buttonStyle(.lifeBoardChip)
         }
@@ -1230,7 +1260,8 @@ struct TrackUniversalCaptureView: View {
             switch kind {
             case .mood:
                 MoodEnergyComposer { value in
-                    Task { await store.saveMood(value); dismiss() }
+                    await store.saveMood(value)
+                    return store.errorMessage == nil
                 }
             case .hydration:
                 HydrationCaptureComposer { amount in
@@ -1264,7 +1295,7 @@ struct TrackUniversalCaptureView: View {
                 .overlay { if store.routines.isEmpty { ContentUnavailableView("No routines yet", systemImage: "figure.mind.and.body") } }
                 .navigationTitle("Start routine")
                 .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
-                .sheet(isPresented: Binding(get: { store.activeRoutineRun != nil }, set: { _ in })) {
+                .fullScreenCover(isPresented: Binding(get: { store.activeRoutineRun != nil }, set: { _ in })) {
                     if let run = store.activeRoutineRun {
                         RoutineRunner(
                             run: run,
@@ -1275,6 +1306,7 @@ struct TrackUniversalCaptureView: View {
                             resume: { Task { await store.resumeRoutine() } },
                             abandon: { Task { await store.abandonRoutine() } }
                         )
+                        .interactiveDismissDisabled()
                     }
                 }
             default:
@@ -1316,12 +1348,52 @@ private struct HydrationCaptureComposer: View {
     }
 }
 
+private struct TrackComposerReceipt: Equatable, Sendable {
+    let operationID: UUID
+    let completedAt: Date
+
+    init(operationID: UUID = UUID(), completedAt: Date = Date()) {
+        self.operationID = operationID
+        self.completedAt = completedAt
+    }
+}
+
+private struct TrackComposerCommitBar: View {
+    let title: String
+    let phase: AsyncActionPhase<TrackComposerReceipt>
+    let isEnabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        VStack(spacing: 8) {
+            if case .recoverableFailure(let failure) = phase {
+                Label(failure.message, systemImage: "exclamationmark.circle")
+                    .font(.footnote)
+                    .foregroundStyle(Color.lifeboard.statusWarning)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            LifeBoardCommitControl(
+                title: title,
+                runningTitle: "Saving",
+                successTitle: "Saved",
+                phase: phase,
+                isEnabled: isEnabled,
+                action: action
+            )
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 10)
+        .background(.regularMaterial)
+    }
+}
+
 private struct HydrationTargetComposer: View {
-    let save: (Double) -> Void
+    let save: (Double) async -> Bool
     @Environment(\.dismiss) private var dismiss
     @State private var amount: Double
+    @State private var commitPhase: AsyncActionPhase<TrackComposerReceipt> = .idle
 
-    init(currentTarget: Double?, save: @escaping (Double) -> Void) {
+    init(currentTarget: Double?, save: @escaping (Double) async -> Bool) {
         self.save = save
         _amount = State(initialValue: currentTarget ?? 2_000)
     }
@@ -1350,11 +1422,34 @@ private struct HydrationTargetComposer: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save(amount); dismiss() }
-                        .disabled(amount <= 0)
+            }
+            .safeAreaInset(edge: .bottom) {
+                TrackComposerCommitBar(
+                    title: "Save target",
+                    phase: commitPhase,
+                    isEnabled: amount > 0,
+                    action: commit
+                )
+                .accessibilityIdentifier("track.hydration.target.commit")
+            }
+        }
+    }
+
+    private func commit() {
+        guard case .running = commitPhase else {
+            commitPhase = .running(progress: nil)
+            Task {
+                if await save(amount) {
+                    commitPhase = .success(receipt: .init())
+                    dismiss()
+                } else {
+                    commitPhase = .recoverableFailure(.init(
+                        message: "The hydration target could not be saved.",
+                        recovery: .retry
+                    ))
                 }
             }
+            return
         }
     }
 }
@@ -1367,6 +1462,8 @@ private struct RoutineRunner: View {
     let abandon: () -> Void
     @State private var response: String?
     @State private var isChoosingSkipReason = false
+    @State private var confirmsAbandon = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private var step: RoutineStep? { run.versionSnapshot.steps.first { $0.id == run.currentStepID } }
     private var index: Int { max(0, run.versionSnapshot.steps.firstIndex(where: { $0.id == run.currentStepID }) ?? 0) }
@@ -1375,66 +1472,49 @@ private struct RoutineRunner: View {
         NavigationStack {
             ZStack {
                 Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
-                VStack(spacing: 22) {
-                    ProgressView(value: Double(index + 1), total: Double(max(1, run.versionSnapshot.steps.count))).tint(Color(LifeBoardColorTokens.foundationFocusRing))
-                    Spacer()
-                    if let step {
-                        Image(systemName: symbol(step.kind)).font(.system(size: 44)).foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
-                        Text(step.title).font(LifeBoardFoundationTypography.screenTitle()).multilineTextAlignment(.center)
-                        if step.kind == .timer, let duration = step.duration {
-                            TimelineView(.periodic(from: .now, by: 1)) { context in
-                                let remaining = timerRemaining(duration: duration, at: context.date)
-                                VStack(spacing: 8) {
-                                    Text(durationLabel(remaining))
-                                        .font(.system(.title, design: .rounded, weight: .semibold).monospacedDigit())
-                                    ProgressView(value: max(0, duration - remaining), total: max(1, duration))
-                                        .tint(Color(LifeBoardColorTokens.foundationFocusRing))
-                                }
-                            }
-                        } else if let duration = step.duration {
-                            Text("About \(Int(duration / 60)) minutes").foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                ScrollView {
+                    VStack(spacing: 22) {
+                        RoutineRunnerProgressHeader(
+                            index: index,
+                            stepCount: run.versionSnapshot.steps.count
+                        )
+
+                        if let step {
+                            RoutineStepCard(
+                                step: step,
+                                run: run,
+                                response: $response,
+                                reduceMotion: reduceMotion
+                            )
                         }
-                        if !step.choices.isEmpty {
-                            Picker("Response", selection: $response) {
-                                Text("Choose").tag(String?.none)
-                                ForEach(step.choices, id: \.self) { Text($0).tag(String?.some($0)) }
-                            }.pickerStyle(.menu)
+
+                        if run.status == .running {
+                            runningControls
+                        } else {
+                            pausedControls
                         }
                     }
-                    Spacer()
-                    if run.status == .running {
-                        primaryAction
-                        if step?.isSkippable == true {
-                            Button("Skip this step") { isChoosingSkipReason = true }
-                                .buttonStyle(.bordered)
-                                .frame(minHeight: 44)
-                        }
-                    } else {
-                        VStack(spacing: 10) {
-                            Text(run.status == .interrupted ? "Routine interrupted" : "Routine paused")
-                                .font(LifeBoardFoundationTypography.sectionTitle())
-                            Text("Your place and timer are saved.")
-                                .font(.subheadline)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                            Button("Resume", action: resume)
-                                .buttonStyle(.borderedProminent)
-                                .controlSize(.large)
-                        }
-                    }
+                    .padding(20)
+                    .lifeBoardMotion(.cardReflow, value: run.currentStepID)
                 }
-                .padding(28)
             }
             .navigationTitle(run.versionSnapshot.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("End", role: .destructive) { abandon() }
+                    Button("End", role: .destructive) { confirmsAbandon = true }
+                        .accessibilityIdentifier("track.routine.end")
                 }
-                if run.status == .running {
-                    ToolbarItem(placement: .primaryAction) {
-                        Button("Pause", systemImage: "pause.fill", action: pause)
-                    }
-                }
+            }
+            .confirmationDialog(
+                "End this routine?",
+                isPresented: $confirmsAbandon,
+                titleVisibility: .visible
+            ) {
+                Button("End routine", role: .destructive) { abandon() }
+                Button("Keep going", role: .cancel) {}
+            } message: {
+                Text("Your completed steps remain in the run history. The routine template is unchanged.")
             }
             .confirmationDialog(
                 "Why are you skipping this step?",
@@ -1449,10 +1529,6 @@ private struct RoutineRunner: View {
                 Text("The reason appears in the run review without changing the routine template.")
             }
         }
-    }
-
-    private func symbol(_ kind: RoutineStepKind) -> String {
-        switch kind { case .task: "checkmark.circle"; case .habit: "repeat.circle"; case .checkIn: "heart.text.square"; case .timer: "timer"; case .instruction: "hand.point.up.left"; case .choice: "point.3.connected.trianglepath.dotted" }
     }
 
     @ViewBuilder private var primaryAction: some View {
@@ -1473,7 +1549,145 @@ private struct RoutineRunner: View {
         }
     }
 
+    private var runningControls: some View {
+        VStack(spacing: 10) {
+            primaryAction
+                .frame(maxWidth: .infinity)
+            HStack(spacing: 10) {
+                Button("Pause", systemImage: "pause.fill", action: pause)
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                if step?.isSkippable == true {
+                    Button("Skip", systemImage: "forward.fill") {
+                        isChoosingSkipReason = true
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                }
+            }
+        }
+    }
+
+    private var pausedControls: some View {
+        let title = run.status == .interrupted ? "Routine interrupted" : "Routine paused"
+        return VStack(spacing: 10) {
+            Text(title)
+                .font(LifeBoardFoundationTypography.sectionTitle())
+            Text("Your place and timer are saved.")
+                .font(.subheadline)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            Button("Resume", systemImage: "play.fill", action: resume)
+                .frame(maxWidth: .infinity, minHeight: 48)
+        }
+        .padding(18)
+        .lifeBoardClaySurface(.well, cornerRadius: 20)
+        .buttonStyle(.borderedProminent)
+    }
+
     private func timerRemaining(duration: TimeInterval, at date: Date) -> TimeInterval {
+        let activatedAt = run.events.last?.occurredAt ?? run.startedAt
+        let effectiveDate = run.pausedAt ?? date
+        let elapsed = max(
+            0,
+            effectiveDate.timeIntervalSince(activatedAt) - run.effectiveCurrentStepPausedDuration
+        )
+        return max(0, duration - elapsed)
+    }
+
+}
+
+private struct RoutineRunnerProgressHeader: View {
+    let index: Int
+    let stepCount: Int
+
+    var body: some View {
+        VStack(spacing: 7) {
+            Text("Step \(min(index + 1, stepCount)) of \(stepCount)")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            ProgressView(
+                value: Double(index + 1),
+                total: Double(max(1, stepCount))
+            )
+            .tint(Color(LifeBoardColorTokens.foundationFocusRing))
+        }
+    }
+}
+
+private struct RoutineStepCard: View {
+    let step: RoutineStep
+    let run: RoutineRun
+    @Binding var response: String?
+    let reduceMotion: Bool
+
+    var body: some View {
+        VStack(spacing: 18) {
+            Image(systemName: symbol)
+                .font(.largeTitle)
+                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                .symbolEffect(.breathe, options: .nonRepeating, value: step.id)
+            Text(step.title)
+                .font(LifeBoardFoundationTypography.screenTitle())
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            if step.kind == .timer, let duration = step.duration {
+                RoutineTimerProgress(run: run, duration: duration)
+            } else if let duration = step.duration {
+                Text("About \(Int(duration / 60)) minutes")
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            if step.choices.isEmpty == false {
+                RoutineResponseMenu(choices: step.choices, response: $response)
+                    .frame(minHeight: 44)
+            }
+        }
+        .id(step.id)
+        .padding(24)
+        .frame(maxWidth: .infinity, minHeight: 300)
+        .lifeBoardClaySurface(.raised, cornerRadius: 28)
+        .transition(
+            reduceMotion
+                ? .opacity
+                : .asymmetric(
+                    insertion: .move(edge: .trailing).combined(with: .opacity),
+                    removal: .move(edge: .leading).combined(with: .opacity)
+                )
+        )
+    }
+
+    private var symbol: String {
+        switch step.kind {
+        case .task: "checkmark.circle"
+        case .habit: "repeat.circle"
+        case .checkIn: "heart.text.square"
+        case .timer: "timer"
+        case .instruction: "hand.point.up.left"
+        case .choice: "point.3.connected.trianglepath.dotted"
+        }
+    }
+}
+
+private struct RoutineTimerProgress: View {
+    let run: RoutineRun
+    let duration: TimeInterval
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let remaining = timerRemaining(at: context.date)
+            VStack(spacing: 8) {
+                Text(durationLabel(remaining))
+                    .font(LifeBoardFoundationTypography.screenTitle().monospacedDigit())
+                    .contentTransition(.numericText(countsDown: true))
+                ProgressView(
+                    value: max(0, duration - remaining),
+                    total: max(1, duration)
+                )
+                .tint(Color(LifeBoardColorTokens.foundationFocusRing))
+            }
+        }
+    }
+
+    private func timerRemaining(at date: Date) -> TimeInterval {
         let activatedAt = run.events.last?.occurredAt ?? run.startedAt
         let effectiveDate = run.pausedAt ?? date
         let elapsed = max(
@@ -1489,6 +1703,21 @@ private struct RoutineRunner: View {
     }
 }
 
+private struct RoutineResponseMenu: View {
+    let choices: [String]
+    @Binding var response: String?
+
+    var body: some View {
+        Menu {
+            ForEach(choices, id: \.self) { choice in
+                Button(choice) { response = choice }
+            }
+        } label: {
+            LabeledContent("Response", value: response ?? "Choose")
+        }
+    }
+}
+
 private struct HabitResilienceLibrary: View {
     private enum LoadState {
         case loading
@@ -1500,7 +1729,7 @@ private struct HabitResilienceLibrary: View {
     let policies: [HabitResiliencePolicy]
     let groups: [HabitGroup]
     let history: [UUID: [HabitOccurrenceEvidence]]
-    let save: (HabitResiliencePolicy) -> Void
+    let save: (HabitResiliencePolicy) async -> Bool
     let recover: (UUID, PlanningDay) async -> HabitRecoveryReceipt?
     let undoRecovery: (UUID, PlanningDay) async -> Bool
     let saveGroup: (HabitGroup) -> Void
@@ -1706,7 +1935,7 @@ private struct HabitResilienceEditor: View {
     let history: [HabitOccurrenceEvidence]
     let recover: (UUID, PlanningDay) async -> HabitRecoveryReceipt?
     let undoRecovery: (UUID, PlanningDay) async -> Bool
-    let save: (HabitResiliencePolicy) -> Void
+    let save: (HabitResiliencePolicy) async -> Bool
 
     @Environment(\.dismiss) private var dismiss
     @State private var recoveryEnabled: Bool
@@ -1722,6 +1951,7 @@ private struct HabitResilienceEditor: View {
     @State private var vacationStart = Date()
     @State private var vacationEnd = Date()
     @State private var mutatingDays: Set<PlanningDay> = []
+    @State private var commitPhase: AsyncActionPhase<TrackComposerReceipt> = .idle
 
     init(
         habit: TypedSourcePickerItem,
@@ -1730,7 +1960,7 @@ private struct HabitResilienceEditor: View {
         history: [HabitOccurrenceEvidence],
         recover: @escaping (UUID, PlanningDay) async -> HabitRecoveryReceipt?,
         undoRecovery: @escaping (UUID, PlanningDay) async -> Bool,
-        save: @escaping (HabitResiliencePolicy) -> Void
+        save: @escaping (HabitResiliencePolicy) async -> Bool
     ) {
         self.habit = habit
         originalPolicy = policy
@@ -1892,23 +2122,40 @@ private struct HabitResilienceEditor: View {
         .lifeBoardFormSurface()
         .navigationTitle(habit.title)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Save") {
-                    var policy = originalPolicy
-                    policy.habitID = habit.id
-                    policy.groupID = groupID
-                    policy.recoveryEnabled = recoveryEnabled
-                    policy.streakPresentation = streakPresentation
-                    policy.offDays = offDays
-                    policy.recoveryReceipts = recoveryReceipts
-                    policy.vacationRanges = vacationRanges
-                    policy.backfillPolicy = backfillDays == 0 ? .disabled : .window(days: backfillDays)
-                    policy.minimumTarget = resolvedMinimumTarget
-                    policy.updatedAt = Date()
-                    save(policy)
-                    dismiss()
-                }
+        .safeAreaInset(edge: .bottom) {
+            TrackComposerCommitBar(
+                title: "Save resilience",
+                phase: commitPhase,
+                isEnabled: true,
+                action: commit
+            )
+            .accessibilityIdentifier("track.resilience.commit")
+        }
+    }
+
+    private func commit() {
+        if case .running = commitPhase { return }
+        var policy = originalPolicy
+        policy.habitID = habit.id
+        policy.groupID = groupID
+        policy.recoveryEnabled = recoveryEnabled
+        policy.streakPresentation = streakPresentation
+        policy.offDays = offDays
+        policy.recoveryReceipts = recoveryReceipts
+        policy.vacationRanges = vacationRanges
+        policy.backfillPolicy = backfillDays == 0 ? .disabled : .window(days: backfillDays)
+        policy.minimumTarget = resolvedMinimumTarget
+        policy.updatedAt = Date()
+        commitPhase = .running(progress: nil)
+        Task {
+            if await save(policy) {
+                commitPhase = .success(receipt: .init())
+                dismiss()
+            } else {
+                commitPhase = .recoverableFailure(.init(
+                    message: "Habit resilience could not be saved.",
+                    recovery: .retry
+                ))
             }
         }
     }
@@ -2081,13 +2328,14 @@ private struct RoutineComposer: View {
     let existing: RoutineDefinition?
     let schedule: RoutineSchedule?
     let sourcePickerRepository: any TypedSourcePickerRepository
-    let save: (String, [RoutineStep], Set<Int>, ResolvedDaypart?) -> Void
+    let save: (String, [RoutineStep], Set<Int>, ResolvedDaypart?) async -> Bool
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
     @State private var steps: [DraftStep]
     @State private var weekdays: Set<Int>
     @State private var daypart: ResolvedDaypart?
     @State private var pickingStep: StepLinkTarget?
+    @State private var commitPhase: AsyncActionPhase<TrackComposerReceipt> = .idle
 
     private struct StepLinkTarget: Identifiable { let id: UUID }
 
@@ -2095,7 +2343,7 @@ private struct RoutineComposer: View {
         existing: RoutineDefinition? = nil,
         schedule: RoutineSchedule? = nil,
         sourcePickerRepository: any TypedSourcePickerRepository,
-        save: @escaping (String, [RoutineStep], Set<Int>, ResolvedDaypart?) -> Void
+        save: @escaping (String, [RoutineStep], Set<Int>, ResolvedDaypart?) async -> Bool
     ) {
         self.existing = existing
         self.schedule = schedule
@@ -2203,10 +2451,15 @@ private struct RoutineComposer: View {
             .environment(\.editMode, .constant(.active))
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(existing == nil ? "Create" : "Save") { saveRoutine(); dismiss() }
-                        .disabled(!isValid)
-                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                TrackComposerCommitBar(
+                    title: existing == nil ? "Create routine" : "Save routine",
+                    phase: commitPhase,
+                    isEnabled: isValid,
+                    action: saveRoutine
+                )
+                .accessibilityIdentifier("track.routine.commit")
             }
             .sheet(item: $pickingStep) { target in
                 let kind: TypedSourceKind = steps.first { $0.id == target.id }?.kind == .habit ? .habit : .task
@@ -2235,7 +2488,23 @@ private struct RoutineComposer: View {
     }
 
     private func saveRoutine() {
-        save(title, routineSteps(), weekdays, daypart)
+        if case .running = commitPhase { return }
+        let committedTitle = title
+        let committedSteps = routineSteps()
+        let committedWeekdays = weekdays
+        let committedDaypart = daypart
+        commitPhase = .running(progress: nil)
+        Task {
+            if await save(committedTitle, committedSteps, committedWeekdays, committedDaypart) {
+                commitPhase = .success(receipt: .init())
+                dismiss()
+            } else {
+                commitPhase = .recoverableFailure(.init(
+                    message: "The routine could not be saved.",
+                    recovery: .retry
+                ))
+            }
+        }
     }
 
     private func routineSteps() -> [RoutineStep] {
@@ -2374,17 +2643,18 @@ private struct MoodTrendStrip: View {
 
 private struct MoodEnergyComposer: View {
     let checkIn: LifeBoardMoodEnergyCheckInValue?
-    let save: (LifeBoardMoodEnergyCheckInValue) -> Void
+    let save: (LifeBoardMoodEnergyCheckInValue) async -> Bool
     let delete: ((LifeBoardMoodEnergyCheckInValue) -> Void)?
     @Environment(\.dismiss) private var dismiss
     @State private var mood: LifeBoardJournalMood
     @State private var energy: Int
     @State private var includesEnergy: Bool
     @State private var confirmsDelete = false
+    @State private var commitPhase: AsyncActionPhase<TrackComposerReceipt> = .idle
 
     init(
         checkIn: LifeBoardMoodEnergyCheckInValue? = nil,
-        save: @escaping (LifeBoardMoodEnergyCheckInValue) -> Void,
+        save: @escaping (LifeBoardMoodEnergyCheckInValue) async -> Bool,
         delete: ((LifeBoardMoodEnergyCheckInValue) -> Void)? = nil
     ) {
         self.checkIn = checkIn
@@ -2410,7 +2680,18 @@ private struct MoodEnergyComposer: View {
             }
             .lifeBoardFormSurface()
             .navigationTitle(checkIn == nil ? "Mood + energy" : "Edit check-in")
-            .toolbar { composerToolbar { saveValue() } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            }
+            .safeAreaInset(edge: .bottom) {
+                TrackComposerCommitBar(
+                    title: checkIn == nil ? "Save check-in" : "Save changes",
+                    phase: commitPhase,
+                    isEnabled: true,
+                    action: saveValue
+                )
+                .accessibilityIdentifier("track.mood.commit")
+            }
             .confirmationDialog("Delete this check-in?", isPresented: $confirmsDelete, titleVisibility: .visible) {
                 Button("Delete", role: .destructive) {
                     guard let checkIn else { return }
@@ -2425,25 +2706,37 @@ private struct MoodEnergyComposer: View {
     }
 
     private func saveValue() {
+        if case .running = commitPhase { return }
         var value = checkIn ?? LifeBoardMoodEnergyCheckInValue(mood: mood, energy: includesEnergy ? energy : nil)
         value.mood = mood
         value.energy = includesEnergy ? energy : nil
-        save(value)
-        dismiss()
+        commitPhase = .running(progress: nil)
+        Task {
+            if await save(value) {
+                commitPhase = .success(receipt: .init())
+                dismiss()
+            } else {
+                commitPhase = .recoverableFailure(.init(
+                    message: "The check-in could not be saved.",
+                    recovery: .retry
+                ))
+            }
+        }
     }
 }
 
 private struct SleepContextComposer: View {
     let existing: SleepContextRecord?
-    let save: (SleepContextRecord) -> Void
+    let save: (SleepContextRecord) async -> Bool
     @Environment(\.dismiss) private var dismiss
     @State private var bedtime: Date
     @State private var wake: Date
     @State private var rest: Int
     @State private var interruptions: Int
     @State private var notes: String
+    @State private var commitPhase: AsyncActionPhase<TrackComposerReceipt> = .idle
 
-    init(existing: SleepContextRecord? = nil, save: @escaping (SleepContextRecord) -> Void) {
+    init(existing: SleepContextRecord? = nil, save: @escaping (SleepContextRecord) async -> Bool) {
         self.existing = existing
         self.save = save
         let defaultWake = Date()
@@ -2467,13 +2760,25 @@ private struct SleepContextComposer: View {
             .lifeBoardFormSurface()
             .privacySensitive()
             .navigationTitle(existing == nil ? "Sleep context" : "Edit sleep context")
-            .toolbar { composerToolbar { saveValue() } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            }
+            .safeAreaInset(edge: .bottom) {
+                TrackComposerCommitBar(
+                    title: existing == nil ? "Save sleep context" : "Save changes",
+                    phase: commitPhase,
+                    isEnabled: wake >= bedtime,
+                    action: saveValue
+                )
+                .accessibilityIdentifier("track.sleep.commit")
+            }
         }
     }
 
     private func saveValue() {
+        if case .running = commitPhase { return }
         let trimmed = notes.trimmingCharacters(in: .whitespacesAndNewlines)
-        save(SleepContextRecord(
+        let record = SleepContextRecord(
             id: existing?.id ?? UUID(),
             bedtime: bedtime,
             wakeTime: wake,
@@ -2481,14 +2786,25 @@ private struct SleepContextComposer: View {
             interruptionCount: interruptions,
             notes: trimmed.isEmpty ? nil : trimmed,
             createdAt: existing?.createdAt ?? Date()
-        ))
-        dismiss()
+        )
+        commitPhase = .running(progress: nil)
+        Task {
+            if await save(record) {
+                commitPhase = .success(receipt: .init())
+                dismiss()
+            } else {
+                commitPhase = .recoverableFailure(.init(
+                    message: "The sleep context could not be saved.",
+                    recovery: .retry
+                ))
+            }
+        }
     }
 }
 
 private struct GoalComposer: View {
     let existing: GoalDefinition?
-    let save: (GoalDraft) -> Void
+    let save: (GoalDraft) async -> Bool
     @Environment(\.dismiss) private var dismiss
     @State private var title: String
     @State private var type: GoalType
@@ -2501,10 +2817,11 @@ private struct GoalComposer: View {
     @State private var confidence: GoalConfidence?
     @State private var whyItMatters: String
     @State private var checkInCadence: GoalCheckInCadence
+    @State private var commitPhase: AsyncActionPhase<TrackComposerReceipt> = .idle
 
     init(
         existing: GoalDefinition? = nil,
-        save: @escaping (GoalDraft) -> Void
+        save: @escaping (GoalDraft) async -> Bool
     ) {
         self.existing = existing
         self.save = save
@@ -2570,29 +2887,57 @@ private struct GoalComposer: View {
             .lifeBoardFormSurface()
             .navigationTitle(existing == nil ? "New goal" : "Edit goal")
             .toolbar {
-                composerToolbar(disabled: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || (usesNumericTarget && target <= 0)) {
-                    save(GoalDraft(
-                        areaID: existing?.areaID,
-                        title: title,
-                        type: type,
-                        intent: intent,
-                        targetValue: usesNumericTarget ? (type == .duration ? target * 60 : target) : nil,
-                        baselineValue: usesNumericTarget && hasBaseline
-                            ? (type == .duration ? baseline * 60 : baseline)
-                            : nil,
-                        unitLabel: type == .quantity ? unit : type == .duration ? "seconds" : nil,
-                        targetDate: type == .targetDate ? targetDate : nil,
-                        confidence: confidence,
-                        whyItMatters: whyItMatters,
-                        checkInCadence: checkInCadence
-                    ))
-                    dismiss()
-                }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            }
+            .safeAreaInset(edge: .bottom) {
+                TrackComposerCommitBar(
+                    title: existing == nil ? "Create goal" : "Save goal",
+                    phase: commitPhase,
+                    isEnabled: canCommit,
+                    action: commit
+                )
+                .accessibilityIdentifier("track.goal.commit")
             }
         }
     }
 
     private var usesNumericTarget: Bool { type == .count || type == .quantity || type == .duration }
+    private var canCommit: Bool {
+        title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            && (usesNumericTarget == false || target > 0)
+    }
+
+    private func commit() {
+        if case .running = commitPhase { return }
+        let draft = GoalDraft(
+            areaID: existing?.areaID,
+            title: title,
+            type: type,
+            intent: intent,
+            targetValue: usesNumericTarget ? (type == .duration ? target * 60 : target) : nil,
+            baselineValue: usesNumericTarget && hasBaseline
+                ? (type == .duration ? baseline * 60 : baseline)
+                : nil,
+            unitLabel: type == .quantity ? unit : type == .duration ? "seconds" : nil,
+            targetDate: type == .targetDate ? targetDate : nil,
+            confidence: confidence,
+            whyItMatters: whyItMatters,
+            checkInCadence: checkInCadence
+        )
+        commitPhase = .running(progress: nil)
+        Task {
+            if await save(draft) {
+                commitPhase = .success(receipt: .init())
+                dismiss()
+            } else {
+                commitPhase = .recoverableFailure(.init(
+                    message: "The goal could not be saved.",
+                    recovery: .retry
+                ))
+            }
+        }
+    }
+
     private func goalTypeTitle(_ type: GoalType) -> String {
         switch type {
         case .completion: "Completion"
@@ -2740,17 +3085,6 @@ private struct StarterPackPreviewSheet: View {
     private func itemSymbol(_ kind: StarterPackItemKind) -> String {
         switch kind { case .goal: "target"; case .habit: "repeat.circle"; case .routine: "figure.mind.and.body"; case .reminder: "bell" }
     }
-}
-
-@ToolbarContentBuilder
-private func composerToolbar(disabled: Bool = false, save: @escaping () -> Void) -> some ToolbarContent {
-    ToolbarItem(placement: .cancellationAction) { DismissComposerButton() }
-    ToolbarItem(placement: .confirmationAction) { Button("Save", action: save).disabled(disabled) }
-}
-
-private struct DismissComposerButton: View {
-    @Environment(\.dismiss) private var dismiss
-    var body: some View { Button("Cancel") { dismiss() } }
 }
 
 private extension View {
