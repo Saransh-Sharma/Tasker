@@ -2265,6 +2265,7 @@ struct ChatView: View {
                     self.chatOpenTraceInterval = nil
                     LifeBoardPerformanceTrace.event("ChatTranscriptFirstRender")
                 }
+                EvaNavigationPerformanceTrace.markInteractive()
             }
             return
         }
@@ -2277,6 +2278,7 @@ struct ChatView: View {
                 self.chatOpenTraceInterval = nil
                 LifeBoardPerformanceTrace.event("ChatTranscriptFirstRender")
             }
+            EvaNavigationPerformanceTrace.markInteractive()
         }
     }
 

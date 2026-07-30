@@ -33,60 +33,70 @@ struct EvaActivationRootView: View {
     var body: some View {
         currentStageView
             .animation(reduceMotion ? nil : LifeBoardAnimation.gatewayReveal, value: coordinator.state.stage)
+            .onAppear {
+                markCurrentStageInteractiveIfNeeded()
+            }
+            .onChange(of: coordinator.state.stage) { _, _ in
+                markCurrentStageInteractiveIfNeeded()
+            }
     }
 
-    @ViewBuilder
-    private var currentStageView: some View {
+    /// Keep each activation stage behind a concrete type-erasure boundary.
+    ///
+    /// `ChatContainerView` is deliberately large. Allowing the stage switch to
+    /// synthesize one nested `_ConditionalContent` type makes Swift instantiate
+    /// metadata for every onboarding stage before Eva can appear.
+    private var currentStageView: AnyView {
         switch coordinator.state.stage {
         case .intro:
-            EvaActivationIntroView(
+            AnyView(EvaActivationIntroView(
                 onContinue: coordinator.continueFromIntro,
                 onDismiss: onDismiss
-            )
+            ))
         case .aboutYou:
-            EvaAboutYouView(
+            AnyView(EvaAboutYouView(
                 draft: $coordinator.profileDraft,
                 onBack: coordinator.backToIntro,
                 onContinue: coordinator.continueFromAboutYou
-            )
+            ))
         case .goals:
-            EvaGoalsView(
+            AnyView(EvaGoalsView(
                 draft: $coordinator.profileDraft,
                 onBack: coordinator.backToAboutYou,
                 onContinue: coordinator.continueFromGoals
-            )
+            ))
         case .modelChoice:
-            EvaModelChoiceView(
+            AnyView(EvaModelChoiceView(
                 selectedModelName: coordinator.state.chosenModelName,
                 onBack: coordinator.backToGoals,
                 onSelect: coordinator.selectModel,
                 onContinue: coordinator.continueFromModelChoice
-            )
+            ))
         case .installRecovery:
-            EvaActivationRecoveryView(
+            AnyView(EvaActivationRecoveryView(
                 failedModelTitle: coordinator.failedModelDisplayTitle,
                 onRetry: coordinator.retryInstallFromRecovery,
                 onSwitchToFast: coordinator.switchRecoveryToFast,
                 onOpenModels: coordinator.openModelsFromRecovery
-            )
+            ))
         case .modelDownload:
             if let model = coordinator.selectedModel {
-                EvaWakeEvaInstallView(
+                AnyView(EvaWakeEvaInstallView(
                     model: model,
                     selectionTitle: coordinator.selectedModelDisplayTitle,
                     onChooseAnotherModel: coordinator.backToModelChoice,
                     onInstallComplete: coordinator.completeInstall
-                )
+                ))
             } else {
-                EvaModelChoiceView(
+                AnyView(EvaModelChoiceView(
                     selectedModelName: coordinator.state.chosenModelName,
                     onBack: coordinator.backToGoals,
                     onSelect: coordinator.selectModel,
                     onContinue: coordinator.continueFromModelChoice
-                )
+                ))
             }
         case .firstChat, .completed:
-            ChatContainerView(
+            AnyView(ChatContainerView(
                 presentationMode: coordinator.isComplete
                     ? .normal
                     : .activation(
@@ -111,9 +121,20 @@ struct EvaActivationRootView: View {
                 onOpenHabitDetail: onOpenHabitDetail,
                 onPerformDayTaskAction: onPerformDayTaskAction,
                 onPerformDayHabitAction: onPerformDayHabitAction
-            )
+            ))
         case .unsupportedDevice:
-            DeviceNotSupportedView(onDismiss: onDismiss)
+            AnyView(DeviceNotSupportedView(onDismiss: onDismiss))
+        }
+    }
+
+    private func markCurrentStageInteractiveIfNeeded() {
+        switch coordinator.state.stage {
+        case .firstChat, .completed:
+            // Chat ends the navigation interval after its first transcript
+            // snapshot, so the metric includes composer/transcript readiness.
+            break
+        default:
+            EvaNavigationPerformanceTrace.markInteractive()
         }
     }
 }
