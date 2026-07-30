@@ -3412,16 +3412,22 @@ struct LifeBoardJournalModuleView: View {
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
     @Environment(\.scenePhase) private var scenePhase
 
+    private let initialText: String?
+
     init(
         repository: any LifeBoardPhaseIIRepository,
         initialSection: LifeBoardJournalStore.Section = .today,
         reflectionWeekDate: Date = Date(),
-        router: LifeBoardAppRouter? = nil
+        router: LifeBoardAppRouter? = nil,
+        initialText: String? = nil,
+        startsWithTextComposer: Bool = false
     ) {
         _store = State(initialValue: LifeBoardJournalStore(repository: repository, initialSection: initialSection))
         _privacy = State(initialValue: JournalPrivacyController(initiallyUnlocked: router?.isJournalAccessUnlocked == true))
+        _showsTextComposer = State(initialValue: startsWithTextComposer)
         self.reflectionWeekDate = reflectionWeekDate
         self.router = router
+        self.initialText = initialText
     }
 
     var body: some View {
@@ -3430,7 +3436,7 @@ struct LifeBoardJournalModuleView: View {
         let captureSheets = AnyView(surface.sheet(isPresented: $showsTextComposer) {
             LifeBoardJournalTextComposer(
                 prompt: currentPrompt,
-                initialText: store.draft?.text ?? "",
+                initialText: initialText ?? store.draft?.text ?? "",
                 onDraftChanged: { text, editPosition in
                     Task { await store.saveDraftText(text, promptID: currentPrompt.id, editPosition: editPosition) }
                 },
@@ -5167,8 +5173,8 @@ enum LifeBoardJournalAudioFiles {
 
 @MainActor
 /// Journal transcription backed by the shared TranscriptionKit service:
-/// iOS 26 on-device SpeechAnalyzer with legacy SFSpeechRecognizer fallback,
-/// bounded concurrency, and an overall timeout (OffRecord parity).
+/// on-device SpeechAnalyzer with bounded concurrency and an overall timeout
+/// (OffRecord parity).
 private final class LifeBoardJournalSpeechTranscriber {
     /// One shared service so the two-job concurrency limiter spans every
     /// journal transcription in the process.

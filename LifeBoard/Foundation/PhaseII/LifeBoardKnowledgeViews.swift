@@ -182,25 +182,42 @@ final class LifeBoardKnowledgeStore {
     func createNote(
         id: UUID? = nil,
         folderID: UUID? = nil,
-        template: KnowledgeNoteTemplate = KnowledgeNoteTemplate.library[0]
+        template: KnowledgeNoteTemplate = KnowledgeNoteTemplate.library[0],
+        initialTitle: String = "",
+        initialText: String? = nil
     ) -> LifeBoardKnowledgeNoteValue? {
         guard let selectedSpaceID else { return nil }
         let noteID = id ?? UUID()
-        let blocks = template.blocks.enumerated().map { index, block in
-            LifeBoardKnowledgeBlockValue(
-                noteID: noteID,
-                kind: block.kind,
-                text: block.text,
-                ordinal: index,
-                createdAt: Date(),
-                updatedAt: Date()
-            )
+        let blocks: [LifeBoardKnowledgeBlockValue]
+        if let initialText, !initialText.isEmpty {
+            blocks = [
+                LifeBoardKnowledgeBlockValue(
+                    noteID: noteID,
+                    kind: .paragraph,
+                    text: initialText,
+                    ordinal: 0,
+                    createdAt: Date(),
+                    updatedAt: Date()
+                )
+            ]
+        } else {
+            blocks = template.blocks.enumerated().map { index, block in
+                LifeBoardKnowledgeBlockValue(
+                    noteID: noteID,
+                    kind: block.kind,
+                    text: block.text,
+                    ordinal: index,
+                    createdAt: Date(),
+                    updatedAt: Date()
+                )
+            }
         }
+        let resolvedTitle = !initialTitle.isEmpty ? initialTitle : (template.id == "blank" ? "" : template.title)
         return .init(
             id: noteID,
             spaceID: selectedSpaceID,
             folderID: folderID,
-            title: template.id == "blank" ? "" : template.title,
+            title: resolvedTitle,
             blocks: blocks,
             templateID: template.id,
             contentVersion: 1
@@ -710,6 +727,7 @@ struct LifeBoardKnowledgeModuleView: View {
     private let initialDestination: NotesLibraryDestination?
     private let startsWithNewNote: Bool
     private let captureDraftID: UUID?
+    private let initialText: String?
 
     init(
         repository: any LifeBoardPhaseIIRepository,
@@ -717,7 +735,8 @@ struct LifeBoardKnowledgeModuleView: View {
         initialNoteID: UUID? = nil,
         initialDestination: NotesLibraryDestination? = nil,
         startsWithNewNote: Bool = false,
-        captureDraftID: UUID? = nil
+        captureDraftID: UUID? = nil,
+        initialText: String? = nil
     ) {
         _store = State(initialValue: LifeBoardKnowledgeStore(
             repository: repository,
@@ -727,6 +746,7 @@ struct LifeBoardKnowledgeModuleView: View {
         self.initialDestination = initialDestination
         self.startsWithNewNote = startsWithNewNote
         self.captureDraftID = captureDraftID
+        self.initialText = initialText
     }
 
     var body: some View {
@@ -1571,7 +1591,7 @@ struct LifeBoardKnowledgeModuleView: View {
         if let initialNoteID {
             editingNote = store.notes.first(where: { $0.id == initialNoteID })
         } else if startsWithNewNote {
-            editingNote = store.createNote(id: captureDraftID)
+            editingNote = store.createNote(id: captureDraftID, initialText: initialText)
         }
     }
 
