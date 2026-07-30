@@ -130,6 +130,8 @@ public enum LifeBoardSignatureEffect: String, Codable, CaseIterable, Hashable, S
     case paperGrain
     /// Completion dissolves a row away instead of fading it.
     case dissolveAway
+    /// Directional one-shot warmth beneath the Inbox deck after triage settles.
+    case triageSettle
 }
 
 public enum DaypartSelection: String, Codable, CaseIterable, Hashable, Sendable {

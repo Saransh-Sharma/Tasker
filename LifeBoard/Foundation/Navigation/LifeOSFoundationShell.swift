@@ -16,6 +16,35 @@ private struct LifeBoardAtmosphereSnapshotReader<Content: View>: View {
     }
 }
 
+/// Keeps a type-erased destination value stable across shell-level updates.
+///
+/// `AnyView` caps generic metadata, but recreating the erased value on every
+/// destination selection still copies the complete dashboard value graph. The
+/// storage belongs to SwiftUI identity, so retained dashboards keep one root
+/// value while an evicted Eva host releases its cached value with the host.
+@MainActor
+private final class LifeBoardDestinationRootStorage: ObservableObject {
+    private var root: AnyView?
+
+    func resolve(_ makeRoot: () -> AnyView) -> AnyView {
+        if let root {
+            return root
+        }
+        let root = makeRoot()
+        self.root = root
+        return root
+    }
+}
+
+private struct LifeBoardStableDestinationRoot: View {
+    @StateObject private var storage = LifeBoardDestinationRootStorage()
+    let makeRoot: () -> AnyView
+
+    var body: some View {
+        storage.resolve(makeRoot)
+    }
+}
+
 public struct LifeOSFoundationShell: View {
     private let legacyHomeController: UIViewController
     private let homeViewModel: HomeViewModel
@@ -43,8 +72,10 @@ public struct LifeOSFoundationShell: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var compactCaptureState = CaptureOrbPresentationState()
     @State private var measuredChromeHeight: CGFloat = 132
-    /// Roots that have been opened at least once. They stay built afterwards so
-    /// their scroll position and navigation depth survive a root change.
+    /// Roots that have been opened at least once. Dashboard roots stay built so
+    /// their scroll position and navigation depth survive a root change. Eva is
+    /// intentionally evicted when inactive because its chat/runtime hierarchy
+    /// is substantially heavier and owns visibility-scoped work.
     @State private var visitedRoots: Set<LifeBoardDestination> = []
     @State private var compactCaptureTargetFrames: [CaptureKind: CGRect] = [:]
     @State private var compactCaptureRippleTrigger = 0
@@ -61,6 +92,8 @@ public struct LifeOSFoundationShell: View {
     /// Fires the one-shot background warp when a card zooms into its detail
     /// route. Incremented on a real push, never on a redraw.
     @State private var routeTransitionTrigger = 0
+    @State private var daypartBloomTrigger = 0
+    @State private var homeIsCustomizing = false
     @AppStorage("lifeOS.home.dashboardDensity.v1") private var dashboardDensity: DashboardDensity = .balanced
     @FocusState private var lifeThreadComposerIsFocused: Bool
     @Namespace private var dockSelectionNamespace
@@ -126,6 +159,10 @@ public struct LifeOSFoundationShell: View {
                         } else {
                             compactShell(router: router, atmosphereSnapshot: atmosphereSnapshot)
                         }
+                    }
+                    .onChange(of: atmosphereSnapshot.semanticDaypart) { oldValue, newValue in
+                        guard oldValue != newValue else { return }
+                        daypartBloomTrigger &+= 1
                     }
                 }
             }
@@ -380,21 +417,22 @@ public struct LifeOSFoundationShell: View {
             // contributed was a container whose cross-dissolve could not be
             // replaced. Holding the roots in a stack lets a root change read as
             // travel — the arriving root slides in from the side it sits on in
-            // the dock — while every visited root stays in the hierarchy, so
-            // scroll position and navigation depth survive exactly as before.
+            // the dock — while visited dashboard roots stay in the hierarchy,
+            // so their scroll position and navigation depth survive. Eva is
+            // rebuilt on demand to release its visibility-scoped runtime work.
             //
             // The regular-width shell keeps its TabView: there the sidebar and
             // top bar are the switcher, and there is nothing to replace it with.
             ZStack {
                 ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
-                    // Built on first visit and kept alive after, matching the
-                    // laziness the TabView gave us. Building all five up front
-                    // would wake every root's stores on launch.
+                    // Built on first visit. Dashboard roots stay alive; Eva is
+                    // removed when inactive. Building all five up front would
+                    // wake every root's stores on launch.
                     if visitedRoots.contains(destination) {
                         let isCurrent = router.selectedDestination == destination
                         destinationNavigation(destination, router: router, atmosphereSnapshot: atmosphereSnapshot)
                             .safeAreaInset(edge: .bottom, spacing: 0) {
-                                Color.clear.frame(height: measuredChromeHeight)
+                                Color.clear.frame(height: reservedChromeHeight(for: destination))
                             }
                             .offset(
                                 x: LifeBoardRootTransition.offset(
@@ -412,8 +450,11 @@ public struct LifeOSFoundationShell: View {
                     }
                 }
             }
-            .onChange(of: router.selectedDestination, initial: true) { _, destination in
+            .onChange(of: router.selectedDestination, initial: true) { previous, destination in
                 visitedRoots.insert(destination)
+                if previous == .eva, destination != .eva {
+                    visitedRoots.remove(.eva)
+                }
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .background(Color.clear)
@@ -421,45 +462,43 @@ public struct LifeOSFoundationShell: View {
                 // Composer and dock share one GlassEffectContainer so the two
                 // chrome layers refract and morph as a single surface rather
                 // than two stacked panes.
-                GlassEffectContainer(spacing: 10) {
-                    VStack(spacing: 10) {
-                        if showsFloatingComposer(for: router.selectedDestination) {
-                            lifeThreadComposerHost(router: router)
+                if showsGlobalChrome(for: router.selectedDestination) {
+                    GlassEffectContainer(spacing: 10) {
+                        VStack(spacing: 10) {
+                            if showsFloatingComposer(for: router.selectedDestination) {
+                                lifeThreadComposerHost(router: router)
+                            }
+                            compactNavigationChrome(
+                                router: router,
+                                paletteMaxHeight: max(176, min(320, geometry.size.height * 0.38))
+                            )
                         }
-                        compactNavigationChrome(
-                            router: router,
-                            paletteMaxHeight: max(176, min(320, geometry.size.height * 0.38))
-                        )
                     }
+                    .padding(.horizontal, 12)
+                    .padding(.bottom, 6)
+                    .background(alignment: .bottom) {
+                        LinearGradient(
+                            colors: [
+                                Color.clear,
+                                Color(LifeBoardColorTokens.foundationCanvas)
+                                    .opacity(HomeBottomBarVisibilityPolicy.chromeBackdropMaximumOpacity),
+                                Color.clear
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                        .frame(height: 44)
+                        .offset(y: -(measuredChromeHeight - 22))
+                        .allowsHitTesting(false)
+                    }
+                    .onGeometryChange(for: CGFloat.self) { proxy in
+                        proxy.size.height
+                    } action: { height in
+                        measuredChromeHeight = height
+                    }
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("LifeBoardCompactChrome")
                 }
-                .padding(.horizontal, 12)
-                .padding(.bottom, 6)
-                .background(alignment: .bottom) {
-                    // The composer and dock own their readable clay/glass
-                    // surfaces. A compact edge fade is enough to separate
-                    // them from scrolling content; an opaque footer here
-                    // created the dark band visible behind the floating bar.
-                    LinearGradient(
-                        colors: [
-                            Color.clear,
-                            Color(LifeBoardColorTokens.foundationCanvas)
-                                .opacity(HomeBottomBarVisibilityPolicy.chromeBackdropMaximumOpacity),
-                            Color.clear
-                        ],
-                        startPoint: .top,
-                        endPoint: .bottom
-                    )
-                    .frame(height: 44)
-                    .offset(y: -(measuredChromeHeight - 22))
-                    .allowsHitTesting(false)
-                }
-                .onGeometryChange(for: CGFloat.self) { proxy in
-                    proxy.size.height
-                } action: { height in
-                    measuredChromeHeight = height
-                }
-                .accessibilityElement(children: .contain)
-                .accessibilityIdentifier("LifeBoardCompactChrome")
             }
         }
         .background(Color.clear.ignoresSafeArea())
@@ -514,6 +553,14 @@ public struct LifeOSFoundationShell: View {
     /// shared chrome would put two on screen at once.
     private func showsFloatingComposer(for destination: LifeBoardDestination) -> Bool {
         destination != .eva
+    }
+
+    private func showsGlobalChrome(for destination: LifeBoardDestination) -> Bool {
+        destination != .home || homeIsCustomizing == false
+    }
+
+    private func reservedChromeHeight(for destination: LifeBoardDestination) -> CGFloat {
+        showsGlobalChrome(for: destination) ? measuredChromeHeight : 0
     }
 
     private func compactNavigationChrome(router: LifeBoardAppRouter, paletteMaxHeight: CGFloat) -> some View {
@@ -728,6 +775,7 @@ public struct LifeOSFoundationShell: View {
                                     }
                                 }
                             }
+                            .accessibilityIdentifier("home.addToHome.\(destination.rawValue)")
                             Divider()
                         }
                         Button("Settings", systemImage: "gearshape") {
@@ -741,6 +789,7 @@ public struct LifeOSFoundationShell: View {
                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                     .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
                     .accessibilityLabel("More")
+                    .accessibilityIdentifier("foundation.more.\(destination.rawValue)")
                 )
             )
 
@@ -826,7 +875,7 @@ public struct LifeOSFoundationShell: View {
         return TabView(selection: $router.selectedDestination) {
             ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
                 Tab(destination.title, systemImage: destination.systemImage, value: destination) {
-                    destinationNavigation(
+                    retainedDestinationNavigation(
                         destination,
                         router: router,
                         atmosphereSnapshot: atmosphereSnapshot
@@ -834,7 +883,9 @@ public struct LifeOSFoundationShell: View {
                     .safeAreaInset(edge: .bottom, spacing: 0) {
                         // Eva hosts its own composer, so it reserves nothing.
                         Color.clear.frame(
-                            height: showsFloatingComposer(for: destination) ? measuredChromeHeight : 0
+                            height: showsFloatingComposer(for: destination)
+                                ? reservedChromeHeight(for: destination)
+                                : 0
                         )
                     }
                 }
@@ -845,7 +896,8 @@ public struct LifeOSFoundationShell: View {
         .overlay(alignment: .bottom) {
             // Capture is not iPhone-only: the composer anchors to the detail
             // column at regular width too.
-            if showsFloatingComposer(for: router.selectedDestination) {
+            if showsFloatingComposer(for: router.selectedDestination),
+               showsGlobalChrome(for: router.selectedDestination) {
                 GlassEffectContainer(spacing: 10) {
                     lifeThreadComposerHost(router: router)
                 }
@@ -861,6 +913,23 @@ public struct LifeOSFoundationShell: View {
                 .accessibilityIdentifier("LifeBoardExpandedChrome")
             }
         }
+    }
+
+    private func retainedDestinationNavigation(
+        _ destination: LifeBoardDestination,
+        router: LifeBoardAppRouter,
+        atmosphereSnapshot: LifeBoardAtmosphereSnapshot
+    ) -> AnyView {
+        guard destination != .eva || router.selectedDestination == .eva else {
+            return AnyView(Color.clear.accessibilityHidden(true))
+        }
+        return AnyView(
+            destinationNavigation(
+                destination,
+                router: router,
+                atmosphereSnapshot: atmosphereSnapshot
+            )
+        )
     }
 
     private func destinationNavigation(
@@ -881,7 +950,9 @@ public struct LifeOSFoundationShell: View {
                                 .padding(.bottom, 6)
                                 .accessibilityIdentifier("\(destination.rawValue).header")
                         }
-                        destinationRoot(destination, router: router)
+                        LifeBoardStableDestinationRoot {
+                            destinationRoot(destination, router: router)
+                        }
                     }
                 }
                 .toolbar(
@@ -932,6 +1003,11 @@ public struct LifeOSFoundationShell: View {
                 placement: .root(destination),
                 requestedTier: runtime.preferences.renderingTier,
                 comfortProfile: runtime.preferences.comfortProfile
+            )
+            .lifeboardDaypartBloom(
+                center: .topTrailing,
+                trigger: daypartBloomTrigger,
+                daypart: snapshot.semanticDaypart
             )
             .ignoresSafeArea()
         } else {
@@ -1006,16 +1082,15 @@ public struct LifeOSFoundationShell: View {
         }
     }
 
-    @ViewBuilder
     private func destinationRoot(
         _ destination: LifeBoardDestination,
         router: LifeBoardAppRouter
-    ) -> some View {
+    ) -> AnyView {
         if destination == .home,
            V2FeatureFlags.adaptiveHomeV2Enabled,
            V2FeatureFlags.lifeOSUnifiedPresentationV2Enabled,
            let homeProjectionAdapter {
-            LifeBoardAdaptiveHome(
+            return AnyView(LifeBoardAdaptiveHome(
                 projectionAdapter: homeProjectionAdapter,
                 preferences: runtime.preferences,
                 router: router,
@@ -1028,15 +1103,19 @@ public struct LifeOSFoundationShell: View {
                 wellnessRepository: wellnessRepository,
                 nutritionRepository: nutritionRepository,
                 lifeMomentRepository: lifeMomentRepository,
-                showsEmbeddedComposer: false
-            )
+                showsEmbeddedComposer: false,
+                onCustomizationChanged: { isCustomizing in
+                    homeIsCustomizing = isCustomizing
+                }
+            ))
         } else if destination == .home, showsReferenceHome == false {
-            LegacyHomeControllerHost(controller: legacyHomeController)
+            return AnyView(LegacyHomeControllerHost(controller: legacyHomeController)
                 .ignoresSafeArea()
+            )
         } else if destination == .plan,
                   V2FeatureFlags.phase1ExecutionFlagshipEnabled,
                   let planDependencies {
-            LifeBoardPlanRootView(
+            return AnyView(LifeBoardPlanRootView(
                 dependencies: planDependencies,
                 rescueRefreshGeneration: planRescueRefreshGeneration,
                 onOpenFocus: { _ in router.select(.plan) },
@@ -1054,13 +1133,13 @@ public struct LifeOSFoundationShell: View {
                 },
                 onOpenTask: { router.push(.taskDetail($0), in: .plan) },
                 onOpenProject: { router.push(.project($0), in: .plan) }
-            )
+            ))
         } else if destination == .plan {
-            FoundationPlanRollbackRouteView(router: router)
+            return AnyView(FoundationPlanRollbackRouteView(router: router))
         } else if destination == .track,
                   V2FeatureFlags.trackFoundationsV2Enabled,
                   V2FeatureFlags.trackBehaviorFlagshipV1Enabled {
-            LifeBoardTrackFoundationRootView(
+            return AnyView(LifeBoardTrackFoundationRootView(
                 repository: trackFoundationRepository,
                 phaseIIRepository: phaseIIRepository,
                 habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
@@ -1079,37 +1158,39 @@ public struct LifeOSFoundationShell: View {
                 wellnessRepository: wellnessRepository,
                 onOpenHabitBoard: { router.push(.habitBoard, in: .track) },
                 onOpenHealth: { router.push(.health, in: .track) }
-            )
+            ))
         } else if destination == .track {
-            LifeBoardBehaviorAreaRouteView(
+            return AnyView(LifeBoardBehaviorAreaRouteView(
                 repository: phaseIIRepository,
                 initialArea: .medication,
                 onOpenHabitBoard: { router.push(.habitBoard, in: .track) },
                 onOpenHealth: { router.push(.health, in: .track) }
-            )
+            ))
         } else if destination == .home {
-            LifeBoardReferenceDashboard(preferences: runtime.preferences)
+            return AnyView(LifeBoardReferenceDashboard(preferences: runtime.preferences)
                 .navigationTitle("Home")
                 .navigationBarTitleDisplayMode(.inline)
+            )
         } else if destination == .insights {
-            FoundationInsightsDestination(
+            return AnyView(FoundationInsightsDestination(
                 repository: trackFoundationRepository,
                 phaseIIRepository: phaseIIRepository,
                 planningRepository: planningRepository,
                 habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
                 goalSampleProvider: goalSampleProvider,
                 router: router
-            )
+            ))
         } else if destination == .eva {
-            FoundationEvaDestination(
+            return AnyView(FoundationEvaDestination(
                 repository: trackFoundationRepository,
                 phaseIIRepository: phaseIIRepository,
                 planningRepository: planningRepository,
                 habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
                 goalSampleProvider: goalSampleProvider,
                 router: router
-            )
+            ))
         }
+        return AnyView(EmptyView())
     }
 
     @ViewBuilder
@@ -1296,14 +1377,17 @@ public struct LifeOSFoundationShell: View {
         _ tool: ComposerToolDescriptor,
         router: LifeBoardAppRouter
     ) -> some View {
-        switch tool.action {
-        case .capture(let kind):
-            composerCaptureButton(tool.title, systemImage: tool.systemImage, kind: kind)
-        case .voice:
-            composerToolButton(tool.title, systemImage: tool.systemImage) { beginComposerAudioCapture() }
-        case .scan:
-            composerToolButton(tool.title, systemImage: tool.systemImage) { beginDocumentScan(router: router) }
+        Group {
+            switch tool.action {
+            case .capture(let kind):
+                composerCaptureButton(tool.title, systemImage: tool.systemImage, kind: kind)
+            case .voice:
+                composerToolButton(tool.title, systemImage: tool.systemImage) { beginComposerAudioCapture() }
+            case .scan:
+                composerToolButton(tool.title, systemImage: tool.systemImage) { beginDocumentScan(router: router) }
+            }
         }
+        .accessibilityIdentifier("lifeThread.composer.tool.\(tool.id)")
     }
 
     private func composerCaptureButton(
@@ -2369,10 +2453,13 @@ private struct FoundationEvaDestination: View {
         self.router = router
     }
 
-    @ViewBuilder
     var body: some View {
-        Group {
-            if let container = LLMDataController.shared {
+        LLMStoreContainerHost(
+            onLoadingAppear: {
+                EvaNavigationPerformanceTrace.markInteractive()
+            }
+        ) { container in
+            AnyView(
                 EvaActivationRootView(
                     coordinator: activationCoordinator,
                     onDismiss: { router.select(.home) },
@@ -2384,9 +2471,7 @@ private struct FoundationEvaDestination: View {
                 .environment(\.evaAuthorizedEvidenceContext, evidenceContext)
                 .environment(\.evaEvidenceOpenAction, EvaEvidenceOpenAction(open: openEvidence))
                 .modelContainer(container)
-            } else {
-                LLMStoreUnavailableView()
-            }
+            )
         }
         .safeAreaInset(edge: .top, spacing: 0) {
             GlassEffectContainer(spacing: 8) {
@@ -2406,6 +2491,7 @@ private struct FoundationEvaDestination: View {
         }
         .navigationTitle("Eva")
         .navigationBarTitleDisplayMode(.inline)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("foundation.eva")
         .task { await loadAuthorizedEvidence() }
         .task {
@@ -2726,12 +2812,6 @@ private struct FoundationTaskRouteView: View {
         .navigationTitle("Task")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button("Save") { Task { _ = await store.save() } }
-                    .fontWeight(.semibold)
-                    .disabled(store.hasUnsavedChanges == false || store.mutationState == .saving)
-                    .accessibilityIdentifier("task.editor.save")
-            }
             ToolbarItem(placement: .secondaryAction) {
                 Menu {
                     Button("Open in Plan", systemImage: "calendar") { router.select(.plan) }
@@ -2752,30 +2832,49 @@ private struct FoundationTaskRouteView: View {
         }
         .task(id: id) { await load() }
         .safeAreaInset(edge: .bottom) {
-            if let receipt = store.activeReceipt {
-                HStack(spacing: 12) {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
-                    Text("Task updated")
-                        .font(.subheadline.weight(.semibold))
-                    Spacer()
-                    Button("Undo") { Task { await store.undo() } }
-                        .font(.subheadline.weight(.bold))
+            if store.loadState == .ready {
+                VStack(spacing: 8) {
+                    LifeBoardCommitControl(
+                        title: "Save task",
+                        runningTitle: "Saving task",
+                        successTitle: "Task saved",
+                        phase: store.commitPhase,
+                        isEnabled: store.hasUnsavedChanges || {
+                            if case .failed = store.mutationState { return true }
+                            return false
+                        }()
+                    ) {
+                        Task { _ = await store.save() }
+                    }
+                    .accessibilityIdentifier("task.editor.save")
+
+                    if let receipt = store.activeReceipt {
+                        HStack(spacing: 12) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+                            Text("Task updated")
+                                .font(.subheadline.weight(.semibold))
+                            Spacer()
+                            Button("Undo") { Task { await store.undo() } }
+                                .font(.subheadline.weight(.bold))
+                        }
+                        .padding(.horizontal, 16)
+                        .frame(minHeight: 52)
+                        .background(.regularMaterial, in: Capsule())
+                        .transition(
+                            reduceMotion
+                                ? .opacity
+                                : .asymmetric(
+                                    insertion: .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity),
+                                    removal: .opacity
+                                )
+                        )
+                        .animation(LifeBoardAnimation.contentInsertion, value: receipt.id)
+                    }
                 }
                 .padding(.horizontal, 16)
-                .frame(minHeight: 52)
-                .background(.regularMaterial, in: Capsule())
-                .padding(.horizontal, 16)
                 .padding(.bottom, 8)
-                .transition(
-                    reduceMotion
-                        ? .opacity
-                        : .asymmetric(
-                            insertion: .scale(scale: 0.92, anchor: .bottom).combined(with: .opacity),
-                            removal: .opacity
-                        )
-                )
-                .animation(LifeBoardAnimation.contentInsertion, value: receipt.id)
+                .background(.ultraThinMaterial)
             }
         }
         .confirmationDialog(

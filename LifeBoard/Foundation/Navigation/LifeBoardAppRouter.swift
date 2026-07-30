@@ -228,7 +228,20 @@ public struct DeferredProtectedRoute: Equatable, Sendable {
 @Observable
 public final class LifeBoardAppRouter {
     public var selectedDestination: LifeBoardDestination {
-        didSet { persist() }
+        didSet {
+            guard oldValue != selectedDestination else {
+                persist()
+                return
+            }
+            if selectedDestination == .eva {
+                // Begin before observation-driven SwiftUI work runs so this
+                // includes destination metadata construction and first mount.
+                EvaNavigationPerformanceTrace.begin()
+            } else if oldValue == .eva {
+                EvaNavigationPerformanceTrace.cancel()
+            }
+            persist()
+        }
     }
     public var paths: [LifeBoardDestination: [AppRoute]] {
         didSet { persist() }
@@ -707,6 +720,10 @@ public final class LifeOSFoundationRuntime {
         self.preferences = preferences
         self.captureRouter = captureRouter
         router = LifeBoardAppRouter(preferences: preferences, captureRouter: captureRouter)
+        // Store creation and recovery run at utility priority. Starting here
+        // lets the Foundation shell reach its first frame without making the
+        // first Eva tap perform synchronous disk work.
+        LLMStoreBootstrap.shared.start()
     }
 
     @discardableResult

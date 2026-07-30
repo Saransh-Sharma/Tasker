@@ -140,9 +140,30 @@ final class AdaptiveHomeStore {
             } else if let repository {
                 layout = try await repository.resetHomeToCuratedDefault()
             }
+            seedUITestUserSpaceIfNeeded()
         } catch {
             errorMessage = "Your saved Home layout could not be loaded. The curated layout is shown instead."
         }
+    }
+
+    private func seedUITestUserSpaceIfNeeded() {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_HOME_USER_SPACE"),
+              layout.placements.contains(where: { $0.sectionOverride == .userSpace }) == false else {
+            return
+        }
+        let testPlacementID = UUID(uuidString: "D6ED45B2-1267-4C2C-9A91-A3F5503D51AF")!
+        var placement = DashboardWidgetPlacementValue(
+            id: testPlacementID,
+            widgetKind: DashboardWidgetKind.lifeMoment.rawValue,
+            semanticSize: .standard,
+            ordinal: layout.placements.count
+        )
+        placement.updateHomeConfiguration { configuration in
+            configuration.placement.ownership = .pinned
+            configuration.placement.sectionOverride = .userSpace
+            configuration.placement.smartSlot = nil
+        }
+        layout.placements = HomeGridPackingEngine.normalized(layout.placements + [placement])
     }
 
     func beginCustomization() {
@@ -733,6 +754,7 @@ struct LifeBoardAdaptiveHome: View {
     private let hasPlanningRepository: Bool
     private let hasTrackFoundationRepository: Bool
     private let showsEmbeddedComposer: Bool
+    private let onCustomizationChanged: (Bool) -> Void
     private let contextProviderRegistry: HomeContextCandidateProviderRegistry
     /// Resolves what each Home mode actually changes. Modes were persisted and
     /// restored but had no reachable control and no effect beyond Low Energy.
@@ -775,7 +797,8 @@ struct LifeBoardAdaptiveHome: View {
         wellnessRepository: (any WellnessRepository)? = nil,
         nutritionRepository: (any NutritionRepository)? = nil,
         lifeMomentRepository: (any LifeMomentRepository)? = nil,
-        showsEmbeddedComposer: Bool = true
+        showsEmbeddedComposer: Bool = true,
+        onCustomizationChanged: @escaping (Bool) -> Void = { _ in }
     ) {
         self.projectionAdapter = projectionAdapter
         self.preferences = preferences
@@ -785,6 +808,7 @@ struct LifeBoardAdaptiveHome: View {
         self.hasPlanningRepository = planningRepository != nil
         self.hasTrackFoundationRepository = trackFoundationRepository != nil
         self.showsEmbeddedComposer = showsEmbeddedComposer
+        self.onCustomizationChanged = onCustomizationChanged
         var candidateProviders: [any HomeContextCandidateProvider] = []
         if let planningRepository {
             candidateProviders.append(PlanningHomeContextCandidateProvider(repository: planningRepository))
@@ -929,7 +953,10 @@ struct LifeBoardAdaptiveHome: View {
                 // Clears the floating composer + dock chrome. The shell's
                 // atmosphere background ignores the safe area, so this root
                 // pads explicitly rather than relying on inset propagation.
-                .padding(.bottom, showsEmbeddedComposer ? 16 : 150)
+                .padding(
+                    .bottom,
+                    store.isCustomizing ? 16 : (showsEmbeddedComposer ? 16 : 150)
+                )
             }
             .scrollIndicators(.hidden)
             .onScrollPhaseChange { _, phase in
@@ -941,7 +968,11 @@ struct LifeBoardAdaptiveHome: View {
         // across it, not like a palette swap.
         .lifeboardDaypartCrossDissolve(trigger: daypartTransitionTrigger, daypart: daypart)
         .safeAreaInset(edge: .bottom, spacing: 8) {
-            if showsEmbeddedComposer {
+            if store.isCustomizing {
+                customizationActionBar(palette: palette)
+                    .padding(.horizontal, 16)
+                    .padding(.bottom, 4)
+            } else if showsEmbeddedComposer {
                 lifeThreadComposer(palette: palette)
                     .padding(.horizontal, 16)
                     .padding(.bottom, 4)
@@ -970,6 +1001,12 @@ struct LifeBoardAdaptiveHome: View {
         }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active { refreshContextSelection(boundary: .appForeground) }
+        }
+        .onChange(of: store.isCustomizing, initial: true) { _, isCustomizing in
+            onCustomizationChanged(isCustomizing)
+        }
+        .onDisappear {
+            onCustomizationChanged(false)
         }
         .sheet(isPresented: $store.showsGallery) {
             AdaptiveWidgetGallery(store: store, preferences: preferences)
@@ -1605,15 +1642,7 @@ struct LifeBoardAdaptiveHome: View {
                     store.isCustomizing ? "Your space · drag to arrange" : "Your space",
                     palette: ambientPalette
                 )
-                if store.isCustomizing {
-                    Button("Cancel") { store.cancelCustomization() }
-                        .frame(minHeight: 44)
-                        .fixedSize()
-                    Button("Done") { Task { await store.saveCustomization() } }
-                        .fontWeight(.semibold)
-                        .frame(minHeight: 44)
-                        .fixedSize()
-                } else {
+                if store.isCustomizing == false {
                     // Layout undo was implemented in the store but its only
                     // button lived in the never-called adaptive header, so a
                     // rearrangement could not be taken back.
@@ -1671,6 +1700,35 @@ struct LifeBoardAdaptiveHome: View {
         }
     }
 
+    private func customizationActionBar(palette: LifeBoardDaypartPalette) -> some View {
+        HStack(spacing: 12) {
+            Button("Cancel") {
+                withAnimation(motionAnimation) { store.cancelCustomization() }
+            }
+            .frame(minWidth: 88, minHeight: 48)
+            .accessibilityIdentifier("home.customization.cancel")
+
+            Spacer(minLength: 8)
+
+            Button("Done") {
+                Task { await store.saveCustomization() }
+            }
+            .fontWeight(.semibold)
+            .frame(minWidth: 88, minHeight: 48)
+            .accessibilityIdentifier("home.customization.done")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .foregroundStyle(palette.color(for: .foreground))
+        .lifeBoardGlassSurface(cornerRadius: 28, interactive: true)
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.customization.actions")
+    }
+
     private var motionAnimation: Animation? {
         guard reduceMotion == false, preferences.comfortProfile != .calm else {
             return .easeInOut(duration: 0.18)
@@ -1689,15 +1747,13 @@ struct LifeBoardAdaptiveHome: View {
         VStack(spacing: store.isCustomizing ? 6 : 0) {
             if store.isCustomizing {
                 HStack(spacing: 8) {
-                    Label(
-                        placement.ownership == .smart ? "Smart" : "Pinned",
-                        systemImage: placement.ownership == .smart ? "sparkles" : "pin.fill"
-                    )
-                    .font(.caption2.weight(.semibold))
-                    .padding(.horizontal, 9)
-                    .frame(minHeight: 30)
-                    .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: Capsule())
-                    .accessibilityLabel(placement.ownership.accessibilityDescription)
+                    Image(systemName: "line.3.horizontal")
+                        .font(.headline)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                        .accessibilityLabel("Drag widget")
+                        .accessibilityIdentifier("home.widget.drag.\(placement.id.uuidString)")
 
                     Spacer(minLength: 0)
                     customizationControls(for: placement, daypart: daypart, palette: palette)
@@ -2808,6 +2864,7 @@ struct LifeBoardAdaptiveHome: View {
                 .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow), radius: 6, y: 2)
         }
         .accessibilityLabel("Edit widget")
+        .accessibilityIdentifier("home.widget.edit.\(placement.id.uuidString)")
         .accessibilityAction(named: "Move before") { store.movePlacement(id: placement.id, offset: -1) }
         .accessibilityAction(named: "Move after") { store.movePlacement(id: placement.id, offset: 1) }
         .accessibilityAction(named: "Hide") { store.hidePlacement(id: placement.id) }
