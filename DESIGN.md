@@ -336,12 +336,125 @@ Use continuous corners. Inputs use 14 pt corners; standard cards 18 pt; sheets a
 - **Direct manipulation:** pair drag/swipe with buttons, keyboard commands, and VoiceOver actions. Preserve velocity only within named interaction policies.
 - **Protected surfaces:** show a content-free clay unlock/recovery surface; never render sensitive content behind a blur.
 
+### Commit controls
+
+`LifeBoardCommitControl` is the canonical presentation for a consequential async
+save. Its phase comes from the store’s real `AsyncActionPhase<Receipt>`:
+
+- idle shows the enabled action;
+- running suppresses duplicate taps and reports progress;
+- success draws the completion mark only after the canonical mutation returns;
+- recoverable failure keeps the input mounted and offers retry;
+- cancellation returns to an actionable settled state.
+
+Feature views must not synthesize success with a delay, dismiss before persistence,
+or create a receipt before the awaited mutation succeeds. Editors that need space
+for progress, error, and retry place the commit action in the bottom safe area.
+Immediate reversible logs, such as hydration quick-add, use lighter feedback.
+
+### Focus dial
+
+`LifeBoardFocusDial` is a presentation-only circular progress surface. Timer
+ownership remains in the Focus domain. The dial receives settled progress, paused
+state, accessible text, and center content; it never schedules commands or persists
+time.
+
+The track uses a quiet recessed cocoa/paper tone. Active progress uses
+apricot/ember; paused progress uses sage. The center clock remains the dominant
+reading element and uses numeric text transitions at one Hz. Under Reduce Motion,
+progress updates without spring travel. Never mount a continuously running shader
+on the dial.
+
+### Focused Home customization
+
+Home editing is a transactional mode:
+
+- hide the global dock and capture composer;
+- freeze contextual reordering;
+- expose one Cancel/Done action group;
+- show drag and context controls only as editing affordances;
+- preserve the normal Home hierarchy and production defaults until Done succeeds;
+- restore the exact pre-edit layout on Cancel.
+
+Do not leave persistent Pinned badges, repeated ellipsis buttons, or global capture
+chrome competing with the layout task.
+
+### Directional decks
+
+Use `LifeBoardDirectionalDeck` and `LifeBoardDeckPhysics` for flickable decision
+cards. The resolver owns threshold, axis dominance, predicted translation, exit
+offset, and tilt. Render only the front card; depth belongs to the deck plane, not
+live sibling content that may leak when card heights differ.
+
+Every direction must have:
+
+- a visible labeled alternative;
+- a VoiceOver action;
+- one unambiguous domain meaning;
+- a non-destructive default;
+- a persisted-state boundary before success feedback.
+
+### Guided Routine runner
+
+Guided Routines use one full-screen presentation route. Interactive dismissal is
+disabled because presentation dismissal is not a domain command. Running, paused,
+and interrupted states must all expose explicit End. Abandonment is confirmed and
+uses the canonical routine mutation. Continue/Resume is primary; Pause and Skip are
+secondary.
+
+Routine step motion uses existing clay surfaces and a bounded card-swap transition.
+Reduce Motion crossfades. Semantic typography and persisted run state must survive
+backgrounding, restoration, and accessibility sizes.
+
+### Signature-effect governance
+
+The Swift registry and Metal source are one atomic contract:
+
+- every registry name has exactly one `[[ stitchable ]]` declaration;
+- every declaration appears in the registry;
+- the expected count is 17;
+- all functions live in
+  `LifeBoard/View/Effects/LifeBoardSignatureEffects.metal`;
+- `LifeBoardSignatureShaders.warmUp()` is all-or-nothing;
+- one misspelled or orphaned function disables the signature set and must fail a
+  unit test.
+
+Mount effects on the plane whose state changed. `triageSettle` belongs below the
+Inbox deck; `daypartBloom` belongs at the root atmosphere boundary;
+`chartRevealSweep` belongs to chart marks, not labels or evidence. All effects
+except static `paperGrain` are bounded and return to a fully settled state.
+
+Fallback order is semantic SwiftUI state first, then a short token-based tint
+crossfade. Reduce Motion, Reduce Transparency, Low Power Mode, thermal pressure,
+inactive scenes, unsupported Catalyst paths, and shader failure must never remove
+content, delay input, or change layout.
+
+### Accessibility and automation contracts
+
+Feature-qualified accessibility identifiers are part of the component API. Prefer
+stable roles such as `home.addToHome.<destination>`,
+`lifeThread.composer.tool.<type>`, `track.lens.<lens>`, and
+`home.widget.edit.<placementID>` over localized labels or hierarchy positions.
+
+At accessibility text sizes, use adaptive layout before truncation:
+
+- collapse multi-column card grids;
+- switch fixed horizontal headers to intrinsic vertical layouts;
+- keep safe-area commit actions reachable;
+- reserve measured floating chrome;
+- preserve native control traits;
+- allow lens controls to scroll.
+
+Gestures, color, transparency, scenic art, and shader output are all optional
+enhancements. The complete task must remain understandable and operable without
+them.
+
 ## Do's and Don'ts
 
 - Do use semantic tokens and named components; do not add direct colors, ad-hoc shadows, raw global font sizes, or direct material calls in feature code.
 - Do make state and hierarchy perceivable with text, shape, and accessibility semantics; do not communicate status through color or animation alone.
 - Do honor Reduce Motion, Reduce Transparency, Low Power Mode, thermal pressure, scene activity, and Catalyst fallbacks through `LifeBoardMotionPolicy`.
-- Do use only the approved signature effects: `daypartBloom`, `evaInkReveal`, `journalMediaReveal`, `memoryDevelopReveal`, `fastingEmberRing`, `healthSyncPulse`, `vitalOrbWarp`, `clayPressBloom`, `daypartCrossDissolve`, `completionBurst`, `contextLens`, `chartRevealSweep`, `liquidGlassRefract`, `cardMorphWarp`, `paperGrain`, and `dissolveAway`. `contextLens` is a 380 ms control/background-plane handoff with an 8 pt maximum sample offset, and is the app's only touch ripple — do not add a second one. `paperGrain` is the single exception to the one-shot rule: it is static and never animates. Every other effect is one-shot and interaction-, threshold-, or boundary-bound; do not turn any of them into ambient loops. Do not distort text, charts, evidence, or sensitive content — per-glyph *displacement* under `TextRenderer` is permitted at up to 6 pt because layout, wrapping, and semantics stay with SwiftUI, but scaling, shearing, rotating, or blurring text is not.
+- Do use only the approved signature effects: `daypartBloom`, `evaInkReveal`, `journalMediaReveal`, `memoryDevelopReveal`, `fastingEmberRing`, `healthSyncPulse`, `vitalOrbWarp`, `clayPressBloom`, `daypartCrossDissolve`, `completionBurst`, `contextLens`, `chartRevealSweep`, `liquidGlassRefract`, `cardMorphWarp`, `paperGrain`, `dissolveAway`, and `triageSettle`. `contextLens` is a 380 ms control/background-plane handoff with an 8 pt maximum sample offset, and is the app's only touch ripple — do not add a second one. `triageSettle` mounts only on the plane beneath the Inbox deck after a persisted skip or committed review direction; `daypartBloom` mounts only at the root atmosphere boundary when the semantic daypart changes. Neither may touch readable foreground content. `paperGrain` is the single exception to the one-shot rule: it is static and never animates. Every other effect is one-shot and interaction-, threshold-, or boundary-bound; do not turn any of them into ambient loops. Do not distort text, charts, evidence, or sensitive content — per-glyph *displacement* under `TextRenderer` is permitted at up to 6 pt because layout, wrapping, and semantics stay with SwiftUI, but scaling, shearing, rotating, or blurring text is not.
 - Do add new stitchable functions to `LifeBoard/View/Effects/LifeBoardSignatureEffects.metal`; do not create a new `.metal` file. `check-xcode-target-membership.sh` only scans `.swift`, so an orphaned `.metal` passes CI and then fails `LifeBoardSignatureShaders.warmUp()`, which is all-or-nothing and disables *every* signature effect at runtime.
 - Do use SF Symbols or curated assets for UI icons; do not use emoji as interface icons.
 - Do preserve privacy: never reveal journal text, audio, media, embeddings, or private health content in diagnostics, widgets, or system previews.
