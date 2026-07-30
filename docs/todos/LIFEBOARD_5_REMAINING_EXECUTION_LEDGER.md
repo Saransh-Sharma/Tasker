@@ -1,6 +1,6 @@
 # LifeBoard 5.0 Remaining Completion Ledger
 
-Updated: 2026-07-23
+Updated: 2026-07-31
 
 This is the active implementation ledger for the remaining LifeBoard 5.0 work. It supersedes overlapping Phase 5/6 and UI-overhaul checklists as a tracking surface; those documents remain product references. A checked item means implemented and verified, not merely scaffolded.
 
@@ -46,6 +46,12 @@ Product intent and UX acceptance live in the [LifeBoard 5.0 Product Handbook](..
 - [x] Replace the continuous whole-bubble ink shimmer with a 220-ms one-shot reveal bounded to the newly settled transcript region.
 - [x] Stop automatic following after manual scroll and expose one accessible “New response” return control.
 - [x] Add draft-preserving Continue/Retry recovery contracts and shared-composer presentation after Stop or failure.
+- [x] Turn the persistent shell composer into Universal Input: exact commands and explicit task/note/journal language route to canonical native activities for Journal, Note, Task, Meetings, Day Plan, Weekly Planner, Day Rescue, and Overdue Rescue.
+- [x] Add deterministic-only live previews plus explicit-submit semantic resolution through Apple Foundation Models and the installed on-device MLX runtime; both are bounded by an intent allow-list, confidence thresholds, clarification, and Eva fallback.
+- [x] Wire live microphone input through the shared iOS 26 `SpeechAnalyzer`/`SpeechTranscriber` stack in both the shell composer and Eva. Stop commits the latest cumulative transcript, Cancel restores the typed prefix, and backgrounding or surface dismissal tears down preparation/recording.
+- [x] Add focused Universal Input contracts: five selected tests pass for required command routing, empty editor seeds, task-question false positives, preview/semantic separation, and cumulative transcript preservation. The iPhone 17 Pro Simulator app build also passes.
+- [ ] Complete signed-device Universal Input promotion evidence: locale/asset-install matrix, microphone interruptions and denial recovery, long-dictation thermal/memory profiling, real Foundation Models/MLX fallback, intent-corpus accuracy, and assistive-technology journeys.
+- [ ] Extend `TranscriptionKit.LiveTranscriptionEvent` with finalized/volatile ranges. LifeBoard is currently correctness-safe by treating the cumulative string as provisional, but cannot style only the analyzer-confirmed substring.
 
 ## Milestone 3 — Context and cross-domain cards
 
@@ -66,7 +72,7 @@ Product intent and UX acceptance live in the [LifeBoard 5.0 Product Handbook](..
 ## Milestone 5 — Journal and Eva completion
 
 - [x] Implement VisionKit document capture, on-device text recognition, editable review, cancellation, and save-only-after-review behavior.
-- [x] Mount the existing save-first audio/transcription controls directly in the shared composer recording state (the composer's Voice action now presents `LifeBoardJournalAudioCapture` in a sheet that appends to today's journal through the derived pipeline).
+- [x] Preserve the existing save-first Journal audio/transcription controls as the flag-off fallback. With Universal Input dictation enabled, the composer microphone performs live SpeechAnalyzer dictation; saved Journal audio still uses the same SpeechAnalyzer-backed `TranscriptionService`.
 - [x] Add the one-shot `LifeBoardMemoryDevelopReveal` with static/crossfade policy fallbacks and reflection-open integration.
 - [x] Complete attachment inspection and availability recovery: photos open full-screen with pinch zoom, reset and system sharing; unavailable photo/audio blocks preserve their place and expose encrypted-restore guidance plus a discoverable removal action.
 - [x] Attach exact Journal evidence to proactive reflection claims and add protected save/snooze/dismiss/follow-up state with explicit local reflection visuals.

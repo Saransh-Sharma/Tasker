@@ -19,6 +19,22 @@ Goal: make the implemented Adaptive Home safe to promote to internal and then pr
 
 Exit: Adaptive Home is the production default, additive schemas have survived real iCloud upgrades, and the legacy Home can be retired without data rollback.
 
+## Immediate promotion track — Universal Input
+
+Goal: make the persistent native iOS composer a dependable entry point for capture, planning, schedule, rescue, and Eva without introducing silent actions.
+
+- [x] Route exact commands and explicit capture language to the canonical Journal, Note, Task, Meetings, Day Plan, Weekly Planner, Day Rescue, and Overdue Rescue activities.
+- [x] Add deterministic-only live interpretation and explicit-submit semantic classification using Apple Foundation Models with an installed on-device MLX JSON fallback.
+- [x] Share SpeechAnalyzer live dictation between the shell composer and Eva; preserve typed prefixes, the latest cumulative transcript, cancel restoration, foreground lifecycle, and distinct recovery states.
+- [x] Enforce allow-listed outcomes, confidence clarification, editor review before save, 44-point controls, VoiceOver labels, and Reduce Motion behavior.
+- [x] Add focused contracts for required commands, bare-command prefills, date-question false positives, preview/inference separation, semantic-adapter inclusion, and transcript preservation.
+- [ ] Run a versioned typed-and-spoken intent corpus on supported device/locale tiers and set promotion thresholds for action accuracy, false-action rate, and clarification rate.
+- [ ] Verify SpeechAnalyzer asset installation, interruption, denied permission, long dictation, thermal/memory behavior, and Foundation Models/MLX fallbacks on physical iPhone and iPad hardware.
+- [ ] Complete VoiceOver, Voice Control, Switch Control, Dynamic Type, Reduce Motion, and Increase Contrast journeys for the composer, interpretation, clarification, and destination handoff.
+- [ ] Expose finalized and volatile transcript ranges from `TranscriptionKit` so confirmed words can be styled independently while recording.
+
+Exit: common typed and spoken requests open the correct native activity with measured accuracy, ambiguous language asks instead of acting, cancel/failure never loses the draft, and every model-unavailable path remains useful.
+
 ## Phase III — Plan OS and intentional commitments
 
 Goal: turn Plan into the trustworthy place for commitments, capacity, goals, and weekly shaping.

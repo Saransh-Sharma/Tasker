@@ -34,6 +34,7 @@ Journal, Notes, Knowledge, Focus, Settings, and entity details are typed destina
 ## Handbook chapters
 
 - [Adaptive Home and daily orientation](./HOME.md)
+- [Universal Input and Speech](./UNIVERSAL_INPUT.md)
 - [Plan, Focus, repair, and review](./PLAN_AND_FOCUS.md)
 - [Track, habits, care, and wellness](./TRACK_AND_WELLNESS.md)
 - [Journal, Notes, Knowledge, and reflection](./JOURNAL_NOTES_AND_REFLECTION.md)
@@ -51,6 +52,8 @@ Calendar/timeline and Habits retain specialized packages:
 ### Universal Capture
 
 Universal Capture is a single arbitration layer for Task, Habit, Journal, Note, Tracker Entry, Mood + Energy, Hydration, Medication Event, and Routine Run where enabled. Requests from the shell, widgets, intents, Spotlight, share extension, or deep links are deduplicated and queued; drafts survive presentation changes when the underlying workflow supports recovery.
+
+The persistent composer is the natural-language entry to that router. Typed or SpeechAnalyzer-dictated input resolves through deterministic commands, structured task/capture parsing, Apple Foundation Models, an installed on-device MLX fallback, and finally Eva conversation. It can open Journal, Note, Task capture, Meetings, Day Plan, Weekly Planner, Day Rescue, or Overdue Rescue. Classification never saves a record or performs a consequential mutation; see the [Universal Input and Speech contract](./UNIVERSAL_INPUT.md).
 
 ### Navigation
 

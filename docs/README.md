@@ -23,6 +23,7 @@ This directory is the navigation hub for product, architecture, audit, feature, 
 ## Feature Packages
 
 - [Adaptive Home](./product/HOME.md)
+- [Universal Input and Speech](./product/UNIVERSAL_INPUT.md)
 - [Plan and Focus](./product/PLAN_AND_FOCUS.md)
 - [Track and Wellness](./product/TRACK_AND_WELLNESS.md)
 - [Journal, Notes, and Reflection](./product/JOURNAL_NOTES_AND_REFLECTION.md)
