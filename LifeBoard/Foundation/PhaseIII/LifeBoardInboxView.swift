@@ -991,6 +991,9 @@ private struct InboxCaptureReviewSheet: View {
     @State private var selectedDuplicateID: UUID?
     @State private var mergeDestination: InboxMergeDestinationSnapshot?
     @State private var mergeResolution: DuplicateMergeResolution
+    /// Drives `LifeBoardCommitControl`, so the button reports the real state of the
+    /// write rather than dismissing optimistically.
+    @State private var commitPhase: AsyncActionPhase<String> = .idle
 
     init(item: InboxItem, store: InboxStore, onClose: @escaping () -> Void) {
         self.item = item
@@ -1049,17 +1052,28 @@ private struct InboxCaptureReviewSheet: View {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: onClose)
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button(duplicates.isEmpty ? "File It" : "Keep Both") {
-                        Task {
-                            if await store.fileCapture(item, draft: draft) {
-                                onClose()
-                            }
-                        }
-                    }
-                    .disabled(draft.commitRequest.title.isEmpty || store.isMutating)
-                    .accessibilityIdentifier("plan.inbox.review.file")
-                }
+                // No confirmation toolbar item: the primary action lives in the
+                // sheet's bottom action zone, which is where `DESIGN.md` puts it
+                // and where a control large enough to morph through its own state
+                // actually fits. Two primaries in one sheet would also break the
+                // one-dominant-action rule.
+            }
+            .safeAreaInset(edge: .bottom) {
+                LifeBoardCommitControl(
+                    title: duplicates.isEmpty ? "File It" : "Keep Both",
+                    runningTitle: "Filing",
+                    successTitle: "Filed",
+                    phase: commitPhase,
+                    isEnabled: draft.commitRequest.title.isEmpty == false,
+                    action: commit
+                )
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 12)
+                .background(
+                    Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea(edges: .bottom)
+                )
+                .accessibilityIdentifier("plan.inbox.review.file")
             }
             .interactiveDismissDisabled(store.isMutating)
             .onChange(of: draft.title) { _, newValue in
@@ -1087,6 +1101,34 @@ private struct InboxCaptureReviewSheet: View {
             }
         }
         .presentationDetents([.large])
+    }
+
+    /// Files the reviewed capture, letting the control show the write's real state.
+    ///
+    /// The sheet stays open until the write actually succeeds. Dismissing first
+    /// would leave a failure with nowhere to report — the capture survives a failed
+    /// file by design, so the user has to be able to see that and retry.
+    private func commit() {
+        guard draft.commitRequest.title.isEmpty == false else { return }
+        commitPhase = .running(progress: nil)
+        Task {
+            let filed = await store.fileCapture(item, draft: draft)
+            guard filed else {
+                commitPhase = .recoverableFailure(
+                    AsyncActionFailure(
+                        message: store.mutationError ?? "Couldn’t file this capture.",
+                        recovery: .retry
+                    )
+                )
+                return
+            }
+            commitPhase = .success(receipt: draft.commitRequest.title)
+            LifeBoardFeedback.success()
+            // Long enough to read as a confirmation, short enough not to feel like
+            // a wait. The receipt and its Undo are waiting on the Inbox behind.
+            try? await Task.sleep(for: .milliseconds(420))
+            onClose()
+        }
     }
 
     private var duplicates: [InboxDuplicateCandidate] {
