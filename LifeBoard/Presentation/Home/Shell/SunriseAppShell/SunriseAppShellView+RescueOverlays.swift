@@ -132,7 +132,10 @@ struct OverdueRescuePresentationHost: View {
     }
 
     private var effectiveTasksByID: [UUID: TaskDefinition] {
-        tasksByID.merging(viewModel.evaRescueTasksByID) { _, launchedTask in launchedTask }
+        let injected: [UUID: TaskDefinition] = launchContext.origin == .universalInputDayRescue
+            ? viewModel.dayRescueTasksByID
+            : viewModel.evaRescueTasksByID
+        return tasksByID.merging(injected) { _, launchedTask in launchedTask }
     }
 }
 

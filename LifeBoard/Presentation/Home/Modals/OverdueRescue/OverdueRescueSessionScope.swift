@@ -25,6 +25,14 @@ struct OverdueRescueLaunchContext: Equatable, Sendable {
     enum Origin: String, Codable, Sendable {
         case home
         case plan
+        /// Adapted Day-Rescue variant entered from the universal input composer:
+        /// reuses the same decision-deck chrome and card physics as Overdue
+        /// Rescue, but pulls in today's "needs replan" candidates rather than
+        /// the overdue pool. The empty-at-launch deck surfaces a different
+        /// empty-state copy ("Nothing needs rescuing today") and writes a
+        /// distinct `purpose` so a day-rescue run never collides with an
+        /// overdue-rescue run's persisted session memory.
+        case universalInputDayRescue
     }
 
     let origin: Origin
@@ -57,6 +65,21 @@ struct OverdueRescueLaunchContext: Equatable, Sendable {
             targetPlanningDay: selectedDay,
             planningMetadataByTaskID: planningMetadataByTaskID,
             synchronizesKeptTasksWithPlan: true
+        )
+    }
+
+    /// A modified-overdue-rescue deck scoped to today's "needs replan"
+    /// candidates rather than the overdue pool. The deck reuses the existing
+    /// card machinery and chrome; only the candidate source and the
+    /// empty-at-launch copy differ.
+    static func universalInputDayRescue(referenceDate: Date) -> OverdueRescueLaunchContext {
+        OverdueRescueLaunchContext(
+            origin: .universalInputDayRescue,
+            source: "universal_input.day_rescue",
+            referenceDate: referenceDate,
+            targetPlanningDay: nil,
+            planningMetadataByTaskID: [:],
+            synchronizesKeptTasksWithPlan: false
         )
     }
 
@@ -106,10 +129,13 @@ struct OverdueRescueLaunchContext: Equatable, Sendable {
     ) -> OverdueRescueSessionScope {
         let calendar = decisionCalendar(base: calendar)
         let purpose: String?
-        if origin == .plan {
+        switch origin {
+        case .plan:
             let target = targetDate(calendar: calendar)
             purpose = "plan-\(Int(target.timeIntervalSince1970))"
-        } else {
+        case .universalInputDayRescue:
+            purpose = "universalInput.dayRescue"
+        case .home:
             purpose = nil
         }
         return OverdueRescueSessionScope(

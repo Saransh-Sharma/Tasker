@@ -40,6 +40,12 @@ final class OverdueRescueViewModel: ObservableObject {
 
     @Published var isDecisionInFlight = false
 
+    /// True when the deck transitioned straight to `.completed` at launch
+    /// because there were zero eligible cards. Drives the empty-at-launch
+    /// copy in `OverdueRescueCompletionView` (today's "Nothing needs
+    /// rescuing today" state for the universal-input Day-Rescue flow).
+    private(set) var startedEmpty = false
+
     let allCount: Int
 
     let allCards: [OverdueRescueCardModel]
@@ -158,6 +164,7 @@ final class OverdueRescueViewModel: ObservableObject {
             self.cards = firstSprintCards
             self.sprintTotal = firstSprintCards.count
             self.showLargeStackPreflight = cards.count >= Self.largeStackThreshold
+            self.startedEmpty = cards.isEmpty
             _ = transition(to: .loading)
             _ = transition(to: cards.isEmpty ? .completed : .active)
         }

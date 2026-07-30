@@ -14,6 +14,17 @@ struct OverdueRescueCompletionView: View {
     let bottomInset: CGFloat
     let viewToday: () -> Void
     let reviewRemaining: () -> Void
+    /// The launch origin that produced this completion view. When the
+    /// day-rescue deck was launched today with no replan candidates, the
+    /// empty-at-launch copy differs from a user-driven clean-up.
+    var launchOrigin: OverdueRescueLaunchContext.Origin = .home
+    /// True when the deck transitioned straight to `.completed` because it
+    /// was empty at launch (no candidates were ever acted on).
+    var startedEmpty: Bool = false
+
+    private var isDayRescueEmpty: Bool {
+        launchOrigin == .universalInputDayRescue && startedEmpty
+    }
 
     var body: some View {
         ScrollView(.vertical, showsIndicators: false) {
@@ -41,22 +52,24 @@ struct OverdueRescueCompletionView: View {
                 OverdueRescueSunriseHero()
                     .frame(width: 294, height: 256)
                     .padding(.top, 6)
-                Text("Board cleaned up")
+                Text(isDayRescueEmpty ? "Nothing needs rescuing today" : "Board cleaned up")
                     .font(.lifeboard(.title1))
                     .fontWeight(.bold)
                     .foregroundStyle(OverdueRescuePalette.ink)
-                Text("You sorted what still matters.")
+                Text(isDayRescueEmpty ? "Your day is already in good shape." : "You sorted what still matters.")
                     .font(.lifeboard(.title3))
                     .foregroundStyle(OverdueRescuePalette.secondaryInk)
 
-                HStack(spacing: 14) {
-                    statCard(icon: "checkmark.circle", value: summary.kept, label: "kept", color: Color.lifeboard.statusSuccess)
-                    statCard(icon: "clock", value: summary.moved, label: "moved later", color: Color.lifeboard.statusWarning)
-                    statCard(icon: "trash", value: summary.deleted, label: "deleted", color: Color.lifeboard.statusDanger)
+                if isDayRescueEmpty == false {
+                    HStack(spacing: 14) {
+                        statCard(icon: "checkmark.circle", value: summary.kept, label: "kept", color: Color.lifeboard.statusSuccess)
+                        statCard(icon: "clock", value: summary.moved, label: "moved later", color: Color.lifeboard.statusWarning)
+                        statCard(icon: "trash", value: summary.deleted, label: "deleted", color: Color.lifeboard.statusDanger)
+                    }
+                    .padding(.horizontal, 28)
                 }
-                .padding(.horizontal, 28)
 
-                Text("Your board should feel lighter now.")
+                Text(isDayRescueEmpty ? "You're all caught up for the day." : "Your board should feel lighter now.")
                     .font(.lifeboard(.body))
                     .foregroundStyle(OverdueRescuePalette.secondaryInk)
 

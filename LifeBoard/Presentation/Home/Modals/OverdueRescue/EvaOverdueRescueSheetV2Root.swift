@@ -120,12 +120,20 @@ struct EvaOverdueRescueSheetV2: View {
             case .paused:
                 OverdueRescuePauseView(viewModel: viewModel, bottomInset: bottomInset, onDismiss: onClose)
             case .completed:
-                OverdueRescueCompletionView(summary: viewModel.summary, remaining: viewModel.totalRemainingCount, bottomInset: bottomInset) {
-                    viewModel.finishAndClearSession()
-                    onExit()
-                } reviewRemaining: {
-                    viewModel.startManualReview()
-                }
+                OverdueRescueCompletionView(
+                    summary: viewModel.summary,
+                    remaining: viewModel.totalRemainingCount,
+                    bottomInset: bottomInset,
+                    viewToday: {
+                        viewModel.finishAndClearSession()
+                        onExit()
+                    },
+                    reviewRemaining: {
+                        viewModel.startManualReview()
+                    },
+                    launchOrigin: launchContext.origin,
+                    startedEmpty: viewModel.startedEmpty
+                )
             case .error:
                 OverdueRescueErrorView(message: viewModel.errorMessage ?? "Something went wrong while updating the rescue deck.") {
                     viewModel.startManualReview()
