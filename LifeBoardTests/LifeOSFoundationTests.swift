@@ -3710,6 +3710,85 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(request.destination, .plan)
     }
 
+    func testUniversalInputCommandsRouteToTheExpectedNativeActivities() async {
+        let adapter = CommandIntentAdapter()
+        let expectations: [(String, String)] = [
+            ("start journaling", "journal"),
+            ("add a note", "note"),
+            ("check my meetings", "schedule"),
+            ("start planning", "planning"),
+            ("day rescue", "dayRescue"),
+            ("overdue rescue", "overdueRescue")
+        ]
+
+        for (text, expected) in expectations {
+            let resolution = await adapter.resolve(.init(text: text, destination: .home))
+            switch (resolution, expected) {
+            case (.captureDraft(let draft)?, "journal"):
+                XCTAssertEqual(draft.kind, .journal)
+            case (.captureDraft(let draft)?, "note"):
+                XCTAssertEqual(draft.kind, .note)
+            case (.surfaceAction(.showTodaySchedule)?, "schedule"),
+                 (.surfaceAction(.dayRescue)?, "dayRescue"),
+                 (.surfaceAction(.overdueRescue)?, "overdueRescue"):
+                break
+            case (.navigation(let request)?, "planning"):
+                XCTAssertEqual(request.destination, .plan)
+                XCTAssertEqual(request.route, .planDay)
+            default:
+                XCTFail("Unexpected resolution for \(text): \(String(describing: resolution))")
+            }
+        }
+    }
+
+    func testBareCaptureCommandsDoNotPrefillEditorsWithCommandLanguage() async {
+        let adapter = CommandIntentAdapter()
+
+        let journal = await adapter.resolve(.init(text: "start journaling", destination: .home))
+        guard case .captureDraft(let journalDraft)? = journal else {
+            return XCTFail("Expected a journal capture")
+        }
+        XCTAssertEqual(journalDraft.seed?.rawText, "")
+
+        let note = await adapter.resolve(.init(text: "add a note", destination: .home))
+        guard case .captureDraft(let noteDraft)? = note else {
+            return XCTFail("Expected a note capture")
+        }
+        XCTAssertEqual(noteDraft.seed?.rawText, "")
+    }
+
+    func testTaskAdapterDoesNotTurnAQuestionWithADateIntoATask() async {
+        let resolution = await TaskCaptureIntentAdapter().resolve(
+            .init(text: "what meetings do I have tomorrow", destination: .home)
+        )
+        XCTAssertNil(resolution)
+    }
+
+    func testUniversalInputCoordinatorRunsSemanticAdapterOnlyInFullResolution() async {
+        let coordinator = UniversalInputCoordinator(semanticAdapter: SemanticIntentAdapterFixture())
+        let input = LifeThreadIntentInput(text: "help me recover the afternoon", destination: .home)
+
+        let preview = await coordinator.resolvePreview(input)
+        guard case .answer = preview else {
+            return XCTFail("Live preview must stay deterministic and avoid semantic inference")
+        }
+
+        let submitted = await coordinator.resolve(input)
+        XCTAssertEqual(submitted, .surfaceAction(.dayRescue))
+    }
+
+    @MainActor
+    func testDictationCommitsTheLatestCumulativeTranscriptWithoutLoss() {
+        let controller = UniversalDictationController()
+        controller.consumeCumulativeTranscript("Plan")
+        controller.consumeCumulativeTranscript("Plan the launch tomorrow")
+
+        XCTAssertEqual(controller.volatileSegment, "Plan the launch tomorrow")
+        controller.commitLatestTranscript()
+        XCTAssertEqual(controller.draftText, "Plan the launch tomorrow")
+        XCTAssertEqual(controller.volatileSegment, "")
+    }
+
     func testMutationCoordinatorAppliesAndUndoesTheSamePreparedCommand() async throws {
         let recorder = MutationRecorderFixture()
         let preview = LifeBoardTransactionPreview(
@@ -5611,6 +5690,12 @@ private struct JournalIntentAdapterFixture: LifeThreadIntentAdapter {
                 destination: .track
             )
         )
+    }
+}
+
+private struct SemanticIntentAdapterFixture: LifeThreadIntentAdapter {
+    func resolve(_ input: LifeThreadIntentInput) async -> LifeThreadIntentResolution? {
+        .surfaceAction(.dayRescue)
     }
 }
 
