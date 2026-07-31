@@ -1784,8 +1784,23 @@ final class LifeOSFoundationContractTests: XCTestCase {
         router.handle(notificationRoute: .dayCompass(flow: .rescue, dateStamp: "20260716"))
         XCTAssertEqual(router.path(for: .plan), [.backlog])
 
-        router.handle(notificationRoute: .dailySummary(kind: .nightly, dateStamp: nil))
-        XCTAssertEqual(router.selectedDestination, .insights)
+        // The nightly summary used to land on Insights while Home's evening row
+        // opened the ritual — two destinations for one moment. Both now open the
+        // day the notification was written about.
+        router.popToRoot(in: .home)
+        router.handle(notificationRoute: .dailySummary(kind: .nightly, dateStamp: "20260716"))
+        XCTAssertEqual(router.selectedDestination, .home)
+        guard case .dayClose(let closedDay)? = router.path(for: .home).last else {
+            return XCTFail("The nightly summary must open the day-close ritual")
+        }
+        // Resolved from the stamp, not from "now": a notification tapped after
+        // midnight still closes the day it was written about.
+        let closedParts = Calendar.current.dateComponents([.year, .month, .day], from: closedDay)
+        XCTAssertEqual(closedParts.year, 2026)
+        XCTAssertEqual(closedParts.month, 7)
+        XCTAssertEqual(closedParts.day, 16)
+
+        router.popToRoot(in: .home)
 
         router.handle(notificationRoute: .homeToday(taskID: nil))
         XCTAssertEqual(router.selectedDestination, .home)
