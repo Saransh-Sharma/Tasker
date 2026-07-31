@@ -174,11 +174,6 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.focus_execution_v2") }
     }
 
-    public static var evaPlanRepairV1Enabled: Bool {
-        get { stagedFeatureEnabled(key: "feature.life_os.eva_plan_repair_v1", argument: "EVA_PLAN_REPAIR_V1") }
-        set { setStagedFeature(newValue, key: "feature.life_os.eva_plan_repair_v1") }
-    }
-
     public static var trackFoundationsV2Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.track_foundations_v2", argument: "TRACK_FOUNDATIONS_V2") }
         set { setStagedFeature(newValue, key: "feature.life_os.track_foundations_v2") }
@@ -230,6 +225,41 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.task_project_flagship_v1") }
     }
 
+    /// Home led by the day-loop spine, with the pinned dashboard beneath it.
+    ///
+    /// Presentation-only: the spine reorders and reframes surfaces that already
+    /// exist and writes nothing of its own. Off restores the previous section
+    /// order exactly, including "Close the loop" as its own rendered section.
+    public static var homeLoopSpineV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.home_loop_spine_v1", argument: "HOME_LOOP_SPINE_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.home_loop_spine_v1") }
+    }
+
+    /// The morning commitment: today proposed from what last night decided, and
+    /// confirmed in one tap.
+    ///
+    /// Separate from `dayCloseV1Enabled` because it carries a different bet. The
+    /// evening has a natural trigger; the morning does not, and this is the
+    /// milestone most likely to be skipped into irrelevance. Rolling it back
+    /// leaves the carry — which the evening's own write already provides —
+    /// working untouched.
+    public static var dayOpenCommitV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.day_open_commit_v1", argument: "DAY_OPEN_COMMIT_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.day_open_commit_v1") }
+    }
+
+    /// The end-of-day ritual: the day ribbon, the reconciliation deck, the one
+    /// line, and tomorrow's first thing.
+    ///
+    /// Gates presentation only. Everything the ritual writes goes through the
+    /// existing planning receipt path and the existing `ReflectionNote` store,
+    /// so turning this off hides the surface while every carry-forward and note
+    /// made while it was on stays readable — and undoable — from Plan.
+    public static var dayCloseV1Enabled: Bool {
+        get { stagedFeatureEnabled(key: "feature.life_os.day_close_v1", argument: "DAY_CLOSE_V1") }
+        set { setStagedFeature(newValue, key: "feature.life_os.day_close_v1") }
+    }
+
     /// Phase 2 umbrella gate for the behavior, goal, medication, and tracker
     /// flagship surfaces. The additive schema remains readable when this is
     /// disabled; only the new presentation and mutation entry points disappear.
@@ -274,7 +304,6 @@ public enum V2FeatureFlags {
         "feature.life_os.planning_core_v1": true,
         "feature.life_os.plan_destination_v1": true,
         "feature.life_os.focus_execution_v2": true,
-        "feature.life_os.eva_plan_repair_v1": true,
         "feature.life_os.track_foundations_v2": true,
         "feature.life_os.habit_resilience_v2": true,
         "feature.life_os.goals_routines_v1": true,
@@ -301,6 +330,15 @@ public enum V2FeatureFlags {
         // canonical mutations through the existing receipt path with Undo.
         "feature.life_os.daily_loop_v1": true,
         "feature.life_os.task_project_flagship_v1": true,
+        // Close the Day. The terminus of the daily loop: reconcile what is left,
+        // write one line, name tomorrow's first thing. Every write is one
+        // existing-ledger batch with a single Undo receipt, so rollback hides
+        // the ritual without stranding anything it produced.
+        "feature.life_os.day_close_v1": true,
+        // The morning commit. Ships on; rollback leaves the carry intact.
+        "feature.life_os.day_open_commit_v1": true,
+        // Home as the loop spine over a pinned dashboard. Presentation only.
+        "feature.life_os.home_loop_spine_v1": true,
         // Universal input. Routing ships on so the home capture box stops
         // routing every typed line to Eva and instead opens the right
         // activity. Live dictation ships on (SpeechAnalyzer is the modern

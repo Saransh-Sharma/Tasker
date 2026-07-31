@@ -31,6 +31,11 @@ struct PlanFeatureDependencies {
     let tagRepository: any TagRepositoryProtocol
     let taskTagLinkRepository: (any TaskTagLinkRepositoryProtocol)?
     let taskDependencyRepository: (any TaskDependencyRepositoryProtocol)?
+    /// Optional because the composition root builds it only once the write-closed
+    /// adapters are available. Close the Day treats its absence as "the note
+    /// cannot be saved right now" and still lets the day close — the
+    /// reconciliation and the note are separate writes by design.
+    let reflectionNoteRepository: (any ReflectionNoteRepositoryProtocol)?
 
     init(
         planningRepository: CoreDataPlanningRepository,
@@ -41,7 +46,8 @@ struct PlanFeatureDependencies {
         tagRepository: any TagRepositoryProtocol,
         gamificationEngine: GamificationEngine,
         taskTagLinkRepository: (any TaskTagLinkRepositoryProtocol)? = nil,
-        taskDependencyRepository: (any TaskDependencyRepositoryProtocol)? = nil
+        taskDependencyRepository: (any TaskDependencyRepositoryProtocol)? = nil,
+        reflectionNoteRepository: (any ReflectionNoteRepositoryProtocol)? = nil
     ) {
         self.planningRepository = planningRepository
         inboxCommitCoordinator = InboxCommitCoordinator(
@@ -87,6 +93,7 @@ struct PlanFeatureDependencies {
         self.tagRepository = tagRepository
         self.taskTagLinkRepository = taskTagLinkRepository
         self.taskDependencyRepository = taskDependencyRepository
+        self.reflectionNoteRepository = reflectionNoteRepository
     }
 }
 

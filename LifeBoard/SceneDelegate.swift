@@ -208,7 +208,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 tagRepository: tagRepository,
                 gamificationEngine: coordinator.gamificationEngine,
                 taskTagLinkRepository: state.taskTagLinkRepository,
-                taskDependencyRepository: state.taskDependencyRepository
+                taskDependencyRepository: state.taskDependencyRepository,
+                reflectionNoteRepository: state.reflectionNoteRepository
             )
         }()
         if let planDependencies {
@@ -396,12 +397,57 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
            arguments.contains(where: { $0.hasPrefix("-LIFEBOARD_TEST_SEED_") }) {
             let gate = FoundationUITestSeedGateViewController()
             homeViewController.seedUITestWorkspacesForLaunchIfNeeded { [weak gate] in
-                gate?.install(foundationController)
+                Self.seedDayCloseCommitmentsIfNeeded(
+                    planning: planningRepository,
+                    tasks: taskRepository
+                ) {
+                    gate?.install(foundationController)
+                }
             }
             return gate
         }
 
         return foundationController
+    }
+
+    /// Commits a few of the seeded tasks to today so Close the Day has a deck.
+    ///
+    /// Kept here rather than in `HomeUITestWorkspaceSeeder` because that seeder
+    /// composes use cases and has no planning repository, while `planningRepository`
+    /// is already in scope at this call site. It writes *only* planning metadata
+    /// over tasks another seed already created, so it composes with any of them
+    /// rather than duplicating a workspace.
+    private static func seedDayCloseCommitmentsIfNeeded(
+        planning: CoreDataPlanningRepository,
+        tasks: any TaskDefinitionRepositoryProtocol,
+        completion: @escaping () -> Void
+    ) {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_DAY_CLOSE") else {
+            completion()
+            return
+        }
+        Task { @MainActor in
+            defer { completion() }
+            let definitions: [TaskDefinition] = await withCheckedContinuation { continuation in
+                tasks.fetchAll { continuation.resume(returning: (try? $0.get()) ?? []) }
+            }
+            let open = definitions.filter { $0.isComplete == false }.prefix(3)
+            guard open.isEmpty == false else { return }
+
+            let today = PlanningDay(date: Date())
+            for (index, definition) in open.enumerated() {
+                try? await planning.saveTaskMetadata(
+                    PlanningTaskMetadata(
+                        taskID: definition.id,
+                        planningDay: today,
+                        // One promised item, so the deck's must-do-first ordering
+                        // is exercised rather than assumed.
+                        commitmentLevel: index == 0 ? .mustDo : .standard,
+                        updatedAt: Date()
+                    )
+                )
+            }
+        }
     }
 
     /// Executes showBootstrapFailureRoot.

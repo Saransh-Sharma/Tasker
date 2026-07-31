@@ -1105,8 +1105,12 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
                     LifeBoardLocalNotificationRequest(
                         id: "daily.reflection.\(dateStamp).followup",
                         kind: .nightlyRetrospective,
-                        title: "Reflection Reminder",
-                        body: "One quick reflection keeps your streak resilient. Claim it before day-end.",
+                        title: "Close the day",
+                        // Was: "One quick reflection keeps your streak resilient.
+                        // Claim it before day-end." That broke the anti-guilt law
+                        // twice — it made a streak the reason to act, and gave the
+                        // day a deadline. Nothing here expires.
+                        body: "Whenever you're ready — see how the day went and carry what's left.",
                         fireDate: followUpFire,
                         route: .dailySummary(kind: .nightly, dateStamp: dateStamp)
                     )
@@ -1226,8 +1230,14 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         stampFormatter.string(from: date)
     }
 
+    /// Days that have already been closed, so the evening follow-up stays quiet.
+    ///
+    /// Reads `DayLoopClosureLog`, which the day-close ritual writes. This used to
+    /// read `UserDefaultsDailyReflectionStore` — a store belonging to the legacy
+    /// Reflect & Plan flow that no reachable surface writes — so the follow-up
+    /// fired at people who had just closed their day.
     private func reflectionCompletedDateStamps() -> Set<String> {
-        UserDefaultsDailyReflectionStore(defaults: .standard, calendar: calendar).completedDateStamps()
+        DayLoopClosureLog().closedStamps()
     }
 
     private func fingerprint(for request: LifeBoardLocalNotificationRequest) -> NotificationFingerprint {
