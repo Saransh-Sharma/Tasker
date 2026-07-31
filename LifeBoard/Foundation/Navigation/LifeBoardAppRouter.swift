@@ -22,6 +22,13 @@ public enum AppRoute: Codable, Hashable, Sendable {
     case planWeek
     case backlog
     case focusSession(UUID?)
+    /// The end-of-day ritual for a given day. Carries the day rather than
+    /// defaulting to "now" so a notification tapped after midnight still closes
+    /// the day it was written about.
+    case dayClose(Date)
+    /// The morning counterpart: what carried, and what tomorrow's first thing
+    /// turned out to be. Read-only.
+    case dayOpen(Date)
     case weeklyPlanner
     case weeklyReview
     // `planningReview` rendered exactly the same weekly-review route as
@@ -55,7 +62,9 @@ public enum AppRoute: Codable, Hashable, Sendable {
         switch self {
         case .settings, .tokenGallery, .referenceDashboard:
             .utility
-        case .focusSession:
+        case .focusSession, .dayClose, .dayOpen:
+            // A ritual, like a focus session: the shell drops its star field and
+            // celestial tide so the surface can hold attention on its own.
             .focused
         default:
             .detail
@@ -628,20 +637,49 @@ public final class LifeBoardAppRouter {
             push(.weeklyReview, in: .plan)
         case .homeDone:
             select(.insights)
-        case .dayCompass(let flow, _):
+        case .dayCompass(let flow, let dateStamp):
+            // The stamp was already parsed off the payload and then discarded,
+            // so a notification tapped after midnight opened whatever "today"
+            // had become. Resolving it means the 21:00 nudge still closes the
+            // day it was written about.
+            let day = Self.notificationDate(from: dateStamp)
             switch flow {
             case .morningPlan:
-                push(.planDay, in: .plan)
+                push(.dayOpen(day), in: .home)
             case .replan, .rescue, .inbox:
                 push(.backlog, in: .plan)
             case .eveningReview:
-                select(.insights)
+                // Was `.insights`, which meant the evening notification and the
+                // Home row led to two different places for the same ritual.
+                push(.dayClose(day), in: .home)
             case .resumeTask:
                 select(.home)
             }
-        case .dailySummary(let kind, _):
-            select(kind == .morning ? .home : .insights)
+        case .dailySummary(let kind, let dateStamp):
+            let day = Self.notificationDate(from: dateStamp)
+            switch kind {
+            case .morning:
+                select(.home)
+            case .nightly:
+                push(.dayClose(day), in: .home)
+            }
         }
+    }
+
+    /// Resolves a `yyyyMMdd` notification stamp to a date, falling back to now.
+    ///
+    /// Parsed at local midnight so `PlanningDay(date:)` lands on the intended
+    /// calendar day rather than drifting across a time-zone boundary.
+    /// `nonisolated` because it is pure date parsing over its argument and
+    /// touches no router state — callers should not need the main actor to
+    /// resolve a stamp.
+    nonisolated static func notificationDate(from stamp: String?) -> Date {
+        guard let stamp, stamp.isEmpty == false else { return Date() }
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd"
+        return formatter.date(from: stamp) ?? Date()
     }
 
     public func restorationSnapshot() -> LifeBoardRestorationState {

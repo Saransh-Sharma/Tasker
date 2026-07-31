@@ -570,8 +570,24 @@ public struct LifeOSFoundationShell: View {
 
     /// Eva owns its own keyboard-safe composer; a second text field in the
     /// shared chrome would put two on screen at once.
+    /// The screen mode of whatever is deepest on the current stack.
+    ///
+    /// The dock and composer are drawn once at shell level, outside every
+    /// per-route `LifeBoardScreenScaffold`, so a route cannot influence them
+    /// through the scaffold's `mode` alone — the shell has to ask.
+    private var activeScreenMode: LifeBoardScreenMode {
+        let router = runtime.router
+        return router.path(for: router.selectedDestination).last?.screenMode ?? .detail
+    }
+
+    /// Eva owns its own composer, and a focused route owns the whole screen.
+    ///
+    /// The concrete failure this prevents: Home's capture bar floating over
+    /// Close the Day's "Save this line" and its commit control. `.focused`
+    /// already means "this surface holds attention on its own" — it was simply
+    /// never consulted here, so the focus session route had the same overlap.
     private func showsFloatingComposer(for destination: LifeBoardDestination) -> Bool {
-        destination != .eva
+        destination != .eva && activeScreenMode != .focused
     }
 
     private func showsGlobalChrome(for destination: LifeBoardDestination) -> Bool {
@@ -2217,6 +2233,33 @@ public struct LifeOSFoundationShell: View {
             } else {
                 FoundationPlanRollbackRouteView(router: runtime.router)
             }
+        case .dayClose(let date):
+            // Two gates, both required. The flag hides the ritual; the
+            // dependencies are what it is built from. Either being absent
+            // restores the previous end-of-day experience, which is no ritual
+            // at all — and nothing written while it was on becomes unreachable,
+            // because everything it writes lives in Plan's own ledger.
+            if V2FeatureFlags.dayCloseV1Enabled, let planDependencies {
+                FoundationDayCloseRouteView(
+                    date: date,
+                    mode: .close,
+                    dependencies: planDependencies,
+                    router: runtime.router
+                )
+            } else {
+                FoundationPlanRollbackRouteView(router: runtime.router)
+            }
+        case .dayOpen(let date):
+            if V2FeatureFlags.dayCloseV1Enabled, let planDependencies {
+                FoundationDayCloseRouteView(
+                    date: date,
+                    mode: .open,
+                    dependencies: planDependencies,
+                    router: runtime.router
+                )
+            } else {
+                FoundationPlanRollbackRouteView(router: runtime.router)
+            }
         }
     }
 
@@ -2350,6 +2393,55 @@ private enum FoundationRouteLoadState<Value> {
     case loaded(Value)
     case missing
     case failed(String)
+}
+
+/// Route host for the end-of-day ritual.
+///
+/// Owns the store so the ritual's state survives a scroll, a keyboard, and a
+/// sheet, and rebuilds it only when the *day* changes — `task(id:)` on the day
+/// key rather than on the raw `Date`, because a `Date` that ticks would discard
+/// every decision made so far.
+private struct FoundationDayCloseRouteView: View {
+    let date: Date
+    let mode: DayCloseMode
+    let dependencies: PlanFeatureDependencies
+    let router: LifeBoardAppRouter
+
+    private var day: PlanningDay { PlanningDay(date: date) }
+
+    /// Opening reports on yesterday; closing reports on itself.
+    ///
+    /// Without this the morning showed *today's* open tasks beneath "What
+    /// carried" and "Last night's decisions" — a claim that was false on any day
+    /// that was never closed.
+    private var retrospectiveDay: PlanningDay? {
+        guard mode == .open else { return nil }
+        guard let yesterday = Calendar.current.date(byAdding: .day, value: -1, to: date) else { return nil }
+        return PlanningDay(date: yesterday)
+    }
+
+    var body: some View {
+        LifeBoardDayCloseRoute(
+            store: DayCloseStore(
+                reader: dependencies.planningRepository,
+                completions: nil,
+                scenarios: DefaultPlanningScenarioCoordinator(
+                    planning: dependencies.planningRepository,
+                    mutations: dependencies.planningRepository
+                ),
+                day: day,
+                retrospectiveDay: retrospectiveDay
+            ),
+            mode: mode,
+            reflections: dependencies.reflectionNoteRepository,
+            onFinished: { router.popToRoot(in: router.selectedDestination) }
+        )
+        .id(dayKey)
+    }
+
+    private var dayKey: String {
+        "\(day.year)-\(day.month)-\(day.day)"
+    }
 }
 
 private struct FoundationFocusSessionRouteView: View {
@@ -2766,7 +2858,11 @@ private struct FoundationInsightsDestination: View {
         return NormalizedLifeEventProjector().event(
             sourceID: record.receipt.id,
             domain: "plan",
-            kind: reversed ? "mutation_reversed" : "mutation_applied",
+            // `source` used to be dropped here, so a day-close arrived at
+            // Insights as a generic `mutation_applied` — indistinguishable from
+            // dragging a block. Carrying it is what lets the review lens say
+            // anything about the loop at all.
+            kind: Self.planningEventKind(source: record.receipt.source, reversed: reversed),
             occurredAt: occurredAt,
             provenance: "Persisted LifeBoard planning receipt",
             evidenceDisplay: record.receipt.summary,
@@ -2775,6 +2871,18 @@ private struct FoundationInsightsDestination: View {
                 ? .reversed(receiptID: record.receipt.id)
                 : .reversible(receiptID: record.receipt.id)
         )
+    }
+
+    /// Names the loop's own receipts so Insights can count days closed and
+    /// opened rather than lumping them in with every plan edit.
+    fileprivate static func planningEventKind(source: String, reversed: Bool) -> String {
+        if source.hasPrefix(DayLoopLedger.closePrefix) {
+            return reversed ? "day_close_reversed" : "day_closed"
+        }
+        if source.hasPrefix(DayLoopLedger.openPrefix) {
+            return reversed ? "day_open_reversed" : "day_opened"
+        }
+        return reversed ? "mutation_reversed" : "mutation_applied"
     }
 
     fileprivate static func focusEvents(

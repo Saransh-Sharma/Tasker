@@ -6,6 +6,14 @@ public enum ReflectionNoteKind: String, Codable, CaseIterable, Hashable, Sendabl
     case projectReflection
     case habitRecovery
     case freeform
+    /// The one line written when a day is closed.
+    ///
+    /// Additive and safe on older builds: `kind` is a free-form `String` column
+    /// and `CoreDataWeeklyRepositories` decodes an unrecognised value as
+    /// `.freeform`, so a device that has not shipped this case still shows the
+    /// note rather than dropping it. That is the correct degradation — a
+    /// reflection reappearing as untyped is recoverable; a vanished one is not.
+    case dayClose
 }
 
 public struct ReflectionNote: Codable, Equatable, Hashable, Identifiable, Sendable {

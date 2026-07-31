@@ -752,6 +752,10 @@ struct LifeBoardAdaptiveHome: View {
     let captureRouter: CaptureRouter
     let phaseIIRepository: (any LifeBoardPhaseIIRepository)?
     private let hasPlanningRepository: Bool
+    /// Retained so the day-loop stage can ask whether today already has an
+    /// applied close receipt. Already passed in for the context providers; this
+    /// keeps a reference rather than adding a new dependency.
+    private let planningRepository: CoreDataPlanningRepository?
     private let hasTrackFoundationRepository: Bool
     private let showsEmbeddedComposer: Bool
     private let onCustomizationChanged: (Bool) -> Void
@@ -770,6 +774,17 @@ struct LifeBoardAdaptiveHome: View {
     /// Drives the one-shot daypart cross-dissolve. Incremented on a real
     /// daypart boundary or a manual override, never on a redraw.
     @State private var daypartTransitionTrigger = 0
+    /// Bumped when the evening ritual is snoozed, so the entry row re-evaluates
+    /// without waiting for the next Home reload.
+    @State private var dayRitualSnoozeGeneration = 0
+    /// Whether today already has an applied day-close receipt. Drives `.rest`,
+    /// which is what stops the ritual re-offering itself all evening.
+    @State private var dayLoopClosedToday = false
+    /// The loop's own continuity, read from applied receipts.
+    @State private var dayLoopSummary: DayLoopSummary?
+    /// Whether today already has an applied day-open receipt. Stops the morning
+    /// re-offering a commitment that has already been made.
+    @State private var dayLoopCommittedToday = false
     @State private var composerText = ""
     @FocusState private var composerIsFocused: Bool
     @AppStorage("lifeOS.home.sensitive_cards.enabled") private var permitsSensitiveHomeContent = false
@@ -806,6 +821,7 @@ struct LifeBoardAdaptiveHome: View {
         self.captureRouter = captureRouter
         self.phaseIIRepository = phaseIIRepository
         self.hasPlanningRepository = planningRepository != nil
+        self.planningRepository = planningRepository
         self.hasTrackFoundationRepository = trackFoundationRepository != nil
         self.showsEmbeddedComposer = showsEmbeddedComposer
         self.onCustomizationChanged = onCustomizationChanged
@@ -881,7 +897,11 @@ struct LifeBoardAdaptiveHome: View {
                         .sectionBudget(for: router.dashboardMode)
                         .applying(dashboardDensity)
 
-                    nowSection(palette: palette)
+                    if V2FeatureFlags.homeLoopSpineV1Enabled {
+                        loopSpine(palette: palette, ambientPalette: ambientPalette, budget: budget)
+                    } else {
+                        nowSection(palette: palette)
+                    }
 
                     homeSectionHeading(
                         "Signals",
@@ -918,7 +938,24 @@ struct LifeBoardAdaptiveHome: View {
                         ambientPalette: ambientPalette
                     )
 
-                    if budget.showsCloseLoop {
+                    // Outside the budget on purpose. `showsCloseLoop` is false
+                    // for both Low Energy and Minimal density, which hid the
+                    // ritual on exactly the days that most need a gentle close.
+                    // The *placement section* stays budgeted; the door does not.
+                    //
+                    // Under the spine the ritual is already the `.close` stage
+                    // body, so repeating it here would restate the same
+                    // projection twice on one screen.
+                    if V2FeatureFlags.homeLoopSpineV1Enabled == false {
+                        dayRitualEntry(palette: palette)
+                    }
+
+                    // Retired as a rendered section under the spine: "Close the
+                    // loop" is what the spine now *is*, and two things by that
+                    // name on one screen is the restatement DESIGN.md forbids.
+                    // Its placements are not lost — `effectiveSectionRole`
+                    // coalesces them into the pinned dashboard.
+                    if budget.showsCloseLoop, V2FeatureFlags.homeLoopSpineV1Enabled == false {
                         placementSection(
                             "Close the loop",
                             placements: closeLoopPlacements,
@@ -983,6 +1020,7 @@ struct LifeBoardAdaptiveHome: View {
         .task {
             await store.load()
             await lifeOSStore.load()
+            await refreshDayLoopStage()
             if let latest = await lifeOSStore.latestMoodCheckInToday() {
                 selectedMood = latest.mood
                 moodEnergy = latest.energy
@@ -1000,7 +1038,15 @@ struct LifeBoardAdaptiveHome: View {
             store.setContextFrozen(enabled, reason: "voiceover-focus")
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { refreshContextSelection(boundary: .appForeground) }
+            guard phase == .active else { return }
+            refreshContextSelection(boundary: .appForeground)
+            Task { await refreshDayLoopStage() }
+        }
+        // Returning from the ritual pops back to Home without a scene-phase
+        // change, so without this the row would keep offering a day that was
+        // just closed — and would keep hiding one that was just undone.
+        .onChange(of: router.path(for: .home).count) { _, _ in
+            Task { await refreshDayLoopStage() }
         }
         .onChange(of: store.isCustomizing, initial: true) { _, isCustomizing in
             onCustomizationChanged(isCustomizing)
@@ -1574,7 +1620,17 @@ struct LifeBoardAdaptiveHome: View {
     }
 
     private func effectiveSectionRole(for placement: DashboardWidgetPlacementValue) -> HomeSectionRole {
-        placement.sectionOverride ?? descriptor(for: placement)?.sectionRole ?? .userSpace
+        let resolved = placement.sectionOverride ?? descriptor(for: placement)?.sectionRole ?? .userSpace
+        // Under the spine, "Close the loop" is no longer a rendered section —
+        // the spine is. Its placements fall into the pinned dashboard rather
+        // than vanishing.
+        //
+        // Coalesced at *read* time on purpose. `.closeLoop` is persisted in
+        // `sectionOverride`, so deleting the case or rewriting stored rows would
+        // break decoding of layouts people already have; this is reversible by
+        // flipping the flag and touches no data.
+        guard V2FeatureFlags.homeLoopSpineV1Enabled, resolved == .closeLoop else { return resolved }
+        return .userSpace
     }
 
     private var todayPlacements: [DashboardWidgetPlacementValue] {
@@ -1638,8 +1694,12 @@ struct LifeBoardAdaptiveHome: View {
         // A fresh Home therefore had no route into "Add a widget" at all.
         Group {
             HStack(alignment: .center, spacing: 8) {
+                // Named "Your dashboard" under the spine: it stops being the
+                // leftover bucket below the app's own sections and becomes the
+                // one region that is explicitly the person's. The spine leads;
+                // this is theirs, and it keeps every widget it had.
                 homeSectionHeading(
-                    store.isCustomizing ? "Your space · drag to arrange" : "Your space",
+                    dashboardSectionTitle,
                     palette: ambientPalette
                 )
                 if store.isCustomizing == false {
@@ -1975,6 +2035,240 @@ struct LifeBoardAdaptiveHome: View {
         return [snapshot.value, snapshot.detail]
             .compactMap { $0 }
             .joined(separator: " · ")
+    }
+
+    /// The way into the end-of-day ritual, and the morning's read-only echo.
+    ///
+    /// A section-level affordance rather than a `DashboardWidgetKind`: it is not
+    /// a readout, it cannot be reordered or pinned, and registering it as a
+    /// widget would oblige it to render at all five size presets for no benefit.
+    ///
+    /// Deliberately *not* wired to `DayCompassEngine`'s `eveningReview` card —
+    /// that card's only consumer is the legacy Sunrise home, which this shell
+    /// replaces. Reusing the engine's window predicate and its snooze ledger
+    /// gives the same tested behaviour without shipping to a screen nobody sees.
+    @ViewBuilder
+    private func dayRitualEntry(palette: LifeBoardDaypartPalette) -> some View {
+        if V2FeatureFlags.dayCloseV1Enabled, let ritual = activeDayRitual {
+            Button {
+                router.push(ritual.route, in: .home)
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: ritual.symbol)
+                        .font(.title3)
+                        .foregroundStyle(Color(LifeBoardColorTokens.foundationSunAccent))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(ritual.title)
+                            .font(.headline)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        Text(ritual.subtitle)
+                            .font(.caption)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.footnote)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(16)
+            .lifeBoardClaySurface(.raised, cornerRadius: LifeBoardFoundationRadius.card)
+            .accessibilityIdentifier("home.dayRitual")
+            .contextMenu {
+                if ritual.isEvening {
+                    Button("Not tonight") {
+                        DayCompassSnoozeStore().snoozeUntilEndOfDay(flow: .eveningReview)
+                        dayRitualSnoozeGeneration += 1
+                    }
+                }
+            }
+        }
+    }
+
+    private struct DayRitualEntry {
+        let route: AppRoute
+        let title: String
+        let subtitle: String
+        let symbol: String
+        let isEvening: Bool
+    }
+
+    // MARK: - Loop spine
+
+    /// Home's spine: what stage the day is in, and the one thing it asks for.
+    ///
+    /// App-owned and never pinnable — a person cannot reorder or remove the
+    /// loop, because the loop is what the app *is*. Deliberately outside
+    /// `HomeSectionBudget`: Low Energy changes which **stages** appear, not
+    /// whether the spine does. That is what stops Low Energy from being the mode
+    /// that hides the gentle close.
+    @ViewBuilder
+    private func loopSpine(
+        palette: LifeBoardDaypartPalette,
+        ambientPalette: LifeBoardDaypartPalette,
+        budget: HomeSectionBudget
+    ) -> some View {
+        let stage = dayLoopStage
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(spineTitle(for: stage))
+                    .font(LifeBoardFoundationTypography.sectionTitle())
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                Spacer(minLength: 8)
+                if let rhythm = dayLoopRhythmText {
+                    Text(rhythm)
+                        .font(.caption)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .lineLimit(2)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+            .accessibilityElement(children: .combine)
+
+            switch stage {
+            case .commit, .close:
+                // The ritual is the stage body, not a row buried below one.
+                dayRitualEntry(palette: palette)
+            case .act, .repair:
+                nowSection(palette: palette)
+            case .rest:
+                spineRestBody
+            }
+        }
+        .lifeBoardMotion(.cardReflow, value: stage)
+        .accessibilityIdentifier("home.loopSpine.\(stage.rawValue)")
+    }
+
+    private var dashboardSectionTitle: String {
+        let base = V2FeatureFlags.homeLoopSpineV1Enabled ? "Your dashboard" : "Your space"
+        return store.isCustomizing ? "\(base) · drag to arrange" : base
+    }
+
+    private func spineTitle(for stage: DayLoopStage) -> String {
+        switch stage {
+        case .commit: "Start today"
+        case .act: "Now"
+        case .repair: "Worth a look"
+        case .close: "Ending the day"
+        // Not "Done" or "Complete" — the day is put down, not scored.
+        case .rest: "Today is closed"
+        }
+    }
+
+    /// `.rest` asks for nothing.
+    ///
+    /// Closing a day must not open a new obligation, so this states the fact and
+    /// stops. No CTA, no next step, no offer to plan tomorrow.
+    private var spineRestBody: some View {
+        Text("Nothing more is being asked of you today.")
+            .font(LifeBoardFoundationTypography.body())
+            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .lifeBoardClaySurface(.resting, cornerRadius: LifeBoardFoundationRadius.card)
+            .accessibilityIdentifier("home.loopSpine.rest")
+    }
+
+    /// The day-loop stage Home is currently in.
+    ///
+    /// Loop state first, clock second — see `DayLoopStageResolver`. Drift is not
+    /// wired yet, so `.repair` cannot be reached from here; the case exists so
+    /// the stage set is complete for the surfaces that will consume it.
+    private var dayLoopStage: DayLoopStage {
+        // Read so a snooze re-evaluates this without a full Home reload.
+        _ = dayRitualSnoozeGeneration
+        let now = Date()
+        let engine = DayCompassEngine()
+        let calendar = Calendar.current
+
+        #if DEBUG
+        // The morning and evening windows leave the ritual unreachable for most
+        // of the working day, which would force a seeded journey to either
+        // mutate the device clock or wait until 18:00. Neither is a
+        // condition-based wait, so the stage is forceable in Debug only.
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-LIFEBOARD_FORCE_DAY_CLOSE") { return .close }
+        if arguments.contains("-LIFEBOARD_FORCE_DAY_OPEN") { return .commit }
+        #endif
+
+        return DayLoopStageResolver.resolve(
+            closedToday: dayLoopClosedToday,
+            openedToday: dayLoopCommittedToday,
+            isMorningWindow: engine.isMorningPlanWindow(now, calendar: calendar),
+            isEveningWindow: engine.isEveningReviewWindow(now, calendar: calendar),
+            // Low Energy changes the spine's *stage set*, not its visibility.
+            // Repair is the one stage that asks something extra of a day already
+            // going badly, so it is the one Low Energy drops.
+            suppressesRepair: router.dashboardMode == .lowEnergy
+        )
+    }
+
+    /// The ritual row, or `nil` when the day is already closed or the evening
+    /// offer was snoozed.
+    ///
+    /// The door is open at every stage except `.rest`. Previously it existed
+    /// only between 05:00–11:00 and 18:00–midnight, so a day finished early —
+    /// or a day whose owner works nights — had nowhere to put it down.
+    private var activeDayRitual: DayRitualEntry? {
+        let now = Date()
+        let stage = dayLoopStage
+        guard stage.offersClose else { return nil }
+
+        if stage == .commit {
+            return DayRitualEntry(
+                route: .dayOpen(now),
+                title: "What carried over",
+                // Deliberately does not claim "last night's decisions" yet: the
+                // morning currently reads *today*, so on a day that was never
+                // closed that phrasing is false. The claim comes back when the
+                // retrospective day is wired.
+                subtitle: "Today's shape, and what's still open.",
+                symbol: "sunrise",
+                isEvening: false
+            )
+        }
+
+        let snoozes = DayCompassSnoozeStore().load(now: now, calendar: .current)
+        guard snoozes.isSnoozed(.eveningReview, at: now) == false else { return nil }
+        return DayRitualEntry(
+            route: .dayClose(now),
+            // Matches the wording already shipped in `LBDayCompassCard` rather
+            // than inventing a second voice for the same moment.
+            title: "Close the day",
+            subtitle: stage == .close
+                ? "Reflect once, and set tomorrow's first thing."
+                // Before evening the same door stays open, without implying the
+                // day is over or that anything is late.
+                : "Put the day down whenever you're ready.",
+            symbol: "moon.stars",
+            isEvening: stage == .close
+        )
+    }
+
+    /// Refreshes `.rest` from the ledger. The receipt's applied/undone state is
+    /// the record, so an undone close correctly reopens the ritual.
+    private func refreshDayLoopStage() async {
+        guard let planningRepository else { return }
+        let now = Date()
+        let today = PlanningDay(date: now)
+        let closeSource = DayCloseScenarioBuilder.receiptSource(for: today)
+        let openSource = DayOpenScenarioBuilder.receiptSource(for: today)
+        dayLoopClosedToday = (try? await planningRepository.hasAppliedReceipt(source: closeSource)) ?? false
+        dayLoopCommittedToday = (try? await planningRepository.hasAppliedReceipt(source: openSource)) ?? false
+
+        // One fetch covers both the stage and the rhythm. Bounded to the window
+        // plus a day so this never walks the whole receipt history.
+        let horizon = Calendar.current.date(
+            byAdding: .day,
+            value: -(DayLoopLedger.defaultWindow + 1),
+            to: now
+        )
+        if let records = try? await planningRepository.fetchMutationReceipts(since: horizon) {
+            dayLoopSummary = DayLoopLedger.summarize(records: records, now: now)
+        }
     }
 
     private func openWidget(_ kind: DashboardWidgetKind) {
@@ -2610,8 +2904,36 @@ struct LifeBoardAdaptiveHome: View {
         Label("\(projectionAdapter.snapshot.openTaskCount) open", systemImage: "checklist")
             .lineLimit(1)
         Spacer(minLength: 0)
-        Label("\(projectionAdapter.snapshot.streakDays) day continuity", systemImage: "sparkles")
-            .lineLimit(1)
+        // Was `snapshot.streakDays` — `GamificationEngine`'s "consecutive days
+        // with any XP event", which is not a fact about the loop at all. These
+        // two come from applied close receipts, so the number cannot disagree
+        // with what actually happened, and Undo moves it.
+        if let rhythm = dayLoopRhythmText {
+            // Two lines rather than one: the Progress card renders in a 2-up
+            // grid, and truncating to "1 day running · 1 of…" would hide exactly
+            // the half that stays true after a bad week. DESIGN.md forbids
+            // shrinking type to preserve a grid, so it wraps instead.
+            Label(rhythm, systemImage: "circle.hexagongrid")
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// The loop's rhythm: a run, and how the last two weeks actually went.
+    ///
+    /// Both numbers render at the same size in the same label, which is the
+    /// anti-guilt mechanism — it is arithmetic, not copy. Breaking a run drops
+    /// the first number to 1 while the second moves by one-fourteenth, and the
+    /// second is the one that stays true after a bad week.
+    ///
+    /// `nil` before anything has been closed: "0 days running" would be a
+    /// verdict on nothing.
+    private var dayLoopRhythmText: String? {
+        guard let summary = dayLoopSummary, summary.hasNoHistory == false else { return nil }
+        let window = "\(summary.closedInWindow) of \(summary.window) days"
+        guard summary.runLength > 0 else { return window }
+        let run = summary.runLength == 1 ? "1 day running" : "\(summary.runLength) days running"
+        return "\(run) · \(window)"
     }
 
     private func progressWidget(palette: LifeBoardDaypartPalette) -> some View {
