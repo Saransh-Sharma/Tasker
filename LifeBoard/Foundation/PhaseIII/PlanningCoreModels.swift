@@ -937,6 +937,21 @@ public enum PlanningScenarioSource: String, Codable, CaseIterable, Sendable {
     case repair
     case minimumViableDay
     case multiItemReschedule
+    /// End-of-day reconciliation: every unfinished commitment resolved in one
+    /// batch, so the whole act is one receipt and one Undo.
+    ///
+    /// Additive and safe on older builds for the same reason as
+    /// `UnscheduledDisposition.reference` — a scenario is never persisted, only
+    /// the `PlanMutation` batch it produces is, and that batch uses cases that
+    /// already shipped.
+    case dayClose
+    /// Morning commitment: today's shape confirmed in one batch.
+    ///
+    /// Deliberately distinct from `.minimumViableDay`, which builds a very
+    /// similar batch. That one means "make today small"; this one means "this is
+    /// today". Folding them would make a reduced day indistinguishable from an
+    /// ordinary commit in the ledger, and the ledger is how the loop remembers.
+    case dayOpen
 }
 
 public struct MinimumViableDaySelection: Codable, Equatable, Sendable {
@@ -1163,9 +1178,12 @@ public protocol PlanningRepository: Sendable {
 
 public struct PlanningHomeContextCandidateProvider: HomeContextCandidateProvider {
     public let providerID = "planning"
-    private let repository: any PlanningRepository & PlanningProjectionRepository & PlanningCalendarContextRepository
+    /// Widened to include `PlanningMutationRepository` so the carry can be read
+    /// out of the close receipt. `CoreDataPlanningRepository` — the only
+    /// production conformer — already satisfies all four.
+    private let repository: any PlanningRepository & PlanningProjectionRepository & PlanningCalendarContextRepository & PlanningMutationRepository
 
-    public init(repository: any PlanningRepository & PlanningProjectionRepository & PlanningCalendarContextRepository) {
+    public init(repository: any PlanningRepository & PlanningProjectionRepository & PlanningCalendarContextRepository & PlanningMutationRepository) {
         self.repository = repository
     }
 
@@ -1196,6 +1214,28 @@ public struct PlanningHomeContextCandidateProvider: HomeContextCandidateProvider
             ))
         }
 
+        // What last night's close chose as today's first thing.
+        //
+        // Ranked above the next commitment because a deliberate choice made with
+        // a clear head outranks whatever merely happens to be next on a calendar.
+        // Resolved from the close receipt rather than from `pinOrder`, which an
+        // ordinary manual reorder in Plan also writes.
+        if let anchor = await carriedAnchor(tasks: tasks, now: now) {
+            result.append(.init(
+                id: "planning-carry:\(anchor.id.uuidString)",
+                widgetKind: .focusNow,
+                title: anchor.title,
+                reason: .init(
+                    message: "You chose this when you closed yesterday.",
+                    signal: "yesterday's close"
+                ),
+                destination: .plan,
+                priority: 560,
+                relevantFrom: now,
+                relevantUntil: Calendar.current.startOfDay(for: horizon)
+            ))
+        }
+
         let overdue = tasks.filter { task in
             guard let due = task.dueDate else { return false }
             return due < now && task.scheduledEndAt == nil
@@ -1212,6 +1252,31 @@ public struct PlanningHomeContextCandidateProvider: HomeContextCandidateProvider
             ))
         }
         return result
+    }
+
+    /// Yesterday's chosen first thing, if it is still open today.
+    ///
+    /// Returns `nil` the moment the task is finished — a carry that has been
+    /// done is not still the thing to start with, and leaving it on Home would
+    /// be the app failing to notice.
+    private func carriedAnchor(
+        tasks: [PlanningTaskSummary],
+        now: Date
+    ) async -> PlanningTaskSummary? {
+        let calendar = Calendar.current
+        guard let yesterdayDate = calendar.date(byAdding: .day, value: -1, to: now) else { return nil }
+        let today = PlanningDay(date: now)
+        let yesterday = PlanningDay(date: yesterdayDate)
+
+        let since = calendar.startOfDay(for: yesterdayDate)
+        guard let records = try? await repository.fetchMutationReceipts(since: since) else { return nil }
+        guard let anchorID = DayLoopLedger.anchorTaskID(
+            in: records,
+            closedOn: yesterday,
+            targetDay: today
+        ) else { return nil }
+
+        return tasks.first { $0.id == anchorID && $0.metadata.planningDay == today }
     }
 }
 

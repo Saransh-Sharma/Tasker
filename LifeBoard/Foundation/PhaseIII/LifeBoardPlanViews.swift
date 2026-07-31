@@ -1414,6 +1414,10 @@ struct LifeBoardPlanRootView: View {
         case .repair: "Plan repair preview"
         case .multiItemReschedule: "Reschedule preview"
         case .manual: "Plan preview"
+        // Plan can render a day-close scenario if one is ever handed to it, but
+        // it never builds one — Close the Day owns that surface.
+        case .dayClose: "Close the day preview"
+        case .dayOpen: "Today's shape"
         }
     }
 
@@ -1423,6 +1427,8 @@ struct LifeBoardPlanRootView: View {
         case .repair: "wand.and.stars"
         case .multiItemReschedule: "calendar.badge.clock"
         case .manual: "list.bullet.clipboard"
+        case .dayClose: "moon.stars"
+        case .dayOpen: "sunrise"
         }
     }
 
@@ -1432,6 +1438,8 @@ struct LifeBoardPlanRootView: View {
         case .repair: "Apply repair"
         case .multiItemReschedule: "Apply reschedule"
         case .manual: "Apply changes"
+        case .dayClose: "Close the day"
+        case .dayOpen: "Start today"
         }
     }
 

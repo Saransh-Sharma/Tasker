@@ -1113,6 +1113,12 @@ final class PlanStore {
             )
         case .manual:
             return nil
+        case .dayClose, .dayOpen:
+            // Plan cannot rebuild either ritual: their selections live in the
+            // ritual's own store, not here, and inventing a replacement from
+            // today's snapshot would apply a decision the person never made.
+            // `DayCloseStore` handles its own version conflicts.
+            return nil
         }
     }
 
