@@ -755,3 +755,39 @@ struct LifeBoardAppShortcutsProvider: AppShortcutsProvider {
         .orange
     }
 }
+
+/// Teaches Siri and Spotlight which LifeBoard actions this person actually takes.
+///
+/// The framework donates automatically when an intent is run *from* Shortcuts or
+/// Siri; it cannot know about the same action performed inside the app. Without
+/// these calls the suggestion surfaces only ever learn from people who already
+/// found the shortcuts — so the feature could never reach anyone else. Zero
+/// donations existed repo-wide before this.
+///
+/// Deliberately narrow: only the loop-relevant actions, not all 21 intents.
+/// Donating everything trains the suggestion ranker on noise.
+///
+/// Every call is fire-and-forget and failure-tolerant. A donation is a hint; it
+/// must never delay or fail the action the person actually asked for.
+@available(iOS 16.0, macOS 13.0, *)
+enum LifeBoardIntentDonations {
+    static func taskAdded(title: String) {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return }
+        let intent = AddTaskIntent()
+        intent.taskTitle = trimmed
+        donate(intent)
+    }
+
+    static func focusSessionStarted() {
+        donate(StartFocusSessionIntent())
+    }
+
+    private static func donate(_ intent: some AppIntent) {
+        Task.detached(priority: .background) {
+            // Swallowed on purpose: a donation is a hint to Siri, and a failed
+            // hint must never surface to someone who just added a task.
+            _ = try? await IntentDonationManager.shared.donate(intent: intent)
+        }
+    }
+}
