@@ -229,7 +229,9 @@ Renders as `"4 days running · 9 of 14 days"`.
 
 `DayLoopStage.repair` exists, is tested, and is wired into the resolver via `driftCount`. **Nothing computes `driftCount`, so the stage is currently unreachable.** The spine falls back to `nowSection` for it.
 
-Build a pure resolver: unstarted commitments whose planned time has passed. Feed `DayLoopStageResolver.resolve(driftCount:)`. Then give `.repair` a real body — the Plan Repair deck (`LifeBoardPlanViews.swift:2393`) and the Overdue Rescue entry already exist and should be reused, not rebuilt.
+Build a pure resolver: unstarted commitments whose planned time has passed. Feed `DayLoopStageResolver.resolve(driftCount:)`. Then give `.repair` a real body — the Plan Repair deck (`LifeBoardPlanViews.swift:2401` — a *private method* `repairCard` on `LifeBoardPlanRootView`, not a standalone type) and the Overdue Rescue entry already exist and should be reused, not rebuilt.
+
+**Note:** `DeterministicPlanRepairService.proposals` (`PlanningCoreServices.swift:552`) already computes this exact predicate for its `.missedPlannedWork` branch. Extract it rather than writing a second copy — but do **not** simply count the service's output, because it also emits `.overloadedWindow` from `capacity.overloadDuration`, which is not drift.
 
 **Design note:** this is the stage most at risk of feeling like nagging. Low Energy already suppresses it. Consider a threshold (2+ drifted items?) rather than surfacing on the first.
 
@@ -313,6 +315,8 @@ Not an orphan either: `lastXPResult` has a live consumer at `SunriseAppShellView
 **At least the first and fourth look like genuine defects.** The fourth is an undo-fidelity claim on the path this whole feature depends on and deserves triage.
 
 **To tell your failures from these:** `git stash push -u`, re-run the suspects with `-only-testing:`, compare.
+
+**Re-verified 2026-08-01 at `42aa68b2`:** `2065 tests executed, exactly these 5 failed` — the list above is accurate and complete. The script exits `1` on a clean tree because the baseline file is empty; that is expected, and the baseline is deliberately **not** being filled in. `LIFEBOARD_BEYOND_NOTES_HANDOFF.md` §1 explains why: all 51 entries that were once baselined here turned out to be real defects, eight of which reached users. Green for new work means *this exact 5-line diff and nothing more*, not a zero exit code.
 
 ### 9.2 A targeted test run is not evidence
 
@@ -469,3 +473,111 @@ Relaunch with `-LIFEBOARD_DISABLE_DAY_CLOSE_V1`, `-LIFEBOARD_DISABLE_DAY_OPEN_CO
 - **Zero new Metal shaders** (registry still 17). **Zero new Core Data model versions.**
 - 13 new files (~3,900 lines incl. tests), 19 modified, 4 deleted.
 - **Nothing is committed** — the entire change set is in the working tree for review.
+
+---
+
+## 14. M6 landed — drift and `.repair` (2026-08-01)
+
+§6.1's "highest priority" item is done. `.repair` is reachable.
+
+| File | Role |
+|---|---|
+| `Foundation/PhaseIII/PlanDriftResolver.swift` **(new)** | `PlanDrift`, `PlanDriftResolver`, `PlanDriftPolicy` — the one drift rule |
+| `Foundation/PhaseIII/PlanRepairDeckView.swift` **(new)** | `PlanRepairDeck` extracted from `LifeBoardPlanRootView` so Home and Plan share it |
+| `PlanningCoreServices.swift` | `DeterministicPlanRepairService` now calls the shared predicate |
+| `HomeLifeOSProjectionStore.swift` | publishes `repairProposals` + `driftCount` |
+| `LifeBoardFoundationGallery.swift` | passes `driftCount`; `spineRepairBody`; `-LIFEBOARD_FORCE_DAY_REPAIR` |
+
+**Three things that will bite whoever touches this next.**
+
+1. **Do not count `DeterministicPlanRepairService.proposals` as drift.** It also emits
+   `.overloadedWindow` from `capacity.overloadDuration`, which is a statement about the
+   *shape* of the day, not about time passing. Counting it flips the spine to `.repair`
+   on a busy-but-on-track day. Pinned by `testDriftIgnoresOverloadedCapacity`.
+2. **Do not change the `stableID` seed in that service.** Proposal ids are persisted as
+   `plan.repair.<uuid>` receipt sources. A changed seed resurfaces every repair every
+   existing user already dismissed, silently, on upgrade. Pinned by
+   `testRepairProposalIDsAreUnchangedAfterPredicateExtraction` with independently
+   computed UUIDs.
+3. **Do not recompute drift on Home from `planSnapshot`.** `PlanStore` filters repairs
+   the person acknowledged, and resolving one via "leave it as it is" writes a receipt
+   *without changing the snapshot* — so a recompute resurfaces dismissed repairs forever.
+   Read `HomeLifeOSProjectionStore.driftCount`, which is guarded on `errorMessage == nil`
+   so a failed load surfaces nothing.
+
+**Surfacing policy**, on `PlanDriftPolicy.default`, not on the stage resolver
+(`driftCount > 0` stays the resolver's contract; the caller decides what counts):
+`minimumDriftToSurface: 2` — one slipped block is a normal day — and `minimumAge: 15 * 60`,
+without which the spine flips to `.repair` the second a block's end passes, changing the
+stage while the person is looking at it.
+
+**Home decides, Plan commits.** Choosing a direction only *stages* a scenario, and
+`HomeLifeOSProjectionStore` builds its `PlanStore` with no `PlanningScenarioCoordinator`
+(`:44`) — so acting from Home would look like it worked and do nothing. `onAction` routes
+to Plan instead. Driving repairs to completion from Home needs a coordinator on Home's
+store and a story for the two independent `PlanStore` instances (already flagged at
+`HomeLifeOSProjectionStore.swift:98`).
+
+## 15. Also landed
+
+- **§6.3 review lens** — `DayLoopLedger.review` + `DayLoopReview` report days closed /
+  opened / both / reversals. Kind strings centralised on `DayLoopLedger.EventKind`. The
+  floor is shared with `InsightsInterpretationEngine.minimumDaysForPattern`.
+- **§6.4** — `TodayXPWidget`, `NextMilestoneWidget`, `WeeklyScoreboardWidget` deleted
+  (also their three entries in `LifeBoardTests.swift` `widgetFiles`, which throws on a
+  missing path). `LifeBoardIntentDonations` added — note `IntentDonationManager.donate`
+  **throws**, and only 2 of 21 intents are donated on purpose.
+- **Home no longer draws Focus Now twice** when it is pinned; dropped at read time like
+  `.closeLoop`, so the placement survives a flag rollback.
+
+### §6.2 cannot be done the way §7 implies
+
+The **"unedited proposal" signal is not derivable from the receipt.** The receipt records
+what was *applied*, never what was *proposed*, and `DayOpenScenarioBuilder.proposal`
+cannot be replayed against a past day because the task list it ranked has moved on. It
+must be written at commit time. Reasoning and the three candidate mechanisms are recorded
+at `DayOpenScenarioBuilder.swift`. Nothing is blocked: §6.2 gates ranking changes on this
+signal, and the ranking is deliberately untuned.
+
+---
+
+## 16. §8 deletions — audited 2026-08-01, and they are blocked on two functional gaps
+
+§8 says the `DailyReflection*` family and the celebration pipeline cannot be
+deleted until the legacy Sunrise shell is retired. That is right, but it
+understates the problem: the shell is not only a *fallback*, it is a live
+**dependency** of two features that have no LifeOS equivalent.
+
+### Blocker 1 — the calendar-schedule deep link
+
+`LifeOSFoundationShell.presentCalendarSchedule` (~:1965) casts
+`legacyHomeController as? HomeViewController` and calls
+`homeNavigationOpenCalendarSchedule()`, which presents the modal
+`SunriseScheduleScreen`. **Grepping `LifeBoard/Foundation/` for any
+schedule-screen route returns nothing but that comment** — there is no LifeOS
+replacement. Deleting the shell silently turns this deep link into a no-op
+(the cast already fails soft, so nothing would even log).
+
+### Blocker 2 — Overdue Rescue is `HomeViewModel`-backed
+
+`presentPlanOverdueRescue` (:2284) sets the Foundation state *and* calls
+`homeViewModel.openOverdueRescueFromHome(source:)`. The deck itself is 45 files
+under `Presentation/Home/Modals/OverdueRescue/`, plus hosts in
+`SunriseAppShellView+RescueOverlays.swift`. Rescue is reachable from Plan, Home
+and two universal-input routes, so it cannot simply be dropped.
+
+### What the retirement actually costs
+
+1. Build a LifeOS calendar-schedule surface (or decide the deep link retires with the shell).
+2. Re-host Overdue Rescue on Foundation state, off `HomeViewModel`.
+3. *Then* delete the `adaptiveHomeV2Enabled == false` branch (`:1146`),
+   `LegacyHomeControllerHost` (:2328), the `legacyHomeController` parameter, and
+   the unconditional `loadViewIfNeeded()` in `SceneDelegate`.
+4. Only then do the §8 deletions fall out — `DailyReflection*` (~1500 lines,
+   including `DailyPlanDraft`, the competing "day committed" record) and the
+   celebration pipeline (`lastXPResult`'s only consumer is
+   `SunriseAppShellView+ObserversSearchAndBackdrop.swift:74`).
+
+`feature.life_os.adaptive_home_v2` is promoted `true`, so the legacy branch is
+already dark in production — the deletion is safe to *schedule*, but steps 1 and
+2 are real feature work and must land first. **Do not start at step 3.**

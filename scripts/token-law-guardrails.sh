@@ -116,6 +116,17 @@ scan_added_lines \
   "Motion Law: retired generic motion aliases cannot return" \
   'LifeBoardMotionProfile\.(bouncy|snappy|expressive)|LifeBoardAnimation\.(bouncy|snappy|expressive)'
 
+# A ratchet, not a gate on the endpoint. The app has four vocabularies for one
+# palette; the canonical one is `Color.lifeboard(_ role:)`. Existing call sites
+# stay put — there are ~1,200 of them and rewriting them in one pass is a
+# merge-conflict machine — but no NEW line may add to the debt. See
+# LifeBoard/DesignSystem/LifeBoardTokenBridge.swift for the mapping, and
+# TokenBridgeEquivalenceTests for the proof that migrating is a rename.
+scan_added_lines \
+  "Token Law: new code uses semantic colour roles, not the legacy vocabularies" \
+  'LBColorTokens\.' \
+  'LifeBoard/LifeBoardDesign/Tokens/LBColorTokens.swift'
+
 if [[ $FAILED -eq 1 ]]; then
   echo ""
   echo "Token-law guardrails failed on newly added violations. Existing debt remains baselined in git history."
