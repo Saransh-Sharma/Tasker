@@ -53,6 +53,15 @@ final class DayLoopStageTests: XCTestCase {
         XCTAssertEqual(resolve(drift: 1), .repair)
     }
 
+    func testMorningCommitOutranksDrift() {
+        // A morning that has not been committed to yet is asking a different
+        // question than a day that has slipped. Yesterday's drift must not
+        // pre-empt today's start — the commit is what makes the day exist.
+        XCTAssertEqual(resolve(opened: false, morning: true, drift: 5), .commit)
+        // Once committed, drift is free to surface again.
+        XCTAssertEqual(resolve(opened: true, morning: true, drift: 5), .repair)
+    }
+
     func testLowEnergyNeverSurfacesDrift() {
         // Repair is the one stage that asks something extra of a day that is
         // already going badly.

@@ -524,6 +524,57 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertLessThan(result.confidence, 1)
     }
 
+    /// Repair proposal IDs are persisted, so their derivation is a contract.
+    ///
+    /// `PlanStore` records an acknowledged repair as a receipt keyed on the
+    /// proposal's id. If the `stableID` seed string or the hash ever changes,
+    /// every repair every existing user already resolved comes back — silently,
+    /// on upgrade, with no error anywhere.
+    ///
+    /// The expected values below were computed from an independent
+    /// reimplementation of the algorithm rather than captured from a run, so
+    /// this pins the derivation itself and not merely today's output.
+    func testRepairProposalIDsAreUnchangedAfterPredicateExtraction() throws {
+        let day = PlanningDay(year: 2026, month: 7, day: 14, timeZoneIdentifier: "Asia/Kolkata")
+        let now = Date(timeIntervalSince1970: 2_000)
+        let taskID = UUID()
+        let blockID = try XCTUnwrap(UUID(uuidString: "11111111-2222-3333-4444-555555555555"))
+        let block = InternalTimeBlock(
+            id: blockID,
+            title: "Past",
+            startAt: Date(timeIntervalSince1970: 0),
+            endAt: Date(timeIntervalSince1970: 1_000),
+            taskID: taskID
+        )
+        let snapshot = PlanDaySnapshot(
+            day: day,
+            capacity: .init(
+                workingDuration: 3_600, fixedCalendarDuration: 0, internalFixedDuration: 0,
+                bufferDuration: 0, plannedEstimatedDuration: 7_200, missingEstimateCount: 0
+            ),
+            commitments: [],
+            blocks: [block],
+            plannedTasks: [PlanningTaskSummary(id: taskID, title: "Repair", metadata: .init(taskID: taskID))],
+            unscheduledTasks: [],
+            generatedAt: now
+        )
+
+        let proposals = DeterministicPlanRepairService().proposals(for: snapshot, now: now)
+
+        let missed = try XCTUnwrap(proposals.first { $0.trigger == .missedPlannedWork })
+        let overloaded = try XCTUnwrap(proposals.first { $0.trigger == .overloadedWindow })
+        XCTAssertEqual(missed.id.uuidString, "616B6F77-6B0B-44DE-A1DE-E8F0EBECEAF5")
+        XCTAssertEqual(overloaded.id.uuidString, "B0BC6775-7074-476B-823B-3A3D423A453C")
+
+        // Order is part of the contract too: the deck shows `proposals.first`,
+        // so a changed sort silently changes which card someone is asked about.
+        XCTAssertEqual(
+            proposals.map(\.id.uuidString),
+            proposals.map(\.id.uuidString).sorted(),
+            "Proposals must stay sorted by id"
+        )
+    }
+
     func testPlanRepairAndEstimateCalibrationRequireDeterministicEvidence() throws {
         let day = PlanningDay(year: 2026, month: 7, day: 14, timeZoneIdentifier: "Asia/Kolkata")
         let now = Date(timeIntervalSince1970: 2_000)

@@ -4014,9 +4014,6 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
             "LifeBoardWidgets/TaskWidgetAccessoryViews.swift",
             "LifeBoardWidgets/HomeCalendarWidgetView.swift",
             "LifeBoardWidgets/HomeTimelineWidgetView.swift",
-            "LifeBoardWidgets/TodayXPWidget.swift",
-            "LifeBoardWidgets/WeeklyScoreboardWidget.swift",
-            "LifeBoardWidgets/NextMilestoneWidget.swift",
             "LifeBoardWidgets/StreakResilienceWidget.swift",
             "LifeBoardWidgets/FocusSeedWidget.swift"
         ]

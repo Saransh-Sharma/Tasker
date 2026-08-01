@@ -231,4 +231,89 @@ final class DayLoopLedgerTests: XCTestCase {
             )
         )
     }
+
+    // MARK: - Review
+
+    private func loopEvent(kind: String, day: PlanningDay) -> NormalizedLifeEvent {
+        NormalizedLifeEvent(
+            id: "\(kind)-\(day.year)-\(day.month)-\(day.day)",
+            sourceID: UUID(),
+            domain: "plan",
+            kind: kind,
+            occurredAt: now,
+            localDay: day,
+            numericValue: nil,
+            completeness: .complete,
+            sensitivity: .privateStandard,
+            allowedDestinations: [.insights],
+            provenance: "test"
+        )
+    }
+
+    func testReviewCountsDaysNotRecords() {
+        // Two receipts about the same day is one day, not two. Counting records
+        // would report our bookkeeping instead of the person's life.
+        let today = day(offsetFromNow: 0)
+        let review = DayLoopLedger.review(events: [
+            loopEvent(kind: DayLoopLedger.EventKind.closed, day: today),
+            loopEvent(kind: DayLoopLedger.EventKind.closed, day: today)
+        ])
+        XCTAssertEqual(review.daysClosed, 1)
+        XCTAssertEqual(review.recordedDays, 1)
+    }
+
+    func testAReversedCloseIsNotCountedAsClosed() {
+        let review = DayLoopLedger.review(events: [
+            loopEvent(kind: DayLoopLedger.EventKind.closeReversed, day: day(offsetFromNow: -1))
+        ])
+        XCTAssertEqual(review.daysClosed, 0)
+        XCTAssertEqual(review.reversals, 1)
+        // Still history: the person engaged with that day and took it back.
+        XCTAssertEqual(review.recordedDays, 1)
+    }
+
+    func testDaysWithBothCountsOnlyDaysCarryingOpenAndClose() {
+        let full = day(offsetFromNow: -1)
+        let closeOnly = day(offsetFromNow: -2)
+        let review = DayLoopLedger.review(events: [
+            loopEvent(kind: DayLoopLedger.EventKind.opened, day: full),
+            loopEvent(kind: DayLoopLedger.EventKind.closed, day: full),
+            loopEvent(kind: DayLoopLedger.EventKind.closed, day: closeOnly)
+        ])
+        XCTAssertEqual(review.daysOpened, 1)
+        XCTAssertEqual(review.daysClosed, 2)
+        XCTAssertEqual(review.daysWithBoth, 1)
+    }
+
+    func testNonLoopEventsAreIgnored() {
+        // The lens hands over the whole authorized stream; a dragged block must
+        // not read as a closed day.
+        let review = DayLoopLedger.review(events: [
+            loopEvent(kind: "mutation_applied", day: day(offsetFromNow: 0)),
+            loopEvent(kind: "started", day: day(offsetFromNow: 0))
+        ])
+        XCTAssertEqual(review, DayLoopReview())
+        XCTAssertTrue(review.hasNoHistory)
+    }
+
+    func testTheFloorMatchesTheSharedPatternFloor() {
+        var days: [NormalizedLifeEvent] = []
+        for offset in 1...InsightsInterpretationEngine.minimumDaysForPattern {
+            days.append(loopEvent(kind: DayLoopLedger.EventKind.closed, day: day(offsetFromNow: -offset)))
+        }
+        XCTAssertTrue(DayLoopLedger.review(events: days).meetsFloor)
+        XCTAssertFalse(DayLoopLedger.review(events: Array(days.dropLast())).meetsFloor)
+    }
+
+    func testNoHistoryIsDistinctFromZeroDaysClosed() {
+        // "Nothing recorded" and "recorded, none closed" must not collapse.
+        let empty = DayLoopLedger.review(events: [])
+        XCTAssertTrue(empty.hasNoHistory)
+
+        let reversedOnly = DayLoopLedger.review(events: [
+            loopEvent(kind: DayLoopLedger.EventKind.openReversed, day: day(offsetFromNow: -1))
+        ])
+        XCTAssertEqual(reversedOnly.daysClosed, 0)
+        XCTAssertFalse(reversedOnly.hasNoHistory)
+    }
 }
