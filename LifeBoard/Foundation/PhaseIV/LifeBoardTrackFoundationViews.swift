@@ -294,14 +294,14 @@ struct LifeBoardTrackFoundationRootView: View {
     }
 
     private var categoryRail: some View {
-        Picker("Track lens", selection: $selectedLens) {
-            ForEach(TrackLens.allCases) { lens in
-                Text(lens.title)
-                    .tag(lens)
-                    .accessibilityIdentifier("track.lens.\(lens.rawValue)")
-            }
-        }
-        .pickerStyle(.segmented)
+        LifeBoardLensPicker(
+            "Track lens",
+            selection: $selectedLens,
+            values: TrackLens.allCases,
+            identifierPrefix: "track.lens",
+            title: \.title,
+            identifier: \.rawValue
+        )
         .lifeBoardMotion(.selection, value: selectedLens)
         .accessibilityIdentifier("track.lens")
     }

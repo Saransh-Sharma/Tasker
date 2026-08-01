@@ -487,7 +487,7 @@ private struct NutritionBarcodeReviewSheet: View {
                     ContentUnavailableView(
                         "No local match",
                         systemImage: "barcode",
-                        description: Text("Online lookup is off. You can enter this food manually.")
+                        description: Text("Enter this food manually.")
                     )
                 }
             }
