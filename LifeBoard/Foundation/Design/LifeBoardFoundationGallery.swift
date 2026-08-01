@@ -1610,6 +1610,12 @@ struct LifeBoardAdaptiveHome: View {
                 // — the repository preserves those, so dropping them here left
                 // them persisted forever and never drawn.
                 if effectiveSectionRole(for: placement) == .anchored, placement.ownership != .pinned { return false }
+                // The spine draws Focus Now itself, so a pinned copy rendered
+                // the same `heroSnapshot` a second time on one screen. Dropped
+                // at read time like `.closeLoop`, not unpinned: the placement
+                // stays in the repository, so turning the spine off brings the
+                // person's own arrangement back exactly as they left it.
+                if V2FeatureFlags.homeLoopSpineV1Enabled, placement.widgetKind == DashboardWidgetKind.focusNow.rawValue { return false }
                 return modePolicy.permits(descriptor, in: mode)
             }
             .sorted { $0.ordinal < $1.ordinal }
@@ -2132,8 +2138,10 @@ struct LifeBoardAdaptiveHome: View {
             case .commit, .close:
                 // The ritual is the stage body, not a row buried below one.
                 dayRitualEntry(palette: palette)
-            case .act, .repair:
+            case .act:
                 nowSection(palette: palette)
+            case .repair:
+                spineRepairBody
             case .rest:
                 spineRestBody
             }
@@ -2156,6 +2164,54 @@ struct LifeBoardAdaptiveHome: View {
         // Not "Done" or "Complete" — the day is put down, not scored.
         case .rest: "Today is closed"
         }
+    }
+
+    /// `.repair` states what the day did, and offers a way to answer it.
+    ///
+    /// Not paired with `nowSection`: the deck already names the work, and
+    /// restating the same projection twice under one heading reads as two
+    /// separate asks.
+    ///
+    /// The copy reports and stops. "Nothing has changed yet" is the load-bearing
+    /// half — the deck is an offer, and a person who reads this and does nothing
+    /// has lost nothing. No count styled as a badge, no red, and none of
+    /// "missed", "late", "behind" or "overdue": these blocks did not happen when
+    /// they were planned, which is a fact about a day, not about a person.
+    @ViewBuilder
+    private var spineRepairBody: some View {
+        let count = lifeOSStore.driftCount
+        VStack(alignment: .leading, spacing: 12) {
+            Text(
+                count == 1
+                    ? "One thing didn't happen when you planned it. Nothing has changed yet."
+                    : "\(count) things didn't happen when you planned them. Nothing has changed yet."
+            )
+            .font(LifeBoardFoundationTypography.body())
+            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .fixedSize(horizontal: false, vertical: true)
+
+            PlanRepairDeck(
+                proposals: lifeOSStore.repairProposals,
+                // The spine already says "Worth a look"; a second header here
+                // would title the same thing twice.
+                header: nil,
+                // The service's own wording — "this planned block has passed
+                // without a completion receipt" — is a sentence about our data
+                // model, not about the person's day.
+                fallbackExplanation: "This one didn't get its window today."
+            ) { action, _ in
+                // Home decides, Plan commits. Choosing a direction only *stages*
+                // a scenario, and staging needs a `PlanningScenarioCoordinator`
+                // that Home's `PlanStore` is built without — so acting here
+                // would look like it worked and quietly do nothing.
+                if action == .askEva {
+                    router.select(.eva)
+                } else {
+                    router.navigate(.planDay, in: .plan)
+                }
+            }
+        }
+        .accessibilityIdentifier("home.loopSpine.repair.body")
     }
 
     /// `.rest` asks for nothing.
@@ -2192,6 +2248,9 @@ struct LifeBoardAdaptiveHome: View {
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-LIFEBOARD_FORCE_DAY_CLOSE") { return .close }
         if arguments.contains("-LIFEBOARD_FORCE_DAY_OPEN") { return .commit }
+        // Repair needs two drifted blocks that are both over 15 minutes old,
+        // which a seeded journey cannot arrange without waiting out the clock.
+        if arguments.contains("-LIFEBOARD_FORCE_DAY_REPAIR") { return .repair }
         #endif
 
         return DayLoopStageResolver.resolve(
@@ -2199,6 +2258,10 @@ struct LifeBoardAdaptiveHome: View {
             openedToday: dayLoopCommittedToday,
             isMorningWindow: engine.isMorningPlanWindow(now, calendar: calendar),
             isEveningWindow: engine.isEveningReviewWindow(now, calendar: calendar),
+            // Already filtered by `PlanDriftPolicy`: one slipped block is a
+            // normal day and stays at 0, so this only rises when the day has a
+            // shape worth looking at.
+            driftCount: lifeOSStore.driftCount,
             // Low Energy changes the spine's *stage set*, not its visibility.
             // Repair is the one stage that asks something extra of a day already
             // going badly, so it is the one Low Energy drops.

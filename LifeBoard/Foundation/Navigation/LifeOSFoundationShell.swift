@@ -2611,11 +2611,14 @@ private struct FoundationInsightsDestination: View {
 
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 24) {
-                    Picker("Insights lens", selection: $lens) {
-                        ForEach(InsightsLens.allCases) { Text($0.title).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("insights.lens")
+                    LifeBoardLensPicker(
+                        "Insights lens",
+                        selection: $lens,
+                        values: InsightsLens.allCases,
+                        identifierPrefix: "insights.lens",
+                        title: \.title,
+                        identifier: \.rawValue
+                    )
 
                     if let planningEvidenceError {
                         Label("Planning history is temporarily unavailable: \(planningEvidenceError)", systemImage: "exclamationmark.triangle")
@@ -2796,8 +2799,52 @@ private struct FoundationInsightsDestination: View {
         interpretation.recommendedAction
     }
 
+    private var loopReview: DayLoopReview {
+        DayLoopLedger.review(events: events)
+    }
+
+    /// What the loop did, in the loop's own vocabulary.
+    ///
+    /// Previously this counted records and domains — the same sentence whether
+    /// you had closed fourteen days or dragged fourteen blocks around. The
+    /// receipts now name themselves, so the lens can report the thing the
+    /// person actually did.
+    ///
+    /// Reports and stops. No percentage, no score, no "you only closed 4 of
+    /// 14": days that were not closed are days that were lived, and the review
+    /// lens is not a place to be told otherwise.
     private var reviewSummary: String {
-        "Across \(events.count) authorized \(events.count == 1 ? "record" : "records"), \(sourceCounts.count) areas have enough explicit history to revisit. Choose one win, one friction point, and one adjustment."
+        let review = loopReview
+        guard review.hasNoHistory == false else {
+            // Nothing recorded is not zero days closed. It is no history.
+            return "No days have been opened or closed yet. When you start closing days, what you did with them shows up here."
+        }
+        guard review.meetsFloor else {
+            let days = review.recordedDays
+            return "\(days) \(days == 1 ? "day" : "days") recorded so far — not yet enough to read as a pattern."
+        }
+
+        var parts: [String] = []
+        if review.daysClosed > 0 {
+            parts.append("closed \(review.daysClosed) \(review.daysClosed == 1 ? "day" : "days")")
+        }
+        if review.daysOpened > 0 {
+            parts.append("began \(review.daysOpened) deliberately")
+        }
+        let opening = parts.isEmpty
+            ? "You have \(review.recordedDays) days of loop history"
+            : "You've \(parts.joined(separator: " and "))"
+
+        var sentence = "\(opening)."
+        if review.daysWithBoth > 0 {
+            sentence += " \(review.daysWithBoth) had both a beginning and an end."
+        }
+        if review.reversals > 0 {
+            // Named plainly: taking something back is a normal use of Undo, and
+            // burying it would make the other numbers quietly wrong.
+            sentence += " \(review.reversals) \(review.reversals == 1 ? "was" : "were") taken back."
+        }
+        return sentence + " Choose one win, one friction point, and one adjustment."
     }
 
     private var evidenceCompletenessDescription: String {
@@ -2877,10 +2924,10 @@ private struct FoundationInsightsDestination: View {
     /// opened rather than lumping them in with every plan edit.
     fileprivate static func planningEventKind(source: String, reversed: Bool) -> String {
         if source.hasPrefix(DayLoopLedger.closePrefix) {
-            return reversed ? "day_close_reversed" : "day_closed"
+            return reversed ? DayLoopLedger.EventKind.closeReversed : DayLoopLedger.EventKind.closed
         }
         if source.hasPrefix(DayLoopLedger.openPrefix) {
-            return reversed ? "day_open_reversed" : "day_opened"
+            return reversed ? DayLoopLedger.EventKind.openReversed : DayLoopLedger.EventKind.opened
         }
         return reversed ? "mutation_reversed" : "mutation_applied"
     }
@@ -5510,6 +5557,7 @@ private struct FoundationTaskCaptureHost: View {
             }
             .onChange(of: viewModel.isTaskCreated) { _, created in
                 guard created else { return }
+                LifeBoardIntentDonations.taskAdded(title: viewModel.taskName)
                 PendingCaptureInbox.remove(ids: [provisionalID])
             }
     }
