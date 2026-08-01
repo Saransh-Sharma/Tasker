@@ -551,13 +551,17 @@ public struct DeterministicPlanRepairService: PlanRepairService {
 
     public func proposals(for snapshot: PlanDaySnapshot, now: Date) -> [PlanRepairProposal] {
         var proposals: [PlanRepairProposal] = []
-        for block in snapshot.blocks where block.endAt < now {
-            guard let taskID = block.taskID,
-                  snapshot.plannedTasks.contains(where: { $0.id == taskID }) else { continue }
+        // The drift rule itself lives in `PlanDriftResolver` rather than here,
+        // so Home's loop spine and this deck cannot disagree about what has
+        // slipped. Note the resolver covers *only* the `.missedPlannedWork`
+        // branch: `.overloadedWindow` below is a statement about the shape of
+        // the day, not about time having passed, and is deliberately not drift.
+        for drifted in PlanDriftResolver.driftedBlocks(in: snapshot, now: now) {
+            let block = drifted.block
             proposals.append(.init(
                 id: stableID(seed: "missed:\(block.id.uuidString):\(snapshot.day.year)-\(snapshot.day.month)-\(snapshot.day.day)"),
                 trigger: .missedPlannedWork,
-                taskID: taskID,
+                taskID: drifted.taskID,
                 timeBlockID: block.id,
                 actions: [.resume, .moveLaterToday, .moveToAnotherDay, .split, .`defer`, .leaveUnchanged, .askEva],
                 explanation: "This planned block has passed without a completion receipt.",

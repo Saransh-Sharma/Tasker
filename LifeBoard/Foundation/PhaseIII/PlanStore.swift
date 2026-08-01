@@ -638,6 +638,9 @@ final class PlanStore {
                     subtaskID: subtaskID
                 ))
                 activeFocusSession = recovery.session
+                // The same action taken by voice donates itself; taken in-app it
+                // would otherwise be invisible to Siri and Spotlight.
+                LifeBoardIntentDonations.focusSessionStarted()
                 focusCompanion = recovery.companion
             } else {
                 activeFocusSession = try await planningRepository.start(

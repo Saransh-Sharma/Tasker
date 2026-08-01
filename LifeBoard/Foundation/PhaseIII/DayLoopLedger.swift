@@ -39,6 +39,45 @@ public struct DayLoopSummary: Equatable, Sendable {
     public var hasNoHistory: Bool { closedStamps.isEmpty }
 }
 
+/// What the loop actually did over a stretch of days, for the review lens.
+///
+/// Counts of *days*, never of records: two closes of the same day (one undone,
+/// one re-applied) is one day closed, and a lens that said "2" would be
+/// counting our bookkeeping rather than the person's life.
+public struct DayLoopReview: Equatable, Sendable {
+    /// Days holding an applied close. Undone closes are excluded, not subtracted.
+    public var daysClosed: Int
+    public var daysOpened: Int
+    /// Days that were both begun and ended deliberately — the loop's whole shape.
+    public var daysWithBoth: Int
+    /// Closes or commits the person took back. Reported, never scored.
+    public var reversals: Int
+    /// Distinct days holding any loop event at all, applied or reversed.
+    public var recordedDays: Int
+
+    public init(
+        daysClosed: Int = 0,
+        daysOpened: Int = 0,
+        daysWithBoth: Int = 0,
+        reversals: Int = 0,
+        recordedDays: Int = 0
+    ) {
+        self.daysClosed = daysClosed
+        self.daysOpened = daysOpened
+        self.daysWithBoth = daysWithBoth
+        self.reversals = reversals
+        self.recordedDays = recordedDays
+    }
+
+    /// Below the shared pattern floor the lens must say it has nothing yet
+    /// rather than narrate two days as if they were a habit.
+    public var meetsFloor: Bool {
+        recordedDays >= InsightsInterpretationEngine.minimumDaysForPattern
+    }
+
+    public var hasNoHistory: Bool { recordedDays == 0 }
+}
+
 /// Reads the loop's memory out of the planning receipt ledger.
 ///
 /// Static and record-driven: callers fetch, this interprets. Keeps every rule
@@ -47,6 +86,65 @@ public enum DayLoopLedger {
     public static let closePrefix = "planning.scenario.dayClose."
     public static let openPrefix = "planning.scenario.dayOpen."
     public static let defaultWindow = 14
+
+    /// The event kinds the loop's receipts project into Insights.
+    ///
+    /// Named here rather than as literals at the emission site so the writer
+    /// and every reader share one spelling. A receipt yields exactly one of
+    /// these — an undone close is `closeReversed`, *not* `closed` plus a
+    /// reversal — so counting them never double-counts a day.
+    public enum EventKind {
+        public static let closed = "day_closed"
+        public static let closeReversed = "day_close_reversed"
+        public static let opened = "day_opened"
+        public static let openReversed = "day_open_reversed"
+    }
+
+    // MARK: - Review
+
+    /// Counts what the loop did across the supplied events.
+    ///
+    /// Reads `localDay` rather than bucketing `occurredAt` by calendar: a close
+    /// applied at 00:20 belongs to the day it was *about*, not the day the tap
+    /// landed on. That distinction is the whole reason `.dayClose` receipts
+    /// carry a day stamp.
+    ///
+    /// Events not produced by the loop are ignored, so this is safe to hand the
+    /// whole authorized stream.
+    public static func review(events: [NormalizedLifeEvent]) -> DayLoopReview {
+        // Explicit loops rather than chained filter/map: this target's
+        // type-checker has repeatedly blown its budget on the latter.
+        var closedDays: Set<PlanningDay> = []
+        var openedDays: Set<PlanningDay> = []
+        var touchedDays: Set<PlanningDay> = []
+        var reversals = 0
+
+        for event in events {
+            switch event.kind {
+            case EventKind.closed:
+                closedDays.insert(event.localDay)
+                touchedDays.insert(event.localDay)
+            case EventKind.opened:
+                openedDays.insert(event.localDay)
+                touchedDays.insert(event.localDay)
+            case EventKind.closeReversed, EventKind.openReversed:
+                // A taken-back day is still a day the person engaged with, so
+                // it counts toward history — just not toward the totals.
+                reversals += 1
+                touchedDays.insert(event.localDay)
+            default:
+                continue
+            }
+        }
+
+        return DayLoopReview(
+            daysClosed: closedDays.count,
+            daysOpened: openedDays.count,
+            daysWithBoth: closedDays.intersection(openedDays).count,
+            reversals: reversals,
+            recordedDays: touchedDays.count
+        )
+    }
 
     // MARK: - Continuity
 

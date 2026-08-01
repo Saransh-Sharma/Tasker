@@ -918,8 +918,6 @@ struct LifeBoardPlanRootView: View {
     @State private var backlogEnergyFilter: BacklogEnergyFilter = .all
     @State private var backlogDurationFilter: BacklogDurationFilter = .all
     @State private var backlogProjectFilter: BacklogProjectFilter = .all
-    @State private var repairDragOffset: CGSize = .zero
-    @State private var repairSnapAction: PlanRepairAction?
     @State private var focusReflectionEnergy = 3
     @State private var focusReflectionNote = ""
     @State private var pendingFocusSetup: FocusSetupContext?
@@ -1004,11 +1002,14 @@ struct LifeBoardPlanRootView: View {
 
             ScrollView {
                 LazyVStack(spacing: 16) {
-                    Picker("Plan lens", selection: $lens) {
-                        ForEach(PlanLens.allCases) { Text($0.rawValue).tag($0) }
-                    }
-                    .pickerStyle(.segmented)
-                    .accessibilityIdentifier("plan.lens")
+                    LifeBoardLensPicker(
+                        "Plan lens",
+                        selection: $lens,
+                        values: PlanLens.allCases,
+                        identifierPrefix: "plan.lens",
+                        title: \.rawValue,
+                        identifier: \.rawValue
+                    )
 
                     orientationBar
 
@@ -1233,6 +1234,32 @@ struct LifeBoardPlanRootView: View {
         .accessibilityIdentifier("plan.header")
     }
 
+    /// The single decision Plan is asking for right now, if any.
+    ///
+    /// Precedence is deliberate and not a ranking of importance: it is ordered
+    /// by how *interruptible* each one is. A running focus session is the thing
+    /// you are inside; a reflection is a door closing behind you; a staged
+    /// scenario is a question you already opened; repair is an observation; an
+    /// overloaded budget is the least time-bound of the five.
+    @ViewBuilder
+    private func decisionSlot(_ snapshot: PlanDaySnapshot) -> some View {
+        if let session = store.activeFocusSession {
+            activeFocusCard(session)
+        } else if let receipt = store.pendingFocusReflection {
+            focusReflectionCard(receipt)
+        } else if store.pendingScenario != nil {
+            minimumViableDayControl
+        } else if store.repairProposals.isEmpty == false {
+            repairCard(store.repairProposals)
+        } else {
+            // Always drawn once the other four are quiet, overloaded or not:
+            // the capacity card holds the only entry to the working-hours
+            // composer, so hiding it on a calm day would strand the editor for
+            // the very inputs capacity is computed from.
+            capacityCard(snapshot.capacity)
+        }
+    }
+
     @ViewBuilder private var dayContent: some View {
         if store.isLoading && store.daySnapshot == nil {
             LifeBoardStatusSurface(
@@ -1249,17 +1276,21 @@ struct LifeBoardPlanRootView: View {
                 action: { Task { await store.load() } }
             )
         } else if let snapshot = store.daySnapshot {
-            if let session = store.activeFocusSession { activeFocusCard(session) }
-            if let receipt = store.pendingFocusReflection { focusReflectionCard(receipt) }
+            // One decision at a time.
+            //
+            // These five could all render at once — an active focus session, a
+            // reflection waiting to be filed, a staged scenario, drifted work,
+            // and an overloaded capacity budget — giving Plan five competing
+            // prominent cards, several with their own primary button. Ordered
+            // by what is most immediate to the person rather than by what is
+            // most interesting to the app, the same shape `rebuildHero` already
+            // uses on Home.
+            //
+            // Nothing is lost by not drawing: capacity still reads in the
+            // header, the staged scenario stays staged, and drifted work is
+            // still listed below. Only the *ask* is deferred.
+            decisionSlot(snapshot)
             calendarState(snapshot)
-
-            // Capacity was computed, rendered as a one-line summary in the
-            // header, and its full card was never called — which also made the
-            // working-hours composer unreachable, since the card holds its only
-            // trigger. Plan was showing a number derived from inputs the user
-            // could not edit.
-            capacityCard(snapshot.capacity)
-            minimumViableDayControl
 
             dayPresentationControl
             if effectiveDayPresentation == .canvas {
@@ -1324,9 +1355,6 @@ struct LifeBoardPlanRootView: View {
             sectionHeader("Unscheduled", systemImage: "tray")
             ForEach(snapshot.unscheduledTasks.prefix(8)) { taskCard($0, planned: false) }
 
-            if !store.repairProposals.isEmpty {
-                repairCard(store.repairProposals)
-            }
         }
     }
 
@@ -2349,7 +2377,22 @@ struct LifeBoardPlanRootView: View {
                 calibrationSuggestionRow(suggestion)
             }
         }
-        .foundationClayCard()
+        // An open row, not a card. DESIGN.md reserves cards for one decision,
+        // one summary, or one independently movable widget; a task row is none
+        // of those, and a ten-task day rendered as ten raised cards leaves no
+        // canvas at all — the exact "card wall" the redesign calls out.
+        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        // `.foundationClayCard()` used to supply both the hit region and the
+        // full-width frame that `.draggable` and the day canvas's drop targets
+        // depend on. Without a surface behind it, the row has to say so itself
+        // or dragging only starts from the glyphs.
+        .contentShape(Rectangle())
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color(LifeBoardColorTokens.foundationHairline))
+                .frame(height: 1)
+        }
         .draggable(task.id.uuidString)
         // Pairs with the `lifeBoardZoomDestination` already on the canonical task
         // route, so opening a task grows out of the card you tapped rather than
@@ -2399,156 +2442,9 @@ struct LifeBoardPlanRootView: View {
     }
 
     private func repairCard(_ proposals: [PlanRepairProposal]) -> some View {
-        let proposal = proposals.first
-        // With the flagship stage off the deck keeps its original two
-        // directions, so the rollback is a genuine return to the previous
-        // behaviour rather than a half-lit four-way pad.
-        let directionCount = V2FeatureFlags.taskProjectFlagshipV1Enabled
-            ? PlanRepairDeckDragResolver.Direction.allCases.count
-            : 2
-        let dragCandidates = Array(
-            (proposal?.actions ?? []).filter { $0 != .askEva }.prefix(directionCount)
-        )
-        return VStack(alignment: .leading, spacing: 10) {
-            Label("Plan repair", systemImage: "wand.and.stars")
-                .font(.headline)
-            Text(proposal?.explanation ?? "Your day has changed. Choose what should move; nothing changes automatically.")
-                .font(.subheadline).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            if dragCandidates.isEmpty == false {
-                repairDirectionPad(dragCandidates)
-            }
-            ScrollView(.horizontal) {
-                HStack {
-                    ForEach(Array((proposal?.actions ?? []).prefix(5)), id: \.self) { action in
-                        Button(repairActionTitle(action), systemImage: repairActionSymbol(action)) {
-                            performRepairAction(action, proposal: proposal)
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                }
-            }
-            .scrollIndicators(.hidden)
+        PlanRepairDeck(proposals: proposals) { action, proposal in
+            performRepairAction(action, proposal: proposal)
         }
-        .foundationClayCard()
-        // Resolving one proposal used to appear to conjure another; the deck
-        // depth says up front how many are queued.
-        .lifeBoardDeckDepth(remaining: proposals.count)
-        // Vertical travel is no longer decorative, so it tracks the finger as
-        // openly as horizontal travel does.
-        .offset(x: repairDragOffset.width * 0.22, y: repairDragOffset.height * 0.22)
-        .scaleEffect(repairDragOffset == .zero ? 1 : 1.012)
-        .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: repairDragOffset)
-        .simultaneousGesture(repairGesture(proposal: proposal, candidates: dragCandidates))
-        .modifier(
-            PlanRepairAccessibilityActions(
-                candidates: dragCandidates,
-                title: repairActionTitle,
-                perform: { performRepairAction($0, proposal: proposal) }
-            )
-        )
-        .accessibilityIdentifier("plan.repair")
-    }
-
-    /// Says which way each repair lives, and lights the one the current flick
-    /// would commit. Without it the extra two directions are invisible: a swipe
-    /// deck that mutates the plan should never rely on the user guessing.
-    private func repairDirectionPad(_ candidates: [PlanRepairAction]) -> some View {
-        VStack(spacing: 3) {
-            repairDirectionChip(.up, candidates: candidates)
-            HStack(spacing: 6) {
-                repairDirectionChip(.left, candidates: candidates)
-                repairDirectionChip(.right, candidates: candidates)
-            }
-            repairDirectionChip(.down, candidates: candidates)
-        }
-        .frame(maxWidth: .infinity)
-        .accessibilityHidden(true)
-    }
-
-    @ViewBuilder
-    private func repairDirectionChip(
-        _ direction: PlanRepairDeckDragResolver.Direction,
-        candidates: [PlanRepairAction]
-    ) -> some View {
-        if let action = PlanRepairDeckDragResolver.action(for: direction, candidates: candidates) {
-            let armed = repairSnapAction == action
-            HStack(spacing: 4) {
-                Image(systemName: repairDirectionSymbol(direction))
-                Text(repairActionTitle(action)).lineLimit(1)
-            }
-            .font(.caption2.weight(armed ? .bold : .regular))
-            .foregroundStyle(
-                Color(armed ? LifeBoardColorTokens.inkPrimary : LifeBoardColorTokens.inkSecondary)
-            )
-            .padding(.horizontal, 8)
-            .padding(.vertical, 4)
-            .background(
-                Color(LifeBoardColorTokens.foundationApricotAccent)
-                    .opacity(armed ? 0.30 : 0.10),
-                in: Capsule()
-            )
-            .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: armed)
-        }
-    }
-
-    private func repairDirectionSymbol(_ direction: PlanRepairDeckDragResolver.Direction) -> String {
-        switch direction {
-        case .right: "chevron.right"
-        case .left: "chevron.left"
-        case .up: "chevron.up"
-        case .down: "chevron.down"
-        }
-    }
-
-    private func repairGesture(
-        proposal: PlanRepairProposal?,
-        candidates: [PlanRepairAction]
-    ) -> some Gesture {
-        DragGesture(minimumDistance: 14)
-            .onChanged { value in
-                repairDragOffset = value.translation
-                let candidate = PlanRepairDeckDragResolver.action(
-                    translation: value.translation,
-                    predictedEndTranslation: value.predictedEndTranslation,
-                    candidates: candidates
-                )
-                if candidate != nil, repairSnapAction == nil { LifeBoardFeedback.selection() }
-                repairSnapAction = candidate
-            }
-            .onEnded { value in
-                let direction = PlanRepairDeckDragResolver.direction(
-                    translation: value.translation,
-                    predictedEndTranslation: value.predictedEndTranslation
-                )
-                let action = direction.flatMap {
-                    PlanRepairDeckDragResolver.action(for: $0, candidates: candidates)
-                }
-                repairSnapAction = nil
-                let animationsOff = LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion)
-                guard let action, let direction else {
-                    withAnimation(LifeBoardMotionProfile.directManipulation.animation(reduceMotion: reduceMotion)) {
-                        repairDragOffset = .zero
-                    }
-                    return
-                }
-                LifeBoardFeedback.medium()
-                guard animationsOff == false else {
-                    repairDragOffset = .zero
-                    performRepairAction(action, proposal: proposal)
-                    return
-                }
-                withAnimation(LifeBoardAnimation.panelOut) {
-                    // The card leaves the way it was thrown, so the gesture and
-                    // the result read as one motion.
-                    repairDragOffset = PlanRepairDeckDragResolver.exitOffset(for: direction)
-                } completion: {
-                    // Commits on the animation's real completion. This was a
-                    // hardcoded 0.18 s `asyncAfter`, which mutated the plan while
-                    // the card was still on screen whenever the device ran slow.
-                    repairDragOffset = .zero
-                    performRepairAction(action, proposal: proposal)
-                }
-            }
     }
 
     private func performRepairAction(_ action: PlanRepairAction, proposal: PlanRepairProposal?) {
@@ -2652,7 +2548,7 @@ struct LifeBoardPlanRootView: View {
             .disabled(requiresAgendaPresentation)
             .accessibilityIdentifier("plan.day.presentation")
             if requiresAgendaPresentation {
-                Text("Agenda is active for VoiceOver, accessibility text, or Reduce Motion so every time block remains linear and fully operable.")
+                Text("Agenda keeps every block linear and operable.")
                     .font(.caption)
                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
             }
@@ -2988,30 +2884,6 @@ struct LifeBoardPlanRootView: View {
     private func shifted(_ day: PlanningDay, by offset: Int) -> PlanningDay? {
         guard let date = day.startDate(), let moved = Calendar.current.date(byAdding: .day, value: offset, to: date) else { return nil }
         return PlanningDay(date: moved, timeZone: TimeZone(identifier: day.timeZoneIdentifier) ?? .current)
-    }
-
-    private func repairActionTitle(_ action: PlanRepairAction) -> String {
-        switch action {
-        case .resume: "Resume"
-        case .moveLaterToday: "Later today"
-        case .moveToAnotherDay: "Another day"
-        case .split: "Split"
-        case .defer: "Defer"
-        case .leaveUnchanged: "Leave unchanged"
-        case .askEva: "Ask Eva"
-        }
-    }
-
-    private func repairActionSymbol(_ action: PlanRepairAction) -> String {
-        switch action {
-        case .resume: "play.fill"
-        case .moveLaterToday: "clock.arrow.circlepath"
-        case .moveToAnotherDay: "calendar.badge.plus"
-        case .split: "rectangle.split.2x1"
-        case .defer: "tray"
-        case .leaveUnchanged: "minus.circle"
-        case .askEva: "sparkles"
-        }
     }
 
     private var errorBinding: Binding<Bool> {
@@ -3631,32 +3503,6 @@ private struct PlanDayTimeCanvas: View {
 /// Written as a modifier because `accessibilityAction` cannot be applied in a
 /// loop over a variable-length list; each direction needs its own named action
 /// so a flick and a rotor selection reach exactly the same set of repairs.
-private struct PlanRepairAccessibilityActions: ViewModifier {
-    let candidates: [PlanRepairAction]
-    let title: (PlanRepairAction) -> String
-    let perform: (PlanRepairAction) -> Void
-
-    private func action(_ slot: Int) -> PlanRepairAction? {
-        slot < candidates.count ? candidates[slot] : nil
-    }
-
-    func body(content: Content) -> some View {
-        content
-            .accessibilityAction(named: action(0).map { Text(title($0)) } ?? Text("Apply first repair")) {
-                if let value = action(0) { perform(value) }
-            }
-            .accessibilityAction(named: action(1).map { Text(title($0)) } ?? Text("Apply second repair")) {
-                if let value = action(1) { perform(value) }
-            }
-            .accessibilityAction(named: action(2).map { Text(title($0)) } ?? Text("Apply third repair")) {
-                if let value = action(2) { perform(value) }
-            }
-            .accessibilityAction(named: action(3).map { Text(title($0)) } ?? Text("Apply fourth repair")) {
-                if let value = action(3) { perform(value) }
-            }
-    }
-}
-
 private struct PlanClusterStrip<Content: View>: View {
     let contentWidth: CGFloat
     let laneCount: Int

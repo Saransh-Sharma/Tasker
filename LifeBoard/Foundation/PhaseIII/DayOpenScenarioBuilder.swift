@@ -153,6 +153,27 @@ public enum DayOpenScenarioBuilder {
         )
     }
 
+    // MARK: - The "unedited proposal" signal is not recorded, deliberately
+    //
+    // Handoff §7 wants the share of commits that are the *unedited* proposal,
+    // as the evidence for tuning the ranking in §6.2. It cannot be recovered
+    // later: the receipt records what was **applied**, never what was
+    // **proposed**, and `proposal(...)` cannot be replayed against a past day
+    // because the task list it ranked has since moved on. A receipt showing
+    // three committed tasks is indistinguishable between "took the proposal"
+    // and "deleted two and added three others".
+    //
+    // So it has to be written at commit time, and every way of doing that costs
+    // something: a suffix on `receiptSource` breaks the exact-match
+    // `hasAppliedReceipt(source:)` lookups that resolve the loop stage; the
+    // `diff` titles are user-visible in the commit preview; a field on
+    // `PlanningScenario` touches the model every planning surface shares.
+    //
+    // Deferred rather than guessed at. Nothing is blocked today — §6.2 gates
+    // ranking changes on this signal, and the ranking is explicitly not being
+    // tuned yet. Whoever picks it up: choose the mechanism first, and know that
+    // no history exists before that choice ships.
+
     private static func diff(for tasks: [PlanningTaskSummary]) -> [PlanningScenarioDiff] {
         guard tasks.isEmpty == false else {
             return [PlanningScenarioDiff(title: "Today stays open", after: "Nothing committed")]

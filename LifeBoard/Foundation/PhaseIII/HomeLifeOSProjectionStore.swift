@@ -14,6 +14,15 @@ final class HomeLifeOSProjectionStore {
     private(set) var latestMood: LifeBoardMoodEnergyCheckInValue?
     private(set) var activeFast: LifeBoardFastingSessionValue?
     private(set) var activeFocusSession: FocusSessionV2?
+    /// Today's repair proposals, already stripped of the ones the person
+    /// resolved. Home reads these rather than recomputing from `planSnapshot`:
+    /// resolving a repair with "leave today as it is" writes a receipt but does
+    /// **not** change the snapshot, so a recompute would resurface a dismissed
+    /// repair every time Home loaded, forever.
+    private(set) var repairProposals: [PlanRepairProposal] = []
+    /// How much drift is worth surfacing, per `PlanDriftPolicy`. Feeds the loop
+    /// spine's stage resolution; `0` means the spine stays in `.act`.
+    private(set) var driftCount: Int = 0
     private(set) var heroSnapshot: AdaptiveHeroSnapshot?
     private(set) var isLoading = false
     /// Provider-resolved card snapshots keyed by "kind|size". Home widget
@@ -126,6 +135,7 @@ final class HomeLifeOSProjectionStore {
             activeFast = nil
         }
         activeFocusSession = planStore?.activeFocusSession
+        rebuildDrift()
         rebuildFocus()
         rebuildHero()
     }
@@ -592,6 +602,28 @@ final class HomeLifeOSProjectionStore {
             title: title,
             detail: "Unavailable right now.",
             updatedAt: date
+        )
+    }
+
+    /// Reads the day's drift from `PlanStore`, which has already removed the
+    /// repairs this person resolved.
+    ///
+    /// A failed load leaves `repairProposals` holding either the previous day's
+    /// values or an unfiltered list, so a partial load must surface nothing at
+    /// all. Absent is not zero drift, but the honest rendering of "we don't
+    /// know" on the spine is the same as "nothing to show" — and it is far
+    /// better than asking someone to repair a day we failed to read.
+    private func rebuildDrift() {
+        guard let planStore, planStore.errorMessage == nil, let snapshot = planSnapshot else {
+            repairProposals = []
+            driftCount = 0
+            return
+        }
+        repairProposals = planStore.repairProposals
+        driftCount = PlanDriftPolicy.default.surfacedCount(
+            proposals: repairProposals,
+            in: snapshot,
+            now: Date()
         )
     }
 
