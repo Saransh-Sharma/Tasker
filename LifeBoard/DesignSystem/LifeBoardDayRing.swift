@@ -68,9 +68,21 @@ public struct LifeBoardDayRing: View {
     /// Drives the closing checkmark. Only ever set at the moment a day is
     /// deliberately closed — never as a verdict on how the day went.
     private let closedProgress: Double
+    /// How much of the evening's reconciliation has been decided, or `nil` when
+    /// there was nothing to reconcile.
+    ///
+    /// The ring sits at the top of the ritual and the deck sits below it, so
+    /// deciding a card used to change nothing you could see without scrolling
+    /// back up. A level that rises ties the two together — and reads as the day
+    /// settling rather than a progress bar counting you down.
+    private let settledLevel: Double?
     private let diameter: CGFloat
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Advanced once per level change so the surface ripples as it rises and
+    /// then settles. Never driven by a timer.
+    @State private var liquidPhase: CGFloat = 0
 
     /// The arc caps here, so an overrun stays legible as a full ring instead of
     /// wrapping. The *number* beside it is never clamped — see
@@ -81,11 +93,13 @@ public struct LifeBoardDayRing: View {
         plannedMinutes: Int?,
         focusedMinutes: Int?,
         closedProgress: Double = 0,
+        settledLevel: Double? = nil,
         diameter: CGFloat = 148
     ) {
         self.plannedMinutes = plannedMinutes
         self.focusedMinutes = focusedMinutes
         self.closedProgress = closedProgress
+        self.settledLevel = settledLevel
         self.diameter = diameter
     }
 
@@ -105,6 +119,30 @@ public struct LifeBoardDayRing: View {
         ZStack {
             track(inset: 0)
             track(inset: 18)
+
+            if let settledLevel {
+                // Inside the inner track, so it never crosses either arc or the
+                // centre numerals — it is the water in the glass, not a third score.
+                LifeBoardLiquidLevel(
+                    phase: reduceMotion ? 0 : liquidPhase,
+                    level: min(max(settledLevel, 0), 1)
+                )
+                .fill(Color(LifeBoardColorTokens.foundationSunAccent).opacity(0.16))
+                .clipShape(Circle())
+                .padding(24)
+                .allowsHitTesting(false)
+                .animation(
+                    LifeBoardMotionProfile.deckSettle.animation(reduceMotion: reduceMotion),
+                    value: settledLevel
+                )
+                .onChange(of: settledLevel) { _, _ in
+                    // One nudge per decision, then still. The ripple is the
+                    // splash of the level moving — turning it into a running
+                    // loop would break the no-ambient-motion law.
+                    guard reduceMotion == false else { return }
+                    liquidPhase += 0.5
+                }
+            }
 
             arcPair(extent: plannedExtent, inset: 0, lineWidth: 7)
                 .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))

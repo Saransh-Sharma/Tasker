@@ -57,6 +57,25 @@ public enum LifeBoardAnimation {
     public static let controlMorph: Animation = .spring(response: 0.36, dampingFraction: 0.90)
     /// Reordering or inserting cards while preserving their spatial relationship.
     public static let cardReflow: Animation = .spring(response: 0.34, dampingFraction: 0.90)
+
+    /// A card landing in — or returning to — a stack.
+    ///
+    /// Lower damping than `cardReflow` on purpose: a card settling into a deck
+    /// should overshoot a hair, the way a real one would. Kept well short of
+    /// bouncy, which is a banned alias for exactly the reason it sounds like.
+    public static let deckSettle: Animation = .spring(response: 0.42, dampingFraction: 0.78)
+
+    /// The thread linking the acts of the evening ritual advancing one notch.
+    ///
+    /// Slow and fully damped — it is a progress thread, not a control, and it
+    /// must never pull the eye away from the act the person is actually in.
+    public static let threadAdvance: Animation = .spring(response: 0.55, dampingFraction: 1.0)
+
+    /// The morning commit landing.
+    ///
+    /// Longer than `celebration` because it accompanies a light sweep rather
+    /// than a burst: the day is starting, not finishing.
+    public static let firstLight: Animation = .timingCurve(0.16, 1, 0.3, 1, duration: 0.72)
     /// Direct manipulation preserves velocity but settles without an elastic bounce.
     public static let directManipulation: Animation = .interactiveSpring(response: 0.30, dampingFraction: 0.88, blendDuration: 0.12)
     /// Route / sheet transition (280–450 ms).

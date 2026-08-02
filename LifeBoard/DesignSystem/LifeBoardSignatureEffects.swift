@@ -73,6 +73,12 @@ public extension LifeBoardMotionProfile {
             LifeBoardAnimation.roleRoute
         case .celebration:
             LifeBoardAnimation.celebration
+        case .deckSettle:
+            LifeBoardAnimation.deckSettle
+        case .threadAdvance:
+            LifeBoardAnimation.threadAdvance
+        case .firstLight:
+            LifeBoardAnimation.firstLight
         case .ambient:
             LifeBoardAnimation.roleAmbient
         }
@@ -353,6 +359,7 @@ public enum LifeBoardSignatureShaders {
         "LifeBoardChartRevealSweep",
         "LifeBoardLiquidGlassRefract",
         "LifeBoardCardMorphWarp",
+        "LifeBoardFirstLight",
         "LifeBoardPaperGrain",
         "LifeBoardDissolveAway",
         "LifeBoardTriageSettle"
@@ -943,6 +950,15 @@ public extension View {
     @MainActor
     func lifeboardDissolveAway(progress: Double, tint: Color) -> some View {
         modifier(DissolveAwayModifierEnvironment(progress: progress, tint: tint))
+    }
+
+    /// One warm sweep across a surface as the morning is committed to.
+    ///
+    /// Fires on the persisted-state boundary, never on selection — the light is
+    /// the day starting, not a preview of it.
+    @MainActor
+    func lifeboardFirstLight(trigger: Int, tint: Color) -> some View {
+        modifier(FirstLightModifierEnvironment(trigger: trigger, tint: tint))
     }
 }
 
@@ -1682,5 +1698,83 @@ public extension View {
     @MainActor
     func lifeboardCompletionBurst(center: UnitPoint = .center, trigger: Int) -> some View {
         modifier(CompletionBurstModifierEnvironment(center: center, trigger: trigger))
+    }
+}
+
+// MARK: - firstLight
+
+private struct FirstLightModifierEnvironment: ViewModifier {
+    let trigger: Int
+    let tint: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+
+    func body(content: Content) -> some View {
+        content.modifier(FirstLightModifier(
+            trigger: trigger,
+            tint: tint,
+            reduceMotion: reduceMotion,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+struct FirstLightModifier: ViewModifier {
+    let trigger: Int
+    let tint: Color
+    let reduceMotion: Bool
+    let sceneIsActive: Bool
+
+    /// Matches `LifeBoardAnimation.firstLight` so the sweep and whatever the
+    /// caller animates alongside it finish together.
+    static let duration: TimeInterval = 0.72
+
+    @State private var startDate: Date?
+
+    func body(content: Content) -> some View {
+        Group {
+            if usesFallback || startDate == nil {
+                content
+            } else if let startDate {
+                TimelineView(.animation) { context in
+                    let elapsed = context.date.timeIntervalSince(startDate)
+                    let progress = min(1, max(0, elapsed / Self.duration))
+                    if progress >= 1 {
+                        // Settled: no residue, and the TimelineView stops
+                        // mattering once `startDate` is cleared below.
+                        content
+                    } else {
+                        let components = LifeBoardSignatureShaders.components(of: tint)
+                        content.visualEffect { effect, proxy in
+                            effect.colorEffect(
+                                Shader(
+                                    function: ShaderFunction(library: .default, name: "LifeBoardFirstLight"),
+                                    arguments: [
+                                        .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                                        .float(Float(progress)),
+                                        .float3(components.0, components.1, components.2)
+                                    ]
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        .onChange(of: trigger) { _, _ in
+            guard trigger > 0, usesFallback == false else { return }
+            startDate = Date()
+            // Hand the view back unmodified once the sweep is done. Leaving the
+            // TimelineView mounted would be an ambient loop in all but name.
+            Task {
+                try? await Task.sleep(nanoseconds: UInt64((Self.duration + 0.05) * 1_000_000_000))
+                startDate = nil
+            }
+        }
+    }
+
+    private var usesFallback: Bool {
+        reduceMotion || sceneIsActive == false
+            || LifeBoardSignatureShaders.isReadyForRendering == false
     }
 }
