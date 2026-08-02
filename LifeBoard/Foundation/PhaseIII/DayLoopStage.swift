@@ -70,8 +70,8 @@ public enum DayLoopStageResolver {
 /// scheduled per device, so a day closed on the iPad should not silence the
 /// phone's nudge for a day this phone still shows as open.
 ///
-/// Replaces a read of `UserDefaultsDailyReflectionStore`, which the ritual never
-/// wrote. The single configured nudge now consults this log before scheduling.
+/// Retired reflection completion preferences never participate in ritual state.
+/// The single configured nudge consults this local closure log before scheduling.
 /// `@unchecked Sendable` for the same reason as `DayCompassSnoozeStore`:
 /// `UserDefaults` is not `Sendable` under Swift 6's complete checking, but it is
 /// internally thread-safe and every access here is a single atomic read or write.

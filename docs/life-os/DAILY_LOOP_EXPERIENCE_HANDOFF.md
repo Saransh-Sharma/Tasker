@@ -2,7 +2,7 @@
 
 **Last reconciled:** 2026-08-03
 **Branch:** `lifeOS`
-**Unified baseline commits:** `5e1da0e5`, `aafef799`
+**Unified baseline commits:** `5e1da0e5`, `aafef799`, `0986e501`
 **Audience:** the engineer and the designer continuing this, cold.
 **Companion docs:** `DAILY_LOOP_HANDOFF.md` (the loop's architecture — read §3 first), `DESIGN.md` (the visual law).
 
@@ -10,7 +10,7 @@
 
 ## 0. The one-paragraph version
 
-The Daily Loop is functionally complete and has a persistence-backed interaction design. `.repair` is reachable, Review exposes local loop evidence, the deck has directional previews, the liquid ring answers it, four settled clay knots mark completed acts, and ritual routes share zoom transitions. Morning policy is evidence-driven after 14 eligible days; the evening cadence is one suppressible nudge. Overdue Rescue orchestration is extracted; legacy Home retirement is the next architecture phase.
+The Daily Loop is functionally complete and has a persistence-backed interaction design. `.repair` is reachable, Review exposes local loop evidence, the deck has directional previews, the liquid ring answers it, four settled clay knots mark completed acts, and ritual routes share zoom transitions. Morning policy is evidence-driven after 14 eligible days; the evening cadence is one suppressible nudge. Overdue Rescue orchestration is extracted, and the duplicate Home/Sunrise/Reflection architecture has been retired in favor of the native Life OS host.
 
 ---
 
@@ -115,7 +115,7 @@ Close/open seeders now create deterministic work, including one must-do item and
 
 ### 4.3 Overdue Rescue extraction — complete
 
-`OverdueRescueLaunchCoordinator` is the single `@MainActor @Observable` owner of launcher state, plan, normal/Day-Rescue task maps, reference date, batch run identity, and presentation context. Foundation and Sunrise presentation hosts observe it and receive task edit/delete/restore, batch apply/Undo, planning-metadata, retry, tracking, and dismiss services explicitly.
+`OverdueRescueLaunchCoordinator` is the single `@MainActor @Observable` owner of launcher state, plan, normal/Day-Rescue task maps, reference date, batch run identity, and presentation context. The Foundation presentation host observes it and receives task edit/delete/restore, batch apply/Undo, planning-metadata, retry, tracking, and dismiss services explicitly.
 
 Every `openOverdueRescueFromHome` entry point was replaced by a typed launch context. Eligibility calls `OverdueRescueEligibilityPolicy` directly. `.universalInputDayRescue` is included and owns a distinct task map/session purpose rather than borrowing the overdue pool.
 
@@ -143,25 +143,33 @@ The guardrail ratchet already blocks *new* `LBColorTokens.` on added lines. Migr
 
 ---
 
-## 5. Decisions waiting on a human
+## 5. Architecture decisions — resolved
 
-### 5.1 The legacy Home branch — the one real judgement call
+### 5.1 Adaptive Home is the sole Home
 
-`LegacyHomeControllerHost` is now referenced by exactly one thing. The calendar deep link that used to reach into `HomeViewController` has been re-pointed at `.planDay` (the same route `lifeboard://calendar/schedule` already used, so two paths that disagreed now agree).
+The rollback branch was deliberately removed. `adaptiveHomeV2Enabled`, its
+disable argument, `LegacyHomeControllerHost`, the Sunrise app shell, and
+`HomeViewController` no longer exist. A missing projection is an explicit
+composition failure, not a reason to mount a second application.
 
-**But deleting it is not free.** It is the fallback when `adaptiveHomeV2Enabled` is false *or* `homeProjectionAdapter` is nil. Delete it and `-LIFEBOARD_DISABLE_ADAPTIVE_HOME_V2` renders a **blank Home** — losing a rollback guarantee this project treats as load-bearing.
+`HomeProjectionCoordinator` owns projection composition,
+`AppOnboardingCoordinator` presents through `LifeBoardApplicationHostController`,
+and `LifeBoardNavigationEventCoordinator` maps external events directly to the
+typed Life OS router. UI-test onboarding evaluation waits until the seed gate has
+installed the real host, so first-run work never targets an unattached controller.
 
-Choose deliberately:
-- **(a)** keep the branch, accept the legacy render path stays; or
-- **(b)** delete it *and* drop the flag to non-optional, accepting no rollback.
+### 5.2 Legacy reflection and celebration migration is closed
 
-Do not delete it silently as "cleanup".
+Only authored reflection text migrates into canonical `ReflectionNote` records,
+tagged `legacyDailyReflection` with an import prompt. Completion flags and
+`DailyPlanDraft` are intentionally ignored: neither may synthesize a task
+mutation or a Daily Loop receipt. The migration marker is written only after all
+canonical note writes succeed, so a failed import remains retryable.
 
-### 5.2 `HomeViewController` cannot be deleted either way
-
-Three things still hang off it: `HomeProjectionAdapter` (which is what drives *LifeOS Home itself*), onboarding/first-run, and the notification deep-link bridge (`HomeNavigationEventAdapter`, serving focus/chat/quickadd/weekly/habit links). Rescue presentation state and mutation orchestration no longer do.
-
-So the §8 deletions in the original handoff — the `DailyReflection*` family (~1500 lines, including `DailyPlanDraft`, a second competing "the user committed to a day" record) and the celebration pipeline — remain gated on those three Phase 4 migrations, not Rescue.
+The duplicate Daily Reflection stores/use cases/screens and celebration router
+are deleted. The XP ledger and `lastXPResult` remain for compatibility; the only
+immediate feedback consumer now fires a success haptic after the persisted XP
+ledger operation. No XP-magnitude presentation returns to Home.
 
 ### 5.3 The "unedited proposal" signal is local evidence
 
@@ -181,7 +189,7 @@ It cannot be derived from receipts, so `DayOpenProposalSignalStore` writes a ver
 ./scripts/run-baseline-aware-tests.sh
 ```
 
-The five historical failures are fixed and the baseline file remains empty. Green now means a zero exit code. At the Phase 3 checkpoint the suite executes 2,105 tests, skips 3 hardware/environment-dependent tests, and reports 0 failures.
+The five historical failures are fixed and the baseline file remains empty. Green now means a zero exit code. After Phase 4 retirement the suite executes 2,066 tests, skips 3 hardware/environment-dependent tests, and reports 0 failures; the removed tests belonged to deleted legacy production surfaces.
 
 ### 6.2 Everything else, serially — never two concurrent `xcodebuild`
 
@@ -311,10 +319,9 @@ Every motion profile must return `nil` under Reduce Motion (tested). Selection m
 
 1. **§4.1 seeded verification** — unblocks judging everything else
 2. **§4.2 `.doneAnyway`** — ~10 lines, completes the direction vocabulary
-3. **§5.1 decide the legacy Home branch** — a conversation, not a task
-4. **§5.1 retire the legacy Home branch** — projection, onboarding, and routing first
-5. **§4.5 Plan open rows** — alone, own commit
-6. **§4.4 token migration** — continuous, file-by-file, lowest risk per step
-7. **§4.6 ambient layer** — spike first
+3. **§5 architecture retirement** — complete: native host, projection, onboarding, routing, migration
+4. **§4.5 Plan open rows** — alone, own commit
+5. **§4.4 token migration** — continuous, file-by-file, lowest risk per step
+6. **§4.6 ambient layer** — spike first
 
-Items 1–2 are complete in the unified program baseline. Legacy Home retirement is the remaining architecture-sized item.
+Items 1–3 are complete. The next visual batch is the open-row and root-refinement work, followed by adaptive/system evidence.

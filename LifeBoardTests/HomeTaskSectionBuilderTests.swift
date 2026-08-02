@@ -979,23 +979,14 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         XCTAssertTrue(source.contains("HomeTaskTintResolver.rowAccentHex("))
     }
 
-    /// Both the task list and the Sunrise shell must tint rows through the one
-    /// shared resolver rather than each rolling its own accent.
-    ///
-    /// Searches the whole source tree rather than two fixed paths: the shell was
-    /// split into `SunriseAppShellView+*` extension files by the production
-    /// decomposition pass, which silently broke a per-file assertion while the
-    /// behaviour it guards was still correct.
+    /// Remaining task-list routes tint rows through one shared resolver rather
+    /// than rolling their own accent after the Sunrise shell retirement.
     func testHomeSurfaceDueTodayAndRescueRowsUseSharedRowResolver() throws {
         let users = try filesContaining("HomeTaskTintResolver.rowAccentHex(")
 
         XCTAssertTrue(
             users.contains { $0.contains("SunriseTaskListView") || $0.contains("SunriseTaskSectionView") },
             "The task list must tint through the shared resolver. Found: \(users)"
-        )
-        XCTAssertTrue(
-            users.contains { $0.contains("SunriseAppShellView") },
-            "The Sunrise shell must tint through the shared resolver. Found: \(users)"
         )
     }
 

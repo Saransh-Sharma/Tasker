@@ -713,7 +713,6 @@ class PerformanceTests: BaseUITest {
             "\(XCUIApplication.LaunchArgumentKey.testCalendarMode.rawValue):active",
             "-LIFEBOARD_ENABLE_LIFE_OS_FOUNDATION",
             "-LIFEBOARD_ENABLE_LIFE_OS_UNIFIED_PRESENTATION_V2",
-            "-LIFEBOARD_ENABLE_ADAPTIVE_HOME_V2",
             "-LIFEBOARD_ENABLE_PREMIUM_IA_V5",
             "-LIFEBOARD_ENABLE_PLAN_DESTINATION_V1",
             "-LIFEBOARD_ENABLE_TRACK_FOUNDATIONS_V2"

@@ -45,6 +45,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     private var persistentBootstrapObserver: NSObjectProtocol?
     private weak var journalPrivacyShield: UIView?
+    private var navigationEventCoordinator: LifeBoardNavigationEventCoordinator?
+    private var launchCoordinator: LifeBoardLaunchCoordinator?
+    private var onboardingCoordinator: AppOnboardingCoordinator?
 
 
     /// Executes scene.
@@ -114,11 +117,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         return makeDeferredHomeRootController(
             bootstrapState: appDelegate.persistentBootstrapState,
             failureMessage: AppDelegate.persistentBootstrapFailureMessage,
-            instantiateHomeViewController: {
-                let storyboard = UIStoryboard(name: "Main", bundle: nil)
-                return storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController
-            },
-            tryInject: { PresentationDependencyContainer.shared.tryInject(into: $0) }
+            makeHomeViewModel: {
+                let dependencies = PresentationDependencyContainer.shared
+                guard dependencies.isConfiguredForRuntime else { return nil }
+                return dependencies.makeHomeViewModel()
+            }
         )
     }
 
@@ -126,44 +129,26 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func makeDeferredHomeRootController(
         bootstrapState: PersistentBootstrapState,
         failureMessage: String?,
-        instantiateHomeViewController: () -> HomeViewController?,
-        tryInject: (HomeViewController) -> Bool
+        makeHomeViewModel: () -> HomeViewModel?
     ) -> UIViewController? {
         guard case .ready = bootstrapState else {
             return nil
         }
 
-        guard let homeViewController = instantiateHomeViewController() else {
-            showBootstrapFailureRoot(message: "LifeBoard could not load the home screen.")
-            return nil
-        }
-
-        guard tryInject(homeViewController) else {
+        guard let homeViewModel = makeHomeViewModel() else {
             showBootstrapFailureRoot(
                 message: failureMessage ?? "LifeBoard could not initialize dependencies."
             )
             return nil
         }
 
-        let productionController = UINavigationController(rootViewController: homeViewController)
-
-        guard V2FeatureFlags.lifeOSFoundationV1Enabled
-                || V2FeatureFlags.adaptiveHomeV2Enabled
-                || V2FeatureFlags.trackersV1Enabled
-                || V2FeatureFlags.healthIntegrationsV1Enabled
-                || V2FeatureFlags.journalV1Enabled
-                || V2FeatureFlags.knowledgeNotesV1Enabled
-                || V2FeatureFlags.planDestinationV1Enabled
-                || V2FeatureFlags.trackFoundationsV2Enabled else {
-            return productionController
-        }
-
-        let projectionAdapter = HomeProjectionAdapter(
-            chromeStore: homeViewController.chromeStore,
-            tasksStore: homeViewController.tasksStore,
-            habitsStore: homeViewController.habitsStore,
-            calendarStore: homeViewController.calendarStore
+        let projectionCoordinator = HomeProjectionCoordinator(homeViewModel: homeViewModel)
+        let launchCoordinator = LifeBoardLaunchCoordinator(
+            presentationDependencies: PresentationDependencyContainer.shared,
+            homeViewModel: homeViewModel,
+            router: LifeOSFoundationRuntime.shared.router
         )
+        self.launchCoordinator = launchCoordinator
         guard let appDelegate = UIApplication.shared.delegate as? AppDelegate,
               let persistentContainer = appDelegate.persistentContainer else {
             showBootstrapFailureRoot(message: "LifeBoard storage finished opening without a persistent container.")
@@ -213,15 +198,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             )
         }()
         if let planDependencies {
-            homeViewController.viewModel.configureCanonicalFocusCommands(
-                planDependencies.focusCommands
-            )
-            homeViewController.canonicalTaskRouteHandler = { taskID in
-                _ = LifeOSFoundationRuntime.shared.router.navigate(
-                    .taskDetail(taskID),
-                    in: .home
-                )
-            }
+            homeViewModel.configureCanonicalFocusCommands(planDependencies.focusCommands)
         }
         let trackFoundationRepository = CoreDataTrackFoundationRepository(container: persistentContainer)
         let habitRuntimeReadRepository = CoreDataHabitRuntimeReadRepository(container: persistentContainer)
@@ -363,11 +340,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             recomputeStreaks: coordinator.recomputeHabitStreaks
         )
 
-        let foundationController = UIHostingController(
-            rootView: LifeOSFoundationShell(
-                legacyHomeController: productionController,
-                homeViewModel: homeViewController.viewModel,
-                homeProjectionAdapter: projectionAdapter,
+        let foundationRoot = LifeOSFoundationShell(
+                homeViewModel: homeViewModel,
+                homeProjectionAdapter: projectionCoordinator,
                 dashboardLayoutRepository: layoutRepository,
                 phaseIIRepository: phaseIIRepository,
                 planningRepository: planningRepository,
@@ -382,26 +357,40 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 lifeMomentRepository: lifeMomentRepository,
                 wellnessRepository: wellnessRepository
             )
+        let foundationController = LifeBoardApplicationHostController(
+            root: AnyView(foundationRoot),
+            presentationDependencies: PresentationDependencyContainer.shared,
+            planDependencies: planDependencies,
+            router: LifeOSFoundationRuntime.shared.router
         )
 
-        // The onboarding coordinator and its notification observers are created in
-        // the legacy controller's `viewDidLoad`. With the Life OS shell as the
-        // root, the adaptive Home replaces that controller and its view may never
-        // load — so first run had nothing listening and never appeared. Loading it
-        // here costs one view construction and keeps first run reachable on both
-        // roots.
-        homeViewController.loadViewIfNeeded()
+        navigationEventCoordinator?.stop()
+        let navigationEventCoordinator = LifeBoardNavigationEventCoordinator(
+            router: LifeOSFoundationRuntime.shared.router,
+            homeViewModel: homeViewModel
+        )
+        navigationEventCoordinator.start()
+        self.navigationEventCoordinator = navigationEventCoordinator
+        let onboardingCoordinator = AppOnboardingCoordinator(
+            hostAdapter: foundationController,
+            presentationDependencyContainer: PresentationDependencyContainer.shared,
+            guidanceModel: HomeOnboardingGuidanceModel()
+        )
+        self.onboardingCoordinator = onboardingCoordinator
 
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("-UI_TESTING"),
            arguments.contains(where: { $0.hasPrefix("-LIFEBOARD_TEST_SEED_") }) {
             let gate = FoundationUITestSeedGateViewController()
-            homeViewController.seedUITestWorkspacesForLaunchIfNeeded { [weak gate] in
+            launchCoordinator.seedUITestWorkspacesIfNeeded { [weak gate, weak onboardingCoordinator] in
                 Self.seedDayLoopRitualsIfNeeded(
                     planning: planningRepository,
                     tasks: taskRepository
                 ) {
                     gate?.install(foundationController)
+                    DispatchQueue.main.async {
+                        onboardingCoordinator?.evaluateLaunchIfNeeded()
+                    }
                 }
             }
             return gate
@@ -417,6 +406,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             planning: planningRepository,
             tasks: taskRepository
         ) {}
+        DispatchQueue.main.async { [weak onboardingCoordinator] in
+            onboardingCoordinator?.evaluateLaunchIfNeeded()
+        }
 
         return foundationController
     }

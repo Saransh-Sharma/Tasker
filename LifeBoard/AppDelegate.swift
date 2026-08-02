@@ -262,7 +262,6 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         defer { LifeBoardPerformanceTrace.end(launchInterval) }
         LifeBoardHealthRuntime.shared.prepareForLaunch()
 
-//        HomeViewController.setDateForViewValue(dateToSetForView: Date.today())
         let launchArguments = ProcessInfo.processInfo.arguments
 
         // MARK: - UI Testing Mode

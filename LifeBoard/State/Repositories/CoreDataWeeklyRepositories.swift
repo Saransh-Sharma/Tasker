@@ -1,4 +1,5 @@
 import CoreData
+import CryptoKit
 import Foundation
 
 private final class WeeklyRepositoryCompletion<Value: Sendable>: @unchecked Sendable {
@@ -1182,291 +1183,150 @@ public final class UserDefaultsWeeklyReviewDraftStore: WeeklyReviewDraftStorePro
 }
 
 
-// MARK: - Daily Reflection Store
+// MARK: - Legacy Daily Reflection Migration
 
-import Foundation
+/// Imports the only durable user-authored value from the retired Sunrise Daily
+/// Reflection feature into the canonical ReflectionNote repository.
+///
+/// This migration intentionally decodes neither completion markers nor
+/// `DailyPlanDraft`. Those values were advisory UI state, not canonical acts,
+/// and must never be converted into Daily Loop receipts or task mutations.
+public final class LegacyDailyReflectionImporter: @unchecked Sendable {
+    public struct Report: Equatable, Sendable {
+        public let discoveredTextCount: Int
+        public let importedTextCount: Int
+        public let alreadyCompleted: Bool
 
-public final class UserDefaultsDailyReflectionStore: DailyReflectionStoreProtocol, @unchecked Sendable {
-    private struct LocalStateFile: Codable, Equatable {
-        var completionDateKeys: [String]
-        var payloadsByDateKey: [String: ReflectionPayload]
-        var planDraftsByDateKey: [String: DailyPlanDraft]
+        public init(discoveredTextCount: Int, importedTextCount: Int, alreadyCompleted: Bool) {
+            self.discoveredTextCount = discoveredTextCount
+            self.importedTextCount = importedTextCount
+            self.alreadyCompleted = alreadyCompleted
+        }
     }
 
-    public static let legacyCompletionDefaultsKey = "gamification.reflection.completedDateKeys"
+    private struct LegacyStateFile: Decodable {
+        let payloadsByDateKey: [String: LegacyPayload]
+    }
 
-    private static let storageKey = "tasker.dailyReflection.localState.v1"
-    private static let maxStoredDays = 45
-    private static let maximumNoteLength = 140
+    private struct LegacyPayload: Decodable {
+        let reflectionDate: Date
+        let note: String?
+        let createdAt: Date
+        let updatedAt: Date
+    }
+
+    static let legacyStorageKey = "tasker.dailyReflection.localState.v1"
+    static let migrationMarkerKey = "tasker.migration.dailyReflectionTextToJournal.v1"
 
     private let defaults: UserDefaults
-    private let calendar: Calendar
-    private let lock = NSLock()
+    private let repository: any ReflectionNoteRepositoryProtocol
+    private let callbackQueue: DispatchQueue
 
-    public init(defaults: UserDefaults = .standard, calendar: Calendar = .autoupdatingCurrent) {
+    public init(
+        defaults: UserDefaults = .standard,
+        repository: any ReflectionNoteRepositoryProtocol,
+        callbackQueue: DispatchQueue = .main
+    ) {
         self.defaults = defaults
-        self.calendar = calendar
-
-        normalizePersistedStateIfNeeded()
+        self.repository = repository
+        self.callbackQueue = callbackQueue
     }
 
-    public func isCompleted(on date: Date) -> Bool {
-        let key = dateKey(for: date)
-        return completedDateStamps().contains(key)
-    }
-
-    public func completedDateStamps() -> Set<String> {
-        lock.lock()
-        defer { lock.unlock() }
-        let file = (try? loadState()).map(normalizeAndPrune) ?? LocalStateFile(
-            completionDateKeys: [],
-            payloadsByDateKey: [:],
-            planDraftsByDateKey: [:]
-        )
-        return Set(file.completionDateKeys)
-    }
-
-    public func fetchReflectionPayload(on date: Date) -> ReflectionPayload? {
-        let key = dateKey(for: date)
-        lock.lock()
-        defer { lock.unlock() }
-        guard let file = try? loadState() else { return nil }
-        return normalizeAndPrune(file).payloadsByDateKey[key]
-    }
-
-    @discardableResult
-    public func saveReflectionPayload(_ payload: ReflectionPayload) throws -> ReflectionPayload {
-        lock.lock()
-        defer { lock.unlock() }
-        var file = normalizeAndPrune(try loadState())
-        let normalized = Self.normalizePayload(payload, calendar: calendar)
-        file.payloadsByDateKey[dateKey(for: normalized.reflectionDate)] = normalized
-        try persist(file)
-        return normalized
-    }
-
-    @discardableResult
-    public func markCompleted(
-        on reflectionDate: Date,
-        completedAt: Date,
-        payload: ReflectionPayload?
-    ) throws -> ReflectionPayload? {
-        lock.lock()
-        defer { lock.unlock() }
-        var file = normalizeAndPrune(try loadState())
-        let key = dateKey(for: reflectionDate)
-        if file.completionDateKeys.contains(key) == false {
-            file.completionDateKeys.append(key)
+    public func migrate(completion: @escaping @Sendable (Result<Report, Error>) -> Void) {
+        guard defaults.bool(forKey: Self.migrationMarkerKey) == false else {
+            callbackQueue.async {
+                completion(.success(Report(discoveredTextCount: 0, importedTextCount: 0, alreadyCompleted: true)))
+            }
+            return
         }
 
-        let normalizedPayload: ReflectionPayload?
-        if let payload {
-            let existing = file.payloadsByDateKey[key]
-            normalizedPayload = Self.normalizePayload(
-                ReflectionPayload(
-                    reflectionDate: reflectionDate,
-                    planningDate: payload.planningDate,
-                    mode: payload.mode,
-                    mood: payload.mood,
-                    energy: payload.energy,
-                    frictionTags: payload.frictionTags,
-                    note: payload.note,
-                    createdAt: existing?.createdAt ?? payload.createdAt,
-                    updatedAt: completedAt
-                ),
-                calendar: calendar
-            )
-            file.payloadsByDateKey[key] = normalizedPayload
-        } else {
-            normalizedPayload = file.payloadsByDateKey[key]
+        do {
+            let notes = try makeNotes()
+            importNext(notes[...], importedCount: 0, completion: completion)
+        } catch {
+            callbackQueue.async { completion(.failure(error)) }
         }
-
-        try persist(file)
-        return normalizedPayload
     }
 
-    public func fetchPlanDraft(on date: Date) -> DailyPlanDraft? {
-        let key = dateKey(for: date)
-        lock.lock()
-        defer { lock.unlock() }
-        guard let file = try? loadState() else { return nil }
-        return normalizeAndPrune(file).planDraftsByDateKey[key]
-    }
-
-    @discardableResult
-    public func savePlanDraft(_ draft: DailyPlanDraft, replaceExisting: Bool) throws -> DailyPlanDraft {
-        lock.lock()
-        defer { lock.unlock() }
-        var file = normalizeAndPrune(try loadState())
-        let normalized = Self.normalizeDraft(draft, calendar: calendar)
-        let key = dateKey(for: normalized.date)
-        if replaceExisting == false, file.planDraftsByDateKey[key] != nil {
-            return file.planDraftsByDateKey[key] ?? normalized
-        }
-        file.planDraftsByDateKey[key] = normalized
-        try persist(file)
-        return normalized
-    }
-
-    public func clearPlanDraft(on date: Date) throws {
-        lock.lock()
-        defer { lock.unlock() }
-        var file = normalizeAndPrune(try loadState())
-        file.planDraftsByDateKey.removeValue(forKey: dateKey(for: date))
-        try persist(file)
-    }
-
-    private func loadState() throws -> LocalStateFile {
-        guard let data = defaults.data(forKey: Self.storageKey) else {
-            return LocalStateFile(
-                completionDateKeys: defaults.stringArray(forKey: Self.legacyCompletionDefaultsKey) ?? [],
-                payloadsByDateKey: [:],
-                planDraftsByDateKey: [:]
-            )
-        }
+    private func makeNotes() throws -> [ReflectionNote] {
+        guard let data = defaults.data(forKey: Self.legacyStorageKey) else { return [] }
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
-        let decoded = try decoder.decode(LocalStateFile.self, from: data)
-        return LocalStateFile(
-            completionDateKeys: decoded.completionDateKeys + (defaults.stringArray(forKey: Self.legacyCompletionDefaultsKey) ?? []),
-            payloadsByDateKey: decoded.payloadsByDateKey,
-            planDraftsByDateKey: decoded.planDraftsByDateKey
-        )
-    }
+        let file = try decoder.decode(LegacyStateFile.self, from: data)
 
-    private func persist(_ file: LocalStateFile) throws {
-        let normalized = normalizeAndPrune(file)
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        defaults.set(try encoder.encode(normalized), forKey: Self.storageKey)
-        defaults.set(normalized.completionDateKeys, forKey: Self.legacyCompletionDefaultsKey)
-    }
-
-    private func normalizeAndPrune(_ file: LocalStateFile) -> LocalStateFile {
-        var payloads: [String: ReflectionPayload] = [:]
-        for payload in file.payloadsByDateKey.values {
-            let normalized = Self.normalizePayload(payload, calendar: calendar)
-            let key = dateKey(for: normalized.reflectionDate)
-            if let existing = payloads[key] {
-                if existing.updatedAt <= normalized.updatedAt {
-                    payloads[key] = normalized
+        return file.payloadsByDateKey
+            .values
+            .compactMap { payload -> ReflectionNote? in
+                guard let note = payload.note?
+                    .trimmingCharacters(in: .whitespacesAndNewlines),
+                      note.isEmpty == false else {
+                    return nil
                 }
-            } else {
-                payloads[key] = normalized
+                return ReflectionNote(
+                    id: Self.deterministicID(for: payload),
+                    kind: .legacyDailyReflection,
+                    prompt: Self.provenanceLabel(for: payload.reflectionDate),
+                    noteText: note,
+                    createdAt: payload.createdAt,
+                    updatedAt: payload.updatedAt
+                )
             }
-        }
-
-        var drafts: [String: DailyPlanDraft] = [:]
-        for draft in file.planDraftsByDateKey.values {
-            let normalized = Self.normalizeDraft(draft, calendar: calendar)
-            let key = dateKey(for: normalized.date)
-            if let existing = drafts[key] {
-                if existing.updatedAt <= normalized.updatedAt {
-                    drafts[key] = normalized
-                }
-            } else {
-                drafts[key] = normalized
+            .sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt { return lhs.createdAt < rhs.createdAt }
+                return lhs.id.uuidString < rhs.id.uuidString
             }
-        }
-
-        let allKeys = Set(file.completionDateKeys)
-            .union(payloads.keys)
-            .union(drafts.keys)
-        let keysToKeep = Set(
-            allKeys
-                .sorted(by: >)
-                .prefix(Self.maxStoredDays)
-        )
-
-        let completionKeys = Array(Set(file.completionDateKeys))
-            .filter { keysToKeep.contains($0) }
-            .sorted()
-
-        let filteredPayloads = payloads.filter { keysToKeep.contains($0.key) }
-        let filteredDrafts = drafts.filter { keysToKeep.contains($0.key) }
-
-        return LocalStateFile(
-            completionDateKeys: completionKeys,
-            payloadsByDateKey: filteredPayloads,
-            planDraftsByDateKey: filteredDrafts
-        )
     }
 
-    private func normalizePersistedStateIfNeeded() {
-        lock.lock()
-        defer { lock.unlock() }
-        do {
-            let loaded = try loadState()
-            let normalized = normalizeAndPrune(loaded)
-            guard normalized != loaded else {
-                defaults.set(normalized.completionDateKeys, forKey: Self.legacyCompletionDefaultsKey)
-                return
-            }
-            try persist(normalized)
-        } catch {
-            logWarning(
-                event: "daily_reflection_store_normalize_failed",
-                message: "Failed to normalize persisted daily reflection local state",
-                fields: ["error": error.localizedDescription]
+    private func importNext(
+        _ remaining: ArraySlice<ReflectionNote>,
+        importedCount: Int,
+        completion: @escaping @Sendable (Result<Report, Error>) -> Void
+    ) {
+        guard let note = remaining.first else {
+            defaults.set(true, forKey: Self.migrationMarkerKey)
+            let report = Report(
+                discoveredTextCount: importedCount,
+                importedTextCount: importedCount,
+                alreadyCompleted: false
             )
+            callbackQueue.async { completion(.success(report)) }
+            return
+        }
+
+        repository.saveNote(note) { [weak self] result in
+            guard let self else { return }
+            switch result {
+            case .success:
+                self.importNext(remaining.dropFirst(), importedCount: importedCount + 1, completion: completion)
+            case .failure(let error):
+                self.callbackQueue.async { completion(.failure(error)) }
+            }
         }
     }
 
-    private func dateKey(for date: Date) -> String {
+    private static func deterministicID(for payload: LegacyPayload) -> UUID {
+        let seed = [
+            "legacy-daily-reflection-v1",
+            String(payload.reflectionDate.timeIntervalSinceReferenceDate),
+            String(payload.createdAt.timeIntervalSinceReferenceDate)
+        ].joined(separator: "|")
+        var bytes = Array(SHA256.hash(data: Data(seed.utf8)).prefix(16))
+        bytes[6] = (bytes[6] & 0x0F) | 0x50
+        bytes[8] = (bytes[8] & 0x3F) | 0x80
+        return UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
+    }
+
+    private static func provenanceLabel(for date: Date) -> String {
         let formatter = DateFormatter()
-        formatter.dateFormat = "yyyyMMdd"
+        formatter.calendar = Calendar(identifier: .gregorian)
         formatter.locale = Locale(identifier: "en_US_POSIX")
-        formatter.timeZone = calendar.timeZone
-        return formatter.string(from: calendar.startOfDay(for: date))
-    }
-
-    private static func normalizePayload(_ payload: ReflectionPayload, calendar: Calendar) -> ReflectionPayload {
-        let note = payload.note?
-            .components(separatedBy: .newlines)
-            .joined(separator: " ")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        let boundedNote = note.flatMap { value -> String? in
-            guard value.isEmpty == false else { return nil }
-            return String(value.prefix(Self.maximumNoteLength))
-        }
-
-        return ReflectionPayload(
-            reflectionDate: calendar.startOfDay(for: payload.reflectionDate),
-            planningDate: calendar.startOfDay(for: payload.planningDate),
-            mode: payload.mode,
-            mood: payload.mood,
-            energy: payload.energy,
-            frictionTags: Array(Set(payload.frictionTags)).sorted { $0.rawValue < $1.rawValue },
-            note: boundedNote,
-            createdAt: payload.createdAt,
-            updatedAt: payload.updatedAt
-        )
-    }
-
-    private static func normalizeDraft(_ draft: DailyPlanDraft, calendar: Calendar) -> DailyPlanDraft {
-        let topTasks = Array(
-            Dictionary(uniqueKeysWithValues: draft.topTasks.map { ($0.id, $0) })
-                .values
-                .sorted { lhs, rhs in
-                    if lhs.priority.scorePoints != rhs.priority.scorePoints {
-                        return lhs.priority.scorePoints > rhs.priority.scorePoints
-                    }
-                    return lhs.title.localizedCaseInsensitiveCompare(rhs.title) == .orderedAscending
-                }
-                .prefix(3)
-        )
-
-        return DailyPlanDraft(
-            date: calendar.startOfDay(for: draft.date),
-            topTasks: topTasks,
-            suggestedFocusBlock: draft.suggestedFocusBlock,
-            protectedHabitID: draft.protectedHabitID,
-            protectedHabitTitle: draft.protectedHabitTitle,
-            protectedHabitStreak: draft.protectedHabitStreak,
-            primaryRisk: draft.primaryRisk,
-            primaryRiskDetail: draft.primaryRiskDetail,
-            source: draft.source,
-            updatedAt: draft.updatedAt
-        )
+        formatter.timeZone = .autoupdatingCurrent
+        formatter.dateFormat = "MMM d, yyyy"
+        return "Imported from Daily Reflection · \(formatter.string(from: date))"
     }
 }

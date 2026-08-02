@@ -186,73 +186,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.dayProgress?.progressFraction ?? -1, 0.4, accuracy: 0.0001)
     }
 
-    func testHomeChromeSnapshotEqualityIncludesRichReflectionPreview() {
-        let today = Calendar.current.startOfDay(for: Date())
-        let sharedNarrative = ReflectionNarrativeSummary(
-            homeCardLine: "1 task closed. Keep tomorrow tight.",
-            planCardLine: "You closed 1 task, and tomorrow can stay narrow."
-        )
-        let lhs = HomeChromeSnapshot(
-            selectedDate: today,
-            activeScope: .today,
-            activeFilterState: .default,
-            savedHomeViews: [],
-            quickViewCounts: [:],
-            progressState: .empty,
-            dailyScore: 0,
-            completionRate: 0,
-            weeklySummary: nil,
-            projects: [],
-            dailyReflectionEntryState: DailyReflectionEntryState(
-                mode: .sameDay,
-                reflectionDate: today,
-                planningDate: Calendar.current.date(byAdding: .day, value: 1, to: today)!,
-                title: "Reflect & plan",
-                subtitle: "Close today cleanly, then shape tomorrow.",
-                summaryText: sharedNarrative.homeCardLine,
-                badgeText: nil,
-                closedTasks: [
-                    ReflectionTaskMiniRow(id: UUID(), title: "Closed task", projectName: "Inbox")
-                ],
-                habitGrid: [],
-                narrativeSummary: sharedNarrative
-            ),
-            dailyPlanDraft: nil,
-            momentumGuidanceText: ""
-        )
-
-        let rhs = HomeChromeSnapshot(
-            selectedDate: today,
-            activeScope: .today,
-            activeFilterState: .default,
-            savedHomeViews: [],
-            quickViewCounts: [:],
-            progressState: .empty,
-            dailyScore: 0,
-            completionRate: 0,
-            weeklySummary: nil,
-            projects: [],
-            dailyReflectionEntryState: DailyReflectionEntryState(
-                mode: .sameDay,
-                reflectionDate: today,
-                planningDate: Calendar.current.date(byAdding: .day, value: 1, to: today)!,
-                title: "Reflect & plan",
-                subtitle: "Close today cleanly, then shape tomorrow.",
-                summaryText: sharedNarrative.homeCardLine,
-                badgeText: nil,
-                closedTasks: [
-                    ReflectionTaskMiniRow(id: UUID(), title: "Different task", projectName: "Inbox")
-                ],
-                habitGrid: [],
-                narrativeSummary: sharedNarrative
-            ),
-            dailyPlanDraft: nil,
-            momentumGuidanceText: ""
-        )
-
-        XCTAssertNotEqual(lhs, rhs)
-    }
-
     func testCustomDatePresentationShowsBackToTodayAndSuppressesReflection() {
         let today = Calendar.current.startOfDay(for: Date())
         let selectedDate = Calendar.current.date(byAdding: .day, value: 1, to: today) ?? today
@@ -267,8 +200,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
         let tasks = HomeTasksSnapshot(
@@ -357,8 +288,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
 
@@ -379,8 +308,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
         var tasks = HomeTasksSnapshot.empty
@@ -566,8 +493,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
                 completionRate: 0,
                 weeklySummary: nil,
                 projects: [],
-                dailyReflectionEntryState: nil,
-                dailyPlanDraft: nil,
                 momentumGuidanceText: ""
             )
 
@@ -609,8 +534,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
     }

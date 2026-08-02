@@ -4,22 +4,8 @@ import CoreData
 @testable import LifeBoard
 
 @MainActor
-final class HomeViewControllerLifecycleTests: XCTestCase {
-    func testStoryboardInstantiatedHomeViewControllerDeallocatesWithoutInjectedDependencies() throws {
-        weak var weakController: HomeViewController?
-        let storyboard = try XCTUnwrap(mainStoryboard())
-
-        autoreleasepool {
-            let controller = storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController
-
-            XCTAssertNotNil(controller)
-            weakController = controller
-        }
-
-        XCTAssertNil(weakController)
-    }
-
-    func testDeferredHomeAttachShowsBootstrapFailureWhenInjectionFails() throws {
+final class LifeBoardApplicationLifecycleTests: XCTestCase {
+    func testDeferredHomeAttachShowsBootstrapFailureWhenHomeCompositionFails() throws {
         let sceneDelegate = SceneDelegate()
         let windowScene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         sceneDelegate.window = UIWindow(windowScene: windowScene)
@@ -27,8 +13,7 @@ final class HomeViewControllerLifecycleTests: XCTestCase {
         let result = sceneDelegate.makeDeferredHomeRootController(
             bootstrapState: .ready(makeBootstrapContainer()),
             failureMessage: "Injected failure",
-            instantiateHomeViewController: { HomeViewController() },
-            tryInject: { _ in false }
+            makeHomeViewModel: { nil }
         )
 
         XCTAssertNil(result)
@@ -239,11 +224,6 @@ final class HomeViewControllerLifecycleTests: XCTestCase {
         }
 
         XCTAssertEqual(order, ["established", "rescue", "focus", "habit", "quiet", "complete"])
-    }
-
-    private func mainStoryboard() -> UIStoryboard? {
-        guard let bundle = mainStoryboardBundle() else { return nil }
-        return UIStoryboard(name: "Main", bundle: bundle)
     }
 
     private func mainStoryboardBundle() -> Bundle? {

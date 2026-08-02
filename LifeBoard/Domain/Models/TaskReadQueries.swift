@@ -252,25 +252,6 @@ public struct InsightsWeekProjectionQuery: Codable, Equatable, Hashable, Sendabl
     }
 }
 
-public struct DailyReflectionTaskProjectionQuery: Codable, Equatable, Hashable, Sendable {
-    public var reflectionDate: Date
-    public var planningDate: Date
-    public var completedLimit: Int
-    public var openTaskLimit: Int
-
-    public init(
-        reflectionDate: Date,
-        planningDate: Date,
-        completedLimit: Int = 160,
-        openTaskLimit: Int = 240
-    ) {
-        self.reflectionDate = reflectionDate
-        self.planningDate = planningDate
-        self.completedLimit = max(1, completedLimit)
-        self.openTaskLimit = max(1, openTaskLimit)
-    }
-}
-
 public struct InsightsTodayTaskProjection: Codable, Equatable, Hashable, Sendable {
     public let dueWindowTasks: [TaskDefinition]
     public let recentTasks: [TaskDefinition]
@@ -310,22 +291,6 @@ public struct WeekChartProjection: Codable, Equatable, Hashable, Sendable {
         self.weekStart = weekStart
         self.dayScores = dayScores
         self.projectScores = projectScores
-    }
-}
-
-public struct DailyReflectionTaskProjection: Codable, Equatable, Hashable, Sendable {
-    public let reflectionCompletedTasks: [TaskDefinition]
-    public let reflectionOpenTasks: [TaskDefinition]
-    public let planningOpenTasks: [TaskDefinition]
-
-    public init(
-        reflectionCompletedTasks: [TaskDefinition],
-        reflectionOpenTasks: [TaskDefinition],
-        planningOpenTasks: [TaskDefinition]
-    ) {
-        self.reflectionCompletedTasks = reflectionCompletedTasks
-        self.reflectionOpenTasks = reflectionOpenTasks
-        self.planningOpenTasks = planningOpenTasks
     }
 }
 

@@ -37,7 +37,6 @@ enum AccessibilityIdentifiers {
         static let inboxButton = "home.inboxButton"
         static let settingsButton = "home.settingsButton"
         static let backToTodayButton = "home.backToToday.button"
-        static let reflectionReadyButton = "home.reflectionReady.button"
         static let topChromeDayProgress = "home.topChrome.dayProgress"
         static let projectFilterButton = "home.focus.menu.button"
         static let quickFilterMenuButton = "home.focus.menu.button"
@@ -51,7 +50,6 @@ enum AccessibilityIdentifiers {
         static let primaryWidgetPageWeeklyOperating = "home.primaryWidget.page.weeklyOperating"
         static let primaryWidgetIndicatorFocusNow = "home.primaryWidget.indicator.focusNow"
         static let primaryWidgetIndicatorWeeklyOperating = "home.primaryWidget.indicator.weeklyOperating"
-        static let dailyReflectionEntryCompact = "home.dailyReflection.entry.compact"
         static let weeklySummaryCard = "home.weeklySummary.card"
         static let calendarCard = "home.calendar.card"
         static let calendarStateActive = "home.calendar.state.active"
@@ -169,32 +167,6 @@ enum AccessibilityIdentifiers {
         static func taskTitle(index: Int) -> String { "home.taskTitle.\(index)" }
         static func taskPriority(index: Int) -> String { "home.taskPriority.\(index)" }
         static func taskProject(index: Int) -> String { "home.taskProject.\(index)" }
-    }
-
-    enum ReflectPlan {
-        static let screen = "reflection.plan.screen"
-        static let loading = "reflection.plan.loading"
-        static let complete = "reflection.plan.complete"
-        static let close = "reflection.plan.close"
-        static let yesterdayCard = "reflection.plan.yesterday"
-        static let todayCard = "reflection.plan.today"
-        static let save = "reflection.plan.save"
-        static let contextCard = "reflection.plan.context.card"
-        static let contextToggle = "reflection.plan.context.toggle"
-        static let noteField = "reflection.plan.context.note"
-        static let swapSheet = "reflection.plan.swap.sheet"
-        static let swapSearch = "reflection.plan.swap.search"
-        static let swapEmpty = "reflection.plan.swap.empty"
-        static let todayAddTask = "reflection.plan.today.addTask"
-        static let todayEmpty = "reflection.plan.today.empty"
-
-        static func todayTaskRow(_ index: Int) -> String { "reflection.plan.today.task.\(index)" }
-        static func todayTaskSwap(_ index: Int) -> String { "reflection.plan.today.task.\(index).swap" }
-        static func mood(_ slug: String) -> String { "reflection.plan.context.mood.\(slug)" }
-        static func energy(_ slug: String) -> String { "reflection.plan.context.energy.\(slug)" }
-        static func friction(_ slug: String) -> String { "reflection.plan.context.friction.\(slug)" }
-        static func swapOption(_ id: String) -> String { "reflection.plan.swap.option.\(id)" }
-        static func swapOptionUse(_ id: String) -> String { "reflection.plan.swap.option.use.\(id)" }
     }
 
     enum FocusNow {

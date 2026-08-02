@@ -2,7 +2,7 @@
 
 **Last reconciled:** 2026-08-03
 **Branch:** `lifeOS`
-**Status:** Daily Loop experience and local evidence policy implemented; legacy retirement remains a later program phase (§16).
+**Status:** Daily Loop, local evidence policy, Rescue extraction, and duplicate-root retirement implemented; root refinement and system-surface closure remain.
 **Audience:** the engineer and designer picking this up cold.
 
 ---
@@ -247,7 +247,7 @@ Review reports eligible days, closes, opens before 11:00, both, reversals, known
 
 - **Widget "Complete" bounces you into the app.** Only `CaptureToInboxIntent` is a true background intent; the other four widget intents stash a command and launch the app.
 - **No intent is ever donated** — zero `donate()` calls repo-wide, so Siri Suggestions and Spotlight never surface LifeBoard actions.
-- **`TodayXPWidget` / `NextMilestoneWidget` / `WeeklyScoreboardWidget`** are compiled but absent from `LifeBoardWidgetBundle.body` — unreachable. Given the "rhythm not points" decision, **delete them** rather than register them. Note `LifeBoardTests.swift` `testWidgetViewsDoNotReintroduceLegacyBrandLiterals` lists them by path; remove those entries too.
+- **`TodayXPWidget` / `NextMilestoneWidget` / `WeeklyScoreboardWidget` are deleted.** XP remains optional evidence in Insights, never Home chrome or a system-surface prompt.
 - A Watch path for the close, and a Live Activity for the day itself.
 
 ### 6.5 The evening notification is one gentle nudge
@@ -278,25 +278,23 @@ The plan is arranged to survive this: **M2's carry uses only the write the eveni
 
 ---
 
-## 8. Deliberately NOT done — and why
+## 8. Duplicate architecture retirement — complete
 
-The roadmap listed these as "orphan" deletions. **On inspection both are live.** Do not delete them without first retiring the legacy Sunrise shell.
+Adaptive Home is now the sole root. `HomeViewController`,
+`LegacyHomeControllerHost`, the Sunrise application shell, the adaptive-Home
+flag/disable argument, and the old navigation delegate are deleted. Native
+coordinators own projection, onboarding, launch seeding, and typed external-event
+routing.
 
-### 8.1 The `DailyReflection*` family
+The duplicate `DailyReflection*` store/use-case/screen family and
+`DailyPlanDraft` are deleted. `LegacyDailyReflectionImporter` imports authored
+text only into canonical Journal notes with provenance; legacy completion and
+draft state never become receipts or task mutations. Failed canonical writes do
+not set the migration marker.
 
-~1500 lines. Still:
-- constructed in `EnhancedDependencyContainer.swift:131` (`UserDefaultsDailyReflectionStore`)
-- wired into `UseCaseCoordinator.swift:204,298` (`MarkDailyReflectionCompleteUseCase`)
-- spread through `CoreDataWeeklyRepositories.swift:1189–1459` (`DailyPlanDraft`, `fetchPlanDraft`, `savePlanDraft`)
-- plus `DailyReflectionLoadCoordinator.swift` and the Sunrise screens
-
-**`DailyPlanDraft` is the loudest reason to eventually delete this:** it is a second, competing "the user committed to a day" record. Leaving it in the tree means someone will eventually re-wire the morning to it instead of the receipt ledger. **If you touch the morning, use the receipt.**
-
-M1 removed its last *live production read* (the notification), so the blocker is now only the legacy shell.
-
-### 8.2 The celebration pipeline
-
-Not an orphan either: `lastXPResult` has a live consumer at `SunriseAppShellView+ObserversSearchAndBackdrop.swift:74`, and `DefaultCelebrationRouter` has four real tests. Removing it entangles the legacy Sunrise shell.
+The celebration router is deleted. XP remains in its ledger and optional Insights
+lens, while persistence-bound success feedback replaces XP-magnitude Home
+celebrations.
 
 ---
 
@@ -304,7 +302,7 @@ Not an orphan either: `lastXPResult` has a live consumer at `SunriseAppShellView
 
 ### 9.1 The test baseline is clean
 
-The five historical failures were fixed in the unified Phase 0 checkpoint. `scripts/lifeboard-test-failure-baseline.txt` remains empty and `run-baseline-aware-tests.sh` must exit zero. The Phase 3 checkpoint executes 2,105 tests with 3 skips and 0 failures.
+The five historical failures were fixed in the unified Phase 0 checkpoint. `scripts/lifeboard-test-failure-baseline.txt` remains empty and `run-baseline-aware-tests.sh` must exit zero. After Phase 4 retirement the suite executes 2,066 tests with 3 hardware/environment skips and 0 failures; removed test cases correspond to deleted legacy owners.
 
 ### 9.2 A targeted test run is not evidence
 
@@ -531,12 +529,7 @@ without mutating the sidecar. Receipt source strings and scenario payloads remai
 
 ---
 
-## 16. §8 deletions — blocker audit reconciled 2026-08-03
-
-§8 says the `DailyReflection*` family and the celebration pipeline cannot be
-deleted until the legacy Sunrise shell is retired. That is right, but it
-understates the problem: the shell is not only a *fallback*, it is a live
-**dependency** of two features that have no LifeOS equivalent.
+## 16. §8 deletions — completed 2026-08-03
 
 ### Former blocker 1 — calendar-schedule deep link resolved
 
@@ -552,17 +545,17 @@ owns resolution, validation, propose/confirm/apply, compensation, and Undo. The
 hosts receive services explicitly; no `openOverdueRescueFromHome` entry point
 remains. Home is only a temporary service adapter until Phase 4.
 
-### What the retirement actually costs
+### Retirement result
 
-1. Extract Home projection composition, onboarding, and navigation/deep-link routing.
-2. Delete the `adaptiveHomeV2Enabled == false` branch,
-   `LegacyHomeControllerHost` (:2328), the `legacyHomeController` parameter, and
-   the unconditional `loadViewIfNeeded()` in `SceneDelegate`.
-3. Only then do the §8 deletions fall out — `DailyReflection*` (~1500 lines,
-   including `DailyPlanDraft`, the competing "day committed" record) and the
-   celebration pipeline (`lastXPResult`'s only consumer is
-   `SunriseAppShellView+ObserversSearchAndBackdrop.swift:74`).
+`HomeProjectionCoordinator`, `AppOnboardingCoordinator`,
+`LifeBoardLaunchCoordinator`, and `LifeBoardNavigationEventCoordinator` now own
+the responsibilities formerly trapped in `HomeViewController`. The UI-test seed
+gate installs the native host before onboarding evaluates. Adaptive Home has no
+fallback flag or disable argument.
 
-`feature.life_os.adaptive_home_v2` is promoted `true`, so the legacy branch is
-already dark in production. Phase 4 removes the remaining three dependencies
-before deleting the branch.
+The Sunrise shell, duplicate Daily Reflection persistence and screens,
+`DailyPlanDraft`, and celebration router are removed. Canonical replacements are
+the Life OS root, Daily Loop receipt ledger, Journal `ReflectionNote` repository,
+typed app router, and persistence-bound feedback. This phase adds no Core Data
+model version and changes no receipt source string or persisted `PlanMutation`
+payload.

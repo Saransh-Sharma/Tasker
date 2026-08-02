@@ -1,5 +1,11 @@
 import Foundation
 
+public enum InsightsModuleVisibility: Equatable {
+    case visible
+    case empty(message: String)
+    case hidden
+}
+
 enum InsightsModuleVisibilityPlanner {
     static func visibility(for moduleID: String, today state: InsightsTodayState) -> InsightsModuleVisibility {
         let hasAnySignal =

@@ -303,12 +303,6 @@ public final class HomeViewModel: ObservableObject {
 
     lazy var dayCompassSnoozeStore = DayCompassSnoozeStore(userDefaults: userDefaults)
 
-    /// Day-stamp cache for the reflection-target lookup so `.chrome` refreshes
-    /// don't run the use case on every resolve.
-    var dayCompassReflectionTargetCacheDayKey: String?
-
-    var dayCompassReflectionTargetCacheValue = false
-
     var pendingHomeRenderInvalidation: HomeRenderInvalidation = .all
 
     var currentHabitSignals: [LifeBoardHabitSignal] = []
@@ -326,16 +320,6 @@ public final class HomeViewModel: ObservableObject {
     var evaInsightsGeneration: Int = 0
 
     var lastTaskListSnapshotRevision: HomeDataRevision?
-
-    var catchUpReflectionPreviewTask: Task<Void, Never>?
-
-    var catchUpReflectionPreviewKey: String?
-
-    var reflectionContextPrefetchTask: Task<Void, Never>?
-
-    var reflectionContextPrefetchKey: String?
-
-    static let reflectionContextPrefetchDelay: Duration = .milliseconds(250)
 
     init(
         useCaseCoordinator: UseCaseCoordinator,
@@ -509,10 +493,6 @@ public final class HomeViewModel: ObservableObject {
         didSet { scheduleHomeRenderStateRefresh(.timeline) }
     }
 
-    @Published var catchUpDailyReflectionEntryPreview: DailyReflectionEntryState? {
-        didSet { scheduleHomeRenderStateRefresh(.chrome) }
-    }
-
     public var todayOpenTaskCount: Int {
         if activeScope.quickView == .today, !todaySections.isEmpty {
             let agendaOpenTaskIDs = Set(
@@ -550,13 +530,9 @@ public final class HomeViewModel: ObservableObject {
         set { needsReplanViewModel.applyingAction = newValue }
     }
 
-    static let reflectionContextPrefetchTimeoutSeconds: TimeInterval = 0.8
-
     deinit {
         pendingRecurringTopUpTask?.cancel()
         pendingAdjacentDayPrefetchTask?.cancel()
-        catchUpReflectionPreviewTask?.cancel()
-        reflectionContextPrefetchTask?.cancel()
         dayCompassAllClearTask?.cancel()
     }
 

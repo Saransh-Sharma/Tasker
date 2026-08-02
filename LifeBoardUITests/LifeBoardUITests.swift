@@ -700,7 +700,6 @@ class LifeBoardUITests: XCTestCase {
             "-UIPreferredContentSizeCategoryName",
             accessibilityCategory
         ]
-        app.launchArguments.append("-LIFEBOARD_ENABLE_ADAPTIVE_HOME_V2")
         if seedHabits { app.launchArguments.append("-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE") }
         if seedEstablishedWorkspace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE") }
         if seedHomeUserSpace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_HOME_USER_SPACE") }

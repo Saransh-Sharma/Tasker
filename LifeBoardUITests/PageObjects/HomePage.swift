@@ -107,25 +107,6 @@ class HomePage {
         ).firstMatch
     }
 
-    var reflectionReadyButton: XCUIElement {
-        let byButton = app.buttons[AccessibilityIdentifiers.Home.reflectionReadyButton]
-        if byButton.exists {
-            return byButton
-        }
-
-        let byAnyIdentifier = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.reflectionReadyButton]
-        if byAnyIdentifier.exists {
-            return byAnyIdentifier
-        }
-
-        return app.descendants(matching: .any).matching(
-            NSPredicate(
-                format: "label CONTAINS[c] 'Reflect' OR identifier == %@",
-                AccessibilityIdentifiers.Home.reflectionReadyButton
-            )
-        ).firstMatch
-    }
-
     var topChrome: XCUIElement {
         let byOtherElement = app.otherElements["home.topChrome"]
         if byOtherElement.exists {
@@ -380,18 +361,6 @@ class HomePage {
         }
         return app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.weeklySummaryCard)
-        ).firstMatch
-    }
-
-    var dailyReflectionEntryCompact: XCUIElement {
-        let card = app.otherElements.matching(
-            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.dailyReflectionEntryCompact)
-        ).firstMatch
-        if card.exists {
-            return card
-        }
-        return app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.dailyReflectionEntryCompact)
         ).firstMatch
     }
 

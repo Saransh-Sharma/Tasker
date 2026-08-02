@@ -348,21 +348,6 @@ public final class PresentationDependencyContainer {
         )
     }
 
-    @MainActor
-    public func makeDailyReflectPlanViewModel(
-        preferredReflectionDate: Date? = nil,
-        analyticsTracker: ((String, [String: String]) -> Void)? = nil,
-        onComplete: ((SaveDailyReflectionAndPlanResult) -> Void)? = nil
-    ) -> DailyReflectPlanViewModel {
-        assertConfigured()
-        return DailyReflectPlanViewModel(
-            useCaseCoordinator: useCaseCoordinator,
-            preferredReflectionDate: preferredReflectionDate,
-            analyticsTracker: analyticsTracker,
-            onComplete: onComplete
-        )
-    }
-
     /// Get or create LifeManagementViewModel
     @MainActor
     public func makeLifeManagementViewModel() -> LifeManagementViewModel {
@@ -484,12 +469,8 @@ public final class PresentationDependencyContainer {
             containerAware.presentationDependencyContainer = self
         }
 
-        // Check for specific view controller types and inject ViewModels
+        // Check for remaining UIKit controller types and inject ViewModels.
         switch viewController {
-        case let homeVC as HomeViewControllerProtocol:
-            homeVC.viewModel = makeHomeViewModel()
-            logDebug("✅ Injected HomeViewModel")
-
         case let projectVC as ProjectManagementViewControllerProtocol:
             projectVC.viewModel = makeProjectManagementViewModel()
             logDebug("✅ Injected ProjectManagementViewModel")
@@ -535,11 +516,6 @@ public final class PresentationDependencyContainer {
 }
 
 // MARK: - View Controller Protocols
-
-/// Protocol for HomeViewController to receive ViewModel
-@MainActor public protocol HomeViewControllerProtocol: AnyObject {
-    var viewModel: HomeViewModel! { get set }
-}
 
 /// Protocol for ProjectManagementViewController to receive ViewModel
 @MainActor public protocol ProjectManagementViewControllerProtocol: AnyObject {

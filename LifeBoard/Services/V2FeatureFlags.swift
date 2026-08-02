@@ -35,11 +35,6 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "debug.life_os_foundation_v1") }
     }
 
-    public static var adaptiveHomeV2Enabled: Bool {
-        get { stagedFeatureEnabled(key: "feature.life_os.adaptive_home_v2", argument: "ADAPTIVE_HOME_V2") }
-        set { setStagedFeature(newValue, key: "feature.life_os.adaptive_home_v2") }
-    }
-
     /// Rollback gate for the Adaptive Home Canvas and shared conversational
     /// presentation. Domain stores remain canonical when this surface is off.
     public static var lifeOSUnifiedPresentationV2Enabled: Bool {
@@ -286,7 +281,6 @@ public enum V2FeatureFlags {
     /// rest, and so a stored override still wins in both directions.
     private static let promotedDefaults: [String: Bool] = [
         "debug.life_os_foundation_v1": true,
-        "feature.life_os.adaptive_home_v2": true,
         "feature.life_os.unified_presentation_v2": true,
         "feature.life_os.premium_ia_v5": true,
         "feature.life_os.wellness_core_v1": true,

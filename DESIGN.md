@@ -300,6 +300,36 @@ Every root answers one question and preserves its own navigation state:
 
 The floating conversational composer owns capture on every root except Eva, which hosts its own. Its leading control expands into the capture tray; every capture kind with a working host has a visible control there. The compact root header owns capture only where the composer is suppressed, plus the overflow menu, the Home mode control, and Add to Home. The bottom dock is an unobstructed five-target Regular Glass capsule; composer and dock share one `GlassEffectContainer` so they morph as a single surface. Home orientation roles are anchored and rendered once; schema-v5 migration removes only app-owned duplicates and preserves user IDs, payloads, order, size, visibility, ownership, and unknown widgets.
 
+#### Canonical application host and retired roots
+
+`LifeOSFoundationShell` inside `LifeBoardApplicationHostController` is the only
+iOS application root. Adaptive Home is not an experiment or a fallback branch:
+it is the canonical Home, has no runtime enable flag, and must fail with an
+explicit recoverable state if its projection cannot be composed. Never restore
+`HomeViewController`, `LegacyHomeControllerHost`, or the Sunrise application
+shell as a rollback path.
+
+Root responsibilities are deliberately separated from presentation:
+
+- `HomeProjectionCoordinator` owns Home projection composition and refresh;
+- `AppOnboardingCoordinator` presents first-run work through the native host;
+- `LifeBoardNavigationEventCoordinator` translates notifications, links,
+  shortcuts, widgets, and system events into typed app routes;
+- `OverdueRescueLaunchCoordinator` and `RescueBatchApplier` own Rescue launch
+  and mutation semantics independently of any root view.
+
+The retired Daily Reflection flow is not a second daily ledger. Authored legacy
+text migrates once into canonical Journal reflection notes with
+`legacyDailyReflection` provenance. Completion keys create no receipts, and
+`DailyPlanDraft` values create no task or planning mutations. Failed note writes
+leave the migration retryable. Daily Loop receipts remain the sole authority for
+opening, closing, carrying, and Undo.
+
+The retired celebration router must not return. XP may remain in its idempotent
+ledger and as an optional Insights lens, but Home and Daily Loop never derive
+copy, color, motion, or hierarchy from XP magnitude. Completion haptics fire at
+the successful persistence boundary, not from a parallel celebration event.
+
 ### Card archetypes
 
 `HomeCardSnapshot` carries a typed `HomeCardPayload` alongside its strings, so a card can be a number, a series, a target or a queue rather than a joined sentence. Every registered kind declares a `HomeCardArchetype` — metric, ring, trend, queue, streak, decision, spine, moment, countdown, action — and every archetype renders at all five size presets. This is a correctness rule, not a style one: accessibility text sizes force the wide preset, so an archetype that cannot draw at wide is a blank card for anyone using large type.

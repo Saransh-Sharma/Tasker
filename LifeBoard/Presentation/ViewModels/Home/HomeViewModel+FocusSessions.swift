@@ -118,36 +118,6 @@ extension HomeViewModel {
         }
     }
 
-    public func completeDailyReflection(
-        completion: @escaping @Sendable (Result<XPEventResult, Error>) -> Void
-    ) {
-        useCaseCoordinator.markDailyReflection.execute { [weak self] result in
-            Task { @MainActor in
-                switch result {
-                case .success(let xpResult):
-                    if xpResult.awardedXP > 0 {
-                        self?.scheduleLedgerMutationWatchdog(trigger: "daily_reflection_complete")
-                    }
-                    self?.loadDailyAnalytics(includeGamificationRefresh: false)
-                    completion(.success(xpResult))
-                case .failure(let error):
-                    completion(.failure(error))
-                }
-            }
-        }
-    }
-
-    public func isDailyReflectionCompletedToday() -> Bool {
-        useCaseCoordinator.markDailyReflection.isCompletedToday()
-    }
-
-    public func refreshAfterDailyReflectPlanSave(planningDate: Date) {
-        invalidateDayCompassReflectionTargetCache()
-        refreshWeeklySummary()
-        loadDailyAnalytics(includeGamificationRefresh: false)
-        selectDate(planningDate, source: .dailyReflection)
-    }
-
     private static func legacyFocusSession(from session: FocusSessionV2) -> FocusSessionDefinition {
         let duration = Int(session.focusedDuration(at: session.endedAt ?? Date()).rounded())
         return FocusSessionDefinition(

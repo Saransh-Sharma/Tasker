@@ -70,7 +70,6 @@ public final class UseCaseCoordinator: @unchecked Sendable {
         public let weeklyReviewRepository: WeeklyReviewRepositoryProtocol
         public let weeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol
         public let weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol
-        public let dailyReflectionStore: DailyReflectionStoreProtocol
         public let reflectionNoteRepository: ReflectionNoteRepositoryProtocol
         public let gamificationRepository: GamificationRepositoryProtocol
         public let assistantActionRepository: AssistantActionRepositoryProtocol
@@ -100,7 +99,6 @@ public final class UseCaseCoordinator: @unchecked Sendable {
             weeklyReviewRepository: WeeklyReviewRepositoryProtocol,
             weeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol,
             weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol,
-            dailyReflectionStore: DailyReflectionStoreProtocol,
             reflectionNoteRepository: ReflectionNoteRepositoryProtocol,
             gamificationRepository: GamificationRepositoryProtocol,
             assistantActionRepository: AssistantActionRepositoryProtocol,
@@ -128,7 +126,6 @@ public final class UseCaseCoordinator: @unchecked Sendable {
             self.weeklyReviewRepository = weeklyReviewRepository
             self.weeklyReviewMutationRepository = weeklyReviewMutationRepository
             self.weeklyReviewDraftStore = weeklyReviewDraftStore
-            self.dailyReflectionStore = dailyReflectionStore
             self.reflectionNoteRepository = reflectionNoteRepository
             self.gamificationRepository = gamificationRepository
             self.assistantActionRepository = assistantActionRepository
@@ -201,11 +198,6 @@ public final class UseCaseCoordinator: @unchecked Sendable {
     public let recordXP: RecordXPUseCase
     public let gamificationEngine: GamificationEngine
     public let focusSession: FocusSessionUseCase
-    public let markDailyReflection: MarkDailyReflectionCompleteUseCase
-    public let resolveDailyReflectionTarget: ResolveDailyReflectionTargetUseCase
-    public let dailyReflectionLoadCoordinator: DailyReflectionLoadCoordinatorProtocol
-    public let buildNextDayPlanSuggestion: BuildNextDayPlanSuggestionUseCase
-    public let saveDailyReflectionAndPlan: SaveDailyReflectionAndPlanUseCase
     public let assistantActionPipeline: AssistantActionPipelineUseCase
     public let linkExternalReminders: LinkExternalRemindersUseCase
     public let reconcileExternalReminders: ReconcileExternalRemindersUseCase
@@ -223,7 +215,6 @@ public final class UseCaseCoordinator: @unchecked Sendable {
     public let weeklyReviewRepository: WeeklyReviewRepositoryProtocol
     public let weeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol
     public let weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol
-    public let dailyReflectionStore: DailyReflectionStoreProtocol
     public let reflectionNoteRepository: ReflectionNoteRepositoryProtocol
     public let taskReadModelRepository: TaskReadModelRepositoryProtocol?
     public let cacheService: CacheServiceProtocol?
@@ -249,7 +240,6 @@ public final class UseCaseCoordinator: @unchecked Sendable {
         self.weeklyReviewRepository = v2Dependencies.weeklyReviewRepository
         self.weeklyReviewMutationRepository = v2Dependencies.weeklyReviewMutationRepository
         self.weeklyReviewDraftStore = v2Dependencies.weeklyReviewDraftStore
-        self.dailyReflectionStore = v2Dependencies.dailyReflectionStore
         self.reflectionNoteRepository = v2Dependencies.reflectionNoteRepository
         self.taskReadModelRepository = taskReadModelRepository
         self.cacheService = cacheService
@@ -295,28 +285,6 @@ public final class UseCaseCoordinator: @unchecked Sendable {
         let engine = GamificationEngine(repository: v2Dependencies.gamificationRepository)
         self.gamificationEngine = engine
         self.focusSession = FocusSessionUseCase(repository: v2Dependencies.gamificationRepository, engine: engine)
-        self.markDailyReflection = MarkDailyReflectionCompleteUseCase(
-            engine: engine,
-            reflectionStore: v2Dependencies.dailyReflectionStore
-        )
-        let buildNextDayPlanSuggestion = BuildNextDayPlanSuggestionUseCase(
-            calendarEventsProvider: v2Dependencies.calendarEventsProvider,
-            workspacePreferencesStore: v2Dependencies.workspacePreferencesStore
-        )
-        self.buildNextDayPlanSuggestion = buildNextDayPlanSuggestion
-        self.resolveDailyReflectionTarget = ResolveDailyReflectionTargetUseCase(
-            reflectionStore: v2Dependencies.dailyReflectionStore
-        )
-        self.dailyReflectionLoadCoordinator = DailyReflectionLoadCoordinator(
-            resolveTargetUseCase: self.resolveDailyReflectionTarget,
-            taskReadModelRepository: taskReadModelRepository ?? NullTaskReadModelRepository(),
-            habitRuntimeReadRepository: v2Dependencies.habitRuntimeReadRepository,
-            buildNextDayPlanSuggestionUseCase: buildNextDayPlanSuggestion
-        )
-        self.saveDailyReflectionAndPlan = SaveDailyReflectionAndPlanUseCase(
-            reflectionStore: v2Dependencies.dailyReflectionStore,
-            markDailyReflection: self.markDailyReflection
-        )
         self.manageLifeAreas = ManageLifeAreasUseCase(repository: v2Dependencies.lifeAreaRepository)
         self.manageSections = ManageSectionsUseCase(repository: v2Dependencies.sectionRepository)
         self.manageTags = ManageTagsUseCase(repository: v2Dependencies.tagRepository)
@@ -777,7 +745,7 @@ public final class UseCaseCoordinator: @unchecked Sendable {
 
 private final class NullTaskReadModelRepository: TaskReadModelRepositoryProtocol {
     private func unavailable<T>(_ completion: @escaping @Sendable (Result<T, Error>) -> Void) {
-        completion(.failure(DailyReflectionUseCaseError.unavailableTarget))
+        completion(.failure(NSError(domain: "LifeBoard.TaskReadModel", code: 1)))
     }
 
     func fetchTasks(query _: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
@@ -820,13 +788,6 @@ private final class NullTaskReadModelRepository: TaskReadModelRepositoryProtocol
     func fetchInsightsWeekProjection(
         query _: InsightsWeekProjectionQuery,
         completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void
-    ) {
-        unavailable(completion)
-    }
-
-    func fetchDailyReflectionProjection(
-        query _: DailyReflectionTaskProjectionQuery,
-        completion: @escaping @Sendable (Result<DailyReflectionTaskProjection, Error>) -> Void
     ) {
         unavailable(completion)
     }

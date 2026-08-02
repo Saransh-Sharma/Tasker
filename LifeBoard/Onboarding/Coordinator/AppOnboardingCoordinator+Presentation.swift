@@ -9,12 +9,9 @@ import MLXLMCommon
 extension AppOnboardingCoordinator {
     /// The controller onboarding should actually present from.
     ///
-    /// The coordinator is owned by the legacy `HomeViewController`, which is only
-    /// in the view hierarchy when the adaptive Home is off. With the Life OS shell
-    /// as the root, that controller can be constructed but never installed — and
-    /// presenting from a detached controller silently shows nothing. Falling back
-    /// to whatever is actually on screen is what keeps first run reachable on both
-    /// roots.
+    /// The native application host is the normal anchor. The topmost fallback
+    /// keeps queued onboarding presentation correct while another canonical
+    /// route is dismissing or the scene is restoring its hierarchy.
     var presentationAnchor: UIViewController? {
         if let hostAdapter, hostAdapter.viewIfLoaded?.window != nil {
             return hostAdapter

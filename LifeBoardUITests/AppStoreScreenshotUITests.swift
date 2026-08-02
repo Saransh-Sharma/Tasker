@@ -40,7 +40,6 @@ final class AppStoreScreenshotUITests: BaseUITest {
         try captureEvaChatScreen()
         try captureHabitScreens()
         try captureOverdueRescueScreens()
-        try captureReflectionScreens()
     }
 
     func testScreenshotSeedCompletesWithoutTerminatingTheApp() throws {
@@ -55,7 +54,6 @@ final class AppStoreScreenshotUITests: BaseUITest {
         try captureEvaChatScreen()
         try captureHabitScreens()
         try captureOverdueRescueScreens()
-        try captureReflectionScreens()
     }
 
     func testSecondaryScreenshotDestinationsAreReachable() throws {
@@ -63,7 +61,6 @@ final class AppStoreScreenshotUITests: BaseUITest {
         try captureEvaChatScreen()
         try captureHabitScreens()
         try captureOverdueRescueScreens()
-        try captureReflectionScreens()
     }
 
     func testRescueScreenshotDestinationsAreReachable() throws {
@@ -333,28 +330,6 @@ final class AppStoreScreenshotUITests: BaseUITest {
         let viewToday = app.buttons[AccessibilityIdentifiers.Home.rescueCompletionViewToday]
         try require(viewToday, timeout: 10, message: "Rescue completion state did not appear")
         saveScreenshot("23_overdue_rescue_completion")
-    }
-
-    private func captureReflectionScreens() throws {
-        try relaunchSeededWorkspace(evaCompleted: true, postSeedRoute: "daily_summary:nightly")
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.ReflectPlan.screen].waitForExistence(timeout: 18))
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.ReflectPlan.yesterdayCard].waitForExistence(timeout: 8))
-        saveScreenshot("24_daily_reflection_summary")
-
-        scrollUntilVisible(app.descendants(matching: .any)[AccessibilityIdentifiers.ReflectPlan.todayCard], maxSwipes: 4)
-        XCTAssertTrue(app.descendants(matching: .any)[AccessibilityIdentifiers.ReflectPlan.todayCard].waitForExistence(timeout: 8))
-        saveScreenshot("25_daily_reflection_plan")
-
-        let contextToggle = app.buttons[AccessibilityIdentifiers.ReflectPlan.contextToggle]
-        scrollUntilVisible(contextToggle, maxSwipes: 5)
-        try require(contextToggle, timeout: 8, message: "Reflection context control did not appear")
-        try tap(contextToggle)
-        try require(
-            app.textFields[AccessibilityIdentifiers.ReflectPlan.noteField],
-            timeout: 6,
-            message: "Reflection context note field did not appear"
-        )
-        saveScreenshot("26_daily_reflection_context")
     }
 
     private func relaunchSeededWorkspace(

@@ -36,8 +36,10 @@ extension HomeViewModel {
             isAnotherFlowPresented: isDayCompassSuppressedByActiveFlow,
             replanCandidateCount: replanCandidates.count,
             replanEarliestTitle: replanCandidates.first?.task.title,
-            hasCommittedDailyPlan: dailyPlanDraftForSelectedDate() != nil,
-            hasOpenReflectionTarget: hasOpenDayCompassReflectionTarget(now: now, calendar: calendar),
+            // Daily Loop owns commitment and close state. The retired Sunrise
+            // draft/reflection stores must not influence this dormant compass.
+            hasCommittedDailyPlan: false,
+            hasOpenReflectionTarget: false,
             todayOpenTaskCount: todayOpenTaskCount,
             todayDoneTaskCount: completedTasks.count,
             rescueEligibleCount: dayCompassRescueEligibleCount(now: now),
@@ -112,24 +114,6 @@ extension HomeViewModel {
         }
         clearDayCompassAllClear()
         scheduleHomeRenderStateRefresh([.chrome])
-    }
-
-    /// Reflection-target lookup cached per day so frequent `.chrome` refreshes
-    /// don't re-run the use case; invalidated when a reflection is saved.
-    func hasOpenDayCompassReflectionTarget(now: Date, calendar: Calendar) -> Bool {
-        let components = calendar.dateComponents([.year, .month, .day], from: now)
-        let dayKey = "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
-        if dayCompassReflectionTargetCacheDayKey == dayKey {
-            return dayCompassReflectionTargetCacheValue
-        }
-        let hasTarget = useCaseCoordinator.resolveDailyReflectionTarget.execute() != nil
-        dayCompassReflectionTargetCacheDayKey = dayKey
-        dayCompassReflectionTargetCacheValue = hasTarget
-        return hasTarget
-    }
-
-    func invalidateDayCompassReflectionTargetCache() {
-        dayCompassReflectionTargetCacheDayKey = nil
     }
 
     func showDayCompassAllClear(after flow: DayCompassFlow, durationSeconds: TimeInterval = 4) {

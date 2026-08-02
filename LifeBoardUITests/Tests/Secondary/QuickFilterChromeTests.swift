@@ -196,7 +196,6 @@ final class QuickFilterChromeTests: BaseUITest {
         overdueButton.tap()
 
         XCTAssertTrue(homePage.backToTodayButton.waitForExistence(timeout: 3), "Back to Today should appear outside the default Today view")
-        XCTAssertFalse(homePage.reflectionReadyButton.exists, "Reflection CTA should not be visible outside Today")
     }
 
     func testTimelineHorizontalSwipeNavigatesDaysAndBackToToday() throws {
@@ -231,40 +230,6 @@ final class QuickFilterChromeTests: BaseUITest {
         XCTAssertTrue(
             waitForHeaderDate(on: homePage, equalTo: todayLabel, timeout: 4),
             "Back to Today should restore today's header date"
-        )
-    }
-
-    func testReflectionReadyButtonOpensReflectionSheet() throws {
-        let homePage = HomePage(app: app)
-        let reflectionButton = homePage.reflectionReadyButton
-
-        guard reflectionButton.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Reflection CTA is not visible in the current Today state")
-        }
-
-        reflectionButton.tap()
-
-        let reflectionTitle = app.staticTexts["Daily Reflection"]
-        XCTAssertTrue(reflectionTitle.waitForExistence(timeout: 3), "Reflection CTA should open the existing reflection sheet")
-    }
-
-    func testReflectionSheetShowsNoLoadingSpinner() throws {
-        let homePage = HomePage(app: app)
-        let reflectionButton = homePage.reflectionReadyButton
-
-        guard reflectionButton.waitForExistence(timeout: 3) else {
-            throw XCTSkip("Reflection CTA is not visible in the current Today state")
-        }
-
-        reflectionButton.tap()
-
-        let reflectionScreen = app.descendants(matching: .any)["reflection.plan.screen"].firstMatch
-        XCTAssertTrue(reflectionScreen.waitForExistence(timeout: 3), "Reflection sheet should appear")
-
-        let loadingIndicator = reflectionScreen.activityIndicators.firstMatch
-        XCTAssertFalse(
-            loadingIndicator.waitForExistence(timeout: 1),
-            "Reflection sheet should not show a loading spinner"
         )
     }
 

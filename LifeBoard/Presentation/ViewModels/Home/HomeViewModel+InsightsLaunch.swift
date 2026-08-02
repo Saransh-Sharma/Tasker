@@ -34,6 +34,11 @@ extension HomeViewModel {
     public func dispatchCelebration(_ result: XPEventResult?) {
         guard let result else { return }
         lastXPResult = result
+        // The gamification ledger publishes only after its canonical write has
+        // succeeded. Keep the completion acknowledgement at that persistence
+        // boundary, without exposing XP magnitude or routing a celebration on
+        // Home. Insights remains the optional place to inspect XP.
+        LifeBoardFeedback.success()
     }
 
     public func makeInsightsViewModel() -> InsightsViewModel {

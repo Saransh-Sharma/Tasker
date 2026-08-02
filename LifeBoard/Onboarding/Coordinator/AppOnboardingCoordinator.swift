@@ -132,7 +132,7 @@ final class AppOnboardingCoordinator: NSObject {
     )
 
     init?(
-        homeViewController: HomeViewController,
+        hostAdapter: UIViewController & AppOnboardingHostAdapter,
         presentationDependencyContainer: PresentationDependencyContainer?,
         guidanceModel: HomeOnboardingGuidanceModel,
         stateStore: AppOnboardingStateStore = .shared,
@@ -140,7 +140,7 @@ final class AppOnboardingCoordinator: NSObject {
     ) {
         guard let presentationDependencyContainer else { return nil }
         guard presentationDependencyContainer.isConfiguredForRuntime else { return nil }
-        self.hostAdapter = homeViewController
+        self.hostAdapter = hostAdapter
         self.presentationDependencyContainer = presentationDependencyContainer
         self.guidanceModel = guidanceModel
         self.stateStore = stateStore

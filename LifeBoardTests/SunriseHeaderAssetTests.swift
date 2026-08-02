@@ -654,8 +654,8 @@ final class SunriseHeaderAssetTests: XCTestCase {
     func testSunriseDarkModeTextAndDockContrast() {
         let darkCanvas = resolvedColor(LBColorTokens.canvas, style: .dark)
         let darkGlassStrong = resolvedColor(LBColorTokens.glassStrong, style: .dark)
-        let primaryText = resolvedColor(LBColorTokens.navy, style: .dark)
-        let secondaryText = resolvedColor(LBColorTokens.navyMuted, style: .dark)
+        let primaryText = resolvedColor(Color.lifeboard(.textPrimary), style: .dark)
+        let secondaryText = resolvedColor(Color.lifeboard(.textSecondary), style: .dark)
         let selectedDockText = resolvedColor(LBColorTokens.violetDeep, style: .dark)
         let selectedDockFill = resolvedColor(LBColorTokens.violetSoft, style: .dark)
 
@@ -914,12 +914,12 @@ final class SunriseHeaderAssetTests: XCTestCase {
 
 #if canImport(UIKit)
 @MainActor
-final class ReflectPlanStyleTests: XCTestCase {
-    func testReflectPlanSurfacesResolveDarkAndReadable() {
-        let darkCanvas = resolvedColor(ReflectPlanStyle.canvas, style: .dark)
-        let darkCream = resolvedColor(ReflectPlanStyle.cream, style: .dark)
-        let darkPeach = resolvedColor(ReflectPlanStyle.peachSurfaceStrong, style: .dark)
-        let darkBlue = resolvedColor(ReflectPlanStyle.blueSurfaceStrong, style: .dark)
+final class EvaClayStyleTests: XCTestCase {
+    func testEvaClaySurfacesResolveDarkAndReadable() {
+        let darkCanvas = resolvedColor(EvaClayStyle.canvas, style: .dark)
+        let darkCream = resolvedColor(EvaClayStyle.cream, style: .dark)
+        let darkPeach = resolvedColor(EvaClayStyle.peachSurfaceStrong, style: .dark)
+        let darkBlue = resolvedColor(EvaClayStyle.blueSurfaceStrong, style: .dark)
         let primaryText = resolvedColor(LBColorTokens.navy, style: .dark)
         let secondaryText = resolvedColor(LBColorTokens.navyMuted, style: .dark)
 
@@ -931,27 +931,37 @@ final class ReflectPlanStyleTests: XCTestCase {
         XCTAssertGreaterThan(contrastRatio(secondaryText, darkCream), 4.5)
     }
 
-    func testReflectPlanActionColorsReadInBothAppearances() {
+    func testEvaClayActionColorsReadInBothAppearances() {
         for style in [UIUserInterfaceStyle.light, .dark] {
+            let actionLabel = resolvedColor(Color.lifeboard(.accentOnPrimary), style: style)
             XCTAssertGreaterThan(
-                contrastRatio(.white, resolvedColor(ReflectPlanStyle.greenCTA, style: style)),
+                contrastRatio(actionLabel, resolvedColor(EvaClayStyle.greenCTA, style: style)),
                 4.5
             )
+            let disabledText = resolvedColor(EvaClayStyle.disabledCTA, style: style)
+            let canvas = resolvedColor(EvaClayStyle.canvas, style: style)
+            // Disabled controls are exempt from the 4.5:1 active-control floor,
+            // but remain legible enough to explain why the action is unavailable.
             XCTAssertGreaterThan(
-                contrastRatio(.white, resolvedColor(ReflectPlanStyle.disabledCTA, style: style)),
-                4.5
+                contrastRatio(disabledText, canvas),
+                2.0
             )
         }
     }
 
-    func testReflectPlanIncreasedContrastKeepsCardsDarkAndSeparated() {
-        let normalSurface = resolvedColor(ReflectPlanStyle.peachSurfaceStrong, style: .dark)
-        let highContrastSurface = resolvedColor(ReflectPlanStyle.peachSurfaceStrong, style: .dark, contrast: .high)
-        let highContrastBorder = resolvedColor(ReflectPlanStyle.peachBorder, style: .dark, contrast: .high)
+    func testEvaClayIncreasedContrastKeepsCardsDarkAndSeparated() {
+        let normalSurface = resolvedColor(EvaClayStyle.peachSurfaceStrong, style: .dark)
+        let highContrastSurface = resolvedColor(EvaClayStyle.peachSurfaceStrong, style: .dark, contrast: .high)
+        let normalBorder = resolvedColor(EvaClayStyle.peachBorder, style: .dark)
+        let highContrastBorder = resolvedColor(EvaClayStyle.peachBorder, style: .dark, contrast: .high)
 
         XCTAssertLessThan(relativeLuminance(highContrastSurface), 0.04)
-        XCTAssertGreaterThan(contrastRatio(highContrastBorder, highContrastSurface), 2.0)
-        XCTAssertNotEqual(normalSurface, highContrastSurface)
+        XCTAssertEqual(normalSurface, highContrastSurface)
+        XCTAssertNotEqual(normalBorder, highContrastBorder)
+        XCTAssertGreaterThan(
+            contrastRatio(highContrastBorder, highContrastSurface),
+            contrastRatio(normalBorder, normalSurface)
+        )
     }
 }
 

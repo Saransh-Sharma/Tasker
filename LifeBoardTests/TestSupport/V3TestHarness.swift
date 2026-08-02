@@ -71,9 +71,6 @@ enum V3TestHarness {
             weeklyReviewRepository: NoopWeeklyReviewRepository(),
             weeklyReviewMutationRepository: NoopWeeklyReviewMutationRepository(),
             weeklyReviewDraftStore: NoopWeeklyReviewDraftStore(),
-            dailyReflectionStore: UserDefaultsDailyReflectionStore(
-                defaults: UserDefaults(suiteName: "V3TestHarness.\(UUID().uuidString)") ?? .standard
-            ),
             reflectionNoteRepository: NoopReflectionNoteRepository(),
             gamificationRepository: gamificationRepository,
             assistantActionRepository: NoopAssistantActionRepository(),

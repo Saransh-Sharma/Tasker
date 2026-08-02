@@ -44,20 +44,17 @@
 		0CE03D5DE6944FB2FE2FBA3F /* timelineSuggestedAddDate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91B7A1ACCF6D1219FEF880EC /* timelineSuggestedAddDate.swift */; };
 		0D77AD04BFBCEC5DAB92B68D /* ScheduleRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 712BE2C322E8930A4886933B /* ScheduleRepositoryProtocol.swift */; };
 		0D84D0166C11E5E8015ACA82 /* HomeTimelineSnapshotCacheKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6B6FB0479B78BDE0B210F2E8 /* HomeTimelineSnapshotCacheKey.swift */; };
-		0DDCFBDB474413795EC30643 /* HomeCalendarEventDetailSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16B708DAB6EC819BECE9B5A8 /* HomeCalendarEventDetailSelection.swift */; };
 		0EC49C3CF56F9FF0863151BD /* HomeViewModelRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE2CDAC6D56F874D92E1DD4D /* HomeViewModelRoot.swift */; };
 		0EC4FE8730866512296A0674 /* OverdueRescueDecisionSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F86906A0E4C13F4F10D0C6B /* OverdueRescueDecisionSource.swift */; };
 		0EDFDE262FBEB052B1E2BDFE /* EvaChatSunriseBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D47EF8C1159050CDCE28D6 /* EvaChatSunriseBackground.swift */; };
 		0F2D95B3C4177167351607FF /* SlashCommandPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D25A779BBE1A1B798EFA4D /* SlashCommandPickerView.swift */; };
 		0F67D9989E8924F5B6E2B2EE /* CoreDataLifeAreaRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26D9ECAA7CAE990AACBF05E5 /* CoreDataLifeAreaRepository.swift */; };
 		0F7C061EF4DA8BEF5A8909BC /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21637D8476DC186EA285FB33 /* WidgetSnapshot.swift */; };
-		0F97D0D0CB26167BF4F3E1DD /* HomeViewModel+DailyReflectionPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E76B472B10FBCD33AF5BF327 /* HomeViewModel+DailyReflectionPreview.swift */; };
 		0FF401A34059E3AECC2B14B1 /* OnboardingProjectDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98AB62BE5A27121F39C5F499 /* OnboardingProjectDraft.swift */; };
 		108EDCB9266B21C80D773BBC /* TimelineUtilityRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABE9BAD19D384E04867D9B2 /* TimelineUtilityRow.swift */; };
 		10BDA207EE601292AB9E1231 /* OnboardingTaskPreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4A401D3FB5682FC6804B6F /* OnboardingTaskPreviewCard.swift */; };
 		10F906589FFC0DE720F5FEB2 /* TimelineEmptyStateCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77551CB92362A8FB48666198 /* TimelineEmptyStateCard.swift */; };
 		1138787A92BD5440BF7B4D2D /* CurvingDayStreamView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 341974EF0AE031E749EE396D /* CurvingDayStreamView.swift */; };
-		117D70E33461D260AF2A46C1 /* HomeDenseSurfaceModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 786CACDAB366EB8BCBB657A3 /* HomeDenseSurfaceModifier.swift */; };
 		1189D09985E33267B5E56A34 /* NSLockExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F0DB5144721E54F43222D3D /* NSLockExtension.swift */; };
 		11B9B8EE3F64B7B3AC3E53AC /* DueSoonLeadTimeCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 267DB3EE27A6E3C161F380D5 /* DueSoonLeadTimeCard.swift */; };
 		11E1CAF9151542D119B4883B /* OnboardingPromptPrimaryCTAButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F29A008521575A41C80A3750 /* OnboardingPromptPrimaryCTAButtonStyle.swift */; };
@@ -71,7 +68,6 @@
 		13E26BA7B62EB8B9BACF274E /* AppOnboardingBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78CBCB775F9593EF36C11AB8 /* AppOnboardingBackground.swift */; };
 		144C7E3E26AF1D97BC310AFF /* ProjectListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76771B9AECD05123393780BE /* ProjectListRow.swift */; };
 		147231A5B5EE1AFA9351EA13 /* TagDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C66FE334854F296A4203FD /* TagDefinition.swift */; };
-		148DF59423DB8F002C665F90 /* HomeViewController+Navigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F90A4ACBFBF5EEA42C69976 /* HomeViewController+Navigation.swift */; };
 		14CDB6B6887E83C9AF1E8412 /* OnboardingPromptBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F9A299A8C725C1852BB744 /* OnboardingPromptBackground.swift */; };
 		160F368EB1102A7D052D2220 /* HomeOverdueRescueLauncherState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83C12D0895BE1B134C2DEDF5 /* HomeOverdueRescueLauncherState.swift */; };
 		166AB064CD81E7EAF6579B7E /* CoreDataSectionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E3799E6AD3B71C2BCAA18D /* CoreDataSectionRepository.swift */; };
@@ -104,7 +100,6 @@
 		1E7D50D956C53289A4DC9691 /* TimelineFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5EA1722FAD5507224C2ED584 /* TimelineFormatting.swift */; };
 		1E8F023F70606AF2879DEFBE /* LifeManagementAreaPaletteOption.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F73F08CE7AF7398D7835E7F /* LifeManagementAreaPaletteOption.swift */; };
 		1F2D5D429CB73C24348EE788 /* EvaWorkingStatusLibrary.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE0E5A5DE6FF2E8EEACA4280 /* EvaWorkingStatusLibrary.swift */; };
-		1F9B00012FBA700000000001 /* HomeNavigationCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00002FBA700000000001 /* HomeNavigationCoordinator.swift */; };
 		1F9B00032FBA700000000003 /* HomeReloadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00022FBA700000000003 /* HomeReloadCoordinator.swift */; };
 		1F9B00052FBA700000000005 /* HomeNavigationIntent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00042FBA700000000004 /* HomeNavigationIntent.swift */; };
 		1F9B00072FBA700000000007 /* HomeNavigationEventAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F9B00062FBA700000000006 /* HomeNavigationEventAdapter.swift */; };
@@ -165,7 +160,6 @@
 		3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */; };
 		34E0D9F8EDF53BEAF2AF07D9 /* TrackFoundationStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82D3A1044B2C7AFE4DE96ADB /* TrackFoundationStore.swift */; };
 		350E661527174B8BDEE11FCC /* SunriseTaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D379A868382E81C83D874E36 /* SunriseTaskRowView.swift */; };
-		355015C0A77A72D864F1AC64 /* SunriseAppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF5D7161411B42651DF00D60 /* SunriseAppShellView.swift */; };
 		35EE69887A851F70BD73AB93 /* ManageLifeAreasUseCaseExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69507E47E2C799073FE4018A /* ManageLifeAreasUseCaseExtension.swift */; };
 		36235D01BFCF2D2001A39CCE /* FocusSessionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CC4B584282446580AA72B44 /* FocusSessionUseCase.swift */; };
 		3726D051C70DA7D059BBC8F4 /* OverdueRescueCardModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE79C7D2227A80F8ECDFDFD2 /* OverdueRescueCardModel.swift */; };
@@ -177,7 +171,6 @@
 		38B214F1E69681E0A58C8665 /* OnboardingTrustRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 351390B6BEADE2277EF6ECBA /* OnboardingTrustRow.swift */; };
 		390DB347BE033669B7CF9A28 /* ViewExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53A20FDEE1A1CCD05E76506 /* ViewExtension.swift */; };
 		396F9CD34E10195B8C5FE0F7 /* CompleteTaskDefinitionUseCaseExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E224DFA4DB09C938556B07B /* CompleteTaskDefinitionUseCaseExtension.swift */; };
-		3988CE7E8470D1506CB290C1 /* HomeViewController+SurfacePreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFBD3BC2B501293FC35C162C /* HomeViewController+SurfacePreparation.swift */; };
 		39B8F09956E3FFEF16B72812 /* EvaDayHabitHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 081764019CFE89EAC4FE6BBD /* EvaDayHabitHeaderView.swift */; };
 		3A549BEBEF3902410F96971A /* SunriseFocusTimerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37E2466DBE2A76A73458F530 /* SunriseFocusTimerView.swift */; };
 		3AB385B89C00477CF14637A3 /* AddTaskPriorityPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDFDBE1A33B827BB4D7FD04A /* AddTaskPriorityPicker.swift */; };
@@ -189,7 +182,6 @@
 		3D26E03F6D3A9571E7204553 /* CoreDataExternalSyncRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08CEBA82D3CB1ACE79D0E158 /* CoreDataExternalSyncRepository.swift */; };
 		3D5A1FDECBC53839EF1F4953 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21637D8476DC186EA285FB33 /* WidgetSnapshot.swift */; };
 		3DB15BBF268BC66ABA3862AD /* HomeTaskListWidgetSnapshotService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A7BCB477B2EA5D03B6F3FF0 /* HomeTaskListWidgetSnapshotService.swift */; };
-		3E939305B64D29F91B6C188B /* CalendarCardChromeModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02140BA5618285E3AC49CA18 /* CalendarCardChromeModifier.swift */; };
 		3EA2500F6FA7AE834A238C3A /* ScheduleReminderUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD613471ECDE5AFB1BB199B /* ScheduleReminderUseCase.swift */; };
 		3F4C0EC2880374F5E1710E7F /* AddTaskDatePresetRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9D6B0D45CD7BA946FCF6F3 /* AddTaskDatePresetRow.swift */; };
 		3F64B79D565266A18289D9CC /* OnboardingDownloadStatusStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16CA0CB88D6BCF379DD02183 /* OnboardingDownloadStatusStrip.swift */; };
@@ -219,11 +211,9 @@
 		44E3D8F1869822A9B8AFE2F9 /* HomeViewModel+FiltersAndSavedViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A7E56873BA58AFC39AFB0D20 /* HomeViewModel+FiltersAndSavedViews.swift */; };
 		44E3EB20B7DF2407719E6B2F /* OnboardingCopy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D1039EA2610A24D8D430EAD /* OnboardingCopy.swift */; };
 		453DD6D72ACCC238FEFE9ACB /* SchedulingEngineProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FDD1869D0A6C117882AD37 /* SchedulingEngineProtocol.swift */; };
-		46A6B044AA174C2577BE9C87 /* HomeViewController+AdaptivePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA1AC6826CEC438ED475A25E /* HomeViewController+AdaptivePresentation.swift */; };
 		470D7F96B8766217C5B2F698 /* AddTaskEnumPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4AB324AE764BB56051B2AA8 /* AddTaskEnumPicker.swift */; };
 		47EE4E9B0C3B5EC21C43BED8 /* ReminderMergeEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AE41E54BA355D96A678CBF7 /* ReminderMergeEngine.swift */; };
 		4835621B71E16E83CE9A39F5 /* HomeHabitWidgetRowsState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 36BCF2891531B59B34A6773C /* HomeHabitWidgetRowsState.swift */; };
-		4856C38AD2C996768BF11F45 /* HomeViewController+Keyboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A134F2A3EA61AB508E9A3ED9 /* HomeViewController+Keyboard.swift */; };
 		48756A3EF4DA7E57686EA3BF /* OnboardingEvaPreparationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40541FE4F6750C143582AC0D /* OnboardingEvaPreparationState.swift */; };
 		48B55AA334E364D314DCE8CB /* ChatComposerView+StructuredComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A6D85F245E9F672238D9E0 /* ChatComposerView+StructuredComposer.swift */; };
 		4987E47C4FB2B55409BA424F /* SpacingElevationCornerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */; };
@@ -243,7 +233,6 @@
 		4D31E9106C4721F38F1B2394 /* AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E40B0ED12A11ACC6A161C8 /* AppGroupConstants.swift */; };
 		4D3ADE2FAB5DA1161B4263E5 /* HomeQuickView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CCBCDF94E1BBCA170FD4E6C2 /* HomeQuickView.swift */; };
 		4E816E3A12F0DFB4283D9FCF /* EvaHomePromptChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 384185D0DBC900F3E3B48AF3 /* EvaHomePromptChip.swift */; };
-		4EFCDE37C57E117EA5041D85 /* SunriseAppShellView+HabitsAgendaAndFocusStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB2B2C9DCA8513C631F384DA /* SunriseAppShellView+HabitsAgendaAndFocusStrip.swift */; };
 		4F19404CD237ADA1ADE1F528 /* OnboardingProgress.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3ACB1F98FD6BA7DDDC213D7B /* OnboardingProgress.swift */; };
 		4F4C0C5EE35B10B8DE2B66B8 /* TimelineCurrentTimeMarker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1B271BB8000F7BA9D183AA5F /* TimelineCurrentTimeMarker.swift */; };
 		4F6E5189E8E1A1F05E05600D /* LifeOSFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4C2029D4BC463019FF6673 /* LifeOSFoundationTests.swift */; };
@@ -259,13 +248,11 @@
 		52623D942AC2922413277FF6 /* LifeBoardWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3610ABC404898F73D042EA /* LifeBoardWatchApp.swift */; };
 		52CB4508EA7C96B9940B6799 /* TimelinePlacementPrompt.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A7730F5637D23CE103B743B /* TimelinePlacementPrompt.swift */; };
 		52EA01C705B92C45F65720CA /* SunriseTaskSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A7397B50382FF7FB4FAEC5F /* SunriseTaskSectionView.swift */; };
-		539F4B713CA94D564337B279 /* DefaultCelebrationRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99ED29FB4D6A1C5E61C6A702 /* DefaultCelebrationRouter.swift */; };
 		546344BD2EA4D1FE47598FBB /* OverdueRescuePalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC4E931BD28EB1FD4F7E2671 /* OverdueRescuePalette.swift */; };
 		54E3898C156FECCEE5A57CE5 /* ResolvedLifeAreaSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = E150AE4B6341CE9C52EA4AF0 /* ResolvedLifeAreaSelection.swift */; };
 		54F4A36D13378251013B4956 /* DailySummaryLoadState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F4F0CDFF4458CFC2FFBA4A5 /* DailySummaryLoadState.swift */; };
 		552B5C25F6D738A5BA9CD095 /* EvaDayHabitActionButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 97D15C36A06B1399EAC04C8A /* EvaDayHabitActionButtonView.swift */; };
 		55A4869DF1D5E4DD89557A1D /* TimelineRailPresentationSpec.swift in Sources */ = {isa = PBXBuildFile; fileRef = 431D37A2C5059760CA9637D5 /* TimelineRailPresentationSpec.swift */; };
-		55A68085778A4B9EA4FAC65D /* SunriseAppShellView+FocusInsightsAndRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 704D674D0BE292CD679FE13E /* SunriseAppShellView+FocusInsightsAndRouting.swift */; };
 		55FFB9DC9443E96B0DCA5AAC /* TypedSourcePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D18FA2203E85EAFE22525C2 /* TypedSourcePicker.swift */; };
 		563FA0843C94B94146D0A715 /* LifeManagementView+BrowserAndTree.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F730ADFEFDF0357ECA49761 /* LifeManagementView+BrowserAndTree.swift */; };
 		5665C4C2C0BD133E3E4F59AA /* AssistantActionRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 432D634291596A7CBBCFA76B /* AssistantActionRepositoryProtocol.swift */; };
@@ -287,16 +274,12 @@
 		5AC278B44C8BDF3A50E94379 /* TagMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D32B0321DD6413CCDC888416 /* TagMapper.swift */; };
 		5B0A4FDD9721341E85EF7093 /* OverdueRescueLargeStackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70EF7AB518C2C6E6AB41487E /* OverdueRescueLargeStackView.swift */; };
 		5B2FF1A96BA37ED09DE12FAB /* HomeDailySummaryModalSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3DFC4F80E1254139A27C0C5 /* HomeDailySummaryModalSupport.swift */; };
-		5B7BAB6078EBCDB6CC9F7B7E /* SunriseAppShellViewRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83540D1FFD9826270275D74A /* SunriseAppShellViewRoot.swift */; };
 		5C2E7F48F358D8A9FAA83C1D /* LifeBoardPlanningTrackFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 58DD859719B5F507570462AD /* LifeBoardPlanningTrackFoundationTests.swift */; };
-		5C336D92A4C8046FB4291347 /* SunriseAppShellView+DerivedState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D27FF67FB1DB3066CA04D50 /* SunriseAppShellView+DerivedState.swift */; };
 		5CC8E92428C4ADD8D96F8350 /* DayCompassEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3CA32739FA00E59F22FE344E /* DayCompassEngineTests.swift */; };
 		5D45628FA820FA3BEB7A97D3 /* ChatScaffoldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B36F56E947D18C0D1D111E0C /* ChatScaffoldView.swift */; };
 		5E49A6FCA0C096CB2B6EA054 /* StreakResilienceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BBE8CE1B13AA2877F4BBCAE /* StreakResilienceWidget.swift */; };
 		5E62A1F6764E8C4158AE395D /* OnboardingEligibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4E3B7EAAC54AE18553A302 /* OnboardingEligibility.swift */; };
-		5E7A10000000000000000001 /* SunriseInsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7A10000000000000000002 /* SunriseInsightsView.swift */; };
 		5E7A20000000000000000001 /* SunriseInsightsHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7A20000000000000000002 /* SunriseInsightsHeaderView.swift */; };
-		5E7A20000000000000000003 /* SunriseInsightsHeroCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7A20000000000000000004 /* SunriseInsightsHeroCard.swift */; };
 		5EA366582815849801B3F3F2 /* HomeViewModel+AnalyticsRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB72F108D49DD4AE2B58A99 /* HomeViewModel+AnalyticsRefresh.swift */; };
 		5F143687250957A73D400A49 /* TimelineStreamInfluence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52AE529746E4CDD7FB4A8C95 /* TimelineStreamInfluence.swift */; };
 		5F230AF6BB3D9F989C5A6418 /* ColorTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = B812E7A0B879607C95C0571B /* ColorTokens.swift */; };
@@ -334,10 +317,8 @@
 		6A59527C3E61ADE16A9C11AA /* AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E40B0ED12A11ACC6A161C8 /* AppGroupConstants.swift */; };
 		6A791794B107ED921F62EF41 /* OnboardingFloatingNextAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED9726B0BA993B4BD3887748 /* OnboardingFloatingNextAction.swift */; };
 		6AD96644B6458794736BA46D /* MessageView+DayOverviewAndProposalActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 059D7229E32477D1B282E2A2 /* MessageView+DayOverviewAndProposalActions.swift */; };
-		6BDDCD87B9F9CF4256048C93 /* SunriseAppShellView+ObserversSearchAndBackdrop.swift in Sources */ = {isa = PBXBuildFile; fileRef = 608542355F067EA88F7E716F /* SunriseAppShellView+ObserversSearchAndBackdrop.swift */; };
 		6BE216860D602F917606397C /* HomeTaskMutationEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA66AB0570744BB33285402E /* HomeTaskMutationEvent.swift */; };
 		6BFABA2E6D0DFA253AEC67A9 /* UserDefaultsSavedHomeViewRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A365503F0A1EC71D5D159FC0 /* UserDefaultsSavedHomeViewRepository.swift */; };
-		6C361AE75951A20D4AA68C5B /* SunriseAppShellView+RescueOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FDA708D6EFE103BE7B725E0 /* SunriseAppShellView+RescueOverlays.swift */; };
 		6C55EB9AB6FB62999A3A710D /* HomeViewModel+DailyAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E88A3C9B5309D183423ACF8 /* HomeViewModel+DailyAnalytics.swift */; };
 		6CA88A6A8612FD806A55CEC5 /* HomeDataRevision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EA22869E8CBC680A061ABAC /* HomeDataRevision.swift */; };
 		6CBA9A1192D4C0870A538CB6 /* HomeDerivedHabitRowsCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A06726F28B0B30E18CCF0D3B /* HomeDerivedHabitRowsCache.swift */; };
@@ -347,7 +328,6 @@
 		6F02A28B57E02ED09779EC11 /* AssistantAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = E78CA56E2EAD1B448EFED377 /* AssistantAction.swift */; };
 		6F0B5225F22BF0C2D1AEDFB5 /* TimelineRailLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 953E5DF656076B7D7969E40B /* TimelineRailLabel.swift */; };
 		6F8AE9CBE66BD30649B53BF2 /* HomeReplanResolutionKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67726D5DDDEB64497FEB21C9 /* HomeReplanResolutionKind.swift */; };
-		6FB7164807B1BD76EEF6B571 /* HomeStaggerModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D3A6556C5C49F5516DB6ECC /* HomeStaggerModifier.swift */; };
 		70260539B2410072EEE5DF2C /* AddTaskTaskPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2D01967BDAF0ABB45A855C29 /* AddTaskTaskPicker.swift */; };
 		703E14D9DE8D191C47A5150F /* lifeManagementAreaPaletteMatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0F0A3F8D6B8C5CB34F82DA0 /* lifeManagementAreaPaletteMatch.swift */; };
 		7051BB581E31CCD8EC76429E /* TimelineStreamAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C1759A7E8DB0E5CE0E3384C /* TimelineStreamAnchor.swift */; };
@@ -388,7 +368,6 @@
 		752A97642E93088100CFC576 /* ProjectSelectionSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 752A97632E93088100CFC576 /* ProjectSelectionSheet.swift */; };
 		753EFC9E2445A24500A739E3 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFC9D2445A24500A739E3 /* AppDelegate.swift */; };
 		753EFCA02445A24500A739E3 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFC9F2445A24500A739E3 /* SceneDelegate.swift */; };
-		753EFCA22445A24500A739E3 /* HomeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 753EFCA12445A24500A739E3 /* HomeViewController.swift */; };
 		753EFCA52445A24500A739E3 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA32445A24500A739E3 /* Main.storyboard */; };
 		753EFCA72445A24700A739E3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA62445A24700A739E3 /* Assets.xcassets */; };
 		753EFCAA2445A24700A739E3 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 753EFCA82445A24700A739E3 /* LaunchScreen.storyboard */; };
@@ -504,8 +483,6 @@
 		75F89F782DFC57F1009EDD8F /* LLMSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */; };
 		75F89FB22DFC62C3009EDD8F /* MarkdownUI in Frameworks */ = {isa = PBXBuildFile; productRef = 75F89FB12DFC62C3009EDD8F /* MarkdownUI */; };
 		75F89FB92DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */; };
-		75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */; };
-		75F993802485B04200C340EB /* Score.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75F9937F2485B04200C340EB /* Score.swift */; };
 		7669746360890A5F6BFF15B0 /* ProjectMoveSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C66EE511C59B0C5DAAAEA30 /* ProjectMoveSheet.swift */; };
 		76CEBFD41A570542EB212A69 /* GamificationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C5FAE972A10C45BCDDB0142 /* GamificationEngine.swift */; };
 		787A6452AED8916C4F5004B1 /* HomeSunriseFace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26EAC60DD5866D607F966D0E /* HomeSunriseFace.swift */; };
@@ -513,7 +490,6 @@
 		78A4D4DB20E3D0A3034A5E57 /* LifeManagementView+DetailsComposerAndOverlays.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F09F509547AC4BD86E3CC9A /* LifeManagementView+DetailsComposerAndOverlays.swift */; };
 		78D78EA96C40AD8462A19EC9 /* LifeManagementProjectIconPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4A711DF246A39E6B7030180 /* LifeManagementProjectIconPicker.swift */; };
 		78DE25A4719C53B4CB4EA8E0 /* HomeViewModel+ReferenceDataLoading.swift in Sources */ = {isa = PBXBuildFile; fileRef = 338615107E8C8B6C3389301D /* HomeViewModel+ReferenceDataLoading.swift */; };
-		79A0BA40A86AF0524E6A1802 /* SunriseAppShellView+CalendarFooterAndTrackingRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = E98C6DC8C0DE10D010A97DC6 /* SunriseAppShellView+CalendarFooterAndTrackingRail.swift */; };
 		7A41D73D8C289095E3560DB5 /* TimelineCompactGapRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16D60461249FA816620C956F /* TimelineCompactGapRow.swift */; };
 		7AB21ECF758F38938E8A5EE7 /* TimelineAgendaItemRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F98057DD16FA2790EB04A47 /* TimelineAgendaItemRow.swift */; };
 		7AF141A3F67EC19A0961D749 /* LifeBoardTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6442D619CAA8E6CA77B46126 /* LifeBoardTokens.swift */; };
@@ -568,7 +544,6 @@
 		88F9D9D24093FC098261F935 /* MessageView+EvaProposalAndDayOverview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80EEB0762BB49B5983079AF3 /* MessageView+EvaProposalAndDayOverview.swift */; };
 		8968A51E3DD681D2B360D98C /* HomeViewModel+NeedsReplanStateAndPlacement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03EEB4E98CFC74139C3D08E9 /* HomeViewModel+NeedsReplanStateAndPlacement.swift */; };
 		89F6DD86DEF66E5F787909B1 /* OnboardingEyebrowLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 87FF3FCE748CD6D1CC8DD64D /* OnboardingEyebrowLabel.swift */; };
-		8B28B02DAA779156218510BB /* HomeCalendarEventDetailSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B6F00C3944DB39EBB0DDA55 /* HomeCalendarEventDetailSheet.swift */; };
 		8B3CA34519B5A28D8599A5B0 /* SwiftUI+TokenAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 817A26FD3474A08EC2250BED /* SwiftUI+TokenAdapters.swift */; };
 		8B4908D385E24901840412E6 /* HomeViewModel+RescueUndo.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7697952AC65F15B0B831D63 /* HomeViewModel+RescueUndo.swift */; };
 		8C023F1274CF5FC1D02A717C /* OnboardingAccessibilityMarkerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CB5F00E7099AA872CD49634 /* OnboardingAccessibilityMarkerView.swift */; };
@@ -592,9 +567,7 @@
 		9092BD6AC3FACD1123284752 /* HomeViewModel+FocusSessions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82775C66CDC41F9E7034D949 /* HomeViewModel+FocusSessions.swift */; };
 		90C6619892CA88CDC07F0618 /* OnboardingTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04856A49C5F0944D2A558B4F /* OnboardingTheme.swift */; };
 		90D12F41EEB78A45B410CCDA /* CreateTaskDefinitionUseCaseExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2BF76CE760383A7CA3E84F4 /* CreateTaskDefinitionUseCaseExtension.swift */; };
-		9144D767D06263C679DE7827 /* HomeViewController+Reload.swift in Sources */ = {isa = PBXBuildFile; fileRef = 849A846930F8CAB1E8403C68 /* HomeViewController+Reload.swift */; };
 		919FF9A13C8BB0FF98385DAA /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21637D8476DC186EA285FB33 /* WidgetSnapshot.swift */; };
-		91FD6A303660EEF5294F7902 /* HomeTimeIntervalExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D16CF764ED2CECF5A9AFDF3 /* HomeTimeIntervalExtension.swift */; };
 		91FD9F166D26C453EBA6BF67 /* TimelineMeetingBlockRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = A09AAB294BC776DE3EEF7673 /* TimelineMeetingBlockRow.swift */; };
 		9251E3DBECB09B6DBC3F5E6A /* LifeManagementProjectComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C959E191431AD6350132F1D /* LifeManagementProjectComposerView.swift */; };
 		926138681C7DEC596E8C4F5D /* timelineRingColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05709BBC85C1A6062231609B /* timelineRingColor.swift */; };
@@ -604,7 +577,6 @@
 		93282C40EBDB86E4E7F64E42 /* DayCompassEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A78BBA8638C97BD9668075C1 /* DayCompassEngine.swift */; };
 		9399E0A93BBEBA504BB0526D /* TimelineDayRelation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 439335894506149A6B79E4A7 /* TimelineDayRelation.swift */; };
 		94105F04150FE16142615C03 /* TimelineTaskMarkerRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9115CDED706EB4E49B732A6 /* TimelineTaskMarkerRow.swift */; };
-		94267763856319AD32C226B0 /* HomeViewController+Testing.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0569FE829370226C7433FCAE /* HomeViewController+Testing.swift */; };
 		944EF9DE463A08CF93BA48F0 /* LifeBoardWatchWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2039197BDDBF221CD921D76 /* LifeBoardWatchWidgetBundle.swift */; };
 		94BE392CBEE903C8468E2899 /* TimelineFlockRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B59067D0E3C92CC8F6B5A1B /* TimelineFlockRowView.swift */; };
 		95097957B411ACEFF6448250 /* TrackFoundationModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB048A5C6D3059ABB06EC235 /* TrackFoundationModels.swift */; };
@@ -667,9 +639,7 @@
 		A20000000000000000000004 /* UrgencyBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000004 /* UrgencyBadge.swift */; };
 		A20000000000000000000005 /* XPBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* XPBadge.swift */; };
 		A20000000000000000000007 /* CelebrationEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* CelebrationEffects.swift */; };
-		A2181FC3974A81C3FB7BEDFF /* MarkDailyReflectionCompleteUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = C63740651E231116AA556D8F /* MarkDailyReflectionCompleteUseCase.swift */; };
 		A2538173786D1C9268A5495A /* SettingsProfileHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */; };
-		A25DA7AE7D00020D26A9EBC7 /* InsightsTabView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7C915FFCD3814E051A506B72 /* InsightsTabView.swift */; };
 		A2A1CBE7757AA1C9B5EA668E /* OverdueRescueDragResolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 175B3F0CAAFBA0E5E38D57EE /* OverdueRescueDragResolution.swift */; };
 		A30000000000000000000002 /* JournalFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000001 /* JournalFoundation */; };
 		A30000000000000000000004 /* TranscriptionKit in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000003 /* TranscriptionKit */; };
@@ -682,7 +652,6 @@
 		A30000000000000000000012 /* JournalSecurityKit in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000011 /* JournalSecurityKit */; };
 		A3A6DF9571AB7FEB410EB861 /* SunriseAdvancedFilterSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594ECD331C0135DA36357314 /* SunriseAdvancedFilterSheetView.swift */; };
 		A457B085A9BC111253AADA8E /* AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E40B0ED12A11ACC6A161C8 /* AppGroupConstants.swift */; };
-		A48DB3A40E4B91F10D54B6B3 /* OverdueRescueLauncherOverlayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AA0626EE55DAF0FA5CD8995 /* OverdueRescueLauncherOverlayView.swift */; };
 		A4C2E9F12B7D4C5581AA0001 /* HomeTaskMutationPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C2E9F12B7D4C5581AA0003 /* HomeTaskMutationPayload.swift */; };
 		A4C2E9F12B7D4C5581AA0002 /* HomeTaskMutationPayloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */; };
 		A4E8C9D12F9A4C3600A1B2C3 /* LifeAreaIdentityRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E8C9D22F9A4C3600A1B2C3 /* LifeAreaIdentityRepair.swift */; };
@@ -763,7 +732,6 @@
 		ABCD00000000000000000014 /* SunriseHabitLibraryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABCD00000000000000000024 /* SunriseHabitLibraryView.swift */; };
 		AC7C0E8C304EF31908A6EA90 /* DailyRitualsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 47ED06CE7EC4F74A9E373158 /* DailyRitualsCard.swift */; };
 		ACE5DE19204D2D1CDBF3A053 /* TaskReadQueries.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2856D1EE26429146B60B6633 /* TaskReadQueries.swift */; };
-		ACF0BB7B85C9268CD15869B1 /* SunriseAppShellView+FacesAndSearchChat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855AD3CAAA08B951BDD134FD /* SunriseAppShellView+FacesAndSearchChat.swift */; };
 		AD1F2C3E4B5A6978C0D1E2F3 /* LifeBoardArcDial.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE2A3D4F5C6B7089D1E2F3A4 /* LifeBoardArcDial.swift */; };
 		AD8804130CE2160E653414FD /* OnboardingEntryContext.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9632B2C3609C7092AB65BFF4 /* OnboardingEntryContext.swift */; };
 		AE1100000000000000001001 /* LifeBoardPermissionPriming.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE1100000000000000000001 /* LifeBoardPermissionPriming.swift */; };
@@ -780,7 +748,6 @@
 		AEBA42795685AC315A19847D /* HomeViewModel+DayCompass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8603A229AA6EF804F63AB9F2 /* HomeViewModel+DayCompass.swift */; };
 		AEF06D3B80CB5D968535DDE5 /* LifeArea.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34288F9F2CB1DADA41F1673D /* LifeArea.swift */; };
 		AF46E4534CA58DD946E8AF43 /* OnboardingSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4B5776D8C36FD7BB8FC91DA6 /* OnboardingSectionHeader.swift */; };
-		AF5A65D3A0CB556B850BFC01 /* InsightsActionIntentExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = B010C6D75FA3187BE754B3BF /* InsightsActionIntentExtension.swift */; };
 		AF82520CAEE921B7BE04E017 /* OnboardingFlowModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = F66EEF4F24A54CD971C9612A /* OnboardingFlowModel.swift */; };
 		AFA64782BED04A879157E2A8 /* SectionRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46838AD356183D58300A941 /* SectionRepositoryProtocol.swift */; };
 		B0045AC9A4CD19C619A2E2F1 /* EvaLiveWorkingStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDED467BEDE45453B0C91BEF /* EvaLiveWorkingStatusView.swift */; };
@@ -843,7 +810,6 @@
 		B656784F87454EE866376D59 /* LifeBoardKineticText.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0EF94291CEE2D9728DA74D6 /* LifeBoardKineticText.swift */; };
 		B696207D77139D62369E4954 /* OnboardingConcentricColorField.swift in Sources */ = {isa = PBXBuildFile; fileRef = F280FDE93AC86C0D82E9C51E /* OnboardingConcentricColorField.swift */; };
 		B77B0891A4A5B4BF8D6162DC /* TaskDetailComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52E1464E13744427AAFDF824 /* TaskDetailComponents.swift */; };
-		B7B914D911EA894F24D58E27 /* CelebrationPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 875713F2747185071D35BDF9 /* CelebrationPresentation.swift */; };
 		B7C8D9E02F6A100100ABC123 /* ChatPlanApplyUndoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E12F6A100100ABC123 /* ChatPlanApplyUndoTests.swift */; };
 		B7C8D9E0F1A2233445566779 /* OverdueAgeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */; };
 		B7C8D9E0F1A223344556677B /* OverdueAgeFormatterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A223344556677A /* OverdueAgeFormatterTests.swift */; };
@@ -858,7 +824,6 @@
 		B8F9A0B1C2D3E4F506172839 /* LLMPersonalMemoryStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8F9A0B1C2D3E4F506172838 /* LLMPersonalMemoryStoreTests.swift */; };
 		B901CF64B494992760AE96FB /* EvaDayTaskMetadataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41FF5D1F1BC2347D454A7768 /* EvaDayTaskMetadataView.swift */; };
 		B93F762182E74294AC55C6CB /* TaskDefinitionRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA45AF6FFE4463E49D8FEA68 /* TaskDefinitionRepositoryProtocol.swift */; };
-		BA046E8ED5086F9E39ACB225 /* SunriseDailyReflectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2BA3F253548BE9F1EE2AB4B /* SunriseDailyReflectionView.swift */; };
 		BA1DA60A9EB08E7E655CD957 /* OverdueRescueSessionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 571642516EA3BF4BB335B24A /* OverdueRescueSessionStore.swift */; };
 		BB171CA2BA9590EA90197E9A /* LifeBoardInboxView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA28ABC219B4E3710AB87E0E /* LifeBoardInboxView.swift */; };
 		BD300CBF97B95F0D2A2CA092 /* WatchWidgetSnapshotSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B2B9CCE514C217DC9C76773 /* WatchWidgetSnapshotSync.swift */; };
@@ -873,7 +838,6 @@
 		BF85F977D5CE48A00E45CB52 /* OverdueRescueViewModel+CardActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = C96EA41B0CDC25339F1E726E /* OverdueRescueViewModel+CardActions.swift */; };
 		BFE43C633C4F5FD1C5ED3D91 /* OnboardingPastelPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2BC103F549E15D1F888996A /* OnboardingPastelPalette.swift */; };
 		C017F11E0720B026D1DC1692 /* ResolvedProjectSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A81F8713DDE19EF4F956288 /* ResolvedProjectSelection.swift */; };
-		C01EF007CBD4512099E412AF /* QuietTrackingRailStreakWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 525792156B7DB238F8089667 /* QuietTrackingRailStreakWidget.swift */; };
 		C03666F6116B077DFA194278 /* SyncMergeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65A7A039AC9CA38845D1E44F /* SyncMergeState.swift */; };
 		C0FFEE00000000000000CF01 /* lb_confetti.json in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000CF02 /* lb_confetti.json */; };
 		C158FF33EA33FDAD9E137F25 /* OnboardingNetworkClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C4934047F3DBEA1EF645AC1 /* OnboardingNetworkClass.swift */; };
@@ -980,9 +944,7 @@
 		A3100000000000000000020C /* LifeBoardDayRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000020B /* LifeBoardDayRing.swift */; };
 		CDFF51674BB1F653FF14260A /* OnboardingMascotCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B4B8D198A7243A6496C809 /* OnboardingMascotCarousel.swift */; };
 		CE101A5DFCA6C30A72A5CE61 /* PendingOnboardingPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D09C9507B3C691C73DA808A /* PendingOnboardingPresentation.swift */; };
-		CE266F5395572A3FFC2150D1 /* HomeHabitSectionCardHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = 425B8A685EE2C485783B0578 /* HomeHabitSectionCardHost.swift */; };
 		CEA4FD3F132804749E69A4B3 /* SectionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6956BC00E9F0B0BC847DD7AA /* SectionMapper.swift */; };
-		CEBD06B0323F598F2C11A5DC /* CelebrationRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B95AB168FC420F7EE412CB09 /* CelebrationRouter.swift */; };
 		CF3B4E5A6D7C8190E2F3A4B5 /* LifeBoardCelestialDaypartIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA4C5F6B7E8D9201F3A4B5C6 /* LifeBoardCelestialDaypartIndicator.swift */; };
 		D1855A230115C554ADB92AEA /* DailyXPAggregateDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4AF3952DBA8C2ACE185FEF0 /* DailyXPAggregateDefinition.swift */; };
 		D1A200000000000000000001 /* HomeChromeSnapshot+Presentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1A100000000000000000001 /* HomeChromeSnapshot+Presentation.swift */; };
@@ -1001,7 +963,6 @@
 		D2D43D1D68EDFA8B61A9D766 /* HomeReloadScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = F98E00AF77E03AB54CB0D948 /* HomeReloadScope.swift */; };
 		D2E850DDFA592D3CFAA9C922 /* NotificationPermissionBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 919DB5CEED1B1E1906FF474C /* NotificationPermissionBanner.swift */; };
 		D336A787C8DCE1322AB8ADAB /* Section.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D70DF5D3C4DE407EF935B48 /* Section.swift */; };
-		D361862502EE5A7C61FAEDB8 /* HomeViewController+Presentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AE5DC87E5EFAD171634D5F0A /* HomeViewController+Presentation.swift */; };
 		D38314D027D0FAD3E8DBD55A /* AppOnboardingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D9D661B4914CE34AEA2DD30 /* AppOnboardingCoordinator.swift */; };
 		D3C6DDF5B5DD2F340FA340D2 /* LifeBoardEvidenceContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 172D92943BF0E56EE1B9069E /* LifeBoardEvidenceContractTests.swift */; };
 		D4ABAC9936B71C3DEB673B49 /* TimelineCompactAnchorRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6492AC4EA233D9F3AA0FAA30 /* TimelineCompactAnchorRow.swift */; };
@@ -1026,29 +987,13 @@
 		D4F200000000000000000122 /* HomeAIActionCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F200000000000000000120 /* HomeAIActionCoordinatorTests.swift */; };
 		D4F200000000000000000123 /* XPCalculationEngineWeeklyCategoryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F200000000000000000121 /* XPCalculationEngineWeeklyCategoryTests.swift */; };
 		D4F200000000000000000125 /* WeeklyOperatingLayerViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F200000000000000000124 /* WeeklyOperatingLayerViewModelTests.swift */; };
-		D4F300000000000000000130 /* DailyReflectionLoadCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F300000000000000000131 /* DailyReflectionLoadCoordinator.swift */; };
 		D4F400000000000000000201 /* SunriseTimelineSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F400000000000000000202 /* SunriseTimelineSurface.swift */; };
 		D57A320DF8A2202069F711FB /* TimelineBackdropWeekView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C95AF729D85C65D636AF500A /* TimelineBackdropWeekView.swift */; };
-		D5A200000000000000000001 /* ReflectPlanStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000001 /* ReflectPlanStyle.swift */; };
-		D5A200000000000000000002 /* SunriseReflectPlanScreen.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000002 /* SunriseReflectPlanScreen.swift */; };
-		D5A200000000000000000003 /* ReflectPlanHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000003 /* ReflectPlanHeader.swift */; };
-		D5A200000000000000000004 /* StatusChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000004 /* StatusChip.swift */; };
-		D5A200000000000000000005 /* YesterdaySummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000005 /* YesterdaySummaryCard.swift */; };
-		D5A200000000000000000006 /* HabitStreakMiniCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000006 /* HabitStreakMiniCard.swift */; };
-		D5A200000000000000000007 /* TodayPlanCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000007 /* TodayPlanCard.swift */; };
-		D5A200000000000000000008 /* TodayTaskRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000008 /* TodayTaskRow.swift */; };
-		D5A200000000000000000009 /* FocusPill.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000009 /* FocusPill.swift */; };
+		D5A200000000000000000001 /* EvaClayStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000001 /* EvaClayStyle.swift */; };
 		D5A20000000000000000000A /* PlanningSummaryRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000A /* PlanningSummaryRow.swift */; };
-		D5A20000000000000000000B /* AddContextCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000B /* AddContextCard.swift */; };
-		D5A20000000000000000000C /* ContextChipGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000C /* ContextChipGroup.swift */; };
-		D5A20000000000000000000D /* ReflectPlanChipFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000D /* ReflectPlanChipFlow.swift */; };
-		D5A20000000000000000000E /* ReflectPlanWrappingHStackLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000E /* ReflectPlanWrappingHStackLayout.swift */; };
-		D5A20000000000000000000F /* StickySaveButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A10000000000000000000F /* StickySaveButton.swift */; };
-		D5A200000000000000000010 /* SwapTaskPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5A100000000000000000010 /* SwapTaskPicker.swift */; };
 		D5E7A8BA2F3C4D5E0067A1B2 /* DailySummaryModalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5E7A8B92F3C4D5E0067A1B2 /* DailySummaryModalTests.swift */; };
 		D65596F60D499A8BB32EFBD4 /* OnboardingWelcomeIntroLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 377436A41D3BA36DD06E3C58 /* OnboardingWelcomeIntroLine.swift */; };
 		D6890E391458213A124FD9A4 /* LifeBoardFoundationGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = F067D7763D4A025CC75BAB13 /* LifeBoardFoundationGallery.swift */; };
-		D697AD981C87D4D7D84A6EF0 /* SunriseAppShellView+FocusTimersAndReflection.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB45FAF57431067D93F59BA3 /* SunriseAppShellView+FocusTimersAndReflection.swift */; };
 		D6988674F7729285A707C98C /* CodingKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = EB8BC6F60B76437F2E6148F7 /* CodingKeys.swift */; };
 		D6A192319732E9758B2D14B9 /* SavedHomeViewRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55C5A46909EF46C27D7B84E3 /* SavedHomeViewRepositoryProtocol.swift */; };
 		D6B2E31F4A5C7890BCDEF012 /* AddTaskCreateButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5A1D20E3F4B6789ABCDEF01 /* AddTaskCreateButton.swift */; };
@@ -1069,7 +1014,7 @@
 		D6BD60E5C38CC9087DD53FC6 /* SlashCommandExecutionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1371F4BC6B6BB7BF68747A7F /* SlashCommandExecutionService.swift */; };
 		D705016D0D6D308050273D76 /* TimelineCompactConnector.swift in Sources */ = {isa = PBXBuildFile; fileRef = C869F0E1F0337702AD2AF780 /* TimelineCompactConnector.swift */; };
 		D7A500000000000000000102 /* LifeBoardLaunchSplashView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A500000000000000000101 /* LifeBoardLaunchSplashView.swift */; };
-		D7A500000000000000000202 /* HomeViewControllerLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A500000000000000000201 /* HomeViewControllerLifecycleTests.swift */; };
+		D7A500000000000000000202 /* LifeBoardApplicationLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7A500000000000000000201 /* LifeBoardApplicationLifecycleTests.swift */; };
 		D86B5C7DF619A7A577D4874F /* OnboardingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 37DD8CAB8F66109195DD8D31 /* OnboardingMode.swift */; };
 		D92AC2EBBC4D507DE7D45C8F /* ConversationView+LiveOutput.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6243658CCD3FA73A97B58600 /* ConversationView+LiveOutput.swift */; };
 		D9A0B1C2D3E4F506172839AC /* InsightsModuleVisibilityPlannerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9A0B1C2D3E4F506172839AB /* InsightsModuleVisibilityPlannerTests.swift */; };
@@ -1078,22 +1023,18 @@
 		DA083B470E02C697ADD728B8 /* timelineGapPromptText.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55440275F14F44B2492C3CAC /* timelineGapPromptText.swift */; };
 		DA50FEA644495EB466054A2B /* OnboardingSelectableCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = A93FE62F2A34CD25059D4950 /* OnboardingSelectableCard.swift */; };
 		DA81A406247E701A8EE98417 /* OnboardingMiniMetric.swift in Sources */ = {isa = PBXBuildFile; fileRef = 144D7D155E9471F5D9E1CD62 /* OnboardingMiniMetric.swift */; };
-		DAD2A078D60094864EB53934 /* HomeViewController+Snackbar.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1EF5E391342B1FBE7864081 /* HomeViewController+Snackbar.swift */; };
 		DB20D31BAB145922299137A0 /* HomeTimelineWorkspacePreferencesSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F5CCCB595F2AED7845487FD /* HomeTimelineWorkspacePreferencesSignature.swift */; };
 		DB6DB22472BF68C888913F37 /* EvaDayStatusChipsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C81997132A898566B3451D49 /* EvaDayStatusChipsView.swift */; };
 		DB875C16F1B99BF79F3B4D6C /* LifeManagementComposerMetricTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = EED5CBC96B81618B5D5B1C6D /* LifeManagementComposerMetricTile.swift */; };
 		DB95AC7DC5F9BE77042C3290 /* EvaDayHabitRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6E411E9CDB93D4BE9EDC7EF0 /* EvaDayHabitRowView.swift */; };
 		DC1DB2042D99A4C779FADDCA /* OnboardingPromptValueCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABA8BBA9B91A5587A8389B33 /* OnboardingPromptValueCard.swift */; };
-		DC90B81FA56C3F8715AD26A1 /* SunriseAppShellView+SearchSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = C041D826927F12B5D4A445BA /* SunriseAppShellView+SearchSurface.swift */; };
 		DC94FAFADB950991425D291B /* HomeViewModel+DateNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A0864533C56B27765DDB7A4 /* HomeViewModel+DateNavigation.swift */; };
-		DC9F1811662585E9D53AA8FA /* SunriseHomeDatePickerPopover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6425309F28BBC7C61C9C58F3 /* SunriseHomeDatePickerPopover.swift */; };
 		DCC82F690B379131E60A69DA /* LifeBoardWidgetBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1256A6FF63A60FC9D9E82C2 /* LifeBoardWidgetBundle.swift */; };
 		DE2C698360236D910D116D07 /* LifeBoardTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB9BE07CCB7761E186498D8C /* LifeBoardTheme.swift */; };
 		DF045C31DEEDEEFC1A5F26EA /* OverdueRescueSessionScope.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44367A0F426BE6D78CC89655 /* OverdueRescueSessionScope.swift */; };
 		DF485C08DA03A3AC98CA4941 /* AddTaskSecondaryDetailsSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E3F56B4B6E3DA6111B5E513 /* AddTaskSecondaryDetailsSection.swift */; };
 		DF610ABA86EAF98C49C6278A /* HomeViewModel+HabitActionShortcuts.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1EA03651FCE790FF4C8E5EB /* HomeViewModel+HabitActionShortcuts.swift */; };
 		DF7287CB7D22A27B0D68A9AD /* TimelineShelfItemCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BA91AA8F90D4C022C4E890E /* TimelineShelfItemCard.swift */; };
-		DF8962905A29B85F26BDA46D /* SunriseAppShellView+TaskListAndDaySwipe.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2113ED4006493C0B58760C99 /* SunriseAppShellView+TaskListAndDaySwipe.swift */; };
 		DF8B7E81C85936D8418AC95E /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0D4A50819BBF42D4BCC06A29 /* PrivacyInfo.xcprivacy */; };
 		DFF1C01087EA0CE41AF85876 /* ReconcileExternalRemindersUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22B025D510428B62C47FBE05 /* ReconcileExternalRemindersUseCase.swift */; };
 		E01C6D15AED947A29929589A /* HomeViewModel+FocusRankingAndWidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30956B2414E9EE5EACA5A60 /* HomeViewModel+FocusRankingAndWidgetSnapshot.swift */; };
@@ -1175,7 +1116,6 @@
 		E7E382F8167672FCEB4D0B60 /* lifeManagementAreaIconLabel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 533CCDBADB8997DD528CFE0A /* lifeManagementAreaIconLabel.swift */; };
 		E7F919BAE9F8CABAE8F00BE6 /* lifeManagementResolvedHex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F0354062DD8AECC3D1B17C4 /* lifeManagementResolvedHex.swift */; };
 		E83889CA9BD741CA471800E8 /* ChatHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35FFAEB5937CA521A5C5C4DC /* ChatHeaderView.swift */; };
-		E86FFAEB786065858AD5DFD4 /* SunriseAppShellView+TimelineSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = E40C44F474B7E5FCB7349186 /* SunriseAppShellView+TimelineSurface.swift */; };
 		E9479027EA89BB78EAD282EF /* FocusSessionDefinition.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD2798DFE7058AA45DECE737 /* FocusSessionDefinition.swift */; };
 		E9974C1A3AC57A1E1E5B60CA /* WelcomeIntroPhase.swift in Sources */ = {isa = PBXBuildFile; fileRef = A07B9FA858B4AFC05615FCFA /* WelcomeIntroPhase.swift */; };
 		EA9B4B976075D91EAB6902EB /* TimelineInboxPlanningCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDD85FEB40E7B6C3538EA14A /* TimelineInboxPlanningCard.swift */; };
@@ -1190,11 +1130,9 @@
 		ED97E21547C8335D58370530 /* TypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38AE057025E85DF89448752B /* TypingIndicator.swift */; };
 		EDD64897FAC96F1B85BDA5F7 /* Occurrence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 208608AB50F4EA01C74D2758 /* Occurrence.swift */; };
 		EE0D1E9027D0CB3E2CF1FE04 /* DashboardLayoutRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9607F4898D2AB18D995135CE /* DashboardLayoutRepository.swift */; };
-		EE358DD82842FD4D23921CB5 /* HomeViewController+RenderPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9F0161DC62BDB27BEE93C1D /* HomeViewController+RenderPipeline.swift */; };
 		EE3E0D5AF58CB2AD95219EB6 /* CreateTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC4ABAA08D90818447AA6D03 /* CreateTaskDefinitionUseCase.swift */; };
 		EE9035C0B9F8F991433E9826 /* lifeManagementNormalizedHex.swift in Sources */ = {isa = PBXBuildFile; fileRef = D07E18D71C702586CD89133E /* lifeManagementNormalizedHex.swift */; };
 		EF1769B605BF09BDBF28186D /* AddTaskDurationPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 316921199F513341A93BD753 /* AddTaskDurationPicker.swift */; };
-		EF8AD806AA6D1C9D47FA2BDE /* HomePerformanceSignposts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1160613FFDAE3936EA841FD2 /* HomePerformanceSignposts.swift */; };
 		F008F091A6B8DB39893BDF07 /* EvaDayTaskActionButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3528CDE2C353B77B8CC4EB35 /* EvaDayTaskActionButtonView.swift */; };
 		F00D00000000000000001002 /* TaskDetailPresentationContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00D00000000000000001001 /* TaskDetailPresentationContracts.swift */; };
 		F00D00000000000000001006 /* CalendarSchedulePresentationContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00D00000000000000001005 /* CalendarSchedulePresentationContracts.swift */; };
@@ -1203,9 +1141,7 @@
 		F078AE75786C51F7F4F78ABA /* TimelineStreamGeometry+MassClustering.swift in Sources */ = {isa = PBXBuildFile; fileRef = 549A929D15B98C035C74BD90 /* TimelineStreamGeometry+MassClustering.swift */; };
 		F0A100000000000000000101 /* SeededFeaturePages.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000102 /* SeededFeaturePages.swift */; };
 		F0A100000000000000000201 /* OverdueRescueSeededUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000202 /* OverdueRescueSeededUITests.swift */; };
-		F0A100000000000000000301 /* ReflectPlanSeededUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000302 /* ReflectPlanSeededUITests.swift */; };
 		F0A100000000000000000401 /* FocusNowSeededUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000402 /* FocusNowSeededUITests.swift */; };
-		F0A15BDE3E582D2E951E98F4 /* HomeViewControllerExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFFC54215415EB867E73F6BC /* HomeViewControllerExtension.swift */; };
 		F0A1B2C3D4E5F60718293B4B /* HomeProjectGroupingMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4B /* HomeProjectGroupingMode.swift */; };
 		F0A1B2C3D4E5F60718293B4C /* HomeTaskSectionBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4C /* HomeTaskSectionBuilder.swift */; };
 		F0A1B2C3D4E5F60718293B4D /* HomeFilterStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A1B2C3D4E5F60718293A4D /* HomeFilterStateTests.swift */; };
@@ -1218,18 +1154,15 @@
 		F0D4A5D3F940D3BD0B515BEF /* ConversationViewRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 045B754842BE69FA3CC11368 /* ConversationViewRoot.swift */; };
 		F10A00000000000000000001 /* TimelineRoutineAnchorVisualStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10A00000000000000000002 /* TimelineRoutineAnchorVisualStyle.swift */; };
 		F10A00000000000000000003 /* TimelineRoutineAnchorCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F10A00000000000000000004 /* TimelineRoutineAnchorCard.swift */; };
-		F14217E9721A35DF328C2F66 /* SunriseAppShellView+HomeScreenComposition.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD8641383368773B407AE249 /* SunriseAppShellView+HomeScreenComposition.swift */; };
 		F1A2B3C4D5E6F708192A3B4C /* WidgetBrand.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F708192A3B4D /* WidgetBrand.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E3 /* LifeBoardTheme+SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E2 /* LifeBoardTheme+SwiftUI.swift */; };
 		F1A2B3C4D5E6F7A8B9C0D1E5 /* LifeBoardAnimations.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A2B3C4D5E6F7A8B9C0D1E4 /* LifeBoardAnimations.swift */; };
 		F1BBC7AE7656181142FE5487 /* LifeManagementAreaSwatchPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8824EFA2E628DF9525F13411 /* LifeManagementAreaSwatchPicker.swift */; };
 		F1C0A1234B56789000ABCD02 /* TaskDetailViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1C0A1234B56789000ABCD01 /* TaskDetailViewModelTests.swift */; };
-		F260B975BFD99463197CD6A0 /* CelebrationKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = 222C1D1DF983BFFDF4BB651E /* CelebrationKind.swift */; };
 		F2A1B2C3D4E5F60718293B50 /* HomeBottomBarItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A50 /* HomeBottomBarItem.swift */; };
 		F2A1B2C3D4E5F60718293B51 /* HomeBottomBarState.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A51 /* HomeBottomBarState.swift */; };
 		F2A1B2C3D4E5F60718293B53 /* HomeBottomBarStateTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A53 /* HomeBottomBarStateTests.swift */; };
 		F2A1B2C3D4E5F60718293B54 /* HomeViewModelXPScoreRegressionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */; };
-		F2D78244C6C3ADD6444121B8 /* HomeViewController+OnboardingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10E0B067197D4A32724B9F /* HomeViewController+OnboardingAdapter.swift */; };
 		F2FCB19442F9ED46230382FD /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0D4A50819BBF42D4BCC06A29 /* PrivacyInfo.xcprivacy */; };
 		F3240A09F43701C96CE99815 /* HomeViewModel+FocusWhyCandidates.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34C9C6671884EE8926C32968 /* HomeViewModel+FocusWhyCandidates.swift */; };
 		F3A1B2C3D4E5F60718293B55 /* HomeSunriseLayoutMetricsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3A1B2C3D4E5F60718293A55 /* HomeSunriseLayoutMetricsTests.swift */; };
@@ -1246,7 +1179,6 @@
 		F5B000000000000000000003 /* WatchCaptureKit in Frameworks */ = {isa = PBXBuildFile; productRef = A3000000000000000000000F /* WatchCaptureKit */; };
 		F5BD3FA4315CD2E0D8E33730 /* EvaChiefOfStaffGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC8C39098BF0A10AE6CC5EE3 /* EvaChiefOfStaffGuideView.swift */; };
 		F5C55F69B9C3BEDDF1C2FD8F /* LifeManagementColorSwatchButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E54A7695DD06B755561CDB3D /* LifeManagementColorSwatchButton.swift */; };
-		F64C9A3B63E962670DB86280 /* CelebrationEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5199C25A108D3EDC5DD5E0D9 /* CelebrationEvent.swift */; };
 		F6A1B2C3D4E5F60718293B57 /* HomeChromeSnapshotPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A1B2C3D4E5F60718293A57 /* HomeChromeSnapshotPresentationTests.swift */; };
 		F6BF00E2BC75CA6D7EA0D449 /* TimelineNormalItemCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F37CC3576F638C63EB2D1943 /* TimelineNormalItemCard.swift */; };
 		F71A150EACB33EB7B19F1E24 /* OverdueRescueSwipeHint.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DDAE6004CD5111C2C273E69 /* OverdueRescueSwipeHint.swift */; };
@@ -1352,7 +1284,6 @@
 		5A1100000000000000000104 /* LifeBoardShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LifeBoardShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		017ECAA6FA89C9A7825A3E8A /* EnhancedDependencyContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EnhancedDependencyContainer.swift; path = LifeBoard/State/DI/EnhancedDependencyContainer.swift; sourceTree = SOURCE_ROOT; };
 		01EE7EB5F53129BCEE1A8679 /* TimelineDayCurrentState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineDayCurrentState.swift; sourceTree = SOURCE_ROOT; };
-		02140BA5618285E3AC49CA18 /* CalendarCardChromeModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/CalendarCardChromeModifier.swift; sourceTree = SOURCE_ROOT; };
 		030D7ED39864D654D71BF1CE /* AppOnboardingJourneyView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Views/AppOnboardingJourneyView.swift; sourceTree = SOURCE_ROOT; };
 		032B26704AEC551E42E3A08D /* UserDefaultsOverdueRescueSessionStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/UserDefaultsOverdueRescueSessionStore.swift; sourceTree = SOURCE_ROOT; };
 		035ACE6073D062BB622B9CF2 /* OverdueRescueEditDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueEditDraft.swift; sourceTree = SOURCE_ROOT; };
@@ -1361,7 +1292,6 @@
 		04856A49C5F0944D2A558B4F /* OnboardingTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingTheme.swift; sourceTree = SOURCE_ROOT; };
 		04AC7378336F374F0E61EA79 /* LifeBoardWatchWidgets.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = LifeBoardWatchWidgets.entitlements; sourceTree = "<group>"; };
 		04BB26CD286E91AABB2ECF5B /* timelineAccessibilityLabel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/timelineAccessibilityLabel.swift; sourceTree = SOURCE_ROOT; };
-		0569FE829370226C7433FCAE /* HomeViewController+Testing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewController+Testing.swift"; sourceTree = "<group>"; };
 		05709BBC85C1A6062231609B /* timelineRingColor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/timelineRingColor.swift; sourceTree = SOURCE_ROOT; };
 		059D7229E32477D1B282E2A2 /* MessageView+DayOverviewAndProposalActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/LLM/Views/Chat/Conversation/MessageView+DayOverviewAndProposalActions.swift"; sourceTree = SOURCE_ROOT; };
 		05E5245EF6140902F09F99CA /* RecordXPUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Gamification/RecordXPUseCase.swift; sourceTree = SOURCE_ROOT; };
@@ -1396,7 +1326,6 @@
 		10EE348FF84C5F729A416848 /* CoreDataReminderRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Repositories/CoreDataReminderRepository.swift; sourceTree = SOURCE_ROOT; };
 		1134D09887CAA3CD8F14E808 /* CoreDataGamificationRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Repositories/CoreDataGamificationRepository.swift; sourceTree = SOURCE_ROOT; };
 		1144C788F612CB7B2BB7458B /* TimelinePreferenceKeys.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelinePreferenceKeys.swift; sourceTree = "<group>"; };
-		1160613FFDAE3936EA841FD2 /* HomePerformanceSignposts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/HomePerformanceSignposts.swift; sourceTree = SOURCE_ROOT; };
 		120C5DB7F91E3BDB4BF9580F /* TimelineStreamGeometry+LaneLayoutAndPaths.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Timeline/Surface/TimelineStreamGeometry+LaneLayoutAndPaths.swift"; sourceTree = SOURCE_ROOT; };
 		1265EFBF270FC894A5FCA278 /* CompleteTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Task/CompleteTaskDefinitionUseCase.swift; sourceTree = SOURCE_ROOT; };
 		12B9F0A506329D6FA33A3932 /* onboardingLogLine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/onboardingLogLine.swift; sourceTree = SOURCE_ROOT; };
@@ -1406,7 +1335,6 @@
 		147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsNavigationRow.swift; sourceTree = "<group>"; };
 		1490BF2A474A2702E82EA91C /* HabitViewModelFactoryEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitViewModelFactoryEnvironment.swift; sourceTree = "<group>"; };
 		1569108CAE3EA81790B556C3 /* LifeBoardTrackFoundationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTrackFoundationViews.swift; path = Foundation/PhaseIV/LifeBoardTrackFoundationViews.swift; sourceTree = "<group>"; };
-		16B708DAB6EC819BECE9B5A8 /* HomeCalendarEventDetailSelection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/HomeCalendarEventDetailSelection.swift; sourceTree = SOURCE_ROOT; };
 		16CA0CB88D6BCF379DD02183 /* OnboardingDownloadStatusStrip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingDownloadStatusStrip.swift; sourceTree = SOURCE_ROOT; };
 		16D60461249FA816620C956F /* TimelineCompactGapRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineCompactGapRow.swift; sourceTree = SOURCE_ROOT; };
 		172D92943BF0E56EE1B9069E /* LifeBoardEvidenceContractTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardEvidenceContractTests.swift; sourceTree = "<group>"; };
@@ -1430,20 +1358,17 @@
 		1E69586D6A0661BB639FAE5F /* HomeViewModel+RenderTransaction.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+RenderTransaction.swift"; sourceTree = SOURCE_ROOT; };
 		1E88A3C9B5309D183423ACF8 /* HomeViewModel+DailyAnalytics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+DailyAnalytics.swift"; sourceTree = SOURCE_ROOT; };
 		1F47DE38B051783EAE99853E /* HomeHabitMutationFeedbackHaptic.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeHabitMutationFeedbackHaptic.swift; sourceTree = SOURCE_ROOT; };
-		1F9B00002FBA700000000001 /* HomeNavigationCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeNavigationCoordinator.swift; sourceTree = "<group>"; };
 		1F9B00022FBA700000000003 /* HomeReloadCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeReloadCoordinator.swift; sourceTree = "<group>"; };
 		1F9B00042FBA700000000004 /* HomeNavigationIntent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeNavigationIntent.swift; sourceTree = "<group>"; };
 		1F9B00062FBA700000000006 /* HomeNavigationEventAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeNavigationEventAdapter.swift; sourceTree = "<group>"; };
 		1F9B00082FBA700000000008 /* HomeLaunchHarnessService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeLaunchHarnessService.swift; sourceTree = "<group>"; };
 		1F9BFCCD7C709FF34D6E5824 /* HomeViewModel+EvaRescueActions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+EvaRescueActions.swift"; sourceTree = SOURCE_ROOT; };
 		208608AB50F4EA01C74D2758 /* Occurrence.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/Occurrence.swift; sourceTree = SOURCE_ROOT; };
-		2113ED4006493C0B58760C99 /* SunriseAppShellView+TaskListAndDaySwipe.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+TaskListAndDaySwipe.swift"; sourceTree = SOURCE_ROOT; };
 		2139792A102DCF4971E889CC /* OnboardingPresentationQueue.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingPresentationQueue.swift; sourceTree = SOURCE_ROOT; };
 		2152A62EA1C5CBB8557A37E7 /* OverdueRescueErrorView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueErrorView.swift; sourceTree = SOURCE_ROOT; };
 		21637D8476DC186EA285FB33 /* WidgetSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Shared/WidgetSnapshot.swift; sourceTree = SOURCE_ROOT; };
 		21E20317B5C516035FAEE85D /* OnboardingSuccessSummaryCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingSuccessSummaryCard.swift; sourceTree = SOURCE_ROOT; };
 		220815DD3BB32A14C051A1BF /* GamificationRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Interfaces/GamificationRepositoryProtocol.swift; sourceTree = SOURCE_ROOT; };
-		222C1D1DF983BFFDF4BB651E /* CelebrationKind.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/CelebrationKind.swift; sourceTree = SOURCE_ROOT; };
 		22B025D510428B62C47FBE05 /* ReconcileExternalRemindersUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Sync/ReconcileExternalRemindersUseCase.swift; sourceTree = SOURCE_ROOT; };
 		23A78189DAF93E5F5EA0C769 /* CoreDataTombstoneRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Repositories/CoreDataTombstoneRepository.swift; sourceTree = SOURCE_ROOT; };
 		24A454E67411059893B17309 /* TimelineNowBeadPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineNowBeadPresentation.swift; sourceTree = SOURCE_ROOT; };
@@ -1519,7 +1444,6 @@
 		3F6049AC20F10CEBF79F8BAD /* lifeManagementAreaAccentHex.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/lifeManagementAreaAccentHex.swift; sourceTree = SOURCE_ROOT; };
 		3F730ADFEFDF0357ECA49761 /* LifeManagementView+BrowserAndTree.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Views/Settings/LifeManagement/LifeManagementView+BrowserAndTree.swift"; sourceTree = SOURCE_ROOT; };
 		3F73F08CE7AF7398D7835E7F /* LifeManagementAreaPaletteOption.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementAreaPaletteOption.swift; sourceTree = SOURCE_ROOT; };
-		3F90A4ACBFBF5EEA42C69976 /* HomeViewController+Navigation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewController+Navigation.swift"; sourceTree = "<group>"; };
 		3FAD703CB03F08D3F583E3F6 /* TrackFoundationPersistence.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackFoundationPersistence.swift; path = Foundation/PhaseIV/TrackFoundationPersistence.swift; sourceTree = "<group>"; };
 		400A0C43B52E9F1509D5EC4C /* LifeBoardProgressBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/LifeBoardProgressBar.swift; sourceTree = SOURCE_ROOT; };
 		4033ABAF3ABB94CB6771C4CC /* TimelineCompactItemRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineCompactItemRow.swift; sourceTree = SOURCE_ROOT; };
@@ -1530,7 +1454,6 @@
 		41E91E7B08A3DB7F6092C4D4 /* HomeViewModel+TaskCreationDependencies.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+TaskCreationDependencies.swift"; sourceTree = SOURCE_ROOT; };
 		41F67EC4C592FE8E37C3B456 /* DailyTimelineCanvas.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/DailyTimelineCanvas.swift; sourceTree = SOURCE_ROOT; };
 		41FF5D1F1BC2347D454A7768 /* EvaDayTaskMetadataView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Conversation/EvaDayTaskMetadataView.swift; sourceTree = SOURCE_ROOT; };
-		425B8A685EE2C485783B0578 /* HomeHabitSectionCardHost.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/HomeHabitSectionCardHost.swift; sourceTree = SOURCE_ROOT; };
 		42885152818D9953B13C071B /* EvaChiefOfStaffGuideContent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Chrome/EvaChiefOfStaffGuideContent.swift; sourceTree = SOURCE_ROOT; };
 		42AD2BFC988A80E8157AD2B2 /* V2RepositoryProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Interfaces/V2RepositoryProtocols.swift; sourceTree = SOURCE_ROOT; };
 		431D37A2C5059760CA9637D5 /* TimelineRailPresentationSpec.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineRailPresentationSpec.swift; sourceTree = SOURCE_ROOT; };
@@ -1561,10 +1484,7 @@
 		4CA209338B20E775DCA3F993 /* LifeOSFoundationShell.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeOSFoundationShell.swift; path = Foundation/Navigation/LifeOSFoundationShell.swift; sourceTree = "<group>"; };
 		4CF79ECF04752304C36B28F8 /* SunriseTimelineBar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/SunriseTimelineBar.swift; sourceTree = SOURCE_ROOT; };
 		4D1039EA2610A24D8D430EAD /* OnboardingCopy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingCopy.swift; sourceTree = SOURCE_ROOT; };
-		4D16CF764ED2CECF5A9AFDF3 /* HomeTimeIntervalExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/HomeTimeIntervalExtension.swift; sourceTree = SOURCE_ROOT; };
-		4D27FF67FB1DB3066CA04D50 /* SunriseAppShellView+DerivedState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+DerivedState.swift"; sourceTree = SOURCE_ROOT; };
 		4D285845FE9143539A3C857A /* LifeManagementComposerFieldLabel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementComposerFieldLabel.swift; sourceTree = SOURCE_ROOT; };
-		4D3A6556C5C49F5516DB6ECC /* HomeStaggerModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/HomeStaggerModifier.swift; sourceTree = SOURCE_ROOT; };
 		4D84FC1284BCFE8A1BB020B5 /* HabitRecoveryReflectionPrompt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HabitRecoveryReflectionPrompt.swift; sourceTree = SOURCE_ROOT; };
 		4E3C7D35C2C5FC1FDEF0A89C /* ManageHabitsUseCaseExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/ManageHabitsUseCaseExtension.swift; sourceTree = SOURCE_ROOT; };
 		4E66ADE238E28DD2BC20A9C7 /* OnboardingPermissionHeroIcon.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingPermissionHeroIcon.swift; sourceTree = SOURCE_ROOT; };
@@ -1581,9 +1501,7 @@
 		510B0D69D4D3766C988BF637 /* OverdueRescueDecisionAction.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueDecisionAction.swift; sourceTree = SOURCE_ROOT; };
 		51669681D49905D56C3864BD /* SunriseTimelineSurface+PlacementHelpers.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Timeline/Surface/SunriseTimelineSurface+PlacementHelpers.swift"; sourceTree = SOURCE_ROOT; };
 		51840B6F63D4405BC246D786 /* AreaListRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/AreaListRow.swift; sourceTree = SOURCE_ROOT; };
-		5199C25A108D3EDC5DD5E0D9 /* CelebrationEvent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/CelebrationEvent.swift; sourceTree = SOURCE_ROOT; };
 		51A57B08A1BB4BC36FE63B9B /* OverdueRescueBackCards.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueBackCards.swift; sourceTree = SOURCE_ROOT; };
-		525792156B7DB238F8089667 /* QuietTrackingRailStreakWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/QuietTrackingRailStreakWidget.swift; sourceTree = SOURCE_ROOT; };
 		526C43C6A27A7D7271C5528E /* TimelineBottomProtectionBudget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineBottomProtectionBudget.swift; sourceTree = SOURCE_ROOT; };
 		52AE529746E4CDD7FB4A8C95 /* TimelineStreamInfluence.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineStreamInfluence.swift; sourceTree = SOURCE_ROOT; };
 		52E1464E13744427AAFDF824 /* TaskDetailComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TaskDetailComponents.swift; sourceTree = "<group>"; };
@@ -1615,15 +1533,12 @@
 		5DA1D87ADF956BED887FE0CC /* LifeBoardThemeManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardThemeManagerTests.swift; sourceTree = "<group>"; };
 		5DEE0B3DA1576389071E8CEA /* LifeManagementAreaIconPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementAreaIconPicker.swift; sourceTree = SOURCE_ROOT; };
 		5E5E75330E627DA9E1626E6A /* HomeViewModel+ViewState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewModel+ViewState.swift"; sourceTree = "<group>"; };
-		5E7A10000000000000000002 /* SunriseInsightsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/View/Insights/SunriseInsightsView.swift; sourceTree = SOURCE_ROOT; };
 		5E7A20000000000000000002 /* SunriseInsightsHeaderView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseInsightsHeaderView.swift; sourceTree = "<group>"; };
-		5E7A20000000000000000004 /* SunriseInsightsHeroCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseInsightsHeroCard.swift; sourceTree = "<group>"; };
 		5EA1722FAD5507224C2ED584 /* TimelineFormatting.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineFormatting.swift; sourceTree = SOURCE_ROOT; };
 		5F09F509547AC4BD86E3CC9A /* LifeManagementView+DetailsComposerAndOverlays.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Views/Settings/LifeManagement/LifeManagementView+DetailsComposerAndOverlays.swift"; sourceTree = SOURCE_ROOT; };
 		5F2067B7B6ACA2A4A2DA6279 /* OnboardingFilterChip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingFilterChip.swift; sourceTree = SOURCE_ROOT; };
 		5F98057DD16FA2790EB04A47 /* TimelineAgendaItemRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineAgendaItemRow.swift; sourceTree = SOURCE_ROOT; };
 		607D98C13538414095C75E7B /* AddTaskMetadataRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskMetadataRow.swift; sourceTree = "<group>"; };
-		608542355F067EA88F7E716F /* SunriseAppShellView+ObserversSearchAndBackdrop.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+ObserversSearchAndBackdrop.swift"; sourceTree = SOURCE_ROOT; };
 		60A322E21AF97D46F076D5C8 /* TimelineTimeBlock.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelineTimeBlock.swift; sourceTree = "<group>"; };
 		61B03639156A8E2D31701235 /* OnboardingPrimaryGoal.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingPrimaryGoal.swift; sourceTree = SOURCE_ROOT; };
 		61DB2B7298DBBD959D03B5D5 /* OnboardingDownloadStatusPill.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingDownloadStatusPill.swift; sourceTree = SOURCE_ROOT; };
@@ -1632,7 +1547,6 @@
 		63526ABC7C203BDAC251960A /* RecoveryCenterView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = RecoveryCenterView.swift; sourceTree = "<group>"; };
 		6396B895E176C6D9B55C30EC /* OnboardingOutcome.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingOutcome.swift; sourceTree = SOURCE_ROOT; };
 		6406FAAF5EBC202BFD7F2588 /* EvaChatSunriseGlass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Chrome/EvaChatSunriseGlass.swift; sourceTree = SOURCE_ROOT; };
-		6425309F28BBC7C61C9C58F3 /* SunriseHomeDatePickerPopover.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseHomeDatePickerPopover.swift; sourceTree = SOURCE_ROOT; };
 		6442D619CAA8E6CA77B46126 /* LifeBoardTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardTokens.swift; sourceTree = "<group>"; };
 		6492AC4EA233D9F3AA0FAA30 /* TimelineCompactAnchorRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineCompactAnchorRow.swift; sourceTree = SOURCE_ROOT; };
 		655BA9C40207D74248D209EE /* TimelineTimeBlockCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineTimeBlockCard.swift; sourceTree = SOURCE_ROOT; };
@@ -1658,7 +1572,6 @@
 		6E411E9CDB93D4BE9EDC7EF0 /* EvaDayHabitRowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Conversation/EvaDayHabitRowView.swift; sourceTree = SOURCE_ROOT; };
 		6E8131362E7A314733E26CDF /* OverdueRescueSafeFixesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueSafeFixesView.swift; sourceTree = SOURCE_ROOT; };
 		6F5CCCB595F2AED7845487FD /* HomeTimelineWorkspacePreferencesSignature.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeTimelineWorkspacePreferencesSignature.swift; sourceTree = SOURCE_ROOT; };
-		704D674D0BE292CD679FE13E /* SunriseAppShellView+FocusInsightsAndRouting.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+FocusInsightsAndRouting.swift"; sourceTree = SOURCE_ROOT; };
 		70CF1C88BCCEBC000C9FEC38 /* OnboardingNotificationNameExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingNotificationNameExtension.swift; sourceTree = SOURCE_ROOT; };
 		70EF7AB518C2C6E6AB41487E /* OverdueRescueLargeStackView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueLargeStackView.swift; sourceTree = SOURCE_ROOT; };
 		712BE2C322E8930A4886933B /* ScheduleRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Interfaces/ScheduleRepositoryProtocol.swift; sourceTree = SOURCE_ROOT; };
@@ -1692,7 +1605,6 @@
 		753EFC9A2445A24500A739E3 /* LifeBoard.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LifeBoard.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		753EFC9D2445A24500A739E3 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		753EFC9F2445A24500A739E3 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		753EFCA12445A24500A739E3 /* HomeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewController.swift; sourceTree = "<group>"; };
 		753EFCA42445A24500A739E3 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		753EFCA62445A24700A739E3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		753EFCA92445A24700A739E3 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -1798,8 +1710,6 @@
 		75F89F432DFC44E6009EDD8F /* ChatHostViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatHostViewController.swift; sourceTree = "<group>"; };
 		75F89F752DFC57F1009EDD8F /* LLMSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMSettingsView.swift; sourceTree = "<group>"; };
 		75F89FB72DFC83EF009EDD8F /* PromptMiddleware.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PromptMiddleware.swift; sourceTree = "<group>"; };
-		75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeBottomBarView.swift; sourceTree = "<group>"; };
-		75F9937F2485B04200C340EB /* Score.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Score.swift; sourceTree = "<group>"; };
 		7606FC61CBCCB93B45FC616D /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		76771B9AECD05123393780BE /* ProjectListRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/ProjectListRow.swift; sourceTree = SOURCE_ROOT; };
 		7694AF03A3EBC6AF9B70F6D5 /* TimelineEndAddMarker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineEndAddMarker.swift; sourceTree = SOURCE_ROOT; };
@@ -1808,7 +1718,6 @@
 		77E0CD330501E98375D87E47 /* HomeLifeOSProjectionStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeLifeOSProjectionStore.swift; path = Foundation/PhaseIII/HomeLifeOSProjectionStore.swift; sourceTree = "<group>"; };
 		77F82FC408C33F7C6D11BC93 /* OnboardingTaskRecommendationCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingTaskRecommendationCard.swift; sourceTree = SOURCE_ROOT; };
 		782F77DA4E5822C3A8AF4305 /* StarterProjectTemplate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/StarterProjectTemplate.swift; sourceTree = SOURCE_ROOT; };
-		786CACDAB366EB8BCBB657A3 /* HomeDenseSurfaceModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/HomeDenseSurfaceModifier.swift; sourceTree = SOURCE_ROOT; };
 		78AC645DDBDFE8BDCA4826F7 /* OverdueRescueVisualSpec.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueVisualSpec.swift; sourceTree = SOURCE_ROOT; };
 		78CBCB775F9593EF36C11AB8 /* AppOnboardingBackground.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Views/AppOnboardingBackground.swift; sourceTree = SOURCE_ROOT; };
 		78DF4503F0438173C6DC91B8 /* OnboardingPressScaleButtonStyle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingPressScaleButtonStyle.swift; sourceTree = SOURCE_ROOT; };
@@ -1816,15 +1725,12 @@
 		79E40B0ED12A11ACC6A161C8 /* AppGroupConstants.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Shared/AppGroupConstants.swift; sourceTree = SOURCE_ROOT; };
 		79F16587DB80654C936066F5 /* TimelineOverlapClusterCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineOverlapClusterCard.swift; sourceTree = SOURCE_ROOT; };
 		79F6BFD855ABC89559135C56 /* OverdueRescueActionGrid.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueActionGrid.swift; sourceTree = SOURCE_ROOT; };
-		7A10E0B067197D4A32724B9F /* HomeViewController+OnboardingAdapter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewController+OnboardingAdapter.swift"; sourceTree = "<group>"; };
 		7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpacingElevationCornerTests.swift; sourceTree = "<group>"; };
 		7AE36332DC107A6F5A9A4AF2 /* HabitSummaryRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/HabitSummaryRow.swift; sourceTree = SOURCE_ROOT; };
 		7B2B9CCE514C217DC9C76773 /* WatchWidgetSnapshotSync.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WatchWidgetSnapshotSync.swift; sourceTree = "<group>"; };
 		7B3C9A7D2F2B0F1A00D4C112 /* FocusNowSimplificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusNowSimplificationTests.swift; sourceTree = "<group>"; };
 		7B6CF6BCC0828B64D4447931 /* timelineAccessibilityIdentifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/timelineAccessibilityIdentifier.swift; sourceTree = SOURCE_ROOT; };
-		7B6F00C3944DB39EBB0DDA55 /* HomeCalendarEventDetailSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/HomeCalendarEventDetailSheet.swift; sourceTree = SOURCE_ROOT; };
 		7C900006EE1DF0BACD33342B /* Achievement.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/Achievement.swift; sourceTree = SOURCE_ROOT; };
-		7C915FFCD3814E051A506B72 /* InsightsTabView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/View/Insights/InsightsTabView.swift; sourceTree = SOURCE_ROOT; };
 		7CC4B584282446580AA72B44 /* FocusSessionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Gamification/FocusSessionUseCase.swift; sourceTree = SOURCE_ROOT; };
 		7D83A0A1DBA10EFB600419F8 /* TaskCaptureParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskCaptureParserTests.swift; sourceTree = "<group>"; };
 		A31000000000000000000103 /* InboxCommitCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxCommitCoordinatorTests.swift; sourceTree = "<group>"; };
@@ -1858,13 +1764,10 @@
 		82CED5AEF0E893280880972E /* TimelineGapExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineGapExtension.swift; sourceTree = SOURCE_ROOT; };
 		82D3A1044B2C7AFE4DE96ADB /* TrackFoundationStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackFoundationStore.swift; path = Foundation/PhaseIV/TrackFoundationStore.swift; sourceTree = "<group>"; };
 		8332C14C05A3610EB0ECA84B /* OverdueRescueSummary.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueSummary.swift; sourceTree = SOURCE_ROOT; };
-		83540D1FFD9826270275D74A /* SunriseAppShellViewRoot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellViewRoot.swift; sourceTree = SOURCE_ROOT; };
 		836DC307393EA1752081FFEE /* V2CoreDataRepositorySupport.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Repositories/V2CoreDataRepositorySupport.swift; sourceTree = SOURCE_ROOT; };
 		83B4B8D198A7243A6496C809 /* OnboardingMascotCarousel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingMascotCarousel.swift; sourceTree = SOURCE_ROOT; };
 		83BA608636D6DB86CBE1DC83 /* OnboardingChecklistRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingChecklistRow.swift; sourceTree = SOURCE_ROOT; };
 		83C12D0895BE1B134C2DEDF5 /* HomeOverdueRescueLauncherState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeOverdueRescueLauncherState.swift; sourceTree = SOURCE_ROOT; };
-		849A846930F8CAB1E8403C68 /* HomeViewController+Reload.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewController+Reload.swift"; sourceTree = "<group>"; };
-		855AD3CAAA08B951BDD134FD /* SunriseAppShellView+FacesAndSearchChat.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+FacesAndSearchChat.swift"; sourceTree = SOURCE_ROOT; };
 		8565ACC6D97DD8CCE34EA3E0 /* DeleteProjectSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/DeleteProjectSheet.swift; sourceTree = SOURCE_ROOT; };
 		856DDB017465F5A7BA124E09 /* LifeManagementComposerPreviewMetric.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementComposerPreviewMetric.swift; sourceTree = SOURCE_ROOT; };
 		85DF0433A9683E2365552FC2 /* timelineMetaColor.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/timelineMetaColor.swift; sourceTree = SOURCE_ROOT; };
@@ -1872,7 +1775,6 @@
 		8603A229AA6EF804F63AB9F2 /* HomeViewModel+DayCompass.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+DayCompass.swift"; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+DayCompass.swift"; sourceTree = "<group>"; };
 		862166F085A7F815ADA70872 /* OnboardingWorkspaceSnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingWorkspaceSnapshot.swift; sourceTree = SOURCE_ROOT; };
 		871E14455069188F7847E1DB /* TaskDefinitionRepositoryProtocolExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/TaskDefinitionRepositoryProtocolExtension.swift; sourceTree = SOURCE_ROOT; };
-		875713F2747185071D35BDF9 /* CelebrationPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/CelebrationPresentation.swift; sourceTree = SOURCE_ROOT; };
 		8763CA6B0B62B52616869680 /* HomeTaskReloadNotificationEvent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeTaskReloadNotificationEvent.swift; sourceTree = SOURCE_ROOT; };
 		87CC600FBBD16BECE30DC2EC /* LifeBoardInteraction.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardInteraction.swift; sourceTree = "<group>"; };
 		87FF3FCE748CD6D1CC8DD64D /* OnboardingEyebrowLabel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingEyebrowLabel.swift; sourceTree = SOURCE_ROOT; };
@@ -1880,7 +1782,6 @@
 		884AE8F47B1E2B1F9D346956 /* timelineDisplayedNow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/timelineDisplayedNow.swift; sourceTree = SOURCE_ROOT; };
 		88EAC5F41DAFB21D34E6790E /* LLMContextProjectionService.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Models/LLMContextProjectionService.swift; sourceTree = SOURCE_ROOT; };
 		89E23AC0E5DF84E0125F5845 /* HomeViewModel+RecurringTopUp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+RecurringTopUp.swift"; sourceTree = SOURCE_ROOT; };
-		8AA0626EE55DAF0FA5CD8995 /* OverdueRescueLauncherOverlayView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/OverdueRescueLauncherOverlayView.swift; sourceTree = SOURCE_ROOT; };
 		8AD631E2A2245F830BA92FA5 /* CoreDataProjectRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CoreDataProjectRepository.swift; path = LifeBoard/State/Repositories/CoreDataProjectRepository.swift; sourceTree = SOURCE_ROOT; };
 		8B64FFD6CD4BC91A0687E1B2 /* HomeCanonicalHabitMutationLoadState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeCanonicalHabitMutationLoadState.swift; sourceTree = SOURCE_ROOT; };
 		8C72110A1F555F951D89BBEB /* CornerTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = CornerTokens.swift; sourceTree = "<group>"; };
@@ -1894,7 +1795,6 @@
 		8F4D92143BA2F3C1FE24BFFE /* TimelineStreamSegment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineStreamSegment.swift; sourceTree = SOURCE_ROOT; };
 		8F4F0CDFF4458CFC2FFBA4A5 /* DailySummaryLoadState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/DailySummaryLoadState.swift; sourceTree = SOURCE_ROOT; };
 		8FC11A075C9E37AF0A3A64C8 /* HomeViewModel+InitialLoading.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+InitialLoading.swift"; sourceTree = SOURCE_ROOT; };
-		8FDA708D6EFE103BE7B725E0 /* SunriseAppShellView+RescueOverlays.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+RescueOverlays.swift"; sourceTree = SOURCE_ROOT; };
 		903BFF6DB72A0D515603C771 /* HabitListRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/HabitListRow.swift; sourceTree = SOURCE_ROOT; };
 		90F01E2761C0C86CBDFA7BB9 /* TimelineWeekDayCell.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineWeekDayCell.swift; sourceTree = SOURCE_ROOT; };
 		917E928680EC00ECB792B118 /* HomeReloadBatchTracker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeReloadBatchTracker.swift; sourceTree = SOURCE_ROOT; };
@@ -1921,7 +1821,6 @@
 		98AB62BE5A27121F39C5F499 /* OnboardingProjectDraft.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingProjectDraft.swift; sourceTree = SOURCE_ROOT; };
 		98E3FDAB970DF9A475E91D5F /* StarterWorkspaceCatalog.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/StarterWorkspaceCatalog.swift; sourceTree = SOURCE_ROOT; };
 		9929F28DF1EA53ABDB5CEE2B /* EvaChatNavigationChromeState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Chrome/EvaChatNavigationChromeState.swift; sourceTree = SOURCE_ROOT; };
-		99ED29FB4D6A1C5E61C6A702 /* DefaultCelebrationRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/DefaultCelebrationRouter.swift; sourceTree = SOURCE_ROOT; };
 		9A0864533C56B27765DDB7A4 /* HomeViewModel+DateNavigation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+DateNavigation.swift"; sourceTree = SOURCE_ROOT; };
 		9A7730F5637D23CE103B743B /* TimelinePlacementPrompt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelinePlacementPrompt.swift; sourceTree = SOURCE_ROOT; };
 		9AE41E54BA355D96A678CBF7 /* ReminderMergeEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Sync/ReminderMergeEngine.swift; sourceTree = SOURCE_ROOT; };
@@ -1979,7 +1878,6 @@
 		A11E00000000000000000020 /* TaskModelV3_HealthPrivacy.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_HealthPrivacy.xcdatamodel; sourceTree = "<group>"; };
 		A11E00000000000000000030 /* HealthSyncTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthSyncTests.swift; sourceTree = "<group>"; };
 		A12E00000000000000000021 /* TaskModelV3_NotesPro.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_NotesPro.xcdatamodel; sourceTree = "<group>"; };
-		A134F2A3EA61AB508E9A3ED9 /* HomeViewController+Keyboard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewController+Keyboard.swift"; sourceTree = "<group>"; };
 		A13C9964C87A904A153CCAC6 /* OnboardingSuccessSummaryRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingSuccessSummaryRow.swift; sourceTree = SOURCE_ROOT; };
 		A13E00000000000000000002 /* LifeBoardKnowledgeCompletion.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardKnowledgeCompletion.swift; sourceTree = "<group>"; };
 		A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMModelRegistryTests.swift; sourceTree = "<group>"; };
@@ -2090,11 +1988,9 @@
 		AE1100000000000000000008 /* AppOnboardingJourneyView+Actions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "AppOnboardingJourneyView+Actions.swift"; path = "Onboarding/Views/AppOnboardingJourneyView+Actions.swift"; sourceTree = "<group>"; };
 		AE1100000000000000000009 /* JournalHomeConsentStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = JournalHomeConsentStore.swift; path = Foundation/PhaseVI/JournalHomeConsentStore.swift; sourceTree = "<group>"; };
 		AE110000000000000000000A /* NutritionGoalComposer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = NutritionGoalComposer.swift; path = Foundation/PhaseVI/NutritionGoalComposer.swift; sourceTree = "<group>"; };
-		AE5DC87E5EFAD171634D5F0A /* HomeViewController+Presentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewController+Presentation.swift"; sourceTree = "<group>"; };
 		AE79C7D2227A80F8ECDFDFD2 /* OverdueRescueCardModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueCardModel.swift; sourceTree = SOURCE_ROOT; };
 		AFAECD01C463CF2E65F669CB /* LifeManagementAreaDetailView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementAreaDetailView.swift; sourceTree = SOURCE_ROOT; };
 		AFD9965E6C4E172D7429387C /* PlanningCorePersistence.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanningCorePersistence.swift; path = Foundation/PhaseIII/PlanningCorePersistence.swift; sourceTree = "<group>"; };
-		B010C6D75FA3187BE754B3BF /* InsightsActionIntentExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/SunriseAppShell/InsightsActionIntentExtension.swift; sourceTree = SOURCE_ROOT; };
 		B0B60F4DC92BA3ACD065F8D3 /* HomeTaskDetailMetadataState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeTaskDetailMetadataState.swift; sourceTree = SOURCE_ROOT; };
 		B0B69EFFAB72804AE4A38EB3 /* ManageHabitsUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Habit/ManageHabitsUseCase.swift; sourceTree = SOURCE_ROOT; };
 		B1A000000000000000000011 /* LifeBoardFilterComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardFilterComponents.swift; sourceTree = "<group>"; };
@@ -2158,9 +2054,7 @@
 		B8E100042F70000100A0A001 /* LifeBoardCTABezelResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardCTABezelResolverTests.swift; sourceTree = "<group>"; };
 		B8F9A0B1C2D3E4F506172838 /* LLMPersonalMemoryStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMPersonalMemoryStoreTests.swift; sourceTree = "<group>"; };
 		B9115CDED706EB4E49B732A6 /* TimelineTaskMarkerRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineTaskMarkerRow.swift; sourceTree = SOURCE_ROOT; };
-		B95AB168FC420F7EE412CB09 /* CelebrationRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/CelebrationRouter.swift; sourceTree = SOURCE_ROOT; };
 		B9CD88BD827717D7C56D112A /* OnboardingFrictionProfile.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingFrictionProfile.swift; sourceTree = SOURCE_ROOT; };
-		B9F0161DC62BDB27BEE93C1D /* HomeViewController+RenderPipeline.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewController+RenderPipeline.swift"; sourceTree = "<group>"; };
 		B9F2A10C3D4E5F60718293AA /* WriteClosedRepositoryAdapters.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Sync/WriteClosedRepositoryAdapters.swift; sourceTree = SOURCE_ROOT; };
 		BA3610ABC404898F73D042EA /* LifeBoardWatchApp.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardWatchApp.swift; sourceTree = "<group>"; };
 		BA66AB0570744BB33285402E /* HomeTaskMutationEvent.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeTaskMutationEvent.swift; sourceTree = SOURCE_ROOT; };
@@ -2174,8 +2068,6 @@
 		BE2A3D4F5C6B7089D1E2F3A4 /* LifeBoardArcDial.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardArcDial.swift; sourceTree = "<group>"; };
 		BED7C8A4030249843AED943D /* DeleteAreaSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/DeleteAreaSheet.swift; sourceTree = SOURCE_ROOT; };
 		BF3952602FF1A9D756382492 /* LifeManagementTreeInteractionMode.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementTreeInteractionMode.swift; sourceTree = SOURCE_ROOT; };
-		BF5D7161411B42651DF00D60 /* SunriseAppShellView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseAppShellView.swift; sourceTree = "<group>"; };
-		C041D826927F12B5D4A445BA /* SunriseAppShellView+SearchSurface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+SearchSurface.swift"; sourceTree = SOURCE_ROOT; };
 		C0D0E5522792B7184772D09A /* LifeBoardDaypartTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardDaypartTokens.swift; path = Foundation/Design/LifeBoardDaypartTokens.swift; sourceTree = "<group>"; };
 		C0D48163BE7D31AF707E99B7 /* HomeArchitectureProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeArchitectureProtocols.swift; sourceTree = "<group>"; };
 		C0FFEE00000000000000CF02 /* lb_confetti.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = LifeBoard/LifeBoardDesign/Animations/lb_confetti.json; sourceTree = SOURCE_ROOT; };
@@ -2262,7 +2154,6 @@
 		C5F5000000000000000000AD /* LifeBoardSystemSurfaceSnapshots.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardSystemSurfaceSnapshots.swift; path = Foundation/PhaseV/LifeBoardSystemSurfaceSnapshots.swift; sourceTree = "<group>"; };
 		C5F5000000000000000000B0 /* TaskModelV3_JournalParity.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_JournalParity.xcdatamodel; sourceTree = "<group>"; };
 		C5F5000000000000000000B1 /* FastingTimerStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FastingTimerStore.swift; path = Foundation/PhaseV/FastingTimerStore.swift; sourceTree = "<group>"; };
-		C63740651E231116AA556D8F /* MarkDailyReflectionCompleteUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Gamification/MarkDailyReflectionCompleteUseCase.swift; sourceTree = SOURCE_ROOT; };
 		C6A100000000000000000001 /* LifeBoardSystemSurfaceSnapshotContract.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = Shared/LifeBoardSystemSurfaceSnapshotContract.swift; sourceTree = SOURCE_ROOT; };
 		C6B100000000000000000002 /* WellnessCoreModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WellnessCoreModels.swift; path = Foundation/PhaseVI/WellnessCoreModels.swift; sourceTree = "<group>"; };
 		C6B100000000000000000004 /* LifeMomentsModels.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeMomentsModels.swift; path = Foundation/PhaseVI/LifeMomentsModels.swift; sourceTree = "<group>"; };
@@ -2306,19 +2197,15 @@
 		CA35E641ED7341169B9EC48D /* TypographyTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TypographyTokens.swift; sourceTree = "<group>"; };
 		CA4596A02DBC4C81BD5D267F /* HomeViewModel+ProjectionInvalidation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+ProjectionInvalidation.swift"; sourceTree = SOURCE_ROOT; };
 		CB037D639903A5E22295113F /* OverdueRescueDeckView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueDeckView.swift; sourceTree = SOURCE_ROOT; };
-		CB45FAF57431067D93F59BA3 /* SunriseAppShellView+FocusTimersAndReflection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+FocusTimersAndReflection.swift"; sourceTree = SOURCE_ROOT; };
 		CC4859B4442A41A595012DFD /* LifeBoardHomeCardBodies.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardHomeCardBodies.swift; sourceTree = "<group>"; };
 		CC4A401D3FB5682FC6804B6F /* OnboardingTaskPreviewCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingTaskPreviewCard.swift; sourceTree = SOURCE_ROOT; };
 		CCBCDF94E1BBCA170FD4E6C2 /* HomeQuickView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickView.swift; sourceTree = "<group>"; };
 		CD059BC932A17FD845CAC6CD /* TombstoneMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Mappers/TombstoneMapper.swift; sourceTree = SOURCE_ROOT; };
 		CD51EED85A7A2713DD596393 /* OnboardingFlowModel+LifeAreaHabitTaskSetup.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Onboarding/Services/OnboardingFlowModel+LifeAreaHabitTaskSetup.swift"; sourceTree = SOURCE_ROOT; };
-		CD8641383368773B407AE249 /* SunriseAppShellView+HomeScreenComposition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+HomeScreenComposition.swift"; sourceTree = SOURCE_ROOT; };
 		CDB9D4FD3A636968AEBF5DB7 /* AppOnboardingCoordinator+Presentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Onboarding/Coordinator/AppOnboardingCoordinator+Presentation.swift"; sourceTree = SOURCE_ROOT; };
 		CF4E3B7EAAC54AE18553A302 /* OnboardingEligibility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingEligibility.swift; sourceTree = SOURCE_ROOT; };
-		CFBD3BC2B501293FC35C162C /* HomeViewController+SurfacePreparation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewController+SurfacePreparation.swift"; sourceTree = "<group>"; };
 		CFF019E9E7D0253D5D139030 /* WeeklyCalendarStripView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyCalendarStripView.swift; sourceTree = "<group>"; };
 		CFF75A05368C0CA0356AC4F7 /* HomeTimelineViewModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTimelineViewModel.swift; sourceTree = "<group>"; };
-		CFFC54215415EB867E73F6BC /* HomeViewControllerExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/HomeViewControllerExtension.swift; sourceTree = SOURCE_ROOT; };
 		D07E18D71C702586CD89133E /* lifeManagementNormalizedHex.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/lifeManagementNormalizedHex.swift; sourceTree = SOURCE_ROOT; };
 		D0EF94291CEE2D9728DA74D6 /* LifeBoardKineticText.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardKineticText.swift; sourceTree = "<group>"; };
 		D115AC1607F718EC014575BE /* XPCalculationEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/XPCalculationEngine.swift; sourceTree = SOURCE_ROOT; };
@@ -2365,25 +2252,10 @@
 		D4F200000000000000000120 /* HomeAIActionCoordinatorTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeAIActionCoordinatorTests.swift; sourceTree = "<group>"; };
 		D4F200000000000000000121 /* XPCalculationEngineWeeklyCategoryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = XPCalculationEngineWeeklyCategoryTests.swift; sourceTree = "<group>"; };
 		D4F200000000000000000124 /* WeeklyOperatingLayerViewModelTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyOperatingLayerViewModelTests.swift; sourceTree = "<group>"; };
-		D4F300000000000000000131 /* DailyReflectionLoadCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Gamification/DailyReflectionLoadCoordinator.swift; sourceTree = SOURCE_ROOT; };
 		D4F400000000000000000202 /* SunriseTimelineSurface.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/View/SunriseTimelineSurface.swift; sourceTree = SOURCE_ROOT; };
 		D5669D5D0E7B125A137EBF66 /* EvaDayHabitOverlayState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Conversation/EvaDayHabitOverlayState.swift; sourceTree = SOURCE_ROOT; };
-		D5A100000000000000000001 /* ReflectPlanStyle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReflectPlanStyle.swift; sourceTree = "<group>"; };
-		D5A100000000000000000002 /* SunriseReflectPlanScreen.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseReflectPlanScreen.swift; sourceTree = "<group>"; };
-		D5A100000000000000000003 /* ReflectPlanHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReflectPlanHeader.swift; sourceTree = "<group>"; };
-		D5A100000000000000000004 /* StatusChip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StatusChip.swift; sourceTree = "<group>"; };
-		D5A100000000000000000005 /* YesterdaySummaryCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = YesterdaySummaryCard.swift; sourceTree = "<group>"; };
-		D5A100000000000000000006 /* HabitStreakMiniCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitStreakMiniCard.swift; sourceTree = "<group>"; };
-		D5A100000000000000000007 /* TodayPlanCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TodayPlanCard.swift; sourceTree = "<group>"; };
-		D5A100000000000000000008 /* TodayTaskRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TodayTaskRow.swift; sourceTree = "<group>"; };
-		D5A100000000000000000009 /* FocusPill.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = FocusPill.swift; sourceTree = "<group>"; };
+		D5A100000000000000000001 /* EvaClayStyle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = EvaClayStyle.swift; sourceTree = "<group>"; };
 		D5A10000000000000000000A /* PlanningSummaryRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = PlanningSummaryRow.swift; sourceTree = "<group>"; };
-		D5A10000000000000000000B /* AddContextCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AddContextCard.swift; sourceTree = "<group>"; };
-		D5A10000000000000000000C /* ContextChipGroup.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ContextChipGroup.swift; sourceTree = "<group>"; };
-		D5A10000000000000000000D /* ReflectPlanChipFlow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReflectPlanChipFlow.swift; sourceTree = "<group>"; };
-		D5A10000000000000000000E /* ReflectPlanWrappingHStackLayout.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = ReflectPlanWrappingHStackLayout.swift; sourceTree = "<group>"; };
-		D5A10000000000000000000F /* StickySaveButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = StickySaveButton.swift; sourceTree = "<group>"; };
-		D5A100000000000000000010 /* SwapTaskPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SwapTaskPicker.swift; sourceTree = "<group>"; };
 		D5A9A2796943621DC66C4703 /* Tombstone.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/Tombstone.swift; sourceTree = SOURCE_ROOT; };
 		D5E7A8B92F3C4D5E0067A1B2 /* DailySummaryModalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailySummaryModalTests.swift; sourceTree = "<group>"; };
 		D6248E090BE231D70E41F08C /* CoreDataScheduleRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Repositories/CoreDataScheduleRepository.swift; sourceTree = SOURCE_ROOT; };
@@ -2393,7 +2265,7 @@
 		D7697952AC65F15B0B831D63 /* HomeViewModel+RescueUndo.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+RescueUndo.swift"; sourceTree = SOURCE_ROOT; };
 		D76C10CD61388AF076BFDDB5 /* TimelineStreamInfluenceKind.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineStreamInfluenceKind.swift; sourceTree = SOURCE_ROOT; };
 		D7A500000000000000000101 /* LifeBoardLaunchSplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardLaunchSplashView.swift; sourceTree = "<group>"; };
-		D7A500000000000000000201 /* HomeViewControllerLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeViewControllerLifecycleTests.swift; sourceTree = "<group>"; };
+		D7A500000000000000000201 /* LifeBoardApplicationLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardApplicationLifecycleTests.swift; sourceTree = "<group>"; };
 		D7C5BD9B9BA76D61F7F044BD /* LifeBoardSnackbar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoardSnackbar.swift; sourceTree = "<group>"; };
 		D7E431C4A4980AE71FE5AB35 /* lifeManagementHabitStatusText.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/lifeManagementHabitStatusText.swift; sourceTree = SOURCE_ROOT; };
 		D934D251750D7055D55AD060 /* EvaDayTaskActionsView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Conversation/EvaDayTaskActionsView.swift; sourceTree = SOURCE_ROOT; };
@@ -2452,11 +2324,9 @@
 		E1C5A4B1D2E3F4012345678E /* RescheduleTaskDefinitionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Task/RescheduleTaskDefinitionUseCase.swift; sourceTree = SOURCE_ROOT; };
 		E1EA03651FCE790FF4C8E5EB /* HomeViewModel+HabitActionShortcuts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+HabitActionShortcuts.swift"; sourceTree = SOURCE_ROOT; };
 		E28BECEE6DCE3A5F4761245D /* LifeBoardAppRouter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardAppRouter.swift; path = Foundation/Navigation/LifeBoardAppRouter.swift; sourceTree = "<group>"; };
-		E2BA3F253548BE9F1EE2AB4B /* SunriseDailyReflectionView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/View/SunriseDailyReflectionView.swift; sourceTree = SOURCE_ROOT; };
 		E3971F5A044B9EC46E27BEC2 /* HomeHabitRowPlacementBucket.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeHabitRowPlacementBucket.swift; sourceTree = SOURCE_ROOT; };
 		E3A4158C229844DD97182926 /* TimelineStreamGlintPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineStreamGlintPresentation.swift; sourceTree = SOURCE_ROOT; };
 		E3B60B862E237D7380EE1948 /* OverdueRescueDeckCopy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueDeckCopy.swift; sourceTree = SOURCE_ROOT; };
-		E40C44F474B7E5FCB7349186 /* SunriseAppShellView+TimelineSurface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+TimelineSurface.swift"; sourceTree = SOURCE_ROOT; };
 		E46838AD356183D58300A941 /* SectionRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Interfaces/SectionRepositoryProtocol.swift; sourceTree = SOURCE_ROOT; };
 		E4B4D0D6C85806F24EEF40AD /* LifeBoardWatch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = LifeBoardWatch.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E4F394C64907F22C89881E3A /* ReminderDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/ReminderDefinition.swift; sourceTree = SOURCE_ROOT; };
@@ -2496,15 +2366,12 @@
 		E6095F80ED6FB73CD69363AC /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; name = Info.plist; path = LifeBoardWidgets/Info.plist; sourceTree = "<group>"; };
 		E6747A1FAF23571C7A3DA320 /* CoreDataAssistantActionRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Repositories/CoreDataAssistantActionRepository.swift; sourceTree = SOURCE_ROOT; };
 		E6A100000000000000000001 /* SunriseHeaderAssetTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SunriseHeaderAssetTests.swift; sourceTree = "<group>"; };
-		E76B472B10FBCD33AF5BF327 /* HomeViewModel+DailyReflectionPreview.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+DailyReflectionPreview.swift"; sourceTree = SOURCE_ROOT; };
 		E78CA56E2EAD1B448EFED377 /* AssistantAction.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/AssistantAction.swift; sourceTree = SOURCE_ROOT; };
 		E7D15177D45D46D8D0B8D2F3 /* LifeBoardPlanViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardPlanViews.swift; path = Foundation/PhaseIII/LifeBoardPlanViews.swift; sourceTree = "<group>"; };
 		E914385E0C9DBE65D5CC9D88 /* HomeSessionContextStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeSessionContextStore.swift; path = LifeBoard/Services/HomeSessionContextStore.swift; sourceTree = SOURCE_ROOT; };
 		E97E787881F510FC540EC5B8 /* MessageView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Conversation/MessageView.swift; sourceTree = SOURCE_ROOT; };
-		E98C6DC8C0DE10D010A97DC6 /* SunriseAppShellView+CalendarFooterAndTrackingRail.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+CalendarFooterAndTrackingRail.swift"; sourceTree = SOURCE_ROOT; };
 		E9EF3524C96CA56E66C86177 /* ResolveOccurrenceUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Schedule/ResolveOccurrenceUseCase.swift; sourceTree = SOURCE_ROOT; };
 		E9FBA211F8998587F17C8785 /* HomeViewModel+TaskDetailMetadata.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+TaskDetailMetadata.swift"; sourceTree = SOURCE_ROOT; };
-		EA1AC6826CEC438ED475A25E /* HomeViewController+AdaptivePresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewController+AdaptivePresentation.swift"; sourceTree = "<group>"; };
 		EA45AF6FFE4463E49D8FEA68 /* TaskDefinitionRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Interfaces/TaskDefinitionRepositoryProtocol.swift; sourceTree = SOURCE_ROOT; };
 		EA9D6B0D45CD7BA946FCF6F3 /* AddTaskDatePresetRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskDatePresetRow.swift; sourceTree = "<group>"; };
 		EAB5C7F1C2483D8E113DBBA7 /* TimelineCurrentTimeRule.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineCurrentTimeRule.swift; sourceTree = SOURCE_ROOT; };
@@ -2530,7 +2397,6 @@
 		F067D7763D4A025CC75BAB13 /* LifeBoardFoundationGallery.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardFoundationGallery.swift; path = Foundation/Design/LifeBoardFoundationGallery.swift; sourceTree = "<group>"; };
 		F0A100000000000000000102 /* SeededFeaturePages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeededFeaturePages.swift; sourceTree = "<group>"; };
 		F0A100000000000000000202 /* OverdueRescueSeededUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueRescueSeededUITests.swift; sourceTree = "<group>"; };
-		F0A100000000000000000302 /* ReflectPlanSeededUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReflectPlanSeededUITests.swift; sourceTree = "<group>"; };
 		F0A100000000000000000402 /* FocusNowSeededUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusNowSeededUITests.swift; sourceTree = "<group>"; };
 		F0A1B2C3D4E5F60718293A4B /* HomeProjectGroupingMode.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeProjectGroupingMode.swift; sourceTree = "<group>"; };
 		F0A1B2C3D4E5F60718293A4C /* HomeTaskSectionBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeTaskSectionBuilder.swift; sourceTree = "<group>"; };
@@ -2549,7 +2415,6 @@
 		F1A2B3C4D5E6F7A8B9C0D1E2 /* LifeBoardTheme+SwiftUI.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoardTheme+SwiftUI.swift"; sourceTree = "<group>"; };
 		F1A2B3C4D5E6F7A8B9C0D1E4 /* LifeBoardAnimations.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardAnimations.swift; sourceTree = "<group>"; };
 		F1C0A1234B56789000ABCD01 /* TaskDetailViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskDetailViewModelTests.swift; sourceTree = "<group>"; };
-		F1EF5E391342B1FBE7864081 /* HomeViewController+Snackbar.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "HomeViewController+Snackbar.swift"; sourceTree = "<group>"; };
 		F21D047990188A6B02C70A9F /* HomeHabitRowPlacement.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeHabitRowPlacement.swift; sourceTree = SOURCE_ROOT; };
 		F22284F558A304A7D18F56C1 /* HabitDefinitionMapper.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Mappers/HabitDefinitionMapper.swift; sourceTree = SOURCE_ROOT; };
 		F280FDE93AC86C0D82E9C51E /* OnboardingConcentricColorField.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingConcentricColorField.swift; sourceTree = SOURCE_ROOT; };
@@ -2592,7 +2457,6 @@
 		F9A8B91DCC93833939CAE3C6 /* LifeBoardWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LifeBoardWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		FA1DA9F6A39882873264672B /* QuietHoursCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietHoursCard.swift; sourceTree = "<group>"; };
 		FAF2AECE194CB6DF20940C57 /* ScheduleTemplate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/ScheduleTemplate.swift; sourceTree = SOURCE_ROOT; };
-		FB2B2C9DCA8513C631F384DA /* SunriseAppShellView+HabitsAgendaAndFocusStrip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+HabitsAgendaAndFocusStrip.swift"; sourceTree = SOURCE_ROOT; };
 		FB92AF0F70C629B9BB0501F5 /* HomeDerivedTaskRowsCache.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeDerivedTaskRowsCache.swift; sourceTree = SOURCE_ROOT; };
 		FB9BE07CCB7761E186498D8C /* LifeBoardTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardTheme.swift; sourceTree = "<group>"; };
 		FCFE4928C0407CAB71ECC1B9 /* TimelineSurfaceMetrics.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineSurfaceMetrics.swift; sourceTree = SOURCE_ROOT; };
@@ -2755,8 +2619,6 @@
 				05E5245EF6140902F09F99CA /* RecordXPUseCase.swift */,
 				1C5FAE972A10C45BCDDB0142 /* GamificationEngine.swift */,
 				7CC4B584282446580AA72B44 /* FocusSessionUseCase.swift */,
-				D4F300000000000000000131 /* DailyReflectionLoadCoordinator.swift */,
-				C63740651E231116AA556D8F /* MarkDailyReflectionCompleteUseCase.swift */,
 			);
 			name = Gamification;
 			sourceTree = "<group>";
@@ -2832,10 +2694,7 @@
 		4BDE4D4721AB3214B6F9804E /* Insights */ = {
 			isa = PBXGroup;
 			children = (
-				7C915FFCD3814E051A506B72 /* InsightsTabView.swift */,
-				5E7A10000000000000000002 /* SunriseInsightsView.swift */,
 				5E7A20000000000000000002 /* SunriseInsightsHeaderView.swift */,
-				5E7A20000000000000000004 /* SunriseInsightsHeroCard.swift */,
 			);
 			path = Insights;
 			sourceTree = "<group>";
@@ -3240,7 +3099,7 @@
 				B7C8D9E0F1A223344556677C /* SunriseFocusZoneStatusTests.swift */,
 				B7C8D9E0F1A223344556677E /* SunriseFocusZonePresentationTests.swift */,
 				F0A1B2C3D4E5F60718293A4F /* HomeViewModelPersistenceTests.swift */,
-				D7A500000000000000000201 /* HomeViewControllerLifecycleTests.swift */,
+				D7A500000000000000000201 /* LifeBoardApplicationLifecycleTests.swift */,
 				F2A1B2C3D4E5F60718293A53 /* HomeBottomBarStateTests.swift */,
 				E6A100000000000000000001 /* SunriseHeaderAssetTests.swift */,
 				F2A1B2C3D4E5F60718293A54 /* HomeViewModelXPScoreRegressionTests.swift */,
@@ -3303,7 +3162,6 @@
 				7551BCB12F7A100100ABC001 /* HomeTimelineSeededUITests.swift */,
 				7542A0002F7B100100ABC101 /* OverdueRescueTimelineUITests.swift */,
 				F0A100000000000000000202 /* OverdueRescueSeededUITests.swift */,
-				F0A100000000000000000302 /* ReflectPlanSeededUITests.swift */,
 				F0A100000000000000000402 /* FocusNowSeededUITests.swift */,
 				E1A200000000000000000001 /* HomeReplanDayUITests.swift */,
 				7551BCCC2EAB665F003C6916 /* Tests */,
@@ -3472,7 +3330,6 @@
 				5A7FAC655E04AFF0711F5AD2 /* OnboardingFlowModel+NavigationPersistence.swift */,
 				256FD8E6876C56256C606CBF /* OnboardingFlowModel+EvaActivationPreparation.swift */,
 				ABDC5FDB10DF919EB7B94CC4 /* AppOnboardingHostAdapter.swift */,
-				CFFC54215415EB867E73F6BC /* HomeViewControllerExtension.swift */,
 				9D9D661B4914CE34AEA2DD30 /* AppOnboardingCoordinator.swift */,
 				CDB9D4FD3A636968AEBF5DB7 /* AppOnboardingCoordinator+Presentation.swift */,
 				0782589C1467EBE5827782EF /* OnboardingInputField.swift */,
@@ -3579,18 +3436,12 @@
 				4F8E82EED2FB2D349E9F3BE9 /* FocusPinResult.swift */,
 				46D86472D55596A7E3DE5FED /* FocusPromotionResult.swift */,
 				C4A9726955E0A1C39832E736 /* HomeNotificationNameExtension.swift */,
-				222C1D1DF983BFFDF4BB651E /* CelebrationKind.swift */,
-				5199C25A108D3EDC5DD5E0D9 /* CelebrationEvent.swift */,
-				875713F2747185071D35BDF9 /* CelebrationPresentation.swift */,
-				B95AB168FC420F7EE412CB09 /* CelebrationRouter.swift */,
-				99ED29FB4D6A1C5E61C6A702 /* DefaultCelebrationRouter.swift */,
 				54D0BEA667E2738CDF713A68 /* InsightsLaunchRequest.swift */,
 				83C12D0895BE1B134C2DEDF5 /* HomeOverdueRescueLauncherState.swift */,
 				DE2CDAC6D56F874D92E1DD4D /* HomeViewModelRoot.swift */,
 				DF57C7F694B30CF25D4C71B7 /* HomeViewModel+Bindings.swift */,
 				1E69586D6A0661BB639FAE5F /* HomeViewModel+RenderTransaction.swift */,
 				FEB72F108D49DD4AE2B58A99 /* HomeViewModel+AnalyticsRefresh.swift */,
-				E76B472B10FBCD33AF5BF327 /* HomeViewModel+DailyReflectionPreview.swift */,
 				81B4061464040091D355959D /* HomeViewModel+DailySummaryModal.swift */,
 				9A0864533C56B27765DDB7A4 /* HomeViewModel+DateNavigation.swift */,
 				06C9F0E1B9A7D11A42BEFEB1 /* HomeViewModel+DueTodayAgenda.swift */,
@@ -3720,31 +3571,6 @@
 				82CED5AEF0E893280880972E /* TimelineGapExtension.swift */,
 				C95AF729D85C65D636AF500A /* TimelineBackdropWeekView.swift */,
 				90F01E2761C0C86CBDFA7BB9 /* TimelineWeekDayCell.swift */,
-				4D16CF764ED2CECF5A9AFDF3 /* HomeTimeIntervalExtension.swift */,
-				1160613FFDAE3936EA841FD2 /* HomePerformanceSignposts.swift */,
-				425B8A685EE2C485783B0578 /* HomeHabitSectionCardHost.swift */,
-				16B708DAB6EC819BECE9B5A8 /* HomeCalendarEventDetailSelection.swift */,
-				7B6F00C3944DB39EBB0DDA55 /* HomeCalendarEventDetailSheet.swift */,
-				6425309F28BBC7C61C9C58F3 /* SunriseHomeDatePickerPopover.swift */,
-				83540D1FFD9826270275D74A /* SunriseAppShellViewRoot.swift */,
-				4D27FF67FB1DB3066CA04D50 /* SunriseAppShellView+DerivedState.swift */,
-				8FDA708D6EFE103BE7B725E0 /* SunriseAppShellView+RescueOverlays.swift */,
-				CD8641383368773B407AE249 /* SunriseAppShellView+HomeScreenComposition.swift */,
-				608542355F067EA88F7E716F /* SunriseAppShellView+ObserversSearchAndBackdrop.swift */,
-				855AD3CAAA08B951BDD134FD /* SunriseAppShellView+FacesAndSearchChat.swift */,
-				C041D826927F12B5D4A445BA /* SunriseAppShellView+SearchSurface.swift */,
-				2113ED4006493C0B58760C99 /* SunriseAppShellView+TaskListAndDaySwipe.swift */,
-				E40C44F474B7E5FCB7349186 /* SunriseAppShellView+TimelineSurface.swift */,
-				E98C6DC8C0DE10D010A97DC6 /* SunriseAppShellView+CalendarFooterAndTrackingRail.swift */,
-				FB2B2C9DCA8513C631F384DA /* SunriseAppShellView+HabitsAgendaAndFocusStrip.swift */,
-				704D674D0BE292CD679FE13E /* SunriseAppShellView+FocusInsightsAndRouting.swift */,
-				CB45FAF57431067D93F59BA3 /* SunriseAppShellView+FocusTimersAndReflection.swift */,
-				02140BA5618285E3AC49CA18 /* CalendarCardChromeModifier.swift */,
-				B010C6D75FA3187BE754B3BF /* InsightsActionIntentExtension.swift */,
-				4D3A6556C5C49F5516DB6ECC /* HomeStaggerModifier.swift */,
-				786CACDAB366EB8BCBB657A3 /* HomeDenseSurfaceModifier.swift */,
-				525792156B7DB238F8089667 /* QuietTrackingRailStreakWidget.swift */,
-				8AA0626EE55DAF0FA5CD8995 /* OverdueRescueLauncherOverlayView.swift */,
 				C20400B4B017F188A0F00344 /* OverdueRescueDeckState.swift */,
 				2F86906A0E4C13F4F10D0C6B /* OverdueRescueDecisionSource.swift */,
 				510B0D69D4D3766C988BF637 /* OverdueRescueDecisionAction.swift */,
@@ -3883,7 +3709,6 @@
 		755FE8D52479154B00A71A75 /* Delegates */ = {
 			isa = PBXGroup;
 			children = (
-				75F9937F2485B04200C340EB /* Score.swift */,
 			);
 			path = Delegates;
 			sourceTree = "<group>";
@@ -3900,7 +3725,6 @@
 			children = (
 				75F9937524824E7E00C340EB /* Animation */,
 				755FE8E02479E61600A71A75 /* Theme */,
-				75F9937D24859ADB00C340EB /* HomeBottomBarView.swift */,
 				7513BA312687C40500F8CCE0 /* SettingsBackdrop.swift */,
 				607D98C13538414095C75E7B /* AddTaskMetadataRow.swift */,
 				DDFDBE1A33B827BB4D7FD04A /* AddTaskPriorityPicker.swift */,
@@ -3938,7 +3762,6 @@
 				B1A000000000000000000018 /* FocusCardFlipView.swift */,
 				B1A000000000000000000016 /* SunriseEvaSheets.swift */,
 				D4F10000000000000000010B /* HomeWeeklySummaryCard.swift */,
-				BF5D7161411B42651DF00D60 /* SunriseAppShellView.swift */,
 				7551F0000000000000000011 /* SunriseDecorAsset.swift */,
 				7551F0000000000000000012 /* SunriseDestinationScaffold.swift */,
 				7551F0000000000000000013 /* SunriseSegmentedControl.swift */,
@@ -3993,23 +3816,8 @@
 				B8E100022F70000100A0A001 /* LifeBoardCTABezel.metal */,
 				37E2466DBE2A76A73458F530 /* SunriseFocusTimerView.swift */,
 				6D63FBA200D736491232884A /* SunriseFocusSessionSummaryView.swift */,
-				E2BA3F253548BE9F1EE2AB4B /* SunriseDailyReflectionView.swift */,
-				D5A100000000000000000001 /* ReflectPlanStyle.swift */,
-				D5A100000000000000000002 /* SunriseReflectPlanScreen.swift */,
-				D5A100000000000000000003 /* ReflectPlanHeader.swift */,
-				D5A100000000000000000004 /* StatusChip.swift */,
-				D5A100000000000000000005 /* YesterdaySummaryCard.swift */,
-				D5A100000000000000000006 /* HabitStreakMiniCard.swift */,
-				D5A100000000000000000007 /* TodayPlanCard.swift */,
-				D5A100000000000000000008 /* TodayTaskRow.swift */,
-				D5A100000000000000000009 /* FocusPill.swift */,
+				D5A100000000000000000001 /* EvaClayStyle.swift */,
 				D5A10000000000000000000A /* PlanningSummaryRow.swift */,
-				D5A10000000000000000000B /* AddContextCard.swift */,
-				D5A10000000000000000000C /* ContextChipGroup.swift */,
-				D5A10000000000000000000D /* ReflectPlanChipFlow.swift */,
-				D5A10000000000000000000E /* ReflectPlanWrappingHStackLayout.swift */,
-				D5A10000000000000000000F /* StickySaveButton.swift */,
-				D5A100000000000000000010 /* SwapTaskPicker.swift */,
 				D4F10000000000000000010C /* SunriseWeeklyPlannerView.swift */,
 				D4F10000000000000000010D /* SunriseWeeklyReviewView.swift */,
 				D4F10000000000000000010F /* SunriseReflectionNoteComposerView.swift */,
@@ -4043,8 +3851,6 @@
 				755FE8D52479154B00A71A75 /* Delegates */,
 				75C7B8202454DABC00C61668 /* SettingsPageViewController.swift */,
 				75F0C70A2DE9E47C008F4460 /* ColoredPillBackgroundView.swift */,
-				753EFCA12445A24500A739E3 /* HomeViewController.swift */,
-				1F9B00002FBA700000000001 /* HomeNavigationCoordinator.swift */,
 				1F9B00022FBA700000000003 /* HomeReloadCoordinator.swift */,
 				1F9B00042FBA700000000004 /* HomeNavigationIntent.swift */,
 				1F9B00062FBA700000000006 /* HomeNavigationEventAdapter.swift */,
@@ -4052,16 +3858,6 @@
 				75E866DB2DFF1BB1000470B4 /* Settings */,
 				75A6315D2E8BDAB9006EEA59 /* HomeSearchViewModel.swift */,
 				B1A1C1D1E1F1020304050602 /* BootstrapFailureViewController.swift */,
-				CFBD3BC2B501293FC35C162C /* HomeViewController+SurfacePreparation.swift */,
-				B9F0161DC62BDB27BEE93C1D /* HomeViewController+RenderPipeline.swift */,
-				A134F2A3EA61AB508E9A3ED9 /* HomeViewController+Keyboard.swift */,
-				7A10E0B067197D4A32724B9F /* HomeViewController+OnboardingAdapter.swift */,
-				AE5DC87E5EFAD171634D5F0A /* HomeViewController+Presentation.swift */,
-				3F90A4ACBFBF5EEA42C69976 /* HomeViewController+Navigation.swift */,
-				849A846930F8CAB1E8403C68 /* HomeViewController+Reload.swift */,
-				F1EF5E391342B1FBE7864081 /* HomeViewController+Snackbar.swift */,
-				EA1AC6826CEC438ED475A25E /* HomeViewController+AdaptivePresentation.swift */,
-				0569FE829370226C7433FCAE /* HomeViewController+Testing.swift */,
 			);
 			path = ViewControllers;
 			sourceTree = "<group>";
@@ -5325,7 +5121,6 @@
 				752A974B2E92A6ED00CFC576 /* ProjectConstants.swift in Sources */,
 				75F0C70C2DE9E47C008F4460 /* ColoredPillBackgroundView.swift in Sources */,
 				7551DA09248832BE005CF826 /* ToDoTimeUtils.swift in Sources */,
-				753EFCA22445A24500A739E3 /* HomeViewController.swift in Sources */,
 				AAB000000000000000000002 /* HomeRenderState.swift in Sources */,
 				AAB000000000000000000004 /* HomeStores.swift in Sources */,
 				AAB000000000000000000009 /* HomeShellTypes.swift in Sources */,
@@ -5346,7 +5141,6 @@
 				AAB00000000000000000002D /* HomeSunriseLayoutSupport.swift in Sources */,
 				AAB00000000000000000002F /* HomeDaySwipeResolver.swift in Sources */,
 				AAB000000000000000000031 /* HomeSearchState.swift in Sources */,
-				1F9B00012FBA700000000001 /* HomeNavigationCoordinator.swift in Sources */,
 				1F9B00032FBA700000000003 /* HomeReloadCoordinator.swift in Sources */,
 				1F9B00052FBA700000000005 /* HomeNavigationIntent.swift in Sources */,
 				1F9B00072FBA700000000007 /* HomeNavigationEventAdapter.swift in Sources */,
@@ -5354,7 +5148,6 @@
 				75F89FB92DFC83EF009EDD8F /* PromptMiddleware.swift in Sources */,
 				D206E9E48E0AEB00D02CED2D /* SlashCommandCatalog.swift in Sources */,
 				D6BD60E5C38CC9087DD53FC6 /* SlashCommandExecutionService.swift in Sources */,
-				75F993802485B04200C340EB /* Score.swift in Sources */,
 				7513BA322687C40500F8CCE0 /* SettingsBackdrop.swift in Sources */,
 				752A97512E92A70100CFC576 /* UUIDGenerator.swift in Sources */,
 				753EFC9E2445A24500A739E3 /* AppDelegate.swift in Sources */,
@@ -5460,7 +5253,6 @@
 				FEEDFACE0000000000000002 /* SunriseLensLifeAreasSheet.swift in Sources */,
 				FEEDFACE0000000000000004 /* HomeChipRail.swift in Sources */,
 				FEEDFACE0000000000000006 /* LBChipRailSeparator.swift in Sources */,
-				75F9937E24859ADB00C340EB /* HomeBottomBarView.swift in Sources */,
 				7529F6F32DFDE9BC000CBE36 /* LLMDataController.swift in Sources */,
 				7529F7AA2F5D0001000CBE36 /* LLMDebugSmokeRunner.swift in Sources */,
 				75A631612E8BDAB9006EEA59 /* HomeSearchViewModel.swift in Sources */,
@@ -5536,7 +5328,6 @@
 				D1A200000000000000000008 /* HomeMomentumProgressBar.swift in Sources */,
 				B1A000000000000000000008 /* FocusCardFlipView.swift in Sources */,
 				B1A000000000000000000006 /* SunriseEvaSheets.swift in Sources */,
-				355015C0A77A72D864F1AC64 /* SunriseAppShellView.swift in Sources */,
 				A11D5A110000000000000011 /* SunriseDaySwipeSide.swift in Sources */,
 				A11D5A110000000000000012 /* SunriseDaySwipeData.swift in Sources */,
 				A11D5A110000000000000013 /* SunriseDaySwipeWaveShape.swift in Sources */,
@@ -5699,35 +5490,15 @@
 				C4B2E3D5F6A70819 /* AchievementCatalog.swift in Sources */,
 				C4B2E3D5F6A7081D /* BadgeDetailSheet.swift in Sources */,
 				36235D01BFCF2D2001A39CCE /* FocusSessionUseCase.swift in Sources */,
-				D4F300000000000000000130 /* DailyReflectionLoadCoordinator.swift in Sources */,
-				A2181FC3974A81C3FB7BEDFF /* MarkDailyReflectionCompleteUseCase.swift in Sources */,
 				3A549BEBEF3902410F96971A /* SunriseFocusTimerView.swift in Sources */,
 				A912CB15A1588398C547FCE3 /* SunriseFocusSessionSummaryView.swift in Sources */,
-				BA046E8ED5086F9E39ACB225 /* SunriseDailyReflectionView.swift in Sources */,
-				D5A200000000000000000001 /* ReflectPlanStyle.swift in Sources */,
-				D5A200000000000000000002 /* SunriseReflectPlanScreen.swift in Sources */,
-				D5A200000000000000000003 /* ReflectPlanHeader.swift in Sources */,
-				D5A200000000000000000004 /* StatusChip.swift in Sources */,
-				D5A200000000000000000005 /* YesterdaySummaryCard.swift in Sources */,
-				D5A200000000000000000006 /* HabitStreakMiniCard.swift in Sources */,
-				D5A200000000000000000007 /* TodayPlanCard.swift in Sources */,
-				D5A200000000000000000008 /* TodayTaskRow.swift in Sources */,
-				D5A200000000000000000009 /* FocusPill.swift in Sources */,
+				D5A200000000000000000001 /* EvaClayStyle.swift in Sources */,
 				D5A20000000000000000000A /* PlanningSummaryRow.swift in Sources */,
-				D5A20000000000000000000B /* AddContextCard.swift in Sources */,
-				D5A20000000000000000000C /* ContextChipGroup.swift in Sources */,
-				D5A20000000000000000000D /* ReflectPlanChipFlow.swift in Sources */,
-				D5A20000000000000000000E /* ReflectPlanWrappingHStackLayout.swift in Sources */,
-				D5A20000000000000000000F /* StickySaveButton.swift in Sources */,
-				D5A200000000000000000010 /* SwapTaskPicker.swift in Sources */,
 				D4F200000000000000000109 /* WeeklyPlannerViewModel.swift in Sources */,
 				D4F20000000000000000010A /* WeeklyReviewViewModel.swift in Sources */,
 				FFCF1FC469B2AE9FC88CF3D1 /* InsightsViewModel.swift in Sources */,
 				D9A0B1C2D3E4F506172839AD /* InsightsModuleVisibilityPlanner.swift in Sources */,
-				A25DA7AE7D00020D26A9EBC7 /* InsightsTabView.swift in Sources */,
-				5E7A10000000000000000001 /* SunriseInsightsView.swift in Sources */,
 				5E7A20000000000000000001 /* SunriseInsightsHeaderView.swift in Sources */,
-				5E7A20000000000000000003 /* SunriseInsightsHeroCard.swift in Sources */,
 				D4F20000000000000000010B /* HomeWeeklySummaryCard.swift in Sources */,
 				D4F20000000000000000010C /* SunriseWeeklyPlannerView.swift in Sources */,
 				D4F20000000000000000010D /* SunriseWeeklyReviewView.swift in Sources */,
@@ -5745,16 +5516,6 @@
 				BD300CBF97B95F0D2A2CA092 /* WatchWidgetSnapshotSync.swift in Sources */,
 				C7A200000000000000000005 /* LockedResultAccumulator.swift in Sources */,
 				02548417398F2FC3E57621F1 /* HomeArchitectureProtocols.swift in Sources */,
-				3988CE7E8470D1506CB290C1 /* HomeViewController+SurfacePreparation.swift in Sources */,
-				EE358DD82842FD4D23921CB5 /* HomeViewController+RenderPipeline.swift in Sources */,
-				4856C38AD2C996768BF11F45 /* HomeViewController+Keyboard.swift in Sources */,
-				F2D78244C6C3ADD6444121B8 /* HomeViewController+OnboardingAdapter.swift in Sources */,
-				D361862502EE5A7C61FAEDB8 /* HomeViewController+Presentation.swift in Sources */,
-				148DF59423DB8F002C665F90 /* HomeViewController+Navigation.swift in Sources */,
-				9144D767D06263C679DE7827 /* HomeViewController+Reload.swift in Sources */,
-				DAD2A078D60094864EB53934 /* HomeViewController+Snackbar.swift in Sources */,
-				46A6B044AA174C2577BE9C87 /* HomeViewController+AdaptivePresentation.swift in Sources */,
-				94267763856319AD32C226B0 /* HomeViewController+Testing.swift in Sources */,
 				7EB9C6A5754FB5403C4D1F43 /* HomeViewModel+ViewState.swift in Sources */,
 				59B3E6E34D642F3E46FC1C64 /* HomeTimelineViewModel.swift in Sources */,
 				BD8C64B243D148C623D1B023 /* HomeViewModel+Timeline.swift in Sources */,
@@ -5812,7 +5573,6 @@
 				C3D50B7B0090C88C8F837DA5 /* OnboardingFlowModel+NavigationPersistence.swift in Sources */,
 				582890EBB89DC028C4FA8F9D /* OnboardingFlowModel+EvaActivationPreparation.swift in Sources */,
 				A88F93F1E4769FB8D7640E3E /* AppOnboardingHostAdapter.swift in Sources */,
-				F0A15BDE3E582D2E951E98F4 /* HomeViewControllerExtension.swift in Sources */,
 				D38314D027D0FAD3E8DBD55A /* AppOnboardingCoordinator.swift in Sources */,
 				A516ABAD2F7D26235B44C3A1 /* AppOnboardingCoordinator+Presentation.swift in Sources */,
 				07F9DF04416807600DA792AA /* OnboardingInputField.swift in Sources */,
@@ -5919,18 +5679,12 @@
 				58361669F430895FBF2918C5 /* FocusPinResult.swift in Sources */,
 				7F4CC1257A958D8992586922 /* FocusPromotionResult.swift in Sources */,
 				689BD052F12F388961F9C63C /* HomeNotificationNameExtension.swift in Sources */,
-				F260B975BFD99463197CD6A0 /* CelebrationKind.swift in Sources */,
-				F64C9A3B63E962670DB86280 /* CelebrationEvent.swift in Sources */,
-				B7B914D911EA894F24D58E27 /* CelebrationPresentation.swift in Sources */,
-				CEBD06B0323F598F2C11A5DC /* CelebrationRouter.swift in Sources */,
-				539F4B713CA94D564337B279 /* DefaultCelebrationRouter.swift in Sources */,
 				C68012797DEDCF3D065BBA45 /* InsightsLaunchRequest.swift in Sources */,
 				160F368EB1102A7D052D2220 /* HomeOverdueRescueLauncherState.swift in Sources */,
 				0EC49C3CF56F9FF0863151BD /* HomeViewModelRoot.swift in Sources */,
 				181CC936773A7F7700000000 /* HomeViewModel+Bindings.swift in Sources */,
 				050AE50E81D4703777D6F0C1 /* HomeViewModel+RenderTransaction.swift in Sources */,
 				5EA366582815849801B3F3F2 /* HomeViewModel+AnalyticsRefresh.swift in Sources */,
-				0F97D0D0CB26167BF4F3E1DD /* HomeViewModel+DailyReflectionPreview.swift in Sources */,
 				220B2D5DF3B84749D8AABC99 /* HomeViewModel+DailySummaryModal.swift in Sources */,
 				DC94FAFADB950991425D291B /* HomeViewModel+DateNavigation.swift in Sources */,
 				16E09E0E5A4633E33062DF74 /* HomeViewModel+DueTodayAgenda.swift in Sources */,
@@ -6060,31 +5814,6 @@
 				2E47612416B8D316F93760D1 /* TimelineGapExtension.swift in Sources */,
 				D57A320DF8A2202069F711FB /* TimelineBackdropWeekView.swift in Sources */,
 				BE57DA6C896F7EF32A6C3D87 /* TimelineWeekDayCell.swift in Sources */,
-				91FD6A303660EEF5294F7902 /* HomeTimeIntervalExtension.swift in Sources */,
-				EF8AD806AA6D1C9D47FA2BDE /* HomePerformanceSignposts.swift in Sources */,
-				CE266F5395572A3FFC2150D1 /* HomeHabitSectionCardHost.swift in Sources */,
-				0DDCFBDB474413795EC30643 /* HomeCalendarEventDetailSelection.swift in Sources */,
-				8B28B02DAA779156218510BB /* HomeCalendarEventDetailSheet.swift in Sources */,
-				DC9F1811662585E9D53AA8FA /* SunriseHomeDatePickerPopover.swift in Sources */,
-				5B7BAB6078EBCDB6CC9F7B7E /* SunriseAppShellViewRoot.swift in Sources */,
-				5C336D92A4C8046FB4291347 /* SunriseAppShellView+DerivedState.swift in Sources */,
-				6C361AE75951A20D4AA68C5B /* SunriseAppShellView+RescueOverlays.swift in Sources */,
-				F14217E9721A35DF328C2F66 /* SunriseAppShellView+HomeScreenComposition.swift in Sources */,
-				6BDDCD87B9F9CF4256048C93 /* SunriseAppShellView+ObserversSearchAndBackdrop.swift in Sources */,
-				ACF0BB7B85C9268CD15869B1 /* SunriseAppShellView+FacesAndSearchChat.swift in Sources */,
-				DC90B81FA56C3F8715AD26A1 /* SunriseAppShellView+SearchSurface.swift in Sources */,
-				DF8962905A29B85F26BDA46D /* SunriseAppShellView+TaskListAndDaySwipe.swift in Sources */,
-				E86FFAEB786065858AD5DFD4 /* SunriseAppShellView+TimelineSurface.swift in Sources */,
-				79A0BA40A86AF0524E6A1802 /* SunriseAppShellView+CalendarFooterAndTrackingRail.swift in Sources */,
-				4EFCDE37C57E117EA5041D85 /* SunriseAppShellView+HabitsAgendaAndFocusStrip.swift in Sources */,
-				55A68085778A4B9EA4FAC65D /* SunriseAppShellView+FocusInsightsAndRouting.swift in Sources */,
-				D697AD981C87D4D7D84A6EF0 /* SunriseAppShellView+FocusTimersAndReflection.swift in Sources */,
-				3E939305B64D29F91B6C188B /* CalendarCardChromeModifier.swift in Sources */,
-				AF5A65D3A0CB556B850BFC01 /* InsightsActionIntentExtension.swift in Sources */,
-				6FB7164807B1BD76EEF6B571 /* HomeStaggerModifier.swift in Sources */,
-				117D70E33461D260AF2A46C1 /* HomeDenseSurfaceModifier.swift in Sources */,
-				C01EF007CBD4512099E412AF /* QuietTrackingRailStreakWidget.swift in Sources */,
-				A48DB3A40E4B91F10D54B6B3 /* OverdueRescueLauncherOverlayView.swift in Sources */,
 				C27DED3B1AE919A68A5FA783 /* OverdueRescueDeckState.swift in Sources */,
 				0EC4FE8730866512296A0674 /* OverdueRescueDecisionSource.swift in Sources */,
 				0A2C5397D36D0D8C6B082AE8 /* OverdueRescueDecisionAction.swift in Sources */,
@@ -6342,7 +6071,7 @@
 				B7C8D9E0F1A223344556677D /* SunriseFocusZoneStatusTests.swift in Sources */,
 				B7C8D9E0F1A223344556677F /* SunriseFocusZonePresentationTests.swift in Sources */,
 				F0A1B2C3D4E5F60718293B4F /* HomeViewModelPersistenceTests.swift in Sources */,
-				D7A500000000000000000202 /* HomeViewControllerLifecycleTests.swift in Sources */,
+				D7A500000000000000000202 /* LifeBoardApplicationLifecycleTests.swift in Sources */,
 				F2A1B2C3D4E5F60718293B53 /* HomeBottomBarStateTests.swift in Sources */,
 				E6A100000000000000000002 /* SunriseHeaderAssetTests.swift in Sources */,
 				F2A1B2C3D4E5F60718293B54 /* HomeViewModelXPScoreRegressionTests.swift in Sources */,
@@ -6394,7 +6123,6 @@
 				7542A0012F7B100100ABC101 /* OverdueRescueTimelineUITests.swift in Sources */,
 				F0A100000000000000000101 /* SeededFeaturePages.swift in Sources */,
 				F0A100000000000000000201 /* OverdueRescueSeededUITests.swift in Sources */,
-				F0A100000000000000000301 /* ReflectPlanSeededUITests.swift in Sources */,
 				F0A100000000000000000401 /* FocusNowSeededUITests.swift in Sources */,
 				7551BCD22EAB665F003C6916 /* ProjectManagementTests.swift in Sources */,
 				7551BCD32EAB665F003C6916 /* TestDataFactory.swift in Sources */,

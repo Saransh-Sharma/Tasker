@@ -16,8 +16,8 @@ public struct FilterCalendarEventsUseCase {
             //
             // This previously read `selectedCalendarIDs.isEmpty || contains(...)`,
             // so an empty set admitted everything — while the widget projection,
-            // `HomeViewModel` and `DailyReflectionLoadCoordinator` all treat
-            // empty as a distinct "none selected" state. The disagreement is a
+            // `HomeViewModel` and the planning projections treat empty as a
+            // distinct "none selected" state. The disagreement is a
             // consent question rather than a style one: someone who never picked
             // calendars should not silently have all of them read.
             //

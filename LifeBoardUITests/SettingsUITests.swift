@@ -96,9 +96,7 @@ class SettingsUITests: XCTestCase {
         // Using waitForExistence with a short timeout and checking for false is better.
         XCTAssertFalse(app.navigationBars["Settings"].waitForExistence(timeout: 5), "Settings page was not dismissed.")
         
-        // Optionally, verify that an element from the HomeViewController is visible again
-        // For example, if HomeViewController has a specific, identifiable element:
-        // XCTAssertTrue(app.otherElements["HomeViewIdentifier"].exists) // Replace with actual identifier
+        // The native Life OS root is mounted again after dismissal.
     }
 
     func testNavigateToProjectManagementAndBack() throws {

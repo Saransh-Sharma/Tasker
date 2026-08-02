@@ -24,7 +24,6 @@ struct AdaptiveHomeProjectionSnapshot: Equatable, Sendable {
     var nextMeetingTitle: String?
     var freeUntil: Date?
     var calendarNeedsSetup = true
-    var hasReflection = false
 }
 
 private struct HomeTodayStoryItem: Identifiable, Equatable {
@@ -35,35 +34,43 @@ private struct HomeTodayStoryItem: Identifiable, Equatable {
     let destination: LifeBoardDestination
 }
 
-/// Converts existing Home stores into actor-safe values consumed by Adaptive Home.
-/// It intentionally has no persistence or managed-object dependency of its own.
+/// App-level composition for the canonical Home projection.
+///
+/// The coordinator owns the stores that Adaptive Home reads and applies the
+/// view model's slice transaction directly. No view controller has to load or
+/// render before Home can receive its first projection.
 @MainActor
 @Observable
-final class HomeProjectionAdapter {
+final class HomeProjectionCoordinator {
     private(set) var snapshot = AdaptiveHomeProjectionSnapshot()
 
-    @ObservationIgnored private let chromeStore: HomeChromeStore
-    @ObservationIgnored private let tasksStore: HomeTasksStore
-    @ObservationIgnored private let habitsStore: HomeHabitsStore
-    @ObservationIgnored private let calendarStore: HomeCalendarStore
+    @ObservationIgnored private let chromeStore = HomeChromeStore()
+    @ObservationIgnored private let tasksStore = HomeTasksStore()
+    @ObservationIgnored private let habitsStore = HomeHabitsStore()
+    @ObservationIgnored private let calendarStore = HomeCalendarStore()
     @ObservationIgnored private var cancellables: Set<AnyCancellable> = []
+    @ObservationIgnored private var lastTransaction = HomeRenderTransaction.empty
 
-    init(
-        chromeStore: HomeChromeStore,
-        tasksStore: HomeTasksStore,
-        habitsStore: HomeHabitsStore,
-        calendarStore: HomeCalendarStore
-    ) {
-        self.chromeStore = chromeStore
-        self.tasksStore = tasksStore
-        self.habitsStore = habitsStore
-        self.calendarStore = calendarStore
-
+    init(homeViewModel: HomeViewModel) {
         chromeStore.$snapshot
             .combineLatest(tasksStore.$snapshot, habitsStore.$snapshot, calendarStore.$snapshot)
             .sink { [weak self] _, _, _, _ in self?.rebuild() }
             .store(in: &cancellables)
+        homeViewModel.$homeRenderTransaction
+            .receive(on: RunLoop.main)
+            .sink { [weak self] transaction in self?.apply(transaction) }
+            .store(in: &cancellables)
+        apply(homeViewModel.homeRenderTransaction)
         rebuild()
+    }
+
+    private func apply(_ transaction: HomeRenderTransaction) {
+        guard transaction != lastTransaction else { return }
+        if transaction.chrome != lastTransaction.chrome { chromeStore.apply(transaction.chrome) }
+        if transaction.tasks != lastTransaction.tasks { tasksStore.apply(transaction.tasks) }
+        if transaction.habits != lastTransaction.habits { habitsStore.apply(transaction.habits) }
+        if transaction.calendar != lastTransaction.calendar { calendarStore.apply(transaction.calendar) }
+        lastTransaction = transaction
     }
 
     private func rebuild() {
@@ -86,8 +93,7 @@ final class HomeProjectionAdapter {
             },
             nextMeetingTitle: calendar.nextMeeting?.event.title,
             freeUntil: calendar.freeUntil,
-            calendarNeedsSetup: calendar.moduleState == .permissionRequired || calendar.moduleState == .noCalendarsSelected,
-            hasReflection: chrome.dailyReflectionEntryState != nil
+            calendarNeedsSetup: calendar.moduleState == .permissionRequired || calendar.moduleState == .noCalendarsSelected
         )
     }
 }
@@ -746,7 +752,7 @@ struct LifeBoardOverlayHost<Overlay: View, Control: View>: View {
 }
 
 struct LifeBoardAdaptiveHome: View {
-    let projectionAdapter: HomeProjectionAdapter
+    let projectionAdapter: HomeProjectionCoordinator
     let preferences: LifeBoardPresentationPreferences
     let router: LifeBoardAppRouter
     let captureRouter: CaptureRouter
@@ -800,7 +806,7 @@ struct LifeBoardAdaptiveHome: View {
     @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
 
     init(
-        projectionAdapter: HomeProjectionAdapter,
+        projectionAdapter: HomeProjectionCoordinator,
         preferences: LifeBoardPresentationPreferences,
         router: LifeBoardAppRouter,
         captureRouter: CaptureRouter,
@@ -2943,7 +2949,7 @@ struct LifeBoardAdaptiveHome: View {
         Button {
             captureRouter.request(kind: .journal, source: .widget)
         } label: {
-            Label(projectionAdapter.snapshot.hasReflection ? "Add entry" : "Write", systemImage: "square.and.pencil")
+            Label("Write", systemImage: "square.and.pencil")
                 .lineLimit(1)
         }
         .buttonStyle(LifeBoardPrimaryActionStyle(fill: palette.color(for: .foreground)))
@@ -2966,9 +2972,7 @@ struct LifeBoardAdaptiveHome: View {
         VStack(alignment: .leading, spacing: 13) {
             widgetTitle("Journal", symbol: "book.closed", palette: palette)
                 .accessibilityIdentifier("home.widget.journal")
-            Text(projectionAdapter.snapshot.hasReflection
-                 ? "Today’s reflection is safe and ready to revisit."
-                 : "Keep one honest moment from today—words, photos, or audio.")
+            Text("Keep one honest moment from today—words, photos, or audio.")
                 .font(.subheadline)
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
                 .fixedSize(horizontal: false, vertical: true)

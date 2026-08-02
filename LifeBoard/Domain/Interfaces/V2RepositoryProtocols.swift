@@ -364,24 +364,6 @@ public protocol WeeklyReviewDraftStoreProtocol: Sendable {
     )
 }
 
-public protocol DailyReflectionStoreProtocol: Sendable {
-    func isCompleted(on date: Date) -> Bool
-    func completedDateStamps() -> Set<String>
-    func fetchReflectionPayload(on date: Date) -> ReflectionPayload?
-    @discardableResult
-    func saveReflectionPayload(_ payload: ReflectionPayload) throws -> ReflectionPayload
-    @discardableResult
-    func markCompleted(
-        on reflectionDate: Date,
-        completedAt: Date,
-        payload: ReflectionPayload?
-    ) throws -> ReflectionPayload?
-    func fetchPlanDraft(on date: Date) -> DailyPlanDraft?
-    @discardableResult
-    func savePlanDraft(_ draft: DailyPlanDraft, replaceExisting: Bool) throws -> DailyPlanDraft
-    func clearPlanDraft(on date: Date) throws
-}
-
 public protocol ReflectionNoteRepositoryProtocol: Sendable {
     func fetchNotes(query: ReflectionNoteQuery, completion: @escaping @Sendable (Result<[ReflectionNote], Error>) -> Void)
     func saveNote(_ note: ReflectionNote, completion: @escaping @Sendable (Result<ReflectionNote, Error>) -> Void)

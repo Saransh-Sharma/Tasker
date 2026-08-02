@@ -11,7 +11,6 @@ final class HomeUITestWorkspaceSeeder {
     private static var hasSeededUITestEstablishedWorkspace = false
     private static var hasSeededUITestSearchWorkspace = false
     private static var hasSeededUITestRescueWorkspace = false
-    private static var hasSeededUITestReflectPlanWorkspace = false
     private static var hasSeededUITestFocusWorkspace = false
     private static var hasSeededUITestHabitBoardWorkspace = false
     private static var hasSeededUITestQuietTrackingWorkspace = false
@@ -537,212 +536,6 @@ final class HomeUITestWorkspaceSeeder {
         }
     }
 
-    func seedUITestReflectPlanWorkspaceIfNeeded(
-        presentationDependencyContainer: PresentationDependencyContainer?,
-        viewModel: HomeViewModel?,
-        completion: @escaping () -> Void
-    ) {
-        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_REFLECT_PLAN_SUITE") else {
-            completion()
-            return
-        }
-        guard Self.hasSeededUITestReflectPlanWorkspace == false else {
-            completion()
-            return
-        }
-        guard let presentationDependencyContainer else {
-            completion()
-            return
-        }
-
-        Self.hasSeededUITestReflectPlanWorkspace = true
-
-        Task { @MainActor in
-            do {
-                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
-                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
-                let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
-                let updateTaskDefinition = presentationDependencyContainer.coordinator.updateTaskDefinition
-                let createHabit = presentationDependencyContainer.coordinator.createHabit
-                let resolveHabitOccurrence = presentationDependencyContainer.coordinator.resolveHabitOccurrence
-                let reflectionStore = presentationDependencyContainer.coordinator.dailyReflectionStore
-
-                let calendar = Calendar.current
-                let now = Date()
-                let today = calendar.startOfDay(for: now)
-                let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
-                let completedAt = calendar.date(bySettingHour: 17, minute: 20, second: 0, of: yesterday) ?? yesterday
-
-                let lifeArea = try await manageLifeAreas.createAsync(
-                    name: "Reflection Systems",
-                    color: "#6A4E8A",
-                    icon: "sparkles"
-                )
-                let project = try await manageProjects.createProjectAsync(
-                    request: CreateProjectRequest(
-                        name: "Reflect Plan Suite",
-                        description: "UI test reflect and plan seed",
-                        lifeAreaID: lifeArea.id
-                    )
-                )
-
-                let completedTaskID = UUID(uuidString: "22000000-0000-0000-0000-000000000001") ?? UUID()
-                let completedSecondID = UUID(uuidString: "22000000-0000-0000-0000-000000000002") ?? UUID()
-                let taskRequests = [
-                    CreateTaskDefinitionRequest(
-                        id: completedTaskID,
-                        title: "Reflect shipped proposal",
-                        details: "Completed yesterday for reflect and plan UI tests",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: yesterday),
-                        priority: .max,
-                        estimatedDuration: 60 * 60,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        id: completedSecondID,
-                        title: "Reflect closed inbox",
-                        details: "Second completed yesterday seed",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 15, minute: 0, second: 0, of: yesterday),
-                        priority: .high,
-                        estimatedDuration: 30 * 60,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000003") ?? UUID(),
-                        title: "Reflect carryover contract",
-                        details: "Open carryover from yesterday",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 16, minute: 0, second: 0, of: yesterday),
-                        priority: .high,
-                        estimatedDuration: 45 * 60,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000004") ?? UUID(),
-                        title: "Plan API review",
-                        details: "Top task candidate for today",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 9, minute: 30, second: 0, of: today),
-                        priority: .max,
-                        estimatedDuration: 90 * 60,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000005") ?? UUID(),
-                        title: "Plan customer reply",
-                        details: "Planning candidate",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: today),
-                        priority: .high,
-                        estimatedDuration: 25 * 60,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000006") ?? UUID(),
-                        title: "Plan 15 min cleanup",
-                        details: "Quick stabilizer candidate",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 13, minute: 0, second: 0, of: today),
-                        priority: .low,
-                        estimatedDuration: 15 * 60,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000007") ?? UUID(),
-                        title: "Plan swap candidate",
-                        details: "Swap picker replacement candidate",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 14, minute: 0, second: 0, of: today),
-                        priority: .low,
-                        estimatedDuration: 20 * 60,
-                        createdAt: now
-                    )
-                ]
-
-                for request in taskRequests {
-                    _ = try await createTaskDefinition.executeAsync(request: request)
-                }
-
-                _ = try await updateTaskDefinitionAsync(
-                    updateTaskDefinition,
-                    request: UpdateTaskDefinitionRequest(
-                        id: completedTaskID,
-                        isComplete: true,
-                        dateCompleted: completedAt
-                    )
-                )
-                _ = try await updateTaskDefinitionAsync(
-                    updateTaskDefinition,
-                    request: UpdateTaskDefinitionRequest(
-                        id: completedSecondID,
-                        isComplete: true,
-                        dateCompleted: completedAt.addingTimeInterval(30 * 60)
-                    )
-                )
-
-                let habitID = UUID(uuidString: "22000000-0000-0000-0000-000000000101") ?? UUID()
-                let habit = try await createHabit.executeAsync(
-                    request: CreateHabitRequest(
-                        id: habitID,
-                        title: "Protect shutdown ritual",
-                        lifeAreaID: lifeArea.id,
-                        projectID: project.id,
-                        kind: .positive,
-                        trackingMode: .dailyCheckIn,
-                        icon: HabitIconMetadata(symbolName: "moon.stars.fill", categoryKey: "reflection"),
-                        colorHex: HabitColorFamily.purple.canonicalHex,
-                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
-                        cadence: .daily(),
-                        createdAt: calendar.date(byAdding: .day, value: -8, to: today) ?? now
-                    )
-                )
-                try await resolveHabitOccurrence.executeAsync(
-                    habitID: habit.id,
-                    action: .lapsed,
-                    on: yesterday
-                )
-
-                if ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_REFLECT_PLAN_COMPLETED") {
-                    let payload = ReflectionPayload(
-                        reflectionDate: yesterday,
-                        planningDate: today,
-                        mode: .catchUpYesterday,
-                        mood: .good,
-                        energy: .okay,
-                        frictionTags: [.tooMuchPlanned],
-                        note: "Seeded completed reflection"
-                    )
-                    _ = try reflectionStore.markCompleted(on: yesterday, completedAt: now, payload: payload)
-                }
-
-                viewModel?.invalidateTaskCaches()
-            } catch {
-                logError(
-                    event: "ui_test_reflect_plan_workspace_seed_failed",
-                    message: "Failed to seed Reflect and Plan workspace for UI tests",
-                    fields: ["error": error.localizedDescription]
-                )
-            }
-
-            completion()
-        }
-    }
 
     func seedUITestFocusWorkspaceIfNeeded(presentationDependencyContainer: PresentationDependencyContainer?, completion: @escaping () -> Void) {
         let arguments = ProcessInfo.processInfo.arguments
@@ -936,7 +729,7 @@ final class HomeUITestWorkspaceSeeder {
                 let getHabitSignals = presentationDependencyContainer.coordinator.getHabitSignalsInRange
                 let occurrenceResolver = presentationDependencyContainer.coordinator.resolveOccurrence
                 let recomputeStreaks = presentationDependencyContainer.coordinator.recomputeHabitStreaks
-                let reflectionStore = presentationDependencyContainer.coordinator.dailyReflectionStore
+                let reflectionRepository = presentationDependencyContainer.coordinator.reflectionNoteRepository
 
                 let calendar = Calendar.current
                 let now = AppStoreScreenshotTestConfiguration.referenceDate
@@ -1224,20 +1017,24 @@ final class HomeUITestWorkspaceSeeder {
                     recomputeStreaks: recomputeStreaks
                 )
 
-                let reflectionPayload = ReflectionPayload(
-                    reflectionDate: yesterday,
-                    planningDate: today,
-                    mode: .catchUpYesterday,
-                    mood: .good,
-                    energy: .okay,
-                    frictionTags: [.meetings, .tooMuchPlanned],
-                    note: "Protected the launch review, moved the small admin items into one rescue pass, and kept the evening lighter."
+                let reflectionCreatedAt = calendar.date(
+                    bySettingHour: 20,
+                    minute: 45,
+                    second: 0,
+                    of: yesterday
+                ) ?? now
+                let reflection = ReflectionNote(
+                    kind: .freeform,
+                    energy: 3,
+                    mood: 4,
+                    prompt: "What helped the day stay deliberate?",
+                    noteText: "Protected the launch review, moved the small admin items into one rescue pass, and kept the evening lighter.",
+                    createdAt: reflectionCreatedAt,
+                    updatedAt: reflectionCreatedAt
                 )
-                _ = try reflectionStore.markCompleted(
-                    on: yesterday,
-                    completedAt: calendar.date(bySettingHour: 20, minute: 45, second: 0, of: yesterday) ?? now,
-                    payload: reflectionPayload
-                )
+                let _: ReflectionNote = try await withCheckedThrowingContinuation { continuation in
+                    reflectionRepository.saveNote(reflection) { continuation.resume(with: $0) }
+                }
 
                 try await seedAppStoreScreenshotEvaThread(referenceDate: now)
                 UserDefaults.standard.set(

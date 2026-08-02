@@ -47,11 +47,10 @@ private struct LifeBoardStableDestinationRoot: View {
 }
 
 public struct LifeOSFoundationShell: View {
-    private let legacyHomeController: UIViewController
     private let homeViewModel: HomeViewModel
     private let runtime: LifeOSFoundationRuntime
     private let showsReferenceHome: Bool
-    private let homeProjectionAdapter: HomeProjectionAdapter?
+    private let homeProjectionAdapter: HomeProjectionCoordinator
     private let dashboardLayoutRepository: any DashboardLayoutRepository
     private let phaseIIRepository: any LifeBoardPhaseIIRepository
     private let planningRepository: CoreDataPlanningRepository
@@ -104,10 +103,9 @@ public struct LifeOSFoundationShell: View {
     private let universalInputCoordinator: UniversalInputCoordinator
 
     init(
-        legacyHomeController: UIViewController,
         homeViewModel: HomeViewModel,
         runtime: LifeOSFoundationRuntime = .shared,
-        homeProjectionAdapter: HomeProjectionAdapter? = nil,
+        homeProjectionAdapter: HomeProjectionCoordinator,
         dashboardLayoutRepository: any DashboardLayoutRepository,
         phaseIIRepository: any LifeBoardPhaseIIRepository,
         planningRepository: CoreDataPlanningRepository,
@@ -123,7 +121,6 @@ public struct LifeOSFoundationShell: View {
         wellnessRepository: any WellnessRepository,
         showsReferenceHome: Bool = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_FOUNDATION_REFERENCE_DASHBOARD")
     ) {
-        self.legacyHomeController = legacyHomeController
         self.homeViewModel = homeViewModel
         self.runtime = runtime
         self.homeProjectionAdapter = homeProjectionAdapter
@@ -1156,9 +1153,7 @@ public struct LifeOSFoundationShell: View {
         router: LifeBoardAppRouter
     ) -> AnyView {
         if destination == .home,
-           V2FeatureFlags.adaptiveHomeV2Enabled,
-           V2FeatureFlags.lifeOSUnifiedPresentationV2Enabled,
-           let homeProjectionAdapter {
+           showsReferenceHome == false {
             return AnyView(LifeBoardAdaptiveHome(
                 projectionAdapter: homeProjectionAdapter,
                 preferences: runtime.preferences,
@@ -1177,10 +1172,6 @@ public struct LifeOSFoundationShell: View {
                     homeIsCustomizing = isCustomizing
                 }
             ))
-        } else if destination == .home, showsReferenceHome == false {
-            return AnyView(LegacyHomeControllerHost(controller: legacyHomeController)
-                .ignoresSafeArea()
-            )
         } else if destination == .plan,
                   V2FeatureFlags.phase1ExecutionFlagshipEnabled,
                   let planDependencies {
@@ -1995,10 +1986,8 @@ public struct LifeOSFoundationShell: View {
 
     /// Sends "check my meetings" to Plan's day lens.
     ///
-    /// This previously cast `legacyHomeController` to `HomeViewController` to
-    /// reach the Sunrise schedule screen — the last functional dependency the
-    /// Foundation shell had on the legacy UIKit home. The cast failed *silently*
-    /// when it failed, so the phrase could no-op with nothing logged.
+    /// This route used to depend on a detached UIKit home and could silently
+    /// no-op. The typed foundation route is now the sole authority.
     ///
     /// `.planDay` is not a compromise destination: it draws the same calendar
     /// events (`PlanDaySnapshot.commitments`, built from `externalCommitments`)
@@ -2360,16 +2349,6 @@ private struct ComposerToolStagger: ViewModifier {
                 }
             }
     }
-}
-
-private struct LegacyHomeControllerHost: UIViewControllerRepresentable {
-    let controller: UIViewController
-
-    func makeUIViewController(context: Context) -> UIViewController {
-        controller
-    }
-
-    func updateUIViewController(_ uiViewController: UIViewController, context: Context) {}
 }
 
 /// Data-preserving rollback destination for the Phase 1 route graph.
@@ -3436,7 +3415,7 @@ private struct FoundationThirdPartyNoticesView: View {
     }
 }
 
-private struct FoundationTaskRouteView: View {
+struct FoundationTaskRouteView: View {
     let id: UUID
     let dependencies: PlanFeatureDependencies
     let router: LifeBoardAppRouter

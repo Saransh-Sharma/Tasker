@@ -95,8 +95,6 @@ struct HomeChromeSnapshot: Equatable {
     let weeklySummaryIsLoading: Bool
     let weeklySummaryErrorMessage: String?
     let projects: [Project]
-    let dailyReflectionEntryState: DailyReflectionEntryState?
-    let dailyPlanDraft: DailyPlanDraft?
     let momentumGuidanceText: String
     /// Life-area identity + progress shown in the date hero subtitle while a life-area lens is active.
     let lifeAreaLensHeader: LifeAreaLensHeader?
@@ -116,8 +114,6 @@ struct HomeChromeSnapshot: Equatable {
         weeklySummaryIsLoading: Bool = false,
         weeklySummaryErrorMessage: String? = nil,
         projects: [Project],
-        dailyReflectionEntryState: DailyReflectionEntryState?,
-        dailyPlanDraft: DailyPlanDraft?,
         momentumGuidanceText: String,
         lifeAreaLensHeader: LifeAreaLensHeader? = nil,
         dayCompass: DayCompassCardModel? = nil
@@ -134,8 +130,6 @@ struct HomeChromeSnapshot: Equatable {
         self.weeklySummaryIsLoading = weeklySummaryIsLoading
         self.weeklySummaryErrorMessage = weeklySummaryErrorMessage
         self.projects = projects
-        self.dailyReflectionEntryState = dailyReflectionEntryState
-        self.dailyPlanDraft = dailyPlanDraft
         self.momentumGuidanceText = momentumGuidanceText
         self.lifeAreaLensHeader = lifeAreaLensHeader
         self.dayCompass = dayCompass
@@ -155,8 +149,6 @@ struct HomeChromeSnapshot: Equatable {
             weeklySummaryIsLoading: false,
             weeklySummaryErrorMessage: nil,
             projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
     }

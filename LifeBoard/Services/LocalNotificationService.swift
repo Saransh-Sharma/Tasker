@@ -699,8 +699,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
             NSNotification.Name("TaskUpdated"),
             NSNotification.Name("TaskDeleted"),
             NSNotification.Name("TaskCompletionChanged"),
-            Notification.Name("HomeTaskMutationEvent"),
-            .dailyReflectionCompleted
+            Notification.Name("HomeTaskMutationEvent")
         ]
         names.forEach { name in
             let token = NotificationCenter.default.addObserver(

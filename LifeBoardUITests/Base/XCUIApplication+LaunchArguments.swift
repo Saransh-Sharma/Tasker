@@ -30,8 +30,6 @@ extension XCUIApplication {
         case testSeedCompactRescueWorkspace = "-LIFEBOARD_TEST_SEED_COMPACT_RESCUE_WORKSPACE"
         case testSeedRescueTimelineWorkspace = "-LIFEBOARD_TEST_SEED_RESCUE_TIMELINE_WORKSPACE"
         case testSeedOverdueRescueSuite = "-LIFEBOARD_TEST_SEED_OVERDUE_RESCUE_SUITE"
-        case testSeedReflectPlanSuite = "-LIFEBOARD_TEST_SEED_REFLECT_PLAN_SUITE"
-        case testReflectPlanCompleted = "-LIFEBOARD_TEST_REFLECT_PLAN_COMPLETED"
         case testSeedFocusNowSuite = "-LIFEBOARD_TEST_SEED_FOCUS_NOW_SUITE"
         case testSeedFocusWorkspace = "-LIFEBOARD_TEST_SEED_FOCUS_WORKSPACE"
         case testSeedHabitBoardWorkspace = "-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE"

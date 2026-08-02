@@ -2,11 +2,37 @@
 //  HomeShellTypes.swift
 //  LifeBoard
 //
-//  Shell layout and hosting support for HomeViewController.
+//  Shell layout and hosting support shared by native LifeBoard roots.
 //
 
 import Foundation
 import SwiftUI
+
+public enum HomeShellPhase: String, Equatable {
+    case startup
+    case interactive
+}
+
+public enum HomeScrollChromeState: String, Equatable {
+    case nearTop
+    case expanded
+    case collapsed
+    case idle
+}
+
+enum HomeAnalyticsSurfaceState: Equatable {
+    case idle
+    case placeholder
+    case loading
+    case ready
+}
+
+enum HomeSearchSurfaceState: Equatable {
+    case idle
+    case presenting
+    case preparing
+    case ready
+}
 
 struct HomeLayoutMetrics: Equatable {
     let width: CGFloat
@@ -74,32 +100,6 @@ struct HomeBottomBarVisibilityPolicy {
             return bottomOverlayObstruction + idleSpacing + idleExtraSpacing
         }
         return regularSpacing
-    }
-}
-
-struct PhoneHomeRootContainer: View {
-    let root: SunriseAppShellView
-    let layoutClass: LifeBoardLayoutClass
-
-    var body: some View {
-        root.lifeboardLayoutClass(layoutClass)
-    }
-}
-
-struct HomeHostRootView: View {
-    let layoutClass: LifeBoardLayoutClass
-    let phoneRoot: SunriseAppShellView?
-    let iPadRoot: AnyView?
-
-    @ViewBuilder
-    var body: some View {
-        if let phoneRoot {
-            PhoneHomeRootContainer(root: phoneRoot, layoutClass: layoutClass)
-        } else if let iPadRoot {
-            iPadRoot
-        } else {
-            EmptyView()
-        }
     }
 }
 
