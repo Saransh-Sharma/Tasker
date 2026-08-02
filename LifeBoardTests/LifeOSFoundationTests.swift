@@ -108,7 +108,11 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let declared = Set(declaredNames)
         let registered = Set(LifeBoardSignatureShaders.functionNames)
 
-        XCTAssertEqual(registered.count, 17)
+        // 18 since LifeBoardFirstLight (2026-08-01). This number, the registry,
+        // the [[stitchable]] declarations and DESIGN.md's approved list are one
+        // atomic contract — warmUp() is all-or-nothing, so a mismatch disables
+        // *every* signature effect at runtime with nothing logged at the UI layer.
+        XCTAssertEqual(registered.count, 18)
         XCTAssertEqual(declared, registered)
     }
 
