@@ -282,9 +282,18 @@ final class PhaseOneRealCoreDataMutationJourneyTests: XCTestCase {
             let restoredMetadata = restoredMetadataValues.first
                 ?? PlanningTaskMetadata(taskID: taskID)
             XCTAssertEqual(restoredTask, original)
+            // `PlanningTaskMetadata.init` defaults `updatedAt` to `Date()`, and
+            // the synthesized `Equatable` compares it — so comparing a restored
+            // row against a freshly constructed default compared two different
+            // capture instants and could never pass, for any mutation. It hid
+            // the real defect next to it: `.move` genuinely failed to restore
+            // `sectionID`. Pin every field that carries meaning and normalize
+            // only the write timestamp.
+            var expectedMetadata = PlanningTaskMetadata(taskID: taskID)
+            expectedMetadata.updatedAt = restoredMetadata.updatedAt
             XCTAssertEqual(
                 restoredMetadata,
-                PlanningTaskMetadata(taskID: taskID),
+                expectedMetadata,
                 "Undo must restore the absence of planning metadata for \(mutation)"
             )
             if case .addTags = mutation {
