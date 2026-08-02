@@ -732,6 +732,7 @@
 		A97A6E7A7869366C7EF25D0E /* TimelineStemSegments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E2736E49AF3234FCB39F354 /* TimelineStemSegments.swift */; };
 		AA06EBAAFFC153EAB0DA4450 /* LifeBoardClaySurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC271661EA08BEAAD92DD4A0 /* LifeBoardClaySurface.swift */; };
 		A31000000000000000000222 /* LifeBoardLensPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000221 /* LifeBoardLensPicker.swift */; };
+		A3100000000000000000022A /* LifeBoardLiquidLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000229 /* LifeBoardLiquidLevel.swift */; };
 		A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000223 /* LifeBoardTokenBridge.swift */; };
 		AA8998042C8A124CBA384F20 /* WatchSnapshotReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20E51E01323F68DC0F47205 /* WatchSnapshotReceiver.swift */; };
 		AAB000000000000000000002 /* HomeRenderState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000001 /* HomeRenderState.swift */; };
@@ -2406,6 +2407,7 @@
 		DC10C732F02AD5EBF16333E3 /* HomeReplanUndoEntry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeReplanUndoEntry.swift; sourceTree = SOURCE_ROOT; };
 		DC271661EA08BEAAD92DD4A0 /* LifeBoardClaySurface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardClaySurface.swift; sourceTree = "<group>"; };
 		A31000000000000000000221 /* LifeBoardLensPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardLensPicker.swift; sourceTree = "<group>"; };
+		A31000000000000000000229 /* LifeBoardLiquidLevel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardLiquidLevel.swift; sourceTree = "<group>"; };
 		A31000000000000000000223 /* LifeBoardTokenBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardTokenBridge.swift; sourceTree = "<group>"; };
 		DCF4693EA4663A4F21990443 /* TaskExecutionContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TaskExecutionContracts.swift; path = Foundation/PhaseIII/TaskExecutionContracts.swift; sourceTree = "<group>"; };
 		A31000000000000000000101 /* InboxCommitCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InboxCommitCoordinator.swift; path = Foundation/PhaseIII/InboxCommitCoordinator.swift; sourceTree = "<group>"; };
@@ -4093,6 +4095,7 @@
 				C8A100002FB0000100C1A001 /* LifeBoardScreenScaffold.swift */,
 				DC271661EA08BEAAD92DD4A0 /* LifeBoardClaySurface.swift */,
 				A31000000000000000000221 /* LifeBoardLensPicker.swift */,
+				A31000000000000000000229 /* LifeBoardLiquidLevel.swift */,
 				A31000000000000000000223 /* LifeBoardTokenBridge.swift */,
 				D0EF94291CEE2D9728DA74D6 /* LifeBoardKineticText.swift */,
 				C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */,
@@ -6267,6 +6270,7 @@
 				C8A100012FB0000100C1A001 /* LifeBoardScreenScaffold.swift in Sources */,
 				AA06EBAAFFC153EAB0DA4450 /* LifeBoardClaySurface.swift in Sources */,
 				A31000000000000000000222 /* LifeBoardLensPicker.swift in Sources */,
+				A3100000000000000000022A /* LifeBoardLiquidLevel.swift in Sources */,
 				A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */,
 				B656784F87454EE866376D59 /* LifeBoardKineticText.swift in Sources */,
 				CDCE7BDD9D5A5F2FA1356E35 /* LifeBoardCompletionControl.swift in Sources */,
