@@ -2082,6 +2082,10 @@ struct LifeBoardAdaptiveHome: View {
             .buttonStyle(.plain)
             .padding(16)
             .lifeBoardClaySurface(.raised, cornerRadius: LifeBoardFoundationRadius.card)
+            // The ritual grows out of the row you tapped rather than sliding in
+            // from the edge as an unrelated screen — it is the same day, opened.
+            // Already gated on Reduce Motion, Catalyst and -UI_TESTING inside.
+            .lifeBoardTransitionSource(LifeBoardDayLoopTransition.id(for: ritual.route))
             .accessibilityIdentifier("home.dayRitual")
             .contextMenu {
                 if ritual.isEvening {
@@ -2128,8 +2132,17 @@ struct LifeBoardAdaptiveHome: View {
                     Text(rhythm)
                         .font(.caption)
                         .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        // Two lines, never truncation: this once shortened to
+                        // "1 day running · 1 of…", hiding exactly the half that
+                        // survives a bad week. Both numbers carry equal weight
+                        // because the anti-guilt mechanism here is arithmetic,
+                        // not copy.
                         .lineLimit(2)
                         .multilineTextAlignment(.trailing)
+                        // Per-glyph displacement under TextRenderer, capped at
+                        // 6pt and disabled at accessibility sizes — the line
+                        // stays fully legible and never scales or blurs.
+                        .lifeBoardKineticGreeting()
                 }
             }
             .accessibilityElement(children: .combine)
@@ -2219,13 +2232,35 @@ struct LifeBoardAdaptiveHome: View {
     /// Closing a day must not open a new obligation, so this states the fact and
     /// stops. No CTA, no next step, no offer to plan tomorrow.
     private var spineRestBody: some View {
-        Text("Nothing more is being asked of you today.")
-            .font(LifeBoardFoundationTypography.body())
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .lifeBoardClaySurface(.resting, cornerRadius: LifeBoardFoundationRadius.card)
-            .accessibilityIdentifier("home.loopSpine.rest")
+        HStack(alignment: .center, spacing: 18) {
+            // The day, closed — the same ring from the ritual, small and
+            // finished. Its completion mark is already drawn at closedProgress 1,
+            // so this is a record rather than a second celebration.
+            LifeBoardDayRing(
+                plannedMinutes: nil,
+                focusedMinutes: nil,
+                closedProgress: 1,
+                diameter: 64
+            )
+            .accessibilityHidden(true)
+
+            Text("Nothing more is being asked of you today.")
+                .font(LifeBoardFoundationTypography.body())
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .lifeBoardClaySurface(.resting, cornerRadius: LifeBoardFoundationRadius.card)
+        // Arrives, settles, and stops. A closed day must not shimmer, so there
+        // is deliberately no TimelineView, no repeatForever, and no CTA — the
+        // whole point of `.rest` is that it asks for nothing.
+        .transition(.opacity.combined(with: .scale(scale: 0.985)))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Today is closed. Nothing more is being asked of you today.")
+        .accessibilityIdentifier("home.loopSpine.rest")
     }
 
     /// The day-loop stage Home is currently in.

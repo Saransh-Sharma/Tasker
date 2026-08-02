@@ -1014,6 +1014,12 @@ public enum LifeBoardMotionProfile: String, Codable, CaseIterable, Hashable, Sen
     case cardReflow
     case route
     case celebration
+    /// A card landing in or returning to a stack.
+    case deckSettle
+    /// A progress thread advancing one notch.
+    case threadAdvance
+    /// The morning commit landing.
+    case firstLight
     case ambient
 }
 

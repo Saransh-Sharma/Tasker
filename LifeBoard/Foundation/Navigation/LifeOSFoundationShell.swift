@@ -1959,19 +1959,21 @@ public struct LifeOSFoundationShell: View {
         }
     }
 
-    /// Presents the calendar schedule for "check my meetings" navigation
-    /// using the existing HomeViewController deep-link path. On iPad it
-    /// switches the native shell's face to `.schedule`; on iPhone it
-    /// presents the modal `SunriseScheduleScreen` scoped to today.
+    /// Sends "check my meetings" to Plan's day lens.
+    ///
+    /// This previously cast `legacyHomeController` to `HomeViewController` to
+    /// reach the Sunrise schedule screen — the last functional dependency the
+    /// Foundation shell had on the legacy UIKit home. The cast failed *silently*
+    /// when it failed, so the phrase could no-op with nothing logged.
+    ///
+    /// `.planDay` is not a compromise destination: it draws the same calendar
+    /// events (`PlanDaySnapshot.commitments`, built from `externalCommitments`)
+    /// on an hour grid with the free-window layer, and it is already where
+    /// `lifeboard://calendar/schedule` lands from the widget — so the two paths
+    /// that used to disagree now don't.
     private func presentCalendarSchedule(router: LifeBoardAppRouter) {
-        // The Foundation shell holds the legacy UIKit home controller as its
-        // base `UIViewController` type; the calendar-schedule deep link is
-        // an extension on `HomeViewController`. Fall back silently if the
-        // cast fails (e.g. for reference/preview home shells) — focus today
-        // still happened via `homeViewModel.returnToToday`.
-        if let homeController = legacyHomeController as? HomeViewController {
-            homeController.homeNavigationOpenCalendarSchedule()
-        }
+        router.select(.plan)
+        router.push(.planDay, in: .plan)
     }
 
     private func applyLifeThreadPreview(
@@ -2246,6 +2248,7 @@ public struct LifeOSFoundationShell: View {
                     dependencies: planDependencies,
                     router: runtime.router
                 )
+                .lifeBoardZoomDestination(sourceID: LifeBoardDayLoopTransition.close)
             } else {
                 FoundationPlanRollbackRouteView(router: runtime.router)
             }
@@ -2257,6 +2260,7 @@ public struct LifeOSFoundationShell: View {
                     dependencies: planDependencies,
                     router: runtime.router
                 )
+                .lifeBoardZoomDestination(sourceID: LifeBoardDayLoopTransition.open)
             } else {
                 FoundationPlanRollbackRouteView(router: runtime.router)
             }
