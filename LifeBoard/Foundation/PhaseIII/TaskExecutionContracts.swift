@@ -1714,16 +1714,32 @@ public actor TaskBatchMutationCoordinator {
     public func undo(_ receipt: TaskBatchReceipt) async throws {
         var restored: [TaskBatchSnapshot] = []
         do {
+            // Planning unwinds first so the definition restore below has the
+            // last word on the row. `.setTaskCompletion` re-stamps `updatedAt`
+            // and `dateCompleted` with `Date()` because the mutation only
+            // carries booleans — it cannot know the prior timestamps, and it
+            // cannot be taught them without changing a payload that is already
+            // JSON-encoded into persisted receipts. Restoring the snapshot
+            // afterwards makes Undo a true inverse without touching that
+            // format.
+            if let planningReceiptID = receipt.planningReceiptID {
+                try await planning.undo(receiptID: planningReceiptID)
+            }
+            // Any task row the batch changed is restored, not just the ones
+            // written through the definition path: `.setCompletion` reaches the
+            // row solely through planning, so gating on `directlyUpdatedTaskIDs`
+            // left its `updatedAt` bumped to now while `.schedule` and `.move`
+            // restored theirs exactly.
+            let afterByID = Dictionary(
+                uniqueKeysWithValues: receipt.after.map { ($0.task.id, $0.task) }
+            )
             for snapshot in receipt.before.reversed()
-            where receipt.directlyUpdatedTaskIDs.contains(snapshot.task.id) {
+            where afterByID[snapshot.task.id] != snapshot.task {
                 try await updateTask(snapshot.task)
                 if case .addTags = receipt.request.mutation {
                     try await replaceTagLinks(for: snapshot.task)
                 }
                 restored.append(snapshot)
-            }
-            if let planningReceiptID = receipt.planningReceiptID {
-                try await planning.undo(receiptID: planningReceiptID)
             }
         } catch {
             // Put definition rows back into their post-batch state if planning
