@@ -644,8 +644,18 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
             iconSymbolName: task.iconSymbolName,
             clearIconSymbolName: task.iconSymbolName == nil,
             lifeAreaID: task.lifeAreaID,
+            // These three carried no `clear*` companion while their six siblings
+            // in this same request did, so a whole-object update could *set* a
+            // life area, section, or due date but never clear one: the writer
+            // acts only when the clear flag is true or the value is non-nil, so
+            // nil fell through both branches and left the stored value in place.
+            // Undoing a `.move` therefore kept the destination `sectionID`, and
+            // clearing a due date silently kept the old date.
+            clearLifeArea: task.lifeAreaID == nil,
             sectionID: task.sectionID,
+            clearSection: task.sectionID == nil,
             dueDate: task.dueDate,
+            clearDueDate: task.dueDate == nil,
             scheduledStartAt: task.scheduledStartAt,
             clearScheduledStartAt: task.scheduledStartAt == nil,
             scheduledEndAt: task.scheduledEndAt,
