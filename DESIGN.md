@@ -1,5 +1,5 @@
 ---
-version: alpha
+version: dogfood-v1
 name: LifeBoard Warm Clay System
 description: The canonical visual contract for LifeBoard's adaptive, local-first life operating system.
 colors:
@@ -13,11 +13,12 @@ colors:
   surface-secondary: "#F5EBCB"
   surface-tertiary: "#F2E7C2"
   on-surface: "#2B2118"
-  on-surface-secondary: "#746757"
+  on-surface-secondary: "#6F6252"
   on-surface-tertiary: "#877B68"
   outline: "#E9DFC6"
   outline-strong: "#CBBFA4"
   focus: "#5A3D1E"
+  decorative-ring: "rgba(90, 61, 30, 0.42)"
   assistant: "#6842FF"
   success: "#5D6A4D"
   warning: "#8A6A2F"
@@ -34,7 +35,9 @@ colors:
   dark-surface-secondary: "#262E4A"
   dark-on-surface: "#F4EBDD"
   dark-on-surface-secondary: "#C6BBA8"
-  dark-outline: "#4A5470"
+  dark-outline: "#4D526D"
+  high-contrast-outline: "#A89572"
+  dark-high-contrast-outline: "#777C9B"
 typography:
   display:
     fontFamily: "SF Pro Rounded"
@@ -269,6 +272,8 @@ The implementation source of truth is `LifeBoardColorTokens` and its spacing, ty
 - **Sun (`#F0CD87`)** and apricot are warm highlights, not a substitute for semantic status.
 - **Assistant violet (`#6842FF`)** is reserved for EVA/assistant context. It must not become a generic selection color.
 - **Success, warning, and error** communicate recorded state only. Never infer health, completion, or wellbeing from incomplete data.
+- **Focus (`#5A3D1E` light / `#F3E6C8` dark)** is an opaque accessibility affordance. It is not an alias for the translucent decorative accent ring; focus indicators must preserve their 3:1 boundary contrast.
+- **Hairlines respond to Increase Contrast.** The semantic hairline strengthens from `#E9DFC6` to `#A89572` in light appearance and from `#4D526D` to `#777C9B` in dark appearance.
 - Dark appearance is a designed warm-indigo composition from the adaptive Swift tokens, not a color inversion. Use semantic token roles rather than the literal values above when implementing UIKit or SwiftUI.
 
 ## Typography

@@ -144,10 +144,19 @@ public struct CoreDataInboxTaskWriter: InboxTaskWriting {
         }
         let incomingTagIDs = try await resolveTagIDs(named: incomingTagNames)
 
+        // The link table is the only store for a task's tags:
+        // `CoreDataTaskDefinitionRepository` never reads
+        // `UpdateTaskDefinitionRequest.tagIDs`, and it rehydrates `tagIDs` from
+        // the links on the way back out. Assigning the union to the request
+        // therefore did nothing, and writing `updated.tagIDs` to the links
+        // afterwards wrote back the *pre-merge* set — so merging a capture into
+        // a task that already had tags silently dropped the incoming one. Hold
+        // the union locally and let it drive both the link write and the value
+        // handed to the caller.
+        let mergedTagIDs = Array(Set(existing.tagIDs).union(incomingTagIDs))
+            .sorted { $0.uuidString < $1.uuidString }
         var update = UpdateTaskDefinitionRequest(id: id)
         update.title = request.title
-        update.tagIDs = Array(Set(existing.tagIDs).union(incomingTagIDs))
-            .sorted { $0.uuidString < $1.uuidString }
         if let dueDate = request.dueDate {
             update.dueDate = dueDate
             update.isAllDay = request.isAllDay
@@ -175,8 +184,10 @@ public struct CoreDataInboxTaskWriter: InboxTaskWriting {
             tasks.update(request: update) { continuation.resume(with: $0) }
         }
         do {
-            try await replaceTagLinks(taskID: id, tagIDs: updated.tagIDs)
-            return updated
+            try await replaceTagLinks(taskID: id, tagIDs: mergedTagIDs)
+            var merged = updated
+            merged.tagIDs = mergedTagIDs
+            return merged
         } catch {
             // A failed relationship write must not leak the already-updated
             // definition. Restore both representations before surfacing the

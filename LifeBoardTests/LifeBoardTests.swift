@@ -1088,7 +1088,14 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
     }
 
     func testBootstrapSchemaValidationRejectsMissingTaskIconField() throws {
-        let model = try compiledTaskModelVersion(named: "TaskModelV3_Timeline.mom")
+        // This pinned `TaskModelV3_Timeline`, which has since fallen behind the
+        // *habit* runtime requirements as well. `validateRuntimeSchema` returns
+        // the first failure in its chain, so the model started being rejected
+        // for a missing habit field before it ever reached the icon check, and
+        // the test asserted on the wrong error. Deriving the fixture from the
+        // current model keeps this pinned to the requirement it names instead
+        // of to whichever historical version happens to straddle both gates.
+        let model = try currentTaskModelMissingTaskAttribute("iconSymbolName")
 
         let error = LifeBoardPersistentStoreBootstrapService.validateRuntimeSchema(in: model)
 
@@ -1956,6 +1963,31 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
             ])
         }
         return model
+    }
+
+    /// The current compiled task model with one `TaskDefinition` attribute
+    /// removed, so a schema requirement can be tested in isolation without
+    /// depending on which historical model version happens to lack it.
+    private func currentTaskModelMissingTaskAttribute(
+        _ attributeName: String
+    ) throws -> NSManagedObjectModel {
+        let bundleURL = try taskModelBundleURL()
+        guard let current = NSManagedObjectModel(contentsOf: bundleURL),
+              let stripped = current.copy() as? NSManagedObjectModel else {
+            throw NSError(domain: "HabitCoreDataSchemaRegressionTests", code: 3, userInfo: [
+                NSLocalizedDescriptionKey: "Unable to load the current compiled task model"
+            ])
+        }
+        guard let taskEntity = stripped.entitiesByName["TaskDefinition"],
+              taskEntity.attributesByName[attributeName] != nil else {
+            throw NSError(domain: "HabitCoreDataSchemaRegressionTests", code: 4, userInfo: [
+                NSLocalizedDescriptionKey:
+                    "TaskDefinition.\(attributeName) is absent from the current model, "
+                    + "so removing it cannot prove the validator rejects its absence"
+            ])
+        }
+        taskEntity.properties = taskEntity.properties.filter { $0.name != attributeName }
+        return stripped
     }
 
     private func taskModelBundleURL() throws -> URL {
@@ -13390,8 +13422,19 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
 
         let projectA = UUID()
         let projectB = UUID()
-        let completionDayOne = calendar.date(byAdding: .day, value: 1, to: weekStart) ?? weekStart
-        let completionDayTwo = calendar.date(byAdding: .day, value: 2, to: weekStart) ?? weekStart
+        // Clamped to days that have actually happened. These were hardcoded to
+        // `weekStart + 1` and `+ 2`, which are in the *future* when the suite
+        // runs on a Monday or Tuesday — the week projection excludes completions
+        // dated ahead of now, so the leaderboard stayed empty and the wait timed
+        // out. The test passed Wednesday through Sunday and failed the other two
+        // days, which is why it looked intermittent rather than broken.
+        let daysElapsed = calendar.dateComponents([.day], from: weekStart, to: Date()).day ?? 0
+        let completionDayOne = calendar.date(
+            byAdding: .day, value: min(1, daysElapsed), to: weekStart
+        ) ?? weekStart
+        let completionDayTwo = calendar.date(
+            byAdding: .day, value: min(2, daysElapsed), to: weekStart
+        ) ?? weekStart
         repository.allEvents = [
             XPEventDefinition(delta: 15, reason: "task_completion", idempotencyKey: "week-1", createdAt: completionDayOne, category: .complete),
             XPEventDefinition(delta: 20, reason: "task_completion", idempotencyKey: "week-2", createdAt: completionDayTwo, category: .complete)

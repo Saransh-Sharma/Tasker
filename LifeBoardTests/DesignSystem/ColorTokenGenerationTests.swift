@@ -78,9 +78,22 @@ final class ColorTokenGenerationTests: XCTestCase {
 
         assertEqualColor(colors.accentPrimary.resolvedColor(with: darkTraits), colors.actionPrimary.resolvedColor(with: darkTraits))
         assertEqualColor(colors.accentPrimaryPressed.resolvedColor(with: darkTraits), colors.actionPrimaryPressed.resolvedColor(with: darkTraits))
-        assertEqualColor(colors.accentRing.resolvedColor(with: darkTraits), colors.actionFocus.resolvedColor(with: darkTraits))
         assertEqualColor(colors.divider.resolvedColor(with: darkTraits), colors.borderSubtle.resolvedColor(with: darkTraits))
         assertEqualColor(colors.strokeHairline.resolvedColor(with: darkTraits), colors.borderDefault.resolvedColor(with: darkTraits))
+    }
+
+    func testFocusRoleIsOpaqueAndDistinctFromDecorativeAccentRing() {
+        let colors = LifeBoardTheme(index: 0).tokens.color
+
+        for style in [UIUserInterfaceStyle.light, .dark] {
+            let traits = UITraitCollection(userInterfaceStyle: style)
+            let focus = colors.actionFocus.resolvedColor(with: traits)
+            let decorative = colors.accentRing.resolvedColor(with: traits)
+
+            XCTAssertEqual(focus.cgColor.alpha, 1, accuracy: 0.001)
+            XCTAssertLessThan(decorative.cgColor.alpha, 1)
+            XCTAssertNotEqual(focus.cgColor.alpha, decorative.cgColor.alpha)
+        }
     }
 
     func testSemanticReadingRolesClearEveryOpaqueFallbackSurfaceInAllAppearances() {

@@ -109,9 +109,21 @@ enum LifeBoardTokenBridge {
         ]
     }
 
-    /// The only two pairs measured to resolve identically in all four
-    /// appearances. Migrating these is a genuine rename.
-    static let equivalentNames: Set<String> = ["foundationCanvas", "foundationDanger"]
+    /// Pairs measured to resolve identically in all four appearances. Migrating
+    /// these is a genuine rename.
+    ///
+    /// `foundationHairline` and `foundationFocusRing` were promoted here after
+    /// their two divergences were fixed as accessibility defects rather than as
+    /// a migration: `.strokeHairline` did not respond to Increase Contrast, and
+    /// `.actionFocus` drew a focus ring at 42% alpha. Both roles now resolve to
+    /// the value their `foundation*` counterpart already used, which is what
+    /// makes them assertable.
+    static let equivalentNames: Set<String> = [
+        "foundationCanvas",
+        "foundationDanger",
+        "foundationHairline",
+        "foundationFocusRing"
+    ]
 
     /// Everything else with a role: the migration target is known, but the two
     /// sides render differently today. Changing a call site moves pixels.

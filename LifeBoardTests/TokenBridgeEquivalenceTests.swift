@@ -50,7 +50,7 @@ final class TokenBridgeEquivalenceTests: XCTestCase {
         }
     }
 
-    /// The seven recorded divergences must stay divergent until somebody
+    /// The recorded divergences must stay divergent until somebody
     /// deliberately unifies them.
     ///
     /// Asserting they still differ sounds backwards, but it is the only way the
@@ -86,10 +86,11 @@ final class TokenBridgeEquivalenceTests: XCTestCase {
         )
         XCTAssertGreaterThan(LifeBoardTokenBridge.mappedCount, 0)
         XCTAssertEqual(
-            LifeBoardTokenBridge.divergentEntries.count, 11,
+            LifeBoardTokenBridge.divergentEntries.count, 9,
             """
-            Measured 2026-08-01: of 13 statics with a role, only 2 resolve identically. \
-            A change here means the palette moved — read the notes, do not just bump the number.
+            Measured 2026-08-03: of 13 statics with a role, 4 resolve identically after \
+            the hairline and focus accessibility defects were corrected. A change here \
+            means the palette moved — read the notes, do not just bump the number.
             """
         )
     }

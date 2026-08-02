@@ -397,7 +397,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
            arguments.contains(where: { $0.hasPrefix("-LIFEBOARD_TEST_SEED_") }) {
             let gate = FoundationUITestSeedGateViewController()
             homeViewController.seedUITestWorkspacesForLaunchIfNeeded { [weak gate] in
-                Self.seedDayCloseCommitmentsIfNeeded(
+                Self.seedDayLoopRitualsIfNeeded(
                     planning: planningRepository,
                     tasks: taskRepository
                 ) {
@@ -407,45 +407,105 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return gate
         }
 
+        // Manual simulator verification of the rituals does not run under
+        // `-UI_TESTING`, and the seed argument was previously gated behind it —
+        // so launching with `-LIFEBOARD_FORCE_DAY_CLOSE -LIFEBOARD_TEST_SEED_DAY_CLOSE`
+        // by hand silently seeded nothing. There is no seed gate here: the
+        // rituals are reached by tapping, so the write only has to land before
+        // the person navigates, not before the first frame.
+        Self.seedDayLoopRitualsIfNeeded(
+            planning: planningRepository,
+            tasks: taskRepository
+        ) {}
+
         return foundationController
     }
 
-    /// Commits a few of the seeded tasks to today so Close the Day has a deck.
+    /// Commits three known tasks to a day so the day-loop rituals have a deck.
     ///
-    /// Kept here rather than in `HomeUITestWorkspaceSeeder` because that seeder
-    /// composes use cases and has no planning repository, while `planningRepository`
-    /// is already in scope at this call site. It writes *only* planning metadata
-    /// over tasks another seed already created, so it composes with any of them
-    /// rather than duplicating a workspace.
-    private static func seedDayCloseCommitmentsIfNeeded(
+    /// `-LIFEBOARD_TEST_SEED_DAY_CLOSE` commits them to today, which is what the
+    /// evening ritual reconciles. `-LIFEBOARD_TEST_SEED_DAY_OPEN` commits them to
+    /// yesterday, because `DayCloseStore` in `.open` mode reads a distinct
+    /// `retrospectiveDay` — seeding today leaves the morning surface empty.
+    ///
+    /// This creates its own tasks. It previously wrote planning metadata over
+    /// whatever another seeder had already made and returned silently when it
+    /// found none, so it produced an empty deck unless it happened to be paired
+    /// with a workspace seed — and `-LIFEBOARD_TEST_SEED_DAY_CLOSE` is not a
+    /// case `HomeUITestWorkspaceSeeder` recognises, so pairing it did not help.
+    /// Owning the rows also makes the must-do-first ordering deterministic
+    /// instead of depending on which task `fetchAll` returned first.
+    private static func seedDayLoopRitualsIfNeeded(
         planning: CoreDataPlanningRepository,
         tasks: any TaskDefinitionRepositoryProtocol,
         completion: @escaping () -> Void
     ) {
-        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_DAY_CLOSE") else {
+        let arguments = ProcessInfo.processInfo.arguments
+        let seedsClose = arguments.contains("-LIFEBOARD_TEST_SEED_DAY_CLOSE")
+        let seedsOpen = arguments.contains("-LIFEBOARD_TEST_SEED_DAY_OPEN")
+        guard seedsClose || seedsOpen else {
             completion()
             return
         }
+        // Fixed identifiers so the deck's "must-do first, then UUID" ordering is
+        // reproducible across runs and a screenshot can be compared to the last.
+        let seeds: [(id: UUID, title: String, commitment: TaskCommitmentLevel)] = [
+            (UUID(uuidString: "0DC10000-0000-0000-0000-000000000001")!,
+             "Draft the quarterly note", .mustDo),
+            (UUID(uuidString: "0DC10000-0000-0000-0000-000000000002")!,
+             "Reply to the venue about Friday", .standard),
+            (UUID(uuidString: "0DC10000-0000-0000-0000-000000000003")!,
+             "Book the dentist", .standard)
+        ]
+        let day = PlanningDay(
+            date: seedsOpen ? Date().addingTimeInterval(-86_400) : Date()
+        )
+
         Task { @MainActor in
             defer { completion() }
-            let definitions: [TaskDefinition] = await withCheckedContinuation { continuation in
+            let existing: [TaskDefinition] = await withCheckedContinuation { continuation in
                 tasks.fetchAll { continuation.resume(returning: (try? $0.get()) ?? []) }
             }
-            let open = definitions.filter { $0.isComplete == false }.prefix(3)
-            guard open.isEmpty == false else { return }
+            let existingIDs = Set(existing.map(\.id))
+            let existingMetadata = (
+                try? await planning.fetchTaskMetadata(taskIDs: Set(seeds.map(\.id)))
+            ) ?? []
+            let metadataByID = Dictionary(
+                uniqueKeysWithValues: existingMetadata.map { ($0.taskID, $0) }
+            )
 
-            let today = PlanningDay(date: Date())
-            for (index, definition) in open.enumerated() {
-                try? await planning.saveTaskMetadata(
-                    PlanningTaskMetadata(
-                        taskID: definition.id,
-                        planningDay: today,
-                        // One promised item, so the deck's must-do-first ordering
-                        // is exercised rather than assumed.
-                        commitmentLevel: index == 0 ? .mustDo : .standard,
-                        updatedAt: Date()
+            for seed in seeds {
+                if existingIDs.contains(seed.id) == false {
+                    let definition = TaskDefinition(
+                        id: seed.id,
+                        projectID: ProjectConstants.inboxProjectID,
+                        title: seed.title
                     )
-                )
+                    let created: Bool = await withCheckedContinuation { continuation in
+                        tasks.create(definition) { continuation.resume(returning: (try? $0.get()) != nil) }
+                    }
+                    guard created else {
+                        // Swallowing this made a failed seed indistinguishable
+                        // from a successful one, which is how the empty deck
+                        // went undiagnosed.
+                        logError("Day-loop seed could not create task \(seed.title)")
+                        continue
+                    }
+                }
+                // Read-modify-write: constructing fresh metadata reset fields the
+                // deck filters on, notably `availability` and
+                // `unscheduledDisposition`.
+                var metadata = metadataByID[seed.id] ?? PlanningTaskMetadata(taskID: seed.id)
+                metadata.planningDay = day
+                metadata.commitmentLevel = seed.commitment
+                metadata.availability = .actionable
+                metadata.unscheduledDisposition = .inbox
+                metadata.updatedAt = Date()
+                do {
+                    try await planning.saveTaskMetadata(metadata)
+                } catch {
+                    logError("Day-loop seed could not commit \(seed.title): \(error)")
+                }
             }
         }
     }

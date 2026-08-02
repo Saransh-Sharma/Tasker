@@ -174,13 +174,24 @@ public final class DayCloseStore {
     }
 
     /// A one-line-per-direction account of what is about to happen.
-    public var summaryLines: [String] {
+    /// The same counts as `summaryLines`, but keeping the direction alongside
+    /// the text. The view needs it to give each outcome its own feedback: only
+    /// released rows should erode, and only rows that were already done should
+    /// get a completion burst. Rendering plain strings meant the erosion ran
+    /// over "moved to tomorrow" too, which reads as losing something that was
+    /// in fact carried forward.
+    public var summary: [DayCloseSummaryLine] {
         DayCloseDirection.allCases.compactMap { direction in
             let count = decisions.values.count { $0 == direction }
             guard count > 0 else { return nil }
-            return "\(count) \(direction.summaryVerb)"
+            return DayCloseSummaryLine(
+                direction: direction,
+                text: "\(count) \(direction.summaryVerb)"
+            )
         }
     }
+
+    public var summaryLines: [String] { summary.map(\.text) }
 
     public var receiptSource: String {
         DayCloseScenarioBuilder.receiptSource(for: day)
@@ -190,9 +201,7 @@ public final class DayCloseStore {
 
     public func load() async {
         loadState = .loading
-        guard let start = day.startDate(calendar: calendar),
-              let end = calendar.date(byAdding: .day, value: 1, to: start),
-              let reportStart = retrospectiveStart,
+        guard let reportStart = retrospectiveStart,
               let reportEnd = calendar.date(byAdding: .day, value: 1, to: reportStart) else {
             loadState = .failed("This day could not be resolved on your calendar.")
             return

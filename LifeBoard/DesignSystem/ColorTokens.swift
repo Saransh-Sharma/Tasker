@@ -247,11 +247,23 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
             light: String,
             dark: String,
             lightAlpha: CGFloat = 1,
-            darkAlpha: CGFloat = 1
+            darkAlpha: CGFloat = 1,
+            lightHighContrast: String? = nil,
+            darkHighContrast: String? = nil
         ) -> UIColor {
             UIColor { traits in
-                let color = traits.userInterfaceStyle == .dark ? dark : light
-                let alpha = traits.userInterfaceStyle == .dark ? darkAlpha : lightAlpha
+                let isDark = traits.userInterfaceStyle == .dark
+                let isHighContrast = traits.accessibilityContrast == .high
+                // This resolver only ever consulted `userInterfaceStyle`, so no
+                // role in this vocabulary responded to Increase Contrast — while
+                // the parallel `foundation*` statics did. Surfaces drawn from a
+                // semantic role therefore ignored the setting entirely.
+                let color: String = if isDark {
+                    (isHighContrast ? darkHighContrast : nil) ?? dark
+                } else {
+                    (isHighContrast ? lightHighContrast : nil) ?? light
+                }
+                let alpha = isDark ? darkAlpha : lightAlpha
                 return UIColor(lifeboardHex: color).withAlphaComponent(alpha)
             }
         }
@@ -285,7 +297,16 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
         // Dark hairline lightened so separators/selection rings clear 1.4:1
         // against the warm-indigo dark surfaces.
         let divider = adaptive(light: "#E9DFC6", dark: "#414A64")
-        let strokeHairline = adaptive(light: "#E9DFC6", dark: "#4A5470")
+        // Matched to `foundationHairline`, which already strengthened under
+        // Increase Contrast while this role did not. Separators and selection
+        // rings drawn from `.strokeHairline` were the ones a user turning that
+        // setting on was most likely to be asking for.
+        let strokeHairline = adaptive(
+            light: "#E9DFC6",
+            dark: "#4D526D",
+            lightHighContrast: "#A89572",
+            darkHighContrast: "#777C9B"
+        )
         let strokeStrong = adaptive(light: "#CBBFA4", dark: "#667390")
 
         // Primary action is cocoa ink on paper; in the dark treatment the
@@ -295,6 +316,12 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
         let accentMuted = adaptive(light: "#F2E7C2", dark: "#2E3652", lightAlpha: 0.8, darkAlpha: 0.88)
         let accentWash = adaptive(light: "#F5EBCB", dark: "#232B45", lightAlpha: 0.72, darkAlpha: 0.84)
         let accentRing = adaptive(light: "#5A3D1E", dark: "#F0CD87", lightAlpha: 0.42, darkAlpha: 0.46)
+        // `actionFocus` used to reuse `accentRing`, which is a decorative wash at
+        // 42% alpha. A focus ring is an accessibility affordance and has to hold
+        // 3:1 against whatever it lands on, so it gets its own opaque value —
+        // the same one `foundationFocusRing` already used. `accentRing` keeps
+        // its translucency for the decorative accents that want it.
+        let focusRing = adaptive(light: "#5A3D1E", dark: "#F3E6C8")
         let textInverse = adaptive(light: "#FFFDF7", dark: "#2B2118")
 
         let overlayScrim = adaptive(light: "#2B2118", dark: "#000000", lightAlpha: 0.16, darkAlpha: 0.52)
@@ -312,7 +339,7 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
             brandHighlight: sun,
             actionPrimary: actionPrimary,
             actionPrimaryPressed: actionPrimaryPressed,
-            actionFocus: accentRing,
+            actionFocus: focusRing,
             divider: divider,
             strokeHairline: strokeHairline,
             strokeStrong: strokeStrong,

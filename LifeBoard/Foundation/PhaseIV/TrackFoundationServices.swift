@@ -43,7 +43,21 @@ public final class CanonicalTrackHabitProjectionService: TrackHabitProjectionSer
                         ? .init(habitID: window.habitID, day: day, resolution: .missing)
                         : nil
                 case .future:
-                    return .init(habitID: window.habitID, day: day, isDue: false)
+                    // `resolution` defaults to `.due`, so omitting it labelled
+                    // every future day as due work — the exact thing this
+                    // service promises not to invent — even though `isDue` was
+                    // false. `.unresolved` is the honest label and is already
+                    // the vocabulary the scoring paths below treat as "does not
+                    // count against you", alongside `.offDay` and `.paused`.
+                    // `.missing` would be wrong in the other direction: it
+                    // scores as a miss, and a day that has not happened yet
+                    // cannot have been missed.
+                    return .init(
+                        habitID: window.habitID,
+                        day: day,
+                        isDue: false,
+                        resolution: .unresolved
+                    )
                 }
             }
             return (window.habitID, evidence)

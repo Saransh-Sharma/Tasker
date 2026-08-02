@@ -1032,9 +1032,11 @@ extension HomeViewController {
             BehaviorOccurrenceActionCommand.clearPending()
             return
         }
-        guard let coordinator = EnhancedDependencyContainer.shared.useCaseCoordinator else {
-            return
-        }
+        // Resolved from the already-injected view model rather than the global
+        // container: `ArchitectureBoundaryTests` bans the view layer from naming
+        // a DI singleton, and this was the last site doing it. The coordinator
+        // here is the same instance the container would have handed back.
+        let coordinator = viewModel.useCaseCoordinator
         let resolution: OccurrenceResolutionType = command.action == .complete
             ? .completed
             : .skipped

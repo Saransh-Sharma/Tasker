@@ -473,15 +473,26 @@ struct LifeBoardDayCloseRoute: View {
                 Button("Done") { onFinished() }
                     .buttonStyle(.lifeBoardPrimary)
             } else {
-                ForEach(store.summaryLines, id: \.self) { line in
-                    Text(line)
+                ForEach(store.summary) { line in
+                    Text(line.text)
                         .font(LifeBoardFoundationTypography.metric())
                         .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                         // Released rows erode rather than fade — the effect's
                         // documented role, applied to the nearest true meaning.
+                        // Scoped to `.release`: this ran over every line, so
+                        // work that was *carried to tomorrow* also eroded, which
+                        // says the opposite of what happened to it.
                         .lifeboardDissolveAway(
-                            progress: releaseDissolve,
+                            progress: line.direction == .release ? releaseDissolve : 0,
                             tint: Color(LifeBoardColorTokens.foundationApricotAccent)
+                        )
+                        // The other half of `.doneAnyway`'s vocabulary. The card
+                        // only settles while armed; the burst is success
+                        // feedback, so it waits for `store.close()` to land and
+                        // fires here, on the line that records it, because by
+                        // commit time the card itself is long gone.
+                        .lifeboardCompletionBurst(
+                            trigger: line.direction == .doneAnyway ? closeTrigger : 0
                         )
                 }
 
@@ -832,7 +843,7 @@ private struct DayCloseCard: View {
         }
         .frame(maxWidth: .infinity, minHeight: 132, alignment: .leading)
         .padding(18)
-        .lifeBoardClaySurface(.raised, cornerRadius: LifeBoardFoundationRadius.largeCard)
+        .lifeBoardClaySurface(armedDepth, cornerRadius: LifeBoardFoundationRadius.largeCard)
         // Preview the consequence while the finger is still down.
         //
         // All four directions used to differ only by a label. Letting the card
@@ -870,6 +881,20 @@ private struct DayCloseCard: View {
 
     private var previewOpacity: Double {
         armed == .someday ? 0.82 : 1
+    }
+
+    /// `.doneAnyway` was the one direction with no feeling, because it is the
+    /// one that is not a *change*: the work already happened and only the record
+    /// is catching up. Nothing should move, so instead of leaning, receding or
+    /// eroding, the card stops floating — the drop shadow shrinks from radius 10
+    /// to 4 and it settles onto the canvas, which reads as "already landed".
+    ///
+    /// Deliberately not `LifeBoardCompletionMark`: that is success feedback, and
+    /// DESIGN.md requires a persisted-state boundary before success. Arming is
+    /// not a persisted state — the deck still commits one batch at the end, and
+    /// returning to centre must be able to take this back.
+    private var armedDepth: LifeBoardClayDepth {
+        armed == .doneAnyway ? .resting : .raised
     }
 }
 

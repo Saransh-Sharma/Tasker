@@ -66,6 +66,22 @@ public enum DayCloseDirection: String, Codable, CaseIterable, Hashable, Sendable
     }
 }
 
+/// One line of the evening's outcome, keeping its direction so each outcome can
+/// carry its own feedback after the batch lands. The summary was a plain
+/// `[String]`, which left the view unable to tell "let go" from "moved to
+/// tomorrow" and so applied the erosion effect to both.
+public struct DayCloseSummaryLine: Identifiable, Hashable, Sendable {
+    public let direction: DayCloseDirection
+    public let text: String
+
+    public var id: DayCloseDirection { direction }
+
+    public init(direction: DayCloseDirection, text: String) {
+        self.direction = direction
+        self.text = text
+    }
+}
+
 /// One resolved card. Ordered by when the decision was made so the ritual can
 /// take exactly one step back without a second undo stack.
 public struct DayCloseDecision: Codable, Hashable, Identifiable, Sendable {

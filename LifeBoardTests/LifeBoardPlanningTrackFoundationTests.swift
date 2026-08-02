@@ -1196,7 +1196,17 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
             now: now,
             calendar: calendar
         )
-        XCTAssertEqual(evidence[habitID]?.map(\.resolution), [.completed, .manuallySkipped, .missing])
+        // The future day is `.unresolved`, not `.missing`. The service used to
+        // report `.due` here by falling through to the initializer default,
+        // which is the "invented future due work" this test is named for. But
+        // `.missing` would be wrong too: the scoring paths in
+        // `TrackFoundationServices` treat `.missing` as a miss and `.unresolved`
+        // as not counting, so `.missing` would score a day that has not
+        // happened yet against the person.
+        XCTAssertEqual(
+            evidence[habitID]?.map(\.resolution),
+            [.completed, .manuallySkipped, .unresolved]
+        )
         XCTAssertEqual(evidence[habitID]?.last?.isDue, false)
     }
 

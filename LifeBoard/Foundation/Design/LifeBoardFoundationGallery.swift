@@ -1499,10 +1499,20 @@ struct LifeBoardAdaptiveHome: View {
             ))
         }
         if projectionAdapter.snapshot.completionRate > 0 {
+            // This read "N% of today's planned work is complete", which broke
+            // the copy law twice on a closed day. It reported 100% after an
+            // evening reconciliation where one task was carried to tomorrow and
+            // one was let go — neither is completion — and it asserted a
+            // confident percentage for a day that had nothing scheduled at all,
+            // so "absent" rendered as "100%". Counts say what happened; a rate
+            // says what someone should conclude from it.
+            let openCount = projectionAdapter.snapshot.openTaskCount
             items.append(.init(
                 id: "progress",
                 title: "Progress is settling in",
-                detail: "\(Int(projectionAdapter.snapshot.completionRate * 100))% of today’s planned work is complete.",
+                detail: openCount == 0
+                    ? "Nothing you committed to is still open."
+                    : "\(openCount) still open.",
                 symbol: "chart.line.uptrend.xyaxis",
                 destination: .insights
             ))
