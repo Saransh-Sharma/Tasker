@@ -4,8 +4,8 @@ import SwiftUI
 public enum DayCloseMode: String, Sendable {
     /// The evening ritual: reconcile, reflect, anchor, close.
     case close
-    /// The morning counterpart. Read-only — it reports what last night decided
-    /// and never mutates, so there is nothing here to undo.
+    /// The morning counterpart. It reports what last night decided and confirms
+    /// today's explicit proposal as one receipt with one Undo.
     case open
 }
 
@@ -248,13 +248,17 @@ struct LifeBoardDayCloseRoute: View {
         _ close: some View
     ) -> some View {
         HStack(alignment: .top, spacing: 14) {
-            LifeBoardActThread(progress: actProgress)
-                .stroke(
-                    Color(LifeBoardColorTokens.foundationSunAccent).opacity(0.5),
-                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
-                )
-                .frame(width: 2)
-                .background(alignment: .top) {
+            ZStack {
+                LifeBoardActThread(progress: actProgress)
+                    .stroke(
+                        Color(LifeBoardColorTokens.foundationSunAccent).opacity(0.5),
+                        style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                    )
+                    .frame(width: 2)
+                LifeBoardActThreadKnots(progress: actProgress, count: 4)
+            }
+                .frame(width: 10)
+                .background {
                     // The unfilled remainder, so the thread reads as a length
                     // you are moving along rather than a bar that grows.
                     Capsule()
@@ -866,7 +870,7 @@ private struct DayCloseCard: View {
 
     /// A hint of erosion, never enough to hide the title being decided about.
     private var erosionPreview: Double {
-        armed == .release ? 0.14 : 0
+        armed == .release ? 0.22 : 0
     }
 
     private var previewScale: CGFloat {

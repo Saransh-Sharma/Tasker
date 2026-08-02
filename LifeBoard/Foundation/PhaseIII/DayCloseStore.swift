@@ -86,6 +86,8 @@ public final class DayCloseStore {
     /// to tell "one tap" from "authored", which is the number that says whether
     /// the proposal is any good.
     public private(set) var openProposalWasEdited = false
+    public private(set) var dayLoopEvidenceReport = DayLoopEvidenceReport()
+    public private(set) var morningCommitPolicy: MorningCommitPolicy = .explicitConfirmation
 
     // MARK: - Dependencies
 
@@ -105,6 +107,8 @@ public final class DayCloseStore {
     private let calendar: Calendar
     /// Notification suppression only — the receipt remains the source of truth.
     private let closureLog: DayLoopClosureLog
+    private let proposalSignalStore: any DayOpenProposalSignalStoring
+    private let morningPolicyResolver: MorningCommitPolicyResolver
 
     private var dayStart: Date? { day.startDate(calendar: calendar) }
     private var retrospectiveStart: Date? { retrospectiveDay.startDate(calendar: calendar) }
@@ -116,7 +120,9 @@ public final class DayCloseStore {
         day: PlanningDay,
         retrospectiveDay: PlanningDay? = nil,
         calendar: Calendar = .current,
-        closureLog: DayLoopClosureLog = DayLoopClosureLog()
+        closureLog: DayLoopClosureLog = DayLoopClosureLog(),
+        proposalSignalStore: any DayOpenProposalSignalStoring = DayOpenProposalSignalStore.shared,
+        morningPolicyResolver: MorningCommitPolicyResolver = MorningCommitPolicyResolver()
     ) {
         self.reader = reader
         self.completions = completions
@@ -125,6 +131,8 @@ public final class DayCloseStore {
         self.retrospectiveDay = retrospectiveDay ?? day
         self.calendar = calendar
         self.closureLog = closureLog
+        self.proposalSignalStore = proposalSignalStore
+        self.morningPolicyResolver = morningPolicyResolver
     }
 
     // MARK: - Derived
@@ -251,9 +259,13 @@ public final class DayCloseStore {
             // Only meaningful in `.open` mode, where the retrospective day is
             // yesterday and there is a day ahead to commit to.
             if retrospectiveDay != day {
-                alreadyCommitted = try await reader.hasAppliedReceipt(
-                    source: DayOpenScenarioBuilder.receiptSource(for: day)
-                )
+                if openReceipt != nil {
+                    alreadyCommitted = true
+                } else {
+                    alreadyCommitted = try await reader.hasAppliedReceipt(
+                        source: DayOpenScenarioBuilder.receiptSource(for: day)
+                    )
+                }
                 openProposal = DayOpenScenarioBuilder.proposal(
                     tasks: unfinished,
                     anchorTaskID: carriedAnchorTaskID,
@@ -266,11 +278,22 @@ public final class DayCloseStore {
                     // a proposal's clothes.
                     openSelection = Set(openProposal.map(\.id))
                 }
+                await refreshMorningEvidence()
             }
 
             loadState = (unfinished.isEmpty && ribbon?.summary.hasNothingToReport == true)
                 ? .empty
                 : .ready
+            if retrospectiveDay != day,
+               alreadyCommitted == false,
+               morningCommitPolicy == .zeroInteractionConfirmation {
+                // After the dogfood threshold, a morning that is consistently
+                // being skipped confirms itself without moving any task. The
+                // empty receipt records the deliberate day; omitting the
+                // proposal signal keeps this automation out of acceptance-rate
+                // evidence.
+                await applyOpen(selected: [], now: Date(), recordsProposalSignal: false)
+            }
         } catch {
             // Distinct from `.empty` on purpose: the app must never congratulate
             // someone for a fetch that did not complete.
@@ -308,6 +331,17 @@ public final class DayCloseStore {
 
     // MARK: - Morning commit
 
+    private func refreshMorningEvidence() async {
+        let records = (try? await reader.fetchMutationReceipts(since: nil)) ?? []
+        let signals = (try? await proposalSignalStore.signals()) ?? []
+        dayLoopEvidenceReport = DayLoopLedger.evidenceReport(
+            records: records,
+            proposalSignals: signals,
+            calendar: calendar
+        )
+        morningCommitPolicy = morningPolicyResolver.resolve(dayLoopEvidenceReport)
+    }
+
     /// Toggles one proposed item. Marks the proposal edited either way — the
     /// signal is "did this need touching", not which direction.
     public func toggleOpenSelection(_ taskID: UUID) {
@@ -327,6 +361,16 @@ public final class DayCloseStore {
             .filter { openSelection.contains($0.id) }
             .map(\.task)
 
+        await applyOpen(selected: selected, now: now, recordsProposalSignal: true)
+    }
+
+    private func applyOpen(
+        selected: [PlanningTaskSummary],
+        now: Date,
+        recordsProposalSignal: Bool
+    ) async {
+        guard alreadyCommitted == false else { return }
+
         openCommitPhase = .running(progress: nil)
         let scenario = DayOpenScenarioBuilder.make(
             selected: selected,
@@ -339,6 +383,18 @@ public final class DayCloseStore {
             openReceipt = receipt
             alreadyCommitted = true
             openCommitPhase = .success(receipt: receipt)
+            if recordsProposalSignal {
+                let signal = DayOpenProposalSignal(
+                    receiptID: receipt.id,
+                    dayStamp: String(format: "%04d%02d%02d", day.year, day.month, day.day),
+                    wasEdited: openProposalWasEdited,
+                    committedAt: now
+                )
+                // Evidence is explicitly non-authoritative. A failed sidecar
+                // write becomes unknown evidence and never fails or compensates
+                // the already-persisted commitment.
+                try? await proposalSignalStore.record(signal)
+            }
             await load()
         } catch let PlanningScenarioApplyError.versionConflict(changedRecordIDs) {
             staleTaskIDs = Set(changedRecordIDs)
@@ -500,7 +556,7 @@ public final class DayCloseStore {
             appliedReceipt = receipt
             alreadyClosed = true
             closedAt = now
-            // Suppresses tonight's follow-up notification. Written only after
+            // Suppresses tonight's configured nudge. Written only after
             // the receipt lands, so a failed close never silences the nudge.
             closureLog.markClosed(dayStart ?? now, calendar: calendar)
             applyPhase = .success(receipt: receipt)

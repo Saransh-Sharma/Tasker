@@ -2528,6 +2528,7 @@ private struct FoundationInsightsDestination: View {
     @State private var lens: InsightsLens = .overview
     @State private var persistedPlanningEvents: [NormalizedLifeEvent] = []
     @State private var planningEvidenceError: String?
+    @State private var dayLoopEvidenceReport: DayLoopEvidenceReport?
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
     @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
     let router: LifeBoardAppRouter
@@ -2722,6 +2723,26 @@ private struct FoundationInsightsDestination: View {
                 Text(reviewSummary)
                     .font(.body)
                     .foregroundStyle(.secondary)
+                if let report = dayLoopEvidenceReport {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 132), spacing: 10)],
+                        spacing: 10
+                    ) {
+                        FoundationInsightMetric(value: "\(report.eligibleDays)", label: "Eligible days")
+                        FoundationInsightMetric(value: "\(report.closes)", label: "Days closed")
+                        FoundationInsightMetric(value: "\(report.opensBeforeEleven)", label: "Opened before 11")
+                        FoundationInsightMetric(value: "\(report.daysWithBoth)", label: "Opened and closed")
+                        FoundationInsightMetric(value: "\(report.reversals)", label: "Taken back")
+                        FoundationInsightMetric(value: "\(report.knownProposalSignals)", label: "Known proposals")
+                        FoundationInsightMetric(
+                            value: report.uneditedShare?.formatted(.percent.precision(.fractionLength(0))) ?? "Unknown",
+                            label: "Unedited proposal share"
+                        )
+                    }
+                    Text("Proposal evidence is local and non-authoritative. Missing sidecars stay unknown; undone receipts stop counting.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Button("Open weekly review") {
                     router.push(.weeklyReview, in: .insights)
                 }
@@ -2883,6 +2904,7 @@ private struct FoundationInsightsDestination: View {
         if let planningRepository {
             do {
                 let records = try await planningRepository.fetchMutationReceipts(since: nil)
+                let proposalSignals = (try? await DayOpenProposalSignalStore.shared.signals()) ?? []
                 let sessions = try await planningRepository.sessions(since: nil)
                 let focusCommands = try await planningRepository.commandReceipts(since: nil)
                 let sessionsWithDurableCommands = Set(focusCommands.map(\.sessionID))
@@ -2894,8 +2916,14 @@ private struct FoundationInsightsDestination: View {
                         )
                     }
                     + focusCommands.map(Self.focusCommandEvent)
+                dayLoopEvidenceReport = DayLoopLedger.evidenceReport(
+                    records: records,
+                    proposalSignals: proposalSignals,
+                    calendar: .current
+                )
                 planningEvidenceError = nil
             } catch {
+                dayLoopEvidenceReport = nil
                 planningEvidenceError = error.localizedDescription
             }
         }

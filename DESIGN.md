@@ -399,6 +399,56 @@ Every direction must have:
 - a non-destructive default;
 - a persisted-state boundary before success feedback.
 
+### Daily Loop
+
+The Daily Loop is Home's non-pinnable spine and the app's primary daily rhythm.
+Its resolver has five mutually exclusive stages: `.commit` offers an explicit
+morning confirmation, `.act` leads with the current decision, `.repair` surfaces
+drift without blame, `.close` opens the evening ritual, and `.rest` asks for
+nothing after closure. Persisted open/close state outranks the clock. Loading,
+genuinely empty, stale, unavailable, denied, explicit zero, unknown evidence,
+and recoverable failure remain visibly and semantically distinct.
+
+The evening ritual is one scroll with four acts: reconcile unfinished work,
+reflect, choose tomorrow's anchor, and close. A liquid ring reports only recorded
+planned/focused time. A vertical act thread has four clay knots; a knot settles
+only when its act is complete, never merely because it was scrolled past. The
+deck exposes all four alternatives as labels, buttons, gestures, VoiceOver
+actions, and keyboard-accessible controls: tomorrow, someday, done anyway, and
+release. Undo restores the previous shuffle and zoom transitions share the named
+Home/ritual source and destination.
+
+Directional feedback stays tactile but bounded. Morning proposal cards retain
+the established lean sequence `[6, -4, 9, -7, 3]` points with `0.22` rotation
+factor. An armed `.doneAnyway` card stays square and firm; its completion burst
+runs once on the persisted summary, never on selection. An armed `.release`
+preview uses `0.22` erosion; the settled release effect also waits for the batch
+receipt. One act is one batch, one receipt, and one canonical Undo.
+
+Rhythm copy is consistency-first: `9 of 14 days · 1 day running`. Both facts use
+the same typography in one wrapping label. No red, flame, loss, streak-rescue, or
+recovery language is permitted. XP is absent from Home and Loop celebrations.
+The app schedules one configurable gentle evening nudge — “Whenever you're ready
+— see how the day went and carry what's left.” — suppresses it after a successful
+close, and schedules no later follow-up.
+
+Morning commitment remains explicit until 14 eligible local days exist. The
+local `DayOpenProposalSignalStore` records edited/unedited proposal evidence only
+after scenario apply succeeds, keyed by receipt ID; a failed sidecar write is
+unknown evidence and cannot fail or roll back the commitment. Reports join only
+currently applied receipts, so Undo stops contributing automatically and a
+missing sidecar never means “edited.” If fewer than 40% of eligible days were
+opened before 11:00, the resolver switches to zero-interaction confirmation: it
+writes an empty `dayOpen` receipt without silently changing tasks. Proposal
+ranking remains unchanged until known evidence is sufficient.
+
+Under Reduce Motion, proposal lean is removed, knot and liquid changes settle
+without travel, deck exits use the reduced transition, and one-shot erosion or
+burst feedback crossfades or snaps. Labels, direction alternatives, receipt
+timing, and Undo behavior do not change. Increase Contrast strengthens the
+semantic hairline around knots, cards, and focus; effects never carry required
+meaning by themselves.
+
 ### Guided Routine runner
 
 Guided Routines use one full-screen presentation route. Interactive dismissal is

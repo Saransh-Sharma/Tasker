@@ -11634,16 +11634,16 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         )
         XCTAssertEqual(
             reflectionIDs,
-            Set([
-                "daily.reflection.20260224.followup",
-                "daily.reflection.20260225.followup",
-                "daily.reflection.20260226.followup"
-            ])
+            Set(),
+            "The configurable evening nudge is the only Daily Loop notification."
         )
 
         let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
-        XCTAssertEqual(nightly?.title, "Day Retrospective")
-        XCTAssertEqual(nightly?.body, "No completions today. Pick one tiny restart for tomorrow.")
+        XCTAssertEqual(nightly?.title, "Close the day")
+        XCTAssertEqual(
+            nightly?.body,
+            "Whenever you're ready — see how the day went and carry what's left."
+        )
         XCTAssertEqual(nightly.map { calendar.component(.hour, from: $0.fireDate) }, 21)
         XCTAssertEqual(nightly.map { calendar.component(.minute, from: $0.fireDate) }, 0)
         XCTAssertEqual(
@@ -11673,15 +11673,11 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             "\(request.route.payload)#\(Int(request.fireDate.timeIntervalSince1970))"
         }
         XCTAssertTrue(grouped.values.allSatisfy { $0.count == 1 })
-        XCTAssertEqual(
-            notificationService.scheduled
-                .filter { $0.id.hasPrefix("daily.reflection.") && $0.id.hasSuffix(".followup") }
-                .count,
-            3
-        )
+        XCTAssertFalse(notificationService.scheduled.contains { $0.id.hasPrefix("daily.reflection.") })
+        XCTAssertEqual(notificationService.scheduled.filter { $0.kind == .nightlyRetrospective }.count, 3)
     }
 
-    func testNightlyRetrospectiveUsesExactLedgerXPWhenAvailable() {
+    func testEveningNudgeKeepsXPOutEvenWhenExactLedgerXPIsAvailable() {
         let notificationService = CapturingNotificationService()
         let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
         let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 7, minute: 30)
@@ -11712,11 +11708,11 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
         XCTAssertEqual(
             nightly?.body,
-            "Completed 1/1 tasks, earned 44 XP. Biggest win: \"Ship release notes\"."
+            "Whenever you're ready — see how the day went and carry what's left."
         )
     }
 
-    func testNightlyRetrospectiveOmitsNumericXPWhenExactAggregateUnavailable() {
+    func testEveningNudgeUsesTheSameGentleCopyWhenXPIsUnavailable() {
         let notificationService = CapturingNotificationService()
         let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
         let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 7, minute: 30)
@@ -11742,8 +11738,35 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
         XCTAssertEqual(
             nightly?.body,
-            "Completed 1/1 tasks. Biggest win: \"Close loops\". Open LifeBoard for exact XP."
+            "Whenever you're ready — see how the day went and carry what's left."
         )
+    }
+
+    func testEveningNudgeIsSuppressedAfterTheDayIsClosed() {
+        let suiteName = "lifeboard.notification.closed-day.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let closureLog = DayLoopClosureLog(defaults: defaults)
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = Date()
+        closureLog.markClosed(nowDate, calendar: calendar)
+
+        let notificationService = CapturingNotificationService()
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: InMemoryTaskDefinitionRepositoryStub(seed: []),
+            notificationService: notificationService,
+            preferencesStore: makePreferencesStore(),
+            calendar: calendar,
+            now: { nowDate },
+            dayLoopClosureLog: closureLog
+        )
+
+        reconcileAndWait(orchestrator, reason: "unit_test_closed_day_suppression")
+
+        let todayStamp = DayLoopClosureLog.stamp(for: nowDate, calendar: calendar)
+        XCTAssertFalse(notificationService.scheduled.contains {
+            $0.id == "daily.nightly.\(todayStamp)"
+        })
     }
 
     func testReconcileSchedulesTaskReminderDueSoonAndOverdueWithExpectedContent() {

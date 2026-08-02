@@ -66,6 +66,25 @@ private actor FakeScenarioCoordinator: PlanningScenarioCoordinating {
     }
 }
 
+private actor FakeProposalSignalStore: DayOpenProposalSignalStoring {
+    struct Boom: Error {}
+    private(set) var recorded: [DayOpenProposalSignal] = []
+    var stored: [DayOpenProposalSignal] = []
+    var shouldFailWrites = false
+
+    func setStored(_ value: [DayOpenProposalSignal]) { stored = value }
+    func setShouldFailWrites(_ value: Bool) { shouldFailWrites = value }
+
+    func record(_ signal: DayOpenProposalSignal) async throws {
+        if shouldFailWrites { throw Boom() }
+        recorded.append(signal)
+        stored.removeAll { $0.receiptID == signal.receiptID }
+        stored.append(signal)
+    }
+
+    func signals() async throws -> [DayOpenProposalSignal] { stored }
+}
+
 // MARK: - Tests
 
 @MainActor
@@ -343,7 +362,9 @@ final class DayCloseStoreTests: XCTestCase {
 
     private func makeOpenStore(
         tasks: [PlanningTaskSummary],
-        receipts: [PlanningReceiptRecord]
+        receipts: [PlanningReceiptRecord],
+        coordinator: FakeScenarioCoordinator = FakeScenarioCoordinator(),
+        signalStore: FakeProposalSignalStore = FakeProposalSignalStore()
     ) async -> DayCloseStore {
         let reader = FakeDayCloseReader()
         await reader.setTasks(tasks)
@@ -354,11 +375,12 @@ final class DayCloseStoreTests: XCTestCase {
         return DayCloseStore(
             reader: reader,
             completions: nil,
-            scenarios: FakeScenarioCoordinator(),
+            scenarios: coordinator,
             day: day,
             retrospectiveDay: yesterday,
             calendar: calendar,
-            closureLog: DayLoopClosureLog(defaults: UserDefaults(suiteName: UUID().uuidString)!)
+            closureLog: DayLoopClosureLog(defaults: UserDefaults(suiteName: UUID().uuidString)!),
+            proposalSignalStore: signalStore
         )
     }
 
@@ -424,6 +446,91 @@ final class DayCloseStoreTests: XCTestCase {
 
         XCTAssertNil(store.carriedAnchorTaskID)
         XCTAssertFalse(store.retrospectiveDayWasClosed)
+    }
+
+    func testMorningSignalIsWrittenOnlyAfterTheReceiptSucceeds() async {
+        let signalStore = FakeProposalSignalStore()
+        let coordinator = FakeScenarioCoordinator()
+        let open = task("Start here")
+        let store = await makeOpenStore(
+            tasks: [open],
+            receipts: [],
+            coordinator: coordinator,
+            signalStore: signalStore
+        )
+        await store.load()
+        store.toggleOpenSelection(open.id)
+        store.toggleOpenSelection(open.id)
+
+        let committedAt = Date(timeIntervalSince1970: 1_785_100_000)
+        await store.commitOpen(now: committedAt)
+
+        let signals = await signalStore.recorded
+        XCTAssertEqual(signals.count, 1)
+        XCTAssertEqual(signals.first?.receiptID, store.openReceipt?.id)
+        XCTAssertEqual(signals.first?.wasEdited, true)
+        XCTAssertEqual(signals.first?.committedAt, committedAt)
+        XCTAssertTrue(store.alreadyCommitted)
+    }
+
+    func testSidecarFailureNeverFailsOrRollsBackTheMorningCommitment() async {
+        let signalStore = FakeProposalSignalStore()
+        await signalStore.setShouldFailWrites(true)
+        let coordinator = FakeScenarioCoordinator()
+        let store = await makeOpenStore(
+            tasks: [task("Start here")],
+            receipts: [],
+            coordinator: coordinator,
+            signalStore: signalStore
+        )
+        await store.load()
+
+        await store.commitOpen()
+
+        XCTAssertTrue(store.alreadyCommitted)
+        if case .success = store.openCommitPhase {} else {
+            XCTFail("The authoritative receipt succeeded; sidecar failure must stay unknown.")
+        }
+        let appliedCount = await coordinator.appliedCount
+        let recordedSignals = await signalStore.recorded
+        XCTAssertEqual(appliedCount, 1)
+        XCTAssertTrue(recordedSignals.isEmpty)
+    }
+
+    func testLowMorningUseAfterFourteenEligibleDaysWritesAnEmptyOpenReceiptAutomatically() async {
+        let coordinator = FakeScenarioCoordinator()
+        let signalStore = FakeProposalSignalStore()
+        let receipts = (1...14).map { index in
+            PlanningReceiptRecord(
+                receipt: PlanMutationReceipt(
+                    id: UUID(),
+                    source: String(format: "planning.scenario.dayClose.2026-07-%02d", index),
+                    summary: "close",
+                    forwardData: Data(),
+                    undoData: Data(),
+                    createdAt: Date(timeIntervalSince1970: Double(index))
+                ),
+                state: .applied,
+                appliedAt: Date(timeIntervalSince1970: Double(index))
+            )
+        }
+        let store = await makeOpenStore(
+            tasks: [task("Must not move silently")],
+            receipts: receipts,
+            coordinator: coordinator,
+            signalStore: signalStore
+        )
+
+        await store.load()
+
+        XCTAssertEqual(store.morningCommitPolicy, .zeroInteractionConfirmation)
+        XCTAssertTrue(store.alreadyCommitted)
+        let appliedCount = await coordinator.appliedCount
+        let scenario = await coordinator.lastScenario
+        let recordedSignals = await signalStore.recorded
+        XCTAssertEqual(appliedCount, 1)
+        XCTAssertTrue(scenario?.proposedMutations.isEmpty == true)
+        XCTAssertTrue(recordedSignals.isEmpty)
     }
 
     // MARK: - Receipt identity

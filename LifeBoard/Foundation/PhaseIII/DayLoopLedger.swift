@@ -1,5 +1,187 @@
 import Foundation
 
+/// Non-authoritative evidence captured only after a morning receipt lands.
+///
+/// The receipt remains the user's data. This sidecar only records whether the
+/// proposal needed editing; losing or failing to write it makes the evidence
+/// unknown and never changes or rolls back the plan.
+public struct DayOpenProposalSignal: Codable, Equatable, Identifiable, Sendable {
+    public static let currentSchemaVersion = 1
+
+    public var id: UUID { receiptID }
+    public var receiptID: UUID
+    public var dayStamp: String
+    public var wasEdited: Bool
+    public var committedAt: Date
+    public var schemaVersion: Int
+
+    public init(
+        receiptID: UUID,
+        dayStamp: String,
+        wasEdited: Bool,
+        committedAt: Date,
+        schemaVersion: Int = currentSchemaVersion
+    ) {
+        self.receiptID = receiptID
+        self.dayStamp = dayStamp
+        self.wasEdited = wasEdited
+        self.committedAt = committedAt
+        self.schemaVersion = schemaVersion
+    }
+}
+
+public protocol DayOpenProposalSignalStoring: Sendable {
+    func record(_ signal: DayOpenProposalSignal) async throws
+    func signals() async throws -> [DayOpenProposalSignal]
+}
+
+/// Protected, local-only, versioned proposal evidence keyed by receipt ID.
+public actor DayOpenProposalSignalStore: DayOpenProposalSignalStoring {
+    private struct Envelope: Codable {
+        var schemaVersion: Int
+        var signals: [DayOpenProposalSignal]
+    }
+
+    public static let shared = DayOpenProposalSignalStore()
+
+    private let fileURL: URL
+    private let fileManager: FileManager
+    private let maximumSignals: Int
+
+    public init(
+        rootURL: URL? = nil,
+        fileManager: FileManager = .default,
+        maximumSignals: Int = 400
+    ) {
+        let root = rootURL
+            ?? fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? fileManager.temporaryDirectory
+        fileURL = root
+            .appendingPathComponent("LifeBoard/LocalOnly", isDirectory: true)
+            .appendingPathComponent("DayOpenProposalSignals.v1.json", isDirectory: false)
+        self.fileManager = fileManager
+        self.maximumSignals = max(14, maximumSignals)
+    }
+
+    public func record(_ signal: DayOpenProposalSignal) async throws {
+        guard signal.schemaVersion == DayOpenProposalSignal.currentSchemaVersion else { return }
+        var values = try load()
+        values.removeAll { $0.receiptID == signal.receiptID }
+        values.append(signal)
+        values.sort { $0.committedAt < $1.committedAt }
+        if values.count > maximumSignals {
+            values.removeFirst(values.count - maximumSignals)
+        }
+        try persist(values)
+    }
+
+    public func signals() async throws -> [DayOpenProposalSignal] {
+        try load()
+    }
+
+    private func load() throws -> [DayOpenProposalSignal] {
+        guard fileManager.fileExists(atPath: fileURL.path) else { return [] }
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let envelope = try decoder.decode(Envelope.self, from: Data(contentsOf: fileURL))
+        guard envelope.schemaVersion == DayOpenProposalSignal.currentSchemaVersion else { return [] }
+        return envelope.signals.filter {
+            $0.schemaVersion == DayOpenProposalSignal.currentSchemaVersion
+        }
+    }
+
+    private func persist(_ signals: [DayOpenProposalSignal]) throws {
+        let directory = fileURL.deletingLastPathComponent()
+        try fileManager.createDirectory(
+            at: directory,
+            withIntermediateDirectories: true,
+            attributes: [.protectionKey: FileProtectionType.complete]
+        )
+        // This is local usage evidence, not user-authored data. Excluding the
+        // whole sidecar directory from backup preserves the no-upload contract
+        // even when device backup is enabled.
+        var excludedDirectory = directory
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        try excludedDirectory.setResourceValues(resourceValues)
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.sortedKeys]
+        try encoder.encode(Envelope(
+            schemaVersion: DayOpenProposalSignal.currentSchemaVersion,
+            signals: signals
+        )).write(to: fileURL, options: [.atomic, .completeFileProtection])
+    }
+}
+
+/// Local evidence for the deliberate-day loop. Every count is joined back to
+/// the current receipt state; an undone receipt therefore stops counting without
+/// mutating or deleting its optional sidecar signal.
+public struct DayLoopEvidenceReport: Equatable, Sendable {
+    public var eligibleDays: Int
+    public var closes: Int
+    public var opensBeforeEleven: Int
+    public var daysWithBoth: Int
+    public var reversals: Int
+    public var knownProposalSignals: Int
+    public var uneditedProposalSignals: Int
+
+    public init(
+        eligibleDays: Int = 0,
+        closes: Int = 0,
+        opensBeforeEleven: Int = 0,
+        daysWithBoth: Int = 0,
+        reversals: Int = 0,
+        knownProposalSignals: Int = 0,
+        uneditedProposalSignals: Int = 0
+    ) {
+        self.eligibleDays = eligibleDays
+        self.closes = closes
+        self.opensBeforeEleven = opensBeforeEleven
+        self.daysWithBoth = daysWithBoth
+        self.reversals = reversals
+        self.knownProposalSignals = knownProposalSignals
+        self.uneditedProposalSignals = uneditedProposalSignals
+    }
+
+    public var opensBeforeElevenShare: Double? {
+        guard eligibleDays > 0 else { return nil }
+        return Double(opensBeforeEleven) / Double(eligibleDays)
+    }
+
+    public var uneditedShare: Double? {
+        guard knownProposalSignals > 0 else { return nil }
+        return Double(uneditedProposalSignals) / Double(knownProposalSignals)
+    }
+}
+
+public enum MorningCommitPolicy: String, Equatable, Sendable {
+    case explicitConfirmation
+    case zeroInteractionConfirmation
+}
+
+/// The dogfood rule, kept pure so a calendar boundary or missing sidecar cannot
+/// silently tune it. Proposal ranking is intentionally outside this resolver.
+public struct MorningCommitPolicyResolver: Sendable {
+    public var minimumEligibleDays: Int
+    public var earlyCommitThreshold: Double
+
+    public init(minimumEligibleDays: Int = 14, earlyCommitThreshold: Double = 0.40) {
+        self.minimumEligibleDays = minimumEligibleDays
+        self.earlyCommitThreshold = earlyCommitThreshold
+    }
+
+    public func resolve(_ report: DayLoopEvidenceReport) -> MorningCommitPolicy {
+        guard report.eligibleDays >= minimumEligibleDays,
+              let share = report.opensBeforeElevenShare else {
+            return .explicitConfirmation
+        }
+        return share < earlyCommitThreshold
+            ? .zeroInteractionConfirmation
+            : .explicitConfirmation
+    }
+}
+
 /// What the loop remembers about itself.
 ///
 /// Every figure here is derived from applied planning receipts — the same rows
@@ -102,6 +284,57 @@ public enum DayLoopLedger {
 
     // MARK: - Review
 
+    public static func evidenceReport(
+        records: [PlanningReceiptRecord],
+        proposalSignals: [DayOpenProposalSignal],
+        calendar: Calendar = .current
+    ) -> DayLoopEvidenceReport {
+        var eligible: Set<String> = []
+        var closed: Set<String> = []
+        var opened: Set<String> = []
+        var openedBeforeEleven: Set<String> = []
+        var reversals = 0
+        var appliedOpenReceiptIDs: Set<UUID> = []
+
+        for record in records {
+            let source = record.receipt.source
+            let closeStamp = dayStamp(source: source, prefix: closePrefix)
+            let openStamp = dayStamp(source: source, prefix: openPrefix)
+            guard closeStamp != nil || openStamp != nil else { continue }
+            guard record.state != .prepared else { continue }
+            if let stamp = closeStamp ?? openStamp { eligible.insert(stamp) }
+
+            if record.state == .undone {
+                reversals += 1
+                continue
+            }
+            guard record.state == .applied else { continue }
+            if let closeStamp { closed.insert(closeStamp) }
+            if let openStamp {
+                opened.insert(openStamp)
+                appliedOpenReceiptIDs.insert(record.receipt.id)
+                let committedAt = record.appliedAt ?? record.receipt.createdAt
+                if calendar.component(.hour, from: committedAt) < 11 {
+                    openedBeforeEleven.insert(openStamp)
+                }
+            }
+        }
+
+        let joinedSignals = proposalSignals.filter {
+            appliedOpenReceiptIDs.contains($0.receiptID)
+                && $0.schemaVersion == DayOpenProposalSignal.currentSchemaVersion
+        }
+        return DayLoopEvidenceReport(
+            eligibleDays: eligible.count,
+            closes: closed.count,
+            opensBeforeEleven: openedBeforeEleven.count,
+            daysWithBoth: closed.intersection(opened).count,
+            reversals: reversals,
+            knownProposalSignals: joinedSignals.count,
+            uneditedProposalSignals: joinedSignals.count { $0.wasEdited == false }
+        )
+    }
+
     /// Counts what the loop did across the supplied events.
     ///
     /// Reads `localDay` rather than bucketing `occurredAt` by calendar: a close
@@ -198,12 +431,17 @@ public enum DayLoopLedger {
             guard record.state == .applied else { continue }
             let source = record.receipt.source
             guard source.hasPrefix(prefix) else { continue }
-            let tail = String(source.dropFirst(prefix.count))
-            let stamp = tail.replacingOccurrences(of: "-", with: "")
-            guard stamp.count == 8 else { continue }
+            guard let stamp = dayStamp(source: source, prefix: prefix) else { continue }
             result.insert(stamp)
         }
         return result
+    }
+
+    private static func dayStamp(source: String, prefix: String) -> String? {
+        guard source.hasPrefix(prefix) else { return nil }
+        let tail = String(source.dropFirst(prefix.count))
+        let stamp = tail.replacingOccurrences(of: "-", with: "")
+        return stamp.count == 8 ? stamp : nil
     }
 
     // MARK: - The carry

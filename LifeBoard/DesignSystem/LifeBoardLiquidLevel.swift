@@ -126,3 +126,54 @@ public struct LifeBoardActThread: Shape {
         return path
     }
 }
+
+/// The tactile punctuation on an act thread.
+///
+/// Knots appear at every act, but only settled acts take on the warm clay fill
+/// and lift. They are deliberately decorative and hidden from accessibility;
+/// the acts themselves carry the state and labels.
+public struct LifeBoardActThreadKnots: View {
+    public var progress: Double
+    public var count: Int
+
+    public init(progress: Double, count: Int) {
+        self.progress = progress
+        self.count = max(1, count)
+    }
+
+    public var body: some View {
+        GeometryReader { proxy in
+            ForEach(0..<count, id: \.self) { index in
+                let settled = Double(index + 1) / Double(count) <= min(max(progress, 0), 1)
+                Circle()
+                    .fill(
+                        settled
+                            ? Color(LifeBoardColorTokens.foundationSunAccent)
+                            : Color(LifeBoardColorTokens.foundationSurfaceSolid)
+                    )
+                    .overlay {
+                        Circle().stroke(
+                            Color(LifeBoardColorTokens.foundationHairline),
+                            lineWidth: settled ? 1.5 : 1
+                        )
+                    }
+                    .shadow(
+                        color: settled ? Color.black.opacity(0.14) : .clear,
+                        radius: 2,
+                        y: 1
+                    )
+                    .frame(width: settled ? 10 : 7, height: settled ? 10 : 7)
+                    .position(
+                        x: proxy.size.width / 2,
+                        y: knotY(index: index, height: proxy.size.height)
+                    )
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func knotY(index: Int, height: CGFloat) -> CGFloat {
+        guard count > 1 else { return height / 2 }
+        return height * CGFloat(index) / CGFloat(count - 1)
+    }
+}

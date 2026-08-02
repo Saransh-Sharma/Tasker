@@ -24,19 +24,24 @@ final class DayLoopLedgerTests: XCTestCase {
     private func record(
         source: String,
         state: PlanningReceiptState = .applied,
-        forward: PlanMutation = .batch([])
+        forward: PlanMutation = .batch([]),
+        id: UUID = UUID(),
+        createdAt: Date? = nil,
+        appliedAt: Date? = nil
     ) -> PlanningReceiptRecord {
-        PlanningReceiptRecord(
+        let createdAt = createdAt ?? now
+        return PlanningReceiptRecord(
             receipt: PlanMutationReceipt(
-                id: UUID(),
+                id: id,
                 source: source,
                 summary: "test",
                 forwardData: (try? JSONEncoder().encode(forward)) ?? Data(),
                 undoData: Data(),
-                createdAt: now
+                createdAt: createdAt
             ),
             state: state,
-            appliedAt: state == .applied ? now : nil
+            appliedAt: state == .applied ? (appliedAt ?? createdAt) : nil,
+            undoneAt: state == .undone ? createdAt : nil
         )
     }
 
@@ -145,6 +150,134 @@ final class DayLoopLedgerTests: XCTestCase {
 
         XCTAssertTrue(summary.hasNoHistory)
         XCTAssertEqual(summary.runLength, 0)
+    }
+
+    // MARK: - Morning evidence and policy
+
+    func testEvidenceReportJoinsSignalsOnlyToAppliedOpenReceipts() {
+        let today = day(offsetFromNow: 0)
+        let appliedOpenID = UUID()
+        let undoneOpenID = UUID()
+        let morning = today.startDate(calendar: calendar)!.addingTimeInterval(9 * 3_600)
+        let records = [
+            record(source: DayCloseScenarioBuilder.receiptSource(for: today)),
+            record(
+                source: DayOpenScenarioBuilder.receiptSource(for: today),
+                id: appliedOpenID,
+                createdAt: morning,
+                appliedAt: morning
+            ),
+            record(
+                source: DayOpenScenarioBuilder.receiptSource(for: day(offsetFromNow: -1)),
+                state: .undone,
+                id: undoneOpenID
+            )
+        ]
+        let report = DayLoopLedger.evidenceReport(
+            records: records,
+            proposalSignals: [
+                DayOpenProposalSignal(
+                    receiptID: appliedOpenID,
+                    dayStamp: "20260724",
+                    wasEdited: false,
+                    committedAt: morning
+                ),
+                DayOpenProposalSignal(
+                    receiptID: undoneOpenID,
+                    dayStamp: "20260723",
+                    wasEdited: true,
+                    committedAt: morning
+                )
+            ],
+            calendar: calendar
+        )
+
+        XCTAssertEqual(report.eligibleDays, 2)
+        XCTAssertEqual(report.closes, 1)
+        XCTAssertEqual(report.opensBeforeEleven, 1)
+        XCTAssertEqual(report.daysWithBoth, 1)
+        XCTAssertEqual(report.reversals, 1)
+        XCTAssertEqual(report.knownProposalSignals, 1)
+        XCTAssertEqual(report.uneditedShare, 1)
+    }
+
+    func testMissingProposalSidecarsRemainUnknownRatherThanEdited() {
+        let openID = UUID()
+        let report = DayLoopLedger.evidenceReport(
+            records: [record(
+                source: DayOpenScenarioBuilder.receiptSource(for: day(offsetFromNow: 0)),
+                id: openID
+            )],
+            proposalSignals: [],
+            calendar: calendar
+        )
+
+        XCTAssertEqual(report.knownProposalSignals, 0)
+        XCTAssertEqual(report.uneditedProposalSignals, 0)
+        XCTAssertNil(report.uneditedShare)
+    }
+
+    func testElevenOClockIsNotCountedAsBeforeEleven() {
+        let today = day(offsetFromNow: 0)
+        let eleven = today.startDate(calendar: calendar)!.addingTimeInterval(11 * 3_600)
+        let report = DayLoopLedger.evidenceReport(
+            records: [record(
+                source: DayOpenScenarioBuilder.receiptSource(for: today),
+                createdAt: eleven,
+                appliedAt: eleven
+            )],
+            proposalSignals: [],
+            calendar: calendar
+        )
+
+        XCTAssertEqual(report.opensBeforeEleven, 0)
+    }
+
+    func testMorningCommitPolicyAppliesTheFourteenDayFortyPercentRule() {
+        let resolver = MorningCommitPolicyResolver()
+
+        XCTAssertEqual(
+            resolver.resolve(.init(eligibleDays: 13, opensBeforeEleven: 0)),
+            .explicitConfirmation
+        )
+        XCTAssertEqual(
+            resolver.resolve(.init(eligibleDays: 14, opensBeforeEleven: 5)),
+            .zeroInteractionConfirmation
+        )
+        XCTAssertEqual(
+            resolver.resolve(.init(eligibleDays: 15, opensBeforeEleven: 6)),
+            .explicitConfirmation,
+            "Exactly 40% stays explicit; only fewer than 40% changes policy."
+        )
+    }
+
+    func testProposalSignalStoreIsVersionedAndKeyedByReceiptID() async throws {
+        let root = FileManager.default.temporaryDirectory
+            .appendingPathComponent("DayOpenProposalSignalStoreTests-\(UUID().uuidString)", isDirectory: true)
+        addTeardownBlock { try? FileManager.default.removeItem(at: root) }
+        let store = DayOpenProposalSignalStore(rootURL: root)
+        let receiptID = UUID()
+
+        try await store.record(.init(
+            receiptID: receiptID,
+            dayStamp: "20260801",
+            wasEdited: true,
+            committedAt: now
+        ))
+        try await store.record(.init(
+            receiptID: receiptID,
+            dayStamp: "20260801",
+            wasEdited: false,
+            committedAt: now.addingTimeInterval(1)
+        ))
+
+        let signals = try await store.signals()
+        XCTAssertEqual(signals.count, 1)
+        XCTAssertEqual(signals.first?.schemaVersion, DayOpenProposalSignal.currentSchemaVersion)
+        XCTAssertEqual(signals.first?.wasEdited, false)
+        let localOnlyDirectory = root.appendingPathComponent("LifeBoard/LocalOnly", isDirectory: true)
+        let resourceValues = try localOnlyDirectory.resourceValues(forKeys: [.isExcludedFromBackupKey])
+        XCTAssertEqual(resourceValues.isExcludedFromBackup, true)
     }
 
     // MARK: - The carry

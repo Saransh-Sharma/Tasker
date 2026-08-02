@@ -2143,8 +2143,8 @@ struct LifeBoardAdaptiveHome: View {
                         .font(.caption)
                         .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                         // Two lines, never truncation: this once shortened to
-                        // "1 day running · 1 of…", hiding exactly the half that
-                        // survives a bad week. Both numbers carry equal weight
+                        // "1 of 14 days · 1 day…", hiding one of the two honest
+                        // facts. Both numbers carry equal weight
                         // because the anti-guilt mechanism here is arithmetic,
                         // not copy.
                         .lineLimit(2)
@@ -3018,8 +3018,8 @@ struct LifeBoardAdaptiveHome: View {
         // with what actually happened, and Undo moves it.
         if let rhythm = dayLoopRhythmText {
             // Two lines rather than one: the Progress card renders in a 2-up
-            // grid, and truncating to "1 day running · 1 of…" would hide exactly
-            // the half that stays true after a bad week. DESIGN.md forbids
+            // grid, and truncating to "1 of 14 days · 1 day…" would hide one of
+            // the two honest facts. DESIGN.md forbids
             // shrinking type to preserve a grid, so it wraps instead.
             Label(rhythm, systemImage: "circle.hexagongrid")
                 .lineLimit(2)
@@ -3027,12 +3027,11 @@ struct LifeBoardAdaptiveHome: View {
         }
     }
 
-    /// The loop's rhythm: a run, and how the last two weeks actually went.
+    /// The loop's rhythm: how the last two weeks went, then the current run.
     ///
     /// Both numbers render at the same size in the same label, which is the
-    /// anti-guilt mechanism — it is arithmetic, not copy. Breaking a run drops
-    /// the first number to 1 while the second moves by one-fourteenth, and the
-    /// second is the one that stays true after a bad week.
+    /// anti-guilt mechanism — it is arithmetic, not copy. Consistency leads so
+    /// breaking a run cannot make the smallest number the first visual fact.
     ///
     /// `nil` before anything has been closed: "0 days running" would be a
     /// verdict on nothing.
@@ -3041,7 +3040,7 @@ struct LifeBoardAdaptiveHome: View {
         let window = "\(summary.closedInWindow) of \(summary.window) days"
         guard summary.runLength > 0 else { return window }
         let run = summary.runLength == 1 ? "1 day running" : "\(summary.runLength) days running"
-        return "\(run) · \(window)"
+        return "\(window) · \(run)"
     }
 
     private func progressWidget(palette: LifeBoardDaypartPalette) -> some View {

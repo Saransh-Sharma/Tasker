@@ -1,8 +1,8 @@
 # LifeBoard — Daily Loop ("lifeOS") Developer & Designer Handoff
 
-**Date:** 2026-07-31
-**Branch:** `lifeOS` (base commit `ef7ba345`)
-**Status:** M1–M4 complete and verified. M5 complete except two deletions deliberately deferred (§8).
+**Last reconciled:** 2026-08-03
+**Branch:** `lifeOS`
+**Status:** Daily Loop experience and local evidence policy implemented; legacy retirement remains a later program phase (§16).
 **Audience:** the engineer and designer picking this up cold.
 
 ---
@@ -112,8 +112,8 @@ An empty reconciliation deck renders **"Everything you committed to is done."** 
 - `DayLoopStage` + `DayLoopStageResolver` (`Foundation/PhaseIII/DayLoopStage.swift`). Five stages: `.commit`, `.act`, `.repair`, `.close`, `.rest`. **Loop state dominates the clock** — a day closed at 15:00 resolves to `.rest` regardless of hour.
 - Ritual row lifted **out of** `budget.showsCloseLoop`. The *placement section* stays budgeted; the door does not.
 - `LifeBoardAppRouter.handle(notificationRoute:)`: `.dayCompass(.eveningReview)` and `.dailySummary(.nightly)` → `.dayClose(date)`; `.dayCompass(.morningPlan)` → `.dayOpen(date)`. The `yyyyMMdd` stamp was already parsed off the payload and then **discarded by a `_` binding** — now resolved via `notificationDate(from:)`, so a notification tapped after midnight closes the day it was written about.
-- `DayLoopClosureLog` — a per-device UserDefaults cache the ritual writes on close and clears on undo. The 22:30 follow-up previously read `UserDefaultsDailyReflectionStore`, which the ritual **never wrote**, so it fired at people who had already closed.
-- Rewrote the 22:30 body. Was: *"One quick reflection keeps your streak resilient. Claim it before day-end."* — that breaks the anti-guilt law twice (streak as motivation + an artificial deadline).
+- `DayLoopClosureLog` — a per-device UserDefaults cache the ritual writes on close and clears on undo. The one configurable evening nudge consults it before scheduling; the old later follow-up has been removed.
+- Rewrote the remaining nudge as *"Whenever you're ready — see how the day went and carry what's left."* It contains no XP, streak, deadline, or recovery pressure.
 
 **Verified live:** row renders in Low Energy where it was previously hidden entirely; disappears after closing.
 
@@ -151,10 +151,10 @@ An empty reconciliation deck renders **"Everything you committed to is done."** 
 
 **Verified live:** "Ending the day" leads Home; the Journal and Progress widgets that lived in "Close the loop" **moved into the dashboard rather than disappearing**.
 
-### M5 — Rhythm, and the cut 🟡 MOSTLY COMPLETE
+### M5 — Rhythm, and the cut ✅ COMPLETE
 
 **Built:**
-- Rhythm line: **"4 days running · 9 of 14 days"** from `DayLoopLedger`, replacing `"N day continuity"`.
+- Rhythm line: **"9 of 14 days · 4 days running"** from `DayLoopLedger`, replacing `"N day continuity"` and leading with consistency.
 - Insights: `planningEvent` now carries `receipt.source` through as `day_closed` / `day_opened` / `day_close_reversed` / `day_open_reversed`. It previously **dropped `source`**, so a day-close reached Insights as a generic `mutation_applied`, indistinguishable from dragging a block.
 - Weekly Review now merges the week's `.dayClose` notes (`ReflectionNoteQuery(kinds: [.dayClose], limit: 7)`) instead of asking for a week's reflection cold. `.dayClose` notes carry no `linkedWeeklyPlanID`, so the existing query could never match them.
 - Deleted: `HomeXPHeroView`, `LevelUpCelebrationView`, `BadgeGalleryView`, `MilestoneCelebrationView`, and the dead `eva_plan_repair_v1` flag.
@@ -212,10 +212,10 @@ An empty reconciliation deck renders **"Everything you committed to is done."** 
 
 ### The rhythm line — design spec
 
-Renders as `"4 days running · 9 of 14 days"`.
+Renders as `"9 of 14 days · 4 days running"`.
 
-- **Both numbers must render at the same size, in the same label.** The anti-guilt mechanism is *arithmetic, not copy*: a broken run drops the first number to 1 while the second moves by one-fourteenth, and the second is the one that stays true after a bad week.
-- Wraps to 2 lines rather than truncating. It truncated to `"1 day running · 1 of…"` in the 2-up Progress card during testing — hiding exactly the half that survives a bad week. DESIGN.md forbids shrinking type to preserve a grid.
+- **Both numbers render at the same size, in the same label.** Consistency leads so a broken run cannot make the smallest number the first visual fact.
+- Wraps to 2 lines rather than truncating. DESIGN.md forbids shrinking type to preserve a grid.
 - Hidden entirely when `hasNoHistory`.
 - **No red, no flame, no "lost", no recovery offer.**
 
@@ -223,11 +223,11 @@ Renders as `"4 days running · 9 of 14 days"`.
 
 ---
 
-## 6. What remains to be built
+## 6. Completion notes and retained follow-on work
 
-### 6.1 Drift detection for `.repair` — **highest priority**
+### 6.1 Drift detection for `.repair` — complete
 
-`DayLoopStage.repair` exists, is tested, and is wired into the resolver via `driftCount`. **Nothing computes `driftCount`, so the stage is currently unreachable.** The spine falls back to `nowSection` for it.
+The canonical missed-planned-work predicate now feeds `DayLoopStageResolver` and the extracted repair deck. Low Energy suppresses the stage. The Overdue Rescue coordinator extraction remains a separate architecture phase.
 
 Build a pure resolver: unstarted commitments whose planned time has passed. Feed `DayLoopStageResolver.resolve(driftCount:)`. Then give `.repair` a real body — the Plan Repair deck (`LifeBoardPlanViews.swift:2401` — a *private method* `repairCard` on `LifeBoardPlanRootView`, not a standalone type) and the Overdue Rescue entry already exist and should be reused, not rebuilt.
 
@@ -235,13 +235,13 @@ Build a pure resolver: unstarted commitments whose planned time has passed. Feed
 
 **Design note:** this is the stage most at risk of feeling like nagging. Low Energy already suppresses it. Consider a threshold (2+ drifted items?) rather than surfacing on the first.
 
-### 6.2 The `.dayOpen` proposal needs real-world tuning
+### 6.2 The `.dayOpen` proposal remains deliberately untuned
 
-Ranking today is: anchor first → carried → must-do → UUID. That is deterministic but naïve. Once §7's "unedited proposal" signal exists, tune it.
+Ranking remains anchor first → carried → must-do → UUID. The versioned local sidecar now records known edited/unedited signals after successful apply. Do not tune ranking until the 14-eligible-day evidence floor is met.
 
-### 6.3 Insights `.review` lens
+### 6.3 Insights `.review` lens — complete
 
-`planningEvent` now emits `day_closed`/`day_opened`, but the `.review` lens still renders one prose line off `sourceCounts`. It now has real material — use it. Keep the 3-day floor in `InsightsInterpretationEngine`.
+Review reports eligible days, closes, opens before 11:00, both, reversals, known proposal signals, and unedited share. Evidence is derived locally and distinguishes missing sidecars from edited proposals.
 
 ### 6.4 The ambient layer (deferred phase)
 
@@ -250,19 +250,19 @@ Ranking today is: anchor first → carried → must-do → UUID. That is determi
 - **`TodayXPWidget` / `NextMilestoneWidget` / `WeeklyScoreboardWidget`** are compiled but absent from `LifeBoardWidgetBundle.body` — unreachable. Given the "rhythm not points" decision, **delete them** rather than register them. Note `LifeBoardTests.swift` `testWidgetViewsDoNotReintroduceLegacyBrandLiterals` lists them by path; remove those entries too.
 - A Watch path for the close, and a Live Activity for the day itself.
 
-### 6.5 The evening notification is deliberately unchanged in cadence
+### 6.5 The evening notification is one gentle nudge
 
-We re-routed it; we did not make it more insistent. **A notification that pulls someone into a reflective ritual is the fastest way to make it feel like nagging.** Ship the in-app entry, watch whether people find it, then decide.
+One configurable reminder routes to the ritual and is suppressed after close. There is no later follow-up. **A notification that pulls someone into a reflective ritual is the fastest way to make it feel like nagging.**
 
 ---
 
 ## 7. How to tell if this worked
 
-Local-first — no telemetry. Every signal is a query over `fetchMutationReceipts(since:)`.
+Local-first — no telemetry. Authoritative facts come from `fetchMutationReceipts(since:)`; proposal fidelity comes from the non-authoritative local sidecar joined by receipt ID.
 
 | Milestone | Signal | Why this one |
 |---|---|---|
-| M1 | Close receipts with `appliedAt` between 11:00–18:00; **zero** `daily.reflection.*.followup` deliveries on days holding a close receipt | The second is binary and is the honest test |
+| M1 | Close receipts with `appliedAt` between 11:00–18:00; **zero** configured nightly deliveries on days holding a close receipt; no `daily.reflection.*.followup` requests at all | The notification contract is binary and locally testable |
 | M2 | Of days whose close named an anchor, the share where that task is **started or completed by 12:00** the next day | Not "did they see it". If it's indistinguishable from a random must-do, the carry is decoration |
 | M3 | Of days with a close receipt the night before, the share getting a `dayOpen` receipt **before 11:00**. Plus: share of commits that are the **unedited** proposal | The first decides the thesis; the second says whether the proposal is any good |
 | M4 | Share of days with **both** an open and a close receipt rises; share of pinned placements still pinned after two weeks does **not** fall | The second is the falsification test for spine/dashboard coexistence |
@@ -272,7 +272,7 @@ Local-first — no telemetry. Every signal is a query over `fetchMutationReceipt
 
 **That people will do a morning commit at all.** The evening has a natural trigger — the day ends, you want to put it down. The morning has a hostile one: you're rushed, already moving, and you believe you know what today is.
 
-**Falsification:** if fewer than ~40% of days-following-a-close get a `dayOpen` receipt before 11:00 over two weeks of real use, **the right response is not a better morning screen.** It is to move the commit into `DayCloseAct.anchor` (where it already half-lives), make the morning a zero-interaction confirmation, and write the `dayOpen` receipt implicitly on first foreground. "Commit" would then have a record but no user-facing surface — a legitimate outcome, and materially cheaper.
+**Mechanical policy:** after 14 eligible local days, if fewer than 40% have a `dayOpen` receipt before 11:00, morning switches to zero-interaction confirmation. It writes an empty `dayOpen` receipt on foreground and never silently changes tasks. Missing proposal sidecars remain unknown.
 
 The plan is arranged to survive this: **M2's carry uses only the write the evening already makes**, so if M3 underperforms the loop still opens without the user doing anything.
 
@@ -530,14 +530,13 @@ store and a story for the two independent `PlanStore` instances (already flagged
 - **Home no longer draws Focus Now twice** when it is pinned; dropped at read time like
   `.closeLoop`, so the placement survives a flag rollback.
 
-### §6.2 cannot be done the way §7 implies
+### §6.2 evidence implementation
 
-The **"unedited proposal" signal is not derivable from the receipt.** The receipt records
-what was *applied*, never what was *proposed*, and `DayOpenScenarioBuilder.proposal`
-cannot be replayed against a past day because the task list it ranked has moved on. It
-must be written at commit time. Reasoning and the three candidate mechanisms are recorded
-at `DayOpenScenarioBuilder.swift`. Nothing is blocked: §6.2 gates ranking changes on this
-signal, and the ranking is deliberately untuned.
+The **"unedited proposal" signal is not derivable from the receipt**, so it is written
+after successful apply to `DayOpenProposalSignalStore`, keyed by receipt ID. The sidecar
+is versioned, local-only, and non-authoritative. Failed writes become unknown evidence;
+currently applied receipts are the join set, so Undo removes a signal from reports
+without mutating the sidecar. Receipt source strings and scenario payloads remain stable.
 
 ---
 

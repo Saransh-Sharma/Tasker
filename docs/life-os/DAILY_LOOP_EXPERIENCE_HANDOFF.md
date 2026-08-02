@@ -1,6 +1,6 @@
 # LifeBoard — Daily Loop Experience Handoff
 
-**Date:** 2026-08-01
+**Last reconciled:** 2026-08-03
 **Branch:** `lifeOS`
 **Last commit:** `0615e939`
 **Audience:** the engineer and the designer continuing this, cold.
@@ -10,7 +10,7 @@
 
 ## 0. The one-paragraph version
 
-The daily loop is functionally complete and now has a real interaction design. `.repair` is reachable, the review lens reports the loop instead of counting rows, the deck actually looks like a stack, the ring answers the deck, and the rituals are entered through a zoom rather than a push. What remains is: seeded verification of the motion (nobody has *watched* most of it), the Overdue Rescue extraction, a decision about the legacy Home branch, and the long tail of token consolidation. **Nothing is blocked on a hard problem.** The hardest remaining item is a judgement call about rollback safety, described in §5.1.
+The Daily Loop is functionally complete and has a persistence-backed interaction design. `.repair` is reachable, Review exposes local loop evidence, the deck has directional previews, the liquid ring answers it, four settled clay knots mark completed acts, and ritual routes share zoom transitions. Morning policy is evidence-driven after 14 eligible days; the evening cadence is one suppressible nudge. Overdue Rescue extraction and legacy Home retirement remain later program phases.
 
 ---
 
@@ -93,8 +93,8 @@ All four directions used to differ only by a label. Now, while armed:
 |---|---|---|
 | `.tomorrow` | leans in (scale 1.012) | being carried forward |
 | `.someday` | recedes (scale 0.955, opacity 0.82) | being put off, not thrown away |
-| `.doneAnyway` | — | reserved for `completionBurst`; see §4.2 |
-| `.release` | begins to erode via `dissolveAway` at 0.14 | "let it go" should *look* like letting go |
+| `.doneAnyway` | stays square and firm | its one-shot burst belongs only on the persisted summary |
+| `.release` | begins to erode via `dissolveAway` at 0.22 | "let it go" should *look* like letting go |
 
 You feel the consequence before you commit, and you can back out by returning to centre. Nothing is persisted until the batch lands.
 
@@ -192,9 +192,9 @@ Three things still hang off it: `HomeProjectionAdapter` (which is what drives *L
 
 So the §8 deletions in the original handoff — the `DailyReflection*` family (~1500 lines, including `DailyPlanDraft`, a second competing "the user committed to a day" record) and the celebration pipeline — **remain blocked**. This is a five-dependency problem, not a two-dependency one.
 
-### 5.3 The "unedited proposal" signal cannot be backfilled
+### 5.3 The "unedited proposal" signal is local evidence
 
-§7 of the original handoff wants the share of commits that are the unedited proposal. **It cannot be derived from receipts.** A receipt records what was *applied*, never what was *proposed*, and `DayOpenScenarioBuilder.proposal` cannot be replayed against a past day because the task list has moved on. It must be written at commit time, and every mechanism costs something (a `receiptSource` suffix breaks exact-match lookups; `diff` titles are user-visible; a scenario field touches the shared model). Reasoning is recorded at `DayOpenScenarioBuilder.swift`. Nothing is blocked today — §6.2 gates ranking changes on this signal and the ranking is deliberately untuned.
+It cannot be derived from receipts, so `DayOpenProposalSignalStore` writes a versioned local sidecar only after `scenarios.apply` succeeds. It is keyed by receipt ID and joined only to currently applied open receipts. A missing or failed sidecar remains unknown, never “edited,” and cannot fail or roll back the commitment. Receipt source strings and shared planning payloads are unchanged.
 
 ### 5.4 Shared copy change
 
@@ -304,9 +304,9 @@ Also: bundle id is `com.saransh1337.To-Do-List`. App Group is `group.com.saransh
 
 ### 7.3 The rhythm line — the acceptance test that is not optional
 
-Renders as `"4 days running · 9 of 14 days"`.
+Renders as `"9 of 14 days · 4 days running"`.
 
-Both numbers must render **at the same size, in the same label**. The anti-guilt mechanism is *arithmetic, not copy*: a broken run drops the first number to 1 while the second moves by one-fourteenth, and the second is the one that stays true after a bad week. It wraps to two lines rather than truncating — it once shortened to `"1 day running · 1 of…"`, hiding exactly the half that survives a bad week.
+Both numbers render **at the same size, in the same label**. Consistency leads so the smaller broken-run number does not become the first fact. It wraps to two lines rather than truncating.
 
 **Run this:** deliberately break a 10-day run and screenshot Home. If the eye lands on the `1` before the `9 of 14`, if anything turns warm-red, or if any copy offers to help you recover — it fails and gets re-laid-out.
 
@@ -314,9 +314,9 @@ Both numbers must render **at the same size, in the same label**. The anti-guilt
 
 | Surface | State | Note |
 |---|---|---|
-| **Reconcile deck** | Rebuilt, unverified visually | Backing cards, direction previews and the ring level all need a design eye once §4.1 unblocks them. Is the erode on `.release` too subtle at 0.14? |
-| **Act thread** | Renders | Currently a plain 2 pt line at 50 % sun accent. Does it want notches at act boundaries, or is a bare thread right? |
-| **`.doneAnyway`** | No treatment | The only direction still without a distinct feeling — see §4.2 |
+| **Reconcile deck** | Implemented; visual approval pending | Backing cards, four direction previews, liquid ring, Undo shuffle, and zoom entry are wired. |
+| **Act thread** | Implemented; visual approval pending | Four clay knots settle from completed acts, not scroll position. |
+| **`.doneAnyway`** | Implemented; visual approval pending | Square and firm while armed; burst only after persistence. |
 | **`.rest`** | Rebuilt, unverified | Should be the calmest screen in the app |
 | **Morning proposal** | Loose-to-settled | Lean magnitudes are `[6, -4, 9, -7, 3]` pt with 0.22× rotation — tune to taste |
 | **Plan day** | Card wall | Ten tasks = ten raised cards; §4.5 |

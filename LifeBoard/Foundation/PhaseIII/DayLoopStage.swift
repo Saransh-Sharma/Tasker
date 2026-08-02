@@ -63,7 +63,7 @@ public enum DayLoopStageResolver {
 ///
 /// **Not the source of truth.** The applied `planning.scenario.dayClose.*`
 /// receipt is; this exists only so the notification orchestrator — which is
-/// synchronous and callback-based — can suppress the evening follow-up without
+/// synchronous and callback-based — can suppress the evening nudge without
 /// threading an async Core Data read through its reconcile pass.
 ///
 /// Per-device is correct here rather than a limitation: local notifications are
@@ -71,8 +71,7 @@ public enum DayLoopStageResolver {
 /// phone's nudge for a day this phone still shows as open.
 ///
 /// Replaces a read of `UserDefaultsDailyReflectionStore`, which the ritual never
-/// wrote — that mismatch is why the 22:30 nudge fired at people who had already
-/// closed their day.
+/// wrote. The single configured nudge now consults this log before scheduling.
 /// `@unchecked Sendable` for the same reason as `DayCompassSnoozeStore`:
 /// `UserDefaults` is not `Sendable` under Swift 6's complete checking, but it is
 /// internally thread-safe and every access here is a single atomic read or write.

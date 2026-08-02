@@ -641,6 +641,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
     private let preferencesStore: LifeBoardNotificationPreferencesStore
     private let calendar: Calendar
     private let now: () -> Date
+    private let dayLoopClosureLog: DayLoopClosureLog
 
     private let managedPrefixes: [String] = [
         "task.reminder.",
@@ -668,7 +669,8 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         preferencesStore: LifeBoardNotificationPreferencesStore = .shared,
         calendar: Calendar = .current,
         now: @escaping () -> Date = Date.init,
-        reconcileDebounceInterval: TimeInterval = 0
+        reconcileDebounceInterval: TimeInterval = 0,
+        dayLoopClosureLog: DayLoopClosureLog = DayLoopClosureLog()
     ) {
         self.taskRepository = taskRepository
         self.notificationService = notificationService
@@ -677,6 +679,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         self.calendar = calendar
         self.now = now
         self.reconcileDebounceInterval = max(0, reconcileDebounceInterval)
+        self.dayLoopClosureLog = dayLoopClosureLog
 
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd"
@@ -911,8 +914,6 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
                 exactDailyXPByDateKey: exactDailyXPByDateKey
             ))
         }
-        requests.append(contentsOf: makeReflectionRitualNudges(nowDate: nowDate, preferences: preferences))
-
         let quietHoursAdjusted = applyQuietHours(to: requests, nowDate: nowDate, preferences: preferences)
         return quietHoursAdjusted.filter { $0.fireDate > nowDate }
     }
@@ -1056,68 +1057,20 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         preferences: LifeBoardNotificationPreferences,
         exactDailyXPByDateKey: [String: Int]
     ) -> [LifeBoardLocalNotificationRequest] {
-        makeDailyNotifications(
+        let closedStamps = dayLoopClosureLog.closedStamps()
+        return makeDailyNotifications(
             prefix: "daily.nightly",
             kind: .nightlyRetrospective,
-            title: "Day Retrospective",
+            title: "Close the day",
             nowDate: nowDate,
             hour: preferences.nightlyHour,
             minute: preferences.nightlyMinute
-        ) { day, dateStamp in
-            self.nightlyRetrospectiveBody(
-                tasks: tasks,
-                day: day,
-                exactDayXP: exactDailyXPByDateKey[dateStamp]
-            )
+        ) { _, _ in
+            "Whenever you're ready — see how the day went and carry what's left."
         }
-    }
-
-    private func makeReflectionRitualNudges(
-        nowDate: Date,
-        preferences: LifeBoardNotificationPreferences
-    ) -> [LifeBoardLocalNotificationRequest] {
-        guard preferences.nightlyRetrospectiveEnabled else { return [] }
-
-        let completedDateStamps = reflectionCompletedDateStamps()
-        let startOfToday = calendar.startOfDay(for: nowDate)
-        let offsets = [0, 1, 2]
-
-        return offsets.flatMap { offset -> [LifeBoardLocalNotificationRequest] in
-            guard let day = calendar.date(byAdding: .day, value: offset, to: startOfToday) else { return [] }
-            let dateStamp = dateStamp(for: day)
-            guard completedDateStamps.contains(dateStamp) == false else { return [] }
-
-            guard let eveningFire = calendar.date(
-                bySettingHour: preferences.nightlyHour,
-                minute: preferences.nightlyMinute,
-                second: 0,
-                of: day
-            ) else {
-                return []
-            }
-
-            var requests: [LifeBoardLocalNotificationRequest] = []
-
-            if let followUpFire = calendar.date(byAdding: .minute, value: 90, to: eveningFire),
-               calendar.isDate(followUpFire, inSameDayAs: day),
-               followUpFire > nowDate {
-                requests.append(
-                    LifeBoardLocalNotificationRequest(
-                        id: "daily.reflection.\(dateStamp).followup",
-                        kind: .nightlyRetrospective,
-                        title: "Close the day",
-                        // Was: "One quick reflection keeps your streak resilient.
-                        // Claim it before day-end." That broke the anti-guilt law
-                        // twice — it made a streak the reason to act, and gave the
-                        // day a deadline. Nothing here expires.
-                        body: "Whenever you're ready — see how the day went and carry what's left.",
-                        fireDate: followUpFire,
-                        route: .dailySummary(kind: .nightly, dateStamp: dateStamp)
-                    )
-                )
-            }
-
-            return requests
+        .filter { request in
+            let stamp = String(request.id.suffix(8))
+            return closedStamps.contains(stamp) == false
         }
     }
 
@@ -1228,16 +1181,6 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
 
     private func dateStamp(for date: Date) -> String {
         stampFormatter.string(from: date)
-    }
-
-    /// Days that have already been closed, so the evening follow-up stays quiet.
-    ///
-    /// Reads `DayLoopClosureLog`, which the day-close ritual writes. This used to
-    /// read `UserDefaultsDailyReflectionStore` — a store belonging to the legacy
-    /// Reflect & Plan flow that no reachable surface writes — so the follow-up
-    /// fired at people who had just closed their day.
-    private func reflectionCompletedDateStamps() -> Set<String> {
-        DayLoopClosureLog().closedStamps()
     }
 
     private func fingerprint(for request: LifeBoardLocalNotificationRequest) -> NotificationFingerprint {
