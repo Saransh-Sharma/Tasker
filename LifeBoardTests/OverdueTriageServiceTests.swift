@@ -78,6 +78,62 @@ final class OverdueRescueDeckTests: XCTestCase {
         var error: Error?
     }
 
+    func testLaunchCoordinatorOwnsNormalAndDayRescueRunsIndependently() {
+        let referenceDate = fixedDate()
+        let overdue = rescueTask(
+            title: "Overdue run",
+            priority: .high,
+            dueDate: Calendar.current.date(byAdding: .day, value: -16, to: referenceDate)!
+        )
+        let today = rescueTask(
+            title: "Today run",
+            priority: .low,
+            dueDate: referenceDate
+        )
+        let coordinator = OverdueRescueLaunchCoordinator()
+        let home = OverdueRescueLaunchContext.home(referenceDate: referenceDate)
+
+        coordinator.begin(home)
+        XCTAssertEqual(coordinator.launcherState, .loading)
+        XCTAssertEqual(coordinator.presentation, home)
+        coordinator.present(plan: nil, tasksByID: [overdue.id: overdue], context: home)
+        XCTAssertTrue(coordinator.isPresented)
+        XCTAssertEqual(Set(coordinator.presentedTasksByID.keys), [overdue.id])
+
+        let dayRescue = OverdueRescueLaunchContext.universalInputDayRescue(referenceDate: referenceDate)
+        coordinator.begin(dayRescue, dayRescueTasksByID: [today.id: today])
+        coordinator.present(plan: nil, tasksByID: [today.id: today], context: dayRescue)
+        XCTAssertEqual(Set(coordinator.presentedTasksByID.keys), [today.id])
+        XCTAssertTrue(coordinator.normalTasksByID.isEmpty)
+    }
+
+    func testLaunchCoordinatorFailureAndDismissClearPresentationWithoutInventingARun() {
+        let coordinator = OverdueRescueLaunchCoordinator()
+        let context = OverdueRescueLaunchContext.home(referenceDate: fixedDate())
+        coordinator.begin(context)
+        coordinator.fail("Repository unavailable")
+
+        XCTAssertEqual(coordinator.launcherState, .failed("Repository unavailable"))
+        XCTAssertEqual(coordinator.presentation, context, "Failure remains retryable in place.")
+        XCTAssertNil(coordinator.lastBatchRunID)
+
+        coordinator.dismiss()
+        XCTAssertEqual(coordinator.launcherState, .idle)
+        XCTAssertNil(coordinator.presentation)
+        XCTAssertNil(coordinator.referenceDate)
+        XCTAssertTrue(coordinator.presentedTasksByID.isEmpty)
+    }
+
+    func testLaunchCoordinatorKeepsAppliedRunIdentityUntilExplicitReplacement() {
+        let coordinator = OverdueRescueLaunchCoordinator()
+        let first = UUID()
+        let second = UUID()
+        coordinator.lastBatchRunID = first
+        XCTAssertEqual(coordinator.lastBatchRunID, first)
+        coordinator.lastBatchRunID = second
+        XCTAssertEqual(coordinator.lastBatchRunID, second)
+    }
+
     func testDeckIncludesStaleOverdueAndCapsSprint() {
         let now = fixedDate()
         let tasks = (0..<18).map { index in

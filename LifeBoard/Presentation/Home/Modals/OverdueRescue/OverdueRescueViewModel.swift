@@ -8,6 +8,75 @@
 import SwiftUI
 import UIKit
 
+/// Native app-level ownership for launching and presenting Rescue.
+///
+/// Home supplies task services, but no longer owns the launcher's state. This
+/// keeps Home, Plan, and universal-input Day Rescue on one run identity and one
+/// presentation path while the decision deck remains independently testable.
+@MainActor
+@Observable
+final class OverdueRescueLaunchCoordinator {
+    private(set) var launcherState: HomeOverdueRescueLauncherState = .idle
+    private(set) var plan: EvaRescuePlan?
+    private(set) var normalTasksByID: [UUID: TaskDefinition] = [:]
+    private(set) var dayRescueTasksByID: [UUID: TaskDefinition] = [:]
+    private(set) var referenceDate: Date?
+    private(set) var presentation: OverdueRescueLaunchContext?
+    var lastBatchRunID: UUID?
+
+    var isPresented: Bool { presentation != nil && launcherState == .ready }
+
+    var presentedTasksByID: [UUID: TaskDefinition] {
+        guard let presentation else { return [:] }
+        return presentation.origin == .universalInputDayRescue
+            ? dayRescueTasksByID
+            : normalTasksByID
+    }
+
+    func begin(
+        _ context: OverdueRescueLaunchContext,
+        dayRescueTasksByID: [UUID: TaskDefinition] = [:]
+    ) {
+        presentation = context
+        referenceDate = context.referenceDate
+        launcherState = .loading
+        plan = nil
+        normalTasksByID = [:]
+        self.dayRescueTasksByID = dayRescueTasksByID
+    }
+
+    func present(
+        plan: EvaRescuePlan?,
+        tasksByID: [UUID: TaskDefinition],
+        context: OverdueRescueLaunchContext
+    ) {
+        presentation = context
+        referenceDate = context.referenceDate
+        self.plan = plan
+        if context.origin == .universalInputDayRescue {
+            dayRescueTasksByID = tasksByID
+        } else {
+            normalTasksByID = tasksByID
+        }
+        launcherState = .ready
+    }
+
+    func fail(_ message: String) {
+        launcherState = .failed(message)
+        plan = nil
+        normalTasksByID = [:]
+    }
+
+    func dismiss() {
+        launcherState = .idle
+        plan = nil
+        normalTasksByID = [:]
+        dayRescueTasksByID = [:]
+        referenceDate = nil
+        presentation = nil
+    }
+}
+
 @MainActor
 final class OverdueRescueViewModel: ObservableObject {
 

@@ -81,7 +81,6 @@ public struct LifeOSFoundationShell: View {
     @State private var visitedRoots: Set<LifeBoardDestination> = []
     @State private var compactCaptureTargetFrames: [CaptureKind: CGRect] = [:]
     @State private var compactCaptureRippleTrigger = 0
-    @State private var planRescueLaunchContext: OverdueRescueLaunchContext?
     @State private var planRescueRefreshGeneration = 0
     @State private var homeCardReceipt: HomeCardPlacementReceipt?
     @State private var homeCardPlacementRequest: HomeCardPlacementRequest?
@@ -353,16 +352,51 @@ public struct LifeOSFoundationShell: View {
             }
         }
         .overlay {
-            if let planRescueLaunchContext {
+            if homeViewModel.overdueRescueLaunchCoordinator.presentation != nil {
                 OverdueRescuePresentationHost(
-                    viewModel: homeViewModel,
-                    tasksByID: planRescueLaunchContext.origin == .universalInputDayRescue
-                        ? homeViewModel.dayRescueTasksByID
-                        : homeViewModel.evaRescueTasksByID,
+                    coordinator: homeViewModel.overdueRescueLaunchCoordinator,
                     projectsByID: Dictionary(uniqueKeysWithValues: homeViewModel.projects.map { ($0.id, $0) }),
                     bottomInset: 0,
-                    launchContext: planRescueLaunchContext,
-                    planningRepository: planningRepository,
+                    onRetry: {
+                        guard let context = homeViewModel.overdueRescueLaunchCoordinator.presentation else { return }
+                        homeViewModel.launchOverdueRescue(context)
+                    },
+                    onUpdate: { request, completion in
+                        Task { @MainActor in
+                            homeViewModel.updateTask(taskID: request.id, request: request, completion: completion)
+                        }
+                    },
+                    onDelete: { taskID, completion in
+                        Task { @MainActor in
+                            homeViewModel.deleteTask(taskID: taskID, scope: .single, completion: completion)
+                        }
+                    },
+                    onRestore: { task, completion in
+                        Task { @MainActor in
+                            homeViewModel.restoreDeletedTaskSnapshot(task, completion: completion)
+                        }
+                    },
+                    onApply: { mutations, completion in
+                        Task { @MainActor in
+                            homeViewModel.applyRescuePlan(mutations: mutations, completion: completion)
+                        }
+                    },
+                    onUndo: { completion in
+                        Task { @MainActor in homeViewModel.undoRescueRun(completion: completion) }
+                    },
+                    onSavePlanningMetadata: { metadata, completion in
+                        Task {
+                            do {
+                                try await planningRepository.saveTaskMetadata(metadata)
+                                completion(.success(()))
+                            } catch {
+                                completion(.failure(error))
+                            }
+                        }
+                    },
+                    onTrack: { action, metadata in
+                        homeViewModel.trackHomeInteraction(action: action, metadata: metadata)
+                    },
                     onDismiss: dismissPlanOverdueRescue
                 )
                 .transition(.opacity.combined(with: .scale(scale: 0.992)))
@@ -2288,12 +2322,11 @@ public struct LifeOSFoundationShell: View {
     private func presentPlanOverdueRescue(_ context: OverdueRescueLaunchContext) {
         compactCaptureState = CaptureOrbPresentationState()
         lifeThreadComposerIsFocused = false
-        planRescueLaunchContext = context
-        homeViewModel.openOverdueRescueFromHome(source: context.source)
+        homeViewModel.launchOverdueRescue(context)
     }
 
     private func dismissPlanOverdueRescue() {
-        planRescueLaunchContext = nil
+        homeViewModel.setEvaRescuePresented(false)
         planRescueRefreshGeneration &+= 1
     }
 

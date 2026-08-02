@@ -227,7 +227,7 @@ Renders as `"9 of 14 days · 4 days running"`.
 
 ### 6.1 Drift detection for `.repair` — complete
 
-The canonical missed-planned-work predicate now feeds `DayLoopStageResolver` and the extracted repair deck. Low Energy suppresses the stage. The Overdue Rescue coordinator extraction remains a separate architecture phase.
+The canonical missed-planned-work predicate now feeds `DayLoopStageResolver` and the extracted repair deck. Low Energy suppresses the stage. Overdue Rescue now launches through its app-level coordinator and batch applier.
 
 Build a pure resolver: unstarted commitments whose planned time has passed. Feed `DayLoopStageResolver.resolve(driftCount:)`. Then give `.repair` a real body — the Plan Repair deck (`LifeBoardPlanViews.swift:2401` — a *private method* `repairCard` on `LifeBoardPlanRootView`, not a standalone type) and the Overdue Rescue entry already exist and should be reused, not rebuilt.
 
@@ -302,21 +302,9 @@ Not an orphan either: `lastXPResult` has a live consumer at `SunriseAppShellView
 
 ## 9. Engineering constraints — these will bite you
 
-### 9.1 The test baseline is stale
+### 9.1 The test baseline is clean
 
-`scripts/lifeboard-test-failure-baseline.txt` is empty and both older handoffs say *"any `+` is a regression you introduced."* **That is no longer true.** Five tests fail on a clean tree at `ef7ba345`:
-
-- `ArchitectureBoundaryTests.testViewLayerDoesNotUseSingletonDependencyContainers` — `HomeViewController+Presentation.swift:1035` uses `EnhancedDependencyContainer.shared`
-- `HabitCoreDataSchemaRegressionTests.testBootstrapSchemaValidationRejectsMissingTaskIconField`
-- `LifeBoardPlanningTrackFoundationTests.testCanonicalHabitProjectionUsesHistoryWithoutInventingFutureDueWork` — pins `now` to 2024-07-14 but the service appears to consult the real clock, so it only began failing once that date passed
-- `PhaseOneRealCoreDataMutationJourneyTests.testEveryBatchFamilyPersistsAndUndoRestoresCanonicalRows` — **claims inbox batch undo does not restore `sectionID`**
-- `PhaseOneRealCoreDataMutationJourneyTests.testPendingToTaskMergeUndoRestoresCoreDataTagRelationshipsExactly`
-
-**At least the first and fourth look like genuine defects.** The fourth is an undo-fidelity claim on the path this whole feature depends on and deserves triage.
-
-**To tell your failures from these:** `git stash push -u`, re-run the suspects with `-only-testing:`, compare.
-
-**Re-verified 2026-08-01 at `42aa68b2`:** `2065 tests executed, exactly these 5 failed` — the list above is accurate and complete. The script exits `1` on a clean tree because the baseline file is empty; that is expected, and the baseline is deliberately **not** being filled in. `LIFEBOARD_BEYOND_NOTES_HANDOFF.md` §1 explains why: all 51 entries that were once baselined here turned out to be real defects, eight of which reached users. Green for new work means *this exact 5-line diff and nothing more*, not a zero exit code.
+The five historical failures were fixed in the unified Phase 0 checkpoint. `scripts/lifeboard-test-failure-baseline.txt` remains empty and `run-baseline-aware-tests.sh` must exit zero. The Phase 3 checkpoint executes 2,105 tests with 3 skips and 0 failures.
 
 ### 9.2 A targeted test run is not evidence
 
@@ -349,11 +337,11 @@ python3 -c "import re;s=open('LifeBoard.xcodeproj/project.pbxproj').read();m=re.
 
 `scripts/phase1-foundation-guardrails.sh` bans `#RRGGBB` anywhere under `LifeBoard/Foundation/**` except `LifeBoardDaypartTokens.swift`.
 
-### 9.6 Signature effects are a closed list of exactly 17
+### 9.6 Signature effects are a closed list of exactly 18
 
-The `.metal` file, `LifeBoardSignatureShaders.functionNames`, the `LifeBoardSignatureEffect` enum and `LifeOSFoundationTests.swift:92` are **one atomic contract**. `warmUp()` is all-or-nothing — one bad name disables **all 17 at runtime**, and `check-xcode-target-membership.sh` only scans `.swift`, so an orphaned `.metal` sails past CI.
+The `.metal` file, `LifeBoardSignatureShaders.functionNames`, the `LifeBoardSignatureEffect` enum and `LifeOSFoundationTests.swift` are **one atomic contract**. `warmUp()` is all-or-nothing — one bad name disables **all 18 at runtime**, and `check-xcode-target-membership.sh` only scans `.swift`, so an orphaned `.metal` sails past CI.
 
-**This feature added zero new shaders.** It mounted three that previously existed only in the gallery: `paperGrain` (ritual canvas), `daypartCrossDissolve` (night handoff on close), `dissolveAway` (released rows). `fastingEmberRing` was **declined** — it is a continuous `TimelineView` loop, and DESIGN.md forbids turning any effect into an ambient loop. A closed day is settled state; its ring must not shimmer.
+The Daily Loop added `firstLight` for the persisted morning settle and mounted three effects that previously existed only in the gallery: `paperGrain` (ritual canvas), `daypartCrossDissolve` (night handoff on close), and `dissolveAway` (released rows). `fastingEmberRing` was **declined** — it is a continuous `TimelineView` loop, and DESIGN.md forbids turning any effect into an ambient loop. A closed day is settled state; its ring must not shimmer.
 
 ### 9.7 Swift type-checker budget
 
@@ -425,11 +413,15 @@ Rolling any of them back hides presentation and **strands nothing** — everythi
 Serially. Never two concurrent `xcodebuild`.
 
 ```bash
-bash scripts/check-xcode-target-membership.sh && bash scripts/token-law-guardrails.sh && bash scripts/premium-ui-guardrails.sh && bash scripts/phase1-foundation-guardrails.sh && bash scripts/check-no-print-logs.sh
+bash scripts/check-xcode-target-membership.sh
+bash scripts/token-law-guardrails.sh
+bash scripts/premium-ui-guardrails.sh
+bash scripts/phase1-foundation-guardrails.sh
+bash scripts/check-no-print-logs.sh
 ```
 
 ```bash
-./scripts/run-baseline-aware-tests.sh   # expect exactly the 5 failures in §9.1
+./scripts/run-baseline-aware-tests.sh   # expect zero failures
 ```
 
 ```bash
@@ -440,7 +432,7 @@ xcodebuild build -workspace LifeBoard.xcworkspace -scheme LifeBoard -destination
 xcodebuild build -workspace LifeBoard.xcworkspace -scheme LifeBoard -destination 'platform=macOS,variant=Mac Catalyst'
 ```
 
-`LifeOSFoundationTests.swift:92` must stay green asserting **17**. If a change had to edit it, the shader decision was wrong.
+`LifeOSFoundationTests` must stay green asserting **18** registered functions.
 
 ### Simulator journeys
 
@@ -468,11 +460,10 @@ Relaunch with `-LIFEBOARD_DISABLE_DAY_CLOSE_V1`, `-LIFEBOARD_DISABLE_DAY_OPEN_CO
 
 ## 13. Current state
 
-- **2065 tests, exactly the 5 pre-existing failures.** No regressions.
-- **Both destinations build.** All five guardrail scripts pass.
-- **Zero new Metal shaders** (registry still 17). **Zero new Core Data model versions.**
-- 13 new files (~3,900 lines incl. tests), 19 modified, 4 deleted.
-- **Nothing is committed** — the entire change set is in the working tree for review.
+- **2,105 tests, 3 skips, zero failures.**
+- **Both destinations build.** All eight guardrail scripts pass.
+- **18 registered Metal shaders. 23 TaskModelV3 Core Data versions.**
+- Unified Phases 0–2 are committed; Phase 3 extracts Rescue launch and mutation ownership while retaining the same task, receipt, and Undo semantics.
 
 ---
 
@@ -540,43 +531,38 @@ without mutating the sidecar. Receipt source strings and scenario payloads remai
 
 ---
 
-## 16. §8 deletions — audited 2026-08-01, and they are blocked on two functional gaps
+## 16. §8 deletions — blocker audit reconciled 2026-08-03
 
 §8 says the `DailyReflection*` family and the celebration pipeline cannot be
 deleted until the legacy Sunrise shell is retired. That is right, but it
 understates the problem: the shell is not only a *fallback*, it is a live
 **dependency** of two features that have no LifeOS equivalent.
 
-### Blocker 1 — the calendar-schedule deep link
+### Former blocker 1 — calendar-schedule deep link resolved
 
-`LifeOSFoundationShell.presentCalendarSchedule` (~:1965) casts
-`legacyHomeController as? HomeViewController` and calls
-`homeNavigationOpenCalendarSchedule()`, which presents the modal
-`SunriseScheduleScreen`. **Grepping `LifeBoard/Foundation/` for any
-schedule-screen route returns nothing but that comment** — there is no LifeOS
-replacement. Deleting the shell silently turns this deep link into a no-op
-(the cast already fails soft, so nothing would even log).
+`LifeOSFoundationShell.presentCalendarSchedule` now routes to the canonical
+Foundation `.planDay` destination. It no longer casts the legacy controller or
+fails silently.
 
-### Blocker 2 — Overdue Rescue is `HomeViewModel`-backed
+### Former blocker 2 — Overdue Rescue state extracted
 
-`presentPlanOverdueRescue` (:2284) sets the Foundation state *and* calls
-`homeViewModel.openOverdueRescueFromHome(source:)`. The deck itself is 45 files
-under `Presentation/Home/Modals/OverdueRescue/`, plus hosts in
-`SunriseAppShellView+RescueOverlays.swift`. Rescue is reachable from Plan, Home
-and two universal-input routes, so it cannot simply be dropped.
+`OverdueRescueLaunchCoordinator` owns launch/presentation state for Plan, Home,
+Insights, Day Compass, and both universal-input variants. `RescueBatchApplier`
+owns resolution, validation, propose/confirm/apply, compensation, and Undo. The
+hosts receive services explicitly; no `openOverdueRescueFromHome` entry point
+remains. Home is only a temporary service adapter until Phase 4.
 
 ### What the retirement actually costs
 
-1. Build a LifeOS calendar-schedule surface (or decide the deep link retires with the shell).
-2. Re-host Overdue Rescue on Foundation state, off `HomeViewModel`.
-3. *Then* delete the `adaptiveHomeV2Enabled == false` branch (`:1146`),
+1. Extract Home projection composition, onboarding, and navigation/deep-link routing.
+2. Delete the `adaptiveHomeV2Enabled == false` branch,
    `LegacyHomeControllerHost` (:2328), the `legacyHomeController` parameter, and
    the unconditional `loadViewIfNeeded()` in `SceneDelegate`.
-4. Only then do the §8 deletions fall out — `DailyReflection*` (~1500 lines,
+3. Only then do the §8 deletions fall out — `DailyReflection*` (~1500 lines,
    including `DailyPlanDraft`, the competing "day committed" record) and the
    celebration pipeline (`lastXPResult`'s only consumer is
    `SunriseAppShellView+ObserversSearchAndBackdrop.swift:74`).
 
 `feature.life_os.adaptive_home_v2` is promoted `true`, so the legacy branch is
-already dark in production — the deletion is safe to *schedule*, but steps 1 and
-2 are real feature work and must land first. **Do not start at step 3.**
+already dark in production. Phase 4 removes the remaining three dependencies
+before deleting the branch.

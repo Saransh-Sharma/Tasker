@@ -481,7 +481,8 @@ extension SunriseAppShellView {
     private func launchPendingNeedsReplanRescueIfNeeded() {
         guard pendingRescueLaunchAfterNeedsReplanDismiss else { return }
         pendingRescueLaunchAfterNeedsReplanDismiss = false
-        viewModel.openOverdueRescueFromHome(
+        viewModel.launchOverdueRescue(
+            .home(referenceDate: Date()),
             source: "needs_replan_start",
             action: "needs_replan_start_rescue"
         )

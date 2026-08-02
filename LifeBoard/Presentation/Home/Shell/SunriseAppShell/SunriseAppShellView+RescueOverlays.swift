@@ -10,12 +10,17 @@ import UIKit
 import Combine
 
 struct OverdueRescuePresentationHost: View {
-    @ObservedObject var viewModel: HomeViewModel
-    let tasksByID: [UUID: TaskDefinition]
+    @Bindable var coordinator: OverdueRescueLaunchCoordinator
     let projectsByID: [UUID: Project]
     let bottomInset: CGFloat
-    let launchContext: OverdueRescueLaunchContext
-    let planningRepository: CoreDataPlanningRepository?
+    let onRetry: () -> Void
+    let onUpdate: @Sendable (UpdateTaskDefinitionRequest, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    let onDelete: @Sendable (UUID, @escaping @Sendable (Result<Void, Error>) -> Void) -> Void
+    let onRestore: @Sendable (TaskDefinition, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void
+    let onApply: @Sendable ([EvaBatchMutationInstruction], @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+    let onUndo: @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
+    let onSavePlanningMetadata: @Sendable ([PlanningTaskMetadata], @escaping @Sendable (Result<Void, Error>) -> Void) -> Void
+    let onTrack: (String, [String: Any]) -> Void
     var onDismiss: () -> Void = {}
 
     var body: some View {
@@ -27,7 +32,7 @@ struct OverdueRescuePresentationHost: View {
 
     @ViewBuilder
     private var launcherOverlay: some View {
-        switch viewModel.evaRescueLauncherState {
+        switch coordinator.launcherState {
         case .loading:
             OverdueRescueLauncherOverlayView(
                 title: "Preparing rescue",
@@ -48,11 +53,8 @@ struct OverdueRescuePresentationHost: View {
                 showsProgress: false,
                 primaryTitle: "Try again",
                 secondaryTitle: "Dismiss",
-                onPrimary: {
-                    viewModel.openRescue()
-                },
+                onPrimary: onRetry,
                 onSecondary: {
-                    viewModel.setEvaRescuePresented(false)
                     onDismiss()
                 }
             )
@@ -66,88 +68,73 @@ struct OverdueRescuePresentationHost: View {
 
     @ViewBuilder
     private var deckOverlay: some View {
-        if viewModel.evaRescueSheetPresented {
+        if coordinator.isPresented, let launchContext = coordinator.presentation {
             EvaOverdueRescueSheetV2(
-                plan: viewModel.evaRescuePlan,
-                tasksByID: effectiveTasksByID,
+                plan: coordinator.plan,
+                tasksByID: coordinator.presentedTasksByID,
                 projectsByID: projectsByID,
-                referenceDate: viewModel.evaRescueReferenceDate ?? launchContext.referenceDate,
-                lastBatchRunID: viewModel.evaLastBatchRunID,
+                referenceDate: coordinator.referenceDate ?? launchContext.referenceDate,
+                lastBatchRunID: coordinator.lastBatchRunID,
                 bottomInset: bottomInset,
                 launchContext: launchContext,
                 onClose: {
-                    viewModel.setEvaRescuePresented(false)
                     onDismiss()
                 },
                 onExit: {
-                    viewModel.setEvaRescuePresented(false)
                     onDismiss()
                 },
-                onUpdate: { request, completion in
-                    Task { @MainActor in
-                        viewModel.updateTask(taskID: request.id, request: request, completion: completion)
-                    }
-                },
-                onDelete: { taskID, completion in
-                    Task { @MainActor in
-                        viewModel.deleteTask(taskID: taskID, scope: .single, completion: completion)
-                    }
-                },
-                onRestore: { task, completion in
-                    Task { @MainActor in
-                        viewModel.restoreDeletedTaskSnapshot(task, completion: completion)
-                    }
-                },
-                onApply: { mutations, completion in
-                    Task { @MainActor in
-                        viewModel.applyRescuePlan(mutations: mutations, completion: completion)
-                    }
-                },
-                onUndo: { completion in
-                    Task { @MainActor in
-                        viewModel.undoRescueRun(completion: completion)
-                    }
-                },
-                onSavePlanningMetadata: { metadata, completion in
-                    guard let planningRepository else {
-                        completion(.success(()))
-                        return
-                    }
-                    Task {
-                        do {
-                            try await planningRepository.saveTaskMetadata(metadata)
-                            completion(.success(()))
-                        } catch {
-                            completion(.failure(error))
-                        }
-                    }
-                },
-                onTrack: { action, metadata in
-                    viewModel.trackHomeInteraction(action: action, metadata: metadata)
-                }
+                onUpdate: onUpdate,
+                onDelete: onDelete,
+                onRestore: onRestore,
+                onApply: onApply,
+                onUndo: onUndo,
+                onSavePlanningMetadata: onSavePlanningMetadata,
+                onTrack: onTrack
             )
             .transition(.opacity.combined(with: .scale(scale: 0.985)))
             .zIndex(46)
         }
     }
 
-    private var effectiveTasksByID: [UUID: TaskDefinition] {
-        let injected: [UUID: TaskDefinition] = launchContext.origin == .universalInputDayRescue
-            ? viewModel.dayRescueTasksByID
-            : viewModel.evaRescueTasksByID
-        return tasksByID.merging(injected) { _, launchedTask in launchedTask }
-    }
 }
 
 extension SunriseAppShellView {
     var rescuePresentationHost: some View {
         OverdueRescuePresentationHost(
-            viewModel: viewModel,
-            tasksByID: rescueTasksByID,
+            coordinator: viewModel.overdueRescueLaunchCoordinator,
             projectsByID: tasksSnapshot.projectsByID,
             bottomInset: layoutMetrics.taskListBottomInset,
-            launchContext: .home(referenceDate: overlaySnapshot.rescueReferenceDate ?? Date()),
-            planningRepository: nil
+            onRetry: {
+                let context = viewModel.overdueRescueLaunchCoordinator.presentation
+                    ?? .home(referenceDate: Date())
+                viewModel.launchOverdueRescue(context)
+            },
+            onUpdate: { request, completion in
+                Task { @MainActor in
+                    viewModel.updateTask(taskID: request.id, request: request, completion: completion)
+                }
+            },
+            onDelete: { taskID, completion in
+                Task { @MainActor in
+                    viewModel.deleteTask(taskID: taskID, scope: .single, completion: completion)
+                }
+            },
+            onRestore: { task, completion in
+                Task { @MainActor in
+                    viewModel.restoreDeletedTaskSnapshot(task, completion: completion)
+                }
+            },
+            onApply: { mutations, completion in
+                Task { @MainActor in viewModel.applyRescuePlan(mutations: mutations, completion: completion) }
+            },
+            onUndo: { completion in
+                Task { @MainActor in viewModel.undoRescueRun(completion: completion) }
+            },
+            onSavePlanningMetadata: { _, completion in completion(.success(())) },
+            onTrack: { action, metadata in
+                viewModel.trackHomeInteraction(action: action, metadata: metadata)
+            },
+            onDismiss: { viewModel.setEvaRescuePresented(false) }
         )
     }
 }

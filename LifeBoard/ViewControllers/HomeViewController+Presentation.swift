@@ -1342,7 +1342,10 @@ extension HomeViewController {
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "open_rescue", countsSnapshot: summary.analyticsSnapshot)
                     self.viewModel.trackDailySummaryActionResult(cta: "open_rescue", success: true, error: nil)
                     dismissSummary {
-                        self.viewModel.openOverdueRescueFromHome(source: "daily_summary_start_triage")
+                        self.viewModel.launchOverdueRescue(
+                            .home(referenceDate: Date()),
+                            source: "daily_summary_start_triage"
+                        )
                     }
                 },
                 onRescueOverdue: { [weak self] in
@@ -1350,7 +1353,10 @@ extension HomeViewController {
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "rescue_overdue", countsSnapshot: summary.analyticsSnapshot)
                     self.viewModel.trackDailySummaryActionResult(cta: "rescue_overdue", success: true, error: nil)
                     dismissSummary {
-                        self.viewModel.openOverdueRescueFromHome(source: "daily_summary_rescue_overdue")
+                        self.viewModel.launchOverdueRescue(
+                            .home(referenceDate: Date()),
+                            source: "daily_summary_rescue_overdue"
+                        )
                     }
                 },
                 onAddTask: { [weak self] in
@@ -1422,7 +1428,10 @@ extension HomeViewController {
                     self.viewModel.trackDailySummaryCTA(kind: kind, cta: "open_rescue", countsSnapshot: summary.analyticsSnapshot)
                     self.viewModel.trackDailySummaryActionResult(cta: "open_rescue", success: true, error: nil)
                     dismissSummary {
-                        self.viewModel.openOverdueRescueFromHome(source: "daily_summary_open_rescue")
+                        self.viewModel.launchOverdueRescue(
+                            .home(referenceDate: Date()),
+                            source: "daily_summary_open_rescue"
+                        )
                     }
                 }
             )

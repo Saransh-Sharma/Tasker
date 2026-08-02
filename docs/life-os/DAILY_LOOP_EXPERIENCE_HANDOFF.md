@@ -2,7 +2,7 @@
 
 **Last reconciled:** 2026-08-03
 **Branch:** `lifeOS`
-**Last commit:** `0615e939`
+**Unified baseline commits:** `5e1da0e5`, `aafef799`
 **Audience:** the engineer and the designer continuing this, cold.
 **Companion docs:** `DAILY_LOOP_HANDOFF.md` (the loop's architecture — read §3 first), `DESIGN.md` (the visual law).
 
@@ -10,7 +10,7 @@
 
 ## 0. The one-paragraph version
 
-The Daily Loop is functionally complete and has a persistence-backed interaction design. `.repair` is reachable, Review exposes local loop evidence, the deck has directional previews, the liquid ring answers it, four settled clay knots mark completed acts, and ritual routes share zoom transitions. Morning policy is evidence-driven after 14 eligible days; the evening cadence is one suppressible nudge. Overdue Rescue extraction and legacy Home retirement remain later program phases.
+The Daily Loop is functionally complete and has a persistence-backed interaction design. `.repair` is reachable, Review exposes local loop evidence, the deck has directional previews, the liquid ring answers it, four settled clay knots mark completed acts, and ritual routes share zoom transitions. Morning policy is evidence-driven after 14 eligible days; the evening cadence is one suppressible nudge. Overdue Rescue orchestration is extracted; legacy Home retirement is the next architecture phase.
 
 ---
 
@@ -26,26 +26,9 @@ The Daily Loop is functionally complete and has a persistence-backed interaction
 | `248ab1c6` | Lens picker and token bridge |
 | `0615e939` | Handoff docs + token-law guardrail ratchet |
 
-### Uncommitted working tree — 13 modified, 1 new
+### Unified-program checkpoint
 
-This is the experience work from the most recent session. It **builds on both destinations, passes all five guardrails, and the suite is at 2092 tests with exactly the five known pre-existing failures** (§6.1).
-
-```
-M DESIGN.md                                  ← shader law: 17 → 18
-M LifeBoard.xcodeproj/project.pbxproj
-M LifeBoard/DesignSystem/LifeBoardAnimations.swift        ← deckSettle, threadAdvance, firstLight
-M LifeBoard/DesignSystem/LifeBoardCardPrimitives.swift    ← deck depth cues
-M LifeBoard/DesignSystem/LifeBoardDayRing.swift           ← liquid level
-M LifeBoard/DesignSystem/LifeBoardSignatureEffects.swift  ← FirstLight registry + modifier
-M LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift  ← .rest, kinetic rhythm, zoom source
-M LifeBoard/Foundation/LifeOSFoundationContracts.swift    ← 3 new motion profiles
-M LifeBoard/Foundation/Navigation/LifeOSFoundationShell.swift   ← calendar re-point, zoom destinations
-M LifeBoard/Foundation/PhaseIII/DayCloseStore.swift       ← remainingCards, reconciliationProgress
-M LifeBoard/Foundation/PhaseIII/LifeBoardDayCloseViews.swift    ← deck fix, act thread, previews, proposal settle
-M LifeBoard/View/Effects/LifeBoardSignatureEffects.metal  ← LifeBoardFirstLight
-M LifeBoardTests/LifeOSFoundationTests.swift              ← shader count 17 → 18
-?? LifeBoard/DesignSystem/LifeBoardLiquidLevel.swift      ← 3 shapes + transition ids
-```
+Phases 0–2 are committed. Phase 3 extracts Rescue launch and mutation ownership from Home without changing receipt or mutation semantics. The checkpoint is green on the complete 2,105-test suite, both iOS Simulator and Catalyst builds, all eight guardrails, 18 registered shaders, and 23 TaskModelV3 versions.
 
 ---
 
@@ -122,33 +105,21 @@ The closed-day ring at 64 pt beside the sentence — a record, not a second cele
 
 ## 4. What remains — for the developer
 
-### 4.1 Seeded verification (do this first — it gates everything else)
+### 4.1 Seeded verification — complete
 
-**Most of §3 has never been watched.** The redesign compiles, is covered by unit tests, and the surfaces render — but the deck was never populated on device because the seeder produced zero tasks.
+Close/open seeders now create deterministic work, including one must-do item and yesterday's anchor, and report failed preconditions. They support UI-test launches and manual simulator launches. The seeded journeys cover backing cards, the liquid ring, four directions, bring-back shuffle, proposal settle, `FirstLight`, `.rest`, and the broken-run rhythm state.
 
-Verified on device: the spine renders with stage title "Ending the day"; the ritual row navigates in; the act thread draws; the ring reads "Open day" not 0%; the empty deck is a filled success card; Metal initialises with no shader warnings.
+### 4.2 Direction vocabulary — complete
 
-**Not exercised:** backing cards, ring liquid level, direction previews, bring-back shuffle, rolling counter, proposal settle, `FirstLight`, `.rest`.
+`.doneAnyway` stays square and firm while armed; `completionBurst` fires only from the persisted summary. `.release` previews `0.22` erosion and settles only after persistence.
 
-The blocker is that `-LIFEBOARD_TEST_SEED_DAY_CLOSE` produced no tasks even alongside `-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE`. Start at `LifeBoard/TestingSupport/` and check its preconditions, or create three tasks by hand in Plan (one `.mustDo`) and force the stage. Then run the table in §6.3.
+### 4.3 Overdue Rescue extraction — complete
 
-### 4.2 Finish the direction vocabulary
+`OverdueRescueLaunchCoordinator` is the single `@MainActor @Observable` owner of launcher state, plan, normal/Day-Rescue task maps, reference date, batch run identity, and presentation context. Foundation and Sunrise presentation hosts observe it and receive task edit/delete/restore, batch apply/Undo, planning-metadata, retry, tracking, and dismiss services explicitly.
 
-`.doneAnyway` still has no distinct feeling. `completionBurst` is built, sanctioned and currently unused on this surface — fire it at the card centre on commit. This is ~10 lines and completes §3.3.
+Every `openOverdueRescueFromHome` entry point was replaced by a typed launch context. Eligibility calls `OverdueRescueEligibilityPolicy` directly. `.universalInputDayRescue` is included and owns a distinct task map/session purpose rather than borrowing the overdue pool.
 
-### 4.3 Overdue Rescue extraction (the real remaining engineering)
-
-`presentPlanOverdueRescue` (`LifeOSFoundationShell.swift`) calls `homeViewModel.openOverdueRescueFromHome`. That is **not** analytics — it is the entire fetch → eligibility-filter → plan → present pipeline.
-
-**The deck is already decoupled.** `grep HomeViewModel` across all 40 files / 3,861 lines under `Presentation/Home/Modals/OverdueRescue/` returns **zero hits**. Only the launch is entangled, in one file (`SunriseAppShellView+RescueOverlays.swift`).
-
-Build `OverdueRescueLaunchCoordinator` (`@MainActor @Observable`) owning `launcherState / plan / tasksByID / referenceDate / isPresented`, fed by `useCaseCoordinator.getTasks.getOverdueTasks` + `getOverdueRescuePlanUseCase` — both reachable without `HomeViewModel`.
-
-Two extractions:
-1. **Eligibility — nearly free.** `isOverdueRescueDeckEligibleTask` is a one-line wrapper over the already-free static `OverdueRescueEligibilityPolicy.isStaleOverdueTask`. Call that directly.
-2. **Batch apply/undo — the real cost.** `applyRescuePlan` / `undoRescueRun` route through `applyEvaBatchPlan` (~120 lines: task resolution, staleness re-validation, `buildEvaBatchProposalUseCase`, `assistantActionPipeline.propose/confirm`). Extract to a `RescueBatchApplier`. The logic moves; the behaviour must not.
-
-Defer the `.universalInputDayRescue` origin — it needs `dayRescueTasksByID`, a second `HomeViewModel` pipeline, to serve one entry point.
+`RescueBatchApplier` now contains task resolution, stale/eligibility validation, validated proposal construction, propose → confirm → apply, compensation, and Undo. The existing transactional rollback and planning-metadata compensation order are unchanged. Home remains a temporary service adapter only; Phase 4 removes that adapter with the wider projection/onboarding/navigation extraction.
 
 ### 4.4 Token consolidation — read the measurement before planning it
 
@@ -188,9 +159,9 @@ Do not delete it silently as "cleanup".
 
 ### 5.2 `HomeViewController` cannot be deleted either way
 
-Three things still hang off it: `HomeProjectionAdapter` (which is what drives *LifeOS Home itself*), onboarding/first-run (`SceneDelegate` — without `loadViewIfNeeded()` **first run never appears**), and the notification deep-link bridge (`HomeNavigationEventAdapter`, serving focus/chat/quickadd/weekly/habit links).
+Three things still hang off it: `HomeProjectionAdapter` (which is what drives *LifeOS Home itself*), onboarding/first-run, and the notification deep-link bridge (`HomeNavigationEventAdapter`, serving focus/chat/quickadd/weekly/habit links). Rescue presentation state and mutation orchestration no longer do.
 
-So the §8 deletions in the original handoff — the `DailyReflection*` family (~1500 lines, including `DailyPlanDraft`, a second competing "the user committed to a day" record) and the celebration pipeline — **remain blocked**. This is a five-dependency problem, not a two-dependency one.
+So the §8 deletions in the original handoff — the `DailyReflection*` family (~1500 lines, including `DailyPlanDraft`, a second competing "the user committed to a day" record) and the celebration pipeline — remain gated on those three Phase 4 migrations, not Rescue.
 
 ### 5.3 The "unedited proposal" signal is local evidence
 
@@ -210,15 +181,7 @@ It cannot be derived from receipts, so `DayOpenProposalSignalStore` writes a ver
 ./scripts/run-baseline-aware-tests.sh
 ```
 
-**Exits `1` on a clean tree, and that is the expected state.** `scripts/lifeboard-test-failure-baseline.txt` is 0 bytes, and five tests genuinely fail:
-
-- `ArchitectureBoundaryTests/testViewLayerDoesNotUseSingletonDependencyContainers`
-- `HabitCoreDataSchemaRegressionTests/testBootstrapSchemaValidationRejectsMissingTaskIconField`
-- `LifeBoardPlanningTrackFoundationTests/testCanonicalHabitProjectionUsesHistoryWithoutInventingFutureDueWork`
-- `PhaseOneRealCoreDataMutationJourneyTests/testEveryBatchFamilyPersistsAndUndoRestoresCanonicalRows`
-- `PhaseOneRealCoreDataMutationJourneyTests/testPendingToTaskMergeUndoRestoresCoreDataTagRelationshipsExactly`
-
-**Green means exactly this five-line diff and nothing more** — never a zero exit code. Do not fill the baseline back in: all 51 entries once baselined there turned out to be real defects, eight of which reached users.
+The five historical failures are fixed and the baseline file remains empty. Green now means a zero exit code. At the Phase 3 checkpoint the suite executes 2,105 tests, skips 3 hardware/environment-dependent tests, and reports 0 failures.
 
 ### 6.2 Everything else, serially — never two concurrent `xcodebuild`
 
@@ -228,7 +191,14 @@ until ! pgrep -x xcodebuild; do sleep 15; done
 > `pgrep -q` matches the persistent MCP server and hangs forever. Use `-x`.
 
 ```bash
-bash scripts/token-law-guardrails.sh && bash scripts/premium-ui-guardrails.sh && bash scripts/phase1-foundation-guardrails.sh && bash scripts/check-no-print-logs.sh && bash scripts/check-xcode-target-membership.sh
+bash scripts/token-law-guardrails.sh
+bash scripts/premium-ui-guardrails.sh
+bash scripts/phase1-foundation-guardrails.sh
+bash scripts/check-no-print-logs.sh
+bash scripts/check-xcode-target-membership.sh
+bash scripts/validate_coredata_codegen_guardrails.sh
+bash scripts/validate_legacy_runtime_guardrails.sh
+bash scripts/validate_legacy_test_guardrails.sh
 ```
 
 ```bash
@@ -342,9 +312,9 @@ Every motion profile must return `nil` under Reduce Motion (tested). Selection m
 1. **§4.1 seeded verification** — unblocks judging everything else
 2. **§4.2 `.doneAnyway`** — ~10 lines, completes the direction vocabulary
 3. **§5.1 decide the legacy Home branch** — a conversation, not a task
-4. **§4.3 Overdue Rescue extraction** — the real remaining engineering
+4. **§5.1 retire the legacy Home branch** — projection, onboarding, and routing first
 5. **§4.5 Plan open rows** — alone, own commit
 6. **§4.4 token migration** — continuous, file-by-file, lowest risk per step
 7. **§4.6 ambient layer** — spike first
 
-Items 1–2 are hours. Item 4 is the only one that is genuinely days.
+Items 1–2 are complete in the unified program baseline. Legacy Home retirement is the remaining architecture-sized item.

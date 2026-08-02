@@ -69,7 +69,10 @@ extension HomeViewModel {
 
     func startDayCompassRescueSession() {
         dayCompassLaunchedFlow = .rescue
-        openOverdueRescueFromHome(source: "day_compass")
+        launchOverdueRescue(
+            .home(referenceDate: Date()),
+            source: "day_compass"
+        )
     }
 
     /// Arms the all-clear moment when a compass-launched replan or inbox

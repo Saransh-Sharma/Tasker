@@ -449,6 +449,30 @@ timing, and Undo behavior do not change. Increase Contrast strengthens the
 semantic hairline around knots, cards, and focus; effects never carry required
 meaning by themselves.
 
+### Overdue Rescue
+
+Overdue Rescue is one canonical decision deck entered from Home, Plan, Insights,
+the Day Compass, or universal input. `OverdueRescueLaunchCoordinator` owns the
+launcher phase, active plan, overdue and Day-Rescue task maps, reference date,
+batch run identity, and presentation context. Presentation hosts receive task
+edit, delete, restore, apply, Undo, planning-metadata, tracking, retry, and
+dismiss services explicitly; no root view reaches through a legacy controller.
+
+`RescueBatchApplier` is the mutation boundary. It resolves current task rows,
+rejects missing/completed/subtask/stale or no-longer-eligible work, builds the
+validated proposal, then proposes, confirms, and applies in order. Transactional
+apply rollback remains authoritative. A planning-metadata failure compensates
+through the same batch Undo path exposed to the person. One safe-fix act remains
+one run and one Undo; a failed compensation is named and remains retryable.
+
+The `.universalInputDayRescue` variant shares the deck, physics, controls, and
+service boundary while using only today's replan task map and its own persisted
+session scope. Its genuine empty state says that nothing needs rescuing today;
+repository failure, stale work, retry, and an exhausted deck remain separate
+states. Launch failure stays mounted with Retry and Dismiss. Closing a completed
+run clears presentation but does not erase the durable run identity needed by
+Undo.
+
 ### Guided Routine runner
 
 Guided Routines use one full-screen presentation route. Interactive dismissal is

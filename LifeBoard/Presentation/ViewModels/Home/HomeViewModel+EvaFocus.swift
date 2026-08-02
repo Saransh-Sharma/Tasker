@@ -43,13 +43,9 @@ extension HomeViewModel {
     }
 
     public func setEvaRescuePresented(_ value: Bool) {
-        evaRescueSheetPresented = value
-        if value == false, evaRescueLauncherState != .loading {
-            evaRescueLauncherState = .idle
-            evaRescueReferenceDate = nil
-            evaRescueTasksByID = [:]
-        }
         if value == false {
+            overdueRescueLaunchCoordinator.dismiss()
+            scheduleHomeRenderStateRefresh(.overlay)
             completeDayCompassRescueIfNeeded()
         }
     }
