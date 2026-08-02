@@ -537,3 +537,61 @@ namespace LifeBoardSignature {
     half3 lit = currentColor.rgb + half3(emberTint) * half(rim * 0.5);
     return half4(min(lit, half3(1.0)), currentColor.a) * half(alpha);
 }
+
+// firstLight: the morning commit landing. A single warm band sweeps once across
+// the committed proposal, left to right, brightening what it passes and leaving
+// it settled.
+//
+// Deliberately not daypartBloom: that is a root-atmosphere effect bound to a
+// daypart *change*, and committing to a day does not change the hour. This is
+// the only signature moment the morning act has — the evening has the ring
+// morph, the cross-dissolve and the burst; the morning had nothing at all.
+//
+// One-shot and fully bounded: at progress 0 and 1 it returns the source colour
+// untouched, so a settled day carries no residue.
+[[ stitchable ]] half4 LifeBoardFirstLight(
+    float2 position,
+    half4 currentColor,
+    float2 size,
+    float progress,
+    float3 lightTint
+) {
+    if (size.x <= 0.0 || progress <= 0.001 || progress >= 0.999) {
+        return currentColor;
+    }
+    if (currentColor.a <= 0.001) {
+        return currentColor;
+    }
+
+    float2 uv = position / size;
+
+    // The band starts just off the leading edge and exits past the trailing one,
+    // so the sweep enters and leaves cleanly rather than popping into view.
+    float head = progress * 1.4 - 0.2;
+
+    // A slight downward lean makes the light read as coming from outside the
+    // card rather than sliding along it.
+    float along = uv.x + uv.y * 0.12;
+    float distance = along - head;
+
+    // Narrow core with a soft trailing falloff: the leading edge is crisper than
+    // the tail, which is what a real light sweep looks like.
+    float core = exp(-(distance * distance) / 0.006);
+    float tail = distance < 0.0 ? exp(-(distance * distance) / 0.05) * 0.35 : 0.0;
+    float intensity = min(core + tail, 1.0);
+
+    // Fade the whole sweep in and out so neither end of the animation snaps.
+    float envelope = sin(progress * M_PI_F);
+    intensity *= envelope;
+
+    if (intensity <= 0.001) {
+        return currentColor;
+    }
+
+    half3 tint = half3(lightTint);
+    // Screen rather than add, so already-bright paper cannot blow out to white
+    // and readable ink underneath keeps its contrast.
+    half3 lit = 1.0h - (1.0h - currentColor.rgb) * (1.0h - tint * half(intensity) * 0.55h);
+
+    return half4(mix(currentColor.rgb, lit, half(intensity)), currentColor.a);
+}
