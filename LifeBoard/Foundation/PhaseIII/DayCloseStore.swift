@@ -135,8 +135,27 @@ public final class DayCloseStore {
         unfinished.first { decisions[$0.id] == nil }
     }
 
+    /// Every card still awaiting a decision, front card first.
+    ///
+    /// The deck renders only the front card, but it needs the whole queue:
+    /// `lifeBoardDeckDepth` draws its backing cards from `count`. Handing it a
+    /// single-element array made an eight-task evening look like a one-task one,
+    /// which is the difference between "nearly done" and "this will take a while"
+    /// — exactly the thing someone deciding whether to start needs to see.
+    public var remainingCards: [PlanningTaskSummary] {
+        unfinished.filter { decisions[$0.id] == nil }
+    }
+
     public var remainingCount: Int {
-        unfinished.count { decisions[$0.id] == nil }
+        remainingCards.count
+    }
+
+    /// How far through the reconciliation the evening is, or `nil` when there
+    /// was never anything to decide. Absent is not zero.
+    public var reconciliationProgress: Double? {
+        let total = decidedCount + remainingCount
+        guard total > 0 else { return nil }
+        return Double(decidedCount) / Double(total)
     }
 
     public var decidedCount: Int { decisions.count }

@@ -24,6 +24,8 @@ struct LifeBoardDayCloseRoute: View {
     @State private var note = ""
     @State private var reflectionPhase: AsyncActionPhase<UUID> = .idle
     @State private var closeTrigger = 0
+    /// Advanced once when the morning commit lands, driving the light sweep.
+    @State private var firstLightTrigger = 0
     @State private var releaseDissolve: Double = 0
     @Namespace private var anchorNamespace
 
@@ -61,10 +63,10 @@ struct LifeBoardDayCloseRoute: View {
                 case .ready, .empty:
                     ribbonAct
                     if mode == .close {
-                        reconcileAct
-                        reflectAct
-                        anchorAct
-                        closeAct
+                        // A thread beside the acts, not a step indicator: the
+                        // ritual stays one scroll, but you can see how much of
+                        // it is left before you start.
+                        actThread(reconcileAct, reflectAct, anchorAct, closeAct)
                     } else {
                         // Commit first: the morning's job is to agree to a day,
                         // and the retrospective is context for that decision
@@ -138,7 +140,10 @@ struct LifeBoardDayCloseRoute: View {
                     LifeBoardDayRing(
                         plannedMinutes: ribbon.summary.plannedMinutes,
                         focusedMinutes: ribbon.summary.focusedMinutes,
-                        closedProgress: store.alreadyClosed ? 1 : 0
+                        closedProgress: store.alreadyClosed ? 1 : 0,
+                        // Rises as cards are decided, so the ring at the top of
+                        // the ritual answers to the deck at the bottom of it.
+                        settledLevel: store.reconciliationProgress
                     )
                     VStack(alignment: .leading, spacing: 6) {
                         factLine("\(ribbon.summary.completedCount) finished")
@@ -180,7 +185,9 @@ struct LifeBoardDayCloseRoute: View {
 
             if let card = store.currentCard {
                 LifeBoardDirectionalDeck(
-                    items: [card],
+                    // The whole remaining queue, not just the front card: the
+                    // deck draws one card but sizes its stack from the count.
+                    items: store.remainingCards,
                     candidates: { _ in DayCloseDirection.allCases },
                     actionLabel: { $0.accessibilityLabel(for: card.title) },
                     onCommit: { task, direction in
@@ -201,8 +208,13 @@ struct LifeBoardDayCloseRoute: View {
                     LifeBoardHaptic.pick.play()
                 }
 
-                HStack {
-                    Text("\(store.remainingCount) left")
+                HStack(spacing: 4) {
+                    // Rolls rather than swapping: the count is the one number
+                    // that changes on every decision, and a hard cut makes the
+                    // deck feel like it is resetting rather than advancing.
+                    LifeBoardNumericRoll(value: Double(store.remainingCount))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    Text("left")
                         .font(LifeBoardFoundationTypography.metadata())
                         .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                     Spacer()
@@ -225,6 +237,54 @@ struct LifeBoardDayCloseRoute: View {
         }
         .dayCloseCard()
         .lifeBoardMotion(.cardReflow, value: store.decidedCount)
+    }
+
+    /// Lays the four close acts out with a progress thread down their left.
+    @ViewBuilder
+    private func actThread(
+        _ reconcile: some View,
+        _ reflect: some View,
+        _ anchor: some View,
+        _ close: some View
+    ) -> some View {
+        HStack(alignment: .top, spacing: 14) {
+            LifeBoardActThread(progress: actProgress)
+                .stroke(
+                    Color(LifeBoardColorTokens.foundationSunAccent).opacity(0.5),
+                    style: StrokeStyle(lineWidth: 2, lineCap: .round)
+                )
+                .frame(width: 2)
+                .background(alignment: .top) {
+                    // The unfilled remainder, so the thread reads as a length
+                    // you are moving along rather than a bar that grows.
+                    Capsule()
+                        .fill(Color(LifeBoardColorTokens.foundationHairline))
+                        .frame(width: 2)
+                }
+                .lifeBoardMotion(.threadAdvance, value: actProgress)
+                .accessibilityHidden(true)
+
+            VStack(alignment: .leading, spacing: 28) {
+                reconcile
+                reflect
+                anchor
+                close
+            }
+        }
+    }
+
+    /// How far through the evening's four acts this is.
+    ///
+    /// Each act counts once and only when it is genuinely settled — a saved
+    /// note, a chosen anchor. Deliberately not "how far you have scrolled":
+    /// scrolling past the reflection without writing one has not settled it.
+    private var actProgress: Double {
+        var settled = 0.0
+        if store.remainingCount == 0 { settled += 1 }
+        if reflectionSaved { settled += 1 }
+        if store.anchorTaskID != nil { settled += 1 }
+        if store.alreadyClosed { settled += 1 }
+        return settled / 4
     }
 
     /// An empty deck is a **success**, and must not read as a void. A filled,
@@ -481,12 +541,33 @@ struct LifeBoardDayCloseRoute: View {
                     successTitle: "Today is set",
                     phase: store.openCommitPhase
                 ) {
-                    Task { await store.commitOpen() }
+                    Task {
+                        await store.commitOpen()
+                        // The boundary: the sweep and the haptic wait for the
+                        // receipt, not for the tap.
+                        if store.alreadyCommitted {
+                            firstLightTrigger += 1
+                            LifeBoardHaptic.commit.play()
+                        }
+                    }
                 }
                 .accessibilityIdentifier("dayOpen.commit")
             } else {
-                ForEach(store.openProposal) { candidate in
+                ForEach(Array(store.openProposal.enumerated()), id: \.element.id) { index, candidate in
                     proposalRow(candidate)
+                        // Loose until committed, then square.
+                        //
+                        // The morning act is agreeing to a shape for the day, so
+                        // the proposal arrives as a set of loose possibilities
+                        // and settles into an ordered list at the moment you say
+                        // yes. Chaos to intention, which is what the act means.
+                        .offset(
+                            x: store.alreadyCommitted ? 0 : proposalLean(index),
+                            y: 0
+                        )
+                        .rotationEffect(
+                            .degrees(store.alreadyCommitted ? 0 : proposalLean(index) * 0.22)
+                        )
                 }
                 LifeBoardCommitControl(
                     title: "Yes, start with this",
@@ -494,7 +575,15 @@ struct LifeBoardDayCloseRoute: View {
                     successTitle: "Today is set",
                     phase: store.openCommitPhase
                 ) {
-                    Task { await store.commitOpen() }
+                    Task {
+                        await store.commitOpen()
+                        // The boundary: the sweep and the haptic wait for the
+                        // receipt, not for the tap.
+                        if store.alreadyCommitted {
+                            firstLightTrigger += 1
+                            LifeBoardHaptic.commit.play()
+                        }
+                    }
                 }
                 .accessibilityIdentifier("dayOpen.commit")
                 Text("Tap any line to leave it out.")
@@ -504,7 +593,23 @@ struct LifeBoardDayCloseRoute: View {
         }
         .dayCloseCard()
         .lifeBoardMotion(.controlMorph, value: store.openSelection.count)
+        .lifeBoardMotion(.firstLight, value: store.alreadyCommitted)
+        // One warm sweep across the committed day. Fires on the persisted-state
+        // boundary — never on selection, which would promise something the
+        // ledger has not been told yet.
+        .lifeboardFirstLight(
+            trigger: firstLightTrigger,
+            tint: Color(LifeBoardColorTokens.foundationSunAccent)
+        )
         .accessibilityIdentifier("dayOpen.commitAct")
+    }
+
+    /// Deterministic per-row lean, so the loose stack does not reshuffle itself
+    /// on every re-render. Small enough to read as "not yet filed" rather than
+    /// as a layout bug.
+    private func proposalLean(_ index: Int) -> CGFloat {
+        let magnitudes: [CGFloat] = [6, -4, 9, -7, 3]
+        return magnitudes[index % magnitudes.count]
     }
 
     private func proposalRow(_ candidate: DayOpenCandidate) -> some View {
@@ -728,6 +833,43 @@ private struct DayCloseCard: View {
         .frame(maxWidth: .infinity, minHeight: 132, alignment: .leading)
         .padding(18)
         .lifeBoardClaySurface(.raised, cornerRadius: LifeBoardFoundationRadius.largeCard)
+        // Preview the consequence while the finger is still down.
+        //
+        // All four directions used to differ only by a label. Letting the card
+        // *behave* like the decision — receding when it is being put off,
+        // starting to erode when it is being let go — means you feel what you
+        // are choosing before you commit to it, and can back out by returning
+        // to centre. Nothing here is persisted; the deck still commits only on
+        // release, and success feedback still waits for the batch.
+        .scaleEffect(previewScale, anchor: .center)
+        .opacity(previewOpacity)
+        .lifeboardDissolveAway(progress: erosionPreview, tint: releaseTint)
+        .lifeBoardMotion(.deckSettle, value: armed)
+    }
+
+    /// Warm rather than alarming: releasing something is a legitimate outcome,
+    /// not a failure, and the anti-guilt law puts no punitive red on this path.
+    private var releaseTint: Color {
+        Color(LifeBoardColorTokens.foundationApricotAccent)
+    }
+
+    /// A hint of erosion, never enough to hide the title being decided about.
+    private var erosionPreview: Double {
+        armed == .release ? 0.14 : 0
+    }
+
+    private var previewScale: CGFloat {
+        switch armed {
+        // Being put off — the card steps back.
+        case .someday: 0.955
+        // Being carried forward — it leans in.
+        case .tomorrow: 1.012
+        default: 1
+        }
+    }
+
+    private var previewOpacity: Double {
+        armed == .someday ? 0.82 : 1
     }
 }
 
