@@ -1,5 +1,13 @@
 # LifeBoard "Beyond Notes" — Engineering & Design Handoff
 
+> **Historical snapshot, superseded for implementation status.** Use
+> `LIFEBOARD_PHASE_1_2_IMPLEMENTATION_HANDOFF.md` and `DESIGN.md` as the current
+> authorities. As of 2026-08-03, the complete simulator suite executes 2,070
+> tests with zero failures and three environment-qualified skips. Native capture
+> interruption recovery and the App Group Inbox termination → file → canonical
+> Undo journey pass. Remaining signed App Group, paired-Watch, protection,
+> haptics, thermal, and frame-pacing checks are release-device evidence.
+
 **Date:** 2026-07-28
 **Scope of this document:** everything needed to continue the Beyond Notes roadmap without re-deriving what was already learned.
 **Plan of record:** `LifeBoard Beyond Notes — Best-in-Class Product and Experience Roadmap.md`
@@ -45,7 +53,7 @@ These are not hypothetical; each one happened.
 
 **HealthKit is not a provisionable Mac Catalyst entitlement.** Adding `com.apple.developer.healthkit` to `LifeBoard/LifeBoardCatalyst.entitlements` fails the *entire* Catalyst build. It must live only in `LifeBoard.entitlements`; `CODE_SIGN_ENTITLEMENTS[sdk=macosx*]` already overrides for Catalyst. All call sites guard `HKHealthStore.isHealthDataAvailable()`, so Catalyst degrades correctly without it.
 
-**Adding a Swift file requires registering it in `project.pbxproj`.** No filesystem-synchronized groups. Verify with `bash scripts/check-xcode-target-membership.sh`. The `xcodeproj` Ruby gem is installed and is the safest way to do it.
+**Adding a Swift file requires registering it in `project.pbxproj`.** No filesystem-synchronized groups. Register the four sibling-matching entries by hand (`PBXBuildFile`, `PBXFileReference`, group child, Sources phase); do not use the `xcodeproj` Ruby gem because it rewrites this project's formatting and ordering. Verify with `bash scripts/check-xcode-target-membership.sh`.
 
 **Before calling a test flaky, check its timeout against its actual duration.** Two "flakes" here were 1-second budgets against ~1.05-second operations. One failed *in isolation* (paying test-host cold start) and passed in-suite — the opposite of what "flaky" usually looks like. Both were fixed by raising the ceiling to 5s; a condition-based wait returns as soon as it's satisfied, so a larger ceiling costs a passing run nothing.
 

@@ -1,5 +1,28 @@
 # LifeBoard — Phase 1 & Phase 2 Implementation Handoff
 
+## 2026-08-03 executable-evidence addendum
+
+This addendum is the current status authority for claims about executable
+coverage later in this historical handoff.
+
+- [x] The complete simulator suite executes 2,070 tests with zero failures and
+  three environment-qualified skips. Domain tests previously described as
+  compiled but blocked by the simulator test host now execute successfully.
+- [x] A seeded native-capture journey proves an exact draft survives process
+  termination and relaunch.
+- [x] A seeded Plan Inbox journey proves a stable App Group capture survives
+  termination, files through the canonical reviewed mutation, and returns with
+  the same identity after receipt-backed Undo.
+- [x] Remote Eva now has a versioned, deny-by-default account policy with
+  independent Journal, health, Life Moment, and planning-context grants.
+  Revocation is evaluated on the next request, and no remote grant authorizes a
+  widget, notification, Spotlight, Watch, Live Activity, or lock-screen
+  disclosure.
+- [ ] Signed extension-to-App-Group delivery, paired-Watch acknowledgement
+  loss, device haptics, notification delivery, protection transitions, thermal
+  behavior, and sustained frame pacing remain explicitly tracked release-device
+  evidence. Their unavailable hardware hosts are not code failures.
+
 ## 2026-07-29–30 completion ledger
 
 This ledger supersedes the older point-in-time counts below while preserving

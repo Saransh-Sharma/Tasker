@@ -2266,8 +2266,14 @@ struct LifeBoardPlanRootView: View {
             .accessibilityLabel("Group schedule by")
             .accessibilityValue(scheduleGrouping.rawValue)
 
-            Button { showsBlockComposer = true } label: { Image(systemName: "plus") }
+            Button { showsBlockComposer = true } label: {
+                Image(systemName: "plus")
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+                .buttonStyle(.borderless)
                 .accessibilityLabel("Add time block")
+                .accessibilityIdentifier("plan.day.addBlock")
         }
     }
 
@@ -4006,6 +4012,7 @@ private struct PlanBlockComposer: View {
         NavigationStack {
             Form {
                 TextField("Block title", text: $title)
+                    .accessibilityIdentifier("plan.block.title")
                 DatePicker("Starts", selection: $start, displayedComponents: [.hourAndMinute])
                 VStack(alignment: .leading) {
                     Text("Duration: \(Int(minutes)) minutes")
@@ -4017,9 +4024,11 @@ private struct PlanBlockComposer: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") { save(title, start, minutes * 60); dismiss() }
+                        .accessibilityIdentifier("plan.block.add")
                 }
             }
         }
+        .accessibilityIdentifier("plan.block.composer")
     }
 }
 

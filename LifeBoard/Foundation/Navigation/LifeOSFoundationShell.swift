@@ -614,14 +614,18 @@ public struct LifeOSFoundationShell: View {
         return router.path(for: router.selectedDestination).last?.screenMode ?? .detail
     }
 
-    /// Eva owns its own composer, and a focused route owns the whole screen.
+    /// Eva owns its own composer, and focused/editor routes own their input
+    /// plane. Keeping the global capture field over a form obscures the form's
+    /// commit control and gives keyboard users two competing text targets.
     ///
     /// The concrete failure this prevents: Home's capture bar floating over
     /// Close the Day's "Save this line" and its commit control. `.focused`
     /// already means "this surface holds attention on its own" — it was simply
     /// never consulted here, so the focus session route had the same overlap.
     private func showsFloatingComposer(for destination: LifeBoardDestination) -> Bool {
-        destination != .eva && activeScreenMode != .focused
+        destination != .eva
+            && activeScreenMode != .focused
+            && activeScreenMode != .editor
     }
 
     private func showsGlobalChrome(for destination: LifeBoardDestination) -> Bool {
@@ -937,10 +941,10 @@ public struct LifeOSFoundationShell: View {
         atmosphereSnapshot: LifeBoardAtmosphereSnapshot
     ) -> some View {
         @Bindable var router = router
-        // A hand-rolled split view left no way to change roots once the
-        // sidebar collapsed. The adaptive tab style keeps a real switcher at
-        // every regular width — sidebar when there is room, top bar when there
-        // is not — and survives Split View and Slide Over transitions.
+        // Keep TabView's selection and state-retention semantics, but let the
+        // clay switcher below be the one regular-width root authority. A
+        // sidebar-adaptable style duplicated navigation at full width and hid
+        // its reveal affordance at some Split View widths.
         return TabView(selection: $router.selectedDestination) {
             ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
                 Tab(destination.title, systemImage: destination.systemImage, value: destination) {
@@ -961,7 +965,17 @@ public struct LifeOSFoundationShell: View {
                 .accessibilityIdentifier("foundation.destination.\(destination.rawValue)")
             }
         }
-        .tabViewStyle(.sidebarAdaptable)
+        .tabViewStyle(.tabBarOnly)
+        .toolbar(.hidden, for: .tabBar)
+        .safeAreaInset(edge: .top, spacing: 0) {
+            // Keep the five roots directly reachable to touch, pointer,
+            // keyboard, VoiceOver, and Switch Control at every regular width.
+            // Detail and ritual routes keep their own navigation bar and do
+            // not need a second switcher.
+            if router.path(for: router.selectedDestination).isEmpty {
+                expandedRootSwitcher(router: router)
+            }
+        }
         .overlay(alignment: .bottom) {
             // Capture is not iPhone-only: the composer anchors to the detail
             // column at regular width too.
@@ -982,6 +996,51 @@ public struct LifeOSFoundationShell: View {
                 .accessibilityIdentifier("LifeBoardExpandedChrome")
             }
         }
+    }
+
+    private func expandedRootSwitcher(router: LifeBoardAppRouter) -> some View {
+        @Bindable var router = router
+        return HStack(spacing: 4) {
+            ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
+                let isSelected = router.selectedDestination == destination
+                Button {
+                    router.select(destination)
+                } label: {
+                    Label(destination.title, systemImage: destination.systemImage)
+                        .font(.subheadline.weight(isSelected ? .semibold : .medium))
+                        .lineLimit(1)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                        .contentShape(Rectangle())
+                        .background {
+                            if isSelected {
+                                Capsule(style: .continuous)
+                                    .fill(Color(LifeBoardColorTokens.foundationCanvasSoft).opacity(0.82))
+                            }
+                        }
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .accessibilityIdentifier("foundation.expanded.destination.\(destination.rawValue)")
+                .accessibilityAddTraits(isSelected ? .isSelected : [])
+                .keyboardShortcut(
+                    KeyEquivalent(Character(String(LifeBoardDestination.allCases.firstIndex(of: destination)! + 1))),
+                    modifiers: [.command, .option]
+                )
+            }
+        }
+        .padding(6)
+        .frame(maxWidth: 720)
+        .lifeBoardGlassSurface(cornerRadius: 24, interactive: true)
+        .overlay {
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+        .padding(.bottom, 6)
+        .frame(maxWidth: .infinity)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("foundation.expanded.rootSwitcher")
     }
 
     private func retainedDestinationNavigation(
@@ -3585,6 +3644,15 @@ struct FoundationTaskRouteView: View {
         .navigationTitle("Task")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Save") { Task { _ = await store.save() } }
+                    .disabled(store.hasUnsavedChanges == false && {
+                        if case .failed = store.mutationState { return false }
+                        return true
+                    }())
+                    .keyboardShortcut("s", modifiers: .command)
+                    .accessibilityIdentifier("task.editor.save.toolbar")
+            }
             ToolbarItem(placement: .secondaryAction) {
                 Menu {
                     Button("Open in Plan", systemImage: "calendar") { router.select(.plan) }
@@ -3788,6 +3856,7 @@ struct FoundationTaskRouteView: View {
                     .font(.headline)
                 }
                 .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                .accessibilityIdentifier("task.editor.completion")
                 .taskEditorSurface()
 
                 if case .failed(let message) = store.mutationState {

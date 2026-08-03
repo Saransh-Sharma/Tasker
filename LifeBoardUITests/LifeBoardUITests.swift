@@ -95,6 +95,85 @@ class LifeBoardUITests: XCTestCase {
         try saveVisualEvidenceScreenshot(named: "phase5-eva", platform: "iphone-phase5")
     }
 
+    func testInAppCaptureDraftRecoversAfterProcessInterruption() {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedEstablishedWorkspace: true
+        )
+        defer { app.terminate() }
+
+        assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
+        tapHomeAction("home.tasks.add", in: app)
+        let title = app.textFields["addTask.titleField"].firstMatch
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        title.tap()
+        title.typeText("Recovered interruption draft")
+        XCTAssertEqual(title.value as? String, "Recovered interruption draft")
+
+        app.terminate()
+        app.launchArguments.removeAll {
+            $0 == "-RESET_APP_STATE" || $0 == "-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE"
+        }
+        app.launch()
+
+        assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
+        tapHomeAction("home.tasks.add", in: app)
+        let recovered = app.textFields["addTask.titleField"].firstMatch
+        XCTAssertTrue(recovered.waitForExistence(timeout: 10))
+        XCTAssertEqual(
+            recovered.value as? String,
+            "Recovered interruption draft",
+            "A process interruption must recover the latest provisional capture instead of losing it."
+        )
+    }
+
+    func testInboxCaptureSurvivesInterruptionThenFilesAndUndoes() {
+        let captureID = "A1B2C3D4-0001-4000-8000-00000000FEED"
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedEstablishedWorkspace: true,
+            seedInboxCaptures: true
+        )
+        defer { app.terminate() }
+
+        openSeededInbox(in: app)
+        let capture = app.descendants(matching: .any)["plan.inbox.row.\(captureID)"]
+        XCTAssertTrue(capture.waitForExistence(timeout: 10))
+        let file = app.buttons["File it"].firstMatch
+        XCTAssertTrue(file.waitForExistence(timeout: 8))
+        file.tap()
+        XCTAssertTrue(app.navigationBars["Review capture"].waitForExistence(timeout: 8))
+
+        // Terminate before File It. The pending capture is the only durable copy
+        // and must remain reviewable after a fresh app process.
+        app.terminate()
+        app.launchArguments.removeAll {
+            $0 == "-RESET_APP_STATE"
+                || $0 == "-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE"
+                || $0 == "-LIFEBOARD_TEST_SEED_INBOX_CAPTURES"
+        }
+        app.launch()
+
+        openSeededInbox(in: app)
+        XCTAssertTrue(capture.waitForExistence(timeout: 10))
+        let restoredFile = app.buttons["File it"].firstMatch
+        XCTAssertTrue(restoredFile.waitForExistence(timeout: 8))
+        restoredFile.tap()
+        let commit = app.buttons["File It"].firstMatch
+        XCTAssertTrue(commit.waitForExistence(timeout: 8))
+        commit.tap()
+        XCTAssertTrue(waitForElementToDisappear(app.navigationBars["Review capture"], timeout: 12))
+        XCTAssertTrue(waitForElementToDisappear(capture, timeout: 12))
+
+        let undo = app.buttons["Undo"].firstMatch
+        XCTAssertTrue(undo.waitForExistence(timeout: 8))
+        undo.tap()
+        XCTAssertTrue(
+            capture.waitForExistence(timeout: 12),
+            "Undo must restore the same capture identity after the canonical task is removed."
+        )
+    }
+
     func testFoundationCompactChromeRemainsReadableAcrossScrollAndCapture() throws {
         let app = launchFoundationApp(
             accessibilityCategory: "UICTContentSizeCategoryL",
@@ -320,7 +399,14 @@ class LifeBoardUITests: XCTestCase {
         defer { app.terminate() }
 
         assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
-        XCTAssertTrue(app.descendants(matching: .any)["home.hero"].exists)
+        let hero = app.descendants(matching: .any)["home.hero"]
+        let loopSpine = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "home.loopSpine.")
+        ).firstMatch
+        XCTAssertTrue(
+            hero.exists || loopSpine.exists,
+            "Home must lead with either its contextual decision or the canonical Daily Loop spine."
+        )
         XCTAssertTrue(app.descendants(matching: .any)["home.signalRow"].exists)
 
         let orderedSections = [
@@ -370,6 +456,70 @@ class LifeBoardUITests: XCTestCase {
             "The Home action must append one typed task route."
         )
         XCTAssertTrue(app.navigationBars["Task"].waitForExistence(timeout: 8))
+    }
+
+    func testFoundationTaskEditPersistsAcrossRelaunchThenCompletesAndReopens() {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedEstablishedWorkspace: true
+        )
+        defer { app.terminate() }
+
+        assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
+        let task = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "home.task.")
+        ).firstMatch
+        scrollUntilHittableWithSmallSteps(task, in: app, maximumSteps: 24)
+        XCTAssertTrue(task.waitForExistence(timeout: 8))
+        let taskIdentifier = task.identifier
+        task.tap()
+
+        XCTAssertTrue(app.navigationBars["Task"].waitForExistence(timeout: 8))
+        let editedTitle = "Persisted native task edit"
+        let title = app.textFields["task.editor.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 8))
+        title.tap()
+        app.typeKey("a", modifierFlags: .command)
+        title.typeText(editedTitle)
+
+        app.navigationBars["Task"].tap()
+        let save = app.buttons["task.editor.save.toolbar"]
+        XCTAssertTrue(save.waitForExistence(timeout: 8))
+        XCTAssertTrue(save.isHittable)
+        save.tap()
+        XCTAssertTrue(app.staticTexts["Task updated"].waitForExistence(timeout: 10))
+
+        app.terminate()
+        app.launchArguments.removeAll {
+            $0 == "-RESET_APP_STATE" || $0 == "-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE"
+        }
+        app.launch()
+
+        assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
+        let restoredTask = app.buttons[taskIdentifier]
+        scrollUntilHittableWithSmallSteps(restoredTask, in: app, maximumSteps: 24)
+        XCTAssertTrue(restoredTask.waitForExistence(timeout: 8))
+        restoredTask.tap()
+        XCTAssertTrue(app.navigationBars["Task"].waitForExistence(timeout: 8))
+        let restoredTitle = app.textFields["task.editor.title"]
+        XCTAssertTrue(restoredTitle.waitForExistence(timeout: 8))
+        XCTAssertTrue(
+            (restoredTitle.value as? String)?.hasPrefix(editedTitle) == true,
+            "The canonical task title edit must survive a fresh app process."
+        )
+
+        let restoredCompletion = app.switches["task.editor.completion"]
+        scrollUntilHittable(restoredCompletion, in: app, maximumSwipes: 16)
+        XCTAssertTrue(restoredCompletion.waitForExistence(timeout: 8))
+        if (restoredCompletion.value as? String) != "0" { restoredCompletion.tap() }
+        restoredCompletion.tap()
+        XCTAssertEqual(
+            restoredCompletion.value as? String,
+            "1",
+            "The canonical editor must complete the restored task."
+        )
+        restoredCompletion.tap()
+        XCTAssertEqual(restoredCompletion.value as? String, "0", "The same editor must reopen it.")
     }
 
     func testFoundationHomePrimaryActionsUseTypedNativeDestinations() {
@@ -591,17 +741,19 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertTrue(presentation.waitForExistence(timeout: 8))
         presentation.buttons["Agenda"].tap()
 
-        let addBlock = app.buttons["Add time block"]
+        let addBlock = app.buttons["plan.day.addBlock"]
         scrollUntilHittable(addBlock, in: app, maximumSwipes: 12)
         XCTAssertTrue(addBlock.waitForExistence(timeout: 8))
         addBlock.tap()
 
-        XCTAssertTrue(app.navigationBars["New time block"].waitForExistence(timeout: 8))
-        let title = app.textFields["Block title"]
-        XCTAssertTrue(title.waitForExistence(timeout: 5))
+        XCTAssertTrue(app.descendants(matching: .any)["plan.block.composer"].waitForExistence(timeout: 8))
+        let title = app.descendants(matching: .any)["plan.block.title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 8))
         title.tap()
         title.typeText("Simulator focus block")
-        app.navigationBars["New time block"].buttons["Add"].tap()
+        let add = app.buttons["plan.block.add"]
+        XCTAssertTrue(add.waitForExistence(timeout: 5))
+        add.tap()
         let savedBlock = app.staticTexts["Simulator focus block"]
         scrollUntilVisible(savedBlock, in: app, maximumSwipes: 12)
         XCTAssertTrue(savedBlock.waitForExistence(timeout: 10), "The agenda composer should expose the persisted block.")
@@ -667,6 +819,8 @@ class LifeBoardUITests: XCTestCase {
     }
 
     func testFoundationWeekUsesSevenDayBoardOnRegularWidth() throws {
+        XCUIDevice.shared.orientation = .landscapeLeft
+        defer { XCUIDevice.shared.orientation = .portrait }
         let app = launchFoundationApp(
             accessibilityCategory: "UICTContentSizeCategoryL",
             seedFullTimeline: true
@@ -676,8 +830,15 @@ class LifeBoardUITests: XCTestCase {
         guard app.windows.firstMatch.frame.width >= 700 else {
             throw XCTSkip("The seven-day board requires a regular-width iPad or Catalyst window.")
         }
-        assertFoundationDestination("plan", rootIdentifier: "plan.header", in: app)
-        let week = app.segmentedControls.buttons["Week"]
+        let planTab = app.buttons["foundation.expanded.destination.plan"]
+        XCTAssertTrue(
+            planTab.waitForExistence(timeout: 8),
+            "Regular width must expose the direct, accessible Plan root switcher."
+        )
+        XCTAssertTrue(planTab.isHittable)
+        planTab.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["plan.header"].waitForExistence(timeout: 12))
+        let week = app.buttons["plan.lens.Week"]
         XCTAssertTrue(week.waitForExistence(timeout: 8))
         week.tap()
 
@@ -700,6 +861,7 @@ class LifeBoardUITests: XCTestCase {
         seedHomeUserSpace: Bool = false,
         seedFullTimeline: Bool = false,
         seedRescueWorkspace: Bool = false,
+        seedInboxCaptures: Bool = false,
         evaActivationCompleted: Bool = false,
         appearance: String? = nil
     ) -> XCUIApplication {
@@ -739,6 +901,7 @@ class LifeBoardUITests: XCTestCase {
         if seedHomeUserSpace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_HOME_USER_SPACE") }
         if seedFullTimeline { app.launchArguments.append("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE") }
         if seedRescueWorkspace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_RESCUE_WORKSPACE") }
+        if seedInboxCaptures { app.launchArguments.append("-LIFEBOARD_TEST_SEED_INBOX_CAPTURES") }
         if evaActivationCompleted { app.launchArguments.append("-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED") }
         if let appearance {
             app.launchArguments.append(contentsOf: ["-AppleInterfaceStyle", appearance])
@@ -772,6 +935,14 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertTrue(backlog.waitForExistence(timeout: 8))
         backlog.tap()
         XCTAssertTrue(app.textFields["plan.backlog.search"].waitForExistence(timeout: 8))
+    }
+
+    private func openSeededInbox(in app: XCUIApplication) {
+        assertFoundationDestination("plan", rootIdentifier: "plan.header", in: app)
+        let inbox = app.buttons["plan.lens.Inbox"]
+        XCTAssertTrue(inbox.waitForExistence(timeout: 8))
+        inbox.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["plan.inbox"].waitForExistence(timeout: 10))
     }
 
     /// Opens a backlog task's action menu.

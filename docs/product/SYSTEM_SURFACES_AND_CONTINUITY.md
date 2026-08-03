@@ -86,6 +86,7 @@ Watch supports privacy-aware snapshots and durable capture. Mood, dictated text,
 - Color and progress rings have text equivalents.
 - System previews respect lock-screen and app privacy settings.
 - Journal text/media/prompts/embeddings and sensitive health values remain excluded unless a separately approved redacted projection explicitly permits a safe aggregate.
+- Remote Eva account opt-in and per-category context grants do not authorize disclosure on any system surface. Those grants are evaluated only while assembling a remote Eva request.
 
 ## Implementation and evidence
 
@@ -93,4 +94,4 @@ Primary anchors include the shared snapshot envelope, system-surface refresher, 
 
 The primary rollout flag is `lifeOSSystemSurfacesV2Enabled`; domain projections also respect their owning feature flag and explicit per-surface authorization. Disabling the surface flag stops projection/presentation without deleting canonical app data or durable recovery state.
 
-Recorded evidence covers target compilation, schema validation, backup-aware reads, redaction contracts, intent routing, Watch dedup/quarantine models, and synthetic termination/offline/order/protection cases. The fresh complete-suite run still reports widget snapshot and notification-route regressions. Physical termination and protection transitions, paired-device acknowledgement loss, production App Group behavior, notification delivery, and stale-widget matrices remain device gates.
+Recorded evidence covers target compilation, schema validation, backup-aware reads, redaction contracts, intent routing, Watch dedup/quarantine models, and synthetic termination/offline/order/protection cases. The 2026-08-03 complete simulator suite executes 2,070 tests with zero failures and three environment-qualified skips; the former widget snapshot and notification-route regressions are closed. Physical termination and protection transitions, paired-device acknowledgement loss, production signed App Group behavior, notification delivery, and stale-widget matrices remain device gates and are not classified as code failures.

@@ -1331,7 +1331,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
                 sort: .titleAscending
             ))).spatialTransitionID
         )
-        XCTAssertEqual(AppRoute.taskDetail(taskID).screenMode, .detail)
+        XCTAssertEqual(AppRoute.taskDetail(taskID).screenMode, .editor)
+        XCTAssertEqual(AppRoute.note(noteID).screenMode, .editor)
         XCTAssertNil(AppRoute.settings.spatialTransitionID)
         XCTAssertEqual(AppRoute.settings.screenMode, .utility)
         XCTAssertEqual(AppRoute.focusSession(nil).screenMode, .focused)
@@ -3969,6 +3970,75 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let recovered = try await store.load(.journal)
         XCTAssertEqual(recovered?.generatedAt, first.generatedAt)
         XCTAssertEqual(recovered?.snapshots.count, 1)
+    }
+
+    func testRemoteEvaRequiresAccountOptInAndIndependentCategoryGrants() async {
+        let sections = RemoteEvaContextCategory.allCases.map {
+            RemoteEvaContextSection(category: $0, payload: Data($0.rawValue.utf8))
+        }
+        var policy = RemoteEvaContextPolicy(
+            accountID: "account-a",
+            grantedCategories: [.journal, .planningContext]
+        )
+        XCTAssertTrue(policy.authorize(sections).isEmpty, "Category grants cannot bypass account opt-in.")
+
+        policy.setRemoteEvaEnabled(true)
+        let authorized = policy.authorize(sections)
+        XCTAssertEqual(authorized.map(\.category), [.journal, .planningContext])
+        XCTAssertFalse(policy.permits(.health))
+        XCTAssertFalse(policy.permits(.lifeMoments))
+
+        let futurePolicy = RemoteEvaContextPolicy(
+            schemaVersion: RemoteEvaContextPolicy.currentSchemaVersion + 1,
+            accountID: "account-a",
+            isRemoteEvaEnabled: true,
+            grantedCategories: Set(RemoteEvaContextCategory.allCases)
+        )
+        XCTAssertTrue(futurePolicy.authorize(sections).isEmpty, "Unknown policy schemas must fail closed.")
+    }
+
+    func testRemoteEvaRevocationImmediatelyExcludesSubsequentRequestContext() async {
+        let authorizer = RemoteEvaContextAuthorizer(policy: RemoteEvaContextPolicy(
+            accountID: "account-a",
+            isRemoteEvaEnabled: true,
+            grantedCategories: [.journal, .health, .lifeMoments, .planningContext]
+        ))
+        let sections = RemoteEvaContextCategory.allCases.map {
+            RemoteEvaContextSection(category: $0, payload: Data($0.rawValue.utf8))
+        }
+
+        let initiallyAuthorized = await authorizer.authorize(sections)
+        XCTAssertEqual(initiallyAuthorized.count, 4)
+        await authorizer.setGrant(false, for: .journal)
+        let afterJournalRevocation = await authorizer.authorize(sections)
+        XCTAssertEqual(
+            afterJournalRevocation.map(\.category),
+            [.health, .lifeMoments, .planningContext]
+        )
+        await authorizer.setRemoteEvaEnabled(false)
+        let afterAccountRevocation = await authorizer.authorize(sections)
+        XCTAssertTrue(afterAccountRevocation.isEmpty)
+    }
+
+    func testRemoteEvaGrantsNeverAuthorizeSystemSurfaceDisclosure() {
+        let remotePolicy = RemoteEvaContextPolicy(
+            accountID: "account-a",
+            isRemoteEvaEnabled: true,
+            grantedCategories: Set(RemoteEvaContextCategory.allCases)
+        )
+        XCTAssertTrue(remotePolicy.permits(.journal))
+
+        let snapshot = LifeBoardSystemSurfaceSnapshot(
+            id: UUID(),
+            title: "Private journal title",
+            primaryValue: "Private journal text",
+            systemImage: "book.closed",
+            sensitivity: .privateSensitive,
+            isExplicitlyAuthorized: false,
+            updatedAt: Date()
+        )
+        XCTAssertEqual(snapshot.redactedForExternalDisplay.title, "LifeBoard")
+        XCTAssertEqual(snapshot.redactedForExternalDisplay.primaryValue, "Open LifeBoard to view")
     }
 
     func testSystemSurfaceEnvelopeDeduplicatesAndOrdersNewestFirst() throws {

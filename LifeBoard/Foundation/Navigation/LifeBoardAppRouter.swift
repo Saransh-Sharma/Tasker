@@ -62,6 +62,8 @@ public enum AppRoute: Codable, Hashable, Sendable {
         switch self {
         case .settings, .tokenGallery, .referenceDashboard:
             .utility
+        case .taskDetail, .note, .journalDay:
+            .editor
         case .focusSession, .dayClose, .dayOpen:
             // A ritual, like a focus session: the shell drops its star field and
             // celestial tide so the surface can hold attention on its own.

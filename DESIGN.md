@@ -298,7 +298,27 @@ Every root answers one question and preserves its own navigation state:
 - **Insights — What changed, and what should I do next?** Overview, Trends, Review, and the explicitly selected Experience lens. Interpretation precedes metrics; raw provenance is disclosed as Evidence. Experience reads only the local XP ledger and frames it as an optional view, never a score for the day.
 - **Eva — Help me understand or safely make a change.** Full-height conversation; ordinary assistant prose is open on the reading canvas, user messages are raised tactile clay, and only structured proposals/results/Undo earn a card boundary. All mutations remain explicit proposals with receipts.
 
-The floating conversational composer owns capture on every root except Eva, which hosts its own. Its leading control expands into the capture tray; every capture kind with a working host has a visible control there. The compact root header owns capture only where the composer is suppressed, plus the overflow menu, the Home mode control, and Add to Home. The bottom dock is an unobstructed five-target Regular Glass capsule; composer and dock share one `GlassEffectContainer` so they morph as a single surface. Home orientation roles are anchored and rendered once; schema-v5 migration removes only app-owned duplicates and preserves user IDs, payloads, order, size, visibility, ownership, and unknown widgets.
+Remote Eva is an account capability, never an implied extension of local Eva.
+It is deny-by-default and requires both account-level opt-in and an independent
+grant for each context category: Journal, health, Life Moments, and planning
+context. The request builder filters context at send time, so revocation removes
+that category from the next request without waiting for a cache refresh. A grant
+authorizes only the remote Eva request being assembled; it never authorizes
+Journal or health disclosure in a widget, notification, Spotlight result, Watch
+surface, Live Activity, or lock-screen preview. If account identity, account
+opt-in, or a category grant is unavailable, that context remains local.
+
+The floating conversational composer owns capture on every root except Eva, which hosts its own. Pushed editor and focused ritual routes suppress it so their commit control and keyboard input remain singular and reachable; the root dock stays available. Its leading control expands into the capture tray; every capture kind with a working host has a visible control there. The compact root header owns capture only where the composer is suppressed, plus the overflow menu, the Home mode control, and Add to Home. The bottom dock is an unobstructed five-target Regular Glass capsule; composer and dock share one `GlassEffectContainer` so they morph as a single surface. Home orientation roles are anchored and rendered once; schema-v5 migration removes only app-owned duplicates and preserves user IDs, payloads, order, size, visibility, ownership, and unknown widgets.
+
+Capture is interruption-safe. An in-progress native capture persists as a
+provisional App Group item and restores the exact draft after process death;
+cancel removes only that provisional item. Share, Widget, Siri, Watch, and
+in-app producers enqueue raw captures with stable identity and never silently
+schedule or commit them. Plan Inbox keeps the capture until its canonical task
+mutation succeeds. Filing is one reviewed mutation with one receipt; Undo
+removes the filed task and restores the original capture ID, text, timestamp,
+source, and queue position. Loading, failed load, conflict, duplicate review,
+and genuinely empty Inbox are visually and semantically distinct.
 
 #### Canonical application host and retired roots
 
@@ -361,10 +381,24 @@ possible. Unknown and unavailable are not explicit zero. Loading replaces final
 content geometry; a fetch failure never renders congratulatory empty copy. Error
 and denied states keep the safe local actions that still work.
 
+System surfaces consume only versioned, atomic, redacted projections. They do
+not open canonical stores and they never infer disclosure permission from a
+Remote Eva grant. Missing, stale, protected, malformed, future-schema, and
+wrong-domain envelopes fail closed. Duplicate or reordered deliveries resolve
+idempotently by stable identity; a durable source remains until the canonical
+receiver acknowledges it. Offline capture may queue locally, but an unavailable
+read may not masquerade as an explicit zero or an empty day.
+
 iPhone is the composition authority and visual-approval gate. After iPhone is
 approved, compact iPad preserves the same reading order with wider intrinsic
 rows; regular iPad uses the eight-column recipe; wide iPad uses twelve columns
 and may expose a persistent secondary column only when both panes remain useful.
+Catalyst and regular-width iPad use one explicit five-root clay switcher above
+root content. Each destination is a direct 44 pt target with visible selected
+state, VoiceOver selection semantics, pointer support, and `⌥⌘1` through `⌥⌘5`
+shortcuts. It replaces duplicate adaptive sidebar/tab chrome and disappears on
+detail, editor, and focused ritual routes, where the route navigation bar is the
+single authority.
 Catalyst adapts the approved regular/wide composition with keyboard commands,
 visible focus, pointer affordances, resizable-window constraints, and restoration.
 No platform may fork persistence, copy law, state meaning, or feature ownership.

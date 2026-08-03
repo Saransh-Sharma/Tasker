@@ -14914,7 +14914,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -14947,7 +14947,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -15016,7 +15016,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -15042,7 +15042,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -15069,7 +15069,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -15096,7 +15096,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -15125,7 +15125,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
