@@ -138,6 +138,33 @@ final class HomeUITestWorkspaceSeeder {
                         lifeAreaID: lifeArea.id,
                         dueDate: DatePreset.today.resolvedDueDate(),
                         createdAt: Date()
+                    ),
+                    CreateTaskDefinitionRequest(
+                        title: "Review metrics",
+                        details: "UI test expandable Home task card seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: DatePreset.today.resolvedDueDate(),
+                        createdAt: Date()
+                    ),
+                    CreateTaskDefinitionRequest(
+                        title: "Email launch notes",
+                        details: "UI test expandable Home task card seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: DatePreset.today.resolvedDueDate(),
+                        createdAt: Date()
+                    ),
+                    CreateTaskDefinitionRequest(
+                        title: "Archive brief",
+                        details: "UI test expandable Home task card seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: DatePreset.today.resolvedDueDate(),
+                        createdAt: Date()
                     )
                 ]
 
