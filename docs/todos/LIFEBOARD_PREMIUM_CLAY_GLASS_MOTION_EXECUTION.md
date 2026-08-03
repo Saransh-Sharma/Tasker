@@ -2,7 +2,7 @@
 
 Status legend: `[ ]` not started, `[-]` in progress, `[x]` implemented and locally reviewed, `[v]` simulator/build verified, `[!]` blocked with documented reason.
 
-> **Historical migration record:** This document retains detailed clay/glass execution history. The [remaining execution ledger](./LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md) owns active completion status, the [implementation/design audit](../audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md) records reviewed evidence, and [DESIGN.md](../../DESIGN.md) is the canonical visual contract.
+> **Historical migration record:** This document retains detailed clay/glass execution history. The [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md) owns active completion status, the [implementation/design audit](../audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md) records its point-in-time evidence, and [DESIGN.md](../../DESIGN.md) is the canonical visual contract.
 
 ## Foundation and guardrails
 

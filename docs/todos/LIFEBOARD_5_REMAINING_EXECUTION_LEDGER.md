@@ -2,9 +2,17 @@
 
 Updated: 2026-07-31
 
-This is the active implementation ledger for the remaining LifeBoard 5.0 work. It supersedes overlapping Phase 5/6 and UI-overhaul checklists as a tracking surface; those documents remain product references. A checked item means implemented and verified, not merely scaffolded.
+> **Historical execution ledger.** This document preserves the 2026-07-31
+> milestone record and is superseded by the
+> [LifeBoard Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
+> Open boxes and test counts below describe their point-in-time evidence and are
+> not current product gaps or release results.
 
-Product intent and UX acceptance live in the [LifeBoard 5.0 Product Handbook](../product/README.md). Design behavior lives in the [Product UI/UX Guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md) and [DESIGN.md](../../DESIGN.md). This ledger alone decides current completion status.
+This was the active implementation ledger for the remaining LifeBoard 5.0 work.
+It superseded overlapping Phase 5/6 and UI-overhaul checklists at that time. A
+checked item meant implemented and verified, not merely scaffolded.
+
+Product intent and UX acceptance live in the [LifeBoard 5.0 Product Handbook](../product/README.md). Design behavior lives in the [Product UI/UX Guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md) and [DESIGN.md](../../DESIGN.md). Current completion status lives in the Unified Completion Status ledger.
 
 ## Protected baseline
 

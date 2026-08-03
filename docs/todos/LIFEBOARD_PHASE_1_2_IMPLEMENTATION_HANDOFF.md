@@ -2,10 +2,11 @@
 
 ## 2026-08-03 executable-evidence addendum
 
-This addendum is the current status authority for claims about executable
-coverage later in this historical handoff.
+This addendum preserves the final Phase 1/2 executable evidence. Current
+cross-program status is owned by the
+[LifeBoard Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 
-- [x] The complete simulator suite executes 2,070 tests with zero failures and
+- [x] The complete simulator suite executes 2,071 tests with zero failures and
   three environment-qualified skips. Domain tests previously described as
   compiled but blocked by the simulator test host now execute successfully.
 - [x] A seeded native-capture journey proves an exact draft survives process
@@ -561,9 +562,10 @@ Each has a comment at its code site. Disagree deliberately, not by accident.
 
 ## 5. Adding a Core Data model version
 
-Current version: **`TaskModelV3_TaskStartDay`** (21 predecessors, 22 total, 95 entities).
+Current version: **`TaskModelV3_BehaviorFlagship`** (22 predecessors, 23 total,
+103 entities).
 
-1. `cp -R TaskModelV3_TaskStartDay.xcdatamodel TaskModelV3_<New>.xcdatamodel` inside `LifeBoard/TaskModelV3.xcdatamodeld/`
+1. `cp -R TaskModelV3_BehaviorFlagship.xcdatamodel TaskModelV3_<New>.xcdatamodel` inside `LifeBoard/TaskModelV3.xcdatamodeld/`
 2. Edit the new `contents` XML. Validate: `python3 -c "import xml.etree.ElementTree as ET; ET.parse('…/contents')"`
 3. **Register in `project.pbxproj` by hand** — add to `XCVersionGroup.children` *and* set `currentVersion`. Editing `.xccurrentversion` alone silently reverts on the next build. **Do not use the `xcodeproj` gem** (§2).
 4. Assign new entities to a configuration. `CloudSync` = private sync; `LocalOnly` = rebuildable/derived. Getting this wrong is a privacy bug.
@@ -574,7 +576,7 @@ Current version: **`TaskModelV3_TaskStartDay`** (21 predecessors, 22 total, 95 e
 
 **Health-sensitive entities are dual-homed** in `CloudSync` *and* `LocalOnly` — deliberate, so `HealthPrivacyMigrationCoordinator` can copy rows into the private store before `purgeLegacyCloudRowsIfEligible` removes the cloud copy after 30 days. **Do not "fix" that overlap.** Any test writing `FoodItem`, `NutritionLogEntry`, `NutritionGoal`, `Medication*`, `Fasting*`, `BodyMetricSample`, `WorkoutRecord`, `SleepNote`, `MovementContextRecord`, `Hydration*`, `MoodEnergyCheckIn` or `SleepContextRecord` **must** use `makeHealthPrivacyValidatedContainer(name:)` in `LifeOSFoundationTests.swift`.
 
-**Never assert configuration membership via `NSManagedObjectModel.mergedModel(from:)`.** It unions all 22 versions and reports memberships no store ever loads.
+**Never assert configuration membership via `NSManagedObjectModel.mergedModel(from:)`.** It unions all 23 versions and reports memberships no store ever loads.
 
 ---
 
@@ -586,9 +588,10 @@ Current version: **`TaskModelV3_TaskStartDay`** (21 predecessors, 22 total, 95 e
 
 Every new flag needs a `promotedDefaults` entry or `AppOnboardingTests.swift:1054` fails.
 
-Currently promoted **on**: `trust_closure_v1`, `daily_loop_v1`, `task_project_flagship_v1`, `premium_ia_v5`, and all the domain flags. Held back: `eva_fm_responder_v1` (an A/B phrasing path, not a feature).
-
-⚠️ **`daily_loop_v1` and `task_project_flagship_v1` ship on while their stages are incomplete**, and gate almost nothing. Extend their gating *before* adding surfaces behind them, or rollback stays decorative.
+All retained staged flags are promoted **on** in Release, including
+`track_behavior_flagship_v1` and `eva_fm_responder_v1`. They remain
+disable-only, data-preserving rollback paths; promotion is pinned by
+`FeatureFlagPromotionTests`.
 
 ---
 
@@ -688,7 +691,9 @@ completion ledger records the later native implementations. Treat “Add” and
 “Missing” language as historical unless it also appears in the current release
 ledger.
 
-New flag `trackBehaviorFlagshipV1Enabled`, `promotedDefaults` entry `false`, flipped at stage exit.
+Historical rollout instruction: the new `trackBehaviorFlagshipV1Enabled` flag
+began with a `false` promoted default and was to flip at stage exit. The current
+Release default is `true` and is covered by the promotion contract tests.
 
 ### The good news: the persistence already exists
 
@@ -855,11 +860,13 @@ The bullets below are the original 2026-07-28 snapshot and are retained for
 historical architecture context. They are not the active UI/UX work list. In
 particular, Inbox commit wiring, the Phase 1/2 UI overhaul, AX XXXL Track, Focus
 depth, Routine full-screen behavior, and shader registry enforcement were
-subsequently implemented. Use the completion ledger and the final UI/UX handoff
-for current status.
+subsequently implemented. Use the Unified Completion Status and the final UI/UX
+handoff for current status.
 
 - **`LIFEBOARD_BEYOND_NOTES_HANDOFF.md` §2 is wrong about the `xcodeproj` gem.** See §2 here. Fix that line when you next touch the doc.
-- **`LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md`'s Milestone 10 row claims 44 failing methods.** Stale — the gate is green. Update it.
+- **The former 44-failure ledger result is historical.** The ledger is now
+  explicitly superseded; the final gate is 2,071 tests, 3 environment skips,
+  and zero failures.
 - **The commit path has never run against real Core Data.** `InboxCommitCoordinator` is tested only against an in-memory spy. This is the single most important thing to verify next.
 - **No visual/design-system audit was taken.** A planned sweep for hardcoded colours, contrast pairs and the light/dark matrix never ran. `phase1-foundation-guardrails.sh` now catches hex literals under `LifeBoard/Foundation` only — the rest of the tree is unaudited.
 - **Recovery Center rebuild actions are not wired.** The button says *"Open Journal to rebuild its search index"* rather than calling `invalidate()`, which would clear without repopulating — search would get **worse**.

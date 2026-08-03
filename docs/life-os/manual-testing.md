@@ -1,6 +1,6 @@
 # Life OS Manual Test Playbook
 
-> **Classification: Canonical manual-test reference.** Use with the [product handbook](../product/README.md), [UI/UX guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md), and active [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+> **Classification: Canonical manual-test reference.** Use with the [product handbook](../product/README.md), [UI/UX guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md), and active [Unified Completion Status](./LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 
 Use this playbook while product/design and engineering test the implementation together.
 
@@ -9,7 +9,8 @@ Use this playbook while product/design and engineering test the implementation t
 1. Run the `LifeBoard` scheme in Debug. No launch arguments are required.
 2. Confirm the first visible destination is the new warm-paper Adaptive Home.
 3. Confirm the dock reads Home, Plan, Track, Insights, and Eva.
-4. To compare legacy behavior, launch once with `-LIFEBOARD_DISABLE_ADAPTIVE_HOME_V2`.
+4. Confirm Home remains canonical without a legacy-host comparison path; the
+   obsolete `-LIFEBOARD_DISABLE_ADAPTIVE_HOME_V2` argument no longer exists.
 
 ## Adaptive Home smoke test
 
@@ -32,7 +33,8 @@ Use this playbook while product/design and engineering test the implementation t
 ## Capture and Track
 
 - Open capture from the inline widget and persistent orb.
-- Create a task/habit through legacy adapters and a tracker entry/Journal thought/Note through Phase II providers.
+- Create a task, habit, tracker entry, Journal thought, and Note through their
+  canonical capture flows.
 - Create boolean, count, quantity, rating, and duration trackers.
 - Create medication and schedule states; verify Scheduled/Taken/Skipped/Snoozed/Rescheduled/Unresolved language.
 - Let a window pass and verify it becomes Unresolved, never automatically Missed.

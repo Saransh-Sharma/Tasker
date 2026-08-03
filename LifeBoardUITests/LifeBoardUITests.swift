@@ -62,6 +62,33 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Capture Task"].waitForExistence(timeout: 2))
     }
 
+    func testInsightsEmptyStatesOfferCanonicalNextActions() {
+        let app = launchFoundationApp(accessibilityCategory: "UICTContentSizeCategoryL")
+        defer { app.terminate() }
+
+        assertFoundationDestination("insights", rootIdentifier: "foundation.insights", in: app)
+        let openTrack = app.buttons["insights.empty.openTrack"]
+        XCTAssertTrue(openTrack.waitForExistence(timeout: 10))
+        XCTAssertTrue(openTrack.isHittable)
+        openTrack.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["track.header"].waitForExistence(timeout: 10),
+            "The successful-empty state should lead directly to the place that records evidence."
+        )
+
+        assertFoundationDestination("insights", rootIdentifier: "foundation.insights", in: app)
+        let experience = app.buttons["insights.lens.experience"]
+        XCTAssertTrue(experience.waitForExistence(timeout: 8))
+        experience.tap()
+        let openReview = app.buttons["insights.experience.empty.openReview"]
+        XCTAssertTrue(openReview.waitForExistence(timeout: 10))
+        XCTAssertTrue(openReview.isHittable)
+        openReview.tap()
+        let review = app.buttons["insights.lens.review"]
+        XCTAssertTrue(review.waitForExistence(timeout: 10))
+        XCTAssertTrue(review.isSelected, "The optional Experience lens should select canonical Review without a dead end.")
+    }
+
     func testPhase5IPhoneRootVisualCheckpoint() throws {
         let app = launchFoundationApp(
             accessibilityCategory: "UICTContentSizeCategoryL",

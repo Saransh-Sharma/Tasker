@@ -342,14 +342,11 @@ public enum V2FeatureFlags {
         "feature.universal_input.routing_v1": true,
         "feature.universal_input.dictation_v1": true,
         "feature.universal_input.semantic_v1": true,
-        // Held back until the complete behavior/personal-care exit gate passes.
-        // The model migration is additive and remains safe to ship while the
-        // surfaces themselves are disabled.
-        "feature.life_os.track_behavior_flagship_v1": false,
-        // Held back: an A/B phrasing path for Eva's journal answers, not a
-        // feature. Its one call site picks between two phrasings of the same
-        // evidence, and the deterministic answer is the shipped default.
-        "feature.life_os.eva_fm_responder_v1": false
+        // Retained staged flags ship on. Each remains a disable-only rollback
+        // path whose off state preserves canonical records and deterministic
+        // behavior.
+        "feature.life_os.track_behavior_flagship_v1": true,
+        "feature.life_os.eva_fm_responder_v1": true
     ]
 
     private static func stagedFeatureEnabled(key: String, argument: String) -> Bool {

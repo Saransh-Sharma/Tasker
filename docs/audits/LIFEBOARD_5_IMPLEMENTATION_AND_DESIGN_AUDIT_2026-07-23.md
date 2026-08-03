@@ -6,7 +6,7 @@ Updated: 2026-07-23
 
 ## Authority and method
 
-This is the evidence-based review of the LifeBoard 5.0 implementation. The [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md) is the sole active completion tracker. The deep traceability document and visual-migration plans are historical release evidence and design references; neither overrides the ledger.
+This is the evidence-based review of the LifeBoard 5.0 implementation at its dated snapshot. The [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md) is the sole active completion tracker. The deep traceability document and visual-migration plans are historical release evidence and design references; neither overrides that ledger.
 
 Evidence labels: **verified in source** means the reviewed production boundary exists; **verified by automated evidence** means a current or recorded executable check supports it; **partial** means the boundary exists but its declared matrix is incomplete; **unverified** means no reviewed evidence supports a completion claim; **device gate** requires physical hardware or external account state.
 

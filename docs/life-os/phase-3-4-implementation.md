@@ -1,6 +1,6 @@
 # Phase III/IV Implementation Status
 
-> **Classification: Historical implementation record.** Current Plan/Track product behavior is canonical in the [product handbook](../product/README.md); active completion is owned by the [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+> **Classification: Historical implementation record.** Current Plan/Track product behavior is canonical in the [product handbook](../product/README.md); active completion is owned by the [Unified Completion Status](./LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 
 This file is the repository-local execution checklist for the approved 30-week Phase III/IV plan. It distinguishes the implemented foundation vertical slice from work that still requires product, device, entitlement, or legacy-domain integration.
 

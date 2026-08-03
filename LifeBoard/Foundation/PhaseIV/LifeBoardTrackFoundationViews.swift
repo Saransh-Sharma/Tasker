@@ -741,8 +741,8 @@ struct LifeBoardTrackFoundationRootView: View {
     private var careSnapshot: some View {
         VStack(spacing: 12) {
             trackSectionHeader("Care snapshot", symbol: "heart.text.square")
+            hydrationTile
             LazyVGrid(columns: careGridColumns, spacing: 12) {
-                hydrationTile
                 careButton(title: "Mood + energy", value: latestMood, symbol: "face.smiling") { presentMoodComposer() }
                 behaviorAreaLink(
                     area: .medication,
@@ -759,8 +759,8 @@ struct LifeBoardTrackFoundationRootView: View {
     private var bodyCare: some View {
         VStack(spacing: 12) {
             trackSectionHeader("Body", symbol: "heart.text.square")
+            hydrationTile
             LazyVGrid(columns: careGridColumns, spacing: 12) {
-                hydrationTile
                 behaviorAreaLink(
                     area: .medication,
                     title: "Medication",

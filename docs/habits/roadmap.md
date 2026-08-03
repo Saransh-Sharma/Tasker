@@ -1,6 +1,6 @@
 # Habit Roadmap
 
-> **Classification: Roadmap reference.** This document records direction, not current completion. Use the [active ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md) for release status.
+> **Classification: Roadmap reference.** This document records direction, not current completion. Use the [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md) for release status.
 
 This roadmap tracks remaining work for Habit Streaks in LifeBoard after the core experience shipped.
 

@@ -1,6 +1,6 @@
 # Audit Remediation Implementation TODO
 
-> **Classification: Implementation record.** Current completion is owned by the [remaining execution ledger](./LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+> **Classification: Historical implementation record.** Current completion is owned by the [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 
 This tracker records the concrete implementation state for the 7-phase audit remediation plan.
 

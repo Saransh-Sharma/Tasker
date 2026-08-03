@@ -1023,7 +1023,9 @@ public struct LifeOSFoundationShell: View {
                 .accessibilityIdentifier("foundation.expanded.destination.\(destination.rawValue)")
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
                 .keyboardShortcut(
-                    KeyEquivalent(Character(String(LifeBoardDestination.allCases.firstIndex(of: destination)! + 1))),
+                    KeyEquivalent(Character(String(
+                        LifeBoardDestination.allCases.firstIndex(of: destination).map { $0 + 1 } ?? 0
+                    ))),
                     modifiers: [.command, .option]
                 )
             }
@@ -2721,12 +2723,21 @@ private struct FoundationInsightsDestination: View {
                         ProgressView("Reading today’s evidence…")
                             .frame(maxWidth: .infinity, minHeight: 180)
                     } else if events.isEmpty {
-                        ContentUnavailableView(
-                            "Nothing recorded yet",
-                            systemImage: "sparkles",
-                            description: Text("A check-in, routine, care event, or hydration log will appear here with its source.")
-                        )
-                        .frame(minHeight: 240)
+                        VStack(spacing: 12) {
+                            ContentUnavailableView(
+                                "Nothing recorded yet",
+                                systemImage: "sparkles",
+                                description: Text("A check-in, routine, care event, or hydration log will appear here with its source.")
+                            )
+                            Button("Record something in Track") {
+                                router.select(.track)
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .tint(Color(LifeBoardColorTokens.foundationApricotAccent))
+                            .frame(minHeight: 44)
+                            .accessibilityIdentifier("insights.empty.openTrack")
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 240)
                     } else {
                         insightContent
                     }
@@ -2900,12 +2911,20 @@ private struct FoundationInsightsDestination: View {
                 action: { Task { await loadExperience() } }
             )
         } else if experienceAggregates.isEmpty {
-            ContentUnavailableView(
-                "No experience history yet",
-                systemImage: "sparkles",
-                description: Text("This optional lens appears as actions earn entries in your local ledger.")
-            )
-            .frame(minHeight: 220)
+            VStack(spacing: 12) {
+                ContentUnavailableView(
+                    "No experience history yet",
+                    systemImage: "sparkles",
+                    description: Text("This optional lens appears as actions earn entries in your local ledger.")
+                )
+                Button("Return to Review") {
+                    lens = .review
+                }
+                .buttonStyle(.bordered)
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("insights.experience.empty.openReview")
+            }
+            .frame(maxWidth: .infinity, minHeight: 220)
         } else {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Experience, if it helps")
@@ -4168,7 +4187,7 @@ struct FoundationTaskRouteView: View {
                 } label: {
                     Text(value.0)
                         .font(.caption.weight(.bold))
-                        .frame(width: 36, height: 44)
+                        .frame(width: 44, height: 44)
                         .background(
                             selected
                                 ? Color(LifeBoardColorTokens.foundationSageAccent)
@@ -4212,7 +4231,7 @@ struct FoundationTaskRouteView: View {
                         } label: {
                             Label(tag.name, systemImage: selected ? "checkmark" : "plus")
                                 .font(.caption.weight(.semibold))
-                                .frame(minHeight: 32)
+                                .frame(minHeight: 44)
                         }
                         .buttonStyle(.bordered)
                         .tint(selected

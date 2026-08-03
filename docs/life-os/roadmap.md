@@ -1,6 +1,10 @@
 # Roadmap — From Adaptive Home to the Complete Life OS
 
-> **Classification: Product roadmap reference.** Current completion status is owned by the [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md); feature intent is canonical in the [product handbook](../product/README.md).
+> **Classification: Historical product-roadmap reference.** Current completion
+> status is owned by the [Unified Completion Status](./LIFEBOARD_UNIFIED_COMPLETION_STATUS.md);
+> feature intent is canonical in the [product handbook](../product/README.md).
+> The original checkboxes below preserve the planned promotion sequence and do
+> not override the completed code status or external-evidence classification.
 
 Phases I and II create the shell, adaptive command center, capture/data contracts, care tracking, private reflection, and knowledge substrate. The next program should deepen these systems rather than introduce parallel navigation, theme, persistence, or assistant architectures.
 
@@ -15,9 +19,14 @@ Goal: make the implemented Adaptive Home safe to promote to internal and then pr
 - [ ] Profile launch, navigation, capture, scroll, energy, memory, and all atmosphere backends on supported device tiers.
 - [ ] Complete accessibility and sensory-comfort matrix with assistive technologies, not snapshots alone.
 - [ ] Run founder proxy, then moderated neurodivergent-user usability sessions; address comprehension and overload findings.
-- [ ] Promote Adaptive Home while retaining legacy Home rollback for one release; remove rollback only after telemetry-free local diagnostics and support signals are stable.
+- [x] Promote Adaptive Home and retire its legacy fallback, flag, promoted
+  default, and obsolete disable argument after parity and migration coverage.
 
-Exit: Adaptive Home is the production default, additive schemas have survived real iCloud upgrades, and the legacy Home can be retired without data rollback.
+Historical exit condition: Adaptive Home becomes the production default and the
+legacy Home can be retired without data rollback. The unified completion program
+later closed the code/migration side of this condition and removed the fallback;
+production-style CloudKit and signed-device observations remain external release
+evidence.
 
 ## Immediate promotion track — Universal Input
 

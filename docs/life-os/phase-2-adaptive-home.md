@@ -1,10 +1,16 @@
 # Phase II — Unified Adaptive Home
 
-> **Classification: Implementation handoff.** Current Home product/UX behavior is canonical in [Adaptive Home](../product/HOME.md); completion status is owned by the [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+> **Classification: Historical Phase II implementation handoff.** Current Home
+> product/UX behavior is canonical in [Adaptive Home](../product/HOME.md), and
+> current evidence is owned by the [Unified Completion Status](./LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 
 ## Outcome
 
-Phase II is implemented as an additive, independently promotable set of product trains. It replaces the internal Home experience with one adaptive dashboard while keeping the legacy Home available as a rollback path.
+Phase II introduced an additive, independently promotable set of product trains
+and replaced the internal Home experience with one adaptive dashboard. The
+later unified program retired the legacy Home fallback and its flag after parity
+and migration coverage; retained domain flags remain data-preserving rollback
+paths.
 
 The implementation includes:
 
@@ -52,7 +58,9 @@ The default narrative order is locked:
 
 ## Persistence and migration chain
 
-The current version is `TaskModelV3_KnowledgeNotes`.
+At this Phase II checkpoint, the current version was
+`TaskModelV3_KnowledgeNotes`. The current 23-version chain ends at
+`TaskModelV3_BehaviorFlagship`.
 
 ```text
 TaskModelV3_TaskIcons
@@ -123,10 +131,11 @@ External/manual release gates:
 - [ ] Target-user usability validation; the founder proxy is not user evidence.
 - [ ] Matched-device launch, mode-switch, capture, hitch, memory, energy, and thermal reports.
 
-## Rollback behavior
+## Current rollback behavior
 
-- Debug: pass `-LIFEBOARD_DISABLE_ADAPTIVE_HOME_V2` or the relevant train-specific disable argument.
-- Release: do not promote the staged flag.
-- Disabling UI never rolls back or deletes an additive schema.
-- Legacy Home remains available for one promoted release window.
+- Adaptive Home has no fallback, feature flag, promoted default, or disable
+  argument.
+- Retained domain/presentation flags default on in Debug and Release and are
+  disable-only, data-preserving rollback paths.
+- Disabling a retained surface never rolls back or deletes an additive schema.
 - Unknown layouts and unavailable providers remain preserved rather than rewritten.

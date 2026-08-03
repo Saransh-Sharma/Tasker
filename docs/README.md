@@ -4,12 +4,13 @@ This directory is the navigation hub for product, architecture, audit, feature, 
 
 ## Current status and design authority
 
-- [LifeBoard 5.0 remaining execution ledger](./todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md) - the sole active completion tracker.
+- [LifeBoard Unified Completion Status](./life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md) - the sole active completion and release-evidence tracker.
 - [LifeBoard 5.0 implementation and design audit](./audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md) - reviewed source, automated evidence, documentation reconciliation, and device gates.
+- [LifeBoard Unified Completion audit](./audits/LIFEBOARD_UNIFIED_COMPLETION_AUDIT_2026-08-03.md) - deep release-candidate review, resolved findings, and final automated evidence.
 - [Root DESIGN.md](../DESIGN.md) - the canonical warm clay/paper visual contract. Swift tokens remain the implementation source of truth.
 - [LifeBoard 5.0 product handbook](./product/README.md) - canonical feature, journey, state, responsive, privacy, and acceptance behavior.
 - [Product UI/UX guide](./design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md) - canonical cross-feature interaction and presentation rules.
-- [Deep completion traceability](./todos/LIFEBOARD_5_DEEP_COMPLETION_TRACEABILITY.md) - release-contract evidence and historical traceability; defer present completion status to the remaining ledger.
+- [Deep completion traceability](./todos/LIFEBOARD_5_DEEP_COMPLETION_TRACEABILITY.md) - release-contract evidence and historical traceability; defer present completion status to the Unified Completion Status.
 
 ## Canonical references
 
@@ -37,7 +38,7 @@ This directory is the navigation hub for product, architecture, audit, feature, 
 
 ## Historical records and evidence
 
-- [Implementation-record index](./todos/README.md) classifies the active ledger, release traceability, migration records, and historical TODOs.
+- [Implementation-record index](./todos/README.md) classifies release traceability, migration records, and historical TODOs.
 - [LifeBoard 5.0 visual literal audit](./evidence/lifeboard-5/VISUAL_LITERAL_AUDIT.md) is a dated static-analysis evidence snapshot.
 - [Root-state fixtures](./evidence/lifeboard-5/root-state-fixtures/README.md) cover deterministic populated, empty, loading, denied, and error projections.
 - [Appearance and comfort matrix](./evidence/lifeboard-5/appearance-matrix/README.md) records simulator captures across selected appearance and accessibility modes.
@@ -68,7 +69,7 @@ Use **verified in source**, **verified by automated evidence**, **partially impl
 ## Document classifications
 
 - **Canonical:** current product, design, or architecture behavior.
-- **Active status:** the remaining execution ledger only.
+- **Active status:** the Unified Completion Status ledger only.
 - **Audit snapshot:** evidence observed at a dated point.
 - **Implementation record:** a TODO or phase plan that preserves work history.
 - **Evidence:** screenshots, manifests, and executable-result notes.

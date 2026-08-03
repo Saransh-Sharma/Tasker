@@ -1080,31 +1080,37 @@ final class FeatureFlagPromotionTests: XCTestCase {
         )
     }
 
-    /// Every staged flag whose surface is reachable and working has to be on in
-    /// Release, not just on the Debug launch developers see.
-    ///
-    /// These six had no entry in `promotedDefaults` at all, so they resolved
-    /// through `promotedDefaults[key] ?? false` and a shipped build contained
-    /// none of the TextKit editor, the ranked Notes search, per-note encryption,
-    /// the Notes Eva actions, the task completion control, or the four-direction
-    /// Plan Repair deck — all of which are reachable in Debug. A missing entry
-    /// and a deliberate `false` are indistinguishable at runtime, so this pins
-    /// the promoted value rather than merely requiring one to exist.
+    /// Every retained staged flag defaults on in Release, not just on the Debug
+    /// launch developers see. A deliberate `false` and a missing entry are both
+    /// silent release-only omissions, so pin the value as well as membership.
     func testReachableStagedSurfacesArePromotedForRelease() throws {
         let block = try promotedBlock(flagSource())
-        for key in [
-            "feature.life_os.knowledge_notes_textkit_v2",
-            "feature.life_os.knowledge_notes_search_v2",
-            "feature.life_os.knowledge_notes_security_v1",
-            "feature.life_os.knowledge_notes_eva_v1",
-            "feature.life_os.daily_loop_v1",
-            "feature.life_os.task_project_flagship_v1"
-        ] {
+        let stagedKeys = matches(
+            in: try flagSource(),
+            pattern: #"stagedFeatureEnabled\(\s*\n?\s*key: \"([^\"]+)\""#
+        )
+        for key in stagedKeys {
             XCTAssertTrue(
                 block.contains("\"\(key)\": true"),
-                "\(key) gates a working surface and must ship on"
+                "Every retained staged flag must default on in Release: \(key)"
             )
         }
+    }
+
+    func testExtensionPaletteDefaultsToUnifiedPresentationInRelease() throws {
+        let source = try colorTokenSource()
+        guard let start = source.range(of: "private static var unifiedPresentationEnabled: Bool"),
+              let end = source.range(
+                of: "\n    /// The canonical LifeBoard 5.0 palette",
+                range: start.upperBound..<source.endIndex
+              )
+        else { throw XCTSkip("Extension unified-presentation resolver not found") }
+        let resolver = String(source[start.lowerBound..<end.lowerBound])
+        let releaseBranch = resolver.components(separatedBy: "#else").last ?? ""
+        XCTAssertTrue(
+            releaseBranch.contains("?? true"),
+            "Widget and Watch targets must default to the same unified palette as the app"
+        )
     }
 
     /// A flag with no call site gates nothing, so a promoted default for it is a
@@ -1140,6 +1146,21 @@ final class FeatureFlagPromotionTests: XCTestCase {
             }
         }
         throw XCTSkip("V2FeatureFlags.swift not reachable from the test bundle")
+    }
+
+    private func colorTokenSource() throws -> String {
+        var url = URL(fileURLWithPath: #filePath)
+        while url.pathComponents.count > 1 {
+            url.deleteLastPathComponent()
+            let candidate = url
+                .appendingPathComponent("LifeBoard")
+                .appendingPathComponent("DesignSystem")
+                .appendingPathComponent("ColorTokens.swift")
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return try String(contentsOf: candidate, encoding: .utf8)
+            }
+        }
+        throw XCTSkip("ColorTokens.swift not reachable from the test bundle")
     }
 
     private func promotedBlock(_ source: String) throws -> String {

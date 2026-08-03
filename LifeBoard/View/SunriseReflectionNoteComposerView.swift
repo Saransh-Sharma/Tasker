@@ -126,20 +126,24 @@ struct SunriseReflectionNoteComposerView: View {
 
             HStack(spacing: 8) {
                 ForEach(1...5, id: \.self) { option in
+                    let isSelected = value.wrappedValue == option
                     Button {
                         value.wrappedValue = option
                     } label: {
                         Text("\(option)")
                             .font(.lifeboard(.bodyEmphasis))
-                            .foregroundStyle(value.wrappedValue == option ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
+                            .foregroundStyle(isSelected ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
                             .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
+                            .frame(minWidth: 44, minHeight: 44)
                             .background(
                                 RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                    .fill(value.wrappedValue == option ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
+                                    .fill(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary)
                             )
                     }
                     .buttonStyle(.plain)
+                    .accessibilityLabel("\(title) \(option)")
+                    .accessibilityValue(isSelected ? "Selected" : "Not selected")
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
                 }
             }
         }

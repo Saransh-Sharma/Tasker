@@ -1,6 +1,6 @@
 # LifeBoard iOS - V2-Only Architecture Guide
 
-> **Classification: Canonical architecture reference.** Product and interaction behavior lives in the [LifeBoard 5.0 product handbook](../product/README.md); current completion is owned by the [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+> **Classification: Canonical architecture reference.** Product and interaction behavior lives in the [LifeBoard 5.0 product handbook](../product/README.md); current completion is owned by the [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 
 **iOS 16.0+ | Swift 5+ | TaskDefinition-first runtime**
 
@@ -61,7 +61,7 @@ Guardrail script enforces absence of banned legacy symbols in production code.
 
 ## Release and visual-system authority
 
-The active LifeBoard 5.0 completion tracker is `docs/todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md`; the implementation/design audit records the source and automated evidence supporting its status. `DESIGN.md` is the agent-readable visual contract, while `LifeBoardColorTokens`, companion token groups, and named components remain the runtime source of truth. `lifeOSUnifiedPresentationV2` keeps the legacy Sunrise palette as a one-release rollback path.
+The active LifeBoard 5.0 completion tracker is `docs/life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md`; dated audits preserve their source and automated evidence boundaries. `DESIGN.md` is the agent-readable visual contract, while `LifeBoardColorTokens`, companion token groups, and named components remain the runtime source of truth. `lifeOSUnifiedPresentationV2` remains a disable-only, data-preserving diagnostic rollback; app and extension targets default to the unified palette in Release.
 
 Before release, run the build and baseline-aware test script serially with token-law and premium UI guardrails. Signed-device performance, paired Watch, App Group, migration, iCloud/account, and accessibility-device checks cannot be closed by the simulator alone.
 

@@ -200,8 +200,20 @@ public final class ProjectManagementViewModel: ObservableObject {
     
     /// Archive project
     public func archiveProject(_ project: Project) {
-        // TODO: Implement proper archive functionality when status field is added to repository
-        updateProject(project, name: nil, description: nil)
+        isLoading = true
+        errorMessage = nil
+        manageProjectsUseCase.archiveProject(projectId: project.id) { [weak self] result in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.isLoading = false
+                switch result {
+                case .success:
+                    self.loadProjects()
+                case .failure(let error):
+                    self.errorMessage = error.localizedDescription
+                }
+            }
+        }
     }
     
     /// Select project for detailed view

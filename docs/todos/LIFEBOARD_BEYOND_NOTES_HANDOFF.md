@@ -1,8 +1,9 @@
 # LifeBoard "Beyond Notes" — Engineering & Design Handoff
 
 > **Historical snapshot, superseded for implementation status.** Use
-> `LIFEBOARD_PHASE_1_2_IMPLEMENTATION_HANDOFF.md` and `DESIGN.md` as the current
-> authorities. As of 2026-08-03, the complete simulator suite executes 2,070
+> the [LifeBoard Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md)
+> for current evidence and `DESIGN.md` for iOS design law. As of 2026-08-03,
+> the complete simulator suite executes 2,071
 > tests with zero failures and three environment-qualified skips. Native capture
 > interruption recovery and the App Group Inbox termination → file → canonical
 > Undo journey pass. Remaining signed App Group, paired-Watch, protection,
@@ -113,7 +114,9 @@ Each has a comment at the code site explaining it. If you disagree, that's fine 
 
 ## 5. Adding a Core Data model version (you will need this)
 
-Current version: **`TaskModelV3_TaskStartDay`** (21 predecessors).
+At the time of this 2026-07-28 snapshot, the current version was
+**`TaskModelV3_TaskStartDay`** (21 predecessors). The canonical status ledger
+records the later 23-version chain ending at `TaskModelV3_BehaviorFlagship`.
 
 1. `cp -R TaskModelV3_<Current>.xcdatamodel TaskModelV3_<New>.xcdatamodel` inside `LifeBoard/TaskModelV3.xcdatamodeld/`
 2. Edit the new `contents` XML. Validate: `python3 -c "import xml.etree.ElementTree as ET; ET.parse('…/contents')"`
@@ -182,11 +185,21 @@ Stage 1.3 (Plan spine, capacity, repair), 1.4 (Focus environment), 1.5 (Adaptive
 
 ---
 
-## 8. Known open items
+## 8. Historical known open items
 
-- **`lifeBoardDailyLoopV1Enabled` / `taskProjectFlagshipV1Enabled`** are promoted on. `eva_fm_responder_v1` is deliberately held back (an A/B phrasing path, not a feature).
+The list below records the 2026-07-28 handoff. The unified status ledger owns
+current completion; signed-device observations remain external evidence, not a
+feature-flag promotion blocker.
+
+- **Historical rollout note:** `lifeBoardDailyLoopV1Enabled` and
+  `taskProjectFlagshipV1Enabled` were promoted first. The unified completion
+  program subsequently promoted every retained staged flag, including
+  `eva_fm_responder_v1`, with data-preserving disable-only rollback.
 - **Recovery Center rebuild actions are not wired.** The button says *"Open Journal to rebuild its search index"* rather than calling `invalidate()`, which clears without repopulating — search would get **worse**. Wiring a real rebuild needs the source entries, which live in the Journal module.
-- **Signed-device gates remain unverified**: performance, thermal, haptics, App Group, paired Watch, biometrics, Live Activities, and local-model EVA. These block final `lifeBoardFlagshipV1Enabled` promotion.
+- **Signed-device gates were unverified in this snapshot:** performance,
+  thermal, haptics, App Group, paired Watch, biometrics, Live Activities, and
+  local-model Eva. They remain separately tracked release evidence; there is no
+  retained `lifeBoardFlagshipV1Enabled` promotion gate.
 - **`CalendarIntegrationService` guards `selectedCalendarIDs.isEmpty` before fetching**, so the permissive filter branch was unreachable — it was a trap for the next caller rather than live behaviour. Now fixed.
 
 ---

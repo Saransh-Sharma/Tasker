@@ -158,7 +158,9 @@ public struct LifeBoardActThreadKnots: View {
                         )
                     }
                     .shadow(
-                        color: settled ? Color.black.opacity(0.14) : .clear,
+                        color: settled
+                            ? Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.14)
+                            : .clear,
                         radius: 2,
                         y: 1
                     )

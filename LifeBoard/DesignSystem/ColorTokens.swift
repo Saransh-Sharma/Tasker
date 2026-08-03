@@ -207,8 +207,8 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
     }
 
     /// Executes make. The unified Life OS presentation resolves the warm
-    /// paper/cocoa system; the legacy sunrise palette remains one release
-    /// behind it as the documented rollback.
+    /// paper/cocoa system. A stored disable override remains a data-preserving
+    /// diagnostic rollback, but extensions never default to the retired palette.
     public static func make(palette: LifeBoardBrandPalette) -> LifeBoardColorTokens {
         if unifiedPresentationEnabled {
             return makeWarmPaper()
@@ -234,7 +234,7 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
         #else
         return shared?.object(forKey: key) as? Bool
             ?? UserDefaults.standard.object(forKey: key) as? Bool
-            ?? false
+            ?? true
         #endif
     }
 

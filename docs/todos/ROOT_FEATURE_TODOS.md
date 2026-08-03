@@ -1,6 +1,6 @@
 # Root Feature TODO Tracker
 
-> **Classification: Historical implementation tracker.** Current product behavior is defined by the [product handbook](../product/README.md); current completion is owned by the [remaining execution ledger](./LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+> **Classification: Historical implementation tracker.** Current product behavior is defined by the [product handbook](../product/README.md); current completion is owned by the [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 
 Consolidated from former project-root TODO files on March 31, 2026. Keep feature and refactor trackers here instead of the project root.
 

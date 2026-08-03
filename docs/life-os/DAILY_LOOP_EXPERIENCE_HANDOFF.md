@@ -2,7 +2,7 @@
 
 **Last reconciled:** 2026-08-03
 **Branch:** `lifeOS`
-**Unified baseline commits:** `5e1da0e5`, `aafef799`, `0986e501`
+**Unified baseline commits:** `5e1da0e5`, `aafef799`, `0986e501`, `fd464c47`, `58a5aa85`, `dd1ba7cc`
 **Audience:** the engineer and the designer continuing this, cold.
 **Companion docs:** `DAILY_LOOP_HANDOFF.md` (the loop's architecture — read §3 first), `DESIGN.md` (the visual law).
 
@@ -16,7 +16,7 @@ The Daily Loop is functionally complete and has a persistence-backed interaction
 
 ## 1. State of the tree
 
-### Committed (Phases 0–6)
+### Earlier Daily Loop foundation commits
 
 | Commit | What |
 |---|---|
@@ -28,7 +28,14 @@ The Daily Loop is functionally complete and has a persistence-backed interaction
 
 ### Unified-program checkpoint
 
-Phases 0–2 are committed. Phase 3 extracts Rescue launch and mutation ownership from Home without changing receipt or mutation semantics. The checkpoint is green on the complete 2,105-test suite, both iOS Simulator and Catalyst builds, all eight guardrails, 18 registered shaders, and 23 TaskModelV3 versions.
+Unified Phases 0–7 are committed. Rescue launch/mutation ownership, duplicate
+architecture retirement, root refinement, Beyond Notes continuity, system
+redaction, and adaptive iPad/Catalyst navigation are closed without changing
+receipt or mutation semantics. The checkpoint is green on 2,071 tests with 3
+environment skips and zero failures; five available iOS/extension/Catalyst build
+paths; all eight guardrails; 18 registered shaders; and 23 TaskModelV3 versions.
+See [LifeBoard Unified Completion Status](./LIFEBOARD_UNIFIED_COMPLETION_STATUS.md)
+for the signed-device evidence boundary.
 
 ---
 

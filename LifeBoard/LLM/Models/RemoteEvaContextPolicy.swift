@@ -51,14 +51,21 @@ public struct RemoteEvaContextPolicy: Codable, Equatable, Sendable {
         self.grantedCategories = grantedCategories
     }
 
-    public var permitsRemoteRequest: Bool {
-        schemaVersion == Self.currentSchemaVersion
+    public func permitsRemoteRequest(forAccountID requestAccountID: String) -> Bool {
+        let normalizedRequestAccountID = requestAccountID.trimmingCharacters(in: .whitespacesAndNewlines)
+        let normalizedPolicyAccountID = accountID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return schemaVersion == Self.currentSchemaVersion
             && isRemoteEvaEnabled
-            && accountID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+            && normalizedPolicyAccountID.isEmpty == false
+            && normalizedRequestAccountID == normalizedPolicyAccountID
     }
 
-    public func permits(_ category: RemoteEvaContextCategory) -> Bool {
-        permitsRemoteRequest && grantedCategories.contains(category)
+    public func permits(
+        _ category: RemoteEvaContextCategory,
+        forAccountID requestAccountID: String
+    ) -> Bool {
+        permitsRemoteRequest(forAccountID: requestAccountID)
+            && grantedCategories.contains(category)
     }
 
     public mutating func setRemoteEvaEnabled(_ enabled: Bool) {
@@ -76,10 +83,13 @@ public struct RemoteEvaContextPolicy: Codable, Equatable, Sendable {
     /// Returns only sections authorized at the instant the request is built.
     /// Duplicate categories are collapsed deterministically to the last
     /// prepared value, avoiding two differently redacted variants in one call.
-    public func authorize(_ sections: [RemoteEvaContextSection]) -> [RemoteEvaContextSection] {
-        guard permitsRemoteRequest else { return [] }
+    public func authorize(
+        _ sections: [RemoteEvaContextSection],
+        forAccountID requestAccountID: String
+    ) -> [RemoteEvaContextSection] {
+        guard permitsRemoteRequest(forAccountID: requestAccountID) else { return [] }
         var latestByCategory: [RemoteEvaContextCategory: RemoteEvaContextSection] = [:]
-        for section in sections where permits(section.category) {
+        for section in sections where permits(section.category, forAccountID: requestAccountID) {
             latestByCategory[section.category] = section
         }
         return RemoteEvaContextCategory.allCases.compactMap { latestByCategory[$0] }
@@ -112,7 +122,10 @@ public actor RemoteEvaContextAuthorizer {
         policy.setGrant(granted, for: category)
     }
 
-    public func authorize(_ sections: [RemoteEvaContextSection]) -> [RemoteEvaContextSection] {
-        policy.authorize(sections)
+    public func authorize(
+        _ sections: [RemoteEvaContextSection],
+        forAccountID requestAccountID: String
+    ) -> [RemoteEvaContextSection] {
+        policy.authorize(sections, forAccountID: requestAccountID)
     }
 }

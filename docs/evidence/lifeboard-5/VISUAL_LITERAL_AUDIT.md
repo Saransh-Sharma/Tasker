@@ -1,6 +1,6 @@
 # LifeBoard visual-literal audit
 
-> **Classification: Evidence snapshot.** This result describes the named run and does not replace the [active ledger](../../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md) or a fresh validation run.
+> **Classification: Evidence snapshot.** This result describes the named run and does not replace the [Unified Completion Status](../../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md) or a fresh validation run.
 
 Audited on 2026-07-22 across app, widgets, Watch, and shared production Swift sources.
 

@@ -9,7 +9,7 @@
 **Phase 1/2 implementation record:**
 [UI/UX overhaul handoff](../todos/LIFEBOARD_UI_UX_OVERHAUL_HANDOFF.md)
 
-**Broader release status:** [Remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md)
+**Broader release status:** [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md)
 
 ## Experience principles
 

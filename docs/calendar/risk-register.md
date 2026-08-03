@@ -1,6 +1,6 @@
 # Calendar + Timeline Risk Register
 
-> **Classification: Reference.** This register preserves feature risk detail. Current release gates are tracked only in the [active ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md).
+> **Classification: Reference.** This register preserves feature risk detail. Current release gates are tracked only in the [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 
 ## Permission Risk
 

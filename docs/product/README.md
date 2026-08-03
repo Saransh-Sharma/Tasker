@@ -4,7 +4,7 @@
 
 **Audience:** Product, design, engineering, QA, and support
 
-**Active status authority:** [LifeBoard 5.0 remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md)
+**Active status authority:** [LifeBoard Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md)
 **Visual authority:** [DESIGN.md](../../DESIGN.md) and the [Product UI/UX Guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md)
 
 ## Product promise
@@ -104,13 +104,19 @@ An explicit zero is a valid value and must never be rendered as missing or unava
 
 ## Rollout and rollback
 
-Feature availability is read from `V2FeatureFlags`. Staged domain flags hide unfinished presentation and integration paths; they do not delete canonical records, reverse migrations, or create an alternate store. `lifeOSUnifiedPresentationV2Enabled` and `adaptiveHomeV2Enabled` retain the one-release presentation rollback. A flag-off test must verify that data created while enabled returns intact when the flag is re-enabled.
+Feature availability is read from `V2FeatureFlags`. Retained flags default on in
+Debug and Release and are disable-only rollback paths; they do not delete
+canonical records, reverse migrations, or create alternate stores. Adaptive Home
+is canonical: its fallback, flag, promoted default, and disable argument have
+been removed. Every retained flag-off test must verify that data created while
+enabled returns intact when the flag is re-enabled.
 
 ## Documentation authority
 
 - This handbook defines intended product and UX behavior.
 - Architecture documents define runtime boundaries.
 - `DESIGN.md` defines normative visual tokens and global design rules.
-- The remaining execution ledger decides current completion.
+- The Unified Completion Status ledger decides current implementation and
+  evidence status.
 - Audits and evidence manifests describe what was observed at a point in time.
 - Historical TODOs preserve implementation history and do not override current contracts.

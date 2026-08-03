@@ -294,8 +294,8 @@ Every root answers one question and preserves its own navigation state:
 
 - **Home — What matters now?** One dominant Now decision, no more than four honest signals, Today's committed work, Day ahead, conditional Needs attention, then Keep steady, Close the loop, and user-owned supporting widgets. Home does not restate the same projection twice: if the Now card, a section state, and a summary line would all narrate the open-task count, only one of them survives.
 - **Plan — When should it happen?** Day, Week, and Backlog. Focus is a typed destination from work rather than a competing root lens. Ordinary tasks are open rows with restrained separators; their full-width drag region and named zoom source remain intact. One contextual capacity, scenario, or focus surface may become the hero.
-- **Track — What needs recording or sustaining?** Today, Areas, and History. Today carries only what is time-sensitive — a running fast appears there and returns to its area when it ends. Due decisions use compact actionable tiles; history says what was recorded and never renders an absent value as zero. Every domain is reachable from the new tree; nothing is exclusive to an older surface. Configuration and grading belong in detail/settings.
-- **Insights — What changed, and what should I do next?** Overview, Trends, Review, and the explicitly selected Experience lens. Interpretation precedes metrics; raw provenance is disclosed as Evidence. Experience reads only the local XP ledger and frames it as an optional view, never a score for the day.
+- **Track — What needs recording or sustaining?** Today, Areas, and History. Today carries only what is time-sensitive — a running fast appears there and returns to its area when it ends. Due decisions use compact actionable tiles; a multi-action module such as hydration spans the reading width instead of forcing every adjacent signal tile to inherit its height. History says what was recorded and never renders an absent value as zero. Every domain is reachable from the new tree; nothing is exclusive to an older surface. Configuration and grading belong in detail/settings.
+- **Insights — What changed, and what should I do next?** Overview, Trends, Review, and the explicitly selected Experience lens. Interpretation precedes metrics; raw provenance is disclosed as Evidence. A successful-empty Overview links directly to Track; an empty optional Experience lens returns to Review. Experience reads only the local XP ledger and frames it as an optional view, never a score for the day.
 - **Eva — Help me understand or safely make a change.** Full-height conversation; ordinary assistant prose is open on the reading canvas, user messages are raised tactile clay, and only structured proposals/results/Undo earn a card boundary. All mutations remain explicit proposals with receipts.
 
 Remote Eva is an account capability, never an implied extension of local Eva.
@@ -303,7 +303,9 @@ It is deny-by-default and requires both account-level opt-in and an independent
 grant for each context category: Journal, health, Life Moments, and planning
 context. The request builder filters context at send time, so revocation removes
 that category from the next request without waiting for a cache refresh. A grant
-authorizes only the remote Eva request being assembled; it never authorizes
+is valid only when the active request account exactly matches the policy account;
+an account switch fails closed even if the previous account had granted every
+category. It authorizes only the remote Eva request being assembled; it never authorizes
 Journal or health disclosure in a widget, notification, Spotlight result, Watch
 surface, Live Activity, or lock-screen preview. If account identity, account
 opt-in, or a category grant is unavailable, that context remains local.
@@ -380,6 +382,9 @@ selected, editing, destructive confirmation, and recovery where those states are
 possible. Unknown and unavailable are not explicit zero. Loading replaces final
 content geometry; a fetch failure never renders congratulatory empty copy. Error
 and denied states keep the safe local actions that still work.
+Successful-empty states expose one direct, relevant next action. Numeric and
+multi-select controls use at least 44-by-44-point targets and communicate
+selection through accessibility value/traits in addition to fill or color.
 
 System surfaces consume only versioned, atomic, redacted projections. They do
 not open canonical stores and they never infer disclosure permission from a

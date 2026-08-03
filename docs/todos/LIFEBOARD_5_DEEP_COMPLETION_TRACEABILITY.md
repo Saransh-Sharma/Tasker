@@ -2,7 +2,7 @@
 
 Updated: 2026-07-22
 
-> **Current-status authority:** This is a release-contract and evidence document. For active completion status, use [LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md](./LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md). For the 2026-07-23 evidence review and visual-system assessment, use [the implementation and design audit](../audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md).
+> **Current-status authority:** This is a release-contract and evidence document. For active completion status, use [LifeBoard Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md). For the 2026-07-23 evidence review and visual-system assessment, use [the implementation and design audit](../audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md).
 
 This is the release contract for the LifeBoard 5.0 deep-completion pass. It combines the supplied specifications, the remaining-execution ledger, the shared `JournalKit`, and executable evidence. A row may be marked complete only when the implementation and its listed evidence both pass. The four additive model versions that entered this pass untracked are protected user work and must not be replaced or deleted.
 

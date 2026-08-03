@@ -458,10 +458,15 @@ Relaunch with `-LIFEBOARD_DISABLE_DAY_CLOSE_V1`, `-LIFEBOARD_DISABLE_DAY_OPEN_CO
 
 ## 13. Current state
 
-- **2,105 tests, 3 skips, zero failures.**
-- **Both destinations build.** All eight guardrail scripts pass.
+- **2,071 tests, 3 environment skips, zero failures.**
+- **Five available build paths pass:** iOS Debug and Release, Widgets Debug,
+  Share Extension Debug, and Mac Catalyst Debug. Watch is classified separately
+  because no watchOS Simulator runtime is installed.
+- **All eight guardrail scripts pass.**
 - **18 registered Metal shaders. 23 TaskModelV3 Core Data versions.**
-- Unified Phases 0–2 are committed; Phase 3 extracts Rescue launch and mutation ownership while retaining the same task, receipt, and Undo semantics.
+- Unified Phases 0–7 are committed through `dd1ba7cc`; the canonical completion
+  and external-evidence boundary is recorded in
+  [LifeBoard Unified Completion Status](./LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 
 ---
 

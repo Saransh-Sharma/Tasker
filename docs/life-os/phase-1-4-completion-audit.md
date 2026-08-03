@@ -1,6 +1,6 @@
 # LifeBoard 5.0 Phase I–IV completion audit
 
-> **Classification: Audit snapshot and implementation evidence.** Current status is owned by the [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md); current product/UX behavior is defined by the [product handbook](../product/README.md).
+> **Classification: Historical audit snapshot and implementation evidence.** Current status is owned by the [Unified Completion Status](./LIFEBOARD_UNIFIED_COMPLETION_STATUS.md); current product/UX behavior is defined by the [product handbook](../product/README.md).
 
 This file is the implementation checklist for the Phase I–IV completion pass. A box is checked only after the behavior is implemented and verified in the current worktree.
 

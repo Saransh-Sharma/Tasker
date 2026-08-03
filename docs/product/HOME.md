@@ -94,7 +94,10 @@ Requirements:
 - Session progress and Undo are scoped to account, workspace, date, and launch purpose.
 - A failed update stays on the card with recovery; it is not counted as resolved.
 
-The active Overdue Rescue implementation is being evolved in the worktree; this document defines the product contract without declaring that work release-complete.
+The canonical implementation is complete. `OverdueRescueLaunchCoordinator` owns
+launch identity and presentation state; `RescueBatchApplier` owns validation,
+apply, compensation, retry, and Undo. Seeded and contract tests cover normal and
+Day Rescue launches, empty/failure/stale-task states, and receipt-preserving Undo.
 
 ## State matrix
 
@@ -129,6 +132,14 @@ The active Overdue Rescue implementation is being evolved in the worktree; this 
 
 Primary anchors include `LifeOSFoundationShell`, `LifeBoardAppRouter`, Home provider/placement registries, `HomeRenderState`, the timeline presentation system, and Overdue Rescue views/view models. Evidence includes packing/restoration contracts, root-state fixtures, appearance captures, typed route journeys, and focused accessibility UI tests.
 
-Primary flags are `lifeOSFoundationV1Enabled`, `adaptiveHomeV2Enabled`, `lifeOSUnifiedPresentationV2Enabled`, and `dashboardCustomizationV2Enabled`. Disabling presentation flags must preserve layouts and domain records.
+Primary retained flags include `lifeOSFoundationV1Enabled`,
+`lifeOSUnifiedPresentationV2Enabled`, and `dashboardCustomizationV2Enabled`.
+They default on in Debug and Release and remain disable-only, data-preserving
+rollback paths. Adaptive Home is canonical and has no fallback or feature flag.
 
-The provider, Smart Slot schedule/freeze, continuous composition, packing, and restoration boundaries are recorded as implemented in the [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md). The fresh complete-suite run still reports Home presentation, routing, and progress-contract failures; those regressions, the final cross-platform degraded-state review, active Overdue Rescue evidence, and signed-device performance remain open gates.
+Provider composition, Smart Slot schedule/freeze, continuous packing,
+restoration, native navigation, and Rescue are implemented. The final automated
+checkpoint is 2,071 tests with 3 environment skips and zero failures, five
+available build paths, and all eight guardrails. Signed-device performance and
+hardware delivery observations remain external release evidence; see the
+[Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).

@@ -3980,13 +3980,20 @@ final class LifeOSFoundationContractTests: XCTestCase {
             accountID: "account-a",
             grantedCategories: [.journal, .planningContext]
         )
-        XCTAssertTrue(policy.authorize(sections).isEmpty, "Category grants cannot bypass account opt-in.")
+        XCTAssertTrue(
+            policy.authorize(sections, forAccountID: "account-a").isEmpty,
+            "Category grants cannot bypass account opt-in."
+        )
 
         policy.setRemoteEvaEnabled(true)
-        let authorized = policy.authorize(sections)
+        let authorized = policy.authorize(sections, forAccountID: "account-a")
         XCTAssertEqual(authorized.map(\.category), [.journal, .planningContext])
-        XCTAssertFalse(policy.permits(.health))
-        XCTAssertFalse(policy.permits(.lifeMoments))
+        XCTAssertFalse(policy.permits(.health, forAccountID: "account-a"))
+        XCTAssertFalse(policy.permits(.lifeMoments, forAccountID: "account-a"))
+        XCTAssertTrue(
+            policy.authorize(sections, forAccountID: "account-b").isEmpty,
+            "A policy must never authorize a different signed-in account."
+        )
 
         let futurePolicy = RemoteEvaContextPolicy(
             schemaVersion: RemoteEvaContextPolicy.currentSchemaVersion + 1,
@@ -3994,7 +4001,10 @@ final class LifeOSFoundationContractTests: XCTestCase {
             isRemoteEvaEnabled: true,
             grantedCategories: Set(RemoteEvaContextCategory.allCases)
         )
-        XCTAssertTrue(futurePolicy.authorize(sections).isEmpty, "Unknown policy schemas must fail closed.")
+        XCTAssertTrue(
+            futurePolicy.authorize(sections, forAccountID: "account-a").isEmpty,
+            "Unknown policy schemas must fail closed."
+        )
     }
 
     func testRemoteEvaRevocationImmediatelyExcludesSubsequentRequestContext() async {
@@ -4007,16 +4017,16 @@ final class LifeOSFoundationContractTests: XCTestCase {
             RemoteEvaContextSection(category: $0, payload: Data($0.rawValue.utf8))
         }
 
-        let initiallyAuthorized = await authorizer.authorize(sections)
+        let initiallyAuthorized = await authorizer.authorize(sections, forAccountID: "account-a")
         XCTAssertEqual(initiallyAuthorized.count, 4)
         await authorizer.setGrant(false, for: .journal)
-        let afterJournalRevocation = await authorizer.authorize(sections)
+        let afterJournalRevocation = await authorizer.authorize(sections, forAccountID: "account-a")
         XCTAssertEqual(
             afterJournalRevocation.map(\.category),
             [.health, .lifeMoments, .planningContext]
         )
         await authorizer.setRemoteEvaEnabled(false)
-        let afterAccountRevocation = await authorizer.authorize(sections)
+        let afterAccountRevocation = await authorizer.authorize(sections, forAccountID: "account-a")
         XCTAssertTrue(afterAccountRevocation.isEmpty)
     }
 
@@ -4026,7 +4036,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             isRemoteEvaEnabled: true,
             grantedCategories: Set(RemoteEvaContextCategory.allCases)
         )
-        XCTAssertTrue(remotePolicy.permits(.journal))
+        XCTAssertTrue(remotePolicy.permits(.journal, forAccountID: "account-a"))
 
         let snapshot = LifeBoardSystemSurfaceSnapshot(
             id: UUID(),

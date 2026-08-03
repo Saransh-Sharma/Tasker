@@ -2,7 +2,11 @@
 
 > **Classification: Canonical implementation and architecture hub.**
 
-This package is the canonical handoff for the LifeBoard-to-Life-OS program. It describes what is implemented, how to turn it on, which contracts later phases must preserve, and what remains before public promotion. Current completion status is owned by the [remaining execution ledger](../todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md); the [implementation and design audit](../audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md) records the evidence boundary.
+This package is the canonical handoff for the LifeBoard-to-Life-OS program. It
+describes what is implemented, how rollback works, which contracts later phases
+must preserve, and what evidence still requires signed hardware. Current status
+is owned by the [LifeBoard Unified Completion Status](./LIFEBOARD_UNIFIED_COMPLETION_STATUS.md);
+the dated audits preserve their historical evidence boundaries.
 
 Product and UI behavior is now canonical in the [LifeBoard 5.0 Product Handbook](../product/README.md) and [Product UI/UX Guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md). This package remains the implementation, activation, invariant, and release-gate handoff.
 
@@ -10,11 +14,12 @@ Product and UI behavior is now canonical in the [LifeBoard 5.0 Product Handbook]
 
 | Phase | State | Product outcome |
 |---|---|---|
-| Phase I — Foundation | Implemented behind typed rollout controls | Stable shell, routes, capture arbitration, daypart/theme context, atmospheric policy, and versioned dashboard persistence |
-| Phase II — Unified Adaptive Home | Implemented for internal/manual testing | Screenshot-calibrated Adaptive Home, one shared customizable layout, Smart/Work/Personal/Low Energy modes, Trackers/Health/care, shared-package Journal, and structured Notes |
-| Phase III — Planning Core | Feature-complete vertical slice; promotion gates remain | Planning schema, EventKit/free windows, Day/Week/Backlog, receipts/undo, Focus V2 + Live Activity, deterministic ranking/repair, and Home projections |
-| Phase IV — Track Foundations | Integrated vertical slice; Journal/Notes and promotion gaps remain | Goals/routines/resilience/care schema, canonical habit/goal samples, linked mutations, care loops, reversible starter packs, Track Today, Universal Capture, and Home projections |
-| Public promotion | Not yet approved | Requires physical-device, populated-iCloud, accessibility, privacy, performance, and founder scenario gates |
+| Phase I — Foundation | Complete | Stable shell, routes, capture arbitration, daypart/theme context, atmospheric policy, and versioned dashboard persistence |
+| Phase II — Unified Adaptive Home | Complete | Canonical customizable Home, Smart Slots, Trackers/Health/care, shared Journal, Knowledge Notes, and no legacy Home fallback |
+| Phase III — Planning Core | Complete | Planning schema, EventKit/free windows, Day/Week/Backlog, receipts/Undo, Focus, deterministic ranking/repair, and Home projections |
+| Phase IV — Track Foundations | Complete | Goals, routines, resilience, care, habits, wellness, nutrition, life moments, Track Today, Universal Capture, and Home projections |
+| Unified Phases 0–8 | Code-complete for available gates | Daily Loop, Rescue extraction, architecture retirement, clay refinement, Beyond Notes continuity, adaptive layouts, system surfaces, and release reconciliation |
+| Public promotion evidence | External observation pending | Signed-device delivery, paired Watch, populated CloudKit, hardware accessibility, performance, and final visual approvals |
 
 Detailed references:
 
@@ -28,30 +33,15 @@ Detailed references:
 
 ## Developer activation
 
-All Life OS and Phase II surfaces default to enabled in Debug builds. A normal Run from Xcode should open Adaptive Home without launch arguments.
+All retained staged surfaces default on in Debug and Release. A normal launch
+opens canonical Adaptive Home without launch arguments. Adaptive Home itself has
+no flag, fallback host, or obsolete disable argument.
 
-Explicit enable arguments remain available for CI:
-
-```text
--LIFEBOARD_ENABLE_LIFE_OS_FOUNDATION
--LIFEBOARD_ENABLE_ADAPTIVE_HOME_V2
--LIFEBOARD_ENABLE_DASHBOARD_CUSTOMIZATION_V2
--LIFEBOARD_ENABLE_TRACKERS_V1
--LIFEBOARD_ENABLE_HEALTH_INTEGRATIONS_V1
--LIFEBOARD_ENABLE_JOURNAL_V1
--LIFEBOARD_ENABLE_KNOWLEDGE_NOTES_V1
--LIFEBOARD_ENABLE_PLANNING_CORE_V1
--LIFEBOARD_ENABLE_PLAN_DESTINATION_V1
--LIFEBOARD_ENABLE_FOCUS_EXECUTION_V2
--LIFEBOARD_ENABLE_EVA_PLAN_REPAIR_V1
--LIFEBOARD_ENABLE_TRACK_FOUNDATIONS_V2
--LIFEBOARD_ENABLE_HABIT_RESILIENCE_V2
--LIFEBOARD_ENABLE_GOALS_ROUTINES_V1
--LIFEBOARD_ENABLE_CARE_MODULES_V2
--LIFEBOARD_ENABLE_STARTER_PACKS_V1
-```
-
-Replace `ENABLE` with `DISABLE` to isolate or roll back a surface during a Debug run. Release builds do not inherit Debug defaults.
+Debug CI may use a retained surface's `-LIFEBOARD_DISABLE_<ARGUMENT>` launch
+argument to isolate its presentation. Stored overrides provide the corresponding
+data-preserving Release rollback. Re-enabling a surface must reveal the same
+canonical records. Enable arguments remain compatibility-only test controls;
+they are not needed for ordinary launches.
 
 ## Invariants for future phases
 
@@ -68,19 +58,13 @@ Replace `ENABLE` with `DISABLE` to isolate or roll back a surface during a Debug
 
 ## Verification snapshot
 
-The implementation currently passes:
-
-- Generic iOS Simulator Debug build.
-- Phase I/II focused contract suite, including the full additive model migration chain.
-- Stable-ID migration from every bundled TaskModelV3 version to `TaskModelV3_KnowledgeNotes`.
-- In-memory repository round trips for Trackers, Journal, and Knowledge Notes.
-- Daypart, contrast, rendering-policy, router/restoration, capture arbitration, shared layout, unknown-widget, medication, Journal insight, and shared Journal asset tests.
-- Foundation/dependency and token-law guardrails.
-- Plain Debug launch into Adaptive Home with all Phase II surfaces enabled.
-- Phase III/IV and foundation focused contract suite (44 tests), including planning-day identity, overlap-safe capacity, deterministic ranking/repair, Focus command idempotency, Activity payload limits, habit resilience, routine idempotency, goals, hydration, sleep privacy, appearance independence, serialized schemas, and repository round trips.
-- Runtime smoke launches of the new Plan and Track destinations on iPhone 17 Pro simulator.
-
-The full legacy `LifeBoardTests` target includes inherited failures outside the focused Foundation work. Compare it through `scripts/run-baseline-aware-tests.sh`; do not represent historical totals as a clean current run. The focused Life OS suite has recorded evidence, while public promotion still requires the physical-device gates below.
+The final checkpoint passes 2,071 tests with 3 environment skips and zero
+failures; iOS Debug and Release, Widgets Debug, Share Extension Debug, and Mac
+Catalyst Debug builds; all eight repository guardrails; 18 signature Metal
+shaders; and 23 bundled TaskModelV3 versions. The Watch build is unobserved
+because this workspace has no watchOS Simulator runtime. Detailed journeys and
+the distinction between automated completion and external evidence live in the
+[Unified Completion Status](./LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 
 ## Release gates still requiring external conditions
 
