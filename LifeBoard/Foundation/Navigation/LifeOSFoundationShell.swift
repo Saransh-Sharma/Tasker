@@ -2205,7 +2205,9 @@ public struct LifeOSFoundationShell: View {
                 focusedEvidenceID: evidenceID
             )
         case .settings:
-            FoundationSettingsRouteView()
+            FoundationSettingsRouteView(router: runtime.router)
+        case .settingsDetail(let settingsRoute):
+            FoundationSettingsDetailRouteView(route: settingsRoute, router: runtime.router)
         case .taskDetail(let id):
             if let planDependencies {
                 FoundationTaskRouteView(
@@ -3536,24 +3538,56 @@ private struct FoundationInteractiveGlassModifier: ViewModifier {
 /// the shell-owned atmosphere controls pushed from a row inside it.
 private struct FoundationSettingsRouteView: View {
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
+    let router: LifeBoardAppRouter
     @StateObject private var viewModel = SettingsViewModel(
         calendarIntegrationService: PresentationDependencyContainer.shared
             .coordinator
             .calendarIntegrationService
     )
-    @State private var showsAppearance = false
 
     var body: some View {
-        SettingsRootView(viewModel: viewModel)
+        SettingsRootView(
+            viewModel: viewModel,
+            presentationPreferences: preferences,
+            onNavigate: { router.push(.settingsDetail($0)) }
+        )
             .navigationTitle("Settings")
             .accessibilityIdentifier("foundation.settings")
             .onAppear {
-                viewModel.onNavigateToAppearance = { showsAppearance = true }
                 viewModel.reload()
             }
-            .navigationDestination(isPresented: $showsAppearance) {
-                FoundationAppearanceSettingsView()
+    }
+}
+
+private struct FoundationSettingsDetailRouteView: View {
+    let route: SettingsRoute
+    let router: LifeBoardAppRouter
+
+    @Environment(LifeBoardPresentationPreferences.self) private var preferences
+    @StateObject private var viewModel = SettingsViewModel(
+        calendarIntegrationService: PresentationDependencyContainer.shared
+            .coordinator
+            .calendarIntegrationService
+    )
+
+    var body: some View {
+        Group {
+            if route == .lifeManagement {
+                LifeManagementView(
+                    viewModel: PresentationDependencyContainer.shared.makeLifeManagementViewModel()
+                )
+            } else {
+                SettingsRootView(
+                    viewModel: viewModel,
+                    destination: route,
+                    presentationPreferences: preferences,
+                    onNavigate: { router.push(.settingsDetail($0)) }
+                )
             }
+        }
+        .navigationTitle(route.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .accessibilityIdentifier("foundation.settings.detail.\(route.rawValue)")
     }
 }
 

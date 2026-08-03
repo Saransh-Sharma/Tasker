@@ -751,6 +751,28 @@ struct LifeBoardOverlayHost<Overlay: View, Control: View>: View {
     }
 }
 
+private struct HomeTaskAgendaDatePicker: View {
+    @Bindable var store: HomeLifeOSProjectionStore
+
+    var body: some View {
+        DatePicker(
+            "Task date",
+            selection: $store.taskAgendaDate,
+            displayedComponents: .date
+        )
+        .labelsHidden()
+        .datePickerStyle(.compact)
+        .frame(minHeight: 44)
+        .accessibilityLabel("Task date")
+        .accessibilityValue(
+            store.taskAgenda.selectedDate.formatted(
+                .dateTime.weekday(.wide).month(.wide).day().year()
+            )
+        )
+        .accessibilityIdentifier("home.tasks.datePicker")
+    }
+}
+
 struct LifeBoardAdaptiveHome: View {
     let projectionAdapter: HomeProjectionCoordinator
     let preferences: LifeBoardPresentationPreferences
@@ -777,6 +799,7 @@ struct LifeBoardAdaptiveHome: View {
     @State private var showsMoodDial = false
     @State private var captureOrbState = CaptureOrbPresentationState()
     @State private var contextReasonCandidate: HomeContextCandidate?
+    @State private var expandedTaskWidgetIDs: Set<UUID> = []
     /// Drives the one-shot daypart cross-dissolve. Incremented on a real
     /// daypart boundary or a manual override, never on a redraw.
     @State private var daypartTransitionTrigger = 0
@@ -1855,7 +1878,7 @@ struct LifeBoardAdaptiveHome: View {
                     case .care:
                         careWidget(daypart: daypart, palette: palette)
                     case .tasks:
-                        tasksWidget(palette: palette)
+                        tasksWidget(placementID: placement.id, palette: palette)
                     case .routines:
                         routinesWidget(daypart: daypart, palette: palette)
                     case .scheduleCapacity:
@@ -1876,7 +1899,7 @@ struct LifeBoardAdaptiveHome: View {
                     case .care:
                         careWidget(daypart: daypart, palette: palette)
                     case .tasks:
-                        tasksWidget(palette: palette)
+                        tasksWidget(placementID: placement.id, palette: palette)
                     case .routines:
                         routinesWidget(daypart: daypart, palette: palette)
                     case .scheduleCapacity:
@@ -2693,66 +2716,24 @@ struct LifeBoardAdaptiveHome: View {
         .lifeBoardRaisedClayCard(palette: palette)
     }
 
-    private func tasksWidget(palette: LifeBoardDaypartPalette) -> some View {
+    private func tasksWidget(placementID: UUID, palette: LifeBoardDaypartPalette) -> some View {
         let snapshot = lifeOSStore.planSnapshot
-        let tasks = (snapshot?.plannedTasks ?? []) + (snapshot?.unscheduledTasks ?? [])
+        let tasks = lifeOSStore.taskAgenda.tasks
+        let collapsedLimit = router.dashboardMode == .lowEnergy ? 2 : 4
+        let isExpanded = expandedTaskWidgetIDs.contains(placementID)
+        let visibleTasks = isExpanded ? tasks : Array(tasks.prefix(collapsedLimit))
+        let hasHiddenTasks = tasks.count > collapsedLimit
         return VStack(alignment: .leading, spacing: 12) {
-            widgetTitle("Today’s tasks", symbol: "checklist", palette: palette)
-                .accessibilityIdentifier("home.widget.tasks")
+            taskWidgetHeader(isExpanded: isExpanded, palette: palette)
             if hasPlanningRepository == false {
                 honestEmptyState("Tasks are unavailable right now", symbol: "exclamationmark.triangle", palette: palette)
             } else if lifeOSStore.isLoading, snapshot == nil {
                 honestEmptyState("Loading tasks", symbol: "hourglass", palette: palette)
             } else if tasks.isEmpty {
-                honestEmptyState("Nothing is asking for your attention", symbol: "checkmark.circle", palette: palette)
+                honestEmptyState(taskWidgetEmptyMessage, symbol: "checkmark.circle", palette: palette)
             } else {
-                ForEach(tasks.prefix(router.dashboardMode == .lowEnergy ? 2 : 4)) { task in
-                    // The completion control is a sibling of the navigating
-                    // button, never nested inside it: a Button within a Button
-                    // gives its tap to the outer one, so a nested control would
-                    // silently open the detail instead of completing.
-                    HStack(spacing: 11) {
-                        if V2FeatureFlags.lifeBoardDailyLoopV1Enabled {
-                            LifeBoardCompletionControl(
-                                isComplete: false,
-                                title: task.title
-                            ) { _ in
-                                Task { await lifeOSStore.setTaskCompletion(task, to: true) }
-                            }
-                            .padding(.leading, -11)
-                        } else {
-                            Image(systemName: task.metadata.commitmentLevel == .mustDo ? "exclamationmark.circle.fill" : "circle")
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                        }
-                        Button {
-                            router.navigate(.taskDetail(task.id), in: .home)
-                        } label: {
-                            HStack(spacing: 11) {
-                                // The completion control took over the leading
-                                // slot, so Must Do moves beside the title
-                                // rather than being dropped.
-                                if task.metadata.commitmentLevel == .mustDo {
-                                    Image(systemName: "exclamationmark.circle.fill")
-                                        .font(.caption)
-                                        .foregroundStyle(palette.color(for: .foregroundSecondary))
-                                        .accessibilityLabel("Must do")
-                                }
-                                Text(task.title)
-                                    .font(.subheadline.weight(.medium))
-                                    .lineLimit(2)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                Image(systemName: "chevron.right")
-                                    .font(.caption.weight(.semibold))
-                                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                            .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .lifeBoardTransitionSource("route.task.\(task.id.uuidString)")
-                        .accessibilityIdentifier("home.task.\(task.id.uuidString)")
-                    }
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                ForEach(visibleTasks) { task in
+                    taskWidgetRow(task, palette: palette)
                 }
             }
             // A completion is a real mutation, so it gets a receipt here rather
@@ -2775,18 +2756,160 @@ struct LifeBoardAdaptiveHome: View {
                 }
                 .buttonStyle(.plain)
             }
-            Button {
-                captureRouter.request(kind: .task, source: .widget)
-            } label: {
-                Label("Add a task", systemImage: "plus")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(minHeight: 44)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    taskWidgetAddButton
+                    Spacer(minLength: 8)
+                    if isExpanded || hasHiddenTasks {
+                        taskWidgetExpansionButton(isExpanded: isExpanded, placementID: placementID)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    taskWidgetAddButton
+                    if isExpanded || hasHiddenTasks {
+                        taskWidgetExpansionButton(isExpanded: isExpanded, placementID: placementID)
+                    }
+                }
             }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("home.tasks.add")
         }
         .padding(16)
         .lifeBoardRaisedClayCard(palette: palette)
+        .animation(taskWidgetAnimation, value: isExpanded)
+        .animation(taskWidgetAnimation, value: lifeOSStore.taskAgenda)
+    }
+
+    @ViewBuilder
+    private func taskWidgetHeader(isExpanded: Bool, palette: LifeBoardDaypartPalette) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                taskWidgetTitleLabel(palette: palette)
+                if isExpanded {
+                    HomeTaskAgendaDatePicker(store: lifeOSStore)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                taskWidgetTitleLabel(palette: palette)
+                if isExpanded {
+                    HomeTaskAgendaDatePicker(store: lifeOSStore)
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.widget.tasks")
+    }
+
+    private func taskWidgetTitleLabel(palette: LifeBoardDaypartPalette) -> some View {
+        HStack(spacing: 9) {
+            Image(systemName: "checklist")
+                .foregroundStyle(palette.color(for: .foregroundSecondary))
+            Text(taskWidgetTitle)
+                .font(.system(.headline, design: .rounded, weight: .semibold))
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var taskWidgetTitle: String {
+        let selectedDate = lifeOSStore.taskAgenda.selectedDate
+        if Calendar.current.isDateInToday(selectedDate) {
+            return "Today’s tasks"
+        }
+        return "\(selectedDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) tasks"
+    }
+
+    private var taskWidgetEmptyMessage: String {
+        let selectedDate = lifeOSStore.taskAgenda.selectedDate
+        if Calendar.current.isDateInToday(selectedDate) {
+            return "No overdue tasks or tasks due today"
+        }
+        let date = selectedDate.formatted(.dateTime.month(.abbreviated).day())
+        return "No overdue tasks or tasks due \(date)"
+    }
+
+    private func taskWidgetRow(_ task: PlanningTaskSummary, palette: LifeBoardDaypartPalette) -> some View {
+        // The completion control is a sibling of the navigating button, never
+        // nested inside it: a Button within a Button gives its tap to the outer
+        // one and would silently open detail instead of completing the task.
+        HStack(spacing: 11) {
+            if V2FeatureFlags.lifeBoardDailyLoopV1Enabled {
+                LifeBoardCompletionControl(
+                    isComplete: false,
+                    title: task.title
+                ) { _ in
+                    Task { await lifeOSStore.setTaskCompletion(task, to: true) }
+                }
+                .padding(.leading, -11)
+            } else {
+                Image(systemName: task.metadata.commitmentLevel == .mustDo ? "exclamationmark.circle.fill" : "circle")
+                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+            }
+            Button {
+                router.navigate(.taskDetail(task.id), in: .home)
+            } label: {
+                HStack(spacing: 11) {
+                    if task.metadata.commitmentLevel == .mustDo {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(palette.color(for: .foregroundSecondary))
+                            .accessibilityLabel("Must do")
+                    }
+                    Text(task.title)
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .lifeBoardTransitionSource("route.task.\(task.id.uuidString)")
+            .accessibilityIdentifier("home.task.\(task.id.uuidString)")
+        }
+        .frame(maxWidth: .infinity, minHeight: 44)
+    }
+
+    private var taskWidgetAddButton: some View {
+        Button {
+            captureRouter.request(kind: .task, source: .widget)
+        } label: {
+            Label("Add a task", systemImage: "plus")
+                .font(.subheadline.weight(.semibold))
+                .frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.tasks.add")
+    }
+
+    private func taskWidgetExpansionButton(isExpanded: Bool, placementID: UUID) -> some View {
+        Button {
+            withAnimation(taskWidgetAnimation) {
+                if isExpanded {
+                    expandedTaskWidgetIDs.remove(placementID)
+                    lifeOSStore.resetTaskAgendaDateToToday()
+                } else {
+                    lifeOSStore.resetTaskAgendaDateToToday()
+                    expandedTaskWidgetIDs.insert(placementID)
+                }
+            }
+        } label: {
+            Label(isExpanded ? "Show less" : "Show more", systemImage: isExpanded ? "chevron.up" : "chevron.down")
+                .font(.subheadline.weight(.semibold))
+                .frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(isExpanded ? "home.tasks.showLess" : "home.tasks.showMore")
+        .accessibilityHint(isExpanded ? "Collapses the task card and returns to today" : "Shows every overdue task and task due today")
+    }
+
+    private var taskWidgetAnimation: Animation? {
+        guard reduceMotion == false else { return nil }
+        return motionAnimation
     }
 
     private func routinesWidget(daypart: ResolvedDaypart, palette: LifeBoardDaypartPalette) -> some View {

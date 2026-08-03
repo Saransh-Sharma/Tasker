@@ -38,6 +38,7 @@ public enum AppRoute: Codable, Hashable, Sendable {
     case trackHistory
     case insightEvidence(UUID?)
     case settings
+    case settingsDetail(SettingsRoute)
     case tokenGallery
     case referenceDashboard
 
@@ -53,6 +54,8 @@ public enum AppRoute: Codable, Hashable, Sendable {
             "route.journal.\(id.uuidString)"
         case .note(let id):
             "route.note.\(id.uuidString)"
+        case .settingsDetail(let route):
+            route.transitionID
         default:
             nil
         }
@@ -60,7 +63,7 @@ public enum AppRoute: Codable, Hashable, Sendable {
 
     public var screenMode: LifeBoardScreenMode {
         switch self {
-        case .settings, .tokenGallery, .referenceDashboard:
+        case .settings, .settingsDetail, .tokenGallery, .referenceDashboard:
             .utility
         case .taskDetail, .note, .journalDay:
             .editor

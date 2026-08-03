@@ -1,10 +1,79 @@
 import Foundation
 import Observation
 
+struct HomeTaskAgendaProjection: Equatable, Sendable {
+    let selectedDate: Date
+    let overdueTasks: [PlanningTaskSummary]
+    let dueTasks: [PlanningTaskSummary]
+
+    var tasks: [PlanningTaskSummary] { overdueTasks + dueTasks }
+
+    static func build(
+        tasks: [PlanningTaskSummary],
+        selectedDate: Date,
+        calendar: Calendar = .current
+    ) -> HomeTaskAgendaProjection {
+        let dayStart = calendar.startOfDay(for: selectedDate)
+        let dayEnd = calendar.date(byAdding: .day, value: 1, to: dayStart)
+            ?? dayStart.addingTimeInterval(24 * 60 * 60)
+        var seenTaskIDs: Set<UUID> = []
+
+        let eligible = tasks.filter { task in
+            guard task.dueDate != nil,
+                  task.metadata.unscheduledDisposition.isVisibleInHomeTaskAgenda,
+                  seenTaskIDs.insert(task.id).inserted else {
+                return false
+            }
+            return true
+        }
+
+        let overdue = eligible
+            .filter { ($0.dueDate ?? .distantFuture) < dayStart }
+            .sorted(by: taskOrder)
+        let due = eligible
+            .filter {
+                guard let dueDate = $0.dueDate else { return false }
+                return dueDate >= dayStart && dueDate < dayEnd
+            }
+            .sorted(by: taskOrder)
+
+        return HomeTaskAgendaProjection(
+            selectedDate: dayStart,
+            overdueTasks: overdue,
+            dueTasks: due
+        )
+    }
+
+    private static func taskOrder(_ lhs: PlanningTaskSummary, _ rhs: PlanningTaskSummary) -> Bool {
+        let lhsDueDate = lhs.dueDate ?? .distantFuture
+        let rhsDueDate = rhs.dueDate ?? .distantFuture
+        if lhsDueDate != rhsDueDate { return lhsDueDate < rhsDueDate }
+
+        let titleOrder = lhs.title.localizedStandardCompare(rhs.title)
+        if titleOrder != .orderedSame { return titleOrder == .orderedAscending }
+        return lhs.id.uuidString < rhs.id.uuidString
+    }
+}
+
+private extension UnscheduledDisposition {
+    var isVisibleInHomeTaskAgenda: Bool {
+        switch self {
+        case .inbox, .someday:
+            return true
+        case .archived, .deleted, .reference:
+            return false
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class HomeLifeOSProjectionStore {
     private(set) var planSnapshot: PlanDaySnapshot?
+    var taskAgendaDate: Date {
+        didSet { rebuildTaskAgenda() }
+    }
+    private(set) var taskAgenda: HomeTaskAgendaProjection
     /// The task most recently completed from Home, and the reason its Undo
     /// control is offered. Cleared once taken back.
     private(set) var lastCompletedTask: PlanningTaskSummary?
@@ -47,8 +116,14 @@ final class HomeLifeOSProjectionStore {
         wellnessRepository: (any WellnessRepository)? = nil,
         nutritionRepository: (any NutritionRepository)? = nil,
         lifeMomentRepository: (any LifeMomentRepository)? = nil,
-        rankingService: any FocusRankingService = DeterministicFocusRankingService()
+        rankingService: any FocusRankingService = DeterministicFocusRankingService(),
+        taskAgendaDate: Date = Date()
     ) {
+        self.taskAgendaDate = taskAgendaDate
+        self.taskAgenda = HomeTaskAgendaProjection.build(
+            tasks: [],
+            selectedDate: taskAgendaDate
+        )
         if let planningRepository {
             planStore = PlanStore(planningRepository: planningRepository, blockRepository: planningRepository)
         } else {
@@ -135,9 +210,22 @@ final class HomeLifeOSProjectionStore {
             activeFast = nil
         }
         activeFocusSession = planStore?.activeFocusSession
+        rebuildTaskAgenda()
         rebuildDrift()
         rebuildFocus()
         rebuildHero()
+    }
+
+    func resetTaskAgendaDateToToday(now: Date = Date()) {
+        taskAgendaDate = now
+    }
+
+    private func rebuildTaskAgenda(calendar: Calendar = .current) {
+        taskAgenda = HomeTaskAgendaProjection.build(
+            tasks: planStore?.tasks ?? [],
+            selectedDate: taskAgendaDate,
+            calendar: calendar
+        )
     }
 
     func saveMood(_ mood: LifeBoardJournalMood, energy: Int?) async {
