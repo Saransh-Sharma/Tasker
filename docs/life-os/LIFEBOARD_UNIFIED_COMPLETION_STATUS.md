@@ -136,5 +136,6 @@ not misclassified as a code failure.
 1. [`DESIGN.md`](../../DESIGN.md) — normative iOS visual, motion, state, and accessibility law.
 2. [LifeBoard Product Handbook](../product/README.md) — normative product and interaction contract.
 3. This status ledger — current implementation and evidence status.
-4. [Daily Loop architecture handoff](./DAILY_LOOP_HANDOFF.md) and [experience handoff](./DAILY_LOOP_EXPERIENCE_HANDOFF.md) — feature-specific engineering context.
-5. Audits, old TODO ledgers, and imported handoffs — explicitly historical point-in-time evidence.
+4. [Unified Implementation Guide](./LIFEBOARD_UNIFIED_IMPLEMENTATION_GUIDE.md) — source-grounded feature architecture, persistence, rollback, and extension guidance.
+5. [Daily Loop architecture handoff](./DAILY_LOOP_HANDOFF.md) and [experience handoff](./DAILY_LOOP_EXPERIENCE_HANDOFF.md) — feature-specific engineering context.
+6. Audits, old TODO ledgers, and imported handoffs — explicitly historical point-in-time evidence.

@@ -8,6 +8,11 @@ must preserve, and what evidence still requires signed hardware. Current status
 is owned by the [LifeBoard Unified Completion Status](./LIFEBOARD_UNIFIED_COMPLETION_STATUS.md);
 the dated audits preserve their historical evidence boundaries.
 
+For an end-to-end explanation of the completed feature architecture,
+persistence ownership, failure states, privacy boundaries, seeded journeys, and
+safe extension rules, read the
+[LifeBoard Unified Implementation Guide](./LIFEBOARD_UNIFIED_IMPLEMENTATION_GUIDE.md).
+
 Product and UI behavior is now canonical in the [LifeBoard 5.0 Product Handbook](../product/README.md) and [Product UI/UX Guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md). This package remains the implementation, activation, invariant, and release-gate handoff.
 
 ## Current state

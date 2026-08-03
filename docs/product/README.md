@@ -5,6 +5,7 @@
 **Audience:** Product, design, engineering, QA, and support
 
 **Active status authority:** [LifeBoard Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md)
+**Engineering handoff:** [LifeBoard Unified Implementation Guide](../life-os/LIFEBOARD_UNIFIED_IMPLEMENTATION_GUIDE.md)
 **Visual authority:** [DESIGN.md](../../DESIGN.md) and the [Product UI/UX Guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md)
 
 ## Product promise

@@ -5,6 +5,7 @@ This directory is the navigation hub for product, architecture, audit, feature, 
 ## Current status and design authority
 
 - [LifeBoard Unified Completion Status](./life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md) - the sole active completion and release-evidence tracker.
+- [LifeBoard Unified Implementation Guide](./life-os/LIFEBOARD_UNIFIED_IMPLEMENTATION_GUIDE.md) - detailed feature architecture, persistence, rollback, privacy, state, and verification handoff.
 - [LifeBoard 5.0 implementation and design audit](./audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md) - reviewed source, automated evidence, documentation reconciliation, and device gates.
 - [LifeBoard Unified Completion audit](./audits/LIFEBOARD_UNIFIED_COMPLETION_AUDIT_2026-08-03.md) - deep release-candidate review, resolved findings, and final automated evidence.
 - [Root DESIGN.md](../DESIGN.md) - the canonical warm clay/paper visual contract. Swift tokens remain the implementation source of truth.
