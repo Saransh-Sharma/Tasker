@@ -64,6 +64,7 @@ public struct LifeOSFoundationShell: View {
     private let nutritionRepository: any NutritionRepository
     private let lifeMomentRepository: any LifeMomentRepository
     private let wellnessRepository: any WellnessRepository
+    private let gamificationRepository: (any GamificationRepositoryProtocol)?
     private let visualFixture: LifeBoardVisualFixture?
     private let visualAppearanceFixture: LifeBoardVisualAppearanceFixture?
 
@@ -119,6 +120,7 @@ public struct LifeOSFoundationShell: View {
         nutritionRepository: any NutritionRepository,
         lifeMomentRepository: any LifeMomentRepository,
         wellnessRepository: any WellnessRepository,
+        gamificationRepository: (any GamificationRepositoryProtocol)? = nil,
         showsReferenceHome: Bool = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_FOUNDATION_REFERENCE_DASHBOARD")
     ) {
         self.homeViewModel = homeViewModel
@@ -137,6 +139,7 @@ public struct LifeOSFoundationShell: View {
         self.nutritionRepository = nutritionRepository
         self.lifeMomentRepository = lifeMomentRepository
         self.wellnessRepository = wellnessRepository
+        self.gamificationRepository = gamificationRepository
         visualFixture = LifeBoardVisualFixture(arguments: ProcessInfo.processInfo.arguments)
         visualAppearanceFixture = LifeBoardVisualAppearanceFixture(arguments: ProcessInfo.processInfo.arguments)
         self.showsReferenceHome = showsReferenceHome
@@ -1236,6 +1239,7 @@ public struct LifeOSFoundationShell: View {
                 repository: trackFoundationRepository,
                 phaseIIRepository: phaseIIRepository,
                 planningRepository: planningRepository,
+                gamificationRepository: gamificationRepository,
                 habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
                 goalSampleProvider: goalSampleProvider,
                 router: router
@@ -2131,6 +2135,7 @@ public struct LifeOSFoundationShell: View {
                 repository: trackFoundationRepository,
                 phaseIIRepository: phaseIIRepository,
                 planningRepository: planningRepository,
+                gamificationRepository: gamificationRepository,
                 habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
                 goalSampleProvider: goalSampleProvider,
                 router: runtime.router,
@@ -2541,10 +2546,14 @@ private struct FoundationInsightsDestination: View {
     @State private var persistedPlanningEvents: [NormalizedLifeEvent] = []
     @State private var planningEvidenceError: String?
     @State private var dayLoopEvidenceReport: DayLoopEvidenceReport?
+    @State private var experienceAggregates: [DailyXPAggregateDefinition] = []
+    @State private var experienceLoadFinished = false
+    @State private var experienceError: String?
     @Environment(LifeBoardPresentationPreferences.self) private var preferences
     @Environment(\.lifeBoardAtmosphereIsHosted) private var atmosphereIsHosted
     let router: LifeBoardAppRouter
     private let planningRepository: CoreDataPlanningRepository?
+    private let gamificationRepository: (any GamificationRepositoryProtocol)?
     /// The record a deep link asked for. `.insightEvidence` carried a UUID that
     /// was discarded, so the route landed on a generic Insights screen and the
     /// user had to find the record again themselves.
@@ -2555,6 +2564,7 @@ private struct FoundationInsightsDestination: View {
         repository: CoreDataTrackFoundationRepository,
         phaseIIRepository: any LifeBoardPhaseIIRepository,
         planningRepository: CoreDataPlanningRepository?,
+        gamificationRepository: (any GamificationRepositoryProtocol)?,
         habitProjectionService: (any TrackHabitProjectionService)?,
         goalSampleProvider: (any GoalSampleProvider)?,
         router: LifeBoardAppRouter,
@@ -2568,6 +2578,7 @@ private struct FoundationInsightsDestination: View {
             habitProjectionService: habitProjectionService
         ))
         self.planningRepository = planningRepository
+        self.gamificationRepository = gamificationRepository
         self.router = router
         self.focusedEvidenceID = focusedEvidenceID
         _lens = State(initialValue: initialLens)
@@ -2592,6 +2603,8 @@ private struct FoundationInsightsDestination: View {
             return authorizedEvents.filter { $0.occurredAt >= start }
         case .review:
             return authorizedEvents
+        case .experience:
+            return []
         }
     }
 
@@ -2643,7 +2656,9 @@ private struct FoundationInsightsDestination: View {
                             .foregroundStyle(.secondary)
                     }
 
-                    if store.isLoading && events.isEmpty {
+                    if lens == .experience {
+                        insightContent
+                    } else if store.isLoading && events.isEmpty {
                         ProgressView("Reading today’s evidence…")
                             .frame(maxWidth: .infinity, minHeight: 180)
                     } else if events.isEmpty {
@@ -2762,9 +2777,12 @@ private struct FoundationInsightsDestination: View {
             }
             .padding(18)
             .lifeBoardClaySurface(.raised, cornerRadius: 22)
+        case .experience:
+            experienceContent
         }
 
-        DisclosureGroup(isExpanded: $evidenceExpanded) {
+        if lens != .experience {
+            DisclosureGroup(isExpanded: $evidenceExpanded) {
             ScrollViewReader { proxy in
                 VStack(alignment: .leading, spacing: 12) {
                     Text(evidenceCompletenessDescription)
@@ -2792,13 +2810,84 @@ private struct FoundationInsightsDestination: View {
                     }
                 }
             }
-        } label: {
-            Label("Evidence", systemImage: "checkmark.shield")
-                .font(.headline)
+            } label: {
+                Label("Evidence", systemImage: "checkmark.shield")
+                    .font(.headline)
+            }
+            .padding(16)
+            .lifeBoardClaySurface(.resting, cornerRadius: 20)
+            .accessibilityIdentifier("insights.evidence")
         }
-        .padding(16)
-        .lifeBoardClaySurface(.resting, cornerRadius: 20)
-        .accessibilityIdentifier("insights.evidence")
+    }
+
+    @ViewBuilder
+    private var experienceContent: some View {
+        if gamificationRepository == nil {
+            ContentUnavailableView(
+                "Experience lens unavailable",
+                systemImage: "sparkles",
+                description: Text("Your planning and reflection evidence is still available in the other lenses.")
+            )
+            .frame(minHeight: 220)
+        } else if experienceLoadFinished == false {
+            ProgressView("Reading your local experience ledger…")
+                .frame(maxWidth: .infinity, minHeight: 180)
+        } else if let experienceError {
+            LifeBoardStatusSurface(
+                state: .recoverableError,
+                title: "Experience history is temporarily unavailable",
+                message: experienceError,
+                actionTitle: "Try again",
+                action: { Task { await loadExperience() } }
+            )
+        } else if experienceAggregates.isEmpty {
+            ContentUnavailableView(
+                "No experience history yet",
+                systemImage: "sparkles",
+                description: Text("This optional lens appears as actions earn entries in your local ledger.")
+            )
+            .frame(minHeight: 220)
+        } else {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("Experience, if it helps")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                Text("\(experienceAggregates.reduce(0) { $0 + $1.totalXP }) XP")
+                    .font(LifeBoardFoundationTypography.screenTitle().weight(.bold))
+                    .monospacedDigit()
+                Text("An optional view of the existing local ledger—not a score for your day.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+            }
+            .padding(20)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lifeBoardClaySurface(.raised, cornerRadius: 24)
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier("insights.experience.summary")
+
+            VStack(alignment: .leading, spacing: 0) {
+                Text("Last seven days")
+                    .font(.headline)
+                    .padding(.bottom, 6)
+                ForEach(experienceAggregates.sorted { $0.dateKey > $1.dateKey }, id: \.id) { aggregate in
+                    HStack {
+                        Text(experienceDayLabel(aggregate.dateKey))
+                        Spacer()
+                        Text("\(aggregate.totalXP) XP · \(aggregate.eventCount) \(aggregate.eventCount == 1 ? "entry" : "entries")")
+                            .foregroundStyle(.secondary)
+                            .monospacedDigit()
+                    }
+                    .font(.subheadline)
+                    .frame(minHeight: 48)
+                    .overlay(alignment: .bottom) {
+                        Rectangle()
+                            .fill(Color(LifeBoardColorTokens.foundationHairline))
+                            .frame(height: 1)
+                    }
+                }
+            }
+            .accessibilityIdentifier("insights.experience.history")
+        }
     }
 
     private var interpretationSurface: some View {
@@ -2913,6 +3002,7 @@ private struct FoundationInsightsDestination: View {
 
     private func loadEvidence() async {
         async let trackLoad: Void = store.load()
+        async let experienceLoad: Void = loadExperience()
         if let planningRepository {
             do {
                 let records = try await planningRepository.fetchMutationReceipts(since: nil)
@@ -2940,6 +3030,44 @@ private struct FoundationInsightsDestination: View {
             }
         }
         await trackLoad
+        await experienceLoad
+    }
+
+    @MainActor
+    private func loadExperience() async {
+        guard let gamificationRepository else {
+            experienceAggregates = []
+            experienceError = nil
+            experienceLoadFinished = true
+            return
+        }
+        experienceLoadFinished = false
+        experienceError = nil
+        let calendar = Calendar.current
+        let today = calendar.startOfDay(for: Date())
+        let start = calendar.date(byAdding: .day, value: -6, to: today) ?? today
+        do {
+            experienceAggregates = try await withCheckedThrowingContinuation { continuation in
+                gamificationRepository.fetchDailyAggregates(
+                    from: XPCalculationEngine.periodKey(for: start),
+                    to: XPCalculationEngine.periodKey(for: today)
+                ) { continuation.resume(with: $0) }
+            }
+            experienceError = nil
+        } catch {
+            experienceAggregates = []
+            experienceError = error.localizedDescription
+        }
+        experienceLoadFinished = true
+    }
+
+    private func experienceDayLabel(_ dateKey: String) -> String {
+        let formatter = DateFormatter()
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy-MM-dd"
+        guard let date = formatter.date(from: dateKey) else { return dateKey }
+        return date.formatted(.dateTime.weekday(.wide).month(.abbreviated).day())
     }
 
     fileprivate static func planningEvent(_ record: PlanningReceiptRecord) -> NormalizedLifeEvent? {

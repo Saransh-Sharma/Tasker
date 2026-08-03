@@ -876,19 +876,26 @@ struct LifeBoardTrackFoundationRootView: View {
 
     private var hydrationTile: some View {
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Label("Hydration", systemImage: "drop.fill").font(.headline)
-                Spacer(minLength: 8)
+            Label("Hydration", systemImage: "drop.fill")
+                .font(.headline)
+            Text(hydrationLabel).font(.title3.weight(.semibold))
+            if let amount = store.snapshot.hydrationAmountMilliliters, let target = store.snapshot.hydrationTargetMilliliters, target > 0 {
+                ProgressView(value: min(1, amount / target)).tint(Color(LifeBoardColorTokens.foundationSageAccent))
                 Button("Edit target") { showsHydrationTarget = true }
                     .font(.caption.weight(.semibold))
                     .frame(minHeight: 44)
                     .accessibilityIdentifier("track.hydration.target")
-            }
-            Text(hydrationLabel).font(.title3.weight(.semibold))
-            if let amount = store.snapshot.hydrationAmountMilliliters, let target = store.snapshot.hydrationTargetMilliliters, target > 0 {
-                ProgressView(value: min(1, amount / target)).tint(Color(LifeBoardColorTokens.foundationSageAccent))
             } else {
-                Text("Set your own target").font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                HStack(spacing: 8) {
+                    Text("No target yet")
+                        .font(.caption)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    Spacer(minLength: 0)
+                    Button("Set target") { showsHydrationTarget = true }
+                        .font(.caption.weight(.semibold))
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("track.hydration.target")
+                }
             }
             HStack(spacing: 8) {
                 Button("+250 ml") {

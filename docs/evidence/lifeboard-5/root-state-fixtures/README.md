@@ -47,6 +47,25 @@ This evidence set does not establish complete approval for:
 - Instruments frame pacing, offscreen rendering, SwiftUI update cost, or Metal
   performance.
 
+## Phase 5 iPhone composition checkpoint — 2026-08-03
+
+`iphone-phase5/` is the current seeded iPhone checkpoint for the canonical five
+roots. It was captured by
+`LifeBoardUITests.testPhase5IPhoneRootVisualCheckpoint` after resetting only the
+dedicated simulator's test app state. The journey opens Home, Plan Day, Track
+Today, Insights Overview, the opt-in Experience lens, and Eva through the real
+root dock; all six screenshots and route assertions are produced by one passing
+UI test.
+
+This checkpoint supersedes the July root images for Phase 5 composition review.
+It verifies the non-pinnable Home loop spine, one Home decision, four honest
+signals, Plan's single capacity hero and open timeline, compact Track actions,
+Insights' four-lens hierarchy, and Eva's open reading canvas. The Track capture
+also guards against narrow-tile title hyphenation by keeping hydration target
+editing out of the title line. It is simulator evidence, not signed-device or
+wide-layout approval. Regular/wide iPad and Catalyst review follows only after
+this iPhone journey remains green.
+
 See
 [`LIFEBOARD_UI_UX_OVERHAUL_HANDOFF.md`](../../../todos/LIFEBOARD_UI_UX_OVERHAUL_HANDOFF.md)
 for the exact automated verification record and remaining promotion QA.

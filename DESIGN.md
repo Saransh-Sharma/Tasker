@@ -293,10 +293,10 @@ Home stays open between modules so its atmosphere can breathe. A card is warrant
 Every root answers one question and preserves its own navigation state:
 
 - **Home — What matters now?** One dominant Now decision, no more than four honest signals, Today's committed work, Day ahead, conditional Needs attention, then Keep steady, Close the loop, and user-owned supporting widgets. Home does not restate the same projection twice: if the Now card, a section state, and a summary line would all narrate the open-task count, only one of them survives.
-- **Plan — When should it happen?** Day, Week, and Backlog. Focus is a typed destination from work rather than a competing root lens.
-- **Track — What needs recording or sustaining?** Today, Areas, and History. Today carries only what is time-sensitive — a running fast appears there and returns to its area when it ends. Every domain is reachable from the new tree; nothing is exclusive to an older surface. History records the whole tracked life, not just care. Configuration and grading belong in detail/settings.
-- **Insights — What changed, and what should I do next?** Overview, Trends, and Review. Interpretation precedes metrics; raw provenance is disclosed as Evidence.
-- **Eva — Help me understand or safely make a change.** Full-height conversation; all mutations remain explicit proposals with receipts.
+- **Plan — When should it happen?** Day, Week, and Backlog. Focus is a typed destination from work rather than a competing root lens. Ordinary tasks are open rows with restrained separators; their full-width drag region and named zoom source remain intact. One contextual capacity, scenario, or focus surface may become the hero.
+- **Track — What needs recording or sustaining?** Today, Areas, and History. Today carries only what is time-sensitive — a running fast appears there and returns to its area when it ends. Due decisions use compact actionable tiles; history says what was recorded and never renders an absent value as zero. Every domain is reachable from the new tree; nothing is exclusive to an older surface. Configuration and grading belong in detail/settings.
+- **Insights — What changed, and what should I do next?** Overview, Trends, Review, and the explicitly selected Experience lens. Interpretation precedes metrics; raw provenance is disclosed as Evidence. Experience reads only the local XP ledger and frames it as an optional view, never a score for the day.
+- **Eva — Help me understand or safely make a change.** Full-height conversation; ordinary assistant prose is open on the reading canvas, user messages are raised tactile clay, and only structured proposals/results/Undo earn a card boundary. All mutations remain explicit proposals with receipts.
 
 The floating conversational composer owns capture on every root except Eva, which hosts its own. Its leading control expands into the capture tray; every capture kind with a working host has a visible control there. The compact root header owns capture only where the composer is suppressed, plus the overflow menu, the Home mode control, and Add to Home. The bottom dock is an unobstructed five-target Regular Glass capsule; composer and dock share one `GlassEffectContainer` so they morph as a single surface. Home orientation roles are anchored and rendered once; schema-v5 migration removes only app-owned duplicates and preserves user IDs, payloads, order, size, visibility, ownership, and unknown widgets.
 
@@ -344,6 +344,39 @@ Smart, Work, Personal and Low Energy each change content, not just palette. `Das
 
 Phone uses the canonical four-column semantic grid, regular iPad eight columns, and wide iPad twelve. Persist semantic spans, not device pixels. The system scales authored spans proportionally and falls back to one content column at accessibility sizes. Content must reserve the measured floating chrome height rather than assuming a fixed safe-area inset.
 
+### Route, state, and platform specification
+
+Typed routes, not view-specific booleans, own destination identity. Home selects a
+root or typed detail route; Plan task rows zoom to `.taskDetail`, evidence links
+open the named `.insightEvidence` record, Track activities route to their
+canonical editor/history, and Eva receives an explicit launch request containing
+only authorized context. Restoring a root preserves its lens, path, scroll
+position, draft, and any persisted run identity. A sheet dismissal never stands
+in for a domain cancel, apply, or Undo command.
+
+Every root and secondary destination must distinguish populated, genuinely empty,
+loading, permission denied, locked, offline, stale/partial, recoverable error,
+selected, editing, destructive confirmation, and recovery where those states are
+possible. Unknown and unavailable are not explicit zero. Loading replaces final
+content geometry; a fetch failure never renders congratulatory empty copy. Error
+and denied states keep the safe local actions that still work.
+
+iPhone is the composition authority and visual-approval gate. After iPhone is
+approved, compact iPad preserves the same reading order with wider intrinsic
+rows; regular iPad uses the eight-column recipe; wide iPad uses twelve columns
+and may expose a persistent secondary column only when both panes remain useful.
+Catalyst adapts the approved regular/wide composition with keyboard commands,
+visible focus, pointer affordances, resizable-window constraints, and restoration.
+No platform may fork persistence, copy law, state meaning, or feature ownership.
+Hardware-only evidence such as signed-device haptics and paired Watch delivery is
+tracked separately from layout approval.
+
+Generated concept masters, the claymorphism research handoff, and earlier Sunrise
+mockups are non-iOS references. They may inform mood, motif, and composition, but
+they cannot override this document, semantic tokens, Dynamic Type, accessibility,
+canonical routes, or persisted behavior. A generated image is never implementation
+evidence.
+
 ## Elevation & Depth
 
 Create clay depth with tonal paper layers, a fine warm hairline, and shallow named shadows. Raised content is tactile but quiet; do not use glossy highlights, hard black shadows, deep floating stacks, or card-on-card nesting. Use the existing clay-card and embedded-well primitives instead of inventing new shadow geometry.
@@ -364,6 +397,7 @@ Use continuous corners. Inputs use 14 pt corners; standard cards 18 pt; sheets a
 - **Focus card:** the dominant daily commitment; show one visible action and a one-line explanation. Put deeper reasoning in EVA or detail.
 - **Signal ring:** distinguish loading, setup required, stale, unavailable, explicit zero, and recorded value visually and in accessibility labels.
 - **EVA composer and dock:** approved Regular Glass chrome with an opaque fallback. Do not place required reading copy on translucent material over uncontrolled imagery.
+- **EVA messages:** keep normal assistant prose open and stable for long-form reading; raise user messages for conversational tactility. Reserve bounded assistant cards for structured proposals, command results, receipts, and Undo.
 - **Loading, empty, error, and denied states:** replace final content geometry rather than overlay it; explain recovery and keep actions available.
 - **Destructive work:** use an explicit confirmation, warning color, stable layout, and undo/receipt where supported by the canonical mutation path.
 - **Charts:** use semantic series colors, labeled axes, timeframe/source context, and a table or prose equivalent. Never imply causation or wellness quality through color.

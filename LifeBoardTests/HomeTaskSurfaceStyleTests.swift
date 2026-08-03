@@ -41,6 +41,16 @@ final class HomeTaskSurfaceStyleTests: XCTestCase {
         XCTAssertTrue(source.contains("placementSection("))
     }
 
+    func testEvaKeepsOrdinaryRepliesOpenAndCardsOnlyForStructuredPayloads() throws {
+        let source = try loadWorkspaceFile("LifeBoard/LLM/Views/Chat/Conversation/MessageView+AssistantAndUserBubble.swift")
+        let plainReply = try XCTUnwrap(source.range(of: "// Ordinary Eva prose is a reading surface, not a card."))
+        let structuredPayload = try XCTUnwrap(source.range(of: "assistantCardView(payload: payload)"))
+
+        XCTAssertLessThan(structuredPayload.lowerBound, plainReply.lowerBound)
+        let openReplyTail = source[plainReply.lowerBound...]
+        XCTAssertFalse(openReplyTail.prefix(700).contains("lifeboardPremiumSurface"))
+    }
+
     func testHomeBackgroundUsesPlainCanvasWithoutAnimatedGradient() throws {
         let homeSource = try loadWorkspaceFile("LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift")
         let bezelSource = try loadWorkspaceFile("LifeBoard/DesignSystem/LifeBoardCTABezel.swift")

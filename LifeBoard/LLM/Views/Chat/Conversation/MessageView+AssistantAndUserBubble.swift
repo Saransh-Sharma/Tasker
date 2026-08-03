@@ -170,15 +170,10 @@ extension MessageView {
                 }
 
             }
-            .padding(LifeBoardTheme.Spacing.lg)
-            .lifeboardPremiumSurface(
-                cornerRadius: 24,
-                fillColor: EvaChatSunriseGlass.glassFill,
-                strokeColor: EvaChatSunriseGlass.assistantBorder.opacity(0.72),
-                accentColor: EvaChatSunriseGlass.primary,
-                level: .e2,
-                useNativeGlass: false
-            )
+            // Ordinary Eva prose is a reading surface, not a card. Proposal,
+            // result, and Undo payloads above remain bounded tactile objects;
+            // the conversation itself stays open and calm.
+            .padding(.vertical, LifeBoardTheme.Spacing.sm)
             .frame(maxWidth: messageMaxWidth, alignment: .leading)
             .padding(.trailing, oppositeSideInset)
         }

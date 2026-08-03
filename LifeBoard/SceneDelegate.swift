@@ -355,7 +355,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 habitRecoveryMutationApplier: habitRecoveryMutationApplier,
                 nutritionRepository: nutritionRepository,
                 lifeMomentRepository: lifeMomentRepository,
-                wellnessRepository: wellnessRepository
+                wellnessRepository: wellnessRepository,
+                gamificationRepository: coordinator.gamificationRepository
             )
         let foundationController = LifeBoardApplicationHostController(
             root: AnyView(foundationRoot),

@@ -72,7 +72,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testPremiumRootLensesAndInteractionPhasesRemainStableContracts() {
         XCTAssertEqual(TrackLens.allCases.map(\.rawValue), ["today", "areas", "history"])
-        XCTAssertEqual(InsightsLens.allCases.map(\.rawValue), ["overview", "trends", "review"])
+        XCTAssertEqual(InsightsLens.allCases.map(\.rawValue), ["overview", "trends", "review", "experience"])
         XCTAssertEqual(
             LifeBoardInteractionPhase.allCases.map(\.rawValue),
             ["idle", "pressed", "running", "success", "recoverableFailure", "cancelled"]

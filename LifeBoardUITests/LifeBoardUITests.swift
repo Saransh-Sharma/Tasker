@@ -62,6 +62,39 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Capture Task"].waitForExistence(timeout: 2))
     }
 
+    func testPhase5IPhoneRootVisualCheckpoint() throws {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedEstablishedWorkspace: true,
+            evaActivationCompleted: true
+        )
+        defer { app.terminate() }
+
+        guard app.windows.firstMatch.frame.width < 700 else {
+            throw XCTSkip("Phase 5 approves the iPhone composition before wider adaptations.")
+        }
+
+        assertFoundationDestination("home", rootIdentifier: "home.signalRow", in: app)
+        try saveVisualEvidenceScreenshot(named: "phase5-home-populated", platform: "iphone-phase5")
+
+        assertFoundationDestination("plan", rootIdentifier: "plan.header", in: app)
+        try saveVisualEvidenceScreenshot(named: "phase5-plan-day", platform: "iphone-phase5")
+
+        assertFoundationDestination("track", rootIdentifier: "track.header", in: app)
+        try saveVisualEvidenceScreenshot(named: "phase5-track-today", platform: "iphone-phase5")
+
+        assertFoundationDestination("insights", rootIdentifier: "foundation.insights", in: app)
+        try saveVisualEvidenceScreenshot(named: "phase5-insights-overview", platform: "iphone-phase5")
+        let experience = app.buttons["insights.lens.experience"]
+        XCTAssertTrue(experience.waitForExistence(timeout: 8))
+        experience.tap()
+        XCTAssertTrue(app.descendants(matching: .any)["foundation.insights"].waitForExistence(timeout: 8))
+        try saveVisualEvidenceScreenshot(named: "phase5-insights-experience", platform: "iphone-phase5")
+
+        assertFoundationDestination("eva", rootIdentifier: "foundation.eva", in: app)
+        try saveVisualEvidenceScreenshot(named: "phase5-eva", platform: "iphone-phase5")
+    }
+
     func testFoundationCompactChromeRemainsReadableAcrossScrollAndCapture() throws {
         let app = launchFoundationApp(
             accessibilityCategory: "UICTContentSizeCategoryL",
@@ -667,6 +700,7 @@ class LifeBoardUITests: XCTestCase {
         seedHomeUserSpace: Bool = false,
         seedFullTimeline: Bool = false,
         seedRescueWorkspace: Bool = false,
+        evaActivationCompleted: Bool = false,
         appearance: String? = nil
     ) -> XCUIApplication {
         let app = XCUIApplication()
@@ -705,6 +739,7 @@ class LifeBoardUITests: XCTestCase {
         if seedHomeUserSpace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_HOME_USER_SPACE") }
         if seedFullTimeline { app.launchArguments.append("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE") }
         if seedRescueWorkspace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_RESCUE_WORKSPACE") }
+        if evaActivationCompleted { app.launchArguments.append("-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED") }
         if let appearance {
             app.launchArguments.append(contentsOf: ["-AppleInterfaceStyle", appearance])
         }

@@ -45,6 +45,7 @@ public enum InsightsLens: String, Codable, CaseIterable, Hashable, Identifiable,
     case overview
     case trends
     case review
+    case experience
 
     public var id: String { rawValue }
     public var title: String { rawValue.capitalized }
