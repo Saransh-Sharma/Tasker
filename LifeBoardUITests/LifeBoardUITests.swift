@@ -485,6 +485,66 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertTrue(app.navigationBars["Task"].waitForExistence(timeout: 8))
     }
 
+    func testFoundationHomeTaskCardExpandsHiddenDueTasksInline() {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedEstablishedWorkspace: true
+        )
+        defer { app.terminate() }
+
+        assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
+        let taskRows = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "home.task.")
+        )
+        let addTask = app.buttons["home.tasks.add"]
+        let showMore = app.buttons[AccessibilityIdentifiers.Home.taskCardShowMore]
+        scrollUntilHittableWithSmallSteps(showMore, in: app, maximumSteps: 24)
+
+        XCTAssertTrue(showMore.waitForExistence(timeout: 8))
+        XCTAssertTrue(showMore.isHittable)
+        XCTAssertTrue(addTask.exists)
+        XCTAssertLessThan(
+            addTask.frame.midX,
+            showMore.frame.midX,
+            "Add a task and Show more should anchor opposite sides of the same footer row."
+        )
+        XCTAssertEqual(addTask.frame.midY, showMore.frame.midY, accuracy: 2)
+        XCTAssertEqual(showMore.label, "Show more")
+        XCTAssertTrue(
+            waitForQuery(taskRows, toHaveCount: 4, timeout: 8),
+            "The collapsed Home task card should render only its four-row preview."
+        )
+
+        showMore.tap()
+
+        let showLess = app.buttons[AccessibilityIdentifiers.Home.taskCardShowLess]
+        XCTAssertTrue(showLess.waitForExistence(timeout: 8))
+        XCTAssertEqual(showLess.label, "Show less")
+        XCTAssertTrue(
+            app.descendants(matching: .any)[AccessibilityIdentifiers.Home.taskCardDatePicker]
+                .waitForExistence(timeout: 8),
+            "The expanded card should expose its compact inline date picker."
+        )
+        XCTAssertTrue(
+            waitForQuery(taskRows, toHaveCount: 6, timeout: 8),
+            "Show more should expand the same card to every open task due today."
+        )
+
+        scrollUntilHittableWithSmallSteps(showLess, in: app, maximumSteps: 24)
+        XCTAssertTrue(showLess.isHittable)
+        showLess.tap()
+
+        XCTAssertTrue(showMore.waitForExistence(timeout: 8))
+        XCTAssertTrue(
+            waitForQuery(taskRows, toHaveCount: 4, timeout: 8),
+            "Show less should restore the four-row Home preview."
+        )
+        XCTAssertFalse(
+            app.descendants(matching: .any)[AccessibilityIdentifiers.Home.taskCardDatePicker].exists,
+            "The compact date picker belongs only to the expanded card."
+        )
+    }
+
     func testFoundationTaskEditPersistsAcrossRelaunchThenCompletesAndReopens() {
         let app = launchFoundationApp(
             accessibilityCategory: "UICTContentSizeCategoryL",
