@@ -58,6 +58,9 @@ final class SettingsViewModel: ObservableObject, Sendable {
         decorativeButtonEffectsEnabled
     }
 
+    var calendarService: CalendarIntegrationService { calendarIntegrationService }
+    var assistantAppManager: AppManager { appManager }
+
     // MARK: - Morning / Nightly times as Date for DatePicker binding
 
     var morningTime: Date {
@@ -455,7 +458,11 @@ final class SettingsViewModel: ObservableObject, Sendable {
 
     func restartOnboarding() {
         LifeBoardFeedback.medium()
-        onRestartOnboarding?()
+        if let onRestartOnboarding {
+            onRestartOnboarding()
+        } else {
+            NotificationCenter.default.post(name: .lifeboardStartOnboardingRequested, object: nil)
+        }
     }
 
     private func saveAndReconcile() {
@@ -502,6 +509,10 @@ final class SettingsViewModel: ObservableObject, Sendable {
             return
         }
         onOpenCalendarChooser?()
+    }
+
+    func updateSelectedCalendarIDs(_ selectedIDs: [String]) {
+        calendarIntegrationService.updateSelectedCalendarIDs(selectedIDs)
     }
 
     func setIncludeDeclinedCalendarEvents(_ include: Bool) {

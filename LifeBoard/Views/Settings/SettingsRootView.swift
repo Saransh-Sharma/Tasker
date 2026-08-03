@@ -3,6 +3,53 @@ import SwiftUI
 import UIKit
 #endif
 
+public enum SettingsRoute: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
+    case planAndOrganize
+    case calendarAndHealth
+    case eva
+    case reminders
+    case lookAndFeel
+    case dataAndHelp
+    case lifeManagement
+    case llm
+    case chats
+    case models
+    case recovery
+    case notices
+
+    public var id: String { rawValue }
+
+    static let categories: [SettingsRoute] = [
+        .planAndOrganize,
+        .calendarAndHealth,
+        .eva,
+        .reminders,
+        .lookAndFeel,
+        .dataAndHelp,
+    ]
+
+    var isCategory: Bool { Self.categories.contains(self) }
+
+    var title: String {
+        switch self {
+        case .planAndOrganize: return "Plan & Organize"
+        case .calendarAndHealth: return "Calendar & Health"
+        case .eva: return "Eva"
+        case .reminders: return "Reminders"
+        case .lookAndFeel: return "Look & Feel"
+        case .dataAndHelp: return "Data & Help"
+        case .lifeManagement: return "Life Management"
+        case .llm: return "Eva’s Intelligence"
+        case .chats: return "Chat Behavior"
+        case .models: return "Models"
+        case .recovery: return "Recovery"
+        case .notices: return "Acknowledgements"
+        }
+    }
+
+    var transitionID: String { "route.settings.\(rawValue)" }
+}
+
 struct SettingsRootView: View {
     private enum NotificationExpansion: Hashable {
         case dueSoon
@@ -12,8 +59,14 @@ struct SettingsRootView: View {
     }
 
     @ObservedObject var viewModel: SettingsViewModel
+    let destination: SettingsRoute?
+    let presentationPreferences: LifeBoardPresentationPreferences?
+    let onNavigate: ((SettingsRoute) -> Void)?
     @Environment(\.lifeboardLayoutClass) private var layoutClass
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var expandedNotificationRow: NotificationExpansion?
+    @State private var selectedPadCategory: SettingsRoute?
     @State private var timelineAnchorDraft = TimelineAnchorDraft(preferences: LifeBoardWorkspacePreferences())
     @State private var healthStore = LifeBoardHealthRuntime.shared.connectionStore
     @AppStorage("healthPrivacyLocalOnlyNoticeAcknowledged") private var didAcknowledgeHealthPrivacyNotice = false
@@ -21,6 +74,20 @@ struct SettingsRootView: View {
     /// Resolved on appear rather than recomputed per render: opening a SQLite
     /// index is not something a view body should do on every layout pass.
     @State private var recoveryStatus = LifeBoardRecoveryStatusService.live().status()
+    @State private var showsCalendarChooser = false
+    @State private var copiedVersion = false
+
+    init(
+        viewModel: SettingsViewModel,
+        destination: SettingsRoute? = nil,
+        presentationPreferences: LifeBoardPresentationPreferences? = nil,
+        onNavigate: ((SettingsRoute) -> Void)? = nil
+    ) {
+        self.viewModel = viewModel
+        self.destination = destination
+        self.presentationPreferences = presentationPreferences
+        self.onNavigate = onNavigate
+    }
 
     private let dueSoonLeadOptions: [(value: Int, label: String)] = [
         (15, "15m"),
@@ -40,30 +107,48 @@ struct SettingsRootView: View {
     }
 
     private var isPadLayout: Bool {
-        layoutClass == .padRegular || layoutClass == .padExpanded
+        horizontalSizeClass == .regular || layoutClass == .padRegular || layoutClass == .padExpanded
     }
 
     private var sectionTopPadding: CGFloat {
         LifeBoardSettingsMetrics.sectionSpacing
     }
 
+    /// The compact Life OS composer and destination dock float above pushed
+    /// routes. Giving scroll content a deliberate tail keeps the final setting
+    /// comfortably reachable instead of merely visible beneath the glass.
+    private var premiumBottomClearance: CGFloat {
+        isPadLayout ? spacing.s32 : 172
+    }
+
+    private var setupStatus: LifeBoardSettingsSetupStatus {
+        LifeBoardSettingsSetupStatusResolver.resolve(
+            notificationPermissionGranted: viewModel.isPermissionGranted,
+            notificationPermissionDenied: viewModel.isPermissionDenied,
+            enabledNotificationCount: viewModel.enabledNotificationCount,
+            calendarConnected: viewModel.calendarAuthorizationStatus.isAuthorizedForRead,
+            healthConnected: healthStore.lastSuccessfulSync != nil,
+            recoveryHealth: recoveryStatus.worstHealth
+        )
+    }
+
     private var overviewStatusItems: [LifeBoardSettingsStatusDescriptor] {
         [
-            LifeBoardSettingsStatusDescriptor(
+            .init(
                 id: "notifications",
                 title: "Notifications",
                 value: viewModel.notificationEnabledSummary,
                 systemImage: viewModel.isPermissionGranted ? "bell.badge.fill" : "bell.slash.fill",
                 tone: viewModel.notificationTone
             ),
-            LifeBoardSettingsStatusDescriptor(
+            .init(
                 id: "model",
                 title: "Chief of staff",
                 value: viewModel.chiefOfStaffSummary,
                 systemImage: "brain.head.profile",
                 tone: .accent
             ),
-            LifeBoardSettingsStatusDescriptor(
+            .init(
                 id: "setup",
                 title: "Setup",
                 value: viewModel.setupStatusLabel,
@@ -74,6 +159,58 @@ struct SettingsRootView: View {
     }
 
     var body: some View {
+        experienceBody
+            .task {
+                guard V2FeatureFlags.lifeBoardTrustClosureV1Enabled else { return }
+                let journal = await RecoveryServices.journalIndexState()
+                recoveryStatus = LifeBoardRecoveryStatusService.live(
+                    journalIndexState: { journal }
+                ).status()
+            }
+            .onAppear {
+                viewModel.reload()
+                timelineAnchorDraft = TimelineAnchorDraft(preferences: viewModel.workspacePreferences)
+                showsHealthPrivacyNotice = V2FeatureFlags.healthIntegrationsV1Enabled && didAcknowledgeHealthPrivacyNotice == false
+                Task { await healthStore.refreshAuthorization() }
+            }
+            .onDisappear {
+                viewModel.commitTimelineAnchorDraft(timelineAnchorDraft)
+            }
+            .accessibilityIdentifier("settings.root")
+            .alert("Health data now stays on this device", isPresented: $showsHealthPrivacyNotice) {
+                Button("Got it") {
+                    didAcknowledgeHealthPrivacyNotice = true
+                }
+            } message: {
+                Text("LifeBoard wellness records are stored locally. They are not uploaded to LifeBoard’s CloudKit store, analytics, or logs.")
+            }
+            .sheet(isPresented: $showsCalendarChooser) {
+                EventKitCalendarChooserContainerView(
+                    service: viewModel.calendarService,
+                    initialSelectedCalendarIDs: viewModel.selectedCalendarIDs,
+                    onCommit: viewModel.updateSelectedCalendarIDs
+                )
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+            }
+    }
+
+    @ViewBuilder
+    private var experienceBody: some View {
+        if V2FeatureFlags.lifeBoardPremiumIAV5Enabled {
+            if let destination {
+                premiumDestination(destination)
+            } else if isPadLayout {
+                premiumPadExperience
+            } else {
+                premiumHub
+            }
+        } else {
+            legacyExperience
+        }
+    }
+
+    private var legacyExperience: some View {
         LifeBoardScreenScaffold(mode: .utility, placement: .focusedPresentation, readableWidth: 1180) {
             ScrollView {
                 VStack(spacing: 0) {
@@ -93,29 +230,177 @@ struct SettingsRootView: View {
             }
             .scrollContentBackground(.hidden)
         }
-        .task {
-            guard V2FeatureFlags.lifeBoardTrustClosureV1Enabled else { return }
-            let journal = await RecoveryServices.journalIndexState()
-            recoveryStatus = LifeBoardRecoveryStatusService.live(
-                journalIndexState: { journal }
-            ).status()
-        }
-        .onAppear {
-            viewModel.reload()
-            timelineAnchorDraft = TimelineAnchorDraft(preferences: viewModel.workspacePreferences)
-            showsHealthPrivacyNotice = V2FeatureFlags.healthIntegrationsV1Enabled && didAcknowledgeHealthPrivacyNotice == false
-            Task { await healthStore.refreshAuthorization() }
-        }
-        .onDisappear {
-            viewModel.commitTimelineAnchorDraft(timelineAnchorDraft)
-        }
-        .accessibilityIdentifier("settings.root")
-        .alert("Health data now stays on this device", isPresented: $showsHealthPrivacyNotice) {
-            Button("Got it") {
-                didAcknowledgeHealthPrivacyNotice = true
+    }
+
+    private var premiumHub: some View {
+        LifeBoardScreenScaffold(mode: .utility, placement: .focusedPresentation, readableWidth: 720) {
+            ScrollView {
+                VStack(alignment: .leading, spacing: spacing.s20) {
+                    SettingsHubHeading()
+                    SettingsSetupStatusCard(status: setupStatus, onNavigate: navigate)
+                    SettingsCategoryGroup(selectedRoute: nil, onNavigate: navigate)
+                }
+                .padding(.horizontal, spacing.screenHorizontal)
+                .padding(.top, spacing.s12)
+                .padding(.bottom, premiumBottomClearance)
             }
-        } message: {
-            Text("LifeBoard wellness records are stored locally. They are not uploaded to LifeBoard’s CloudKit store, analytics, or logs.")
+            .scrollIndicators(.hidden)
+        }
+    }
+
+    private var premiumPadExperience: some View {
+        LifeBoardScreenScaffold(mode: .utility, placement: .focusedPresentation, readableWidth: 1180) {
+            HStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: spacing.s20) {
+                        SettingsHubHeading()
+                        SettingsSetupStatusCard(status: setupStatus, onNavigate: selectPadCategory)
+                        SettingsCategoryGroup(selectedRoute: selectedPadCategory, onNavigate: selectPadCategory)
+                    }
+                    .padding(spacing.s20)
+                }
+                .scrollIndicators(.hidden)
+                .frame(width: 390)
+
+                Divider()
+                    .overlay(Color.lifeboard(.borderSubtle))
+
+                if let selectedPadCategory {
+                    premiumCategoryScroll(selectedPadCategory)
+                        .id(selectedPadCategory)
+                        .transition(.opacity)
+                } else {
+                    SettingsPadWelcome(status: setupStatus)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .padding(spacing.s32)
+                }
+            }
+            .animation(
+                LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.roleLocalState,
+                value: selectedPadCategory
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func premiumDestination(_ route: SettingsRoute) -> some View {
+        switch route {
+        case .llm:
+            LLMSettingsView(currentThread: .constant(nil))
+                .environmentObject(viewModel.assistantAppManager)
+                .environment(LLMRuntimeCoordinator.shared.evaluator)
+        case .chats:
+            ChatsSettingsView(currentThread: .constant(nil))
+                .environmentObject(viewModel.assistantAppManager)
+                .environment(LLMRuntimeCoordinator.shared.evaluator)
+        case .models:
+            ModelsSettingsView()
+                .environmentObject(viewModel.assistantAppManager)
+                .environment(LLMRuntimeCoordinator.shared.evaluator)
+        case .recovery:
+            RecoveryCenterView(
+                status: recoveryStatus,
+                onRecover: { recovery in
+                    _ = recovery
+                    return "Open Journal to rebuild its search index."
+                },
+                onExportDiagnostics: viewModel.copyRecoveryDiagnostics
+            )
+        case .notices:
+            CreditsView()
+        case .lifeManagement:
+            ContentUnavailableView(
+                "Life Management",
+                systemImage: "square.grid.2x2",
+                description: Text("Return to Settings and open Life Management again.")
+            )
+        default:
+            premiumCategoryScroll(route)
+        }
+    }
+
+    private func premiumCategoryScroll(_ route: SettingsRoute) -> some View {
+        ScrollView {
+            VStack(spacing: 0) {
+                SettingsCategoryHeading(route: route)
+                    .padding(.horizontal, spacing.screenHorizontal)
+                    .padding(.top, spacing.s16)
+                premiumCategoryContent(route)
+                if route == .dataAndHelp {
+                    SettingsFooterView()
+                }
+            }
+            .padding(.bottom, premiumBottomClearance)
+        }
+        .scrollIndicators(.hidden)
+        .navigationTitle(isPadLayout && destination == nil ? "Settings" : route.title)
+        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    @ViewBuilder
+    private func premiumCategoryContent(_ route: SettingsRoute) -> some View {
+        switch route {
+        case .planAndOrganize:
+            workspaceSection(baseIndex: 0)
+            timelineSection(baseIndex: 2)
+        case .calendarAndHealth:
+            calendarSection(baseIndex: 0)
+            healthSection(baseIndex: 3)
+        case .eva:
+            aiAssistantSection(baseIndex: 0)
+        case .reminders:
+            notificationsSection(baseIndex: 0)
+        case .lookAndFeel:
+            if let presentationPreferences {
+                SettingsLookAndFeelView(
+                    preferences: presentationPreferences,
+                    decorativeEffectsEnabled: Binding(
+                        get: { viewModel.decorativeButtonEffectsEnabled },
+                        set: { isEnabled in
+                            viewModel.setDecorativeButtonEffectsEnabled(isEnabled)
+                        }
+                    )
+                )
+                .padding(.horizontal, spacing.screenHorizontal)
+                .padding(.top, spacing.s16)
+            } else {
+                appearanceSection(baseIndex: 0)
+            }
+        case .dataAndHelp:
+            if V2FeatureFlags.lifeBoardTrustClosureV1Enabled {
+                dataSection(baseIndex: 0)
+            }
+            helpSection(baseIndex: 1)
+        default:
+            EmptyView()
+        }
+    }
+
+    private func selectPadCategory(_ route: SettingsRoute) {
+        if route.isCategory {
+            selectedPadCategory = route
+            LifeBoardFeedback.selection()
+        } else {
+            navigate(route)
+        }
+    }
+
+    private func navigate(_ route: SettingsRoute) {
+        if let onNavigate {
+            onNavigate(route)
+            return
+        }
+        switch route {
+        case .lifeManagement:
+            viewModel.onNavigateToLifeManagement?()
+        case .llm:
+            viewModel.onNavigateToAISettings?()
+        case .chats:
+            viewModel.onNavigateToChats?()
+        case .models:
+            viewModel.onNavigateToModels?()
+        default:
+            break
         }
     }
 
@@ -269,6 +554,14 @@ struct SettingsRootView: View {
         #endif
     }
 
+    private func openCalendarChooser() {
+        guard viewModel.calendarAuthorizationStatus.isAuthorizedForRead else {
+            viewModel.requestCalendarPermission()
+            return
+        }
+        showsCalendarChooser = true
+    }
+
     private func workspaceSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
         SettingsSectionView(
             title: "Workspace",
@@ -285,27 +578,10 @@ struct SettingsRootView: View {
                             subtitle: "Review life areas, projects, and daily structure.",
                             accessibilityIdentifier: "settings.workspace.lifeManagement.row"
                         ),
-                        action: viewModel.onNavigateToLifeManagement
+                        action: { navigate(.lifeManagement) }
                     )
                 }
                 .enhancedStaggeredAppearance(index: baseIndex)
-
-                // Present only under the Life OS shell, which owns the daypart
-                // and motion preferences. The legacy host has nowhere to go.
-                if viewModel.onNavigateToAppearance != nil {
-                    LifeBoardSettingsCard {
-                        SettingsNavigationRow(
-                            descriptor: LifeBoardSettingsDestinationDescriptor(
-                                iconName: "sun.horizon.fill",
-                                title: "Appearance & motion",
-                                subtitle: "Daypart, comfort profile, and how much the screen moves.",
-                                accessibilityIdentifier: "settings.workspace.appearance.row"
-                            ),
-                            action: viewModel.onNavigateToAppearance
-                        )
-                    }
-                    .enhancedStaggeredAppearance(index: baseIndex)
-                }
 
                 LifeBoardSettingsCard {
                     VStack(alignment: .leading, spacing: LifeBoardSettingsMetrics.cardInnerPadding) {
@@ -366,7 +642,7 @@ struct SettingsRootView: View {
                             tone: viewModel.calendarAuthorizationStatus.isAuthorizedForRead ? .accent : .warning,
                             accessibilityIdentifier: "settings.calendar.selection.row"
                         ),
-                        action: viewModel.openCalendarChooser
+                        action: openCalendarChooser
                     )
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
@@ -459,14 +735,14 @@ struct SettingsRootView: View {
                     SettingsNavigationRow(
                         descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "sparkles.rectangle.stack.fill",
-                            title: "AI Assistant",
-                            subtitle: "Manage chat behavior, models, memory, and privacy.",
+                            title: "Eva’s Intelligence",
+                            subtitle: "Choose how Eva thinks, remembers, and protects your privacy.",
                             trailingStatus: viewModel.aiAssistantSummary,
                             inlineBadge: viewModel.memoryItemCount == 0 ? LifeBoardSettingsInlineBadge(title: "Memory empty") : nil,
                             tone: .accent,
                             accessibilityIdentifier: "settings.aiAssistant.row"
                         ),
-                        action: viewModel.onNavigateToAISettings
+                        action: { navigate(.llm) }
                     )
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 2)
@@ -474,14 +750,13 @@ struct SettingsRootView: View {
                 LifeBoardSettingsCard {
                     SettingsNavigationRow(
                         descriptor: LifeBoardSettingsDestinationDescriptor(
-                            iconName: "cpu.fill",
-                            title: "Models",
-                            subtitle: "Review installed models and choose the assistant’s default runtime.",
-                            trailingStatus: viewModel.modelsSummary,
+                            iconName: "bubble.left.and.bubble.right.fill",
+                            title: "Chat Behavior",
+                            subtitle: "Shape how conversations begin, continue, and stay focused.",
                             tone: .accent,
-                            accessibilityIdentifier: "settings.aiAssistant.models.row"
+                            accessibilityIdentifier: "settings.aiAssistant.chats.row"
                         ),
-                        action: viewModel.onNavigateToModels
+                        action: { navigate(.chats) }
                     )
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 3)
@@ -780,33 +1055,17 @@ struct SettingsRootView: View {
             includeHorizontalPadding: includeHorizontalPadding
         ) {
             LifeBoardSettingsCard {
-                NavigationLink {
-                    RecoveryCenterView(
-                        status: recoveryStatus,
-                        onRecover: { recovery in
-                            // Rebuilding needs the source entries to re-index,
-                            // which live in the Journal module rather than here.
-                            // Wiring `invalidate()` alone would clear the index
-                            // without repopulating it — search would get worse,
-                            // not better — so this says where to go instead of
-                            // doing half the job and reporting success.
-                            _ = recovery
-                            return "Open Journal to rebuild its search index."
-                        },
-                        onExportDiagnostics: viewModel.copyRecoveryDiagnostics
-                    )
-                } label: {
-                    SettingsNavigationRow(
-                        descriptor: LifeBoardSettingsDestinationDescriptor(
-                            iconName: "lifepreserver.fill",
-                            title: "Recovery",
-                            subtitle: "Sync status, search rebuilds and diagnostics.",
-                            accessibilityIdentifier: "settings.recoveryCenterRow"
-                        ),
-                        action: {}
-                    )
-                }
-                .buttonStyle(.plain)
+                SettingsNavigationRow(
+                    descriptor: LifeBoardSettingsDestinationDescriptor(
+                        iconName: "lifepreserver.fill",
+                        title: "Recovery",
+                        subtitle: "Sync status, search rebuilds and diagnostics.",
+                        trailingStatus: recoveryStatus.worstHealth == .healthy ? "Ready" : "Review",
+                        tone: recoveryStatus.worstHealth == .healthy ? .success : .warning,
+                        accessibilityIdentifier: "settings.recoveryCenterRow"
+                    ),
+                    action: { navigate(.recovery) }
+                )
             }
             .enhancedStaggeredAppearance(index: baseIndex)
         }
@@ -836,10 +1095,24 @@ struct SettingsRootView: View {
                 LifeBoardSettingsCard {
                     SettingsNavigationRow(
                         descriptor: LifeBoardSettingsDestinationDescriptor(
+                            iconName: "doc.text.fill",
+                            title: "Acknowledgements",
+                            subtitle: "Open-source software and animation credits.",
+                            tone: .neutral,
+                            accessibilityIdentifier: "settings.acknowledgements.row"
+                        ),
+                        action: { navigate(.notices) }
+                    )
+                }
+                .enhancedStaggeredAppearance(index: baseIndex + 1)
+
+                LifeBoardSettingsCard {
+                    SettingsNavigationRow(
+                        descriptor: LifeBoardSettingsDestinationDescriptor(
                             iconName: "info.circle.fill",
                             title: "App Version",
                             subtitle: "View version and build details.",
-                            trailingStatus: "v\(viewModel.appVersion) (\(viewModel.buildNumber))",
+                            trailingStatus: copiedVersion ? "Copied" : "v\(viewModel.appVersion) (\(viewModel.buildNumber))",
                             tone: .neutral,
                             accessibilityIdentifier: "settings.appVersionRow"
                         ),
@@ -847,11 +1120,16 @@ struct SettingsRootView: View {
                             #if os(iOS)
                             UIPasteboard.general.string = "v\(viewModel.appVersion) (\(viewModel.buildNumber))"
                             LifeBoardFeedback.selection()
+                            withAnimation(LifeBoardAnimation.roleLocalState) { copiedVersion = true }
+                            Task { @MainActor in
+                                try? await Task.sleep(for: .seconds(1.4))
+                                withAnimation(LifeBoardAnimation.roleLocalState) { copiedVersion = false }
+                            }
                             #endif
                         }
                     )
                 }
-                .enhancedStaggeredAppearance(index: baseIndex + 1)
+                .enhancedStaggeredAppearance(index: baseIndex + 2)
 
                 #if DEBUG
                 LifeBoardSettingsCard {

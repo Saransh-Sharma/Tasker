@@ -23,6 +23,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     private var themeCancellable: AnyCancellable?
     private var settingsHostingController: UIHostingController<AnyView>?
     private var currentLayoutClass: LifeBoardLayoutClass = .phone
+    private let presentationPreferences = LifeBoardPresentationPreferences()
 
     // MARK: - Backdrop compatibility properties (needed for SettingsBackdrop.swift)
     var backdropContainer = UIView()
@@ -105,10 +106,7 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         self.settingsViewModel = viewModel
 
         currentLayoutClass = LifeBoardLayoutResolver.classify(view: view)
-        let rootView = AnyView(
-            SettingsRootView(viewModel: viewModel)
-                .lifeboardLayoutClass(currentLayoutClass)
-        )
+        let rootView = makeSettingsRoot(viewModel: viewModel)
         let hostingController = UIHostingController(rootView: rootView)
         hostingController.view.backgroundColor = .clear
         settingsHostingController = hostingController
@@ -130,9 +128,21 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
         guard nextLayoutClass != currentLayoutClass else { return }
         currentLayoutClass = nextLayoutClass
         guard let settingsViewModel else { return }
-        settingsHostingController?.rootView = AnyView(
-            SettingsRootView(viewModel: settingsViewModel)
-                .lifeboardLayoutClass(nextLayoutClass)
+        settingsHostingController?.rootView = makeSettingsRoot(viewModel: settingsViewModel)
+    }
+
+    private func makeSettingsRoot(
+        viewModel: SettingsViewModel,
+        destination: SettingsRoute? = nil
+    ) -> AnyView {
+        AnyView(
+            SettingsRootView(
+                viewModel: viewModel,
+                destination: destination,
+                presentationPreferences: presentationPreferences,
+                onNavigate: { [weak self] route in self?.navigate(to: route) }
+            )
+            .lifeboardLayoutClass(currentLayoutClass)
         )
     }
 
@@ -143,6 +153,27 @@ class SettingsPageViewController: UIViewController, PresentationDependencyContai
     }
 
     // MARK: - Navigation
+
+    private func navigate(to route: SettingsRoute) {
+        switch route {
+        case .lifeManagement:
+            navigateToLifeManagement()
+        case .llm:
+            navigateToAISettings()
+        case .chats:
+            navigateToLLMChatsSettings()
+        case .models:
+            navigateToLLMModelsSettings()
+        default:
+            guard let settingsViewModel else { return }
+            let controller = UIHostingController(
+                rootView: makeSettingsRoot(viewModel: settingsViewModel, destination: route)
+            )
+            controller.title = route.title
+            controller.view.backgroundColor = .clear
+            navigationController?.pushViewController(controller, animated: true)
+        }
+    }
 
     private func navigateToLLMChatsSettings() {
         let view = ChatsSettingsView(currentThread: .constant(nil))
