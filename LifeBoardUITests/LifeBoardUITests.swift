@@ -545,6 +545,49 @@ class LifeBoardUITests: XCTestCase {
         )
     }
 
+    func testFoundationHomeLongTaskCardRemainsReachableAcrossItsFullScrollRange() {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedEstablishedWorkspace: true,
+            seedLongHomeTaskAgenda: true
+        )
+        defer { app.terminate() }
+
+        assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
+        let taskRows = app.buttons.matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "home.task.")
+        )
+        let showMore = app.buttons[AccessibilityIdentifiers.Home.taskCardShowMore]
+        scrollUntilHittableWithSmallSteps(showMore, in: app, maximumSteps: 32)
+        XCTAssertTrue(showMore.waitForExistence(timeout: 8))
+        XCTAssertTrue(showMore.isHittable)
+        showMore.tap()
+
+        XCTAssertTrue(
+            waitForQuery(taskRows, toHaveCount: 24, timeout: 12),
+            "The dedicated long agenda should expose all 24 task rows in the expanded card."
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)[AccessibilityIdentifiers.Home.taskCardDatePicker]
+                .waitForExistence(timeout: 8)
+        )
+        attachScreenshot(named: "home-expanded-tasks-top")
+
+        app.swipeUp()
+        let middleTask = taskRows.element(boundBy: 12)
+        scrollUntilHittableWithSmallSteps(middleTask, in: app, maximumSteps: 40)
+        XCTAssertTrue(middleTask.exists)
+        XCTAssertTrue(middleTask.isHittable, "A middle task must remain reachable in the outer Home scroll view.")
+        attachScreenshot(named: "home-expanded-tasks-middle")
+
+        let finalTask = taskRows.element(boundBy: 23)
+        scrollUntilHittableWithSmallSteps(finalTask, in: app, maximumSteps: 40)
+        XCTAssertTrue(finalTask.exists)
+        XCTAssertTrue(finalTask.isHittable, "The final task must remain reachable without a nested task-card scroller.")
+        XCTAssertTrue(app.buttons[AccessibilityIdentifiers.Home.taskCardShowLess].exists)
+        attachScreenshot(named: "home-expanded-tasks-bottom")
+    }
+
     func testFoundationTaskEditPersistsAcrossRelaunchThenCompletesAndReopens() {
         let app = launchFoundationApp(
             accessibilityCategory: "UICTContentSizeCategoryL",
@@ -945,6 +988,7 @@ class LifeBoardUITests: XCTestCase {
         accessibilityCategory: String,
         seedHabits: Bool = false,
         seedEstablishedWorkspace: Bool = false,
+        seedLongHomeTaskAgenda: Bool = false,
         seedHomeUserSpace: Bool = false,
         seedFullTimeline: Bool = false,
         seedRescueWorkspace: Bool = false,
@@ -985,6 +1029,7 @@ class LifeBoardUITests: XCTestCase {
         ]
         if seedHabits { app.launchArguments.append("-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE") }
         if seedEstablishedWorkspace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE") }
+        if seedLongHomeTaskAgenda { app.launchArguments.append("-LIFEBOARD_TEST_SEED_LONG_HOME_TASK_AGENDA") }
         if seedHomeUserSpace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_HOME_USER_SPACE") }
         if seedFullTimeline { app.launchArguments.append("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE") }
         if seedRescueWorkspace { app.launchArguments.append("-LIFEBOARD_TEST_SEED_RESCUE_WORKSPACE") }
@@ -996,6 +1041,13 @@ class LifeBoardUITests: XCTestCase {
         app.launchEnvironment["PERFORMANCE_TEST"] = "1"
         app.launch()
         return app
+    }
+
+    private func attachScreenshot(named name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 
     private func saveVisualEvidenceScreenshot(named name: String, platform: String = "ipad") throws {
