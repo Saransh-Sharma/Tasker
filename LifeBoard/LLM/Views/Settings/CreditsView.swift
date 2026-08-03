@@ -35,6 +35,18 @@ struct CreditsView: View {
                             .foregroundColor(Color.lifeboard(.textTertiary))
                     }
                 }
+
+                Link(destination: URL(string: "https://github.com/Shubham0812/SwiftUI-Animations")!) {
+                    HStack {
+                        Text("SwiftUI Animations")
+                            .font(.lifeboard(.body))
+                            .foregroundColor(Color.lifeboard(.textPrimary))
+                        Spacer()
+                        Image(systemName: "arrow.up.right")
+                            .font(.lifeboard(.caption1))
+                            .foregroundColor(Color.lifeboard(.textTertiary))
+                    }
+                }
             }
         }
         .formStyle(.grouped)
