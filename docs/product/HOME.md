@@ -64,6 +64,8 @@ Signal color is secondary to its label, value, and accessibility description.
 
 Tasks use open rows with a minimum 44-point completion target, title-first hierarchy, one restrained metadata line, and an optional status chip. Routines/habits use compact tactile rows or rails and route to their canonical records. Completion uses the canonical mutation path and exposes the established feedback/receipt behavior.
 
+The standard Home tasks card is a four-row preview (two rows in Low Energy mode) of open overdue deadlines followed by open tasks due today. When matching rows are hidden, the footer places **Show more** opposite **Add a task**. Show more expands the existing card in place—never into a nested scroll view—and exposes every matching task plus a compact date picker. Selecting another date shows open deadlines before that day followed by open tasks due on that day. **Show less** restores the compact preview and resets the card to today. Task detail, completion, and Undo continue through the canonical planning routes and receipt-backed mutation path.
+
 ### Timeline and capacity
 
 The timeline combines LifeBoard work with read-only external calendar reality. Fixed events are never mutated from Home. Busy blocks, gaps, current time, and task placements remain distinguishable. Placement and repair actions route through Plan or a canonical mutation preview.
