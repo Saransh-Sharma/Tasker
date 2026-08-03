@@ -1715,7 +1715,9 @@ struct LifeBoardAdaptiveHome: View {
                     dashboardWidget(for: placement, daypart: daypart, palette: palette)
                         .dashboardPreset(effectivePreset(for: placement.semanticSize))
                         .accessibilityValue(placement.ownership.accessibilityDescription)
-                        .lifeBoardScrollEntrance(intensity: store.isCustomizing ? 0 : 1)
+                        .lifeBoardScrollEntrance(
+                            intensity: scrollEntranceIntensity(for: placement, daypart: daypart)
+                        )
                         .modifier(HomeCardDissolveModifier(
                             isDissolving: store.dissolvingPlacementID == placement.id,
                             tint: palette.color(for: .celestialPrimary),
@@ -1798,7 +1800,9 @@ struct LifeBoardAdaptiveHome: View {
                         dashboardWidget(for: placement, daypart: daypart, palette: palette)
                             .dashboardPreset(effectivePreset(for: placement.semanticSize))
                             .accessibilityValue(placement.ownership.accessibilityDescription)
-                            .lifeBoardScrollEntrance(intensity: store.isCustomizing ? 0 : 1)
+                            .lifeBoardScrollEntrance(
+                                intensity: scrollEntranceIntensity(for: placement, daypart: daypart)
+                            )
                     }
                 }
             }
@@ -1839,6 +1843,20 @@ struct LifeBoardAdaptiveHome: View {
             return .easeInOut(duration: 0.18)
         }
         return .spring(response: 0.38, dampingFraction: 0.86)
+    }
+
+    private func scrollEntranceIntensity(
+        for placement: DashboardWidgetPlacementValue,
+        daypart: ResolvedDaypart
+    ) -> CGFloat {
+        guard store.isCustomizing == false else { return 0 }
+        let isExpandedTaskCard = resolvedWidgetKind(for: placement, daypart: daypart) == .tasks
+            && expandedTaskWidgetIDs.contains(placement.id)
+        // The shared entrance transition blurs an entire widget while its
+        // bottom edge enters the viewport. An expanded task card can be taller
+        // than that viewport, so it never reaches the identity phase and its
+        // already-visible header and rows stay blurred during normal scrolling.
+        return isExpandedTaskCard ? 0 : 1
     }
 
     @ViewBuilder
@@ -2774,7 +2792,15 @@ struct LifeBoardAdaptiveHome: View {
             }
         }
         .padding(16)
-        .lifeBoardRaisedClayCard(palette: palette)
+        .background {
+            // Keep the clay surface in its own noninteractive render subtree.
+            // An arbitrarily tall expanded agenda must not apply
+            // `lifeBoardRaisedClayCard` directly to its foreground hierarchy.
+            Color.clear
+                .lifeBoardRaisedClayCard(palette: palette)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
         .animation(taskWidgetAnimation, value: isExpanded)
         .animation(taskWidgetAnimation, value: lifeOSStore.taskAgenda)
     }
