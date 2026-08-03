@@ -300,6 +300,44 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(workspaceStore.load().chiefOfStaffMascotID, .theo)
     }
 
+    func testSettingsSetupStatusCollapsesHealthyServicesIntoOneReassuringItem() {
+        let status = LifeBoardSettingsSetupStatusResolver.resolve(
+            notificationPermissionGranted: true,
+            notificationPermissionDenied: false,
+            enabledNotificationCount: 3,
+            calendarConnected: true,
+            healthConnected: true,
+            recoveryHealth: .healthy
+        )
+
+        XCTAssertEqual(status.title, "Everything’s ready")
+        XCTAssertEqual(status.visibleItems.count, 1)
+        XCTAssertEqual(status.visibleItems.first?.state, .healthy)
+    }
+
+    func testSettingsSetupStatusPrioritizesTheTwoItemsThatNeedAttention() {
+        let status = LifeBoardSettingsSetupStatusResolver.resolve(
+            notificationPermissionGranted: false,
+            notificationPermissionDenied: true,
+            enabledNotificationCount: 0,
+            calendarConnected: false,
+            healthConnected: false,
+            recoveryHealth: .unavailable
+        )
+
+        XCTAssertEqual(status.title, "A couple things need a look")
+        XCTAssertEqual(status.visibleItems.map(\.id), ["reminders", "recovery"])
+        XCTAssertTrue(status.visibleItems.allSatisfy { $0.state == .attention })
+    }
+
+    func testSettingsCategoryRoutesRoundTripThroughNavigationPersistence() throws {
+        let data = try JSONEncoder().encode(SettingsRoute.categories)
+        let decoded = try JSONDecoder().decode([SettingsRoute].self, from: data)
+
+        XCTAssertEqual(decoded, SettingsRoute.categories)
+        XCTAssertEqual(decoded.count, 6)
+    }
+
     private func time(hour: Int, minute: Int) -> Date {
         var components = DateComponents()
         components.hour = hour

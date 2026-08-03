@@ -14,6 +14,138 @@ private struct StubNutritionRemoteLookup: NutritionRemoteFoodLookingUp {
     }
 }
 
+final class HomeTaskAgendaProjectionTests: XCTestCase {
+    func testBuildReturnsDeduplicatedOverdueThenSelectedDayDeadlines() throws {
+        let calendar = calendar(timeZoneIdentifier: "Asia/Kolkata")
+        let selectedDate = try date(2026, 8, 3, 12, calendar: calendar)
+        let duplicateID = UUID()
+        let tasks = [
+            task("Later", dueDate: try date(2026, 8, 4, 9, calendar: calendar)),
+            task("Due second", dueDate: try date(2026, 8, 3, 17, calendar: calendar)),
+            task("Oldest overdue", dueDate: try date(2026, 7, 30, 8, calendar: calendar)),
+            task("Due first", dueDate: try date(2026, 8, 3, 8, calendar: calendar)),
+            task("Recent overdue", dueDate: try date(2026, 8, 2, 20, calendar: calendar)),
+            task("Duplicate", id: duplicateID, dueDate: try date(2026, 8, 1, 10, calendar: calendar)),
+            task("Duplicate ignored", id: duplicateID, dueDate: try date(2026, 8, 3, 10, calendar: calendar)),
+            task("Undated", dueDate: nil),
+            task("Archived", dueDate: try date(2026, 8, 3, 11, calendar: calendar), disposition: .archived),
+            task("Reference", dueDate: try date(2026, 8, 3, 12, calendar: calendar), disposition: .reference),
+            task("Deleted", dueDate: try date(2026, 8, 3, 13, calendar: calendar), disposition: .deleted)
+        ]
+
+        let projection = HomeTaskAgendaProjection.build(
+            tasks: tasks,
+            selectedDate: selectedDate,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(
+            projection.overdueTasks.map(\.title),
+            ["Oldest overdue", "Duplicate", "Recent overdue"]
+        )
+        XCTAssertEqual(projection.dueTasks.map(\.title), ["Due first", "Due second"])
+        XCTAssertEqual(
+            projection.tasks.map(\.title),
+            ["Oldest overdue", "Duplicate", "Recent overdue", "Due first", "Due second"]
+        )
+        XCTAssertEqual(Set(projection.tasks.map(\.id)).count, projection.tasks.count)
+        XCTAssertEqual(projection.selectedDate, calendar.startOfDay(for: selectedDate))
+    }
+
+    func testBuildUsesCalendarDayBoundariesAcrossDaylightSavingTime() throws {
+        let calendar = calendar(timeZoneIdentifier: "America/Los_Angeles")
+        let selectedDate = try date(2026, 3, 8, 12, calendar: calendar)
+        let dayStart = calendar.startOfDay(for: selectedDate)
+        let dayEnd = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: dayStart))
+        XCTAssertEqual(dayEnd.timeIntervalSince(dayStart), 23 * 60 * 60)
+
+        let projection = HomeTaskAgendaProjection.build(
+            tasks: [
+                task("Overdue boundary", dueDate: dayStart.addingTimeInterval(-1)),
+                task("At day start", dueDate: dayStart),
+                task("At day end minus one", dueDate: dayEnd.addingTimeInterval(-1)),
+                task("At next day", dueDate: dayEnd)
+            ],
+            selectedDate: selectedDate,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(projection.overdueTasks.map(\.title), ["Overdue boundary"])
+        XCTAssertEqual(projection.dueTasks.map(\.title), ["At day start", "At day end minus one"])
+        XCTAssertFalse(projection.tasks.contains(where: { $0.title == "At next day" }))
+    }
+
+    func testChangingSelectedDateMovesEarlierDeadlineIntoOverdueBucket() throws {
+        let calendar = calendar(timeZoneIdentifier: "UTC")
+        let firstDay = try date(2026, 8, 3, 12, calendar: calendar)
+        let secondDay = try date(2026, 8, 4, 12, calendar: calendar)
+        let tasks = [
+            task("First day", dueDate: try date(2026, 8, 3, 9, calendar: calendar)),
+            task("Second day", dueDate: try date(2026, 8, 4, 9, calendar: calendar)),
+            task("Later", dueDate: try date(2026, 8, 5, 9, calendar: calendar))
+        ]
+
+        let firstProjection = HomeTaskAgendaProjection.build(
+            tasks: tasks,
+            selectedDate: firstDay,
+            calendar: calendar
+        )
+        let secondProjection = HomeTaskAgendaProjection.build(
+            tasks: tasks,
+            selectedDate: secondDay,
+            calendar: calendar
+        )
+
+        XCTAssertEqual(firstProjection.overdueTasks.map(\.title), [])
+        XCTAssertEqual(firstProjection.dueTasks.map(\.title), ["First day"])
+        XCTAssertEqual(secondProjection.overdueTasks.map(\.title), ["First day"])
+        XCTAssertEqual(secondProjection.dueTasks.map(\.title), ["Second day"])
+    }
+
+    private func task(
+        _ title: String,
+        id: UUID = UUID(),
+        dueDate: Date?,
+        disposition: UnscheduledDisposition = .inbox
+    ) -> PlanningTaskSummary {
+        PlanningTaskSummary(
+            id: id,
+            title: title,
+            dueDate: dueDate,
+            metadata: PlanningTaskMetadata(
+                taskID: id,
+                unscheduledDisposition: disposition
+            )
+        )
+    }
+
+    private func calendar(timeZoneIdentifier: String) -> Calendar {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(identifier: timeZoneIdentifier)!
+        return calendar
+    }
+
+    private func date(
+        _ year: Int,
+        _ month: Int,
+        _ day: Int,
+        _ hour: Int,
+        calendar: Calendar
+    ) throws -> Date {
+        try XCTUnwrap(
+            calendar.date(
+                from: DateComponents(
+                    timeZone: calendar.timeZone,
+                    year: year,
+                    month: month,
+                    day: day,
+                    hour: hour
+                )
+            )
+        )
+    }
+}
+
 final class LifeOSFoundationContractTests: XCTestCase {
     func testVisualFixtureCatalogCoversEveryRootAndReleaseState() {
         let fixtures = LifeBoardVisualFixture.catalog
