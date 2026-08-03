@@ -709,6 +709,8 @@ struct HomeiPadSettingsContainer: View {
     let onOpenCalendarChooser: () -> Void
 
     @StateObject private var viewModel: SettingsViewModel
+    @State private var settingsPath: [SettingsRoute] = []
+    @State private var presentationPreferences = LifeBoardPresentationPreferences()
 
     init(
         onNavigateToLifeManagement: @escaping () -> Void,
@@ -731,8 +733,12 @@ struct HomeiPadSettingsContainer: View {
     }
 
     var body: some View {
-        NavigationStack {
-            SettingsRootView(viewModel: viewModel)
+        NavigationStack(path: $settingsPath) {
+            SettingsRootView(
+                viewModel: viewModel,
+                presentationPreferences: presentationPreferences,
+                onNavigate: navigate
+            )
                 .onAppear {
                     viewModel.onNavigateToLifeManagement = onNavigateToLifeManagement
                     viewModel.onNavigateToChats = onNavigateToChats
@@ -740,7 +746,31 @@ struct HomeiPadSettingsContainer: View {
                     viewModel.onRestartOnboarding = onRestartOnboarding
                     viewModel.onOpenCalendarChooser = onOpenCalendarChooser
                 }
+                .navigationDestination(for: SettingsRoute.self) { route in
+                    SettingsRootView(
+                        viewModel: viewModel,
+                        destination: route,
+                        presentationPreferences: presentationPreferences,
+                        onNavigate: navigate
+                    )
+                    .navigationTitle(route.title)
+                    .navigationBarTitleDisplayMode(.inline)
+                }
         }
         .accessibilityIdentifier("home.ipad.detail.settings")
+    }
+
+    private func navigate(_ route: SettingsRoute) {
+        switch route {
+        case .lifeManagement:
+            onNavigateToLifeManagement()
+        case .chats:
+            onNavigateToChats()
+        case .models:
+            onNavigateToModels()
+        default:
+            guard settingsPath.last != route else { return }
+            settingsPath.append(route)
+        }
     }
 }
