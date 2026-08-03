@@ -353,6 +353,10 @@ extension HomeViewModel {
             return true
         case .weekly(let daysOfWeek, _, _):
             return daysOfWeek.contains(calendar.component(.weekday, from: date))
+        case .interval(let days, _, _):
+            let epoch = calendar.startOfDay(for: Date(timeIntervalSinceReferenceDate: 0))
+            let offset = calendar.dateComponents([.day], from: epoch, to: calendar.startOfDay(for: date)).day ?? 0
+            return offset.isMultiple(of: max(1, days))
         }
     }
 

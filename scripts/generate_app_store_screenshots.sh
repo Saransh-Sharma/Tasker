@@ -2,14 +2,31 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-OUTPUT_DIR="${1:-"$ROOT_DIR/screenshots/app-store-raw-2026-07-06"}"
+RUN_DATE="$(date -u +%F)"
+FIXED_NOW="${LIFEBOARD_SCREENSHOT_FIXED_NOW:-${RUN_DATE}T10:00:00Z}"
+OUTPUT_DIR=""
+ALLOW_MISSING_DEVICES=0
+for argument in "$@"; do
+  case "$argument" in
+    --allow-missing-devices) ALLOW_MISSING_DEVICES=1 ;;
+    *)
+      if [[ -n "$OUTPUT_DIR" ]]; then
+        echo "error: unexpected argument: $argument" >&2
+        exit 2
+      fi
+      OUTPUT_DIR="$argument"
+      ;;
+  esac
+done
+OUTPUT_DIR="${OUTPUT_DIR:-"$ROOT_DIR/screenshots/app-store-raw-$RUN_DATE"}"
 WORKSPACE="$ROOT_DIR/LifeBoard.xcworkspace"
 SCHEME="LifeBoard"
 TEST_ID="LifeBoardUITests/AppStoreScreenshotUITests/testCaptureExpandedAppStoreScreenshotSet"
 RESULT_DIR="$OUTPUT_DIR/_xcresults"
 DEVICE_LOG="$OUTPUT_DIR/.devices.tsv"
 SKIP_LOG="$OUTPUT_DIR/.skipped.tsv"
-CONFIG_FILE="$ROOT_DIR/.app-store-screenshot-config.json"
+CONFIG_FILE="/tmp/lifeboard-app-store-screenshot-config.json"
+CONFIG_BACKUP=""
 FORCE_REGENERATE="${LIFEBOARD_SCREENSHOT_FORCE_REGENERATE:-0}"
 
 EXPECTED_SCREENSHOTS=(
@@ -71,10 +88,33 @@ device_available() {
   '
 }
 
+device_udid() {
+  local name="$1"
+  local os="$2"
+  xcrun simctl list devices available | awk -v os="-- iOS ${os} --" -v name="$name" '
+    /^-- / { section = $0 }
+    section == os && index($0, "    " name " (") == 1 {
+      if (match($0, /\([0-9A-F-]+\)/)) {
+        print substr($0, RSTART + 1, RLENGTH - 2)
+        exit
+      }
+    }
+  '
+}
+
 validate_device_output() {
   local device_slug="$1"
+  local expected_width="$2"
+  local expected_height="$3"
   local device_dir="$OUTPUT_DIR/$device_slug"
   local png
+
+  local actual_count
+  actual_count="$(find "$device_dir" -maxdepth 1 -type f -name '*.png' | wc -l | tr -d ' ')"
+  if [[ "$actual_count" != "${#EXPECTED_SCREENSHOTS[@]}" ]]; then
+    echo "error: expected ${#EXPECTED_SCREENSHOTS[@]} screenshots in $device_dir, found $actual_count" >&2
+    return 1
+  fi
 
   for png in "${EXPECTED_SCREENSHOTS[@]}"; do
     local path="$device_dir/$png"
@@ -82,7 +122,13 @@ validate_device_output() {
       echo "error: missing or empty screenshot: $path" >&2
       return 1
     fi
-    sips -g pixelWidth -g pixelHeight "$path" >/dev/null
+    local width height
+    width="$(sips -g pixelWidth "$path" | awk '/pixelWidth/ { print $2 }')"
+    height="$(sips -g pixelHeight "$path" | awk '/pixelHeight/ { print $2 }')"
+    if [[ "$width" != "$expected_width" || "$height" != "$expected_height" ]]; then
+      echo "error: unexpected dimensions for $path: ${width}x${height}, expected ${expected_width}x${expected_height}" >&2
+      return 1
+    fi
   done
 }
 
@@ -93,8 +139,22 @@ mkdir -p "$OUTPUT_DIR" "$RESULT_DIR"
 : > "$DEVICE_LOG"
 : > "$SKIP_LOG"
 
+if [[ -e "$CONFIG_FILE" ]]; then
+  CONFIG_BACKUP="$(mktemp /tmp/lifeboard-app-store-screenshot-config.backup.XXXXXX)"
+  cp "$CONFIG_FILE" "$CONFIG_BACKUP"
+fi
+
+OVERRIDDEN_SIMULATORS=()
 cleanup() {
-  rm -f "$CONFIG_FILE"
+  local udid
+  for udid in "${OVERRIDDEN_SIMULATORS[@]}"; do
+    xcrun simctl status_bar "$udid" clear >/dev/null 2>&1 || true
+  done
+  if [[ -n "$CONFIG_BACKUP" ]]; then
+    mv "$CONFIG_BACKUP" "$CONFIG_FILE"
+  else
+    rm -f "$CONFIG_FILE"
+  fi
 }
 trap cleanup EXIT
 
@@ -106,10 +166,32 @@ for device_spec in "${IOS_DEVICES[@]}"; do
 
   if ! device_available "$device_name" "$os_version"; then
     printf "%s\t%s\t%s\n" "$device_name" "iOS $os_version" "simulator unavailable" >> "$SKIP_LOG"
+    if [[ "$ALLOW_MISSING_DEVICES" != "1" ]]; then
+      echo "error: required simulator unavailable: $device_name (iOS $os_version)" >&2
+      exit 1
+    fi
     continue
   fi
 
-  if [[ "$FORCE_REGENERATE" != "1" && "$FORCE_REGENERATE" != "true" ]] && validate_device_output "$device_slug" 2>/dev/null; then
+  device_id="$(device_udid "$device_name" "$os_version")"
+  if [[ -z "$device_id" ]]; then
+    echo "error: could not resolve simulator UDID for $device_name (iOS $os_version)" >&2
+    exit 1
+  fi
+  xcrun simctl boot "$device_id" >/dev/null 2>&1 || true
+  xcrun simctl bootstatus "$device_id" -b
+  xcrun simctl status_bar "$device_id" override \
+    --time 10:00 --batteryState charged --batteryLevel 100 \
+    --wifiBars 3 --cellularBars 4 >/dev/null 2>&1 || true
+  OVERRIDDEN_SIMULATORS+=("$device_id")
+
+  dimension_probe="$(mktemp /tmp/lifeboard-screenshot-dimensions.XXXXXX.png)"
+  xcrun simctl io "$device_id" screenshot "$dimension_probe" >/dev/null
+  expected_width="$(sips -g pixelWidth "$dimension_probe" | awk '/pixelWidth/ { print $2 }')"
+  expected_height="$(sips -g pixelHeight "$dimension_probe" | awk '/pixelHeight/ { print $2 }')"
+  rm -f "$dimension_probe"
+
+  if [[ "$FORCE_REGENERATE" != "1" && "$FORCE_REGENERATE" != "true" ]] && validate_device_output "$device_slug" "$expected_width" "$expected_height" 2>/dev/null; then
     echo "Using existing App Store screenshots for $device_name (iOS $os_version)"
     printf "%s\t%s\t%s\t%s\n" "$device_name" "iOS $os_version" "$device_slug" "${#EXPECTED_SCREENSHOTS[@]}" >> "$DEVICE_LOG"
     captured_count=$((captured_count + 1))
@@ -118,7 +200,7 @@ for device_spec in "${IOS_DEVICES[@]}"; do
 
   echo "Capturing App Store screenshots on $device_name (iOS $os_version)"
   rm -rf "$OUTPUT_DIR/$device_slug" "$RESULT_DIR/$device_slug.xcresult"
-  python3 - "$CONFIG_FILE" "$OUTPUT_DIR" "$device_slug" <<'PY'
+  python3 - "$CONFIG_FILE" "$OUTPUT_DIR" "$device_slug" "$FIXED_NOW" <<'PY'
 import json
 import pathlib
 import sys
@@ -127,6 +209,7 @@ config_path = pathlib.Path(sys.argv[1])
 config = {
     "outputRoot": sys.argv[2],
     "deviceSlug": sys.argv[3],
+    "fixedNow": sys.argv[4],
 }
 config_path.write_text(json.dumps(config) + "\n")
 PY
@@ -140,7 +223,7 @@ PY
     -only-testing:"$TEST_ID" \
     -resultBundlePath "$RESULT_DIR/$device_slug.xcresult"
 
-  validate_device_output "$device_slug"
+  validate_device_output "$device_slug" "$expected_width" "$expected_height"
   printf "%s\t%s\t%s\t%s\n" "$device_name" "iOS $os_version" "$device_slug" "${#EXPECTED_SCREENSHOTS[@]}" >> "$DEVICE_LOG"
   captured_count=$((captured_count + 1))
 done
@@ -154,7 +237,7 @@ if ! xcrun simctl list devices available | grep -q -- "-- watchOS "; then
   printf "%s\t%s\t%s\n" "Apple Watch" "watchOS" "watchOS simulator runtime unavailable" >> "$SKIP_LOG"
 fi
 
-python3 - "$OUTPUT_DIR" "$DEVICE_LOG" "$SKIP_LOG" "${#EXPECTED_SCREENSHOTS[@]}" <<'PY'
+python3 - "$OUTPUT_DIR" "$DEVICE_LOG" "$SKIP_LOG" "${#EXPECTED_SCREENSHOTS[@]}" "$FIXED_NOW" <<'PY'
 import json
 import pathlib
 import sys
@@ -190,7 +273,7 @@ if skip_log.exists():
         })
 
 manifest = {
-    "generatedAt": "2026-07-06",
+    "generatedAt": sys.argv[5],
     "outputType": "raw-png",
     "expectedScreenshotsPerDevice": expected_count,
     "devices": devices,

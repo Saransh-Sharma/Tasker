@@ -1,5 +1,7 @@
 # Sunrise Glass Presentation Migration TODO
 
+> **Classification: Historical visual migration plan.** Current design behavior is defined by [DESIGN.md](../../DESIGN.md) and the [UI/UX guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md).
+
 Scope: main iOS app presentation layer. Onboarding screens stay, but onboarding-launched task, habit, and detail sheets must use Sunrise Glass.
 
 ## Route Migration

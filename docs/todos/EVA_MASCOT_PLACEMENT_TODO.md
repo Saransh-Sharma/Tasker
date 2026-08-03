@@ -1,5 +1,7 @@
 # Eva Mascot Placement TODO
 
+> **Classification: Historical implementation plan.** Current mascot design is defined in the [placement guide](../design/EVA_MASCOT_PLACEMENT_GUIDE.md).
+
 - [x] Bundle compressed Eva mascot PNGs in the app asset catalog.
 - [x] Add shared typed mascot assets, sizes, view, and placement resolver.
 - [x] Place Eva in the structured chat empty state, help affordance, guide hero, live thinking state, day overview cards, and proposal review/apply states.

@@ -89,11 +89,19 @@ final class OnboardingFeedbackController {
         }
     }
 
+    /// Onboarding used to check only for Catalyst, so it kept buzzing under Low
+    /// Power Mode, thermal pressure, and Reduce Motion — the three cases the rest
+    /// of the app already respects. Resolving the shared policy here brings the
+    /// whole flow under the same rule without touching every call site.
     private var isFeedbackAvailable: Bool {
         #if targetEnvironment(macCatalyst)
         return false
         #else
-        return true
+        return LifeBoardMotionPolicy.resolve(
+            reduceMotion: UIAccessibility.isReduceMotionEnabled,
+            reduceTransparency: UIAccessibility.isReduceTransparencyEnabled,
+            sceneIsActive: UIApplication.shared.applicationState != .background
+        ).allowsHaptics
         #endif
     }
 }

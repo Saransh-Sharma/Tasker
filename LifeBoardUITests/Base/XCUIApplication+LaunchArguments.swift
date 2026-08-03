@@ -30,13 +30,16 @@ extension XCUIApplication {
         case testSeedCompactRescueWorkspace = "-LIFEBOARD_TEST_SEED_COMPACT_RESCUE_WORKSPACE"
         case testSeedRescueTimelineWorkspace = "-LIFEBOARD_TEST_SEED_RESCUE_TIMELINE_WORKSPACE"
         case testSeedOverdueRescueSuite = "-LIFEBOARD_TEST_SEED_OVERDUE_RESCUE_SUITE"
-        case testSeedReflectPlanSuite = "-LIFEBOARD_TEST_SEED_REFLECT_PLAN_SUITE"
-        case testReflectPlanCompleted = "-LIFEBOARD_TEST_REFLECT_PLAN_COMPLETED"
         case testSeedFocusNowSuite = "-LIFEBOARD_TEST_SEED_FOCUS_NOW_SUITE"
         case testSeedFocusWorkspace = "-LIFEBOARD_TEST_SEED_FOCUS_WORKSPACE"
         case testSeedHabitBoardWorkspace = "-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE"
         case testSeedQuietTrackingWorkspace = "-LIFEBOARD_TEST_SEED_QUIET_TRACKING_WORKSPACE"
         case testSeedFullTimelineWorkspace = "-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE"
+        /// Stages the App Group pending-capture queue so the Inbox's commit and
+        /// duplicate-merge paths are reachable. Pair with
+        /// `testSeedEstablishedWorkspace`: one seeded capture deliberately
+        /// duplicates a task title that seed creates.
+        case testSeedInboxCaptures = "-LIFEBOARD_TEST_SEED_INBOX_CAPTURES"
         case testSeedAppStoreScreenshots = "-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS"
         case testExpandedAppStoreOnboarding = "-LIFEBOARD_TEST_EXPANDED_APP_STORE_ONBOARDING"
         case testPresentHabitBoard = "-LIFEBOARD_TEST_PRESENT_HABIT_BOARD"
@@ -44,6 +47,9 @@ extension XCUIApplication {
         case testCalendarMode = "-LIFEBOARD_TEST_CALENDAR_MODE"
         case testEvaActivationCompleted = "-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED"
         case testHabitDetailEditorSupportDelayMilliseconds = "-LIFEBOARD_TEST_HABIT_DETAIL_EDITOR_SUPPORT_DELAY_MS"
+        case visualFixture = "-LIFEBOARD_VISUAL_FIXTURE"
+        case visualAppearance = "-LIFEBOARD_VISUAL_APPEARANCE"
+        case celestialPhase = "-LIFEBOARD_CELESTIAL_PHASE"
     }
 
     // MARK: - Convenience Launch Methods
@@ -169,6 +175,24 @@ extension XCUIApplication {
     /// Check if launch argument is set
     func hasLaunchArgument(_ key: LaunchArgumentKey) -> Bool {
         return launchArguments.contains { $0.starts(with: key.rawValue) }
+    }
+
+    /// Launches a deterministic root/state composition for visual evidence.
+    func launchVisualFixture(root: String, state: String, appearance: String? = nil, phase: String? = nil) {
+        launchArguments = [
+            LaunchArgumentKey.uiTesting.rawValue,
+            LaunchArgumentKey.skipOnboarding.rawValue,
+            LaunchArgumentKey.disableCloudSync.rawValue,
+            "\(LaunchArgumentKey.visualFixture.rawValue)=\(root):\(state)"
+        ]
+        if let appearance {
+            launchArguments.append("\(LaunchArgumentKey.visualAppearance.rawValue)=\(appearance)")
+        }
+        if let phase {
+            launchArguments.append("\(LaunchArgumentKey.celestialPhase.rawValue)=\(phase)")
+        }
+        launchEnvironment[LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        launch()
     }
 }
 

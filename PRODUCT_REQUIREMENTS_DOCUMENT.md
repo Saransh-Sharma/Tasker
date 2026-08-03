@@ -1,9 +1,15 @@
 # LifeBoard iOS - Product Requirements Document
 
-**Version:** 4.8
-**Last Updated:** May 3, 2026
-**Platform:** iOS 16.0+
+**Version:** 5.0
+**Last Updated:** July 23, 2026
+**Platform:** iOS, iPadOS, watchOS companion surfaces, and Mac Catalyst
 **Status:** Active Product Direction
+**Classification:** Canonical product requirements
+
+**Canonical feature detail:** [LifeBoard 5.0 Product Handbook](docs/product/README.md)
+
+**Active completion status:** [LifeBoard 5.0 Remaining Completion Ledger](docs/todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md)
+**Visual contract:** [DESIGN.md](DESIGN.md)
 
 ## Vision And Positioning
 
@@ -13,19 +19,23 @@ LifeBoard is not positioned as a clinical treatment product. It is a productivit
 
 ## Product Promise And Mental Loop
 
-LifeBoard is designed around a repeating loop:
-1. Capture
-2. Decide
-3. Start
-4. Resume
-5. Reflect
+LifeBoard is designed around a repeating operating loop:
+1. Orient on Home.
+2. Capture or choose.
+3. Plan and sequence.
+4. Focus or track.
+5. Recover interruptions.
+6. Reflect.
+7. Adapt.
 
-Product intent by phase:
-- Capture: make input fast and low-friction.
-- Decide: limit the active choice set and clarify what to do now.
-- Start: reduce activation cost from plan to action.
-- Resume: preserve context after interruptions.
-- Reflect: reinforce progress and recovery, not perfection.
+Product intent by stage:
+- Orient: establish time, capacity, fixed commitments, current focus, and honest signal state.
+- Capture or choose: make input fast while keeping one bounded decision visible.
+- Plan: place flexible work around fixed reality without creating a second task source.
+- Focus or track: reduce activation cost and keep evidence correction possible.
+- Recover: preserve context, drafts, receipts, and return paths after interruption or plan failure.
+- Reflect: connect observations to evidence and reinforce recovery rather than perfection.
+- Adapt: let the user change plans, layouts, routines, and suggestions with transparent control.
 
 ## Target Users And Jobs-To-Be-Done
 
@@ -156,14 +166,46 @@ LifeBoard intentionally adopts patterns that reduce day-level overwhelm and incr
 - No social habit sharing or public streak leaderboards in this PRD cycle.
 - No punitive streak-insurance mechanics or shame-based loss-aversion loops.
 - No passive sensor-based lapse detection or automatic relapse inference.
-- No roadmap commitments to platforms outside iOS in this document.
+- No roadmap commitments outside the Apple platform surfaces named by this document.
 
-## Current Product Constraints (Release 4.x)
+## Current Product Constraints (LifeBoard 5.0)
 
-- The shipped app runtime is V3-only.
-- Upgrade behavior for in-flight internal builds follows a destructive reset cutover policy.
-- Cloud sync cutover is container-isolation based (no user-visible record-by-record migration promises in this release).
-- Assistant apply and undo remain explicitly gated and must preserve confirmation plus undo trust boundaries.
+- The app uses the V3 task runtime and additive Life OS model versions; protected Journal, Wellness, Nutrition, and Life Moments stores must not be reset or recreated.
+- Home, Plan, Track, Insights, and EVA are the five persistent roots. Journal, Notes, Focus, Settings, and entity details are typed leaves.
+- External calendar events remain read-only. LifeBoard mutates only its own tasks, planning metadata, and domain records.
+- Assistant proposals never bypass review, authorization, canonical mutation, receipt, and supported Undo boundaries.
+- Journal and health-derived content is private-sensitive; widgets, notifications, Spotlight, Watch, and diagnostics receive explicit redacted projections only.
+- Simulator evidence cannot close signed-device performance, haptics, thermal, Health, camera/microphone, App Group, iCloud/account, or paired-Watch gates.
+- The previous presentation remains a one-release rollback path behind typed feature flags; it is not the active visual authority.
+
+## LifeBoard 5.0 Product Architecture
+
+### Five-root model
+
+- **Home:** daily orientation, Focus Now, signals, timeline, recovery, and cross-domain summaries.
+- **Plan:** Day, Week, Backlog, Focus, capacity, repair, Weekly Planner, and Weekly Review.
+- **Track:** habits, routines, goals, care, Wellness, Nutrition, Fasting, and Life Moments.
+- **Insights:** evidence-backed trends, reflection, saved insights, and explainable patterns.
+- **EVA:** local conversation, context, proposal review, Apply/Edit/Not Now, receipts, and Undo.
+
+Each root owns an independent typed navigation stack. Cross-root routes select the destination before appending the stable leaf. Reselecting the active root returns to its root. A missing identity produces an explanatory state and never substitutes another record.
+
+### Shared interaction model
+
+- Universal Capture arbitrates requests from shell, widgets, intents, Spotlight, share/deep-link entry, and Watch handoff.
+- Populated, empty, loading, stale, denied, offline, locked, error, explicit zero, and destructive states have distinct semantics.
+- Canonical mutations produce explicit success/failure and a receipt where supported.
+- Drafts, selected dates, filters, root stacks, scoped rescue sessions, and settled assistant output survive interruption when recoverable.
+- Significant assistant changes use preview/diff, Apply, Edit, Not Now, result, and Undo.
+- External surfaces consume versioned redacted envelopes rather than app persistence.
+
+### Responsive model
+
+- Compact iPhone uses floating five-root chrome with measured dock/composer clearance.
+- Accessibility sizes use content-first single-column layouts and visible non-gesture actions.
+- Regular/wide iPad uses split navigation, adaptive 8/12-column Home, and seven-day Week.
+- Catalyst uses adaptive columns, keyboard commands, pointer states, native menus, and resizable windows.
+- Watch/widgets provide bounded, glanceable, privacy-safe projections and canonical actions only.
 
 ## Success Metrics
 
@@ -514,6 +556,80 @@ Requirements:
 - Eva state ownership is stable: `Thinking` means processing, `Clipboard` means review, `Idea` means suggestion, `Celebration` means confirmed success, and `Worried` means true risk only.
 - Mascot visuals must not replace confirmation, undo, permission, privacy, or destructive-action copy.
 
+### Plan, Backlog, Focus, And Recovery
+Purpose:
+- Turn intent into a realistic sequence around fixed commitments.
+- Keep Day, Week, Backlog, Focus, Weekly Planner, Weekly Review, and recovery in one planning system.
+
+Requirements:
+- Day leads with date, capacity, now/next work, fixed schedule context, flexible planned work, and repair.
+- Week exposes distribution across seven days; regular-width iPad provides seven stable day destinations.
+- Backlog remains a projection of canonical tasks and supports scheduling, edit, confirmed delete, receipt, and Undo.
+- Focus resolves an exact stable session identity and distinguishes active, ended, missing, stale, and repository failure.
+- External calendar events remain read-only and visually distinct from LifeBoard work.
+- Direct manipulation has visible, keyboard, and VoiceOver alternatives.
+- Overdue Rescue is scoped by account, workspace, anchor date, and launch purpose.
+- A Plan-launched rescue action names and updates the selected planning day rather than assuming today.
+- Repair and bulk proposals expose rationale, affected items, preview/diff, Apply/Edit/Not Now, result, and Undo.
+- Concurrent mutations freeze only affected controls and preserve drafts/selections on failure.
+
+### Track, Wellness, Nutrition, Fasting, And Life Moments
+Purpose:
+- Make evidence capture useful, correctable, and non-judgmental across routines, care, and wellness.
+
+Requirements:
+- Track leads with Today actions before history, charts, or management.
+- Values retain source, unit/meaning, captured time/timezone, stable identity, and correction provenance where supported.
+- Manual recording remains usable when optional permissions or connected sources are unavailable.
+- Connected-health projections never overwrite manual records and clearly identify their source.
+- Charts include timeframe/source and a table or text equivalent.
+- Nutrition is local-first; barcode, voice, and recognition flows stop at an editable review before save.
+- Nutrition history uses immutable macro snapshots so later library edits do not rewrite past meals.
+- Fasting enforces one serialized active lifecycle and distinguishes finish, cancel, early completion, correction, and keep running.
+- Life Moments use captured-timezone recurrence, stable identity, explicit Home consent, search, archive, and export.
+- Care and wellness copy describes recorded state and never diagnoses or moralizes.
+- Delete identifies dependent records/projections and exposes in-place Undo where supported.
+
+### Journal, Notes, Knowledge, And Reflection
+Purpose:
+- Preserve private lived context and make reflection traceable to the user’s evidence.
+
+Requirements:
+- Journal supports text, audio, transcription, document recognition, and media through reviewable capture states.
+- Audio remains durable and authoritative if transcription is delayed or fails.
+- Cancellation before review/save commits no recognized document or media draft.
+- Unavailable attachments preserve their place and expose restore guidance or explicit removal.
+- Journal routes authenticate before content mounts and use content-free app-switcher, Spotlight, notification, widget, Watch, and diagnostic projections.
+- Deletion propagates through semantic indexes, graphs, reflections, and caches while retaining required tombstones.
+- Notes and Knowledge retain stable identity and do not silently ingest protected Journal content.
+- Reflections distinguish evidence from interpretation and support Save, Snooze, Dismiss, and Follow Up.
+- Model or index degradation does not block reading or local capture.
+
+### Onboarding, Settings, And Recovery
+Purpose:
+- Reach one useful completed loop quickly and give users continuing control over privacy, integrations, and structure.
+
+Requirements:
+- Onboarding progresses from promise to life context, first task, focus demonstration, optional EVA setup, permissions, and shell entry.
+- Optional setup can be skipped without disabling the non-dependent app.
+- Progress and recoverable drafts persist across interruption.
+- Permission explanations state value, data use, fallback behavior, and where to change the decision.
+- Settings groups appearance, focus, notifications, integrations, life management, privacy, data, accessibility, and support coherently.
+- Destructive life-management actions explain affected items, retained history, move/archive alternatives, and reversibility.
+- Bootstrap/migration recovery preserves canonical stores and never performs an implicit destructive reset.
+
+### System Surfaces And Continuity
+Purpose:
+- Extend safe glanceability and capture without exposing private stores or creating parallel mutation paths.
+
+Requirements:
+- Widgets, Watch, intents, Spotlight, notifications, and Live Activities use versioned redacted projections and stable identities.
+- External targets do not open the main app database directly.
+- Stale, missing, locked, incompatible, offline, and deleted-target states have privacy-safe fallbacks.
+- Intent and notification mutations are idempotent and use canonical handlers.
+- Watch capture uses a durable protected outbox, retains audio until receipt, deduplicates import, and exposes retry/quarantine recovery.
+- Deep links select the correct root before appending the leaf and never substitute another record.
+
 ### Insights And Analytics
 Purpose:
 - Support reflection that leads to action without guilt.
@@ -790,6 +906,17 @@ This table maps product surfaces to existing runtime usecases for implementation
 - Every assistant turn reaches a visible terminal state: answer, proposal, clarification, failure, or cancellation.
 - Partial-context answers include visible context receipts or degraded-state explanation.
 
+### Plan, Track, Journal, Onboarding, And Continuity
+- Day, Week, and Backlog preserve stable identity, capacity meaning, and non-drag alternatives.
+- Plan-launched Overdue Rescue uses the selected day consistently in copy, mutation, session restoration, and accessibility actions.
+- Track distinguishes recorded zero, missing, setup required, denied, stale, and error.
+- Nutrition/Wellness corrections retain history semantics; Fasting prevents duplicate active sessions.
+- Journal lock and app-switcher protection reveal no content-derived preview.
+- Document/audio/media failure preserves durable user work and offers recovery.
+- Onboarding resumes at the correct step and never makes optional model/permission setup block the core app.
+- Widget/Watch/Spotlight/notification projections remain redacted and route to exact typed destinations.
+- Dynamic Type, VoiceOver, Reduce Motion, Reduce Transparency, Increase Contrast, and keyboard paths preserve primary actions and recovery.
+
 ### Insights
 - New users see explicit no-data states on all three tabs:
   - `Today` explains that mix and momentum unlock after the first meaningful completion.
@@ -828,12 +955,14 @@ This table maps product surfaces to existing runtime usecases for implementation
 ### Long-Term
 - Expand read-only schedule context carefully where it improves execution, while preserving task-first chronology.
 - Evaluate explicitly permissioned calendar-write workflows only after read-only schedule context, assistant trust, and LifeBoard-owned mutation flows are stable.
-- Broader platform strategy beyond iOS.
+- Broader platform strategy beyond the current Apple platform family.
 
 ## Technical References
 
 Technical implementation details are intentionally kept out of this PRD. Use the architecture docs:
 - `docs/README.md`
+- `docs/product/README.md`
+- `docs/design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md`
 - `docs/habits/README.md`
 - `docs/calendar/README.md`
 - `docs/habits/product-feature.md`
@@ -847,10 +976,14 @@ Technical implementation details are intentionally kept out of this PRD. Use the
 - `docs/design/EVA_MASCOT_PLACEMENT_GUIDE.md`
 - `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`
 - `docs/architecture/LIFEBOARD_V2_ARCHITECTURE_GUIDE.md`
+- `docs/todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md` (active LifeBoard 5.0 completion status)
+- `docs/audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md` (implementation evidence and release gates)
+- `DESIGN.md` (canonical visual contract)
 - `docs/audits/HABITS_IOS_UX_AUDIT_2026-04-17.md`
 
 ## Document History
 
+- **v5.0 (July 23, 2026):** Reframed the product around the seven-stage LifeBoard loop and five-root information architecture. Added Plan/Focus/recovery, Track/Wellness/Nutrition/Fasting/Life Moments, Journal/Knowledge/reflection, onboarding/recovery, system-surface, responsive, privacy, and shared interaction contracts linked to the canonical feature handbook.
 - **v4.8 (May 3, 2026):** Deepened the timeline, calendar schedule, Eva, LLM, chat, and Chief of Staff requirements. Added schedule-aware assistant metrics, timeline intelligence requirements, calendar schedule acceptance criteria, and clearer boundaries around read-only calendar context versus LifeBoard-owned mutations.
 - **v4.7 (April 29, 2026):** Updated the canonical calendar + timeline docs for the iPhone glanceability model, including title-first timeline cards, stacked overlap flocks, readable visual positioning, current-time treatment, and dense timeline risks.
 - **v4.6 (April 25, 2026):** Added the canonical calendar + timeline docs package and linked the read-only schedule-context roadmap into the product reference set.

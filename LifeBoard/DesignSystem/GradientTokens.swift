@@ -93,7 +93,8 @@ public struct LifeBoardHeaderGradient {
 
     /// Backward-compatible convenience overload.
     public static func apply(to layer: CALayer, bounds: CGRect) {
-        apply(to: layer, bounds: bounds, traits: UIScreen.main.traitCollection)
+        let traits = (layer.delegate as? UIView)?.traitCollection ?? UITraitCollection()
+        apply(to: layer, bounds: bounds, traits: traits)
     }
 
     /// Remove all header gradient sublayers (useful before re-applying on theme change).

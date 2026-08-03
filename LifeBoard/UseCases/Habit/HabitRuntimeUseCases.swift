@@ -69,6 +69,7 @@ public enum HabitRuntimeError: LocalizedError, Sendable {
     case habitNotFound
     case scheduleTemplateNotFound
     case occurrenceNotFound
+    case invalidCadence
 
     public var errorDescription: String? {
         switch self {
@@ -82,6 +83,8 @@ public enum HabitRuntimeError: LocalizedError, Sendable {
             return "The habit schedule template could not be found."
         case .occurrenceNotFound:
             return "The habit occurrence could not be found."
+        case .invalidCadence:
+            return "The habit interval must be at least one day."
         }
     }
 }
@@ -285,6 +288,21 @@ enum HabitRuntimeSupport {
                     createdAt: createdAt
                 )
             ]
+        case .interval(let days, let hour, let minute):
+            return [
+                ScheduleRuleDefinition(
+                    id: UUID(),
+                    scheduleTemplateID: templateID,
+                    ruleType: "daily",
+                    interval: max(1, days),
+                    byDayMask: nil,
+                    byMonthDay: nil,
+                    byHour: hour,
+                    byMinute: minute,
+                    rawRuleData: nil,
+                    createdAt: createdAt
+                )
+            ]
         }
     }
 
@@ -321,6 +339,12 @@ enum HabitRuntimeSupport {
                 daysOfWeek: days.isEmpty ? [2, 3, 4, 5, 6] : days,
                 hour: hour,
                 minute: minute
+            )
+        case "daily" where (primaryRule?.interval ?? 1) > 1:
+            return .interval(
+                days: max(1, primaryRule?.interval ?? 1),
+                hour: hour ?? fallbackMinutes.map { $0 / 60 },
+                minute: minute ?? fallbackMinutes.map { $0 % 60 }
             )
         default:
             return .daily(
@@ -482,19 +506,28 @@ enum HabitRuntimeSupport {
             }
         }
 
+        // `break` inside a `switch` leaves the switch, not the loop.
+        //
+        // The `.failed`/`.missed`/past-`.pending` case therefore did nothing and
+        // the walk kept counting completions *past* a broken day — a habit
+        // failed today still reported a live streak, and the "failed" state had
+        // no effect on the number it was supposed to break. The label makes the
+        // intent explicit: stop at the first day that is not a completion.
         var current = 0
-        for occurrence in ordered.reversed() {
+        walk: for occurrence in ordered.reversed() {
             if occurrence.state == .pending,
                calendar.isDate(occurrenceDate(occurrence), inSameDayAs: referenceDate) {
+                // Today is still open; it neither extends nor breaks the streak.
                 continue
             }
             switch occurrence.state {
             case .completed:
                 current += 1
             case .skipped:
+                // Deliberately set aside — preserves the streak without extending it.
                 continue
             case .pending, .failed, .missed:
-                break
+                break walk
             }
         }
         return (current, best)
@@ -549,6 +582,14 @@ public final class CreateHabitUseCase: @unchecked Sendable {
         request: CreateHabitRequest,
         completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void
     ) {
+        if let targetError = HabitTargetValidator.validate(request.targetConfig) {
+            completion(.failure(targetError))
+            return
+        }
+        if case let .interval(days, _, _) = request.cadence, days < 1 {
+            completion(.failure(HabitRuntimeError.invalidCadence))
+            return
+        }
         validate(lifeAreaID: request.lifeAreaID, projectID: request.projectID) { validationResult in
             switch validationResult {
             case .failure(let error):
@@ -738,6 +779,15 @@ public final class UpdateHabitUseCase: @unchecked Sendable {
         request: UpdateHabitRequest,
         completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void
     ) {
+        if let targetConfig = request.targetConfig,
+           let targetError = HabitTargetValidator.validate(targetConfig) {
+            completion(.failure(targetError))
+            return
+        }
+        if case let .interval(days, _, _)? = request.cadence, days < 1 {
+            completion(.failure(HabitRuntimeError.invalidCadence))
+            return
+        }
         habitRepository.fetchAll { result in
             switch result {
             case .failure(let error):
@@ -1413,19 +1463,28 @@ public final class DeleteHabitUseCase: @unchecked Sendable {
             case .failure(let error):
                 completion(.failure(error))
             case .success:
-                self.deleteCurrentTemplates(for: habit.id) { deleteTemplatesResult in
-                    switch deleteTemplatesResult {
-                    case .failure(let error):
-                        completion(.failure(error))
-                    case .success:
-                        self.restoreScheduleSnapshots(scheduleSnapshots) { restoreResult in
-                            switch restoreResult {
-                            case .failure(let error):
-                                completion(.failure(error))
-                            case .success:
-                                self.maintainHabitRuntimeUseCase.execute(anchorDate: Date()) { maintainResult in
-                                    completion(maintainResult.map { _ in () })
-                                }
+                // Clearing partially-created templates is best-effort cleanup,
+                // never a precondition.
+                //
+                // This restore compensates a *template delete* that just failed.
+                // Treating a second delete failure as fatal meant compensation
+                // re-ran the exact operation it existed to undo, failed
+                // identically, and reported `restoreFailed` — so the caller saw
+                // an opaque compensation error instead of the real cause, even
+                // though the habit had been recreated successfully.
+                //
+                // `restoreScheduleSnapshots` upserts through `saveTemplate`, so
+                // a template that survived its delete is overwritten back to the
+                // snapshot state anyway. That step is what actually restores the
+                // world, and it remains fatal.
+                self.deleteCurrentTemplates(for: habit.id) { _ in
+                    self.restoreScheduleSnapshots(scheduleSnapshots) { restoreResult in
+                        switch restoreResult {
+                        case .failure(let error):
+                            completion(.failure(error))
+                        case .success:
+                            self.maintainHabitRuntimeUseCase.execute(anchorDate: Date()) { maintainResult in
+                                completion(maintainResult.map { _ in () })
                             }
                         }
                     }
@@ -1570,6 +1629,29 @@ public final class RecomputeHabitStreaksUseCase: @unchecked Sendable {
                             updated.successMask14 = masks.0
                             updated.failureMask14 = masks.1
                             updated.lastHistoryRollDate = calendar.startOfDay(for: referenceDate)
+
+                            // Skip the write when recomputation changed nothing.
+                            //
+                            // This ran unconditionally, so every habit was saved
+                            // on each recompute — and because recompute is
+                            // reached from ordinary habit edits, a single update
+                            // that only moved a project link produced three
+                            // identical repository writes. Each one is a Core
+                            // Data save, a CloudKit push and a
+                            // `.homeHabitMutation` notification.
+                            //
+                            // The habit is still returned so callers see the
+                            // full set; only the redundant persistence is
+                            // avoided, which cannot change behavior because the
+                            // written values would have been identical.
+                            guard updated.streakCurrent != habit.streakCurrent
+                                || updated.streakBest != habit.streakBest
+                                || updated.successMask14 != habit.successMask14
+                                || updated.failureMask14 != habit.failureMask14
+                                || updated.lastHistoryRollDate != habit.lastHistoryRollDate else {
+                                accumulator.update { $0.append(habit) }
+                                continue
+                            }
 
                             group.enter()
                             self.habitRepository.update(updated) { updateResult in
@@ -1807,6 +1889,21 @@ public final class SyncHabitScheduleUseCase: @unchecked Sendable {
 
         for var habit in habits {
             guard habit.isArchived == false else { continue }
+
+            // Skip when the generation date is already the anchor.
+            //
+            // This runs immediately after `RecomputeHabitStreaksUseCase`, which
+            // has just written every one of these habits. Re-writing the whole
+            // record to set one date meant an ordinary schedule sync persisted
+            // each habit twice — two Core Data saves, two CloudKit pushes and
+            // two change notifications where one would do.
+            //
+            // Deliberately compared on `lastGeneratedDate` alone: `updatedAt` is
+            // refreshed on every pass, so including it would make the guard
+            // never fire. A modification timestamp is a consequence of writing,
+            // not a reason to write.
+            guard habit.lastGeneratedDate != anchorDate else { continue }
+
             habit.lastGeneratedDate = anchorDate
             habit.updatedAt = Date()
             group.enter()

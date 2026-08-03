@@ -1546,7 +1546,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
 
         XCTAssertEqual(
             EvaProposalApplyGate.validate(selectedCards: cards),
-            .blocked(message: "Drop and delete changes need a separate confirmation before EVA can apply them.")
+            .blocked(message: "Drop and delete changes need a separate confirmation before Eva can apply them.")
         )
     }
 
@@ -1735,7 +1735,7 @@ private final class AssistantPlannerTaskReadRepositoryStub: TaskReadModelReposit
             if let start = query.dueDateStart, let dueDate = task.dueDate, dueDate < start {
                 return false
             }
-            if let start = query.dueDateStart, task.dueDate == nil, task.scheduledStartAt == nil {
+            if query.dueDateStart != nil, task.dueDate == nil, task.scheduledStartAt == nil {
                 return false
             }
             if let end = query.dueDateEnd, let dueDate = task.dueDate, dueDate > end {

@@ -142,6 +142,10 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol, @unchecked 
             "successMask14Raw",
             "failureMask14Raw",
             "lastHistoryRollDate",
+            "quotaTargetCount",
+            "quotaPeriodRaw",
+            "timedTargetSeconds",
+            "minimumTargetData",
             "createdAt",
             "updatedAt"
         ]

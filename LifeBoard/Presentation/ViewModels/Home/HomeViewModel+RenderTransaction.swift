@@ -15,6 +15,16 @@ import WidgetKit
 #endif
 
 extension HomeViewModel {
+    func makeMomentumGuidanceText() -> String {
+        if completedTasks.isEmpty == false {
+            return "One clean finish is already part of today. Keep the next decision small."
+        }
+        if todayOpenTaskCount > 0 {
+            return "Choose one visible task and finish it before switching surfaces."
+        }
+        return "Your surface is clear. Add one intentional task for today."
+    }
+
     var currentDataRevision: HomeDataRevision {
         dataRevision
     }
@@ -143,9 +153,6 @@ extension HomeViewModel {
         defer { LifeBoardPerformanceTrace.end(interval) }
         let invalidation = pendingHomeRenderInvalidation.isEmpty ? .all : pendingHomeRenderInvalidation
         pendingHomeRenderInvalidation = []
-        if invalidation.includes(.chrome) {
-            refreshDailyReflectionEntryPreviewIfNeeded()
-        }
         let previousTransaction = homeRenderTransaction
         let transaction = HomeRenderTransaction(
             chrome: invalidation.includes(.chrome) ? buildHomeChromeState() : previousTransaction.chrome,
@@ -161,7 +168,6 @@ extension HomeViewModel {
     }
 
     func buildHomeChromeState() -> HomeChromeState {
-        let reflectionEntryState = makeDailyReflectionEntryState()
         return HomeChromeState(
             selectedDate: selectedDate,
             activeScope: activeScope,
@@ -175,8 +181,6 @@ extension HomeViewModel {
             weeklySummaryIsLoading: weeklySummaryIsLoading,
             weeklySummaryErrorMessage: weeklySummaryErrorMessage,
             projects: projects,
-            dailyReflectionEntryState: reflectionEntryState,
-            dailyPlanDraft: dailyPlanDraftForSelectedDate(),
             momentumGuidanceText: makeMomentumGuidanceText(),
             lifeAreaLensHeader: makeLifeAreaLensHeader(),
             dayCompass: resolveDayCompass()

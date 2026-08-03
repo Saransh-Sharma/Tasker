@@ -575,6 +575,64 @@ enum TaskListWidgetTimelineProjection {
     }
 }
 
+enum BehaviorOccurrenceSurfaceProjection {
+    static func make(
+        occurrences: [OccurrenceDefinition],
+        timezoneByTemplateID: [UUID: String],
+        resultOverrides: [UUID: BehaviorOccurrenceResultState] = [:]
+    ) -> [BehaviorOccurrenceSurfaceSnapshot] {
+        occurrences.compactMap { occurrence in
+            guard occurrence.sourceType == .habit || occurrence.sourceType == .tracker else {
+                return nil
+            }
+            let result = resultOverrides[occurrence.id] ?? defaultResult(for: occurrence.state)
+            return BehaviorOccurrenceSurfaceSnapshot(
+                occurrenceID: occurrence.id,
+                behaviorID: occurrence.sourceID,
+                scheduleTemplateID: occurrence.scheduleTemplateID,
+                canonicalOccurrenceKey: OccurrenceKeyCodec.canonicalize(
+                    occurrence.occurrenceKey,
+                    fallbackTemplateID: occurrence.scheduleTemplateID,
+                    fallbackSourceID: occurrence.sourceID
+                ) ?? occurrence.occurrenceKey,
+                domain: occurrence.sourceType == .habit ? .habit : .tracker,
+                scheduledAt: occurrence.scheduledAt,
+                dueAt: occurrence.dueAt,
+                timezoneID: timezoneByTemplateID[occurrence.scheduleTemplateID]
+                    ?? TimeZone.current.identifier,
+                result: surfaceResult(result)
+            )
+        }
+        .sorted {
+            if $0.scheduledAt != $1.scheduledAt { return $0.scheduledAt < $1.scheduledAt }
+            return $0.occurrenceID.uuidString < $1.occurrenceID.uuidString
+        }
+    }
+
+    static func defaultResult(for state: OccurrenceState) -> BehaviorOccurrenceResultState {
+        switch state {
+        case .pending: .unresolved
+        case .completed: .completed
+        case .skipped: .skipped
+        case .missed: .missing
+        case .failed: .failed
+        }
+    }
+
+    static func surfaceResult(_ state: BehaviorOccurrenceResultState) -> BehaviorSurfaceResultState {
+        switch state {
+        case .missing: .missing
+        case .explicitZero: .explicitZero
+        case .completed: .completed
+        case .skipped: .skipped
+        case .offDay: .offDay
+        case .paused: .paused
+        case .failed: .failed
+        case .unresolved: .unresolved
+        }
+    }
+}
+
 extension TaskDefinition {
     var projectLabelForWidget: String {
         let projectName = projectName?.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -583,6 +641,13 @@ extension TaskDefinition {
 }
 
 final class TaskListWidgetSnapshotService: @unchecked Sendable {
+    struct ActiveSessionSurfaces: Sendable {
+        var fasting: FastingSessionSurfaceSnapshot?
+        var routine: RoutineRunSurfaceSnapshot?
+
+        static let empty = ActiveSessionSurfaces()
+    }
+
     static let shared = TaskListWidgetSnapshotService()
 
     let queue = DispatchQueue(label: "lifeboard.tasklist.widget.snapshot", qos: .utility)
@@ -654,15 +719,23 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
                     let now = Date()
                     self.loadHabitRows(coordinator: coordinator, on: now) { [weak self] habitRows in
                         guard let self else { return }
-                        let snapshot = self.buildSnapshot(
-                            tasks: tasks,
-                            now: now,
-                            habitRows: habitRows,
-                            calendarSnapshot: calendarSnapshot,
-                            workspacePreferences: workspacePreferences
-                        )
-                        self.persistIfChanged(snapshot: snapshot, reason: reason)
-                        self.finishRefresh()
+                        self.loadBehaviorOccurrenceSnapshots(on: now) { [weak self] behaviorOccurrences in
+                            guard let self else { return }
+                            self.loadActiveSessionSurfaces { [weak self] activeSessions in
+                                guard let self else { return }
+                                let snapshot = self.buildSnapshot(
+                                    tasks: tasks,
+                                    now: now,
+                                    habitRows: habitRows,
+                                    behaviorOccurrences: behaviorOccurrences,
+                                    activeSessions: activeSessions,
+                                    calendarSnapshot: calendarSnapshot,
+                                    workspacePreferences: workspacePreferences
+                                )
+                                self.persistIfChanged(snapshot: snapshot, reason: reason)
+                                self.finishRefresh()
+                            }
+                        }
                     }
                 }
             }
@@ -689,6 +762,8 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
         tasks: [TaskDefinition],
         now: Date = Date(),
         habitRows: [HomeHabitRow] = [],
+        behaviorOccurrences: [BehaviorOccurrenceSurfaceSnapshot] = [],
+        activeSessions: ActiveSessionSurfaces = .empty,
         calendarSnapshot: TaskListWidgetCalendarSnapshot = .empty,
         workspacePreferences: LifeBoardWorkspacePreferences = LifeBoardWorkspacePreferences()
     ) -> TaskListWidgetSnapshot {
@@ -801,8 +876,127 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
             ),
             calendar: calendarSnapshot,
             timeline: timelineSnapshot,
-            habit: habitSnapshot
+            habit: habitSnapshot,
+            behaviorOccurrences: behaviorOccurrences,
+            activeFastingSession: activeSessions.fasting,
+            activeRoutineRun: activeSessions.routine
         )
+    }
+
+    func loadActiveSessionSurfaces(
+        completion: @escaping @Sendable (ActiveSessionSurfaces) -> Void
+    ) {
+        guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled,
+              let container = EnhancedDependencyContainer.shared.persistentContainer else {
+            completion(.empty)
+            return
+        }
+        Task {
+            async let fastingValue: FastingSessionSurfaceSnapshot? = {
+                let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
+                return try await repository.fetchFastingSessions(limit: 100)
+                    .first(where: { $0.endedAt == nil })
+                    .map {
+                        FastingSessionSurfaceSnapshot(
+                            sessionID: $0.id,
+                            startedAt: $0.startedAt,
+                            targetEndAt: $0.targetEnd,
+                            updatedAt: $0.updatedAt ?? $0.startedAt
+                        )
+                    }
+            }()
+            async let routineValue: RoutineRunSurfaceSnapshot? = {
+                let repository = CoreDataTrackFoundationRepository(container: container)
+                let run = try await repository.fetchRoutineRuns(routineID: nil)
+                    .filter {
+                        $0.status == .running
+                            || $0.status == .paused
+                            || $0.status == .interrupted
+                    }
+                    .sorted {
+                        if $0.updatedAt != $1.updatedAt { return $0.updatedAt > $1.updatedAt }
+                        return $0.id.uuidString < $1.id.uuidString
+                    }
+                    .first
+                guard let run else { return nil }
+                let step = run.versionSnapshot.steps.first(where: { $0.id == run.currentStepID })
+                let status: RoutineRunSurfaceStatus = switch run.status {
+                case .paused: .paused
+                case .interrupted: .interrupted
+                default: .running
+                }
+                return RoutineRunSurfaceSnapshot(
+                    runID: run.id,
+                    routineID: run.routineID,
+                    title: run.versionSnapshot.title,
+                    status: status,
+                    currentStepTitle: step?.title,
+                    completedStepCount: run.events.count(where: { !$0.wasSkipped }),
+                    totalStepCount: run.versionSnapshot.steps.count,
+                    updatedAt: run.updatedAt
+                )
+            }()
+            let fasting = try? await fastingValue
+            let routine = try? await routineValue
+            let surfaces = ActiveSessionSurfaces(
+                fasting: fasting ?? nil,
+                routine: routine ?? nil
+            )
+            completion(surfaces)
+        }
+    }
+
+    func loadBehaviorOccurrenceSnapshots(
+        on date: Date,
+        completion: @escaping @Sendable ([BehaviorOccurrenceSurfaceSnapshot]) -> Void
+    ) {
+        let container = EnhancedDependencyContainer.shared
+        guard let scheduleRepository = container.scheduleRepository,
+              let occurrenceRepository = container.occurrenceRepository else {
+            completion([])
+            return
+        }
+        scheduleRepository.fetchTemplates { result in
+            guard case .success(let templates) = result else {
+                completion([])
+                return
+            }
+            let relevantTemplates = templates.filter {
+                $0.sourceType == .habit || $0.sourceType == .tracker
+            }
+            guard relevantTemplates.isEmpty == false else {
+                completion([])
+                return
+            }
+            let calendar = Calendar.current
+            let start = calendar.startOfDay(for: date)
+            let end = calendar.date(byAdding: .day, value: 1, to: start)
+                ?? start.addingTimeInterval(86_400)
+            let timezoneByTemplate = Dictionary(
+                uniqueKeysWithValues: relevantTemplates.map {
+                    ($0.id, $0.timezoneID ?? TimeZone.current.identifier)
+                }
+            )
+            CoreSchedulingEngine(
+                scheduleRepository: scheduleRepository,
+                occurrenceRepository: occurrenceRepository
+            ).generateOccurrences(
+                windowStart: start,
+                windowEnd: end,
+                sourceFilter: nil
+            ) { generationResult in
+                guard case .success(let occurrences) = generationResult else {
+                    completion([])
+                    return
+                }
+                completion(BehaviorOccurrenceSurfaceProjection.make(
+                    occurrences: occurrences.filter {
+                        $0.scheduledAt >= start && $0.scheduledAt < end
+                    },
+                    timezoneByTemplateID: timezoneByTemplate
+                ))
+            }
+        }
     }
 
     func loadHabitRows(

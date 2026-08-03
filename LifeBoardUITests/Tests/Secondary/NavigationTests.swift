@@ -12,8 +12,8 @@ class NavigationTests: BaseUITest {
 
     var homePage: HomePage!
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         homePage = HomePage(app: app)
     }
 
@@ -176,6 +176,9 @@ class NavigationTests: BaseUITest {
     }
 
     func testHomeBottomBarStaysStableOnScroll() throws {
+        if app.descendants(matching: .any)["LifeBoardCompactChrome"].exists {
+            throw XCTSkip("Legacy dock is not mounted by the Foundation shell; compact chrome coverage lives in LifeBoardUITests.")
+        }
         XCTAssertTrue(homePage.verifyIsDisplayed(), "Home screen should be displayed")
         XCTAssertTrue(homePage.verifyBottomBarExists(), "Home bottom bar should exist")
         XCTAssertTrue(homePage.addTaskButton.waitForExistence(timeout: 3), "Add Task button should exist")

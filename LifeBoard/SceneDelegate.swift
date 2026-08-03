@@ -9,6 +9,7 @@
 import UIKit
 import UserNotifications
 import SwiftUI
+import CoreSpotlight
 
 // Import Clean Architecture components
 // These types are defined in the Presentation layer
@@ -43,6 +44,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     var window: UIWindow?
     private var persistentBootstrapObserver: NSObjectProtocol?
+    private weak var journalPrivacyShield: UIView?
+    private var navigationEventCoordinator: LifeBoardNavigationEventCoordinator?
+    private var launchCoordinator: LifeBoardLaunchCoordinator?
+    private var onboardingCoordinator: AppOnboardingCoordinator?
 
 
     /// Executes scene.
@@ -74,6 +79,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if let deepLinkURL = connectionOptions.urlContexts.first?.url {
             DispatchQueue.main.async { [weak self] in
                 self?.handleIncomingURL(deepLinkURL)
+            }
+        } else if let userActivity = connectionOptions.userActivities.first {
+            DispatchQueue.main.async { [weak self] in
+                self?.handleIncomingUserActivity(userActivity)
             }
         }
     }
@@ -108,11 +117,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         return makeDeferredHomeRootController(
             bootstrapState: appDelegate.persistentBootstrapState,
             failureMessage: AppDelegate.persistentBootstrapFailureMessage,
-            instantiateHomeViewController: {
-                let storyboard = UIStoryboard(name: "Main", bundle: nil)
-                return storyboard.instantiateViewController(withIdentifier: "homeScreen") as? HomeViewController
-            },
-            tryInject: { PresentationDependencyContainer.shared.tryInject(into: $0) }
+            makeHomeViewModel: {
+                let dependencies = PresentationDependencyContainer.shared
+                guard dependencies.isConfiguredForRuntime else { return nil }
+                return dependencies.makeHomeViewModel()
+            }
         )
     }
 
@@ -120,26 +129,378 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func makeDeferredHomeRootController(
         bootstrapState: PersistentBootstrapState,
         failureMessage: String?,
-        instantiateHomeViewController: () -> HomeViewController?,
-        tryInject: (HomeViewController) -> Bool
+        makeHomeViewModel: () -> HomeViewModel?
     ) -> UIViewController? {
         guard case .ready = bootstrapState else {
             return nil
         }
 
-        guard let homeViewController = instantiateHomeViewController() else {
-            showBootstrapFailureRoot(message: "LifeBoard could not load the home screen.")
-            return nil
-        }
-
-        guard tryInject(homeViewController) else {
+        guard let homeViewModel = makeHomeViewModel() else {
             showBootstrapFailureRoot(
                 message: failureMessage ?? "LifeBoard could not initialize dependencies."
             )
             return nil
         }
 
-        return UINavigationController(rootViewController: homeViewController)
+        let projectionCoordinator = HomeProjectionCoordinator(homeViewModel: homeViewModel)
+        let launchCoordinator = LifeBoardLaunchCoordinator(
+            presentationDependencies: PresentationDependencyContainer.shared,
+            homeViewModel: homeViewModel,
+            router: LifeOSFoundationRuntime.shared.router
+        )
+        self.launchCoordinator = launchCoordinator
+        guard let appDelegate = UIApplication.shared.delegate as? AppDelegate,
+              let persistentContainer = appDelegate.persistentContainer else {
+            showBootstrapFailureRoot(message: "LifeBoard storage finished opening without a persistent container.")
+            return nil
+        }
+        let state = EnhancedDependencyContainer.shared
+        guard let taskRepository = state.taskDefinitionRepository,
+              let habitRepository = state.habitRuntimeReadRepository,
+              let tagRepository = state.tagRepository,
+              let coordinator = state.useCaseCoordinator else {
+            showBootstrapFailureRoot(message: "LifeBoard’s canonical task and habit services did not finish setup.")
+            return nil
+        }
+
+        // One coordinator owns every permission invitation, so a feature can invite
+        // a not-yet-granted user without any two prompts stacking. Wiring the real
+        // requests here keeps the coordinator free of service dependencies.
+        LifeBoardPermissionPrimingCoordinator.shared.configure(
+            connectHealth: { domains in
+                await LifeBoardHealthRuntime.shared.connectionStore.connect(domains: domains)
+            },
+            requestNotifications: {
+                guard let service = EnhancedDependencyContainer.shared.notificationService else { return }
+                _ = await service.requestPermissionAsync()
+            },
+            requestCalendar: {
+                coordinator.calendarIntegrationService.requestAccess(source: "permission_priming")
+            }
+        )
+
+        let layoutRepository = CoreDataDashboardLayoutRepository(container: persistentContainer)
+        let phaseIIRepository = CoreDataLifeBoardPhaseIIRepository(container: persistentContainer)
+        let planningRepository = CoreDataPlanningRepository(container: persistentContainer)
+        let planDependencies: PlanFeatureDependencies? = {
+            guard V2FeatureFlags.phase1ExecutionFlagshipEnabled else { return nil }
+            return PlanFeatureDependencies(
+                planningRepository: planningRepository,
+                taskDefinitionRepository: taskRepository,
+                projectRepository: state.projectRepository,
+                sectionRepository: state.sectionRepository,
+                lifeAreaRepository: state.lifeAreaRepository,
+                tagRepository: tagRepository,
+                gamificationEngine: coordinator.gamificationEngine,
+                taskTagLinkRepository: state.taskTagLinkRepository,
+                taskDependencyRepository: state.taskDependencyRepository,
+                reflectionNoteRepository: state.reflectionNoteRepository
+            )
+        }()
+        if let planDependencies {
+            homeViewModel.configureCanonicalFocusCommands(planDependencies.focusCommands)
+        }
+        let trackFoundationRepository = CoreDataTrackFoundationRepository(container: persistentContainer)
+        let habitRuntimeReadRepository = CoreDataHabitRuntimeReadRepository(container: persistentContainer)
+        let goalSampleProvider = CoreDataGoalSampleProvider(container: persistentContainer)
+        let nutritionRepository = CoreDataNutritionRepository(container: persistentContainer)
+        let lifeMomentRepository = CoreDataLifeMomentRepository(container: persistentContainer)
+        let wellnessRepository = CoreDataWellnessRepository(container: persistentContainer)
+        #if canImport(WatchConnectivity) && os(iOS)
+        LifeBoardWatchConnectivityCoordinator.shared.configure(
+            repository: phaseIIRepository,
+            container: persistentContainer,
+            resolveBehaviorOccurrence: { command, completion in
+                guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled else {
+                    completion(.failure(NSError(
+                        domain: "LifeBoardWatchBehavior",
+                        code: 403,
+                        userInfo: [
+                            NSLocalizedDescriptionKey:
+                                "Behavior actions are unavailable while the flagship is disabled."
+                        ]
+                    )))
+                    return
+                }
+                coordinator.resolveOccurrence.execute(
+                    id: command.occurrenceID,
+                    resolution: command.action == .complete ? .completed : .skipped,
+                    actor: .user,
+                    completion: completion
+                )
+            },
+            resolveFasting: { command, completion in
+                guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled else {
+                    completion(.failure(NSError(
+                        domain: "LifeBoardWatchFasting",
+                        code: 403,
+                        userInfo: [NSLocalizedDescriptionKey: "Fasting controls are unavailable while the flagship is disabled."]
+                    )))
+                    return
+                }
+                Task {
+                    do {
+                        let store = FastingTimerStore(
+                            repository: LifeBoardFastingRepositoryAdapter(repository: phaseIIRepository)
+                        )
+                        guard try await store.activeSession()?.id == command.sessionID else {
+                            throw NSError(
+                                domain: "LifeBoardWatchFasting",
+                                code: 409,
+                                userInfo: [NSLocalizedDescriptionKey: "That fasting session is no longer active."]
+                            )
+                        }
+                        switch command.action {
+                        case .finish:
+                            _ = try await store.finish()
+                        case .cancel:
+                            _ = try await store.cancel()
+                        }
+                        completion(.success(()))
+                    } catch {
+                        completion(.failure(error))
+                    }
+                }
+            },
+            resolveRoutine: { command, completion in
+                guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled else {
+                    completion(.failure(NSError(
+                        domain: "LifeBoardWatchRoutine",
+                        code: 403,
+                        userInfo: [NSLocalizedDescriptionKey: "Routine controls are unavailable while the flagship is disabled."]
+                    )))
+                    return
+                }
+                Task {
+                    do {
+                        guard let run = try await trackFoundationRepository
+                            .fetchRoutineRuns(routineID: nil)
+                            .first(where: { $0.id == command.runID }) else {
+                            throw NSError(
+                                domain: "LifeBoardWatchRoutine",
+                                code: 404,
+                                userInfo: [NSLocalizedDescriptionKey: "That routine run is no longer available."]
+                            )
+                        }
+                        let runCommand: RoutineRunCommand = switch command.action {
+                        case .pause: .pause
+                        case .resume: .resume
+                        case .stop: .stop
+                        }
+                        let transition = DefaultRoutineExecutionService().apply(
+                            command: runCommand,
+                            to: run,
+                            at: Date()
+                        )
+                        try await trackFoundationRepository.saveRoutineRun(transition.run)
+                        await RoutineLiveActivityCoordinator.shared.synchronize(run: transition.run)
+                        LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
+                        completion(.success(()))
+                    } catch {
+                        completion(.failure(error))
+                    }
+                }
+            }
+        )
+        #endif
+        if V2FeatureFlags.lifeOSSystemSurfacesV2Enabled,
+           let snapshotStore = LifeBoardSystemSnapshotStore.appGroup() {
+            let projector = LifeBoardSystemSurfaceProjectionCoordinator(
+                store: snapshotStore,
+                phaseII: phaseIIRepository,
+                track: trackFoundationRepository,
+                wellness: wellnessRepository,
+                nutrition: nutritionRepository,
+                moments: lifeMomentRepository
+            )
+            Task {
+                // Registration makes every canonical mutation republish the
+                // redacted widget/Watch envelopes instead of relying on the
+                // single launch-time refresh.
+                await LifeBoardSystemSurfaceRefresher.install(projector)
+                await projector.refresh()
+            }
+        }
+        let routineLinkedMutationApplier = CanonicalRoutineLinkedMutationApplier(
+            taskRepository: taskRepository,
+            habitRepository: habitRepository,
+            completeTask: coordinator.completeTaskDefinition,
+            resolveHabit: coordinator.resolveHabitOccurrence
+        )
+        let starterPackMutationApplier = CanonicalStarterPackMutationApplier(
+            lifeAreaRepository: coordinator.lifeAreaRepository,
+            createHabitUseCase: coordinator.createHabit,
+            setHabitArchivedUseCase: coordinator.setHabitArchived
+        )
+        let habitRecoveryMutationApplier = CanonicalHabitRecoveryMutationApplier(
+            repository: habitRepository,
+            resolveHabit: coordinator.resolveHabitOccurrence,
+            resetHabit: coordinator.resetHabitOccurrence,
+            resolveOccurrence: coordinator.resolveOccurrence,
+            recomputeStreaks: coordinator.recomputeHabitStreaks
+        )
+
+        let foundationRoot = LifeOSFoundationShell(
+                homeViewModel: homeViewModel,
+                homeProjectionAdapter: projectionCoordinator,
+                dashboardLayoutRepository: layoutRepository,
+                phaseIIRepository: phaseIIRepository,
+                planningRepository: planningRepository,
+                planDependencies: planDependencies,
+                trackFoundationRepository: trackFoundationRepository,
+                habitRuntimeReadRepository: habitRuntimeReadRepository,
+                routineLinkedMutationApplier: routineLinkedMutationApplier,
+                goalSampleProvider: goalSampleProvider,
+                starterPackMutationApplier: starterPackMutationApplier,
+                habitRecoveryMutationApplier: habitRecoveryMutationApplier,
+                nutritionRepository: nutritionRepository,
+                lifeMomentRepository: lifeMomentRepository,
+                wellnessRepository: wellnessRepository,
+                gamificationRepository: coordinator.gamificationRepository
+            )
+        let foundationController = LifeBoardApplicationHostController(
+            root: AnyView(foundationRoot),
+            presentationDependencies: PresentationDependencyContainer.shared,
+            planDependencies: planDependencies,
+            router: LifeOSFoundationRuntime.shared.router
+        )
+
+        navigationEventCoordinator?.stop()
+        let navigationEventCoordinator = LifeBoardNavigationEventCoordinator(
+            router: LifeOSFoundationRuntime.shared.router,
+            homeViewModel: homeViewModel
+        )
+        navigationEventCoordinator.start()
+        self.navigationEventCoordinator = navigationEventCoordinator
+        let onboardingCoordinator = AppOnboardingCoordinator(
+            hostAdapter: foundationController,
+            presentationDependencyContainer: PresentationDependencyContainer.shared,
+            guidanceModel: HomeOnboardingGuidanceModel()
+        )
+        self.onboardingCoordinator = onboardingCoordinator
+
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("-UI_TESTING"),
+           arguments.contains(where: { $0.hasPrefix("-LIFEBOARD_TEST_SEED_") }) {
+            let gate = FoundationUITestSeedGateViewController()
+            launchCoordinator.seedUITestWorkspacesIfNeeded { [weak gate, weak onboardingCoordinator] in
+                Self.seedDayLoopRitualsIfNeeded(
+                    planning: planningRepository,
+                    tasks: taskRepository
+                ) {
+                    gate?.install(foundationController)
+                    DispatchQueue.main.async {
+                        onboardingCoordinator?.evaluateLaunchIfNeeded()
+                    }
+                }
+            }
+            return gate
+        }
+
+        // Manual simulator verification of the rituals does not run under
+        // `-UI_TESTING`, and the seed argument was previously gated behind it —
+        // so launching with `-LIFEBOARD_FORCE_DAY_CLOSE -LIFEBOARD_TEST_SEED_DAY_CLOSE`
+        // by hand silently seeded nothing. There is no seed gate here: the
+        // rituals are reached by tapping, so the write only has to land before
+        // the person navigates, not before the first frame.
+        Self.seedDayLoopRitualsIfNeeded(
+            planning: planningRepository,
+            tasks: taskRepository
+        ) {}
+        DispatchQueue.main.async { [weak onboardingCoordinator] in
+            onboardingCoordinator?.evaluateLaunchIfNeeded()
+        }
+
+        return foundationController
+    }
+
+    /// Commits three known tasks to a day so the day-loop rituals have a deck.
+    ///
+    /// `-LIFEBOARD_TEST_SEED_DAY_CLOSE` commits them to today, which is what the
+    /// evening ritual reconciles. `-LIFEBOARD_TEST_SEED_DAY_OPEN` commits them to
+    /// yesterday, because `DayCloseStore` in `.open` mode reads a distinct
+    /// `retrospectiveDay` — seeding today leaves the morning surface empty.
+    ///
+    /// This creates its own tasks. It previously wrote planning metadata over
+    /// whatever another seeder had already made and returned silently when it
+    /// found none, so it produced an empty deck unless it happened to be paired
+    /// with a workspace seed — and `-LIFEBOARD_TEST_SEED_DAY_CLOSE` is not a
+    /// case `HomeUITestWorkspaceSeeder` recognises, so pairing it did not help.
+    /// Owning the rows also makes the must-do-first ordering deterministic
+    /// instead of depending on which task `fetchAll` returned first.
+    private static func seedDayLoopRitualsIfNeeded(
+        planning: CoreDataPlanningRepository,
+        tasks: any TaskDefinitionRepositoryProtocol,
+        completion: @escaping () -> Void
+    ) {
+        let arguments = ProcessInfo.processInfo.arguments
+        let seedsClose = arguments.contains("-LIFEBOARD_TEST_SEED_DAY_CLOSE")
+        let seedsOpen = arguments.contains("-LIFEBOARD_TEST_SEED_DAY_OPEN")
+        guard seedsClose || seedsOpen else {
+            completion()
+            return
+        }
+        // Fixed identifiers so the deck's "must-do first, then UUID" ordering is
+        // reproducible across runs and a screenshot can be compared to the last.
+        let seeds: [(id: UUID, title: String, commitment: TaskCommitmentLevel)] = [
+            (UUID(uuidString: "0DC10000-0000-0000-0000-000000000001")!,
+             "Draft the quarterly note", .mustDo),
+            (UUID(uuidString: "0DC10000-0000-0000-0000-000000000002")!,
+             "Reply to the venue about Friday", .standard),
+            (UUID(uuidString: "0DC10000-0000-0000-0000-000000000003")!,
+             "Book the dentist", .standard)
+        ]
+        let day = PlanningDay(
+            date: seedsOpen ? Date().addingTimeInterval(-86_400) : Date()
+        )
+
+        Task { @MainActor in
+            defer { completion() }
+            let existing: [TaskDefinition] = await withCheckedContinuation { continuation in
+                tasks.fetchAll { continuation.resume(returning: (try? $0.get()) ?? []) }
+            }
+            let existingIDs = Set(existing.map(\.id))
+            let existingMetadata = (
+                try? await planning.fetchTaskMetadata(taskIDs: Set(seeds.map(\.id)))
+            ) ?? []
+            let metadataByID = Dictionary(
+                uniqueKeysWithValues: existingMetadata.map { ($0.taskID, $0) }
+            )
+
+            for seed in seeds {
+                if existingIDs.contains(seed.id) == false {
+                    let definition = TaskDefinition(
+                        id: seed.id,
+                        projectID: ProjectConstants.inboxProjectID,
+                        title: seed.title
+                    )
+                    let created: Bool = await withCheckedContinuation { continuation in
+                        tasks.create(definition) { continuation.resume(returning: (try? $0.get()) != nil) }
+                    }
+                    guard created else {
+                        // Swallowing this made a failed seed indistinguishable
+                        // from a successful one, which is how the empty deck
+                        // went undiagnosed.
+                        logError("Day-loop seed could not create task \(seed.title)")
+                        continue
+                    }
+                }
+                // Read-modify-write: constructing fresh metadata reset fields the
+                // deck filters on, notably `availability` and
+                // `unscheduledDisposition`.
+                var metadata = metadataByID[seed.id] ?? PlanningTaskMetadata(taskID: seed.id)
+                metadata.planningDay = day
+                metadata.commitmentLevel = seed.commitment
+                metadata.availability = .actionable
+                metadata.unscheduledDisposition = .inbox
+                metadata.updatedAt = Date()
+                do {
+                    try await planning.saveTaskMetadata(metadata)
+                } catch {
+                    logError("Day-loop seed could not commit \(seed.title): \(error)")
+                }
+            }
+        }
     }
 
     /// Executes showBootstrapFailureRoot.
@@ -192,6 +553,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Called when the scene has moved from an inactive state to an active state.
         // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_did_become_active")
+        // Compile signature Metal effects off the first-use path so the first bloom/reveal is smooth.
+        LifeBoardSignatureShaders.warmUp()
+        removeJournalPrivacyShield()
     }
 
     /// Executes sceneWillResignActive.
@@ -201,6 +565,35 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         Task { @MainActor in
             LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "scene_will_resign_active")
         }
+        installJournalPrivacyShieldIfNeeded()
+    }
+
+    private func installJournalPrivacyShieldIfNeeded() {
+        let defaults = UserDefaults(suiteName: AppGroupConstants.suiteName) ?? .standard
+        let policy = JournalPrivacyPolicyPersistence.load(from: defaults)
+        guard policy.shieldsAppSwitcher, journalPrivacyShield == nil, let window else { return }
+
+        let shield = UIView(frame: window.bounds)
+        shield.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+        shield.backgroundColor = LifeBoardColorTokens.foundationCanvas
+        shield.isAccessibilityElement = true
+        shield.accessibilityLabel = "LifeBoard content hidden for privacy"
+
+        let symbol = UIImageView(image: UIImage(systemName: "lock.shield.fill"))
+        symbol.tintColor = LifeBoardColorTokens.foundationApricotAccent
+        symbol.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold)
+        symbol.translatesAutoresizingMaskIntoConstraints = false
+        shield.addSubview(symbol)
+        NSLayoutConstraint.activate([
+            symbol.centerXAnchor.constraint(equalTo: shield.centerXAnchor),
+            symbol.centerYAnchor.constraint(equalTo: shield.centerYAnchor)
+        ])
+        window.addSubview(shield)
+        journalPrivacyShield = shield
+    }
+
+    private func removeJournalPrivacyShield() {
+        journalPrivacyShield?.removeFromSuperview()
     }
 
     /// Executes sceneWillEnterForeground.
@@ -217,6 +610,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // to restore the scene back to its current state.
         Task { @MainActor in
             LLMRuntimeCoordinator.shared.cancelDeferredPrewarm(reason: "scene_did_enter_background")
+            LifeOSFoundationRuntime.shared.router.journalDidLock()
         }
         (UIApplication.shared.delegate as? AppDelegate)?.reconcileNotifications(reason: "scene_did_enter_background")
     }
@@ -226,10 +620,37 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         handleIncomingURL(url)
     }
 
+    func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        handleIncomingUserActivity(userActivity)
+    }
+
+    private func handleIncomingUserActivity(_ userActivity: NSUserActivity) {
+        if let webpageURL = userActivity.webpageURL {
+            handleIncomingURL(webpageURL)
+            return
+        }
+        guard userActivity.activityType == CSSearchableItemActionType,
+              let identifier = userActivity.userInfo?[CSSearchableItemActivityIdentifier] as? String else {
+            return
+        }
+        if let url = LifeBoardSpotlightRouteTranslator.url(for: identifier) {
+            handleIncomingURL(url)
+        } else if identifier.hasPrefix(LifeBoardSpotlightRouteTranslator.journalPrefix) {
+            LifeOSFoundationRuntime.shared.router.restoreFallbackToHome(
+                message: "That Journal result is incomplete or no longer available."
+            )
+        }
+    }
+
     func handleNotificationLaunch(
         request: UNNotificationRequest,
         actionIdentifier: String = UNNotificationDefaultActionIdentifier
     ) {
+        if V2FeatureFlags.lifeOSFoundationV1Enabled,
+           let route = foundationNavigationRoute(for: request, actionIdentifier: actionIdentifier) {
+            LifeOSFoundationRuntime.shared.router.handle(notificationRoute: route)
+            return
+        }
         if let actionHandler = LifeBoardNotificationRuntime.actionHandler {
             actionHandler.handleAction(identifier: actionIdentifier, request: request)
             return
@@ -246,10 +667,160 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             payload: payload ?? "home_today",
             fallbackTaskID: taskID
         )
+        if V2FeatureFlags.lifeOSFoundationV1Enabled {
+            LifeOSFoundationRuntime.shared.router.handle(notificationRoute: route)
+            return
+        }
         LifeBoardNotificationRouteBus.shared.post(route: route)
     }
 
+    private func foundationNavigationRoute(
+        for request: UNNotificationRequest,
+        actionIdentifier: String
+    ) -> LifeBoardNotificationRoute? {
+        let payload = request.content.userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.route] as? String
+        let taskID = (request.content.userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.taskID] as? String)
+            .flatMap(UUID.init(uuidString:))
+        let payloadRoute = LifeBoardNotificationRoute.from(
+            payload: payload ?? "home_today",
+            fallbackTaskID: taskID
+        )
+        if actionIdentifier == UNNotificationDefaultActionIdentifier { return payloadRoute }
+        guard let action = LifeBoardNotificationActionID(rawValue: actionIdentifier) else { return nil }
+        switch action {
+        case .open: return payloadRoute
+        case .openToday: return .homeToday(taskID: taskID)
+        case .openWeeklyPlanner: return .weeklyPlanner
+        case .openWeeklyReview: return .weeklyReview
+        case .openDone: return .homeDone
+        case .complete, .snooze15m, .snooze30m, .snooze60m: return nil
+        }
+    }
+
     private func handleIncomingURL(_ url: URL) {
+        if let command = RoutineLiveActivityDeepLink.command(from: url) {
+            _ = LifeOSFoundationRuntime.shared.handle(url: url)
+            guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled else {
+                LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                    title: "Routine controls unavailable",
+                    message: "Open Track to review the current run."
+                )
+                return
+            }
+            guard let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {
+                LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                    title: "Routine command pending",
+                    message: "LifeBoard is still opening. Use the in-app routine controls once Track appears."
+                )
+                return
+            }
+            let repository = CoreDataTrackFoundationRepository(container: container)
+            Task {
+                do {
+                    guard let run = try await repository
+                        .fetchRoutineRuns(routineID: nil)
+                        .first(where: { $0.id == command.runID }) else {
+                        throw NSError(
+                            domain: "RoutineLiveActivity",
+                            code: 404,
+                            userInfo: [NSLocalizedDescriptionKey: "Routine run not found"]
+                        )
+                    }
+                    let transition = DefaultRoutineExecutionService().apply(
+                        command: command.action.runCommand,
+                        to: run,
+                        at: Date()
+                    )
+                    try await repository.saveRoutineRun(transition.run)
+                    await RoutineLiveActivityCoordinator.shared.synchronize(run: transition.run)
+                    LifeBoardSystemSurfaceRefresher.requestRefreshSoon()
+                } catch {
+                    await MainActor.run {
+                        LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                            title: "Routine command not applied",
+                            message: "The run may already have ended. Open Track to review its current state."
+                        )
+                    }
+                }
+            }
+            return
+        }
+        if let command = FastingLiveActivityDeepLink.command(from: url) {
+            _ = LifeOSFoundationRuntime.shared.handle(url: url)
+            guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled else {
+                LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                    title: "Fasting controls unavailable",
+                    message: "Open Track to review the current session."
+                )
+                return
+            }
+            guard let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {
+                LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                    title: "Fasting command pending",
+                    message: "LifeBoard is still opening. Use the in-app fasting controls once Track appears."
+                )
+                return
+            }
+            let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
+            let store = FastingTimerStore(
+                repository: LifeBoardFastingRepositoryAdapter(repository: repository)
+            )
+            Task {
+                do {
+                    guard try await store.activeSession()?.id == command.sessionID else {
+                        throw FastingTimerStoreError.noActiveSession
+                    }
+                    switch command.action {
+                    case .finish:
+                        _ = try await store.finish()
+                    case .cancel:
+                        _ = try await store.cancel()
+                    }
+                } catch {
+                    await MainActor.run {
+                        LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                            title: "Fasting command not applied",
+                            message: "The session may already have ended. Open Track to review its current state."
+                        )
+                    }
+                }
+            }
+            return
+        }
+        if let command = FocusLiveActivityDeepLink.command(from: url) {
+            _ = LifeOSFoundationRuntime.shared.handle(url: url)
+            guard let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {
+                LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                    title: "Focus command pending",
+                    message: "LifeBoard is still opening. Use the in-app Focus controls once Plan appears."
+                )
+                return
+            }
+            let repository = CoreDataPlanningRepository(container: container)
+            Task {
+                do {
+                    let session = try await repository.handle(command)
+                    let liveActivitiesAvailable = await FocusLiveActivityCoordinator.shared.synchronize(session: session)
+                    await FocusNotificationFallbackCoordinator.shared.synchronize(
+                        session: session,
+                        title: "Focus session",
+                        liveActivitiesAvailable: liveActivitiesAvailable
+                    )
+                } catch {
+                    await MainActor.run {
+                        LifeOSFoundationRuntime.shared.router.activeAlert = AppAlertState(
+                            title: "Focus command not applied",
+                            message: "The session may already have ended. Open Plan to review its current state."
+                        )
+                    }
+                }
+            }
+            return
+        }
+        if V2FeatureFlags.lifeOSFoundationV1Enabled,
+           LifeOSFoundationRuntime.shared.handle(url: url) {
+            return
+        }
         guard let scheme = url.scheme?.lowercased(), ["lifeboard", "tasker"].contains(scheme) else { return }
         guard let host = url.host?.lowercased() else { return }
         let pathSegments = url.pathComponents.filter { $0 != "/" }
@@ -414,6 +985,43 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 renderRoot(for: .bootstrapFailure(message: message))
             }
         }
+    }
+}
+
+/// Keeps seeded UI journeys deterministic without delaying or changing production launch.
+private final class FoundationUITestSeedGateViewController: UIViewController {
+    private let progress = UIActivityIndicatorView(style: .medium)
+    private var installed = false
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        view.backgroundColor = LifeBoardColorTokens.foundationCanvas
+        progress.translatesAutoresizingMaskIntoConstraints = false
+        progress.startAnimating()
+        progress.accessibilityLabel = "Preparing LifeBoard test workspace"
+        view.addSubview(progress)
+        NSLayoutConstraint.activate([
+            progress.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            progress.centerYAnchor.constraint(equalTo: view.centerYAnchor)
+        ])
+    }
+
+    func install(_ controller: UIViewController) {
+        guard installed == false else { return }
+        installed = true
+        loadViewIfNeeded()
+        addChild(controller)
+        controller.view.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(controller.view)
+        NSLayoutConstraint.activate([
+            controller.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            controller.view.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            controller.view.topAnchor.constraint(equalTo: view.topAnchor),
+            controller.view.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        ])
+        controller.didMove(toParent: self)
+        progress.stopAnimating()
+        progress.removeFromSuperview()
     }
 }
 

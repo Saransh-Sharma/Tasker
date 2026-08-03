@@ -80,64 +80,6 @@ final class OverdueRescuePage {
 }
 
 @MainActor
-final class ReflectPlanPage {
-    private let app: XCUIApplication
-
-    init(app: XCUIApplication) {
-        self.app = app
-    }
-
-    var screen: XCUIElement {
-        app.descendants(matching: .any)[AccessibilityIdentifiers.ReflectPlan.screen]
-    }
-
-    var yesterdayCard: XCUIElement {
-        app.descendants(matching: .any)[AccessibilityIdentifiers.ReflectPlan.yesterdayCard]
-    }
-
-    var todayCard: XCUIElement {
-        app.descendants(matching: .any)[AccessibilityIdentifiers.ReflectPlan.todayCard]
-    }
-
-    var contextToggle: XCUIElement {
-        app.buttons[AccessibilityIdentifiers.ReflectPlan.contextToggle]
-    }
-
-    var noteField: XCUIElement {
-        app.textFields[AccessibilityIdentifiers.ReflectPlan.noteField]
-    }
-
-    var saveButton: XCUIElement {
-        app.buttons[AccessibilityIdentifiers.ReflectPlan.save]
-    }
-
-    var swapSearchField: XCUIElement {
-        app.textFields[AccessibilityIdentifiers.ReflectPlan.swapSearch]
-    }
-
-    func todayTaskSwap(index: Int) -> XCUIElement {
-        let identifier = AccessibilityIdentifiers.ReflectPlan.todayTaskSwap(index)
-        let button = app.buttons[identifier]
-        if button.exists {
-            return button
-        }
-        return app.descendants(matching: .any)[identifier]
-    }
-
-    func swapOptionUse(id: String) -> XCUIElement {
-        app.buttons[AccessibilityIdentifiers.ReflectPlan.swapOptionUse(id)]
-    }
-
-    func tap(_ element: XCUIElement) {
-        if element.isHittable {
-            element.tap()
-        } else {
-            element.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
-        }
-    }
-}
-
-@MainActor
 final class FocusNowPage {
     private let app: XCUIApplication
     private let homePage: HomePage

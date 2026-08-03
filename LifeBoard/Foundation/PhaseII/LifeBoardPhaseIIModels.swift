@@ -1,0 +1,2485 @@
+import Foundation
+import JournalFoundation
+import ReflectionKit
+
+// MARK: - Trackers and care
+
+public enum LifeBoardTrackerKind: String, Codable, CaseIterable, Hashable, Sendable {
+    case boolean
+    case count
+    case quantity
+    case rating
+    case duration
+    case text
+    case choice
+    case timestamp
+}
+
+public enum TrackerValue: Codable, Hashable, Sendable {
+    case boolean(Bool)
+    case count(Int)
+    case quantity(Double, unit: String?)
+    case rating(Double)
+    case duration(TimeInterval)
+    case text(String)
+    case choice(String)
+    case timestamp(Date)
+}
+
+public enum TrackerAggregation: String, Codable, CaseIterable, Hashable, Sendable {
+    case latest
+    case sum
+    case average
+    case minimum
+    case maximum
+    case count
+}
+
+public enum TrackerPrivacyClass: String, Codable, CaseIterable, Hashable, Sendable {
+    case standard
+    case personal
+    case sensitive
+}
+
+public struct LifeBoardTrackerDefinitionValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var title: String
+    public var kind: LifeBoardTrackerKind
+    public var unitLabel: String?
+    public var targetValue: Double?
+    public var schedule: Set<Int>
+    public var reminderMinutes: Int?
+    public var isArchived: Bool
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var valueType: LifeBoardTrackerKind?
+    public var rangeMin: Double?
+    public var rangeMax: Double?
+    public var aggregation: TrackerAggregation?
+    public var privacyClass: TrackerPrivacyClass?
+    public var isHomeEligible: Bool?
+    public var choiceOptions: [String]?
+
+    public init(
+        id: UUID = UUID(),
+        title: String,
+        kind: LifeBoardTrackerKind,
+        unitLabel: String? = nil,
+        targetValue: Double? = nil,
+        schedule: Set<Int> = Set(1...7),
+        reminderMinutes: Int? = nil,
+        isArchived: Bool = false,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        valueType: LifeBoardTrackerKind? = nil,
+        rangeMin: Double? = nil,
+        rangeMax: Double? = nil,
+        aggregation: TrackerAggregation? = nil,
+        privacyClass: TrackerPrivacyClass? = nil,
+        isHomeEligible: Bool? = nil,
+        choiceOptions: [String]? = nil
+    ) {
+        self.id = id
+        self.title = title
+        self.kind = kind
+        self.unitLabel = unitLabel
+        self.targetValue = targetValue
+        self.schedule = schedule
+        self.reminderMinutes = reminderMinutes
+        self.isArchived = isArchived
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.valueType = valueType
+        self.rangeMin = rangeMin
+        self.rangeMax = rangeMax
+        self.aggregation = aggregation
+        self.privacyClass = privacyClass
+        self.isHomeEligible = isHomeEligible
+        self.choiceOptions = choiceOptions
+    }
+
+    public var effectiveValueType: LifeBoardTrackerKind { valueType ?? kind }
+    public var effectiveAggregation: TrackerAggregation { aggregation ?? .latest }
+    public var effectivePrivacyClass: TrackerPrivacyClass { privacyClass ?? .sensitive }
+    public var permitsHomeProjection: Bool {
+        effectivePrivacyClass != .sensitive && isHomeEligible == true
+    }
+}
+
+public struct LifeBoardTrackerEntryValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var trackerID: UUID
+    public var timestamp: Date
+    public var numericValue: Double?
+    public var booleanValue: Bool?
+    public var note: String?
+    public var value: TrackerValue?
+
+    public init(
+        id: UUID = UUID(),
+        trackerID: UUID,
+        timestamp: Date = Date(),
+        numericValue: Double? = nil,
+        booleanValue: Bool? = nil,
+        note: String? = nil,
+        value: TrackerValue? = nil
+    ) {
+        self.id = id
+        self.trackerID = trackerID
+        self.timestamp = timestamp
+        self.numericValue = numericValue
+        self.booleanValue = booleanValue
+        self.note = note
+        self.value = value
+    }
+}
+
+public enum LifeBoardTrackerTemplate: String, CaseIterable, Identifiable, Hashable, Sendable {
+    case pain
+    case symptoms
+    case caffeine
+    case reading
+    case spending
+    case screenTime
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .pain: "Pain note"
+        case .symptoms: "Symptom note"
+        case .caffeine: "Caffeine"
+        case .reading: "Reading"
+        case .spending: "Spending"
+        case .screenTime: "Screen time"
+        }
+    }
+
+    public var detail: String {
+        switch self {
+        case .pain: "A personal 0–10 observation. Non-clinical."
+        case .symptoms: "A private text observation. Non-clinical."
+        case .caffeine: "Record an amount in milligrams."
+        case .reading: "Record time spent reading."
+        case .spending: "Record an amount in your preferred currency."
+        case .screenTime: "Record a duration without judgment."
+        }
+    }
+
+    public var isHealthLike: Bool {
+        self == .pain || self == .symptoms
+    }
+
+    public func instantiate(at date: Date = Date()) -> LifeBoardTrackerDefinitionValue {
+        switch self {
+        case .pain:
+            LifeBoardTrackerDefinitionValue(
+                title: title,
+                kind: .rating,
+                targetValue: nil,
+                createdAt: date,
+                updatedAt: date,
+                valueType: .rating,
+                rangeMin: 0,
+                rangeMax: 10,
+                aggregation: .average,
+                privacyClass: .sensitive,
+                isHomeEligible: false
+            )
+        case .symptoms:
+            LifeBoardTrackerDefinitionValue(
+                title: title,
+                kind: .text,
+                targetValue: nil,
+                createdAt: date,
+                updatedAt: date,
+                valueType: .text,
+                aggregation: .latest,
+                privacyClass: .sensitive,
+                isHomeEligible: false
+            )
+        case .caffeine:
+            LifeBoardTrackerDefinitionValue(
+                title: title,
+                kind: .quantity,
+                unitLabel: "mg",
+                targetValue: nil,
+                createdAt: date,
+                updatedAt: date,
+                valueType: .quantity,
+                aggregation: .sum,
+                privacyClass: .personal,
+                isHomeEligible: false
+            )
+        case .reading:
+            LifeBoardTrackerDefinitionValue(
+                title: title,
+                kind: .duration,
+                unitLabel: "minutes",
+                targetValue: nil,
+                createdAt: date,
+                updatedAt: date,
+                valueType: .duration,
+                aggregation: .sum,
+                privacyClass: .personal,
+                isHomeEligible: true
+            )
+        case .spending:
+            LifeBoardTrackerDefinitionValue(
+                title: title,
+                kind: .quantity,
+                unitLabel: "currency",
+                targetValue: nil,
+                createdAt: date,
+                updatedAt: date,
+                valueType: .quantity,
+                aggregation: .sum,
+                privacyClass: .personal,
+                isHomeEligible: false
+            )
+        case .screenTime:
+            LifeBoardTrackerDefinitionValue(
+                title: title,
+                kind: .duration,
+                unitLabel: "minutes",
+                targetValue: nil,
+                createdAt: date,
+                updatedAt: date,
+                valueType: .duration,
+                aggregation: .sum,
+                privacyClass: .personal,
+                isHomeEligible: false
+            )
+        }
+    }
+}
+
+public struct LifeBoardMoodEnergyCheckInValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var mood: LifeBoardJournalMood
+    public var energy: Int?
+    public var createdAt: Date
+    public var representativeDay: Date?
+    public var isRepresentative: Bool
+
+    public init(
+        id: UUID = UUID(),
+        mood: LifeBoardJournalMood,
+        energy: Int?,
+        createdAt: Date = Date(),
+        representativeDay: Date? = nil,
+        isRepresentative: Bool = false
+    ) {
+        self.id = id
+        self.mood = mood
+        self.energy = energy.map { min(5, max(1, $0)) }
+        self.createdAt = createdAt
+        self.representativeDay = representativeDay
+        self.isRepresentative = isRepresentative
+    }
+}
+
+public enum LifeBoardMedicationEventStatus: String, Codable, CaseIterable, Hashable, Sendable {
+    case scheduled
+    case taken
+    case skipped
+    case snoozed
+    case rescheduled
+    case unresolved
+
+    public var contributesToAdherence: Bool {
+        switch self {
+        case .taken, .skipped: true
+        case .scheduled, .snoozed, .rescheduled, .unresolved: false
+        }
+    }
+}
+
+public struct LifeBoardMedicationDefinitionValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var name: String
+    public var dosageText: String?
+    public var instructions: String?
+    public var healthCorrelationID: String?
+    public var isArchived: Bool
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var formRaw: String?
+    public var startDate: Date?
+    public var endDate: Date?
+    public var refillQuantity: Double?
+    public var refillRemaining: Double?
+    public var refillThreshold: Double?
+    public var lastRefilledAt: Date?
+
+    public init(
+        id: UUID = UUID(),
+        name: String,
+        dosageText: String? = nil,
+        instructions: String? = nil,
+        healthCorrelationID: String? = nil,
+        isArchived: Bool = false,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        formRaw: String? = nil,
+        startDate: Date? = nil,
+        endDate: Date? = nil,
+        refillQuantity: Double? = nil,
+        refillRemaining: Double? = nil,
+        refillThreshold: Double? = nil,
+        lastRefilledAt: Date? = nil
+    ) {
+        self.id = id
+        self.name = name
+        self.dosageText = dosageText
+        self.instructions = instructions
+        self.healthCorrelationID = healthCorrelationID
+        self.isArchived = isArchived
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.formRaw = formRaw
+        self.startDate = startDate
+        self.endDate = endDate
+        self.refillQuantity = refillQuantity
+        self.refillRemaining = refillRemaining
+        self.refillThreshold = refillThreshold
+        self.lastRefilledAt = lastRefilledAt
+    }
+}
+
+public struct LifeBoardMedicationScheduleValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var medicationID: UUID
+    public var windowStartMinutes: Int
+    public var windowEndMinutes: Int
+    public var weekdays: Set<Int>
+    public var reminderEnabled: Bool
+
+    public init(
+        id: UUID = UUID(),
+        medicationID: UUID,
+        windowStartMinutes: Int,
+        windowEndMinutes: Int,
+        weekdays: Set<Int> = Set(1...7),
+        reminderEnabled: Bool = true
+    ) {
+        self.id = id
+        self.medicationID = medicationID
+        self.windowStartMinutes = min(1_439, max(0, windowStartMinutes))
+        self.windowEndMinutes = min(1_439, max(0, windowEndMinutes))
+        self.weekdays = weekdays
+        self.reminderEnabled = reminderEnabled
+    }
+}
+
+public struct LifeBoardMedicationEventValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var medicationID: UUID
+    public var scheduledAt: Date
+    public var status: LifeBoardMedicationEventStatus
+    public var resolvedAt: Date?
+    public var note: String?
+
+    public init(
+        id: UUID = UUID(),
+        medicationID: UUID,
+        scheduledAt: Date,
+        status: LifeBoardMedicationEventStatus = .scheduled,
+        resolvedAt: Date? = nil,
+        note: String? = nil
+    ) {
+        self.id = id
+        self.medicationID = medicationID
+        self.scheduledAt = scheduledAt
+        self.status = status
+        self.resolvedAt = resolvedAt
+        self.note = note
+    }
+}
+
+public enum LifeBoardFastingCompletionKind: String, Codable, CaseIterable, Sendable {
+    case planned
+    case early
+    case cancelled
+    case corrected
+}
+
+public struct LifeBoardFastingSessionValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var templateID: UUID?
+    public var startedAt: Date
+    public var endedAt: Date?
+    public var targetDuration: TimeInterval?
+    public var reminderOffsets: [TimeInterval]
+    public var note: String?
+    /// Optional until the additive Wellness Core model is available. Keeping this
+    /// optional also lets existing correction receipts decode without migration.
+    public var completionKind: LifeBoardFastingCompletionKind?
+    public var updatedAt: Date?
+
+    public init(
+        id: UUID = UUID(),
+        templateID: UUID? = nil,
+        startedAt: Date = Date(),
+        endedAt: Date? = nil,
+        targetDuration: TimeInterval? = nil,
+        reminderOffsets: [TimeInterval] = [],
+        note: String? = nil,
+        completionKind: LifeBoardFastingCompletionKind? = nil,
+        updatedAt: Date? = nil
+    ) {
+        self.id = id
+        self.templateID = templateID
+        self.startedAt = startedAt
+        self.endedAt = endedAt
+        self.targetDuration = targetDuration
+        self.reminderOffsets = reminderOffsets
+        self.note = note
+        self.completionKind = completionKind
+        self.updatedAt = updatedAt
+    }
+
+    public func elapsed(at now: Date = Date()) -> TimeInterval {
+        max(0, (endedAt ?? now).timeIntervalSince(startedAt))
+    }
+
+    public var targetEnd: Date? {
+        targetDuration.map(startedAt.addingTimeInterval)
+    }
+
+    public func progress(at now: Date = Date()) -> Double? {
+        guard let targetDuration, targetDuration > 0 else { return nil }
+        return min(1, elapsed(at: now) / targetDuration)
+    }
+}
+
+public struct LifeBoardFastingDisplayPreferences: Codable, Hashable, Sendable {
+    public var showsElapsedTime: Bool
+    public var showsTargetProgress: Bool
+
+    public init(showsElapsedTime: Bool = true, showsTargetProgress: Bool = true) {
+        self.showsElapsedTime = showsElapsedTime
+        self.showsTargetProgress = showsTargetProgress
+    }
+}
+
+public struct LifeBoardFastingTemplateValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var label: String
+    public var targetDuration: TimeInterval?
+    public var reminderOffsets: [TimeInterval]
+    public var displayPreferences: LifeBoardFastingDisplayPreferences
+    public var isArchived: Bool
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        label: String,
+        targetDuration: TimeInterval? = nil,
+        reminderOffsets: [TimeInterval] = [],
+        displayPreferences: LifeBoardFastingDisplayPreferences = .init(),
+        isArchived: Bool = false,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) throws {
+        let normalizedLabel = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedLabel.isEmpty,
+              targetDuration.map({ $0.isFinite && $0 > 0 }) ?? true,
+              reminderOffsets.allSatisfy({ offset in
+                  offset.isFinite && offset >= 0 && (targetDuration.map { offset <= $0 } ?? true)
+              }) else { throw FastingTimerStoreError.invalidTarget }
+        self.id = id
+        self.label = normalizedLabel
+        self.targetDuration = targetDuration
+        self.reminderOffsets = Array(Set(reminderOffsets)).sorted()
+        self.displayPreferences = displayPreferences
+        self.isArchived = isArchived
+        self.createdAt = createdAt
+        self.updatedAt = max(updatedAt, createdAt)
+    }
+}
+
+public struct LifeBoardHealthSnapshot: Equatable, Sendable {
+    public enum Availability: Equatable, Sendable {
+        case notRequested
+        case unavailable
+        case available
+    }
+
+    public var availability: Availability
+    public var steps: Double?
+    public var activeCalories: Double?
+    public var bodyMassKilograms: Double?
+    public var distanceMeters: Double?
+    public var workouts: [WorkoutRecord]
+    public var sleepNotes: [SleepNote]
+    public var measuredAt: Date?
+
+    public init(
+        availability: Availability,
+        steps: Double?,
+        activeCalories: Double?,
+        bodyMassKilograms: Double? = nil,
+        distanceMeters: Double? = nil,
+        workouts: [WorkoutRecord] = [],
+        sleepNotes: [SleepNote] = [],
+        measuredAt: Date?
+    ) {
+        self.availability = availability
+        self.steps = steps
+        self.activeCalories = activeCalories
+        self.bodyMassKilograms = bodyMassKilograms
+        self.distanceMeters = distanceMeters
+        self.workouts = workouts
+        self.sleepNotes = sleepNotes
+        self.measuredAt = measuredAt
+    }
+
+    public static let notRequested = Self(
+        availability: .notRequested,
+        steps: nil,
+        activeCalories: nil,
+        measuredAt: nil
+    )
+}
+
+// MARK: - Journal
+
+public enum LifeBoardJournalBlockKind: String, Codable, CaseIterable, Sendable {
+    case text
+    case mood
+    case audio
+    case photo
+    case prompt
+    /// A transcript produced from a voice recording (OffRecord parity);
+    /// rendered like text but attributed to speech capture.
+    case voice
+}
+
+public enum LifeBoardJournalMediaKind: String, Codable, Sendable {
+    case photo
+    case audio
+}
+
+public enum LifeBoardJournalMediaSyncPolicy: String, Codable, Sendable {
+    case privateCloud
+    case protectedLocalOnly
+}
+
+public struct LifeBoardJournalMediaValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var dayID: UUID
+    public var kind: LifeBoardJournalMediaKind
+    public var payload: Data?
+    public var relativePath: String?
+    public var duration: TimeInterval?
+    public var createdAt: Date
+    public var syncPolicy: LifeBoardJournalMediaSyncPolicy
+
+    public init(
+        id: UUID = UUID(),
+        dayID: UUID,
+        kind: LifeBoardJournalMediaKind,
+        payload: Data? = nil,
+        relativePath: String? = nil,
+        duration: TimeInterval? = nil,
+        createdAt: Date = Date(),
+        syncPolicy: LifeBoardJournalMediaSyncPolicy
+    ) {
+        self.id = id
+        self.dayID = dayID
+        self.kind = kind
+        self.payload = payload
+        self.relativePath = relativePath
+        self.duration = duration
+        self.createdAt = createdAt
+        self.syncPolicy = syncPolicy
+    }
+}
+
+public struct LifeBoardJournalBlockValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var dayID: UUID
+    public var kind: LifeBoardJournalBlockKind
+    public var text: String?
+    public var mood: LifeBoardJournalMood?
+    public var energy: Int?
+    public var mediaID: UUID?
+    public var promptID: String?
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var ordinal: Int
+
+    public init(
+        id: UUID = UUID(),
+        dayID: UUID,
+        kind: LifeBoardJournalBlockKind,
+        text: String? = nil,
+        mood: LifeBoardJournalMood? = nil,
+        energy: Int? = nil,
+        mediaID: UUID? = nil,
+        promptID: String? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        ordinal: Int = 0
+    ) {
+        self.id = id
+        self.dayID = dayID
+        self.kind = kind
+        self.text = text
+        self.mood = mood
+        self.energy = energy
+        self.mediaID = mediaID
+        self.promptID = promptID
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.ordinal = ordinal
+    }
+}
+
+public struct LifeBoardJournalDayValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var day: Date
+    public var summary: String?
+    public var isStarred: Bool
+    public var representativeCheckInID: UUID?
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var blocks: [LifeBoardJournalBlockValue]
+    public var media: [LifeBoardJournalMediaValue]
+    /// Per-entry AI participation (shared JournalFoundation contract).
+    /// Enforced at semantic-index ingest, reflection input, and Eva
+    /// evidence assembly.
+    public var aiExclusion: JournalAIExclusion
+
+    public init(
+        id: UUID = UUID(),
+        day: Date,
+        summary: String? = nil,
+        isStarred: Bool = false,
+        representativeCheckInID: UUID? = nil,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        blocks: [LifeBoardJournalBlockValue] = [],
+        media: [LifeBoardJournalMediaValue] = [],
+        aiExclusion: JournalAIExclusion = .included
+    ) {
+        self.id = id
+        // Preserve the caller's calendar-normalized day. Re-normalizing with
+        // Calendar.current corrupts fixtures and synced values when the caller
+        // is operating in a different time zone.
+        self.day = day
+        self.summary = summary
+        self.isStarred = isStarred
+        self.representativeCheckInID = representativeCheckInID
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.blocks = blocks.sorted {
+            $0.ordinal == $1.ordinal ? $0.createdAt < $1.createdAt : $0.ordinal < $1.ordinal
+        }
+        self.media = media.sorted { $0.createdAt < $1.createdAt }
+        self.aiExclusion = aiExclusion
+    }
+
+    /// Backward-compatible decoding: drafts and backups written before the
+    /// AI-exclusion contract decode as `.included`.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            day: try container.decode(Date.self, forKey: .day),
+            summary: try container.decodeIfPresent(String.self, forKey: .summary),
+            isStarred: try container.decodeIfPresent(Bool.self, forKey: .isStarred) ?? false,
+            representativeCheckInID: try container.decodeIfPresent(UUID.self, forKey: .representativeCheckInID),
+            createdAt: try container.decode(Date.self, forKey: .createdAt),
+            updatedAt: try container.decode(Date.self, forKey: .updatedAt),
+            blocks: try container.decodeIfPresent([LifeBoardJournalBlockValue].self, forKey: .blocks) ?? [],
+            media: try container.decodeIfPresent([LifeBoardJournalMediaValue].self, forKey: .media) ?? [],
+            aiExclusion: try container.decodeIfPresent(JournalAIExclusion.self, forKey: .aiExclusion) ?? .included
+        )
+    }
+
+    public var displayText: String {
+        blocks.compactMap(\.text).joined(separator: "\n")
+    }
+
+    public var latestMood: LifeBoardJournalMood? {
+        blocks.reversed().compactMap(\.mood).first
+    }
+}
+
+public struct JournalMediaReconciliation: Equatable, Sendable {
+    public var day: LifeBoardJournalDayValue
+    public var removedMedia: [LifeBoardJournalMediaValue]
+
+    public init(day: LifeBoardJournalDayValue, removedMedia: [LifeBoardJournalMediaValue]) {
+        self.day = day
+        self.removedMedia = removedMedia
+    }
+}
+
+public enum JournalMediaReconciler {
+    /// Removes media records that no block references and media blocks whose
+    /// backing record is absent. The caller persists the repaired day before
+    /// deleting any protected file, so interrupted cleanup remains recoverable.
+    public static func reconcile(_ input: LifeBoardJournalDayValue) -> JournalMediaReconciliation {
+        var day = input
+        let knownMediaIDs = Set(day.media.map(\.id))
+        day.blocks.removeAll { block in
+            guard block.kind == .photo || block.kind == .audio else { return false }
+            guard let mediaID = block.mediaID else { return true }
+            return knownMediaIDs.contains(mediaID) == false
+        }
+        let referencedMediaIDs = Set(day.blocks.compactMap(\.mediaID))
+        let removed = day.media.filter { referencedMediaIDs.contains($0.id) == false }
+        day.media.removeAll { referencedMediaIDs.contains($0.id) == false }
+        for index in day.blocks.indices { day.blocks[index].ordinal = index }
+        if day != input { day.updatedAt = Date() }
+        return JournalMediaReconciliation(day: day, removedMedia: removed)
+    }
+}
+
+public struct LifeBoardJournalDraftValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var dayID: UUID
+    public var day: Date
+    public var text: String
+    public var mood: LifeBoardJournalMood?
+    public var energy: Int?
+    public var photoPayloads: [Data]
+    public var audioRelativePaths: [String]
+    public var promptID: String?
+    public var editPosition: Int?
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        dayID: UUID,
+        day: Date,
+        text: String = "",
+        mood: LifeBoardJournalMood? = nil,
+        energy: Int? = nil,
+        photoPayloads: [Data] = [],
+        audioRelativePaths: [String] = [],
+        promptID: String? = nil,
+        editPosition: Int? = nil,
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.dayID = dayID
+        self.day = day
+        self.text = text
+        self.mood = mood
+        self.energy = energy
+        self.photoPayloads = Array(photoPayloads.prefix(5))
+        self.audioRelativePaths = audioRelativePaths
+        self.promptID = promptID
+        self.editPosition = editPosition
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct LifeBoardJournalPrompt: Identifiable, Codable, Hashable, Sendable {
+    public var id: String
+    public var title: String
+    public var supportiveCopy: String
+
+    public static func contextual(daypart: ResolvedDaypart, hasEntry: Bool) -> Self {
+        if hasEntry {
+            return Self(id: "continue", title: "Anything else worth keeping?", supportiveCopy: "A sentence is enough.")
+        }
+        switch daypart {
+        case .morning:
+            return Self(id: "morning", title: "What would make today feel kind?", supportiveCopy: "Name one thing, not the whole plan.")
+        case .afternoon:
+            return Self(id: "afternoon", title: "What is taking up space right now?", supportiveCopy: "You do not have to solve it here.")
+        case .evening:
+            return Self(id: "evening", title: "What stayed with you today?", supportiveCopy: "Keep the part that mattered.")
+        case .night:
+            return Self(id: "night", title: "What can you set down for tonight?", supportiveCopy: "Nothing needs to be polished.")
+        }
+    }
+}
+
+public struct LifeBoardJournalInsightSnapshot: Equatable, Sendable {
+    public var daysWritten: Int
+    public var currentStreak: Int
+    public var totalWords: Int
+    public var dominantMood: LifeBoardJournalMood?
+    public var averageEnergy: Double?
+    public var evidenceDayIDs: [UUID]
+
+    public static let empty = Self(daysWritten: 0, currentStreak: 0, totalWords: 0, dominantMood: nil, averageEnergy: nil, evidenceDayIDs: [])
+}
+
+// MARK: Journal public contracts
+
+public struct JournalMediaAttachment: Identifiable, Codable, Hashable, Sendable {
+    public enum ProcessingState: String, Codable, CaseIterable, Sendable {
+        case queued
+        case ready
+        case transcribing
+        case transcriptionComplete
+        case transcriptionFailed
+        case manualTranscription
+        case discarded
+        case missing
+    }
+
+    public let id: UUID
+    public var kind: LifeBoardJournalMediaKind
+    public var localRelativePath: String?
+    public var duration: TimeInterval?
+    public var transcription: String?
+    public var processingState: ProcessingState
+    public var syncPolicy: LifeBoardJournalMediaSyncPolicy
+    public var createdAt: Date
+
+    public init(
+        id: UUID,
+        kind: LifeBoardJournalMediaKind,
+        localRelativePath: String?,
+        duration: TimeInterval?,
+        transcription: String? = nil,
+        processingState: ProcessingState = .ready,
+        syncPolicy: LifeBoardJournalMediaSyncPolicy,
+        createdAt: Date
+    ) {
+        self.id = id
+        self.kind = kind
+        self.localRelativePath = localRelativePath
+        self.duration = duration
+        self.transcription = transcription
+        self.processingState = processingState
+        self.syncPolicy = syncPolicy
+        self.createdAt = createdAt
+    }
+}
+
+public struct JournalEntrySnapshot: Identifiable, Codable, Hashable, Sendable {
+    public let id: UUID
+    public var date: Date
+    public var title: String?
+    public var text: String
+    public var mood: LifeBoardJournalMood?
+    public var energy: Int?
+    public var isStarred: Bool
+    public var attachments: [JournalMediaAttachment]
+    public var updatedAt: Date
+    /// Per-entry AI participation, carried into every derived surface.
+    public var aiExclusion: JournalAIExclusion
+
+    public init(
+        id: UUID,
+        date: Date,
+        title: String?,
+        text: String,
+        mood: LifeBoardJournalMood?,
+        energy: Int?,
+        isStarred: Bool,
+        attachments: [JournalMediaAttachment],
+        updatedAt: Date,
+        aiExclusion: JournalAIExclusion = .included
+    ) {
+        self.id = id
+        self.date = date
+        self.title = title
+        self.text = text
+        self.mood = mood
+        self.energy = energy
+        self.isStarred = isStarred
+        self.attachments = attachments
+        self.updatedAt = updatedAt
+        self.aiExclusion = aiExclusion
+    }
+
+    public init(day: LifeBoardJournalDayValue) {
+        id = day.id
+        date = day.day
+        title = day.summary
+        text = day.displayText
+        mood = day.latestMood
+        energy = day.blocks.reversed().compactMap(\.energy).first
+        isStarred = day.isStarred
+        let transcriptionByMediaID: [UUID: String] = Dictionary(
+            uniqueKeysWithValues: day.blocks.compactMap { block in
+                guard block.kind == .audio,
+                      let mediaID = block.mediaID,
+                      let text = block.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      text.isEmpty == false else { return nil }
+                return (mediaID, text)
+            }
+        )
+        attachments = day.media.map { media in
+            let transcription = transcriptionByMediaID[media.id]
+            return JournalMediaAttachment(
+                id: media.id,
+                kind: media.kind,
+                localRelativePath: media.relativePath,
+                duration: media.duration,
+                transcription: transcription,
+                processingState: media.kind == .audio && transcription != nil ? .transcriptionComplete : .ready,
+                syncPolicy: media.syncPolicy,
+                createdAt: media.createdAt
+            )
+        }
+        updatedAt = day.updatedAt
+        aiExclusion = day.aiExclusion
+    }
+
+    /// Derived payloads written before the AI-exclusion contract decode as
+    /// `.included`; the derived index is rebuildable regardless.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try container.decode(UUID.self, forKey: .id),
+            date: try container.decode(Date.self, forKey: .date),
+            title: try container.decodeIfPresent(String.self, forKey: .title),
+            text: try container.decode(String.self, forKey: .text),
+            mood: try container.decodeIfPresent(LifeBoardJournalMood.self, forKey: .mood),
+            energy: try container.decodeIfPresent(Int.self, forKey: .energy),
+            isStarred: try container.decodeIfPresent(Bool.self, forKey: .isStarred) ?? false,
+            attachments: try container.decodeIfPresent([JournalMediaAttachment].self, forKey: .attachments) ?? [],
+            updatedAt: try container.decode(Date.self, forKey: .updatedAt),
+            aiExclusion: try container.decodeIfPresent(JournalAIExclusion.self, forKey: .aiExclusion) ?? .included
+        )
+    }
+}
+
+public struct JournalEvidenceReference: Identifiable, Codable, Hashable, Sendable {
+    public enum MatchReason: String, Codable, CaseIterable, Sendable {
+        case exact
+        case meaning
+        case topic
+        case recent
+    }
+
+    public let id: String
+    public var entryID: UUID
+    public var date: Date
+    public var snippet: String
+    public var score: Double
+    public var matchReason: MatchReason
+
+    public init(
+        id: String,
+        entryID: UUID,
+        date: Date,
+        snippet: String,
+        score: Double,
+        matchReason: MatchReason
+    ) {
+        self.id = id
+        self.entryID = entryID
+        self.date = date
+        self.snippet = snippet
+        self.score = min(1, max(0, score))
+        self.matchReason = matchReason
+    }
+}
+
+public enum JournalSearchState: Equatable, Sendable {
+    case idle
+    case searching
+    case building(progress: Double, message: String)
+    case ready([JournalEvidenceReference])
+    case unavailable(String)
+    case failed(String)
+}
+
+public protocol JournalDerivedIndexRepository: Sendable {
+    func rebuild(entries: [JournalEntrySnapshot]) async throws
+    func upsert(entry: JournalEntrySnapshot) async throws
+    func remove(entryID: UUID) async throws
+    func search(query: String, limit: Int) async throws -> [JournalEvidenceReference]
+    func invalidate() async throws
+}
+
+public struct WeeklyReflectionSourceSelection: Codable, Hashable, Sendable {
+    public var includedEntryIDs: Set<UUID>
+    public var excludesSensitiveEntries: Bool
+
+    public init(includedEntryIDs: Set<UUID>, excludesSensitiveEntries: Bool = true) {
+        self.includedEntryIDs = includedEntryIDs
+        self.excludesSensitiveEntries = excludesSensitiveEntries
+    }
+}
+
+public struct WeeklyReflectionReport: Identifiable, Codable, Hashable, Sendable {
+    public enum Density: String, Codable, CaseIterable, Sendable {
+        case empty
+        case light
+        case full
+    }
+
+    public let id: UUID
+    public var weekStart: Date
+    public var weekEnd: Date
+    public var density: Density
+    public var summary: String
+    public var takeaway: String?
+    public var sourceSelection: WeeklyReflectionSourceSelection
+    public var version: Int
+    public var createdAt: Date
+    public var dismissedAt: Date?
+
+    public init(
+        id: UUID = UUID(),
+        weekStart: Date,
+        weekEnd: Date,
+        density: Density,
+        summary: String,
+        takeaway: String? = nil,
+        sourceSelection: WeeklyReflectionSourceSelection,
+        version: Int = 1,
+        createdAt: Date = Date(),
+        dismissedAt: Date? = nil
+    ) {
+        self.id = id
+        self.weekStart = weekStart
+        self.weekEnd = weekEnd
+        self.density = density
+        self.summary = summary
+        self.takeaway = takeaway
+        self.sourceSelection = sourceSelection
+        self.version = max(1, version)
+        self.createdAt = createdAt
+        self.dismissedAt = dismissedAt
+    }
+}
+
+public protocol WeeklyReflectionHistoryRepository: Sendable {
+    func reports(weekContaining date: Date?) async throws -> [WeeklyReflectionReport]
+    func save(_ report: WeeklyReflectionReport) async throws
+    func delete(id: UUID) async throws
+    func replaceAll(_ reports: [WeeklyReflectionReport]) async throws
+}
+
+public enum WeeklyReflectionEngine {
+    public static func makeReport(
+        entries: [JournalEntrySnapshot],
+        weekContaining date: Date = Date(),
+        calendar inputCalendar: Calendar = .current,
+        previousVersions: [WeeklyReflectionReport] = []
+    ) -> WeeklyReflectionReport {
+        var calendar = inputCalendar
+        calendar.firstWeekday = 2 // Monday
+        calendar.minimumDaysInFirstWeek = 4
+        let startOfDay = calendar.startOfDay(for: date)
+        let weekday = calendar.component(.weekday, from: startOfDay)
+        let daysSinceMonday = (weekday + 5) % 7
+        let weekStart = calendar.date(byAdding: .day, value: -daysSinceMonday, to: startOfDay) ?? startOfDay
+        let exclusiveEnd = calendar.date(byAdding: .day, value: 7, to: weekStart) ?? weekStart.addingTimeInterval(7 * 86_400)
+        let weekEnd = calendar.date(byAdding: .second, value: -1, to: exclusiveEnd) ?? exclusiveEnd
+        let included = entries
+            .filter { $0.date >= weekStart && $0.date < exclusiveEnd && $0.aiExclusion.permitsReflection }
+            .sorted { $0.date < $1.date }
+        let nonempty = included.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        let sharedSnapshots = nonempty.map {
+            ReflectionKit.WeeklyReflectionEntrySnapshot(
+                id: $0.id,
+                date: $0.date,
+                updatedAt: $0.updatedAt,
+                mood: $0.mood?.rawValue,
+                text: $0.text,
+                sourceType: $0.attachments.contains(where: { $0.kind == .audio }) ? .voiceTranscript : .text
+            )
+        }
+        let sharedEligibility = WeeklyReflectionEligibilityEngine.evaluate(
+            entries: sharedSnapshots,
+            in: .init(start: weekStart, end: weekEnd)
+        )
+        let wordCount = sharedEligibility.wordCount
+        let activeDays = Set(nonempty.map { calendar.startOfDay(for: $0.date) }).count
+        let density: WeeklyReflectionReport.Density
+        switch sharedEligibility.kind {
+        case .empty: density = .empty
+        case .light: density = .light
+        case .full: density = .full
+        }
+
+        let moods = nonempty.compactMap(\.mood).filter { $0 != .none }
+        let moodGroups: [LifeBoardJournalMood: [LifeBoardJournalMood]] = Dictionary(grouping: moods, by: { $0 })
+        let moodCounts: [(mood: LifeBoardJournalMood, count: Int)] = moodGroups.map { (mood: $0.key, count: $0.value.count) }
+        let rankedMoods = moodCounts.sorted { lhs, rhs in
+            lhs.count == rhs.count ? lhs.mood.rawValue < rhs.mood.rawValue : lhs.count > rhs.count
+        }
+        let dominantMood = rankedMoods.first?.mood
+        let energies = nonempty.compactMap(\.energy)
+        let averageEnergy = energies.isEmpty ? nil : Double(energies.reduce(0, +)) / Double(energies.count)
+
+        let summary: String
+        switch density {
+        case .empty:
+            summary = "There is not enough Journal evidence to summarize this week yet."
+        case .light:
+            summary = "You kept \(activeDays) day\(activeDays == 1 ? "" : "s") and \(wordCount) words this week. " + evidenceSentence(dominantMood: dominantMood, averageEnergy: averageEnergy)
+        case .full:
+            summary = "Across \(activeDays) Journal days and \(wordCount) words, " + evidenceSentence(dominantMood: dominantMood, averageEnergy: averageEnergy)
+        }
+        let matchingVersions = previousVersions.filter { calendar.isDate($0.weekStart, inSameDayAs: weekStart) }
+        let nextVersion = (matchingVersions.map(\.version).max() ?? 0) + 1
+
+        return WeeklyReflectionReport(
+            weekStart: weekStart,
+            weekEnd: weekEnd,
+            density: density,
+            summary: summary,
+            sourceSelection: WeeklyReflectionSourceSelection(includedEntryIDs: Set(nonempty.map(\.id))),
+            version: nextVersion
+        )
+    }
+
+    private static func evidenceSentence(dominantMood: LifeBoardJournalMood?, averageEnergy: Double?) -> String {
+        let moodText = dominantMood.map { "\($0.title) appeared most often" } ?? "mood evidence stayed varied"
+        let energyText = averageEnergy.map { "average recorded energy was \(String(format: "%.1f", $0)) out of 5" }
+            ?? "energy was not recorded often enough to summarize"
+        return "\(moodText), and \(energyText). This is a reflection of recorded evidence, not a diagnosis."
+    }
+}
+
+public enum JournalExportFormat: String, Codable, CaseIterable, Sendable {
+    case json
+    case markdown
+    case csv
+    case pdf
+}
+
+public struct JournalExportRequest: Sendable {
+    public var report: WeeklyReflectionReport
+    public var entries: [JournalEntrySnapshot]
+    public var format: JournalExportFormat
+    public var includesSensitiveFields: Bool
+
+    public init(
+        report: WeeklyReflectionReport,
+        entries: [JournalEntrySnapshot],
+        format: JournalExportFormat,
+        includesSensitiveFields: Bool = false
+    ) {
+        self.report = report
+        self.entries = entries
+        self.format = format
+        self.includesSensitiveFields = includesSensitiveFields
+    }
+}
+
+public struct JournalExportReceipt: Identifiable, Equatable, Sendable {
+    public var id: UUID
+    public var fileURL: URL
+    public var format: JournalExportFormat
+    public var exportedAt: Date
+    public var redactedSensitiveFields: Bool
+
+    public init(
+        id: UUID = UUID(),
+        fileURL: URL,
+        format: JournalExportFormat,
+        exportedAt: Date = Date(),
+        redactedSensitiveFields: Bool
+    ) {
+        self.id = id
+        self.fileURL = fileURL
+        self.format = format
+        self.exportedAt = exportedAt
+        self.redactedSensitiveFields = redactedSensitiveFields
+    }
+}
+
+public protocol JournalExporting: Sendable {
+    func export(_ request: JournalExportRequest) async throws -> JournalExportReceipt
+}
+
+public enum JournalExportFailure: LocalizedError, Equatable, Sendable {
+    case noSelectedEvidence
+    case encodingFailed
+    case unableToCreateProtectedFile
+
+    public var errorDescription: String? {
+        switch self {
+        case .noSelectedEvidence: "No selected Journal evidence is available for this reflection."
+        case .encodingFailed: "LifeBoard could not prepare this Journal export."
+        case .unableToCreateProtectedFile: "LifeBoard could not create a protected export file."
+        }
+    }
+}
+
+public enum JournalBackupDuplicatePolicy: String, Codable, CaseIterable, Sendable {
+    case keepExisting
+    case replaceExisting
+    case duplicateWithNewIDs
+}
+
+public struct JournalBackupArchive: Codable, Hashable, Sendable {
+    public var schemaVersion: Int
+    public var createdAt: Date
+    public var appVersion: String
+    public var days: [LifeBoardJournalDayValue]
+    public var reflectionReports: [WeeklyReflectionReport]
+    public var audioPayloads: [UUID: Data]
+
+    public init(
+        schemaVersion: Int = 1,
+        createdAt: Date = Date(),
+        appVersion: String,
+        days: [LifeBoardJournalDayValue],
+        reflectionReports: [WeeklyReflectionReport],
+        audioPayloads: [UUID: Data] = [:]
+    ) {
+        self.schemaVersion = schemaVersion
+        self.createdAt = createdAt
+        self.appVersion = appVersion
+        self.days = days
+        self.reflectionReports = reflectionReports
+        self.audioPayloads = audioPayloads
+    }
+}
+
+public struct JournalBackupReceipt: Identifiable, Equatable, Sendable {
+    public var id: UUID
+    public var fileURL: URL
+    public var createdAt: Date
+    public var dayCount: Int
+    public var audioCount: Int
+
+    public init(id: UUID = UUID(), fileURL: URL, createdAt: Date = Date(), dayCount: Int, audioCount: Int) {
+        self.id = id
+        self.fileURL = fileURL
+        self.createdAt = createdAt
+        self.dayCount = dayCount
+        self.audioCount = audioCount
+    }
+}
+
+public struct JournalImportReceipt: Equatable, Sendable {
+    public var insertedDayIDs: [UUID]
+    public var replacedDayIDs: [UUID]
+    public var skippedDayIDs: [UUID]
+
+    public init(insertedDayIDs: [UUID], replacedDayIDs: [UUID], skippedDayIDs: [UUID]) {
+        self.insertedDayIDs = insertedDayIDs
+        self.replacedDayIDs = replacedDayIDs
+        self.skippedDayIDs = skippedDayIDs
+    }
+}
+
+public protocol JournalBackupImportApplying: Sendable {
+    func importJournalDays(
+        _ days: [LifeBoardJournalDayValue],
+        duplicatePolicy: JournalBackupDuplicatePolicy
+    ) async throws -> JournalImportReceipt
+}
+
+public protocol JournalBackupServicing: Sendable {
+    func createBackup(
+        days: [LifeBoardJournalDayValue],
+        reflections: [WeeklyReflectionReport],
+        passphrase: String
+    ) async throws -> JournalBackupReceipt
+    func restoreBackup(
+        from fileURL: URL,
+        passphrase: String,
+        duplicatePolicy: JournalBackupDuplicatePolicy,
+        applyingTo applier: any JournalBackupImportApplying,
+        reflectionRepository: any WeeklyReflectionHistoryRepository
+    ) async throws -> JournalImportReceipt
+}
+
+public enum JournalBackupFailure: LocalizedError, Equatable, Sendable {
+    case weakPassphrase
+    case unsupportedVersion
+    case malformedArchive
+    case authenticationFailed
+    case invalidIdentity
+    case unsafeMediaPath
+    case payloadTooLarge
+    case protectedFileFailure
+
+    public var errorDescription: String? {
+        switch self {
+        case .weakPassphrase: "Use a backup passphrase with at least eight characters."
+        case .unsupportedVersion: "This Journal backup version is not supported."
+        case .malformedArchive: "The Journal backup is malformed or incomplete."
+        case .authenticationFailed: "The passphrase is incorrect or the backup was modified."
+        case .invalidIdentity: "The backup contains conflicting Journal identities."
+        case .unsafeMediaPath: "The backup contains an unsafe media path."
+        case .payloadTooLarge: "The backup contains media larger than LifeBoard can safely import."
+        case .protectedFileFailure: "LifeBoard could not create the protected backup or restore its media."
+        }
+    }
+}
+
+public struct JournalPrivacyPolicy: Codable, Hashable, Sendable {
+    public var requiresAuthentication: Bool
+    public var shieldsAppSwitcher: Bool
+    public var excludesSensitiveEntriesFromExport: Bool
+    public var permitsJournalEvidenceForEva: Bool
+
+    public init(
+        requiresAuthentication: Bool = false,
+        shieldsAppSwitcher: Bool = true,
+        excludesSensitiveEntriesFromExport: Bool = true,
+        permitsJournalEvidenceForEva: Bool = false
+    ) {
+        self.requiresAuthentication = requiresAuthentication
+        self.shieldsAppSwitcher = shieldsAppSwitcher
+        self.excludesSensitiveEntriesFromExport = excludesSensitiveEntriesFromExport
+        self.permitsJournalEvidenceForEva = permitsJournalEvidenceForEva
+    }
+}
+
+public enum JournalPrivacyPolicyPersistence {
+    public static let defaultsKey = "lifeboard.journal.privacy-policy.v1"
+
+    public static func load(from defaults: UserDefaults) -> JournalPrivacyPolicy {
+        guard let data = defaults.data(forKey: defaultsKey),
+              let value = try? JSONDecoder().decode(JournalPrivacyPolicy.self, from: data) else {
+            return JournalPrivacyPolicy()
+        }
+        return value
+    }
+
+    public static func save(_ policy: JournalPrivacyPolicy, to defaults: UserDefaults) throws {
+        defaults.set(try JSONEncoder().encode(policy), forKey: defaultsKey)
+    }
+}
+
+public enum JournalPrivacyGateState: Equatable, Sendable {
+    case unlocked
+    case locked
+    case authenticating
+    case recoveryRequired(String)
+}
+
+// MARK: - Structured notes
+
+public enum KnowledgeNoteState: String, Codable, CaseIterable, Sendable {
+    case active
+    case archived
+    case trashed
+}
+
+public enum KnowledgeNoteLockPolicy: String, Codable, CaseIterable, Sendable {
+    case unlocked
+    case deviceAuthentication
+}
+
+public enum KnowledgeNoteSort: String, Codable, CaseIterable, Sendable {
+    case updatedDescending
+    case createdDescending
+    case titleAscending
+    case manual
+}
+
+public enum KnowledgeChecklistFilter: String, Codable, CaseIterable, Sendable {
+    case any
+    case incomplete
+    case completed
+}
+
+public enum KnowledgeLinkFilter: String, Codable, CaseIterable, Sendable {
+    case any
+    case incoming
+    case outgoing
+    case unlinked
+}
+
+public struct KnowledgeNoteCursor: Codable, Hashable, Sendable {
+    public var updatedAt: Date
+    public var noteID: UUID
+
+    public init(updatedAt: Date, noteID: UUID) {
+        self.updatedAt = updatedAt
+        self.noteID = noteID
+    }
+}
+
+public enum KnowledgeNoteCollection: String, Codable, CaseIterable, Identifiable, Sendable {
+    case all
+    case pinned
+    case favorites
+    case recent
+    case unfiled
+    case checklists
+    case attachments
+    case linked
+    case archived
+    case trash
+    case connections
+
+    public var id: String { rawValue }
+}
+
+public struct KnowledgeNoteQuery: Codable, Hashable, Sendable {
+    public var collection: KnowledgeNoteCollection
+    public var spaceID: UUID?
+    public var folderID: UUID?
+    public var tagIDs: Set<UUID>
+    public var searchText: String
+    public var sort: KnowledgeNoteSort
+    public var modifiedAfter: Date?
+    public var modifiedBefore: Date?
+    public var attachmentKinds: Set<String>
+    public var requiresAttachments: Bool?
+    public var checklist: KnowledgeChecklistFilter?
+    public var links: KnowledgeLinkFilter?
+    public var pinned: Bool?
+    public var favorite: Bool?
+    public var limit: Int?
+    public var cursor: KnowledgeNoteCursor?
+
+    public init(
+        collection: KnowledgeNoteCollection = .all,
+        spaceID: UUID? = nil,
+        folderID: UUID? = nil,
+        tagIDs: Set<UUID> = [],
+        searchText: String = "",
+        sort: KnowledgeNoteSort = .updatedDescending,
+        modifiedAfter: Date? = nil,
+        modifiedBefore: Date? = nil,
+        attachmentKinds: Set<String> = [],
+        requiresAttachments: Bool? = nil,
+        checklist: KnowledgeChecklistFilter? = nil,
+        links: KnowledgeLinkFilter? = nil,
+        pinned: Bool? = nil,
+        favorite: Bool? = nil,
+        limit: Int? = nil,
+        cursor: KnowledgeNoteCursor? = nil
+    ) {
+        self.collection = collection
+        self.spaceID = spaceID
+        self.folderID = folderID
+        self.tagIDs = tagIDs
+        self.searchText = searchText
+        self.sort = sort
+        self.modifiedAfter = modifiedAfter
+        self.modifiedBefore = modifiedBefore
+        self.attachmentKinds = attachmentKinds
+        self.requiresAttachments = requiresAttachments
+        self.checklist = checklist
+        self.links = links
+        self.pinned = pinned
+        self.favorite = favorite
+        self.limit = limit
+        self.cursor = cursor
+    }
+
+    public func apply(
+        to values: [LifeBoardKnowledgeNoteValue],
+        linkedNoteIDs: Set<UUID> = [],
+        incomingNoteIDs: Set<UUID> = [],
+        outgoingNoteIDs: Set<UUID> = []
+    ) -> [LifeBoardKnowledgeNoteValue] {
+        let needle = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+            .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+        let now = Date()
+        let filtered = values.filter { note in
+            guard spaceID.map({ note.spaceID == $0 }) ?? true,
+                  folderID.map({ note.folderID == $0 }) ?? true,
+                  tagIDs.isSubset(of: note.tagIDs),
+                  modifiedAfter.map({ note.updatedAt >= $0 }) ?? true,
+                  modifiedBefore.map({ note.updatedAt <= $0 }) ?? true,
+                  pinned.map({ note.isPinned == $0 }) ?? true,
+                  favorite.map({ note.isFavorite == $0 }) ?? true else { return false }
+            let attachmentBlocks = note.blocks.filter { $0.kind == .image || $0.kind == .file }
+            if let requiresAttachments, requiresAttachments != !attachmentBlocks.isEmpty { return false }
+            if !attachmentKinds.isEmpty {
+                let kinds = Set(attachmentBlocks.map { $0.kind.rawValue })
+                guard !kinds.isDisjoint(with: attachmentKinds) else { return false }
+            }
+            if let checklist, checklist != .any {
+                let checks = note.blocks.filter { $0.kind == .checklist }
+                switch checklist {
+                case .incomplete where !checks.contains(where: { !$0.isChecked }): return false
+                case .completed where checks.isEmpty || checks.contains(where: { !$0.isChecked }): return false
+                default: break
+                }
+            }
+            if let links, links != .any {
+                switch links {
+                case .incoming where !incomingNoteIDs.contains(note.id): return false
+                case .outgoing where !outgoingNoteIDs.contains(note.id): return false
+                case .unlinked where linkedNoteIDs.contains(note.id): return false
+                default: break
+                }
+            }
+            if let cursor {
+                guard note.updatedAt < cursor.updatedAt
+                    || (note.updatedAt == cursor.updatedAt && note.id.uuidString > cursor.noteID.uuidString) else {
+                    return false
+                }
+            }
+            let stateMatches: Bool
+            switch collection {
+            case .archived:
+                stateMatches = note.resolvedState == .archived
+            case .trash:
+                stateMatches = note.resolvedState == .trashed
+            default:
+                stateMatches = note.resolvedState == .active
+            }
+            guard stateMatches else { return false }
+            let collectionMatches: Bool
+            switch collection {
+            case .all, .archived, .trash, .connections:
+                collectionMatches = true
+            case .pinned:
+                collectionMatches = note.isPinned
+            case .favorites:
+                collectionMatches = note.isFavorite
+            case .recent:
+                collectionMatches = now.timeIntervalSince(note.updatedAt) <= 60 * 60 * 24 * 14
+            case .unfiled:
+                collectionMatches = note.folderID == nil
+            case .checklists:
+                collectionMatches = note.blocks.contains { $0.kind == .checklist }
+            case .attachments:
+                collectionMatches = note.blocks.contains { $0.kind == .image || $0.kind == .file }
+            case .linked:
+                collectionMatches = linkedNoteIDs.contains(note.id)
+            }
+            guard collectionMatches else { return false }
+            guard !needle.isEmpty else { return true }
+            let haystack = ([note.title, note.plainText] + note.blocks.compactMap(\.searchableMetadata))
+                .joined(separator: "\n")
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+            return haystack.contains(needle)
+        }
+        let sorted = filtered.sorted { lhs, rhs in
+            if !needle.isEmpty {
+                let lhsRank = searchRank(lhs, needle: needle)
+                let rhsRank = searchRank(rhs, needle: needle)
+                if lhsRank != rhsRank { return lhsRank > rhsRank }
+            }
+            if lhs.isPinned != rhs.isPinned, collection != .trash { return lhs.isPinned }
+            switch sort {
+            case .updatedDescending:
+                return lhs.updatedAt > rhs.updatedAt
+            case .createdDescending:
+                return lhs.createdAt > rhs.createdAt
+            case .titleAscending:
+                return lhs.displayTitle.localizedStandardCompare(rhs.displayTitle) == .orderedAscending
+            case .manual:
+                return (lhs.manualSortOrder ?? 0) < (rhs.manualSortOrder ?? 0)
+            }
+        }
+        if let limit, limit > 0 { return Array(sorted.prefix(limit)) }
+        return sorted
+    }
+
+    private func searchRank(_ note: LifeBoardKnowledgeNoteValue, needle: String) -> Int {
+        let title = note.title.folding(
+            options: [.caseInsensitive, .diacriticInsensitive],
+            locale: .current
+        )
+        if title == needle { return 500 }
+        if title.hasPrefix(needle) { return 400 }
+        if title.contains(needle) { return 300 }
+        if note.blocks.contains(where: {
+            $0.searchableMetadata?
+                .folding(options: [.caseInsensitive, .diacriticInsensitive], locale: .current)
+                .contains(needle) == true
+        }) { return 220 }
+        return 200
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case collection, spaceID, folderID, tagIDs, searchText, sort
+        case modifiedAfter, modifiedBefore, attachmentKinds, requiresAttachments
+        case checklist, links, pinned, favorite, limit, cursor
+    }
+
+    public init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        collection = try values.decodeIfPresent(KnowledgeNoteCollection.self, forKey: .collection) ?? .all
+        spaceID = try values.decodeIfPresent(UUID.self, forKey: .spaceID)
+        folderID = try values.decodeIfPresent(UUID.self, forKey: .folderID)
+        tagIDs = try values.decodeIfPresent(Set<UUID>.self, forKey: .tagIDs) ?? []
+        searchText = try values.decodeIfPresent(String.self, forKey: .searchText) ?? ""
+        sort = try values.decodeIfPresent(KnowledgeNoteSort.self, forKey: .sort) ?? .updatedDescending
+        modifiedAfter = try values.decodeIfPresent(Date.self, forKey: .modifiedAfter)
+        modifiedBefore = try values.decodeIfPresent(Date.self, forKey: .modifiedBefore)
+        attachmentKinds = try values.decodeIfPresent(Set<String>.self, forKey: .attachmentKinds) ?? []
+        requiresAttachments = try values.decodeIfPresent(Bool.self, forKey: .requiresAttachments)
+        checklist = try values.decodeIfPresent(KnowledgeChecklistFilter.self, forKey: .checklist)
+        links = try values.decodeIfPresent(KnowledgeLinkFilter.self, forKey: .links)
+        pinned = try values.decodeIfPresent(Bool.self, forKey: .pinned)
+        favorite = try values.decodeIfPresent(Bool.self, forKey: .favorite)
+        limit = try values.decodeIfPresent(Int.self, forKey: .limit)
+        cursor = try values.decodeIfPresent(KnowledgeNoteCursor.self, forKey: .cursor)
+    }
+}
+
+public enum NotesLibraryDestination: Codable, Hashable, Sendable {
+    case library(KnowledgeNoteQuery)
+    case collection(KnowledgeNoteCollection)
+    case folder(UUID)
+    case tag(UUID)
+    case search(String)
+}
+
+public struct KnowledgeRichTextPayload: Codable, Hashable, Sendable {
+    public enum Mark: String, Codable, CaseIterable, Sendable {
+        case bold
+        case italic
+        case underline
+        case strikethrough
+        case highlight
+        case inlineCode
+    }
+
+    public enum SemanticColor: String, Codable, CaseIterable, Sendable {
+        case cocoa
+        case apricot
+        case sage
+        case rose
+        case sky
+        case secondary
+    }
+
+    public enum ParagraphSemantic: String, Codable, CaseIterable, Sendable {
+        case body
+        case heading1
+        case heading2
+        case quote
+        case code
+        case callout
+    }
+
+    public struct Run: Codable, Hashable, Sendable {
+        public var location: Int
+        public var length: Int
+        public var marks: Set<Mark>
+        public var link: URL?
+        public var foreground: SemanticColor?
+        public var background: SemanticColor?
+        public var noteID: UUID?
+
+        public init(
+            location: Int,
+            length: Int,
+            marks: Set<Mark> = [],
+            link: URL? = nil,
+            foreground: SemanticColor? = nil,
+            background: SemanticColor? = nil,
+            noteID: UUID? = nil
+        ) {
+            self.location = location
+            self.length = length
+            self.marks = marks
+            self.link = link
+            self.foreground = foreground
+            self.background = background
+            self.noteID = noteID
+        }
+    }
+
+    public var version: Int
+    public var runs: [Run]
+    public var paragraph: ParagraphSemantic?
+    public var unsupportedVersion: Int? {
+        version > Self.currentVersion ? version : nil
+    }
+
+    public static let currentVersion = 2
+
+    public init(
+        version: Int = KnowledgeRichTextPayload.currentVersion,
+        runs: [Run] = [],
+        paragraph: ParagraphSemantic? = nil
+    ) {
+        self.version = version
+        self.runs = runs
+        self.paragraph = paragraph
+    }
+}
+
+public struct KnowledgeSmartCollectionValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var spaceID: UUID?
+    public var name: String
+    public var symbol: String
+    public var query: KnowledgeNoteQuery
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        spaceID: UUID? = nil,
+        name: String,
+        symbol: String = "sparkle.magnifyingglass",
+        query: KnowledgeNoteQuery,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.spaceID = spaceID
+        self.name = name
+        self.symbol = symbol
+        self.query = query
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct KnowledgeNoteDraftValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var noteID: UUID
+    public var snapshot: Data
+    public var createdAt: Date?
+    public var updatedAt: Date
+    public var baseContentVersion: Int?
+    public var sceneID: String?
+
+    public init(
+        id: UUID = UUID(),
+        noteID: UUID,
+        snapshot: Data,
+        createdAt: Date? = Date(),
+        updatedAt: Date = Date(),
+        baseContentVersion: Int? = nil,
+        sceneID: String? = nil
+    ) {
+        self.id = id
+        self.noteID = noteID
+        self.snapshot = snapshot
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.baseContentVersion = baseContentVersion
+        self.sceneID = sceneID
+    }
+}
+
+public struct KnowledgeNoteRevisionValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var noteID: UUID
+    public var snapshot: Data
+    public var reason: String
+    public var createdAt: Date
+    public var baseContentVersion: Int?
+    public var contentVersion: Int?
+    public var sessionID: UUID?
+    public var changeKind: String?
+
+    public init(
+        id: UUID = UUID(),
+        noteID: UUID,
+        snapshot: Data,
+        reason: String,
+        createdAt: Date = Date(),
+        baseContentVersion: Int? = nil,
+        contentVersion: Int? = nil,
+        sessionID: UUID? = nil,
+        changeKind: String? = nil
+    ) {
+        self.id = id
+        self.noteID = noteID
+        self.snapshot = snapshot
+        self.reason = reason
+        self.createdAt = createdAt
+        self.baseContentVersion = baseContentVersion
+        self.contentVersion = contentVersion
+        self.sessionID = sessionID
+        self.changeKind = changeKind
+    }
+}
+
+public struct KnowledgeSecurePayloadValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var noteID: UUID
+    public var ciphertext: Data
+    public var updatedAt: Date
+    public var contentVersion: Int
+    public var algorithmVersion: Int
+    public var keyIdentifier: String
+
+    public init(
+        id: UUID = UUID(),
+        noteID: UUID,
+        ciphertext: Data,
+        updatedAt: Date = Date(),
+        contentVersion: Int,
+        algorithmVersion: Int,
+        keyIdentifier: String
+    ) {
+        self.id = id
+        self.noteID = noteID
+        self.ciphertext = ciphertext
+        self.updatedAt = updatedAt
+        self.contentVersion = contentVersion
+        self.algorithmVersion = algorithmVersion
+        self.keyIdentifier = keyIdentifier
+    }
+}
+
+public struct KnowledgeSecureAttachmentPayloadValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var noteID: UUID
+    public var attachmentID: UUID
+    public var ciphertext: Data
+    public var checksum: String?
+    public var byteCount: Int64
+    public var algorithmVersion: Int
+    public var updatedAt: Date
+
+    public init(
+        id: UUID = UUID(),
+        noteID: UUID,
+        attachmentID: UUID,
+        ciphertext: Data,
+        checksum: String? = nil,
+        byteCount: Int64,
+        algorithmVersion: Int = 1,
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.noteID = noteID
+        self.attachmentID = attachmentID
+        self.ciphertext = ciphertext
+        self.checksum = checksum
+        self.byteCount = byteCount
+        self.algorithmVersion = algorithmVersion
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct KnowledgeNoteTemplate: Identifiable, Hashable, Sendable {
+    public struct Block: Hashable, Sendable {
+        public var kind: LifeBoardKnowledgeBlockKind
+        public var text: String
+
+        public init(_ kind: LifeBoardKnowledgeBlockKind, _ text: String) {
+            self.kind = kind
+            self.text = text
+        }
+    }
+
+    public var id: String
+    public var title: String
+    public var subtitle: String
+    public var symbol: String
+    public var blocks: [Block]
+
+    public static let library: [KnowledgeNoteTemplate] = [
+        .init(id: "blank", title: "Blank", subtitle: "A quiet page", symbol: "doc", blocks: [.init(.paragraph, "")]),
+        .init(id: "meeting", title: "Meeting", subtitle: "Decisions and next steps", symbol: "person.2", blocks: [.init(.heading2, "Context"), .init(.paragraph, ""), .init(.heading2, "Decisions"), .init(.bulletedList, ""), .init(.heading2, "Next steps"), .init(.checklist, "")]),
+        .init(id: "project", title: "Project brief", subtitle: "Shape an idea into a plan", symbol: "square.stack.3d.up", blocks: [.init(.heading2, "Outcome"), .init(.paragraph, ""), .init(.heading2, "Why it matters"), .init(.paragraph, ""), .init(.heading2, "Next actions"), .init(.checklist, "")]),
+        .init(id: "idea", title: "Idea", subtitle: "Capture the spark", symbol: "lightbulb", blocks: [.init(.callout, "The idea"), .init(.paragraph, ""), .init(.heading2, "What makes it interesting?"), .init(.paragraph, "")]),
+        .init(id: "checklist", title: "Checklist", subtitle: "A focused list", symbol: "checklist", blocks: [.init(.checklist, ""), .init(.checklist, ""), .init(.checklist, "")]),
+        .init(id: "research", title: "Research", subtitle: "Sources, findings, questions", symbol: "books.vertical", blocks: [.init(.heading2, "Question"), .init(.paragraph, ""), .init(.heading2, "Findings"), .init(.bulletedList, ""), .init(.heading2, "Sources"), .init(.bookmark, "")]),
+        .init(id: "daily", title: "Daily notes", subtitle: "A practical day page", symbol: "sun.max", blocks: [.init(.heading2, "Today"), .init(.paragraph, ""), .init(.heading2, "To do"), .init(.checklist, ""), .init(.heading2, "Keep"), .init(.paragraph, "")])
+    ]
+}
+
+public enum LifeBoardKnowledgeBlockKind: String, Codable, CaseIterable, Sendable {
+    case paragraph
+    case heading1
+    case heading2
+    case bulletedList
+    case numberedList
+    case checklist
+    case quote
+    case callout
+    case code
+    case divider
+    case table
+    case collapsible
+    case image
+    case file
+    case bookmark
+    case noteLink
+}
+
+public struct LifeBoardKnowledgeSpaceValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var title: String
+    public var icon: String
+    public var createdAt: Date
+    public var updatedAt: Date
+
+    public init(id: UUID = UUID(), title: String, icon: String = "square.grid.2x2", createdAt: Date = Date(), updatedAt: Date = Date()) {
+        self.id = id
+        self.title = title
+        self.icon = icon
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}
+
+public struct LifeBoardKnowledgeFolderValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var spaceID: UUID
+    public var parentFolderID: UUID?
+    public var title: String
+    public var ordinal: Int
+
+    public init(id: UUID = UUID(), spaceID: UUID, parentFolderID: UUID? = nil, title: String, ordinal: Int = 0) {
+        self.id = id
+        self.spaceID = spaceID
+        self.parentFolderID = parentFolderID
+        self.title = title
+        self.ordinal = ordinal
+    }
+}
+
+public enum KnowledgeFolderHierarchy {
+    public static func path(
+        to folderID: UUID?,
+        in folders: [LifeBoardKnowledgeFolderValue]
+    ) -> [LifeBoardKnowledgeFolderValue] {
+        guard let folderID else { return [] }
+        let byID = Dictionary(uniqueKeysWithValues: folders.map { ($0.id, $0) })
+        var result: [LifeBoardKnowledgeFolderValue] = []
+        var cursor: UUID? = folderID
+        var visited: Set<UUID> = []
+        while let id = cursor, visited.insert(id).inserted, let folder = byID[id] {
+            result.append(folder)
+            cursor = folder.parentFolderID
+        }
+        return result.reversed()
+    }
+
+    public static func canMove(
+        folderID: UUID,
+        to parentID: UUID?,
+        in folders: [LifeBoardKnowledgeFolderValue]
+    ) -> Bool {
+        guard folderID != parentID else { return false }
+        guard let parentID else { return true }
+        return path(to: parentID, in: folders).contains(where: { $0.id == folderID }) == false
+    }
+}
+
+public struct LifeBoardKnowledgeBlockValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var noteID: UUID
+    public var kind: LifeBoardKnowledgeBlockKind
+    public var text: String
+    public var metadata: Data?
+    public var ordinal: Int
+    public var isChecked: Bool
+    public var richTextData: Data?
+    public var parentBlockID: UUID?
+    public var indentLevel: Int?
+    public var isCollapsed: Bool?
+    public var createdAt: Date?
+    public var updatedAt: Date?
+
+    public init(
+        id: UUID = UUID(),
+        noteID: UUID,
+        kind: LifeBoardKnowledgeBlockKind = .paragraph,
+        text: String = "",
+        metadata: Data? = nil,
+        ordinal: Int = 0,
+        isChecked: Bool = false,
+        richTextData: Data? = nil,
+        parentBlockID: UUID? = nil,
+        indentLevel: Int? = nil,
+        isCollapsed: Bool? = nil,
+        createdAt: Date? = nil,
+        updatedAt: Date? = nil
+    ) {
+        self.id = id
+        self.noteID = noteID
+        self.kind = kind
+        self.text = text
+        self.metadata = metadata
+        self.ordinal = ordinal
+        self.isChecked = isChecked
+        self.richTextData = richTextData
+        self.parentBlockID = parentBlockID
+        self.indentLevel = indentLevel
+        self.isCollapsed = isCollapsed
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+
+    public var searchableMetadata: String? {
+        let payload = KnowledgeBlockPayload.decode(from: self)
+        return [payload.bookmark?.title, payload.bookmark?.summary, payload.attachment?.fileName]
+            .compactMap { $0 }
+            .joined(separator: " ")
+    }
+}
+
+public struct KnowledgeBlockPayload: Codable, Hashable, Sendable {
+    public struct Table: Codable, Hashable, Sendable {
+        public var rows: [[String]]
+
+        public init(rows: [[String]] = [["", ""], ["", ""]]) {
+            let width = max(1, rows.map(\.count).max() ?? 1)
+            self.rows = (rows.isEmpty ? [[""]] : rows).map { row in
+                row + Array(repeating: "", count: max(0, width - row.count))
+            }
+        }
+    }
+
+    public struct Bookmark: Codable, Hashable, Sendable {
+        public var url: URL?
+        public var title: String?
+        public var summary: String?
+
+        public init(url: URL? = nil, title: String? = nil, summary: String? = nil) {
+            self.url = url
+            self.title = title
+            self.summary = summary
+        }
+    }
+
+    public struct NoteLink: Codable, Hashable, Sendable {
+        public var noteID: UUID
+        public var cachedTitle: String?
+
+        public init(noteID: UUID, cachedTitle: String? = nil) {
+            self.noteID = noteID
+            self.cachedTitle = cachedTitle
+        }
+    }
+
+    public struct Attachment: Codable, Hashable, Sendable {
+        public var attachmentID: UUID
+        public var fileName: String
+
+        public init(attachmentID: UUID, fileName: String) {
+            self.attachmentID = attachmentID
+            self.fileName = fileName
+        }
+    }
+
+    public var version: Int
+    public var table: Table?
+    public var bookmark: Bookmark?
+    public var noteLink: NoteLink?
+    public var attachment: Attachment?
+
+    public init(
+        version: Int = 1,
+        table: Table? = nil,
+        bookmark: Bookmark? = nil,
+        noteLink: NoteLink? = nil,
+        attachment: Attachment? = nil
+    ) {
+        self.version = version
+        self.table = table
+        self.bookmark = bookmark
+        self.noteLink = noteLink
+        self.attachment = attachment
+    }
+
+    public static func decode(from block: LifeBoardKnowledgeBlockValue) -> KnowledgeBlockPayload {
+        if let metadata = block.metadata,
+           let decoded = try? JSONDecoder().decode(KnowledgeBlockPayload.self, from: metadata) {
+            return decoded
+        }
+        switch block.kind {
+        case .table:
+            let rows = block.text.split(separator: "\n", omittingEmptySubsequences: false).map { line in
+                line.split(separator: ",", omittingEmptySubsequences: false).map(String.init)
+            }
+            return KnowledgeBlockPayload(table: .init(rows: rows))
+        case .bookmark:
+            return KnowledgeBlockPayload(bookmark: .init(url: URL(string: block.text)))
+        case .noteLink:
+            return UUID(uuidString: block.text).map { KnowledgeBlockPayload(noteLink: .init(noteID: $0)) } ?? KnowledgeBlockPayload()
+        default:
+            return KnowledgeBlockPayload()
+        }
+    }
+
+    public func encoded() -> Data? { try? JSONEncoder().encode(self) }
+}
+
+public struct LifeBoardKnowledgeNoteValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var spaceID: UUID
+    public var folderID: UUID?
+    public var title: String
+    public var isPinned: Bool
+    public var isFavorite: Bool
+    public var createdAt: Date
+    public var updatedAt: Date
+    public var blocks: [LifeBoardKnowledgeBlockValue]
+    public var tagIDs: Set<UUID>
+    public var state: KnowledgeNoteState?
+    public var deletedAt: Date?
+    public var lastOpenedAt: Date?
+    public var manualSortOrder: Double?
+    public var templateID: String?
+    public var contentVersion: Int?
+    public var lockPolicy: KnowledgeNoteLockPolicy?
+
+    public init(
+        id: UUID = UUID(),
+        spaceID: UUID,
+        folderID: UUID? = nil,
+        title: String,
+        isPinned: Bool = false,
+        isFavorite: Bool = false,
+        createdAt: Date = Date(),
+        updatedAt: Date = Date(),
+        blocks: [LifeBoardKnowledgeBlockValue] = [],
+        tagIDs: Set<UUID> = [],
+        state: KnowledgeNoteState? = nil,
+        deletedAt: Date? = nil,
+        lastOpenedAt: Date? = nil,
+        manualSortOrder: Double? = nil,
+        templateID: String? = nil,
+        contentVersion: Int? = nil,
+        lockPolicy: KnowledgeNoteLockPolicy? = nil
+    ) {
+        self.id = id
+        self.spaceID = spaceID
+        self.folderID = folderID
+        self.title = title
+        self.isPinned = isPinned
+        self.isFavorite = isFavorite
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+        self.blocks = blocks.sorted { $0.ordinal < $1.ordinal }
+        self.tagIDs = tagIDs
+        self.state = state
+        self.deletedAt = deletedAt
+        self.lastOpenedAt = lastOpenedAt
+        self.manualSortOrder = manualSortOrder
+        self.templateID = templateID
+        self.contentVersion = contentVersion
+        self.lockPolicy = lockPolicy
+    }
+
+    public var plainText: String {
+        blocks.map(\.text).joined(separator: "\n")
+    }
+
+    public var displayTitle: String {
+        if resolvedLockPolicy != .unlocked { return "Locked note" }
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled" : trimmed
+    }
+
+    public var resolvedState: KnowledgeNoteState { state ?? .active }
+    public var resolvedLockPolicy: KnowledgeNoteLockPolicy { lockPolicy ?? .unlocked }
+    public var isMeaningful: Bool {
+        !title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || blocks.contains { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || $0.kind == .image || $0.kind == .file }
+    }
+}
+
+public struct LifeBoardKnowledgeTagValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var name: String
+    public var colorHex: String?
+
+    public init(id: UUID = UUID(), name: String, colorHex: String? = nil) {
+        self.id = id
+        self.name = name
+        self.colorHex = colorHex
+    }
+}
+
+public struct LifeBoardKnowledgeLinkValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var sourceNoteID: UUID
+    public var destinationNoteID: UUID
+    public var label: String?
+    public var sourceBlockID: UUID?
+    public var kind: String?
+
+    public init(
+        id: UUID = UUID(),
+        sourceNoteID: UUID,
+        destinationNoteID: UUID,
+        label: String? = nil,
+        sourceBlockID: UUID? = nil,
+        kind: String? = nil
+    ) {
+        self.id = id
+        self.sourceNoteID = sourceNoteID
+        self.destinationNoteID = destinationNoteID
+        self.label = label
+        self.sourceBlockID = sourceBlockID
+        self.kind = kind
+    }
+}
+
+public struct LifeBoardKnowledgeAttachmentValue: Identifiable, Codable, Hashable, Sendable {
+    public var id: UUID
+    public var noteID: UUID
+    public var kind: String
+    public var fileName: String
+    public var payload: Data
+    public var createdAt: Date
+    public var contentType: String?
+    public var checksum: String?
+    public var byteCount: Int64?
+    public var availability: String?
+    public var duration: Double?
+    public var thumbnail: Data?
+    public var ocrText: String?
+    public var transcript: String?
+    public var modifiedAt: Date?
+    public var sourceKind: String?
+    public var processingState: String?
+    public var processingErrorCode: String?
+    public var protectedRelativePath: String?
+
+    public init(
+        id: UUID = UUID(),
+        noteID: UUID,
+        kind: String,
+        fileName: String,
+        payload: Data,
+        createdAt: Date = Date(),
+        contentType: String? = nil,
+        checksum: String? = nil,
+        byteCount: Int64? = nil,
+        availability: String? = nil,
+        duration: Double? = nil,
+        thumbnail: Data? = nil,
+        ocrText: String? = nil,
+        transcript: String? = nil,
+        modifiedAt: Date? = nil,
+        sourceKind: String? = nil,
+        processingState: String? = nil,
+        processingErrorCode: String? = nil,
+        protectedRelativePath: String? = nil
+    ) {
+        self.id = id
+        self.noteID = noteID
+        self.kind = kind
+        self.fileName = fileName
+        self.payload = payload
+        self.createdAt = createdAt
+        self.contentType = contentType
+        self.checksum = checksum
+        self.byteCount = byteCount
+        self.availability = availability
+        self.duration = duration
+        self.thumbnail = thumbnail
+        self.ocrText = ocrText
+        self.transcript = transcript
+        self.modifiedAt = modifiedAt
+        self.sourceKind = sourceKind
+        self.processingState = processingState
+        self.processingErrorCode = processingErrorCode
+        self.protectedRelativePath = protectedRelativePath
+    }
+}
+
+public protocol KnowledgeAttachmentFileRepository: Sendable {
+    func persist(_ attachment: LifeBoardKnowledgeAttachmentValue) async throws -> URL
+    func resolvedURL(for attachment: LifeBoardKnowledgeAttachmentValue) async throws -> URL
+    func deleteFile(for attachment: LifeBoardKnowledgeAttachmentValue) async throws
+}
+
+public protocol KnowledgeBookmarkMetadataFetching: Sendable {
+    func metadata(for url: URL) async throws -> KnowledgeBlockPayload.Bookmark
+}
+
+public struct LifeBoardKnowledgeGraphSnapshot: Equatable, Sendable {
+    public var notes: [LifeBoardKnowledgeNoteValue]
+    public var links: [LifeBoardKnowledgeLinkValue]
+}
+
+// MARK: - Repository contract
+
+public protocol LifeBoardPhaseIIRepository: Sendable {
+    func fetchTrackers() async throws -> [LifeBoardTrackerDefinitionValue]
+    func saveTracker(_ value: LifeBoardTrackerDefinitionValue) async throws
+    func deleteTracker(id: UUID) async throws
+    func fetchTrackerEntries(trackerID: UUID?) async throws -> [LifeBoardTrackerEntryValue]
+    func saveTrackerEntry(_ value: LifeBoardTrackerEntryValue) async throws
+
+    func fetchMoodCheckIns(from: Date?, to: Date?) async throws -> [LifeBoardMoodEnergyCheckInValue]
+    func saveMoodCheckIn(_ value: LifeBoardMoodEnergyCheckInValue) async throws
+    func deleteMoodCheckIn(id: UUID) async throws
+
+    func fetchMedications() async throws -> [LifeBoardMedicationDefinitionValue]
+    func saveMedication(_ value: LifeBoardMedicationDefinitionValue) async throws
+    func deleteMedication(id: UUID) async throws
+    func fetchMedicationSchedules(medicationID: UUID?) async throws -> [LifeBoardMedicationScheduleValue]
+    func saveMedicationSchedule(_ value: LifeBoardMedicationScheduleValue) async throws
+    func fetchMedicationEvents(from: Date, to: Date) async throws -> [LifeBoardMedicationEventValue]
+    func saveMedicationEvent(_ value: LifeBoardMedicationEventValue) async throws
+
+    func fetchFastingSessions(limit: Int) async throws -> [LifeBoardFastingSessionValue]
+    func saveFastingSession(_ value: LifeBoardFastingSessionValue) async throws
+    func fetchFastingTemplates(includeArchived: Bool) async throws -> [LifeBoardFastingTemplateValue]
+    func saveFastingTemplate(_ value: LifeBoardFastingTemplateValue) async throws
+
+    func fetchJournalDays(search: String?, starredOnly: Bool, mood: LifeBoardJournalMood?) async throws -> [LifeBoardJournalDayValue]
+    func fetchJournalDay(containing date: Date) async throws -> LifeBoardJournalDayValue?
+    func saveJournalDay(_ value: LifeBoardJournalDayValue) async throws
+    func deleteJournalDay(id: UUID) async throws
+    func fetchJournalDraft(dayID: UUID?) async throws -> LifeBoardJournalDraftValue?
+    func saveJournalDraft(_ value: LifeBoardJournalDraftValue) async throws
+    func deleteJournalDraft(id: UUID) async throws
+
+    func fetchKnowledgeSpaces() async throws -> [LifeBoardKnowledgeSpaceValue]
+    func saveKnowledgeSpace(_ value: LifeBoardKnowledgeSpaceValue) async throws
+    func fetchKnowledgeFolders(spaceID: UUID?) async throws -> [LifeBoardKnowledgeFolderValue]
+    func saveKnowledgeFolder(_ value: LifeBoardKnowledgeFolderValue) async throws
+    func fetchKnowledgeNotes(search: String?, spaceID: UUID?) async throws -> [LifeBoardKnowledgeNoteValue]
+    func saveKnowledgeNote(_ value: LifeBoardKnowledgeNoteValue) async throws
+    func deleteKnowledgeNote(id: UUID) async throws
+    func fetchKnowledgeTags() async throws -> [LifeBoardKnowledgeTagValue]
+    func saveKnowledgeTag(_ value: LifeBoardKnowledgeTagValue) async throws
+    func fetchKnowledgeLinks() async throws -> [LifeBoardKnowledgeLinkValue]
+    func saveKnowledgeLink(_ value: LifeBoardKnowledgeLinkValue) async throws
+    func deleteKnowledgeLink(id: UUID) async throws
+    func fetchKnowledgeAttachments(noteID: UUID) async throws -> [LifeBoardKnowledgeAttachmentValue]
+    func saveKnowledgeAttachment(_ value: LifeBoardKnowledgeAttachmentValue) async throws
+    func deleteKnowledgeAttachment(id: UUID) async throws
+
+    func fetchKnowledgeNotes(query: KnowledgeNoteQuery) async throws -> [LifeBoardKnowledgeNoteValue]
+    func fetchKnowledgeSmartCollections(spaceID: UUID?) async throws -> [KnowledgeSmartCollectionValue]
+    func saveKnowledgeSmartCollection(_ value: KnowledgeSmartCollectionValue) async throws
+    func deleteKnowledgeSmartCollection(id: UUID) async throws
+    func fetchKnowledgeDraft(noteID: UUID) async throws -> KnowledgeNoteDraftValue?
+    func saveKnowledgeDraft(_ value: KnowledgeNoteDraftValue) async throws
+    func deleteKnowledgeDraft(noteID: UUID) async throws
+    func fetchKnowledgeRevisions(noteID: UUID) async throws -> [KnowledgeNoteRevisionValue]
+    func saveKnowledgeRevision(_ value: KnowledgeNoteRevisionValue) async throws
+    func lockKnowledgeNote(
+        redacted: LifeBoardKnowledgeNoteValue,
+        payload: KnowledgeSecurePayloadValue,
+        attachments: [KnowledgeSecureAttachmentPayloadValue]
+    ) async throws
+    func fetchKnowledgeSecurePayload(
+        noteID: UUID
+    ) async throws -> (KnowledgeSecurePayloadValue, [KnowledgeSecureAttachmentPayloadValue])?
+    func restoreUnlockedKnowledgeNote(
+        _ note: LifeBoardKnowledgeNoteValue,
+        attachments: [LifeBoardKnowledgeAttachmentValue]
+    ) async throws
+    func pruneKnowledgeRecovery(now: Date) async throws
+}
+
+public extension LifeBoardPhaseIIRepository {
+    func fetchKnowledgeNotes(query: KnowledgeNoteQuery) async throws -> [LifeBoardKnowledgeNoteValue] {
+        let values = try await fetchKnowledgeNotes(search: nil, spaceID: query.spaceID)
+        let links = try await fetchKnowledgeLinks()
+        return query.apply(
+            to: values,
+            linkedNoteIDs: Set(links.flatMap { [$0.sourceNoteID, $0.destinationNoteID] }),
+            incomingNoteIDs: Set(links.map(\.destinationNoteID)),
+            outgoingNoteIDs: Set(links.map(\.sourceNoteID))
+        )
+    }
+
+    func fetchKnowledgeSmartCollections(spaceID: UUID?) async throws -> [KnowledgeSmartCollectionValue] { [] }
+    func saveKnowledgeSmartCollection(_ value: KnowledgeSmartCollectionValue) async throws {}
+    func deleteKnowledgeSmartCollection(id: UUID) async throws {}
+    func fetchKnowledgeDraft(noteID: UUID) async throws -> KnowledgeNoteDraftValue? { nil }
+    func saveKnowledgeDraft(_ value: KnowledgeNoteDraftValue) async throws {}
+    func deleteKnowledgeDraft(noteID: UUID) async throws {}
+    func fetchKnowledgeRevisions(noteID: UUID) async throws -> [KnowledgeNoteRevisionValue] { [] }
+    func saveKnowledgeRevision(_ value: KnowledgeNoteRevisionValue) async throws {}
+    func lockKnowledgeNote(
+        redacted: LifeBoardKnowledgeNoteValue,
+        payload: KnowledgeSecurePayloadValue,
+        attachments: [KnowledgeSecureAttachmentPayloadValue]
+    ) async throws {
+        throw CocoaError(.featureUnsupported)
+    }
+    func fetchKnowledgeSecurePayload(
+        noteID: UUID
+    ) async throws -> (KnowledgeSecurePayloadValue, [KnowledgeSecureAttachmentPayloadValue])? { nil }
+    func restoreUnlockedKnowledgeNote(
+        _ note: LifeBoardKnowledgeNoteValue,
+        attachments: [LifeBoardKnowledgeAttachmentValue]
+    ) async throws {
+        try await saveKnowledgeNote(note)
+        for attachment in attachments { try await saveKnowledgeAttachment(attachment) }
+    }
+    func pruneKnowledgeRecovery(now: Date = Date()) async throws {}
+}
+
+public struct JournalHomeContextCandidateProvider: HomeContextCandidateProvider {
+    public let providerID = "journal"
+    private let repository: any LifeBoardPhaseIIRepository
+
+    public init(repository: any LifeBoardPhaseIIRepository) { self.repository = repository }
+
+    public func candidates(context: HomeContextCandidateContext) async -> [HomeContextCandidate] {
+        let calendar = Calendar.current
+        let hour = calendar.component(.hour, from: context.date)
+        guard hour >= 17,
+              (try? await repository.fetchJournalDay(containing: context.date)) == nil else { return [] }
+        return [.init(
+            id: "evening-reflection:\(calendar.startOfDay(for: context.date).timeIntervalSince1970)",
+            widgetKind: .journal,
+            title: "Keep one moment from today",
+            reason: .init(message: "Evening is a natural pause, and today does not have a journal moment yet.", signal: "time of day"),
+            destination: .track,
+            sensitivity: .privateSensitive,
+            priority: 180,
+            relevantFrom: context.date
+        )]
+    }
+}
+
+/// Suggests the Weekly Reflection once the week is winding down and the week
+/// actually contains journal material to reflect on.
+public struct WeeklyReflectionHomeContextCandidateProvider: HomeContextCandidateProvider {
+    public let providerID = "weekly-reflection"
+    private let repository: any LifeBoardPhaseIIRepository
+
+    public init(repository: any LifeBoardPhaseIIRepository) { self.repository = repository }
+
+    public func candidates(context: HomeContextCandidateContext) async -> [HomeContextCandidate] {
+        var calendar = Calendar.current
+        calendar.firstWeekday = Calendar.current.firstWeekday
+        let weekday = calendar.component(.weekday, from: context.date)
+        let lastWeekday = ((calendar.firstWeekday + 5) % 7) + 1
+        guard weekday == lastWeekday else { return [] }
+        guard let weekInterval = calendar.dateInterval(of: .weekOfYear, for: context.date),
+              let days = try? await repository.fetchJournalDays(search: nil, starredOnly: false, mood: nil),
+              days.contains(where: { weekInterval.contains($0.day) }) else { return [] }
+        return [.init(
+            id: "weekly-reflection:\(Int(weekInterval.start.timeIntervalSince1970))",
+            widgetKind: .journal,
+            title: "Your week is ready to reflect on",
+            reason: .init(
+                message: "This week has journal moments, and the week is closing.",
+                signal: "end of week"
+            ),
+            destination: .track,
+            sensitivity: .privateSensitive,
+            priority: 260,
+            relevantFrom: context.date,
+            relevantUntil: weekInterval.end
+        )]
+    }
+}
+
+/// Resurfaces a journal day from exactly one year ago — a gentle memory, only
+/// when the user permits sensitive content on Home, and never with content in
+/// the candidate itself.
+public struct JournalMemoryHomeContextCandidateProvider: HomeContextCandidateProvider {
+    public let providerID = "journal-memory"
+    private let repository: any LifeBoardPhaseIIRepository
+
+    public init(repository: any LifeBoardPhaseIIRepository) { self.repository = repository }
+
+    public func candidates(context: HomeContextCandidateContext) async -> [HomeContextCandidate] {
+        let calendar = Calendar.current
+        guard let lastYear = calendar.date(byAdding: .year, value: -1, to: context.date),
+              let memory = try? await repository.fetchJournalDay(containing: lastYear) else { return [] }
+        return [.init(
+            id: "journal-memory:\(memory.id.uuidString)",
+            widgetKind: .journal,
+            title: "A year ago today",
+            reason: .init(
+                message: "You kept a journal moment on this day last year. Open it privately when you like.",
+                signal: "on this day"
+            ),
+            destination: .track,
+            sensitivity: .privateSensitive,
+            priority: 150,
+            relevantFrom: context.date,
+            relevantUntil: calendar.startOfDay(for: context.date).addingTimeInterval(24 * 60 * 60)
+        )]
+    }
+}

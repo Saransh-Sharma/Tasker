@@ -55,9 +55,11 @@ extension OverdueRescueViewModel {
                 OverdueRescueCardModel.make(
                     task: record.taskSnapshot,
                     recommendation: nil,
-                    projectsByID: projectsByID,
-                    now: referenceDate
-                )
+                projectsByID: projectsByID,
+                now: referenceDate,
+                decisionAnchorDate: launchContext.targetDate(),
+                decisionCalendar: launchContext.decisionCalendar()
+            )
             }
         cards.insert(contentsOf: restoredCards, at: min(currentIndex, cards.count))
         sprintResolvedCount = max(0, sprintResolvedCount - records.count)

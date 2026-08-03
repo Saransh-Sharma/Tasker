@@ -10,6 +10,7 @@ import SwiftUI
 private enum SunriseHabitCadencePreset: String, CaseIterable, Identifiable {
     case daily
     case weekly
+    case interval
 
     var id: String { rawValue }
 
@@ -17,6 +18,7 @@ private enum SunriseHabitCadencePreset: String, CaseIterable, Identifiable {
         switch self {
         case .daily: return "Daily"
         case .weekly: return "Weekly"
+        case .interval: return "Interval"
         }
     }
 }
@@ -38,6 +40,14 @@ struct SunriseHabitDetailScreen: View {
     private var spacing: LifeBoardSpacingTokens { LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing }
     private var isInitialDraftHydrationComplete: Bool {
         isInitialReadOnlyHydrationComplete && isInitialEditorSupportHydrationComplete
+    }
+    private var isErrorAlertPresented: Binding<Bool> {
+        Binding(
+            get: { viewModel.errorMessage != nil },
+            set: { isPresented in
+                if isPresented == false { viewModel.clearError() }
+            }
+        )
     }
 
     init(viewModel: HabitDetailViewModel, onMutation: @escaping @MainActor @Sendable () -> Void) {
@@ -72,7 +82,7 @@ struct SunriseHabitDetailScreen: View {
             LifeBoardPerformanceTrace.event("SunriseHabitDetailScreenPresented")
         }
         .onDisappear {
-            viewModel.cancelPendingAutosave()
+            viewModel.flushPendingAutosave()
         }
         .onChange(of: viewModel.mutationFeedback) { _, feedback in
             guard let feedback else { return }
@@ -98,6 +108,14 @@ struct SunriseHabitDetailScreen: View {
         .onChange(of: viewModel.draft.selectedIconSymbolName) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
         .onChange(of: viewModel.draft.colorHex) { _, _ in scheduleAutosaveIfHydrated(debounced: false) }
         .lifeboardSnackbar($snackbar)
+        .alert(
+            "Couldn’t update habit",
+            isPresented: isErrorAlertPresented
+        ) {
+            Button("OK", role: .cancel) { viewModel.clearError() }
+        } message: {
+            Text(viewModel.errorMessage ?? "Please try again.")
+        }
     }
 
     private func scheduleAutosaveIfHydrated(debounced: Bool) {
@@ -144,6 +162,7 @@ struct SunriseHabitDetailScreen: View {
     private var alwaysEditableContent: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
             heroCard
+            autosaveFailureBanner
             detailReveal {
                 VStack(alignment: .leading, spacing: spacing.s16) {
                     CalmFieldGroup(title: "Essentials") { essentialsEditorContent }
@@ -156,6 +175,29 @@ struct SunriseHabitDetailScreen: View {
         }
     }
 
+    @ViewBuilder
+    private var autosaveFailureBanner: some View {
+        if case .failed(let message) = viewModel.autosaveState {
+            HStack(alignment: .center, spacing: spacing.s12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(LifeBoardDetailTonePalette.dangerText)
+                    .accessibilityHidden(true)
+                Text(message)
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textPrimary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Button("Retry") { viewModel.retryAutosave() }
+                    .buttonStyle(.bordered)
+                    .disabled(viewModel.isSaving)
+            }
+            .padding(spacing.s12)
+            .background(LifeBoardDetailTonePalette.dangerText.opacity(0.08), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .accessibilityElement(children: .combine)
+            .accessibilityIdentifier(SunriseHabitDetailAccessibilityID.autosaveFailure)
+        }
+    }
+
     private func detailReveal<Content: View>(@ViewBuilder content: @escaping () -> Content) -> some View {
         CalmInlineReveal(
             title: "Details",
@@ -164,7 +206,7 @@ struct SunriseHabitDetailScreen: View {
             accessibilityID: SunriseHabitDetailAccessibilityID.detailsDisclosure,
             onToggle: {
                 LifeBoardFeedback.light()
-                withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
                     showDetailReveal.toggle()
                 }
             },
@@ -184,7 +226,7 @@ struct SunriseHabitDetailScreen: View {
                         .foregroundStyle(accentColor)
                         .contentTransition(.symbolEffect(.replace))
                         .animation(
-                            LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy,
+                            LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange,
                             value: viewModel.draft.selectedIconSymbolName
                         )
                 }
@@ -309,9 +351,19 @@ struct SunriseHabitDetailScreen: View {
                 if cadencePresetBinding.wrappedValue == .weekly {
                     SunriseHabitWeekdayPickerRow(selectedDays: weeklyDaysBinding)
                 }
+                if cadencePresetBinding.wrappedValue == .interval {
+                    Stepper(
+                        "Every \(intervalDaysBinding.wrappedValue) days",
+                        value: intervalDaysBinding,
+                        in: 2...30
+                    )
+                    .frame(minHeight: 44)
+                }
 
                 DatePicker("Check-in time", selection: cadenceTimeBinding, displayedComponents: .hourAndMinute)
                     .datePickerStyle(.compact)
+
+                SunriseHabitTargetEditor(config: $viewModel.draft.targetConfig)
 
                 SunriseHabitReminderWindowPicker(
                     isEnabled: viewModel.draft.hasReminderWindow,
@@ -324,12 +376,12 @@ struct SunriseHabitDetailScreen: View {
                         set: { viewModel.draft.reminderWindowEndPickerDate = $0 }
                     ),
                     onEnable: {
-                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
                             viewModel.draft.ensureReminderWindowDefaults()
                         }
                     },
                     onClear: {
-                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
                             viewModel.draft.clearReminderWindow()
                         }
                     },
@@ -362,12 +414,6 @@ struct SunriseHabitDetailScreen: View {
                     .lineLimit(3...7)
                     .textFieldStyle(LifeBoardTextFieldStyle())
 
-                if case .failed(let message) = viewModel.autosaveState {
-                    Text(message)
-                        .font(.lifeboard(.callout))
-                        .foregroundStyle(LifeBoardDetailTonePalette.dangerText)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
         }
     }
 
@@ -424,21 +470,27 @@ struct SunriseHabitDetailScreen: View {
     private var lifecycleContent: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
                 Button(viewModel.row.isPaused ? "Resume habit" : "Pause habit", systemImage: viewModel.row.isPaused ? "play.fill" : "pause.fill") {
-                    viewModel.togglePause { Task { @MainActor in notifyMutation() } }
+                    viewModel.togglePause { didSucceed in
+                        if didSucceed { notifyMutation() }
+                    }
                 }
                 .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .quiet))
                 .disabled(viewModel.isSaving)
 
                 if viewModel.row.trackingMode == .lapseOnly && !viewModel.row.isArchived {
                     Button("Log lapse", systemImage: "arrow.uturn.backward.circle") {
-                        viewModel.logLapse { Task { @MainActor in notifyMutation() } }
+                        viewModel.logLapse { didSucceed in
+                            if didSucceed { notifyMutation() }
+                        }
                     }
                     .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .warning))
                     .disabled(viewModel.isSaving)
                 }
 
                 Button(String(localized: "Archive", defaultValue: "Archive") + " habit", systemImage: "archivebox.fill") {
-                    viewModel.archive { Task { @MainActor in notifyMutation() } }
+                    viewModel.archive { didSucceed in
+                        if didSucceed { notifyMutation() }
+                    }
                 }
                 .buttonStyle(SunriseDetailCapsuleButtonStyle(tone: .danger))
                 .disabled(viewModel.isSaving || viewModel.row.isArchived)
@@ -556,6 +608,8 @@ struct SunriseHabitDetailScreen: View {
             return "Daily at \(formattedTime(hour: hour, minute: minute))"
         case .weekly(let days, let hour, let minute):
             return "\(weekdaySummary(days)) at \(formattedTime(hour: hour, minute: minute))"
+        case .interval(let days, let hour, let minute):
+            return "Every \(max(1, days)) days at \(formattedTime(hour: hour, minute: minute))"
         }
     }
 
@@ -600,6 +654,7 @@ struct SunriseHabitDetailScreen: View {
                 switch viewModel.draft.cadence {
                 case .daily: return .daily
                 case .weekly: return .weekly
+                case .interval: return .interval
                 }
             },
             set: { preset in
@@ -610,6 +665,8 @@ struct SunriseHabitDetailScreen: View {
                 case .weekly:
                     let days = weeklyDays(from: viewModel.draft.cadence)
                     viewModel.draft.cadence = .weekly(daysOfWeek: days.isEmpty ? [2, 3, 4, 5, 6] : days, hour: time.hour, minute: time.minute)
+                case .interval:
+                    viewModel.draft.cadence = .interval(days: intervalDays(from: viewModel.draft.cadence), hour: time.hour, minute: time.minute)
                 }
             }
         )
@@ -644,6 +701,8 @@ struct SunriseHabitDetailScreen: View {
                     viewModel.draft.cadence = .daily(hour: hour, minute: minute)
                 case .weekly(let days, _, _):
                     viewModel.draft.cadence = .weekly(daysOfWeek: days, hour: hour, minute: minute)
+                case .interval(let days, _, _):
+                    viewModel.draft.cadence = .interval(days: days, hour: hour, minute: minute)
                 }
             }
         )
@@ -653,6 +712,7 @@ struct SunriseHabitDetailScreen: View {
         switch cadence {
         case .daily(let hour, let minute): return (hour, minute)
         case .weekly(_, let hour, let minute): return (hour, minute)
+        case .interval(_, let hour, let minute): return (hour, minute)
         }
     }
 
@@ -660,18 +720,35 @@ struct SunriseHabitDetailScreen: View {
         switch cadence {
         case .daily: return []
         case .weekly(let days, _, _): return days
+        case .interval: return []
         }
+    }
+
+    private var intervalDaysBinding: Binding<Int> {
+        Binding(
+            get: { intervalDays(from: viewModel.draft.cadence) },
+            set: { days in
+                let time = cadenceTime(from: viewModel.draft.cadence)
+                viewModel.draft.cadence = .interval(days: max(2, days), hour: time.hour, minute: time.minute)
+            }
+        )
+    }
+
+    private func intervalDays(from cadence: HabitCadenceDraft) -> Int {
+        if case let .interval(days, _, _) = cadence { return max(2, days) }
+        return 2
     }
 
     private func mutate(_ cell: HabitDetailDayCell) {
         let onMutation = onMutation
         let willCompleteToday = cell.isToday && cell.state != .success && cell.state != .future
-        if willCompleteToday, sawTodayCompletionThisSession == false {
-            sawTodayCompletionThisSession = true
-            completionBurstTrigger += 1
-        }
-        viewModel.mutateDay(cell) {
-            Task { @MainActor in onMutation() }
+        viewModel.mutateDay(cell) { didSucceed in
+            guard didSucceed else { return }
+            if willCompleteToday, sawTodayCompletionThisSession == false {
+                sawTodayCompletionThisSession = true
+                completionBurstTrigger += 1
+            }
+            onMutation()
         }
     }
 
@@ -696,6 +773,7 @@ private enum SunriseHabitDetailAccessibilityID {
     static let contextSecondary = "habitDetail.context.secondary"
     static let detailsDisclosure = "habitDetail.detailsDisclosure"
     static let helperText = "habitDetail.helperText"
+    static let autosaveFailure = "habitDetail.autosaveFailure"
     static let currentStreakMetric = "habitDetail.metric.currentStreak"
     static let bestStreakMetric = "habitDetail.metric.bestStreak"
     static let totalCountMetric = "habitDetail.metric.totalCount"
@@ -1020,7 +1098,7 @@ private struct SunriseHabitCalendarDayCell: View {
     private var textColor: Color {
         switch cell.cell.state {
         case .success:
-            return (cell.streakDepth ?? 1) >= 4 ? Color.white.opacity(0.98) : Color.lifeboard.textPrimary
+            return (cell.streakDepth ?? 1) >= 4 ? Color.lifeboard(.textInverse).opacity(0.98) : Color.lifeboard.textPrimary
         case .lapsed:
             return Color.lifeboard.textSecondary
         case .future, .notScheduled:

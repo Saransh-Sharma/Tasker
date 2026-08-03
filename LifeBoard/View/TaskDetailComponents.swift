@@ -17,19 +17,19 @@ struct PriorityPillSelector: View {
     var body: some View {
         HStack(spacing: LifeBoardTheme.Spacing.sm) {
             PriorityPill(label: "None", color: Color.lifeboard.priorityNone, isSelected: selectedPriority == 1) {
-                withAnimation(LifeBoardAnimation.snappy) { selectedPriority = 1 }
+                withAnimation(LifeBoardAnimation.stateChange) { selectedPriority = 1 }
                 LifeBoardFeedback.selection()
             }
             PriorityPill(label: "Low", color: Color.lifeboard.priorityLow, isSelected: selectedPriority == 2) {
-                withAnimation(LifeBoardAnimation.snappy) { selectedPriority = 2 }
+                withAnimation(LifeBoardAnimation.stateChange) { selectedPriority = 2 }
                 LifeBoardFeedback.selection()
             }
             PriorityPill(label: "High", color: Color.lifeboard.priorityHigh, isSelected: selectedPriority == 3) {
-                withAnimation(LifeBoardAnimation.snappy) { selectedPriority = 3 }
+                withAnimation(LifeBoardAnimation.stateChange) { selectedPriority = 3 }
                 LifeBoardFeedback.selection()
             }
             PriorityPill(label: "Max", color: Color.lifeboard.priorityMax, isSelected: selectedPriority == 4) {
-                withAnimation(LifeBoardAnimation.snappy) { selectedPriority = 4 }
+                withAnimation(LifeBoardAnimation.stateChange) { selectedPriority = 4 }
                 LifeBoardFeedback.selection()
             }
         }
@@ -48,7 +48,7 @@ private struct PriorityPill: View {
             Text(label)
                 .font(.lifeboard(.callout))
                 .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundColor(isSelected ? .white : color)
+                .foregroundColor(isSelected ? .lifeboard(.accentOnPrimary) : color)
                 .padding(.horizontal, LifeBoardTheme.Spacing.md)
                 .padding(.vertical, LifeBoardTheme.Spacing.sm)
                 .frame(minHeight: 36)
@@ -409,15 +409,15 @@ struct TypeChipSelector: View {
     var body: some View {
         HStack(spacing: LifeBoardTheme.Spacing.sm) {
             LifeBoardChip(title: "Morning", isSelected: selectedType == 1, selectedStyle: .tinted) {
-                withAnimation(LifeBoardAnimation.snappy) { selectedType = 1 }
+                withAnimation(LifeBoardAnimation.stateChange) { selectedType = 1 }
                 LifeBoardFeedback.selection()
             }
             LifeBoardChip(title: "Evening", isSelected: selectedType == 2, selectedStyle: .tinted) {
-                withAnimation(LifeBoardAnimation.snappy) { selectedType = 2 }
+                withAnimation(LifeBoardAnimation.stateChange) { selectedType = 2 }
                 LifeBoardFeedback.selection()
             }
             LifeBoardChip(title: "Upcoming", isSelected: selectedType == 3, selectedStyle: .tinted) {
-                withAnimation(LifeBoardAnimation.snappy) { selectedType = 3 }
+                withAnimation(LifeBoardAnimation.stateChange) { selectedType = 3 }
                 LifeBoardFeedback.selection()
             }
         }
@@ -487,11 +487,11 @@ struct CompletionCheckbox: View {
 
     var body: some View {
         Button(action: {
-            withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.bouncy) {
+            withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.celebration) {
                 bounceScale = 1.3
             }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-                withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.bouncy) {
+                withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.celebration) {
                     bounceScale = 1.0
                 }
             }

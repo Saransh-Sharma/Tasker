@@ -32,23 +32,31 @@ final class HomeTaskSurfaceStyleTests: XCTestCase {
         XCTAssertEqual(view.metadataPolicy, .default)
     }
 
-    func testHomeSunriseUsesEdgeToEdgeTaskSurfaceConfiguration() throws {
-        let searchSource = try loadWorkspaceFile("LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+FacesAndSearchChat.swift")
-        let agendaSource = try loadWorkspaceFile("LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+HabitsAgendaAndFocusStrip.swift")
+    func testAdaptiveHomeUsesOpenSectionsAndCanonicalProjection() throws {
+        let source = try loadWorkspaceFile("LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift")
 
-        XCTAssertTrue(searchSource.contains("layoutStyle: .edgeToEdgeHome"))
-        XCTAssertTrue(agendaSource.contains("chromeStyle: .flatHomeList"))
-        XCTAssertTrue(agendaSource.contains("metadataPolicy: .homeUnifiedList"))
+        XCTAssertTrue(source.contains("struct LifeBoardAdaptiveHome: View"))
+        XCTAssertTrue(source.contains("ScrollView"))
+        XCTAssertTrue(source.contains("HomeProjectionCoordinator"))
+        XCTAssertTrue(source.contains("placementSection("))
+    }
+
+    func testEvaKeepsOrdinaryRepliesOpenAndCardsOnlyForStructuredPayloads() throws {
+        let source = try loadWorkspaceFile("LifeBoard/LLM/Views/Chat/Conversation/MessageView+AssistantAndUserBubble.swift")
+        let plainReply = try XCTUnwrap(source.range(of: "// Ordinary Eva prose is a reading surface, not a card."))
+        let structuredPayload = try XCTUnwrap(source.range(of: "assistantCardView(payload: payload)"))
+
+        XCTAssertLessThan(structuredPayload.lowerBound, plainReply.lowerBound)
+        let openReplyTail = source[plainReply.lowerBound...]
+        XCTAssertFalse(openReplyTail.prefix(700).contains("lifeboardPremiumSurface"))
     }
 
     func testHomeBackgroundUsesPlainCanvasWithoutAnimatedGradient() throws {
-        let appShellSource = try loadWorkspaceFile("LifeBoard/View/SunriseAppShellView.swift")
-        let homeScreenSource = try loadWorkspaceFile("LifeBoard/LifeBoardDesign/SunriseHomeScreen.swift")
+        let homeSource = try loadWorkspaceFile("LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift")
         let bezelSource = try loadWorkspaceFile("LifeBoard/DesignSystem/LifeBoardCTABezel.swift")
 
-        XCTAssertTrue(homeScreenSource.contains("Color.lifeboard.bgCanvas"))
-        XCTAssertFalse(appShellSource.contains("HomeDynamicGradientBackdrop"))
-        XCTAssertFalse(homeScreenSource.contains("HomeDynamicGradientBackdrop"))
+        XCTAssertTrue(homeSource.contains("LifeBoardScenicBackdrop("))
+        XCTAssertFalse(homeSource.contains("HomeDynamicGradientBackdrop"))
         XCTAssertFalse(bezelSource.contains("LifeBoardNoisyGradientBackdrop"))
         XCTAssertFalse(bezelSource.contains("LifeBoardNoisyGradient"))
     }
@@ -79,10 +87,8 @@ final class HomeTaskSurfaceStyleTests: XCTestCase {
 
     func testDueTodayAndRescueRowsUseSharedRowTintResolver() throws {
         let taskListSource = try loadWorkspaceFile("LifeBoard/View/SunriseTaskListView.swift")
-        let agendaSource = try loadWorkspaceFile("LifeBoard/Presentation/Home/Shell/SunriseAppShell/SunriseAppShellView+HabitsAgendaAndFocusStrip.swift")
 
         XCTAssertTrue(taskListSource.contains("HomeTaskTintResolver.rowAccentHex("))
-        XCTAssertTrue(agendaSource.contains("HomeTaskTintResolver.rowAccentHex("))
     }
 
     func testTimelineTintUsesCanonicalHomeTaskTintResolver() throws {

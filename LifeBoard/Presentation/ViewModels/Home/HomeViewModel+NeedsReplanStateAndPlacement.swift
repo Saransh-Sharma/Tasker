@@ -160,7 +160,11 @@ extension HomeViewModel {
             break
         }
 
-        updateReplanState(phase: .trayHidden)
+        let summary = makeNeedsReplanSummary(for: needsReplanCandidates)
+        let phase: HomeReplanSessionPhase = needsReplanViewModel.shouldShowPassiveTray(selectedDate: selectedDate)
+            ? .trayVisible(summary)
+            : .trayHidden
+        updateReplanState(phase: phase)
     }
 
     func deriveNeedsReplanCandidates(

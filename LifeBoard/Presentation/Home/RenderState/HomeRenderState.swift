@@ -95,8 +95,6 @@ struct HomeChromeSnapshot: Equatable {
     let weeklySummaryIsLoading: Bool
     let weeklySummaryErrorMessage: String?
     let projects: [Project]
-    let dailyReflectionEntryState: DailyReflectionEntryState?
-    let dailyPlanDraft: DailyPlanDraft?
     let momentumGuidanceText: String
     /// Life-area identity + progress shown in the date hero subtitle while a life-area lens is active.
     let lifeAreaLensHeader: LifeAreaLensHeader?
@@ -116,8 +114,6 @@ struct HomeChromeSnapshot: Equatable {
         weeklySummaryIsLoading: Bool = false,
         weeklySummaryErrorMessage: String? = nil,
         projects: [Project],
-        dailyReflectionEntryState: DailyReflectionEntryState?,
-        dailyPlanDraft: DailyPlanDraft?,
         momentumGuidanceText: String,
         lifeAreaLensHeader: LifeAreaLensHeader? = nil,
         dayCompass: DayCompassCardModel? = nil
@@ -134,8 +130,6 @@ struct HomeChromeSnapshot: Equatable {
         self.weeklySummaryIsLoading = weeklySummaryIsLoading
         self.weeklySummaryErrorMessage = weeklySummaryErrorMessage
         self.projects = projects
-        self.dailyReflectionEntryState = dailyReflectionEntryState
-        self.dailyPlanDraft = dailyPlanDraft
         self.momentumGuidanceText = momentumGuidanceText
         self.lifeAreaLensHeader = lifeAreaLensHeader
         self.dayCompass = dayCompass
@@ -155,8 +149,6 @@ struct HomeChromeSnapshot: Equatable {
             weeklySummaryIsLoading: false,
             weeklySummaryErrorMessage: nil,
             projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
     }
@@ -192,7 +184,7 @@ struct HomeTasksSnapshot: Equatable {
     let pinnedFocusTaskIDs: [UUID]
     let todayOpenTaskCount: Int
     /// Per-life-area activity used to auto-fill the Home lens row beyond pinned life areas.
-    let lifeAreaLensActivity: [UUID: HomeLensLifeAreaActivity]
+    let lifeAreaLensActivity: [UUID: HomeLensLifeAreaActivity]?
 
     static var empty: HomeTasksSnapshot {
         HomeTasksSnapshot(
@@ -224,7 +216,7 @@ struct HomeTasksSnapshot: Equatable {
             focusRows: [],
             pinnedFocusTaskIDs: [],
             todayOpenTaskCount: 0,
-            lifeAreaLensActivity: [:]
+            lifeAreaLensActivity: nil
         )
     }
 
@@ -326,10 +318,22 @@ struct HomeCalendarSnapshot: Equatable {
     let isLoading: Bool
     let errorMessage: String?
 
+    /// `selectedDate` is the start of the day, not `Date()`.
+    ///
+    /// This is a computed property, so `Date()` produced a new instant on every
+    /// access and two `.empty` values were never equal. `HomeRenderTransaction`
+    /// defaults its calendar slice to `.empty`, so `changedSliceCount` reported
+    /// the calendar as changed on *every* transaction and Home re-rendered that
+    /// slice continuously whether or not any calendar data had moved.
+    ///
+    /// Snapping to `startOfDay` keeps the "today" semantics callers expect while
+    /// making the sentinel stable enough for equality to mean something. A
+    /// `static let` would be a true constant but requires `HomeCalendarSnapshot`
+    /// to be `Sendable`, which pulls in an audit of every nested event type.
     static var empty: HomeCalendarSnapshot {
         HomeCalendarSnapshot(
             moduleState: .permissionRequired,
-            selectedDate: Date(),
+            selectedDate: Calendar.current.startOfDay(for: Date()),
             authorizationStatus: .notDetermined,
             accessAction: .requestPermission,
             selectedCalendarCount: 0,

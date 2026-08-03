@@ -157,16 +157,22 @@ extension OnboardingFlowModel {
         selectedGoal != nil
     }
 
-    var canContinuePain: Bool {
-        selectedPainPoints.isEmpty == false
-    }
-
     var canContinueHabitSetup: Bool {
         selectedStarterHabitTemplate != nil || createdHabits.isEmpty == false
     }
 
-    var canContinueToFocus: Bool {
-        createdTasks.isEmpty == false
+    /// The modules step accepts an empty selection — someone who only wants
+    /// tasks and habits should not be made to pick a tracker to get past it.
+    var availableModules: [OnboardingTrackableModule] {
+        OnboardingModuleCatalog.all
+    }
+
+    var requestablePermissionKinds: [LifeBoardPermissionKind] {
+        OnboardingModuleCatalog.requestablePermissions(for: selectedModuleIDs)
+    }
+
+    var pointOfUsePermissionKinds: [LifeBoardPermissionKind] {
+        OnboardingModuleCatalog.pointOfUsePermissions(for: selectedModuleIDs)
     }
 
     var canGoBack: Bool {
@@ -176,20 +182,6 @@ extension OnboardingFlowModel {
     var focusTask: TaskDefinition? {
         guard let focusTaskID else { return nil }
         return createdTasks.first(where: { $0.id == focusTaskID })
-    }
-
-    var parentFocusTask: TaskDefinition? {
-        guard let parentFocusTaskID else { return nil }
-        return createdTasks.first(where: { $0.id == parentFocusTaskID })
-    }
-
-    var nextOpenTask: TaskDefinition? {
-        if let parentFocusTask, parentFocusTask.isComplete == false {
-            return parentFocusTask
-        }
-        return createdTasks.first(where: { task in
-            task.isComplete == false && task.id != focusTaskID
-        })
     }
 
     var preferredComposerProject: Project? {
@@ -221,12 +213,6 @@ extension OnboardingFlowModel {
 
     func prepareForPresentation(snapshot: OnboardingJourneySnapshot?) {
         errorMessage = nil
-        reminderPromptState = .hidden
-        lastReminderPromptState = .hidden
-        breakdownSheetPresented = false
-        breakdownSteps = []
-        breakdownIsLoading = false
-        breakdownRouteBanner = nil
 
         guard let snapshot else {
             applyDefaults(mode: .guided, frictionProfile: frictionProfile)
@@ -245,29 +231,28 @@ extension OnboardingFlowModel {
         let normalizedHabitTemplateMap = StarterWorkspaceCatalog.normalizedHabitTemplateMap(snapshot.createdHabitTemplateMap)
         let normalizedTaskTemplateMap = StarterWorkspaceCatalog.normalizedTaskTemplateMap(snapshot.createdTaskTemplateMap)
 
-        step = snapshot.step.normalizedForCurrentFlow
+        step = snapshot.step
         mode = snapshot.mode
         entryContext = snapshot.entryContext
-        frictionProfile = snapshot.frictionProfile
         selectedGoal = snapshot.selectedGoal
-        selectedPainPoints = Set(snapshot.selectedPainPoints)
+        frictionProfile = snapshot.selectedGoal?.mappedFrictionProfile
         selectedLifeAreaIDs = Set(normalizedSelectedLifeAreaIDs)
         showAllLifeAreas = snapshot.showAllLifeAreas
         projectDrafts = normalizedProjectDrafts
         expandedProjectIDs = Set(snapshot.expandedProjectIDs)
-        reminderPromptDismissed = snapshot.reminderPromptDismissed
+        dayShape = snapshot.dayShape
+        selectedModuleIDs = Set(snapshot.selectedModuleIDs)
+        grantedPermissionKinds = Set(
+            snapshot.grantedPermissionKinds.compactMap(LifeBoardPermissionKind.init(rawValue:))
+        )
         selectedStarterHabitPreference = snapshot.selectedStarterHabitPreference
         selectedStarterHabitTemplateID = snapshot.selectedStarterHabitTemplateID
-        habitPreviewMarks = snapshot.habitPreviewMarks
-        didCompleteStarterHabitCheckIn = snapshot.didCompleteStarterHabitCheckIn
         evaProfileDraft = snapshot.evaProfileDraft
         selectedMascotID = workspacePreferencesStore.load().chiefOfStaffMascotID
-        if selectedMascotID == .eva, snapshot.step == .welcome || snapshot.step == .evaValue {
+        if selectedMascotID == .eva, snapshot.step == .welcome || snapshot.step == .guide {
             selectedMascotID = .yesman
         }
         evaPreparationState = snapshot.evaPreparationState
-        didCompleteHomeDemoTask = snapshot.didCompleteHomeDemoTask
-        didCompleteHomeDemoHabit = snapshot.didCompleteHomeDemoHabit
         resolvedLifeAreas = normalizedResolvedLifeAreas
         resolvedProjects = normalizedResolvedProjects
         createdHabits = snapshot.createdHabits
@@ -281,17 +266,7 @@ extension OnboardingFlowModel {
             partialResult[entry.key] = .created(entry.value)
         }
         focusTaskID = snapshot.focusTaskID
-        parentFocusTaskID = snapshot.parentFocusTaskID
-        focusStartedAt = snapshot.focusStartedAt
-        focusIsActive = snapshot.focusIsActive
         successSummary = snapshot.successSummary
-        if snapshot.hasSeenSuccess, step == .success {
-            notificationService?.fetchAuthorizationStatus { [weak self] status in
-                Task { @MainActor [weak self] in
-                    self?.applyReminderPromptState(for: status)
-                }
-            }
-        }
     }
 
     func resetForReplay() {
@@ -300,10 +275,12 @@ extension OnboardingFlowModel {
         entryContext = .freshFlow
         frictionProfile = nil
         selectedGoal = nil
-        selectedPainPoints = []
         selectedLifeAreaIDs = []
         showAllLifeAreas = false
         projectDrafts = []
+        dayShape = OnboardingDayShapeDraft()
+        selectedModuleIDs = []
+        grantedPermissionKinds = []
         selectedStarterHabitPreference = .positive
         selectedStarterHabitTemplateID = nil
         habitPreviewMarks = []
@@ -311,8 +288,6 @@ extension OnboardingFlowModel {
         evaProfileDraft = EvaProfileDraft()
         selectedMascotID = .yesman
         evaPreparationState = OnboardingEvaPreparationState()
-        didCompleteHomeDemoTask = false
-        didCompleteHomeDemoHabit = false
         resolvedLifeAreas = []
         resolvedProjects = []
         createdHabits = []
@@ -322,32 +297,12 @@ extension OnboardingFlowModel {
         createdTaskTemplateMap = [:]
         taskTemplateStates = [:]
         focusTaskID = nil
-        parentFocusTaskID = nil
-        focusStartedAt = nil
-        focusIsActive = false
         successSummary = nil
-        reminderPromptState = .hidden
-        reminderPromptDismissed = false
         expandedProjectIDs = []
-        lastReminderPromptState = .hidden
-        breakdownSteps = []
-        breakdownSheetPresented = false
-        breakdownIsLoading = false
-        breakdownRouteBanner = nil
-        hasStartedProcessing = false
         errorMessage = nil
         evaProgressObservationTask?.cancel()
         evaProgressObservationTask = nil
         stateStore.clearJourney()
-    }
-
-    func selectFriction(_ profile: OnboardingFrictionProfile) {
-        let nextProfile = frictionProfile == profile ? nil : profile
-        frictionProfile = nextProfile
-        if let nextProfile {
-            logOnboardingInfo(event: "friction_type_selected", fields: ["profile": nextProfile.rawValue])
-        }
-        persistJourney()
     }
 
     func begin(mode: OnboardingMode) {
@@ -356,45 +311,35 @@ extension OnboardingFlowModel {
         selectedMascotID = .yesman
         applyDefaults(mode: mode, frictionProfile: frictionProfile)
         clearDownstreamState()
-        step = .goal
+        step = .intent
         errorMessage = nil
         persistJourney()
     }
 
     func selectGoal(_ goal: OnboardingPrimaryGoal) {
         selectedGoal = goal
+        // The intent now shapes more than the starter areas: it preselects the
+        // modules on step six and, through them, the Home layout the user lands
+        // on. Picking it is the single highest-leverage answer in the flow.
+        frictionProfile = goal.mappedFrictionProfile
         let preferredIDs = goal.preferredLifeAreaIDs
         if preferredIDs.isEmpty == false {
             selectedLifeAreaIDs = Set(preferredIDs.prefix(3))
             projectDrafts = mergedProjectDrafts(for: Array(selectedLifeAreaIDs))
         }
+        selectedModuleIDs = OnboardingModuleCatalog.recommended(for: goal)
+            .filter { OnboardingModuleCatalog.module(id: $0) != nil }
         errorMessage = nil
         persistJourney()
     }
 
-    func continueFromGoal() {
+    func continueFromIntent() {
         guard canContinueGoal else {
             errorMessage = OnboardingCopy.Error.chooseGoal
             return
         }
-        selectedPainPoints = []
-        frictionProfile = nil
         applyDefaults(mode: mode, frictionProfile: frictionProfile)
         step = .lifeAreas
-        errorMessage = nil
-        persistJourney()
-    }
-
-    func togglePainPoint(_ painPoint: OnboardingPainPoint) {
-        if selectedPainPoints.contains(painPoint) {
-            selectedPainPoints.remove(painPoint)
-        } else {
-            selectedPainPoints.insert(painPoint)
-        }
-        frictionProfile = derivedFrictionProfile()
-        if entryContext == .freshFlow {
-            applyDefaults(mode: mode, frictionProfile: frictionProfile)
-        }
         errorMessage = nil
         persistJourney()
     }

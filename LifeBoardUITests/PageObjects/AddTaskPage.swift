@@ -522,7 +522,7 @@ class AddTaskPage {
             tapElementCenter(customDateConfirmButton)
         }
 
-        Thread.sleep(forTimeInterval: 0.3)
+        _ = customDateSheet.waitForNonExistence(timeout: 2)
     }
 
     /// Select project
@@ -720,7 +720,7 @@ class AddTaskPage {
                 }
             }
 
-            Thread.sleep(forTimeInterval: 0.15)
+            _ = waitUntil(timeout: 0.4) { didDismiss() }
         } while Date() < deadline
 
         if submitReturnFromFocusedTextField() {
@@ -839,7 +839,7 @@ class AddTaskPage {
 
         for candidate in candidates where candidate.exists {
             tapElementCenter(candidate)
-            Thread.sleep(forTimeInterval: 0.2)
+            _ = waitUntil(timeout: 1) { candidate.isSelected || self.customDateSheet.exists }
             return
         }
     }
@@ -853,7 +853,7 @@ class AddTaskPage {
                 if frame.width > 0, frame.height > 0 {
                     if candidate.debugDescription.contains("offscreen: true") {
                         view.swipeLeft()
-                        Thread.sleep(forTimeInterval: 0.2)
+                        _ = waitUntil(timeout: 1) { candidate.exists && candidate.isHittable }
                         continue
                     }
                     tapElementCenter(candidate)
@@ -862,7 +862,7 @@ class AddTaskPage {
             }
 
             view.swipeLeft()
-            Thread.sleep(forTimeInterval: 0.2)
+            _ = waitUntil(timeout: 1) { candidate.exists && candidate.isHittable }
         }
 
         return false
@@ -897,8 +897,7 @@ class AddTaskPage {
             let field = allTextFields.element(boundBy: i)
             if field.value(forKey: "hasKeyboardFocus") as? Bool == true {
                 field.typeText("\n")
-                // Wait a moment for keyboard to dismiss
-                Thread.sleep(forTimeInterval: 0.3)
+                _ = app.keyboards.firstMatch.waitForNonExistence(timeout: 1)
                 break
             }
         }
@@ -906,7 +905,7 @@ class AddTaskPage {
         // Method 2: If keyboard still visible, swipe down
         if app.keyboards.firstMatch.exists {
             app.swipeDown()
-            Thread.sleep(forTimeInterval: 0.3)
+            _ = app.keyboards.firstMatch.waitForNonExistence(timeout: 1)
         }
 
         // Method 3: If still visible, tap outside keyboard area (tap the navigation bar)
@@ -924,6 +923,15 @@ class AddTaskPage {
         for _ in 0..<max(1, times) {
             titleField.typeText("\n")
         }
+    }
+
+    @discardableResult
+    private func waitUntil(timeout: TimeInterval, _ condition: @escaping () -> Bool) -> XCTWaiter.Result {
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in condition() },
+            object: NSObject()
+        )
+        return XCTWaiter.wait(for: [expectation], timeout: timeout)
     }
 
     // MARK: - Complex Actions

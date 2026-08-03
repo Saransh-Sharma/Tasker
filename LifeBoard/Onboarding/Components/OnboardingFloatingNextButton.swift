@@ -26,7 +26,7 @@ struct OnboardingFloatingNextButton: View {
                     Circle()
                         .fill(action.disabled ? OnboardingTheme.textSecondary.opacity(0.32) : theme.next)
                         .frame(width: 64, height: 64)
-                        .shadow(color: theme.next.opacity(action.disabled ? 0 : 0.32), radius: 22, y: 10)
+                        .activeGlow(isActive: action.disabled == false, color: theme.next)
 
                     if action.showsProgress {
                         ProgressView()
@@ -54,7 +54,7 @@ struct OnboardingFloatingNextButton: View {
         .accessibilityInputLabels([action.title])
         .opacity(action.disabled ? 0.62 : 1)
         .scaleEffect(action.disabled || reduceMotion ? 1 : 1.01)
-        .animation(reduceMotion ? .none : .easeOut(duration: 0.18), value: action.disabled)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: action.disabled)
     }
 
     @ViewBuilder
@@ -62,7 +62,7 @@ struct OnboardingFloatingNextButton: View {
         if #available(iOS 26.0, *) {
             Capsule()
                 .fill(.clear)
-                .glassEffect(.regular, in: Capsule())
+                .lifeBoardSystemGlass(.regular, in: Capsule())
                 .overlay(
                     Capsule()
                         .fill(OnboardingTheme.surfaceElevated.opacity(0.40))

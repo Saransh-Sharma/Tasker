@@ -845,55 +845,6 @@ final class LLMDataControllerRecoveryTests: XCTestCase {
     }
 }
 
-final class ReflectionCalendarContextCacheDataControllerTests: XCTestCase {
-    func testReflectionCacheUsesExplicitVersionedSchemaAndMigrationPlan() throws {
-        XCTAssertEqual(ReflectionCalendarContextCacheSchemaV1.versionIdentifier, Schema.Version(1, 0, 0))
-        XCTAssertEqual(ReflectionCalendarContextCacheSchemaV1.models.count, 1)
-        XCTAssertEqual(
-            String(describing: ReflectionCalendarContextCacheSchemaV1.models[0]),
-            "ReflectionCalendarContextCacheRecord"
-        )
-        XCTAssertEqual(ReflectionCalendarContextCacheMigrationPlan.schemas.count, 1)
-        XCTAssertTrue(
-            ReflectionCalendarContextCacheMigrationPlan.schemas.contains {
-                $0 == ReflectionCalendarContextCacheSchemaV1.self
-            }
-        )
-        XCTAssertTrue(ReflectionCalendarContextCacheMigrationPlan.stages.isEmpty)
-
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: true, cloudKitDatabase: .none)
-        _ = try ModelContainer(
-            for: Schema(ReflectionCalendarContextCacheSchemaV1.models),
-            migrationPlan: ReflectionCalendarContextCacheMigrationPlan.self,
-            configurations: [configuration]
-        )
-    }
-
-    func testReflectionCacheInMemoryFallbackPersistsWithinActor() async {
-        let store = ReflectionCalendarContextCacheStore(container: nil)
-        let now = Date(timeIntervalSince1970: 1_000)
-        let key = ReflectionCalendarContextCacheKey(
-            dayStart: now,
-            dayEnd: now.addingTimeInterval(86_400),
-            timezoneID: "UTC",
-            selectedCalendarIDsHash: "empty"
-        )
-        let snapshot = ReflectionCalendarContextSnapshot(
-            eventCount: 2,
-            busyBlocks: [],
-            bestFocusWindow: nil,
-            firstHardStop: nil,
-            meetingMinutes: 45
-        )
-
-        await store.save(snapshot: snapshot, key: key, cachedAt: now)
-        let lookup = await store.load(key: key, freshnessSeconds: 60, now: now.addingTimeInterval(10))
-
-        XCTAssertEqual(lookup?.snapshot, snapshot)
-        XCTAssertEqual(lookup?.isStale, false)
-    }
-}
-
 final class LLMChatQualityGateTests: XCTestCase {
     func testQualityGateRejectsGenericIntroAndRepetitionLoop() {
         let output = """

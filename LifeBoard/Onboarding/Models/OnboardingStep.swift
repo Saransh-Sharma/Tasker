@@ -1,42 +1,34 @@
-import SwiftUI
-import UIKit
-import Combine
-import CoreHaptics
-import AVFoundation
-import Network
-import MLXLMCommon
+import Foundation
 
+/// The guided setup, in order.
+///
+/// Nine steps, each of which changes something real. The previous enum carried
+/// twenty-two cases of which thirteen were unreachable — kept only so old
+/// journey snapshots could decode — plus a normalisation table that quietly
+/// remapped them. `AppOnboardingState.currentVersion` now invalidates those
+/// snapshots outright, so the cases are gone and the raw values are contiguous
+/// again. `OnboardingJourneySnapshot` decodes anything it does not recognise as
+/// `.welcome` rather than throwing.
 enum OnboardingStep: Int, CaseIterable, Codable {
     case welcome = 0
-    case lifeAreas = 1
-    case projects = 2
-    case habits = 3
-    case firstTask = 4
-    case focusRoom = 5
-    case blocker = 6
-    case goal = 7
-    case pain = 8
-    case evaValue = 9
-    case habitSetup = 10
-    case streakPreview = 11
-    case evaStyle = 12
-    case processing = 13
-    case habitCheckIn = 14
-    case calendarPermission = 15
-    case notificationPermission = 16
-    case success = 17
-    case workBlockers = 18
-    case weeklyOutcomes = 19
-    case homeDemo = 20
+    case intent = 1
+    case lifeAreas = 2
+    case guide = 3
+    case dayShape = 4
+    case modules = 5
+    case firstWin = 6
+    case permissions = 7
+    case success = 8
 
     static let orderedFlow: [OnboardingStep] = [
         .welcome,
-        .goal,
+        .intent,
         .lifeAreas,
-        .evaValue,
-        .habitSetup,
-        .firstTask,
-        .homeDemo,
+        .guide,
+        .dayShape,
+        .modules,
+        .firstWin,
+        .permissions,
         .success
     ]
 
@@ -50,48 +42,15 @@ enum OnboardingStep: Int, CaseIterable, Codable {
 
     var eyebrowTitle: String {
         switch self {
-        case .welcome:
-            return "Setup"
-        case .goal:
-            return "Priority"
-        case .pain:
-            return "Friction"
-        case .evaValue:
-            return "Assistant"
-        case .blocker:
-            return "Setup"
-        case .lifeAreas:
-            return "Areas"
-        case .projects:
-            return "Projects"
-        case .habits:
-            return "Habits"
-        case .habitSetup:
-            return "Habit"
-        case .streakPreview:
-            return "Streak"
-        case .evaStyle:
-            return "Work style"
-        case .workBlockers:
-            return "Blockers"
-        case .weeklyOutcomes:
-            return "Outcomes"
-        case .processing:
-            return "Build"
-        case .firstTask:
-            return "Task"
-        case .homeDemo:
-            return "Demo"
-        case .focusRoom:
-            return "Focus"
-        case .habitCheckIn:
-            return "Check-in"
-        case .calendarPermission:
-            return "Calendar"
-        case .notificationPermission:
-            return "Notifications"
-        case .success:
-            return "Ready"
+        case .welcome: return "Setup"
+        case .intent: return "Focus"
+        case .lifeAreas: return "Areas"
+        case .guide: return "Guide"
+        case .dayShape: return "Your day"
+        case .modules: return "Tracking"
+        case .firstWin: return "Start"
+        case .permissions: return "Access"
+        case .success: return "Ready"
         }
     }
 
@@ -101,95 +60,42 @@ enum OnboardingStep: Int, CaseIterable, Codable {
 
     var evaMascotPlacement: EvaMascotPlacement {
         switch self {
-        case .welcome:
-            return .onboardingWelcome
-        case .goal, .pain:
-            return .onboardingNextStep
-        case .evaValue, .evaStyle, .workBlockers, .weeklyOutcomes:
-            return .onboardingEvaValue
-        case .lifeAreas, .projects, .habits, .habitSetup, .firstTask, .homeDemo:
-            return .onboardingCaptureSetup
-        case .streakPreview, .habitCheckIn:
-            return .habitStreakWin
-        case .processing:
-            return .onboardingProcessing
-        case .focusRoom:
-            return .focusStart
-        case .calendarPermission:
-            return .onboardingCalendarPermission
-        case .notificationPermission:
-            return .onboardingNotificationPermission
-        case .success:
-            return .onboardingSuccess
-        case .blocker:
-            return .taskDeadlineRisk
-        }
-    }
-
-    var normalizedForCurrentFlow: OnboardingStep {
-        switch self {
-        case .pain, .blocker:
-            return .goal
-        case .projects:
-            return .lifeAreas
-        case .evaStyle, .workBlockers, .weeklyOutcomes:
-            return .evaValue
-        case .habits, .streakPreview:
-            return .habitSetup
-        case .processing:
-            return .firstTask
-        case .focusRoom, .habitCheckIn:
-            return .homeDemo
-        case .calendarPermission, .notificationPermission:
-            return .success
-        default:
-            return self
+        case .welcome: return .onboardingWelcome
+        case .intent: return .onboardingNextStep
+        case .lifeAreas, .modules: return .onboardingCaptureSetup
+        case .guide: return .onboardingEvaValue
+        case .dayShape: return .onboardingCalendarPermission
+        case .firstWin: return .habitStreakWin
+        case .permissions: return .onboardingNotificationPermission
+        case .success: return .onboardingSuccess
         }
     }
 
     var voiceOverTitle: String {
-        switch normalizedForCurrentFlow {
-        case .welcome:
-            return "Welcome setup"
-        case .goal:
-            return "Choose goal"
-        case .evaValue:
-            return "Choose assistant"
-        case .lifeAreas:
-            return "Choose focus areas"
-        case .habitSetup:
-            return "Create starter habit"
-        case .firstTask:
-            return "Create first task"
-        case .homeDemo:
-            return "Preview Home"
-        case .success:
-            return "Setup complete"
-        case .pain, .blocker, .projects, .habits, .streakPreview, .evaStyle, .workBlockers, .weeklyOutcomes, .processing, .focusRoom, .habitCheckIn, .calendarPermission, .notificationPermission:
-            return normalizedForCurrentFlow.voiceOverTitle
+        switch self {
+        case .welcome: return "Welcome"
+        case .intent: return "Choose what needs attention"
+        case .lifeAreas: return "Choose focus areas"
+        case .guide: return "Choose your guide"
+        case .dayShape: return "Set your day"
+        case .modules: return "Choose what to track"
+        case .firstWin: return "Add a habit and a task"
+        case .permissions: return "Choose what LifeBoard can use"
+        case .success: return "Setup complete"
         }
     }
 
     var voiceOverInstruction: String {
-        switch normalizedForCurrentFlow {
-        case .welcome:
-            return "Start when you are ready."
-        case .goal:
-            return "Select one goal to continue."
-        case .evaValue:
-            return "Choose how the assistant should support your day."
-        case .lifeAreas:
-            return "Pick up to 3 areas."
-        case .habitSetup:
-            return "Select one starter habit."
-        case .firstTask:
-            return "Choose or create a task for today."
-        case .homeDemo:
-            return "Review the Home preview or continue when ready."
-        case .success:
-            return "Go to Home."
-        case .pain, .blocker, .projects, .habits, .streakPreview, .evaStyle, .workBlockers, .weeklyOutcomes, .processing, .focusRoom, .habitCheckIn, .calendarPermission, .notificationPermission:
-            return normalizedForCurrentFlow.voiceOverInstruction
+        switch self {
+        case .welcome: return "Start when you are ready."
+        case .intent: return "Select one to continue."
+        case .lifeAreas: return "Pick up to three."
+        case .guide: return "Choose a guide to continue."
+        case .dayShape: return "Adjust your hours, or continue to accept them."
+        case .modules: return "Select anything you want to track. You can change this later."
+        case .firstWin: return "Choose a habit and a task for today."
+        case .permissions: return "Allow each one, or skip and decide later."
+        case .success: return "Go to Home."
         }
     }
 }

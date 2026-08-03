@@ -8,6 +8,75 @@
 import SwiftUI
 import UIKit
 
+/// Native app-level ownership for launching and presenting Rescue.
+///
+/// Home supplies task services, but no longer owns the launcher's state. This
+/// keeps Home, Plan, and universal-input Day Rescue on one run identity and one
+/// presentation path while the decision deck remains independently testable.
+@MainActor
+@Observable
+final class OverdueRescueLaunchCoordinator {
+    private(set) var launcherState: HomeOverdueRescueLauncherState = .idle
+    private(set) var plan: EvaRescuePlan?
+    private(set) var normalTasksByID: [UUID: TaskDefinition] = [:]
+    private(set) var dayRescueTasksByID: [UUID: TaskDefinition] = [:]
+    private(set) var referenceDate: Date?
+    private(set) var presentation: OverdueRescueLaunchContext?
+    var lastBatchRunID: UUID?
+
+    var isPresented: Bool { presentation != nil && launcherState == .ready }
+
+    var presentedTasksByID: [UUID: TaskDefinition] {
+        guard let presentation else { return [:] }
+        return presentation.origin == .universalInputDayRescue
+            ? dayRescueTasksByID
+            : normalTasksByID
+    }
+
+    func begin(
+        _ context: OverdueRescueLaunchContext,
+        dayRescueTasksByID: [UUID: TaskDefinition] = [:]
+    ) {
+        presentation = context
+        referenceDate = context.referenceDate
+        launcherState = .loading
+        plan = nil
+        normalTasksByID = [:]
+        self.dayRescueTasksByID = dayRescueTasksByID
+    }
+
+    func present(
+        plan: EvaRescuePlan?,
+        tasksByID: [UUID: TaskDefinition],
+        context: OverdueRescueLaunchContext
+    ) {
+        presentation = context
+        referenceDate = context.referenceDate
+        self.plan = plan
+        if context.origin == .universalInputDayRescue {
+            dayRescueTasksByID = tasksByID
+        } else {
+            normalTasksByID = tasksByID
+        }
+        launcherState = .ready
+    }
+
+    func fail(_ message: String) {
+        launcherState = .failed(message)
+        plan = nil
+        normalTasksByID = [:]
+    }
+
+    func dismiss() {
+        launcherState = .idle
+        plan = nil
+        normalTasksByID = [:]
+        dayRescueTasksByID = [:]
+        referenceDate = nil
+        presentation = nil
+    }
+}
+
 @MainActor
 final class OverdueRescueViewModel: ObservableObject {
 
@@ -38,6 +107,14 @@ final class OverdueRescueViewModel: ObservableObject {
 
     @Published var showSafeFixesConfirmation = false
 
+    @Published var isDecisionInFlight = false
+
+    /// True when the deck transitioned straight to `.completed` at launch
+    /// because there were zero eligible cards. Drives the empty-at-launch
+    /// copy in `OverdueRescueCompletionView` (today's "Nothing needs
+    /// rescuing today" state for the universal-input Day-Rescue flow).
+    private(set) var startedEmpty = false
+
     let allCount: Int
 
     let allCards: [OverdueRescueCardModel]
@@ -47,6 +124,8 @@ final class OverdueRescueViewModel: ObservableObject {
     let projectsByID: [UUID: Project]
 
     let nowProvider: @Sendable () -> Date
+
+    let launchContext: OverdueRescueLaunchContext
 
     var resolvedTaskIDs: Set<UUID> = []
 
@@ -68,6 +147,11 @@ final class OverdueRescueViewModel: ObservableObject {
 
     let onUndoBulk: @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void
 
+    let onSavePlanningMetadata: @Sendable (
+        [PlanningTaskMetadata],
+        @escaping @Sendable (Result<Void, Error>) -> Void
+    ) -> Void
+
     let onTrack: (String, [String: Any]) -> Void
 
     init(
@@ -76,6 +160,7 @@ final class OverdueRescueViewModel: ObservableObject {
         projectsByID: [UUID: Project],
         referenceDate: Date = Date(),
         nowProvider: @escaping @Sendable () -> Date = Date.init,
+        launchContext: OverdueRescueLaunchContext? = nil,
         sessionScope: OverdueRescueSessionScope? = nil,
         sessionStore: UserDefaultsOverdueRescueSessionStore = UserDefaultsOverdueRescueSessionStore(),
         onUpdate: @escaping @Sendable (UpdateTaskDefinitionRequest, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void,
@@ -83,15 +168,17 @@ final class OverdueRescueViewModel: ObservableObject {
         onRestore: @escaping @Sendable (TaskDefinition, @escaping @Sendable (Result<TaskDefinition, Error>) -> Void) -> Void,
         onApplyBulk: @escaping @Sendable ([EvaBatchMutationInstruction], @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void,
         onUndoBulk: @escaping @Sendable (@escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void) -> Void,
+        onSavePlanningMetadata: @escaping @Sendable (
+            [PlanningTaskMetadata],
+            @escaping @Sendable (Result<Void, Error>) -> Void
+        ) -> Void = { _, completion in completion(.success(())) },
         onTrack: @escaping (String, [String: Any]) -> Void
     ) {
+        let resolvedLaunchContext = launchContext ?? .home(referenceDate: referenceDate)
         let planRecommendations = Self.orderedRecommendations(from: plan)
         let recommendationByID = Dictionary(uniqueKeysWithValues: planRecommendations.map { ($0.taskID, $0) })
-        let scope = sessionScope ?? OverdueRescueSessionScope(
-            accountScopeID: "default",
-            workspaceID: nil,
-            rescueDay: referenceDate
-        )
+        let scope = sessionScope ?? resolvedLaunchContext.sessionScope()
+        let decisionCalendar = resolvedLaunchContext.decisionCalendar()
         let eligibleTasks = OverdueRescueEligibilityService.eligibleTasks(
             from: tasksByID,
             recommendations: planRecommendations,
@@ -104,7 +191,9 @@ final class OverdueRescueViewModel: ObservableObject {
                     task: task,
                     recommendation: recommendationByID[task.id],
                     projectsByID: projectsByID,
-                    now: referenceDate
+                    now: referenceDate,
+                    decisionAnchorDate: resolvedLaunchContext.targetDate(calendar: decisionCalendar),
+                    decisionCalendar: decisionCalendar
                 )
             }
             .sorted { lhs, rhs in
@@ -116,6 +205,7 @@ final class OverdueRescueViewModel: ObservableObject {
         self.referenceDate = referenceDate
         self.projectsByID = projectsByID
         self.nowProvider = nowProvider
+        self.launchContext = resolvedLaunchContext
         self.sessionScope = scope
         self.sessionStore = sessionStore
         let savedSession: OverdueRescueSessionState?
@@ -131,6 +221,7 @@ final class OverdueRescueViewModel: ObservableObject {
         self.onRestore = onRestore
         self.onApplyBulk = onApplyBulk
         self.onUndoBulk = onUndoBulk
+        self.onSavePlanningMetadata = onSavePlanningMetadata
         self.onTrack = onTrack
 
         if let savedSession,
@@ -142,6 +233,7 @@ final class OverdueRescueViewModel: ObservableObject {
             self.cards = firstSprintCards
             self.sprintTotal = firstSprintCards.count
             self.showLargeStackPreflight = cards.count >= Self.largeStackThreshold
+            self.startedEmpty = cards.isEmpty
             _ = transition(to: .loading)
             _ = transition(to: cards.isEmpty ? .completed : .active)
         }

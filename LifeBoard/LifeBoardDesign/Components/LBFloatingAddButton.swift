@@ -6,22 +6,17 @@ struct LBFloatingAddButton: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "plus")
-                .font(.system(size: 27, weight: .medium))
-                .foregroundStyle(.white)
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(Color.lifeboard(.primary, on: .accent))
                 .frame(width: 58, height: 58)
                 .background {
-                    LinearGradient(
-                        colors: [LBColorTokens.violetFill, LBColorTokens.sky],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                    .clipShape(Circle())
+                    Circle().fill(Color.lifeboard(.accentSecondary))
                 }
                 .overlay {
                     Circle()
-                        .stroke(LBColorTokens.whiteStroke, lineWidth: 1)
+                        .stroke(Color.lifeboard(.surfacePrimary), lineWidth: 2)
                 }
-                .shadow(color: LBColorTokens.floatingShadow, radius: 14, x: 0, y: 8)
+                .shadow(color: Color.lifeboard(.textPrimary).opacity(0.16), radius: 12, x: 0, y: 7)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("home.addTaskButton")

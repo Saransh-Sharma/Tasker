@@ -1,5 +1,7 @@
 # Calendar + Timeline Product Feature
 
+> **Classification: Canonical feature reference.** The [LifeBoard product handbook](../product/README.md) owns cross-feature journeys; this document owns Calendar and Timeline detail.
+
 LifeBoard uses calendar data as execution context, not as a competing calendar product.
 
 The Home timeline is the user's calm command center for the day. It turns tasks, meetings, routines, busy blocks, open gaps, and EVA guidance into one visual day narrative so the user can understand the day without mentally stitching together a calendar, task list, and planner.

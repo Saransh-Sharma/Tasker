@@ -8,7 +8,7 @@
 import XCTest
 
 final class DailySummaryModalTests: BaseUITest {
-    override func setUpWithError() throws {
+    override func setUp() async throws {
         continueAfterFailure = false
         app = XCUIApplication()
     }

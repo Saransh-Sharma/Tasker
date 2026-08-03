@@ -2,7 +2,8 @@ import XCTest
 
 @MainActor
 final class HomeCalendarModuleUITests: XCTestCase {
-    override func setUpWithError() throws {
+    override func setUp() async throws {
+        try await super.setUp()
         continueAfterFailure = false
     }
 

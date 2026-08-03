@@ -3,7 +3,107 @@ import Foundation
 public enum ScheduleSourceType: String, Codable, Sendable {
     case task
     case habit
+    case tracker
     case reminder
+}
+
+public enum BehaviorDomain: String, Codable, CaseIterable, Sendable {
+    case habit
+    case tracker
+}
+
+public enum BehaviorResponseShape: Codable, Hashable, Sendable {
+    case binary
+    case avoidance
+    case quantitative(unit: String?)
+    case quota(target: Int, period: String)
+    case timed(targetSeconds: TimeInterval)
+    case tracker(valueType: String)
+}
+
+/// A value-layer bridge over the existing Habit/Tracker and Schedule records.
+/// It intentionally is not a stored Core Data entity.
+public struct BehaviorDefinition: Codable, Hashable, Identifiable, Sendable {
+    public var id: UUID { domainID }
+    public var domain: BehaviorDomain
+    public var domainID: UUID
+    public var scheduleTemplateID: UUID
+    public var responseShape: BehaviorResponseShape
+    public var timezoneID: String
+    public var isActive: Bool
+
+    public init(
+        domain: BehaviorDomain,
+        domainID: UUID,
+        scheduleTemplateID: UUID,
+        responseShape: BehaviorResponseShape,
+        timezoneID: String,
+        isActive: Bool = true
+    ) {
+        self.domain = domain
+        self.domainID = domainID
+        self.scheduleTemplateID = scheduleTemplateID
+        self.responseShape = responseShape
+        self.timezoneID = timezoneID
+        self.isActive = isActive
+    }
+}
+
+public protocol BehaviorScheduleResolving: Sendable {
+    func occurrences(
+        for behavior: BehaviorDefinition,
+        from start: Date,
+        to end: Date
+    ) async throws -> [OccurrenceDefinition]
+}
+
+public struct BehaviorSchedulePolicy: Codable, Hashable, Sendable {
+    public var pausedRanges: [DateInterval]
+    public var vacationRanges: [DateInterval]
+    public var maximumBackfillDays: Int
+
+    public init(
+        pausedRanges: [DateInterval] = [],
+        vacationRanges: [DateInterval] = [],
+        maximumBackfillDays: Int = 0
+    ) {
+        self.pausedRanges = pausedRanges.sorted { $0.start < $1.start }
+        self.vacationRanges = vacationRanges.sorted { $0.start < $1.start }
+        self.maximumBackfillDays = max(0, maximumBackfillDays)
+    }
+}
+
+public struct BehaviorOccurrenceProjection: Codable, Hashable, Identifiable, Sendable {
+    public var id: UUID { occurrence.id }
+    public var occurrence: OccurrenceDefinition
+    public var result: BehaviorOccurrenceResultState
+    public var quotaWindowKey: String?
+    public var quotaTarget: Int?
+    public var timedTargetSeconds: TimeInterval?
+
+    public init(
+        occurrence: OccurrenceDefinition,
+        result: BehaviorOccurrenceResultState,
+        quotaWindowKey: String? = nil,
+        quotaTarget: Int? = nil,
+        timedTargetSeconds: TimeInterval? = nil
+    ) {
+        self.occurrence = occurrence
+        self.result = result
+        self.quotaWindowKey = quotaWindowKey
+        self.quotaTarget = quotaTarget
+        self.timedTargetSeconds = timedTargetSeconds
+    }
+}
+
+public protocol BehaviorOccurrenceProjecting: Sendable {
+    func projections(
+        for behavior: BehaviorDefinition,
+        policy: BehaviorSchedulePolicy,
+        from start: Date,
+        to end: Date,
+        referenceDate: Date
+    ) async throws -> [BehaviorOccurrenceProjection]
 }
 
 public enum TemporalReference: String, Codable, Sendable {

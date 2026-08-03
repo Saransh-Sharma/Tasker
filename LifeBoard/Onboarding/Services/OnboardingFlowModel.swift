@@ -36,6 +36,13 @@ final class OnboardingFlowModel: ObservableObject {
 
     let resolveHabitOccurrence: (UUID, HabitOccurrenceAction, Date) async throws -> Void
 
+    /// Writes the day shape collected on step five. Capacity, free windows, and
+    /// every overload signal read this profile.
+    let saveWorkingHours: (WorkingHoursProfile) async throws -> Void
+
+    /// Writes the Home layout derived from the module selection on step six.
+    let saveHomeLayout: (DashboardLayoutValue) async throws -> Void
+
     let evaAppManager: AppManager
 
     let evaDefaults: UserDefaults
@@ -44,21 +51,17 @@ final class OnboardingFlowModel: ObservableObject {
 
     let isEvaBackgroundPreparationEnabled: Bool
 
-    var isAppStoreScreenshotOnboardingFlowEnabled: Bool {
-        ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_EXPANDED_APP_STORE_ONBOARDING")
-    }
-
     @Published var step: OnboardingStep = .welcome
 
     @Published var mode: OnboardingMode = .guided
 
     @Published var entryContext: OnboardingEntryContext = .freshFlow
 
+    /// Internal weighting for the starter catalog, derived from `selectedGoal`.
+    /// No longer collected by a screen of its own.
     @Published var frictionProfile: OnboardingFrictionProfile?
 
     @Published var selectedGoal: OnboardingPrimaryGoal?
-
-    @Published var selectedPainPoints: Set<OnboardingPainPoint> = []
 
     @Published var selectedLifeAreaIDs: Set<String> = []
 
@@ -68,7 +71,13 @@ final class OnboardingFlowModel: ObservableObject {
 
     @Published var expandedProjectIDs: Set<UUID> = []
 
-    @Published var reminderPromptDismissed = false
+    @Published var dayShape = OnboardingDayShapeDraft()
+
+    @Published var selectedModuleIDs: Set<String> = []
+
+    @Published var grantedPermissionKinds: Set<LifeBoardPermissionKind> = []
+
+    @Published var permissionInFlight: LifeBoardPermissionKind?
 
     @Published var selectedStarterHabitPreference: OnboardingStarterHabitPreference = .positive
 
@@ -83,10 +92,6 @@ final class OnboardingFlowModel: ObservableObject {
     @Published var selectedMascotID: AssistantMascotID
 
     @Published var evaPreparationState = OnboardingEvaPreparationState()
-
-    @Published var didCompleteHomeDemoTask = false
-
-    @Published var didCompleteHomeDemoHabit = false
 
     @Published var resolvedLifeAreas: [ResolvedLifeAreaSelection] = []
 
@@ -106,33 +111,13 @@ final class OnboardingFlowModel: ObservableObject {
 
     @Published var focusTaskID: UUID?
 
-    @Published var parentFocusTaskID: UUID?
-
-    @Published var focusStartedAt: Date?
-
-    @Published var focusIsActive = false
-
     @Published var successSummary: AppOnboardingSummary?
-
-    @Published var reminderPromptState: OnboardingReminderPromptState = .hidden
 
     @Published var isWorking = false
 
     @Published var errorMessage: String?
 
-    @Published var breakdownSteps: [OnboardingBreakdownStep] = []
-
-    @Published var breakdownSheetPresented = false
-
-    @Published var breakdownIsLoading = false
-
-    @Published var breakdownRouteBanner: String?
-
-    var lastReminderPromptState: OnboardingReminderPromptState = .hidden
-
     var evaProgressObservationTask: Task<Void, Never>?
-
-    var hasStartedProcessing = false
 
     init(
         stateStore: AppOnboardingStateStore = .shared,
@@ -176,6 +161,8 @@ final class OnboardingFlowModel: ObservableObject {
         },
         resolveHabitOccurrence: @escaping (UUID, HabitOccurrenceAction, Date) async throws -> Void = { _, _, _ in
         },
+        saveWorkingHours: @escaping (WorkingHoursProfile) async throws -> Void = { _ in },
+        saveHomeLayout: @escaping (DashboardLayoutValue) async throws -> Void = { _ in },
         evaAppManager: AppManager = AppManager(),
         evaDefaults: UserDefaults = .standard,
         workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
@@ -194,6 +181,8 @@ final class OnboardingFlowModel: ObservableObject {
         self.createTask = createTask
         self.setTaskCompletion = setTaskCompletion
         self.resolveHabitOccurrence = resolveHabitOccurrence
+        self.saveWorkingHours = saveWorkingHours
+        self.saveHomeLayout = saveHomeLayout
         self.evaAppManager = evaAppManager
         self.evaDefaults = evaDefaults
         self.workspacePreferencesStore = workspacePreferencesStore

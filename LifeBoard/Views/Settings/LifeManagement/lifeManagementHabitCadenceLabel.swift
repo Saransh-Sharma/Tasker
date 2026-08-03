@@ -7,5 +7,7 @@ func lifeManagementHabitCadenceLabel(_ cadence: HabitCadenceDraft) -> String {
         return "Daily"
     case .weekly(let days, _, _):
         return days.count == 1 ? "Weekly" : "\(days.count)x weekly"
+    case .interval(let days, _, _):
+        return "Every \(max(1, days)) days"
     }
 }

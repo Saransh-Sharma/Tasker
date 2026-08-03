@@ -19,7 +19,7 @@ struct LifeManagementProjectIconPicker: View {
                     title: icon.displayName,
                     isSelected: selectedIcon == icon
                 ) {
-                    withAnimation(LifeBoardAnimation.snappy) {
+                    withAnimation(LifeBoardAnimation.stateChange) {
                         selectedIcon = icon
                     }
                 }

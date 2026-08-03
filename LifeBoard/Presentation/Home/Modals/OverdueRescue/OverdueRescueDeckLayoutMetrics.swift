@@ -22,7 +22,11 @@ struct OverdueRescueDeckLayoutMetrics: Equatable {
     }
 
     var isCompactHeight: Bool {
-        containerSize.height < 880
+        // Modern iPhones can be taller than 880 points while still needing a
+        // compact vertical composition once the status and home-indicator
+        // safe areas are respected. Reserve the spacious deck for iPad and
+        // genuinely tall Catalyst windows.
+        containerSize.height < 1_020
     }
 
     var cardWidth: CGFloat {
@@ -106,7 +110,7 @@ struct OverdueRescueDeckLayoutMetrics: Equatable {
     }
 
     var bottomClearance: CGFloat {
-        max(isCompactHeight ? 82 : 104, bottomInset + 18)
+        max(isCompactHeight ? 24 : 36, bottomInset + 18)
     }
 
     static func make(size: CGSize, bottomInset: CGFloat, dynamicTypeSize: DynamicTypeSize) -> OverdueRescueDeckLayoutMetrics {

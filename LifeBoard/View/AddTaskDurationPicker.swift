@@ -40,7 +40,7 @@ struct AddTaskDurationPicker: View {
                         text: "None",
                         isActive: duration == nil && !showCustom
                     ) {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.stateChange) {
                             duration = nil
                             showCustom = false
                         }
@@ -53,7 +53,7 @@ struct AddTaskDurationPicker: View {
                             text: preset.label,
                             isActive: duration == preset.seconds
                         ) {
-                            withAnimation(LifeBoardAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.stateChange) {
                                 duration = preset.seconds
                                 showCustom = false
                             }
@@ -66,7 +66,7 @@ struct AddTaskDurationPicker: View {
                         text: showCustom ? "\(customMinutes)m" : "Custom",
                         isActive: showCustom
                     ) {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.stateChange) {
                             showCustom.toggle()
                         }
                     }
@@ -109,6 +109,6 @@ struct AddTaskDurationPicker: View {
                 ))
             }
         }
-        .animation(LifeBoardAnimation.snappy, value: showCustom)
+        .animation(LifeBoardAnimation.stateChange, value: showCustom)
     }
 }

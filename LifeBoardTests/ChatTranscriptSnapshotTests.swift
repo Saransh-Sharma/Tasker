@@ -122,14 +122,14 @@ final class ChatTranscriptSnapshotTests: XCTestCase {
                 for: .buildingContext,
                 isActivationPresentation: true
             ),
-            "Looking at your tasks and goals..."
+            "Gathering the tasks and goals you permitted..."
         )
         XCTAssertEqual(
             ChatPendingResponseStatusText.status(
                 for: .preparingModel,
                 isActivationPresentation: false
             ),
-            "Getting the model ready..."
+            "Getting Eva ready..."
         )
         XCTAssertNil(
             ChatPendingResponseStatusText.status(

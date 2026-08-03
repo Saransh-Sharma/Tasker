@@ -1,5 +1,7 @@
 # Home Strangler Refactor TODO
 
+> **Classification: Implementation record.** Current Home behavior is defined in [Adaptive Home](../product/HOME.md); this file preserves refactor evidence.
+
 This tracks the move-only and behavior-extraction sequence for the Home, Timeline, and Add Task refactor.
 
 ## Guardrails

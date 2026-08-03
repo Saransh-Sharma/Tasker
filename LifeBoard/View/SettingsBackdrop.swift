@@ -13,13 +13,14 @@ extension SettingsPageViewController {
     
     /// Executes setupBackdrop.
     func setupBackdrop() {
-        
-        backdropContainer.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+        let bounds = view.bounds
+        backdropContainer.frame = bounds
+        backdropContainer.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         
 //        backdropContainer.backgroundColor = .systemBlue
         
    
-        headerEndY = UIScreen.main.bounds.height/7.3
+        headerEndY = bounds.height / 7.3
         setupBackdropBackground()
 
         
@@ -31,14 +32,17 @@ extension SettingsPageViewController {
     //MARK:- Setup Backdrop Background - Today label + Score
     /// Executes setupBackdropBackground.
     func setupBackdropBackground() {
-        
-        backdropBackgroundImageView.frame =  CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+        let bounds = backdropContainer.bounds
+        backdropBackgroundImageView.frame = bounds
+        backdropBackgroundImageView.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         backdropBackgroundImageView.backgroundColor = UIColor.lifeboard.bgCanvas
-        homeTopBar.frame = CGRect(x: 0, y: 0, width: UIScreen.main.bounds.width, height: 120)
+        homeTopBar.frame = CGRect(x: 0, y: 0, width: bounds.width, height: 120)
+        homeTopBar.autoresizingMask = [.flexibleWidth]
         
         
         let settingsTitle = UILabel()
-        settingsTitle.frame =  CGRect(x: 0, y: 10, width: UIScreen.main.bounds.width, height: UIScreen.main.bounds.height)
+        settingsTitle.frame = CGRect(x: 0, y: 10, width: bounds.width, height: bounds.height)
+        settingsTitle.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         settingsTitle.text = "Settings"
         settingsTitle.textColor = UIColor.lifeboard.textPrimary
         settingsTitle.font = UIFont.lifeboard.font(for: .title1)

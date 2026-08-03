@@ -418,7 +418,7 @@ public enum HomeLensResolver {
         lifeAreas: [LifeArea],
         pinnedLifeAreaIDs: [UUID],
         activeLens: HomeLens,
-        activityByID: [UUID: HomeLensLifeAreaActivity] = [:]
+        activityByID: [UUID: HomeLensLifeAreaActivity]? = nil
     ) -> [HomeLensChip] {
         let selectable = lifeAreas.filter { !$0.isArchived }
         let byID = Dictionary(uniqueKeysWithValues: selectable.map { ($0.id, $0) })
@@ -433,25 +433,26 @@ public enum HomeLensResolver {
 
         let remaining = selectable.filter { orderedIDs.contains($0.id) == false }
         let autoFilled: [LifeArea]
-        if activityByID.isEmpty {
-            autoFilled = remaining.sorted {
-                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
-            }
-        } else {
+        if let activityByID {
             autoFilled = remaining.sorted { lhs, rhs in
                 rankByActivity(lhs, rhs, activityByID: activityByID)
+            }
+        } else {
+            autoFilled = remaining.sorted {
+                $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending
             }
         }
         autoFilled.forEach { append($0.id) }
 
-        orderedIDs = orderedIDs.filter { id in
-            (activityByID[id]?.openCount ?? 0) > 0
+        if let activityByID {
+            orderedIDs = orderedIDs.filter { id in
+                (activityByID[id]?.openCount ?? 0) > 0
+            }
         }
 
         if case .lifeArea(let activeID) = activeLens,
            byID[activeID] != nil,
            orderedIDs.contains(activeID) == false {
-            orderedIDs.removeAll { $0 == activeID }
             orderedIDs.insert(activeID, at: 0)
         }
 

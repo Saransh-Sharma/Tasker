@@ -445,6 +445,78 @@ public enum LifeBoardPerformanceTrace {
     }
 }
 
+/// Measures the complete user-visible Eva navigation, beginning before the
+/// selected root changes and ending only when Eva has usable content.
+///
+/// This sits above `ChatOpenToFirstTranscriptRender`: the chat-local interval
+/// begins after SwiftUI has already constructed the activation hierarchy and
+/// therefore cannot detect metadata stalls during the tab switch itself.
+@MainActor
+enum EvaNavigationPerformanceTrace {
+    private static var openInterval: LifeBoardPerformanceInterval?
+
+    static func begin() {
+        cancel(reason: "superseded")
+        openInterval = LifeBoardPerformanceTrace.begin("EvaTabOpenToInteractive")
+    }
+
+    static func markInteractive() {
+        guard let openInterval else { return }
+        LifeBoardPerformanceTrace.end(openInterval)
+        self.openInterval = nil
+        LifeBoardPerformanceTrace.event("EvaTabInteractive")
+    }
+
+    static func cancel(reason: StaticString = "navigation_cancelled") {
+        guard let openInterval else { return }
+        LifeBoardPerformanceTrace.end(openInterval)
+        self.openInterval = nil
+        LifeBoardPerformanceTrace.event(reason)
+    }
+}
+
+/// Stable, content-free instrumentation for the Life OS orchestration paths.
+/// Callers may attach counts, but never titles, notes, transcripts, prompts, or
+/// other user-authored values. This keeps Instruments useful without making
+/// private content part of the diagnostics surface.
+public enum LifeOSPerformanceOperation: CaseIterable, Sendable {
+    case homeCardSnapshot
+    case homeContextEvaluation
+    case composerResolution
+    case journalDerivedRebuild
+    case persistentStoreMigration
+    case signatureShaderWarmup
+    case systemSurfaceRefresh
+
+    fileprivate var signpostName: StaticString {
+        switch self {
+        case .homeCardSnapshot: "LifeOS.HomeCardSnapshot"
+        case .homeContextEvaluation: "LifeOS.HomeContextEvaluation"
+        case .composerResolution: "LifeOS.ComposerResolution"
+        case .journalDerivedRebuild: "LifeOS.JournalDerivedRebuild"
+        case .persistentStoreMigration: "LifeOS.PersistentStoreMigration"
+        case .signatureShaderWarmup: "LifeOS.SignatureShaderWarmup"
+        case .systemSurfaceRefresh: "LifeOS.SystemSurfaceRefresh"
+        }
+    }
+
+    public func begin() -> LifeBoardPerformanceInterval {
+        LifeBoardPerformanceTrace.begin(signpostName)
+    }
+
+    public func end(_ interval: LifeBoardPerformanceInterval) {
+        LifeBoardPerformanceTrace.end(interval)
+    }
+
+    public func mark(count: Int? = nil) {
+        if let count {
+            LifeBoardPerformanceTrace.event(signpostName, value: count)
+        } else {
+            LifeBoardPerformanceTrace.event(signpostName)
+        }
+    }
+}
+
 typealias TaskerPerformanceTrace = LifeBoardPerformanceTrace
 
 enum LifeBoardMemoryDiagnostics {

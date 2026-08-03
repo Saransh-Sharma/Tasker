@@ -21,6 +21,7 @@ struct OverdueRescueUndoRecord: Identifiable, Codable, Equatable, Sendable {
     let previousCompletionState: Bool
     let previousDeletedState: Bool
     let previousRecurrenceState: RecurrenceInstanceSnapshot?
+    let previousPlanningMetadata: PlanningTaskMetadata?
     let fullSnapshot: AssistantTaskSnapshot
     let createdAt: Date
 
@@ -28,7 +29,8 @@ struct OverdueRescueUndoRecord: Identifiable, Codable, Equatable, Sendable {
         taskSnapshot: TaskDefinition,
         source: OverdueRescueDecisionSource,
         action: OverdueRescueDecisionAction,
-        runID: UUID?
+        runID: UUID?,
+        previousPlanningMetadata: PlanningTaskMetadata? = nil
     ) {
         self.id = UUID()
         self.runID = runID
@@ -48,6 +50,7 @@ struct OverdueRescueUndoRecord: Identifiable, Codable, Equatable, Sendable {
             scheduledStartAt: taskSnapshot.scheduledStartAt,
             scheduledEndAt: taskSnapshot.scheduledEndAt
         )
+        self.previousPlanningMetadata = previousPlanningMetadata
         self.fullSnapshot = AssistantTaskSnapshot(task: taskSnapshot)
         self.createdAt = Date()
     }

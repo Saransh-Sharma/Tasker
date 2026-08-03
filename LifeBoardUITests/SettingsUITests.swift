@@ -3,13 +3,9 @@ import XCTest
 @MainActor
 class SettingsUITests: XCTestCase {
 
-    override func setUpWithError() throws {
-        // Put setup code here. This method is called before the invocation of each test method in the class.
-
-        // In UI tests it is usually best to stop immediately when a failure occurs.
+    override func setUp() async throws {
+        try await super.setUp()
         continueAfterFailure = false
-
-        // In UI tests it’s important to set the initial state - such as interface orientation - required for your tests before they run. The setUp method is a good place to do this.
         let app = XCUIApplication()
         app.launch()
     }
@@ -100,9 +96,7 @@ class SettingsUITests: XCTestCase {
         // Using waitForExistence with a short timeout and checking for false is better.
         XCTAssertFalse(app.navigationBars["Settings"].waitForExistence(timeout: 5), "Settings page was not dismissed.")
         
-        // Optionally, verify that an element from the HomeViewController is visible again
-        // For example, if HomeViewController has a specific, identifiable element:
-        // XCTAssertTrue(app.otherElements["HomeViewIdentifier"].exists) // Replace with actual identifier
+        // The native Life OS root is mounted again after dismissal.
     }
 
     func testNavigateToProjectManagementAndBack() throws {
@@ -166,5 +160,123 @@ class SettingsUITests: XCTestCase {
 
         // 7. Verify Settings page is dismissed
         XCTAssertFalse(settingsNavBar.waitForExistence(timeout: 5), "Settings page was not dismissed after tapping Done.")
+    }
+}
+
+@MainActor
+final class PremiumSettingsUITests: BaseUITest {
+    override var additionalLaunchArguments: [String] {
+        [
+            "-LIFEBOARD_TEST_OPEN_SETTINGS",
+            XCUIApplication.LaunchArgumentKey.testSeedEstablishedWorkspace.rawValue,
+        ]
+    }
+
+    func testPremiumSettingsHubAndPersonalizationFlow() {
+        let privacyAcknowledgement = app.buttons["Got it"]
+        if privacyAcknowledgement.waitForExistence(timeout: 3) {
+            privacyAcknowledgement.tap()
+        }
+
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.descendants(matching: .any)["settings.setupStatus"].exists)
+        XCTAssertTrue(app.descendants(matching: .any)["settings.categoryGroup"].exists)
+
+        for route in ["planAndOrganize", "calendarAndHealth", "eva", "reminders", "lookAndFeel", "dataAndHelp"] {
+            XCTAssertTrue(
+                app.buttons["settings.category.\(route)"].exists,
+                "Missing premium settings category: \(route)"
+            )
+        }
+
+        attachScreenshot(named: "Settings Hub")
+
+        let lookAndFeel = app.buttons["settings.category.lookAndFeel"]
+        let settingsScrollView = app.scrollViews["foundation.settings"].firstMatch
+        for _ in 0..<3 where lookAndFeel.isHittable == false {
+            settingsScrollView.swipeUp()
+        }
+        XCTAssertTrue(lookAndFeel.isHittable)
+        lookAndFeel.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.detail.heading.lookAndFeel"]
+                .waitForExistence(timeout: 8)
+        )
+
+        let preview = app.descendants(matching: .any)["settings.appearance.atmosphere.preview"]
+        XCTAssertTrue(preview.waitForExistence(timeout: 8))
+        preview.swipeLeft()
+
+        let playful = app.buttons["Playful"]
+        if playful.waitForExistence(timeout: 3) {
+            playful.tap()
+        }
+        let depth = app.buttons["Depth"]
+        if depth.waitForExistence(timeout: 3) {
+            if depth.isHittable == false {
+                app.scrollViews["foundation.settings.detail.lookAndFeel"].firstMatch.swipeUp()
+            }
+            XCTAssertTrue(depth.isHittable)
+            depth.tap()
+        }
+
+        attachScreenshot(named: "Look and Feel")
+
+        let detailNavigationBar = app.navigationBars["Look & Feel"]
+        XCTAssertTrue(detailNavigationBar.waitForExistence(timeout: 5))
+        detailNavigationBar.buttons.element(boundBy: 0).tap()
+
+        let dataAndHelp = app.buttons["settings.category.dataAndHelp"]
+        XCTAssertTrue(dataAndHelp.waitForExistence(timeout: 5))
+        for _ in 0..<3 where dataAndHelp.isHittable == false {
+            settingsScrollView.swipeUp()
+        }
+        XCTAssertTrue(dataAndHelp.isHittable)
+        dataAndHelp.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.acknowledgements.row"]
+                .waitForExistence(timeout: 8)
+        )
+    }
+
+    func testPremiumSettingsPadSidebarAndDetailFlow() {
+        let privacyAcknowledgement = app.buttons["Got it"]
+        if privacyAcknowledgement.waitForExistence(timeout: 3) {
+            privacyAcknowledgement.tap()
+        }
+
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 12))
+        XCTAssertTrue(app.descendants(matching: .any)["settings.categoryGroup"].exists)
+
+        let lookAndFeel = app.buttons["settings.category.lookAndFeel"]
+        XCTAssertTrue(lookAndFeel.waitForExistence(timeout: 5))
+        XCTAssertTrue(lookAndFeel.isHittable)
+        lookAndFeel.tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.detail.heading.lookAndFeel"]
+                .waitForExistence(timeout: 8)
+        )
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.appearance.atmosphere.preview"]
+                .waitForExistence(timeout: 8)
+        )
+        XCTAssertTrue(app.navigationBars["Settings"].exists)
+        attachScreenshot(named: "Settings iPad Split View")
+
+        let dataAndHelp = app.buttons["settings.category.dataAndHelp"]
+        XCTAssertTrue(dataAndHelp.isHittable)
+        dataAndHelp.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["settings.detail.heading.dataAndHelp"]
+                .waitForExistence(timeout: 8)
+        )
+    }
+
+    private func attachScreenshot(named name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
     }
 }

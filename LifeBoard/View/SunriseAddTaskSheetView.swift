@@ -40,11 +40,11 @@ public struct SunriseAddTaskSheetView: View {
     private func triggerPreviewPop() {
         guard !reduceMotion else { return }
         previewPopTask?.cancel()
-        withAnimation(LifeBoardAnimation.snappy) { previewPop = true }
+        withAnimation(LifeBoardAnimation.stateChange) { previewPop = true }
         previewPopTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 220_000_000)
             guard Task.isCancelled == false else { return }
-            withAnimation(LifeBoardAnimation.snappy) { previewPop = false }
+            withAnimation(LifeBoardAnimation.stateChange) { previewPop = false }
         }
     }
 
@@ -82,14 +82,14 @@ public struct SunriseAddTaskSheetView: View {
                         action: { showTimeEditor = true }
                     )
                     .scaleEffect(previewPop && !reduceMotion ? 1.03 : 1.0)
-                    .animation(LifeBoardAnimation.snappy, value: previewPop)
+                    .animation(LifeBoardAnimation.stateChange, value: previewPop)
                     .cardEntrance(index: 0)
 
                     AddTaskTitleField(
                         text: $viewModel.taskName,
                         isFocused: $titleFieldFocused,
                         placeholder: "What do you want to do?",
-                        helperText: nil,
+                        helperText: "Keep it small enough for an ordinary day.",
                         onSubmit: handleCreate
                     )
                     .cardEntrance(index: 1)
@@ -167,7 +167,7 @@ public struct SunriseAddTaskSheetView: View {
         .overlay(
             LBColorTokens.leaf
                 .opacity(successFlash ? 0.06 : 0)
-                .animation(LifeBoardAnimation.gentle, value: successFlash)
+                .animation(LifeBoardAnimation.heroReveal, value: successFlash)
                 .allowsHitTesting(false)
         )
         .onAppear(perform: handleAppear)
@@ -284,13 +284,13 @@ public struct SunriseAddTaskSheetView: View {
     private func runSuccessReset(afterReset: @escaping @MainActor () -> Void) {
         successResetTask?.cancel()
         LifeBoardFeedback.success()
-        withAnimation(LifeBoardAnimation.snappy) {
+        withAnimation(LifeBoardAnimation.stateChange) {
             successFlash = true
         }
         successResetTask = Task { @MainActor in
             try? await Task.sleep(nanoseconds: 450_000_000)
             guard Task.isCancelled == false else { return }
-            withAnimation(LifeBoardAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.stateChange) {
                 successFlash = false
                 afterReset()
             }
@@ -298,7 +298,7 @@ public struct SunriseAddTaskSheetView: View {
     }
 
     private func toggleDetails() {
-        withAnimation(LifeBoardAnimation.snappy) {
+        withAnimation(LifeBoardAnimation.stateChange) {
             showDetails.toggle()
         }
         if showDetails {
@@ -308,7 +308,7 @@ public struct SunriseAddTaskSheetView: View {
 
     private func expandSheet() {
         LifeBoardFeedback.light()
-        withAnimation(LifeBoardAnimation.gentle) {
+        withAnimation(LifeBoardAnimation.heroReveal) {
             selectedDetent = .large
         }
     }
@@ -365,7 +365,7 @@ private struct SunriseTaskEssentials: View {
                         state: showLifeArea ? .active : (selectedLifeArea == nil ? .empty : .filled),
                         accentColor: lifeAreaAccent,
                         action: {
-                            withAnimation(LifeBoardAnimation.snappy) { showLifeArea.toggle() }
+                            withAnimation(LifeBoardAnimation.stateChange) { showLifeArea.toggle() }
                         }
                     )
                 }
@@ -455,7 +455,7 @@ private struct SunriseTaskTimelinePreview: View {
                         .foregroundStyle(LBColorTokens.navy)
                         .lineLimit(2)
                         .contentTransition(.opacity)
-                        .animation(LifeBoardAnimation.snappy, value: displayTitle)
+                        .animation(LifeBoardAnimation.stateChange, value: displayTitle)
 
                     Label(lifeAreaText, systemImage: role.symbolName)
                         .font(.lifeboard(.caption1))
@@ -519,7 +519,7 @@ private struct SunriseDurationPicker: View {
                             text: preset.label,
                             isActive: matches(minutes: preset.minutes)
                         ) {
-                            withAnimation(LifeBoardAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.stateChange) {
                                 duration = TimeInterval(preset.minutes * 60)
                                 showCustomDuration = false
                             }
@@ -582,7 +582,7 @@ private struct SunriseDurationPicker: View {
 
     private func toggleCustom() {
         customMinutes = duration.map { "\(max(1, Int(($0 / 60).rounded())))" } ?? ""
-        withAnimation(LifeBoardAnimation.snappy) {
+        withAnimation(LifeBoardAnimation.stateChange) {
             showCustomDuration.toggle()
         }
     }
@@ -590,7 +590,7 @@ private struct SunriseDurationPicker: View {
     private func applyCustom() {
         guard let minutes = Int(customMinutes), minutes > 0 else { return }
         duration = TimeInterval(minutes * 60)
-        withAnimation(LifeBoardAnimation.snappy) {
+        withAnimation(LifeBoardAnimation.stateChange) {
             showCustomDuration = false
         }
     }
@@ -624,7 +624,7 @@ private struct SunriseLifeAreaPicker: View {
             emptyStateText: viewModel.lifeAreas.isEmpty ? "No life areas yet." : nil,
             accessibilityIdentifier: "addTask.lifeAreaSelector"
         ) { selectedID in
-            withAnimation(LifeBoardAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.stateChange) {
                 viewModel.selectedLifeAreaID = selectedID
             }
         }
@@ -830,7 +830,7 @@ private struct SunriseGlassCardModifier: ViewModifier {
                 if #available(iOS 26.0, *) {
                     shape
                         .fill(.clear)
-                        .glassEffect(.regular, in: shape)
+                        .lifeBoardSystemGlass(.regular, in: shape)
                         .overlay(shape.fill(LBColorTokens.glass.opacity(0.50)))
                 } else {
                     shape

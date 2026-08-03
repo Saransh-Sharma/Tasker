@@ -62,7 +62,7 @@ struct OnboardingHabitRecommendationCard: View {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
                 .stroke(borderColor, lineWidth: stateBorderWidth)
         )
-        .animation(reduceMotion ? .none : .easeOut(duration: 0.25), value: state)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: state)
     }
 
     var actionButton: some View {
@@ -118,6 +118,8 @@ struct OnboardingHabitRecommendationCard: View {
             return template.isPositive ? "Daily" : "Daily check-in"
         case .weekly(let daysOfWeek, _, _):
             return daysOfWeek.count > 1 ? "Weekdays" : "Weekly"
+        case .interval(let days, _, _):
+            return "Every \(max(1, days)) days"
         }
     }
 

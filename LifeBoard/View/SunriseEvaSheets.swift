@@ -85,7 +85,7 @@ struct SunriseEvaFocusWhySheet: View {
     private var rootScreen: some View {
         NavigationStack {
             ZStack {
-                ReflectPlanStyle.canvas.ignoresSafeArea()
+                EvaClayStyle.canvas.ignoresSafeArea()
 
                 ScrollView {
                     VStack(alignment: .leading, spacing: 14) {
@@ -155,7 +155,7 @@ struct SunriseEvaFocusWhySheet: View {
                                     .foregroundStyle(LBColorTokens.navyMuted)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 10)
-                                    .background(ReflectPlanStyle.cream, in: Capsule())
+                                    .background(EvaClayStyle.cream, in: Capsule())
                             }
                             .buttonStyle(.plain)
                             .disabled(draftState.undoState == nil)
@@ -497,7 +497,7 @@ struct FocusNowHeader: View {
                     .font(.lifeboard(.caption1).weight(.bold))
                     .foregroundStyle(LBColorTokens.navy)
                     .frame(width: 44, height: 44)
-                    .background(ReflectPlanStyle.cream, in: Circle())
+                    .background(EvaClayStyle.cream, in: Circle())
                     .lbShadow(LBShadowTokens.card)
                     .accessibilityIdentifier("focusNow.back")
 
@@ -532,9 +532,9 @@ struct SelectedCountPill: View {
             .foregroundStyle(LBColorTokens.navySoft)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
-            .background(ReflectPlanStyle.cream, in: Capsule())
+            .background(EvaClayStyle.cream, in: Capsule())
             .overlay {
-                Capsule().stroke(ReflectPlanStyle.peachBorder.opacity(0.72), lineWidth: 1)
+                Capsule().stroke(EvaClayStyle.peachBorder.opacity(0.72), lineWidth: 1)
             }
             .lbShadow(LBShadowTokens.card)
     }
@@ -552,7 +552,7 @@ struct FocusNowEmptyState: View {
         }
         .padding(LBSpacingTokens.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 24))
+        .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 24))
         .accessibilityIdentifier("focusNow.empty")
     }
 }
@@ -657,7 +657,7 @@ struct FocusTaskCard: View {
         .lbShadow(isActive ? LBShadowTokens.floating : LBShadowTokens.card)
         .overlay {
             RoundedRectangle(cornerRadius: 28)
-                .stroke(isSelectedForSwap ? heroImage.accentColor.opacity(0.56) : Color.white.opacity(0.46), lineWidth: isSelectedForSwap ? 2 : 1)
+                .stroke(isSelectedForSwap ? heroImage.accentColor.opacity(0.56) : LBColorTokens.whiteStroke.opacity(0.46), lineWidth: isSelectedForSwap ? 2 : 1)
         }
         .accessibilityElement(children: .contain)
         .scaleEffect(isActive ? 1 : 0.992)
@@ -718,12 +718,12 @@ struct FocusTaskCardFront: View {
                             .font(.lifeboard(.caption1).weight(.bold))
                             .foregroundStyle(heroImage.accentColor)
                             .frame(width: 42, height: 42)
-                            .background(ReflectPlanStyle.cream.opacity(0.94), in: Circle())
+                            .background(EvaClayStyle.cream.opacity(0.94), in: Circle())
                             .lbShadow(LBShadowTokens.card)
                     }
                     .padding(.horizontal, 16)
                     .frame(height: stripHeight)
-                    .background(ReflectPlanStyle.cream.opacity(0.82))
+                    .background(EvaClayStyle.cream.opacity(0.82))
                 }
                 .buttonStyle(.plain)
                 .accessibilityLabel("Swap this task.")
@@ -793,7 +793,7 @@ struct FocusTaskCardBack: View {
                         .font(.lifeboard(.caption1).weight(.bold))
                         .foregroundStyle(heroImage.accentColor)
                         .frame(width: 44, height: 44)
-                        .background(ReflectPlanStyle.cream, in: Circle())
+                        .background(EvaClayStyle.cream, in: Circle())
                         .contentShape(Circle())
                 }
                 .buttonStyle(.plain)
@@ -821,11 +821,11 @@ struct FocusTaskCardBack: View {
                     .foregroundStyle(LBColorTokens.navy)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 50)
-                    .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 16))
+                    .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 16))
 
                 Button("Start timer", systemImage: "play.fill", action: onStartTimer)
                     .font(.lifeboard(.bodyEmphasis))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 52)
                     .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 16))
@@ -867,16 +867,16 @@ struct FocusModeSegmentedControl: View {
                         .foregroundStyle(selectedMode == mode ? LBColorTokens.navy : LBColorTokens.navyMuted)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 42)
-                        .background(selectedMode == mode ? ReflectPlanStyle.cream : Color.clear, in: Capsule())
+                        .background(selectedMode == mode ? EvaClayStyle.cream : Color.clear, in: Capsule())
                 }
                 .buttonStyle(.plain)
                 .accessibilityAddTraits(selectedMode == mode ? [.isSelected] : [])
             }
         }
         .padding(5)
-        .background(ReflectPlanStyle.peachSurfaceStrong, in: Capsule())
+        .background(EvaClayStyle.peachSurfaceStrong, in: Capsule())
         .overlay {
-            Capsule().stroke(ReflectPlanStyle.peachBorder.opacity(0.68), lineWidth: 1)
+            Capsule().stroke(EvaClayStyle.peachBorder.opacity(0.68), lineWidth: 1)
         }
     }
 }
@@ -911,7 +911,7 @@ struct CandidateSection: View {
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 18))
+                .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 18))
                 .accessibilityIdentifier("focusNow.candidates.empty")
             } else {
                 VStack(spacing: 0) {
@@ -923,16 +923,16 @@ struct CandidateSection: View {
                             onSwapTap: { onSwapTap(candidate) }
                         )
                         if index < min(3, candidates.count) - 1 {
-                            Divider().overlay(ReflectPlanStyle.peachBorder.opacity(0.68))
+                            Divider().overlay(EvaClayStyle.peachBorder.opacity(0.68))
                         }
                     }
                 }
                 .redacted(reason: isShuffling ? .placeholder : [])
                 .opacity(isShuffling ? 0.74 : 1)
                 .animation(.easeInOut(duration: 0.18), value: isShuffling)
-                .background(ReflectPlanStyle.cream.opacity(0.9), in: RoundedRectangle(cornerRadius: 22))
+                .background(EvaClayStyle.cream.opacity(0.9), in: RoundedRectangle(cornerRadius: 22))
                 .overlay {
-                    RoundedRectangle(cornerRadius: 22).stroke(ReflectPlanStyle.peachBorder.opacity(0.58), lineWidth: 1)
+                    RoundedRectangle(cornerRadius: 22).stroke(EvaClayStyle.peachBorder.opacity(0.58), lineWidth: 1)
                 }
             }
         }
@@ -977,7 +977,7 @@ struct CandidateTaskRow: View {
                 .font(.lifeboard(.caption1).weight(.bold))
                 .foregroundStyle(LBColorTokens.navyMuted)
                 .frame(width: 44, height: 44)
-                .background(ReflectPlanStyle.blueSurface.opacity(0.52), in: Circle())
+                .background(EvaClayStyle.blueSurface.opacity(0.52), in: Circle())
                 .accessibilityLabel("Swap into Focus Now")
                 .accessibilityIdentifier("focusNow.candidate.swap.\(task.id.uuidString)")
         }
@@ -1014,7 +1014,7 @@ struct ShuffleAgainCard: View {
                     .font(.lifeboard(.callout).weight(.bold))
                     .foregroundStyle(LBColorTokens.violetDeep)
                     .frame(width: 48, height: 48)
-                    .background(ReflectPlanStyle.cream.opacity(0.9), in: Circle())
+                    .background(EvaClayStyle.cream.opacity(0.9), in: Circle())
                     .rotationEffect(.degrees(isShuffling ? 360 : 0))
                     .animation(.easeInOut(duration: 0.42), value: isShuffling)
 
@@ -1034,7 +1034,7 @@ struct ShuffleAgainCard: View {
             .background(
                 LinearGradient(
                     colors: [
-                        ReflectPlanStyle.cream.opacity(0.94),
+                        EvaClayStyle.cream.opacity(0.94),
                         Color(lifeboardHex: "#FFF1EA").opacity(0.86),
                         Color(lifeboardHex: "#F7F1FF").opacity(0.78)
                     ],
@@ -1044,7 +1044,7 @@ struct ShuffleAgainCard: View {
                 in: RoundedRectangle(cornerRadius: 22)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: 22).stroke(ReflectPlanStyle.peachBorder.opacity(0.58), lineWidth: 1)
+                RoundedRectangle(cornerRadius: 22).stroke(EvaClayStyle.peachBorder.opacity(0.58), lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -1066,7 +1066,7 @@ struct FocusBottomActions: View {
                     Image(systemName: isStarting ? "hourglass" : "play.fill")
                         .font(.lifeboard(.callout).weight(.bold))
                         .frame(width: 48, height: 48)
-                        .background(Color.white.opacity(0.14), in: Circle())
+                        .background(LBColorTokens.whiteStroke.opacity(0.14), in: Circle())
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(isStarting ? "Starting..." : "Start focus")
@@ -1078,7 +1078,7 @@ struct FocusBottomActions: View {
 
                     Spacer(minLength: 0)
                 }
-                .foregroundStyle(Color.white)
+                .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                 .padding(.horizontal, 14)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 74)
@@ -1094,7 +1094,7 @@ struct FocusBottomActions: View {
                     Image(systemName: "slider.horizontal.3")
                         .font(.lifeboard(.callout).weight(.semibold))
                         .frame(width: 48, height: 48)
-                        .background(ReflectPlanStyle.peachSurfaceStrong, in: Circle())
+                        .background(EvaClayStyle.peachSurfaceStrong, in: Circle())
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Refine set")
@@ -1110,7 +1110,7 @@ struct FocusBottomActions: View {
                 .padding(.horizontal, 14)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 74)
-                .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 20))
+                .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 20))
             }
             .buttonStyle(.plain)
             .disabled(isStarting)
@@ -1166,18 +1166,18 @@ struct RefineFocusSheet: View {
                         ForEach(Array(allTasks.enumerated()), id: \.element.id) { index, task in
                             refineRow(task)
                             if index < allTasks.count - 1 {
-                                Divider().overlay(ReflectPlanStyle.peachBorder.opacity(0.68))
+                                Divider().overlay(EvaClayStyle.peachBorder.opacity(0.68))
                             }
                         }
                     }
-                    .background(ReflectPlanStyle.cream.opacity(0.92), in: RoundedRectangle(cornerRadius: 22))
+                    .background(EvaClayStyle.cream.opacity(0.92), in: RoundedRectangle(cornerRadius: 22))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 22).stroke(ReflectPlanStyle.peachBorder.opacity(0.58), lineWidth: 1)
+                        RoundedRectangle(cornerRadius: 22).stroke(EvaClayStyle.peachBorder.opacity(0.58), lineWidth: 1)
                     }
                 }
                 .padding(18)
             }
-            .background(ReflectPlanStyle.canvas.ignoresSafeArea())
+            .background(EvaClayStyle.canvas.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 10) {
                     Button("Cancel", role: .cancel) {
@@ -1187,7 +1187,7 @@ struct RefineFocusSheet: View {
                     .foregroundStyle(LBColorTokens.navy)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 54)
-                    .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 18))
+                    .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 18))
 
                     Button("Done") {
                         let selectedTasks = selectedIDs.compactMap { id in
@@ -1196,7 +1196,7 @@ struct RefineFocusSheet: View {
                         onApply(selectedTasks)
                     }
                     .font(.lifeboard(.bodyEmphasis))
-                    .foregroundStyle(Color.white)
+                    .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 54)
                     .background(selectedIDs.isEmpty ? LBColorTokens.navyMuted.opacity(0.48) : LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
@@ -1204,7 +1204,7 @@ struct RefineFocusSheet: View {
                     .accessibilityIdentifier("focusNow.refine.done")
                 }
                 .padding(16)
-                .background(ReflectPlanStyle.canvas)
+                .background(EvaClayStyle.canvas)
             }
             .confirmationDialog(
                 "Replace which task?",
@@ -1315,7 +1315,7 @@ struct FocusTaskDetailSheet: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(14)
-                    .background(ReflectPlanStyle.blueSurfaceStrong, in: RoundedRectangle(cornerRadius: 18))
+                    .background(EvaClayStyle.blueSurfaceStrong, in: RoundedRectangle(cornerRadius: 18))
 
                     if let details = task.details, details.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
                         VStack(alignment: .leading, spacing: 8) {
@@ -1330,12 +1330,12 @@ struct FocusTaskDetailSheet: View {
                 }
                 .padding(18)
             }
-            .background(ReflectPlanStyle.canvas.ignoresSafeArea())
+            .background(EvaClayStyle.canvas.ignoresSafeArea())
             .safeAreaInset(edge: .bottom) {
                 HStack(spacing: 10) {
                     Button("Start timer", systemImage: "play.fill", action: onStartTimer)
                         .font(.lifeboard(.bodyEmphasis))
-                        .foregroundStyle(Color.white)
+                        .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 52)
                         .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 16))
@@ -1346,11 +1346,11 @@ struct FocusTaskDetailSheet: View {
                         .foregroundStyle(LBColorTokens.navy)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 52)
-                        .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 16))
+                        .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 16))
                         .accessibilityIdentifier("focusNow.taskDetail.swap")
                 }
                 .padding(16)
-                .background(ReflectPlanStyle.canvas)
+                .background(EvaClayStyle.canvas)
             }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -1370,7 +1370,7 @@ struct FocusTaskDetailSheet: View {
             detailRow("Subtasks", value: "\(task.subtasks.count)", systemImage: "checklist")
         }
         .padding(14)
-        .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 18))
+        .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 18))
     }
 
     private func detailRow(_ title: String, value: String, systemImage: String) -> some View {
@@ -1428,10 +1428,10 @@ struct FocusDurationPickerSheet: View {
                             customMinutes = ""
                         }
                         .font(.lifeboard(.caption1).weight(.semibold))
-                        .foregroundStyle(selectedDurationSeconds == minutes * 60 ? Color.white : LBColorTokens.navy)
+                        .foregroundStyle(selectedDurationSeconds == minutes * 60 ? Color.lifeboard(.accentOnPrimary) : LBColorTokens.navy)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
-                        .background(selectedDurationSeconds == minutes * 60 ? LBColorTokens.navy : ReflectPlanStyle.cream, in: Capsule())
+                    .background(selectedDurationSeconds == minutes * 60 ? Color.lifeboard(.actionPrimary) : EvaClayStyle.cream, in: Capsule())
                         .accessibilityIdentifier("focusNow.timer.preset.\(minutes)")
                     }
                 }
@@ -1440,7 +1440,7 @@ struct FocusDurationPickerSheet: View {
                     .font(.lifeboard(.callout))
                     .keyboardType(.numberPad)
                     .padding(12)
-                    .background(ReflectPlanStyle.cream, in: RoundedRectangle(cornerRadius: 16))
+                    .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 16))
                     .accessibilityIdentifier("focusNow.timer.customMinutes")
                     .onChange(of: customMinutes) { _, newValue in
                         guard let minutes = Int(newValue), minutes > 0 else { return }
@@ -1453,7 +1453,7 @@ struct FocusDurationPickerSheet: View {
                     onStart(selectedDurationSeconds)
                 }
                 .font(.lifeboard(.bodyEmphasis))
-                .foregroundStyle(Color.white)
+                .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 54)
                 .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
@@ -1461,7 +1461,7 @@ struct FocusDurationPickerSheet: View {
                 .accessibilityIdentifier("focusNow.timer.start")
             }
             .padding(18)
-            .background(ReflectPlanStyle.canvas.ignoresSafeArea())
+            .background(EvaClayStyle.canvas.ignoresSafeArea())
         }
         .accessibilityLabel("Choose focus timer duration.")
         .accessibilityIdentifier("focusNow.timer.sheet")
@@ -1554,9 +1554,9 @@ enum TaskHeroImage: String, CaseIterable, Hashable {
     var borderColor: Color {
         switch self {
         case .meditation, .greenPath: return Color(lifeboardHex: "#CFE6C5")
-        case .genericClouds: return ReflectPlanStyle.blueBorder
+        case .genericClouds: return EvaClayStyle.blueBorder
         case .recoveryLake: return Color(lifeboardHex: "#D9C9FF")
-        case .sunrisePath, .deskNotebook: return ReflectPlanStyle.peachBorder
+        case .sunrisePath, .deskNotebook: return EvaClayStyle.peachBorder
         }
     }
 

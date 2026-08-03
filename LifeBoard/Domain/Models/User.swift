@@ -279,7 +279,7 @@ public enum AvailabilityStatus: String, CaseIterable {
     }
 }
 
-public enum Weekday: String, CaseIterable, Codable {
+public enum Weekday: String, CaseIterable, Codable, Sendable {
     case sunday = "sunday"
     case monday = "monday"
     case tuesday = "tuesday"

@@ -12,6 +12,7 @@ struct LBBottomDock: View {
     let onCreate: () -> Void
 
     @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var items: [DockItem] {
         return [
@@ -37,14 +38,14 @@ struct LBBottomDock: View {
             .frame(height: 68)
             .background {
                 RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous)
-                    .fill(LBColorTokens.glassStrong.opacity(0.62))
+                    .fill(Color.lifeboard(.bgElevated))
                     .modifier(LBBottomDockMaterialModifier(isEnabled: usesMaterialBackground))
             }
             .overlay {
                 RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous)
-                    .stroke(LBColorTokens.glassBorder, lineWidth: 1)
+                    .stroke(Color.lifeboard(.borderStrong), lineWidth: 1)
             }
-            .shadow(color: LBColorTokens.dockShadow.opacity(1), radius: 18, x: 0, y: 8)
+            .shadow(color: Color.lifeboard(.textPrimary).opacity(0.12), radius: 14, x: 0, y: 7)
 
             LBFloatingAddButton(action: handleCreate)
                 .offset(y: -6)
@@ -67,20 +68,21 @@ struct LBBottomDock: View {
         } label: {
             VStack(spacing: 4) {
                 Image(systemName: selected ? item.selectedSystemImage : item.systemImage)
-                    .font(.system(size: selected ? 22 : 21, weight: .semibold))
-                Text(item.title)
-                    .font(LBTypographyTokens.dockLabel)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.78)
+                    .font(.title3.weight(selected ? .semibold : .regular))
+                if dynamicTypeSize.isAccessibilitySize == false {
+                    Text(item.title)
+                        .lifeboardFont(.caption2)
+                        .lineLimit(1)
+                }
             }
-            .foregroundStyle(selected ? LBColorTokens.violetDeep : LBColorTokens.navyMuted)
+            .foregroundStyle(selected ? Color.lifeboard(.textPrimary) : Color.lifeboard(.textSecondary))
             .frame(maxWidth: .infinity, minHeight: 54)
             .background {
                 if selected {
                     Capsule()
-                        .fill(LBColorTokens.violetSoft)
+                        .fill(Color.lifeboard(.surfaceTertiary))
                         .overlay {
-                            Capsule().stroke(LBColorTokens.violet.opacity(0.30), lineWidth: 1)
+                            Capsule().stroke(Color.lifeboard(.borderStrong), lineWidth: 1)
                         }
                 }
             }
@@ -151,9 +153,13 @@ private struct LBBottomDockMaterialModifier: ViewModifier {
         if isEnabled == false {
             content
         } else if reduceTransparency {
-            content.background(LBColorTokens.surfaceSolid, in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
+            content.background(Color.lifeboard(.bgElevated), in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
         } else {
-            content.background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous))
+            content.lifeBoardSystemGlass(
+                .regular,
+                in: RoundedRectangle(cornerRadius: LBRadiusTokens.dock, style: .continuous),
+                interactive: true
+            )
         }
     }
 }

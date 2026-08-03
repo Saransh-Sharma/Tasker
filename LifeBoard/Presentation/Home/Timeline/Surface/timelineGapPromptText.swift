@@ -12,9 +12,8 @@ func timelineGapPromptText(for gap: TimelineGap, row: TimelineRenderableRow) -> 
 
     let prefix = String(promptSource[..<range.lowerBound])
     let suffix = String(promptSource[range.upperBound...])
-    return Text(prefix)
-        + Text(duration)
-            .foregroundStyle(row.temporalState == .activeGap ? Color.lifeboard.textPrimary : gapPromptTint(for: gap))
-            .font(.lifeboard(.callout).weight(.semibold))
-        + Text(suffix)
+    let emphasizedDuration = Text(duration)
+        .foregroundStyle(row.temporalState == .activeGap ? Color.lifeboard.textPrimary : gapPromptTint(for: gap))
+        .font(.lifeboard(.callout).weight(.semibold))
+    return Text("\(Text(prefix))\(emphasizedDuration)\(Text(suffix))")
 }

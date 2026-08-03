@@ -174,83 +174,16 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertFalse(presentation.showsBackToToday)
         XCTAssertFalse(presentation.showsReflectionCTA)
         XCTAssertEqual(presentation.reflectionCTATitle, "Reflect")
-        XCTAssertEqual(presentation.statusText, "40% done · 1d")
+        XCTAssertEqual(presentation.statusText, "40% done · 1d active")
         XCTAssertEqual(presentation.todayStatus?.completionText, "40% done")
-        XCTAssertEqual(presentation.todayStatus?.streakText, "1d")
-        XCTAssertEqual(presentation.todayStatus?.streakAccessibilityLabel, "1 day streak")
+        XCTAssertEqual(presentation.todayStatus?.streakText, "1d active")
+        XCTAssertEqual(presentation.todayStatus?.streakAccessibilityLabel, "1 active day")
         XCTAssertEqual(presentation.dayProgress?.completedCount, 2)
         XCTAssertEqual(presentation.dayProgress?.totalCount, 5)
         XCTAssertEqual(presentation.dayProgress?.remainingCount, 3)
         XCTAssertFalse(presentation.dayProgress?.isComplete ?? true)
         XCTAssertEqual(presentation.dayProgress?.accessibilityLabel, "Today progress, 2 of 5 due items done, 3 left")
         XCTAssertEqual(presentation.dayProgress?.progressFraction ?? -1, 0.4, accuracy: 0.0001)
-    }
-
-    func testHomeChromeSnapshotEqualityIncludesRichReflectionPreview() {
-        let today = Calendar.current.startOfDay(for: Date())
-        let sharedNarrative = ReflectionNarrativeSummary(
-            homeCardLine: "1 task closed. Keep tomorrow tight.",
-            planCardLine: "You closed 1 task, and tomorrow can stay narrow."
-        )
-        let lhs = HomeChromeSnapshot(
-            selectedDate: today,
-            activeScope: .today,
-            activeFilterState: .default,
-            savedHomeViews: [],
-            quickViewCounts: [:],
-            progressState: .empty,
-            dailyScore: 0,
-            completionRate: 0,
-            weeklySummary: nil,
-            projects: [],
-            dailyReflectionEntryState: DailyReflectionEntryState(
-                mode: .sameDay,
-                reflectionDate: today,
-                planningDate: Calendar.current.date(byAdding: .day, value: 1, to: today)!,
-                title: "Reflect & plan",
-                subtitle: "Close today cleanly, then shape tomorrow.",
-                summaryText: sharedNarrative.homeCardLine,
-                badgeText: nil,
-                closedTasks: [
-                    ReflectionTaskMiniRow(id: UUID(), title: "Closed task", projectName: "Inbox")
-                ],
-                habitGrid: [],
-                narrativeSummary: sharedNarrative
-            ),
-            dailyPlanDraft: nil,
-            momentumGuidanceText: ""
-        )
-
-        let rhs = HomeChromeSnapshot(
-            selectedDate: today,
-            activeScope: .today,
-            activeFilterState: .default,
-            savedHomeViews: [],
-            quickViewCounts: [:],
-            progressState: .empty,
-            dailyScore: 0,
-            completionRate: 0,
-            weeklySummary: nil,
-            projects: [],
-            dailyReflectionEntryState: DailyReflectionEntryState(
-                mode: .sameDay,
-                reflectionDate: today,
-                planningDate: Calendar.current.date(byAdding: .day, value: 1, to: today)!,
-                title: "Reflect & plan",
-                subtitle: "Close today cleanly, then shape tomorrow.",
-                summaryText: sharedNarrative.homeCardLine,
-                badgeText: nil,
-                closedTasks: [
-                    ReflectionTaskMiniRow(id: UUID(), title: "Different task", projectName: "Inbox")
-                ],
-                habitGrid: [],
-                narrativeSummary: sharedNarrative
-            ),
-            dailyPlanDraft: nil,
-            momentumGuidanceText: ""
-        )
-
-        XCTAssertNotEqual(lhs, rhs)
     }
 
     func testCustomDatePresentationShowsBackToTodayAndSuppressesReflection() {
@@ -267,8 +200,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
         let tasks = HomeTasksSnapshot(
@@ -357,8 +288,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
 
@@ -379,8 +308,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
         var tasks = HomeTasksSnapshot.empty
@@ -426,7 +353,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertNil(presentation.backgroundDateText)
         XCTAssertNil(presentation.foregroundRelativeLabel)
         XCTAssertNil(presentation.dateAccessibilityLabel)
-        XCTAssertEqual(presentation.statusText, "2 overdue tasks")
+        XCTAssertEqual(presentation.statusText, "2 rescue tasks")
         XCTAssertNil(presentation.todayStatus)
         XCTAssertFalse(presentation.showsReflectionCTA)
         XCTAssertNil(presentation.dayProgress)
@@ -442,9 +369,9 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         let presentation = snapshot.homeHeaderPresentation(tasks: HomeTasksSnapshot.empty)
 
-        XCTAssertEqual(presentation.statusText, "All clear · 1d")
+        XCTAssertEqual(presentation.statusText, "All clear · 1d active")
         XCTAssertEqual(presentation.todayStatus?.completionText, "All clear")
-        XCTAssertEqual(presentation.todayStatus?.streakText, "1d")
+        XCTAssertEqual(presentation.todayStatus?.streakText, "1d active")
         XCTAssertEqual(presentation.dayProgress?.completedCount, 0)
         XCTAssertEqual(presentation.dayProgress?.totalCount, 0)
         XCTAssertEqual(presentation.dayProgress?.remainingCount, 0)
@@ -465,7 +392,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         let presentation = snapshot.homeHeaderPresentation(tasks: tasks)
 
-        XCTAssertEqual(presentation.statusText, "33% done · 1d")
+        XCTAssertEqual(presentation.statusText, "33% done · 1d active")
         XCTAssertEqual(presentation.todayStatus?.completionText, "33% done")
     }
 
@@ -494,7 +421,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
 
         XCTAssertEqual(presentation.dayProgress?.completedCount, 1)
         XCTAssertEqual(presentation.dayProgress?.totalCount, 2)
-        XCTAssertEqual(presentation.statusText, "50% done · 1d")
+        XCTAssertEqual(presentation.statusText, "50% done · 1d active")
     }
 
     func testSkippedAndLapsedHabitsStayInDenominatorButAreNotDone() {
@@ -515,7 +442,7 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         XCTAssertEqual(presentation.dayProgress?.completedCount, 1)
         XCTAssertEqual(presentation.dayProgress?.totalCount, 3)
         XCTAssertEqual(presentation.dayProgress?.remainingCount, 2)
-        XCTAssertEqual(presentation.statusText, "33% done · 1d")
+        XCTAssertEqual(presentation.statusText, "33% done · 1d active")
     }
 
     func testHabitOnlySnapshotChangesUpdateTodayHeaderProgress() {
@@ -535,9 +462,9 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
         let openPresentation = snapshot.homeHeaderPresentation(tasks: .empty, habits: openHabits)
         let completedPresentation = snapshot.homeHeaderPresentation(tasks: .empty, habits: completedHabits)
 
-        XCTAssertEqual(openPresentation.statusText, "0% done · 1d")
+        XCTAssertEqual(openPresentation.statusText, "0% done · 1d active")
         XCTAssertEqual(openPresentation.dayProgress?.progressFraction ?? -1, 0, accuracy: 0.0001)
-        XCTAssertEqual(completedPresentation.statusText, "100% done · 1d")
+        XCTAssertEqual(completedPresentation.statusText, "100% done · 1d active")
         XCTAssertEqual(completedPresentation.dayProgress?.progressFraction ?? -1, 1, accuracy: 0.0001)
     }
 
@@ -566,8 +493,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
                 completionRate: 0,
                 weeklySummary: nil,
                 projects: [],
-                dailyReflectionEntryState: nil,
-                dailyPlanDraft: nil,
                 momentumGuidanceText: ""
             )
 
@@ -609,8 +534,6 @@ final class HomeChromeSnapshotPresentationTests: XCTestCase {
             completionRate: 0,
             weeklySummary: nil,
             projects: [],
-            dailyReflectionEntryState: nil,
-            dailyPlanDraft: nil,
             momentumGuidanceText: ""
         )
     }

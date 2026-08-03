@@ -10,6 +10,93 @@
 import Foundation
 import UIKit
 
+/// Explicit capabilities required by Plan and Inbox.
+///
+/// The composition root resolves repositories once and passes this value down
+/// through the shell. SwiftUI views therefore never name either dependency
+/// container and previews/tests can provide focused substitutes.
+struct PlanFeatureDependencies {
+    let planningRepository: CoreDataPlanningRepository
+    let inboxCommitCoordinator: InboxCommitCoordinator
+    let taskExecutionProjection: TaskExecutionProjection
+    let taskBatchMutationCoordinator: TaskBatchMutationCoordinator
+    let projectTemplateInstantiationService: ProjectTemplateInstantiationService
+    let focusCommands: FocusSessionCommands
+    let focusXPSubscriber: FocusCompletionXPSubscriber
+    let projectMilestoneRepository: any ProjectMilestoneRepository
+    let taskDefinitionRepository: any TaskDefinitionRepositoryProtocol
+    let projectRepository: any ProjectRepositoryProtocol
+    let sectionRepository: (any SectionRepositoryProtocol)?
+    let lifeAreaRepository: (any LifeAreaRepositoryProtocol)?
+    let tagRepository: any TagRepositoryProtocol
+    let taskTagLinkRepository: (any TaskTagLinkRepositoryProtocol)?
+    let taskDependencyRepository: (any TaskDependencyRepositoryProtocol)?
+    /// Optional because the composition root builds it only once the write-closed
+    /// adapters are available. Close the Day treats its absence as "the note
+    /// cannot be saved right now" and still lets the day close — the
+    /// reconciliation and the note are separate writes by design.
+    let reflectionNoteRepository: (any ReflectionNoteRepositoryProtocol)?
+
+    init(
+        planningRepository: CoreDataPlanningRepository,
+        taskDefinitionRepository: any TaskDefinitionRepositoryProtocol,
+        projectRepository: any ProjectRepositoryProtocol,
+        sectionRepository: (any SectionRepositoryProtocol)? = nil,
+        lifeAreaRepository: (any LifeAreaRepositoryProtocol)? = nil,
+        tagRepository: any TagRepositoryProtocol,
+        gamificationEngine: GamificationEngine,
+        taskTagLinkRepository: (any TaskTagLinkRepositoryProtocol)? = nil,
+        taskDependencyRepository: (any TaskDependencyRepositoryProtocol)? = nil,
+        reflectionNoteRepository: (any ReflectionNoteRepositoryProtocol)? = nil
+    ) {
+        self.planningRepository = planningRepository
+        inboxCommitCoordinator = InboxCommitCoordinator(
+            writer: CoreDataInboxTaskWriter(
+                tasks: taskDefinitionRepository,
+                projects: projectRepository,
+                tags: tagRepository,
+                taskTagLinks: taskTagLinkRepository
+            )
+        )
+        taskExecutionProjection = TaskExecutionProjection(
+            repository: planningRepository,
+            taskDefinitions: {
+                try await withCheckedThrowingContinuation { continuation in
+                    taskDefinitionRepository.fetchAll { continuation.resume(with: $0) }
+                }
+            }
+        )
+        taskBatchMutationCoordinator = TaskBatchMutationCoordinator(
+            tasks: taskDefinitionRepository,
+            planning: planningRepository,
+            tagLinks: taskTagLinkRepository
+        )
+        focusCommands = FocusSessionCommands(repository: planningRepository)
+        focusXPSubscriber = FocusCompletionXPSubscriber(
+            events: focusCommands.completionEvents,
+            engine: gamificationEngine
+        )
+        projectMilestoneRepository = planningRepository
+        projectTemplateInstantiationService = ProjectTemplateInstantiationService(
+            projects: projectRepository,
+            sections: sectionRepository,
+            tasks: taskDefinitionRepository,
+            tagLinks: taskTagLinkRepository,
+            dependencyLinks: taskDependencyRepository,
+            milestones: planningRepository,
+            planning: planningRepository
+        )
+        self.taskDefinitionRepository = taskDefinitionRepository
+        self.projectRepository = projectRepository
+        self.sectionRepository = sectionRepository
+        self.lifeAreaRepository = lifeAreaRepository
+        self.tagRepository = tagRepository
+        self.taskTagLinkRepository = taskTagLinkRepository
+        self.taskDependencyRepository = taskDependencyRepository
+        self.reflectionNoteRepository = reflectionNoteRepository
+    }
+}
+
 /// Dependency container for Clean Architecture ViewModels
 /// Receives dependencies from EnhancedDependencyContainer (State layer)
 /// and provides ViewModels to the Presentation layer
@@ -261,21 +348,6 @@ public final class PresentationDependencyContainer {
         )
     }
 
-    @MainActor
-    public func makeDailyReflectPlanViewModel(
-        preferredReflectionDate: Date? = nil,
-        analyticsTracker: ((String, [String: String]) -> Void)? = nil,
-        onComplete: ((SaveDailyReflectionAndPlanResult) -> Void)? = nil
-    ) -> DailyReflectPlanViewModel {
-        assertConfigured()
-        return DailyReflectPlanViewModel(
-            useCaseCoordinator: useCaseCoordinator,
-            preferredReflectionDate: preferredReflectionDate,
-            analyticsTracker: analyticsTracker,
-            onComplete: onComplete
-        )
-    }
-
     /// Get or create LifeManagementViewModel
     @MainActor
     public func makeLifeManagementViewModel() -> LifeManagementViewModel {
@@ -397,12 +469,8 @@ public final class PresentationDependencyContainer {
             containerAware.presentationDependencyContainer = self
         }
 
-        // Check for specific view controller types and inject ViewModels
+        // Check for remaining UIKit controller types and inject ViewModels.
         switch viewController {
-        case let homeVC as HomeViewControllerProtocol:
-            homeVC.viewModel = makeHomeViewModel()
-            logDebug("✅ Injected HomeViewModel")
-
         case let projectVC as ProjectManagementViewControllerProtocol:
             projectVC.viewModel = makeProjectManagementViewModel()
             logDebug("✅ Injected ProjectManagementViewModel")
@@ -448,11 +516,6 @@ public final class PresentationDependencyContainer {
 }
 
 // MARK: - View Controller Protocols
-
-/// Protocol for HomeViewController to receive ViewModel
-@MainActor public protocol HomeViewControllerProtocol: AnyObject {
-    var viewModel: HomeViewModel! { get set }
-}
 
 /// Protocol for ProjectManagementViewController to receive ViewModel
 @MainActor public protocol ProjectManagementViewControllerProtocol: AnyObject {

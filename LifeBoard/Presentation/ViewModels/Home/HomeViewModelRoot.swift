@@ -130,6 +130,11 @@ public final class HomeViewModel: ObservableObject {
 
     let needsReplanViewModel: HomeNeedsReplanViewModel
 
+    /// Installed by the Phase 1 composition root. Legacy Home presentation can
+    /// keep its timer models, while every enabled flagship route writes through
+    /// FocusSessionV2 and its canonical command state machine.
+    var canonicalFocusCommands: FocusSessionCommands?
+
     var cancellables = Set<AnyCancellable>()
 
     var retainedInsightsViewModel: InsightsViewModel?
@@ -148,7 +153,7 @@ public final class HomeViewModel: ObservableObject {
 
     /// Most recent per-project activity (open count + nearest due) used to auto-fill the lens row.
     /// Refreshed whenever we have the unfiltered forward open-task set (Upcoming lens).
-    var cachedLifeAreaLensActivity: [UUID: HomeLensLifeAreaActivity] = [:]
+    var cachedLifeAreaLensActivity: [UUID: HomeLensLifeAreaActivity]?
 
     // MARK: - Persistence Keys
 
@@ -298,12 +303,6 @@ public final class HomeViewModel: ObservableObject {
 
     lazy var dayCompassSnoozeStore = DayCompassSnoozeStore(userDefaults: userDefaults)
 
-    /// Day-stamp cache for the reflection-target lookup so `.chrome` refreshes
-    /// don't run the use case on every resolve.
-    var dayCompassReflectionTargetCacheDayKey: String?
-
-    var dayCompassReflectionTargetCacheValue = false
-
     var pendingHomeRenderInvalidation: HomeRenderInvalidation = .all
 
     var currentHabitSignals: [LifeBoardHabitSignal] = []
@@ -321,16 +320,6 @@ public final class HomeViewModel: ObservableObject {
     var evaInsightsGeneration: Int = 0
 
     var lastTaskListSnapshotRevision: HomeDataRevision?
-
-    var catchUpReflectionPreviewTask: Task<Void, Never>?
-
-    var catchUpReflectionPreviewKey: String?
-
-    var reflectionContextPrefetchTask: Task<Void, Never>?
-
-    var reflectionContextPrefetchKey: String?
-
-    static let reflectionContextPrefetchDelay: Duration = .milliseconds(250)
 
     init(
         useCaseCoordinator: UseCaseCoordinator,
@@ -464,24 +453,32 @@ public final class HomeViewModel: ObservableObject {
         didSet { scheduleHomeRenderStateRefresh(.overlay) }
     }
 
-    @Published public internal(set) var evaRescueSheetPresented: Bool = false {
-        didSet { scheduleHomeRenderStateRefresh(.overlay) }
-    }
+    /// Rescue launch/presentation state is native app-level state. These
+    /// compatibility projections keep older Home readers source-compatible
+    /// until Phase 4 deletes the Sunrise shell; writes go through the
+    /// coordinator rather than duplicating ownership here.
+    lazy var overdueRescueLaunchCoordinator = OverdueRescueLaunchCoordinator()
+    lazy var rescueBatchApplier = RescueBatchApplier(
+        taskRepository: useCaseCoordinator.taskDefinitionRepository,
+        proposalBuilder: buildEvaBatchProposalUseCase,
+        pipeline: useCaseCoordinator.assistantActionPipeline
+    )
 
-    @Published public internal(set) var evaRescueLauncherState: HomeOverdueRescueLauncherState = .idle {
-        didSet { scheduleHomeRenderStateRefresh(.overlay) }
+    public var evaRescueSheetPresented: Bool { overdueRescueLaunchCoordinator.isPresented }
+    public var evaRescueLauncherState: HomeOverdueRescueLauncherState {
+        overdueRescueLaunchCoordinator.launcherState
     }
-
-    @Published public internal(set) var evaRescuePlan: EvaRescuePlan? {
-        didSet { scheduleHomeRenderStateRefresh(.overlay) }
+    public var evaRescuePlan: EvaRescuePlan? { overdueRescueLaunchCoordinator.plan }
+    public var evaRescueReferenceDate: Date? { overdueRescueLaunchCoordinator.referenceDate }
+    public var evaRescueTasksByID: [UUID: TaskDefinition] {
+        overdueRescueLaunchCoordinator.normalTasksByID
     }
-
-    @Published public internal(set) var evaRescueReferenceDate: Date? = nil {
-        didSet { scheduleHomeRenderStateRefresh(.overlay) }
-    }
-
-    @Published public internal(set) var evaLastBatchRunID: UUID? {
-        didSet { scheduleHomeRenderStateRefresh(.overlay) }
+    public var evaLastBatchRunID: UUID? {
+        get { overdueRescueLaunchCoordinator.lastBatchRunID }
+        set {
+            overdueRescueLaunchCoordinator.lastBatchRunID = newValue
+            scheduleHomeRenderStateRefresh(.overlay)
+        }
     }
 
     @Published var homeReplanState: HomeReplanSessionState = .hidden {
@@ -494,10 +491,6 @@ public final class HomeViewModel: ObservableObject {
 
     @Published var hiddenHomeTimelineCalendarEvents: Set<HomeTimelineHiddenCalendarEventKey> = [] {
         didSet { scheduleHomeRenderStateRefresh(.timeline) }
-    }
-
-    @Published var catchUpDailyReflectionEntryPreview: DailyReflectionEntryState? {
-        didSet { scheduleHomeRenderStateRefresh(.chrome) }
     }
 
     public var todayOpenTaskCount: Int {
@@ -537,13 +530,9 @@ public final class HomeViewModel: ObservableObject {
         set { needsReplanViewModel.applyingAction = newValue }
     }
 
-    static let reflectionContextPrefetchTimeoutSeconds: TimeInterval = 0.8
-
     deinit {
         pendingRecurringTopUpTask?.cancel()
         pendingAdjacentDayPrefetchTask?.cancel()
-        catchUpReflectionPreviewTask?.cancel()
-        reflectionContextPrefetchTask?.cancel()
         dayCompassAllClearTask?.cancel()
     }
 

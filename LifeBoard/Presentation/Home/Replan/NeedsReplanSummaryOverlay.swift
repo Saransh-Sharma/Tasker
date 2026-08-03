@@ -58,7 +58,9 @@ struct NeedsReplanSummaryOverlay: View {
             }
             .padding(20)
         }
-        .frame(maxHeight: min(UIScreen.main.bounds.height * 0.52, 420))
+        .containerRelativeFrame(.vertical) { availableHeight, _ in
+            min(availableHeight * 0.52, 420)
+        }
         .background(Color.lifeboard.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 28, style: .continuous)

@@ -43,7 +43,7 @@ struct FlowPromptChipsView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel("Send prompt: \(prompt.submissionText)")
                 .accessibilityIdentifier("eva.guide.prompt.\(prompt.id)")
-                .lifeboardPressFeedback(reduceMotion: reduceMotion)
+                .lifeboardPressFeedback()
             }
         }
     }

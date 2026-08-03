@@ -47,12 +47,6 @@ private struct TaskReadInsightsWeekState: Sendable {
     var projectScores: [UUID: Int] = [:]
 }
 
-private struct TaskReadDailyReflectionState: Sendable {
-    var completedTasks: [TaskDefinition] = []
-    var reflectionOpenTasks: [TaskDefinition] = []
-    var planningOpenTasks: [TaskDefinition] = []
-}
-
 public protocol TaskReadModelRepositoryProtocol: Sendable {
     /// Executes fetchTasks.
     func fetchTasks(query: TaskReadQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void)
@@ -91,11 +85,6 @@ public protocol TaskReadModelRepositoryProtocol: Sendable {
     func fetchInsightsWeekProjection(
         query: InsightsWeekProjectionQuery,
         completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void
-    )
-    /// Executes fetchDailyReflectionProjection.
-    func fetchDailyReflectionProjection(
-        query: DailyReflectionTaskProjectionQuery,
-        completion: @escaping @Sendable (Result<DailyReflectionTaskProjection, Error>) -> Void
     )
     /// Executes fetchWeekChartProjection.
     func fetchWeekChartProjection(
@@ -431,111 +420,6 @@ public extension TaskReadModelRepositoryProtocol {
         }
     }
 
-    func fetchDailyReflectionProjection(
-        query: DailyReflectionTaskProjectionQuery,
-        completion: @escaping @Sendable (Result<DailyReflectionTaskProjection, Error>) -> Void
-    ) {
-        let calendar = Calendar.current
-        let reflectionDayStart = calendar.startOfDay(for: query.reflectionDate)
-        let reflectionDayEnd = calendar.date(byAdding: .day, value: 1, to: reflectionDayStart) ?? reflectionDayStart
-        let planningDayStart = calendar.startOfDay(for: query.planningDate)
-        let planningDayEnd = calendar.date(byAdding: .day, value: 1, to: planningDayStart) ?? planningDayStart
-        let group = DispatchGroup()
-        let accumulator = TaskReadProjectionAccumulator(TaskReadDailyReflectionState())
-
-        group.enter()
-        fetchTasks(
-            query: TaskReadQuery(
-                includeCompleted: true,
-                sortBy: .updatedAtDescending,
-                limit: query.completedLimit,
-                offset: 0
-            )
-        ) { result in
-            switch result {
-            case .failure(let error):
-                accumulator.record(error)
-            case .success(let slice):
-                let tasks = slice.tasks.filter { task in
-                    guard task.isComplete, let completedAt = task.dateCompleted else { return false }
-                    return completedAt >= reflectionDayStart && completedAt < reflectionDayEnd
-                }
-                accumulator.update { $0.completedTasks = tasks }
-            }
-            group.leave()
-        }
-
-        group.enter()
-        fetchTasks(
-            query: TaskReadQuery(
-                includeCompleted: true,
-                dueDateEnd: reflectionDayEnd,
-                sortBy: .dueDateAscending,
-                limit: query.openTaskLimit,
-                offset: 0
-            )
-        ) { result in
-            switch result {
-            case .failure(let error):
-                accumulator.record(error)
-            case .success(let slice):
-                let tasks = slice.tasks.filter { task in
-                    guard task.isComplete == false else { return false }
-                    if task.type == .morning || task.type == .evening {
-                        return true
-                    }
-                    guard let dueDate = task.dueDate else { return false }
-                    return dueDate < reflectionDayEnd
-                }
-                accumulator.update { $0.reflectionOpenTasks = tasks }
-            }
-            group.leave()
-        }
-
-        group.enter()
-        fetchTasks(
-            query: TaskReadQuery(
-                includeCompleted: true,
-                dueDateEnd: planningDayEnd,
-                sortBy: .dueDateAscending,
-                limit: query.openTaskLimit,
-                offset: 0
-            )
-        ) { result in
-            switch result {
-            case .failure(let error):
-                accumulator.record(error)
-            case .success(let slice):
-                let tasks = slice.tasks.filter { task in
-                    guard task.isComplete == false else { return false }
-                    if task.type == .morning || task.type == .evening {
-                        return true
-                    }
-                    guard let dueDate = task.dueDate else { return false }
-                    return dueDate < planningDayEnd
-                }
-                accumulator.update { $0.planningOpenTasks = tasks }
-            }
-            group.leave()
-        }
-
-        group.notify(queue: .global(qos: .userInitiated)) {
-            switch accumulator.result() {
-            case .failure(let firstError):
-                completion(.failure(firstError))
-            case .success(let state):
-                completion(
-                    .success(
-                        DailyReflectionTaskProjection(
-                            reflectionCompletedTasks: state.completedTasks,
-                            reflectionOpenTasks: state.reflectionOpenTasks,
-                            planningOpenTasks: state.planningOpenTasks
-                        )
-                    )
-                )
-            }
-        }
-    }
 
     func fetchWeekChartProjection(
         referenceDate: Date,

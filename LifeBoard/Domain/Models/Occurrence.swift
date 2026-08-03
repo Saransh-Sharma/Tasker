@@ -1,4 +1,35 @@
 import Foundation
+import CryptoKit
+
+/// Stable identity shared by app, widget, Watch, reminders, and history.
+/// Swift's `Hasher` is intentionally randomized per process, so occurrence
+/// UUIDs must be derived from a cryptographic digest of canonical inputs.
+public enum BehaviorOccurrenceIdentity {
+    public static func make(
+        behaviorID: UUID,
+        canonicalOccurrenceKey: String,
+        timezoneID: String,
+        sequence: Int = 0
+    ) -> UUID {
+        let seed = [
+            behaviorID.uuidString.lowercased(),
+            canonicalOccurrenceKey,
+            timezoneID,
+            String(max(0, sequence))
+        ].joined(separator: "\u{1F}")
+        var bytes = Array(SHA256.hash(data: Data(seed.utf8)).prefix(16))
+        // RFC 4122 variant with a version-5 marker communicates name-derived
+        // identity even though SHA-256 replaces SHA-1 internally.
+        bytes[6] = (bytes[6] & 0x0F) | 0x50
+        bytes[8] = (bytes[8] & 0x3F) | 0x80
+        return UUID(uuid: (
+            bytes[0], bytes[1], bytes[2], bytes[3],
+            bytes[4], bytes[5], bytes[6], bytes[7],
+            bytes[8], bytes[9], bytes[10], bytes[11],
+            bytes[12], bytes[13], bytes[14], bytes[15]
+        ))
+    }
+}
 
 public enum OccurrenceState: String, Codable, Sendable {
     case pending
@@ -14,6 +45,19 @@ public enum OccurrenceResolutionType: String, Codable, Sendable {
     case missed
     case deferred
     case lapsed
+}
+
+/// A cross-surface result vocabulary. In particular, `.missing` and
+/// `.explicitZero` are never interchangeable.
+public enum BehaviorOccurrenceResultState: String, Codable, CaseIterable, Hashable, Sendable {
+    case missing
+    case explicitZero
+    case completed
+    case skipped
+    case offDay
+    case paused
+    case failed
+    case unresolved
 }
 
 public enum OccurrenceActor: String, Codable, Sendable {

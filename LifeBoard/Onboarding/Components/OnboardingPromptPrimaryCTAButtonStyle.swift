@@ -22,11 +22,10 @@ struct OnboardingPromptPrimaryCTAButtonStyle: ButtonStyle {
             .background(configuration.isPressed ? OnboardingPromptTheme.accentPressed : OnboardingPromptTheme.accent, in: shape)
             .overlay(
                 shape
-                    .stroke(Color.white.opacity(0.22), lineWidth: 1)
+                    .stroke(OnboardingTheme.onMediaBorder.opacity(0.92), lineWidth: 1)
             )
-            .shadow(color: OnboardingPromptTheme.shadow.opacity(0.14), radius: 18, y: 8)
             .contentShape(shape)
             .scaleEffect(configuration.isPressed && reduceMotion == false ? 0.98 : 1)
-            .animation(reduceMotion ? .none : .easeOut(duration: 0.18), value: configuration.isPressed)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: configuration.isPressed)
     }
 }

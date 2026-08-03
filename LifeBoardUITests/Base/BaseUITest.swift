@@ -14,12 +14,13 @@ class BaseUITest: XCTestCase {
 
     var app: XCUIApplication!
     var additionalLaunchArguments: [String] { [] }
+    var additionalLaunchEnvironment: [String: String] { [:] }
     var shouldSkipOnboarding: Bool { true }
 
     // MARK: - Test Lifecycle
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
 
         // Stop immediately on failure for easier debugging
         continueAfterFailure = false
@@ -33,24 +34,23 @@ class BaseUITest: XCTestCase {
             XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue
         ]
         app.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        for (key, value) in additionalLaunchEnvironment {
+            app.launchEnvironment[key] = value
+        }
         if shouldSkipOnboarding {
             app.launchArguments.append("-SKIP_ONBOARDING")
         }
         app.launchArguments.append(contentsOf: additionalLaunchArguments)
 
-        // Launch the app
         app.launch()
-
-        // Wait for app to be ready
         waitForAppLaunch()
     }
 
-    override func tearDownWithError() throws {
-        // Terminate the app
+    override func tearDown() async throws {
         app.terminate()
         app = nil
 
-        try super.tearDownWithError()
+        try await super.tearDown()
     }
 
     // MARK: - App Launch
@@ -58,7 +58,15 @@ class BaseUITest: XCTestCase {
     /// Wait for app to finish launching and be ready for interaction
     func waitForAppLaunch() {
         let homeIndicator = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
-        let homeExists = homeIndicator.waitForExistence(timeout: shouldSkipOnboarding ? 12 : 6)
+        let foundationHome = app.buttons["foundation.destination.home"]
+        let predicate = NSPredicate { _, _ in
+            homeIndicator.exists || foundationHome.exists
+        }
+        let expectation = XCTNSPredicateExpectation(predicate: predicate, object: app)
+        let homeExists = XCTWaiter.wait(
+            for: [expectation],
+            timeout: shouldSkipOnboarding ? 12 : 6
+        ) == .completed
 
         if homeExists {
             return
@@ -173,7 +181,8 @@ class BaseUITest: XCTestCase {
         while Date() < deadline {
             let home = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
             let bottomBar = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.bottomBar]
-            if home.exists || bottomBar.exists {
+            let foundationHome = app.buttons["foundation.destination.home"]
+            if home.exists || bottomBar.exists || foundationHome.exists {
                 return true
             }
 

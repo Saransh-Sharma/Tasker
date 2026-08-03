@@ -37,7 +37,7 @@ struct SunriseSegmentedControl<Option: Hashable>: View {
         .background {
             Capsule()
                 .fill(LBColorTokens.glass.opacity(0.66))
-                .background(.ultraThinMaterial, in: Capsule())
+                .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
                 .overlay(Capsule().stroke(LBColorTokens.hairline.opacity(0.42), lineWidth: 1))
         }
     }

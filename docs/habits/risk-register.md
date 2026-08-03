@@ -1,5 +1,7 @@
 # Habit Risk Register
 
+> **Classification: Reference.** This register preserves feature risk detail. Current release gates are tracked only in the [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
+
 This register captures the product and UX risks that come with a streak-based habit system.
 
 ## Known Risks

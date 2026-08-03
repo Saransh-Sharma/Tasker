@@ -1,5 +1,7 @@
 # Home Timeline Curved Spine TODO
 
+> **Classification: Historical implementation plan.** Current Timeline behavior is defined by the [Calendar package](../calendar/README.md).
+
 - [x] Scope the change to the timeline spine, current-time marker, gap CTA visibility, and stream accents only.
 - [x] Replace the expanded Home timeline straight spine with a curved semantic day stream.
 - [x] Replace the current-time rule with a reduced-motion-aware Now bead.

@@ -1041,6 +1041,14 @@ struct LLMContextProjectionService: @unchecked Sendable {
             if let hour { payload["hour"] = hour }
             if let minute { payload["minute"] = minute }
             return payload
+        case .interval(let days, let hour, let minute):
+            var payload: [String: Any] = [
+                "rule_type": "daily",
+                "interval": max(1, days)
+            ]
+            if let hour { payload["hour"] = hour }
+            if let minute { payload["minute"] = minute }
+            return payload
         }
     }
 

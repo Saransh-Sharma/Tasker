@@ -1,6 +1,7 @@
 import XCTest
 @testable import LifeBoard
 
+@MainActor
 final class SunriseFocusZonePresentationTests: XCTestCase {
     func testOverdueBadgeBeatsDueSoon() {
         let now = Date()

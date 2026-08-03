@@ -256,7 +256,12 @@ struct NeedsReplanCardOverlay: View {
                 }
                 .padding(18)
             }
-            .frame(maxHeight: maxCardHeight)
+            .containerRelativeFrame(.vertical) { availableHeight, _ in
+                min(
+                    availableHeight * (dynamicTypeSize.isAccessibilitySize ? 0.72 : 0.58),
+                    dynamicTypeSize.isAccessibilitySize ? 620 : 470
+                )
+            }
             .background(Color.lifeboard.surfacePrimary.opacity(0.96), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
@@ -356,10 +361,6 @@ struct NeedsReplanCardOverlay: View {
             completeTargeted = false
             deleteTargeted = false
         }
-    }
-
-    private var maxCardHeight: CGFloat {
-        min(UIScreen.main.bounds.height * (dynamicTypeSize.isAccessibilitySize ? 0.72 : 0.58), dynamicTypeSize.isAccessibilitySize ? 620 : 470)
     }
 
     private var applyingMessage: String {

@@ -647,9 +647,9 @@ final class HabitBoardUITests: BaseUITest {
         timeout: TimeInterval = 5
     ) throws -> [String] {
         let dayHeaders = app.otherElements.matching(NSPredicate(format: "identifier BEGINSWITH %@", "habitBoard.dayHeader."))
-        let deadline = Date().addingTimeInterval(timeout)
-
-        while Date() < deadline {
+        var resolved: [String]?
+        let expectation = XCTNSPredicateExpectation(
+            predicate: NSPredicate { _, _ in
             let dateStamps = dayHeaders.allElementsBoundByIndex.compactMap { header in
                 header.identifier.split(separator: ".").last.map(String.init)
             }
@@ -657,15 +657,21 @@ final class HabitBoardUITests: BaseUITest {
             if dateStamps.count == 7 {
                 if let previous {
                     if dateStamps != previous {
-                        return dateStamps
+                        resolved = dateStamps
+                        return true
                     }
                 } else {
-                    return dateStamps
+                    resolved = dateStamps
+                    return true
                 }
             }
 
-            Thread.sleep(forTimeInterval: 0.2)
-        }
+            return false
+            },
+            object: NSObject()
+        )
+        _ = XCTWaiter.wait(for: [expectation], timeout: timeout)
+        if let resolved { return resolved }
 
         throw XCTSkip("Expected seven visible day headers, but the seeded board did not stabilize in time")
     }

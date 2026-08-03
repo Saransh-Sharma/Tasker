@@ -10,6 +10,18 @@ import CoreData
 import UIKit
 @preconcurrency import Combine
 
+enum AppStoreScreenshotTestConfiguration {
+    private static let fixedNowEnvironmentKey = "LIFEBOARD_SCREENSHOT_FIXED_NOW"
+
+    static var referenceDate: Date {
+        guard let value = ProcessInfo.processInfo.environment[fixedNowEnvironmentKey],
+              let date = ISO8601DateFormatter().date(from: value) else {
+            return Date()
+        }
+        return date
+    }
+}
+
 private final class UserDefaultsWriteProxy: @unchecked Sendable {
     private let defaults: UserDefaults
 
@@ -56,7 +68,6 @@ public final class EnhancedDependencyContainer: @unchecked Sendable {
     public private(set) var weeklyReviewRepository: WeeklyReviewRepositoryProtocol?
     public private(set) var weeklyReviewMutationRepository: WeeklyReviewMutationRepositoryProtocol?
     public private(set) var weeklyReviewDraftStore: WeeklyReviewDraftStoreProtocol?
-    public private(set) var dailyReflectionStore: DailyReflectionStoreProtocol?
     public private(set) var reflectionNoteRepository: ReflectionNoteRepositoryProtocol?
     public private(set) var gamificationRepository: GamificationRepositoryProtocol?
     public private(set) var assistantActionRepository: AssistantActionRepositoryProtocol?
@@ -116,7 +127,6 @@ public final class EnhancedDependencyContainer: @unchecked Sendable {
         let baseWeeklyReviewRepository = CoreDataWeeklyReviewRepository(container: container)
         let baseWeeklyReviewMutationRepository = CoreDataWeeklyReviewMutationRepository(container: container)
         let baseWeeklyReviewDraftStore = UserDefaultsWeeklyReviewDraftStore()
-        let baseDailyReflectionStore = UserDefaultsDailyReflectionStore()
         let baseReflectionNoteRepository = CoreDataReflectionNoteRepository(container: container)
         let baseGamificationRepository = CoreDataGamificationRepository(container: container)
         let baseAssistantActionRepository = CoreDataAssistantActionRepository(container: container)
@@ -186,11 +196,27 @@ public final class EnhancedDependencyContainer: @unchecked Sendable {
             gate: writeGate
         )
         self.weeklyReviewDraftStore = baseWeeklyReviewDraftStore
-        self.dailyReflectionStore = baseDailyReflectionStore
         self.reflectionNoteRepository = WriteClosedReflectionNoteRepositoryAdapter(
             base: baseReflectionNoteRepository,
             gate: writeGate
         )
+        LegacyDailyReflectionImporter(repository: baseReflectionNoteRepository).migrate { result in
+            switch result {
+            case .success(let report):
+                guard report.alreadyCompleted == false else { return }
+                logInfo(
+                    event: "legacy_daily_reflection_migration_completed",
+                    message: "Imported legacy Daily Reflection text into canonical reflection notes",
+                    fields: ["imported_count": String(report.importedTextCount)]
+                )
+            case .failure(let error):
+                logWarning(
+                    event: "legacy_daily_reflection_migration_failed",
+                    message: "Legacy Daily Reflection text remains available for a later retry",
+                    fields: ["error": error.localizedDescription]
+                )
+            }
+        }
         self.gamificationRepository = WriteClosedGamificationRepositoryAdapter(
             base: baseGamificationRepository,
             gate: writeGate
@@ -249,7 +275,6 @@ public final class EnhancedDependencyContainer: @unchecked Sendable {
               let weeklyReviewRepository,
               let weeklyReviewMutationRepository,
               let weeklyReviewDraftStore,
-              let dailyReflectionStore,
               let reflectionNoteRepository,
               let gamificationRepository,
               let assistantActionRepository,
@@ -283,7 +308,6 @@ public final class EnhancedDependencyContainer: @unchecked Sendable {
             weeklyReviewRepository: weeklyReviewRepository,
             weeklyReviewMutationRepository: weeklyReviewMutationRepository,
             weeklyReviewDraftStore: weeklyReviewDraftStore,
-            dailyReflectionStore: dailyReflectionStore,
             reflectionNoteRepository: reflectionNoteRepository,
             gamificationRepository: gamificationRepository,
             assistantActionRepository: assistantActionRepository,
@@ -527,19 +551,20 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol, @unche
             )))
         case .active:
             let calendar = Calendar.current
-            let now = Date()
+            let screenshotSeed = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS")
+            let now = screenshotSeed ? AppStoreScreenshotTestConfiguration.referenceDate : Date()
             let dayStart = calendar.startOfDay(for: now)
             let morningStart = calendar.date(byAdding: .hour, value: 9, to: dayStart) ?? now
             let latestVisibleStart = calendar.date(byAdding: .hour, value: 17, to: dayStart) ?? morningStart
             let upcomingStart = calendar.date(byAdding: .minute, value: 30, to: now) ?? now
-            let deterministicTimelineSeed = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE")
+            let deterministicTimelineSeed = screenshotSeed
+                || ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE")
             let firstStart = deterministicTimelineSeed
                 ? (calendar.date(byAdding: .hour, value: 10, to: dayStart) ?? morningStart)
                 : min(max(upcomingStart, morningStart), latestVisibleStart)
             let firstEnd = calendar.date(byAdding: .minute, value: 30, to: firstStart) ?? firstStart
             let secondStart = calendar.date(byAdding: .minute, value: 60, to: firstEnd) ?? firstEnd
             let secondEnd = calendar.date(byAdding: .minute, value: 30, to: secondStart) ?? secondStart
-            let screenshotSeed = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS")
             let thirdStart = calendar.date(byAdding: .minute, value: 60, to: secondEnd) ?? secondEnd
             let thirdEnd = calendar.date(byAdding: .minute, value: 30, to: thirdStart) ?? thirdStart
             let allEvents = [
@@ -562,7 +587,7 @@ final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol, @unche
                     calendarTitle: "Work",
                     calendarColorHex: "#007AFF",
                     title: screenshotSeed ? "Customer Notes Debrief" : "Sprint Standup",
-                    location: screenshotSeed ? "Room A" : "Room A",
+                    location: "Room A",
                     startDate: secondStart,
                     endDate: secondEnd,
                     isAllDay: false,

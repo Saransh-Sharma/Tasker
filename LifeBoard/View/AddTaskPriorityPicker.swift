@@ -31,7 +31,7 @@ struct AddTaskPriorityPicker: View {
                             priority: priority,
                             isSelected: selectedPriority == priority
                         ) {
-                            withAnimation(LifeBoardAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.stateChange) {
                                 selectedPriority = priority
                             }
                         }

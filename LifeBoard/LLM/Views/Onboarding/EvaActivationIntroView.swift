@@ -113,6 +113,6 @@ struct EvaActivationIntroView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .enhancedStaggeredAppearance(index: 3)
         }
-        .animation(reduceMotion ? nil : LifeBoardAnimation.gentle, value: layoutClass)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.heroReveal, value: layoutClass)
     }
 }

@@ -29,10 +29,114 @@ public struct HabitIconMetadata: Codable, Equatable, Hashable, Sendable {
 public struct HabitTargetConfig: Codable, Equatable, Hashable, Sendable {
     public var notes: String?
     public var targetCountPerDay: Int?
+    public var target: HabitTarget?
+    public var minimumTarget: HabitTarget?
 
-    public init(notes: String? = nil, targetCountPerDay: Int? = nil) {
+    public init(
+        notes: String? = nil,
+        targetCountPerDay: Int? = nil,
+        target: HabitTarget? = nil,
+        minimumTarget: HabitTarget? = nil
+    ) {
         self.notes = notes
         self.targetCountPerDay = targetCountPerDay
+        self.target = target
+        self.minimumTarget = minimumTarget
+    }
+
+    public var effectiveTarget: HabitTarget {
+        if let target { return target }
+        if let targetCountPerDay, targetCountPerDay > 1 {
+            return .quota(count: targetCountPerDay, period: .day)
+        }
+        return .binary
+    }
+}
+
+public enum HabitQuotaPeriod: String, Codable, CaseIterable, Hashable, Sendable {
+    case day
+    case week
+    case month
+}
+
+public enum HabitTarget: Codable, Equatable, Hashable, Sendable {
+    case binary
+    case avoidance
+    case quantitative(value: Double, unit: String)
+    case quota(count: Int, period: HabitQuotaPeriod)
+    case timed(seconds: TimeInterval)
+
+    public var isValid: Bool {
+        switch self {
+        case .binary, .avoidance:
+            true
+        case let .quantitative(value, unit):
+            value.isFinite && value > 0
+                && !unit.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        case let .quota(count, _):
+            count > 0
+        case let .timed(seconds):
+            seconds.isFinite && seconds > 0
+        }
+    }
+
+    public func progress(for recordedValue: Double?) -> Double? {
+        guard let recordedValue, recordedValue.isFinite else { return nil }
+        switch self {
+        case .binary:
+            return recordedValue > 0 ? 1 : 0
+        case .avoidance:
+            return recordedValue == 0 ? 1 : 0
+        case let .quantitative(value, _):
+            return min(1, max(0, recordedValue / value))
+        case let .quota(count, _):
+            return min(1, max(0, recordedValue / Double(count)))
+        case let .timed(seconds):
+            return min(1, max(0, recordedValue / seconds))
+        }
+    }
+}
+
+public enum HabitTargetValidationError: LocalizedError, Equatable, Sendable {
+    case invalidTarget
+    case incompatibleMinimum
+    case minimumExceedsTarget
+
+    public var errorDescription: String? {
+        switch self {
+        case .invalidTarget:
+            "Choose a target greater than zero and include a unit where needed."
+        case .incompatibleMinimum:
+            "The low-energy minimum must use the same kind of target."
+        case .minimumExceedsTarget:
+            "The low-energy minimum cannot be greater than the full target."
+        }
+    }
+}
+
+public enum HabitTargetValidator {
+    public static func validate(_ config: HabitTargetConfig) -> HabitTargetValidationError? {
+        let target = config.effectiveTarget
+        guard target.isValid else { return .invalidTarget }
+        guard let minimum = config.minimumTarget else { return nil }
+        guard minimum.isValid else { return .invalidTarget }
+
+        switch (target, minimum) {
+        case (.binary, .binary), (.avoidance, .avoidance):
+            return nil
+        case let (.quantitative(targetValue, targetUnit), .quantitative(minimumValue, minimumUnit)):
+            guard targetUnit.caseInsensitiveCompare(minimumUnit) == .orderedSame else {
+                return .incompatibleMinimum
+            }
+            return minimumValue <= targetValue ? nil : .minimumExceedsTarget
+        case let (.quota(targetCount, targetPeriod), .quota(minimumCount, minimumPeriod)):
+            guard targetPeriod == minimumPeriod else { return .incompatibleMinimum }
+            return minimumCount <= targetCount ? nil : .minimumExceedsTarget
+        case let (.timed(targetSeconds), .timed(minimumSeconds)):
+            return minimumSeconds <= targetSeconds ? nil : .minimumExceedsTarget
+        default:
+            return .incompatibleMinimum
+        }
     }
 }
 
@@ -49,6 +153,7 @@ public struct HabitMetricConfig: Codable, Equatable, Hashable, Sendable {
 public enum HabitCadenceDraft: Codable, Equatable, Hashable, Sendable {
     case daily(hour: Int? = nil, minute: Int? = nil)
     case weekly(daysOfWeek: [Int], hour: Int? = nil, minute: Int? = nil)
+    case interval(days: Int, hour: Int? = nil, minute: Int? = nil)
 
     public var ruleType: String {
         switch self {
@@ -56,6 +161,8 @@ public enum HabitCadenceDraft: Codable, Equatable, Hashable, Sendable {
             return "daily"
         case .weekly:
             return "weekly"
+        case .interval:
+            return "daily"
         }
     }
 }
@@ -382,6 +489,7 @@ public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable, Senda
     public let reminderWindowStart: String?
     public let reminderWindowEnd: String?
     public let notes: String?
+    public let targetConfig: HabitTargetConfig?
 
     public var id: UUID { habitID }
 
@@ -406,7 +514,8 @@ public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable, Senda
         lastCompletedAt: Date? = nil,
         reminderWindowStart: String? = nil,
         reminderWindowEnd: String? = nil,
-        notes: String? = nil
+        notes: String? = nil,
+        targetConfig: HabitTargetConfig? = nil
     ) {
         self.habitID = habitID
         self.title = title
@@ -429,6 +538,7 @@ public struct HabitLibraryRow: Codable, Equatable, Hashable, Identifiable, Senda
         self.reminderWindowStart = reminderWindowStart
         self.reminderWindowEnd = reminderWindowEnd
         self.notes = notes
+        self.targetConfig = targetConfig
     }
 }
 

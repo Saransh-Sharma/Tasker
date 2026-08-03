@@ -5,7 +5,6 @@ struct HomeLaunchHarnessWorkspaceSeeders {
     let establishedSeed: (@escaping () -> Void) -> Void
     let searchSeed: (@escaping () -> Void) -> Void
     let rescueSeed: (@escaping () -> Void) -> Void
-    let reflectPlanSeed: (@escaping () -> Void) -> Void
     let focusSeed: (@escaping () -> Void) -> Void
     let habitBoardSeed: (@escaping () -> Void) -> Void
     let quietTrackingSeed: (@escaping () -> Void) -> Void
@@ -16,7 +15,6 @@ struct HomeLaunchHarnessWorkspaceSeeders {
         establishedSeed: @escaping (@escaping () -> Void) -> Void,
         searchSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
         rescueSeed: @escaping (@escaping () -> Void) -> Void,
-        reflectPlanSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
         focusSeed: @escaping (@escaping () -> Void) -> Void,
         habitBoardSeed: @escaping (@escaping () -> Void) -> Void,
         quietTrackingSeed: @escaping (@escaping () -> Void) -> Void,
@@ -26,7 +24,6 @@ struct HomeLaunchHarnessWorkspaceSeeders {
         self.establishedSeed = establishedSeed
         self.searchSeed = searchSeed
         self.rescueSeed = rescueSeed
-        self.reflectPlanSeed = reflectPlanSeed
         self.focusSeed = focusSeed
         self.habitBoardSeed = habitBoardSeed
         self.quietTrackingSeed = quietTrackingSeed
@@ -47,14 +44,12 @@ final class UITestWorkspaceSeeder {
         seeders.establishedSeed {
             self.seeders.searchSeed {
                 self.seeders.rescueSeed {
-                    self.seeders.reflectPlanSeed {
-                        self.seeders.focusSeed {
-                            self.seeders.habitBoardSeed {
-                                self.seeders.quietTrackingSeed {
-                                    self.seeders.fullTimelineSeed {
-                                        self.seeders.appStoreScreenshotSeed {
-                                            completion()
-                                        }
+                    self.seeders.focusSeed {
+                        self.seeders.habitBoardSeed {
+                            self.seeders.quietTrackingSeed {
+                                self.seeders.fullTimelineSeed {
+                                    self.seeders.appStoreScreenshotSeed {
+                                        completion()
                                     }
                                 }
                             }
@@ -110,7 +105,6 @@ final class HomeLaunchHarnessService {
         establishedSeed: @escaping (@escaping () -> Void) -> Void,
         searchSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
         rescueSeed: @escaping (@escaping () -> Void) -> Void,
-        reflectPlanSeed: @escaping (@escaping () -> Void) -> Void = { completion in completion() },
         focusSeed: @escaping (@escaping () -> Void) -> Void,
         habitBoardSeed: @escaping (@escaping () -> Void) -> Void,
         quietTrackingSeed: @escaping (@escaping () -> Void) -> Void,
@@ -123,7 +117,6 @@ final class HomeLaunchHarnessService {
                 establishedSeed: establishedSeed,
                 searchSeed: searchSeed,
                 rescueSeed: rescueSeed,
-                reflectPlanSeed: reflectPlanSeed,
                 focusSeed: focusSeed,
                 habitBoardSeed: habitBoardSeed,
                 quietTrackingSeed: quietTrackingSeed,
@@ -139,5 +132,106 @@ final class HomeLaunchHarnessService {
         completion: @escaping () -> Void
     ) {
         UITestWorkspaceSeeder(seeders: seeders).seed(completion: completion)
+    }
+}
+
+/// App-level UI-test and screenshot workspace orchestration.
+///
+/// Seeders write through canonical repositories and refresh the shared Home
+/// view model after the final write. They no longer require a Home controller
+/// lifecycle just to make deterministic journeys available.
+@MainActor
+final class LifeBoardLaunchCoordinator {
+    private let service = HomeLaunchHarnessService()
+    private let workspaceSeeder = HomeUITestWorkspaceSeeder()
+    private let presentationDependencies: PresentationDependencyContainer
+    private let homeViewModel: HomeViewModel
+    private let router: LifeBoardAppRouter
+
+    init(
+        presentationDependencies: PresentationDependencyContainer,
+        homeViewModel: HomeViewModel,
+        router: LifeBoardAppRouter
+    ) {
+        self.presentationDependencies = presentationDependencies
+        self.homeViewModel = homeViewModel
+        self.router = router
+    }
+
+    func seedUITestWorkspacesIfNeeded(completion: @escaping () -> Void = {}) {
+        let dependencies = presentationDependencies
+        let viewModel = homeViewModel
+        let workspaceSeeder = self.workspaceSeeder
+        service.seedUITestWorkspacesIfNeeded(
+            seeders: HomeLaunchHarnessWorkspaceSeeders(
+                establishedSeed: { [workspaceSeeder] done in
+                    workspaceSeeder.seedUITestEstablishedWorkspaceIfNeeded(
+                        presentationDependencyContainer: dependencies,
+                        completion: done
+                    )
+                },
+                searchSeed: { [workspaceSeeder] done in
+                    workspaceSeeder.seedUITestSearchWorkspaceIfNeeded(
+                        presentationDependencyContainer: dependencies,
+                        viewModel: viewModel,
+                        completion: done
+                    )
+                },
+                rescueSeed: { [workspaceSeeder] done in
+                    workspaceSeeder.seedUITestRescueWorkspaceIfNeeded(
+                        presentationDependencyContainer: dependencies,
+                        viewModel: viewModel,
+                        completion: done
+                    )
+                },
+                focusSeed: { [workspaceSeeder] done in
+                    workspaceSeeder.seedUITestFocusWorkspaceIfNeeded(
+                        presentationDependencyContainer: dependencies,
+                        completion: done
+                    )
+                },
+                habitBoardSeed: { [workspaceSeeder] done in
+                    workspaceSeeder.seedUITestHabitBoardWorkspaceIfNeeded(
+                        presentationDependencyContainer: dependencies,
+                        completion: done
+                    )
+                },
+                quietTrackingSeed: { [workspaceSeeder] done in
+                    workspaceSeeder.seedUITestQuietTrackingWorkspaceIfNeeded(
+                        presentationDependencyContainer: dependencies,
+                        completion: done
+                    )
+                },
+                fullTimelineSeed: { [workspaceSeeder] done in
+                    workspaceSeeder.seedUITestFullTimelineWorkspaceIfNeeded(
+                        presentationDependencyContainer: dependencies,
+                        viewModel: viewModel,
+                        completion: done
+                    )
+                },
+                appStoreScreenshotSeed: { [workspaceSeeder] done in
+                    workspaceSeeder.seedAppStoreScreenshotWorkspaceIfNeeded(
+                        presentationDependencyContainer: dependencies,
+                        viewModel: viewModel,
+                        completion: done
+                    )
+                }
+            )
+        ) { [weak self] in
+            guard let self else {
+                completion()
+                return
+            }
+            homeViewModel.invalidateTaskCaches()
+            homeViewModel.loadTasksForSelectedDate()
+            service.consumeUITestInjectedRouteIfNeeded { [router] route in
+                router.handle(notificationRoute: route)
+            }
+            service.consumeUITestOpenSettingsIfNeeded(
+                canOpenSettings: { true },
+                openSettings: { [router] in router.push(.settings, in: router.selectedDestination) }
+            )
+            completion()
+        }
     }
 }

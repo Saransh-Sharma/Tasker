@@ -15,6 +15,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Install guardrail tools
         run: |
@@ -31,6 +33,9 @@ jobs:
           set -euo pipefail
           bash scripts/validate_coredata_codegen_guardrails.sh
 
+      - name: Enforce Life OS foundation guardrails
+        run: bash scripts/phase1-foundation-guardrails.sh
+
       - name: Enforce V3 fail-closed runtime guardrails
         run: |
           set -euo pipefail
@@ -38,6 +43,23 @@ jobs:
             "LifeBoard/AppDelegate.swift" \
             "LifeBoard/Presentation/DI/PresentationDependencyContainer.swift" \
             "LifeBoard/State/DI/EnhancedDependencyContainer.swift"
+
+      - name: Enforce token-law guardrails on changed UI lines
+        env:
+          TOKEN_LAW_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: bash scripts/token-law-guardrails.sh
+
+      - name: Install flowctl
+        env:
+          FLOWCTL_DOWNLOAD_URL: ${{ secrets.FLOWCTL_DOWNLOAD_URL }}
+          FLOWCTL_DOWNLOAD_SHA256: ${{ secrets.FLOWCTL_DOWNLOAD_SHA256 }}
+          FLOWCTL_ALLOW_SHIM: "0"
+        run: bash scripts/install_flowctl.sh
+
+      - name: Verify flowctl availability
+        env:
+          FLOWCTL_ALLOW_SHIM: "0"
+        run: bash scripts/verify_flowctl.sh
 
   unit-tests:
     runs-on: macos-latest
@@ -57,18 +79,7 @@ jobs:
           sudo xcode-select -switch /Applications/Xcode_26.5.app
           xcodebuild -version
 
-      - name: Write CI Firebase placeholder
-        run: bash scripts/write-ci-google-service-info.sh
-
-      - name: Install CocoaPods dependencies
-        run: |
-          set -euo pipefail
-          if ! command -v pod >/dev/null; then
-            brew install cocoapods
-          fi
-          pod install --deployment
-
-      - name: Run Unit Tests
+      - name: Run fast unit-test preflight
         run: |
           set -euo pipefail
           xcodebuild \
@@ -88,6 +99,46 @@ jobs:
             -only-testing:LifeBoardTests/XPExactPreviewParityTests \
             -only-testing:LifeBoardTests/XPRewardPreviewCopyRegressionTests \
             test
+
+      - name: Run full baseline-aware unit-test gate
+        run: bash scripts/run-baseline-aware-tests.sh
+
+  screenshot-smoke:
+    runs-on: macos-latest
+    needs: guardrails
+    strategy:
+      fail-fast: false
+      matrix:
+        device:
+          - iPhone 17
+          - iPad Pro 13-inch (M5)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Select Xcode
+        run: |
+          set -euo pipefail
+          sudo xcode-select -switch /Applications/Xcode_26.5.app
+          xcodebuild -version
+
+      - name: Run fail-closed screenshot flow
+        run: |
+          set -euo pipefail
+          fixed_now="2026-07-13T10:00:00Z"
+          python3 - "$fixed_now" <<'PY'
+          import json, pathlib, sys
+          pathlib.Path("/tmp/lifeboard-app-store-screenshot-config.json").write_text(json.dumps({
+              "outputRoot": "/tmp/lifeboard-screenshot-smoke",
+              "deviceSlug": "ci-smoke",
+              "fixedNow": sys.argv[1],
+          }) + "\n")
+          PY
+          xcodebuild test \
+            -workspace "LifeBoard.xcworkspace" \
+            -scheme "LifeBoard" \
+            -destination 'platform=iOS Simulator,name=${{ matrix.device }}' \
+            -only-testing:LifeBoardUITests/AppStoreScreenshotUITests/testCaptureExpandedAppStoreScreenshotSet
 
   perf-gate:
     runs-on: macos-latest

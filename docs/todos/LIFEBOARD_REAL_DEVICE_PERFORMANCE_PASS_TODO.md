@@ -1,5 +1,7 @@
 # LifeBoard Real-Device Performance Pass TODO
 
+> **Classification: Device-gate implementation record.** Current completion and external-evidence classification are owned by the [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
+
 - [x] Inspect current Home bottom bar scroll behavior and existing performance hooks.
 - [x] Keep phone bottom bar stable while Home scrolls.
 - [x] Add focused performance signposts for Schedule, EVA/LLM, and key interactions.

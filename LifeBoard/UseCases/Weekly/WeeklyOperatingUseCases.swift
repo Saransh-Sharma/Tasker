@@ -106,6 +106,22 @@ private final class WeeklyPlanSnapshotBuildState: @unchecked Sendable {
         lock.unlock()
     }
 
+    /// Merges in notes fetched by a second, independent query.
+    ///
+    /// Deduplicated by id and ordered newest first, because the two fetches run
+    /// concurrently and either may land first — without this the week's
+    /// reflections would appear in whichever order the queries happened to
+    /// finish in.
+    func mergeReflectionNotes(_ value: [ReflectionNote]) {
+        lock.lock()
+        var seen = Set(reflectionNotes.map(\.id))
+        for note in value where seen.insert(note.id).inserted {
+            reflectionNotes.append(note)
+        }
+        reflectionNotes.sort { $0.createdAt > $1.createdAt }
+        lock.unlock()
+    }
+
     func result(weekStart: Date, plan: WeeklyPlan?) -> Result<WeeklyPlanSnapshot, Error> {
         lock.lock()
         let error = storedError
@@ -451,6 +467,23 @@ public final class BuildWeeklyPlanSnapshotUseCase: @unchecked Sendable {
                 } else if case .failure(let error) = result {
                     state.recordError(error)
                 }
+                group.leave()
+            }
+
+            // The week's daily closes. Previously the review asked for a week's
+            // reflection cold, while seven one-line answers already existed and
+            // were never read — `.dayClose` notes carry no weekly-plan link, so
+            // the query above can never match them.
+            group.enter()
+            reflectionNoteRepository.fetchNotes(
+                query: ReflectionNoteQuery(kinds: [.dayClose], limit: 7)
+            ) { result in
+                if case .success(let fetched) = result {
+                    state.mergeReflectionNotes(fetched)
+                }
+                // A missing daily set is not a failed week: the review still
+                // works without it, so this deliberately does not record an
+                // error the way the weekly-plan fetch does.
                 group.leave()
             }
         }

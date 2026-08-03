@@ -22,6 +22,7 @@ struct OnboardingPromptGlassPanelModifier: ViewModifier {
                 shape
                     .stroke(OnboardingPromptTheme.border(reduceTransparency: reduceTransparency), lineWidth: 1)
             )
-            .shadow(color: OnboardingPromptTheme.shadow.opacity(0.10), radius: 40, y: 14)
+            // Elevation comes from the clay depth scale, not a bespoke shadow.
+            .lifeBoardClaySurface(.floating, cornerRadius: 28)
     }
 }

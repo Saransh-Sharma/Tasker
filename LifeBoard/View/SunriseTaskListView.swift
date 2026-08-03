@@ -497,7 +497,7 @@ struct SunriseTaskListView: View {
     private func scrollToHighlightedTaskIfNeeded(proxy: ScrollViewProxy) {
         guard let highlightedTaskID else { return }
         DispatchQueue.main.async {
-            withAnimation(LifeBoardAnimation.gentle) {
+            withAnimation(LifeBoardAnimation.heroReveal) {
                 proxy.scrollTo(highlightedTaskID, anchor: .center)
             }
         }
@@ -505,7 +505,7 @@ struct SunriseTaskListView: View {
 
     private func scrollToTop(proxy: ScrollViewProxy) {
         DispatchQueue.main.async {
-            withAnimation(LifeBoardAnimation.gentle) {
+            withAnimation(LifeBoardAnimation.heroReveal) {
                 proxy.scrollTo(Self.topAnchorID, anchor: .top)
             }
         }
@@ -982,7 +982,7 @@ struct SunriseTaskListView: View {
                     .accessibilityIdentifier("home.rescue.open")
 
                     Button {
-                        withAnimation(LifeBoardAnimation.gentle) {
+                        withAnimation(LifeBoardAnimation.heroReveal) {
                             onToggleAgendaTailItemExpansion?(itemID)
                         }
                     } label: {
@@ -1199,7 +1199,7 @@ private struct OverdueGroupedSectionView: View {
                 taskCount: totalTaskCount,
                 isExpanded: isExpanded,
                 onToggle: {
-                    withAnimation(LifeBoardAnimation.snappy) {
+                    withAnimation(LifeBoardAnimation.stateChange) {
                         isExpanded.toggle()
                     }
                     LifeBoardFeedback.selection()
@@ -1250,7 +1250,7 @@ private struct OverdueGroupedSectionView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .animation(LifeBoardAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.stateChange, value: isExpanded)
     }
 
     private var totalTaskCount: Int {

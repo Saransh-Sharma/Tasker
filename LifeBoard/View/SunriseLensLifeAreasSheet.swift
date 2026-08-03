@@ -112,7 +112,7 @@ struct SunriseLensLifeAreasSheet: View {
             Section {
                 if isCreating == false {
                     Button {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.stateChange) {
                             isCreating = true
                             newAreaName = ""
                             createError = nil
@@ -155,7 +155,7 @@ struct SunriseLensLifeAreasSheet: View {
             .disabled(newAreaName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || isSavingCreate || isAtPinLimit)
 
             Button("Cancel", role: .cancel) {
-                withAnimation(LifeBoardAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.stateChange) {
                     isCreating = false
                     createError = nil
                 }

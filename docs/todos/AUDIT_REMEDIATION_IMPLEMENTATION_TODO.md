@@ -1,5 +1,7 @@
 # Audit Remediation Implementation TODO
 
+> **Classification: Historical implementation record.** Current completion is owned by the [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
+
 This tracker records the concrete implementation state for the 7-phase audit remediation plan.
 
 ## Phase 1: Correctness Hotfixes

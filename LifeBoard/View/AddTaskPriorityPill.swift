@@ -71,7 +71,7 @@ struct AddTaskPriorityPill: View {
         }
         .buttonStyle(.plain)
         .scaleOnPress()
-        .animation(LifeBoardAnimation.quick, value: isSelected)
+        .animation(LifeBoardAnimation.feedbackFast, value: isSelected)
     }
 }
 

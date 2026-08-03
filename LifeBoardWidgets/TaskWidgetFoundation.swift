@@ -908,7 +908,7 @@ extension View {
         if let value {
             self
                 .contentTransition(reduceMotion ? .identity : .numericText(value: value))
-                .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: value)
+                .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: value)
         } else {
             self
         }

@@ -1,5 +1,7 @@
 # LifeBoard Pulse + Progress Overhaul Audit
 
+> **Classification: Audit snapshot.** Current Insights behavior is defined in [Insights and EVA](../product/INSIGHTS_AND_EVA.md).
+
 Date: 2026-04-20
 Scope: Pulse widget, Pulse destination, Progress destination, FC/quest/pulse persistence, shell cutover
 Verifier: Codex

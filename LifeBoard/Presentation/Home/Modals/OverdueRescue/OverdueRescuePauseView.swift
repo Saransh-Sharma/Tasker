@@ -68,7 +68,7 @@ struct OverdueRescuePauseView: View {
                             .frame(maxWidth: .infinity, minHeight: 68)
                             .background(OverdueRescueVisualSpec.primaryButtonBackground())
                     }
-                    .foregroundStyle(.white)
+                    .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                 }
                 .padding(.horizontal, 28)
 

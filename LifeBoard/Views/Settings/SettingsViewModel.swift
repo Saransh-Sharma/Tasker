@@ -27,6 +27,10 @@ final class SettingsViewModel: ObservableObject, Sendable {
     // MARK: - Navigation callbacks (set by SettingsPageViewController)
 
     var onNavigateToLifeManagement: (() -> Void)?
+    /// Set only by the Life OS shell, which owns the daypart, comfort-profile
+    /// and rendering-tier preferences. The legacy UIKit host leaves this nil
+    /// and the row hides itself.
+    var onNavigateToAppearance: (() -> Void)?
     var onNavigateToAISettings: (() -> Void)?
     var onNavigateToChats: (() -> Void)?
     var onNavigateToModels: (() -> Void)?
@@ -40,10 +44,22 @@ final class SettingsViewModel: ObservableObject, Sendable {
     private let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
     private let calendarIntegrationService: CalendarIntegrationService
     private let appManager: AppManager
+    /// Resolved once at construction, via `SettingsServices`, rather than read
+    /// from the global container at each call site.
+    ///
+    /// The architecture guardrail forbids the view layer reaching into a
+    /// singleton container: it hides what this type actually needs and makes it
+    /// untestable without standing up global state. Kept optional because the
+    /// service genuinely may not exist yet during early launch — the call sites
+    /// already handled that.
+    private let notificationService: (any NotificationServiceProtocol)?
     private var cancellables: Set<AnyCancellable> = []
     private var hasCustomizedAppearance: Bool {
         decorativeButtonEffectsEnabled
     }
+
+    var calendarService: CalendarIntegrationService { calendarIntegrationService }
+    var assistantAppManager: AppManager { appManager }
 
     // MARK: - Morning / Nightly times as Date for DatePicker binding
 
@@ -342,9 +358,11 @@ final class SettingsViewModel: ObservableObject, Sendable {
         appManager: AppManager = AppManager(),
         notificationPreferencesStore: LifeBoardNotificationPreferencesStore = .shared,
         workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
-        calendarIntegrationService: CalendarIntegrationService
+        calendarIntegrationService: CalendarIntegrationService,
+        notificationService: (any NotificationServiceProtocol)? = SettingsServices.notificationService
     ) {
         self.appManager = appManager
+        self.notificationService = notificationService
         self.notificationPreferencesStore = notificationPreferencesStore
         self.workspacePreferencesStore = workspacePreferencesStore
         self.calendarIntegrationService = calendarIntegrationService
@@ -394,7 +412,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
     var showPermissionBanner: Bool { !isPermissionGranted }
 
     func refreshPermissionStatus() {
-        guard let service = EnhancedDependencyContainer.shared.notificationService else {
+        guard let service = notificationService else {
             permissionStatus = .notDetermined
             return
         }
@@ -406,7 +424,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     func requestNotificationPermission() {
-        guard let service = EnhancedDependencyContainer.shared.notificationService else { return }
+        guard let service = notificationService else { return }
         LifeBoardFeedback.medium()
         switch permissionStatus {
         case .denied:
@@ -440,7 +458,11 @@ final class SettingsViewModel: ObservableObject, Sendable {
 
     func restartOnboarding() {
         LifeBoardFeedback.medium()
-        onRestartOnboarding?()
+        if let onRestartOnboarding {
+            onRestartOnboarding()
+        } else {
+            NotificationCenter.default.post(name: .lifeboardStartOnboardingRequested, object: nil)
+        }
     }
 
     private func saveAndReconcile() {
@@ -460,12 +482,37 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
     #endif
 
+    /// Content-free recovery diagnostics.
+    ///
+    /// Ships in Release, unlike the calendar diagnostics above, because the
+    /// people who need it most are users in a broken state rather than
+    /// developers. That makes the redaction contract load-bearing: operation
+    /// names, modes and counts only — never titles, entries, health values,
+    /// search terms or attachment paths. Anything added here has to stay safe
+    /// to paste into a support email.
+    func copyRecoveryDiagnostics() {
+        let mode = AppDelegate.persistentSyncModeSnapshot()
+        let lines = [
+            "lifeboard.recovery.diagnostics",
+            "app_version=\(appVersion) build=\(buildNumber)",
+            "store_mode=\(mode.modeName)",
+            "store_reason=\(mode.reason)",
+            "generated_at=\(ISO8601DateFormatter().string(from: Date()))"
+        ]
+        UIPasteboard.general.string = lines.joined(separator: "\n")
+        LifeBoardFeedback.selection()
+    }
+
     func openCalendarChooser() {
         guard calendarAuthorizationStatus.isAuthorizedForRead else {
             requestCalendarPermission()
             return
         }
         onOpenCalendarChooser?()
+    }
+
+    func updateSelectedCalendarIDs(_ selectedIDs: [String]) {
+        calendarIntegrationService.updateSelectedCalendarIDs(selectedIDs)
     }
 
     func setIncludeDeclinedCalendarEvents(_ include: Bool) {

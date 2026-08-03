@@ -36,7 +36,6 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
 
     private let appManager = AppManager()
     private let llmEvaluator = LLMRuntimeCoordinator.shared.evaluator
-    private let container: ModelContainer? = LLMDataController.shared
     private lazy var activationCoordinator = EvaActivationCoordinator(appManager: appManager)
 
     private var hostingController: UIHostingController<AnyView>!
@@ -172,11 +171,13 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
     }
 
     private func makeRootView(layoutClass: LifeBoardLayoutClass) -> AnyView {
-        let rootView: AnyView
-        if let container {
-            rootView = AnyView(
+        let rootView = LLMStoreContainerHost { [weak self] container in
+            guard let self else {
+                return AnyView(EmptyView())
+            }
+            return AnyView(
                 EvaActivationRootView(
-                    coordinator: activationCoordinator,
+                    coordinator: self.activationCoordinator,
                     onDismiss: { [weak self] in
                         self?.dismiss(animated: true)
                     },
@@ -196,12 +197,10 @@ class ChatHostViewController: UIViewController, PresentationDependencyContainerA
                         self?.performDayHabitAction(action, card: card, completion: completion)
                     }
                 )
-                .environmentObject(appManager)
-                .environment(llmEvaluator)
+                .environmentObject(self.appManager)
+                .environment(self.llmEvaluator)
                 .modelContainer(container)
             )
-        } else {
-            rootView = AnyView(LLMStoreUnavailableView())
         }
 
         return AnyView(rootView.lifeboardLayoutClass(layoutClass))
@@ -958,7 +957,7 @@ private struct SunriseChatUnavailableSheet: View {
                         dismiss()
                     }
                     .font(.lifeboard(.body))
-                    .foregroundColor(.white)
+                    .foregroundColor(.lifeboard(.accentOnPrimary))
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .background(
                         LinearGradient(
@@ -1094,7 +1093,7 @@ struct LLMStoreUnavailableView: View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
                 .font(.system(size: 24, weight: .semibold))
-                .foregroundColor(.orange)
+                .foregroundColor(.lifeboard(.statusWarning))
             Text("Assistant storage unavailable")
                 .font(.headline)
                 .foregroundColor(.lifeboard(.textPrimary))
@@ -1106,6 +1105,67 @@ struct LLMStoreUnavailableView: View {
         .padding(24)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.lifeboard(.bgCanvas))
+    }
+}
+
+struct LLMStoreLoadingView: View {
+    var onAppear: (() -> Void)?
+
+    var body: some View {
+        VStack(spacing: 14) {
+            ProgressView()
+                .controlSize(.large)
+            Text("Preparing Eva")
+                .font(.headline)
+                .foregroundColor(.lifeboard(.textPrimary))
+            Text("Your private on-device conversation is loading.")
+                .font(.subheadline)
+                .foregroundColor(.lifeboard(.textSecondary))
+                .multilineTextAlignment(.center)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.lifeboard(.bgCanvas))
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("eva.store.loading")
+        .onAppear { onAppear?() }
+    }
+}
+
+/// Reusable asynchronous boundary for every surface that embeds Eva.
+///
+/// The closure returns `AnyView` deliberately: callers cannot accidentally
+/// recreate a conditional type containing the loading, failure, and full chat
+/// hierarchies.
+struct LLMStoreContainerHost: View {
+    @StateObject private var bootstrap = LLMStoreBootstrap.shared
+    private let onLoadingAppear: (() -> Void)?
+    private let content: (ModelContainer) -> AnyView
+
+    init(
+        onLoadingAppear: (() -> Void)? = nil,
+        content: @escaping (ModelContainer) -> AnyView
+    ) {
+        self.onLoadingAppear = onLoadingAppear
+        self.content = content
+    }
+
+    var body: some View {
+        currentView
+            .task {
+                _ = await bootstrap.load()
+            }
+    }
+
+    private var currentView: AnyView {
+        switch bootstrap.state {
+        case .ready(let container), .degraded(let container?, _):
+            content(container)
+        case .degraded(nil, _):
+            AnyView(LLMStoreUnavailableView())
+        case .idle, .loading:
+            AnyView(LLMStoreLoadingView(onAppear: onLoadingAppear))
+        }
     }
 }
 

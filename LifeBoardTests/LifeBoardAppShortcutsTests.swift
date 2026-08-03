@@ -131,7 +131,7 @@ final class PersistentStoreLocationServiceTests: XCTestCase {
     func testPrepareSharedStoreLocationMigratesLegacySplitStoreFiles() throws {
         let service = makeService()
         let legacyFileNames = service.v3SplitStoreFileNames()
-        try legacyFileNames.forEach { fileName in
+        legacyFileNames.forEach { fileName in
             let fileURL = legacyURL.appendingPathComponent(fileName)
             XCTAssertTrue(fileManager.createFile(atPath: fileURL.path, contents: Data(fileName.utf8)))
         }

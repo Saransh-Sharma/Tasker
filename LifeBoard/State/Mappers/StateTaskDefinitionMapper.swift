@@ -14,9 +14,16 @@ public enum StateTaskDefinitionMapper {
         let updatedAt = entity.updatedAt ?? createdAt
         let isComplete = entity.isComplete || entity.status?.lowercased() == "completed"
         let projectRef = entity.value(forKey: "projectRef") as? ProjectEntity
-        let repeatPattern: TaskRepeatPattern? = {
+        let recurrenceRule: TaskRecurrenceRule? = {
             guard let data = entity.repeatPatternData, data.isEmpty == false else { return nil }
-            return try? JSONDecoder().decode(TaskRepeatPattern.self, from: data)
+            let decoder = JSONDecoder()
+            if let rule = try? decoder.decode(TaskRecurrenceRule.self, from: data) {
+                return rule
+            }
+            guard let legacy = try? decoder.decode(TaskRepeatPattern.self, from: data) else {
+                return nil
+            }
+            return TaskRecurrenceRule(pattern: legacy, anchor: .scheduledDate)
         }()
         let estimatedDuration = entity.estimatedDuration > 0 ? entity.estimatedDuration : nil
         let actualDuration = entity.actualDuration > 0 ? entity.actualDuration : nil
@@ -61,7 +68,8 @@ public enum StateTaskDefinitionMapper {
             dependencies: [],
             estimatedDuration: estimatedDuration,
             actualDuration: actualDuration,
-            repeatPattern: repeatPattern,
+            repeatPattern: recurrenceRule?.pattern,
+            recurrenceAnchor: recurrenceRule?.anchor ?? .scheduledDate,
             planningBucket: planningBucket,
             weeklyOutcomeID: weeklyOutcomeID,
             deferredFromWeekStart: deferredFromWeekStart,
@@ -103,7 +111,11 @@ public enum StateTaskDefinitionMapper {
         entity.alertReminderTime = model.alertReminderTime
         entity.estimatedDuration = model.estimatedDuration ?? 0
         entity.actualDuration = model.actualDuration ?? 0
-        entity.repeatPatternData = model.repeatPattern.flatMap { try? JSONEncoder().encode($0) }
+        entity.repeatPatternData = model.repeatPattern.flatMap {
+            try? JSONEncoder().encode(
+                TaskRecurrenceRule(pattern: $0, anchor: model.recurrenceAnchor)
+            )
+        }
         entity.setValue(model.planningBucket.rawValue, forKey: "planningBucketRaw")
         entity.setValue(model.weeklyOutcomeID, forKey: "weeklyOutcomeID")
         entity.setValue(model.deferredFromWeekStart, forKey: "deferredFromWeekStart")

@@ -80,7 +80,7 @@ public struct SunriseFocusSessionSummaryView: View {
             Button("Done", systemImage: "checkmark", action: onDismiss)
                 .font(.lifeboard(.bodyEmphasis))
                 .fontDesign(.rounded)
-                .foregroundStyle(.white)
+                .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .background(
                     LinearGradient(colors: LBColorTokens.actionGradient(for: .focus), startPoint: .topLeading, endPoint: .bottomTrailing),

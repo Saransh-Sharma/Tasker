@@ -36,8 +36,10 @@ extension HomeViewModel {
             isAnotherFlowPresented: isDayCompassSuppressedByActiveFlow,
             replanCandidateCount: replanCandidates.count,
             replanEarliestTitle: replanCandidates.first?.task.title,
-            hasCommittedDailyPlan: dailyPlanDraftForSelectedDate() != nil,
-            hasOpenReflectionTarget: hasOpenDayCompassReflectionTarget(now: now, calendar: calendar),
+            // Daily Loop owns commitment and close state. The retired Sunrise
+            // draft/reflection stores must not influence this dormant compass.
+            hasCommittedDailyPlan: false,
+            hasOpenReflectionTarget: false,
             todayOpenTaskCount: todayOpenTaskCount,
             todayDoneTaskCount: completedTasks.count,
             rescueEligibleCount: dayCompassRescueEligibleCount(now: now),
@@ -69,7 +71,10 @@ extension HomeViewModel {
 
     func startDayCompassRescueSession() {
         dayCompassLaunchedFlow = .rescue
-        openOverdueRescueFromHome(source: "day_compass")
+        launchOverdueRescue(
+            .home(referenceDate: Date()),
+            source: "day_compass"
+        )
     }
 
     /// Arms the all-clear moment when a compass-launched replan or inbox
@@ -111,24 +116,6 @@ extension HomeViewModel {
         scheduleHomeRenderStateRefresh([.chrome])
     }
 
-    /// Reflection-target lookup cached per day so frequent `.chrome` refreshes
-    /// don't re-run the use case; invalidated when a reflection is saved.
-    func hasOpenDayCompassReflectionTarget(now: Date, calendar: Calendar) -> Bool {
-        let components = calendar.dateComponents([.year, .month, .day], from: now)
-        let dayKey = "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
-        if dayCompassReflectionTargetCacheDayKey == dayKey {
-            return dayCompassReflectionTargetCacheValue
-        }
-        let hasTarget = useCaseCoordinator.resolveDailyReflectionTarget.execute() != nil
-        dayCompassReflectionTargetCacheDayKey = dayKey
-        dayCompassReflectionTargetCacheValue = hasTarget
-        return hasTarget
-    }
-
-    func invalidateDayCompassReflectionTargetCache() {
-        dayCompassReflectionTargetCacheDayKey = nil
-    }
-
     func showDayCompassAllClear(after flow: DayCompassFlow, durationSeconds: TimeInterval = 4) {
         dayCompassAllClearTask?.cancel()
         dayCompassAllClearFlow = flow
@@ -153,6 +140,18 @@ extension HomeViewModel {
 
     var dayCompassReplanCandidates: [HomeReplanCandidate] {
         needsReplanCandidates.filter { $0.kind != .unscheduledBacklog }
+    }
+
+    /// Today's "needs replan" candidates promoted to a `TaskDefinition`
+    /// dictionary for the modified-overdue-rescue-like Day-Rescue deck
+    /// (`Origin.universalInputDayRescue`). Mirrors `evaRescueTasksByID`
+    /// (the overdue pool) in shape so `OverdueRescuePresentationHost`
+    /// can swap task sources purely on `launchContext.origin`.
+    var dayRescueTasksByID: [UUID: TaskDefinition] {
+        Dictionary(
+            dayCompassReplanCandidates.map { ($0.task.id, $0.task) },
+            uniquingKeysWith: { first, _ in first }
+        )
     }
 
     var dayCompassInboxCandidates: [HomeReplanCandidate] {

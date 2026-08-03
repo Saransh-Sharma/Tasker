@@ -22,6 +22,8 @@ enum HabitBoardPresentationBuilder {
                 return formatter[weekday - 1]
             }
             return names.joined(separator: " ")
+        case .interval(let days, _, _):
+            return "Every \(max(1, days)) days"
         }
     }
 
@@ -221,6 +223,10 @@ enum HabitBoardPresentationBuilder {
         case .weekly(let daysOfWeek, _, _):
             let weekday = calendar.component(.weekday, from: date)
             return daysOfWeek.contains(weekday)
+        case .interval(let days, _, _):
+            let epoch = calendar.startOfDay(for: Date(timeIntervalSinceReferenceDate: 0))
+            let offset = calendar.dateComponents([.day], from: epoch, to: calendar.startOfDay(for: date)).day ?? 0
+            return offset.isMultiple(of: max(1, days))
         }
     }
 

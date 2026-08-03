@@ -164,21 +164,16 @@ extension MessageView {
                         answer,
                         color: Color.lifeboard(.textPrimary)
                     )
+                    if isLiveOutput == false {
+                        evidenceCitationRail(for: answer)
+                    }
                 }
 
-                if shouldShowTypingIndicator {
-                    TypingIndicator()
-                }
             }
-            .padding(LifeBoardTheme.Spacing.lg)
-            .lifeboardPremiumSurface(
-                cornerRadius: 24,
-                fillColor: EvaChatSunriseGlass.glassFill,
-                strokeColor: EvaChatSunriseGlass.assistantBorder.opacity(0.72),
-                accentColor: EvaChatSunriseGlass.primary,
-                level: .e2,
-                useNativeGlass: false
-            )
+            // Ordinary Eva prose is a reading surface, not a card. Proposal,
+            // result, and Undo payloads above remain bounded tactile objects;
+            // the conversation itself stays open and calm.
+            .padding(.vertical, LifeBoardTheme.Spacing.sm)
             .frame(maxWidth: messageMaxWidth, alignment: .leading)
             .padding(.trailing, oppositeSideInset)
         }
@@ -211,7 +206,7 @@ extension MessageView {
         #endif
             .overlay(
                 RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.lg, style: .continuous)
-                    .stroke(Color.white.opacity(0.32), lineWidth: 1)
+                    .stroke(LBColorTokens.whiteStroke.opacity(0.32), lineWidth: 1)
             )
             .shadow(color: EvaChatSunriseGlass.primary.opacity(0.16), radius: 12, x: 0, y: 6)
             .frame(maxWidth: messageMaxWidth, alignment: .trailing)
@@ -232,6 +227,36 @@ extension MessageView {
                     ForegroundColor(color)
                 }
                 .id(renderModel.markdownSourceHash)
+        }
+    }
+
+    @ViewBuilder
+    func evidenceCitationRail(for text: String) -> some View {
+        let citations = authorizedLifeEvidence.citations(in: text)
+        if citations.isEmpty == false {
+            VStack(alignment: .leading, spacing: LifeBoardTheme.Spacing.xs) {
+                Text("Evidence")
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: LifeBoardTheme.Spacing.xs) {
+                        ForEach(citations) { citation in
+                            Button {
+                                evidenceOpenAction.open(citation.reference)
+                            } label: {
+                                Label(citation.label, systemImage: "checkmark.shield")
+                                    .font(.lifeboard(.caption1))
+                                    .lineLimit(1)
+                                    .frame(minHeight: 32)
+                            }
+                            .buttonStyle(.bordered)
+                            .controlSize(.small)
+                            .accessibilityLabel("Evidence: \(citation.label)")
+                            .accessibilityHint("Opens the recorded LifeBoard source")
+                        }
+                    }
+                }
+            }
         }
     }
 

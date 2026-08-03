@@ -264,126 +264,6 @@ final class HomeSectionStateRegressionTests: XCTestCase {
 }
 
 @MainActor
-final class HomeNavigationCoordinatorTests: XCTestCase {
-    func testNotificationTaskDetailRouteSetsTasksScopeAndResolvesDetail() {
-        let spy = HomeNavigationCoordinatorSpy()
-        let coordinator = HomeNavigationCoordinator(delegate: spy)
-        let taskID = UUID()
-
-        coordinator.handleNotificationRoute(.taskDetail(taskID: taskID))
-
-        XCTAssertEqual(spy.didShowTasksDestinationCount, 1)
-        XCTAssertEqual(spy.quickViews, [.today])
-        XCTAssertEqual(spy.pendingFocusTaskIDs, [taskID])
-        XCTAssertEqual(spy.resolvedTaskDetailIDs, [taskID])
-    }
-
-    func testNightlyDailySummaryRouteOpensReflectPlanWithParsedDate() {
-        let spy = HomeNavigationCoordinatorSpy()
-        let coordinator = HomeNavigationCoordinator(delegate: spy)
-
-        coordinator.handleNotificationRoute(.dailySummary(kind: .nightly, dateStamp: "20260503"))
-
-        XCTAssertEqual(spy.reflectPlanDates.count, 1)
-        let components = Calendar.current.dateComponents([.year, .month, .day], from: spy.reflectPlanDates[0]!)
-        XCTAssertEqual(components.year, 2026)
-        XCTAssertEqual(components.month, 5)
-        XCTAssertEqual(components.day, 3)
-        XCTAssertTrue(spy.dailySummaries.isEmpty)
-    }
-
-    func testMorningDailySummaryRouteOpensSummaryModal() {
-        let spy = HomeNavigationCoordinatorSpy()
-        let coordinator = HomeNavigationCoordinator(delegate: spy)
-
-        coordinator.handleNotificationRoute(.dailySummary(kind: .morning, dateStamp: "20260503"))
-
-        XCTAssertEqual(spy.dailySummaries.count, 1)
-        XCTAssertEqual(spy.dailySummaries.first?.kind, .morning)
-        XCTAssertEqual(spy.dailySummaries.first?.dateStamp, "20260503")
-        XCTAssertTrue(spy.reflectPlanDates.isEmpty)
-    }
-
-    func testDayCompassRouteTriggersCompassWithParsedDate() {
-        let spy = HomeNavigationCoordinatorSpy()
-        let coordinator = HomeNavigationCoordinator(delegate: spy)
-
-        coordinator.handleNotificationRoute(.dayCompass(flow: .eveningReview, dateStamp: "20260503"))
-
-        XCTAssertEqual(spy.didShowTasksDestinationCount, 1)
-        XCTAssertEqual(spy.quickViews, [.today])
-        XCTAssertEqual(spy.pendingFocusTaskIDs.count, 1)
-        XCTAssertNil(spy.pendingFocusTaskIDs.first ?? nil)
-        XCTAssertEqual(spy.dayCompassRoutes.map(\.flow), [.eveningReview])
-        let components = Calendar.current.dateComponents(
-            [.year, .month, .day],
-            from: try! XCTUnwrap(spy.dayCompassRoutes.first?.preferredReflectionDate)
-        )
-        XCTAssertEqual(components.year, 2026)
-        XCTAssertEqual(components.month, 5)
-        XCTAssertEqual(components.day, 3)
-    }
-
-    func testTypedIntentOpensTaskDetailThroughNarrowDelegate() {
-        let spy = HomeNavigationCoordinatorSpy()
-        let coordinator = HomeNavigationCoordinator(delegate: spy)
-        let taskID = UUID()
-
-        coordinator.handle(.taskDetailDeepLink(taskID: taskID))
-
-        XCTAssertEqual(spy.resolvedTaskDetailIDs, [taskID])
-        XCTAssertTrue(spy.performedIntents.isEmpty)
-    }
-
-    func testTypedIntentsMapToNarrowDelegateActions() {
-        let spy = HomeNavigationCoordinatorSpy()
-        let coordinator = HomeNavigationCoordinator(delegate: spy)
-        let habitID = UUID()
-        let projectID = UUID()
-
-        coordinator.handle(.focusDeepLink)
-        coordinator.handle(.chatDeepLink(prompt: "plan"))
-        coordinator.handle(.homeDeepLink(notice: "synced"))
-        coordinator.handle(.insightsDeepLink)
-        coordinator.handle(.taskScopeDeepLink(scope: "upcoming", projectID: projectID))
-        coordinator.handle(.habitBoardDeepLink)
-        coordinator.handle(.habitLibraryDeepLink)
-        coordinator.handle(.habitDetailDeepLink(habitID: habitID))
-        coordinator.handle(.quickAddDeepLink)
-        coordinator.handle(.calendarScheduleDeepLink)
-        coordinator.handle(.calendarChooserDeepLink)
-        coordinator.handle(.weeklyPlannerDeepLink)
-        coordinator.handle(.weeklyReviewDeepLink)
-        coordinator.handle(.widgetActionCommand)
-        coordinator.handle(.pendingShortcutHandoff)
-        coordinator.handle(.uiTestInjectedRoute)
-        coordinator.handle(.uiTestOpenSettings)
-        coordinator.handle(.pendingWidgetActionCommand)
-        coordinator.handle(.pendingIPadModalRequest)
-
-        XCTAssertEqual(spy.didOpenFocusCount, 1)
-        XCTAssertEqual(spy.chatPrompts, ["plan"])
-        XCTAssertEqual(spy.homeNotices, ["synced"])
-        XCTAssertEqual(spy.didOpenInsightsCount, 1)
-        XCTAssertEqual(spy.taskScopes.first?.scope, "upcoming")
-        XCTAssertEqual(spy.taskScopes.first?.projectID, projectID)
-        XCTAssertEqual(spy.didOpenHabitBoardCount, 1)
-        XCTAssertEqual(spy.didOpenHabitLibraryCount, 1)
-        XCTAssertEqual(spy.openedHabitIDs, [habitID])
-        XCTAssertEqual(spy.didOpenQuickAddCount, 1)
-        XCTAssertEqual(spy.didOpenCalendarScheduleCount, 1)
-        XCTAssertEqual(spy.didOpenCalendarChooserCount, 1)
-        XCTAssertEqual(spy.didOpenWeeklyPlannerCount, 1)
-        XCTAssertEqual(spy.didOpenWeeklyReviewCount, 1)
-        XCTAssertEqual(spy.didProcessWidgetActionCommandCount, 2)
-        XCTAssertEqual(spy.didConsumePendingShortcutHandoffCount, 1)
-        XCTAssertEqual(spy.didConsumeUITestInjectedRouteCount, 1)
-        XCTAssertEqual(spy.didConsumeUITestOpenSettingsCount, 1)
-        XCTAssertEqual(spy.didProcessPendingIPadModalRequestCount, 1)
-    }
-}
-
-@MainActor
 final class HomeReloadCoordinatorTests: XCTestCase {
     func testHomeTaskMutationCoalescesInsightsRefreshAndInvalidatesSearch() async throws {
         let spy = HomeReloadCoordinatorSpy()
@@ -771,145 +651,6 @@ private final class HomeReloadCoordinatorSpy: HomeReloadCoordinatorDelegate {
 }
 
 @MainActor
-private final class HomeNavigationCoordinatorSpy: HomeNavigationCoordinatorDelegate {
-    private(set) var didShowTasksDestinationCount = 0
-    private(set) var quickViews: [HomeQuickView] = []
-    private(set) var pendingFocusTaskIDs: [UUID?] = []
-    private(set) var resolvedTaskDetailIDs: [UUID] = []
-    private(set) var didOpenWeeklyPlannerCount = 0
-    private(set) var didOpenWeeklyReviewCount = 0
-    private(set) var didOpenFocusCount = 0
-    private(set) var chatPrompts: [String?] = []
-    private(set) var homeNotices: [String?] = []
-    private(set) var didOpenInsightsCount = 0
-    private(set) var taskScopes: [(scope: String, projectID: UUID?)] = []
-    private(set) var didOpenHabitBoardCount = 0
-    private(set) var didOpenHabitLibraryCount = 0
-    private(set) var openedHabitIDs: [UUID] = []
-    private(set) var didOpenQuickAddCount = 0
-    private(set) var didOpenCalendarScheduleCount = 0
-    private(set) var didOpenCalendarChooserCount = 0
-    private(set) var didProcessWidgetActionCommandCount = 0
-    private(set) var didConsumePendingShortcutHandoffCount = 0
-    private(set) var didConsumeUITestInjectedRouteCount = 0
-    private(set) var didConsumeUITestOpenSettingsCount = 0
-    private(set) var didProcessPendingIPadModalRequestCount = 0
-    private(set) var dailySummaries: [(kind: LifeBoardDailySummaryKind, dateStamp: String?)] = []
-    private(set) var reflectPlanDates: [Date?] = []
-    private(set) var dayCompassRoutes: [(flow: DayCompassFlow, preferredReflectionDate: Date?)] = []
-    private(set) var performedIntents: [HomeNavigationIntent] = []
-
-    func homeNavigationShowTasksDestination() {
-        didShowTasksDestinationCount += 1
-    }
-
-    func homeNavigationSetQuickView(_ quickView: HomeQuickView) {
-        quickViews.append(quickView)
-    }
-
-    func homeNavigationSetPendingNotificationFocusTaskID(_ taskID: UUID?) {
-        pendingFocusTaskIDs.append(taskID)
-    }
-
-    func homeNavigationResolveAndPresentTaskDetail(taskID: UUID) {
-        resolvedTaskDetailIDs.append(taskID)
-    }
-
-    func homeNavigationOpenFocus() {
-        didOpenFocusCount += 1
-    }
-
-    func homeNavigationOpenChat(prompt: String?) {
-        chatPrompts.append(prompt)
-    }
-
-    func homeNavigationOpenHome(notice: String?) {
-        homeNotices.append(notice)
-    }
-
-    func homeNavigationOpenInsights() {
-        didOpenInsightsCount += 1
-    }
-
-    func homeNavigationOpenTaskScope(scope: String, projectID: UUID?) {
-        taskScopes.append((scope, projectID))
-    }
-
-    func homeNavigationOpenHabitBoard() {
-        didOpenHabitBoardCount += 1
-    }
-
-    func homeNavigationOpenHabitLibrary() {
-        didOpenHabitLibraryCount += 1
-    }
-
-    func homeNavigationOpenHabitDetail(habitID: UUID) {
-        openedHabitIDs.append(habitID)
-    }
-
-    func homeNavigationOpenQuickAdd() {
-        didOpenQuickAddCount += 1
-    }
-
-    func homeNavigationOpenCalendarSchedule() {
-        didOpenCalendarScheduleCount += 1
-    }
-
-    func homeNavigationOpenCalendarChooser() {
-        didOpenCalendarChooserCount += 1
-    }
-
-    func homeNavigationOpenWeeklyPlanner() {
-        didOpenWeeklyPlannerCount += 1
-    }
-
-    func homeNavigationOpenWeeklyReview() {
-        didOpenWeeklyReviewCount += 1
-    }
-
-    func homeNavigationProcessWidgetActionCommand() {
-        didProcessWidgetActionCommandCount += 1
-    }
-
-    func homeNavigationConsumePendingShortcutHandoff() {
-        didConsumePendingShortcutHandoffCount += 1
-    }
-
-    func homeNavigationConsumeUITestInjectedRoute() {
-        didConsumeUITestInjectedRouteCount += 1
-    }
-
-    func homeNavigationConsumeUITestOpenSettings() {
-        didConsumeUITestOpenSettingsCount += 1
-    }
-
-    func homeNavigationProcessPendingIPadModalRequest() {
-        didProcessPendingIPadModalRequestCount += 1
-    }
-
-    func homeNavigationPresentDailySummary(kind: LifeBoardDailySummaryKind, dateStamp: String?) {
-        dailySummaries.append((kind, dateStamp))
-    }
-
-    func homeNavigationPresentReflectPlan(preferredReflectionDate: Date?) {
-        reflectPlanDates.append(preferredReflectionDate)
-    }
-
-    func homeNavigationTriggerDayCompass(flow: DayCompassFlow, preferredReflectionDate: Date?) {
-        dayCompassRoutes.append((flow, preferredReflectionDate))
-    }
-
-    func homeNavigationDate(from stamp: String?) -> Date? {
-        guard let stamp, stamp.count == 8 else { return nil }
-        var components = DateComponents()
-        components.year = Int(stamp.prefix(4))
-        components.month = Int(stamp.dropFirst(4).prefix(2))
-        components.day = Int(stamp.suffix(2))
-        return Calendar.current.date(from: components)
-    }
-}
-
-@MainActor
 final class HabitCoreDataSchemaRegressionTests: XCTestCase {
     func testCurrentCompiledTaskModelIncludesHabitRuntimeAndGamificationSchema() throws {
         let model = try currentCompiledTaskModel()
@@ -954,14 +695,51 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         XCTAssertFalse(legacyFields.contains("lastHistoryRollDate"))
     }
 
-    func testTaskModelCurrentVersionPointsToTaskIconsSourceModel() throws {
-        let currentVersionFile = URL(fileURLWithPath: #filePath)
+    /// Guards the failure that actually corrupts a shipped store: a
+    /// `.xccurrentversion` pointing at a model version that is not on disk, so
+    /// the runtime silently falls back to a different schema.
+    ///
+    /// This used to hardcode `TaskModelV3_TrackFoundations` and had gone stale
+    /// eight model versions ago. Naming one version means the test fails on
+    /// every additive migration and says nothing about whether the pointer is
+    /// valid — so it asserts the pointer resolves instead, and separately pins
+    /// the current version so bumping it stays a deliberate, reviewed edit.
+    func testTaskModelCurrentVersionPointsToAnExistingSourceModel() throws {
+        let modelDirectory = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appendingPathComponent("LifeBoard/TaskModelV3.xcdatamodeld/.xccurrentversion")
-        let contents = try String(contentsOf: currentVersionFile, encoding: .utf8)
+            .appendingPathComponent("LifeBoard/TaskModelV3.xcdatamodeld")
+        let contents = try String(
+            contentsOf: modelDirectory.appendingPathComponent(".xccurrentversion"),
+            encoding: .utf8
+        )
 
-        XCTAssertTrue(contents.contains("TaskModelV3_TaskIcons.xcdatamodel"))
+        let versionName = try XCTUnwrap(
+            contents.range(of: #"<string>([^<]+)</string>"#, options: .regularExpression)
+                .map { String(contents[$0]) }
+                .map { $0.replacingOccurrences(of: "<string>", with: "") }
+                .map { $0.replacingOccurrences(of: "</string>", with: "") },
+            "The current-version plist must name a model"
+        )
+
+        var isDirectory: ObjCBool = false
+        XCTAssertTrue(
+            FileManager.default.fileExists(
+                atPath: modelDirectory.appendingPathComponent(versionName).path,
+                isDirectory: &isDirectory
+            ) && isDirectory.boolValue,
+            "\(versionName) is the current version but is not present in TaskModelV3.xcdatamodeld"
+        )
+
+        XCTAssertEqual(
+            versionName,
+            "TaskModelV3_BehaviorFlagship.xcdatamodel",
+            """
+            The current model version changed. This is expected when adding an \
+            additive version — update this expectation in the same change, and \
+            add a migration fixture from every compiled predecessor.
+            """
+        )
     }
 
     func testCoreDataNeedsReplanCandidatesFiltersRepeatPatternDataWithoutUnknownKeypathCrash() throws {
@@ -986,8 +764,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         let completedID = UUID()
         let repeatPatternData = try JSONEncoder().encode(TaskRepeatPattern.daily)
 
-        var seedError: Error?
-        container.viewContext.performAndWait {
+        try container.viewContext.performAndWait {
             func insertTask(
                 id: UUID,
                 title: String,
@@ -1021,14 +798,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
             insertTask(id: habitID, title: "Habit", habitDefinitionID: UUID())
             insertTask(id: completedID, title: "Completed", isComplete: true)
 
-            do {
-                try container.viewContext.save()
-            } catch {
-                seedError = error
-            }
-        }
-        if let seedError {
-            throw seedError
+            try container.viewContext.save()
         }
 
         let projection = try awaitResult { completion in
@@ -1059,7 +829,14 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
     }
 
     func testBootstrapSchemaValidationRejectsMissingTaskIconField() throws {
-        let model = try compiledTaskModelVersion(named: "TaskModelV3_Timeline.mom")
+        // This pinned `TaskModelV3_Timeline`, which has since fallen behind the
+        // *habit* runtime requirements as well. `validateRuntimeSchema` returns
+        // the first failure in its chain, so the model started being rejected
+        // for a missing habit field before it ever reached the icon check, and
+        // the test asserted on the wrong error. Deriving the fixture from the
+        // current model keeps this pinned to the requirement it names instead
+        // of to whichever historical version happens to straddle both gates.
+        let model = try currentTaskModelMissingTaskAttribute("iconSymbolName")
 
         let error = LifeBoardPersistentStoreBootstrapService.validateRuntimeSchema(in: model)
 
@@ -1671,16 +1448,23 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         let cloudURL = appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.cloudStoreFileName)
         let localURL = appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.localStoreFileName)
 
-        let incompatibleCloud = try makeContainer(
+        let incompatibleModel = try XCTUnwrap(currentModel.copy() as? NSManagedObjectModel)
+        let incompatibleTitle = try XCTUnwrap(
+            incompatibleModel.entitiesByName["TaskDefinition"]?.attributesByName["title"]
+        )
+        incompatibleTitle.attributeType = .integer64AttributeType
+
+        let incompatibleCloud = try makeConfiguredContainer(
             name: "TaskModelV3",
-            model: currentModel,
+            model: incompatibleModel,
             storeType: NSSQLiteStoreType,
-            url: cloudURL
+            url: cloudURL,
+            configuration: "CloudSync"
         )
         incompatibleCloud.viewContext.performAndWait {
             let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: incompatibleCloud.viewContext)
             task.setValue(UUID(), forKey: "id")
-            task.setValue("Wrong topology", forKey: "title")
+            task.setValue(Int64(7), forKey: "title")
             task.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "createdAt")
             task.setValue(Date(timeIntervalSince1970: 1_704_067_200), forKey: "updatedAt")
             try? incompatibleCloud.viewContext.save()
@@ -1718,7 +1502,6 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
 
         XCTAssertEqual(result.syncMode, .fullSync)
         let rebuiltTaskRequest = NSFetchRequest<NSManagedObject>(entityName: "TaskDefinition")
-        rebuiltTaskRequest.predicate = NSPredicate(format: "title == %@", "Wrong topology")
         XCTAssertEqual(try container.viewContext.count(for: rebuiltTaskRequest), 0)
         let profileRequest = NSFetchRequest<NSManagedObject>(entityName: "GamificationProfile")
         XCTAssertEqual(try container.viewContext.count(for: profileRequest), 1)
@@ -1921,6 +1704,31 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
             ])
         }
         return model
+    }
+
+    /// The current compiled task model with one `TaskDefinition` attribute
+    /// removed, so a schema requirement can be tested in isolation without
+    /// depending on which historical model version happens to lack it.
+    private func currentTaskModelMissingTaskAttribute(
+        _ attributeName: String
+    ) throws -> NSManagedObjectModel {
+        let bundleURL = try taskModelBundleURL()
+        guard let current = NSManagedObjectModel(contentsOf: bundleURL),
+              let stripped = current.copy() as? NSManagedObjectModel else {
+            throw NSError(domain: "HabitCoreDataSchemaRegressionTests", code: 3, userInfo: [
+                NSLocalizedDescriptionKey: "Unable to load the current compiled task model"
+            ])
+        }
+        guard let taskEntity = stripped.entitiesByName["TaskDefinition"],
+              taskEntity.attributesByName[attributeName] != nil else {
+            throw NSError(domain: "HabitCoreDataSchemaRegressionTests", code: 4, userInfo: [
+                NSLocalizedDescriptionKey:
+                    "TaskDefinition.\(attributeName) is absent from the current model, "
+                    + "so removing it cannot prove the validator rejects its absence"
+            ])
+        }
+        taskEntity.properties = taskEntity.properties.filter { $0.name != attributeName }
+        return stripped
     }
 
     private func taskModelBundleURL() throws -> URL {
@@ -2792,9 +2600,6 @@ extension UseCaseCoordinator {
             weeklyReviewRepository: LegacyNoopWeeklyReviewRepository(),
             weeklyReviewMutationRepository: LegacyNoopWeeklyReviewMutationRepository(),
             weeklyReviewDraftStore: LegacyNoopWeeklyReviewDraftStore(),
-            dailyReflectionStore: UserDefaultsDailyReflectionStore(
-                defaults: UserDefaults(suiteName: "UseCaseCoordinatorTests.\(UUID().uuidString)") ?? .standard
-            ),
             reflectionNoteRepository: LegacyNoopReflectionNoteRepository(),
             gamificationRepository: gamificationRepository,
             assistantActionRepository: LegacyNoopAssistantActionRepository(),
@@ -2986,7 +2791,11 @@ final class ArchitectureBoundaryTests: XCTestCase {
         ]
 
         for relativePath in files {
-            let content = try loadWorkspaceFile(relativePath)
+            // A deleted file satisfies this constraint vacuously. `AddTaskSunriseView`
+            // is gone, and throwing on the missing path turned a passing guarantee
+            // into a failure. `testViewLayerDoesNotUseSingletonDependencyContainers`
+            // scans these directories wholesale, so a rename stays covered.
+            guard let content = try optionalWorkspaceFile(relativePath) else { continue }
             XCTAssertFalse(
                 content.contains("EnhancedDependencyContainer.shared"),
                 "View file must not access EnhancedDependencyContainer.shared directly: \(relativePath)"
@@ -2996,13 +2805,13 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testTargetedControllersDoNotFallbackToEnhancedCoordinatorSingleton() throws {
         let files = [
-            "LifeBoard/ViewControllers/HomeViewController.swift",
             "LifeBoard/ViewControllers/NewProjectViewController.swift",
             "LifeBoard/ViewControllers/LGSearchViewController.swift"
         ]
 
         for relativePath in files {
-            let content = try loadWorkspaceFile(relativePath)
+            // `NewProjectViewController` was removed; see the note above.
+            guard let content = try optionalWorkspaceFile(relativePath) else { continue }
             XCTAssertFalse(
                 content.contains("EnhancedDependencyContainer.shared.useCaseCoordinator"),
                 "Controller must not fallback to global coordinator singleton: \(relativePath)"
@@ -3012,6 +2821,8 @@ final class ArchitectureBoundaryTests: XCTestCase {
 
     func testMainStoryboardDoesNotContainLegacyAddTaskScene() throws {
         let storyboard = try loadWorkspaceFile("LifeBoard/Storyboards/Base.lproj/Main.storyboard")
+        XCTAssertFalse(storyboard.contains("HomeViewController"))
+        XCTAssertFalse(storyboard.contains("storyboardIdentifier=\"homeScreen\""))
         XCTAssertFalse(storyboard.contains("storyboardIdentifier=\"addTask\""))
         XCTAssertFalse(storyboard.contains("addTaskLegacy_unreachable"))
         XCTAssertFalse(storyboard.contains("customClass=\"NAddTaskScreen\""))
@@ -3119,6 +2930,13 @@ final class ArchitectureBoundaryTests: XCTestCase {
                 )
             }
         }
+    }
+
+    /// Contents of a file that may legitimately no longer exist.
+    private func optionalWorkspaceFile(_ relativePath: String) throws -> String? {
+        let targetURL = workspaceRootURL().appendingPathComponent(relativePath)
+        guard FileManager.default.fileExists(atPath: targetURL.path) else { return nil }
+        return try String(contentsOf: targetURL, encoding: .utf8)
     }
 
     private func loadWorkspaceFile(_ relativePath: String) throws -> String {
@@ -3326,8 +3144,7 @@ final class DeterministicFetchTests: XCTestCase {
         let projectID = UUID()
         let now = Date()
 
-        var seedError: Error?
-        context.performAndWait {
+        try context.performAndWait {
             Self.seedTaskDefinitionRow(
                 in: context,
                 rowID: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
@@ -3344,14 +3161,7 @@ final class DeterministicFetchTests: XCTestCase {
                 title: "Duplicate Beta",
                 createdAt: now.addingTimeInterval(1)
             )
-            do {
-                try context.save()
-            } catch {
-                seedError = error
-            }
-        }
-        if let seedError {
-            throw seedError
+            try context.save()
         }
 
         let first = try awaitResult { completion in
@@ -3373,8 +3183,7 @@ final class DeterministicFetchTests: XCTestCase {
         let projectID = UUID()
         let now = Date()
 
-        var seedError: Error?
-        context.performAndWait {
+        try context.performAndWait {
             Self.seedTaskDefinitionRow(
                 in: context,
                 rowID: UUID(uuidString: "00000000-0000-0000-0000-000000000101")!,
@@ -3383,14 +3192,7 @@ final class DeterministicFetchTests: XCTestCase {
                 title: "No Legacy Compatibility Keys",
                 createdAt: now
             )
-            do {
-                try context.save()
-            } catch {
-                seedError = error
-            }
-        }
-        if let seedError {
-            throw seedError
+            try context.save()
         }
 
         let fetched = try awaitResult { completion in
@@ -3422,9 +3224,8 @@ final class DeterministicFetchTests: XCTestCase {
         let container = try makeInMemoryV2Container()
         let context = container.viewContext
 
-        var taskObject: TaskDefinitionEntity?
-        context.performAndWait {
-            taskObject = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context) as? TaskDefinitionEntity
+        let taskObject: TaskDefinitionEntity? = context.performAndWait {
+            NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context) as? TaskDefinitionEntity
         }
 
         guard let taskObject else {
@@ -3446,9 +3247,8 @@ final class DeterministicFetchTests: XCTestCase {
         let container = try makeInMemoryV2Container()
         let context = container.viewContext
 
-        var taskObject: TaskDefinitionEntity?
-        context.performAndWait {
-            taskObject = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context) as? TaskDefinitionEntity
+        let taskObject: TaskDefinitionEntity? = context.performAndWait {
+            NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context) as? TaskDefinitionEntity
         }
 
         guard let taskObject else {
@@ -3467,9 +3267,8 @@ final class DeterministicFetchTests: XCTestCase {
         let container = try makeInMemoryV2Container()
         let context = container.viewContext
 
-        var projectObject: ProjectEntity?
-        context.performAndWait {
-            projectObject = NSEntityDescription.insertNewObject(forEntityName: "Project", into: context) as? ProjectEntity
+        let projectObject: ProjectEntity? = context.performAndWait {
+            NSEntityDescription.insertNewObject(forEntityName: "Project", into: context) as? ProjectEntity
         }
 
         guard let projectObject else {
@@ -3491,8 +3290,7 @@ final class DeterministicFetchTests: XCTestCase {
         let provider = "apple_reminders"
         let projectID = UUID()
 
-        var seedError: Error?
-        context.performAndWait {
+        try context.performAndWait {
             let first = NSEntityDescription.insertNewObject(forEntityName: "ExternalContainerMap", into: context)
             first.setValue(UUID(uuidString: "00000000-0000-0000-0000-000000000001")!, forKey: "id")
             first.setValue(provider, forKey: "provider")
@@ -3509,14 +3307,7 @@ final class DeterministicFetchTests: XCTestCase {
             second.setValue(true, forKey: "syncEnabled")
             second.setValue(Date(), forKey: "createdAt")
 
-            do {
-                try context.save()
-            } catch {
-                seedError = error
-            }
-        }
-        if let seedError {
-            throw seedError
+            try context.save()
         }
 
         let firstRead = try awaitResult { completion in
@@ -3657,11 +3448,11 @@ final class OccurrenceKeyCodecTests: XCTestCase {
 
 @MainActor
 final class FeatureFlagKillSwitchTests: XCTestCase {
-    private var originalV2Enabled = true
-    private var originalRemindersSyncEnabled = true
-    private var originalAssistantApplyEnabled = true
-    private var originalAssistantUndoEnabled = true
-    private var originalRemindersBackgroundRefreshEnabled = true
+    nonisolated(unsafe) private var originalV2Enabled = true
+    nonisolated(unsafe) private var originalRemindersSyncEnabled = true
+    nonisolated(unsafe) private var originalAssistantApplyEnabled = true
+    nonisolated(unsafe) private var originalAssistantUndoEnabled = true
+    nonisolated(unsafe) private var originalRemindersBackgroundRefreshEnabled = true
 
     override func setUp() {
         super.setUp()
@@ -3744,21 +3535,21 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
     }
 
     func testPersistentStoreDescriptionsEnableAutomaticMigrationOptions() throws {
-        let appDelegateSource = try loadWorkspaceFile("LifeBoard/AppDelegate.swift")
+        let bootstrapSource = try loadWorkspaceFile("LifeBoard/State/DI/LifeBoardPersistentStoreBootstrapService.swift")
         XCTAssertTrue(
-            appDelegateSource.contains("cloudDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)"),
+            bootstrapSource.contains("cloudDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)"),
             "Cloud store description must enable automatic migration"
         )
         XCTAssertTrue(
-            appDelegateSource.contains("cloudDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)"),
+            bootstrapSource.contains("cloudDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)"),
             "Cloud store description must enable inferred mapping migration"
         )
         XCTAssertTrue(
-            appDelegateSource.contains("localDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)"),
+            bootstrapSource.contains("localDescription.setOption(true as NSNumber, forKey: NSMigratePersistentStoresAutomaticallyOption)"),
             "Local store description must enable automatic migration"
         )
         XCTAssertTrue(
-            appDelegateSource.contains("localDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)"),
+            bootstrapSource.contains("localDescription.setOption(true as NSNumber, forKey: NSInferMappingModelAutomaticallyOption)"),
             "Local store description must enable inferred mapping migration"
         )
     }
@@ -3773,15 +3564,17 @@ final class FeatureFlagKillSwitchTests: XCTestCase {
             appDelegateSource.contains("gamification_startup_streak_update_failed"),
             "Startup path must log follow-up streak update failures"
         )
-        let writeSnapshotRange = appDelegateSource.range(of: "engine.writeWidgetSnapshot()")
         let updateStreakRange = appDelegateSource.range(of: "engine.updateStreak { streakResult in")
-        XCTAssertNotNil(writeSnapshotRange, "Startup path must write widget snapshot after reconciliation")
+        let writeSnapshotRange = updateStreakRange.flatMap {
+            appDelegateSource.range(of: "engine.writeWidgetSnapshot()", range: $0.lowerBound..<appDelegateSource.endIndex)
+        }
         XCTAssertNotNil(updateStreakRange, "Startup path must update streak after successful reconciliation")
+        XCTAssertNotNil(writeSnapshotRange, "Startup path must write a widget snapshot after the streak result succeeds")
         if let writeSnapshotRange, let updateStreakRange {
-            XCTAssertLessThan(
+            XCTAssertGreaterThan(
                 writeSnapshotRange.lowerBound,
                 updateStreakRange.lowerBound,
-                "Startup path must sequence writeWidgetSnapshot before updateStreak"
+                "Startup path must snapshot the reconciled streak rather than the pre-update value"
             )
         }
     }
@@ -3843,6 +3636,11 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         XCTAssertTrue(source.contains("lifeboardOpenHabitBoardDeepLink"))
         XCTAssertTrue(source.contains("lifeboardOpenHabitLibraryDeepLink"))
         XCTAssertTrue(source.contains("lifeboardOpenHabitDetailDeepLink"))
+
+        let phaseIISource = try loadWorkspaceFile("LifeBoard/Foundation/PhaseII/LifeBoardTrackAndJournalViews.swift")
+        let phaseIVSource = try loadWorkspaceFile("LifeBoard/Foundation/PhaseIV/LifeBoardTrackFoundationViews.swift")
+        XCTAssertFalse(phaseIISource.contains("NotificationCenter.default.post(name: .lifeboardOpenHabitBoardDeepLink"))
+        XCTAssertFalse(phaseIVSource.contains("NotificationCenter.default.post(name: .lifeboardOpenHabitBoardDeepLink"))
     }
 
     func testSceneDelegateRegistersWeeklyDeepLinkRoutesAndFallbackNotice() throws {
@@ -3912,12 +3710,15 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         XCTAssertFalse(source.contains("description: \"\""))
     }
 
-    func testRemoteKillSwitchMapsTaskWidgetFlags() throws {
-        let source = try loadWorkspaceFile("LifeBoard/Services/GamificationRemoteKillSwitchService.swift")
-        XCTAssertTrue(source.contains("feature_task_list_widgets_enabled"))
-        XCTAssertTrue(source.contains("feature_task_list_widgets_interactive_enabled"))
-        XCTAssertTrue(source.contains("V2FeatureFlags.taskListWidgetsEnabled"))
-        XCTAssertTrue(source.contains("V2FeatureFlags.interactiveTaskWidgetsEnabled"))
+    func testTaskWidgetKillSwitchFacadeUsesTypedLocalFlagsWithoutRemoteFetches() throws {
+        let facadeSource = try loadWorkspaceFile("LifeBoard/Services/GamificationRemoteKillSwitchService.swift")
+        let flagsSource = try loadWorkspaceFile("LifeBoard/Services/V2FeatureFlags.swift")
+
+        XCTAssertTrue(facadeSource.contains("device-local typed feature flags"))
+        XCTAssertFalse(facadeSource.contains("URLSession"))
+        XCTAssertFalse(facadeSource.contains("feature_task_list_widgets_enabled"))
+        XCTAssertTrue(flagsSource.contains("static var taskListWidgetsEnabled"))
+        XCTAssertTrue(flagsSource.contains("static var interactiveTaskWidgetsEnabled"))
     }
 
     func testWidgetTargetCompilesAgainstDesignSystemSources() throws {
@@ -3984,9 +3785,6 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
             "LifeBoardWidgets/TaskWidgetAccessoryViews.swift",
             "LifeBoardWidgets/HomeCalendarWidgetView.swift",
             "LifeBoardWidgets/HomeTimelineWidgetView.swift",
-            "LifeBoardWidgets/TodayXPWidget.swift",
-            "LifeBoardWidgets/WeeklyScoreboardWidget.swift",
-            "LifeBoardWidgets/NextMilestoneWidget.swift",
             "LifeBoardWidgets/StreakResilienceWidget.swift",
             "LifeBoardWidgets/FocusSeedWidget.swift"
         ]
@@ -4982,6 +4780,23 @@ private final class CapturingHabitRuntimeReadRepository: HabitRuntimeReadReposit
     }
 }
 
+private struct StubBehaviorScheduleResolver: BehaviorScheduleResolving {
+    var values: [OccurrenceDefinition]
+
+    func occurrences(
+        for behavior: BehaviorDefinition,
+        from start: Date,
+        to end: Date
+    ) async throws -> [OccurrenceDefinition] {
+        values.filter {
+            $0.sourceID == behavior.domainID
+                && $0.scheduleTemplateID == behavior.scheduleTemplateID
+                && $0.scheduledAt >= start
+                && $0.scheduledAt <= end
+        }
+    }
+}
+
 @MainActor
 final class OccurrenceIdentityTests: XCTestCase {
     func testGeneratedOccurrenceKeyContainsTemplateScheduledDateAndSourceID() throws {
@@ -5037,7 +4852,306 @@ final class OccurrenceIdentityTests: XCTestCase {
                 completion: completion
             )
         }
-        XCTAssertTrue(secondPass.isEmpty, "Deterministic keying should prevent duplicate generation")
+        XCTAssertEqual(secondPass.map(\.id), generated.map(\.id))
+        XCTAssertEqual(secondPass.map(\.occurrenceKey), generated.map(\.occurrenceKey))
+        XCTAssertEqual(
+            generated[0].id,
+            BehaviorOccurrenceIdentity.make(
+                behaviorID: sourceID,
+                canonicalOccurrenceKey: generated[0].occurrenceKey,
+                timezoneID: try XCTUnwrap(TimeZone(identifier: "UTC")).identifier
+            )
+        )
+    }
+
+    func testBehaviorSurfaceProjectionPreservesCanonicalIdentityAndEveryResultMeaning() throws {
+        let templateID = UUID()
+        let behaviorID = UUID()
+        let date = Date(timeIntervalSince1970: 1_704_067_200)
+        let states = BehaviorOccurrenceResultState.allCases
+        let occurrences = states.enumerated().map { index, _ in
+            let scheduledAt = date.addingTimeInterval(Double(index * 60))
+            let key = OccurrenceKeyCodec.encode(
+                scheduleTemplateID: templateID,
+                scheduledAt: scheduledAt,
+                sourceID: behaviorID
+            )
+            return OccurrenceDefinition(
+                id: BehaviorOccurrenceIdentity.make(
+                    behaviorID: behaviorID,
+                    canonicalOccurrenceKey: key,
+                    timezoneID: "UTC",
+                    sequence: index
+                ),
+                occurrenceKey: key,
+                scheduleTemplateID: templateID,
+                sourceType: .habit,
+                sourceID: behaviorID,
+                scheduledAt: scheduledAt,
+                dueAt: scheduledAt.addingTimeInterval(3_600),
+                state: .pending,
+                isGenerated: true,
+                generationWindow: "surface-test",
+                createdAt: date,
+                updatedAt: date
+            )
+        }
+        let overrides = Dictionary(
+            uniqueKeysWithValues: zip(occurrences.map(\.id), states)
+        )
+
+        let projected = BehaviorOccurrenceSurfaceProjection.make(
+            occurrences: occurrences.reversed(),
+            timezoneByTemplateID: [templateID: "UTC"],
+            resultOverrides: overrides
+        )
+
+        XCTAssertEqual(projected.map(\.occurrenceID), occurrences.map(\.id))
+        XCTAssertEqual(Set(projected.map(\.result)), Set(BehaviorSurfaceResultState.allCases))
+        XCTAssertTrue(projected.allSatisfy { $0.canonicalOccurrenceKey.contains(behaviorID.uuidString) })
+        XCTAssertTrue(projected.allSatisfy { $0.timezoneID == "UTC" })
+
+        let snapshot = TaskListWidgetSnapshot(behaviorOccurrences: projected)
+        let roundTripped = try JSONDecoder().decode(
+            TaskListWidgetSnapshot.self,
+            from: JSONEncoder().encode(snapshot)
+        )
+        XCTAssertEqual(roundTripped.behaviorOccurrences, projected)
+    }
+
+    func testLegacyWidgetSnapshotDecodesWithoutInventingBehaviorOccurrences() throws {
+        let payload = """
+        {"schemaVersion":5,"updatedAt":0}
+        """.data(using: .utf8)!
+
+        let decoded = try JSONDecoder().decode(TaskListWidgetSnapshot.self, from: payload)
+
+        XCTAssertEqual(decoded.schemaVersion, 5)
+        XCTAssertTrue(decoded.behaviorOccurrences.isEmpty)
+        XCTAssertNil(decoded.activeFastingSession)
+        XCTAssertNil(decoded.activeRoutineRun)
+    }
+
+    func testSharedBehaviorProjectionAppliesVacationPauseBackfillQuotaAndTimedSemantics() async throws {
+        let behaviorID = UUID()
+        let templateID = UUID()
+        let timezone = try XCTUnwrap(TimeZone(identifier: "America/New_York"))
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timezone
+        func date(_ year: Int, _ month: Int, _ day: Int, _ hour: Int = 9) -> Date {
+            calendar.date(from: DateComponents(
+                timeZone: timezone,
+                year: year,
+                month: month,
+                day: day,
+                hour: hour
+            ))!
+        }
+        let days = [
+            date(2026, 3, 7),
+            date(2026, 3, 8), // DST transition in this timezone
+            date(2026, 3, 9),
+            date(2026, 3, 10)
+        ]
+        let occurrences = days.enumerated().map { index, scheduledAt in
+            let key = OccurrenceKeyCodec.encode(
+                scheduleTemplateID: templateID,
+                scheduledAt: scheduledAt,
+                sourceID: behaviorID
+            )
+            return OccurrenceDefinition(
+                id: BehaviorOccurrenceIdentity.make(
+                    behaviorID: behaviorID,
+                    canonicalOccurrenceKey: key,
+                    timezoneID: timezone.identifier,
+                    sequence: index
+                ),
+                occurrenceKey: key,
+                scheduleTemplateID: templateID,
+                sourceType: .habit,
+                sourceID: behaviorID,
+                scheduledAt: scheduledAt,
+                dueAt: nil,
+                state: .pending,
+                isGenerated: true,
+                generationWindow: "projection",
+                createdAt: scheduledAt,
+                updatedAt: scheduledAt
+            )
+        }
+        let service = SharedBehaviorOccurrenceProjectionService(
+            resolver: StubBehaviorScheduleResolver(values: occurrences)
+        )
+        let behavior = BehaviorDefinition(
+            domain: .habit,
+            domainID: behaviorID,
+            scheduleTemplateID: templateID,
+            responseShape: .quota(target: 3, period: "weekly"),
+            timezoneID: timezone.identifier
+        )
+        let policy = BehaviorSchedulePolicy(
+            pausedRanges: [DateInterval(
+                start: days[1].addingTimeInterval(-60),
+                end: days[1].addingTimeInterval(60)
+            )],
+            vacationRanges: [DateInterval(
+                start: days[0].addingTimeInterval(-60),
+                end: days[0].addingTimeInterval(60)
+            )],
+            maximumBackfillDays: 1
+        )
+
+        let projected = try await service.projections(
+            for: behavior,
+            policy: policy,
+            from: days[0],
+            to: days[3],
+            referenceDate: date(2026, 3, 10, 12)
+        )
+
+        XCTAssertEqual(projected.map(\.occurrence.id), occurrences.map(\.id))
+        XCTAssertEqual(projected.map(\.result), [.offDay, .paused, .unresolved, .unresolved])
+        XCTAssertTrue(projected.allSatisfy { $0.quotaTarget == 3 })
+        XCTAssertTrue(projected.allSatisfy { $0.quotaWindowKey?.hasPrefix("weekly:") == true })
+
+        let timed = BehaviorDefinition(
+            domain: .habit,
+            domainID: behaviorID,
+            scheduleTemplateID: templateID,
+            responseShape: .timed(targetSeconds: 1_500),
+            timezoneID: timezone.identifier
+        )
+        let timedProjection = try await service.projections(
+            for: timed,
+            policy: .init(maximumBackfillDays: 0),
+            from: days[0],
+            to: days[3],
+            referenceDate: date(2026, 3, 10, 12)
+        )
+        XCTAssertTrue(timedProjection.allSatisfy { $0.timedTargetSeconds == 1_500 })
+        XCTAssertEqual(timedProjection.map(\.result), [.missing, .missing, .missing, .unresolved])
+    }
+
+    func testRepeatedOccurrenceResolutionUsesOneDeterministicReceiptIdentity() throws {
+        let occurrenceID = UUID()
+        let repository = InMemoryOccurrenceRepository()
+        let engine = CoreSchedulingEngine(
+            scheduleRepository: InMemoryScheduleRepository(),
+            occurrenceRepository: repository
+        )
+
+        for _ in 0..<2 {
+            try awaitResult { completion in
+                engine.resolveOccurrence(
+                    id: occurrenceID,
+                    resolution: .completed,
+                    actor: .user,
+                    completion: completion
+                )
+            }
+        }
+
+        XCTAssertEqual(repository.resolutions.count, 2)
+        XCTAssertEqual(repository.resolutions[0].id, repository.resolutions[1].id)
+        XCTAssertEqual(
+            repository.resolutions[0].id,
+            BehaviorOccurrenceIdentity.make(
+                behaviorID: occurrenceID,
+                canonicalOccurrenceKey: "resolution:completed",
+                timezoneID: "UTC"
+            )
+        )
+    }
+
+    func testBehaviorOccurrenceActionCommandRoundTripKeepsCanonicalIDs() throws {
+        let occurrenceID = UUID()
+        let behaviorID = UUID()
+        let command = BehaviorOccurrenceActionCommand(
+            occurrenceID: occurrenceID,
+            behaviorID: behaviorID,
+            action: .complete,
+            createdAt: Date(timeIntervalSince1970: 100),
+            expiresAt: Date(timeIntervalSince1970: 200)
+        )
+
+        let decoded = try JSONDecoder().decode(
+            BehaviorOccurrenceActionCommand.self,
+            from: JSONEncoder().encode(command)
+        )
+
+        XCTAssertEqual(decoded, command)
+        XCTAssertEqual(decoded.commandID, occurrenceID)
+        XCTAssertEqual(decoded.behaviorID, behaviorID)
+
+        let watchPayload = try command.watchUserInfoPayload()
+        XCTAssertEqual(
+            BehaviorOccurrenceActionCommand.decodeWatchUserInfo(watchPayload),
+            command
+        )
+        var wrongSchema = watchPayload
+        wrongSchema[BehaviorOccurrenceActionCommand.transportSchemaKey] = 99
+        XCTAssertNil(BehaviorOccurrenceActionCommand.decodeWatchUserInfo(wrongSchema))
+    }
+
+    func testWatchSessionSurfacesAndCommandsRoundTripWithoutChangingIdentity() throws {
+        let now = Date(timeIntervalSince1970: 1_778_000_000)
+        let sessionID = UUID()
+        let runID = UUID()
+        let routineID = UUID()
+        let snapshot = TaskListWidgetSnapshot(
+            activeFastingSession: FastingSessionSurfaceSnapshot(
+                sessionID: sessionID,
+                startedAt: now,
+                targetEndAt: now.addingTimeInterval(3_600),
+                updatedAt: now
+            ),
+            activeRoutineRun: RoutineRunSurfaceSnapshot(
+                runID: runID,
+                routineID: routineID,
+                title: "Evening reset",
+                status: .paused,
+                currentStepTitle: "Clear the desk",
+                completedStepCount: 2,
+                totalStepCount: 5,
+                updatedAt: now
+            )
+        )
+        let decoded = try JSONDecoder().decode(
+            TaskListWidgetSnapshot.self,
+            from: JSONEncoder().encode(snapshot)
+        )
+        XCTAssertEqual(decoded.activeFastingSession, snapshot.activeFastingSession)
+        XCTAssertEqual(decoded.activeRoutineRun, snapshot.activeRoutineRun)
+
+        let fasting = FastingWatchCommand(
+            commandID: UUID(),
+            sessionID: sessionID,
+            action: .finish,
+            createdAt: now,
+            expiresAt: now.addingTimeInterval(60)
+        )
+        XCTAssertEqual(
+            FastingWatchCommand.decodeWatchUserInfo(try fasting.watchUserInfoPayload()),
+            fasting
+        )
+        var invalidFasting = try fasting.watchUserInfoPayload()
+        invalidFasting[FastingWatchCommand.transportSchemaKey] = 99
+        XCTAssertNil(FastingWatchCommand.decodeWatchUserInfo(invalidFasting))
+
+        let routine = RoutineWatchCommand(
+            commandID: UUID(),
+            runID: runID,
+            action: .resume,
+            createdAt: now,
+            expiresAt: now.addingTimeInterval(60)
+        )
+        XCTAssertEqual(
+            RoutineWatchCommand.decodeWatchUserInfo(try routine.watchUserInfoPayload()),
+            routine
+        )
+        var invalidRoutine = try routine.watchUserInfoPayload()
+        invalidRoutine[RoutineWatchCommand.transportSchemaKey] = 99
+        XCTAssertNil(RoutineWatchCommand.decodeWatchUserInfo(invalidRoutine))
     }
 
     func testResolveDoesNotMutateOccurrenceKey() throws {
@@ -5182,7 +5296,7 @@ final class TombstoneRetentionTests: XCTestCase {
 
 @MainActor
 final class CoreDataModelCompatibilityTests: XCTestCase {
-    func testFreshInstallLoadsCurrentTaskModelV3TaskIconsModel() throws {
+    func testFreshInstallLoadsCurrentTaskModelV3TrackFoundationsModel() throws {
         let model = try currentTaskModelV3Model()
         let storeURL = temporaryStoreURL(name: "fresh-current-taskmodelv3")
         defer { removeSQLiteArtifacts(at: storeURL) }
@@ -5243,10 +5357,10 @@ final class CoreDataModelCompatibilityTests: XCTestCase {
 
     private func currentTaskModelV3Model() throws -> NSManagedObjectModel {
         let momdURL = try taskModelV3MomdURL()
-        let currentURL = momdURL.appendingPathComponent("TaskModelV3_TaskIcons.mom")
+        let currentURL = momdURL.appendingPathComponent("TaskModelV3_TrackFoundations.mom")
         guard let model = NSManagedObjectModel(contentsOf: currentURL) else {
             throw NSError(domain: "CoreDataModelCompatibilityTests", code: 2, userInfo: [
-                NSLocalizedDescriptionKey: "Unable to load current TaskModelV3_TaskIcons model"
+                NSLocalizedDescriptionKey: "Unable to load current TaskModelV3_TrackFoundations model"
             ])
         }
         return model
@@ -5259,7 +5373,7 @@ final class CoreDataModelCompatibilityTests: XCTestCase {
             includingPropertiesForKeys: nil
         )
         .filter { $0.pathExtension == "mom" }
-        .filter { $0.deletingPathExtension().lastPathComponent != "TaskModelV3_TaskIcons" }
+        .filter { $0.deletingPathExtension().lastPathComponent != "TaskModelV3_TrackFoundations" }
         .sorted { $0.lastPathComponent < $1.lastPathComponent }
 
         return versionURLs.compactMap { url in
@@ -6464,7 +6578,15 @@ final class ScheduleExceptionRebuildTests: XCTestCase {
                 completion: completion
             )
         }
-        XCTAssertTrue(secondPass.isEmpty, "Exception rebuild should not recreate skipped occurrence with same key")
+        XCTAssertFalse(
+            secondPass.contains(where: { $0.occurrenceKey == target.occurrenceKey }),
+            "Exception rebuild should not recreate the skipped occurrence."
+        )
+        XCTAssertEqual(
+            secondPass.first(where: { $0.occurrenceKey == unaffected.occurrenceKey })?.id,
+            unaffected.id,
+            "Idempotent projections must retain unaffected occurrence identity."
+        )
     }
 }
 
@@ -6778,7 +6900,7 @@ final class ConcurrencyRaceTests: XCTestCase {
         XCTAssertEqual(aggregate?.updatedAt, newerUpdatedAt)
     }
 
-    func testGamificationModelDefinesUniquenessConstraintsForXPEventAndDailyAggregate() throws {
+    func testGamificationCloudEntitiesUseAppLevelCanonicalizationInsteadOfUniquenessConstraints() throws {
         let container = try makeInMemoryV2Container()
         let model = container.managedObjectModel
 
@@ -6792,14 +6914,8 @@ final class ConcurrencyRaceTests: XCTestCase {
         let xpEventConstraints = normalizedUniquenessConstraints(for: xpEventEntity)
         let dailyAggregateConstraints = normalizedUniquenessConstraints(for: dailyAggregateEntity)
 
-        XCTAssertTrue(
-            xpEventConstraints.contains(["idempotencyKey"]),
-            "XPEvent must enforce uniqueness on idempotencyKey"
-        )
-        XCTAssertTrue(
-            dailyAggregateConstraints.contains(["dateKey"]),
-            "DailyXPAggregate must enforce uniqueness on dateKey"
-        )
+        XCTAssertTrue(xpEventConstraints.isEmpty, "CloudKit-backed XPEvent canonicalizes idempotency keys in the repository")
+        XCTAssertTrue(dailyAggregateConstraints.isEmpty, "CloudKit-backed DailyXPAggregate canonicalizes date keys in the repository")
     }
 
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
@@ -7099,7 +7215,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
 
         let engine = GamificationEngine(repository: repository)
         let taskID = UUID()
-        var observedMutation: GamificationLedgerMutation?
+        let observedMutation = LockedTestState<GamificationLedgerMutation?>(nil)
         let mutationExpectation = expectation(description: "ledger mutation")
         let completionExpectation = expectation(description: "record completion")
         let capturedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
@@ -7110,7 +7226,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         ) { notification in
             guard let mutation = notification.gamificationLedgerMutation else { return }
             guard mutation.category == .complete else { return }
-            observedMutation = mutation
+            observedMutation.write(mutation)
             mutationExpectation.fulfill()
         }
         defer {
@@ -7133,8 +7249,8 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         wait(for: [mutationExpectation, completionExpectation], timeout: 2.0)
         let result = try XCTUnwrap(capturedResult.read()).get()
         XCTAssertEqual(result.currentStreak, 1)
-        XCTAssertEqual(observedMutation?.streakDays, 1)
-        XCTAssertEqual(observedMutation?.didChange, true)
+        XCTAssertEqual(observedMutation.read()?.streakDays, 1)
+        XCTAssertEqual(observedMutation.read()?.didChange, true)
     }
 
     func testRecordEventRecoversWhenDailyAggregateWriteFailsAfterEventSave() throws {
@@ -7144,7 +7260,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
 
         let completedAt = Date()
         let dateKey = XPCalculationEngine.periodKey(for: completedAt)
-        var observedMutation: GamificationLedgerMutation?
+        let observedMutation = LockedTestState<GamificationLedgerMutation?>(nil)
         let capturedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
         let mutationExpectation = expectation(description: "recovery mutation")
         let completionExpectation = expectation(description: "record completion")
@@ -7156,7 +7272,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         ) { notification in
             guard let mutation = notification.gamificationLedgerMutation else { return }
             guard mutation.category == .complete else { return }
-            observedMutation = mutation
+            observedMutation.write(mutation)
             mutationExpectation.fulfill()
         }
         defer {
@@ -7180,7 +7296,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
 
         let result = try XCTUnwrap(capturedResult.read()).get()
         XCTAssertGreaterThan(result.awardedXP, 0)
-        XCTAssertTrue(observedMutation?.didChange ?? false)
+        XCTAssertTrue(observedMutation.read()?.didChange ?? false)
 
         let aggregate = try awaitResult { completion in
             repository.fetchDailyAggregate(dateKey: dateKey, completion: completion)
@@ -7269,7 +7385,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         let completionExpectation = expectation(description: "record completion")
         let mutationExpectation = expectation(description: "ledger mutation")
         let capturedResult = LockedTestState<Result<XPEventResult, Error>?>(nil)
-        var observedMutation: GamificationLedgerMutation?
+        let observedMutation = LockedTestState<GamificationLedgerMutation?>(nil)
 
         let token = NotificationCenter.default.addObserver(
             forName: .gamificationLedgerDidMutate,
@@ -7278,7 +7394,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         ) { notification in
             guard let mutation = notification.gamificationLedgerMutation else { return }
             guard mutation.category == .complete else { return }
-            observedMutation = mutation
+            observedMutation.write(mutation)
             mutationExpectation.fulfill()
         }
         defer { NotificationCenter.default.removeObserver(token) }
@@ -7302,7 +7418,7 @@ final class GamificationEngineMutationOrderingTests: XCTestCase {
         XCTAssertEqual(result?.awardedXP, 0)
         XCTAssertEqual(result?.totalXP, seededProfile.xpTotal)
         XCTAssertEqual(result?.dailyXPSoFar, 40)
-        XCTAssertEqual(observedMutation?.didChange, false)
+        XCTAssertEqual(observedMutation.read()?.didChange, false)
         XCTAssertEqual(repository.saveProfileCount, 0)
         XCTAssertEqual(repository.saveDailyAggregateCount, 0)
     }
@@ -7444,7 +7560,7 @@ private final class InMemoryGamificationEngineRepository: GamificationRepository
     }
 
     func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        let write = {
+        let write: @Sendable () -> Void = {
             self.lock.lock()
             if self.unlocks.contains(where: { $0.achievementKey == unlock.achievementKey }) == false {
                 self.unlocks.append(unlock)
@@ -7727,6 +7843,7 @@ private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol, 
     var occurrences: [OccurrenceDefinition] = []
     var resolutions: [OccurrenceResolutionDefinition] = []
     var deletedOccurrenceIDs: [UUID] = []
+    var resolveError: Error?
 
     func fetchInRange(start: Date, end: Date, completion: @escaping @Sendable (Result<[OccurrenceDefinition], Error>) -> Void) {
         completion(.success(occurrences.filter {
@@ -7747,6 +7864,10 @@ private final class InMemoryOccurrenceRepository: OccurrenceRepositoryProtocol, 
     }
 
     func resolve(_ resolution: OccurrenceResolutionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        if let resolveError {
+            completion(.failure(resolveError))
+            return
+        }
         resolutions.append(resolution)
         if let index = occurrences.firstIndex(where: { $0.id == resolution.occurrenceID }) {
             switch resolution.resolutionType {
@@ -7793,8 +7914,8 @@ private final class InMemoryTombstoneRepository: TombstoneRepositoryProtocol, @u
 
 @MainActor
 final class ReconcileExternalRemindersConflictTests: XCTestCase {
-    private var originalV2Enabled = true
-    private var originalRemindersSyncEnabled = true
+    nonisolated(unsafe) private var originalV2Enabled = true
+    nonisolated(unsafe) private var originalRemindersSyncEnabled = true
 
     override func setUp() {
         super.setUp()
@@ -8169,8 +8290,8 @@ final class ReconcileExternalRemindersConflictTests: XCTestCase {
 
 @MainActor
 final class ReminderPayloadRoundTripTests: XCTestCase {
-    private var originalV2Enabled = true
-    private var originalRemindersSyncEnabled = true
+    nonisolated(unsafe) private var originalV2Enabled = true
+    nonisolated(unsafe) private var originalRemindersSyncEnabled = true
 
     override func setUp() {
         super.setUp()
@@ -8327,9 +8448,9 @@ final class SyncClockDeterminismTests: XCTestCase {
 
 @MainActor
 final class AssistantPipelineTransactionalTests: XCTestCase {
-    private var originalV2Enabled = true
-    private var originalAssistantApplyEnabled = true
-    private var originalAssistantUndoEnabled = true
+    nonisolated(unsafe) private var originalV2Enabled = true
+    nonisolated(unsafe) private var originalAssistantApplyEnabled = true
+    nonisolated(unsafe) private var originalAssistantUndoEnabled = true
 
     override func setUp() {
         super.setUp()
@@ -8610,8 +8731,8 @@ final class AssistantPipelineTransactionalTests: XCTestCase {
 
 @MainActor
 final class AssistantUndoWindowTests: XCTestCase {
-    private var originalV2Enabled = true
-    private var originalAssistantUndoEnabled = true
+    nonisolated(unsafe) private var originalV2Enabled = true
+    nonisolated(unsafe) private var originalAssistantUndoEnabled = true
 
     override func setUp() {
         super.setUp()
@@ -8726,9 +8847,7 @@ final class V2PerformanceGateTests: XCTestCase {
     }
 
     func testPerfSeedHarnessProducesBalancedProfileSnapshot() throws {
-#if !os(macOS)
-        throw XCTSkip("Shell command perf harness is only supported on macOS host tests")
-#endif
+#if os(macOS)
         try XCTSkipUnless(
             ProcessInfo.processInfo.environment["LIFEBOARD_RUN_PERF_GATE_TESTS"] == "1",
             "Set LIFEBOARD_RUN_PERF_GATE_TESTS=1 to run repo-local performance gate tests."
@@ -8757,15 +8876,16 @@ final class V2PerformanceGateTests: XCTestCase {
         XCTAssertLessThanOrEqual(snapshot.metrics.home.p99_ms, 600)
         XCTAssertLessThanOrEqual(snapshot.metrics.project.p99_ms, 600)
         XCTAssertLessThanOrEqual(snapshot.metrics.search.p99_ms, 600)
+#else
+        throw XCTSkip("Shell command perf harness is only supported on macOS host tests")
+#endif
     }
 }
 
 @MainActor
 final class FlowctlToolingTests: XCTestCase {
     func testFlowctlInstallAndVerifyScriptsSucceed() throws {
-#if !os(macOS)
-        throw XCTSkip("flowctl shell checks are only supported on macOS host tests")
-#endif
+#if os(macOS)
         try XCTSkipUnless(
             ProcessInfo.processInfo.environment["LIFEBOARD_RUN_HOST_TOOLING_TESTS"] == "1",
             "Set LIFEBOARD_RUN_HOST_TOOLING_TESTS=1 to run repo-local tooling checks."
@@ -8776,15 +8896,16 @@ final class FlowctlToolingTests: XCTestCase {
         let flowctlPath = root.appendingPathComponent(".flow/bin/flowctl").path
         XCTAssertTrue(FileManager.default.fileExists(atPath: flowctlPath))
         XCTAssertTrue(FileManager.default.isExecutableFile(atPath: flowctlPath))
+#else
+        throw XCTSkip("flowctl shell checks are only supported on macOS host tests")
+#endif
     }
 }
 
 @MainActor
 final class ProcessExecutionTests: XCTestCase {
     func testRunProcessPreservesArgumentsContainingSpaces() throws {
-#if !os(macOS)
-        throw XCTSkip("Process execution checks are only supported on macOS host tests")
-#endif
+#if os(macOS)
         let tempDirectory = FileManager.default.temporaryDirectory
             .appendingPathComponent("lifeboard process helper \(UUID().uuidString)", isDirectory: true)
         let outputURL = tempDirectory.appendingPathComponent("output file.txt")
@@ -8799,6 +8920,9 @@ final class ProcessExecutionTests: XCTestCase {
 
         XCTAssertEqual(status, 0)
         XCTAssertTrue(FileManager.default.fileExists(atPath: outputURL.path))
+#else
+        throw XCTSkip("Process execution checks are only supported on macOS host tests")
+#endif
     }
 }
 
@@ -9803,7 +9927,7 @@ final class AddTaskViewModelTagCreationTests: XCTestCase {
 
 @MainActor
 final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
-    private var originalAssistantCopilotEnabled = V2FeatureFlags.assistantCopilotEnabled
+    nonisolated(unsafe) private var originalAssistantCopilotEnabled = V2FeatureFlags.assistantCopilotEnabled
 
     override func setUp() {
         super.setUp()
@@ -9985,7 +10109,7 @@ final class DefaultTaskIconResolverTests: XCTestCase {
 
 @MainActor
 final class AddTaskViewModelTaskIconTests: XCTestCase {
-    private var originalAutoTaskIconsEnabled = V2FeatureFlags.autoTaskIconsEnabled
+    nonisolated(unsafe) private var originalAutoTaskIconsEnabled = V2FeatureFlags.autoTaskIconsEnabled
 
     override func setUp() {
         super.setUp()
@@ -10156,7 +10280,12 @@ final class HomeViewModelTaskIconTimelineTests: XCTestCase {
             viewModel.timelineSystemImageName(for: task) == "phone.fill"
         }
         let expectation = XCTNSPredicateExpectation(predicate: predicate, object: nil)
-        let result = XCTWaiter.wait(for: [expectation], timeout: 1.0)
+        // 1.0s was too tight for a cold start, which is why this failed when run
+        // in isolation (where it pays the test host's first-load cost) and passed
+        // inside the full suite (where the view model machinery is already warm).
+        // The wait returns as soon as the predicate holds, so the larger ceiling
+        // costs a healthy run nothing.
+        let result = XCTWaiter.wait(for: [expectation], timeout: 5.0)
         XCTAssertEqual(result, .completed)
         XCTAssertEqual(viewModel.timelineSystemImageName(for: task), "phone.fill")
     }
@@ -10972,6 +11101,63 @@ private extension XCTestCase {
 
 @MainActor
 final class TaskDefinitionClearFlagPersistenceTests: XCTestCase {
+    func testCompletionAnchoredRecurrenceMaterializesExactlyOneNextOccurrence() throws {
+        let container = try makeInMemoryV2Container()
+        let repository = CoreDataTaskDefinitionRepository(container: container)
+        let taskID = UUID()
+        let seriesID = UUID()
+        let scheduled = Calendar.current.startOfDay(for: Date())
+        let completedAt = scheduled.addingTimeInterval(13 * 3_600)
+
+        _ = try awaitResult { completion in
+            repository.create(
+                request: CreateTaskDefinitionRequest(
+                    id: taskID,
+                    recurrenceSeriesID: seriesID,
+                    title: "Evening reflection",
+                    projectID: ProjectConstants.inboxProjectID,
+                    dueDate: scheduled,
+                    repeatPattern: .daily,
+                    recurrenceAnchor: .completionDate
+                ),
+                completion: completion
+            )
+        }
+
+        _ = try awaitResult { completion in
+            repository.update(
+                request: UpdateTaskDefinitionRequest(
+                    id: taskID,
+                    isComplete: true,
+                    dateCompleted: completedAt
+                ),
+                completion: completion
+            )
+        }
+        // Replaying the same completion is idempotent.
+        _ = try awaitResult { completion in
+            repository.update(
+                request: UpdateTaskDefinitionRequest(
+                    id: taskID,
+                    isComplete: true,
+                    dateCompleted: completedAt
+                ),
+                completion: completion
+            )
+        }
+
+        let all = try awaitResult { repository.fetchAll(completion: $0) }
+        let series = all.filter { $0.recurrenceSeriesID == seriesID }
+        XCTAssertEqual(series.count, 2)
+        let next = try XCTUnwrap(series.first(where: { $0.id != taskID }))
+        XCTAssertEqual(next.recurrenceAnchor, .completionDate)
+        XCTAssertEqual(next.repeatPattern, .daily)
+        XCTAssertEqual(
+            next.dueDate,
+            Calendar.current.date(byAdding: .day, value: 1, to: completedAt)
+        )
+    }
+
     func testUpdateRequestClearFlagsRemovePersistedOptionalFields() throws {
         let container = try makeInMemoryV2Container()
         let repository = CoreDataTaskDefinitionRepository(container: container)
@@ -11187,16 +11373,16 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         )
         XCTAssertEqual(
             reflectionIDs,
-            Set([
-                "daily.reflection.20260224.followup",
-                "daily.reflection.20260225.followup",
-                "daily.reflection.20260226.followup"
-            ])
+            Set(),
+            "The configurable evening nudge is the only Daily Loop notification."
         )
 
         let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
-        XCTAssertEqual(nightly?.title, "Day Retrospective")
-        XCTAssertEqual(nightly?.body, "No completions today. Pick one tiny restart for tomorrow.")
+        XCTAssertEqual(nightly?.title, "Close the day")
+        XCTAssertEqual(
+            nightly?.body,
+            "Whenever you're ready — see how the day went and carry what's left."
+        )
         XCTAssertEqual(nightly.map { calendar.component(.hour, from: $0.fireDate) }, 21)
         XCTAssertEqual(nightly.map { calendar.component(.minute, from: $0.fireDate) }, 0)
         XCTAssertEqual(
@@ -11226,15 +11412,11 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
             "\(request.route.payload)#\(Int(request.fireDate.timeIntervalSince1970))"
         }
         XCTAssertTrue(grouped.values.allSatisfy { $0.count == 1 })
-        XCTAssertEqual(
-            notificationService.scheduled
-                .filter { $0.id.hasPrefix("daily.reflection.") && $0.id.hasSuffix(".followup") }
-                .count,
-            3
-        )
+        XCTAssertFalse(notificationService.scheduled.contains { $0.id.hasPrefix("daily.reflection.") })
+        XCTAssertEqual(notificationService.scheduled.filter { $0.kind == .nightlyRetrospective }.count, 3)
     }
 
-    func testNightlyRetrospectiveUsesExactLedgerXPWhenAvailable() {
+    func testEveningNudgeKeepsXPOutEvenWhenExactLedgerXPIsAvailable() {
         let notificationService = CapturingNotificationService()
         let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
         let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 7, minute: 30)
@@ -11265,11 +11447,11 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
         XCTAssertEqual(
             nightly?.body,
-            "Completed 1/1 tasks, earned 44 XP. Biggest win: \"Ship release notes\"."
+            "Whenever you're ready — see how the day went and carry what's left."
         )
     }
 
-    func testNightlyRetrospectiveOmitsNumericXPWhenExactAggregateUnavailable() {
+    func testEveningNudgeUsesTheSameGentleCopyWhenXPIsUnavailable() {
         let notificationService = CapturingNotificationService()
         let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
         let nowDate = makeUTCDate(year: 2026, month: 2, day: 24, hour: 7, minute: 30)
@@ -11295,8 +11477,35 @@ final class TaskNotificationOrchestratorTests: XCTestCase {
         let nightly = notificationService.scheduled.first(where: { $0.id == "daily.nightly.20260224" })
         XCTAssertEqual(
             nightly?.body,
-            "Completed 1/1 tasks. Biggest win: \"Close loops\". Open LifeBoard for exact XP."
+            "Whenever you're ready — see how the day went and carry what's left."
         )
+    }
+
+    func testEveningNudgeIsSuppressedAfterTheDayIsClosed() {
+        let suiteName = "lifeboard.notification.closed-day.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        let closureLog = DayLoopClosureLog(defaults: defaults)
+        let calendar = Calendar(identifier: .gregorian, timeZoneID: "UTC")
+        let nowDate = Date()
+        closureLog.markClosed(nowDate, calendar: calendar)
+
+        let notificationService = CapturingNotificationService()
+        let orchestrator = TaskNotificationOrchestrator(
+            taskRepository: InMemoryTaskDefinitionRepositoryStub(seed: []),
+            notificationService: notificationService,
+            preferencesStore: makePreferencesStore(),
+            calendar: calendar,
+            now: { nowDate },
+            dayLoopClosureLog: closureLog
+        )
+
+        reconcileAndWait(orchestrator, reason: "unit_test_closed_day_suppression")
+
+        let todayStamp = DayLoopClosureLog.stamp(for: nowDate, calendar: calendar)
+        XCTAssertFalse(notificationService.scheduled.contains {
+            $0.id == "daily.nightly.\(todayStamp)"
+        })
     }
 
     func testReconcileSchedulesTaskReminderDueSoonAndOverdueWithExpectedContent() {
@@ -11666,11 +11875,21 @@ final class SceneDelegateNotificationRoutingTests: XCTestCase {
         super.tearDown()
     }
 
-    func testHandleNotificationLaunchFallsBackToPendingTaskDetailRouteWhenRuntimeHandlerUnavailable() {
+    /// A task reminder must open that exact task through the typed foundation
+    /// router.
+    ///
+    /// This used to assert against `LifeBoardNotificationRouteBus`, which is the
+    /// pre-foundation path: `handleNotificationLaunch` now routes through
+    /// `LifeOSFoundationRuntime.shared.router` and returns before ever reaching
+    /// the bus. The bus is retained only as the rollback for the disabled flag,
+    /// so asserting on it tested a path the product no longer takes.
+    @MainActor
+    func testTaskReminderPushesTheExactTaskThroughTheFoundationRouter() {
         let taskID = UUID()
-        let sceneDelegate = SceneDelegate()
+        let router = LifeOSFoundationRuntime.shared.router
+        router.select(.plan)
 
-        sceneDelegate.handleNotificationLaunch(
+        SceneDelegate().handleNotificationLaunch(
             request: makeUNNotificationRequest(
                 id: "task.reminder.\(taskID.uuidString)",
                 kind: .taskReminder,
@@ -11679,18 +11898,26 @@ final class SceneDelegateNotificationRoutingTests: XCTestCase {
             )
         )
 
-        XCTAssertEqual(LifeBoardNotificationRouteBus.shared.consumePendingRoute(), .taskDetail(taskID: taskID))
+        XCTAssertEqual(router.selectedDestination, .home)
+        XCTAssertEqual(
+            router.paths[.home]?.last, .taskDetail(taskID),
+            "The reminder must open the task it names, not a substitute"
+        )
     }
 
-    func testHandleNotificationLaunchUsesRuntimeActionHandlerWhenAvailable() {
-        let notificationService = CapturingNotificationService()
+    /// A navigation action resolves through the foundation router even when a
+    /// runtime action handler is installed — navigation is the router's job,
+    /// and the handler is reserved for mutations like complete and snooze.
+    @MainActor
+    func testNavigationActionResolvesThroughTheFoundationRouterAheadOfTheActionHandler() {
         LifeBoardNotificationRuntime.actionHandler = LifeBoardNotificationActionHandler(
-            notificationService: notificationService,
+            notificationService: CapturingNotificationService(),
             coordinatorProvider: { nil }
         )
+        let router = LifeOSFoundationRuntime.shared.router
+        router.select(.home)
 
-        let sceneDelegate = SceneDelegate()
-        sceneDelegate.handleNotificationLaunch(
+        SceneDelegate().handleNotificationLaunch(
             request: makeUNNotificationRequest(
                 id: "daily.nightly.20260224",
                 kind: .nightlyRetrospective,
@@ -11700,7 +11927,11 @@ final class SceneDelegateNotificationRoutingTests: XCTestCase {
             actionIdentifier: LifeBoardNotificationActionID.openDone.rawValue
         )
 
-        XCTAssertEqual(LifeBoardNotificationRouteBus.shared.consumePendingRoute(), .homeDone)
+        XCTAssertEqual(router.selectedDestination, .insights, "Done opens Insights")
+        XCTAssertNil(
+            LifeBoardNotificationRouteBus.shared.consumePendingRoute(),
+            "The legacy bus must stay empty while the foundation shell is on"
+        )
     }
 
     nonisolated private static func clearRouteBus() {
@@ -12314,183 +12545,6 @@ private extension Calendar {
 }
 
 @MainActor
-final class InsightsActionRoutingTests: XCTestCase {
-    func testTodayActionCardsResolveToOperationalWorkflows() {
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .today, id: "overdueRescue")),
-            .openBacklogRecovery
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .today, id: "overdueNextDecision")),
-            .openBacklogRecovery
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .today, id: "nextDecision")),
-            .startNextDecision
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .today, id: "protectFocus")),
-            .protectFocus
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .today, id: "habitCheck")),
-            .openHabitCheck
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .today, id: "yesterdayReview")),
-            .openYesterdayReview
-        )
-    }
-
-    func testWeekActionCardsResolveToReflectiveWorkflows() {
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .week, id: "weeklyMomentum")),
-            .expandDetails(.weeklyRhythm)
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .week, id: "backlogDrag")),
-            .openBacklogRecovery
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .week, id: "projectMix")),
-            .openProjectMix
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .week, id: "recovery")),
-            .openWeeklyReview
-        )
-    }
-
-    func testSystemsActionCardsResolveToSystemHealthWorkflows() {
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .systems, id: "reminderResponse")),
-            .openReminderSettings
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .systems, id: "consistency")),
-            .expandDetails(.streakResilience)
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .systems, id: "focusHealth")),
-            .protectFocus
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(for: .card(tab: .systems, id: "planningQuality")),
-            .openWeeklyPlanner
-        )
-    }
-
-    func testTodayPresentationRoutesOpenOverduePressureToRescue() {
-        let presentation = InsightsTabPresentation.buildToday(
-            InsightsTodayState(
-                dailyXP: 24,
-                tasksCompletedToday: 1,
-                totalTasksToday: 3,
-                duePressureMetrics: [
-                    InsightsMetricTile(
-                        id: "overdue",
-                        title: "Overdue",
-                        value: "2",
-                        detail: "2 overdue",
-                        tone: .warning
-                    )
-                ]
-            ),
-            momentumGuidanceText: "Keep momentum"
-        )
-
-        XCTAssertEqual(presentation.availability, .rich)
-        XCTAssertEqual(presentation.diagnosis.primaryCTAIntent, .openBacklogRecovery)
-        XCTAssertTrue(presentation.actions.contains { $0.id == "overdueRescue" })
-        XCTAssertTrue(presentation.actions.contains { $0.id == "overdueNextDecision" })
-        XCTAssertFalse(presentation.actions.contains { $0.id == "nextDecision" })
-    }
-
-    func testTodayPresentationRoutesOpenWorkToRescueEvenWithoutOverdueMetric() {
-        let presentation = InsightsTabPresentation.buildToday(
-            InsightsTodayState(
-                dailyXP: 24,
-                tasksCompletedToday: 1,
-                totalTasksToday: 3,
-                duePressureMetrics: [
-                    InsightsMetricTile(
-                        id: "today",
-                        title: "Due today",
-                        value: "2",
-                        detail: "2 open today",
-                        tone: .warning
-                    )
-                ]
-            ),
-            momentumGuidanceText: "Keep momentum"
-        )
-
-        XCTAssertEqual(presentation.availability, .rich)
-        XCTAssertEqual(presentation.diagnosis.primaryCTAIntent, .openBacklogRecovery)
-        XCTAssertFalse(presentation.actions.contains { $0.id == "overdueRescue" })
-        XCTAssertTrue(presentation.actions.contains { $0.id == "overdueNextDecision" })
-        XCTAssertFalse(presentation.actions.contains { $0.id == "nextDecision" })
-    }
-
-    func testLegacyTriageSheetIsNotMountedInSwiftUIRouting() {
-        let overlayStore = HomeOverlayStore()
-        let overlay = overlayStore.snapshot
-
-        XCTAssertFalse(overlay.focusWhyPresented)
-        XCTAssertFalse(overlay.rescuePresented)
-        XCTAssertEqual(overlay.rescueLauncherState, .idle)
-    }
-
-    func testHeroCTAResolvesEmptyPartialAndRichStates() {
-        XCTAssertEqual(
-            InsightsActionResolver.intent(
-                for: .hero(tab: .today, availability: .empty, primaryCTAIntent: .addTask)
-            ),
-            .addTask
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(
-                for: .hero(tab: .today, availability: .partial, primaryCTAIntent: .openToday)
-            ),
-            .openToday
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(
-                for: .hero(tab: .today, availability: .rich, primaryCTAIntent: .protectFocus)
-            ),
-            .protectFocus
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(
-                for: .hero(tab: .week, availability: .rich, primaryCTAIntent: .openBacklogRecovery)
-            ),
-            .openBacklogRecovery
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(
-                for: .hero(tab: .systems, availability: .partial, primaryCTAIntent: .openReminderSettings)
-            ),
-            .openReminderSettings
-        )
-    }
-
-    func testHeroCTAResolutionUsesExplicitIntentInsteadOfTabTextHeuristics() {
-        XCTAssertEqual(
-            InsightsActionResolver.intent(
-                for: .hero(tab: .today, availability: .rich, primaryCTAIntent: .openReminderSettings)
-            ),
-            .openReminderSettings
-        )
-        XCTAssertEqual(
-            InsightsActionResolver.intent(
-                for: .hero(tab: .systems, availability: .rich, primaryCTAIntent: .protectFocus)
-            ),
-            .protectFocus
-        )
-    }
-}
-
-@MainActor
 final class InsightsViewModelPerformanceLogicTests: XCTestCase {
     func testOnAppearLoadsSelectedTabOnly() {
         let repository = InsightsRepositorySpy()
@@ -12953,8 +13007,19 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
 
         let projectA = UUID()
         let projectB = UUID()
-        let completionDayOne = calendar.date(byAdding: .day, value: 1, to: weekStart) ?? weekStart
-        let completionDayTwo = calendar.date(byAdding: .day, value: 2, to: weekStart) ?? weekStart
+        // Clamped to days that have actually happened. These were hardcoded to
+        // `weekStart + 1` and `+ 2`, which are in the *future* when the suite
+        // runs on a Monday or Tuesday — the week projection excludes completions
+        // dated ahead of now, so the leaderboard stayed empty and the wait timed
+        // out. The test passed Wednesday through Sunday and failed the other two
+        // days, which is why it looked intermittent rather than broken.
+        let daysElapsed = calendar.dateComponents([.day], from: weekStart, to: Date()).day ?? 0
+        let completionDayOne = calendar.date(
+            byAdding: .day, value: min(1, daysElapsed), to: weekStart
+        ) ?? weekStart
+        let completionDayTwo = calendar.date(
+            byAdding: .day, value: min(2, daysElapsed), to: weekStart
+        ) ?? weekStart
         repository.allEvents = [
             XPEventDefinition(delta: 15, reason: "task_completion", idempotencyKey: "week-1", createdAt: completionDayOne, category: .complete),
             XPEventDefinition(delta: 20, reason: "task_completion", idempotencyKey: "week-2", createdAt: completionDayTwo, category: .complete)
@@ -13106,63 +13171,6 @@ final class InsightsViewModelPerformanceLogicTests: XCTestCase {
             }
         }
         XCTFail("Condition not met before timeout", file: file, line: line)
-    }
-}
-
-@MainActor
-final class CelebrationRouterBehaviorTests: XCTestCase {
-    func testXPBurstCooldownSuppressesRapidRepeatBursts() {
-        let router = DefaultCelebrationRouter()
-        let first = router.route(event: makeEvent(kind: .xpBurst, signature: "xp-1", secondsFromBase: 0))
-        let second = router.route(event: makeEvent(kind: .xpBurst, signature: "xp-2", secondsFromBase: 1))
-
-        XCTAssertNotNil(first)
-        XCTAssertNil(second)
-    }
-
-    func testLevelUpIsNotBlockedByXPBurstCooldown() {
-        let router = DefaultCelebrationRouter()
-        _ = router.route(event: makeEvent(kind: .xpBurst, signature: "xp-1", secondsFromBase: 0))
-
-        let levelUp = router.route(event: makeEvent(kind: .levelUp, signature: "level-2", secondsFromBase: 0.1))
-        XCTAssertNotNil(levelUp)
-    }
-
-    func testDuplicateSignatureIsDedupedAcrossKinds() {
-        let router = DefaultCelebrationRouter()
-        let first = router.route(event: makeEvent(kind: .milestone, signature: "same-signature", secondsFromBase: 0))
-        let duplicate = router.route(event: makeEvent(kind: .milestone, signature: "same-signature", secondsFromBase: 12))
-
-        XCTAssertNotNil(first)
-        XCTAssertNil(duplicate)
-    }
-
-    func testAchievementUnlockUsesOwnCooldownWindow() {
-        let router = DefaultCelebrationRouter()
-        let first = router.route(event: makeEvent(kind: .achievementUnlock, signature: "achievement-1", secondsFromBase: 0))
-        let suppressed = router.route(event: makeEvent(kind: .achievementUnlock, signature: "achievement-2", secondsFromBase: 0.4))
-        let allowed = router.route(event: makeEvent(kind: .achievementUnlock, signature: "achievement-3", secondsFromBase: 1.2))
-
-        XCTAssertNotNil(first)
-        XCTAssertNil(suppressed)
-        XCTAssertNotNil(allowed)
-    }
-
-    private func makeEvent(
-        kind: CelebrationKind,
-        signature: String,
-        secondsFromBase: TimeInterval
-    ) -> CelebrationEvent {
-        let milestone = kind == .milestone ? XPCalculationEngine.milestones.first : nil
-        return CelebrationEvent(
-            kind: kind,
-            awardedXP: 8,
-            level: 3,
-            milestone: milestone,
-            achievementKey: kind == .achievementUnlock ? "streak_7" : nil,
-            occurredAt: Date(timeIntervalSince1970: 1_700_000_000 + secondsFromBase),
-            signature: signature
-        )
     }
 }
 
@@ -14638,28 +14646,20 @@ final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
         let createdAt = referenceDate.addingTimeInterval(-120)
         let updatedAt = referenceDate.addingTimeInterval(-60)
 
-        var insertionError: Error?
-        container.viewContext.performAndWait {
-            do {
-                let object = NSEntityDescription.insertNewObject(forEntityName: "WeeklyPlan", into: container.viewContext)
-                object.setValue(planID, forKey: "id")
-                object.setValue(legacyWeekStart, forKey: "weekStartDate")
-                object.setValue(
-                    Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: legacyWeekStart),
-                    forKey: "weekEndDate"
-                )
-                object.setValue("Legacy keyed plan", forKey: "focusStatement")
-                object.setValue([], forKey: "selectedHabitIDs")
-                object.setValue(WeeklyPlanReviewStatus.ready.rawValue, forKey: "reviewStatus")
-                object.setValue(createdAt, forKey: "createdAt")
-                object.setValue(updatedAt, forKey: "updatedAt")
-                try container.viewContext.save()
-            } catch {
-                insertionError = error
-            }
-        }
-        if let insertionError {
-            throw insertionError
+        try container.viewContext.performAndWait {
+            let object = NSEntityDescription.insertNewObject(forEntityName: "WeeklyPlan", into: container.viewContext)
+            object.setValue(planID, forKey: "id")
+            object.setValue(legacyWeekStart, forKey: "weekStartDate")
+            object.setValue(
+                Calendar(identifier: .gregorian).date(byAdding: .day, value: 6, to: legacyWeekStart),
+                forKey: "weekEndDate"
+            )
+            object.setValue("Legacy keyed plan", forKey: "focusStatement")
+            object.setValue([], forKey: "selectedHabitIDs")
+            object.setValue(WeeklyPlanReviewStatus.ready.rawValue, forKey: "reviewStatus")
+            object.setValue(createdAt, forKey: "createdAt")
+            object.setValue(updatedAt, forKey: "updatedAt")
+            try container.viewContext.save()
         }
 
         let fetchedFromLegacyStart = try awaitResult { completion in
@@ -14914,7 +14914,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -14947,7 +14947,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -15016,7 +15016,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -15042,7 +15042,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -15069,7 +15069,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -15096,7 +15096,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -15125,7 +15125,7 @@ final class AddHabitViewModelValidationTests: XCTestCase {
             }
             expectation.fulfill()
         }
-        await fulfillment(of: [expectation], timeout: 1.0)
+        await fulfillment(of: [expectation], timeout: 5.0)
 
         guard let createdHabit = habitRepository.habitsByID.values.first else {
             XCTFail("Expected created habit to be stored")
@@ -15140,8 +15140,16 @@ final class AddHabitViewModelValidationTests: XCTestCase {
         XCTAssertNotNil(LifeBoardHexColor.normalized(habit.colorHex))
     }
 
+    /// Polls until `condition` holds.
+    ///
+    /// The 1-second default made `testApplyPrefillWithExplicitIconRandomizesMissingColor`
+    /// flaky: it passed 5/5 in isolation and failed only under full-suite load,
+    /// where the view model's initial load exceeded the budget. A longer ceiling
+    /// costs a passing test nothing — the loop exits the moment the condition
+    /// holds — and only ever changes the outcome of a run that was going to be a
+    /// false failure.
     private func waitUntil(
-        timeoutNanoseconds: UInt64 = 1_000_000_000,
+        timeoutNanoseconds: UInt64 = 5_000_000_000,
         pollIntervalNanoseconds: UInt64 = 10_000_000,
         condition: @escaping @MainActor () -> Bool
     ) async {
@@ -15275,6 +15283,82 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         XCTAssertEqual(fixture.projectRepository.getTaskCountCallCount, fixture.projectRepository.projectCount)
     }
 
+    func testPrepareAlwaysEditableSupportWaitsForCanonicalDraftHydration() async {
+        let fixture = makeDetailFixture(returnedTitle: "Canonical title")
+        var completedTitle: String?
+
+        fixture.viewModel.prepareAlwaysEditableSupport {
+            completedTitle = fixture.viewModel.draft.title
+        }
+
+        await waitUntil { completedTitle != nil }
+
+        XCTAssertEqual(completedTitle, "Canonical title")
+        XCTAssertEqual(fixture.viewModel.draft.title, "Canonical title")
+        XCTAssertTrue(fixture.viewModel.isEditing)
+    }
+
+    func testFlushDuringRunningAutosaveDoesNotDuplicateWrite() async {
+        let fixture = makeDetailFixture()
+        fixture.habitRepository.deferUpdateCompletion = true
+        fixture.viewModel.draft.title = "One serialized save"
+
+        fixture.viewModel.scheduleAutosave(debounced: false)
+        await waitUntil { fixture.habitRepository.draftMutationUpdateCallCount == 1 }
+
+        fixture.viewModel.flushPendingAutosave()
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 1)
+
+        fixture.habitRepository.completeNextUpdate()
+        await waitUntil { fixture.viewModel.isSaving == false }
+
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 1)
+        XCTAssertEqual(fixture.habitRepository.maximumConcurrentUpdates, 1)
+    }
+
+    func testEditDuringAutosaveQueuesOneLatestSerializedWrite() async {
+        let fixture = makeDetailFixture()
+        fixture.habitRepository.deferUpdateCompletion = true
+        fixture.viewModel.draft.title = "First revision"
+        fixture.viewModel.scheduleAutosave(debounced: false)
+        await waitUntil { fixture.habitRepository.draftMutationUpdateCallCount == 1 }
+
+        fixture.viewModel.draft.title = "Latest revision"
+        fixture.viewModel.scheduleAutosave(debounced: false)
+        fixture.habitRepository.completeNextUpdate()
+
+        await waitUntil { fixture.habitRepository.draftMutationUpdateCallCount == 2 }
+        fixture.habitRepository.completeNextUpdate()
+        await waitUntil { fixture.viewModel.isSaving == false }
+
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 2)
+        XCTAssertEqual(fixture.habitRepository.maximumConcurrentUpdates, 1)
+        XCTAssertEqual(fixture.viewModel.autosaveState, .saved)
+    }
+
+    func testFailedAutosaveStaysRetryableUntilSuccess() async {
+        let fixture = makeDetailFixture()
+        fixture.habitRepository.updateError = NSError(
+            domain: "HabitDetailAutosaveTests",
+            code: 503,
+            userInfo: [NSLocalizedDescriptionKey: "Save unavailable"]
+        )
+        fixture.viewModel.draft.title = "Retry this draft"
+
+        fixture.viewModel.scheduleAutosave(debounced: false)
+        await waitUntil {
+            if case .failed = fixture.viewModel.autosaveState { return true }
+            return false
+        }
+
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 1)
+        fixture.habitRepository.updateError = nil
+        fixture.viewModel.retryAutosave()
+        await waitUntil { fixture.viewModel.autosaveState == .saved }
+
+        XCTAssertEqual(fixture.habitRepository.draftMutationUpdateCallCount, 2)
+    }
+
     func testBeginEditingDefersAndCachesEditorSupportLoading() async {
         let fixture = makeDetailFixture()
 
@@ -15352,6 +15436,29 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         XCTAssertNil(fixture.viewModel.mutationFeedback)
     }
 
+    func testMutateDayReportsFailureWithoutSuccessFeedback() async {
+        let fixture = makeDetailFixture()
+        fixture.occurrenceRepository.occurrences = [makePendingOccurrence(habitID: fixture.row.habitID, on: Date())]
+        fixture.occurrenceRepository.resolveError = NSError(
+            domain: "HabitDetailMutationTests",
+            code: 500,
+            userInfo: [NSLocalizedDescriptionKey: "Could not update day"]
+        )
+        fixture.viewModel.loadIfNeeded()
+        await waitUntil { fixture.viewModel.isLoading == false }
+
+        let todayCell = fixture.viewModel.detailCalendarWeeks
+            .flatMap(\.cells)
+            .first(where: { Calendar.current.isDateInToday($0.date) })!
+        var didSucceed: Bool?
+        fixture.viewModel.mutateDay(todayCell) { success in didSucceed = success }
+        await waitUntil { didSucceed != nil }
+
+        XCTAssertEqual(didSucceed, false)
+        XCTAssertNil(fixture.viewModel.mutationFeedback)
+        XCTAssertEqual(fixture.viewModel.errorMessage, "Could not update day")
+    }
+
     func testSaveChangesRefreshesReadOnlyDataWithoutReloadingEditorSupport() async {
         let fixture = makeDetailFixture()
 
@@ -15408,6 +15515,7 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         let lifeAreaRepository: CountingLifeAreaRepository
         let projectRepository: CountingProjectRepository
         let occurrenceRepository: InMemoryOccurrenceRepository
+        let habitRepository: InMemoryHabitRepository
     }
 
     private final class DetailReadRepositorySpy: HabitRuntimeReadRepositoryProtocol, @unchecked Sendable {
@@ -15736,7 +15844,8 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
             readRepository: readRepository,
             lifeAreaRepository: lifeAreaRepository,
             projectRepository: projectRepository,
-            occurrenceRepository: occurrenceRepository
+            occurrenceRepository: occurrenceRepository,
+            habitRepository: habitRepository
         )
     }
 
@@ -15763,8 +15872,16 @@ final class HabitDetailViewModelHydrationTests: XCTestCase {
         )
     }
 
+    /// Polls until `condition` holds.
+    ///
+    /// The 1-second default made `testApplyPrefillWithExplicitIconRandomizesMissingColor`
+    /// flaky: it passed 5/5 in isolation and failed only under full-suite load,
+    /// where the view model's initial load exceeded the budget. A longer ceiling
+    /// costs a passing test nothing — the loop exits the moment the condition
+    /// holds — and only ever changes the outcome of a run that was going to be a
+    /// false failure.
     private func waitUntil(
-        timeoutNanoseconds: UInt64 = 1_000_000_000,
+        timeoutNanoseconds: UInt64 = 5_000_000_000,
         pollIntervalNanoseconds: UInt64 = 10_000_000,
         condition: @escaping @MainActor () -> Bool
     ) async {
@@ -16301,9 +16418,16 @@ private func makeHabitSummary(
 private final class InMemoryHabitRepository: HabitRepositoryProtocol, @unchecked Sendable {
     private(set) var habitsByID: [UUID: HabitDefinitionRecord]
     private(set) var createCallCount = 0
+    private(set) var updateCallCount = 0
+    private(set) var draftMutationUpdateCallCount = 0
+    private(set) var maximumConcurrentUpdates = 0
     var deferCreateCompletion = false
+    var deferUpdateCompletion = false
     var createError: Error?
+    var updateError: Error?
     private var pendingCreateCompletions: [(Result<HabitDefinitionRecord, Error>) -> Void] = []
+    private var pendingUpdateCompletions: [(@Sendable () -> Void)] = []
+    private var activeUpdateCount = 0
 
     init(habits: [HabitDefinitionRecord] = []) {
         self.habitsByID = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0) })
@@ -16332,8 +16456,45 @@ private final class InMemoryHabitRepository: HabitRepositoryProtocol, @unchecked
     }
 
     func update(_ habit: HabitDefinitionRecord, completion: @escaping @Sendable (Result<HabitDefinitionRecord, Error>) -> Void) {
-        habitsByID[habit.id] = habit
-        completion(.success(habit))
+        let storedHabit = habitsByID[habit.id]
+        let isDraftMutation = storedHabit?.title != habit.title ||
+            storedHabit?.lifeAreaID != habit.lifeAreaID ||
+            storedHabit?.projectID != habit.projectID ||
+            storedHabit?.kindRaw != habit.kindRaw ||
+            storedHabit?.trackingModeRaw != habit.trackingModeRaw ||
+            storedHabit?.iconSymbolName != habit.iconSymbolName ||
+            storedHabit?.iconCategoryKey != habit.iconCategoryKey ||
+            storedHabit?.colorHex != habit.colorHex ||
+            storedHabit?.targetConfigData != habit.targetConfigData ||
+            storedHabit?.metricConfigData != habit.metricConfigData ||
+            storedHabit?.notes != habit.notes
+        updateCallCount += 1
+        if isDraftMutation {
+            draftMutationUpdateCallCount += 1
+        }
+        activeUpdateCount += 1
+        maximumConcurrentUpdates = max(maximumConcurrentUpdates, activeUpdateCount)
+        let result: Result<HabitDefinitionRecord, Error>
+        if let updateError {
+            result = .failure(updateError)
+        } else {
+            habitsByID[habit.id] = habit
+            result = .success(habit)
+        }
+        let finish: @Sendable () -> Void = { [weak self] in
+            self?.activeUpdateCount -= 1
+            completion(result)
+        }
+        if deferUpdateCompletion && isDraftMutation {
+            pendingUpdateCompletions.append(finish)
+        } else {
+            finish()
+        }
+    }
+
+    func completeNextUpdate() {
+        guard pendingUpdateCompletions.isEmpty == false else { return }
+        pendingUpdateCompletions.removeFirst()()
     }
 
     func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
@@ -16491,1007 +16652,150 @@ private final class HabitRuntimeReadRepositorySpy: HabitRuntimeReadRepositoryPro
 import XCTest
 @testable import LifeBoard
 
-@MainActor
-final class DailyReflectionUseCasesTests: XCTestCase {
-    func testResolveTargetReturnsSameDayWhenYesterdayIsComplete() throws {
-        let defaults = UserDefaults(suiteName: "DailyReflectionUseCasesTests.sameDay")!
-        defaults.removePersistentDomain(forName: "DailyReflectionUseCasesTests.sameDay")
-        let store = UserDefaultsDailyReflectionStore(defaults: defaults)
-        let calendar = Calendar.autoupdatingCurrent
-        let today = calendar.startOfDay(for: Date())
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
-        try store.markCompleted(on: yesterday, completedAt: yesterday, payload: nil)
-
-        let useCase = ResolveDailyReflectionTargetUseCase(
-            reflectionStore: store,
-            nowProvider: { today }
-        )
-
-        let target = useCase.execute()
-
-        XCTAssertEqual(target?.mode, .sameDay)
-        XCTAssertEqual(target?.reflectionDate, today)
-        XCTAssertEqual(target?.planningDate, calendar.date(byAdding: .day, value: 1, to: today))
-    }
-
-    func testResolveTargetReturnsCatchUpWhenYesterdayIsIncomplete() {
-        let defaults = UserDefaults(suiteName: "DailyReflectionUseCasesTests.catchUp")!
-        defaults.removePersistentDomain(forName: "DailyReflectionUseCasesTests.catchUp")
-        let store = UserDefaultsDailyReflectionStore(defaults: defaults)
-        let calendar = Calendar.autoupdatingCurrent
-        let today = calendar.startOfDay(for: Date())
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: today)!
-
-        let useCase = ResolveDailyReflectionTargetUseCase(
-            reflectionStore: store,
-            nowProvider: { today }
-        )
-
-        let target = useCase.execute()
-
-        XCTAssertEqual(target?.mode, .catchUpYesterday)
-        XCTAssertEqual(target?.reflectionDate, yesterday)
-        XCTAssertEqual(target?.planningDate, today)
-    }
-
-    func testStoreKeepsLegacyCompletionKeysReadable() {
-        let suiteName = "DailyReflectionUseCasesTests.legacy"
-        let defaults = UserDefaults(suiteName: suiteName)!
+final class LegacyDailyReflectionImporterTests: XCTestCase {
+    func testImportsOnlyAuthoredTextWithProvenanceAndIsIdempotent() throws {
+        let suiteName = "LegacyDailyReflectionImporterTests.import.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.removePersistentDomain(forName: suiteName)
-        defaults.set(["20260418"], forKey: UserDefaultsDailyReflectionStore.legacyCompletionDefaultsKey)
+        defer { defaults.removePersistentDomain(forName: suiteName) }
 
-        let store = UserDefaultsDailyReflectionStore(defaults: defaults)
-
-        XCTAssertTrue(store.completedDateStamps().contains("20260418"))
-    }
-
-    func testConcurrentPayloadAndPlanDraftWritesPreserveBothUpdates() throws {
-        let suiteName = "DailyReflectionUseCasesTests.concurrent.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-        let store = UserDefaultsDailyReflectionStore(defaults: defaults)
-        let calendar = Calendar.autoupdatingCurrent
-        let reflectionDate = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_724_457_600))
-        let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
-        let payload = ReflectionPayload(
-            reflectionDate: reflectionDate,
-            planningDate: planningDate,
-            mode: .sameDay,
-            mood: nil,
-            energy: nil,
-            frictionTags: [],
-            note: "Concurrent reflection"
-        )
-        let taskID = UUID()
-        let draft = DailyPlanDraft(
-            date: planningDate,
-            topTasks: [
-                DailyPlanTaskOption(
-                    id: taskID,
-                    title: "Concurrent plan",
-                    priority: .high
-                )
+        let fixture: [String: Any] = [
+            "completionDateKeys": ["20260801"],
+            "payloadsByDateKey": [
+                "20260801": [
+                    "reflectionDate": "2026-08-01T00:00:00Z",
+                    "note": "  I protected the quiet hour.  ",
+                    "createdAt": "2026-08-01T18:00:00Z",
+                    "updatedAt": "2026-08-01T18:05:00Z"
+                ],
+                "20260802": [
+                    "reflectionDate": "2026-08-02T00:00:00Z",
+                    "createdAt": "2026-08-02T18:00:00Z",
+                    "updatedAt": "2026-08-02T18:05:00Z"
+                ]
             ],
-            source: .manual,
-            updatedAt: planningDate
-        )
-        defer {
-            defaults.removePersistentDomain(forName: suiteName)
-        }
-
-        let startGate = DispatchSemaphore(value: 0)
-        let done = DispatchGroup()
-        done.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            startGate.wait()
-            _ = try? store.saveReflectionPayload(payload)
-            done.leave()
-        }
-        done.enter()
-        DispatchQueue.global(qos: .userInitiated).async {
-            startGate.wait()
-            _ = try? store.savePlanDraft(draft, replaceExisting: true)
-            done.leave()
-        }
-        startGate.signal()
-        startGate.signal()
-        XCTAssertEqual(done.wait(timeout: .now() + 2), .success)
-
-        XCTAssertEqual(store.fetchReflectionPayload(on: reflectionDate)?.note, "Concurrent reflection")
-        XCTAssertEqual(store.fetchPlanDraft(on: planningDate)?.topTasks.map(\.id), [taskID])
-    }
-
-    func testPlanSuggestionPrefersCarryoverAndAvoidsDuplicates() {
-        let calendar = Calendar.autoupdatingCurrent
-        let planningDate = calendar.startOfDay(for: Date())
-        let carryover = TaskDefinition(title: "Carryover", priority: .max, dueDate: planningDate)
-        let due = TaskDefinition(title: "Due today", priority: .high, dueDate: planningDate)
-        let stabilizer = TaskDefinition(title: "Stabilizer", priority: .none, dueDate: planningDate)
-
-        let useCase = BuildNextDayPlanSuggestionUseCase(calendarEventsProvider: nil)
-        let expectation = expectation(description: "plan suggestion")
-
-        useCase.execute(
-            planningDate: planningDate,
-            carryoverTasks: [carryover],
-            planningDateTasks: [carryover, due, stabilizer],
-            atRiskHabit: nil
-        ) { result in
-            let suggestion = try? result.get()
-            XCTAssertEqual(suggestion?.topTasks.first?.title, "Carryover")
-            XCTAssertEqual(Set(suggestion?.topTasks.map(\.id) ?? []).count, suggestion?.topTasks.count)
-            expectation.fulfill()
-        }
-
-        wait(for: [expectation], timeout: 1.0)
-    }
-
-    func testLoadCoordinatorBuildsCompactRecapContent() async throws {
-        let calendar = Calendar.autoupdatingCurrent
-        let reflectionDate = calendar.startOfDay(for: Date())
-        let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
-        let tasks = [
-            TaskDefinition(
-                title: "Beta polish",
-                priority: .high,
-                type: .morning,
-                dueDate: reflectionDate,
-                isComplete: true,
-                dateCompleted: reflectionDate.addingTimeInterval(60)
-            ),
-            TaskDefinition(
-                title: "Alpha closeout",
-                priority: .high,
-                type: .morning,
-                dueDate: reflectionDate,
-                isComplete: true,
-                dateCompleted: reflectionDate.addingTimeInterval(120)
-            ),
-            TaskDefinition(
-                title: "Top priority fix",
-                priority: .max,
-                type: .morning,
-                dueDate: reflectionDate,
-                isComplete: true,
-                dateCompleted: reflectionDate.addingTimeInterval(180)
-            ),
-            TaskDefinition(
-                title: "Low priority cleanup",
-                priority: .low,
-                type: .morning,
-                dueDate: reflectionDate,
-                isComplete: true,
-                dateCompleted: reflectionDate.addingTimeInterval(240)
-            ),
-            TaskDefinition(
-                title: "Carryover open",
-                priority: .high,
-                type: .morning,
-                dueDate: reflectionDate,
-                isComplete: false
-            )
+            // Deliberately malformed advisory state: the importer must never
+            // decode or promote a plan draft into a task mutation or receipt.
+            "planDraftsByDateKey": ["20260802": ["topTasks": ["not-canonical"]]]
         ]
+        defaults.set(
+            try JSONSerialization.data(withJSONObject: fixture, options: [.sortedKeys]),
+            forKey: LegacyDailyReflectionImporter.legacyStorageKey
+        )
+        let repository = RecordingLegacyReflectionRepository()
+        let importer = LegacyDailyReflectionImporter(defaults: defaults, repository: repository)
 
-        let habits = [
-            HabitOccurrenceSummary(
-                habitID: UUID(),
-                occurrenceID: UUID(),
-                title: "Stretch",
-                kind: .positive,
-                trackingMode: .dailyCheckIn,
-                lifeAreaID: UUID(),
-                lifeAreaName: "Health",
-                colorHex: "#4A86E8",
-                state: .missed,
-                currentStreak: 2,
-                riskState: .broken,
-                last14Days: makeReflectionMarks(endingOn: reflectionDate, lastSevenStates: [.failure, .success, .success, .success, .failure, .success, .failure])
-            ),
-            HabitOccurrenceSummary(
-                habitID: UUID(),
-                occurrenceID: UUID(),
-                title: "Walk",
-                kind: .positive,
-                trackingMode: .dailyCheckIn,
-                lifeAreaID: UUID(),
-                lifeAreaName: "Health",
-                colorHex: "#4E9A2F",
-                state: .skipped,
-                currentStreak: 5,
-                riskState: .atRisk,
-                last14Days: makeReflectionMarks(endingOn: reflectionDate, lastSevenStates: [.success, .success, .skipped, .success, .success, .success, .skipped])
-            ),
-            HabitOccurrenceSummary(
-                habitID: UUID(),
-                occurrenceID: UUID(),
-                title: "Read",
-                kind: .positive,
-                trackingMode: .dailyCheckIn,
-                lifeAreaID: UUID(),
-                lifeAreaName: "Learning",
-                colorHex: "#8A46B5",
-                state: .completed,
-                currentStreak: 7,
-                riskState: .stable,
-                last14Days: makeReflectionMarks(endingOn: reflectionDate, lastSevenStates: [.success, .success, .success, .success, .success, .success, .success])
-            ),
-            HabitOccurrenceSummary(
-                habitID: UUID(),
-                occurrenceID: UUID(),
-                title: "Water",
-                kind: .positive,
-                trackingMode: .dailyCheckIn,
-                lifeAreaID: UUID(),
-                lifeAreaName: "Health",
-                colorHex: "#5AA7A4",
-                state: .completed,
-                currentStreak: 9,
-                riskState: .stable,
-                last14Days: makeReflectionMarks(endingOn: reflectionDate, lastSevenStates: [.success, .success, .success, .success, .success, .success, .success])
-            ),
-            HabitOccurrenceSummary(
-                habitID: UUID(),
-                occurrenceID: UUID(),
-                title: "Journal",
-                kind: .positive,
-                trackingMode: .dailyCheckIn,
-                lifeAreaID: UUID(),
-                lifeAreaName: "Mind",
-                colorHex: "#F5B23C",
-                state: .completed,
-                currentStreak: 3,
-                riskState: .stable,
-                last14Days: makeReflectionMarks(endingOn: reflectionDate, lastSevenStates: [.success, .success, .success, .success, .success, .success, .success])
+        let first = expectation(description: "first migration")
+        importer.migrate { result in
+            XCTAssertEqual(
+                try? result.get(),
+                .init(discoveredTextCount: 1, importedTextCount: 1, alreadyCompleted: false)
             )
-        ]
+            first.fulfill()
+        }
+        wait(for: [first], timeout: 1)
 
-        let coordinator = V3TestHarness.makeCoordinator(
-            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: tasks),
-            taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(tasks: tasks),
-            projectRepository: MockProjectRepository(projects: [Project.createInbox()]),
-            habitRuntimeReadRepository: CapturingHabitRuntimeReadRepository(agendaSummaries: habits)
-        )
+        let note = try XCTUnwrap(repository.notes.first)
+        XCTAssertEqual(repository.notes.count, 1)
+        XCTAssertEqual(note.kind, .legacyDailyReflection)
+        XCTAssertEqual(note.noteText, "I protected the quiet hour.")
+        XCTAssertTrue(note.prompt?.hasPrefix("Imported from Daily Reflection · ") == true)
+        XCTAssertTrue(defaults.bool(forKey: LegacyDailyReflectionImporter.migrationMarkerKey))
 
-        let bundle = try await coordinator.dailyReflectionLoadCoordinator.loadCore(
-            target: DailyReflectionTarget(
-                mode: .sameDay,
-                reflectionDate: reflectionDate,
-                planningDate: planningDate
+        let second = expectation(description: "idempotent replay")
+        importer.migrate { result in
+            XCTAssertEqual(
+                try? result.get(),
+                .init(discoveredTextCount: 0, importedTextCount: 0, alreadyCompleted: true)
             )
-        )
-
-        XCTAssertEqual(bundle.coreSnapshot.closedTasks.map(\.title), [
-            "Top priority fix",
-            "Alpha closeout",
-            "Beta polish"
-        ])
-        XCTAssertEqual(bundle.coreSnapshot.habitGrid.map(\.title), [
-            "Stretch",
-            "Walk",
-            "Water",
-            "Read"
-        ])
-        XCTAssertEqual(bundle.coreSnapshot.habitGrid.first?.colorFamily, .blue)
-        XCTAssertEqual(bundle.coreSnapshot.habitGrid.first?.last7Days.count, 7)
-        XCTAssertEqual(
-            bundle.coreSnapshot.narrativeSummary.planCardLine,
-            "You closed 4 tasks, kept 3 habit streaks alive, and missed Stretch and Walk."
-        )
-        XCTAssertEqual(
-            bundle.coreSnapshot.narrativeSummary.homeCardLine,
-            "4 tasks closed, 3 habits kept, missed Stretch and Walk."
-        )
+            second.fulfill()
+        }
+        wait(for: [second], timeout: 1)
+        XCTAssertEqual(repository.notes.count, 1)
     }
 
-    func testNarrativeSummaryHandlesNoMissesAndOverflow() {
-        let calm = ReflectionNarrativeSummary.make(
-            completedCount: 1,
-            keptCount: 2,
-            missedTitles: []
-        )
-        XCTAssertEqual(
-            calm.planCardLine,
-            "You closed 1 task and kept 2 habit streaks alive, so tomorrow can stay narrow."
-        )
-        XCTAssertEqual(
-            calm.homeCardLine,
-            "1 task closed, 2 habits kept. Keep tomorrow tight."
-        )
-
-        let overflow = ReflectionNarrativeSummary.make(
-            completedCount: 3,
-            keptCount: 1,
-            missedTitles: ["Water", "Walk", "Read"]
-        )
-        XCTAssertEqual(
-            overflow.planCardLine,
-            "You closed 3 tasks, kept 1 habit streak alive, and missed Water, Walk, and 1 more."
-        )
-    }
-
-    func testCalendarContextSkipsInvalidPreHardStopWindows() async {
-        let calendar = Calendar.autoupdatingCurrent
-        let planningDate = calendar.startOfDay(for: Date())
-        await ReflectionCalendarContextCacheStore.shared.clearAll()
-        let provider = DelayedCalendarEventsProviderStub(
-            events: [
-                LifeBoardCalendarEventSnapshot(
-                    id: "first",
-                    calendarID: "calendar",
-                    calendarTitle: "Primary",
-                    title: "First block",
-                    startDate: planningDate,
-                    endDate: planningDate.addingTimeInterval(30 * 60),
-                    isAllDay: false
-                ),
-                LifeBoardCalendarEventSnapshot(
-                    id: "second",
-                    calendarID: "calendar",
-                    calendarTitle: "Primary",
-                    title: "Later block",
-                    startDate: planningDate.addingTimeInterval(4 * 60 * 60),
-                    endDate: planningDate.addingTimeInterval(5 * 60 * 60),
-                    isAllDay: false
-                )
-            ]
-        )
-        let useCase = BuildNextDayPlanSuggestionUseCase(calendarEventsProvider: provider, calendar: calendar)
-
-        let result = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
-
-        XCTAssertEqual(result.status, .loaded)
-        XCTAssertNotNil(result.context?.bestFocusWindow)
-        XCTAssertGreaterThanOrEqual(result.context?.bestFocusWindow?.start ?? .distantPast, planningDate.addingTimeInterval(30 * 60))
-    }
-
-    func testCalendarContextBuildsOffMainWhenProviderCompletesOnMain() async {
-        let calendar = Calendar.autoupdatingCurrent
-        let planningDate = calendar.startOfDay(for: Date())
-        await ReflectionCalendarContextCacheStore.shared.clearAll()
-        let provider = MainQueueCalendarEventsProviderStub(
-            events: [
-                LifeBoardCalendarEventSnapshot(
-                    id: "main_queue_event",
-                    calendarID: "calendar",
-                    calendarTitle: "Primary",
-                    title: "Main queue callback",
-                    startDate: planningDate.addingTimeInterval(9 * 60 * 60),
-                    endDate: planningDate.addingTimeInterval(10 * 60 * 60),
-                    isAllDay: false
-                )
-            ]
-        )
-        let useCase = BuildNextDayPlanSuggestionUseCase(calendarEventsProvider: provider, calendar: calendar)
-
-        let result = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
-
-        XCTAssertEqual(result.status, .loaded)
-        XCTAssertNotNil(result.context)
-        XCTAssertEqual(result.context?.eventCount, 1)
-    }
-
-    func testCalendarContextTimeoutReturnsDegradedPlanState() async {
-        let calendar = Calendar.autoupdatingCurrent
-        let planningDate = calendar.startOfDay(for: Date())
-        await ReflectionCalendarContextCacheStore.shared.clearAll()
-        let provider = DelayedCalendarEventsProviderStub(
-            events: [],
-            delayNanoseconds: 1_000_000_000
-        )
-        let useCase = BuildNextDayPlanSuggestionUseCase(calendarEventsProvider: provider, calendar: calendar)
-
-        let result = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 0.05)
-
-        XCTAssertNil(result.context)
-        XCTAssertEqual(
-            result.status,
-            .degraded("Calendar context timed out. Suggestions use tasks and habits only.")
-        )
-    }
-
-    func testCalendarContextUsesSelectedCalendarIDsFromWorkspacePreferences() async {
-        let calendar = Calendar.autoupdatingCurrent
-        let planningDate = calendar.startOfDay(for: Date())
-        await ReflectionCalendarContextCacheStore.shared.clearAll()
-        let provider = DelayedCalendarEventsProviderStub(events: [])
-        let suiteName = "DailyReflectionUseCasesTests.workspace.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
+    func testFailedCanonicalWriteLeavesMigrationRetryable() throws {
+        let suiteName = "LegacyDailyReflectionImporterTests.retry.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suiteName))
         defaults.removePersistentDomain(forName: suiteName)
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        workspaceStore.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work", "personal"]))
-
-        let useCase = BuildNextDayPlanSuggestionUseCase(
-            calendarEventsProvider: provider,
-            calendar: calendar,
-            workspacePreferencesStore: workspaceStore
-        )
-
-        _ = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
-
-        XCTAssertEqual(provider.lastRequestedCalendarIDs, Set(["work", "personal"]))
-    }
-
-    func testCalendarContextSkipsFetchWhenNoCalendarsAreSelected() async {
-        let calendar = Calendar.autoupdatingCurrent
-        let planningDate = calendar.startOfDay(for: Date())
-        await ReflectionCalendarContextCacheStore.shared.clearAll()
-        let provider = DelayedCalendarEventsProviderStub(
-            events: [
-                LifeBoardCalendarEventSnapshot(
-                    id: "should-not-fetch",
-                    calendarID: "calendar",
-                    calendarTitle: "Primary",
-                    title: "Hidden",
-                    startDate: planningDate.addingTimeInterval(9 * 60 * 60),
-                    endDate: planningDate.addingTimeInterval(10 * 60 * 60),
-                    isAllDay: false
-                )
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let fixture: [String: Any] = [
+            "payloadsByDateKey": [
+                "20260801": [
+                    "reflectionDate": "2026-08-01T00:00:00Z",
+                    "note": "Keep this safe",
+                    "createdAt": "2026-08-01T18:00:00Z",
+                    "updatedAt": "2026-08-01T18:05:00Z"
+                ]
             ]
-        )
-        let suiteName = "DailyReflectionUseCasesTests.workspace.empty.\(UUID().uuidString)"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        workspaceStore.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: []))
-
-        let useCase = BuildNextDayPlanSuggestionUseCase(
-            calendarEventsProvider: provider,
-            calendar: calendar,
-            workspacePreferencesStore: workspaceStore
-        )
-
-        let result = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
-        XCTAssertNil(result.context)
-        XCTAssertEqual(
-            result.status,
-            .degraded("Calendar context unavailable. Suggestions use tasks and habits only.")
-        )
-        XCTAssertEqual(provider.fetchEventsCallCount, 0)
-
-        let lookup = await useCase.loadCachedOrStaleCalendarContext(for: planningDate)
-        if case .miss = lookup {
-            // expected
-        } else {
-            XCTFail("Expected cache miss when no calendars are selected")
-        }
-    }
-
-    func testCachedCalendarContextFreshHitReturnsWithoutProviderFetch() async {
-        let calendar = Calendar.autoupdatingCurrent
-        let planningDate = calendar.startOfDay(for: Date())
-        await ReflectionCalendarContextCacheStore.shared.clearAll()
-        let provider = DelayedCalendarEventsProviderStub(
-            events: [
-                LifeBoardCalendarEventSnapshot(
-                    id: "cache-fresh",
-                    calendarID: "calendar",
-                    calendarTitle: "Primary",
-                    title: "Focus",
-                    startDate: planningDate.addingTimeInterval(9 * 60 * 60),
-                    endDate: planningDate.addingTimeInterval(10 * 60 * 60),
-                    isAllDay: false
-                )
-            ]
-        )
-        let now = Date()
-        let useCase = BuildNextDayPlanSuggestionUseCase(
-            calendarEventsProvider: provider,
-            calendar: calendar,
-            nowProvider: { now }
-        )
-
-        _ = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
-        XCTAssertEqual(provider.fetchEventsCallCount, 1)
-
-        let lookup = await useCase.loadCachedOrStaleCalendarContext(for: planningDate)
-        switch lookup {
-        case .fresh(let context):
-            XCTAssertEqual(context.eventCount, 1)
-        default:
-            XCTFail("Expected fresh cached context")
-        }
-        XCTAssertEqual(provider.fetchEventsCallCount, 1)
-    }
-
-    func testCachedCalendarContextStaleHitIsReported() async {
-        let calendar = Calendar.autoupdatingCurrent
-        let planningDate = calendar.startOfDay(for: Date())
-        await ReflectionCalendarContextCacheStore.shared.clearAll()
-        let provider = DelayedCalendarEventsProviderStub(
-            events: [
-                LifeBoardCalendarEventSnapshot(
-                    id: "cache-stale",
-                    calendarID: "calendar",
-                    calendarTitle: "Primary",
-                    title: "Standup",
-                    startDate: planningDate.addingTimeInterval(8 * 60 * 60),
-                    endDate: planningDate.addingTimeInterval(9 * 60 * 60),
-                    isAllDay: false
-                )
-            ]
-        )
-        let now = LockedTestState(Date())
-        let useCase = BuildNextDayPlanSuggestionUseCase(
-            calendarEventsProvider: provider,
-            calendar: calendar,
-            nowProvider: { now.read() }
-        )
-
-        _ = await useCase.loadCalendarContext(for: planningDate, timeoutSeconds: 1.0)
-        XCTAssertEqual(provider.fetchEventsCallCount, 1)
-
-        now.write(now.read().addingTimeInterval(31 * 60))
-        let lookup = await useCase.loadCachedOrStaleCalendarContext(for: planningDate)
-        switch lookup {
-        case .stale(let context):
-            XCTAssertEqual(context.eventCount, 1)
-        default:
-            XCTFail("Expected stale cached context")
-        }
-        XCTAssertEqual(provider.fetchEventsCallCount, 1)
-    }
-
-    func testSaveUseCasePreservesManualDraftByDefault() throws {
-        let suiteName = "DailyReflectionUseCasesTests.save"
-        let defaults = UserDefaults(suiteName: suiteName)!
-        defaults.removePersistentDomain(forName: suiteName)
-        let store = UserDefaultsDailyReflectionStore(defaults: defaults)
-        let gamificationRepository = InMemoryGamificationRepositoryStub()
-        let engine = GamificationEngine(repository: gamificationRepository)
-        let markUseCase = MarkDailyReflectionCompleteUseCase(engine: engine, reflectionStore: store)
-        let saveUseCase = SaveDailyReflectionAndPlanUseCase(
-            reflectionStore: store,
-            markDailyReflection: markUseCase
-        )
-
-        let calendar = Calendar.autoupdatingCurrent
-        let reflectionDate = calendar.startOfDay(for: Date())
-        let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
-        let manualDraft = DailyPlanDraft(
-            date: planningDate,
-            topTasks: [DailyPlanTaskOption(id: UUID(), title: "Manual plan", priority: .high)],
-            source: .manual
-        )
-        try store.savePlanDraft(manualDraft, replaceExisting: true)
-
-        let snapshot = DailyReflectionSnapshot(
-            reflectionDate: reflectionDate,
-            planningDate: planningDate,
-            mode: .sameDay,
-            pulseNote: "Pulse",
-            biggestWins: [],
-            tasksSummary: TaskReflectionSummary(completedCount: 1, scheduledCount: 2, carryOverCount: 0, overdueOpenCount: 0),
-            habitsSummary: nil,
-            calendarSummary: nil,
-            suggestedPlan: DailyPlanSuggestion(topTasks: [DailyPlanTaskOption(id: UUID(), title: "Suggested", priority: .high)])
-        )
-        let editablePlan = EditableDailyPlan(planningDate: planningDate, suggestion: snapshot.suggestedPlan)
-        let expectation = expectation(description: "save reflection")
-
-        saveUseCase.execute(
-            snapshot: snapshot,
-            input: DailyReflectionInput(mood: .good),
-            plan: editablePlan
-        ) { result in
-            let saveResult = try? result.get()
-            XCTAssertEqual(saveResult?.preservedExistingManualDraft, true)
-            XCTAssertEqual(store.fetchPlanDraft(on: planningDate)?.source, .manual)
-            XCTAssertTrue(store.isCompleted(on: reflectionDate))
-            XCTAssertEqual(store.fetchReflectionPayload(on: reflectionDate)?.mood, .good)
-            expectation.fulfill()
-        }
-
-        wait(for: [expectation], timeout: 1.0)
-    }
-
-    @MainActor
-    func testDailyReflectPlanViewModelPublishesCoreBeforeOptionalContextFinishes() async {
-        await ReflectionCalendarContextCacheStore.shared.clearAll()
-        let calendar = Calendar.autoupdatingCurrent
-        let reflectionDate = calendar.startOfDay(for: Date())
-        let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
-        let tasks = [
-            TaskDefinition(
-                title: "Carryover",
-                priority: .max,
-                type: .morning,
-                dueDate: reflectionDate,
-                isComplete: false
-            ),
-            TaskDefinition(
-                title: "Finished",
-                priority: .high,
-                type: .morning,
-                dueDate: reflectionDate,
-                isComplete: true,
-                dateCompleted: reflectionDate.addingTimeInterval(60 * 60)
-            ),
-            TaskDefinition(
-                title: "Tomorrow due",
-                priority: .high,
-                type: .morning,
-                dueDate: planningDate,
-                isComplete: false
-            )
         ]
-        let projectRepository = MockProjectRepository(projects: [Project.createInbox()])
-        let taskRepository = InMemoryTaskDefinitionRepositoryStub(seed: tasks)
-        let readModel = InMemoryTaskReadModelRepositoryStub(tasks: tasks)
-        let calendarProvider = DelayedCalendarEventsProviderStub(
-            events: [],
-            delayNanoseconds: 5_000_000_000
+        defaults.set(
+            try JSONSerialization.data(withJSONObject: fixture),
+            forKey: LegacyDailyReflectionImporter.legacyStorageKey
         )
-        let coordinator = V3TestHarness.makeCoordinator(
-            taskDefinitionRepository: taskRepository,
-            taskReadModelRepository: readModel,
-            projectRepository: projectRepository,
-            habitRuntimeReadRepository: CapturingHabitRuntimeReadRepository(),
-            calendarEventsProvider: calendarProvider
-        )
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: reflectionDate) ?? reflectionDate
-        XCTAssertNoThrow(
-            try coordinator.dailyReflectionStore.markCompleted(
-                on: yesterday,
-                completedAt: reflectionDate,
-                payload: nil as ReflectionPayload?
-            )
-        )
-        let viewModel = DailyReflectPlanViewModel(useCaseCoordinator: coordinator, calendar: calendar)
+        let repository = RecordingLegacyReflectionRepository(error: LegacyReflectionImportTestError.writeFailed)
+        let importer = LegacyDailyReflectionImporter(defaults: defaults, repository: repository)
 
-        let baselineLoaded = await waitForCondition(timeout: 1.0) {
-            viewModel.loadState == DailyReflectionLoadState.fullyLoaded
-                && viewModel.coreSnapshot != nil
-                && viewModel.editablePlan != nil
-                && viewModel.snapshot != nil
-                && viewModel.optionalContext?.status == .loading
+        let failed = expectation(description: "migration failure")
+        importer.migrate { result in
+            if case .failure = result {} else { XCTFail("Expected canonical write failure") }
+            failed.fulfill()
         }
-        XCTAssertTrue(baselineLoaded)
+        wait(for: [failed], timeout: 1)
 
-        let timedOut = await waitForCondition(timeout: 2.0) {
-            if case .some(.degraded(_)) = viewModel.optionalContext?.status {
-                return true
-            }
-            return false
-        }
-        XCTAssertTrue(timedOut)
-        XCTAssertEqual(viewModel.coreSnapshot?.closedTasks.map(\.title), ["Finished"])
-        XCTAssertEqual(viewModel.coreSnapshot?.habitGrid.count, 0)
-        XCTAssertEqual(
-            viewModel.coreSnapshot?.narrativeSummary.planCardLine,
-            "You closed 1 task, and tomorrow can stay narrow."
-        )
-        XCTAssertEqual(
-            viewModel.optionalContext?.status,
-            .degraded("Calendar context timed out. Suggestions use tasks and habits only.")
-        )
+        XCTAssertFalse(defaults.bool(forKey: LegacyDailyReflectionImporter.migrationMarkerKey))
+    }
+}
+
+private enum LegacyReflectionImportTestError: Error {
+    case writeFailed
+}
+
+private final class RecordingLegacyReflectionRepository: ReflectionNoteRepositoryProtocol, @unchecked Sendable {
+    private let lock = NSLock()
+    private let error: Error?
+    private var storage: [ReflectionNote] = []
+
+    init(error: Error? = nil) {
+        self.error = error
     }
 
-    @MainActor
-    func testDailyReflectPlanViewModelPreservesSwappedTasksAfterCalendarEnrichment() async {
-        await ReflectionCalendarContextCacheStore.shared.clearAll()
-        let calendar = Calendar.autoupdatingCurrent
-        let reflectionDate = calendar.startOfDay(for: Date())
-        let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
-        let tasks = [
-            TaskDefinition(title: "Task A", priority: .max, type: .morning, dueDate: reflectionDate, isComplete: false),
-            TaskDefinition(title: "Task B", priority: .high, type: .morning, dueDate: reflectionDate, isComplete: false),
-            TaskDefinition(title: "Task C", priority: .low, type: .morning, dueDate: planningDate, isComplete: false),
-            TaskDefinition(title: "Task D", priority: .low, type: .morning, dueDate: planningDate, isComplete: false),
-            TaskDefinition(title: "Task E", priority: .high, type: .morning, dueDate: planningDate, isComplete: false)
-        ]
-        let provider = DelayedCalendarEventsProviderStub(
-            events: [
-                LifeBoardCalendarEventSnapshot(
-                    id: "meeting",
-                    calendarID: "calendar",
-                    calendarTitle: "Primary",
-                    title: "Team meeting",
-                    startDate: planningDate.addingTimeInterval(10 * 60 * 60),
-                    endDate: planningDate.addingTimeInterval(11 * 60 * 60),
-                    isAllDay: false
-                )
-            ],
-            delayNanoseconds: 150_000_000
-        )
-        let coordinator = V3TestHarness.makeCoordinator(
-            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: tasks),
-            taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(tasks: tasks),
-            projectRepository: MockProjectRepository(projects: [Project.createInbox()]),
-            habitRuntimeReadRepository: CapturingHabitRuntimeReadRepository(),
-            calendarEventsProvider: provider
-        )
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: reflectionDate) ?? reflectionDate
-        XCTAssertNoThrow(
-            try coordinator.dailyReflectionStore.markCompleted(
-                on: yesterday,
-                completedAt: reflectionDate,
-                payload: nil as ReflectionPayload?
-            )
-        )
+    var notes: [ReflectionNote] {
+        lock.lock()
+        defer { lock.unlock() }
+        return storage
+    }
 
-        let viewModel = DailyReflectPlanViewModel(useCaseCoordinator: coordinator, calendar: calendar)
+    func fetchNotes(
+        query: ReflectionNoteQuery,
+        completion: @escaping @Sendable (Result<[ReflectionNote], Error>) -> Void
+    ) {
+        completion(.success(notes))
+    }
 
-        let baselineLoaded = await waitForCondition(timeout: 1.0) {
-            viewModel.loadState == DailyReflectionLoadState.fullyLoaded
-                && viewModel.editablePlan != nil
-                && viewModel.optionalContext?.status == .loading
-        }
-        XCTAssertTrue(baselineLoaded)
-
-        guard let swapOption = viewModel.swapOptions(for: 0).first else {
-            XCTFail("Expected at least one swap option in baseline plan")
+    func saveNote(
+        _ note: ReflectionNote,
+        completion: @escaping @Sendable (Result<ReflectionNote, Error>) -> Void
+    ) {
+        if let error {
+            completion(.failure(error))
             return
         }
-
-        viewModel.swapTask(slotIndex: 0, with: swapOption)
-        XCTAssertEqual(viewModel.editablePlan?.topTasks.first?.id, swapOption.id)
-        XCTAssertTrue(viewModel.hasTaskSwaps)
-        XCTAssertTrue(viewModel.hasUnsavedChanges)
-
-        let enrichmentLoaded = await waitForCondition(timeout: 2.0) {
-            viewModel.optionalContext?.status == .loaded
-        }
-        XCTAssertTrue(enrichmentLoaded)
-        XCTAssertEqual(viewModel.editablePlan?.topTasks.first?.id, swapOption.id)
-        XCTAssertTrue(viewModel.hasTaskSwaps)
-        XCTAssertEqual(
-            viewModel.editablePlan?.focusWindow,
-            viewModel.optionalContext?.suggestedPlan.focusWindow
-        )
-    }
-
-    @MainActor
-    func testDailyReflectPlanViewModelTracksContextEditsAndDiscard() async {
-        await ReflectionCalendarContextCacheStore.shared.clearAll()
-        let calendar = Calendar.autoupdatingCurrent
-        let reflectionDate = calendar.startOfDay(for: Date())
-        let planningDate = calendar.date(byAdding: .day, value: 1, to: reflectionDate)!
-        let tasks = [
-            TaskDefinition(title: "Carryover", priority: .max, type: .morning, dueDate: reflectionDate, isComplete: false),
-            TaskDefinition(title: "Planning task", priority: .high, type: .morning, dueDate: planningDate, isComplete: false)
-        ]
-        let coordinator = V3TestHarness.makeCoordinator(
-            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: tasks),
-            taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(tasks: tasks),
-            projectRepository: MockProjectRepository(projects: [Project.createInbox()]),
-            habitRuntimeReadRepository: CapturingHabitRuntimeReadRepository()
-        )
-        let yesterday = calendar.date(byAdding: .day, value: -1, to: reflectionDate) ?? reflectionDate
-        XCTAssertNoThrow(
-            try coordinator.dailyReflectionStore.markCompleted(
-                on: yesterday,
-                completedAt: reflectionDate,
-                payload: nil as ReflectionPayload?
-            )
-        )
-
-        let viewModel = DailyReflectPlanViewModel(useCaseCoordinator: coordinator, calendar: calendar)
-
-        let baselineLoaded = await waitForCondition(timeout: 1.0) {
-            viewModel.loadState == DailyReflectionLoadState.fullyLoaded
-                && viewModel.editablePlan != nil
-        }
-        XCTAssertTrue(baselineLoaded)
-        XCTAssertFalse(viewModel.hasContextEdits)
-        XCTAssertFalse(viewModel.hasUnsavedChanges)
-
-        viewModel.noteText = "Protect the first hour"
-        XCTAssertTrue(viewModel.hasContextEdits)
-        XCTAssertTrue(viewModel.hasUnsavedChanges)
-
-        viewModel.toggleMood(.good)
-        viewModel.toggleEnergy(.okay)
-        viewModel.toggleFriction(.meetings)
-        XCTAssertEqual(viewModel.selectedMood, .good)
-        XCTAssertEqual(viewModel.selectedEnergy, .okay)
-        XCTAssertEqual(viewModel.selectedFrictionTags, [.meetings])
-
-        viewModel.discardChanges()
-
-        XCTAssertEqual(viewModel.noteText, "")
-        XCTAssertNil(viewModel.selectedMood)
-        XCTAssertNil(viewModel.selectedEnergy)
-        XCTAssertTrue(viewModel.selectedFrictionTags.isEmpty)
-        XCTAssertFalse(viewModel.hasContextEdits)
-        XCTAssertFalse(viewModel.hasUnsavedChanges)
-    }
-
-    @MainActor
-    private func waitForCondition(
-        timeout: TimeInterval,
-        pollInterval: TimeInterval = 0.05,
-        condition: @escaping @MainActor () -> Bool
-    ) async -> Bool {
-        let timeoutNanoseconds = UInt64(timeout * 1_000_000_000)
-        let pollNanoseconds = UInt64(max(0.01, pollInterval) * 1_000_000_000)
-        let start = DispatchTime.now().uptimeNanoseconds
-
-        while DispatchTime.now().uptimeNanoseconds - start < timeoutNanoseconds {
-            if condition() {
-                return true
-            }
-            try? await _Concurrency.Task.sleep(nanoseconds: pollNanoseconds)
-        }
-
-        return condition()
-    }
-}
-
-private func makeReflectionMarks(
-    endingOn date: Date,
-    lastSevenStates: [HabitDayState]
-) -> [HabitDayMark] {
-    let calendar = Calendar.autoupdatingCurrent
-    return lastSevenStates.enumerated().compactMap { index, state in
-        guard let day = calendar.date(byAdding: .day, value: index - (lastSevenStates.count - 1), to: date) else {
-            return nil
-        }
-        return HabitDayMark(date: day, state: state)
-    }
-}
-
-private final class InMemoryGamificationRepositoryStub: GamificationRepositoryProtocol, @unchecked Sendable {
-    private var profile = GamificationSnapshot()
-    private var xpEvents: [XPEventDefinition] = []
-    private var dailyAggregates: [String: DailyXPAggregateDefinition] = [:]
-
-    func fetchProfile(completion: @escaping @Sendable (Result<GamificationSnapshot?, Error>) -> Void) {
-        completion(.success(profile))
-    }
-
-    func saveProfile(_ profile: GamificationSnapshot, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        self.profile = profile
-        completion(.success(()))
-    }
-
-    func fetchXPEvents(completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
-        completion(.success(xpEvents))
-    }
-
-    func fetchXPEvents(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[XPEventDefinition], Error>) -> Void) {
-        completion(.success(xpEvents.filter { $0.createdAt >= startDate && $0.createdAt <= endDate }))
-    }
-
-    func saveXPEvent(_ event: XPEventDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        xpEvents.append(event)
-        completion(.success(()))
-    }
-
-    func hasXPEvent(idempotencyKey: String, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
-        completion(.success(xpEvents.contains(where: { $0.idempotencyKey == idempotencyKey })))
-    }
-
-    func fetchAchievementUnlocks(completion: @escaping @Sendable (Result<[AchievementUnlockDefinition], Error>) -> Void) {
-        completion(.success([]))
-    }
-
-    func saveAchievementUnlock(_ unlock: AchievementUnlockDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        completion(.success(()))
-    }
-
-    func fetchDailyAggregate(dateKey: String, completion: @escaping @Sendable (Result<DailyXPAggregateDefinition?, Error>) -> Void) {
-        completion(.success(dailyAggregates[dateKey]))
-    }
-
-    func saveDailyAggregate(_ aggregate: DailyXPAggregateDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        dailyAggregates[aggregate.dateKey] = aggregate
-        completion(.success(()))
-    }
-
-    func fetchDailyAggregates(from startDateKey: String, to endDateKey: String, completion: @escaping @Sendable (Result<[DailyXPAggregateDefinition], Error>) -> Void) {
-        completion(.success(dailyAggregates.values.filter { $0.dateKey >= startDateKey && $0.dateKey <= endDateKey }))
-    }
-
-    func createFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        completion(.success(()))
-    }
-
-    func updateFocusSession(_ session: FocusSessionDefinition, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
-        completion(.success(()))
-    }
-
-    func fetchFocusSessions(from startDate: Date, to endDate: Date, completion: @escaping @Sendable (Result<[FocusSessionDefinition], Error>) -> Void) {
-        completion(.success([]))
-    }
-}
-
-private final class DelayedCalendarEventsProviderStub: CalendarEventsProviderProtocol, @unchecked Sendable {
-    private let events: [LifeBoardCalendarEventSnapshot]
-    private let delayNanoseconds: UInt64
-    private let lock = NSLock()
-    private var _fetchEventsCallCount = 0
-    private var _lastRequestedCalendarIDs: Set<String> = []
-
-    init(events: [LifeBoardCalendarEventSnapshot], delayNanoseconds: UInt64 = 0) {
-        self.events = events
-        self.delayNanoseconds = delayNanoseconds
-    }
-
-    var fetchEventsCallCount: Int {
         lock.lock()
-        defer { lock.unlock() }
-        return _fetchEventsCallCount
-    }
-
-    var lastRequestedCalendarIDs: Set<String> {
-        lock.lock()
-        defer { lock.unlock() }
-        return _lastRequestedCalendarIDs
-    }
-
-    func authorizationStatus() -> LifeBoardCalendarAuthorizationStatus {
-        .authorized
-    }
-
-    func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
-        completion(.success(true))
-    }
-
-    func resetStoreStateAfterPermissionChange() {}
-
-    func fetchCalendars(completion: @escaping @Sendable (Result<[LifeBoardCalendarSourceSnapshot], Error>) -> Void) {
-        completion(.success([]))
-    }
-
-    func fetchEvents(
-        startDate _: Date,
-        endDate _: Date,
-        calendarIDs: Set<String>,
-        completion: @escaping @Sendable (Result<[LifeBoardCalendarEventSnapshot], Error>) -> Void
-    ) {
-        lock.lock()
-        _fetchEventsCallCount += 1
-        _lastRequestedCalendarIDs = calendarIDs
+        if let index = storage.firstIndex(where: { $0.id == note.id }) {
+            storage[index] = note
+        } else {
+            storage.append(note)
+        }
         lock.unlock()
-        _Concurrency.Task {
-            if delayNanoseconds > 0 {
-                try? await _Concurrency.Task.sleep(nanoseconds: delayNanoseconds)
-            }
-            completion(.success(events))
-        }
+        completion(.success(note))
     }
 
-    func storeChangedPublisher() -> AnyPublisher<Void, Never> {
-        Empty<Void, Never>().eraseToAnyPublisher()
-    }
-}
-
-private final class MainQueueCalendarEventsProviderStub: CalendarEventsProviderProtocol {
-    private let events: [LifeBoardCalendarEventSnapshot]
-
-    init(events: [LifeBoardCalendarEventSnapshot]) {
-        self.events = events
-    }
-
-    func authorizationStatus() -> LifeBoardCalendarAuthorizationStatus {
-        .authorized
-    }
-
-    func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
-        completion(.success(true))
-    }
-
-    func resetStoreStateAfterPermissionChange() {}
-
-    func fetchCalendars(completion: @escaping @Sendable (Result<[LifeBoardCalendarSourceSnapshot], Error>) -> Void) {
-        DispatchQueue.main.async {
-            completion(.success([]))
-        }
-    }
-
-    func fetchEvents(
-        startDate _: Date,
-        endDate _: Date,
-        calendarIDs _: Set<String>,
-        completion: @escaping @Sendable (Result<[LifeBoardCalendarEventSnapshot], Error>) -> Void
-    ) {
-        DispatchQueue.main.async {
-            completion(.success(self.events))
-        }
-    }
-
-    func storeChangedPublisher() -> AnyPublisher<Void, Never> {
-        Empty<Void, Never>().eraseToAnyPublisher()
+    func deleteNote(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) {
+        lock.lock()
+        storage.removeAll { $0.id == id }
+        lock.unlock()
+        completion(.success(()))
     }
 }
 
@@ -17626,6 +16930,33 @@ final class HomeLensResolverTests: XCTestCase {
         XCTAssertEqual(chips.map(\.title), ["Beta", "Alpha"])
         XCTAssertEqual(chips.first?.isSelected, true)
         XCTAssertFalse(chips.contains { $0.lens == .lifeArea(archived.id) })
+    }
+
+    func testLifeAreaLensesKeepAreasVisibleWhileActivityIsLoading() {
+        let alpha = LifeArea(name: "Alpha")
+        let beta = LifeArea(name: "Beta")
+
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [beta, alpha],
+            pinnedLifeAreaIDs: [],
+            activeLens: .today,
+            activityByID: nil
+        )
+
+        XCTAssertEqual(chips.map(\.title), ["Alpha", "Beta"])
+    }
+
+    func testLifeAreaLensesHideInactiveAreasAfterLoadedEmptyActivity() {
+        let alpha = LifeArea(name: "Alpha")
+
+        let chips = HomeLensResolver.lifeAreaLenses(
+            lifeAreas: [alpha],
+            pinnedLifeAreaIDs: [],
+            activeLens: .today,
+            activityByID: [:]
+        )
+
+        XCTAssertTrue(chips.isEmpty)
     }
 
     func testLifeAreaLensesShowAllOpenLifeAreasWithoutLimit() {

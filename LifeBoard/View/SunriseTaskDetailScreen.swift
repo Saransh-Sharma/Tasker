@@ -356,7 +356,7 @@ struct SunriseTaskDetailScreen: View {
             accessibilityID: "taskDetail.disclosure.details",
             onToggle: {
                 LifeBoardFeedback.light()
-                withAnimation(LifeBoardAnimation.snappy) { showRefine.toggle() }
+                withAnimation(LifeBoardAnimation.stateChange) { showRefine.toggle() }
             }
         ) {
             VStack(alignment: .leading, spacing: spacing.s16) {
@@ -592,7 +592,7 @@ struct SunriseTaskDetailScreen: View {
             accessibilityIdentifier: accessibilityIdentifier
         ) {
             LifeBoardFeedback.light()
-            withAnimation(LifeBoardAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.stateChange) {
                 toggle(section)
             }
         } content: {
@@ -844,7 +844,7 @@ struct SunriseTaskDetailScreen: View {
     }
 
     private func expand(_ section: SunriseTaskDetailSection) {
-        withAnimation(LifeBoardAnimation.snappy) {
+        withAnimation(LifeBoardAnimation.stateChange) {
             _ = expandedSections.insert(section)
         }
     }

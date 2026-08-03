@@ -11,9 +11,20 @@ public struct FilterCalendarEventsUseCase {
         includeAllDayInAgenda: Bool
     ) -> [LifeBoardCalendarEventSnapshot] {
         events
-            .filter { event in
-                selectedCalendarIDs.isEmpty || selectedCalendarIDs.contains(event.calendarID)
-            }
+            // An empty selection means the user has chosen no calendars, not
+            // every calendar.
+            //
+            // This previously read `selectedCalendarIDs.isEmpty || contains(...)`,
+            // so an empty set admitted everything — while the widget projection,
+            // `HomeViewModel` and the planning projections treat empty as a
+            // distinct "none selected" state. The disagreement is a
+            // consent question rather than a style one: someone who never picked
+            // calendars should not silently have all of them read.
+            //
+            // `CalendarIntegrationService` already returns early on an empty
+            // selection, so this branch was unreachable in the shipped path; the
+            // permissive default only waited to surprise the next caller.
+            .filter { selectedCalendarIDs.contains($0.calendarID) }
             .filter { event in
                 includeDeclined || !event.isDeclined
             }

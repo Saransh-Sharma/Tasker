@@ -12,9 +12,9 @@ enum OverdueRescueMoveLaterResolver {
     static func resolveMoveDate(
         for task: TaskDefinition,
         recommendation: EvaRescueRecommendation?,
-        now: Date
+        now: Date,
+        calendar: Calendar = .current
     ) -> Date {
-        let calendar = Calendar.current
         let today = calendar.startOfDay(for: now)
         if let suggested = recommendation?.toDate {
             let suggestedDay = calendar.startOfDay(for: suggested)
@@ -32,9 +32,12 @@ enum OverdueRescueMoveLaterResolver {
         return nextWorkingDay(after: today, calendar: calendar)
     }
 
-    static func buttonTitle(for date: Date?, now: Date) -> String {
+    static func buttonTitle(
+        for date: Date?,
+        now: Date,
+        calendar: Calendar = .current
+    ) -> String {
         guard let date else { return "Move later" }
-        let calendar = Calendar.current
         if calendar.isDate(date, inSameDayAs: calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: now)) ?? now) {
             return "Move tomorrow"
         }

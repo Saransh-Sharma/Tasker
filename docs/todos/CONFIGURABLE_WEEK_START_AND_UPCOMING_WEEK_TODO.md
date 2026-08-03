@@ -1,5 +1,7 @@
 # Configurable Week Start And Upcoming Week Planning
 
+> **Classification: Implementation record.** Current planning behavior is defined in [Plan and Focus](../product/PLAN_AND_FOCUS.md).
+
 - [x] Add workspace-level week-start preference persistence and expose it in Settings
 - [x] Replace weekly operating layer Monday assumptions with configurable week-start resolution
 - [x] Switch the home weekly banner to a two-day upcoming-week preview window with review precedence

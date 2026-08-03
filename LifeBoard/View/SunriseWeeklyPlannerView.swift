@@ -907,7 +907,7 @@ private struct WeeklyPlannerTriageCard: View {
                     handleDragEnd(value.translation.width)
                 }
         )
-        .animation(reduceMotion ? nil : LifeBoardAnimation.snappy, value: dragOffset)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: dragOffset)
         .accessibilityElement(children: .combine)
         .accessibilityAction(named: Text(WeeklyCopy.keepInThisWeek)) {
             onDecision(.thisWeek)

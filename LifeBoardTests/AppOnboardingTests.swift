@@ -27,6 +27,47 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(snapshot.taskCount, 0)
     }
 
+    /// `-SKIP_ONBOARDING` has to hold even when a partial journey is stored.
+    ///
+    /// The coordinator's resume branch runs ahead of `evaluate()`, so it never
+    /// saw the argument and a seeded run that had stored a journey snapshot
+    /// presented onboarding anyway — which made every seeded UI journey after a
+    /// partial setup unreliable. Both paths now read this one property, so this
+    /// covers the property rather than only the `evaluate()` path that already
+    /// worked.
+    func testSkipOnboardingLaunchArgumentSuppressesEveryPresentationPath() async {
+        let context = makeStoreContext()
+        defer { context.cleanup() }
+
+        let service = OnboardingEligibilityService(
+            stateStore: context.store,
+            launchArguments: ["-SKIP_ONBOARDING"],
+            fetchLifeAreas: { [] },
+            fetchProjects: { [] },
+            fetchTasks: { [] }
+        )
+
+        XCTAssertTrue(
+            service.isSuppressedByLaunchArgument,
+            "The resume path consults this directly and cannot call evaluate()"
+        )
+        guard case .suppressed = await service.evaluate() else {
+            return XCTFail("An empty workspace with -SKIP_ONBOARDING must stay suppressed")
+        }
+
+        let withoutArgument = OnboardingEligibilityService(
+            stateStore: context.store,
+            launchArguments: [],
+            fetchLifeAreas: { [] },
+            fetchProjects: { [] },
+            fetchTasks: { [] }
+        )
+        XCTAssertFalse(
+            withoutArgument.isSuppressedByLaunchArgument,
+            "Suppression must come from the argument, not from being the default"
+        )
+    }
+
     func testEligibilityReturnsPromptOnlyForEstablishedWorkspaceWithoutState() async {
         let context = makeStoreContext()
         defer { context.cleanup() }
@@ -91,33 +132,19 @@ final class AppOnboardingTests: XCTestCase {
     func testOnboardingStepOrderUsesExplicitReorderedFlow() {
         XCTAssertEqual(
             OnboardingStep.orderedFlow,
-            [.welcome, .goal, .lifeAreas, .evaValue, .habitSetup, .firstTask, .homeDemo, .success]
+            [.welcome, .intent, .lifeAreas, .guide, .dayShape, .modules, .firstWin, .permissions, .success]
         )
     }
 
     func testOnboardingProgressUsesOrderedFlowAsSingleSource() {
-        XCTAssertEqual(OnboardingProgress(step: .welcome)?.label, "Step 1 of 8")
-        XCTAssertEqual(OnboardingProgress(step: .goal)?.label, "Step 2 of 8")
-        XCTAssertEqual(OnboardingProgress(step: .success)?.label, "Step 8 of 8")
-        XCTAssertEqual(OnboardingStep.goal.accessibilitySummary, "Choose goal. Step 2 of 8. Select one goal to continue.")
-        XCTAssertEqual(OnboardingStep.success.accessibilitySummary, "Setup complete. Step 8 of 8. Go to Home.")
+        XCTAssertEqual(OnboardingProgress(step: .welcome)?.label, "Step 1 of 9")
+        XCTAssertEqual(OnboardingProgress(step: .intent)?.label, "Step 2 of 9")
+        XCTAssertEqual(OnboardingProgress(step: .permissions)?.label, "Step 8 of 9")
+        XCTAssertEqual(OnboardingProgress(step: .success)?.label, "Step 9 of 9")
+        XCTAssertEqual(OnboardingStep.intent.accessibilitySummary, "Choose what needs attention. Step 2 of 9. Select one to continue.")
+        XCTAssertEqual(OnboardingStep.success.accessibilitySummary, "Setup complete. Step 9 of 9. Go to Home.")
     }
 
-    func testLegacyOnboardingStepsNormalizeBeforeRendering() {
-        XCTAssertEqual(OnboardingStep.pain.normalizedForCurrentFlow, .goal)
-        XCTAssertEqual(OnboardingStep.blocker.normalizedForCurrentFlow, .goal)
-        XCTAssertEqual(OnboardingStep.projects.normalizedForCurrentFlow, .lifeAreas)
-        XCTAssertEqual(OnboardingStep.habits.normalizedForCurrentFlow, .habitSetup)
-        XCTAssertEqual(OnboardingStep.streakPreview.normalizedForCurrentFlow, .habitSetup)
-        XCTAssertEqual(OnboardingStep.evaStyle.normalizedForCurrentFlow, .evaValue)
-        XCTAssertEqual(OnboardingStep.workBlockers.normalizedForCurrentFlow, .evaValue)
-        XCTAssertEqual(OnboardingStep.weeklyOutcomes.normalizedForCurrentFlow, .evaValue)
-        XCTAssertEqual(OnboardingStep.processing.normalizedForCurrentFlow, .firstTask)
-        XCTAssertEqual(OnboardingStep.focusRoom.normalizedForCurrentFlow, .homeDemo)
-        XCTAssertEqual(OnboardingStep.habitCheckIn.normalizedForCurrentFlow, .homeDemo)
-        XCTAssertEqual(OnboardingStep.calendarPermission.normalizedForCurrentFlow, .success)
-        XCTAssertEqual(OnboardingStep.notificationPermission.normalizedForCurrentFlow, .success)
-    }
 
     func testOnboardingCopyAvoidsGenericAIPhrases() {
         for copy in OnboardingCopy.reviewedStrings {
@@ -130,7 +157,7 @@ final class AppOnboardingTests: XCTestCase {
                 )
             }
         }
-        XCTAssertEqual(OnboardingCopy.Welcome.changeLaterChip, "Change this later")
+        XCTAssertEqual(OnboardingCopy.Welcome.changeLaterChip, "Change anything later")
     }
 
     @MainActor
@@ -158,15 +185,6 @@ final class AppOnboardingTests: XCTestCase {
         )
     }
 
-    func testLegacyRawValuesStillDecodeExistingStepOrder() {
-        XCTAssertEqual(OnboardingStep(rawValue: 0), .welcome)
-        XCTAssertEqual(OnboardingStep(rawValue: 1), .lifeAreas)
-        XCTAssertEqual(OnboardingStep(rawValue: 2), .projects)
-        XCTAssertEqual(OnboardingStep(rawValue: 3), .habits)
-        XCTAssertEqual(OnboardingStep(rawValue: 4), .firstTask)
-        XCTAssertEqual(OnboardingStep(rawValue: 5), .focusRoom)
-        XCTAssertEqual(OnboardingStep(rawValue: 6), .blocker)
-    }
 
     @MainActor
     func testDefaultOnboardingMascotIsYesManAndEvaTransitionIsNonBlocking() {
@@ -183,135 +201,16 @@ final class AppOnboardingTests: XCTestCase {
 
         XCTAssertEqual(viewModel.selectedMascotID, .yesman)
         viewModel.selectGoal(.dailyExecution)
-        viewModel.continueFromGoal()
+        viewModel.continueFromIntent()
 
         XCTAssertEqual(viewModel.step, .lifeAreas)
         XCTAssertEqual(viewModel.evaPreparationState.phase, .idle)
     }
 
-    @MainActor
-    func testAssistantPreferenceScreensAcceptCustomValuesAndAdvance() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
 
-        let viewModel = OnboardingFlowModel(stateStore: context.store)
-        viewModel.prepareForPresentation(
-            snapshot: OnboardingJourneySnapshot(
-                step: .evaStyle,
-                mode: .guided,
-                selectedLifeAreaIDs: [],
-                showAllLifeAreas: false,
-                projectDrafts: [],
-                resolvedLifeAreas: [],
-                resolvedProjects: [],
-                createdTasks: [],
-                createdTaskTemplateMap: [:],
-                focusIsActive: false,
-                hasSeenSuccess: false
-            )
-        )
 
-        viewModel.addCustomEvaWorkingStyle("Deep work mornings")
-        viewModel.continueFromEvaStyle()
-        XCTAssertEqual(viewModel.step, .firstTask)
 
-        viewModel.addCustomEvaMomentumBlocker("Too many pings")
-        viewModel.continueFromWorkBlockers()
-        XCTAssertEqual(viewModel.step, .firstTask)
 
-        viewModel.updateEvaGoal(at: 0, text: "Finish the launch checklist")
-        viewModel.continueFromWeeklyOutcomes()
-        XCTAssertEqual(viewModel.step, .firstTask)
-        XCTAssertEqual(viewModel.evaProfileDraft.selectedWorkingStyleIDs, ["Deep work mornings"])
-        XCTAssertEqual(viewModel.evaProfileDraft.selectedMomentumBlockerIDs, ["Too many pings"])
-        XCTAssertEqual(viewModel.evaProfileDraft.goals, ["Finish the launch checklist"])
-    }
-
-    @MainActor
-    func testReplaceEvaGoalsTrimsEmptyValuesAndPersists() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let viewModel = OnboardingFlowModel(stateStore: context.store)
-        viewModel.prepareForPresentation(
-            snapshot: OnboardingJourneySnapshot(
-                step: .weeklyOutcomes,
-                mode: .guided,
-                selectedLifeAreaIDs: [],
-                showAllLifeAreas: false,
-                projectDrafts: [],
-                resolvedLifeAreas: [],
-                resolvedProjects: [],
-                createdTasks: [],
-                createdTaskTemplateMap: [:],
-                focusIsActive: false,
-                hasSeenSuccess: false
-            )
-        )
-
-        viewModel.replaceEvaGoals(["  Ship launch  ", "", " Protect workouts "])
-
-        XCTAssertEqual(viewModel.evaProfileDraft.goals, ["Ship launch", "Protect workouts"])
-        XCTAssertEqual(context.store.load().journeySnapshot?.evaProfileDraft.goals, ["Ship launch", "Protect workouts"])
-    }
-
-    func testHomeDemoSnapshotFactoryUsesHomeTimelineAndHabitModels() {
-        let snapshot = OnboardingHomeDemoSnapshotFactory.snapshot(taskDone: false)
-        let habitRows = OnboardingHomeDemoSnapshotFactory.habitRows(habitDone: false)
-
-        XCTAssertEqual(snapshot.day.wakeAnchor.title, "Rise and shine")
-        XCTAssertEqual(snapshot.day.sleepAnchor.title, "Wind down")
-        XCTAssertGreaterThanOrEqual(snapshot.day.timedItems.filter { $0.source == .calendarEvent }.count, 2)
-        XCTAssertGreaterThanOrEqual(snapshot.day.timedItems.filter { $0.source == .task }.count, 2)
-        XCTAssertTrue(snapshot.day.timedItems.contains { $0.taskID == OnboardingHomeDemoSnapshotFactory.demoTaskID })
-        XCTAssertGreaterThanOrEqual(habitRows.count, 2)
-        XCTAssertTrue(habitRows.contains { $0.habitID == OnboardingHomeDemoSnapshotFactory.demoHabitID })
-    }
-
-    @MainActor
-    func testLegacyPermissionStepsAdvanceToSuccessWithoutRequestingPermission() async {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let notificationService = TestNotificationService(status: .notDetermined)
-        let viewModel = OnboardingFlowModel(
-            stateStore: context.store,
-            notificationService: notificationService
-        )
-
-        await viewModel.continueFromCalendarPermission(skipped: true)
-        XCTAssertEqual(notificationService.requestPermissionCallCount, 0)
-        XCTAssertEqual(viewModel.step, .success)
-
-        await viewModel.continueFromNotificationPermission()
-        XCTAssertEqual(notificationService.requestPermissionCallCount, 0)
-        XCTAssertEqual(viewModel.step, .success)
-    }
-
-    @MainActor
-    func testPrepareForPresentationRemapsLegacyStoredSteps() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let snapshot = OnboardingJourneySnapshot(
-            step: .projects,
-            mode: .guided,
-            selectedLifeAreaIDs: ["health-self"],
-            showAllLifeAreas: false,
-            projectDrafts: [],
-            resolvedLifeAreas: [],
-            resolvedProjects: [],
-            createdTasks: [],
-            createdTaskTemplateMap: [:],
-            focusIsActive: false,
-            hasSeenSuccess: false
-        )
-
-        let viewModel = OnboardingFlowModel(stateStore: context.store)
-        viewModel.prepareForPresentation(snapshot: snapshot)
-
-        XCTAssertEqual(viewModel.step, .lifeAreas)
-    }
 
     func testCatalogReuseMatchesAliasesForExistingLifeAreasAndProjects() {
         let healthTemplate = tryUnwrap(StarterWorkspaceCatalog.lifeAreaTemplate(id: "health-self"))
@@ -441,7 +340,6 @@ final class AppOnboardingTests: XCTestCase {
     func testOptionalAreaSelectionsStillProduceTaskAndHabitSuggestions() {
         let drafts = StarterWorkspaceCatalog.defaultProjectDrafts(
             for: ["relationships", "creativity-fun"],
-            frictionProfile: nil,
             mode: .guided
         )
         let selections = drafts.map {
@@ -489,10 +387,9 @@ final class AppOnboardingTests: XCTestCase {
             StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health-self"], mode: .guided).first
         )
         let snapshot = OnboardingJourneySnapshot(
-            step: .habitSetup,
+            step: .firstWin,
             mode: .guided,
             entryContext: .establishedWorkspace,
-            frictionProfile: .starting,
             selectedLifeAreaIDs: ["health-self"],
             showAllLifeAreas: false,
             projectDrafts: [projectDraft],
@@ -514,9 +411,6 @@ final class AppOnboardingTests: XCTestCase {
             createdTasks: [task],
             createdTaskTemplateMap: ["task-health-move-clothes": task.id],
             focusTaskID: task.id,
-            parentFocusTaskID: nil,
-            focusStartedAt: Date(timeIntervalSince1970: 1_700_000_000),
-            focusIsActive: true,
             successSummary: nil,
             hasSeenSuccess: false
         )
@@ -524,14 +418,14 @@ final class AppOnboardingTests: XCTestCase {
         let viewModel = OnboardingFlowModel(stateStore: context.store)
         viewModel.prepareForPresentation(snapshot: snapshot)
 
-        XCTAssertEqual(viewModel.step, .habitSetup)
+        XCTAssertEqual(viewModel.step, .firstWin)
         XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
         XCTAssertEqual(viewModel.mode, .guided)
-        XCTAssertEqual(viewModel.frictionProfile, .starting)
+        
         XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["health-self"]))
         XCTAssertEqual(viewModel.createdHabits.map(\.title), ["Drink water after you wake up"])
         XCTAssertEqual(viewModel.focusTaskID, task.id)
-        XCTAssertTrue(viewModel.focusIsActive)
+        
         XCTAssertEqual(viewModel.createdTasks.map(\.id), [task.id])
     }
 
@@ -553,10 +447,9 @@ final class AppOnboardingTests: XCTestCase {
             StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health-self"], mode: .guided).first
         )
         let snapshot = OnboardingJourneySnapshot(
-            step: .habitSetup,
+            step: .firstWin,
             mode: .custom,
             entryContext: .establishedWorkspace,
-            frictionProfile: .choosing,
             selectedLifeAreaIDs: ["health-self"],
             showAllLifeAreas: true,
             projectDrafts: [projectDraft],
@@ -579,25 +472,21 @@ final class AppOnboardingTests: XCTestCase {
             createdTasks: [task],
             createdTaskTemplateMap: ["task-health-move-clothes": task.id],
             focusTaskID: task.id,
-            parentFocusTaskID: nil,
-            focusStartedAt: Date(timeIntervalSince1970: 1_700_000_000),
-            focusIsActive: false,
             successSummary: nil,
             hasSeenSuccess: false,
-            reminderPromptDismissed: false
         )
 
         context.store.storeJourney(snapshot)
 
         let restoredSnapshot = tryUnwrap(context.store.load().journeySnapshot)
-        XCTAssertEqual(restoredSnapshot.step, .habitSetup)
+        XCTAssertEqual(restoredSnapshot.step, .firstWin)
         XCTAssertEqual(restoredSnapshot.entryContext, .establishedWorkspace)
         XCTAssertEqual(restoredSnapshot.selectedLifeAreaIDs, ["health-self"])
 
         let viewModel = OnboardingFlowModel(stateStore: context.store)
         viewModel.prepareForPresentation(snapshot: restoredSnapshot)
 
-        XCTAssertEqual(viewModel.step, .habitSetup)
+        XCTAssertEqual(viewModel.step, .firstWin)
         XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
         XCTAssertEqual(viewModel.mode, .custom)
         XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["health-self"]))
@@ -644,9 +533,8 @@ final class AppOnboardingTests: XCTestCase {
             estimatedDuration: 120
         )
         let snapshot = OnboardingJourneySnapshot(
-            step: .habitSetup,
+            step: .firstWin,
             mode: .guided,
-            frictionProfile: .starting,
             selectedLifeAreaIDs: ["career", "home", "health"],
             showAllLifeAreas: true,
             projectDrafts: [legacyDraft],
@@ -661,9 +549,6 @@ final class AppOnboardingTests: XCTestCase {
             createdTasks: [task],
             createdTaskTemplateMap: ["task-home-laundry-basket": task.id],
             focusTaskID: task.id,
-            parentFocusTaskID: nil,
-            focusStartedAt: nil,
-            focusIsActive: false,
             successSummary: nil,
             hasSeenSuccess: false
         )
@@ -680,7 +565,7 @@ final class AppOnboardingTests: XCTestCase {
 
     func testJourneySnapshotDecodeDefaultsMissingEntryContextToFreshFlow() throws {
         let snapshot = OnboardingJourneySnapshot(
-            step: .goal,
+            step: .intent,
             mode: .guided,
             selectedLifeAreaIDs: ["health-self"],
             showAllLifeAreas: false,
@@ -689,7 +574,6 @@ final class AppOnboardingTests: XCTestCase {
             resolvedProjects: [],
             createdTasks: [],
             createdTaskTemplateMap: [:],
-            focusIsActive: false,
             hasSeenSuccess: false
         )
 
@@ -703,56 +587,12 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(decoded.entryContext, .freshFlow)
     }
 
-    @MainActor
-    func testSelectFrictionUpdatesProfileAndLifeAreaDefaults() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
 
-        let viewModel = OnboardingFlowModel(stateStore: context.store)
-        viewModel.prepareForPresentation(snapshot: nil)
-        viewModel.begin(mode: .guided)
 
-        viewModel.selectFriction(.remembering)
 
-        XCTAssertEqual(viewModel.frictionProfile, .remembering)
-        XCTAssertEqual(
-            viewModel.selectedLifeAreaIDs,
-            Set(StarterWorkspaceCatalog.defaultLifeAreaSelectionIDs(for: .remembering, mode: .guided))
-        )
-    }
-
-    func testFrictionSelectorUsesStackedLayoutOnCompactWidth() {
-        XCTAssertEqual(
-            OnboardingFrictionSelectorLayout.preferredLayout(
-                for: 393,
-                dynamicTypeSize: .large
-            ),
-            .stacked
-        )
-    }
-
-    func testFrictionSelectorUsesStackedLayoutForAccessibilitySizes() {
-        XCTAssertEqual(
-            OnboardingFrictionSelectorLayout.preferredLayout(
-                for: 430,
-                dynamicTypeSize: .accessibility3
-            ),
-            .stacked
-        )
-    }
-
-    func testFrictionSelectorUsesTwoColumnLayoutOnWideStandardWidth() {
-        XCTAssertEqual(
-            OnboardingFrictionSelectorLayout.preferredLayout(
-                for: 700,
-                dynamicTypeSize: .large
-            ),
-            .twoColumn
-        )
-    }
 
     @MainActor
-    func testPrepareEstablishedWorkspaceEntryReusesExistingWorkspaceAndStartsAtBlocker() async {
+    func testPrepareEstablishedWorkspaceEntryReusesExistingWorkspaceAndStartsAtIntent() async {
         let context = makeStoreContext()
         defer { context.cleanup() }
 
@@ -769,82 +609,13 @@ final class AppOnboardingTests: XCTestCase {
 
         await viewModel.prepareEstablishedWorkspaceEntry()
 
-        XCTAssertEqual(viewModel.step, .goal)
+        XCTAssertEqual(viewModel.step, .intent)
         XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
         XCTAssertEqual(viewModel.resolvedLifeAreas.map(\.lifeArea.name), ["Career", "Home"])
         XCTAssertEqual(viewModel.resolvedProjects.map(\.project.name), ["Ship one thing", "Home reset"])
         XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["work-career", "life-admin"]))
     }
 
-    @MainActor
-    func testPrepareForPresentationRestoresSuccessStateAndReminderPrompt() async {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let notificationService = TestNotificationService(status: .notDetermined)
-        let area = LifeArea(name: "Health")
-        let project = Project(lifeAreaID: area.id, name: "Move your body")
-        let task = TaskDefinition(
-            projectID: project.id,
-            projectName: project.name,
-            lifeAreaID: area.id,
-            title: "Fill your water bottle",
-            estimatedDuration: 60
-        )
-        let projectDraft = tryUnwrap(
-            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health-self"], mode: .guided).first
-        )
-        let summary = AppOnboardingSummary(
-            lifeAreaCount: 1,
-            projectCount: 1,
-            createdTaskCount: 1,
-            completedTaskCount: 1,
-            completedTaskTitle: task.title,
-            nextTaskTitle: nil,
-            evaState: OnboardingEvaPreparationState(phase: .ready, selectedModelName: "fast", progress: 1, cellularConsentGranted: false, statusMessage: nil)
-        )
-        let snapshot = OnboardingJourneySnapshot(
-            step: .success,
-            mode: .guided,
-            frictionProfile: .starting,
-            selectedLifeAreaIDs: ["health-self"],
-            showAllLifeAreas: false,
-            projectDrafts: [projectDraft],
-            expandedProjectIDs: [],
-            resolvedLifeAreas: [
-                ResolvedLifeAreaSelection(templateID: "health-self", lifeArea: area, reusedExisting: true)
-            ],
-            resolvedProjects: [
-                ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
-            ],
-            createdTasks: [task],
-            createdTaskTemplateMap: ["task-health-meal-snack": task.id],
-            focusTaskID: task.id,
-            parentFocusTaskID: nil,
-            focusStartedAt: Date(timeIntervalSince1970: 1_700_000_000),
-            focusIsActive: false,
-            successSummary: summary,
-            hasSeenSuccess: true,
-            reminderPromptDismissed: false
-        )
-
-        let viewModel = OnboardingFlowModel(
-            stateStore: context.store,
-            notificationService: notificationService
-        )
-        viewModel.prepareForPresentation(snapshot: snapshot)
-
-        XCTAssertEqual(viewModel.step, .success)
-        XCTAssertEqual(viewModel.successSummary, summary)
-        XCTAssertEqual(viewModel.resolvedLifeAreas.map(\.lifeArea.name), ["Health"])
-        XCTAssertEqual(viewModel.resolvedProjects.map(\.project.name), ["Move your body"])
-
-        for _ in 0..<10 where viewModel.reminderPromptState != .prompt {
-            try? await _Concurrency.Task.sleep(nanoseconds: 50_000_000)
-        }
-
-        XCTAssertEqual(viewModel.reminderPromptState, .prompt)
-    }
 
     func testPresentationQueuePrefersFullFlowOverPrompt() {
         var queue = OnboardingPresentationQueue()
@@ -881,9 +652,8 @@ final class AppOnboardingTests: XCTestCase {
             StarterWorkspaceCatalog.defaultProjectDrafts(for: ["work-career"], mode: .guided).first
         )
         let snapshot = OnboardingJourneySnapshot(
-            step: .firstTask,
+            step: .firstWin,
             mode: .guided,
-            frictionProfile: .starting,
             selectedLifeAreaIDs: ["work-career"],
             showAllLifeAreas: false,
             projectDrafts: [projectDraft],
@@ -897,12 +667,8 @@ final class AppOnboardingTests: XCTestCase {
             createdTasks: [task],
             createdTaskTemplateMap: [:],
             focusTaskID: task.id,
-            parentFocusTaskID: nil,
-            focusStartedAt: nil,
-            focusIsActive: false,
             successSummary: nil,
             hasSeenSuccess: false,
-            reminderPromptDismissed: false
         )
 
         let viewModel = OnboardingFlowModel(stateStore: context.store)
@@ -912,7 +678,7 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertEqual(viewModel.step, .welcome)
         XCTAssertEqual(viewModel.entryContext, .freshFlow)
         XCTAssertEqual(viewModel.mode, .guided)
-        XCTAssertNil(viewModel.frictionProfile)
+        
         XCTAssertTrue(viewModel.selectedLifeAreaIDs.isEmpty)
         XCTAssertTrue(viewModel.projectDrafts.isEmpty)
         XCTAssertTrue(viewModel.createdTasks.isEmpty)
@@ -926,7 +692,6 @@ final class AppOnboardingTests: XCTestCase {
         let snapshot = OnboardingJourneySnapshot(
             step: .welcome,
             mode: .guided,
-            frictionProfile: nil,
             selectedLifeAreaIDs: [],
             showAllLifeAreas: false,
             projectDrafts: [],
@@ -936,12 +701,8 @@ final class AppOnboardingTests: XCTestCase {
             createdTasks: [],
             createdTaskTemplateMap: [:],
             focusTaskID: nil,
-            parentFocusTaskID: nil,
-            focusStartedAt: nil,
-            focusIsActive: false,
             successSummary: nil,
             hasSeenSuccess: false,
-            reminderPromptDismissed: false
         )
 
         context.store.storeJourney(snapshot)
@@ -985,87 +746,20 @@ final class AppOnboardingTests: XCTestCase {
             }
         )
 
-        await viewModel.skipToFocusRoom()
+        await viewModel.skipToEnd()
 
-        XCTAssertEqual(viewModel.step, .homeDemo)
+        XCTAssertEqual(viewModel.step, .permissions)
         XCTAssertFalse(createdLifeAreas.isEmpty)
         XCTAssertFalse(createdProjects.isEmpty)
         XCTAssertEqual(createdTasks.count, 1)
         XCTAssertEqual(viewModel.createdTasks.count, 1)
         XCTAssertEqual(viewModel.focusTaskID, createdTasks.first?.id)
-        XCTAssertEqual(context.store.load().journeySnapshot?.step, .homeDemo)
+        XCTAssertEqual(context.store.load().journeySnapshot?.step, .permissions)
     }
 
-    @MainActor
-    func testHomeDemoContinueAdvancesWithoutCompletingDemoActions() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
 
-        let viewModel = makeHomeDemoViewModel(stateStore: context.store)
 
-        viewModel.continueFromHomeDemo()
 
-        XCTAssertEqual(viewModel.step, .success)
-        XCTAssertFalse(viewModel.didCompleteHomeDemoTask)
-        XCTAssertFalse(viewModel.didCompleteHomeDemoHabit)
-        XCTAssertFalse(viewModel.createdTasks.first?.isComplete ?? true)
-        XCTAssertEqual(context.store.load().journeySnapshot?.step, .success)
-    }
-
-    @MainActor
-    func testHomeDemoContinueAfterOneDemoTaskMarksTaskComplete() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let viewModel = makeHomeDemoViewModel(stateStore: context.store)
-
-        viewModel.markHomeDemoTaskDone()
-        viewModel.continueFromHomeDemo()
-
-        XCTAssertEqual(viewModel.step, .success)
-        XCTAssertTrue(viewModel.didCompleteHomeDemoTask)
-        XCTAssertTrue(viewModel.createdTasks.first?.isComplete ?? false)
-        XCTAssertEqual(viewModel.successSummary?.completedTaskTitle, "Open the draft and write 3 lines")
-    }
-
-    @MainActor
-    private func makeHomeDemoViewModel(stateStore: AppOnboardingStateStore) -> OnboardingFlowModel {
-        let area = LifeArea(name: "Career")
-        let project = Project(lifeAreaID: area.id, name: "Ship one thing")
-        let task = TaskDefinition(
-            projectID: project.id,
-            projectName: project.name,
-            lifeAreaID: area.id,
-            title: "Open the draft and write 3 lines"
-        )
-        let projectDraft = tryUnwrap(
-            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["work-career"], mode: .guided).first
-        )
-
-        let viewModel = OnboardingFlowModel(stateStore: stateStore)
-        viewModel.prepareForPresentation(
-            snapshot: OnboardingJourneySnapshot(
-                step: .homeDemo,
-                mode: .guided,
-                frictionProfile: .starting,
-                selectedLifeAreaIDs: ["work-career"],
-                showAllLifeAreas: false,
-                projectDrafts: [projectDraft],
-                resolvedLifeAreas: [
-                    ResolvedLifeAreaSelection(templateID: "work-career", lifeArea: area, reusedExisting: true)
-                ],
-                resolvedProjects: [
-                    ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
-                ],
-                createdTasks: [task],
-                createdTaskTemplateMap: [:],
-                focusTaskID: task.id,
-                focusIsActive: false,
-                hasSeenSuccess: false
-            )
-        )
-        return viewModel
-    }
 
     #if targetEnvironment(simulator)
     @MainActor
@@ -1087,141 +781,15 @@ final class AppOnboardingTests: XCTestCase {
             isEvaBackgroundPreparationEnabled: true
         )
 
-        await viewModel.skipToFocusRoom()
+        await viewModel.skipToEnd()
 
-        XCTAssertEqual(viewModel.step, .homeDemo)
+        XCTAssertEqual(viewModel.step, .permissions)
         XCTAssertEqual(viewModel.evaPreparationState.phase, .idle)
         XCTAssertEqual(createdTasks.count, 1)
     }
     #endif
 
-    @MainActor
-    func testBreakdownPromotesFirstAddedChildTaskIntoFocus() async {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
 
-        let area = LifeArea(name: "Career")
-        let project = Project(lifeAreaID: area.id, name: "Ship one thing")
-        let focusTask = TaskDefinition(
-            projectID: project.id,
-            projectName: project.name,
-            lifeAreaID: area.id,
-            title: "Open the draft and write 3 lines",
-            estimatedDuration: 120
-        )
-        let projectDraft = tryUnwrap(
-            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["work-career"], mode: .guided).first
-        )
-
-        var createdChildren: [TaskDefinition] = []
-        let viewModel = OnboardingFlowModel(
-            stateStore: context.store,
-            createTask: { request in
-                let child = request.toTaskDefinition(projectName: request.projectName)
-                createdChildren.append(child)
-                return child
-            }
-        )
-        viewModel.prepareForPresentation(
-            snapshot: OnboardingJourneySnapshot(
-                step: .focusRoom,
-                mode: .guided,
-                frictionProfile: .starting,
-                selectedLifeAreaIDs: ["work-career"],
-                showAllLifeAreas: false,
-                projectDrafts: [projectDraft],
-                resolvedLifeAreas: [
-                    ResolvedLifeAreaSelection(templateID: "work-career", lifeArea: area, reusedExisting: true)
-                ],
-                resolvedProjects: [
-                    ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
-                ],
-                createdTasks: [focusTask],
-                createdTaskTemplateMap: [:],
-                focusTaskID: focusTask.id,
-                parentFocusTaskID: nil,
-                focusStartedAt: nil,
-                focusIsActive: false,
-                successSummary: nil,
-                hasSeenSuccess: false
-            )
-        )
-        viewModel.breakdownSteps = [
-            OnboardingBreakdownStep(title: "Open the draft", isSelected: true),
-            OnboardingBreakdownStep(title: "Write one sentence", isSelected: true)
-        ]
-
-        await viewModel.applySelectedBreakdownSteps()
-
-        XCTAssertEqual(createdChildren.count, 2)
-        XCTAssertEqual(viewModel.parentFocusTaskID, focusTask.id)
-        XCTAssertEqual(viewModel.focusTask?.title, "Open the draft")
-        XCTAssertEqual(createdChildren.first?.parentTaskID, focusTask.id)
-    }
-
-    @MainActor
-    func testCompleteFocusTaskBuildsSuccessSummaryAndReminderPrompt() async {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let notificationService = TestNotificationService(status: .notDetermined)
-        let area = LifeArea(name: "Health")
-        let project = Project(lifeAreaID: area.id, name: "Move your body")
-        let task = TaskDefinition(
-            id: UUID(),
-            projectID: project.id,
-            projectName: project.name,
-            lifeAreaID: area.id,
-            title: "Fill your water bottle",
-            estimatedDuration: 60
-        )
-        let projectDraft = tryUnwrap(
-            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health-self"], mode: .guided).first
-        )
-
-        let viewModel = OnboardingFlowModel(
-            stateStore: context.store,
-            notificationService: notificationService,
-            setTaskCompletion: { taskID, isComplete in
-                var completed = task
-                completed.isComplete = isComplete
-                completed.dateCompleted = isComplete ? Date() : nil
-                return completed
-            }
-        )
-        viewModel.prepareForPresentation(
-            snapshot: OnboardingJourneySnapshot(
-                step: .focusRoom,
-                mode: .guided,
-                frictionProfile: .starting,
-                selectedLifeAreaIDs: ["health-self"],
-                showAllLifeAreas: false,
-                projectDrafts: [projectDraft],
-                resolvedLifeAreas: [
-                    ResolvedLifeAreaSelection(templateID: "health-self", lifeArea: area, reusedExisting: true)
-                ],
-                resolvedProjects: [
-                    ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
-                ],
-                createdTasks: [task],
-                createdTaskTemplateMap: [:],
-                focusTaskID: task.id,
-                parentFocusTaskID: nil,
-                focusStartedAt: Date(),
-                focusIsActive: true,
-                successSummary: nil,
-                hasSeenSuccess: false
-            )
-        )
-
-        await viewModel.completeFocusTask()
-
-        XCTAssertEqual(viewModel.step, .success)
-        XCTAssertEqual(viewModel.successSummary?.completedTaskTitle, "Fill your water bottle")
-        XCTAssertEqual(viewModel.successSummary?.completedTaskCount, 1)
-        XCTAssertNil(viewModel.successSummary?.nextTaskTitle)
-        XCTAssertEqual(viewModel.successSummary?.evaState.phase, .idle)
-    }
 
     private func makeStoreContext() -> StoreContext {
         let suiteName = "AppOnboardingTests.\(UUID().uuidString)"
@@ -1279,5 +847,335 @@ private final class TestNotificationService: NotificationServiceProtocol {
     func setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {}
     func fetchAuthorizationStatus(completion: @escaping @Sendable (LifeBoardNotificationAuthorizationStatus) -> Void) {
         completion(status)
+    }
+}
+
+// MARK: - Rebuilt flow contracts
+
+/// Covers the behaviour the nine-step flow introduced: the module selection that
+/// decides the Home layout, the day shape that finally writes a working-hours
+/// profile, and the permission semantics that distinguish "skipped in a wall of
+/// prompts" from "refused in context".
+final class OnboardingRebuiltFlowTests: XCTestCase {
+
+    override func setUp() {
+        super.setUp()
+        LifeBoardPermissionPromptState.resetAll()
+    }
+
+    override func tearDown() {
+        LifeBoardPermissionPromptState.resetAll()
+        super.tearDown()
+    }
+
+    // MARK: Modules → Home layout
+
+    func testHomeLayoutOmitsCardsForModulesTheUserDidNotChoose() {
+        let placements = OnboardingModuleCatalog.homePlacements(for: [])
+        let kinds = placements.map(\.widgetKind)
+
+        // The spine is always present so Home is never blank.
+        XCTAssertTrue(kinds.contains(DashboardWidgetKind.focusNow.rawValue))
+        XCTAssertTrue(kinds.contains(DashboardWidgetKind.tasks.rawValue))
+        XCTAssertTrue(kinds.contains(DashboardWidgetKind.setupChecklist.rawValue))
+
+        // Module cards must not be placed for modules that were not selected —
+        // this is what stopped seven of ten default cards rendering empty.
+        XCTAssertFalse(kinds.contains(DashboardWidgetKind.journal.rawValue))
+        XCTAssertFalse(kinds.contains(DashboardWidgetKind.fasting.rawValue))
+        XCTAssertFalse(kinds.contains(DashboardWidgetKind.lifeMoment.rawValue))
+    }
+
+    func testChoosingAModulePlacesItsHomeCards() throws {
+        let journal = try XCTUnwrap(OnboardingModuleCatalog.module(id: OnboardingModuleCatalog.journalID))
+        let kinds = OnboardingModuleCatalog
+            .homePlacements(for: [journal.id])
+            .map(\.widgetKind)
+        XCTAssertTrue(kinds.contains(DashboardWidgetKind.journal.rawValue))
+    }
+
+    func testHomeLayoutNeverPlacesTheSameCardTwice() {
+        let everyModule = Set(OnboardingModuleCatalog.all.map(\.id))
+        let kinds = OnboardingModuleCatalog.homePlacements(for: everyModule).map(\.widgetKind)
+        XCTAssertEqual(kinds.count, Set(kinds).count, "A duplicated card would occupy two slots for one source")
+    }
+
+    // MARK: Modules → permissions
+
+    func testCalendarIsAlwaysOfferedBecauseTwoDefaultCardsDependOnIt() {
+        XCTAssertTrue(OnboardingModuleCatalog.requestablePermissions(for: []).contains(.calendar))
+    }
+
+    func testHealthIsOnlyOfferedWhenAModuleActuallyUsesIt() {
+        XCTAssertFalse(OnboardingModuleCatalog.requestablePermissions(for: []).contains(.appleHealth))
+        XCTAssertTrue(
+            OnboardingModuleCatalog.healthDomains(for: [OnboardingModuleCatalog.hydrationID])
+                .contains(.hydration)
+        )
+    }
+
+    func testPointOfUsePermissionsAreNamedButNotRequestable() {
+        let selection: Set<String> = [OnboardingModuleCatalog.journalID]
+        XCTAssertTrue(OnboardingModuleCatalog.pointOfUsePermissions(for: selection).contains(.microphone))
+        XCTAssertFalse(OnboardingModuleCatalog.requestablePermissions(for: selection).contains(.microphone))
+    }
+
+    // MARK: Day shape
+
+    func testDayShapeWritesWeekdayIntervalsAndHonoursTheWeekendToggle() {
+        var draft = OnboardingDayShapeDraft()
+        draft.weekdayStartMinute = 10 * 60
+        draft.weekdayEndMinute = 16 * 60
+        draft.worksWeekends = false
+
+        let profile = draft.makeProfile()
+        // Calendar weekday indices: 1 = Sunday, 7 = Saturday.
+        XCTAssertEqual(profile.intervalsByWeekday[2]?.first?.startMinute, 10 * 60)
+        XCTAssertEqual(profile.intervalsByWeekday[2]?.first?.endMinute, 16 * 60)
+        XCTAssertNil(profile.intervalsByWeekday[1])
+        XCTAssertNil(profile.intervalsByWeekday[7])
+    }
+
+    func testDayShapeNeverProducesAnIntervalThatEndsBeforeItStarts() {
+        var draft = OnboardingDayShapeDraft()
+        draft.weekdayStartMinute = 18 * 60
+        draft.weekdayEndMinute = 6 * 60
+
+        let interval = draft.makeProfile().intervalsByWeekday[2]?.first
+        XCTAssertNotNil(interval)
+        XCTAssertGreaterThanOrEqual(interval?.endMinute ?? 0, interval?.startMinute ?? 0)
+    }
+
+    // MARK: Permission semantics
+
+    func testSkippingInOnboardingIsNotCountedAsARefusal() {
+        LifeBoardPermissionPromptState.recordOnboardingDeferral(.notifications)
+
+        XCTAssertTrue(LifeBoardPermissionPromptState.wasDeferredInOnboarding(.notifications))
+        XCTAssertEqual(LifeBoardPermissionPromptState.declineCount(.notifications), 0)
+        XCTAssertNil(LifeBoardPermissionPromptState.snoozedUntil(.notifications))
+        // The point of the distinction: the feature may still ask once, in context.
+        XCTAssertTrue(LifeBoardPermissionPromptState.shouldOffer(.notifications))
+    }
+
+    func testRefusingInContextSnoozesAndEventuallyStopsOffering() {
+        let now = Date()
+        LifeBoardPermissionPromptState.recordDecline(.notifications, now: now)
+        XCTAssertFalse(LifeBoardPermissionPromptState.shouldOffer(.notifications, now: now.addingTimeInterval(60)))
+
+        let afterSnooze = now.addingTimeInterval(LifeBoardPermissionPromptState.snoozeInterval + 1)
+        XCTAssertTrue(LifeBoardPermissionPromptState.shouldOffer(.notifications, now: afterSnooze))
+
+        LifeBoardPermissionPromptState.recordDecline(.notifications, now: afterSnooze)
+        XCTAssertFalse(
+            LifeBoardPermissionPromptState.shouldOffer(
+                .notifications,
+                now: afterSnooze.addingTimeInterval(LifeBoardPermissionPromptState.snoozeInterval * 5)
+            ),
+            "Two refusals should end the invitation permanently"
+        )
+    }
+
+    func testGrantingStopsAnyFurtherOffers() {
+        LifeBoardPermissionPromptState.recordRequested(.calendar)
+        XCTAssertTrue(LifeBoardPermissionPromptState.hasRequested(.calendar))
+        XCTAssertFalse(LifeBoardPermissionPromptState.shouldOffer(.calendar))
+    }
+
+    func testPermissionsRequestedAtPointOfUseAreNeverPrimedAhead() {
+        for kind in [LifeBoardPermissionKind.microphone, .speech, .camera] {
+            XCTAssertFalse(
+                LifeBoardPermissionPromptState.shouldOffer(kind),
+                "\(kind.rawValue) is asked for by iOS at first use; priming it would mean two dialogs"
+            )
+        }
+    }
+
+    func testHealthPromptStateStillReadsThroughItsOriginalFace() {
+        HealthAuthorizationPromptState.recordRequested()
+        XCTAssertTrue(LifeBoardPermissionPromptState.hasRequested(.appleHealth))
+        XCTAssertTrue(HealthAuthorizationPromptState.hasRequested)
+    }
+}
+
+/// The version bump to the rebuilt flow must not disturb anyone who already
+/// finished setup — the previous check compared against the current version
+/// only, so every bump re-presented onboarding to established users.
+final class OnboardingVersionMigrationTests: XCTestCase {
+
+    func testAUserWhoFinishedAnEarlierVersionIsNotOnboardedAgain() async {
+        let suiteName = "onboarding.migration.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+        let store = AppOnboardingStateStore(userDefaults: defaults)
+
+        // Someone who completed the old two-version flow.
+        store.markHandled(outcome: OnboardingOutcome.completed, version: 2)
+        XCTAssertNotEqual(2, AppOnboardingState.currentVersion)
+
+        let service = OnboardingEligibilityService(
+            stateStore: store,
+            launchArguments: [],
+            fetchLifeAreas: { [] },
+            fetchProjects: { [] },
+            fetchTasks: { [] }
+        )
+
+        let eligibility: OnboardingEligibility = await service.evaluate()
+        XCTAssertEqual(eligibility, OnboardingEligibility.suppressed)
+    }
+}
+
+/// A snapshot written by the previous flow names steps that no longer exist.
+final class OnboardingSnapshotRecoveryTests: XCTestCase {
+
+    func testAnUnknownStoredStepRestartsAtWelcomeRatherThanThrowing() throws {
+        // Raw value 20 was `.homeDemo` in the previous enum.
+        let json = """
+        {"schemaVersion":4,"step":20,"mode":"guided","selectedLifeAreaIDs":[],
+         "showAllLifeAreas":false,"projectDrafts":[],"resolvedLifeAreas":[],
+         "resolvedProjects":[],"createdTasks":[],"createdTaskTemplateMap":{},
+         "hasSeenSuccess":false}
+        """.data(using: .utf8)!
+
+        let snapshot = try JSONDecoder().decode(OnboardingJourneySnapshot.self, from: json)
+        XCTAssertEqual(snapshot.step, .welcome)
+    }
+}
+
+/// Guards the Release rollout table.
+///
+/// Every staged Life OS flag resolves through `promotedDefaults` in Release. A
+/// flag added without an entry there silently ships off — which is exactly how
+/// Plan, Track, Insights, Eva and the rest stayed unreachable in Release builds
+/// while being on for every developer.
+final class FeatureFlagPromotionTests: XCTestCase {
+
+    func testEveryStagedFlagHasAPromotedDefault() throws {
+        let source = try flagSource()
+
+        let declared = Set(
+            matches(in: source, pattern: #"stagedFeatureEnabled\(\s*\n?\s*key: "([^"]+)""#)
+        )
+        let promoted = Set(
+            matches(in: try promotedBlock(source), pattern: #""([^"]+)"\s*:"#)
+        )
+
+        XCTAssertFalse(declared.isEmpty, "Failed to parse any staged flags")
+        XCTAssertEqual(
+            declared.subtracting(promoted), [],
+            "Staged flags missing a promoted default will be off in Release"
+        )
+        XCTAssertEqual(
+            promoted.subtracting(declared), [],
+            "Promoted entries that match no flag are dead and mask typos"
+        )
+    }
+
+    func testTheLifeOSShellIsPromoted() throws {
+        let block = try promotedBlock(flagSource())
+        XCTAssertTrue(
+            block.contains("\"debug.life_os_foundation_v1\": true"),
+            "The shell must be on, or none of Plan/Track/Insights/Eva is reachable"
+        )
+    }
+
+    /// Every retained staged flag defaults on in Release, not just on the Debug
+    /// launch developers see. A deliberate `false` and a missing entry are both
+    /// silent release-only omissions, so pin the value as well as membership.
+    func testReachableStagedSurfacesArePromotedForRelease() throws {
+        let block = try promotedBlock(flagSource())
+        let stagedKeys = matches(
+            in: try flagSource(),
+            pattern: #"stagedFeatureEnabled\(\s*\n?\s*key: \"([^\"]+)\""#
+        )
+        for key in stagedKeys {
+            XCTAssertTrue(
+                block.contains("\"\(key)\": true"),
+                "Every retained staged flag must default on in Release: \(key)"
+            )
+        }
+    }
+
+    func testExtensionPaletteDefaultsToUnifiedPresentationInRelease() throws {
+        let source = try colorTokenSource()
+        guard let start = source.range(of: "private static var unifiedPresentationEnabled: Bool"),
+              let end = source.range(
+                of: "\n    /// The canonical LifeBoard 5.0 palette",
+                range: start.upperBound..<source.endIndex
+              )
+        else { throw XCTSkip("Extension unified-presentation resolver not found") }
+        let resolver = String(source[start.lowerBound..<end.lowerBound])
+        let releaseBranch = resolver.components(separatedBy: "#else").last ?? ""
+        XCTAssertTrue(
+            releaseBranch.contains("?? true"),
+            "Widget and Watch targets must default to the same unified palette as the app"
+        )
+    }
+
+    /// A flag with no call site gates nothing, so a promoted default for it is a
+    /// claim the table cannot honor. `knowledge_notes_media_v2` and
+    /// `knowledge_notes_flagship_v1` were exactly that and were removed; this
+    /// keeps them from being reintroduced as decoration.
+    func testRemovedDeadFlagsStayRemoved() throws {
+        let source = try flagSource()
+        for key in [
+            "feature.life_os.knowledge_notes_media_v2",
+            "feature.life_os.knowledge_notes_flagship_v1"
+        ] {
+            XCTAssertFalse(
+                source.contains(key),
+                "\(key) had no call site; reintroduce it only with the surface it gates"
+            )
+        }
+    }
+
+    // MARK: Helpers
+
+    private func flagSource() throws -> String {
+        // Walk up from this file to the repository root.
+        var url = URL(fileURLWithPath: #filePath)
+        while url.pathComponents.count > 1 {
+            url.deleteLastPathComponent()
+            let candidate = url
+                .appendingPathComponent("LifeBoard")
+                .appendingPathComponent("Services")
+                .appendingPathComponent("V2FeatureFlags.swift")
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return try String(contentsOf: candidate, encoding: .utf8)
+            }
+        }
+        throw XCTSkip("V2FeatureFlags.swift not reachable from the test bundle")
+    }
+
+    private func colorTokenSource() throws -> String {
+        var url = URL(fileURLWithPath: #filePath)
+        while url.pathComponents.count > 1 {
+            url.deleteLastPathComponent()
+            let candidate = url
+                .appendingPathComponent("LifeBoard")
+                .appendingPathComponent("DesignSystem")
+                .appendingPathComponent("ColorTokens.swift")
+            if FileManager.default.fileExists(atPath: candidate.path) {
+                return try String(contentsOf: candidate, encoding: .utf8)
+            }
+        }
+        throw XCTSkip("ColorTokens.swift not reachable from the test bundle")
+    }
+
+    private func promotedBlock(_ source: String) throws -> String {
+        guard let start = source.range(of: "promotedDefaults: [String: Bool] = ["),
+              let end = source.range(of: "\n    ]", range: start.upperBound..<source.endIndex)
+        else { throw XCTSkip("promotedDefaults table not found") }
+        return String(source[start.upperBound..<end.lowerBound])
+    }
+
+    private func matches(in source: String, pattern: String) -> [String] {
+        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        let range = NSRange(source.startIndex..., in: source)
+        return regex.matches(in: source, range: range).compactMap { match in
+            guard let captured = Range(match.range(at: 1), in: source) else { return nil }
+            return String(source[captured])
+        }
     }
 }

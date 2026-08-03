@@ -38,6 +38,8 @@ struct SunriseHomeScreen: View {
     let onStreamTaskToggleComplete: (TaskDefinition) -> Void
     let onDayCompassPrimary: (DayCompassState) -> Void
     let onDayCompassSnooze: (DayCompassFlow) -> Void
+    let onOpenRescue: () -> Void
+    let focusContent: AnyView?
 
     @State private var isScrollActive = false
     @State private var scrollStopTask: Task<Void, Never>?
@@ -54,13 +56,16 @@ struct SunriseHomeScreen: View {
     @State private var committedDaySwipeDirection: HomeDayNavigationDirection?
     @State private var completionBurstRowID: String?
     @State private var completionBurstTrigger = 0
+    @State private var pendingCompletionBurst: PendingCompletionBurst?
+    @State private var pendingCompletionBurstExpiryTask: Task<Void, Never>?
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeBoardAtmosphereIsHosted) private var isAtmosphereHosted
 
     var body: some View {
         GeometryReader { proxy in
             ZStack(alignment: .top) {
-                Color.lifeboard.bgCanvas
+                (isAtmosphereHosted ? Color.clear : Color.lifeboard.bgCanvas)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
 
@@ -143,6 +148,7 @@ struct SunriseHomeScreen: View {
 
                 daySunriseSwipeOverlay(safeAreaTop: proxy.safeAreaInsets.top)
                     .zIndex(10)
+
             }
             .onAppear {
                 resetIdleDaySunriseSwipeHandles(
@@ -215,13 +221,21 @@ struct SunriseHomeScreen: View {
                 )
             }
         }
+        .onChange(of: timeline.day.plottedTimelineItems) { _, items in
+            guard let pendingCompletionBurst,
+                  items.contains(where: { $0.taskID == pendingCompletionBurst.taskID && $0.isComplete }) else { return }
+            pendingCompletionBurstExpiryTask?.cancel()
+            self.pendingCompletionBurst = nil
+            completionBurstRowID = pendingCompletionBurst.rowID
+            completionBurstTrigger += 1
+        }
     }
 
     private func daySunriseSwipeOverlay(safeAreaTop: CGFloat) -> some View {
         SunriseDaySwipeOverlay(
             isEnabled: isDaySwipeChromeEnabled,
             isChromeVisible: isDaySunriseSwipeChromeVisible,
-            reduceMotion: reduceMotion || isUITesting,
+            reduceMotion: LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion),
             restingCenterY: daySunriseSwipeRestingCenterY(safeAreaTop: safeAreaTop),
             onInteractionStarted: {},
             onInteractionCancelled: {},
@@ -266,11 +280,6 @@ struct SunriseHomeScreen: View {
         Int(Calendar.current.startOfDay(for: chrome.selectedDate).timeIntervalSince1970)
     }
 
-    private var isUITesting: Bool {
-        ProcessInfo.processInfo.arguments.contains("-UI_TESTING")
-            || ProcessInfo.processInfo.arguments.contains("-DISABLE_ANIMATIONS")
-    }
-
     private var isDaySwipeChromeEnabled: Bool {
         isDaySwipeEnabled
     }
@@ -280,14 +289,14 @@ struct SunriseHomeScreen: View {
     }
 
     private var daySwipeAnimation: Animation {
-        if reduceMotion || isUITesting {
+        if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) {
             return .easeOut(duration: 0.12)
         }
         return .snappy(duration: 0.22)
     }
 
     private var daySwipeTransition: AnyTransition {
-        guard reduceMotion == false, isUITesting == false else {
+        guard LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false else {
             return .opacity
         }
 
@@ -343,6 +352,14 @@ struct SunriseHomeScreen: View {
             } else {
                 stateCards
 
+                if let focusContent {
+                    focusContent
+                }
+
+                if let rescueTailState {
+                    rescueEntryCard(rescueTailState)
+                }
+
                 if selectedContentScope.showsTimeline {
                     timelineContent
                 }
@@ -353,6 +370,59 @@ struct SunriseHomeScreen: View {
             }
         }
         .padding(.horizontal, LBSpacingTokens.screenMargin)
+    }
+
+    private var rescueTailState: RescueTailState? {
+        tasks.agendaTailItems.lazy.compactMap { item in
+            guard case .rescue(let state) = item else { return nil }
+            return state
+        }.first
+    }
+
+    private func rescueEntryCard(_ state: RescueTailState) -> some View {
+        let style = LBColorTokens.role(.warning)
+        return Button(action: onOpenRescue) {
+            LBGlassCard(
+                cornerRadius: LBRadiusTokens.card,
+                borderColor: style.border.opacity(0.72),
+                fill: style.softSurface.opacity(0.48),
+                shadow: nil,
+                usesMaterialBackground: false
+            ) {
+                HStack(spacing: LBSpacingTokens.md) {
+                    Image(systemName: style.symbolName)
+                        .font(LBTypographyTokens.bodyStrong)
+                        .foregroundStyle(style.deep)
+                        .frame(width: 34, height: 34)
+                        .background(style.softSurface.opacity(0.82), in: Circle())
+                        .accessibilityHidden(true)
+
+                    VStack(alignment: .leading, spacing: LBSpacingTokens.xxs) {
+                        Text(String(localized: "Rescue available"))
+                            .font(LBTypographyTokens.cardTitle)
+                            .foregroundStyle(LBColorTokens.navy)
+
+                        Text(state.subtitle)
+                            .font(LBTypographyTokens.meta)
+                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .multilineTextAlignment(.leading)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    Image(systemName: "chevron.right")
+                        .font(LBTypographyTokens.meta)
+                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .accessibilityHidden(true)
+                }
+                .padding(LBSpacingTokens.md)
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("home.rescue.open")
+        .accessibilityLabel("Open Overdue Rescue")
+        .accessibilityValue(state.subtitle)
+        .accessibilityHint("Review overdue tasks that still need a decision")
     }
 
     // MARK: - Unified chip rail
@@ -384,6 +454,7 @@ struct SunriseHomeScreen: View {
             }
             .padding(.horizontal, LBSpacingTokens.screenMargin)
         }
+        .accessibilityIdentifier("home.sunrise.chipRail")
         .padding(.horizontal, -LBSpacingTokens.screenMargin)
         .padding(.top, chipRowTopPadding)
     }
@@ -617,9 +688,14 @@ struct SunriseHomeScreen: View {
                         let kind = cardKind(for: item)
                         let taskToggleAction: (() -> Void)? = item.taskID == nil ? nil : {
                             let interval = LifeBoardPerformanceTrace.begin("HomeTimelineTaskToggle")
-                            if item.isComplete == false, isFirstCompletionOfDay {
-                                completionBurstRowID = row.id
-                                completionBurstTrigger += 1
+                            if let taskID = item.taskID, item.isComplete == false, isFirstCompletionOfDay {
+                                pendingCompletionBurst = PendingCompletionBurst(rowID: row.id, taskID: taskID)
+                                pendingCompletionBurstExpiryTask?.cancel()
+                                pendingCompletionBurstExpiryTask = Task { @MainActor in
+                                    try? await Task.sleep(nanoseconds: 3_000_000_000)
+                                    guard Task.isCancelled == false else { return }
+                                    pendingCompletionBurst = nil
+                                }
                             }
                             onTimelineItemToggleComplete(item)
                             LifeBoardPerformanceTrace.end(interval)
@@ -659,10 +735,6 @@ struct SunriseHomeScreen: View {
                                 }
                             }
                         }
-                    case .gap:
-                        // Gaps stay quiet; the row kind survives for compatibility
-                        // but is no longer injected or rendered.
-                        EmptyView()
                     case .now(let now):
                         LBCurrentTimeRail(
                             model: LBCurrentTimeRail.Model(
@@ -777,7 +849,6 @@ struct SunriseHomeScreen: View {
             wakeAnchor: timeline.day.wakeAnchor,
             sleepAnchor: timeline.day.sleepAnchor,
             plottedItems: timeline.day.plottedTimelineItems,
-            gaps: timeline.day.actionableGaps,
             now: now,
             isToday: Calendar.current.isDate(chrome.selectedDate, inSameDayAs: now),
             contentScope: selectedContentScope,
@@ -789,7 +860,6 @@ struct SunriseHomeScreen: View {
         wakeAnchor: TimelineAnchorItem,
         sleepAnchor: TimelineAnchorItem,
         plottedItems: [TimelinePlanItem],
-        gaps: [TimelineGap],
         now: Date,
         isToday: Bool,
         contentScope: SunriseHomeContentScope = .all,
@@ -1053,16 +1123,6 @@ struct SunriseHomeScreen: View {
         }
     }
 
-    nonisolated static func assistantDisplayDate(for gap: TimelineGap, now: Date) -> Date? {
-        guard gap.endDate > now else { return nil }
-        let remaining = gap.endDate.timeIntervalSince(max(now, gap.startDate))
-        guard remaining >= 15 * 60 else { return nil }
-        if gap.startDate <= now && gap.endDate > now {
-            return now
-        }
-        return gap.startDate
-    }
-
     nonisolated static func nextUpcomingCalendarItemID(in rows: [SunriseTimelineRow], now: Date) -> String? {
         rows.compactMap { row -> TimelinePlanItem? in
             guard case .item(let item) = row,
@@ -1205,7 +1265,7 @@ struct SunriseHomeScreen: View {
         restingCenterY: CGFloat
     ) {
         let data = daySunriseSwipeData(for: side, size: size, restingCenterY: restingCenterY).initial()
-        if reduceMotion || isUITesting {
+        if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) {
             setDaySunriseSwipeData(data)
         } else {
             withAnimation(.spring(response: 0.32, dampingFraction: 0.72)) {
@@ -1233,7 +1293,7 @@ struct SunriseHomeScreen: View {
         restingCenterY: CGFloat
     ) {
         topDaySunriseSwipeSide = side
-        if reduceMotion || isUITesting {
+        if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) {
             commitHomeDaySwipe(side.direction)
             resetDaySunriseSwipe(side, size: size, restingCenterY: restingCenterY)
             return
@@ -1332,7 +1392,7 @@ struct SunriseHomeScreen: View {
             restoresOnExpanded: false
         )
         guard nextVisibility != isDaySunriseSwipeChromeVisible else { return }
-        if reduceMotion || isUITesting {
+        if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) {
             isDaySunriseSwipeChromeVisible = nextVisibility
         } else {
             withAnimation(.easeInOut(duration: 0.22)) {
@@ -1580,6 +1640,7 @@ private struct SunriseHabitGridCard: View, Equatable {
                             .font(LBTypographyTokens.meta)
                             .foregroundStyle(LBColorTokens.violetDeep)
                             .buttonStyle(.plain)
+                            .accessibilityIdentifier("home.habits.openBoard")
                     }
 
                     if rows.isEmpty {
@@ -1676,11 +1737,15 @@ private struct SunriseHabitGridRow: View, Equatable {
     }
 }
 
+private struct PendingCompletionBurst: Equatable {
+    let rowID: String
+    let taskID: UUID
+}
+
 enum SunriseTimelineRow: Identifiable {
     case anchor(TimelineAnchorItem)
     case item(TimelinePlanItem)
     case meetingFlock(LBMeetingFlockCard.Model, [TimelinePlanItem])
-    case gap(TimelineGap)
     case now(Date)
 
     var id: String {
@@ -1688,7 +1753,6 @@ enum SunriseTimelineRow: Identifiable {
         case .anchor(let anchor): return "anchor-\(anchor.id)"
         case .item(let item): return "item-\(item.id)"
         case .meetingFlock(let model, _): return model.id
-        case .gap(let gap): return "gap-\(gap.id)"
         case .now(let date): return "now-\(Int(date.timeIntervalSince1970 / 60))"
         }
     }
@@ -1705,8 +1769,6 @@ enum SunriseTimelineRow: Identifiable {
             return item.startDate
         case .meetingFlock(_, let items):
             return items.compactMap(\.startDate).min()
-        case .gap:
-            return nil
         case .now(let date):
             return date
         }
@@ -1718,17 +1780,11 @@ enum SunriseTimelineRow: Identifiable {
         case .item: return 1
         case .meetingFlock: return 1
         case .now: return 2
-        case .gap: return 3
         }
     }
 
     func sortDate(now: Date) -> Date {
-        switch self {
-        case .gap(let gap):
-            return SunriseHomeScreen.assistantDisplayDate(for: gap, now: now) ?? gap.startDate
-        default:
-            return displayDate ?? now
-        }
+        displayDate ?? now
     }
 
     func temporalState(now: Date) -> LBTimelineTemporalState {
@@ -1762,11 +1818,6 @@ enum SunriseTimelineRow: Identifiable {
                 return earliestStart < now ? .past : .future
             }
             return .future
-        case .gap(let gap):
-            if gap.startDate <= now && gap.endDate > now {
-                return .current
-            }
-            return gap.endDate <= now ? .past : .future
         }
     }
 }

@@ -10,6 +10,10 @@ struct MessageView: View {
 
     @Environment(\.lifeboardLayoutClass) var layoutClass
 
+    @Environment(\.evaAuthorizedEvidenceContext) var authorizedLifeEvidence
+
+    @Environment(\.evaEvidenceOpenAction) var evidenceOpenAction
+
     @State var collapsed = true
 
     @State var undoExpiredLogged = false

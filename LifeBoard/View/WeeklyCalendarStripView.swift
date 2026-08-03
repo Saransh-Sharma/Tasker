@@ -142,11 +142,11 @@ struct WeeklyCalendarStripView: View {
 
             expandChevron
         }
-        .animation(LifeBoardAnimation.snappy, value: isExpanded)
+        .animation(LifeBoardAnimation.stateChange, value: isExpanded)
         .onChange(of: selectedDate) { _, newDate in
             let newWeekStart = calendar.lifeboardStartOfWeek(for: newDate)
             if !calendar.isDate(newWeekStart, inSameDayAs: displayedWeekStart) {
-                withAnimation(LifeBoardAnimation.snappy) {
+                withAnimation(LifeBoardAnimation.stateChange) {
                     displayedWeekStart = newWeekStart
                 }
             }
@@ -169,7 +169,7 @@ struct WeeklyCalendarStripView: View {
             HStack(spacing: 0) {
                 ForEach(daysOfWeek, id: \.timeIntervalSince1970) { date in
                     Button {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.stateChange) {
                             selectedDate = date
                         }
                         LifeBoardFeedback.selection()
@@ -259,7 +259,7 @@ struct WeeklyCalendarStripView: View {
         let isCurrentMonth = calendar.isDate(date, equalTo: displayedWeekStart, toGranularity: .month)
 
         return Button {
-            withAnimation(LifeBoardAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.stateChange) {
                 selectedDate = date
             }
             LifeBoardFeedback.selection()
@@ -297,7 +297,7 @@ struct WeeklyCalendarStripView: View {
 
     private var expandChevron: some View {
         Button {
-            withAnimation(LifeBoardAnimation.snappy) {
+            withAnimation(LifeBoardAnimation.stateChange) {
                 isExpanded.toggle()
             }
             LifeBoardFeedback.selection()
@@ -331,7 +331,7 @@ struct WeeklyCalendarStripView: View {
     /// Executes advanceWeek.
     private func advanceWeek(by offset: Int) {
         guard let newStart = calendar.date(byAdding: .weekOfYear, value: offset, to: displayedWeekStart) else { return }
-        withAnimation(LifeBoardAnimation.snappy) {
+        withAnimation(LifeBoardAnimation.stateChange) {
             displayedWeekStart = newStart
         }
         LifeBoardFeedback.selection()

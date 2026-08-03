@@ -67,16 +67,16 @@ struct AddTaskCreateButton: View {
                         )
                 )
                 .clipShape(RoundedRectangle(cornerRadius: corner.r2, style: .continuous))
-                .lbAnimatedSheen()
+                .lbAnimatedSheen(isEnabled: isEnabled && isLoading == false)
             }
             .buttonStyle(.plain)
             .scaleOnPress()
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("addTask.createButton")
             .disabled(!isEnabled || isLoading)
-            .animation(LifeBoardAnimation.quick, value: isEnabled)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isEnabled)
             .animation(reduceMotion ? nil : LifeBoardAnimation.ctaConfirmation, value: successFlash)
-            .animation(LifeBoardAnimation.quick, value: isLoading)
+            .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isLoading)
 
             if showAddAnother {
                 Button {
@@ -91,6 +91,6 @@ struct AddTaskCreateButton: View {
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
         }
-        .animation(LifeBoardAnimation.snappy, value: showAddAnother)
+        .animation(reduceMotion ? nil : LifeBoardAnimation.stateChange, value: showAddAnother)
     }
 }

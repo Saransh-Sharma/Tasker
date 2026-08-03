@@ -89,7 +89,7 @@ struct EvaGoalsView: View {
                     ) {
                         addGoal()
                     }
-                    .animation(reduceMotion ? nil : LifeBoardAnimation.quick, value: canAddGoal)
+                    .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: canAddGoal)
                 }
             }
             .enhancedStaggeredAppearance(index: 1)
@@ -131,7 +131,7 @@ struct EvaGoalsView: View {
         if reduceMotion {
             mutation()
         } else {
-            withAnimation(LifeBoardAnimation.quick, mutation)
+            withAnimation(LifeBoardAnimation.feedbackFast, mutation)
         }
     }
 

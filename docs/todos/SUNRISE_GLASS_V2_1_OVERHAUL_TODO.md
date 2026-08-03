@@ -1,5 +1,7 @@
 # Sunrise Glass v2.1 Overhaul TODO
 
+> **Classification: Historical visual migration plan.** Current design behavior is defined by [DESIGN.md](../../DESIGN.md) and the [UI/UX guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md).
+
 - [x] Phase 0: Update `LifeBoardSunriseGlassDesign.md` to v2.1.0 with Day Compass, onboarding, and creation-sheet rules.
 - [x] Phase 1: Implement Day Compass state arbitration, snoozes, Home top-card UI, routing, notification deep links, and focused tests.
 - [x] Phase 2: Polish Home timeline, inbox shelf, assistant prompts, empty/loading/error states, and habit board presentation.

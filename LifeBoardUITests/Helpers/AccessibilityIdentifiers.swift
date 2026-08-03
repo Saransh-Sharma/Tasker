@@ -14,9 +14,14 @@ enum AccessibilityIdentifiers {
 
     enum Home {
         static let view = "home.view"
+        static let screenshotSeedReady = "screenshot.seed.ready"
+        static let screenshotSeedFailed = "screenshot.seed.failed"
         static let sunriseSurface = "home.sunrise.surface"
         static let sunriseCollapseHint = "home.sunrise.collapseHint"
         static let addTaskButton = "home.addTaskButton"
+        static let taskCardShowMore = "home.tasks.showMore"
+        static let taskCardShowLess = "home.tasks.showLess"
+        static let taskCardDatePicker = "home.tasks.datePicker"
         static let morningTasksList = "home.morningTasksList"
         static let eveningTasksList = "home.eveningTasksList"
         static let dailyScoreLabel = "home.dailyScoreLabel"
@@ -35,7 +40,6 @@ enum AccessibilityIdentifiers {
         static let inboxButton = "home.inboxButton"
         static let settingsButton = "home.settingsButton"
         static let backToTodayButton = "home.backToToday.button"
-        static let reflectionReadyButton = "home.reflectionReady.button"
         static let topChromeDayProgress = "home.topChrome.dayProgress"
         static let projectFilterButton = "home.focus.menu.button"
         static let quickFilterMenuButton = "home.focus.menu.button"
@@ -49,7 +53,6 @@ enum AccessibilityIdentifiers {
         static let primaryWidgetPageWeeklyOperating = "home.primaryWidget.page.weeklyOperating"
         static let primaryWidgetIndicatorFocusNow = "home.primaryWidget.indicator.focusNow"
         static let primaryWidgetIndicatorWeeklyOperating = "home.primaryWidget.indicator.weeklyOperating"
-        static let dailyReflectionEntryCompact = "home.dailyReflection.entry.compact"
         static let weeklySummaryCard = "home.weeklySummary.card"
         static let calendarCard = "home.calendar.card"
         static let calendarStateActive = "home.calendar.state.active"
@@ -167,32 +170,6 @@ enum AccessibilityIdentifiers {
         static func taskTitle(index: Int) -> String { "home.taskTitle.\(index)" }
         static func taskPriority(index: Int) -> String { "home.taskPriority.\(index)" }
         static func taskProject(index: Int) -> String { "home.taskProject.\(index)" }
-    }
-
-    enum ReflectPlan {
-        static let screen = "reflection.plan.screen"
-        static let loading = "reflection.plan.loading"
-        static let complete = "reflection.plan.complete"
-        static let close = "reflection.plan.close"
-        static let yesterdayCard = "reflection.plan.yesterday"
-        static let todayCard = "reflection.plan.today"
-        static let save = "reflection.plan.save"
-        static let contextCard = "reflection.plan.context.card"
-        static let contextToggle = "reflection.plan.context.toggle"
-        static let noteField = "reflection.plan.context.note"
-        static let swapSheet = "reflection.plan.swap.sheet"
-        static let swapSearch = "reflection.plan.swap.search"
-        static let swapEmpty = "reflection.plan.swap.empty"
-        static let todayAddTask = "reflection.plan.today.addTask"
-        static let todayEmpty = "reflection.plan.today.empty"
-
-        static func todayTaskRow(_ index: Int) -> String { "reflection.plan.today.task.\(index)" }
-        static func todayTaskSwap(_ index: Int) -> String { "reflection.plan.today.task.\(index).swap" }
-        static func mood(_ slug: String) -> String { "reflection.plan.context.mood.\(slug)" }
-        static func energy(_ slug: String) -> String { "reflection.plan.context.energy.\(slug)" }
-        static func friction(_ slug: String) -> String { "reflection.plan.context.friction.\(slug)" }
-        static func swapOption(_ id: String) -> String { "reflection.plan.swap.option.\(id)" }
-        static func swapOptionUse(_ id: String) -> String { "reflection.plan.swap.option.use.\(id)" }
     }
 
     enum FocusNow {
@@ -376,8 +353,10 @@ enum AccessibilityIdentifiers {
         static let welcomeIntroTitleCard = "onboarding.welcome.introTitleCard"
         static let welcomeIntroContinue = "onboarding.welcome.introContinue"
         static let goal = "onboarding.goal"
-        static let pain = "onboarding.pain"
         static let evaValue = "onboarding.evaValue"
+        static let dayShape = "onboarding.dayShape"
+        static let modules = "onboarding.modules"
+        static let permissions = "onboarding.permissions"
         static let lifeAreas = "onboarding.lifeAreas"
         static let habitSetup = "onboarding.habitSetup"
         static let workStyle = "onboarding.workStyle"
@@ -414,6 +393,11 @@ enum AccessibilityIdentifiers {
         static let weeklyOutcomeAdd = "onboarding.weeklyOutcomes.add"
         static let homeDemoTimeline = "onboarding.homeDemo.timeline"
         static let homeDemoHabits = "onboarding.homeDemo.habits"
+        static let primaryTaskAction = "onboarding.taskTemplate.primaryAction"
+        static func lifeArea(_ id: String) -> String { "onboarding.lifeArea.\(id)" }
+        static func primaryGoal(_ id: String) -> String { "onboarding.primaryGoal.\(id)" }
+        static func workingStyle(_ id: String) -> String { "onboarding.workingStyle.\(id)" }
+        static func momentumBlocker(_ id: String) -> String { "onboarding.momentumBlocker.\(id)" }
         static func mascotPersona(_ id: String) -> String { "onboarding.mascot.persona.\(id)" }
         static func weeklyOutcomeField(_ index: Int) -> String { "onboarding.weeklyOutcomes.field.\(index)" }
     }

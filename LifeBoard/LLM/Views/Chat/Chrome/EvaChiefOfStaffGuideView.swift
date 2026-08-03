@@ -98,7 +98,7 @@ struct EvaChiefOfStaffGuideView: View {
         .overlay(alignment: .topTrailing) {
             Image(systemName: "sparkles")
                 .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(LBColorTokens.violet.opacity(0.54))
+                .foregroundStyle(Color.lifeboard(.link, on: .card))
                 .padding(LifeBoardTheme.Spacing.lg)
                 .accessibilityHidden(true)
         }

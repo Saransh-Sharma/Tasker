@@ -54,6 +54,135 @@ private final class EvaBatchTaskResolutionStore: @unchecked Sendable {
     }
 }
 
+/// The mutation boundary for Rescue batches.
+///
+/// Resolution and staleness checks happen before a proposal exists; proposal,
+/// confirmation, and apply remain sequential; the pipeline's transactional
+/// rollback remains authoritative on apply failure. Plan-metadata compensation
+/// and user Undo both call the same `undo` boundary.
+@MainActor
+final class RescueBatchApplier {
+    private let taskRepository: TaskDefinitionRepositoryProtocol
+    private let proposalBuilder: BuildEvaBatchProposalUseCase
+    private let pipeline: AssistantActionPipelineUseCase
+
+    init(
+        taskRepository: TaskDefinitionRepositoryProtocol,
+        proposalBuilder: BuildEvaBatchProposalUseCase,
+        pipeline: AssistantActionPipelineUseCase
+    ) {
+        self.taskRepository = taskRepository
+        self.proposalBuilder = proposalBuilder
+        self.pipeline = pipeline
+    }
+
+    func apply(
+        source: EvaBatchSource,
+        mutations: [EvaBatchMutationInstruction],
+        rescueReferenceDate: Date,
+        completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        guard mutations.isEmpty == false else {
+            completion(.failure(NSError(
+                domain: "RescueBatchApplier",
+                code: 422,
+                userInfo: [NSLocalizedDescriptionKey: "No assistant mutations to apply"]
+            )))
+            return
+        }
+
+        resolveTasks(for: mutations) { [weak self] resolution in
+            Task { @MainActor in
+                guard let self else { return }
+                let tasksByID: [UUID: TaskDefinition]
+                switch resolution {
+                case .success(let resolved): tasksByID = resolved
+                case .failure(let error):
+                    completion(.failure(error))
+                    return
+                }
+
+                if source == .rescue,
+                   let stale = mutations.first(where: { mutation in
+                       guard let task = tasksByID[mutation.taskID] else { return true }
+                       return OverdueRescueEligibilityPolicy.isStaleOverdueTask(
+                           task,
+                           referenceDate: rescueReferenceDate
+                       ) == false
+                   }) {
+                    completion(.failure(EvaBatchProposalError.staleTask(stale.taskID)))
+                    return
+                }
+
+                let proposal: (threadID: String, envelope: AssistantCommandEnvelope)
+                do {
+                    proposal = try self.proposalBuilder.executeValidated(
+                        source: source,
+                        tasksByID: tasksByID,
+                        mutations: mutations,
+                        now: Date()
+                    )
+                } catch {
+                    completion(.failure(error))
+                    return
+                }
+
+                self.pipeline.propose(threadID: proposal.threadID, envelope: proposal.envelope) { proposeResult in
+                    switch proposeResult {
+                    case .failure(let error): completion(.failure(error))
+                    case .success(let proposedRun):
+                        self.pipeline.confirm(runID: proposedRun.id) { confirmResult in
+                            switch confirmResult {
+                            case .failure(let error): completion(.failure(error))
+                            case .success:
+                                self.pipeline.applyConfirmedRun(id: proposedRun.id, completion: completion)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    func undo(
+        runID: UUID,
+        completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        pipeline.undoAppliedRun(id: runID, completion: completion)
+    }
+
+    func compensate(
+        runID: UUID,
+        completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void
+    ) {
+        undo(runID: runID, completion: completion)
+    }
+
+    private func resolveTasks(
+        for mutations: [EvaBatchMutationInstruction],
+        completion: @escaping @Sendable (Result<[UUID: TaskDefinition], Error>) -> Void
+    ) {
+        let ids = Array(Set(mutations.map(\.taskID)))
+        let group = DispatchGroup()
+        let store = EvaBatchTaskResolutionStore()
+
+        for id in ids {
+            group.enter()
+            taskRepository.fetchTaskDefinition(id: id) { result in
+                switch result {
+                case .success(let task):
+                    if let task { store.record(task: task, id: id) }
+                    else { store.recordMissing(id: id) }
+                case .failure(let error): store.record(error: error)
+                }
+                group.leave()
+            }
+        }
+
+        group.notify(queue: .main) { completion(store.result()) }
+    }
+}
+
 extension HomeViewModel {
     public func startTriage() {
         startTriage(scope: .visible)
@@ -71,14 +200,48 @@ extension HomeViewModel {
         trackHomeInteraction(action: action, metadata: [
             "scope": scope.rawValue
         ])
-        openRescue()
+        launchOverdueRescue(.home(referenceDate: Date()), action: action)
     }
 
     public func openRescue() {
-        guard V2FeatureFlags.evaRescueEnabled else { return }
-        let referenceDate = Date()
-        evaRescueLauncherState = .loading
-        evaRescueReferenceDate = nil
+        launchOverdueRescue(.home(referenceDate: Date()))
+    }
+
+    func launchOverdueRescue(
+        _ context: OverdueRescueLaunchContext,
+        source: String? = nil,
+        action: String = "overdue_rescue_launch_requested"
+    ) {
+        setQuickView(.overdue)
+        trackHomeInteraction(action: action, metadata: [
+            "source": source ?? context.source
+        ])
+        let coordinator = overdueRescueLaunchCoordinator
+        let dayTasks = context.origin == .universalInputDayRescue ? dayRescueTasksByID : [:]
+        coordinator.begin(context, dayRescueTasksByID: dayTasks)
+        scheduleHomeRenderStateRefresh(.overlay)
+
+        guard V2FeatureFlags.evaRescueEnabled else {
+            coordinator.fail("Overdue Rescue is currently unavailable.")
+            scheduleHomeRenderStateRefresh(.overlay)
+            return
+        }
+
+        if context.origin == .universalInputDayRescue {
+            coordinator.present(plan: nil, tasksByID: dayTasks, context: context)
+            scheduleHomeRenderStateRefresh(.overlay)
+            trackHomeInteraction(action: "rescue_open", metadata: [
+                "scope": "day_rescue",
+                "overdue_count": dayTasks.count
+            ])
+            return
+        }
+
+        if overdueTasks.isEmpty == false {
+            presentRescuePlan(overdueTasks: overdueTasks, context: context)
+            return
+        }
+
         useCaseCoordinator.getTasks.getOverdueTasks { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
@@ -89,41 +252,36 @@ extension HomeViewModel {
                 case .failure(let error):
                     tasks = self.overdueTasks
                     if tasks.isEmpty {
-                        self.evaRescueLauncherState = .failed(error.localizedDescription)
-                        self.evaRescueReferenceDate = nil
+                        coordinator.fail(error.localizedDescription)
+                        self.scheduleHomeRenderStateRefresh(.overlay)
                         self.errorMessage = error.localizedDescription
                         return
                     }
                 }
-                let rescueEligibleTasks = tasks.filter {
-                    self.isOverdueRescueDeckEligibleTask($0, on: referenceDate)
-                }
-                self.evaRescuePlan = self.getOverdueRescuePlanUseCase.execute(
-                    overdueTasks: rescueEligibleTasks,
-                    now: referenceDate
-                )
-                self.evaRescueReferenceDate = referenceDate
-                self.evaRescueLauncherState = .ready
-                self.evaRescueSheetPresented = true
-                self.trackHomeInteraction(action: "rescue_open", metadata: [
-                    "scope": "all_overdue",
-                    "overdue_count": rescueEligibleTasks.count
-                ])
+                self.presentRescuePlan(overdueTasks: tasks, context: context)
             }
         }
     }
 
-    public func openOverdueRescueFromHome(
-        source: String,
-        action: String = "overdue_rescue_launch_requested"
+    private func presentRescuePlan(
+        overdueTasks: [TaskDefinition],
+        context: OverdueRescueLaunchContext
     ) {
-        setQuickView(.overdue)
-        trackHomeInteraction(action: action, metadata: [
-            "source": source
-        ])
-        DispatchQueue.main.async { [weak self] in
-            self?.openRescue()
+        let referenceDate = context.referenceDate
+        let rescueEligibleTasks = overdueTasks.filter {
+            OverdueRescueEligibilityPolicy.isStaleOverdueTask($0, referenceDate: referenceDate)
         }
+        let tasksByID = Dictionary(uniqueKeysWithValues: rescueEligibleTasks.map { ($0.id, $0) })
+        let plan = getOverdueRescuePlanUseCase.execute(
+            overdueTasks: rescueEligibleTasks,
+            now: referenceDate
+        )
+        overdueRescueLaunchCoordinator.present(plan: plan, tasksByID: tasksByID, context: context)
+        scheduleHomeRenderStateRefresh(.overlay)
+        trackHomeInteraction(action: "rescue_open", metadata: [
+            "scope": "all_overdue",
+            "overdue_count": rescueEligibleTasks.count
+        ])
     }
 
     public func applyEvaBatchPlan(
@@ -131,124 +289,34 @@ extension HomeViewModel {
         mutations: [EvaBatchMutationInstruction],
         completion: @escaping @Sendable (Result<AssistantActionRunDefinition, Error>) -> Void
     ) {
-        guard mutations.isEmpty == false else {
-            completion(.failure(NSError(
-                domain: "HomeViewModel",
-                code: 422,
-                userInfo: [NSLocalizedDescriptionKey: "No assistant mutations to apply"]
-            )))
-            return
-        }
-        resolveEvaBatchTasks(for: mutations) { [weak self] resolution in
+        let referenceDate = evaRescueReferenceDate ?? Date()
+        rescueBatchApplier.apply(
+            source: source,
+            mutations: mutations,
+            rescueReferenceDate: referenceDate
+        ) { [weak self] result in
             Task { @MainActor in
                 guard let self else { return }
-                let tasksByID: [UUID: TaskDefinition]
-                switch resolution {
-                case .success(let resolved):
-                    tasksByID = resolved
-                case .failure(let error):
-                    completion(.failure(error))
-                    return
-                }
-
-                let now = Date()
-                let rescueReferenceDate = self.evaRescueReferenceDate ?? now
-                if source == .rescue,
-                   let ineligible = mutations.first(where: { mutation in
-                       guard let task = tasksByID[mutation.taskID] else { return true }
-                       return self.isOverdueRescueDeckEligibleTask(task, on: rescueReferenceDate) == false
-                   }) {
-                    completion(.failure(EvaBatchProposalError.staleTask(ineligible.taskID)))
-                    return
-                }
-
-                let proposal: (threadID: String, envelope: AssistantCommandEnvelope)
-                do {
-                    proposal = try self.buildEvaBatchProposalUseCase.executeValidated(
-                        source: source,
-                        tasksByID: tasksByID,
-                        mutations: mutations,
-                        now: now
+                if case .success(let run) = result {
+                    self.evaLastBatchRunID = run.id
+                    self.enqueueReload(
+                        source: "eva_batch_apply",
+                        reason: .bulkChanged,
+                        invalidateCaches: true,
+                        includeAnalytics: false,
+                        repostEvent: true
                     )
-                } catch {
-                    completion(.failure(error))
-                    return
+                    self.trackHomeInteraction(
+                        action: source == .triage ? "triage_bulk_apply" : "rescue_apply_confirmed",
+                        metadata: [
+                            "mutation_count": mutations.count,
+                            "command_count": mutations.count,
+                            "resolved_task_count": Set(mutations.map(\.taskID)).count
+                        ]
+                    )
                 }
-
-                let pipeline = self.useCaseCoordinator.assistantActionPipeline
-                pipeline.propose(threadID: proposal.threadID, envelope: proposal.envelope) { proposeResult in
-                    switch proposeResult {
-                    case .failure(let error):
-                        Task { @MainActor in
-                            completion(.failure(error))
-                        }
-                    case .success(let proposedRun):
-                        pipeline.confirm(runID: proposedRun.id) { confirmResult in
-                            switch confirmResult {
-                            case .failure(let error):
-                                Task { @MainActor in
-                                    completion(.failure(error))
-                                }
-                            case .success:
-                                pipeline.applyConfirmedRun(id: proposedRun.id) { applyResult in
-                                    Task { @MainActor in
-                                        switch applyResult {
-                                        case .success(let run):
-                                            self.evaLastBatchRunID = run.id
-                                            self.enqueueReload(
-                                                source: "eva_batch_apply",
-                                                reason: .bulkChanged,
-                                                invalidateCaches: true,
-                                                includeAnalytics: false,
-                                                repostEvent: true
-                                            )
-                                            self.trackHomeInteraction(action: source == .triage ? "triage_bulk_apply" : "rescue_apply_confirmed", metadata: [
-                                                "mutation_count": mutations.count,
-                                                "command_count": proposal.envelope.commands.count,
-                                                "resolved_task_count": tasksByID.count
-                                            ])
-                                            completion(.success(run))
-                                        case .failure(let error):
-                                            completion(.failure(error))
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+                completion(result)
             }
-        }
-    }
-
-    private func resolveEvaBatchTasks(
-        for mutations: [EvaBatchMutationInstruction],
-        completion: @escaping @Sendable (Result<[UUID: TaskDefinition], Error>) -> Void
-    ) {
-        let ids = Array(Set(mutations.map(\.taskID)))
-        let group = DispatchGroup()
-        let store = EvaBatchTaskResolutionStore()
-        let repository = useCaseCoordinator.taskDefinitionRepository
-
-        for id in ids {
-            group.enter()
-            repository.fetchTaskDefinition(id: id) { result in
-                switch result {
-                case .success(let task):
-                    if let task {
-                        store.record(task: task, id: id)
-                    } else {
-                        store.recordMissing(id: id)
-                    }
-                case .failure(let error):
-                    store.record(error: error)
-                }
-                group.leave()
-            }
-        }
-
-        group.notify(queue: .main) {
-            completion(store.result())
         }
     }
 
@@ -289,7 +357,7 @@ extension HomeViewModel {
             )))
             return
         }
-        useCaseCoordinator.assistantActionPipeline.undoAppliedRun(id: runID) { [weak self] result in
+        rescueBatchApplier.undo(runID: runID) { [weak self] result in
             Task { @MainActor in
                 switch result {
                 case .success(let run):

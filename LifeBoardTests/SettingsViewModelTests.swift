@@ -4,7 +4,7 @@ import XCTest
 
 @MainActor
 final class SettingsViewModelTests: XCTestCase {
-    private var suiteName: String!
+    nonisolated(unsafe) private var suiteName: String!
 
     override func setUp() {
         super.setUp()
@@ -97,20 +97,20 @@ final class SettingsViewModelTests: XCTestCase {
         draft.setTime(time(hour: 5, minute: 45), for: .wake)
         draft.setTime(time(hour: 8, minute: 0), for: .wake)
 
-        var notificationCount = 0
+        let notificationCount = LockedTestState(0)
         let observer = NotificationCenter.default.addObserver(
             forName: LifeBoardWorkspacePreferencesStore.didChangeNotification,
             object: nil,
             queue: .main
         ) { _ in
-            notificationCount += 1
+            notificationCount.withValue { $0 += 1 }
         }
         defer { NotificationCenter.default.removeObserver(observer) }
 
         draft.commitIfNeeded(for: .wake, to: workspaceStore)
         waitForMainQueue(seconds: 0.05)
 
-        XCTAssertEqual(notificationCount, 0)
+        XCTAssertEqual(notificationCount.read(), 0)
         XCTAssertEqual(workspaceStore.load().timelineRiseAndShineHour, 8)
         XCTAssertEqual(workspaceStore.load().timelineRiseAndShineMinute, 0)
     }
@@ -136,13 +136,13 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(workspaceStore.load().timelineRiseAndShineHour, 8)
         XCTAssertEqual(workspaceStore.load().timelineWindDownHour, 22)
 
-        var notificationCount = 0
+        let notificationCount = LockedTestState(0)
         let observer = NotificationCenter.default.addObserver(
             forName: LifeBoardWorkspacePreferencesStore.didChangeNotification,
             object: nil,
             queue: .main
         ) { _ in
-            notificationCount += 1
+            notificationCount.withValue { $0 += 1 }
         }
         defer { NotificationCenter.default.removeObserver(observer) }
 
@@ -150,7 +150,7 @@ final class SettingsViewModelTests: XCTestCase {
         waitForMainQueue(seconds: 0.05)
 
         let loaded = workspaceStore.load()
-        XCTAssertEqual(notificationCount, 1)
+        XCTAssertEqual(notificationCount.read(), 1)
         XCTAssertEqual(loaded.timelineRiseAndShineHour, 6)
         XCTAssertEqual(loaded.timelineRiseAndShineMinute, 20)
         XCTAssertEqual(loaded.timelineWindDownHour, 23)
@@ -298,6 +298,44 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(flowModel.selectedMascotID, .theo)
         XCTAssertEqual(flowModel.selectedMascotPersona.displayName, "Theo")
         XCTAssertEqual(workspaceStore.load().chiefOfStaffMascotID, .theo)
+    }
+
+    func testSettingsSetupStatusCollapsesHealthyServicesIntoOneReassuringItem() {
+        let status = LifeBoardSettingsSetupStatusResolver.resolve(
+            notificationPermissionGranted: true,
+            notificationPermissionDenied: false,
+            enabledNotificationCount: 3,
+            calendarConnected: true,
+            healthConnected: true,
+            recoveryHealth: .healthy
+        )
+
+        XCTAssertEqual(status.title, "Everything’s ready")
+        XCTAssertEqual(status.visibleItems.count, 1)
+        XCTAssertEqual(status.visibleItems.first?.state, .healthy)
+    }
+
+    func testSettingsSetupStatusPrioritizesTheTwoItemsThatNeedAttention() {
+        let status = LifeBoardSettingsSetupStatusResolver.resolve(
+            notificationPermissionGranted: false,
+            notificationPermissionDenied: true,
+            enabledNotificationCount: 0,
+            calendarConnected: false,
+            healthConnected: false,
+            recoveryHealth: .unavailable
+        )
+
+        XCTAssertEqual(status.title, "A couple things need a look")
+        XCTAssertEqual(status.visibleItems.map(\.id), ["reminders", "recovery"])
+        XCTAssertTrue(status.visibleItems.allSatisfy { $0.state == .attention })
+    }
+
+    func testSettingsCategoryRoutesRoundTripThroughNavigationPersistence() throws {
+        let data = try JSONEncoder().encode(SettingsRoute.categories)
+        let decoded = try JSONDecoder().decode([SettingsRoute].self, from: data)
+
+        XCTAssertEqual(decoded, SettingsRoute.categories)
+        XCTAssertEqual(decoded.count, 6)
     }
 
     private func time(hour: Int, minute: Int) -> Date {

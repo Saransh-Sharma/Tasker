@@ -5,6 +5,9 @@ public final class HabitBoardViewModel: ObservableObject {
     @Published public private(set) var boardRows: [HabitBoardRowPresentation] = []
     @Published public private(set) var aggregateDays: [HabitBoardAggregateDay] = []
     @Published public private(set) var libraryRows: [HabitLibraryRow] = []
+    /// Long-window rows (≈6 months) that back the Graph lens. Loaded lazily the
+    /// first time Graph mode is opened so the default Day/Week lenses stay light.
+    @Published public private(set) var graphRows: [HabitBoardRowPresentation] = []
     @Published public private(set) var isLoading = false
     @Published public private(set) var errorMessage: String?
     @Published public private(set) var endingOn: Date
@@ -14,8 +17,15 @@ public final class HabitBoardViewModel: ObservableObject {
     private let getHabitLibraryUseCase: GetHabitLibraryUseCase
     private let getHabitHistoryUseCase: GetHabitHistoryUseCase
     private var hasLoadedOnce = false
+    private var hasLoadedGraph = false
+    private let graphSpan = 182
     private var latestHistoryByHabitID: [UUID: [HabitDayMark]] = [:]
     private var refreshGeneration = 0
+
+    /// Library row backing a board/graph row, for group-by and scope resolution.
+    public func libraryRow(for habitID: UUID) -> HabitLibraryRow? {
+        libraryRows.first(where: { $0.habitID == habitID })
+    }
 
     public init(
         getHabitLibraryUseCase: GetHabitLibraryUseCase,
@@ -43,6 +53,7 @@ public final class HabitBoardViewModel: ObservableObject {
         let generation = refreshGeneration
         isLoading = true
         errorMessage = nil
+        hasLoadedGraph = false
 
         getHabitLibraryUseCase.execute(includeArchived: false) { [weak self] result in
             Task { @MainActor [weak self] in
@@ -82,6 +93,60 @@ public final class HabitBoardViewModel: ObservableObject {
 
     public func row(for habitID: UUID) -> HabitLibraryRow? {
         libraryRows.first(where: { $0.habitID == habitID })
+    }
+
+    /// Lazily loads the ≈6-month window that backs the Graph lens. Safe to call
+    /// repeatedly; it no-ops once loaded and re-arms after any `refresh()`.
+    public func loadGraphIfNeeded() {
+        guard hasLoadedGraph == false, libraryRows.isEmpty == false else { return }
+        hasLoadedGraph = true
+        let rows = libraryRows
+        let generation = refreshGeneration
+        let referenceDate = endingOn
+        let span = graphSpan
+
+        getHabitHistoryUseCase.execute(
+            habitIDs: rows.map(\.habitID),
+            endingOn: referenceDate,
+            dayCount: span
+        ) { [weak self] result in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                guard generation == self.refreshGeneration else { return }
+                switch result {
+                case .failure:
+                    // Leave graphRows empty so the view shows an honest "collecting" state.
+                    self.hasLoadedGraph = false
+                case .success(let windows):
+                    let historyByHabitID = windows.reduce(into: [UUID: [HabitDayMark]]()) { partial, window in
+                        partial[window.habitID] = window.marks
+                    }
+                    let calendar = Calendar.current
+                    self.graphRows = rows.map { row in
+                        let marks = historyByHabitID[row.habitID] ?? row.last14Days
+                        let cells = HabitBoardPresentationBuilder.buildCells(
+                            marks: marks,
+                            cadence: row.cadence,
+                            referenceDate: referenceDate,
+                            dayCount: span,
+                            calendar: calendar
+                        )
+                        let metrics = HabitBoardPresentationBuilder.metrics(for: cells)
+                        return HabitBoardRowPresentation(
+                            habitID: row.habitID,
+                            title: row.title,
+                            iconSymbolName: row.icon?.symbolName ?? "circle.dashed",
+                            accentHex: row.colorHex,
+                            colorFamily: HabitColorFamily.family(for: row.colorHex, fallback: row.kind == .positive ? .green : .coral),
+                            currentStreak: metrics.currentStreak,
+                            bestStreak: metrics.bestStreak,
+                            cells: cells,
+                            metrics: metrics
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private func loadHistory(for rows: [HabitLibraryRow], generation: Int) {

@@ -70,16 +70,16 @@ struct QuietHoursTimeBar: View {
             // Hour markers
             HStack {
                 Text("12 AM")
-                    .font(.system(size: 9))
-                    .foregroundColor(.lifeboard(.textQuaternary))
+                    .lifeboardFont(.caption2)
+                    .foregroundStyle(Color.lifeboard(.secondary, on: .card))
                 Spacer()
                 Text("12 PM")
-                    .font(.system(size: 9))
-                    .foregroundColor(.lifeboard(.textQuaternary))
+                    .lifeboardFont(.caption2)
+                    .foregroundStyle(Color.lifeboard(.secondary, on: .card))
                 Spacer()
                 Text("12 AM")
-                    .font(.system(size: 9))
-                    .foregroundColor(.lifeboard(.textQuaternary))
+                    .lifeboardFont(.caption2)
+                    .foregroundStyle(Color.lifeboard(.secondary, on: .card))
             }
         }
     }

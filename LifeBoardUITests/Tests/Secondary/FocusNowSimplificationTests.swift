@@ -7,8 +7,8 @@ final class FocusNowSimplificationTests: BaseUITest {
 
     private var homePage: HomePage!
 
-    override func setUpWithError() throws {
-        try super.setUpWithError()
+    override func setUp() async throws {
+        try await super.setUp()
         homePage = HomePage(app: app)
     }
 
@@ -120,36 +120,6 @@ final class FocusNowSimplificationTests: BaseUITest {
         homePage.searchBackChip.tap()
 
         XCTAssertTrue(homePage.weeklySummaryCard.waitForExistence(timeout: 3), "Weekly summary should still exist after returning from search")
-    }
-
-    func testTodayHomePlacesCalendarThenFocusThenReflectPlan() throws {
-        relaunchWithFocusSeed()
-
-        XCTAssertTrue(
-            homePage.dailyReflectionEntryCompact.waitForExistence(timeout: 5),
-            "Reflect and Plan banner should render on Today"
-        )
-        XCTAssertTrue(homePage.passiveTrackingRail.waitForExistence(timeout: 5), "Passive tracking rail should render on Today")
-        XCTAssertTrue(homePage.calendarCard.waitForExistence(timeout: 5), "Calendar card should render on Today")
-        XCTAssertLessThan(
-            homePage.passiveTrackingRail.frame.minY,
-            homePage.calendarCard.frame.minY,
-            "Passive tracking rail should render above the calendar card"
-        )
-        XCTAssertLessThan(
-            homePage.calendarCard.frame.minY,
-            homePage.dailyReflectionEntryCompact.frame.minY,
-            "Reflect and Plan should render below the calendar card"
-        )
-
-        let windowFrame = app.windows.firstMatch.frame
-        let railFrame = homePage.passiveTrackingRail.frame
-        let leftInset = railFrame.minX - windowFrame.minX
-        let rightInset = windowFrame.maxX - railFrame.maxX
-        XCTAssertGreaterThanOrEqual(leftInset, 4.0, "Passive tracking rail should inset from the leading edge")
-        XCTAssertLessThanOrEqual(leftInset, 7.0, "Passive tracking rail leading inset should stay close to 5 px")
-        XCTAssertGreaterThanOrEqual(rightInset, 4.0, "Passive tracking rail should inset from the trailing edge")
-        XCTAssertLessThanOrEqual(rightInset, 7.0, "Passive tracking rail trailing inset should stay close to 5 px")
     }
 
     func testFocusTaskRowTapStillOpensTaskDetails() throws {

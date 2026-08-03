@@ -11,7 +11,7 @@ final class LLMModelRegistryTests: XCTestCase {
     private let qwenNexVeridianName = "NexVeridian/Qwen3.5-0.8B-4bit"
     private let qwenClaudeDistilledName = "Jackrong/MLX-Qwen3.5-0.8B-Claude-4.6-Opus-Reasoning-Distilled-4bit"
     private let bonsaiName = "prism-ml/Bonsai-1.7B-mlx-1bit"
-    private var originalContextStrategy: LLMChatContextStrategy = .bounded
+    nonisolated(unsafe) private var originalContextStrategy: LLMChatContextStrategy = .bounded
 
     override func setUp() {
         super.setUp()
@@ -148,13 +148,13 @@ final class LLMModelRegistryTests: XCTestCase {
             for: .planMode,
             snapshot: AIRuntimeSnapshot(
                 selectedModelName: nil,
-                installedModels: [qwenPointSixName],
+                installedModels: [qwenOptiQName],
                 availableMemoryGB: 8,
                 userInterfaceIdiom: .phone
             )
         )
 
-        XCTAssertEqual(route.selectedModelName, qwenPointSixName)
+        XCTAssertEqual(route.selectedModelName, qwenOptiQName)
         XCTAssertFalse(route.usedFallback)
         XCTAssertNil(route.fallbackReason)
         XCTAssertFalse(route.shouldPromptDownload)

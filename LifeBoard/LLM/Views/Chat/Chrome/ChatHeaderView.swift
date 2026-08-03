@@ -82,7 +82,7 @@ struct ChatHeaderView: View {
         .accessibilityIdentifier("chat.header.new_chat")
         .accessibilityLabel("New chat")
         .accessibilityHint("Starts a fresh chat without deleting this one.")
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
     }
 
     func iconButton(
@@ -105,6 +105,6 @@ struct ChatHeaderView: View {
         .buttonStyle(.plain)
         .accessibilityIdentifier(identifier)
         .accessibilityLabel(label)
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
     }
 }

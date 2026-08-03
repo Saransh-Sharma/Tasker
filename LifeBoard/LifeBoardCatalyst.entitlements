@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>com.apple.developer.icloud-container-identifiers</key>
+	<array>
+		<string>iCloud.TaskerCloudKitV3</string>
+	</array>
+	<key>com.apple.developer.icloud-services</key>
+	<array>
+		<string>CloudKit</string>
+		<string>CloudDocuments</string>
+	</array>
+	<key>com.apple.developer.ubiquity-container-identifiers</key>
+	<array>
+		<string>iCloud.TaskerCloudKitV3</string>
+	</array>
+	<key>com.apple.developer.ubiquity-kvstore-identifier</key>
+	<string>$(TeamIdentifierPrefix)$(CFBundleIdentifier)</string>
+	<key>com.apple.security.application-groups</key>
+	<array>
+		<string>group.com.saransh1337.tasker.shared</string>
+	</array>
+	<!-- HealthKit is deliberately absent. It is not a provisionable Mac
+	     Catalyst entitlement: adding it here to fix HealthKit authorization
+	     instead failed the whole Catalyst build with "Entitlement
+	     com.apple.developer.healthkit not found and could not be included in
+	     profile", which took Catalyst offline as a verification destination.
+	     iPhone and iPad keep HealthKit through LifeBoard.entitlements; on
+	     Catalyst `HKHealthStore.isHealthDataAvailable()` is false and the
+	     health surfaces degrade to their unavailable states. -->
+</dict>
+</plist>

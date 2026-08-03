@@ -98,6 +98,16 @@ struct LLMGenerationProfile: Sendable {
         )
     }
     static let addTaskSuggestion = LLMGenerationProfile(timeoutSeconds: 6)
+    static let universalInputClassification = LLMGenerationProfile(
+        timeoutSeconds: 4,
+        regularMaxRawTokens: 160,
+        reasoningMaxRawTokens: 160,
+        temperature: 0,
+        topP: 0.8,
+        stripReasoningBlocks: true,
+        stripTemplateArtifacts: true,
+        maxVisibleCharacters: 1_000
+    )
     static let dynamicChips = LLMGenerationProfile(timeoutSeconds: 6)
     static let dailyBrief = LLMGenerationProfile(timeoutSeconds: 8)
     static let topThree = LLMGenerationProfile(timeoutSeconds: 10)
@@ -731,6 +741,31 @@ enum LLMVisibleThinkingExtractor {
         "let me think:"
     ]
 
+    /// First-person model self-reference, which reliably means leaked reasoning.
+    ///
+    /// The labelled prefixes above only catch a model that announces itself with
+    /// "Reasoning:" or similar. A model can also just narrate — "Thinking this
+    /// off because I'm an AI assistant and need to infer what the user wants" —
+    /// and that text reached the user as if it were the answer.
+    ///
+    /// Matched as a *phrase anywhere in the opening*, not a prefix, and kept
+    /// deliberately narrow. A broader rule (any line starting "Thinking") would
+    /// also match a genuine answer like "Thinking about your week, here's…", and
+    /// a false positive is the worse failure: it discards a real answer and
+    /// forces a retry, where a false negative only shows the user something
+    /// clumsy. These phrases do not occur in an answer this app would want to
+    /// keep.
+    private static let plainTextReasoningTells = [
+        "i'm an ai assistant",
+        "i am an ai assistant",
+        "as an ai assistant",
+        "as an ai language model"
+    ]
+
+    /// How far into the output a reasoning tell still counts as a preamble.
+    /// Beyond this the text is a body that merely mentions the phrase.
+    private static let reasoningTellScanLimit = 400
+
     private static let plainTextAnswerMarkers = [
         "final answer:",
         "answer:"
@@ -839,7 +874,10 @@ enum LLMVisibleThinkingExtractor {
     ) -> LLMVisibleThinkingExtractionResult? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         let lowercased = trimmed.lowercased()
-        guard plainTextThinkingPrefixes.contains(where: { lowercased.hasPrefix($0) }) else {
+        let opening = String(lowercased.prefix(reasoningTellScanLimit))
+        let looksLikeReasoning = plainTextThinkingPrefixes.contains { lowercased.hasPrefix($0) }
+            || plainTextReasoningTells.contains { opening.contains($0) }
+        guard looksLikeReasoning else {
             return nil
         }
 

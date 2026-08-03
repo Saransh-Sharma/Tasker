@@ -7,12 +7,41 @@ import Network
 import MLXLMCommon
 
 extension AppOnboardingCoordinator {
+    /// The controller onboarding should actually present from.
+    ///
+    /// The native application host is the normal anchor. The topmost fallback
+    /// keeps queued onboarding presentation correct while another canonical
+    /// route is dismissing or the scene is restoring its hierarchy.
+    var presentationAnchor: UIViewController? {
+        if let hostAdapter, hostAdapter.viewIfLoaded?.window != nil {
+            return hostAdapter
+        }
+        guard let root = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .flatMap(\.windows)
+            .first(where: \.isKeyWindow)?
+            .rootViewController
+        else { return hostAdapter }
+        var topmost = root
+        while let presented = topmost.presentedViewController, presented !== onboardingHost, presented !== promptHost {
+            topmost = presented
+        }
+        return topmost
+    }
+
     func evaluateLaunchIfNeeded() {
         guard hasEvaluatedLaunch == false else { return }
         hasEvaluatedLaunch = true
 
         Task { @MainActor [weak self] in
             guard let self else { return }
+            // Checked before the resume branch: resuming an interrupted journey
+            // short-circuits ahead of `evaluate()`, which is where the skip
+            // argument is otherwise honored. A seeded run that had stored a
+            // partial journey therefore presented onboarding anyway, making
+            // `-SKIP_ONBOARDING` runs unreliable after a partial setup.
+            guard self.eligibilityService.isSuppressedByLaunchArgument == false else { return }
+
             let state = self.stateStore.load()
             if state.hasHandledCurrentVersion == false, state.journeySnapshot != nil {
                 self.enqueuePresentation(.fullFlow(source: "resume"))
@@ -58,7 +87,7 @@ extension AppOnboardingCoordinator {
                 message: "Queued onboarding presentation until the host is free",
                 fields: [
                     "presentation": presentation.analyticsLabel,
-                    "blocked_by_presented_controller": String(hostAdapter?.presentedViewController != nil)
+                    "blocked_by_presented_controller": String(presentationAnchor?.presentedViewController != nil)
                 ]
             )
         }
@@ -92,7 +121,8 @@ extension AppOnboardingCoordinator {
 
     func presentPromptIfPossible(snapshot: OnboardingWorkspaceSnapshot) -> Bool {
         guard promptHost == nil else { return false }
-        guard let hostAdapter, hostAdapter.presentedViewController == nil else { return false }
+        guard let hostAdapter else { return false }
+        guard let anchor = presentationAnchor, anchor.presentedViewController == nil else { return false }
 
         let controller = UIHostingController(
             rootView: AnyView(
@@ -123,7 +153,7 @@ extension AppOnboardingCoordinator {
             sheet.preferredCornerRadius = 30
         }
         promptHost = controller
-        hostAdapter.present(controller, animated: true, completion: nil)
+        anchor.present(controller, animated: true, completion: nil)
         return true
     }
 
@@ -139,7 +169,8 @@ extension AppOnboardingCoordinator {
     func presentFullFlowIfPossible(source: String) -> Bool {
         dismissPrompt(animated: false, completion: nil)
         guard onboardingHost == nil else { return false }
-        guard let hostAdapter, hostAdapter.presentedViewController == nil else { return false }
+        guard let hostAdapter else { return false }
+        guard let anchor = presentationAnchor, anchor.presentedViewController == nil else { return false }
 
         feedbackController.prepare()
         viewModel.prepareForPresentation(snapshot: stateStore.load().journeySnapshot)
@@ -175,7 +206,7 @@ extension AppOnboardingCoordinator {
         let controller = UIHostingController(rootView: AnyView(rootView))
         controller.modalPresentationStyle = .fullScreen
         onboardingHost = controller
-        hostAdapter.present(controller, animated: true, completion: nil)
+        anchor.present(controller, animated: true, completion: nil)
         return true
     }
 
@@ -233,6 +264,6 @@ extension AppOnboardingCoordinator {
     }
 
     func isPresentationBlocked() -> Bool {
-        hostAdapter?.presentedViewController != nil
+        presentationAnchor?.presentedViewController != nil
     }
 }

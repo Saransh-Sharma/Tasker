@@ -28,6 +28,10 @@ enum StateHabitDefinitionMapper {
             successMask14Raw: object.value(forKey: "successMask14Raw") as? Int16 ?? 0,
             failureMask14Raw: object.value(forKey: "failureMask14Raw") as? Int16 ?? 0,
             lastHistoryRollDate: object.value(forKey: "lastHistoryRollDate") as? Date,
+            quotaTargetCount: (object.value(forKey: "quotaTargetCount") as? NSNumber)?.intValue,
+            quotaPeriodRaw: object.value(forKey: "quotaPeriodRaw") as? String,
+            timedTargetSeconds: (object.value(forKey: "timedTargetSeconds") as? NSNumber)?.doubleValue,
+            minimumTargetData: object.value(forKey: "minimumTargetData") as? Data,
             createdAt: object.value(forKey: "createdAt") as? Date ?? Date(),
             updatedAt: object.value(forKey: "updatedAt") as? Date ?? Date()
         )
@@ -57,6 +61,10 @@ enum StateHabitDefinitionMapper {
         object.setValue(model.successMask14Raw, forKey: "successMask14Raw")
         object.setValue(model.failureMask14Raw, forKey: "failureMask14Raw")
         object.setValue(model.lastHistoryRollDate, forKey: "lastHistoryRollDate")
+        object.setValue(model.quotaTargetCount.map(NSNumber.init(value:)), forKey: "quotaTargetCount")
+        object.setValue(model.quotaPeriodRaw, forKey: "quotaPeriodRaw")
+        object.setValue(model.timedTargetSeconds.map(NSNumber.init(value:)), forKey: "timedTargetSeconds")
+        object.setValue(model.minimumTargetData, forKey: "minimumTargetData")
         object.setValue(model.createdAt, forKey: "createdAt")
         object.setValue(model.updatedAt, forKey: "updatedAt")
         return object

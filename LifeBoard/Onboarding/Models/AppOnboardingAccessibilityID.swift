@@ -1,65 +1,51 @@
-import SwiftUI
-import UIKit
-import Combine
-import CoreHaptics
-import AVFoundation
-import Network
-import MLXLMCommon
+import Foundation
 
+/// Accessibility identifiers for the guided setup.
+///
+/// Kept in step with the nine live steps — the previous list still named a
+/// backdrop video, a friction helper, a focus room, and a processing screen,
+/// none of which existed any more.
 enum AppOnboardingAccessibilityID {
     static let flow = "onboarding.flow"
     static let progress = "onboarding.header.progress"
-    static let backdropVideo = "onboarding.backdrop.video"
-    static let backdropGrain = "onboarding.backdrop.grain"
     static let welcome = "onboarding.welcome"
-    static let welcomeHeroVideo = "onboarding.welcome.heroVideo"
-    static let welcomeVideoGrain = "onboarding.welcome.videoGrain"
     static let welcomeIntroOverlay = "onboarding.welcome.introOverlay"
     static let welcomeIntroTitleCard = "onboarding.welcome.introTitleCard"
     static let welcomeIntroContinue = "onboarding.welcome.introContinue"
+
+    // Steps, in flow order.
     static let goal = "onboarding.goal"
-    static let pain = "onboarding.pain"
-    static let evaValue = "onboarding.evaValue"
     static let lifeAreas = "onboarding.lifeAreas"
+    static let evaValue = "onboarding.evaValue"
+    static let dayShape = "onboarding.dayShape"
+    static let modules = "onboarding.modules"
     static let habitSetup = "onboarding.habitSetup"
-    static let workStyle = "onboarding.workStyle"
-    static let workBlockers = "onboarding.workBlockers"
-    static let weeklyOutcomes = "onboarding.weeklyOutcomes"
-    static let streakPreview = "onboarding.streakPreview"
-    static let evaStyle = "onboarding.evaStyle"
-    static let processing = "onboarding.processing"
-    static let firstTask = "onboarding.firstTask"
-    static let homeDemo = "onboarding.homeDemo"
-    static let focusRoom = "onboarding.focusRoom"
-    static let habitCheckIn = "onboarding.habitCheckIn"
-    static let calendarPermission = "onboarding.calendarPermission"
-    static let notificationPermission = "onboarding.notificationPermission"
+    static let permissions = "onboarding.permissions"
     static let success = "onboarding.success"
+
+    // Controls.
     static let skipButton = "onboarding.skipButton"
     static let nextButton = "onboarding.cta.next"
-    static let frictionHelper = "onboarding.friction.helper"
     static let useAreas = "onboarding.cta.useAreas"
     static let customHabit = "onboarding.cta.customHabit"
     static let customTask = "onboarding.cta.customTask"
     static let goFinishTask = "onboarding.cta.goFinishTask"
-    static let focusPrimary = "onboarding.cta.focusPrimary"
-    static let markComplete = "onboarding.cta.markComplete"
-    static let startNow = "onboarding.cta.startNow"
-    static let breakDown = "onboarding.cta.breakDown"
     static let goHome = "onboarding.cta.goHome"
-    static let breakdownNext = "onboarding.cta.breakdownNext"
+    static let breakdownNext = "onboarding.cta.askGuide"
+    static let worksWeekends = "onboarding.dayShape.worksWeekends"
+    static let weekStartsOn = "onboarding.dayShape.weekStartsOn"
+    static let primaryTaskAction = "onboarding.taskTemplate.primaryAction"
+
+    // Re-entry prompt.
     static let prompt = "onboarding.prompt"
     static let promptStart = "onboarding.prompt.start"
     static let promptDismiss = "onboarding.prompt.dismiss"
-    static let calendarPermissionHero = "onboarding.calendarPermission.hero"
-    static let notificationPermissionHero = "onboarding.notificationPermission.hero"
-    static let weeklyOutcomeAdd = "onboarding.weeklyOutcomes.add"
-    static let homeDemoTimeline = "onboarding.homeDemo.timeline"
-    static let homeDemoHabits = "onboarding.homeDemo.habits"
 
     static func lifeArea(_ id: String) -> String { "onboarding.lifeArea.\(id)" }
+    static func primaryGoal(_ id: String) -> String { "onboarding.primaryGoal.\(id)" }
+    static func module(_ id: String) -> String { "onboarding.module.\(id)" }
+    static func permission(_ id: String) -> String { "onboarding.permission.\(id)" }
     static func taskTemplate(_ id: String) -> String { "onboarding.taskTemplate.\(id)" }
     static func habitTemplate(_ id: String) -> String { "onboarding.habitTemplate.\(id)" }
     static func mascotPersona(_ id: String) -> String { "onboarding.mascot.persona.\(id)" }
-    static func weeklyOutcomeField(_ index: Int) -> String { "onboarding.weeklyOutcomes.field.\(index)" }
 }

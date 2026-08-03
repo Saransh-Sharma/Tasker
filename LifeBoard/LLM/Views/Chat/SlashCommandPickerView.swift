@@ -152,6 +152,6 @@ private struct SlashCommandRowView: View {
         let match = String(descriptor.command.dropFirst(lowerBound).prefix(upperBound - lowerBound))
         let suffix = String(descriptor.command.dropFirst(upperBound))
 
-        return Text(prefix) + Text(match).bold() + Text(suffix)
+        return Text("\(Text(prefix))\(Text(match).bold())\(Text(suffix))")
     }
 }

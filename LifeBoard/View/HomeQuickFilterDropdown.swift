@@ -181,7 +181,7 @@ public struct HomeQuickFilterDropdown: View {
                     )
             }
             .buttonStyle(.plain)
-            .lifeboardPressFeedback(reduceMotion: reduceMotion)
+            .lifeboardPressFeedback()
         }
         .padding(.horizontal, spacing.s20)
         .padding(.top, spacing.s12)
@@ -373,7 +373,7 @@ public struct HomeQuickFilterDropdown: View {
                     .stroke(Color.lifeboard.statusDanger.opacity(0.28), lineWidth: 1)
             )
         }
-        .lifeboardPressFeedback(reduceMotion: reduceMotion)
+        .lifeboardPressFeedback()
         .accessibilityIdentifier("home.focus.menu.reset")
         .padding(.horizontal, spacing.s20)
         .padding(.vertical, spacing.s12)

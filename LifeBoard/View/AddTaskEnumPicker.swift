@@ -37,7 +37,7 @@ struct AddTaskEntityPicker: View {
                         text: "None",
                         isActive: selectedID == nil
                     ) {
-                        withAnimation(LifeBoardAnimation.snappy) {
+                        withAnimation(LifeBoardAnimation.stateChange) {
                             selectedID = nil
                         }
                     }
@@ -49,7 +49,7 @@ struct AddTaskEntityPicker: View {
                             isActive: selectedID == item.id,
                             tintHex: item.accentHex
                         ) {
-                            withAnimation(LifeBoardAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.stateChange) {
                                 selectedID = item.id
                             }
                         }
@@ -92,7 +92,7 @@ struct AddTaskEnumChipRow<T: Hashable & CaseIterable>: View where T.AllCases: Ra
                             text: displayName(value),
                             isActive: selected == value
                         ) {
-                            withAnimation(LifeBoardAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.stateChange) {
                                 selected = value
                             }
                         }

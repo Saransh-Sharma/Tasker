@@ -42,7 +42,7 @@ struct AddTaskRepeatEditor: View {
                             text: preset.label,
                             isActive: activePreset == preset
                         ) {
-                            withAnimation(LifeBoardAnimation.snappy) {
+                            withAnimation(LifeBoardAnimation.stateChange) {
                                 applyPreset(preset)
                             }
                         }
@@ -68,7 +68,7 @@ struct AddTaskRepeatEditor: View {
                 )
             }
         }
-        .animation(LifeBoardAnimation.snappy, value: activePreset)
+        .animation(LifeBoardAnimation.stateChange, value: activePreset)
     }
 
     // MARK: - Helpers
@@ -157,7 +157,7 @@ struct WeekdayPickerRow: View {
             ForEach(weekdays) { item in
                 Button {
                     LifeBoardFeedback.selection()
-                    withAnimation(LifeBoardAnimation.snappy) {
+                    withAnimation(LifeBoardAnimation.stateChange) {
                         if selectedDays.contains(item.day) {
                             selectedDays.remove(item.day)
                         } else {

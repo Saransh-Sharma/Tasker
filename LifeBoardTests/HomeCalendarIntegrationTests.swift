@@ -4,9 +4,9 @@ import UIKit
 
 @MainActor
 final class HomeCalendarIntegrationTests: XCTestCase {
-    private var workspaceSuiteName: String!
-    private var workspaceStore: LifeBoardWorkspacePreferencesStore!
-    private var ephemeralSuiteNames: [String] = []
+    nonisolated(unsafe) private var workspaceSuiteName: String!
+    nonisolated(unsafe) private var workspaceStore: LifeBoardWorkspacePreferencesStore!
+    nonisolated(unsafe) private var ephemeralSuiteNames: [String] = []
 
     override func setUp() {
         super.setUp()
@@ -1530,62 +1530,6 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertEqual(viewModel.timelineLoadLevel(for: 6), .busy)
         XCTAssertEqual(viewModel.timelineWeekSummaryText(taskCount: 2, eventCount: 1, allDayCount: 0), "2 tasks · 1 event")
         XCTAssertEqual(viewModel.timelineWeekSummaryText(taskCount: 0, eventCount: 0, allDayCount: 0), "Open")
-    }
-
-    @MainActor
-    func testHomeViewControllerRefreshesCalendarWhenAppBecomesActive() {
-        workspaceStore.save(LifeBoardWorkspacePreferences(
-            selectedCalendarIDs: ["work"],
-            includeDeclinedCalendarEvents: false,
-            includeCanceledCalendarEvents: false,
-            includeAllDayInAgenda: true,
-            includeAllDayInBusyStrip: false
-        ))
-
-        let provider = CalendarEventsProviderStub()
-        provider.authorizationStatusValue = .authorized
-        provider.calendarsResult = .success([calendar(id: "work")])
-        provider.eventsResult = .success([
-            event(id: "e1", start: todayDate(hour: 9), end: todayDate(hour: 10))
-        ])
-
-        let projectRepository = CalendarProjectRepositoryStub(projects: [Project.createInbox()])
-        let readModelRepository = InMemoryTaskReadModelRepositoryStub()
-        let coordinator = V3TestHarness.makeCoordinator(
-            taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(),
-            taskReadModelRepository: readModelRepository,
-            projectRepository: projectRepository,
-            calendarEventsProvider: provider,
-            workspacePreferencesStore: workspaceStore
-        )
-
-        let defaults = makeUserDefaultsSuite(prefix: "HomeCalendarControllerRefreshTests")
-        let viewModel = makeHomeViewModel(coordinator: coordinator, defaults: defaults)
-
-        let presentationContainer = PresentationDependencyContainer.shared
-        presentationContainer.configure(
-            taskReadModelRepository: readModelRepository,
-            projectRepository: projectRepository,
-            useCaseCoordinator: coordinator
-        )
-
-        let controller = HomeViewController()
-        controller.viewModel = viewModel
-        controller.presentationDependencyContainer = presentationContainer
-
-        let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 420, height: 900))
-        window.rootViewController = controller
-        window.makeKeyAndVisible()
-        controller.loadViewIfNeeded()
-        waitForMainQueue(seconds: 0.45)
-
-        let fetchCallsBeforeActive = provider.fetchEventsCallCount
-        NotificationCenter.default.post(name: UIApplication.didBecomeActiveNotification, object: nil)
-        waitForMainQueue(seconds: 0.3)
-
-        XCTAssertGreaterThan(provider.fetchEventsCallCount, fetchCallsBeforeActive)
-        window.rootViewController = nil
-        window.isHidden = true
     }
 
     func testHomeDayTimelineLayoutPlannerSplitsOverlappingEventsIntoLanes() throws {

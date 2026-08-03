@@ -170,7 +170,11 @@ extension HomeChromeSnapshot {
         return HomeHeaderTodayStatusModel(
             completionText: completionText,
             streakText: "\(progressState.streakDays)d active",
-            streakAccessibilityLabel: "\(progressState.streakDays) active days"
+            // Pluralized: this is the VoiceOver label, so an unconditional
+            // "active days" made the header announce "1 active days".
+            streakAccessibilityLabel: progressState.streakDays == 1
+                ? "1 active day"
+                : "\(progressState.streakDays) active days"
         )
     }
 

@@ -1,5 +1,7 @@
 # Calendar + Timeline Data Model and Runtime
 
+> **Classification: Canonical runtime reference.** The [Calendar package](./README.md) owns this feature's detailed contracts; the [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md) owns completion status.
+
 This document describes the implementation-facing contract for calendar sync and the schedule context it produces.
 
 ## Runtime Flow

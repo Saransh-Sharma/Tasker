@@ -109,13 +109,16 @@ private struct HomeHabitRowInteractiveSurface: View {
                     ZStack(alignment: .trailing) {
                         // Non-zero opacity keeps the full strip in hit-testing across
                         // scroll/gesture contention where fully clear content can drop taps.
-                        Color.black.opacity(0.001)
+                        Color.lifeboard(.textPrimary).opacity(0.001)
 
                         if metrics.visualLastCellWidth > 0 {
                             let icon = Image(systemName: "circle.dotted.circle")
                                 .font(.system(size: min(metrics.visualLastCellWidth * 0.58, usesExpandedTitle ? 28 : 22), weight: .semibold))
                                 .symbolRenderingMode(.palette)
-                                .foregroundStyle(.white, .yellow)
+                                .foregroundStyle(
+                                    Color.lifeboard(.textInverse),
+                                    Color.lifeboard(.statusWarning)
+                                )
                                 .frame(width: metrics.visualLastCellWidth, height: metrics.visualLastCellWidth)
                                 .accessibilityHidden(true)
                             if scrollOptimizedRendering {
@@ -228,7 +231,7 @@ struct HomeHabitRowView: View {
     var body: some View {
         rowBase
             .overlay(alignment: .topLeading) {
-                Color.black.opacity(0.001)
+                Color.lifeboard(.textPrimary).opacity(0.001)
                     .frame(width: 1, height: 1)
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(row.title)

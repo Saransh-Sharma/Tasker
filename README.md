@@ -1,5 +1,13 @@
 # LifeBoard
 
+LifeBoard is a local-first iOS life operating system: an adaptive daily Home, planning and focus tools, routines and health tracking, protected journaling, insights, and EVA-assisted review/apply workflows. The active visual language is a warm paper-and-clay system with glass restricted to navigation and compact control chrome.
+
+## Current release status
+
+LifeBoard 5.0 is an integrated pre-release worktree, not a public-promotion claim. The current generic Simulator build passes, while the complete app suite still has unresolved baseline drift; exact evidence lives in the [implementation and design audit](docs/audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md). The [remaining execution ledger](docs/todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md) is the sole active completion tracker. The root [DESIGN.md](DESIGN.md) is the canonical visual contract for people and coding agents.
+
+The [LifeBoard 5.0 Product Handbook](docs/product/README.md) is the canonical product and interaction reference. Its feature chapters cover Home, Plan/Focus, Track/Wellness, Journal/Reflection, Insights/EVA, onboarding/recovery, and system continuity. The [Product UI/UX Guide](docs/design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md) defines shared screen hierarchy, state, responsive, content, motion, and accessibility behavior.
+
 LifeBoard is a personal execution system with two codebases in one repository:
 
 - `LifeBoard/` contains the iOS app, widgets, Core Data stack, and XCTest targets.
@@ -22,18 +30,21 @@ LifeBoard is a personal execution system with two codebases in one repository:
 
 ## Architecture
 
-- `LifeBoard/Domain` holds the app domain models and use cases.
-- `LifeBoard/Presentation` holds Home planning state, view models, and presentation adapters.
-- `LifeBoard/View` and `LifeBoard/ViewControllers` hold the SwiftUI and UIKit surfaces.
+- `LifeBoard/Domain` holds canonical models and use cases.
+- `LifeBoard/Foundation` owns the five-root shell, typed navigation, cross-feature contracts, Plan/Track/Journal foundations, later domain composition, and system projections.
+- `LifeBoard/Presentation` holds Home render state, view models, presentation adapters, and feature-owned surfaces.
+- `LifeBoard/DesignSystem` and `LifeBoard/LifeBoardDesign` hold semantic tokens, compatibility adapters, policy, and clay/glass primitives.
+- `LifeBoard/View`, `LifeBoard/Views`, `LifeBoard/ViewControllers`, and `LifeBoard/Onboarding` hold feature leaves and UIKit/SwiftUI composition.
 - `LifeBoardTests/` and `LifeBoardUITests/` cover unit, integration, and UI regressions.
-- `Shared/` and `LifeBoardWidgets/` contain shared code and widget targets.
+- `Shared/`, `LifeBoardWidgets/`, and `LifeBoardWatch/` contain redacted cross-target contracts and external surfaces.
 
 ## Documentation
 
-- `docs/README.md` is the main docs index.
-- `docs/habits/README.md` documents LifeBoard's habit streak system, product behavior, runtime contract, risks, and roadmap.
-- `docs/calendar/README.md` documents LifeBoard's read-only calendar integration, calendar schedule surfaces, Home timeline, timeline-aware Eva guidance, risks, and roadmap.
-- `docs/audits/HABITS_IOS_UX_AUDIT_2026-04-17.md` captures the current habit UX audit findings and follow-up items.
+- `docs/README.md` is the documentation map and authority guide.
+- `docs/product/README.md` is the canonical product handbook.
+- `docs/design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md` owns cross-feature behavioral design.
+- `docs/life-os/README.md` and `docs/architecture/` describe composition and runtime boundaries.
+- `docs/habits/README.md` and `docs/calendar/README.md` retain detailed feature/runtime packages.
 
 ## Local EVA / LLM
 
@@ -68,6 +79,21 @@ Eva uses the original static PNG pose set in `Assets.xcassets`; non-Eva personas
 LifeBoard's calendar integration is view-only schedule context, not a calendar editing system.
 
 Home and the timeline are intended to be LifeBoard's single-glanceable command center for the day. The surface brings together tasks, fixed calendar commitments, routines, busy blocks, open gaps, and EVA guidance into one calm visual flow so users can understand what matters now without switching between a calendar, task list, and planner.
+
+## Verification
+
+Run verification serially because simultaneous Xcode operations can lock the shared DerivedData build database:
+
+```sh
+xcodebuild -workspace LifeBoard.xcworkspace -scheme LifeBoard -configuration Debug \
+  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
+LIFEBOARD_TEST_DESTINATION='platform=iOS Simulator,name=<installed simulator>' \
+  bash scripts/run-baseline-aware-tests.sh
+bash scripts/token-law-guardrails.sh
+bash scripts/premium-ui-guardrails.sh
+```
+
+`lifeOSUnifiedPresentationV2` retains the prior Sunrise presentation as a one-release rollback path. Physical-device performance, thermal, account, App Group, and paired-Watch validation are release gates; do not infer them from simulator output.
 
 The calendar schedule feature reads EventKit data, lets users choose the calendars that matter, filters schedule context locally, and projects that context into Home, task detail, and timeline views. It answers practical execution questions: what meeting is next, when the user is free until, whether a task fits the current window, which part of the day is overloaded, and where there is usable open time.
 

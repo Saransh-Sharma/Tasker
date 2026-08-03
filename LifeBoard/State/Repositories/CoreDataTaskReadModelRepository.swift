@@ -320,63 +320,6 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         }
     }
 
-    public func fetchDailyReflectionProjection(
-        query: DailyReflectionTaskProjectionQuery,
-        completion: @escaping @Sendable (Result<DailyReflectionTaskProjection, Error>) -> Void
-    ) {
-        let callback = TaskReadModelCompletion(completion)
-        context.perform {
-            do {
-                let calendar = Calendar.current
-                let reflectionDayStart = calendar.startOfDay(for: query.reflectionDate)
-                let reflectionDayEnd = calendar.date(byAdding: .day, value: 1, to: reflectionDayStart) ?? reflectionDayStart
-                let planningDayStart = calendar.startOfDay(for: query.planningDate)
-                let planningDayEnd = calendar.date(byAdding: .day, value: 1, to: planningDayStart) ?? planningDayStart
-
-                let completedEntities = try self.fetchTaskEntities(
-                    predicate: NSCompoundPredicate(andPredicateWithSubpredicates: [
-                        NSPredicate(format: "isComplete == YES"),
-                        NSPredicate(format: "dateCompleted >= %@", reflectionDayStart as NSDate),
-                        NSPredicate(format: "dateCompleted < %@", reflectionDayEnd as NSDate)
-                    ]),
-                    sortDescriptors: [
-                        NSSortDescriptor(key: "dateCompleted", ascending: false),
-                        NSSortDescriptor(key: "updatedAt", ascending: false),
-                        NSSortDescriptor(key: "taskID", ascending: true),
-                        NSSortDescriptor(key: "id", ascending: true)
-                    ],
-                    limit: query.completedLimit,
-                    offset: 0
-                )
-
-                let reflectionOpenEntities = try self.fetchTaskEntities(
-                    predicate: self.dailyReflectionOpenPredicate(dayEnd: reflectionDayEnd),
-                    sortDescriptors: self.sortDescriptors(for: .dueDateAscending),
-                    limit: query.openTaskLimit,
-                    offset: 0
-                )
-
-                let planningOpenEntities = try self.fetchTaskEntities(
-                    predicate: self.dailyReflectionOpenPredicate(dayEnd: planningDayEnd),
-                    sortDescriptors: self.sortDescriptors(for: .dueDateAscending),
-                    limit: query.openTaskLimit,
-                    offset: 0
-                )
-
-                callback.deliver(
-                    .success(
-                        DailyReflectionTaskProjection(
-                            reflectionCompletedTasks: try CoreDataTaskDefinitionRepository.mapTaskDefinitions(completedEntities, context: self.context),
-                            reflectionOpenTasks: try CoreDataTaskDefinitionRepository.mapTaskDefinitions(reflectionOpenEntities, context: self.context),
-                            planningOpenTasks: try CoreDataTaskDefinitionRepository.mapTaskDefinitions(planningOpenEntities, context: self.context)
-                        )
-                    )
-                )
-            } catch {
-                callback.deliver(.failure(error))
-            }
-        }
-    }
 
     public func fetchWeekChartProjection(
         referenceDate: Date,
@@ -824,18 +767,7 @@ public final class CoreDataTaskReadModelRepository: TaskReadModelRepositoryProto
         return totals
     }
 
-    private func dailyReflectionOpenPredicate(dayEnd: Date) -> NSPredicate {
-        NSCompoundPredicate(andPredicateWithSubpredicates: [
-            NSPredicate(format: "isComplete == NO"),
-            NSCompoundPredicate(orPredicateWithSubpredicates: [
-                NSPredicate(format: "taskType == %d", TaskType.morning.rawValue),
-                NSPredicate(format: "taskType == %d", TaskType.evening.rawValue),
-                NSPredicate(format: "dueDate < %@", dayEnd as NSDate)
-            ])
-        ])
-    }
 
-    /// Executes sortDescriptors.
     private func sortDescriptors(for sort: TaskReadSort) -> [NSSortDescriptor] {
         switch sort {
         case .dueDateAscending:

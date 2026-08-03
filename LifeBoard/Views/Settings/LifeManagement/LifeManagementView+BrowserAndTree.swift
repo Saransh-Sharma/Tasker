@@ -178,7 +178,7 @@ extension LifeManagementView {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 Button {
                     guard section.kind == .archived else { return }
-                    withAnimation(accessibilityReduceMotion ? nil : LifeBoardAnimation.quick) {
+                    withAnimation(accessibilityReduceMotion ? nil : LifeBoardAnimation.feedbackFast) {
                         viewModel.toggleSectionExpansion(section.kind)
                     }
                 } label: {
@@ -223,7 +223,7 @@ extension LifeManagementView {
                 HStack(alignment: .top, spacing: spacing.s8) {
                     if node.isExpandable {
                         Button {
-                            withAnimation(accessibilityReduceMotion ? nil : LifeBoardAnimation.quick) {
+                            withAnimation(accessibilityReduceMotion ? nil : LifeBoardAnimation.feedbackFast) {
                                 viewModel.toggleNodeExpansion(node.selection)
                             }
                         } label: {

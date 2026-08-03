@@ -44,7 +44,6 @@ struct TimeOfDayHeaderAsset: Equatable {
     let name: String
     let selectionKey: String
 
-    private static let assetCount = 4
     static let defaultActivationID = "default"
     private static let cachedBySelectionKey = Mutex<[String: TimeOfDayHeaderAsset]>([:])
     fileprivate static let luminanceCache = Mutex<[String: CGFloat]>([:])
@@ -64,7 +63,12 @@ struct TimeOfDayHeaderAsset: Equatable {
     }
 
     static func assetNames(for period: Period) -> [String] {
-        (1...assetCount).map { "\(period.rawValue)\($0)" }
+        switch period {
+        case .morning: ["CelestialDawnBackground", "CelestialMorningBackground"]
+        case .afternoon: ["CelestialMiddayBackground"]
+        case .evening: ["CelestialGoldenHourBackground", "CelestialTwilightBackground"]
+        case .night: ["CelestialNightBackground"]
+        }
     }
 
     static func resolve(
@@ -72,15 +76,15 @@ struct TimeOfDayHeaderAsset: Equatable {
         activationID: String = defaultActivationID,
         calendar: Calendar = .current
     ) -> TimeOfDayHeaderAsset {
+        let phase = LifeBoardCelestialPhase.resolve(at: date, calendar: calendar)
         let period = period(for: date, calendar: calendar)
-        let key = selectionKey(for: period, activationID: activationID)
+        let key = "\(phase.rawValue)-\(activationID)"
         if let cached = cachedBySelectionKey.withLock({ $0[key] }) {
             return cached
         }
 
-        let names = assetNames(for: period)
-        let index = stableIndex(selectionKey: key, count: names.count)
-        let asset = TimeOfDayHeaderAsset(period: period, name: names[index], selectionKey: key)
+        let name = LifeBoardAtmosphereDescriptor.descriptor(for: phase).backgroundAsset
+        let asset = TimeOfDayHeaderAsset(period: period, name: name, selectionKey: key)
 
         return cachedBySelectionKey.withLock { cache in
             if let cached = cache[key] {
@@ -118,16 +122,7 @@ struct TimeOfDayHeaderAsset: Equatable {
 
     #if canImport(UIKit)
     static func image(named name: String, bundle: Bundle = .main) -> UIImage? {
-        if let image = UIImage(named: name, in: bundle, compatibleWith: nil) {
-            return image
-        }
-        if let url = bundle.url(forResource: name, withExtension: "png", subdirectory: "SunriseImages") {
-            return UIImage(contentsOfFile: url.path)
-        }
-        if let url = bundle.url(forResource: name, withExtension: "webp", subdirectory: "SunriseImages") {
-            return UIImage(contentsOfFile: url.path)
-        }
-        return nil
+        UIImage(named: name, in: bundle, compatibleWith: nil)
     }
 
     static func averageLuminance(in image: UIImage, rect: CGRect) -> CGFloat {
@@ -172,7 +167,7 @@ struct LBHeaderTimeContext: Equatable {
             case .navy:
                 return Color(lifeboardHex: "#071B52")
             case .light:
-                return Color.white
+                return Color.lifeboard(.textInverse)
             }
         }
 
@@ -181,25 +176,25 @@ struct LBHeaderTimeContext: Equatable {
             case .navy:
                 return Color(lifeboardHex: "#071B52")
             case .light:
-                return Color.white
+                return Color.lifeboard(.textInverse)
             }
         }
 
         var glassFill: Color {
             switch self {
             case .navy:
-                return Color.white.opacity(0.58)
+                return Color.lifeboard(.textInverse).opacity(0.58)
             case .light:
-                return Color.white.opacity(0.20)
+                return Color.lifeboard(.textInverse).opacity(0.20)
             }
         }
 
         var glassStroke: Color {
             switch self {
             case .navy:
-                return Color.white.opacity(0.72)
+                return Color.lifeboard(.textInverse).opacity(0.72)
             case .light:
-                return Color.white.opacity(0.52)
+                return Color.lifeboard(.textInverse).opacity(0.52)
             }
         }
     }
@@ -219,7 +214,8 @@ struct LBHeaderTimeContext: Equatable {
         calendar: Calendar = .current
     ) -> LBHeaderTimeContext {
         let effectiveDate = effectiveDate(selectedDate: selectedDate, now: now, calendar: calendar)
-        let asset = TimeOfDayHeaderAsset.resolve(for: effectiveDate, activationID: activationID, calendar: calendar)
+        // The selected date changes the content lens, not the ambient world.
+        let asset = TimeOfDayHeaderAsset.resolve(for: now, activationID: activationID, calendar: calendar)
         let foregroundStyle = foregroundStyle(for: asset)
         return LBHeaderTimeContext(
             selectedDate: selectedDate,
@@ -314,7 +310,7 @@ struct LBHeaderTimeContext: Equatable {
     private static func foregroundStyle(for asset: TimeOfDayHeaderAsset) -> ForegroundStyle {
         #if canImport(UIKit)
         if let cached = TimeOfDayHeaderAsset.luminanceCache.withLock({ $0[asset.name] }) {
-            return cached < 0.38 ? .light : .navy
+            return LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: cached) == .lightContent ? .light : .navy
         }
         if let image = TimeOfDayHeaderAsset.image(named: asset.name) {
             let luminance = TimeOfDayHeaderAsset.averageLuminance(
@@ -324,7 +320,7 @@ struct LBHeaderTimeContext: Equatable {
             TimeOfDayHeaderAsset.luminanceCache.withLock {
                 $0[asset.name] = luminance
             }
-            return luminance < 0.38 ? .light : .navy
+            return LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: luminance) == .lightContent ? .light : .navy
         }
         #endif
         return asset.period == .night ? .light : .navy

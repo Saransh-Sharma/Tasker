@@ -7,6 +7,32 @@
 
 import Foundation
 
+/// The durable recurrence contract stored in `repeatPatternData`.
+///
+/// Older releases encoded `TaskRepeatPattern` directly. Repositories decode
+/// that legacy representation as a scheduled-date anchor, while all new writes
+/// use this wrapper so completion-anchored recurrence can be introduced without
+/// a Core Data migration.
+public struct TaskRecurrenceRule: Codable, Equatable, Hashable, Sendable {
+    public enum Anchor: String, Codable, CaseIterable, Sendable {
+        case scheduledDate
+        case completionDate
+    }
+
+    public var pattern: TaskRepeatPattern
+    public var anchor: Anchor
+
+    public init(pattern: TaskRepeatPattern, anchor: Anchor = .scheduledDate) {
+        self.pattern = pattern
+        self.anchor = anchor
+    }
+
+    public func nextOccurrence(scheduledDate: Date, completedAt: Date?) -> Date? {
+        let base = anchor == .completionDate ? (completedAt ?? scheduledDate) : scheduledDate
+        return pattern.nextOccurrence(after: base)
+    }
+}
+
 /// Repeat patterns for recurring tasks
 public enum TaskRepeatPattern: Codable, Equatable, Hashable, Sendable {
     case daily

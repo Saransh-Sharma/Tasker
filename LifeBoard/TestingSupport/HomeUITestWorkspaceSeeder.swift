@@ -11,12 +11,70 @@ final class HomeUITestWorkspaceSeeder {
     private static var hasSeededUITestEstablishedWorkspace = false
     private static var hasSeededUITestSearchWorkspace = false
     private static var hasSeededUITestRescueWorkspace = false
-    private static var hasSeededUITestReflectPlanWorkspace = false
     private static var hasSeededUITestFocusWorkspace = false
     private static var hasSeededUITestHabitBoardWorkspace = false
     private static var hasSeededUITestQuietTrackingWorkspace = false
     private static var hasSeededUITestFullTimelineWorkspace = false
     private static var hasSeededAppStoreScreenshotWorkspace = false
+    private static var hasSeededUITestInboxCaptures = false
+
+    /// Stages the App Group pending-capture queue.
+    ///
+    /// Nothing else seeded `PendingCapture`, so the Inbox's File It / Review /
+    /// Discard actions and its whole duplicate-merge path were unreachable in any
+    /// automated run — they are gated on
+    /// `InboxItem.requiresCommitBeforeScheduling`, which is only true for a
+    /// `.pendingCapture` origin. Canonical task rows alone never exercise them.
+    ///
+    /// Synchronous and dependency-free on purpose: this is one small JSON file in
+    /// the App Group, not Core Data, so it needs no container and no place in the
+    /// async seeder ladder. It must run after `resetAppState()`, which clears the
+    /// same file.
+    static func seedUITestInboxCapturesIfNeeded() {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_INBOX_CAPTURES") else { return }
+        guard hasSeededUITestInboxCaptures == false else { return }
+        hasSeededUITestInboxCaptures = true
+
+        // Fixed identifiers so `plan.inbox.row.<uuid>` is addressable from a test,
+        // and descending offsets so the newest-first order is deterministic.
+        let reference = Date()
+        let captures = [
+            // Rich parse: date, duration, tag and context all produce chips. The
+            // parser needs the literal "for" before a duration and a letter after
+            // "@", so this text is shaped to exercise all four grammars at once.
+            PendingCapture(
+                id: UUID(uuidString: "A1B2C3D4-0001-4000-8000-00000000FEED")!,
+                rawText: "Email the studio tomorrow 3pm for 45 min #admin @home",
+                createdAt: reference.addingTimeInterval(-5 * 60),
+                source: "widget"
+            ),
+            // Deliberately identical to a title created by the established
+            // workspace seed, so `InboxStore.alreadyFiled` ranks it as a duplicate
+            // and Keep Both / Merge / Cancel becomes reachable.
+            PendingCapture(
+                id: UUID(uuidString: "A1B2C3D4-0002-4000-8000-00000000FEED")!,
+                rawText: "Draft update",
+                createdAt: reference.addingTimeInterval(-12 * 60),
+                source: "control"
+            ),
+            // Plain prose with nothing to parse: the row must stay honest and show
+            // no proposal chips rather than inventing a date.
+            PendingCapture(
+                id: UUID(uuidString: "A1B2C3D4-0003-4000-8000-00000000FEED")!,
+                rawText: "Look into the noise complaint",
+                createdAt: reference.addingTimeInterval(-30 * 60),
+                source: "share-extension"
+            )
+        ]
+
+        guard PendingCaptureInbox.upsert(captures) else {
+            logError(
+                event: "ui_test_inbox_capture_seed_failed",
+                message: "Could not write the seeded pending-capture queue to the App Group container"
+            )
+            return
+        }
+    }
 
     func seedUITestEstablishedWorkspaceIfNeeded(presentationDependencyContainer: PresentationDependencyContainer?, completion: @escaping () -> Void) {
         guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE") else {
@@ -53,7 +111,7 @@ final class HomeUITestWorkspaceSeeder {
                     )
                 )
 
-                let requests = [
+                var requests = [
                     CreateTaskDefinitionRequest(
                         title: "Draft update",
                         details: "UI test established-workspace seed",
@@ -80,13 +138,59 @@ final class HomeUITestWorkspaceSeeder {
                         lifeAreaID: lifeArea.id,
                         dueDate: DatePreset.today.resolvedDueDate(),
                         createdAt: Date()
+                    ),
+                    CreateTaskDefinitionRequest(
+                        title: "Review metrics",
+                        details: "UI test expandable Home task card seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: DatePreset.today.resolvedDueDate(),
+                        createdAt: Date()
+                    ),
+                    CreateTaskDefinitionRequest(
+                        title: "Email launch notes",
+                        details: "UI test expandable Home task card seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: DatePreset.today.resolvedDueDate(),
+                        createdAt: Date()
+                    ),
+                    CreateTaskDefinitionRequest(
+                        title: "Archive brief",
+                        details: "UI test expandable Home task card seed",
+                        projectID: project.id,
+                        projectName: project.name,
+                        lifeAreaID: lifeArea.id,
+                        dueDate: DatePreset.today.resolvedDueDate(),
+                        createdAt: Date()
                     )
                 ]
+
+                if ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_LONG_HOME_TASK_AGENDA") {
+                    requests.append(contentsOf: (7...24).map { index in
+                        CreateTaskDefinitionRequest(
+                            title: "Long agenda task \(String(format: "%02d", index))",
+                            details: "UI test oversized Home task-card seed",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: DatePreset.today.resolvedDueDate(),
+                            createdAt: Date()
+                        )
+                    })
+                }
 
                 for request in requests {
                     _ = try await createTaskDefinition.executeAsync(request: request)
                 }
             } catch {
+                UserDefaults.standard.set(
+                    error.localizedDescription,
+                    forKey: "lifeboard.appStoreScreenshotSeed.error"
+                )
+                UserDefaults.standard.synchronize()
                 logError(
                     event: "ui_test_onboarding_workspace_seed_failed",
                     message: "Failed to seed established workspace for onboarding UI test",
@@ -255,6 +359,7 @@ final class HomeUITestWorkspaceSeeder {
         let shouldSeedCompactRescue = arguments.contains("-LIFEBOARD_TEST_SEED_COMPACT_RESCUE_WORKSPACE")
         let shouldSeedRescueTimeline = arguments.contains("-LIFEBOARD_TEST_SEED_RESCUE_TIMELINE_WORKSPACE")
         let shouldSeedRescueSuite = arguments.contains("-LIFEBOARD_TEST_SEED_OVERDUE_RESCUE_SUITE")
+        let isAppStoreScreenshotSeed = arguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS")
         guard shouldSeedExpandedRescue || shouldSeedCompactRescue || shouldSeedRescueTimeline || shouldSeedRescueSuite else {
             completion()
             return
@@ -320,6 +425,22 @@ final class HomeUITestWorkspaceSeeder {
                             isAllDay: false,
                             priority: .high,
                             estimatedDuration: 45 * 60,
+                            createdAt: now
+                        )
+                    ]
+                } else if shouldSeedRescueSuite && isAppStoreScreenshotSeed {
+                    requests = [
+                        CreateTaskDefinitionRequest(
+                            id: UUID(uuidString: "A5000000-0000-0000-0000-000000000101") ?? UUID(),
+                            title: "Renew passport photos",
+                            details: "Find a nearby appointment and upload the receipt.",
+                            projectID: project.id,
+                            projectName: "Personal Admin",
+                            lifeAreaID: lifeArea.id,
+                            dueDate: calendar.date(byAdding: .day, value: -24, to: anchorDay),
+                            priority: .max,
+                            context: .errands,
+                            estimatedDuration: 40 * 60,
                             createdAt: now
                         )
                     ]
@@ -456,212 +577,6 @@ final class HomeUITestWorkspaceSeeder {
         }
     }
 
-    func seedUITestReflectPlanWorkspaceIfNeeded(
-        presentationDependencyContainer: PresentationDependencyContainer?,
-        viewModel: HomeViewModel?,
-        completion: @escaping () -> Void
-    ) {
-        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_REFLECT_PLAN_SUITE") else {
-            completion()
-            return
-        }
-        guard Self.hasSeededUITestReflectPlanWorkspace == false else {
-            completion()
-            return
-        }
-        guard let presentationDependencyContainer else {
-            completion()
-            return
-        }
-
-        Self.hasSeededUITestReflectPlanWorkspace = true
-
-        Task { @MainActor in
-            do {
-                let manageLifeAreas = presentationDependencyContainer.coordinator.manageLifeAreas
-                let manageProjects = presentationDependencyContainer.coordinator.manageProjects
-                let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
-                let updateTaskDefinition = presentationDependencyContainer.coordinator.updateTaskDefinition
-                let createHabit = presentationDependencyContainer.coordinator.createHabit
-                let resolveHabitOccurrence = presentationDependencyContainer.coordinator.resolveHabitOccurrence
-                let reflectionStore = presentationDependencyContainer.coordinator.dailyReflectionStore
-
-                let calendar = Calendar.current
-                let now = Date()
-                let today = calendar.startOfDay(for: now)
-                let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
-                let completedAt = calendar.date(bySettingHour: 17, minute: 20, second: 0, of: yesterday) ?? yesterday
-
-                let lifeArea = try await manageLifeAreas.createAsync(
-                    name: "Reflection Systems",
-                    color: "#6A4E8A",
-                    icon: "sparkles"
-                )
-                let project = try await manageProjects.createProjectAsync(
-                    request: CreateProjectRequest(
-                        name: "Reflect Plan Suite",
-                        description: "UI test reflect and plan seed",
-                        lifeAreaID: lifeArea.id
-                    )
-                )
-
-                let completedTaskID = UUID(uuidString: "22000000-0000-0000-0000-000000000001") ?? UUID()
-                let completedSecondID = UUID(uuidString: "22000000-0000-0000-0000-000000000002") ?? UUID()
-                let taskRequests = [
-                    CreateTaskDefinitionRequest(
-                        id: completedTaskID,
-                        title: "Reflect shipped proposal",
-                        details: "Completed yesterday for reflect and plan UI tests",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: yesterday),
-                        priority: .max,
-                        estimatedDuration: 60 * 60,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        id: completedSecondID,
-                        title: "Reflect closed inbox",
-                        details: "Second completed yesterday seed",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 15, minute: 0, second: 0, of: yesterday),
-                        priority: .high,
-                        estimatedDuration: 30 * 60,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000003") ?? UUID(),
-                        title: "Reflect carryover contract",
-                        details: "Open carryover from yesterday",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 16, minute: 0, second: 0, of: yesterday),
-                        priority: .high,
-                        estimatedDuration: 45 * 60,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000004") ?? UUID(),
-                        title: "Plan API review",
-                        details: "Top task candidate for today",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 9, minute: 30, second: 0, of: today),
-                        priority: .max,
-                        estimatedDuration: 90 * 60,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000005") ?? UUID(),
-                        title: "Plan customer reply",
-                        details: "Planning candidate",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 11, minute: 0, second: 0, of: today),
-                        priority: .high,
-                        estimatedDuration: 25 * 60,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000006") ?? UUID(),
-                        title: "Plan 15 min cleanup",
-                        details: "Quick stabilizer candidate",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 13, minute: 0, second: 0, of: today),
-                        priority: .low,
-                        estimatedDuration: 15 * 60,
-                        createdAt: now
-                    ),
-                    CreateTaskDefinitionRequest(
-                        id: UUID(uuidString: "22000000-0000-0000-0000-000000000007") ?? UUID(),
-                        title: "Plan swap candidate",
-                        details: "Swap picker replacement candidate",
-                        projectID: project.id,
-                        projectName: project.name,
-                        lifeAreaID: lifeArea.id,
-                        dueDate: calendar.date(bySettingHour: 14, minute: 0, second: 0, of: today),
-                        priority: .low,
-                        estimatedDuration: 20 * 60,
-                        createdAt: now
-                    )
-                ]
-
-                for request in taskRequests {
-                    _ = try await createTaskDefinition.executeAsync(request: request)
-                }
-
-                _ = try await updateTaskDefinitionAsync(
-                    updateTaskDefinition,
-                    request: UpdateTaskDefinitionRequest(
-                        id: completedTaskID,
-                        isComplete: true,
-                        dateCompleted: completedAt
-                    )
-                )
-                _ = try await updateTaskDefinitionAsync(
-                    updateTaskDefinition,
-                    request: UpdateTaskDefinitionRequest(
-                        id: completedSecondID,
-                        isComplete: true,
-                        dateCompleted: completedAt.addingTimeInterval(30 * 60)
-                    )
-                )
-
-                let habitID = UUID(uuidString: "22000000-0000-0000-0000-000000000101") ?? UUID()
-                let habit = try await createHabit.executeAsync(
-                    request: CreateHabitRequest(
-                        id: habitID,
-                        title: "Protect shutdown ritual",
-                        lifeAreaID: lifeArea.id,
-                        projectID: project.id,
-                        kind: .positive,
-                        trackingMode: .dailyCheckIn,
-                        icon: HabitIconMetadata(symbolName: "moon.stars.fill", categoryKey: "reflection"),
-                        colorHex: HabitColorFamily.purple.canonicalHex,
-                        targetConfig: HabitTargetConfig(targetCountPerDay: 1),
-                        cadence: .daily(),
-                        createdAt: calendar.date(byAdding: .day, value: -8, to: today) ?? now
-                    )
-                )
-                try await resolveHabitOccurrence.executeAsync(
-                    habitID: habit.id,
-                    action: .lapsed,
-                    on: yesterday
-                )
-
-                if ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_REFLECT_PLAN_COMPLETED") {
-                    let payload = ReflectionPayload(
-                        reflectionDate: yesterday,
-                        planningDate: today,
-                        mode: .catchUpYesterday,
-                        mood: .good,
-                        energy: .okay,
-                        frictionTags: [.tooMuchPlanned],
-                        note: "Seeded completed reflection"
-                    )
-                    _ = try reflectionStore.markCompleted(on: yesterday, completedAt: now, payload: payload)
-                }
-
-                viewModel?.invalidateTaskCaches()
-            } catch {
-                logError(
-                    event: "ui_test_reflect_plan_workspace_seed_failed",
-                    message: "Failed to seed Reflect and Plan workspace for UI tests",
-                    fields: ["error": error.localizedDescription]
-                )
-            }
-
-            completion()
-        }
-    }
 
     func seedUITestFocusWorkspaceIfNeeded(presentationDependencyContainer: PresentationDependencyContainer?, completion: @escaping () -> Void) {
         let arguments = ProcessInfo.processInfo.arguments
@@ -828,7 +743,8 @@ final class HomeUITestWorkspaceSeeder {
         viewModel: HomeViewModel?,
         completion: @escaping () -> Void
     ) {
-        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS") else {
+        let arguments = ProcessInfo.processInfo.arguments
+        guard arguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS") else {
             completion()
             return
         }
@@ -837,11 +753,12 @@ final class HomeUITestWorkspaceSeeder {
             return
         }
         guard let presentationDependencyContainer else {
-            completion()
-            return
+            fatalError("App Store screenshot seeding requires PresentationDependencyContainer")
         }
 
         Self.hasSeededAppStoreScreenshotWorkspace = true
+        UserDefaults.standard.removeObject(forKey: "lifeboard.appStoreScreenshotSeed.ready")
+        UserDefaults.standard.removeObject(forKey: "lifeboard.appStoreScreenshotSeed.error")
 
         Task { @MainActor in
             do {
@@ -850,11 +767,13 @@ final class HomeUITestWorkspaceSeeder {
                 let createTaskDefinition = presentationDependencyContainer.coordinator.createTaskDefinition
                 let updateTaskDefinition = presentationDependencyContainer.coordinator.updateTaskDefinition
                 let createHabit = presentationDependencyContainer.coordinator.createHabit
-                let resolveHabitOccurrence = presentationDependencyContainer.coordinator.resolveHabitOccurrence
-                let reflectionStore = presentationDependencyContainer.coordinator.dailyReflectionStore
+                let getHabitSignals = presentationDependencyContainer.coordinator.getHabitSignalsInRange
+                let occurrenceResolver = presentationDependencyContainer.coordinator.resolveOccurrence
+                let recomputeStreaks = presentationDependencyContainer.coordinator.recomputeHabitStreaks
+                let reflectionRepository = presentationDependencyContainer.coordinator.reflectionNoteRepository
 
                 let calendar = Calendar.current
-                let now = Date()
+                let now = AppStoreScreenshotTestConfiguration.referenceDate
                 let today = calendar.startOfDay(for: now)
                 let yesterday = calendar.date(byAdding: .day, value: -1, to: today) ?? today
                 let workArea = try await manageLifeAreas.createAsync(
@@ -910,6 +829,7 @@ final class HomeUITestWorkspaceSeeder {
                 let insuranceID = UUID(uuidString: "A5000000-0000-0000-0000-000000000102") ?? UUID()
                 let leaseID = UUID(uuidString: "A5000000-0000-0000-0000-000000000103") ?? UUID()
 
+                let usesDedicatedRescueSeed = arguments.contains("-LIFEBOARD_TEST_SEED_OVERDUE_RESCUE_SUITE")
                 let taskRequests = [
                     CreateTaskDefinitionRequest(
                         id: completedID,
@@ -1017,7 +937,7 @@ final class HomeUITestWorkspaceSeeder {
                         projectName: adminProject.name,
                         iconSymbolName: "person.text.rectangle.fill",
                         lifeAreaID: lifeAdminArea.id,
-                        dueDate: calendar.date(byAdding: .day, value: -9, to: today),
+                        dueDate: calendar.date(byAdding: .day, value: -24, to: today),
                         priority: .max,
                         type: .morning,
                         context: .errands,
@@ -1032,7 +952,7 @@ final class HomeUITestWorkspaceSeeder {
                         projectName: adminProject.name,
                         iconSymbolName: "doc.badge.arrow.up.fill",
                         lifeAreaID: lifeAdminArea.id,
-                        dueDate: calendar.date(byAdding: .day, value: -6, to: today),
+                        dueDate: calendar.date(byAdding: .day, value: -18, to: today),
                         priority: .high,
                         type: .morning,
                         context: .computer,
@@ -1047,14 +967,17 @@ final class HomeUITestWorkspaceSeeder {
                         projectName: adminProject.name,
                         iconSymbolName: "house.fill",
                         lifeAreaID: lifeAdminArea.id,
-                        dueDate: calendar.date(byAdding: .day, value: -3, to: today),
+                        dueDate: calendar.date(byAdding: .day, value: -15, to: today),
                         priority: .high,
                         type: .evening,
                         context: .anywhere,
                         estimatedDuration: 20 * 60,
                         createdAt: now
                     )
-                ]
+                ].filter { request in
+                    usesDedicatedRescueSeed == false
+                        || [passportID, insuranceID, leaseID].contains(request.id) == false
+                }
 
                 for request in taskRequests {
                     _ = try await createTaskDefinition.executeAsync(request: request)
@@ -1124,41 +1047,58 @@ final class HomeUITestWorkspaceSeeder {
                 ]
 
                 for habit in habits {
-                    let createdHabit = try await createHabit.executeAsync(request: habit)
-                    try await markScreenshotHabitHistory(
-                        habitID: createdHabit.id,
-                        kind: habit.kind,
-                        calendar: calendar,
-                        today: today,
-                        resolver: resolveHabitOccurrence
-                    )
+                    _ = try await createHabit.executeAsync(request: habit)
+                }
+                try await markScreenshotHabitHistory(
+                    habits: habits,
+                    calendar: calendar,
+                    today: today,
+                    signalLoader: getHabitSignals,
+                    resolver: occurrenceResolver,
+                    recomputeStreaks: recomputeStreaks
+                )
+
+                let reflectionCreatedAt = calendar.date(
+                    bySettingHour: 20,
+                    minute: 45,
+                    second: 0,
+                    of: yesterday
+                ) ?? now
+                let reflection = ReflectionNote(
+                    kind: .freeform,
+                    energy: 3,
+                    mood: 4,
+                    prompt: "What helped the day stay deliberate?",
+                    noteText: "Protected the launch review, moved the small admin items into one rescue pass, and kept the evening lighter.",
+                    createdAt: reflectionCreatedAt,
+                    updatedAt: reflectionCreatedAt
+                )
+                let _: ReflectionNote = try await withCheckedThrowingContinuation { continuation in
+                    reflectionRepository.saveNote(reflection) { continuation.resume(with: $0) }
                 }
 
-                let reflectionPayload = ReflectionPayload(
-                    reflectionDate: yesterday,
-                    planningDate: today,
-                    mode: .catchUpYesterday,
-                    mood: .good,
-                    energy: .okay,
-                    frictionTags: [.meetings, .tooMuchPlanned],
-                    note: "Protected the launch review, moved the small admin items into one rescue pass, and kept the evening lighter."
-                )
-                _ = try reflectionStore.markCompleted(
-                    on: yesterday,
-                    completedAt: calendar.date(bySettingHour: 20, minute: 45, second: 0, of: yesterday) ?? now,
-                    payload: reflectionPayload
-                )
-
-                seedAppStoreScreenshotEvaThread()
+                try await seedAppStoreScreenshotEvaThread(referenceDate: now)
                 UserDefaults.standard.set(
                     [partnerBriefID.uuidString, pricingNotesID.uuidString, handoffID.uuidString],
                     forKey: "home.focus.pinnedTaskIDs.v2"
                 )
                 UserDefaults.standard.removeObject(forKey: "home.eva.recentShuffleTaskIDs.v1")
-                UserDefaults.standard.set(true, forKey: "lifeboard.appStoreScreenshotSeed.ready")
-
                 viewModel?.invalidateTaskCaches()
+                UserDefaults.standard.set(true, forKey: "lifeboard.appStoreScreenshotSeed.ready")
+                NotificationCenter.default.post(
+                    name: Notification.Name("lifeboard.appStoreScreenshotSeed.didFinish"),
+                    object: nil
+                )
             } catch {
+                UserDefaults.standard.removeObject(forKey: "lifeboard.appStoreScreenshotSeed.ready")
+                UserDefaults.standard.set(
+                    error.localizedDescription,
+                    forKey: "lifeboard.appStoreScreenshotSeed.error"
+                )
+                NotificationCenter.default.post(
+                    name: Notification.Name("lifeboard.appStoreScreenshotSeed.didFinish"),
+                    object: nil
+                )
                 logError(
                     event: "app_store_screenshot_workspace_seed_failed",
                     message: "Failed to seed App Store screenshot workspace",
@@ -1171,39 +1111,82 @@ final class HomeUITestWorkspaceSeeder {
     }
 
     private func markScreenshotHabitHistory(
-        habitID: UUID,
-        kind: HabitKind,
+        habits: [CreateHabitRequest],
         calendar: Calendar,
         today: Date,
-        resolver: ResolveHabitOccurrenceUseCase
+        signalLoader: GetHabitSignalsInRangeUseCase,
+        resolver: ResolveOccurrenceUseCase,
+        recomputeStreaks: RecomputeHabitStreaksUseCase
     ) async throws {
-        for offset in stride(from: -20, through: 0, by: 1) {
-            guard let day = calendar.date(byAdding: .day, value: offset, to: today) else { continue }
-            let weekday = calendar.component(.weekday, from: day)
+        let habitKinds = Dictionary(uniqueKeysWithValues: habits.map { ($0.id, $0.kind) })
+        let start = calendar.date(byAdding: .day, value: -20, to: today) ?? today
+        let end = calendar.date(byAdding: .day, value: 1, to: today) ?? today
+        let signals = try await loadHabitSignals(signalLoader, start: start, end: end)
+
+        for signal in signals {
+            guard let occurrenceID = signal.occurrenceID,
+                  let dueAt = signal.dueAt,
+                  let kind = habitKinds[signal.habitID] else { continue }
+            let offset = calendar.dateComponents(
+                [.day],
+                from: calendar.startOfDay(for: today),
+                to: calendar.startOfDay(for: dueAt)
+            ).day ?? 0
+            let resolution: OccurrenceResolutionType
             if kind == .positive {
-                let shouldSkip = weekday == 1 || offset == -9
-                try await resolver.executeAsync(
-                    habitID: habitID,
-                    action: shouldSkip ? .skip : .complete,
-                    on: day
-                )
+                let shouldSkip = calendar.component(.weekday, from: dueAt) == 1 || offset == -9
+                resolution = shouldSkip ? .skipped : .completed
             } else {
-                let hadLapse = offset == -12 || offset == -4
-                try await resolver.executeAsync(
-                    habitID: habitID,
-                    action: hadLapse ? .lapsed : .abstained,
-                    on: day
-                )
+                resolution = (offset == -12 || offset == -4) ? .lapsed : .completed
             }
+            try await resolveOccurrence(resolver, occurrenceID: occurrenceID, resolution: resolution)
+        }
+
+        _ = try await recomputeHabitStreaks(recomputeStreaks, habitIDs: Array(habitKinds.keys), referenceDate: today)
+    }
+
+    private func loadHabitSignals(
+        _ useCase: GetHabitSignalsInRangeUseCase,
+        start: Date,
+        end: Date
+    ) async throws -> [HabitOccurrenceSummary] {
+        try await withCheckedThrowingContinuation { continuation in
+            useCase.execute(start: start, end: end) { continuation.resume(with: $0) }
         }
     }
 
-    private func seedAppStoreScreenshotEvaThread() {
-        guard let container = LLMDataController.shared else { return }
+    private func resolveOccurrence(
+        _ useCase: ResolveOccurrenceUseCase,
+        occurrenceID: UUID,
+        resolution: OccurrenceResolutionType
+    ) async throws {
+        try await withCheckedThrowingContinuation { continuation in
+            useCase.execute(id: occurrenceID, resolution: resolution) { continuation.resume(with: $0) }
+        }
+    }
+
+    private func recomputeHabitStreaks(
+        _ useCase: RecomputeHabitStreaksUseCase,
+        habitIDs: [UUID],
+        referenceDate: Date
+    ) async throws -> [HabitDefinitionRecord] {
+        try await withCheckedThrowingContinuation { continuation in
+            useCase.execute(habitIDs: habitIDs, referenceDate: referenceDate) { continuation.resume(with: $0) }
+        }
+    }
+
+    private func seedAppStoreScreenshotEvaThread(referenceDate: Date) async throws {
+        guard let container = await LLMDataController.load() else {
+            throw NSError(
+                domain: "AppStoreScreenshotSeed",
+                code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "LLMDataController was unavailable"]
+            )
+        }
         let context = container.mainContext
         let thread = Thread()
         thread.title = "Launch day rescue plan"
-        thread.timestamp = Date().addingTimeInterval(-18 * 60)
+        thread.timestamp = referenceDate.addingTimeInterval(-18 * 60)
 
         let userMessage = Message(
             role: .user,
@@ -1231,15 +1214,7 @@ final class HomeUITestWorkspaceSeeder {
 
         thread.messages = [userMessage, assistantMessage]
         context.insert(thread)
-        do {
-            try context.save()
-        } catch {
-            logError(
-                event: "app_store_screenshot_eva_thread_seed_failed",
-                message: "Failed to seed App Store screenshot Eva transcript",
-                fields: ["error": error.localizedDescription]
-            )
-        }
+        try context.save()
     }
 
     private func updateTaskDefinitionAsync(

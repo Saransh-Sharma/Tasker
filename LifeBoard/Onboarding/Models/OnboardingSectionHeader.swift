@@ -8,7 +8,9 @@ import MLXLMCommon
 
 struct OnboardingSectionHeader: View {
     let title: String
-    let subtitle: String
+    /// Optional on purpose. Several steps say everything they need in the title;
+    /// a supporting line that only restates it is noise, not guidance.
+    var subtitle: String? = nil
     var detail: String? = nil
 
     var body: some View {
@@ -28,10 +30,12 @@ struct OnboardingSectionHeader: View {
                 }
             }
 
-            Text(subtitle)
-                .lifeboardFont(.body)
-                .foregroundStyle(OnboardingTheme.textSecondary)
-                .fixedSize(horizontal: false, vertical: true)
+            if let subtitle, subtitle.isEmpty == false {
+                Text(subtitle)
+                    .lifeboardFont(.body)
+                    .foregroundStyle(OnboardingTheme.textSecondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 }

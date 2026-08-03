@@ -107,25 +107,6 @@ class HomePage {
         ).firstMatch
     }
 
-    var reflectionReadyButton: XCUIElement {
-        let byButton = app.buttons[AccessibilityIdentifiers.Home.reflectionReadyButton]
-        if byButton.exists {
-            return byButton
-        }
-
-        let byAnyIdentifier = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.reflectionReadyButton]
-        if byAnyIdentifier.exists {
-            return byAnyIdentifier
-        }
-
-        return app.descendants(matching: .any).matching(
-            NSPredicate(
-                format: "label CONTAINS[c] 'Reflect' OR identifier == %@",
-                AccessibilityIdentifiers.Home.reflectionReadyButton
-            )
-        ).firstMatch
-    }
-
     var topChrome: XCUIElement {
         let byOtherElement = app.otherElements["home.topChrome"]
         if byOtherElement.exists {
@@ -380,18 +361,6 @@ class HomePage {
         }
         return app.descendants(matching: .any).matching(
             NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.weeklySummaryCard)
-        ).firstMatch
-    }
-
-    var dailyReflectionEntryCompact: XCUIElement {
-        let card = app.otherElements.matching(
-            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.dailyReflectionEntryCompact)
-        ).firstMatch
-        if card.exists {
-            return card
-        }
-        return app.descendants(matching: .any).matching(
-            NSPredicate(format: "identifier == %@", AccessibilityIdentifiers.Home.dailyReflectionEntryCompact)
         ).firstMatch
     }
 
@@ -1061,6 +1030,7 @@ class HomePage {
         let datePicker = app.otherElements[AccessibilityIdentifiers.Home.datePicker]
 
         if datePicker.waitForExistence(timeout: 2) {
+            let previousHeaderValue = headerDateLabel.value as? String ?? headerDateLabel.label
             // FSCalendar in week mode - use coordinate-based tapping
             let calendar = Calendar.current
             let dayOfWeek = calendar.component(.weekday, from: date) // 1=Sunday, 7=Saturday
@@ -1079,8 +1049,14 @@ class HomePage {
                 .withOffset(CGVector(dx: xOffset, dy: yOffset))
             tapCoordinate.tap()
 
-            // Wait for view to update
-            Thread.sleep(forTimeInterval: 0.5)
+            let updated = XCTNSPredicateExpectation(
+                predicate: NSPredicate { _, _ in
+                    let current = self.headerDateLabel.value as? String ?? self.headerDateLabel.label
+                    return self.headerDateLabel.exists && current != previousHeaderValue
+                },
+                object: NSObject()
+            )
+            _ = XCTWaiter.wait(for: [updated], timeout: 2)
 
             print("📅 Navigated home view to: \(date)")
         } else {

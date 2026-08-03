@@ -44,15 +44,15 @@ public struct XPCelebrationView: View {
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
                         .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.white)
+                        .foregroundColor(.lifeboard(.textInverse))
 
                     Text("+\(xpValue)")
                         .font(.system(size: 20, weight: .bold, design: .rounded))
-                        .foregroundColor(.white)
+                        .foregroundColor(.lifeboard(.textInverse))
 
                     Text("XP")
                         .font(.system(size: 14, weight: .semibold))
-                        .foregroundColor(.white.opacity(0.9))
+                        .foregroundColor(.lifeboard(.textInverse).opacity(0.9))
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 10)
@@ -186,7 +186,7 @@ public struct StreakCelebrationView: View {
                 VStack(spacing: 4) {
                     Image(systemName: "flame.fill")
                         .font(.system(size: 32, weight: .medium))
-                        .foregroundColor(.orange)
+                        .foregroundColor(.lifeboard(.statusWarning))
                         .scaleEffect(flameScale)
                         .opacity(flameOpacity)
                         .symbolEffect(.bounce, options: .repeating.speed(0.5), isActive: !reduceMotion)

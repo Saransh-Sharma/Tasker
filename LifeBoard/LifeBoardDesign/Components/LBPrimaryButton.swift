@@ -14,7 +14,7 @@ struct LBPrimaryButton: View {
                 Text(title)
             }
             .font(LBTypographyTokens.chip)
-            .foregroundStyle(.white)
+            .foregroundStyle(Color.lifeboard(.accentOnPrimary))
             .frame(minHeight: 48)
             .padding(.horizontal, LBSpacingTokens.lg)
             .background {

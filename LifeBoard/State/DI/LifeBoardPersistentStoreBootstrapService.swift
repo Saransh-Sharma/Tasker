@@ -1989,18 +1989,6 @@ final class LifeBoardPersistentStoreBootstrapService: @unchecked Sendable {
     }
 
     static func validateRuntimeSchema(in model: NSManagedObjectModel) -> NSError? {
-        if let weeklyPlanningSchemaError = weeklyPlanningSchemaValidationError(in: model) {
-            logError(
-                event: "persistent_store_weekly_planning_schema_invalid",
-                message: "Loaded Core Data model is missing required weekly planning fields",
-                fields: [
-                    "error": weeklyPlanningSchemaError.localizedDescription,
-                    "missing_requirements": weeklyPlanningSchemaError.userInfo["missingRequirements"] as? String ?? "unknown"
-                ]
-            )
-            return weeklyPlanningSchemaError
-        }
-
         if let habitSchemaError = CoreDataHabitRepository.schemaValidationError(in: model) {
             logError(
                 event: "persistent_store_habit_schema_invalid",
@@ -2011,6 +1999,18 @@ final class LifeBoardPersistentStoreBootstrapService: @unchecked Sendable {
                 ]
             )
             return habitSchemaError
+        }
+
+        if let weeklyPlanningSchemaError = weeklyPlanningSchemaValidationError(in: model) {
+            logError(
+                event: "persistent_store_weekly_planning_schema_invalid",
+                message: "Loaded Core Data model is missing required weekly planning fields",
+                fields: [
+                    "error": weeklyPlanningSchemaError.localizedDescription,
+                    "missing_requirements": weeklyPlanningSchemaError.userInfo["missingRequirements"] as? String ?? "unknown"
+                ]
+            )
+            return weeklyPlanningSchemaError
         }
 
         if let gamificationSchemaError = CoreDataGamificationRepository.schemaValidationError(in: model) {
@@ -2169,6 +2169,7 @@ final class LifeBoardPersistentStoreBootstrapService: @unchecked Sendable {
             NSPersistentStoreIncompatibleSchemaError,
             NSPersistentStoreOpenError,
             NSPersistentStoreIncompatibleVersionHashError,
+            NSMigrationMissingMappingModelError,
             134000,
             134010,
             134020,

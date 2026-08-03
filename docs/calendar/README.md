@@ -1,5 +1,7 @@
 # Calendar + Timeline
 
+> **Classification: Canonical feature package.** The [product handbook](../product/README.md) owns cross-feature journeys; this package owns detailed Calendar/Timeline product, runtime, risk, and roadmap contracts.
+
 LifeBoard's calendar layer is read-only schedule context that improves execution without turning LifeBoard into a full calendar app.
 
 The Home timeline is the product's single-glanceable day command center: a calm visual day narrative where tasks, fixed calendar commitments, routines, busy periods, open gaps, and EVA guidance come together as one readable planning surface. It should help users understand what matters in the day right now without forcing them to switch between a calendar, task list, and planner.

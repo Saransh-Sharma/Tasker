@@ -1,5 +1,7 @@
 # Weekly Operating Layer UX + Copy Rehaul
 
+> **Classification: Historical implementation plan.** Current weekly planning behavior is defined in [Plan and Focus](../product/PLAN_AND_FOCUS.md).
+
 - [x] Add shared weekly copy/config and reusable weekly ritual components
 - [x] Rebuild weekly planner with editorial scaffold, clearer copy, and staged sections
 - [x] Rebuild weekly review with editorial scaffold, clearer copy, and cleanup decisions
