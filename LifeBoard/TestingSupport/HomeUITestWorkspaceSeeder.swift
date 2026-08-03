@@ -111,7 +111,7 @@ final class HomeUITestWorkspaceSeeder {
                     )
                 )
 
-                let requests = [
+                var requests = [
                     CreateTaskDefinitionRequest(
                         title: "Draft update",
                         details: "UI test established-workspace seed",
@@ -167,6 +167,20 @@ final class HomeUITestWorkspaceSeeder {
                         createdAt: Date()
                     )
                 ]
+
+                if ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_LONG_HOME_TASK_AGENDA") {
+                    requests.append(contentsOf: (7...24).map { index in
+                        CreateTaskDefinitionRequest(
+                            title: "Long agenda task \(String(format: "%02d", index))",
+                            details: "UI test oversized Home task-card seed",
+                            projectID: project.id,
+                            projectName: project.name,
+                            lifeAreaID: lifeArea.id,
+                            dueDate: DatePreset.today.resolvedDueDate(),
+                            createdAt: Date()
+                        )
+                    })
+                }
 
                 for request in requests {
                     _ = try await createTaskDefinition.executeAsync(request: request)
