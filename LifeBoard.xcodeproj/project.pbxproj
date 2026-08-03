@@ -589,6 +589,7 @@
 		98327A7BB4DC3205D53A6D32 /* OnboardingConcentricTransitionLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE748EA399CF4D774ECEE086 /* OnboardingConcentricTransitionLayer.swift */; };
 		98394DA04DCC1FB307F8FA6C /* lifeManagementAreaAccentHex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6049AC20F10CEBF79F8BAD /* lifeManagementAreaAccentHex.swift */; };
 		988BCDE3365760394848B424 /* SettingsNavigationRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */; };
+		C0DEC0DE0000000000000002 /* SettingsPremiumExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DE0000000000000001 /* SettingsPremiumExperience.swift */; };
 		9A7AA6C367FAD2093F16DB77 /* OnboardingTaskRecommendationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77F82FC408C33F7C6D11BC93 /* OnboardingTaskRecommendationCard.swift */; };
 		9B356B21E02F7FF4F6D8A6E2 /* CreateHabitUseCaseExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27994B950A0F914CFEDC6740 /* CreateHabitUseCaseExtension.swift */; };
 		9B5D983BDED5F3B292E2920D /* CodingKeys2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DD317FAC37A8674392A5B6 /* CodingKeys2.swift */; };
@@ -1333,6 +1334,7 @@
 		13E7DC8765CCB903348B7B91 /* HomeTimelineReplanPhaseSignature.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeTimelineReplanPhaseSignature.swift; sourceTree = SOURCE_ROOT; };
 		144D7D155E9471F5D9E1CD62 /* OnboardingMiniMetric.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingMiniMetric.swift; sourceTree = SOURCE_ROOT; };
 		147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsNavigationRow.swift; sourceTree = "<group>"; };
+		C0DEC0DE0000000000000001 /* SettingsPremiumExperience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPremiumExperience.swift; sourceTree = "<group>"; };
 		1490BF2A474A2702E82EA91C /* HabitViewModelFactoryEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitViewModelFactoryEnvironment.swift; sourceTree = "<group>"; };
 		1569108CAE3EA81790B556C3 /* LifeBoardTrackFoundationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTrackFoundationViews.swift; path = Foundation/PhaseIV/LifeBoardTrackFoundationViews.swift; sourceTree = "<group>"; };
 		16CA0CB88D6BCF379DD02183 /* OnboardingDownloadStatusStrip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingDownloadStatusStrip.swift; sourceTree = SOURCE_ROOT; };
@@ -2785,6 +2787,7 @@
 			children = (
 				DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */,
 				147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */,
+				C0DEC0DE0000000000000001 /* SettingsPremiumExperience.swift */,
 				82ACA5EA351487686C155548 /* SettingsSectionHeader.swift */,
 				919DB5CEED1B1E1906FF474C /* NotificationPermissionBanner.swift */,
 				C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */,
@@ -5108,6 +5111,7 @@
 				86E61B5C7E8F8DDAD3BAC7C9 /* SettingsViewModel.swift in Sources */,
 				A2538173786D1C9268A5495A /* SettingsProfileHeaderView.swift in Sources */,
 				988BCDE3365760394848B424 /* SettingsNavigationRow.swift in Sources */,
+				C0DEC0DE0000000000000002 /* SettingsPremiumExperience.swift in Sources */,
 				3464C0D69143BB1C99FBFD7A /* SettingsSectionHeader.swift in Sources */,
 				D2E850DDFA592D3CFAA9C922 /* NotificationPermissionBanner.swift in Sources */,
 				75079DA69ABE1FCA5EE19B2B /* NotificationTypesCard.swift in Sources */,
