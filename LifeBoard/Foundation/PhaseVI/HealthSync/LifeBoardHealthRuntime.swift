@@ -9,6 +9,7 @@ public final class LifeBoardHealthRuntime {
 
     public let gateway: HealthKitGateway
     public let observers: HealthObserverCoordinator
+    public let coordinator: HealthSyncCoordinator
     public let connectionStore: HealthConnectionStore
 
     /// Owns the "should we offer to connect right now?" decision and the single
@@ -17,6 +18,9 @@ public final class LifeBoardHealthRuntime {
     public let jitCoordinator: HealthJustInTimeCoordinator
 
     private let state = State()
+    private var outboxObserver: NSObjectProtocol?
+    private var pendingOutboxMetrics = Set<HealthMetric>()
+    private var outboxFlushTask: Task<Void, Never>?
 
     private final class State: @unchecked Sendable {
         let lock = NSLock()
@@ -27,11 +31,18 @@ public final class LifeBoardHealthRuntime {
     private init() {
         let gateway = HealthKitGateway()
         self.gateway = gateway
+        let coordinator = HealthSyncCoordinator(
+            gateway: gateway,
+            engineProvider: { [state] in state.lock.withLock { state.engine } },
+            ledgerProvider: { [state] in state.lock.withLock { state.ledger } }
+        )
+        self.coordinator = coordinator
         observers = HealthObserverCoordinator(gateway: gateway)
         let store = HealthConnectionStore(
             gateway: gateway,
             engineProvider: { [state] in state.lock.withLock { state.engine } },
-            ledgerProvider: { [state] in state.lock.withLock { state.ledger } }
+            ledgerProvider: { [state] in state.lock.withLock { state.ledger } },
+            coordinator: coordinator
         )
         connectionStore = store
         jitCoordinator = HealthJustInTimeCoordinator(connectionStore: store)
@@ -41,6 +52,7 @@ public final class LifeBoardHealthRuntime {
     public func prepareForLaunch() {
         guard V2FeatureFlags.healthIntegrationsV1Enabled else { return }
         observers.installObservers()
+        Task { await coordinator.prepareForLaunch() }
     }
 
     /// Attaches the local ledger only after both persistent stores are ready.
@@ -67,8 +79,53 @@ public final class LifeBoardHealthRuntime {
                 state.ledger = ledger
                 state.engine = engine
             }
-            observers.attach(engine: engine)
-            await connectionStore.refreshAuthorization()
+            observers.attach(coordinator: coordinator)
+            observeOutboxCommits(in: container)
+            await connectionStore.bootstrap()
+            await connectionStore.syncIfNeededOnForeground()
+        }
+    }
+
+    public func applicationDidBecomeActive() {
+        guard V2FeatureFlags.healthIntegrationsV1Enabled else { return }
+        Task { await connectionStore.syncIfNeededOnForeground() }
+    }
+
+    private func observeOutboxCommits(in container: NSPersistentContainer) {
+        guard outboxObserver == nil else { return }
+        outboxObserver = NotificationCenter.default.addObserver(
+            forName: .NSManagedObjectContextDidSave,
+            object: nil,
+            queue: nil
+        ) { [weak self, weak container] notification in
+            guard let self, let container,
+                  let context = notification.object as? NSManagedObjectContext,
+                  context.persistentStoreCoordinator === container.persistentStoreCoordinator,
+                  context.transactionAuthor != "HealthKitSyncLedger",
+                  context.transactionAuthor != "HealthKitImport" else {
+                return
+            }
+            let inserted = notification.userInfo?[NSInsertedObjectsKey] as? Set<NSManagedObject> ?? []
+            let updated = notification.userInfo?[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? []
+            let metrics = inserted.union(updated).compactMap { object -> HealthMetric? in
+                guard object.entity.name == "HealthSyncOperation",
+                      let raw = object.value(forKey: "metricRaw") as? String else { return nil }
+                return HealthMetric(rawValue: raw)
+            }
+            guard metrics.isEmpty == false else { return }
+            Task { @MainActor in self.scheduleOutboxFlush(metrics: Set(metrics)) }
+        }
+    }
+
+    private func scheduleOutboxFlush(metrics: Set<HealthMetric>) {
+        pendingOutboxMetrics.formUnion(metrics)
+        outboxFlushTask?.cancel()
+        outboxFlushTask = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard Task.isCancelled == false, let self else { return }
+            let metrics = pendingOutboxMetrics
+            pendingOutboxMetrics.removeAll()
+            _ = await coordinator.sync(.outbox(metrics))
         }
     }
 }

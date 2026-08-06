@@ -14,26 +14,45 @@ public final class HealthConnectionStore {
     public private(set) var nonSensitiveErrorCode: String?
 
     private let gateway: any HealthKitGatewayProtocol
-    private let engineProvider: @Sendable () async -> HealthSyncEngine?
+    public let coordinator: HealthSyncCoordinator
     private let ledgerProvider: @Sendable () async -> (any HealthSyncLedgerStore)?
-    private var readRequestState: HealthReadRequestState = .neverRequested
+    private let invalidationHub: HealthSyncInvalidationHub
+    private var readRequestState: HealthReadRequestState
     @ObservationIgnored private var initialSyncTask: Task<Void, Never>?
+    @ObservationIgnored private var invalidationTask: Task<Void, Never>?
 
     public init(
         gateway: any HealthKitGatewayProtocol,
         engineProvider: @escaping @Sendable () async -> HealthSyncEngine?,
-        ledgerProvider: @escaping @Sendable () async -> (any HealthSyncLedgerStore)?
+        ledgerProvider: @escaping @Sendable () async -> (any HealthSyncLedgerStore)?,
+        coordinator: HealthSyncCoordinator? = nil,
+        invalidationHub: HealthSyncInvalidationHub = .shared
     ) {
         self.gateway = gateway
-        self.engineProvider = engineProvider
         self.ledgerProvider = ledgerProvider
+        self.invalidationHub = invalidationHub
+        self.coordinator = coordinator ?? HealthSyncCoordinator(
+            gateway: gateway,
+            engineProvider: engineProvider,
+            ledgerProvider: ledgerProvider
+        )
+        let initialReadRequestState: HealthReadRequestState = HealthAuthorizationPromptState.hasRequested
+            ? .requestCompleted
+            : .neverRequested
+        readRequestState = initialReadRequestState
         statuses = Dictionary(uniqueKeysWithValues: HealthDomain.allCases.map {
-            ($0, HealthDomainStatus(domain: $0))
+            ($0, HealthDomainStatus(
+                domain: $0,
+                readRequestState: initialReadRequestState,
+                signal: initialReadRequestState == .neverRequested ? .setupRequired : .noRecord
+            ))
         })
+        observeInvalidations()
     }
 
     deinit {
         initialSyncTask?.cancel()
+        invalidationTask?.cancel()
     }
 
     /// Requests HealthKit authorization and records the resulting local
@@ -56,7 +75,7 @@ public final class HealthConnectionStore {
                 }
             }
             await refreshAuthorization()
-            scheduleInitialSync()
+            scheduleInitialSync(trigger: .authorization)
         } catch {
             readRequestState = .requestCompleted
             nonSensitiveErrorCode = "authorization_request"
@@ -64,10 +83,10 @@ public final class HealthConnectionStore {
         }
     }
 
-    private func scheduleInitialSync() {
+    private func scheduleInitialSync(trigger: HealthSyncTrigger) {
         guard initialSyncTask == nil else { return }
         initialSyncTask = Task { [weak self] in
-            await self?.syncNow()
+            await self?.runSync(trigger)
             guard Task.isCancelled == false else { return }
             self?.initialSyncTask = nil
         }
@@ -103,32 +122,41 @@ public final class HealthConnectionStore {
     }
 
     public func syncNow() async {
-        guard isRefreshing == false, let engine = await engineProvider() else { return }
+        await runSync(.manual)
+    }
+
+    public func syncIfNeededOnForeground() async {
+        await runSync(.foreground)
+    }
+
+    public func bootstrap() async {
+        readRequestState = HealthAuthorizationPromptState.hasRequested ? .requestCompleted : .neverRequested
+        aggregates = await coordinator.cachedCurrentAggregates()
+        lastSuccessfulSync = await coordinator.lastSuccessfulSync()
+        await refreshAuthorization()
+        applySignals(failures: [:])
+    }
+
+    private func runSync(_ trigger: HealthSyncTrigger) async {
         isRefreshing = true
         nonSensitiveErrorCode = nil
         for domain in HealthDomain.allCases {
             statuses[domain]?.signal = .loading
         }
-        do {
-            let result = try await engine.refresh()
-            lastSuccessfulSync = result.successfulAt
-            readRequestState = .receivingData
-            await refreshTodayAggregates()
-            for domain in HealthDomain.allCases {
-                statuses[domain]?.readRequestState = readRequestState
-                statuses[domain]?.lastSuccessfulSync = result.successfulAt
-                let domainValues = domain.metrics.compactMap { aggregates[$0] }
-                if domainValues.isEmpty {
-                    statuses[domain]?.signal = readRequestState == .neverRequested ? .setupRequired : .unavailable
-                } else if domainValues.allSatisfy({ $0.value == 0 }) {
-                    statuses[domain]?.signal = .explicitZero
-                } else {
-                    statuses[domain]?.signal = .recorded
-                }
+        let result = await coordinator.sync(trigger)
+        if result.skipped == false {
+            if result.refreshedMetrics.isEmpty == false || result.aggregates.isEmpty == false {
+                lastSuccessfulSync = result.completedAt
             }
-        } catch {
-            nonSensitiveErrorCode = "sync_failed"
-            for domain in HealthDomain.allCases where statuses[domain]?.signal == .loading {
+            readRequestState = .receivingData
+            aggregates.merge(result.aggregates) { _, new in new }
+        }
+        if result.failures.isEmpty == false {
+            nonSensitiveErrorCode = result.isPartial ? "sync_partial" : "sync_failed"
+            applySignals(failures: result.failures)
+            for domain in HealthDomain.allCases
+            where domain.metrics.contains(where: { result.failures[$0] != nil })
+                && domain.metrics.compactMap({ aggregates[$0] }).isEmpty {
                 #if canImport(UIKit)
                 if UIApplication.shared.isProtectedDataAvailable == false {
                     statuses[domain]?.signal = .protectedDataLocked
@@ -139,7 +167,7 @@ public final class HealthConnectionStore {
                 statuses[domain]?.signal = gateway.isHealthDataAvailable ? .stale : .unavailable
                 #endif
             }
-        }
+        } else { applySignals(failures: result.failures) }
         isRefreshing = false
     }
 
@@ -194,6 +222,40 @@ public final class HealthConnectionStore {
                 } else if let cached = try? await ledger?.cachedAggregate(metric: metric, start: start) {
                     aggregates[metric] = cached
                 }
+            }
+        }
+    }
+
+    private func observeInvalidations() {
+        invalidationTask = Task { [weak self, invalidationHub] in
+            let updates = await invalidationHub.updates()
+            for await event in updates {
+                guard Task.isCancelled == false, let self else { return }
+                let cached = await self.coordinator.cachedCurrentAggregates(now: event.completedAt)
+                self.aggregates.merge(cached) { _, new in new }
+                self.lastSuccessfulSync = await self.coordinator.lastSuccessfulSync()
+                if self.readRequestState != .neverRequested { self.readRequestState = .receivingData }
+                self.applySignals(failures: event.isPartial ? Dictionary(uniqueKeysWithValues: event.metrics.map { ($0, "partial") }) : [:])
+            }
+        }
+    }
+
+    private func applySignals(failures: [HealthMetric: String]) {
+        for domain in HealthDomain.allCases {
+            statuses[domain]?.readRequestState = readRequestState
+            statuses[domain]?.lastSuccessfulSync = lastSuccessfulSync
+            let values = domain.metrics.compactMap { aggregates[$0] }
+            if statuses[domain]?.writeEnabled == true,
+               statuses[domain]?.writeAuthorizations.values.contains(.denied) == true {
+                statuses[domain]?.signal = .writeDenied
+            } else if domain.metrics.contains(where: { failures[$0] != nil }), values.isEmpty == false {
+                statuses[domain]?.signal = .partial
+            } else if values.isEmpty || values.allSatisfy({ $0.value == 0 && $0.lastSampleAt == nil }) {
+                statuses[domain]?.signal = readRequestState == .neverRequested ? .setupRequired : .noRecord
+            } else if values.allSatisfy({ $0.value == 0 }) {
+                statuses[domain]?.signal = .explicitZero
+            } else {
+                statuses[domain]?.signal = .recorded
             }
         }
     }

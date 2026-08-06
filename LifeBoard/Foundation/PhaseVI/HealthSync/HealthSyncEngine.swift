@@ -3,6 +3,9 @@ import Foundation
 public actor HealthSyncEngine {
     public struct RefreshResult: Sendable {
         public let refreshedMetrics: Set<HealthMetric>
+        public let writtenMetrics: Set<HealthMetric>
+        public let failures: [HealthMetric: String]
+        public let outboxErrorCode: String?
         public let successfulAt: Date
     }
 
@@ -37,20 +40,44 @@ public actor HealthSyncEngine {
             throw HealthKitGatewayError.unavailable
         }
         var committed = Set<HealthMetric>()
+        var failures: [HealthMetric: String] = [:]
         for metric in metrics {
-            try await ingest(metric)
-            committed.insert(metric)
+            do {
+                try await ingest(metric)
+                committed.insert(metric)
+            } catch {
+                failures[metric] = Self.safeErrorCode(error)
+            }
         }
-        try await processOutbox()
-        if committed.isEmpty == false {
+        let writtenMetrics: Set<HealthMetric>
+        let outboxErrorCode: String?
+        do {
+            writtenMetrics = try await processOutbox()
+            outboxErrorCode = nil
+        } catch {
+            writtenMetrics = []
+            outboxErrorCode = Self.safeErrorCode(error)
+        }
+        if committed.isEmpty == false || writtenMetrics.isEmpty == false {
             await surfaceRefresh()
         }
-        return .init(refreshedMetrics: committed, successfulAt: Date())
+        if committed.isEmpty, metrics.isEmpty == false, failures.count == metrics.count {
+            throw HealthSyncEngineError.allMetricsFailed(failures)
+        }
+        return .init(
+            refreshedMetrics: committed,
+            writtenMetrics: writtenMetrics,
+            failures: failures,
+            outboxErrorCode: outboxErrorCode,
+            successfulAt: Date()
+        )
     }
 
-    public func processOutbox(now: Date = Date()) async throws {
-        guard featureFlags().write else { return }
+    @discardableResult
+    public func processOutbox(now: Date = Date()) async throws -> Set<HealthMetric> {
+        guard featureFlags().write else { return [] }
         let operations = try await ledger.pendingOperations(now: now, limit: 64)
+        var committed = Set<HealthMetric>()
         for var operation in operations {
             guard operation.metric.domain.supportsWriteBack,
                   try await ledger.writePreference(for: operation.metric.domain) else {
@@ -126,6 +153,7 @@ public actor HealthSyncEngine {
                     }
                 }
                 try await ledger.removeOperation(id: operation.id)
+                committed.insert(operation.metric)
             } catch {
                 operation.state = .retryScheduled
                 operation.attemptCount += 1
@@ -135,6 +163,10 @@ public actor HealthSyncEngine {
                 try await ledger.save(operation)
             }
         }
+        if committed.isEmpty == false {
+            await surfaceRefresh()
+        }
+        return committed
     }
 
     public func localRecordWasEdited(localID: UUID, metric: HealthMetric) async throws {
@@ -213,4 +245,8 @@ public actor HealthSyncEngine {
         default: "healthkit_error"
         }
     }
+}
+
+public enum HealthSyncEngineError: Error, Sendable {
+    case allMetricsFailed([HealthMetric: String])
 }

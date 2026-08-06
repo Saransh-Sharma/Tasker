@@ -16,13 +16,146 @@ public enum HealthWriteAuthorization: String, Codable, Sendable {
 public enum HealthSignalState: String, Codable, Sendable {
     case loading
     case setupRequired
+    case noRecord
     case stale
+    case partial
     case unavailable
     case explicitZero
     case recorded
     case writeDenied
     case protectedDataLocked
     case offline
+}
+
+public enum HealthHistoryRange: String, CaseIterable, Codable, Hashable, Sendable, Identifiable {
+    case sevenDays
+    case thirtyDays
+    case ninetyDays
+    case all
+
+    public var id: String { rawValue }
+
+    public var title: String {
+        switch self {
+        case .sevenDays: "7D"
+        case .thirtyDays: "30D"
+        case .ninetyDays: "90D"
+        case .all: "All"
+        }
+    }
+
+    public func startDate(now: Date = Date(), calendar: Calendar = .autoupdatingCurrent) -> Date {
+        let today = calendar.startOfDay(for: now)
+        let days: Int = switch self {
+        case .sevenDays: 6
+        case .thirtyDays: 29
+        case .ninetyDays: 89
+        case .all: 36_500
+        }
+        return calendar.date(byAdding: .day, value: -days, to: today) ?? today
+    }
+}
+
+public enum HealthInsightDomain: String, CaseIterable, Codable, Hashable, Sendable, Identifiable {
+    case activity
+    case energy
+    case hydration
+    case nutrition
+    case body
+    case workouts
+    case sleep
+
+    public var id: String { rawValue }
+    public var healthDomain: HealthDomain { HealthDomain(rawValue: rawValue) ?? .activity }
+    public var title: String { healthDomain.title }
+    public var symbolName: String { healthDomain.symbolName }
+    public var metrics: [HealthMetric] { healthDomain.metrics }
+}
+
+public enum HealthSyncTrigger: Hashable, Sendable {
+    case authorization
+    case observer(Set<HealthMetric>)
+    case foreground
+    case manual
+    case outbox(Set<HealthMetric>)
+    case historyBackfill(Set<HealthMetric>, HealthHistoryRange)
+
+    public var metrics: Set<HealthMetric> {
+        switch self {
+        case .observer(let metrics), .outbox(let metrics), .historyBackfill(let metrics, _): metrics
+        case .authorization, .foreground, .manual: Set(HealthKitTypeCatalog.readableMetrics)
+        }
+    }
+
+    public var name: String {
+        switch self {
+        case .authorization: "authorization"
+        case .observer: "observer"
+        case .foreground: "foreground"
+        case .manual: "manual"
+        case .outbox: "outbox"
+        case .historyBackfill: "history_backfill"
+        }
+    }
+}
+
+public struct HealthSyncOutcome: Sendable {
+    public let trigger: HealthSyncTrigger
+    public let refreshedMetrics: Set<HealthMetric>
+    public let aggregates: [HealthMetric: HealthAggregateValue]
+    public let failures: [HealthMetric: String]
+    public let completedAt: Date
+    public let skipped: Bool
+
+    public init(
+        trigger: HealthSyncTrigger,
+        refreshedMetrics: Set<HealthMetric> = [],
+        aggregates: [HealthMetric: HealthAggregateValue] = [:],
+        failures: [HealthMetric: String] = [:],
+        completedAt: Date = Date(),
+        skipped: Bool = false
+    ) {
+        self.trigger = trigger
+        self.refreshedMetrics = refreshedMetrics
+        self.aggregates = aggregates
+        self.failures = failures
+        self.completedAt = completedAt
+        self.skipped = skipped
+    }
+
+    public var isPartial: Bool { refreshedMetrics.isEmpty == false && failures.isEmpty == false }
+    public var succeeded: Bool { skipped == false && failures.isEmpty }
+}
+
+public struct HealthSyncEvent: Sendable {
+    public let trigger: HealthSyncTrigger
+    public let metrics: Set<HealthMetric>
+    public let completedAt: Date
+    public let isPartial: Bool
+}
+
+public actor HealthSyncInvalidationHub {
+    public static let shared = HealthSyncInvalidationHub()
+
+    private var continuations: [UUID: AsyncStream<HealthSyncEvent>.Continuation] = [:]
+
+    public func updates() -> AsyncStream<HealthSyncEvent> {
+        let id = UUID()
+        return AsyncStream { continuation in
+            continuations[id] = continuation
+            continuation.onTermination = { [weak self] _ in
+                Task { await self?.remove(id) }
+            }
+        }
+    }
+
+    public func publish(_ event: HealthSyncEvent) {
+        continuations.values.forEach { $0.yield(event) }
+    }
+
+    private func remove(_ id: UUID) {
+        continuations.removeValue(forKey: id)
+    }
 }
 
 public struct HealthDomainStatus: Codable, Hashable, Sendable, Identifiable {
@@ -100,6 +233,16 @@ public enum HealthGoalCelebrationGate {
 }
 
 public enum HealthSleepPresentation {
+    public struct NightSummary: Identifiable, Hashable, Sendable {
+        public let night: Date
+        public let startedAt: Date
+        public let endedAt: Date
+        public let totalDuration: TimeInterval
+        public let samples: [SleepNote]
+
+        public var id: Date { night }
+    }
+
     /// Computes the union of raw sleep intervals clipped to a requested night.
     /// The source segments are never rewritten or merged in storage.
     public static func overlapSafeTotal(
@@ -133,6 +276,40 @@ public enum HealthSleepPresentation {
             }
         }
         return total + (current?.duration ?? 0)
+    }
+
+    public static func nightlySummaries(
+        notes: [SleepNote],
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> [NightSummary] {
+        let grouped = Dictionary(grouping: notes) { note in
+            // Noon-to-noon keeps sleep crossing midnight in one human night.
+            let shifted = note.endedAt.addingTimeInterval(-12 * 60 * 60)
+            return calendar.startOfDay(for: shifted)
+        }
+        return grouped.compactMap { night, values in
+            let sorted = values.sorted { $0.startedAt < $1.startedAt }
+            guard let first = sorted.first else { return nil }
+            var total: TimeInterval = 0
+            var active = DateInterval(start: first.startedAt, end: first.endedAt)
+            for note in sorted.dropFirst() {
+                let interval = DateInterval(start: note.startedAt, end: note.endedAt)
+                if interval.start <= active.end {
+                    active = DateInterval(start: active.start, end: max(active.end, interval.end))
+                } else {
+                    total += active.duration
+                    active = interval
+                }
+            }
+            total += active.duration
+            return NightSummary(
+                night: night,
+                startedAt: sorted.map(\.startedAt).min() ?? first.startedAt,
+                endedAt: sorted.map(\.endedAt).max() ?? first.endedAt,
+                totalDuration: total,
+                samples: sorted
+            )
+        }.sorted { $0.night > $1.night }
     }
 }
 

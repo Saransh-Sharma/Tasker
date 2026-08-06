@@ -373,6 +373,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
     /// Executes applicationDidBecomeActive.
     func applicationDidBecomeActive(_ application: UIApplication) {
         reconcileNotifications(reason: "app_did_become_active")
+        LifeBoardHealthRuntime.shared.applicationDidBecomeActive()
         guard case .ready = persistentBootstrapState else { return }
         if let persistentContainer, AppDelegate.isWriteClosed == false {
             RescueScheduleRepairService.repair(container: persistentContainer)

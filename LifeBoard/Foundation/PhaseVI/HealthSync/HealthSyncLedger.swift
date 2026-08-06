@@ -61,7 +61,15 @@ public protocol HealthSyncLedgerStore: Sendable {
     func writePreference(domain: HealthDomain, enabled: Bool, optedInAt: Date?) async throws
     func writePreference(for domain: HealthDomain) async throws -> Bool
     func cachedAggregate(metric: HealthMetric, start: Date) async throws -> HealthAggregateValue?
+    func cachedAggregates(metric: HealthMetric, from start: Date, to end: Date) async throws -> [HealthAggregateValue]
     func saveAggregate(_ value: HealthAggregateValue) async throws
+    func saveAggregates(_ values: [HealthAggregateValue]) async throws
+}
+
+public extension HealthSyncLedgerStore {
+    func saveAggregates(_ values: [HealthAggregateValue]) async throws {
+        for value in values { try await saveAggregate(value) }
+    }
 }
 
 /// Local-only Core Data ledger. Every fetch is restricted to the `LocalOnly`
@@ -273,6 +281,37 @@ public actor CoreDataHealthSyncLedger: HealthSyncLedgerStore {
         }
     }
 
+    public func cachedAggregates(
+        metric: HealthMetric,
+        from start: Date,
+        to end: Date
+    ) async throws -> [HealthAggregateValue] {
+        try await read(entity: "HealthAggregateCache") { request in
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [
+                NSPredicate(format: "metricRaw == %@", metric.rawValue),
+                NSPredicate(format: "startAt >= %@", start as NSDate),
+                NSPredicate(format: "startAt < %@", end as NSDate)
+            ])
+            request.sortDescriptors = [NSSortDescriptor(key: "startAt", ascending: true)]
+        } transform: { objects in
+            objects.compactMap { object in
+                guard let value = (object.value(forKey: "value") as? NSNumber)?.doubleValue,
+                      let cachedStart = object.value(forKey: "startAt") as? Date,
+                      let cachedEnd = object.value(forKey: "endAt") as? Date else {
+                    return nil
+                }
+                return HealthAggregateValue(
+                    metric: metric,
+                    value: value,
+                    start: cachedStart,
+                    end: cachedEnd,
+                    lastSampleAt: object.value(forKey: "lastSampleAt") as? Date,
+                    sourceLabel: object.value(forKey: "sourceLabel") as? String ?? "Apple Health"
+                )
+            }
+        }
+    }
+
     public func saveAggregate(_ value: HealthAggregateValue) async throws {
         try await write(author: "HealthKitImport") { context in
             let id = Self.aggregateID(metric: value.metric, start: value.start)
@@ -289,6 +328,28 @@ public actor CoreDataHealthSyncLedger: HealthSyncLedgerStore {
             object.setValue(value.sourceLabel, forKey: "sourceLabel")
             object.setValue(value.lastSampleAt, forKey: "lastSampleAt")
             object.setValue(Date(), forKey: "updatedAt")
+        }
+    }
+
+    public func saveAggregates(_ values: [HealthAggregateValue]) async throws {
+        guard values.isEmpty == false else { return }
+        try await write(author: "HealthKitImport") { context in
+            for value in values {
+                let id = Self.aggregateID(metric: value.metric, start: value.start)
+                let object = try Self.upsert(
+                    entity: "HealthAggregateCache",
+                    predicate: NSPredicate(format: "id == %@", id),
+                    in: context
+                )
+                object.setValue(id, forKey: "id")
+                object.setValue(value.metric.rawValue, forKey: "metricRaw")
+                object.setValue(value.start, forKey: "startAt")
+                object.setValue(value.end, forKey: "endAt")
+                object.setValue(value.value, forKey: "value")
+                object.setValue(value.sourceLabel, forKey: "sourceLabel")
+                object.setValue(value.lastSampleAt, forKey: "lastSampleAt")
+                object.setValue(Date(), forKey: "updatedAt")
+            }
         }
     }
 
@@ -507,7 +568,15 @@ public actor InMemoryHealthSyncLedger: HealthSyncLedgerStore {
     public func cachedAggregate(metric: HealthMetric, start: Date) -> HealthAggregateValue? {
         aggregateValues["\(metric.rawValue):\(Int(start.timeIntervalSinceReferenceDate))"]
     }
+    public func cachedAggregates(metric: HealthMetric, from start: Date, to end: Date) -> [HealthAggregateValue] {
+        aggregateValues.values
+            .filter { $0.metric == metric && $0.start >= start && $0.start < end }
+            .sorted { $0.start < $1.start }
+    }
     public func saveAggregate(_ value: HealthAggregateValue) {
         aggregateValues["\(value.metric.rawValue):\(Int(value.start.timeIntervalSinceReferenceDate))"] = value
+    }
+    public func saveAggregates(_ values: [HealthAggregateValue]) {
+        for value in values { saveAggregate(value) }
     }
 }

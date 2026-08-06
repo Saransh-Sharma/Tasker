@@ -124,6 +124,29 @@ final class HealthSyncTests: XCTestCase {
         )
     }
 
+    func testSleepNotesAreGroupedIntoOneOverlapSafeNight() throws {
+        let start = Date(timeIntervalSince1970: 1_700_000_000)
+        let notes = [
+            try SleepNote(
+                startedAt: start,
+                endedAt: start.addingTimeInterval(3_600),
+                source: .healthKit,
+                healthStageValue: 3
+            ),
+            try SleepNote(
+                startedAt: start.addingTimeInterval(1_800),
+                endedAt: start.addingTimeInterval(5_400),
+                source: .healthKit,
+                healthStageValue: 4
+            )
+        ]
+
+        let nights = HealthSleepPresentation.nightlySummaries(notes: notes)
+        XCTAssertEqual(nights.count, 1)
+        XCTAssertEqual(nights[0].totalDuration, 5_400)
+        XCTAssertEqual(nights[0].samples.count, 2)
+    }
+
     func testAnchorAdvancesOnlyAfterProjectionReconciliation() async throws {
         let gateway = HealthGatewayFake()
         let ledger = InMemoryHealthSyncLedger()
@@ -158,6 +181,127 @@ final class HealthSyncTests: XCTestCase {
         _ = try await engine.refresh(metrics: [.water])
         let committedAnchor = try await ledger.anchorData(for: .water)
         XCTAssertEqual(committedAnchor, Data([7]))
+    }
+
+    func testMetricFailureDoesNotBlockIndependentMetricOrOutbox() async throws {
+        let gateway = HealthGatewayFake()
+        gateway.anchoredErrors[.water] = HealthKitGatewayError.invalidPayload
+        let ledger = InMemoryHealthSyncLedger()
+        let projections = HealthProjectionFake()
+        let engine = HealthSyncEngine(
+            gateway: gateway,
+            ledger: ledger,
+            projections: projections,
+            featureFlags: { (true, false) }
+        )
+
+        let result = try await engine.refresh(metrics: [.water, .steps])
+
+        XCTAssertEqual(result.refreshedMetrics, [.steps])
+        XCTAssertEqual(result.failures[.water], "invalid_payload")
+        XCTAssertNil(result.failures[.steps])
+    }
+
+    func testDailyAggregateCacheReturnsOnlyRequestedMetricAndRange() async throws {
+        let ledger = InMemoryHealthSyncLedger()
+        let start = Date(timeIntervalSinceReferenceDate: 10_000)
+        let next = start.addingTimeInterval(86_400)
+        try await ledger.saveAggregate(.init(metric: .steps, value: 1_000, start: start, end: next))
+        try await ledger.saveAggregate(.init(metric: .steps, value: 2_000, start: next, end: next.addingTimeInterval(86_400)))
+        try await ledger.saveAggregate(.init(metric: .water, value: 500, start: start, end: next))
+
+        let values = try await ledger.cachedAggregates(
+            metric: .steps,
+            from: start,
+            to: next.addingTimeInterval(1)
+        )
+
+        XCTAssertEqual(values.map(\.value), [1_000, 2_000])
+        XCTAssertTrue(values.allSatisfy { $0.metric == .steps })
+    }
+
+    func testCoordinatorThrottlesForegroundAfterSuccessfulManualSync() async throws {
+        let previousReadFlag = V2FeatureFlags.healthIntegrationsV1Enabled
+        V2FeatureFlags.healthIntegrationsV1Enabled = true
+        HealthAuthorizationPromptState.reset()
+        HealthAuthorizationPromptState.recordRequested()
+        let suite = "HealthSyncCoordinatorTests.\(UUID().uuidString)"
+        defer {
+            V2FeatureFlags.healthIntegrationsV1Enabled = previousReadFlag
+            HealthAuthorizationPromptState.reset()
+            UserDefaults.standard.removePersistentDomain(forName: suite)
+        }
+
+        let gateway = HealthGatewayFake()
+        let ledger = InMemoryHealthSyncLedger()
+        let engine = HealthSyncEngine(
+            gateway: gateway,
+            ledger: ledger,
+            projections: HealthProjectionFake(),
+            featureFlags: { (true, false) }
+        )
+        let coordinator = HealthSyncCoordinator(
+            gateway: gateway,
+            engineProvider: { engine },
+            ledgerProvider: { ledger },
+            defaultsSuiteName: suite
+        )
+        let now = Date()
+
+        let manual = await coordinator.sync(.manual, now: now)
+        let requestCount = gateway.anchoredRequestCount
+        let foreground = await coordinator.sync(.foreground, now: now.addingTimeInterval(60))
+        let persistedLastSync = await coordinator.lastSuccessfulSync()
+
+        XCTAssertFalse(manual.skipped)
+        XCTAssertTrue(foreground.skipped)
+        XCTAssertEqual(gateway.anchoredRequestCount, requestCount)
+        XCTAssertEqual(persistedLastSync, now)
+    }
+
+    func testObserverCompletionWaitsForCoordinatedRefresh() async {
+        let gateway = HealthGatewayFake()
+        let gate = HealthImportGate()
+        gateway.anchoredChangesGate = gate
+        let ledger = InMemoryHealthSyncLedger()
+        let engine = HealthSyncEngine(
+            gateway: gateway,
+            ledger: ledger,
+            projections: HealthProjectionFake(),
+            featureFlags: { (true, false) }
+        )
+        let coordinator = HealthSyncCoordinator(
+            gateway: gateway,
+            engineProvider: { engine },
+            ledgerProvider: { ledger }
+        )
+        let observers = HealthObserverCoordinator(gateway: gateway)
+        observers.installObservers()
+        observers.attach(coordinator: coordinator)
+        let completed = expectation(description: "HealthKit observer completion")
+
+        gateway.fireObserver(metric: .water) { completed.fulfill() }
+        await gate.waitUntilEntered()
+        XCTAssertEqual(gateway.anchoredRequestCount, 1)
+        XCTAssertEqual(completed.expectedFulfillmentCount, 1)
+        await gate.open()
+        await fulfillment(of: [completed], timeout: 1)
+    }
+
+    @MainActor
+    func testConnectionStoreRestoresDurableReadRequestState() {
+        HealthAuthorizationPromptState.reset()
+        HealthAuthorizationPromptState.recordRequested()
+        defer { HealthAuthorizationPromptState.reset() }
+        let ledger = InMemoryHealthSyncLedger()
+        let store = HealthConnectionStore(
+            gateway: HealthGatewayFake(),
+            engineProvider: { nil },
+            ledgerProvider: { ledger }
+        )
+
+        XCTAssertEqual(store.statuses[.activity]?.readRequestState, .requestCompleted)
+        XCTAssertNotEqual(store.statuses[.activity]?.signal, .setupRequired)
     }
 
     func testLifeBoardEchoIsNotImported() async throws {
@@ -302,10 +446,21 @@ final class HealthSyncTests: XCTestCase {
             projections: HealthProjectionFake(),
             featureFlags: { (true, false) }
         )
+        let hub = HealthSyncInvalidationHub()
+        let suite = "HealthConnectionStoreTests.\(UUID().uuidString)"
+        let coordinator = HealthSyncCoordinator(
+            gateway: gateway,
+            engineProvider: { engine },
+            ledgerProvider: { ledger },
+            defaultsSuiteName: suite,
+            invalidationHub: hub
+        )
         let store = HealthConnectionStore(
             gateway: gateway,
             engineProvider: { engine },
-            ledgerProvider: { ledger }
+            ledgerProvider: { ledger },
+            coordinator: coordinator,
+            invalidationHub: hub
         )
         let connectionReturned = expectation(description: "Connection returns before initial import")
 
@@ -486,7 +641,13 @@ private final class HealthGatewayFake: HealthKitGatewayProtocol, @unchecked Send
     var authorizationRequestError: (any Error)?
     var saveError: (any Error)?
     var changes: [HealthMetric: HealthAnchoredChanges] = [:]
+    var anchoredErrors: [HealthMetric: any Error] = [:]
     var anchoredChangesGate: HealthImportGate?
+    private let requestLock = NSLock()
+    private var anchoredRequests: [HealthMetric] = []
+    private var observerUpdates: [HealthMetric: @Sendable (@escaping () -> Void) -> Void] = [:]
+
+    var anchoredRequestCount: Int { requestLock.withLock { anchoredRequests.count } }
 
     func requestAuthorization(writeDomains: Set<HealthDomain>) async throws {
         if let authorizationRequestError { throw authorizationRequestError }
@@ -497,7 +658,9 @@ private final class HealthGatewayFake: HealthKitGatewayProtocol, @unchecked Send
     }
 
     func anchoredChanges(metric: HealthMetric, anchorData: Data?) async throws -> HealthAnchoredChanges {
+        requestLock.withLock { anchoredRequests.append(metric) }
         await anchoredChangesGate?.wait()
+        if let error = anchoredErrors[metric] { throw error }
         return changes[metric] ?? .init(samples: [], deletedObjectIDs: [], newAnchorData: anchorData)
     }
 
@@ -511,7 +674,12 @@ private final class HealthGatewayFake: HealthKitGatewayProtocol, @unchecked Send
     }
 
     func deleteObject(uuid: UUID, metric: HealthMetric) async throws {}
-    func installObserver(metric: HealthMetric, update: @escaping @Sendable (@escaping () -> Void) -> Void) {}
+    func installObserver(metric: HealthMetric, update: @escaping @Sendable (@escaping () -> Void) -> Void) {
+        requestLock.withLock { observerUpdates[metric] = update }
+    }
+    func fireObserver(metric: HealthMetric, completion: @escaping () -> Void) {
+        requestLock.withLock { observerUpdates[metric] }?(completion)
+    }
     func enableBackgroundDelivery(for metric: HealthMetric) async throws {}
 }
 

@@ -17,6 +17,7 @@ public protocol HealthKitGatewayProtocol: Sendable {
     func writeAuthorization(for metric: HealthMetric) async -> HealthWriteAuthorization
     func anchoredChanges(metric: HealthMetric, anchorData: Data?) async throws -> HealthAnchoredChanges
     func aggregate(metric: HealthMetric, from start: Date, to end: Date) async throws -> HealthAggregateValue
+    func dailyAggregates(metric: HealthMetric, from start: Date, to end: Date) async throws -> [HealthAggregateValue]
     func save(_ payload: HealthWritePayload, syncVersion: Int64) async throws -> [HealthSavedObject]
     func deleteObject(uuid: UUID, metric: HealthMetric) async throws
     func installObserver(
@@ -24,6 +25,25 @@ public protocol HealthKitGatewayProtocol: Sendable {
         update: @escaping @Sendable (_ completion: @escaping () -> Void) -> Void
     )
     func enableBackgroundDelivery(for metric: HealthMetric) async throws
+}
+
+public extension HealthKitGatewayProtocol {
+    func dailyAggregates(
+        metric: HealthMetric,
+        from start: Date,
+        to end: Date
+    ) async throws -> [HealthAggregateValue] {
+        guard end > start else { return [] }
+        let calendar = Calendar.autoupdatingCurrent
+        var day = calendar.startOfDay(for: start)
+        var result: [HealthAggregateValue] = []
+        while day < end {
+            guard let next = calendar.date(byAdding: .day, value: 1, to: day) else { break }
+            result.append(try await aggregate(metric: metric, from: max(day, start), to: min(next, end)))
+            day = next
+        }
+        return result
+    }
 }
 
 public enum HealthKitGatewayError: Error, Sendable {
@@ -149,6 +169,7 @@ public final class HealthKitGateway: HealthKitGatewayProtocol, @unchecked Sendab
                                            .dietaryCarbohydrates, .dietaryFat].contains(metric)
             ? .cumulativeSum
             : .discreteAverage
+        let lastSampleAt = try? await latestSampleDate(type: type, predicate: predicate)
         return try await withCheckedThrowingContinuation { continuation in
             let query = HKStatisticsQuery(
                 quantityType: quantityType,
@@ -171,8 +192,72 @@ public final class HealthKitGateway: HealthKitGatewayProtocol, @unchecked Sendab
                     metric: metric,
                     value: HealthKitTypeCatalog.lifeBoardValue(raw, for: metric),
                     start: start,
-                    end: end
+                    end: end,
+                    lastSampleAt: lastSampleAt
                 ))
+            }
+            store.execute(query)
+        }
+    }
+
+    public func dailyAggregates(
+        metric: HealthMetric,
+        from start: Date,
+        to end: Date
+    ) async throws -> [HealthAggregateValue] {
+        guard end > start,
+              let type = HealthKitTypeCatalog.sampleType(for: metric) else {
+            return []
+        }
+        if metric.domain == .nutrition {
+            return try await externalNutritionDailyAggregates(
+                metric: metric,
+                type: type,
+                start: start,
+                end: end
+            )
+        }
+        guard let quantityType = type as? HKQuantityType,
+              let unit = HealthKitTypeCatalog.unit(for: metric) else {
+            return []
+        }
+        let cumulative: Set<HealthMetric> = [
+            .steps, .walkingRunningDistance, .activeEnergy, .restingEnergy, .water
+        ]
+        let option: HKStatisticsOptions = cumulative.contains(metric) ? .cumulativeSum : .discreteAverage
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        var interval = DateComponents()
+        interval.day = 1
+        let anchor = calendar.startOfDay(for: start)
+
+        return try await withCheckedThrowingContinuation { continuation in
+            let query = HKStatisticsCollectionQuery(
+                quantityType: quantityType,
+                quantitySamplePredicate: predicate,
+                options: option,
+                anchorDate: anchor,
+                intervalComponents: interval
+            )
+            query.initialResultsHandler = { _, collection, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                    return
+                }
+                var values: [HealthAggregateValue] = []
+                collection?.enumerateStatistics(from: start, to: end) { statistics, _ in
+                    let quantity = option == .cumulativeSum
+                        ? statistics.sumQuantity()
+                        : statistics.averageQuantity()
+                    guard let quantity else { return }
+                    let raw = quantity.doubleValue(for: unit)
+                    values.append(.init(
+                        metric: metric,
+                        value: HealthKitTypeCatalog.lifeBoardValue(raw, for: metric),
+                        start: statistics.startDate,
+                        end: statistics.endDate
+                    ))
+                }
+                continuation.resume(returning: values)
             }
             store.execute(query)
         }
@@ -406,6 +491,70 @@ public final class HealthKitGateway: HealthKitGatewayProtocol, @unchecked Sendab
             end: end,
             lastSampleAt: external.map(\.endDate).max()
         )
+    }
+
+    private func latestSampleDate(type: HKSampleType, predicate: NSPredicate) async throws -> Date? {
+        try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: 1,
+                sortDescriptors: [NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)]
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: samples?.first?.endDate)
+                }
+            }
+            store.execute(query)
+        }
+    }
+
+    private func externalNutritionDailyAggregates(
+        metric: HealthMetric,
+        type: HKSampleType,
+        start: Date,
+        end: Date
+    ) async throws -> [HealthAggregateValue] {
+        guard let unit = HealthKitTypeCatalog.unit(for: metric) else {
+            throw HealthKitGatewayError.unsupportedMetric
+        }
+        let predicate = HKQuery.predicateForSamples(withStart: start, end: end, options: [])
+        let samples: [HKQuantitySample] = try await withCheckedThrowingContinuation { continuation in
+            let query = HKSampleQuery(
+                sampleType: type,
+                predicate: predicate,
+                limit: HKObjectQueryNoLimit,
+                sortDescriptors: nil
+            ) { _, samples, error in
+                if let error {
+                    continuation.resume(throwing: error)
+                } else {
+                    continuation.resume(returning: (samples ?? []).compactMap { $0 as? HKQuantitySample })
+                }
+            }
+            store.execute(query)
+        }
+        let external = samples.filter {
+            guard let identifier = $0.metadata?[HKMetadataKeySyncIdentifier] as? String else { return true }
+            return identifier.hasPrefix("com.lifeboard.") == false
+        }
+        let grouped = Dictionary(grouping: external) { calendar.startOfDay(for: $0.startDate) }
+        return grouped.keys.sorted().compactMap { day in
+            guard let dayEnd = calendar.date(byAdding: .day, value: 1, to: day),
+                  let values = grouped[day], values.isEmpty == false else {
+                return nil
+            }
+            let raw = values.reduce(0.0) { $0 + $1.quantity.doubleValue(for: unit) }
+            return .init(
+                metric: metric,
+                value: HealthKitTypeCatalog.lifeBoardValue(raw, for: metric),
+                start: day,
+                end: dayEnd,
+                lastSampleAt: values.map(\.endDate).max()
+            )
+        }
     }
 
     private func object(uuid: UUID, metric: HealthMetric) async throws -> HKObject {
