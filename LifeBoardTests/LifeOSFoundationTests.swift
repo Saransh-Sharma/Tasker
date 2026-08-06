@@ -14,6 +14,42 @@ private struct StubNutritionRemoteLookup: NutritionRemoteFoodLookingUp {
     }
 }
 
+final class HomeFastingAnchorPolicyTests: XCTestCase {
+    func testRecentMealWithinOneDayAnchorsAutomaticStart() async throws {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let meal = now.addingTimeInterval(-6 * 60 * 60)
+
+        XCTAssertEqual(
+            HomeFastingAnchorPolicy.recentMealAnchor(latestMealAt: meal, now: now),
+            meal
+        )
+
+        let repository = InMemoryFastingSessionRepository()
+        let timer = FastingTimerStore(repository: repository, now: { now })
+        let session = try await timer.start(targetDuration: nil, at: meal)
+        XCTAssertEqual(session.startedAt, meal)
+        XCTAssertEqual(session.elapsed(at: now), 6 * 60 * 60, accuracy: 0.001)
+    }
+
+    func testMealOlderThanOneDayFallsBackToManualStart() {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let tooOld = now.addingTimeInterval(-HomeFastingAnchorPolicy.recentMealWindow - 1)
+
+        XCTAssertNil(HomeFastingAnchorPolicy.recentMealAnchor(latestMealAt: tooOld, now: now))
+        XCTAssertNil(HomeFastingAnchorPolicy.recentMealAnchor(latestMealAt: nil, now: now))
+    }
+
+    func testFutureMealCannotAnchorAFast() {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        XCTAssertNil(
+            HomeFastingAnchorPolicy.recentMealAnchor(
+                latestMealAt: now.addingTimeInterval(60),
+                now: now
+            )
+        )
+    }
+}
+
 final class HomeTaskAgendaProjectionTests: XCTestCase {
     func testBuildReturnsDeduplicatedOverdueThenSelectedDayDeadlines() throws {
         let calendar = calendar(timeZoneIdentifier: "Asia/Kolkata")
@@ -240,11 +276,16 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let declared = Set(declaredNames)
         let registered = Set(LifeBoardSignatureShaders.functionNames)
 
-        // 18 since LifeBoardFirstLight (2026-08-01). This number, the registry,
-        // the [[stitchable]] declarations and DESIGN.md's approved list are one
-        // atomic contract — warmUp() is all-or-nothing, so a mismatch disables
-        // *every* signature effect at runtime with nothing logged at the UI layer.
-        XCTAssertEqual(registered.count, 18)
+        // 20 since LifeBoardValueDrumWarp (2026-08-05). This number, the
+        // registry, the [[stitchable]] declarations and DESIGN.md's approved
+        // list are one atomic contract — warmUp() is all-or-nothing, so a
+        // mismatch disables *every* signature effect at runtime with nothing
+        // logged at the UI layer.
+        //
+        // This constant was already stale before the drum landed: it still said
+        // 18 while the registry and the .metal had carried 19 since
+        // LifeBoardFirstLight, so this assertion was failing on a clean tree.
+        XCTAssertEqual(registered.count, 20)
         XCTAssertEqual(declared, registered)
     }
 
@@ -615,6 +656,97 @@ final class LifeOSFoundationContractTests: XCTestCase {
                 "With no distance every root rests centred and only the crossfade remains"
             )
         }
+    }
+
+    // MARK: Root retention
+
+    /// The Home "Open Plan" regression. `router.select(.plan)` is observed by
+    /// the render pass before `onChange` can record the visit, so the pass that
+    /// first sees Plan selected must already render it. Rendering on the
+    /// visited set alone left that pass with Home faded out and Plan not yet
+    /// built, and the white window backing showed through the gap.
+    func testTheSelectedRootIsRenderedBeforeItHasEverBeenVisited() {
+        for destination in LifeBoardDestination.allCases {
+            XCTAssertTrue(
+                LifeBoardRootRetention.isRendered(destination, selected: destination, visited: []),
+                "\(destination) is selected, so it must be on screen even on the pass that selects it"
+            )
+        }
+    }
+
+    /// The property the blank frame violated, stated directly: at every
+    /// combination of selection and visited set, something is on screen.
+    func testSomeRootIsAlwaysOnScreen() {
+        let order = LifeBoardDestination.allCases
+        var visited: Set<LifeBoardDestination> = []
+        for selected in order + order.reversed() {
+            let rendered = order.filter {
+                LifeBoardRootRetention.isRendered($0, selected: selected, visited: visited)
+            }
+            XCTAssertTrue(
+                rendered.contains(selected),
+                "Selecting \(selected) with visited=\(visited.count) left no visible root"
+            )
+            visited = LifeBoardRootRetention.retained(
+                visited: visited, previous: nil, selected: selected
+            )
+        }
+    }
+
+    func testAVisitedRootStaysInTheStackAfterTheSelectionMovesOn() {
+        let visited = LifeBoardRootRetention.retained(
+            visited: [], previous: nil, selected: .home
+        )
+        XCTAssertTrue(
+            LifeBoardRootRetention.isRendered(.home, selected: .plan, visited: visited),
+            "Home keeps its scroll position and navigation depth while Plan is on screen"
+        )
+        XCTAssertFalse(
+            LifeBoardRootRetention.isRendered(.track, selected: .plan, visited: visited),
+            "An unvisited root is not built just because another root is selected"
+        )
+    }
+
+    /// Eva is evicted on the way out, but eviction must never be able to blank
+    /// the screen: it only ever removes a root that is no longer selected.
+    func testEvaIsEvictedOnTheWayOutAndStillRendersWhileSelected() {
+        var visited = LifeBoardRootRetention.retained(
+            visited: [.home], previous: .home, selected: .eva
+        )
+        XCTAssertTrue(
+            LifeBoardRootRetention.isRendered(.eva, selected: .eva, visited: visited),
+            "Eva is on screen while it is the selection"
+        )
+        visited = LifeBoardRootRetention.retained(
+            visited: visited, previous: .eva, selected: .plan
+        )
+        XCTAssertFalse(visited.contains(.eva), "Eva's runtime is released once it is off screen")
+        XCTAssertTrue(
+            LifeBoardRootRetention.isRendered(.plan, selected: .plan, visited: visited),
+            "The arriving root is still rendered in the same pass that evicts Eva"
+        )
+    }
+
+    /// Home ↔ Plan hammered back and forth: no pass may render an empty stack,
+    /// and the two roots must not be rebuilt on each change.
+    func testRapidRootChangesNeverProduceAnEmptyStack() {
+        var visited: Set<LifeBoardDestination> = []
+        var previous: LifeBoardDestination?
+        for step in 0..<12 {
+            let selected: LifeBoardDestination = step.isMultiple(of: 2) ? .home : .plan
+            XCTAssertTrue(
+                LifeBoardRootRetention.isRendered(selected, selected: selected, visited: visited),
+                "Step \(step) selected \(selected) with nothing rendered"
+            )
+            visited = LifeBoardRootRetention.retained(
+                visited: visited, previous: previous, selected: selected
+            )
+            previous = selected
+        }
+        XCTAssertEqual(
+            visited, [.home, .plan],
+            "Both roots are retained, so neither is rebuilt on each change"
+        )
     }
 
     // MARK: Celestial daypart indicator
