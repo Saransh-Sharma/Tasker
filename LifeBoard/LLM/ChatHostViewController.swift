@@ -1254,6 +1254,7 @@ struct ChatContainerView: View {
     @EnvironmentObject var appManager: AppManager
     @Environment(LLMEvaluator.self) var llm
     @Environment(\.lifeboardLayoutClass) private var layoutClass
+    @Environment(\.modelContext) private var modelContext
 
     var presentationMode: ChatPresentationMode = .normal
     var promptFocusRequestID: UInt64 = 0
@@ -1351,5 +1352,23 @@ struct ChatContainerView: View {
                 showChats.toggle()
             }
         }
+        .task {
+            openReadmeScreenshotThreadIfNeeded()
+        }
+    }
+
+    @MainActor
+    private func openReadmeScreenshotThreadIfNeeded() {
+        guard currentThread == nil,
+              ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_README_LIFE_OS_TOUR") else {
+            return
+        }
+        var descriptor = FetchDescriptor<Thread>(
+            predicate: #Predicate<Thread> { thread in
+                thread.title == "Launch day rescue plan"
+            }
+        )
+        descriptor.fetchLimit = 1
+        currentThread = try? modelContext.fetch(descriptor).first
     }
 }

@@ -89,6 +89,68 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertTrue(review.isSelected, "The optional Experience lens should select canonical Review without a dead end.")
     }
 
+    func testCustomTrackerCreationCaptureAndHistoryFlow() {
+        let app = launchFoundationApp(accessibilityCategory: "UICTContentSizeCategoryL")
+        defer { app.terminate() }
+
+        assertFoundationDestination("track", rootIdentifier: "track.header", in: app)
+        let trackerShortcut = app.buttons["track.quick.trackers"]
+        XCTAssertTrue(trackerShortcut.waitForExistence(timeout: 5))
+        XCTAssertTrue(trackerShortcut.isHittable)
+        trackerShortcut.tap()
+
+        let newTracker = app.buttons["track.tracker.new"]
+        XCTAssertTrue(newTracker.waitForExistence(timeout: 8))
+        newTracker.tap()
+
+        let name = app.textFields["track.tracker.name"]
+        XCTAssertTrue(name.waitForExistence(timeout: 5))
+        name.tap()
+        name.typeText("Focus depth")
+
+        let amountKind = app.buttons["track.tracker.kind.quantity"]
+        XCTAssertTrue(amountKind.waitForExistence(timeout: 5))
+        amountKind.tap()
+
+        let create = app.buttons["track.tracker.commit"]
+        XCTAssertTrue(create.waitForExistence(timeout: 5))
+        XCTAssertTrue(create.isEnabled)
+        attachScreenshot(named: "track-custom-tracker-composer")
+        create.tap()
+
+        let record = app.descendants(matching: .any).matching(
+            NSPredicate(format: "identifier BEGINSWITH %@", "track.tracker.log.")
+        ).firstMatch
+        XCTAssertTrue(record.waitForExistence(timeout: 10))
+        record.tap()
+
+        let numeric = app.textFields["track.tracker.value.numeric"]
+        XCTAssertTrue(numeric.waitForExistence(timeout: 5))
+        numeric.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)).tap()
+        numeric.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 12))
+        numeric.typeText("42")
+
+        let saveValue = app.buttons["track.tracker.value.commit"]
+        XCTAssertTrue(saveValue.waitForExistence(timeout: 5))
+        XCTAssertTrue(saveValue.isEnabled)
+        attachScreenshot(named: "track-custom-tracker-capture")
+        saveValue.tap()
+
+        let actions = app.buttons["Actions for Focus depth"]
+        XCTAssertTrue(actions.waitForExistence(timeout: 10))
+        actions.tap()
+        let history = app.buttons["History"]
+        XCTAssertTrue(history.waitForExistence(timeout: 5))
+        history.tap()
+
+        XCTAssertTrue(
+            app.descendants(matching: .any)["track.tracker.history.summary"].waitForExistence(timeout: 8),
+            "The persisted value should appear in the tracker’s history summary."
+        )
+        XCTAssertTrue(app.staticTexts["42"].exists, "History should preserve the exact recorded value.")
+        attachScreenshot(named: "track-custom-tracker-history")
+    }
+
     func testPhase5IPhoneRootVisualCheckpoint() throws {
         let app = launchFoundationApp(
             accessibilityCategory: "UICTContentSizeCategoryL",
@@ -124,8 +186,7 @@ class LifeBoardUITests: XCTestCase {
 
     func testInAppCaptureDraftRecoversAfterProcessInterruption() {
         let app = launchFoundationApp(
-            accessibilityCategory: "UICTContentSizeCategoryL",
-            seedEstablishedWorkspace: true
+            accessibilityCategory: "UICTContentSizeCategoryL"
         )
         defer { app.terminate() }
 
@@ -455,6 +516,50 @@ class LifeBoardUITests: XCTestCase {
 
     }
 
+    func testHomeFastingOneTapLifecycleAndHydrationComposer() {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedEstablishedWorkspace: true
+        )
+        defer { app.terminate() }
+
+        assertFoundationDestination("home", rootIdentifier: "home.signalRow", in: app)
+
+        let fasting = app.buttons["home.signal.fasting"]
+        XCTAssertTrue(fasting.waitForExistence(timeout: 10))
+        XCTAssertTrue(fasting.isHittable)
+        fasting.tap()
+
+        let activeFast = app.buttons.matching(
+            NSPredicate(format: "identifier == %@ AND label == %@", "home.signal.fasting", "End fasting timer")
+        ).firstMatch
+        XCTAssertTrue(activeFast.waitForExistence(timeout: 8), "One tap should persist and activate the fasting clock.")
+        attachScreenshot(named: "Home Fasting Active")
+        activeFast.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["home.fasting.receipt"].waitForExistence(timeout: 8),
+            "Ending should save immediately and expose a reversible receipt."
+        )
+
+        let hydration = app.buttons["home.signal.hydration"]
+        XCTAssertTrue(hydration.waitForExistence(timeout: 8))
+        hydration.tap()
+        XCTAssertTrue(
+            app.descendants(matching: .any)["track.hydration.composer"].waitForExistence(timeout: 8)
+        )
+        app.buttons["Bottle, 500 mL"].tap()
+        XCTAssertTrue(app.buttons["Add 500 mL"].waitForExistence(timeout: 4))
+        attachScreenshot(named: "Hydration Composer 500 mL")
+        app.buttons["Add 500 mL"].tap()
+        XCTAssertTrue(
+            waitForElementToDisappear(
+                app.descendants(matching: .any)["track.hydration.composer"],
+                timeout: 5
+            ),
+            "The hydration composer should dismiss only after the log is committed."
+        )
+    }
+
     func testFoundationHomeTaskUsesTypedDetailRoute() {
         let app = launchFoundationApp(
             accessibilityCategory: "UICTContentSizeCategoryL",
@@ -774,13 +879,12 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertTrue(app.descendants(matching: .any)["home.hero"].exists)
         XCTAssertTrue(app.descendants(matching: .any)["home.signalRow"].exists)
 
-        let daypartMenu = app.buttons["home.daypart.menu"]
-        XCTAssertTrue(daypartMenu.waitForExistence(timeout: 8))
-        daypartMenu.tap()
-        let night = app.buttons["Night"]
-        XCTAssertTrue(night.waitForExistence(timeout: 5))
-        night.tap()
-        XCTAssertTrue(waitForAccessibilityLabel("Daypart, night", on: daypartMenu))
+        selectAtmosphere(.night, in: app)
+        XCTAssertTrue(
+            app.descendants(matching: .any)["lifeboard.atmosphere.night"].waitForExistence(timeout: 8),
+            "Choosing Night must retint the canvas, not just move the control."
+        )
+        dismissDisplayPanel(in: app)
 
         tapHomeAction("home.journal.weeklyReflection", in: app)
         XCTAssertTrue(
@@ -838,20 +942,112 @@ class LifeBoardUITests: XCTestCase {
         defer { app.terminate() }
 
         assertFoundationDestination("home", rootIdentifier: "home.header", in: app)
-        let daypartMenu = app.buttons["home.daypart.menu"]
-        XCTAssertTrue(daypartMenu.waitForExistence(timeout: 8))
 
-        for daypart in ["Morning", "Afternoon", "Evening", "Night"] {
-            daypartMenu.tap()
-            let choice = app.buttons[daypart]
-            XCTAssertTrue(choice.waitForExistence(timeout: 5), "The \(daypart) override must remain selectable.")
-            choice.tap()
+        // Each daypart maps to its own celestial phase, so asserting on the
+        // phase marker proves the override actually reached the renderer.
+        // "Afternoon" resolving to `midday` is the mapping, not a typo.
+        let dayparts: [(stop: AtmosphereStop, phase: String)] = [
+            (.morning, "morning"),
+            (.afternoon, "midday"),
+            (.evening, "goldenHour"),
+            (.night, "night")
+        ]
+
+        for (stop, phase) in dayparts {
+            selectAtmosphere(stop, in: app)
             XCTAssertTrue(
-                waitForAccessibilityLabel("Daypart, \(daypart.lowercased())", on: daypartMenu),
-                "The Home atmosphere did not resolve the \(daypart) override."
+                app.descendants(matching: .any)["lifeboard.atmosphere.\(phase)"].waitForExistence(timeout: 8),
+                "The Home atmosphere did not resolve the \(stop.title) override."
             )
+            dismissDisplayPanel(in: app)
             XCTAssertTrue(app.descendants(matching: .any)["home.signalRow"].exists)
         }
+
+        // Auto hands the day back to the clock. It is a stop on the same track
+        // now, which is what retired the separate "Return to Auto" button.
+        selectAtmosphere(.automatic, in: app)
+        let slider = app.descendants(matching: .any)["foundation.atmosphere.slider"]
+        let readsAuto = XCTNSPredicateExpectation(
+            // The readout is "Auto · following <daypart>", so the resolved day
+            // stays visible even when the choice is not a time.
+            predicate: NSPredicate(format: "value BEGINSWITH %@", "Auto"),
+            object: slider
+        )
+        XCTAssertEqual(
+            XCTWaiter.wait(for: [readsAuto], timeout: 8),
+            .completed,
+            "Returning to Auto must be reachable from the slider itself."
+        )
+        dismissDisplayPanel(in: app)
+    }
+
+    /// The five stops on the atmosphere slider, in track order.
+    private enum AtmosphereStop: Int, CaseIterable {
+        case automatic, morning, afternoon, evening, night
+
+        var title: String {
+            switch self {
+            case .automatic: "Auto"
+            case .morning: "Morning"
+            case .afternoon: "Afternoon"
+            case .evening: "Evening"
+            case .night: "Night"
+            }
+        }
+
+        /// Normalised x of this stop's lane centre. Auto owns a wider leading
+        /// lane than the dayparts, so these are not evenly spaced — see
+        /// `LifeBoardAtmosphereSliderGeometry`, which owns the real arithmetic.
+        var normalizedX: CGFloat {
+            switch self {
+            case .automatic: 0.07
+            case .morning: 0.28
+            case .afternoon: 0.47
+            case .evening: 0.66
+            case .night: 0.90
+            }
+        }
+    }
+
+    /// Opens Home's Display panel and taps a stop on the atmosphere slider.
+    ///
+    /// The panel is left open: the caller usually wants to assert on the canvas
+    /// behind it, which is exactly why this is a compact sheet rather than a
+    /// full-height one.
+    private func selectAtmosphere(
+        _ stop: AtmosphereStop,
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let panel = app.descendants(matching: .any)["foundation.display.panel"]
+        if panel.exists == false {
+            let more = app.buttons["foundation.more.home"]
+            XCTAssertTrue(more.waitForExistence(timeout: 8), file: file, line: line)
+            more.tap()
+            XCTAssertTrue(panel.waitForExistence(timeout: 8), file: file, line: line)
+        }
+
+        let slider = app.descendants(matching: .any)["foundation.atmosphere.slider"]
+        XCTAssertTrue(slider.waitForExistence(timeout: 8), file: file, line: line)
+
+        // At accessibility text sizes the slider becomes a row list, because a
+        // control whose drag axis is its value axis cannot scroll to stay legible.
+        let row = app.buttons["foundation.atmosphere.stop.\(String(describing: stop))"]
+        if row.exists {
+            row.tap()
+            return
+        }
+        slider
+            .coordinate(withNormalizedOffset: CGVector(dx: stop.normalizedX, dy: 0.5))
+            .tap()
+    }
+
+    private func dismissDisplayPanel(in app: XCUIApplication) {
+        let panel = app.descendants(matching: .any)["foundation.display.panel"]
+        guard panel.exists else { return }
+        app.swipeDown()
+        _ = panel.waitForNonExistence(timeout: 5)
     }
 
     func testFoundationDayCanvasAgendaCreatesAndUndoesPersistedBlock() {
@@ -1137,18 +1333,6 @@ class LifeBoardUITests: XCTestCase {
     ) -> Bool {
         let expectation = XCTNSPredicateExpectation(
             predicate: NSPredicate(format: "value == %@", value),
-            object: element
-        )
-        return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed
-    }
-
-    private func waitForAccessibilityLabel(
-        _ label: String,
-        on element: XCUIElement,
-        timeout: TimeInterval = 8
-    ) -> Bool {
-        let expectation = XCTNSPredicateExpectation(
-            predicate: NSPredicate(format: "label == %@", label),
             object: element
         )
         return XCTWaiter.wait(for: [expectation], timeout: timeout) == .completed

@@ -5,6 +5,7 @@
 
 import Foundation
 import SwiftData
+import UIKit
 
 @MainActor
 final class HomeUITestWorkspaceSeeder {
@@ -1084,7 +1085,11 @@ final class HomeUITestWorkspaceSeeder {
                 )
                 UserDefaults.standard.removeObject(forKey: "home.eva.recentShuffleTaskIDs.v1")
                 viewModel?.invalidateTaskCaches()
+                if arguments.contains("-LIFEBOARD_TEST_README_RECOVERY_CAPTURE") {
+                    viewModel?.openRescue()
+                }
                 UserDefaults.standard.set(true, forKey: "lifeboard.appStoreScreenshotSeed.ready")
+                publishAppStoreScreenshotSeedProbe(identifier: "screenshot.seed.ready")
                 NotificationCenter.default.post(
                     name: Notification.Name("lifeboard.appStoreScreenshotSeed.didFinish"),
                     object: nil
@@ -1094,6 +1099,10 @@ final class HomeUITestWorkspaceSeeder {
                 UserDefaults.standard.set(
                     error.localizedDescription,
                     forKey: "lifeboard.appStoreScreenshotSeed.error"
+                )
+                publishAppStoreScreenshotSeedProbe(
+                    identifier: "screenshot.seed.failed",
+                    value: error.localizedDescription
                 )
                 NotificationCenter.default.post(
                     name: Notification.Name("lifeboard.appStoreScreenshotSeed.didFinish"),
@@ -1108,6 +1117,22 @@ final class HomeUITestWorkspaceSeeder {
 
             completion()
         }
+    }
+
+    private func publishAppStoreScreenshotSeedProbe(identifier: String, value: String? = nil) {
+        guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS"),
+              let windowScene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first,
+              let window = windowScene.windows.first(where: \.isKeyWindow) ?? windowScene.windows.first else {
+            return
+        }
+        let probe = UIView(frame: CGRect(x: 0, y: 0, width: 1, height: 1))
+        probe.backgroundColor = .clear
+        probe.isUserInteractionEnabled = false
+        probe.isAccessibilityElement = true
+        probe.accessibilityIdentifier = identifier
+        probe.accessibilityLabel = identifier == "screenshot.seed.ready" ? "Ready" : "Failed"
+        probe.accessibilityValue = value
+        window.addSubview(probe)
     }
 
     private func markScreenshotHabitHistory(

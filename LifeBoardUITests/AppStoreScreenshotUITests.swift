@@ -24,7 +24,9 @@ final class AppStoreScreenshotUITests: BaseUITest {
         )
     }
 
-    override var shouldSkipOnboarding: Bool { false }
+    override var shouldSkipOnboarding: Bool {
+        name.contains("testCaptureReadmeLifeOSTour")
+    }
     override var additionalLaunchArguments: [String] {
         [XCUIApplication.LaunchArgumentKey.testExpandedAppStoreOnboarding.rawValue]
             + screenshotLaunchConfiguration.launchArguments
@@ -40,6 +42,33 @@ final class AppStoreScreenshotUITests: BaseUITest {
         try captureEvaChatScreen()
         try captureHabitScreens()
         try captureOverdueRescueScreens()
+    }
+
+    func testCaptureReadmeLifeOSTour() throws {
+        try relaunchSeededWorkspace(
+            evaCompleted: true,
+            appearance: "Light",
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedTimeout: 120
+        )
+        XCTAssertTrue(waitForRealisticHomeContent(timeout: 18))
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("01-home-command-center")
+
+        try captureReadmeRoot(
+            "plan",
+            readyIdentifier: "plan.header",
+            screenshotName: "02-plan-intention-into-time"
+        )
+        try captureReadmeTrackScreen()
+        try captureReadmeRoot(
+            "insights",
+            readyIdentifier: "foundation.insights",
+            screenshotName: "04-insights-patterns"
+        )
+        try captureReadmeEvaThread()
+
+        try captureReadmeRecoveryScreen()
     }
 
     func testScreenshotSeedCompletesWithoutTerminatingTheApp() throws {
@@ -108,7 +137,9 @@ final class AppStoreScreenshotUITests: BaseUITest {
 
     override func waitForAppLaunch() {
         let homeIndicator = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.view]
-        if homeIndicator.waitForExistence(timeout: 6) {
+        let foundationHome = app.buttons["foundation.destination.home"]
+        if homeIndicator.waitForExistence(timeout: 6)
+            || foundationHome.waitForExistence(timeout: 6) {
             return
         }
 
@@ -332,10 +363,131 @@ final class AppStoreScreenshotUITests: BaseUITest {
         saveScreenshot("23_overdue_rescue_completion")
     }
 
+    private func captureReadmeRoot(
+        _ destination: String,
+        readyIdentifier: String,
+        screenshotName: String
+    ) throws {
+        let button = app.buttons["foundation.destination.\(destination)"]
+        try require(button, timeout: 8, message: "The \(destination) root was not available for README capture")
+        try tap(button)
+        try require(
+            app.descendants(matching: .any)[readyIdentifier],
+            timeout: 12,
+            message: "The \(destination) root did not reach its stable README capture state"
+        )
+        if destination == "eva", waitForEvaChat(timeout: 10) == false {
+            throw captureFailure("EVA did not reach a stable transcript or composer state for the README capture")
+        }
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot(screenshotName)
+    }
+
+    private func captureReadmeTrackScreen() throws {
+        let trackRoot = app.buttons["foundation.destination.track"]
+        try require(trackRoot, timeout: 8, message: "The Track root was not available for README capture")
+        try tap(trackRoot)
+        try require(
+            app.descendants(matching: .any)["track.header"],
+            timeout: 12,
+            message: "Track did not reach its stable README capture state"
+        )
+
+        let areasLens = app.buttons["track.lens.areas"]
+        try require(areasLens, timeout: 8, message: "Track did not expose its Areas lens")
+        try tap(areasLens)
+
+        let habits = app.buttons["track.habits"]
+        scrollUntilVisible(habits, maxSwipes: 8)
+        try requireVisible(habits, timeout: 8, message: "Track did not expose the seeded habit history")
+        try tap(habits)
+
+        try require(
+            app.descendants(matching: .any)[AccessibilityIdentifiers.HabitBoard.view],
+            timeout: 15,
+            message: "The seeded Habit Board did not open from Track"
+        )
+        try require(
+            app.descendants(matching: .any)["habitBoard.row.A6000000-0000-0000-0000-000000000002"],
+            timeout: 8,
+            message: "The realistic Protein with breakfast history did not appear"
+        )
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("03-track-life-systems")
+
+        let navigationButtons = app.navigationBars.firstMatch.buttons
+        let namedBack = navigationButtons["Back"]
+        let back = namedBack.waitForExistence(timeout: 2) ? namedBack : navigationButtons.element(boundBy: 0)
+        try require(back, timeout: 5, message: "The Habit Board back action was not available")
+        try tap(back)
+        try require(
+            app.descendants(matching: .any)["track.header"],
+            timeout: 8,
+            message: "Track did not resume after the Habit Board capture"
+        )
+    }
+
+    private func captureReadmeEvaThread() throws {
+        let evaRoot = app.buttons["foundation.destination.eva"]
+        try require(evaRoot, timeout: 8, message: "The EVA root was not available for README capture")
+        try tap(evaRoot)
+        try require(
+            app.descendants(matching: .any)["foundation.eva"],
+            timeout: 12,
+            message: "EVA did not reach its stable README capture state"
+        )
+        guard waitForEvaChat(timeout: 10) else {
+            throw captureFailure("EVA did not reach a stable transcript or composer state for README capture")
+        }
+
+        let seededReply = app.staticTexts.matching(
+            NSPredicate(format: "label CONTAINS[c] %@", "cleanest plan")
+        ).firstMatch
+        try require(seededReply, timeout: 10, message: "The seeded EVA proposal did not open")
+        XCTAssertEqual(app.keyboards.count, 0, "The README EVA capture must not include a keyboard")
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("05-eva-chief-of-staff")
+    }
+
+    private func captureReadmeRecoveryScreen() throws {
+        try relaunchSeededWorkspace(
+            evaCompleted: true,
+            seedRescue: true,
+            appearance: "Light",
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedTimeout: 120
+        )
+        let rescueSheet = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueSheet]
+        let passportCard = app.descendants(matching: .any)[
+            AccessibilityIdentifiers.Home.rescueCard("A5000000-0000-0000-0000-000000000101")
+        ]
+        try require(rescueSheet, timeout: 15, message: "The overdue-rescue sheet did not open for README capture")
+        try require(
+            passportCard,
+            timeout: 8,
+            message: "The realistic Renew passport photos rescue card did not appear"
+        )
+        try require(
+            app.buttons[AccessibilityIdentifiers.Home.rescueActionKeepToday],
+            timeout: 6,
+            message: "The README recovery card did not expose its Keep Today action"
+        )
+        try require(
+            app.buttons[AccessibilityIdentifiers.Home.rescueActionMoveLater],
+            timeout: 3,
+            message: "The README recovery card did not expose its Move Later action"
+        )
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("06-recover-imperfect-days")
+    }
+
     private func relaunchSeededWorkspace(
         evaCompleted: Bool,
         seedRescue: Bool = false,
-        postSeedRoute: String? = nil
+        postSeedRoute: String? = nil,
+        appearance: String? = nil,
+        accessibilityCategory: String? = nil,
+        seedTimeout: TimeInterval = 45
     ) throws {
         app.terminate()
         let relaunched = XCUIApplication()
@@ -352,12 +504,27 @@ final class AppStoreScreenshotUITests: BaseUITest {
         if evaCompleted {
             relaunched.launchArguments.append(XCUIApplication.LaunchArgumentKey.testEvaActivationCompleted.rawValue)
         }
+        if name.contains("testCaptureReadmeLifeOSTour") {
+            relaunched.launchArguments.append("-LIFEBOARD_TEST_README_LIFE_OS_TOUR")
+        }
         if seedRescue {
             relaunched.launchArguments.append(XCUIApplication.LaunchArgumentKey.testSeedOverdueRescueSuite.rawValue)
             relaunched.launchArguments.append(XCUIApplication.LaunchArgumentKey.enableDebugLogging.rawValue)
+            if name.contains("testCaptureReadmeLifeOSTour") {
+                relaunched.launchArguments.append("-LIFEBOARD_TEST_README_RECOVERY_CAPTURE")
+            }
         }
         if let postSeedRoute {
             relaunched.launchArguments.append("-LIFEBOARD_TEST_POST_SEED_ROUTE:\(postSeedRoute)")
+        }
+        if let appearance {
+            relaunched.launchArguments.append(contentsOf: ["-AppleInterfaceStyle", appearance])
+        }
+        if let accessibilityCategory {
+            relaunched.launchArguments.append(contentsOf: [
+                "-UIPreferredContentSizeCategoryName",
+                accessibilityCategory
+            ])
         }
         relaunched.launchArguments.append(contentsOf: screenshotLaunchConfiguration.launchArguments)
         relaunched.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
@@ -369,14 +536,20 @@ final class AppStoreScreenshotUITests: BaseUITest {
         waitForAppLaunch()
         let ready = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.screenshotSeedReady]
         let failed = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.screenshotSeedFailed]
-        let deadline = Date().addingTimeInterval(45)
-        while Date() < deadline, ready.exists == false, failed.exists == false {
+        let requiresCompleteSeed = name.contains("testCaptureReadmeLifeOSTour")
+        let deadline = Date().addingTimeInterval(seedTimeout)
+        while Date() < deadline,
+              ready.exists == false,
+              failed.exists == false,
+              requiresCompleteSeed || realisticHomeContentIsVisible() == false {
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
         if failed.exists {
             throw captureFailure("App Store screenshot seed failed: \(failed.value as? String ?? "unknown error")")
         }
-        try require(ready, timeout: 1, message: "App Store screenshot seed did not complete")
+        guard ready.exists || (requiresCompleteSeed == false && realisticHomeContentIsVisible()) else {
+            throw captureFailure("App Store screenshot seed did not complete")
+        }
     }
 
     private func waitForSteadyWelcome() {
@@ -419,19 +592,22 @@ final class AppStoreScreenshotUITests: BaseUITest {
     }
 
     private func waitForRealisticHomeContent(timeout: TimeInterval) -> Bool {
-        let expected = [
-            "Finalize partner launch brief",
-            "Launch Readiness Review",
-            "Walk before first coffee"
-        ]
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
-            if expected.contains(where: { app.staticTexts[$0].exists }) {
+            if realisticHomeContentIsVisible() {
                 return true
             }
             RunLoop.current.run(until: Date().addingTimeInterval(0.25))
         }
-        return expected.contains(where: { app.staticTexts[$0].exists })
+        return realisticHomeContentIsVisible()
+    }
+
+    private func realisticHomeContentIsVisible() -> Bool {
+        [
+            "Finalize partner launch brief",
+            "Launch Readiness Review",
+            "Walk before first coffee"
+        ].contains(where: { app.staticTexts[$0].exists })
     }
 
     private func tapSunriseFilter(_ id: String) {
