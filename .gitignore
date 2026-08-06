@@ -11,6 +11,8 @@ build_test/
 build_debug/
 GoogleService-Info.plist
 *.xcresult/
+DerivedDataTypeCheck*/
+DerivedDataUITest/
 
 *.pbxuser
 !default.pbxuser
