@@ -1,646 +1,538 @@
 ---
-version: dogfood-v1
-name: LifeBoard Warm Clay System
-description: The canonical visual contract for LifeBoard's adaptive, local-first life operating system.
+version: "1.0"
+name: "LifeBoard Warm Intelligence"
+description: "Target design contract for a calm, personal, premium life operating system on iPhone and iPad."
 colors:
   primary: "#2B2118"
   primary-pressed: "#4A3A2A"
   secondary: "#F0CD87"
-  secondary-pressed: "#E7BB7E"
+  secondary-pressed: "#E5B96D"
   canvas: "#FFF7D8"
-  canvas-secondary: "#FAF2DA"
+  canvas-muted: "#FAF1D8"
   surface: "#FFFDF7"
-  surface-secondary: "#F5EBCB"
-  surface-tertiary: "#F2E7C2"
-  on-surface: "#2B2118"
-  on-surface-secondary: "#6F6252"
-  on-surface-tertiary: "#877B68"
-  outline: "#E9DFC6"
-  outline-strong: "#CBBFA4"
+  surface-raised: "#FFFEFB"
+  surface-recessed: "#F4E8C8"
+  text-primary: "#2B2118"
+  text-secondary: "#675B4D"
+  text-tertiary: "#7C705F"
+  border: "#E2D6B9"
+  border-strong: "#A89572"
   focus: "#5A3D1E"
-  decorative-ring: "rgba(90, 61, 30, 0.42)"
-  assistant: "#6842FF"
-  success: "#5D6A4D"
-  warning: "#8A6A2F"
-  error: "#A14E41"
-  info: "#68727E"
-  inverse: "#FFFDF7"
-  selected: "#F2E7C2"
-  chart-primary: "#5D6A4D"
-  chart-secondary: "#E7BB7E"
-  image-scrim: "rgba(43, 33, 24, 0.16)"
-  dark-canvas: "#151B2D"
-  dark-canvas-secondary: "#111624"
-  dark-surface: "#202741"
-  dark-surface-secondary: "#262E4A"
-  dark-on-surface: "#F4EBDD"
-  dark-on-surface-secondary: "#C6BBA8"
-  dark-outline: "#4D526D"
-  high-contrast-outline: "#A89572"
-  dark-high-contrast-outline: "#777C9B"
+  inverse-text: "#FFFDF7"
+  assistant: "#5A3FD0"
+  success: "#536348"
+  warning: "#76561E"
+  error: "#963F36"
+  info: "#52616F"
+  selected: "#E9D8AA"
+  chart-primary: "#536348"
+  chart-secondary: "#975237"
+  image-scrim: "rgba(43, 33, 24, 0.24)"
+  dark-canvas: "#151A2A"
+  dark-canvas-muted: "#111624"
+  dark-surface: "#20263B"
+  dark-surface-raised: "#282F47"
+  dark-surface-recessed: "#191F32"
+  dark-text-primary: "#F8EEDC"
+  dark-text-secondary: "#D0C3AD"
+  dark-text-tertiary: "#B8AA94"
+  dark-border: "#4E536B"
+  dark-border-strong: "#858AA2"
 typography:
   display:
-    fontFamily: "SF Pro Rounded"
-    fontSize: 32px
+    fontFamily: "SF Pro"
+    fontSize: 34px
     fontWeight: 700
-    lineHeight: 1.15
+    lineHeight: 1.12
   screen-title:
     fontFamily: "SF Pro"
     fontSize: 28px
-    fontWeight: 600
-    lineHeight: 1.2
+    fontWeight: 700
+    lineHeight: 1.18
   section-title:
-    fontFamily: "SF Pro Rounded"
+    fontFamily: "SF Pro"
     fontSize: 20px
     fontWeight: 600
     lineHeight: 1.25
   body:
     fontFamily: "SF Pro"
-    fontSize: 16px
+    fontSize: 17px
     fontWeight: 400
-    lineHeight: 1.35
-  metadata:
-    fontFamily: "SF Pro"
-    fontSize: 13px
-    fontWeight: 500
-    lineHeight: 1.25
-  metric:
-    fontFamily: "SF Pro Rounded"
-    fontSize: 24px
-    fontWeight: 700
-    lineHeight: 1.2
-  metric-meta:
-    fontFamily: "SF Mono"
-    fontSize: 12px
-    fontWeight: 500
-    lineHeight: 1.2
-  title-lg:
-    fontFamily: "SF Pro"
-    fontSize: 22px
-    fontWeight: 600
-    lineHeight: 1.25
-  title-md:
-    fontFamily: "SF Pro"
-    fontSize: 18px
-    fontWeight: 600
-    lineHeight: 1.25
+    lineHeight: 1.4
   body-strong:
     fontFamily: "SF Pro"
-    fontSize: 16px
+    fontSize: 17px
     fontWeight: 600
     lineHeight: 1.35
   support:
     fontFamily: "SF Pro"
     fontSize: 15px
     fontWeight: 400
-    lineHeight: 1.35
-  callout:
+    lineHeight: 1.4
+  metadata:
     fontFamily: "SF Pro"
-    fontSize: 14px
-    fontWeight: 400
+    fontSize: 13px
+    fontWeight: 500
     lineHeight: 1.3
-  caption:
+  button:
     fontFamily: "SF Pro"
+    fontSize: 17px
+    fontWeight: 600
+    lineHeight: 1.2
+  metric:
+    fontFamily: "SF Pro Rounded"
+    fontSize: 28px
+    fontWeight: 700
+    lineHeight: 1.12
+  metric-meta:
+    fontFamily: "SF Mono"
     fontSize: 12px
-    fontWeight: 400
+    fontWeight: 500
     lineHeight: 1.25
 rounded:
-  none: 0px
-  input: 14px
-  card: 18px
+  field: 14px
+  row: 16px
+  card: 20px
   modal: 28px
-  dock: 28px
+  dock: 30px
   pill: 999px
-  full: 999px
-  card-ipad: 20px
-  modal-ipad: 32px
 spacing:
-  s2: 2px
-  s4: 4px
-  s8: 8px
-  s12: 12px
-  s16: 16px
-  s20: 20px
-  s24: 24px
-  s32: 32px
-  s40: 40px
-  phone-margin: 20px
-  card-padding: 20px
-  section-gap: 28px
-  button-height: 48px
+  xxs: 4px
+  xs: 8px
+  sm: 12px
+  md: 16px
+  lg: 20px
+  xl: 24px
+  xxl: 32px
+  xxxl: 40px
   touch-target: 44px
-  phone-dock-clearance: 150px
-  ipad-compact-margin: 24px
-  ipad-regular-margin: 28px
-  ipad-expanded-margin: 32px
-  ipad-card-padding: 24px
-  ipad-section-gap: 32px
-  grid-phone-columns: 4
-  grid-ipad-columns: 8
-  grid-wide-columns: 12
+  action-height: 48px
+  composer-height: 52px
+  phone-margin: 20px
+  ipad-margin: 28px
+  ipad-wide-margin: 32px
+  compact-chrome-clearance: 132px
+  readable-width: 680px
+  content-max-width: 1080px
 components:
-  primary-action:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.inverse}"
-    typography: "{typography.body}"
-    rounded: "{rounded.pill}"
-    height: "{spacing.button-height}"
-  primary-action-pressed:
-    backgroundColor: "{colors.primary-pressed}"
-  secondary-action:
-    backgroundColor: "{colors.secondary}"
-    textColor: "{colors.on-surface}"
-    typography: "{typography.body}"
-    rounded: "{rounded.pill}"
-  secondary-action-pressed:
-    backgroundColor: "{colors.secondary-pressed}"
-    textColor: "{colors.on-surface}"
-  clay-card:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.on-surface}"
-    rounded: "{rounded.card}"
-    padding: "{spacing.card-padding}"
-  clay-well:
-    backgroundColor: "{colors.surface-secondary}"
-    textColor: "{colors.on-surface-secondary}"
-    rounded: "{rounded.input}"
-    padding: "{spacing.s12}"
-  subdued-surface:
-    backgroundColor: "{colors.surface-tertiary}"
-    textColor: "{colors.on-surface}"
-    rounded: "{rounded.input}"
-    padding: "{spacing.s12}"
-  tertiary-mark:
-    backgroundColor: "{colors.on-surface-tertiary}"
-    size: 16px
-  selected-chip:
-    backgroundColor: "{colors.selected}"
-    textColor: "{colors.on-surface}"
-    rounded: "{rounded.pill}"
   canvas:
     backgroundColor: "{colors.canvas}"
-    textColor: "{colors.on-surface}"
-  canvas-secondary:
-    backgroundColor: "{colors.canvas-secondary}"
-    textColor: "{colors.on-surface}"
-  focus-ring:
-    backgroundColor: "{colors.focus}"
-    textColor: "{colors.inverse}"
-  assistant-card:
-    backgroundColor: "{colors.assistant}"
-    textColor: "{colors.inverse}"
-    rounded: "{rounded.card}"
-  status-success:
-    backgroundColor: "{colors.success}"
-    textColor: "{colors.inverse}"
-  status-warning:
-    backgroundColor: "{colors.warning}"
-    textColor: "{colors.inverse}"
-  status-info:
-    backgroundColor: "{colors.info}"
-    textColor: "{colors.inverse}"
-  strong-outline:
-    backgroundColor: "{colors.outline-strong}"
-    textColor: "{colors.on-surface}"
-  glass-dock:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.on-surface}"
-    rounded: "{rounded.dock}"
-  destructive-action:
-    backgroundColor: "{colors.error}"
-    textColor: "{colors.inverse}"
+    textColor: "{colors.text-primary}"
+  muted-canvas:
+    backgroundColor: "{colors.canvas-muted}"
+    textColor: "{colors.text-primary}"
+  primary-action:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.inverse-text}"
+    typography: "{typography.button}"
     rounded: "{rounded.pill}"
-  task-row:
+    height: "{spacing.action-height}"
+    padding: "{spacing.xl}"
+  primary-action-pressed:
+    backgroundColor: "{colors.primary-pressed}"
+    textColor: "{colors.inverse-text}"
+  secondary-action:
+    backgroundColor: "{colors.secondary}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.button}"
+    rounded: "{rounded.pill}"
+    height: "{spacing.action-height}"
+  secondary-action-pressed:
+    backgroundColor: "{colors.secondary-pressed}"
+    textColor: "{colors.text-primary}"
+  grouped-surface:
     backgroundColor: "{colors.surface}"
-    textColor: "{colors.on-surface}"
-    typography: "{typography.body}"
-    rounded: "{rounded.input}"
-    height: "{spacing.touch-target}"
-  focus-card:
-    backgroundColor: "{colors.surface}"
-    textColor: "{colors.on-surface}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.card}"
+    padding: "{spacing.lg}"
+  raised-surface:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.card}"
+    padding: "{spacing.lg}"
+  decision-surface:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.text-primary}"
     typography: "{typography.body-strong}"
     rounded: "{rounded.card}"
-    padding: "{spacing.card-padding}"
-  signal-ring:
-    backgroundColor: "{colors.surface-secondary}"
-    textColor: "{colors.on-surface}"
-    size: 64px
-  eva-composer:
+    padding: "{spacing.xl}"
+  recessed-well:
+    backgroundColor: "{colors.surface-recessed}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.field}"
+    padding: "{spacing.sm}"
+  open-row:
     backgroundColor: "{colors.surface}"
-    textColor: "{colors.on-surface}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.body}"
+    rounded: "{rounded.row}"
+    height: "{spacing.touch-target}"
+  selected-control:
+    backgroundColor: "{colors.selected}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.pill}"
+  focus-ring:
+    backgroundColor: "{colors.focus}"
+    textColor: "{colors.inverse-text}"
+    rounded: "{rounded.pill}"
+  assistant-surface:
+    backgroundColor: "{colors.assistant}"
+    textColor: "{colors.inverse-text}"
+    rounded: "{rounded.card}"
+    padding: "{spacing.md}"
+  status-success:
+    backgroundColor: "{colors.success}"
+    textColor: "{colors.inverse-text}"
+    typography: "{typography.metadata}"
+    rounded: "{rounded.pill}"
+  status-warning:
+    backgroundColor: "{colors.warning}"
+    textColor: "{colors.inverse-text}"
+    typography: "{typography.metadata}"
+    rounded: "{rounded.pill}"
+  status-error:
+    backgroundColor: "{colors.error}"
+    textColor: "{colors.inverse-text}"
+    typography: "{typography.metadata}"
+    rounded: "{rounded.pill}"
+  status-info:
+    backgroundColor: "{colors.info}"
+    textColor: "{colors.inverse-text}"
+    typography: "{typography.metadata}"
+    rounded: "{rounded.pill}"
+  signal:
+    backgroundColor: "{colors.surface-recessed}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.metric}"
+    rounded: "{rounded.card}"
+  composer:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.body}"
     rounded: "{rounded.dock}"
-    height: "{spacing.button-height}"
+    height: "{spacing.composer-height}"
+    padding: "{spacing.md}"
+  modal:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.modal}"
+    padding: "{spacing.xl}"
+  display-copy:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.display}"
+  screen-heading:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.screen-title}"
+  section-heading:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.section-title}"
+  supporting-copy:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.text-secondary}"
+    typography: "{typography.support}"
+  tertiary-copy:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.text-tertiary}"
+    typography: "{typography.metadata}"
+  metric-meta-copy:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.text-secondary}"
+    typography: "{typography.metric-meta}"
+  hairline:
+    backgroundColor: "{colors.border}"
+    textColor: "{colors.text-primary}"
+    size: "{spacing.xxs}"
+  strong-hairline:
+    backgroundColor: "{colors.border-strong}"
+    textColor: "{colors.text-primary}"
+    size: "{spacing.xs}"
   image-overlay:
     backgroundColor: "{colors.image-scrim}"
+    textColor: "{colors.inverse-text}"
   chart-primary:
     backgroundColor: "{colors.chart-primary}"
-    textColor: "{colors.inverse}"
+    textColor: "{colors.inverse-text}"
   chart-secondary:
     backgroundColor: "{colors.chart-secondary}"
-    textColor: "{colors.on-surface}"
+    textColor: "{colors.inverse-text}"
   dark-canvas:
     backgroundColor: "{colors.dark-canvas}"
-    textColor: "{colors.dark-on-surface}"
-  dark-canvas-secondary:
-    backgroundColor: "{colors.dark-canvas-secondary}"
-    textColor: "{colors.dark-on-surface}"
-  dark-surface:
+    textColor: "{colors.dark-text-primary}"
+  dark-muted-canvas:
+    backgroundColor: "{colors.dark-canvas-muted}"
+    textColor: "{colors.dark-text-primary}"
+  dark-grouped-surface:
     backgroundColor: "{colors.dark-surface}"
-    textColor: "{colors.dark-on-surface}"
+    textColor: "{colors.dark-text-primary}"
     rounded: "{rounded.card}"
-  dark-surface-secondary:
-    backgroundColor: "{colors.dark-surface-secondary}"
-    textColor: "{colors.dark-on-surface-secondary}"
-  dark-outline:
-    backgroundColor: "{colors.dark-outline}"
-    textColor: "{colors.dark-on-surface}"
+  dark-raised-surface:
+    backgroundColor: "{colors.dark-surface-raised}"
+    textColor: "{colors.dark-text-primary}"
+    rounded: "{rounded.card}"
+  dark-recessed-well:
+    backgroundColor: "{colors.dark-surface-recessed}"
+    textColor: "{colors.dark-text-primary}"
+    rounded: "{rounded.field}"
+  dark-supporting-copy:
+    backgroundColor: "{colors.dark-canvas}"
+    textColor: "{colors.dark-text-secondary}"
+    typography: "{typography.support}"
+  dark-tertiary-copy:
+    backgroundColor: "{colors.dark-canvas}"
+    textColor: "{colors.dark-text-tertiary}"
+    typography: "{typography.metadata}"
+  dark-hairline:
+    backgroundColor: "{colors.dark-border}"
+    textColor: "{colors.dark-text-primary}"
+    size: "{spacing.xxs}"
+  dark-strong-hairline:
+    backgroundColor: "{colors.dark-border-strong}"
+    textColor: "{colors.dark-canvas}"
+    size: "{spacing.xs}"
+  layout-phone:
+    padding: "{spacing.phone-margin}"
+    height: "{spacing.compact-chrome-clearance}"
+  layout-ipad:
+    padding: "{spacing.ipad-margin}"
+    width: "{spacing.readable-width}"
+  layout-ipad-wide:
+    padding: "{spacing.ipad-wide-margin}"
+    width: "{spacing.content-max-width}"
+  section-spacing:
+    size: "{spacing.xxl}"
+  wide-section-spacing:
+    size: "{spacing.xxxl}"
 ---
 
 # LifeBoard Design System
 
 ## Overview
 
-LifeBoard is a calm, tactile operating surface for a real day. It should feel warm, capable, and adult: like a well-made paper planner with responsive depth, not a toy, a dashboard collage, or a decorative 3D scene. The interface reduces cognitive load by making one decision primary, keeping supporting context quiet, and preserving honest states when data is unavailable.
+This document defines LifeBoard's **target experience** for a future iPhone and iPad overhaul. It is normative for future design and implementation work; the live app may temporarily differ until that work is completed. Component names below describe design-language contracts and do not claim that matching code types already exist.
 
-The implementation source of truth is `LifeBoardColorTokens` and its spacing, typography, corner, elevation, motion, and surface companions. This document is the persistent design contract for people and coding agents; it does not replace the Swift token system.
+LifeBoard is a warm, personal chief of staff for a real day. It helps someone understand what matters, make one good decision, record reality honestly, and move on. It must feel calm, capable, friendly, and deeply considered—never like a productivity dashboard, a technical control panel, or a collage of widgets.
+
+### Experience pillars
+
+- **Quiet confidence.** The interface presents the next useful truth without demanding attention.
+- **Personal warmth.** Copy, atmosphere, and small moments acknowledge the person and the time of day without becoming cute or performative.
+- **Effortless orientation.** A person must understand the screen's purpose, current state, and primary action within two seconds.
+- **Tactile directness.** Objects follow the finger, controls respond immediately, and spatial transitions explain where content came from.
+- **Earned delight.** Rich motion and signature effects appear at meaningful boundaries, not as ambient decoration.
+
+Every screen must have one dominant decision, a clear reading order, and progressive disclosure. Supporting information stays quiet until it becomes relevant. Prefer plain, human language over system terminology. Explain consequences before destructive or consequential actions, then provide a clear receipt and Undo where reversal is possible.
+
+Premium quality comes from exact spacing, excellent typography, stable geometry, immediate feedback, and graceful state changes. More glass, more cards, more color, or more animation does not make a screen more premium.
 
 ## Colors
 
-- **Cocoa ink (`#2B2118`)** is the primary action and strongest reading color on light paper.
-- **Warm paper (`#FFF7D8`)** is the scenic canvas; raised paper (`#FFFDF7`) is the primary content surface.
-- **Sun (`#F0CD87`)** and apricot are warm highlights, not a substitute for semantic status.
-- **Assistant violet (`#6842FF`)** is reserved for EVA/assistant context. It must not become a generic selection color.
-- **Success, warning, and error** communicate recorded state only. Never infer health, completion, or wellbeing from incomplete data.
-- **Focus (`#5A3D1E` light / `#F3E6C8` dark)** is an opaque accessibility affordance. It is not an alias for the translucent decorative accent ring; focus indicators must preserve their 3:1 boundary contrast.
-- **Hairlines respond to Increase Contrast.** The semantic hairline strengthens from `#E9DFC6` to `#A89572` in light appearance and from `#4D526D` to `#777C9B` in dark appearance.
-- Dark appearance is a designed warm-indigo composition from the adaptive Swift tokens, not a color inversion. Use semantic token roles rather than the literal values above when implementing UIKit or SwiftUI.
+The palette is warm paper and cocoa ink by day, warm indigo and parchment by night. Use semantic token roles rather than literal values in feature work so appearance, contrast, and accessibility can adapt without changing meaning.
+
+- **Canvas** carries atmosphere and negative space. It is not a card background repeated around every section.
+- **Surface** groups content only when a boundary helps comprehension. Raised surface is reserved for the hero, a movable object, a proposal, or a receipt.
+- **Cocoa primary** is the strongest reading and action color in light appearance.
+- **Sun secondary** is a warm highlight for one secondary emphasis. It is not a warning color.
+- **Assistant violet** belongs only to Eva identity, Eva affordances, and structured assistant context.
+- **Success, warning, error, and info** describe recorded state. Never infer completion, health, wellbeing, or urgency from missing evidence.
+- **Selected** is paired with shape, label, or selection semantics. Color alone must never communicate selection.
+
+Daypart color may softly influence the canvas and scenic background. It must not recolor semantic status, reduce text contrast, move controls, or change information hierarchy. Scenic art must preserve a quiet reading field; text over imagery requires the shared scrim and must remain readable across the image's full luminance range.
+
+Support light appearance, dark appearance, Increase Contrast, and Reduce Transparency. Normal text must reach at least 4.5:1 contrast; large text, focus boundaries, and meaningful non-text controls must reach at least 3:1. High-contrast variants strengthen boundaries without turning the entire interface into outlined boxes.
 
 ## Typography
 
-Use Dynamic Type-backed system typography. SF Pro Rounded gives greetings, metrics, and friendly section emphasis their human warmth; SF Pro carries task content and long-form reading; SF Mono is only for aligned times, durations, progress, and compact metrics. Preserve the semantic role even when adaptive layout changes the point size. Never add a bundled web font or use raw fixed sizes in feature code.
+Use Dynamic Type-backed San Francisco typography. SF Pro carries navigation, tasks, conversation, and long-form reading. SF Pro Rounded is reserved for expressive metrics and rare friendly moments. SF Mono is reserved for aligned times, durations, and compact numeric metadata.
 
-The full hierarchy is display, screen title, section title, title, headline, body, strong/emphasis body, support, callout, metadata, caption, button, metric, and monospaced metadata. Use no more than three visibly competing levels in one local group. Long-form Journal and explanation text should remain readable at the user’s preferred size; dashboards must not shrink type to preserve a grid.
+### Hierarchy
+
+- **Display**: a short personal greeting or singular ceremonial moment; never a paragraph.
+- **Screen title**: the destination or focused task.
+- **Section title**: a meaningful change in content, not a label above every group.
+- **Body and body strong**: primary reading, actions, and task content.
+- **Support and metadata**: context that may wrap or move below primary content.
+- **Metric and metric metadata**: recorded values with units, timeframe, and provenance nearby.
+
+Use no more than three visibly competing typographic levels in one local composition. Do not use light font weights. Do not use uppercase for personality or hierarchy. Avoid center alignment outside onboarding, empty states, celebrations, and singular focus moments.
+
+All meaningful text must scale without clipping. At accessibility sizes, stack metadata and actions, widen the reading surface where possible, and collapse grids before truncating. Journal and Eva prose must retain comfortable line length and line spacing. Never shrink type to preserve a card grid or one-line toolbar.
 
 ## Layout
 
-Use the 2/4/8/12/16/20/24/32/40 pt rhythm. Phone content begins at the tokenized 20 pt horizontal margin; iPad uses the adaptive layout recipes rather than scaled phone geometry. Keep a minimum 44 pt hit target, reserve safe-area space for the dock and composer, and let accessibility sizes stack metadata/actions or scroll signal rails before truncating meaningful content.
+LifeBoard uses an open canvas with deliberate islands of interaction. The default screen budget is:
 
-Home stays open between modules so its atmosphere can breathe. A card is warranted only for one decision, one summary, or one independently movable widget. Task rows remain open and readable; Focus Now is the only deliberately dominant Home card.
+- one hero decision or active state;
+- zero to three relevance-ranked supporting signals;
+- one visually dominant primary action;
+- open rows or prose for ordinary content;
+- deeper detail disclosed through navigation, expansion, or a secondary pane.
 
-### LifeBoard 5 root architecture
+Avoid nested cards, duplicated counts, repeated headings, and grids where every item has equal weight. A card is justified only when its contents form one independent decision, summary, movable object, proposal, or receipt.
 
-Every root answers one question and preserves its own navigation state:
+### Five roots
 
-- **Home — What matters now?** One dominant Now decision, no more than four honest signals, Today's committed work, Day ahead, conditional Needs attention, then Keep steady, Close the loop, and user-owned supporting widgets. Home does not restate the same projection twice: if the Now card, a section state, and a summary line would all narrate the open-task count, only one of them survives.
-- **Plan — When should it happen?** Day, Week, and Backlog. Focus is a typed destination from work rather than a competing root lens. Ordinary tasks are open rows with restrained separators; their full-width drag region and named zoom source remain intact. One contextual capacity, scenario, or focus surface may become the hero.
-- **Track — What needs recording or sustaining?** Today, Areas, and History. Today carries only what is time-sensitive — a running fast appears there and returns to its area when it ends. Due decisions use compact actionable tiles; a multi-action module such as hydration spans the reading width instead of forcing every adjacent signal tile to inherit its height. History says what was recorded and never renders an absent value as zero. Every domain is reachable from the new tree; nothing is exclusive to an older surface. Configuration and grading belong in detail/settings.
-- **Insights — What changed, and what should I do next?** Overview, Trends, Review, and the explicitly selected Experience lens. Interpretation precedes metrics; raw provenance is disclosed as Evidence. A successful-empty Overview links directly to Track; an empty optional Experience lens returns to Review. Experience reads only the local XP ledger and frames it as an optional view, never a score for the day.
-- **Eva — Help me understand or safely make a change.** Full-height conversation; ordinary assistant prose is open on the reading canvas, user messages are raised tactile clay, and only structured proposals/results/Undo earn a card boundary. All mutations remain explicit proposals with receipts.
+- **Home — What matters now?** One Now decision, up to three honest signals, today's committed work, and concise day-ahead context.
+- **Plan — When should it happen?** A time canvas with day, week, and backlog views; scheduling is the primary activity.
+- **Focus — What am I doing now?** A distraction-free active commitment, timer state, and clear pause, resume, or finish controls.
+- **Track — What needs recording or sustaining?** Fast access to timely logs, followed by areas and history.
+- **Journal — What do I want to remember or understand?** An open writing and reading surface with reflections, media, and derived insight disclosed gently.
 
-Remote Eva is an account capability, never an implied extension of local Eva.
-It is deny-by-default and requires both account-level opt-in and an independent
-grant for each context category: Journal, health, Life Moments, and planning
-context. The request builder filters context at send time, so revocation removes
-that category from the next request without waiting for a cache refresh. A grant
-is valid only when the active request account exactly matches the policy account;
-an account switch fails closed even if the previous account had granted every
-category. It authorizes only the remote Eva request being assembled; it never authorizes
-Journal or health disclosure in a widget, notification, Spotlight result, Watch
-surface, Live Activity, or lock-screen preview. If account identity, account
-opt-in, or a category grant is unavailable, that context remains local.
+Insights and Eva are first-class destinations reached from relevant context and global chrome. Insights answers “What changed, and what should I do next?” Eva answers “Help me understand or safely make a change.” Neither competes with the five-root dock.
 
-The floating conversational composer owns capture on every root except Eva, which hosts its own. Pushed editor and focused ritual routes suppress it so their commit control and keyboard input remain singular and reachable; the root dock stays available. Its leading control expands into the capture tray; every capture kind with a working host has a visible control there. The compact root header owns capture only where the composer is suppressed, plus the overflow menu, the Home mode control, and Add to Home. The bottom dock is an unobstructed five-target Regular Glass capsule; composer and dock share one `GlassEffectContainer` so they morph as a single surface. Home orientation roles are anchored and rendered once; schema-v5 migration removes only app-owned duplicates and preserves user IDs, payloads, order, size, visibility, ownership, and unknown widgets.
+### iPhone
 
-Capture is interruption-safe. An in-progress native capture persists as a
-provisional App Group item and restores the exact draft after process death;
-cancel removes only that provisional item. Share, Widget, Siri, Watch, and
-in-app producers enqueue raw captures with stable identity and never silently
-schedule or commit them. Plan Inbox keeps the capture until its canonical task
-mutation succeeds. Filing is one reviewed mutation with one receipt; Undo
-removes the filed task and restores the original capture ID, text, timestamp,
-source, and queue position. Loading, failed load, conflict, duplicate review,
-and genuinely empty Inbox are visually and semantically distinct.
+Use a floating five-target root dock. Immediately above it, use a 52-point “Ask Eva or capture” composer capsule. After purposeful downward scrolling, the composer may compress into a 48-point orb; it must restore at the top or on tap. It must never collapse while editing, dictating, reviewing a proposal, waiting for a result, showing a receipt, or holding a draft.
 
-#### Canonical application host and retired roots
+Reserve measured bottom clearance for floating chrome; content must never disappear behind the dock or composer. Focused editors, immersive Focus sessions, customization, and daily rituals suppress competing global chrome. Root changes preserve each root's navigation state and use directional movement that reflects destination order.
 
-`LifeOSFoundationShell` inside `LifeBoardApplicationHostController` is the only
-iOS application root. Adaptive Home is not an experiment or a fallback branch:
-it is the canonical Home, has no runtime enable flag, and must fail with an
-explicit recoverable state if its projection cannot be composed. Never restore
-`HomeViewController`, `LegacyHomeControllerHost`, or the Sunrise application
-shell as a rollback path.
+### iPad
 
-Root responsibilities are deliberately separated from presentation:
+Use a five-root switcher above root content rather than stretching the phone dock. Constrain prose and forms to a 680-point readable width and primary compositions to a 1080-point maximum. Use a secondary pane only when both panes remain independently useful, such as task detail, Plan scheduling, Journal context, or Eva evidence.
 
-- `HomeProjectionCoordinator` owns Home projection composition and refresh;
-- `AppOnboardingCoordinator` presents first-run work through the native host;
-- `LifeBoardNavigationEventCoordinator` translates notifications, links,
-  shortcuts, widgets, and system events into typed app routes;
-- `OverdueRescueLaunchCoordinator` and `RescueBatchApplier` own Rescue launch
-  and mutation semantics independently of any root view.
+Compact split-screen preserves the iPhone reading order with wider intrinsic rows. Regular width uses breathing room and conditional two-pane layouts. Wide and landscape layouts may show supporting context alongside the primary surface, but must not fill space with additional cards. Pointer targets, hover treatment, keyboard focus, and root shortcuts are part of the design.
 
-The retired Daily Reflection flow is not a second daily ledger. Authored legacy
-text migrates once into canonical Journal reflection notes with
-`legacyDailyReflection` provenance. Completion keys create no receipts, and
-`DailyPlanDraft` values create no task or planning mutations. Failed note writes
-leave the migration retryable. Daily Loop receipts remain the sole authority for
-opening, closing, carrying, and Undo.
+### Adaptive behavior
 
-The retired celebration router must not return. XP may remain in its idempotent
-ledger and as an optional Insights lens, but Home and Daily Loop never derive
-copy, color, motion, or hierarchy from XP magnitude. Completion haptics fire at
-the successful persistence boundary, not from a parallel celebration event.
-
-### Card archetypes
-
-`HomeCardSnapshot` carries a typed `HomeCardPayload` alongside its strings, so a card can be a number, a series, a target or a queue rather than a joined sentence. Every registered kind declares a `HomeCardArchetype` — metric, ring, trend, queue, streak, decision, spine, moment, countdown, action — and every archetype renders at all five size presets. This is a correctness rule, not a style one: accessibility text sizes force the wide preset, so an archetype that cannot draw at wide is a blank card for anyone using large type.
-
-Charts always ship their prose equivalent, and degrade to it entirely at accessibility sizes rather than shrinking type. Hero numerals roll only on a real value change. Sensitive cards drop their payload before reaching any widget, Spotlight item or notification preview.
-
-`DashboardWidgetDescriptor.sectionRole` is the single source of truth for which Home section a card belongs to — it replaced three hardcoded string sets in the Home view and a fourth copy in the layout repository.
-
-### Home modes
-
-Smart, Work, Personal and Low Energy each change content, not just palette. `DashboardModePolicy` resolves the permitted planning contexts, which cards a mode will surface, and how many sections it shows; providers filter their own queries rather than the view hiding rows afterwards. Work excludes sensitive cards outright. Low Energy reduces Home to Now, Signals and Keep steady.
-
-Phone uses the canonical four-column semantic grid, regular iPad eight columns, and wide iPad twelve. Persist semantic spans, not device pixels. The system scales authored spans proportionally and falls back to one content column at accessibility sizes. Content must reserve the measured floating chrome height rather than assuming a fixed safe-area inset.
-
-### Route, state, and platform specification
-
-Typed routes, not view-specific booleans, own destination identity. Home selects a
-root or typed detail route; Plan task rows zoom to `.taskDetail`, evidence links
-open the named `.insightEvidence` record, Track activities route to their
-canonical editor/history, and Eva receives an explicit launch request containing
-only authorized context. Restoring a root preserves its lens, path, scroll
-position, draft, and any persisted run identity. A sheet dismissal never stands
-in for a domain cancel, apply, or Undo command.
-
-Every root and secondary destination must distinguish populated, genuinely empty,
-loading, permission denied, locked, offline, stale/partial, recoverable error,
-selected, editing, destructive confirmation, and recovery where those states are
-possible. Unknown and unavailable are not explicit zero. Loading replaces final
-content geometry; a fetch failure never renders congratulatory empty copy. Error
-and denied states keep the safe local actions that still work.
-Successful-empty states expose one direct, relevant next action. Numeric and
-multi-select controls use at least 44-by-44-point targets and communicate
-selection through accessibility value/traits in addition to fill or color.
-
-System surfaces consume only versioned, atomic, redacted projections. They do
-not open canonical stores and they never infer disclosure permission from a
-Remote Eva grant. Missing, stale, protected, malformed, future-schema, and
-wrong-domain envelopes fail closed. Duplicate or reordered deliveries resolve
-idempotently by stable identity; a durable source remains until the canonical
-receiver acknowledges it. Offline capture may queue locally, but an unavailable
-read may not masquerade as an explicit zero or an empty day.
-
-iPhone is the composition authority and visual-approval gate. After iPhone is
-approved, compact iPad preserves the same reading order with wider intrinsic
-rows; regular iPad uses the eight-column recipe; wide iPad uses twelve columns
-and may expose a persistent secondary column only when both panes remain useful.
-Catalyst and regular-width iPad use one explicit five-root clay switcher above
-root content. Each destination is a direct 44 pt target with visible selected
-state, VoiceOver selection semantics, pointer support, and `⌥⌘1` through `⌥⌘5`
-shortcuts. It replaces duplicate adaptive sidebar/tab chrome and disappears on
-detail, editor, and focused ritual routes, where the route navigation bar is the
-single authority.
-Catalyst adapts the approved regular/wide composition with keyboard commands,
-visible focus, pointer affordances, resizable-window constraints, and restoration.
-No platform may fork persistence, copy law, state meaning, or feature ownership.
-Hardware-only evidence such as signed-device haptics and paired Watch delivery is
-tracked separately from layout approval.
-
-Generated concept masters, the claymorphism research handoff, and earlier Sunrise
-mockups are non-iOS references. They may inform mood, motif, and composition, but
-they cannot override this document, semantic tokens, Dynamic Type, accessibility,
-canonical routes, or persisted behavior. A generated image is never implementation
-evidence.
+Use the 4/8/12/16/20/24/32/40-point rhythm. Maintain at least 44 by 44 points for every interactive target. At large text sizes, use one content column, allow horizontal controls to scroll or stack, and keep primary actions reachable above the safe area. Support right-to-left layout by mirroring spatial navigation and directional affordances while preserving semantic meaning.
 
 ## Elevation & Depth
 
-Create clay depth with tonal paper layers, a fine warm hairline, and shallow named shadows. Raised content is tactile but quiet; do not use glossy highlights, hard black shadows, deep floating stacks, or card-on-card nesting. Use the existing clay-card and embedded-well primitives instead of inventing new shadow geometry.
+Depth communicates interaction and ownership, not decoration. Use four visual planes:
 
-Named depth roles are embedded well, grouped/reading surface, raised card, floating action, dock, rescue tile, and focused overlay. Scroll-optimized rendering may remove nonessential shadows while retaining border and tonal hierarchy. Never encode importance solely as a larger blur.
+1. **Open canvas:** no shadow; atmosphere and ordinary reading live here.
+2. **Recessed well:** tonal inset with a fine semantic boundary; use for fields, progress tracks, and embedded controls.
+3. **Raised clay:** one shallow warm shadow and hairline; use for the hero, a draggable object, proposal, or receipt.
+4. **Floating chrome:** Regular Liquid Glass for navigation, capture, compact menus, and approved toolbar controls.
 
-Regular glass is navigation and control chrome only: the bottom dock, capture control, EVA composer, compact menus/filters, and approved sheet headers. Clear glass requires local dimming and verified contrast over scenic art. Under Reduce Transparency, substitute opaque semantic surfaces with stronger hairlines.
+Use Liquid Glass only on the navigation and control layer. Related glass controls must read as one surface and morph between stable silhouettes. Use Regular Glass by default. Do not use Clear Glass in the target system. Under Reduce Transparency, replace glass with an opaque semantic surface and a stronger border without changing layout.
+
+Never place glass on ordinary rows, prose, charts, Journal entries, or assistant messages. Never stack glass on glass. Avoid glossy highlights, hard black shadows, deep floating stacks, blur as hierarchy, and card-on-card nesting. Scrolling may simplify nonessential shadows while preserving tonal and boundary hierarchy.
 
 ## Shapes
 
-Use continuous corners. Inputs use 14 pt corners; standard cards 18 pt; sheets and dock clusters 28 pt; chips and primary actions are pills. Circular controls are genuinely circular and must retain their target size. Do not mix sharp, squared controls into the clay system without a platform-owned reason.
+Use continuous corners with a small, purposeful vocabulary:
+
+- **14 points:** fields and recessed wells.
+- **16 points:** interactive rows and compact content controls.
+- **20 points:** raised decisions, proposals, and receipts.
+- **28 points:** sheets and modal presentations.
+- **30 points:** dock and composer clusters.
+- **Pill:** primary actions, filters, selected lenses, and status capsules.
+- **Circle:** single-purpose icon controls, capture orb, progress dial, and compact marks.
+
+Shape communicates behavior. Pills imply compact actions or selection, circles imply one direct action, and cards imply an independent object. Do not mix arbitrary corner radii within one component family. During shared-element or glass transitions, source and destination must maintain a coherent silhouette without clipping text or controls.
 
 ## Components
 
-- **Primary action:** one per decision surface where possible; cocoa on paper, with a visible pressed state and semantic inverse label.
-- **Secondary actions and chips:** quieter paper/well treatments; selected state uses a semantic token and never relies on color alone.
-- **Task row:** 44 pt completion target, title first, one restrained metadata line, optional truthful status chip, and no nested gamification card.
-- **Focus card:** the dominant daily commitment; show one visible action and a one-line explanation. Put deeper reasoning in EVA or detail.
-- **Signal ring:** distinguish loading, setup required, stale, unavailable, explicit zero, and recorded value visually and in accessibility labels.
-- **EVA composer and dock:** approved Regular Glass chrome with an opaque fallback. Do not place required reading copy on translucent material over uncontrolled imagery.
-- **EVA messages:** keep normal assistant prose open and stable for long-form reading; raise user messages for conversational tactility. Reserve bounded assistant cards for structured proposals, command results, receipts, and Undo.
-- **Loading, empty, error, and denied states:** replace final content geometry rather than overlay it; explain recovery and keep actions available.
-- **Destructive work:** use an explicit confirmation, warning color, stable layout, and undo/receipt where supported by the canonical mutation path.
-- **Charts:** use semantic series colors, labeled axes, timeframe/source context, and a table or prose equivalent. Never imply causation or wellness quality through color.
-- **Scenic imagery:** preserve a calm negative-space reading field and use the shared luminance/readability policy before placing text over images.
-- **Direct manipulation:** pair drag/swipe with buttons, keyboard commands, and VoiceOver actions. Preserve velocity only within named interaction policies.
-- **Protected surfaces:** show a content-free clay unlock/recovery surface; never render sensitive content behind a blur.
+The components below are target design-language contracts. Implementations may use different type names, but must preserve their hierarchy, behavior, states, and accessibility.
 
-### Commit controls
+### Decision surface
 
-`LifeBoardCommitControl` is the canonical presentation for a consequential async
-save. Its phase comes from the store’s real `AsyncActionPhase<Receipt>`:
+The decision surface is the single dominant object on a screen. It contains one short title, one line of useful context, one primary action, and at most one quiet alternative. It may show progress or a truthful status, but never a dashboard of metrics. On iPad it grows through spacing and composition, not oversized type or empty card area.
 
-- idle shows the enabled action;
-- running suppresses duplicate taps and reports progress;
-- success draws the completion mark only after the canonical mutation returns;
-- recoverable failure keeps the input mounted and offers retry;
-- cancellation returns to an actionable settled state.
+### Open row
 
-Feature views must not synthesize success with a delay, dismiss before persistence,
-or create a receipt before the awaited mutation succeeds. Editors that need space
-for progress, error, and retry place the commit action in the bottom safe area.
-Immediate reversible logs, such as hydration quick-add, use lighter feedback.
+Use open rows for tasks, events, habits, logs, evidence, and settings. Lead with title or value, follow with one restrained metadata line, and place status or accessory content at the trailing edge. Provide a full-row navigation target while keeping completion, disclosure, and destructive actions semantically distinct. At large text sizes, metadata moves below the title and trailing actions remain reachable.
+
+### Signal strip
+
+Show zero to three signals selected by current relevance, actionability, and freshness. Each signal communicates a single fact with label, value or state, timeframe, and direct destination. Loading, no record, explicit zero, stale, denied, unavailable, and error are separate states. Signals scroll on compact widths and may form a quiet row on iPad; they do not become a large metric grid.
+
+### Morphing composer
+
+The composer provides capture and Eva access without dominating the screen. Its states are compact capsule, capture orb, expanded input, dictation, tools, working, review, and receipt. State changes morph in place and preserve draft, keyboard focus, accessibility focus, and input mode. A working or review state cannot be dismissed by automatic chrome compression.
+
+### Root dock and selected lens
+
+The dock contains five equally reachable targets with one moving selected lens. Selection uses position, shape, label, and accessibility state—not tint alone. Root transitions originate from the selected target and settle before secondary content animates. On iPad, the same contract appears as a top switcher with pointer and keyboard behavior.
+
+### Commit control and receipt
+
+Consequential actions use idle, running, success, recoverable failure, and cancelled phases. Running prevents duplicate submission while preserving input. Success feedback begins only after the canonical action succeeds. Failure keeps user work mounted and offers a specific retry. A receipt names what changed and exposes Undo when reversal is supported.
+
+### Directional decision deck
+
+Inbox, Rescue, and replanning decisions may use one front card on a stable deck plane. Drag follows the finger, reveals direction meaning before threshold, and settles or returns predictably. Every gesture direction has a visible labeled button, VoiceOver action, keyboard equivalent, and non-destructive default. Destructive outcomes require explicit confirmation.
 
 ### Focus dial
 
-`LifeBoardFocusDial` is a presentation-only circular progress surface. Timer
-ownership remains in the Focus domain. The dial receives settled progress, paused
-state, accessible text, and center content; it never schedules commands or persists
-time.
+The dial presents settled progress around a dominant time or activity label. Active, paused, and completed states use text, shape, and color together. Scrubbing or direct manipulation uses magnetic alignment and threshold feedback. The dial does not run an ambient shader and becomes a static progress presentation under Reduce Motion.
 
-The track uses a quiet recessed cocoa/paper tone. Active progress uses
-apricot/ember; paused progress uses sage. The center clock remains the dominant
-reading element and uses numeric text transitions at one Hz. Under Reduce Motion,
-progress updates without spring travel. Never mount a continuously running shader
-on the dial.
+### Charts and evidence
 
-### Focused Home customization
+Lead with one plain-language interpretation and one useful action. Charts are secondary evidence with labeled axes, timeframe, source, and a prose or table equivalent. Unknown data is not zero. Do not imply causation, health quality, or moral value through color, trend direction, or celebratory copy.
 
-Home editing is a transactional mode:
+### State surfaces
 
-- hide the global dock and capture composer;
-- freeze contextual reordering;
-- expose one Cancel/Done action group;
-- show drag and context controls only as editing affordances;
-- preserve the normal Home hierarchy and production defaults until Done succeeds;
-- restore the exact pre-edit layout on Cancel.
+Loading, genuinely empty, no record, denied, locked, offline, stale or partial, recoverable failure, destructive confirmation, and recovery must remain distinct. State surfaces replace final content geometry rather than floating above it. A successful-empty state offers one relevant next step; failure explains what remains safe and what can be retried. Protected content is never visible behind blur.
 
-Do not leave persistent Pinned badges, repeated ellipsis buttons, or global capture
-chrome competing with the layout task.
+### Target compositions
 
-### Directional decks
+- **Onboarding:** one question per step, a subtle daypart scene, personal promise, immediate CTA, and a skippable 1.2–1.4-second opening. The first committed win transforms into Home.
+- **Home:** greeting and date, one Now decision, up to three signals, open Today rows, concise Day Ahead, and lower-priority modules disclosed only when relevant.
+- **Plan:** compact date and capacity context around the dominant time canvas; tasks move into open windows through direct manipulation and accessible move controls.
+- **Focus:** one commitment, tactile dial, clear pause/resume/finish actions, minimal chrome, and a persisted completion receipt.
+- **Track:** a compact quick-log strip first, then Areas and History. Immediate reversible logs use lighter feedback than consequential commits.
+- **Journal:** open writing and reading, calm line length, media that settles into the entry after commit, and derived context kept secondary.
+- **Insights:** one interpretation and one action before charts; evidence and provenance expand on request.
+- **Eva:** assistant prose stays open on the canvas, user messages use quiet clay, and only proposals, command results, receipts, and Undo receive bounded surfaces.
+- **Inbox and Rescue:** a directional deck with visible alternatives, honest empty/failure states, and one receipt for each committed batch.
+- **Daily Loop:** a focused opening decision, current-day action, blame-free repair, and an evening close with one restrained completion moment.
 
-Use `LifeBoardDirectionalDeck` and `LifeBoardDeckPhysics` for flickable decision
-cards. The resolver owns threshold, axis dominance, predicted translation, exit
-offset, and tilt. Render only the front card; depth belongs to the deck plane, not
-live sibling content that may leak when card heights differ.
+### Motion and delight
 
-Every direction must have:
+Use the motion grammar **source → travel → settle**. Source establishes origin, travel preserves spatial continuity, and settle confirms the new state. Direct manipulation follows the finger without perceptible delay. Persistence precedes success motion and haptics.
 
-- a visible labeled alternative;
-- a VoiceOver action;
-- one unambiguous domain meaning;
-- a non-destructive default;
-- a persisted-state boundary before success feedback.
+Concentrate rich motion at five boundaries: capture, navigation, commitment, replanning, and reflection. Ordinary scrolling, reading, and repeated row actions stay quiet. Most microinteractions complete within 120–280 milliseconds; spatial transitions complete within 280–500 milliseconds; signature moments remain below roughly 800 milliseconds and never block the next action.
 
-### Daily Loop
+Comfort profiles change expression, not capability:
 
-The Daily Loop is Home's non-pinnable spine and the app's primary daily rhythm.
-Its resolver has five mutually exclusive stages: `.commit` offers an explicit
-morning confirmation, `.act` leads with the current decision, `.repair` surfaces
-drift without blame, `.close` opens the evening ritual, and `.rest` asks for
-nothing after closure. Persisted open/close state outranks the clock. Loading,
-genuinely empty, stale, unavailable, denied, explicit zero, unknown evidence,
-and recoverable failure remain visibly and semantically distinct.
+- **Calm:** crossfades and short state changes; no elastic or spatial flourish.
+- **Balanced:** the premium default; restrained spring, depth, and one-shot effects.
+- **Playful:** slightly stronger elasticity, shimmer, and haptic texture without longer waits or changed outcomes.
 
-The evening ritual is one scroll with four acts: reconcile unfinished work,
-reflect, choose tomorrow's anchor, and close. A liquid ring reports only recorded
-planned/focused time. A vertical act thread has four clay knots; a knot settles
-only when its act is complete, never merely because it was scrolled past. The
-deck exposes all four alternatives as labels, buttons, gestures, VoiceOver
-actions, and keyboard-accessible controls: tomorrow, someday, done anyway, and
-release. Undo restores the previous shuffle and zoom transitions share the named
-Home/ritual source and destination.
+Use the existing signature-effect vocabulary only:
 
-Directional feedback stays tactile but bounded. Morning proposal cards retain
-the established lean sequence `[6, -4, 9, -7, 3]` points with `0.22` rotation
-factor. An armed `.doneAnyway` card stays square and firm; its completion burst
-runs once on the persisted summary, never on selection. An armed `.release`
-preview uses `0.22` erosion; the settled release effect also waits for the batch
-receipt. One act is one batch, one receipt, and one canonical Undo.
+- `firstLight` for the first daily commitment and onboarding arrival.
+- `contextLens` for capture or composer mode handoff.
+- `cardMorphWarp` behind a row-to-detail transition.
+- `clayPressBloom` for a significant press or selection.
+- `completionBurst` and `dissolveAway` only after persisted completion.
+- `triageSettle` beneath Inbox, Rescue, and repair decks.
+- `chartRevealSweep` when valid chart data first appears or its range changes.
+- `evaInkReveal` for newly arriving Eva content.
+- `journalMediaReveal` and `memoryDevelopReveal` for committed media and memories.
+- `daypartBloom` and `daypartCrossDissolve` at semantic atmosphere changes.
+- `healthSyncPulse`, `vitalOrbWarp`, and `fastingEmberRing` only for corresponding recorded state changes.
+- `liquidGlassRefract` for approved dock, lens, and composer transitions.
+- `valueDrumWarp` only while a value tape is under the finger; identity at the centre detent and at rest.
+- `paperGrain` as the only static effect.
 
-Rhythm copy is consistency-first: `9 of 14 days · 1 day running`. Both facts use
-the same typography in one wrapping label. No red, flame, loss, streak-rescue, or
-recovery language is permitted. XP is absent from Home and Loop celebrations.
-The app schedules one configurable gentle evening nudge — “Whenever you're ready
-— see how the day went and carry what's left.” — suppresses it after a successful
-close, and schedules no later follow-up.
+Effects mount behind text, charts, evidence, and sensitive content. Every animated effect returns to a settled state. Reduce Motion, Reduce Transparency, Low Power Mode, thermal pressure, inactive scenes, unsupported platforms, or shader failure replaces effects with short semantic crossfades or immediate state changes without removing content or delaying input.
 
-Morning commitment remains explicit until 14 eligible local days exist. The
-local `DayOpenProposalSignalStore` records edited/unedited proposal evidence only
-after scenario apply succeeds, keyed by receipt ID; a failed sidecar write is
-unknown evidence and cannot fail or roll back the commitment. Reports join only
-currently applied receipts, so Undo stops contributing automatically and a
-missing sidecar never means “edited.” If fewer than 40% of eligible days were
-opened before 11:00, the resolver switches to zero-interaction confirmation: it
-writes an empty `dayOpen` receipt without silently changing tasks. Proposal
-ranking remains unchanged until known evidence is sufficient.
+### Accessibility and input
 
-Under Reduce Motion, proposal lean is removed, knot and liquid changes settle
-without travel, deck exits use the reduced transition, and one-shot erosion or
-burst feedback crossfades or snaps. Labels, direction alternatives, receipt
-timing, and Undo behavior do not change. Increase Contrast strengthens the
-semantic hairline around knots, cards, and focus; effects never carry required
-meaning by themselves.
+Every gesture has a visible control and VoiceOver action. Every control has a stable label, value, trait, and focus order. Support Dynamic Type, Bold Text, VoiceOver, Switch Control, keyboard navigation, pointer interaction, right-to-left layout, Reduce Motion, Reduce Transparency, Increase Contrast, and grayscale without changing task meaning.
 
-### Overdue Rescue
-
-Overdue Rescue is one canonical decision deck entered from Home, Plan, Insights,
-the Day Compass, or universal input. `OverdueRescueLaunchCoordinator` owns the
-launcher phase, active plan, overdue and Day-Rescue task maps, reference date,
-batch run identity, and presentation context. Presentation hosts receive task
-edit, delete, restore, apply, Undo, planning-metadata, tracking, retry, and
-dismiss services explicitly; no root view reaches through a legacy controller.
-
-`RescueBatchApplier` is the mutation boundary. It resolves current task rows,
-rejects missing/completed/subtask/stale or no-longer-eligible work, builds the
-validated proposal, then proposes, confirms, and applies in order. Transactional
-apply rollback remains authoritative. A planning-metadata failure compensates
-through the same batch Undo path exposed to the person. One safe-fix act remains
-one run and one Undo; a failed compensation is named and remains retryable.
-
-The `.universalInputDayRescue` variant shares the deck, physics, controls, and
-service boundary while using only today's replan task map and its own persisted
-session scope. Its genuine empty state says that nothing needs rescuing today;
-repository failure, stale work, retry, and an exhausted deck remain separate
-states. Launch failure stays mounted with Retry and Dismiss. Closing a completed
-run clears presentation but does not erase the durable run identity needed by
-Undo.
-
-### Guided Routine runner
-
-Guided Routines use one full-screen presentation route. Interactive dismissal is
-disabled because presentation dismissal is not a domain command. Running, paused,
-and interrupted states must all expose explicit End. Abandonment is confirmed and
-uses the canonical routine mutation. Continue/Resume is primary; Pause and Skip are
-secondary.
-
-Routine step motion uses existing clay surfaces and a bounded card-swap transition.
-Reduce Motion crossfades. Semantic typography and persisted run state must survive
-backgrounding, restoration, and accessibility sizes.
-
-### Signature-effect governance
-
-The Swift registry and Metal source are one atomic contract:
-
-- every registry name has exactly one `[[ stitchable ]]` declaration;
-- every declaration appears in the registry;
-- the expected count is 18;
-- all functions live in
-  `LifeBoard/View/Effects/LifeBoardSignatureEffects.metal`;
-- `LifeBoardSignatureShaders.warmUp()` is all-or-nothing;
-- one misspelled or orphaned function disables the signature set and must fail a
-  unit test.
-
-Mount effects on the plane whose state changed. `triageSettle` belongs below the
-Inbox deck; `daypartBloom` belongs at the root atmosphere boundary;
-`chartRevealSweep` belongs to chart marks, not labels or evidence. All effects
-except static `paperGrain` are bounded and return to a fully settled state.
-
-Fallback order is semantic SwiftUI state first, then a short token-based tint
-crossfade. Reduce Motion, Reduce Transparency, Low Power Mode, thermal pressure,
-inactive scenes, unsupported Catalyst paths, and shader failure must never remove
-content, delay input, or change layout.
-
-### Accessibility and automation contracts
-
-Feature-qualified accessibility identifiers are part of the component API. Prefer
-stable roles such as `home.addToHome.<destination>`,
-`lifeThread.composer.tool.<type>`, `track.lens.<lens>`, and
-`home.widget.edit.<placementID>` over localized labels or hierarchy positions.
-
-At accessibility text sizes, use adaptive layout before truncation:
-
-- collapse multi-column card grids;
-- switch fixed horizontal headers to intrinsic vertical layouts;
-- keep safe-area commit actions reachable;
-- reserve measured floating chrome;
-- preserve native control traits;
-- allow lens controls to scroll.
-
-Gestures, color, transparency, scenic art, and shader output are all optional
-enhancements. The complete task must remain understandable and operable without
-them.
+Haptics confirm commit, selection, lift, threshold, settle, decline, and failure; they never carry required information. Preserve accessibility focus through morphs and route transitions. Motion, shaders, scenic art, transparency, and haptics are optional enhancements—the complete task must remain understandable and operable without them.
 
 ## Do's and Don'ts
 
-- Do use semantic tokens and named components; do not add direct colors, ad-hoc shadows, raw global font sizes, or direct material calls in feature code.
-- Do make state and hierarchy perceivable with text, shape, and accessibility semantics; do not communicate status through color or animation alone.
-- Do honor Reduce Motion, Reduce Transparency, Low Power Mode, thermal pressure, scene activity, and Catalyst fallbacks through `LifeBoardMotionPolicy`.
-- Do use only the approved signature effects: `daypartBloom`, `evaInkReveal`, `journalMediaReveal`, `memoryDevelopReveal`, `fastingEmberRing`, `healthSyncPulse`, `vitalOrbWarp`, `clayPressBloom`, `daypartCrossDissolve`, `completionBurst`, `contextLens`, `chartRevealSweep`, `liquidGlassRefract`, `cardMorphWarp`, `paperGrain`, `dissolveAway`, `triageSettle`, and `firstLight`. `contextLens` is a 380 ms control/background-plane handoff with an 8 pt maximum sample offset, and is the app's only touch ripple — do not add a second one. `triageSettle` mounts only on the plane beneath the Inbox deck after a persisted skip or committed review direction; `daypartBloom` mounts only at the root atmosphere boundary when the semantic daypart changes. Neither may touch readable foreground content. `paperGrain` is the single exception to the one-shot rule: it is static and never animates. Every other effect is one-shot and interaction-, threshold-, or boundary-bound; do not turn any of them into ambient loops. Do not distort text, charts, evidence, or sensitive content — per-glyph *displacement* under `TextRenderer` is permitted at up to 6 pt because layout, wrapping, and semantics stay with SwiftUI, but scaling, shearing, rotating, or blurring text is not.
-- Do add new stitchable functions to `LifeBoard/View/Effects/LifeBoardSignatureEffects.metal`; do not create a new `.metal` file. `check-xcode-target-membership.sh` only scans `.swift`, so an orphaned `.metal` passes CI and then fails `LifeBoardSignatureShaders.warmUp()`, which is all-or-nothing and disables *every* signature effect at runtime.
-- Do use SF Symbols or curated assets for UI icons; do not use emoji as interface icons.
-- Do preserve privacy: never reveal journal text, audio, media, embeddings, or private health content in diagnostics, widgets, or system previews.
-- Do distinguish explicit zero, no record, setup required, stale, denied, locked, offline, and error; do not collapse them into one empty state.
-- Do use one dominant action per decision surface; do not place multiple equal-weight calls to action in the same visual group.
-- Do keep external calendar items read-only and visually distinct from LifeBoard-owned work.
-- Do preserve settled streaming text and user drafts on Stop/failure; do not clear recoverable work to simplify presentation state.
+- **Do** present one dominant decision; **don't** make unrelated modules compete at equal weight.
+- **Do** use open canvas, rows, and negative space; **don't** wrap every section in a card.
+- **Do** reserve raised clay for independent objects; **don't** nest cards or build glossy stacks.
+- **Do** use Regular Liquid Glass for navigation and control chrome; **don't** use glass for content or stack glass surfaces.
+- **Do** use semantic colors and Dynamic Type; **don't** hardcode appearance, use light font weights, or shrink text to preserve a layout.
+- **Do** keep copy personal, plain, and specific; **don't** expose internal terminology or narrate obvious interface state.
+- **Do** distinguish zero, no record, stale, denied, unavailable, locked, offline, and failure; **don't** collapse them into a generic empty state.
+- **Do** begin success feedback after persistence; **don't** simulate success with a delay or dismiss recoverable work.
+- **Do** pair gestures with buttons, keyboard, and VoiceOver alternatives; **don't** make discovery or completion depend on gesture knowledge.
+- **Do** use signature motion at meaningful boundaries; **don't** run ambient loops, distort readable content, or animate every state change.
+- **Do** honor comfort and accessibility settings without changing capability; **don't** make reduced effects feel like a degraded product.
+- **Do** use SF Symbols or curated brand assets; **don't** use emoji as interface icons.
+- **Do** preserve privacy in notifications, widgets, previews, and diagnostics; **don't** reveal Journal, health, audio, media, or assistant context outside its authorized surface.
+- **Do** design iPad compositions for their window; **don't** stretch phone cards or fill extra space with more metrics.
+- **Do** end consequential work with a clear receipt and Undo when supported; **don't** hide destructive consequences behind playful motion.

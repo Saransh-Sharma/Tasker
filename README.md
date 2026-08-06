@@ -1,136 +1,246 @@
-# LifeBoard
+<p align="center">
+  <img src="./public/lifeboard-icon-512.png" width="104" alt="LifeBoard app icon" />
+</p>
 
-LifeBoard is a local-first iOS life operating system: an adaptive daily Home, planning and focus tools, routines and health tracking, protected journaling, insights, and EVA-assisted review/apply workflows. The active visual language is a warm paper-and-clay system with glass restricted to navigation and compact control chrome.
+<h1 align="center">LifeBoard</h1>
 
-## Current release status
+<p align="center"><strong>Life is not a list. Run it like a system.</strong></p>
 
-LifeBoard 5.0 is an integrated pre-release worktree, not a public-promotion claim. The current generic Simulator build passes, while the complete app suite still has unresolved baseline drift; exact evidence lives in the [implementation and design audit](docs/audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md). The [remaining execution ledger](docs/todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md) is the sole active completion tracker. The root [DESIGN.md](DESIGN.md) is the canonical visual contract for people and coding agents.
+<p align="center">
+  The local-first Life OS for orienting, planning, focusing, tracking, recovering,<br />
+  and improving—across every part of the life you are actually living.
+</p>
 
-The [LifeBoard 5.0 Product Handbook](docs/product/README.md) is the canonical product and interaction reference. Its feature chapters cover Home, Plan/Focus, Track/Wellness, Journal/Reflection, Insights/EVA, onboarding/recovery, and system continuity. The [Product UI/UX Guide](docs/design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md) defines shared screen hierarchy, state, responsive, content, motion, and accessibility behavior.
+<p align="center">
+  <img alt="Platform: iOS 26 and later" src="https://img.shields.io/badge/platform-iOS%2026%2B-111827?style=flat-square&logo=apple&logoColor=white" />
+  <img alt="Swift 6" src="https://img.shields.io/badge/Swift-6-F05138?style=flat-square&logo=swift&logoColor=white" />
+  <img alt="Local first" src="https://img.shields.io/badge/data-local--first-276749?style=flat-square" />
+  <img alt="On-device AI" src="https://img.shields.io/badge/AI-on--device-6B46C1?style=flat-square" />
+</p>
 
-LifeBoard is a personal execution system with two codebases in one repository:
+<p align="center">
+  <a href="#the-life-os-loop">The loop</a> ·
+  <a href="#the-system-surface-by-surface">Product tour</a> ·
+  <a href="#private-by-default-helpful-by-design">Privacy</a> ·
+  <a href="#build-lifeboard">Build</a>
+</p>
 
-- `LifeBoard/` contains the iOS app, widgets, Core Data stack, and XCTest targets.
-- `src/` contains the marketing site built with React, TypeScript, and Vite.
+<p align="center">
+  <a href="./screenshots/readme/01-home-command-center.webp">
+    <img src="./screenshots/readme/01-home-command-center.webp" width="410" alt="LifeBoard Home showing today's focus, schedule, tasks, habits, and current life signals" />
+  </a>
+</p>
 
-## Setup
+<p align="center">
+  <strong>01 · HOME — Command your day</strong><br />
+  <sub>One calm answer to the question: what matters now?</sub>
+</p>
 
-### iOS app
+<p align="center"><sub>Every screen in this tour uses deterministic synthetic demo data—never personal user data. Select any screen to view it full size.</sub></p>
 
-1. Install CocoaPods dependencies with `pod install`.
-2. Open `LifeBoard.xcworkspace` in Xcode.
-3. Use `./lifeboardctl setup` to validate the local environment when bootstrapping a machine.
-4. Use `./lifeboardctl build`, `./lifeboardctl test`, and `./lifeboardctl doctor` for the common build, test, and diagnostics flows.
+## Your tools hold the pieces. LifeBoard holds the picture.
 
-### Marketing site
+Your calendar knows **when**. Your task manager knows **what**. Your habit tracker knows **how often**. Your journal remembers **what happened**. But life rarely arrives one category at a time.
 
-1. Install dependencies with `npm install`.
-2. Start the dev server with `npm run dev`.
-3. Create a production bundle with `npm run build`.
+The important work competes with the appointment. The routine collides with low energy. The overdue errand follows you into tomorrow. A dozen well-made apps can still leave you alone with the hardest decision: **what deserves me now?**
 
-## Architecture
+**LifeBoard is the operating layer between what you care about and what you do next.** It gives work, health, relationships, routines, personal administration, reflection, and calendar reality one shared context—then helps the whole system learn without turning your life into a scorecard.
 
-- `LifeBoard/Domain` holds canonical models and use cases.
-- `LifeBoard/Foundation` owns the five-root shell, typed navigation, cross-feature contracts, Plan/Track/Journal foundations, later domain composition, and system projections.
-- `LifeBoard/Presentation` holds Home render state, view models, presentation adapters, and feature-owned surfaces.
-- `LifeBoard/DesignSystem` and `LifeBoard/LifeBoardDesign` hold semantic tokens, compatibility adapters, policy, and clay/glass primitives.
-- `LifeBoard/View`, `LifeBoard/Views`, `LifeBoard/ViewControllers`, and `LifeBoard/Onboarding` hold feature leaves and UIKit/SwiftUI composition.
-- `LifeBoardTests/` and `LifeBoardUITests/` cover unit, integration, and UI regressions.
-- `Shared/`, `LifeBoardWidgets/`, and `LifeBoardWatch/` contain redacted cross-target contracts and external surfaces.
+## The Life OS loop
 
-## Documentation
+<p align="center"><strong>Orient → Capture → Plan → Focus or Track → Recover → Reflect → Adapt</strong></p>
 
-- `docs/README.md` is the documentation map and authority guide.
-- `docs/product/README.md` is the canonical product handbook.
-- `docs/design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md` owns cross-feature behavioral design.
-- `docs/life-os/README.md` and `docs/architecture/` describe composition and runtime boundaries.
-- `docs/habits/README.md` and `docs/calendar/README.md` retain detailed feature/runtime packages.
+LifeBoard is designed around the way a real day changes:
 
-## Local EVA / LLM
+- **Orient and capture.** See the shape of now, then catch new tasks, notes, habits, reflections, and signals before they disappear.
+- **Plan, focus, and track.** Turn priorities into a sequence that respects time, capacity, commitments, and the recurring systems beneath your goals.
+- **Recover, reflect, and adapt.** Repair imperfect days without shame, preserve what was true, and use your own evidence to make the next plan wiser.
 
-EVA is LifeBoard's local assistant layer and day-management interface. It uses on-device MLX inference, deterministic planner guards, schema-validated proposal cards, and the existing task action pipeline; prompts and task context are not sent to a cloud AI service in the local path.
+Every surface reinforces the same loop. There is no second task system hiding inside EVA, no dashboard competing with Home, and no silent automation rewriting the day behind your back.
 
-Product-wise, Eva acts as the user's Chief of Staff: a chat-first assistant that can explain the day, summarize open commitments, highlight overloaded windows, suggest a realistic sequence, and help the user repair the plan after interruptions. Eva is not an autonomous scheduler. Meaningful changes remain proposal-driven, explicitly confirmed, and undoable where the action pipeline supports undo.
+> **The goal is not a perfect day. It is a life that can keep moving when the day is not perfect.**
 
-Current LLM-backed and planner-backed use cases include:
+## The system, surface by surface
 
-- Chat answers over the current task context.
-- Read-only task and day review prompts, such as "What are my tasks?"
-- Chief-of-staff day overview cards that separate overdue tasks, today tasks, focus candidates, due habits, recovery habits, and quiet tracking.
-- Plan with EVA text prompts that can produce either visible assistant text or proposal cards.
-- Proposal review cards with selected apply for non-empty task command runs that can be applied.
-- Slash-command context, daily brief, top three, task breakdown, dynamic chips, and task suggestions.
+LifeBoard does not divide your life into disconnected feature silos. Each surface has one job in the operating loop—and hands useful context to the next.
 
-Timeline-aware assistant work is documented across two canonical packages:
+<table>
+  <tr>
+    <td width="50%" valign="top" align="center">
+      <a href="./screenshots/readme/02-plan-intention-into-time.webp">
+        <img src="./screenshots/readme/02-plan-intention-into-time.webp" width="300" alt="LifeBoard Plan showing daily capacity and a time-aware planning canvas" />
+      </a>
+      <br /><strong>02 · PLAN</strong>
+      <br /><strong>Turn intention into time</strong>
+      <br /><sub>Shape the day, week, and backlog around capacity and calendar reality—not wishful thinking.</sub>
+    </td>
+    <td width="50%" valign="top" align="center">
+      <a href="./screenshots/readme/03-track-life-systems.webp">
+        <img src="./screenshots/readme/03-track-life-systems.webp" width="300" alt="LifeBoard Track showing realistic habits, routines, wellbeing, and care systems" />
+      </a>
+      <br /><strong>03 · TRACK</strong>
+      <br /><strong>Improve the systems beneath the goals</strong>
+      <br /><sub>See recurring behavior as a living system—resilient to missed days, changing energy, and real life.</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top" align="center">
+      <a href="./screenshots/readme/04-insights-patterns.webp">
+        <img src="./screenshots/readme/04-insights-patterns.webp" width="300" alt="LifeBoard Insights showing an explainable evidence summary across current life records" />
+      </a>
+      <br /><strong>04 · INSIGHTS</strong>
+      <br /><strong>Learn from your own evidence</strong>
+      <br /><sub>Find patterns in pace, follow-through, energy, and recovery without judgment or opaque scores.</sub>
+    </td>
+    <td width="50%" valign="top" align="center">
+      <a href="./screenshots/readme/05-eva-chief-of-staff.webp">
+        <img src="./screenshots/readme/05-eva-chief-of-staff.webp" width="300" alt="LifeBoard EVA showing a private Chief of Staff conversation grounded in the current day" />
+      </a>
+      <br /><strong>05 · EVA</strong>
+      <br /><strong>A Chief of Staff, not an autopilot</strong>
+      <br /><sub>Ask for perspective, inspect the reasoning, and review meaningful changes before choosing to apply them.</sub>
+    </td>
+  </tr>
+</table>
 
-- `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md` covers the local LLM, chat routing, context projection, proposal pipeline, day overview card contract, trust boundaries, risks, and manual test guide.
-- `docs/calendar/README.md` covers the calendar schedule and Home timeline contract that Eva can read from when offering schedule-aware planning guidance.
+### 06 · Recover — Keep imperfect days moving
 
-Use `LifeBoard.xcworkspace` for iOS builds and tests because CocoaPods dependencies are required.
+<p align="center">
+  <a href="./screenshots/readme/06-recover-imperfect-days.webp">
+    <img src="./screenshots/readme/06-recover-imperfect-days.webp" width="410" alt="LifeBoard Overdue Rescue helping review and repair an unfinished passport photo task" />
+  </a>
+</p>
 
-### Assistant Mascot Persona System
+Plans break. Energy changes. Meetings expand. **Recovery is not an exception to the system; recovery is part of the system.** Overdue Rescue helps you keep, move, edit, or deliberately release unfinished work—with clear consequences and guarded destructive actions.
 
-LifeBoard's visual Chief of Staff is user-selectable. Eva remains the default persona, and users can choose Eva, Cloudlet, Dude, Elon, Friday, Johnny, Maddie, Paperclip, Punch, Retriever, Sato, Steve, Theo, or YesMan during onboarding or from Settings. The selected persona controls the visible assistant name, accessibility labels, and mascot artwork while the local assistant architecture can keep Eva-prefixed internal implementation names.
+## A plan that survives contact with Tuesday
 
-Eva uses the original static PNG pose set in `Assets.xcassets`; non-Eva personas use bundled sprite assets from `LifeBoard/LLM/MascotSprites/`. Mascot placement philosophy, sprite ownership, semantic animation mapping, accessibility rules, and QA expectations live in `docs/design/EVA_MASCOT_PLACEMENT_GUIDE.md`; LLM behavior and planner architecture remain in `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.
+LifeBoard becomes most useful in the transitions between tools—the moments where context usually disappears.
 
-## Calendar And Timeline
+| Moment | What the Life OS does |
+|---|---|
+| **Morning · Orient** | Home composes priorities, fixed commitments, habits, open time, and the current focus into one readable day. |
+| **Something arrives · Capture** | One entry point classifies a task, note, habit, reflection, tracker, or spoken thought without breaking your flow. |
+| **The day fills up · Plan** | Capacity and calendar reality make trade-offs visible before an optimistic list becomes an impossible promise. |
+| **The plan breaks · Recover** | Unfinished work becomes a decision—keep, move, edit, or release—not a growing red badge of guilt. |
+| **The day ends · Reflect** | What happened, how it felt, and what changed become private evidence instead of lost context. |
+| **The pattern emerges · Adapt** | Insights and EVA turn evidence into an explanation, then a reviewable next move. |
 
-LifeBoard's calendar integration is view-only schedule context, not a calendar editing system.
+## Different by design
 
-Home and the timeline are intended to be LifeBoard's single-glanceable command center for the day. The surface brings together tasks, fixed calendar commitments, routines, busy blocks, open gaps, and EVA guidance into one calm visual flow so users can understand what matters now without switching between a calendar, task list, and planner.
+**Context before commands.** LifeBoard starts with the whole day, not an isolated task.
 
-## Verification
+**Capacity before ambition.** A plan should fit the time and energy available to live it.
 
-Run verification serially because simultaneous Xcode operations can lock the shared DerivedData build database:
+**Recovery before punishment.** Missed work is information. Brittle streaks and shame dashboards are not a strategy.
+
+**Proposals before actions.** EVA can interpret, explain, and suggest. Consequential changes remain previewable, confirmable, receipted, and undoable.
+
+**Evidence before judgment.** Insights show what the system observed and why a pattern matters; they do not reduce a life to a mysterious score.
+
+## One place for every kind of progress
+
+| LifeBoard brings together | What becomes possible |
+|---|---|
+| **Tasks, projects, and life areas** | Finite work stays connected to the part of life it serves. |
+| **Day, week, backlog, focus, and calendar context** | Priorities become a plan that respects time and capacity. |
+| **Habits, routines, care, and wellbeing** | Recurring behavior can improve without brittle streak pressure. |
+| **Journal, notes, knowledge, mood, and reflection** | Private context survives the day and becomes useful evidence later. |
+| **Insights and review** | History becomes an explanation and a next decision—not a vanity dashboard. |
+| **Universal Capture and EVA** | New input enters through one arbitration layer; assistance stays grounded in the same source of truth. |
+
+## Private by default. Helpful by design.
+
+Your plans, routines, journal, health context, embeddings, and assistant context are intimate infrastructure. LifeBoard treats them that way.
+
+- **Local first.** Core personal data and workflows live on the device rather than depending on a remote account to function.
+- **On-device intelligence.** EVA's local path uses MLX inference, deterministic planner guards, and schema-validated proposals.
+- **Human-controlled change.** Meaningful actions expose Apply, Edit, Not Now, receipts, and Undo instead of silently mutating your life.
+- **Protected context.** Journal routes reveal no content before authentication, while extensions receive typed, redacted projections rather than direct persistence access.
+
+## One system across the Apple experience
+
+LifeBoard adapts from compact iPhone to regular-width iPad, while widgets, Live Activities, notifications, App Intents, Spotlight, the share extension, and the Watch companion carry the current decision into the right moment. These surfaces extend the system; they do not become competing sources of truth.
+
+Accessibility is part of the operating contract. Dynamic Type, VoiceOver order, Reduce Motion, Reduce Transparency, Increase Contrast, keyboard navigation, low-power policy, and thermal pressure are treated as functional modes—not optional polish.
+
+## Build LifeBoard
+
+LifeBoard is an active product and a living codebase—not a concept mockup. This repository contains the iOS app, companion surfaces, on-device assistant, deterministic product journeys, automated test suites, and the React marketing site.
+
+### Prerequisites
+
+- macOS with Xcode 26.5 and an iOS 26 simulator runtime.
+- Swift 6, provided by the selected Xcode toolchain.
+- The shared local Swift package at `../OffRecord/Packages/JournalKit` relative to this repository. The Xcode project references that exact sibling path.
+- Node.js `20.19+` or `22.12+` for the marketing site.
+- `cwebp` from the WebP tools when regenerating README screenshots (`brew install webp`).
+
+Dependencies are resolved with Swift Package Manager. CocoaPods is not used.
+
+### Run the iOS app
+
+Open `LifeBoard.xcworkspace` in Xcode, select the `LifeBoard` scheme, and run it on an iOS 26 simulator. For a command-line build:
 
 ```sh
-xcodebuild -workspace LifeBoard.xcworkspace -scheme LifeBoard -configuration Debug \
-  -destination 'generic/platform=iOS Simulator' CODE_SIGNING_ALLOWED=NO build
-LIFEBOARD_TEST_DESTINATION='platform=iOS Simulator,name=<installed simulator>' \
+xcodebuild -workspace LifeBoard.xcworkspace \
+  -scheme LifeBoard \
+  -configuration Debug \
+  -destination 'generic/platform=iOS Simulator' \
+  CODE_SIGNING_ALLOWED=NO build
+```
+
+### Verify the product
+
+Run the baseline-aware suite serially so simultaneous Xcode operations do not lock the shared build database:
+
+```sh
+LIFEBOARD_TEST_DESTINATION='platform=iOS Simulator,name=LifeBoard Test iPhone,OS=26.5' \
   bash scripts/run-baseline-aware-tests.sh
 bash scripts/token-law-guardrails.sh
 bash scripts/premium-ui-guardrails.sh
 ```
 
-`lifeOSUnifiedPresentationV2` retains the prior Sunrise presentation as a one-release rollback path. Physical-device performance, thermal, account, App Group, and paired-Watch validation are release gates; do not infer them from simulator output.
+### Run the marketing site
 
-The calendar schedule feature reads EventKit data, lets users choose the calendars that matter, filters schedule context locally, and projects that context into Home, task detail, and timeline views. It answers practical execution questions: what meeting is next, when the user is free until, whether a task fits the current window, which part of the day is overloaded, and where there is usable open time.
-
-The timeline feature is LifeBoard's day narrative rather than a dense calendar grid. Fixed events stay anchored, tasks stay flexible, routines give the day rhythm, overlapping busy periods collapse into readable flocks, and long gaps become labeled opportunity windows. Eva can use the same day picture to offer optional Chief of Staff guidance such as sequencing, deferral, focus protection, and recovery suggestions, while calendar data remains read-only and task mutations stay behind confirmation.
-
-The feature is documented in `docs/calendar/README.md` and covers:
-
-- Calendar permission onboarding and recovery
-- Local multi-calendar selection
-- Next meeting and busy-block projections
-- Task-fit hints based on the user's current availability
-- Calendar schedule surfaces for day, week, and month glances
-- Timeline surfaces that remain task-first, schedule-aware, and optimized for orientation rather than calendar density
-- Timeline-aware Eva guidance that helps the user act, repair, defer, or protect focus without taking over scheduling
-
-## Workflows
-
-- Prefer `lifeboardctl` for repeatable local build and test flows.
-- Keep Home-screen behavior covered with focused unit tests plus the targeted Secondary UI suite.
-- The repository may contain in-progress TODO documents; treat them as implementation context, not source of truth.
-
-## Operations
-
-- `./lifeboardctl status` reports environment and project state.
-- `./lifeboardctl clean` removes build artifacts.
-- `./lifeboardctl archive` and `./lifeboardctl export` support iOS release packaging.
-- `./lifeboardctl dmg --clean --configuration release` builds a notarized Mac Catalyst DMG for distribution.
-
-Mac DMG builds require a Developer ID Application certificate and notary credentials stored as the `lifeboard-notary` keychain profile:
-
-```bash
-xcrun notarytool store-credentials lifeboard-notary \
-  --apple-id "<apple-id>" \
-  --team-id "<team-id>" \
-  --password "<app-specific-password>"
+```sh
+npm install
+npm run dev
+npm run build
 ```
 
-## Tooling
+The site is built with React 19, TypeScript, Tailwind CSS, and Vite.
 
-The marketing site uses Vite, React 19, TypeScript, and ESLint. The React app currently keeps the default Vite toolchain, including `@vitejs/plugin-react`, and does not enable React Compiler by default.
+### Regenerate the product tour
+
+```sh
+./scripts/generate_readme_screenshots.sh
+```
+
+The generator launches a deterministic iPhone workspace at a fixed time, verifies all six product states, converts the native captures to optimized WebP assets, and only then replaces `screenshots/readme/`. Override the simulator with `LIFEBOARD_README_SCREENSHOT_DEVICE` and `LIFEBOARD_README_SCREENSHOT_OS` when needed.
+
+## Repository map
+
+| Path | Responsibility |
+|---|---|
+| `LifeBoard/` | iOS app, domains, use cases, persistence, presentation, design systems, and on-device assistant. |
+| `LifeBoardWidgets/`, `LifeBoardWatch/`, `LifeBoardShareExtension/` | Redacted companion and system surfaces. |
+| `LifeBoardTests/`, `LifeBoardUITests/` | Unit, integration, accessibility, seeded journey, and visual regression coverage. |
+| `Shared/` | Versioned cross-target contracts and projections. |
+| `src/` | React and TypeScript marketing site. |
+| `docs/` | Product, design, architecture, evidence, audit, and implementation handbooks. |
+
+## Go deeper
+
+- [LifeBoard 5.0 Product Handbook](docs/product/README.md) — canonical product and interaction behavior.
+- [Product UI/UX Guide](docs/design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md) — hierarchy, state, motion, responsiveness, and accessibility.
+- [Clay composer kit](docs/design/CLAY_COMPOSER_KIT.md) — the data-entry layer: why `Form` is removed rather than restyled, the control vocabulary, and the section discipline that keeps composers off the stack guard page.
+- [Signature effect deployment](docs/design/SIGNATURE_EFFECT_DEPLOYMENT.md) — where each Metal effect fires, and the rule that keeps it from becoming decoration.
+- [Unified Implementation Guide](docs/life-os/LIFEBOARD_UNIFIED_IMPLEMENTATION_GUIDE.md) — architecture, persistence, failure modes, privacy, and safe extension rules.
+- [Local EVA / LLM Architecture](docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md) — on-device inference, proposal pipelines, and trust boundaries.
+- [DESIGN.md](DESIGN.md) — canonical visual contract.
+- [Documentation map](docs/README.md) — authority and navigation across the repository.
+
+---
+
+<p align="center"><strong>Manage the day. Run the system. Improve the life.</strong></p>

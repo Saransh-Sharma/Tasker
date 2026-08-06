@@ -11,6 +11,8 @@ This directory is the navigation hub for product, architecture, audit, feature, 
 - [Root DESIGN.md](../DESIGN.md) - the canonical warm clay/paper visual contract. Swift tokens remain the implementation source of truth.
 - [LifeBoard 5.0 product handbook](./product/README.md) - canonical feature, journey, state, responsive, privacy, and acceptance behavior.
 - [Product UI/UX guide](./design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md) - canonical cross-feature interaction and presentation rules.
+- [Clay composer kit](./design/CLAY_COMPOSER_KIT.md) - the data-entry layer, its control vocabulary, the element-type test contracts it must preserve, and the section discipline that keeps composer bodies off the main-thread stack guard page.
+- [Signature effect deployment](./design/SIGNATURE_EFFECT_DEPLOYMENT.md) - where each Metal signature effect fires, the registry contract, and the guards that keep effects from becoming ambient decoration.
 - [Deep completion traceability](./todos/LIFEBOARD_5_DEEP_COMPLETION_TRACEABILITY.md) - release-contract evidence and historical traceability; defer present completion status to the Unified Completion Status.
 
 ## Canonical references
