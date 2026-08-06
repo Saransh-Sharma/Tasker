@@ -421,6 +421,37 @@ namespace LifeBoardSignature {
     return half4(min(lit, half3(1.0)), alpha);
 }
 
+// taskLandingCaustic: one quiet ring of warm light underneath the day canvas
+// after a task's placement has persisted. It never displaces geometry or
+// touches the readable row; progress 0 and 1 are exact identity frames.
+[[ stitchable ]] half4 LifeBoardTaskLandingCaustic(
+    float2 position,
+    half4 currentColor,
+    float2 size,
+    float2 center,
+    float progress,
+    float3 tint
+) {
+    if (size.x <= 0.0 || size.y <= 0.0 || progress <= 0.001 || progress >= 0.999) {
+        return currentColor;
+    }
+
+    float2 uv = position / size;
+    float2 delta = uv - center;
+    delta.x *= size.x / size.y;
+    float distance = length(delta);
+    float front = progress * 0.52;
+    float ring = 1.0 - smoothstep(0.018, 0.085, abs(distance - front));
+    float innerGlow = (1.0 - smoothstep(0.0, max(front, 0.001), distance)) * 0.16;
+    float envelope = sin(progress * M_PI_F);
+    float texture = 0.90 + LifeBoardSignature::hash21(floor(position * 0.24)) * 0.10;
+    float energy = min(1.0, (ring + innerGlow) * envelope * texture);
+
+    half3 lit = currentColor.rgb + half3(tint) * half(energy * 0.28);
+    half alpha = max(currentColor.a, half(energy * 0.18));
+    return half4(min(lit, half3(1.0)), alpha);
+}
+
 // liquidGlassRefract: the selected dock/composer well bending the content
 // beneath it. A shallow lens centred on the well, falling off to zero well
 // inside its own bounds so neighbouring targets never smear. Displacement is
@@ -594,4 +625,46 @@ namespace LifeBoardSignature {
     half3 lit = 1.0h - (1.0h - currentColor.rgb) * (1.0h - tint * half(intensity) * 0.55h);
 
     return half4(mix(currentColor.rgb, lit, half(intensity)), currentColor.a);
+}
+
+// valueDrumWarp: the value tape as a physical cylinder. While a finger is on the
+// tape, ticks compress toward the two rims and foreshorten vertically, the way
+// the face of a rotating drum does. Identity at the centre detent — the value
+// actually being chosen is never distorted — and identity everywhere once the
+// finger lifts.
+//
+// There is no time input. Amplitude is `grip`, which is the gesture's own state,
+// so unlike every other travelling effect here this shader is structurally
+// incapable of becoming an idle loop.
+[[ stitchable ]] float2 LifeBoardValueDrumWarp(
+    float2 position,
+    float2 size,
+    float grip,
+    float center
+) {
+    if (size.x <= 0.0 || size.y <= 0.0 || grip <= 0.001) {
+        return position;
+    }
+
+    float g = clamp(grip, 0.0, 1.0);
+    float anchor = clamp(center, 0.0, 1.0);
+    float u = position.x / size.x;
+    float v = position.y / size.y;
+    float offset = u - anchor;
+
+    // Barrel: sample progressively further out approaching the rims, which reads
+    // as compression toward the edges. Exactly identity at offset == 0, so the
+    // centre detent and its label stay pixel-accurate.
+    float barrel = 1.0 - 0.55 * g * offset * offset;
+    float warpedU = anchor + offset * barrel;
+
+    // Cylinder: the rims of a drum face sit further from the eye, so rows there
+    // pull toward the horizontal midline. Small — a hint, not a lens.
+    float foreshorten = 1.0 - 0.14 * g * clamp(offset * offset * 4.0, 0.0, 1.0);
+    float warpedV = 0.5 + (v - 0.5) * foreshorten;
+
+    float2 warped = float2(warpedU * size.x, warpedV * size.y);
+    // Hard cap, so a wide tape can never smear a neighbouring control.
+    float2 delta = clamp(warped - position, float2(-10.0), float2(10.0));
+    return position + delta;
 }

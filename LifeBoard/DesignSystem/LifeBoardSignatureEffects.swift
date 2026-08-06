@@ -362,7 +362,9 @@ public enum LifeBoardSignatureShaders {
         "LifeBoardFirstLight",
         "LifeBoardPaperGrain",
         "LifeBoardDissolveAway",
-        "LifeBoardTriageSettle"
+        "LifeBoardTriageSettle",
+        "LifeBoardTaskLandingCaustic",
+        "LifeBoardValueDrumWarp"
     ]
 
     /// Whether custom shaders may run at all right now (flag + energy/thermal, not accessibility —
@@ -927,6 +929,20 @@ public extension View {
         modifier(TriageSettleModifierEnvironment(trigger: trigger, direction: direction))
     }
 
+    /// One bounded caustic beneath a day after a task placement persists.
+    @MainActor
+    func lifeboardTaskLandingCaustic(
+        trigger: Int,
+        center: UnitPoint = .center,
+        tint: Color = Color(LifeBoardColorTokens.foundationApricotAccent)
+    ) -> some View {
+        modifier(TaskLandingCausticModifierEnvironment(
+            trigger: trigger,
+            center: center,
+            tint: tint
+        ))
+    }
+
     /// Refracts content beneath a moving selection well. Control plane only.
     @MainActor
     func lifeboardLiquidGlassRefract(center: UnitPoint, radius: Double, strength: Double) -> some View {
@@ -1044,6 +1060,88 @@ struct TriageSettleModifier: ViewModifier {
         reduceMotion || reduceTransparency
             || LifeBoardSignatureShaders.isReadyForRendering == false
 #endif
+    }
+}
+
+// MARK: - taskLandingCaustic
+
+private struct TaskLandingCausticModifierEnvironment: ViewModifier {
+    let trigger: Int
+    let center: UnitPoint
+    let tint: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+
+    func body(content: Content) -> some View {
+        content.modifier(TaskLandingCausticModifier(
+            trigger: trigger,
+            center: center,
+            tint: tint,
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+struct TaskLandingCausticModifier: ViewModifier {
+    let trigger: Int
+    let center: UnitPoint
+    let tint: Color
+    let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let sceneIsActive: Bool
+
+    @State private var startDate: Date?
+    private let duration: TimeInterval = 0.42
+
+    func body(content: Content) -> some View {
+        content
+            .background { causticPlane }
+            .clipped()
+            .onChange(of: trigger) { _, _ in
+                guard sceneIsActive else { return }
+                startDate = Date()
+            }
+    }
+
+    @ViewBuilder
+    private var causticPlane: some View {
+        if let startDate, sceneIsActive {
+            TimelineView(.animation) { context in
+                let progress = max(0, min(1, context.date.timeIntervalSince(startDate) / duration))
+                if progress >= 1 {
+                    Color.clear
+                        .task { self.startDate = nil }
+                } else if usesFallback {
+                    tint.opacity(0.10 * sin(progress * .pi))
+                } else {
+                    GeometryReader { proxy in
+                        let components = LifeBoardSignatureShaders.components(of: tint)
+                        Color.white.opacity(0.001)
+                            .colorEffect(Shader(
+                                function: ShaderFunction(
+                                    library: .default,
+                                    name: "LifeBoardTaskLandingCaustic"
+                                ),
+                                arguments: [
+                                    .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                                    .float2(Float(center.x), Float(center.y)),
+                                    .float(Float(progress)),
+                                    .float3(components.0, components.1, components.2)
+                                ]
+                            ))
+                    }
+                }
+            }
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        }
+    }
+
+    private var usesFallback: Bool {
+        reduceMotion || reduceTransparency || LifeBoardSignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -1776,5 +1874,73 @@ struct FirstLightModifier: ViewModifier {
     private var usesFallback: Bool {
         reduceMotion || sceneIsActive == false
             || LifeBoardSignatureShaders.isReadyForRendering == false
+    }
+}
+
+// MARK: - valueDrumWarp
+
+private struct ValueDrumWarpModifierEnvironment: ViewModifier {
+    let grip: Double
+    let center: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+
+    func body(content: Content) -> some View {
+        content.modifier(ValueDrumWarpModifier(
+            grip: grip,
+            center: center,
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+struct ValueDrumWarpModifier: ViewModifier {
+    let grip: Double
+    let center: Double
+    let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let sceneIsActive: Bool
+
+    func body(content: Content) -> some View {
+        // No `TimelineView`, unlike every other travelling effect in this file.
+        // `grip` is driven directly by the drag, so the warp is already
+        // frame-synchronous with the finger; adding a timeline would only give
+        // the effect a way to outlive the gesture that justifies it.
+        if usesFallback || grip <= 0.001 {
+            content
+        } else {
+            content.visualEffect { effect, proxy in
+                effect.distortionEffect(
+                    Shader(
+                        function: ShaderFunction(library: .default, name: "LifeBoardValueDrumWarp"),
+                        arguments: [
+                            .float2(Float(proxy.size.width), Float(proxy.size.height)),
+                            .float(Float(grip)),
+                            .float(Float(center))
+                        ]
+                    ),
+                    maxSampleOffset: CGSize(width: 10, height: 10)
+                )
+            }
+        }
+    }
+
+    private var usesFallback: Bool {
+        reduceMotion || reduceTransparency || sceneIsActive == false
+            || LifeBoardSignatureShaders.isReadyForRendering == false
+    }
+}
+
+public extension View {
+    /// The value tape's cylinder warp, for the duration of a scrub.
+    ///
+    /// Apply to the tick track only — never to the numeric readout, its unit, or
+    /// any prose. `grip` is 1 while the finger is down and 0 at rest; at rest
+    /// there is no shader in the render tree at all.
+    func lifeboardValueDrumWarp(grip: Double, center: Double = 0.5) -> some View {
+        modifier(ValueDrumWarpModifierEnvironment(grip: grip, center: center))
     }
 }

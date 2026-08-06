@@ -26,6 +26,7 @@ struct LifeBoardLensPicker<Value: Hashable & Identifiable>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Namespace private var thumb
+    @State private var refractionStrength: Double = 0
 
     /// - Parameters:
     ///   - label: the VoiceOver group name, e.g. "Plan lens".
@@ -84,6 +85,34 @@ struct LifeBoardLensPicker<Value: Hashable & Identifiable>: View {
         }
         .padding(4)
         .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.pill)
+        // DESIGN.md names the lens explicitly as a `liquidGlassRefract` surface.
+        // It lives here rather than at the call sites so the effect can never be
+        // applied to something that is not a lens, and so all four roots get it
+        // from one place. `strength` returns to 0 the moment the thumb settles,
+        // and the modifier early-returns below 0.001 — there is no idle shader.
+        .lifeboardLiquidGlassRefract(
+            center: thumbCenter,
+            radius: 0.42,
+            strength: refractionStrength
+        )
+        .onChange(of: selection) { _, _ in
+            guard reduceMotion == false else { return }
+            refractionStrength = 1
+            withAnimation(LifeBoardMotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
+                refractionStrength = 0
+            }
+        }
+    }
+
+    /// Where the selected thumb currently sits, in unit space, so the lens
+    /// refracts around the segment the finger actually chose.
+    private var thumbCenter: UnitPoint {
+        guard values.count > 1,
+              let index = values.firstIndex(where: { $0 == selection }) else {
+            return .center
+        }
+        let fraction = (Double(index) + 0.5) / Double(values.count)
+        return UnitPoint(x: fraction, y: 0.5)
     }
 
     @ViewBuilder
