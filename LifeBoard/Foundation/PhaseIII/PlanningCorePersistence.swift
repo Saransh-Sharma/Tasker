@@ -997,8 +997,14 @@ public actor SystemPlanningCalendarContextRepository: PlanningCalendarContextRep
         commitments.reserveCapacity(events.count)
         for event in events {
             let calendarID = event.calendar.calendarIdentifier
-            let identifier = event.eventIdentifier
-                ?? "\(calendarID):\(event.startDate.timeIntervalSinceReferenceDate)"
+            let seriesID = event.eventIdentifier
+            // `eventIdentifier` is the *series* identifier for a recurring
+            // event, so every Monday standup reports the same one. Folding the
+            // occurrence's start into `id` is what makes two occurrences two
+            // rows rather than one row that overwrites itself.
+            let identifier = seriesID.map {
+                "\($0):\(event.startDate.timeIntervalSinceReferenceDate)"
+            } ?? "\(calendarID):\(event.startDate.timeIntervalSinceReferenceDate)"
             let title = event.title?.trimmingCharacters(in: .whitespacesAndNewlines).nonEmpty
                 ?? "Calendar event"
             commitments.append(CalendarCommitment(
@@ -1008,13 +1014,50 @@ public actor SystemPlanningCalendarContextRepository: PlanningCalendarContextRep
                 startAt: event.startDate,
                 endAt: event.endDate,
                 isAllDay: event.isAllDay,
-                availability: String(event.availability.rawValue)
+                availability: String(event.availability.rawValue),
+                seriesID: seriesID,
+                participation: Self.participation(for: event),
+                eventState: Self.eventState(for: event)
             ))
         }
         commitments.sort { lhs, rhs in
             lhs.startAt == rhs.startAt ? lhs.id < rhs.id : lhs.startAt < rhs.startAt
         }
         return PlanningCalendarContext(authorization: status, commitments: commitments)
+    }
+
+    /// The current user's own RSVP, not the organizer's and not the room's.
+    ///
+    /// EventKit gives no direct "my status" accessor, so this walks the
+    /// attendee list for `isCurrentUser`. An event with no attendees at all —
+    /// a personal block, a holiday — is not an invitation and reports
+    /// `.unknown` rather than `.pending`, so it is never surfaced as a reply
+    /// the user owes someone.
+    private static func participation(for event: EKEvent) -> CalendarParticipation {
+        guard let attendees = event.attendees, attendees.isEmpty == false else {
+            return .unknown
+        }
+        guard let mine = attendees.first(where: { $0.isCurrentUser }) else {
+            return .unknown
+        }
+        switch mine.participantStatus {
+        case .accepted: return .accepted
+        case .tentative: return .tentative
+        case .declined: return .declined
+        case .pending: return .pending
+        case .unknown, .delegated, .completed, .inProcess: return .unknown
+        @unknown default: return .unknown
+        }
+    }
+
+    private static func eventState(for event: EKEvent) -> CalendarEventState {
+        switch event.status {
+        case .confirmed: return .confirmed
+        case .tentative: return .tentative
+        case .canceled: return .cancelled
+        case .none: return .unspecified
+        @unknown default: return .unspecified
+        }
     }
 
     private static func authorization(_ status: EKAuthorizationStatus) -> PlanningCalendarAuthorization {

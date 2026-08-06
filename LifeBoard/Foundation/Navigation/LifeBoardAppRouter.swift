@@ -30,6 +30,12 @@ public enum AppRoute: Codable, Hashable, Sendable {
     /// turned out to be. Read-only.
     case dayOpen(Date)
     case weeklyPlanner
+    /// "This week" — the day-placement workspace.
+    ///
+    /// Additive rather than a replacement for `weeklyPlanner`: restoration
+    /// paths, deep links and notification routes persisted before this case
+    /// existed still decode, and still open the wizard until they are migrated.
+    case weeklyPlanningWorkspace(WeeklyPlanningEntry)
     case weeklyReview
     // `planningReview` rendered exactly the same weekly-review route as
     // `weeklyReview` and was never pushed from anywhere. `weeklyReview` now
@@ -37,6 +43,7 @@ public enum AppRoute: Codable, Hashable, Sendable {
     // behaviour the second case ever added.
     case trackHistory
     case insightEvidence(UUID?)
+    case healthInsight(HealthInsightDomain)
     case settings
     case settingsDetail(SettingsRoute)
     case tokenGallery
@@ -56,8 +63,26 @@ public enum AppRoute: Codable, Hashable, Sendable {
             "route.note.\(id.uuidString)"
         case .settingsDetail(let route):
             route.transitionID
+        case .weeklyPlanner:
+            "route.weekly.week"
+        case .weeklyPlanningWorkspace(let entry):
+            "route.weekly.\(entry.rawValue)"
         default:
             nil
+        }
+    }
+
+    /// The workspace entry this route opens, if any.
+    ///
+    /// `weeklyPlanner` — the retired four-step wizard's route — resolves to the
+    /// ordinary week entry so persisted navigation state, `lifeboard://weekly`
+    /// deep links and notification payloads written before the workspace existed
+    /// restore into the surface that replaced it rather than a dead end.
+    public var weeklyPlanningEntry: WeeklyPlanningEntry? {
+        switch self {
+        case .weeklyPlanner: .week
+        case .weeklyPlanningWorkspace(let entry): entry
+        default: nil
         }
     }
 
@@ -66,6 +91,12 @@ public enum AppRoute: Codable, Hashable, Sendable {
         case .settings, .settingsDetail, .tokenGallery, .referenceDashboard:
             .utility
         case .taskDetail, .note, .journalDay:
+            .editor
+        case .weeklyPlanningWorkspace, .weeklyPlanner:
+            // The workspace owns a persistent composer of its own. Without
+            // this the global capture field floats over the source tray, and
+            // the surface has two competing text targets and two "+" buttons
+            // meaning different things.
             .editor
         case .focusSession, .dayClose, .dayOpen:
             // A ritual, like a focus session: the shell drops its star field and

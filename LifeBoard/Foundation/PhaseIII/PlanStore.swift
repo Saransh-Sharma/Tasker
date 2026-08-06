@@ -55,6 +55,8 @@ final class PlanStore {
     private(set) var calibrationSuggestions: [UUID: EstimateCalibrationSuggestion] = [:]
     private(set) var calendarState: PlanningCalendarState = .notRequested
     private(set) var isLoading = false
+    /// Set when a reload is requested while one is already running. See `load()`.
+    private var hasPendingReload = false
     var errorMessage: String?
     var selectedDay: PlanningDay
 
@@ -181,11 +183,35 @@ final class PlanStore {
         }
     }
 
+    /// Reloads canonical state, coalescing concurrent requests.
+    ///
+    /// This used to be `guard isLoading == false else { return }`, which
+    /// *dropped* the second request rather than deferring it. Every mutation
+    /// here is `commit` followed by `await load()`, so two quick taps meant the
+    /// second reload silently no-opped and `tasks` stayed stale — and the next
+    /// write then committed a stale `before`. `saveTaskMetadata` applies every
+    /// field of `after`, so that is a full-record overwrite: it silently
+    /// reverts whatever the dropped reload would have picked up, and its undo
+    /// payload restores values that were never current.
+    ///
+    /// A request that arrives mid-flight now marks the pass dirty and the loop
+    /// runs again. Callers still get "the store is current when this returns",
+    /// which is the contract every mutation depends on.
     func load() async {
-        guard isLoading == false else { return }
+        if isLoading {
+            hasPendingReload = true
+            return
+        }
         isLoading = true
-        calendarState = .loading
         defer { isLoading = false }
+        repeat {
+            hasPendingReload = false
+            await performLoad()
+        } while hasPendingReload
+    }
+
+    private func performLoad() async {
+        calendarState = .loading
         do {
             let bounds = weekBounds(containing: selectedDay)
             async let fetchedTasks = planningRepository.fetchOpenPlanningTasks()
@@ -274,7 +300,26 @@ final class PlanStore {
 
     func select(day: PlanningDay) async {
         selectedDay = day
+        // Staying inside the loaded week needs no repository round-trip:
+        // `makeDaySnapshot` is pure over `tasks`, `allBlocks`, `calendarContext`
+        // and `workingProfile`, all of which `load()` already fetched for the
+        // whole week. Reloading here would put a Core Data + EventKit round-trip
+        // behind every tap of a day chip in the weekly ribbon.
+        if weekSnapshot?.days.contains(where: { $0.day == day }) == true {
+            retargetDaySnapshot()
+            return
+        }
         await load()
+    }
+
+    /// Re-points `daySnapshot` at `selectedDay` without reloading.
+    ///
+    /// `daySnapshot` stays a stored property rather than becoming computed:
+    /// `previewMinimumViableDay`, `repairProposals` and the Day lens all read it
+    /// and depend on its nil-semantics.
+    private func retargetDaySnapshot() {
+        daySnapshot = makeDaySnapshot(for: selectedDay)
+        repairProposals = daySnapshot.map { repairService.proposals(for: $0, now: Date()) } ?? []
     }
 
     func moveSelection(by days: Int) async {
@@ -590,6 +635,89 @@ final class PlanStore {
             try await commit(.deleteTimeBlock(block), source: "plan.block", summary: "Removed \(block.title)")
             await load()
         } catch { errorMessage = error.localizedDescription }
+    }
+
+    // MARK: Weekly workspace access
+    //
+    // `PlanStore+WeeklyWorkspace` lives in its own file to keep this one from
+    // growing another feature's worth of methods. These four expose exactly
+    // what it needs — the calendar, the commit path, the calendar cache, and
+    // the task writer — rather than loosening the visibility of the stored
+    // properties themselves.
+
+    var workspaceCalendar: Calendar { calendar }
+
+    var workspaceTaskRepository: (any TaskDefinitionRepositoryProtocol)? { taskDefinitionRepository }
+
+    func workspaceCommitments(from start: Date, to end: Date) -> [CalendarCommitment] {
+        externalCommitments(for: (start: start, end: end))
+    }
+
+    /// Open windows on any day of the loaded week.
+    ///
+    /// Computed on demand rather than read off `daySnapshot`. `daySnapshot` is
+    /// only rebuilt by `load()`, so a surface that lets you change days without
+    /// reloading — which is the whole point of the week ribbon — would ask it
+    /// about Thursday and be answered about whatever day was loaded last. The
+    /// workspace's time-boxing silently disappeared for every day but one, and
+    /// came back only after an unrelated write happened to reload the store.
+    func workspaceFreeWindows(
+        on day: PlanningDay,
+        skippingCommitmentIDs: Set<String> = []
+    ) -> [FreeWindow] {
+        let bounds = dayBounds(day)
+        let commitments = externalCommitments(for: bounds)
+            .filter { skippingCommitmentIDs.contains($0.id) == false }
+        let blocks = allBlocks.filter { $0.startAt < bounds.end && $0.endAt > bounds.start }
+        let occupied = commitments.map { DateInterval(start: $0.startAt, end: $0.endAt) }
+            + blocks.map { DateInterval(start: $0.startAt, end: $0.endAt) }
+        return FreeWindowService.calculate(
+            workingIntervals: workingIntervals(for: day),
+            occupiedIntervals: occupied
+        )
+    }
+
+    /// A day's capacity with some meetings treated as not happening.
+    ///
+    /// The workspace used to model "I'm skipping this" by *adding the meeting's
+    /// raw duration back* to `usableDuration`. That invents time:
+    /// `CapacityBudgetService` subtracts commitments **clipped to working hours
+    /// and unioned**, so a 07:00–09:00 meeting under 08:00–18:00 hours only ever
+    /// cost 60 usable minutes, while crediting its raw duration handed back 120.
+    /// Two overlapping meetings double-credited, and an overnight event — which
+    /// overlaps two days — credited its whole length to both.
+    ///
+    /// Recomputing through the same service with the skipped commitments removed
+    /// is the only way for the credit and the charge to agree by construction.
+    func workspaceCapacity(
+        on day: PlanningDay,
+        skippingCommitmentIDs: Set<String> = []
+    ) -> CapacityBudget {
+        let bounds = dayBounds(day)
+        let commitments = externalCommitments(for: bounds)
+            .filter { skippingCommitmentIDs.contains($0.id) == false }
+        let blocks = allBlocks.filter { $0.startAt < bounds.end && $0.endAt > bounds.start }
+        let planned = tasks.filter {
+            $0.metadata.unscheduledDisposition != .deleted
+                && $0.metadata.planningDay == day
+                && $0.metadata.availability == .actionable
+        }
+        return CapacityBudgetService.calculate(
+            workingIntervals: workingIntervals(for: day),
+            fixedCalendarCommitments: commitments.map { DateInterval(start: $0.startAt, end: $0.endAt) },
+            internalFixedBlocks: blocks.filter(\.isFixed).map { DateInterval(start: $0.startAt, end: $0.endAt) },
+            userBuffer: workingProfile?.bufferDuration ?? 30 * 60,
+            plannedEstimates: planned.map(\.estimatedDuration)
+        )
+    }
+
+    @discardableResult
+    func workspaceCommit(
+        _ mutation: PlanMutation,
+        source: String,
+        summary: String
+    ) async throws -> UUID {
+        try await commit(mutation, source: source, summary: summary)
     }
 
     func task(for id: UUID) -> PlanningTaskSummary? { tasks.first { $0.id == id } }

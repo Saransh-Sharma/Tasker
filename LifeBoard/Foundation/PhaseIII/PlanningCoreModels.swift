@@ -308,7 +308,23 @@ public struct CalendarCommitment: Codable, Hashable, Identifiable, Sendable {
     public var endAt: Date
     public var isAllDay: Bool
     public var availability: String?
+    /// Identifier shared by every occurrence of a recurring series.
+    ///
+    /// Separate from `id` because `EKEvent.eventIdentifier` *is* the series
+    /// identifier for a recurring event — every Monday standup reports the same
+    /// one. Anything keyed on identity alone (a per-occurrence decision, a
+    /// per-occurrence note) would apply to the whole series. Pair this with
+    /// `startAt` through `CalendarOccurrenceIdentity.key` to address one
+    /// occurrence.
+    public var seriesID: String?
+    /// The user's real RSVP, read from EventKit. Read-only forever: EventKit
+    /// exposes attendee status without a setter, so LifeBoard must never show a
+    /// control implying it can answer an invitation.
+    public var participation: CalendarParticipation?
+    public var eventState: CalendarEventState?
 
+    /// All three new fields decode as `nil`, so commitments persisted before
+    /// they existed keep restoring and simply carry no decision context.
     public init(
         id: String,
         calendarID: String,
@@ -316,7 +332,10 @@ public struct CalendarCommitment: Codable, Hashable, Identifiable, Sendable {
         startAt: Date,
         endAt: Date,
         isAllDay: Bool = false,
-        availability: String? = nil
+        availability: String? = nil,
+        seriesID: String? = nil,
+        participation: CalendarParticipation? = nil,
+        eventState: CalendarEventState? = nil
     ) {
         self.id = id
         self.calendarID = calendarID
@@ -325,9 +344,31 @@ public struct CalendarCommitment: Codable, Hashable, Identifiable, Sendable {
         self.endAt = max(endAt, startAt)
         self.isAllDay = isAllDay
         self.availability = availability
+        self.seriesID = seriesID
+        self.participation = participation
+        self.eventState = eventState
     }
 
     public var duration: TimeInterval { max(0, endAt.timeIntervalSince(startAt)) }
+
+    public var durationMinutes: Int { Int(duration / 60) }
+
+    /// EventKit's `EKEventAvailability.free` is `1`. A commitment marked free
+    /// does not claim the time, so it never enters a capacity decision.
+    public var isBusy: Bool {
+        guard let availability else { return true }
+        return availability != "1"
+    }
+
+    /// The occurrence key this commitment's decisions are stored under.
+    public func occurrenceKey(calendar: Calendar = .current, timeZone: TimeZone = .current) -> String {
+        CalendarOccurrenceIdentity.key(
+            seriesID: seriesID ?? id,
+            occurrenceStart: startAt,
+            calendar: calendar,
+            timeZone: timeZone
+        )
+    }
 }
 
 public struct FreeWindow: Codable, Hashable, Identifiable, Sendable {
@@ -1236,19 +1277,34 @@ public struct PlanningHomeContextCandidateProvider: HomeContextCandidateProvider
             ))
         }
 
+        // Overdue counts a task whose *planned day* has passed as well as one
+        // past its deadline. A task put on Monday and never touched is exactly
+        // what the weekly workspace exists to rescue, and counting only
+        // `dueDate` made the commonest kind of backlog invisible on Home.
+        let startOfToday = Calendar.current.startOfDay(for: now)
         let overdue = tasks.filter { task in
+            guard task.metadata.unscheduledDisposition != .deleted,
+                  task.metadata.availability == .actionable,
+                  task.scheduledEndAt == nil else { return false }
+            if let planned = task.metadata.planningDay?.startDate() {
+                return planned < startOfToday
+            }
             guard let due = task.dueDate else { return false }
-            return due < now && task.scheduledEndAt == nil
+            return due < now
         }.count
         if overdue > 0 {
             result.append(.init(
-                id: "planning-overdue:\(Calendar.current.startOfDay(for: now).timeIntervalSince1970)",
+                id: "planning-overdue:\(startOfToday.timeIntervalSince1970)",
                 widgetKind: .tasks,
                 title: overdue == 1 ? "One task needs a gentle decision" : "\(overdue) tasks need a quick reset",
                 reason: .init(message: "A short review can keep old tasks from quietly weighing on today.", signal: "unfinished tasks"),
                 destination: .plan,
                 priority: 310,
-                relevantFrom: now
+                relevantFrom: now,
+                // Lands on the workspace's overdue briefing rather than on
+                // Plan's Day lens: the card is about a backlog, so the first
+                // thing it opens should be the decision about that backlog.
+                route: .weeklyPlanningWorkspace(.overdue)
             ))
         }
         return result

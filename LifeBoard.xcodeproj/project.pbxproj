@@ -82,6 +82,7 @@
 		1842D1AB7AB9D66E5A024CEE /* OnboardingFilterChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F2067B7B6ACA2A4A2DA6279 /* OnboardingFilterChip.swift */; };
 		18BC4EA3F8C23BB362367B1B /* OnboardingHabitStreakPreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC2F92D22CA429D62EFD9F46 /* OnboardingHabitStreakPreviewCard.swift */; };
 		18C32A093ADC765E90DBA71D /* AddTaskTagMultiSelect.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95932952BC5EBADE8D30791C /* AddTaskTagMultiSelect.swift */; };
+		18EB6566E1148244B58DC603 /* WeeklyMeetingDecisionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA4A83F9DF58EA71AFDC9D67 /* WeeklyMeetingDecisionStore.swift */; };
 		19062C6842CD068931CB3D63 /* OverdueRescuePlant.swift in Sources */ = {isa = PBXBuildFile; fileRef = B543DD59DC3D9705F73261A4 /* OverdueRescuePlant.swift */; };
 		193F65F5AD20237F0366DCF8 /* StarterTaskTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3A7A770EE9760A923219618 /* StarterTaskTemplate.swift */; };
 		19B603FD5B8EFE10233D20EE /* HomeReplanUndoEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC10C732F02AD5EBF16333E3 /* HomeReplanUndoEntry.swift */; };
@@ -123,6 +124,7 @@
 		2721FCB8D7ABE25DBC7508B1 /* TimelineOverlapItemCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B5B7AA06E3FAF9CBF2A49AE /* TimelineOverlapItemCard.swift */; };
 		273B0CB5CC4D28068F5487FC /* TimelinePreferenceKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1144C788F612CB7B2BB7458B /* TimelinePreferenceKeys.swift */; };
 		27F1CA9185082A8916CE7149 /* ColorTokenGenerationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24EC3451B4B59726B8F286E2 /* ColorTokenGenerationTests.swift */; };
+		2849F0BAC232B7E9D574B7BB /* PlanStore+WeeklyWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E198ED70A4BC795718CD06A /* PlanStore+WeeklyWorkspace.swift */; };
 		28F2FC0F85DA578FDDEC4C32 /* OnboardingPromptChecklistCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3206AE8D772083ABEFFE26DA /* OnboardingPromptChecklistCard.swift */; };
 		29AAA780F791C00A198F8FA7 /* StringExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = E05701BAFA3071AD793273F1 /* StringExtension.swift */; };
 		2B71D2795D489D1A2A582629 /* AppIntents.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 35E5A3CA91F06A962F9FF9FA /* AppIntents.framework */; };
@@ -166,8 +168,6 @@
 		37A2B8A6A25F06C72606019E /* TaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 592346DCA3C3FE56E12617C2 /* TaskDefinitionMapper.swift */; };
 		3832EF761CF5E6940EC8391C /* TimelineStreamSample.swift in Sources */ = {isa = PBXBuildFile; fileRef = A686073CD1BB07971DFD578B /* TimelineStreamSample.swift */; };
 		385234A92C6E4423B97234BB /* LifeBoardCardPrimitives.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E1D1160B798444BA70D195D /* LifeBoardCardPrimitives.swift */; };
-		3F1A00CMT0001B97234BB /* LifeBoardCommitControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E1D00CMT0001A70D195D /* LifeBoardCommitControl.swift */; };
-		3F1A00DECK0001B97234BB /* LifeBoardDirectionalDeck.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E1D00DECK0001A70D195D /* LifeBoardDirectionalDeck.swift */; };
 		38B214F1E69681E0A58C8665 /* OnboardingTrustRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 351390B6BEADE2277EF6ECBA /* OnboardingTrustRow.swift */; };
 		390DB347BE033669B7CF9A28 /* ViewExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = C53A20FDEE1A1CCD05E76506 /* ViewExtension.swift */; };
 		396F9CD34E10195B8C5FE0F7 /* CompleteTaskDefinitionUseCaseExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E224DFA4DB09C938556B07B /* CompleteTaskDefinitionUseCaseExtension.swift */; };
@@ -183,19 +183,12 @@
 		3D5A1FDECBC53839EF1F4953 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21637D8476DC186EA285FB33 /* WidgetSnapshot.swift */; };
 		3DB15BBF268BC66ABA3862AD /* HomeTaskListWidgetSnapshotService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A7BCB477B2EA5D03B6F3FF0 /* HomeTaskListWidgetSnapshotService.swift */; };
 		3EA2500F6FA7AE834A238C3A /* ScheduleReminderUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD613471ECDE5AFB1BB199B /* ScheduleReminderUseCase.swift */; };
+		3F1A00CMT0001B97234BB /* LifeBoardCommitControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E1D00CMT0001A70D195D /* LifeBoardCommitControl.swift */; };
+		3F1A00DECK0001B97234BB /* LifeBoardDirectionalDeck.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E1D00DECK0001A70D195D /* LifeBoardDirectionalDeck.swift */; };
 		3F4C0EC2880374F5E1710E7F /* AddTaskDatePresetRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9D6B0D45CD7BA946FCF6F3 /* AddTaskDatePresetRow.swift */; };
 		3F64B79D565266A18289D9CC /* OnboardingDownloadStatusStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16CA0CB88D6BCF379DD02183 /* OnboardingDownloadStatusStrip.swift */; };
 		4026F77624CAF2E20A59D057 /* TypographyTokens.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA35E641ED7341169B9EC48D /* TypographyTokens.swift */; };
 		404F51FA28EBB8BFB38DF285 /* TaskCaptureParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D83A0A1DBA10EFB600419F8 /* TaskCaptureParserTests.swift */; };
-		A31000000000000000000104 /* InboxCommitCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000103 /* InboxCommitCoordinatorTests.swift */; };
-		A3100000000000000000021A /* DayOpenScenarioBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000219 /* DayOpenScenarioBuilderTests.swift */; };
-		A31000000000000000000216 /* DayLoopLedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000215 /* DayLoopLedgerTests.swift */; };
-		A31000000000000000000212 /* DayLoopStageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000211 /* DayLoopStageTests.swift */; };
-		A3100000000000000000021E /* PlanDriftResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000021D /* PlanDriftResolverTests.swift */; };
-		A31000000000000000000226 /* TokenBridgeEquivalenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */; };
-		A31000000000000000000228 /* AccessibilityContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000227 /* AccessibilityContractTests.swift */; };
-		A3100000000000000000020E /* DayCloseStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000020D /* DayCloseStoreTests.swift */; };
-		A31000000000000000000206 /* DayCloseScenarioBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000205 /* DayCloseScenarioBuilderTests.swift */; };
 		4074DB4C2171B0566E75ECBE /* LifeBoardAtmosphereRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46AAACA6B4098F81A5F67D4E /* LifeBoardAtmosphereRenderer.swift */; };
 		40E1706994A23C948306E25F /* LifeManagementComposerPreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8B34D157D734D31C764453F /* LifeManagementComposerPreviewCard.swift */; };
 		41C931CFD888EF92197B0D24 /* HomeHabitMutationFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = A07E21E632557DE3A511B5C8 /* HomeHabitMutationFeedback.swift */; };
@@ -270,6 +263,10 @@
 		59B3E6E34D642F3E46FC1C64 /* HomeTimelineViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFF75A05368C0CA0356AC4F7 /* HomeTimelineViewModel.swift */; };
 		59E0A865A7529C69B04F684A /* LocalNotificationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53C94956D526284966A1EEDC /* LocalNotificationService.swift */; };
 		59FE36E7A9A47274A3D610FC /* OnboardingPressScaleButtonStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 78DF4503F0438173C6DC91B8 /* OnboardingPressScaleButtonStyle.swift */; };
+		5A1100000000000000000001 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1100000000000000000101 /* ShareViewController.swift */; };
+		5A1100000000000000000002 /* AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E40B0ED12A11ACC6A161C8 /* AppGroupConstants.swift */; };
+		5A1100000000000000000003 /* PendingCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5489B0A74568225DD433C75F /* PendingCapture.swift */; };
+		5A1100000000000000000004 /* LifeBoardShareExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5A1100000000000000000104 /* LifeBoardShareExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		5ABA1E0B75C50F023148D89F /* OnboardingHabitRecommendationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DB65ADBF6B22879FF33FF66 /* OnboardingHabitRecommendationCard.swift */; };
 		5AC278B44C8BDF3A50E94379 /* TagMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = D32B0321DD6413CCDC888416 /* TagMapper.swift */; };
 		5B0A4FDD9721341E85EF7093 /* OverdueRescueLargeStackView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70EF7AB518C2C6E6AB41487E /* OverdueRescueLargeStackView.swift */; };
@@ -319,6 +316,7 @@
 		6AD96644B6458794736BA46D /* MessageView+DayOverviewAndProposalActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 059D7229E32477D1B282E2A2 /* MessageView+DayOverviewAndProposalActions.swift */; };
 		6BE216860D602F917606397C /* HomeTaskMutationEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA66AB0570744BB33285402E /* HomeTaskMutationEvent.swift */; };
 		6BFABA2E6D0DFA253AEC67A9 /* UserDefaultsSavedHomeViewRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A365503F0A1EC71D5D159FC0 /* UserDefaultsSavedHomeViewRepository.swift */; };
+		6C006BB3E9FD2F0002698C5D /* WeeklyPlanningWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7068FE6EF42DB21BB959D209 /* WeeklyPlanningWorkspace.swift */; };
 		6C55EB9AB6FB62999A3A710D /* HomeViewModel+DailyAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E88A3C9B5309D183423ACF8 /* HomeViewModel+DailyAnalytics.swift */; };
 		6CA88A6A8612FD806A55CEC5 /* HomeDataRevision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EA22869E8CBC680A061ABAC /* HomeDataRevision.swift */; };
 		6CBA9A1192D4C0870A538CB6 /* HomeDerivedHabitRowsCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = A06726F28B0B30E18CCF0D3B /* HomeDerivedHabitRowsCache.swift */; };
@@ -588,8 +586,8 @@
 		97503DD4CD8A6F7E1E6894B8 /* TimelineUtilityItemExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 73F5AC60FF99A3BFD8D843C7 /* TimelineUtilityItemExtension.swift */; };
 		98327A7BB4DC3205D53A6D32 /* OnboardingConcentricTransitionLayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE748EA399CF4D774ECEE086 /* OnboardingConcentricTransitionLayer.swift */; };
 		98394DA04DCC1FB307F8FA6C /* lifeManagementAreaAccentHex.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F6049AC20F10CEBF79F8BAD /* lifeManagementAreaAccentHex.swift */; };
+		98603A1AF9BE1063E695C74A /* WeeklyPlanningWorkspaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DEAAA99087D624D2CA7A1DD /* WeeklyPlanningWorkspaceTests.swift */; };
 		988BCDE3365760394848B424 /* SettingsNavigationRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */; };
-		C0DEC0DE0000000000000002 /* SettingsPremiumExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DE0000000000000001 /* SettingsPremiumExperience.swift */; };
 		9A7AA6C367FAD2093F16DB77 /* OnboardingTaskRecommendationCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77F82FC408C33F7C6D11BC93 /* OnboardingTaskRecommendationCard.swift */; };
 		9B356B21E02F7FF4F6D8A6E2 /* CreateHabitUseCaseExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 27994B950A0F914CFEDC6740 /* CreateHabitUseCaseExtension.swift */; };
 		9B5D983BDED5F3B292E2920D /* CodingKeys2.swift in Sources */ = {isa = PBXBuildFile; fileRef = 75DD317FAC37A8674392A5B6 /* CodingKeys2.swift */; };
@@ -650,6 +648,35 @@
 		A3000000000000000000000E /* ReflectionKit in Frameworks */ = {isa = PBXBuildFile; productRef = A3000000000000000000000D /* ReflectionKit */; };
 		A30000000000000000000010 /* WatchCaptureKit in Frameworks */ = {isa = PBXBuildFile; productRef = A3000000000000000000000F /* WatchCaptureKit */; };
 		A30000000000000000000012 /* JournalSecurityKit in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000011 /* JournalSecurityKit */; };
+		A31000000000000000000102 /* InboxCommitCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000101 /* InboxCommitCoordinator.swift */; };
+		A31000000000000000000104 /* InboxCommitCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000103 /* InboxCommitCoordinatorTests.swift */; };
+		A31000000000000000000106 /* CoreDataInboxTaskWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000105 /* CoreDataInboxTaskWriter.swift */; };
+		A31000000000000000000202 /* DayCloseContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000201 /* DayCloseContracts.swift */; };
+		A31000000000000000000204 /* DayCloseScenarioBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000203 /* DayCloseScenarioBuilder.swift */; };
+		A31000000000000000000206 /* DayCloseScenarioBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000205 /* DayCloseScenarioBuilderTests.swift */; };
+		A31000000000000000000208 /* DayCloseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000207 /* DayCloseStore.swift */; };
+		A3100000000000000000020A /* LifeBoardDayCloseViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000209 /* LifeBoardDayCloseViews.swift */; };
+		A3100000000000000000020C /* LifeBoardDayRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000020B /* LifeBoardDayRing.swift */; };
+		A3100000000000000000020E /* DayCloseStoreTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000020D /* DayCloseStoreTests.swift */; };
+		A31000000000000000000210 /* DayLoopStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000020F /* DayLoopStage.swift */; };
+		A31000000000000000000212 /* DayLoopStageTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000211 /* DayLoopStageTests.swift */; };
+		A31000000000000000000214 /* DayLoopLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000213 /* DayLoopLedger.swift */; };
+		A31000000000000000000216 /* DayLoopLedgerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000215 /* DayLoopLedgerTests.swift */; };
+		A31000000000000000000218 /* DayOpenScenarioBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000217 /* DayOpenScenarioBuilder.swift */; };
+		A3100000000000000000021A /* DayOpenScenarioBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000219 /* DayOpenScenarioBuilderTests.swift */; };
+		A3100000000000000000021C /* PlanDriftResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000021B /* PlanDriftResolver.swift */; };
+		A3100000000000000000021E /* PlanDriftResolverTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000021D /* PlanDriftResolverTests.swift */; };
+		A31000000000000000000220 /* PlanRepairDeckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000021F /* PlanRepairDeckView.swift */; };
+		A31000000000000000000222 /* LifeBoardLensPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000221 /* LifeBoardLensPicker.swift */; };
+		A31000000000000000000511 /* LifeBoardComposerScaffold.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000510 /* LifeBoardComposerScaffold.swift */; };
+		A31000000000000000000513 /* LifeBoardComposerFields.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000512 /* LifeBoardComposerFields.swift */; };
+		A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000514 /* LifeBoardValueControls.swift */; };
+		A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000223 /* LifeBoardTokenBridge.swift */; };
+		A31000000000000000000226 /* TokenBridgeEquivalenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */; };
+		A31000000000000000000228 /* AccessibilityContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000227 /* AccessibilityContractTests.swift */; };
+		A3100000000000000000022A /* LifeBoardLiquidLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000229 /* LifeBoardLiquidLevel.swift */; };
+		A31000000000000000000502 /* LifeBoardAtmosphereSlider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000501 /* LifeBoardAtmosphereSlider.swift */; };
+		A31000000000000000000504 /* AtmosphereSliderGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000503 /* AtmosphereSliderGeometryTests.swift */; };
 		A3A6DF9571AB7FEB410EB861 /* SunriseAdvancedFilterSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594ECD331C0135DA36357314 /* SunriseAdvancedFilterSheetView.swift */; };
 		A457B085A9BC111253AADA8E /* AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E40B0ED12A11ACC6A161C8 /* AppGroupConstants.swift */; };
 		A4C2E9F12B7D4C5581AA0001 /* HomeTaskMutationPayload.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C2E9F12B7D4C5581AA0003 /* HomeTaskMutationPayload.swift */; };
@@ -669,7 +696,6 @@
 		A6E1D4032F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */; };
 		A6E1D4052F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */; };
 		A6E1D4072F3C120100B1C2D3 /* AssistantPlannerService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */; };
-		B6E1D4072F3C120100B1C2D3 /* RemoteEvaContextPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6E1D4082F3C120100B1C2D3 /* RemoteEvaContextPolicy.swift */; };
 		A6E1D4092F3C120100B1C2D3 /* DailyBriefService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */; };
 		A6E1D40B2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */; };
 		A6E1D40D2F3C120100B1C2D3 /* OverdueTriageService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A6E1D40E2F3C120100B1C2D3 /* OverdueTriageService.swift */; };
@@ -701,9 +727,6 @@
 		A91F8E162F44420100AB11C1 /* LifeManagementFeatureTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A91F8E152F44420100AB11C1 /* LifeManagementFeatureTests.swift */; };
 		A97A6E7A7869366C7EF25D0E /* TimelineStemSegments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E2736E49AF3234FCB39F354 /* TimelineStemSegments.swift */; };
 		AA06EBAAFFC153EAB0DA4450 /* LifeBoardClaySurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC271661EA08BEAAD92DD4A0 /* LifeBoardClaySurface.swift */; };
-		A31000000000000000000222 /* LifeBoardLensPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000221 /* LifeBoardLensPicker.swift */; };
-		A3100000000000000000022A /* LifeBoardLiquidLevel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000229 /* LifeBoardLiquidLevel.swift */; };
-		A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000223 /* LifeBoardTokenBridge.swift */; };
 		AA8998042C8A124CBA384F20 /* WatchSnapshotReceiver.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20E51E01323F68DC0F47205 /* WatchSnapshotReceiver.swift */; };
 		AAB000000000000000000002 /* HomeRenderState.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000001 /* HomeRenderState.swift */; };
 		AAB000000000000000000004 /* HomeStores.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000003 /* HomeStores.swift */; };
@@ -753,17 +776,7 @@
 		AFA64782BED04A879157E2A8 /* SectionRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46838AD356183D58300A941 /* SectionRepositoryProtocol.swift */; };
 		B0045AC9A4CD19C619A2E2F1 /* EvaLiveWorkingStatusView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDED467BEDE45453B0C91BEF /* EvaLiveWorkingStatusView.swift */; };
 		B02D197549EC54773882C0DC /* TaskExecutionContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = DCF4693EA4663A4F21990443 /* TaskExecutionContracts.swift */; };
-		A31000000000000000000102 /* InboxCommitCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000101 /* InboxCommitCoordinator.swift */; };
-		A31000000000000000000106 /* CoreDataInboxTaskWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000105 /* CoreDataInboxTaskWriter.swift */; };
-		A31000000000000000000218 /* DayOpenScenarioBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000217 /* DayOpenScenarioBuilder.swift */; };
-		A31000000000000000000214 /* DayLoopLedger.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000213 /* DayLoopLedger.swift */; };
-		A31000000000000000000220 /* PlanRepairDeckView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000021F /* PlanRepairDeckView.swift */; };
-		A3100000000000000000021C /* PlanDriftResolver.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000021B /* PlanDriftResolver.swift */; };
-		A31000000000000000000210 /* DayLoopStage.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000020F /* DayLoopStage.swift */; };
-		A3100000000000000000020A /* LifeBoardDayCloseViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000209 /* LifeBoardDayCloseViews.swift */; };
-		A31000000000000000000208 /* DayCloseStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000207 /* DayCloseStore.swift */; };
-		A31000000000000000000204 /* DayCloseScenarioBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000203 /* DayCloseScenarioBuilder.swift */; };
-		A31000000000000000000202 /* DayCloseContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000201 /* DayCloseContracts.swift */; };
+		B045DF5013C77C68A76E8530 /* WeeklyPlanningWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 716DC2714917FA44C1379546 /* WeeklyPlanningWorkspaceView.swift */; };
 		B07988E6375D66CC8CDB8D47 /* EvaDaySunriseTaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B33EB5C978F76DF3A6A735C /* EvaDaySunriseTaskRowView.swift */; };
 		B07A5646DA7E6D9AC7739710 /* ManageLifeAreasUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E06E18805C2401359A9B0F5B /* ManageLifeAreasUseCase.swift */; };
 		B10B1C2D3E4F506172839401 /* StateLifeAreaMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839401 /* StateLifeAreaMapper.swift */; };
@@ -810,6 +823,7 @@
 		B5A18D04B79585D76C0CE5D9 /* HomeHabitMutationFeedbackHaptic.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1F47DE38B051783EAE99853E /* HomeHabitMutationFeedbackHaptic.swift */; };
 		B656784F87454EE866376D59 /* LifeBoardKineticText.swift in Sources */ = {isa = PBXBuildFile; fileRef = D0EF94291CEE2D9728DA74D6 /* LifeBoardKineticText.swift */; };
 		B696207D77139D62369E4954 /* OnboardingConcentricColorField.swift in Sources */ = {isa = PBXBuildFile; fileRef = F280FDE93AC86C0D82E9C51E /* OnboardingConcentricColorField.swift */; };
+		B6E1D4072F3C120100B1C2D3 /* RemoteEvaContextPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6E1D4082F3C120100B1C2D3 /* RemoteEvaContextPolicy.swift */; };
 		B77B0891A4A5B4BF8D6162DC /* TaskDetailComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52E1464E13744427AAFDF824 /* TaskDetailComponents.swift */; };
 		B7C8D9E02F6A100100ABC123 /* ChatPlanApplyUndoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E12F6A100100ABC123 /* ChatPlanApplyUndoTests.swift */; };
 		B7C8D9E0F1A2233445566779 /* OverdueAgeFormatter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */; };
@@ -840,6 +854,7 @@
 		BFE43C633C4F5FD1C5ED3D91 /* OnboardingPastelPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2BC103F549E15D1F888996A /* OnboardingPastelPalette.swift */; };
 		C017F11E0720B026D1DC1692 /* ResolvedProjectSelection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A81F8713DDE19EF4F956288 /* ResolvedProjectSelection.swift */; };
 		C03666F6116B077DFA194278 /* SyncMergeState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65A7A039AC9CA38845D1E44F /* SyncMergeState.swift */; };
+		C0DEC0DE0000000000000002 /* SettingsPremiumExperience.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0DEC0DE0000000000000001 /* SettingsPremiumExperience.swift */; };
 		C0FFEE00000000000000CF01 /* lb_confetti.json in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000CF02 /* lb_confetti.json */; };
 		C158FF33EA33FDAD9E137F25 /* OnboardingNetworkClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C4934047F3DBEA1EF645AC1 /* OnboardingNetworkClass.swift */; };
 		C1A100000000000000000101 /* HabitRuntimeReadRepositoryProtocol.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000001 /* HabitRuntimeReadRepositoryProtocol.swift */; };
@@ -942,7 +957,6 @@
 		CB2585384EDD36506A08BC39 /* EvaChatSunriseGlass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6406FAAF5EBC202BFD7F2588 /* EvaChatSunriseGlass.swift */; };
 		CD7AADFB07AFA97B5C0D6452 /* HomeViewModel+RecurringTopUp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 89E23AC0E5DF84E0125F5845 /* HomeViewModel+RecurringTopUp.swift */; };
 		CDCE7BDD9D5A5F2FA1356E35 /* LifeBoardCompletionControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */; };
-		A3100000000000000000020C /* LifeBoardDayRing.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000020B /* LifeBoardDayRing.swift */; };
 		CDFF51674BB1F653FF14260A /* OnboardingMascotCarousel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83B4B8D198A7243A6496C809 /* OnboardingMascotCarousel.swift */; };
 		CE101A5DFCA6C30A72A5CE61 /* PendingOnboardingPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D09C9507B3C691C73DA808A /* PendingOnboardingPresentation.swift */; };
 		CEA4FD3F132804749E69A4B3 /* SectionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6956BC00E9F0B0BC847DD7AA /* SectionMapper.swift */; };
@@ -1208,10 +1222,6 @@
 		FF5BDB5653D5CB66DA106A16 /* XPEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = 85F3DEB89B5BEB05F1972CA7 /* XPEvent.swift */; };
 		FFCF1FC469B2AE9FC88CF3D1 /* InsightsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EDFF0556DE6F60CD19AA39 /* InsightsViewModel.swift */; };
 		FFE402DD68D4595A5B90EC4B /* LifeManagementAreaIconPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DEE0B3DA1576389071E8CEA /* LifeManagementAreaIconPicker.swift */; };
-		5A1100000000000000000001 /* ShareViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1100000000000000000101 /* ShareViewController.swift */; };
-		5A1100000000000000000002 /* AppGroupConstants.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79E40B0ED12A11ACC6A161C8 /* AppGroupConstants.swift */; };
-		5A1100000000000000000003 /* PendingCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5489B0A74568225DD433C75F /* PendingCapture.swift */; };
-		5A1100000000000000000004 /* LifeBoardShareExtension.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 5A1100000000000000000104 /* LifeBoardShareExtension.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -1221,6 +1231,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 7E3A3EE5163CF5A9C1350CFA;
 			remoteInfo = LifeBoardWidgets;
+		};
+		5A1100000000000000000402 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 753EFC922445A24500A739E3 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 5A1100000000000000000401;
+			remoteInfo = LifeBoardShareExtension;
 		};
 		753EFCB12445A24700A739E3 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -1242,13 +1259,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 4056B5567C982A9516EE30A5;
 			remoteInfo = LifeBoardWatchWidgets;
-		};
-		5A1100000000000000000402 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 753EFC922445A24500A739E3 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 5A1100000000000000000401;
-			remoteInfo = LifeBoardShareExtension;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -1279,10 +1289,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		5A1100000000000000000101 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
-		5A1100000000000000000102 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
-		5A1100000000000000000103 /* LifeBoardShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LifeBoardShareExtension.entitlements; sourceTree = "<group>"; };
-		5A1100000000000000000104 /* LifeBoardShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LifeBoardShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		017ECAA6FA89C9A7825A3E8A /* EnhancedDependencyContainer.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = EnhancedDependencyContainer.swift; path = LifeBoard/State/DI/EnhancedDependencyContainer.swift; sourceTree = SOURCE_ROOT; };
 		01EE7EB5F53129BCEE1A8679 /* TimelineDayCurrentState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineDayCurrentState.swift; sourceTree = SOURCE_ROOT; };
 		030D7ED39864D654D71BF1CE /* AppOnboardingJourneyView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Views/AppOnboardingJourneyView.swift; sourceTree = SOURCE_ROOT; };
@@ -1319,6 +1325,7 @@
 		0D70DF5D3C4DE407EF935B48 /* Section.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/Section.swift; sourceTree = SOURCE_ROOT; };
 		0D9B95BD66FD5C98B9AB37AE /* HomeOnboardingGuidanceModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Services/HomeOnboardingGuidanceModel.swift; sourceTree = SOURCE_ROOT; };
 		0D9FE88AEA020FF9DA3791C7 /* OnboardingPromptTheme.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingPromptTheme.swift; sourceTree = SOURCE_ROOT; };
+		0DEAAA99087D624D2CA7A1DD /* WeeklyPlanningWorkspaceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = WeeklyPlanningWorkspaceTests.swift; sourceTree = "<group>"; };
 		0E8B0B616B1DCDA9D286D71A /* TaskModelV3_LifeOSFoundation.xcdatamodel */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_LifeOSFoundation.xcdatamodel; sourceTree = "<group>"; };
 		0F491D6AE37A2795AA0485A7 /* HomeDateNavigationSource.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeDateNavigationSource.swift; sourceTree = SOURCE_ROOT; };
 		102FF39D56775B7335081882 /* OnboardingPromptFooterMaterialModifier.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingPromptFooterMaterialModifier.swift; sourceTree = SOURCE_ROOT; };
@@ -1334,7 +1341,6 @@
 		13E7DC8765CCB903348B7B91 /* HomeTimelineReplanPhaseSignature.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeTimelineReplanPhaseSignature.swift; sourceTree = SOURCE_ROOT; };
 		144D7D155E9471F5D9E1CD62 /* OnboardingMiniMetric.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingMiniMetric.swift; sourceTree = SOURCE_ROOT; };
 		147B7C5EB48AC2259B009894 /* SettingsNavigationRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsNavigationRow.swift; sourceTree = "<group>"; };
-		C0DEC0DE0000000000000001 /* SettingsPremiumExperience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPremiumExperience.swift; sourceTree = "<group>"; };
 		1490BF2A474A2702E82EA91C /* HabitViewModelFactoryEnvironment.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HabitViewModelFactoryEnvironment.swift; sourceTree = "<group>"; };
 		1569108CAE3EA81790B556C3 /* LifeBoardTrackFoundationViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTrackFoundationViews.swift; path = Foundation/PhaseIV/LifeBoardTrackFoundationViews.swift; sourceTree = "<group>"; };
 		16CA0CB88D6BCF379DD02183 /* OnboardingDownloadStatusStrip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingDownloadStatusStrip.swift; sourceTree = SOURCE_ROOT; };
@@ -1352,9 +1358,9 @@
 		1D2099A7314A109F91A5A0B3 /* LifeBoardCaptureControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardCaptureControl.swift; path = LifeBoardWidgets/LifeBoardCaptureControl.swift; sourceTree = SOURCE_ROOT; };
 		1DB65ADBF6B22879FF33FF66 /* OnboardingHabitRecommendationCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingHabitRecommendationCard.swift; sourceTree = SOURCE_ROOT; };
 		1E09A984D40ECCC16F14B36F /* TimelineDayPresentation.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineDayPresentation.swift; sourceTree = SOURCE_ROOT; };
-		1E1D1160B798444BA70D195D /* LifeBoardCardPrimitives.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardCardPrimitives.swift; sourceTree = "<group>"; };
 		1E1D00CMT0001A70D195D /* LifeBoardCommitControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardCommitControl.swift; sourceTree = "<group>"; };
 		1E1D00DECK0001A70D195D /* LifeBoardDirectionalDeck.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardDirectionalDeck.swift; sourceTree = "<group>"; };
+		1E1D1160B798444BA70D195D /* LifeBoardCardPrimitives.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardCardPrimitives.swift; sourceTree = "<group>"; };
 		1E37B40A095A4A51A8411D6B /* InsightsInterpretationEngine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InsightsInterpretationEngine.swift; path = Foundation/Insights/InsightsInterpretationEngine.swift; sourceTree = "<group>"; };
 		1E3F56B4B6E3DA6111B5E513 /* AddTaskSecondaryDetailsSection.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskSecondaryDetailsSection.swift; sourceTree = "<group>"; };
 		1E69586D6A0661BB639FAE5F /* HomeViewModel+RenderTransaction.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+RenderTransaction.swift"; sourceTree = SOURCE_ROOT; };
@@ -1488,6 +1494,7 @@
 		4D1039EA2610A24D8D430EAD /* OnboardingCopy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingCopy.swift; sourceTree = SOURCE_ROOT; };
 		4D285845FE9143539A3C857A /* LifeManagementComposerFieldLabel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementComposerFieldLabel.swift; sourceTree = SOURCE_ROOT; };
 		4D84FC1284BCFE8A1BB020B5 /* HabitRecoveryReflectionPrompt.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HabitRecoveryReflectionPrompt.swift; sourceTree = SOURCE_ROOT; };
+		4E198ED70A4BC795718CD06A /* PlanStore+WeeklyWorkspace.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "PlanStore+WeeklyWorkspace.swift"; path = "LifeBoard/Foundation/PhaseIII/PlanStore+WeeklyWorkspace.swift"; sourceTree = SOURCE_ROOT; };
 		4E3C7D35C2C5FC1FDEF0A89C /* ManageHabitsUseCaseExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/ManageHabitsUseCaseExtension.swift; sourceTree = SOURCE_ROOT; };
 		4E66ADE238E28DD2BC20A9C7 /* OnboardingPermissionHeroIcon.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Components/OnboardingPermissionHeroIcon.swift; sourceTree = SOURCE_ROOT; };
 		4EC8D7FF629E27D3B426AD36 /* HomeTimelineEventSignature.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeTimelineEventSignature.swift; sourceTree = SOURCE_ROOT; };
@@ -1525,6 +1532,10 @@
 		598CD23D633F1DA652C429A5 /* OnboardingInlineBadge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingInlineBadge.swift; sourceTree = SOURCE_ROOT; };
 		5991B0FA3A61ED01648C82AC /* HomeViewModel+InsightsLaunch.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+InsightsLaunch.swift"; sourceTree = SOURCE_ROOT; };
 		5A05E16369BC6D8B09B0D460 /* HomeQuickFilterTriggerButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeQuickFilterTriggerButton.swift; sourceTree = "<group>"; };
+		5A1100000000000000000101 /* ShareViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareViewController.swift; sourceTree = "<group>"; };
+		5A1100000000000000000102 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		5A1100000000000000000103 /* LifeBoardShareExtension.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = LifeBoardShareExtension.entitlements; sourceTree = "<group>"; };
+		5A1100000000000000000104 /* LifeBoardShareExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = LifeBoardShareExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		5A1DE5B5363A7EED7AF42BC8 /* HomeViewModel+SectionProjection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Presentation/ViewModels/Home/HomeViewModel+SectionProjection.swift"; sourceTree = SOURCE_ROOT; };
 		5A7FAC655E04AFF0711F5AD2 /* OnboardingFlowModel+NavigationPersistence.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Onboarding/Services/OnboardingFlowModel+NavigationPersistence.swift"; sourceTree = SOURCE_ROOT; };
 		5B1528CAF56D71468F82A432 /* TimelineRoutineTextFormatter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineRoutineTextFormatter.swift; sourceTree = SOURCE_ROOT; };
@@ -1574,10 +1585,12 @@
 		6E411E9CDB93D4BE9EDC7EF0 /* EvaDayHabitRowView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Conversation/EvaDayHabitRowView.swift; sourceTree = SOURCE_ROOT; };
 		6E8131362E7A314733E26CDF /* OverdueRescueSafeFixesView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueSafeFixesView.swift; sourceTree = SOURCE_ROOT; };
 		6F5CCCB595F2AED7845487FD /* HomeTimelineWorkspacePreferencesSignature.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeTimelineWorkspacePreferencesSignature.swift; sourceTree = SOURCE_ROOT; };
+		7068FE6EF42DB21BB959D209 /* WeeklyPlanningWorkspace.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyPlanningWorkspace.swift; path = LifeBoard/Foundation/PhaseIII/WeeklyPlanningWorkspace.swift; sourceTree = SOURCE_ROOT; };
 		70CF1C88BCCEBC000C9FEC38 /* OnboardingNotificationNameExtension.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingNotificationNameExtension.swift; sourceTree = SOURCE_ROOT; };
 		70EF7AB518C2C6E6AB41487E /* OverdueRescueLargeStackView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueLargeStackView.swift; sourceTree = SOURCE_ROOT; };
 		712BE2C322E8930A4886933B /* ScheduleRepositoryProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Interfaces/ScheduleRepositoryProtocol.swift; sourceTree = SOURCE_ROOT; };
 		7163B97F4D083B9AB6B24476 /* OnboardingJourneySnapshot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingJourneySnapshot.swift; sourceTree = SOURCE_ROOT; };
+		716DC2714917FA44C1379546 /* WeeklyPlanningWorkspaceView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyPlanningWorkspaceView.swift; path = LifeBoard/Foundation/PhaseIII/WeeklyPlanningWorkspaceView.swift; sourceTree = SOURCE_ROOT; };
 		718216D68E8278668DDB49BC /* SettingsFooterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsFooterView.swift; sourceTree = "<group>"; };
 		71FDD1869D0A6C117882AD37 /* SchedulingEngineProtocol.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Interfaces/SchedulingEngineProtocol.swift; sourceTree = SOURCE_ROOT; };
 		7273F65E17455922134AB7A9 /* QuietHoursTimeBar.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QuietHoursTimeBar.swift; sourceTree = "<group>"; };
@@ -1734,15 +1747,6 @@
 		7C900006EE1DF0BACD33342B /* Achievement.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/Achievement.swift; sourceTree = SOURCE_ROOT; };
 		7CC4B584282446580AA72B44 /* FocusSessionUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Gamification/FocusSessionUseCase.swift; sourceTree = SOURCE_ROOT; };
 		7D83A0A1DBA10EFB600419F8 /* TaskCaptureParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskCaptureParserTests.swift; sourceTree = "<group>"; };
-		A31000000000000000000103 /* InboxCommitCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxCommitCoordinatorTests.swift; sourceTree = "<group>"; };
-		A31000000000000000000219 /* DayOpenScenarioBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayOpenScenarioBuilderTests.swift; sourceTree = "<group>"; };
-		A31000000000000000000215 /* DayLoopLedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayLoopLedgerTests.swift; sourceTree = "<group>"; };
-		A31000000000000000000211 /* DayLoopStageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayLoopStageTests.swift; sourceTree = "<group>"; };
-		A3100000000000000000021D /* PlanDriftResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDriftResolverTests.swift; sourceTree = "<group>"; };
-		A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenBridgeEquivalenceTests.swift; sourceTree = "<group>"; };
-		A31000000000000000000227 /* AccessibilityContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContractTests.swift; sourceTree = "<group>"; };
-		A3100000000000000000020D /* DayCloseStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCloseStoreTests.swift; sourceTree = "<group>"; };
-		A31000000000000000000205 /* DayCloseScenarioBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCloseScenarioBuilderTests.swift; sourceTree = "<group>"; };
 		7DD613471ECDE5AFB1BB199B /* ScheduleReminderUseCase.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/UseCases/Reminder/ScheduleReminderUseCase.swift; sourceTree = SOURCE_ROOT; };
 		7DDAE6004CD5111C2C273E69 /* OverdueRescueSwipeHint.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueSwipeHint.swift; sourceTree = SOURCE_ROOT; };
 		7E2736E49AF3234FCB39F354 /* TimelineStemSegments.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Timeline/Surface/TimelineStemSegments.swift; sourceTree = SOURCE_ROOT; };
@@ -1895,6 +1899,35 @@
 		A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppOnboardingTests.swift; sourceTree = "<group>"; };
 		A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingUITests.swift; sourceTree = "<group>"; };
 		A25F3E0B9D00FA850EE9E8A9 /* TimelinePhoneRenderModel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = TimelinePhoneRenderModel.swift; sourceTree = "<group>"; };
+		A31000000000000000000101 /* InboxCommitCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InboxCommitCoordinator.swift; path = Foundation/PhaseIII/InboxCommitCoordinator.swift; sourceTree = "<group>"; };
+		A31000000000000000000103 /* InboxCommitCoordinatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InboxCommitCoordinatorTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000105 /* CoreDataInboxTaskWriter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CoreDataInboxTaskWriter.swift; path = Foundation/PhaseIII/CoreDataInboxTaskWriter.swift; sourceTree = "<group>"; };
+		A31000000000000000000201 /* DayCloseContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayCloseContracts.swift; path = Foundation/PhaseIII/DayCloseContracts.swift; sourceTree = "<group>"; };
+		A31000000000000000000203 /* DayCloseScenarioBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayCloseScenarioBuilder.swift; path = Foundation/PhaseIII/DayCloseScenarioBuilder.swift; sourceTree = "<group>"; };
+		A31000000000000000000205 /* DayCloseScenarioBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCloseScenarioBuilderTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000207 /* DayCloseStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayCloseStore.swift; path = Foundation/PhaseIII/DayCloseStore.swift; sourceTree = "<group>"; };
+		A31000000000000000000209 /* LifeBoardDayCloseViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardDayCloseViews.swift; path = Foundation/PhaseIII/LifeBoardDayCloseViews.swift; sourceTree = "<group>"; };
+		A3100000000000000000020B /* LifeBoardDayRing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardDayRing.swift; sourceTree = "<group>"; };
+		A3100000000000000000020D /* DayCloseStoreTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayCloseStoreTests.swift; sourceTree = "<group>"; };
+		A3100000000000000000020F /* DayLoopStage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayLoopStage.swift; path = Foundation/PhaseIII/DayLoopStage.swift; sourceTree = "<group>"; };
+		A31000000000000000000211 /* DayLoopStageTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayLoopStageTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000213 /* DayLoopLedger.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayLoopLedger.swift; path = Foundation/PhaseIII/DayLoopLedger.swift; sourceTree = "<group>"; };
+		A31000000000000000000215 /* DayLoopLedgerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayLoopLedgerTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000217 /* DayOpenScenarioBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayOpenScenarioBuilder.swift; path = Foundation/PhaseIII/DayOpenScenarioBuilder.swift; sourceTree = "<group>"; };
+		A31000000000000000000219 /* DayOpenScenarioBuilderTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DayOpenScenarioBuilderTests.swift; sourceTree = "<group>"; };
+		A3100000000000000000021B /* PlanDriftResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanDriftResolver.swift; path = Foundation/PhaseIII/PlanDriftResolver.swift; sourceTree = "<group>"; };
+		A3100000000000000000021D /* PlanDriftResolverTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlanDriftResolverTests.swift; sourceTree = "<group>"; };
+		A3100000000000000000021F /* PlanRepairDeckView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanRepairDeckView.swift; path = Foundation/PhaseIII/PlanRepairDeckView.swift; sourceTree = "<group>"; };
+		A31000000000000000000221 /* LifeBoardLensPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardLensPicker.swift; sourceTree = "<group>"; };
+		A31000000000000000000510 /* LifeBoardComposerScaffold.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardComposerScaffold.swift; sourceTree = "<group>"; };
+		A31000000000000000000512 /* LifeBoardComposerFields.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardComposerFields.swift; sourceTree = "<group>"; };
+		A31000000000000000000514 /* LifeBoardValueControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardValueControls.swift; sourceTree = "<group>"; };
+		A31000000000000000000223 /* LifeBoardTokenBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardTokenBridge.swift; sourceTree = "<group>"; };
+		A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenBridgeEquivalenceTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000227 /* AccessibilityContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContractTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000229 /* LifeBoardLiquidLevel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardLiquidLevel.swift; sourceTree = "<group>"; };
+		A31000000000000000000501 /* LifeBoardAtmosphereSlider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardAtmosphereSlider.swift; sourceTree = "<group>"; };
+		A31000000000000000000503 /* AtmosphereSliderGeometryTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = AtmosphereSliderGeometryTests.swift; sourceTree = "<group>"; };
 		A365503F0A1EC71D5D159FC0 /* UserDefaultsSavedHomeViewRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UserDefaultsSavedHomeViewRepository.swift; path = State/Repositories/UserDefaultsSavedHomeViewRepository.swift; sourceTree = "<group>"; };
 		A3CC802FBBE9AFA39AF7CCFA /* OverdueRescueStateMachine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueStateMachine.swift; sourceTree = SOURCE_ROOT; };
 		A4C2E9F12B7D4C5581AA0003 /* HomeTaskMutationPayload.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/HomeTaskMutationPayload.swift; sourceTree = SOURCE_ROOT; };
@@ -1910,7 +1943,6 @@
 		A6E1D4042F3C120100B1C2D3 /* AssistantDiffPreviewBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantDiffPreviewBuilder.swift; sourceTree = "<group>"; };
 		A6E1D4062F3C120100B1C2D3 /* AssistantEnvelopeValidator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantEnvelopeValidator.swift; sourceTree = "<group>"; };
 		A6E1D4082F3C120100B1C2D3 /* AssistantPlannerService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantPlannerService.swift; sourceTree = "<group>"; };
-		B6E1D4082F3C120100B1C2D3 /* RemoteEvaContextPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteEvaContextPolicy.swift; sourceTree = "<group>"; };
 		A6E1D40A2F3C120100B1C2D3 /* DailyBriefService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DailyBriefService.swift; sourceTree = "<group>"; };
 		A6E1D40C2F3C120100B1C2D3 /* LLMAssistantPipelineProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMAssistantPipelineProvider.swift; sourceTree = "<group>"; };
 		A6E1D40E2F3C120100B1C2D3 /* OverdueTriageService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueTriageService.swift; sourceTree = "<group>"; };
@@ -1945,6 +1977,7 @@
 		A9C6F21138AB4C41B2D309E7 /* TaskModelV3_Gamification.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = TaskModelV3_Gamification.xcdatamodel; sourceTree = "<group>"; };
 		A9E54F6F587FF89056E429DF /* CoreDataOccurrenceRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/State/Repositories/CoreDataOccurrenceRepository.swift; sourceTree = SOURCE_ROOT; };
 		AA28ABC219B4E3710AB87E0E /* LifeBoardInboxView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardInboxView.swift; path = Foundation/PhaseIII/LifeBoardInboxView.swift; sourceTree = "<group>"; };
+		AA4A83F9DF58EA71AFDC9D67 /* WeeklyMeetingDecisionStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WeeklyMeetingDecisionStore.swift; path = LifeBoard/Foundation/PhaseIII/WeeklyMeetingDecisionStore.swift; sourceTree = SOURCE_ROOT; };
 		AAB000000000000000000001 /* HomeRenderState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/RenderState/HomeRenderState.swift; sourceTree = SOURCE_ROOT; };
 		AAB000000000000000000003 /* HomeStores.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Stores/HomeStores.swift; sourceTree = SOURCE_ROOT; };
 		AAB000000000000000000008 /* HomeShellTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Shell/HomeShellTypes.swift; sourceTree = SOURCE_ROOT; };
@@ -2039,6 +2072,7 @@
 		B515F171FB9C556BBCA40366 /* AppOnboardingAccessibilityID.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/AppOnboardingAccessibilityID.swift; sourceTree = SOURCE_ROOT; };
 		B543DD59DC3D9705F73261A4 /* OverdueRescuePlant.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescuePlant.swift; sourceTree = SOURCE_ROOT; };
 		B6AA12D4A60EA9B1E6A316B7 /* lifeManagementAreaPaletteOptions.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/lifeManagementAreaPaletteOptions.swift; sourceTree = SOURCE_ROOT; };
+		B6E1D4082F3C120100B1C2D3 /* RemoteEvaContextPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteEvaContextPolicy.swift; sourceTree = "<group>"; };
 		B700950871CD345DFF559A61 /* OverdueRescueQuickEditSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueQuickEditSheet.swift; sourceTree = SOURCE_ROOT; };
 		B72A4F99B2064E4A639A6264 /* EvaDayTaskHeaderView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/LLM/Views/Chat/Conversation/EvaDayTaskHeaderView.swift; sourceTree = SOURCE_ROOT; };
 		B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueAgeFormatter.swift; sourceTree = "<group>"; };
@@ -2072,6 +2106,7 @@
 		BF3952602FF1A9D756382492 /* LifeManagementTreeInteractionMode.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Views/Settings/LifeManagement/LifeManagementTreeInteractionMode.swift; sourceTree = SOURCE_ROOT; };
 		C0D0E5522792B7184772D09A /* LifeBoardDaypartTokens.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardDaypartTokens.swift; path = Foundation/Design/LifeBoardDaypartTokens.swift; sourceTree = "<group>"; };
 		C0D48163BE7D31AF707E99B7 /* HomeArchitectureProtocols.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HomeArchitectureProtocols.swift; sourceTree = "<group>"; };
+		C0DEC0DE0000000000000001 /* SettingsPremiumExperience.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPremiumExperience.swift; sourceTree = "<group>"; };
 		C0FFEE00000000000000CF02 /* lb_confetti.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = LifeBoard/LifeBoardDesign/Animations/lb_confetti.json; sourceTree = SOURCE_ROOT; };
 		C1256A6FF63A60FC9D9E82C2 /* LifeBoardWidgetBundle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardWidgets/LifeBoardWidgetBundle.swift; sourceTree = SOURCE_ROOT; };
 		C1429E78D48CAF30D016B671 /* NotificationTypesCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationTypesCard.swift; sourceTree = "<group>"; };
@@ -2093,7 +2128,6 @@
 		C1B2C3D4E5F60718293A4B5C /* LifeManagementDestructiveFlowCoordinator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeManagementDestructiveFlowCoordinator.swift; sourceTree = "<group>"; };
 		C20400B4B017F188A0F00344 /* OverdueRescueDeckState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueDeckState.swift; sourceTree = SOURCE_ROOT; };
 		C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardCompletionControl.swift; sourceTree = "<group>"; };
-		A3100000000000000000020B /* LifeBoardDayRing.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardDayRing.swift; sourceTree = "<group>"; };
 		C2BC103F549E15D1F888996A /* OnboardingPastelPalette.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Onboarding/Models/OnboardingPastelPalette.swift; sourceTree = SOURCE_ROOT; };
 		C2C66FE334854F296A4203FD /* TagDefinition.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Domain/Models/TagDefinition.swift; sourceTree = SOURCE_ROOT; };
 		C2D3E4F5061728394A5B6C7C /* DeleteTaskDefinitionUseCaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeleteTaskDefinitionUseCaseTests.swift; sourceTree = "<group>"; };
@@ -2280,21 +2314,7 @@
 		DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsProfileHeaderView.swift; sourceTree = "<group>"; };
 		DC10C732F02AD5EBF16333E3 /* HomeReplanUndoEntry.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeReplanUndoEntry.swift; sourceTree = SOURCE_ROOT; };
 		DC271661EA08BEAAD92DD4A0 /* LifeBoardClaySurface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardClaySurface.swift; sourceTree = "<group>"; };
-		A31000000000000000000221 /* LifeBoardLensPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardLensPicker.swift; sourceTree = "<group>"; };
-		A31000000000000000000229 /* LifeBoardLiquidLevel.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardLiquidLevel.swift; sourceTree = "<group>"; };
-		A31000000000000000000223 /* LifeBoardTokenBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardTokenBridge.swift; sourceTree = "<group>"; };
 		DCF4693EA4663A4F21990443 /* TaskExecutionContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TaskExecutionContracts.swift; path = Foundation/PhaseIII/TaskExecutionContracts.swift; sourceTree = "<group>"; };
-		A31000000000000000000101 /* InboxCommitCoordinator.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = InboxCommitCoordinator.swift; path = Foundation/PhaseIII/InboxCommitCoordinator.swift; sourceTree = "<group>"; };
-		A31000000000000000000105 /* CoreDataInboxTaskWriter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CoreDataInboxTaskWriter.swift; path = Foundation/PhaseIII/CoreDataInboxTaskWriter.swift; sourceTree = "<group>"; };
-		A31000000000000000000217 /* DayOpenScenarioBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayOpenScenarioBuilder.swift; path = Foundation/PhaseIII/DayOpenScenarioBuilder.swift; sourceTree = "<group>"; };
-		A31000000000000000000213 /* DayLoopLedger.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayLoopLedger.swift; path = Foundation/PhaseIII/DayLoopLedger.swift; sourceTree = "<group>"; };
-		A3100000000000000000021F /* PlanRepairDeckView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanRepairDeckView.swift; path = Foundation/PhaseIII/PlanRepairDeckView.swift; sourceTree = "<group>"; };
-		A3100000000000000000021B /* PlanDriftResolver.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanDriftResolver.swift; path = Foundation/PhaseIII/PlanDriftResolver.swift; sourceTree = "<group>"; };
-		A3100000000000000000020F /* DayLoopStage.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayLoopStage.swift; path = Foundation/PhaseIII/DayLoopStage.swift; sourceTree = "<group>"; };
-		A31000000000000000000209 /* LifeBoardDayCloseViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardDayCloseViews.swift; path = Foundation/PhaseIII/LifeBoardDayCloseViews.swift; sourceTree = "<group>"; };
-		A31000000000000000000207 /* DayCloseStore.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayCloseStore.swift; path = Foundation/PhaseIII/DayCloseStore.swift; sourceTree = "<group>"; };
-		A31000000000000000000203 /* DayCloseScenarioBuilder.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayCloseScenarioBuilder.swift; path = Foundation/PhaseIII/DayCloseScenarioBuilder.swift; sourceTree = "<group>"; };
-		A31000000000000000000201 /* DayCloseContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DayCloseContracts.swift; path = Foundation/PhaseIII/DayCloseContracts.swift; sourceTree = "<group>"; };
 		DD7B0A79A3EE19D37B1FE1CA /* OverdueRescueSunriseHero.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueSunriseHero.swift; sourceTree = SOURCE_ROOT; };
 		DDFDBE1A33B827BB4D7FD04A /* AddTaskPriorityPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddTaskPriorityPicker.swift; sourceTree = "<group>"; };
 		DE2CDAC6D56F874D92E1DD4D /* HomeViewModelRoot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Presentation/ViewModels/Home/HomeViewModelRoot.swift; sourceTree = SOURCE_ROOT; };
@@ -2552,16 +2572,6 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		5A1100000000000000000201 /* LifeBoardShareExtension */ = {
-			isa = PBXGroup;
-			children = (
-				5A1100000000000000000101 /* ShareViewController.swift */,
-				5A1100000000000000000102 /* Info.plist */,
-				5A1100000000000000000103 /* LifeBoardShareExtension.entitlements */,
-			);
-			path = LifeBoardShareExtension;
-			sourceTree = "<group>";
-		};
 		017D42D408C7902DAA40A8ED /* DataSources */ = {
 			isa = PBXGroup;
 			children = (
@@ -2740,6 +2750,7 @@
 			children = (
 				5DA1D87ADF956BED887FE0CC /* LifeBoardThemeManagerTests.swift */,
 				24EC3451B4B59726B8F286E2 /* ColorTokenGenerationTests.swift */,
+				A31000000000000000000503 /* AtmosphereSliderGeometryTests.swift */,
 				32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */,
 				7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */,
 				A8F1D2065E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift */,
@@ -2767,6 +2778,16 @@
 				681B3355B81889F522EA1BB7 /* DayCompassSnoozeStore.swift */,
 			);
 			path = DayCompass;
+			sourceTree = "<group>";
+		};
+		5A1100000000000000000201 /* LifeBoardShareExtension */ = {
+			isa = PBXGroup;
+			children = (
+				5A1100000000000000000101 /* ShareViewController.swift */,
+				5A1100000000000000000102 /* Info.plist */,
+				5A1100000000000000000103 /* LifeBoardShareExtension.entitlements */,
+			);
+			path = LifeBoardShareExtension;
 			sourceTree = "<group>";
 		};
 		5C9400AEFBA64276AA6DAA8C /* PhaseIV */ = {
@@ -2855,6 +2876,10 @@
 				A31000000000000000000207 /* DayCloseStore.swift */,
 				A31000000000000000000203 /* DayCloseScenarioBuilder.swift */,
 				A31000000000000000000201 /* DayCloseContracts.swift */,
+				7068FE6EF42DB21BB959D209 /* WeeklyPlanningWorkspace.swift */,
+				AA4A83F9DF58EA71AFDC9D67 /* WeeklyMeetingDecisionStore.swift */,
+				4E198ED70A4BC795718CD06A /* PlanStore+WeeklyWorkspace.swift */,
+				716DC2714917FA44C1379546 /* WeeklyPlanningWorkspaceView.swift */,
 			);
 			name = PhaseIII;
 			sourceTree = "<group>";
@@ -3143,6 +3168,7 @@
 				0D4C2029D4BC463019FF6673 /* LifeOSFoundationTests.swift */,
 				58DD859719B5F507570462AD /* LifeBoardPlanningTrackFoundationTests.swift */,
 				172D92943BF0E56EE1B9069E /* LifeBoardEvidenceContractTests.swift */,
+				0DEAAA99087D624D2CA7A1DD /* WeeklyPlanningWorkspaceTests.swift */,
 			);
 			path = LifeBoardTests;
 			sourceTree = "<group>";
@@ -3893,6 +3919,10 @@
 				C8A100002FB0000100C1A001 /* LifeBoardScreenScaffold.swift */,
 				DC271661EA08BEAAD92DD4A0 /* LifeBoardClaySurface.swift */,
 				A31000000000000000000221 /* LifeBoardLensPicker.swift */,
+				A31000000000000000000510 /* LifeBoardComposerScaffold.swift */,
+				A31000000000000000000512 /* LifeBoardComposerFields.swift */,
+				A31000000000000000000514 /* LifeBoardValueControls.swift */,
+				A31000000000000000000501 /* LifeBoardAtmosphereSlider.swift */,
 				A31000000000000000000229 /* LifeBoardLiquidLevel.swift */,
 				A31000000000000000000223 /* LifeBoardTokenBridge.swift */,
 				D0EF94291CEE2D9728DA74D6 /* LifeBoardKineticText.swift */,
@@ -4671,23 +4701,6 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		5A1100000000000000000401 /* LifeBoardShareExtension */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 5A1100000000000000000503 /* Build configuration list for PBXNativeTarget "LifeBoardShareExtension" */;
-			buildPhases = (
-				5A1100000000000000000301 /* Sources */,
-				5A1100000000000000000302 /* Frameworks */,
-				5A1100000000000000000303 /* Resources */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = LifeBoardShareExtension;
-			productName = LifeBoardShareExtension;
-			productReference = 5A1100000000000000000104 /* LifeBoardShareExtension.appex */;
-			productType = "com.apple.product-type.app-extension";
-		};
 		4056B5567C982A9516EE30A5 /* LifeBoardWatchWidgets */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 4BC9EFAF85D3D25404A3EB61 /* Build configuration list for PBXNativeTarget "LifeBoardWatchWidgets" */;
@@ -4703,6 +4716,23 @@
 			name = LifeBoardWatchWidgets;
 			productName = LifeBoardWatchWidgets;
 			productReference = 7FA441E9098F3D735062B78C /* LifeBoardWatchWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
+		5A1100000000000000000401 /* LifeBoardShareExtension */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5A1100000000000000000503 /* Build configuration list for PBXNativeTarget "LifeBoardShareExtension" */;
+			buildPhases = (
+				5A1100000000000000000301 /* Sources */,
+				5A1100000000000000000302 /* Frameworks */,
+				5A1100000000000000000303 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = LifeBoardShareExtension;
+			productName = LifeBoardShareExtension;
+			productReference = 5A1100000000000000000104 /* LifeBoardShareExtension.appex */;
 			productType = "com.apple.product-type.app-extension";
 		};
 		753EFC992445A24500A739E3 /* LifeBoard */ = {
@@ -4832,6 +4862,9 @@
 					4056B5567C982A9516EE30A5 = {
 						CreatedOnToolsVersion = 26.2;
 					};
+					5A1100000000000000000401 = {
+						CreatedOnToolsVersion = 26.5;
+					};
 					753EFC992445A24500A739E3 = {
 						CreatedOnToolsVersion = 11.3.1;
 					};
@@ -4845,9 +4878,6 @@
 					};
 					C0879A7BE527DE0BE4109879 = {
 						CreatedOnToolsVersion = 26.2;
-					};
-					5A1100000000000000000401 = {
-						CreatedOnToolsVersion = 26.5;
 					};
 				};
 			};
@@ -4884,13 +4914,6 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		5A1100000000000000000303 /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		1FC5738A5DCC1166EBE74EE7 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -4904,6 +4927,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				F2FCB19442F9ED46230382FD /* PrivacyInfo.xcprivacy in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5A1100000000000000000303 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4952,16 +4982,6 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
-		5A1100000000000000000301 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				5A1100000000000000000001 /* ShareViewController.swift in Sources */,
-				5A1100000000000000000002 /* AppGroupConstants.swift in Sources */,
-				5A1100000000000000000003 /* PendingCapture.swift in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		444890A941D398EA707E7C3D /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -5022,6 +5042,16 @@
 				6A59527C3E61ADE16A9C11AA /* AppGroupConstants.swift in Sources */,
 				0F7C061EF4DA8BEF5A8909BC /* WidgetSnapshot.swift in Sources */,
 				E671F97D401D06E3D9FD602D /* PendingCapture.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5A1100000000000000000301 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				5A1100000000000000000001 /* ShareViewController.swift in Sources */,
+				5A1100000000000000000002 /* AppGroupConstants.swift in Sources */,
+				5A1100000000000000000003 /* PendingCapture.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6004,6 +6034,10 @@
 				C8A100012FB0000100C1A001 /* LifeBoardScreenScaffold.swift in Sources */,
 				AA06EBAAFFC153EAB0DA4450 /* LifeBoardClaySurface.swift in Sources */,
 				A31000000000000000000222 /* LifeBoardLensPicker.swift in Sources */,
+				A31000000000000000000511 /* LifeBoardComposerScaffold.swift in Sources */,
+				A31000000000000000000513 /* LifeBoardComposerFields.swift in Sources */,
+				A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */,
+				A31000000000000000000502 /* LifeBoardAtmosphereSlider.swift in Sources */,
 				A3100000000000000000022A /* LifeBoardLiquidLevel.swift in Sources */,
 				A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */,
 				B656784F87454EE866376D59 /* LifeBoardKineticText.swift in Sources */,
@@ -6033,6 +6067,10 @@
 				A31000000000000000000208 /* DayCloseStore.swift in Sources */,
 				A31000000000000000000204 /* DayCloseScenarioBuilder.swift in Sources */,
 				A31000000000000000000202 /* DayCloseContracts.swift in Sources */,
+				6C006BB3E9FD2F0002698C5D /* WeeklyPlanningWorkspace.swift in Sources */,
+				18EB6566E1148244B58DC603 /* WeeklyMeetingDecisionStore.swift in Sources */,
+				2849F0BAC232B7E9D574B7BB /* PlanStore+WeeklyWorkspace.swift in Sources */,
+				B045DF5013C77C68A76E8530 /* WeeklyPlanningWorkspaceView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6055,6 +6093,7 @@
 				F5A100032F6A200100ABC001 /* LifeBoardAppShortcutsTests.swift in Sources */,
 				0512DBCE948D6692B0F1857F /* LifeBoardThemeManagerTests.swift in Sources */,
 				27F1CA9185082A8916CE7149 /* ColorTokenGenerationTests.swift in Sources */,
+				A31000000000000000000504 /* AtmosphereSliderGeometryTests.swift in Sources */,
 				3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */,
 				4987E47C4FB2B55409BA424F /* SpacingElevationCornerTests.swift in Sources */,
 				A8F1D2035E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift in Sources */,
@@ -6112,6 +6151,7 @@
 				4F6E5189E8E1A1F05E05600D /* LifeOSFoundationTests.swift in Sources */,
 				5C2E7F48F358D8A9FAA83C1D /* LifeBoardPlanningTrackFoundationTests.swift in Sources */,
 				D3C6DDF5B5DD2F340FA340D2 /* LifeBoardEvidenceContractTests.swift in Sources */,
+				98603A1AF9BE1063E695C74A /* WeeklyPlanningWorkspaceTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -6217,63 +6257,6 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
-		5A1100000000000000000501 /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = LifeBoardShareExtension/LifeBoardShareExtension.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
-				DEVELOPMENT_TEAM = CJ43UNM3AR;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = LifeBoardShareExtension/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = "$(LIFEBOARD_MARKETING_VERSION)";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.ShareExtension";
-				PRODUCT_NAME = LifeBoardShareExtension;
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-			};
-			name = Debug;
-		};
-		5A1100000000000000000502 /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				APPLICATION_EXTENSION_API_ONLY = YES;
-				CODE_SIGN_ENTITLEMENTS = LifeBoardShareExtension/LifeBoardShareExtension.entitlements;
-				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 10;
-				DEVELOPMENT_TEAM = CJ43UNM3AR;
-				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = LifeBoardShareExtension/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-					"@executable_path/../../Frameworks",
-				);
-				MARKETING_VERSION = "$(LIFEBOARD_MARKETING_VERSION)";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.ShareExtension";
-				PRODUCT_NAME = LifeBoardShareExtension;
-				SDKROOT = iphoneos;
-				SKIP_INSTALL = YES;
-				SUPPORTS_MACCATALYST = NO;
-				SWIFT_STRICT_CONCURRENCY = complete;
-				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
-				VALIDATE_PRODUCT = YES;
-			};
-			name = Release;
-		};
 		0067B3688B45AFA44F8C264C /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -6347,6 +6330,63 @@
 				PRODUCT_NAME = LifeBoardWidgets;
 				SDKROOT = iphoneos;
 				SKIP_INSTALL = YES;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		5A1100000000000000000501 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = LifeBoardShareExtension/LifeBoardShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = CJ43UNM3AR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LifeBoardShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(LIFEBOARD_MARKETING_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.ShareExtension";
+				PRODUCT_NAME = LifeBoardShareExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		5A1100000000000000000502 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				APPLICATION_EXTENSION_API_ONLY = YES;
+				CODE_SIGN_ENTITLEMENTS = LifeBoardShareExtension/LifeBoardShareExtension.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 10;
+				DEVELOPMENT_TEAM = CJ43UNM3AR;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LifeBoardShareExtension/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = "$(LIFEBOARD_MARKETING_VERSION)";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.saransh1337.To-Do-List.ShareExtension";
+				PRODUCT_NAME = LifeBoardShareExtension;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -6712,15 +6752,6 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		5A1100000000000000000503 /* Build configuration list for PBXNativeTarget "LifeBoardShareExtension" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				5A1100000000000000000501 /* Debug */,
-				5A1100000000000000000502 /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		0FCE1ACBB578969949385A6B /* Build configuration list for PBXNativeTarget "LifeBoardWidgets" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -6744,6 +6775,15 @@
 			buildConfigurations = (
 				C9EFF5B6C72E499F1C9C6A50 /* Release */,
 				0067B3688B45AFA44F8C264C /* Debug */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5A1100000000000000000503 /* Build configuration list for PBXNativeTarget "LifeBoardShareExtension" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5A1100000000000000000501 /* Debug */,
+				5A1100000000000000000502 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -6939,7 +6979,6 @@
 				C6B10000000000000000000C /* TaskModelV3_LifeMoments.xcdatamodel */,
 				A11E00000000000000000020 /* TaskModelV3_HealthPrivacy.xcdatamodel */,
 				A12E00000000000000000021 /* TaskModelV3_NotesPro.xcdatamodel */,
-				A12E00000000000000000022 /* TaskModelV3_NotesCompletion.xcdatamodel */,
 				31B6628C331CCC0C6568E62B /* TaskModelV3_TaskStartDay.xcdatamodel */,
 				31B6628C331CCC0C6568E62C /* TaskModelV3_BehaviorFlagship.xcdatamodel */,
 			);
