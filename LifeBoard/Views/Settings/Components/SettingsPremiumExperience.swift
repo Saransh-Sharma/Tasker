@@ -416,12 +416,10 @@ struct SettingsLookAndFeelView: View {
     @Binding var decorativeEffectsEnabled: Bool
 
     @Environment(\.lifeBoardAtmosphereSnapshot) private var atmosphereSnapshot
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var dragSelection: DaypartSelection?
     @State private var daypartTrigger = 0
 
     private var resolvedDaypart: ResolvedDaypart {
-        switch dragSelection ?? preferences.daypartSelection {
+        switch preferences.daypartSelection {
         case .automatic: preferences.resolvedDaypart()
         case .morning: .morning
         case .afternoon: .afternoon
@@ -461,36 +459,30 @@ struct SettingsLookAndFeelView: View {
                         .stroke(Color.white.opacity(0.22), lineWidth: 1)
                 }
                 .contentShape(Rectangle())
-                .gesture(daypartScrubGesture)
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Atmosphere preview, \(resolvedDaypart.rawValue)")
-                .accessibilityHint("Swipe horizontally to preview and choose a time of day")
                 .accessibilityIdentifier("settings.appearance.atmosphere.preview")
 
                 Text("Atmosphere")
                     .lifeboardFont(.headline)
                     .foregroundStyle(Color.lifeboard(.textPrimary))
-                Text("Swipe through the day, or choose a moment below.")
+                Text("Drag through the day, or leave it on Auto.")
                     .lifeboardFont(.caption1)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: LifeBoardSwiftUITokens.spacing.s8) {
-                        ForEach(DaypartSelection.allCases, id: \.self) { selection in
-                            LifeBoardChip(
-                                title: selection.title,
-                                isSelected: preferences.daypartSelection == selection,
-                                selectedStyle: .tinted,
-                                action: {
-                                    preferences.daypartSelection = selection
-                                    daypartTrigger &+= 1
-                                    LifeBoardFeedback.selection()
-                                }
-                            )
-                            .accessibilityLabel("\(selection.title) atmosphere")
-                        }
-                    }
-                    .padding(.horizontal, 1)
+                // Was a chip row plus a scrub gesture on the preview above,
+                // which divided one choice across two controls and got the
+                // arithmetic wrong in the gesture: a hardcoded 320pt width, no
+                // right-to-left mirroring, no Auto stop, and a Reduce Motion
+                // guard that disabled the gesture itself rather than its
+                // animation. The shared slider is the whole control.
+                LifeBoardAtmosphereSlider(
+                    selection: $preferences.daypartSelection,
+                    resolvedDaypart: resolvedDaypart,
+                    activeOverride: preferences.activeDaypartOverride
+                )
+                .onChange(of: preferences.daypartSelection) { _, _ in
+                    daypartTrigger &+= 1
                 }
             }
             .padding(LifeBoardSwiftUITokens.spacing.s16)
@@ -565,25 +557,6 @@ struct SettingsLookAndFeelView: View {
         case .ambient2D: "Soft light and depth without extra complexity."
         case .enhanced3D: "The richest atmosphere on supported devices."
         }
-    }
-
-    private var daypartScrubGesture: some Gesture {
-        DragGesture(minimumDistance: 8)
-            .onChanged { value in
-                guard !reduceMotion else { return }
-                let options: [DaypartSelection] = [.morning, .afternoon, .evening, .night]
-                let normalized = max(0, min(0.999, value.location.x / 320))
-                let next = options[min(options.count - 1, Int(normalized * Double(options.count)))]
-                guard dragSelection != next else { return }
-                dragSelection = next
-                daypartTrigger &+= 1
-                LifeBoardFeedback.selection()
-            }
-            .onEnded { _ in
-                guard let dragSelection else { return }
-                preferences.daypartSelection = dragSelection
-                self.dragSelection = nil
-            }
     }
 
     private func settingsPickerCard<Content: View>(
