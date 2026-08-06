@@ -982,19 +982,24 @@ struct LifeBoardKnowledgeModuleView: View {
                             store.selectedTagIDs = []
                         }
                     } label: {
+                        // Depth carries selection, not a 9%-opacity grey wash:
+                        // the old treatment was invisible in greyscale and
+                        // belonged to no palette in this app.
                         Label(collection.label, systemImage: collection.symbol)
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.horizontal, 13)
-                            .frame(minHeight: 40)
+                            .font(.lifeboard(store.selectedCollection == collection ? .bodyStrong : .body))
+                            .foregroundStyle(Color(store.selectedCollection == collection
+                                ? LifeBoardColorTokens.inkPrimary
+                                : LifeBoardColorTokens.inkSecondary))
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 44)
+                            .lifeBoardClaySurface(
+                                store.selectedCollection == collection ? .raised : .well,
+                                cornerRadius: LifeBoardFoundationRadius.pill
+                            )
+                            .contentShape(Capsule())
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(store.selectedCollection == collection ? Color.primary : Color.secondary)
-                    .background {
-                        if store.selectedCollection == collection {
-                            Capsule().fill(Color.primary.opacity(0.09))
-                        }
-                    }
-                    .accessibilityAddTraits(store.selectedCollection == collection ? .isSelected : [])
+                    .accessibilityAddTraits(store.selectedCollection == collection ? [.isButton, .isSelected] : .isButton)
                 }
             }
         }
@@ -1817,7 +1822,9 @@ private struct LifeBoardKnowledgeNoteEditor: View {
                 .padding(.bottom, 110)
                 .frame(maxWidth: .infinity)
             }
-            .background(Color(uiColor: .systemBackground))
+            .background {
+                LifeBoardGrainedCanvas()
+            }
             .accessibilityIdentifier("notes.editor")
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle("")
@@ -2700,7 +2707,7 @@ private struct LifeBoardNoteAIProposalReview: View {
                 .padding(24)
                 .frame(maxWidth: .infinity)
             }
-            .background(Color(uiColor: .systemBackground))
+            .background(Color(LifeBoardColorTokens.foundationCanvas))
             .navigationTitle("EVA Proposal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -2795,7 +2802,7 @@ private struct LifeBoardLockedKnowledgeNoteEditor: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(uiColor: .systemBackground).ignoresSafeArea()
+                Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
                 LifeBoardSceneCaptureMonitor(isCaptured: $isCaptured)
                     .frame(width: 0, height: 0)
                 if let session {
@@ -2975,7 +2982,7 @@ private struct LifeBoardLockedKnowledgeNoteEditor: View {
         }
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(uiColor: .systemBackground))
+        .background(Color(LifeBoardColorTokens.foundationCanvas))
         .accessibilityElement(children: .combine)
     }
 
@@ -3318,7 +3325,7 @@ private struct LifeBoardKnowledgeTableEditor: View {
                 Button("Remove column", systemImage: "minus") { removeColumn() }
                     .disabled((table.rows.first?.count ?? 1) == 1)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.lifeBoardChip)
             .controlSize(.small)
         }
         .accessibilityElement(children: .contain)
@@ -3365,6 +3372,152 @@ private struct LifeBoardKnowledgeTableEditor: View {
     }
 }
 
+
+/// Wraps the shared page container so the builder keeps its host navigation
+/// chrome (title, Cancel, Save) exactly as the Notes module supplies it.
+private struct LifeBoardComposerScaffoldShim<Content: View>: View {
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        LifeBoardComposerPage(
+            subtitle: "Saved collections update automatically as your notes change.",
+            identifier: "notes.smartCollection"
+        ) {
+            content
+        } commit: {
+            EmptyView()
+        }
+    }
+}
+
+private struct SmartCollectionIdentitySection: View {
+    @Binding var name: String
+    @Binding var terms: String
+
+    var body: some View {
+        LifeBoardComposerSection("Collection") {
+            LifeBoardComposerField(
+                "Name",
+                prompt: "What to call it",
+                text: $name,
+                showsLabel: false,
+                identifier: "notes.smartCollection.name"
+            )
+            LifeBoardComposerField("Words or phrase", prompt: "Optional", text: $terms)
+        }
+    }
+}
+
+private struct SmartCollectionLocationSection: View {
+    @Binding var folderID: UUID?
+    let folders: [LifeBoardKnowledgeFolderValue]
+    let tags: [LifeBoardKnowledgeTagValue]
+    @Binding var selectedTagIDs: Set<UUID>
+
+    var body: some View {
+        LifeBoardComposerSection("Location") {
+            LifeBoardMenuRow(
+                "Folder",
+                selection: $folderID,
+                values: [UUID?.none] + folders.map { UUID?.some($0.id) },
+                title: { id in
+                    guard let id else { return "Any folder" }
+                    return folders.first { $0.id == id }?.title ?? "Any folder"
+                },
+                identifier: "notes.smartCollection.folder"
+            )
+            if tags.isEmpty == false {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(selectedTagIDs.isEmpty ? "Tags" : "Tags · \(selectedTagIDs.count)")
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    LifeBoardOptionFlow(spacing: 8) {
+                        ForEach(tags) { tag in
+                            let isOn = selectedTagIDs.contains(tag.id)
+                            Button {
+                                LifeBoardHaptic.pick.play()
+                                if isOn { selectedTagIDs.remove(tag.id) } else { selectedTagIDs.insert(tag.id) }
+                            } label: {
+                                Text(tag.name)
+                                    .font(.lifeboard(isOn ? .bodyStrong : .body))
+                                    .foregroundStyle(Color(isOn
+                                        ? LifeBoardColorTokens.inkPrimary
+                                        : LifeBoardColorTokens.inkSecondary))
+                                    .padding(.horizontal, 14)
+                                    .frame(minHeight: 44)
+                                    .lifeBoardClaySurface(
+                                        isOn ? .raised : .well,
+                                        cornerRadius: LifeBoardFoundationRadius.pill
+                                    )
+                                    .contentShape(Capsule())
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct SmartCollectionContentSection: View {
+    @Binding var requiresAttachments: Bool
+    @Binding var checklist: KnowledgeChecklistFilter
+    @Binding var linkFilter: KnowledgeLinkFilter
+
+    var body: some View {
+        LifeBoardComposerSection("Content") {
+            Toggle("Has attachments", isOn: $requiresAttachments)
+                .toggleStyle(.lifeBoardClay)
+            LifeBoardOptionRail(
+                "Checklists",
+                selection: $checklist,
+                values: [.any, .incomplete, .completed],
+                identifierPrefix: "notes.smartCollection.checklist",
+                title: {
+                    switch $0 {
+                    case .incomplete: "Has incomplete items"
+                    case .completed: "All completed"
+                    default: "Any"
+                    }
+                }
+            )
+            LifeBoardOptionRail(
+                "Connections",
+                selection: $linkFilter,
+                values: [.any, .incoming, .outgoing, .unlinked],
+                identifierPrefix: "notes.smartCollection.links",
+                title: {
+                    switch $0 {
+                    case .incoming: "Incoming links"
+                    case .outgoing: "Outgoing links"
+                    case .unlinked: "Unlinked"
+                    default: "Any"
+                    }
+                }
+            )
+        }
+    }
+}
+
+private struct SmartCollectionRefineSection: View {
+    @Binding var favoritesOnly: Bool
+    @Binding var pinnedOnly: Bool
+    @Binding var modifiedRecently: Bool
+
+    var body: some View {
+        LifeBoardComposerSection("Refine") {
+            Toggle("Favorites only", isOn: $favoritesOnly)
+                .toggleStyle(.lifeBoardClay)
+            Toggle("Pinned only", isOn: $pinnedOnly)
+                .toggleStyle(.lifeBoardClay)
+            Toggle("Edited in the last 30 days", isOn: $modifiedRecently)
+                .toggleStyle(.lifeBoardClay)
+        }
+    }
+}
+
 private struct LifeBoardSmartCollectionBuilder: View {
     let spaceID: UUID?
     let folders: [LifeBoardKnowledgeFolderValue]
@@ -3386,57 +3539,24 @@ private struct LifeBoardSmartCollectionBuilder: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Collection") {
-                    TextField("Name", text: $name)
-                        .accessibilityIdentifier("notes.smartCollection.name")
-                    TextField("Words or phrase", text: $terms)
-                }
-                Section("Location") {
-                    Picker("Folder", selection: $folderID) {
-                        Text("Any folder").tag(UUID?.none)
-                        ForEach(folders) { folder in
-                            Text(folder.title).tag(Optional(folder.id))
-                        }
-                    }
-                    if !tags.isEmpty {
-                        DisclosureGroup(selectedTagIDs.isEmpty ? "Tags" : "Tags · \(selectedTagIDs.count)") {
-                            ForEach(tags) { tag in
-                                Toggle(tag.name, isOn: Binding(
-                                    get: { selectedTagIDs.contains(tag.id) },
-                                    set: { selected in
-                                        if selected { selectedTagIDs.insert(tag.id) }
-                                        else { selectedTagIDs.remove(tag.id) }
-                                    }
-                                ))
-                            }
-                        }
-                    }
-                }
-                Section("Content") {
-                    Toggle("Has attachments", isOn: $requiresAttachments)
-                    Picker("Checklists", selection: $checklist) {
-                        Text("Any").tag(KnowledgeChecklistFilter.any)
-                        Text("Has incomplete items").tag(KnowledgeChecklistFilter.incomplete)
-                        Text("All completed").tag(KnowledgeChecklistFilter.completed)
-                    }
-                    Picker("Connections", selection: $linkFilter) {
-                        Text("Any").tag(KnowledgeLinkFilter.any)
-                        Text("Incoming links").tag(KnowledgeLinkFilter.incoming)
-                        Text("Outgoing links").tag(KnowledgeLinkFilter.outgoing)
-                        Text("Unlinked").tag(KnowledgeLinkFilter.unlinked)
-                    }
-                }
-                Section("Refine") {
-                    Toggle("Favorites only", isOn: $favoritesOnly)
-                    Toggle("Pinned only", isOn: $pinnedOnly)
-                    Toggle("Edited in the last 30 days", isOn: $modifiedRecently)
-                }
-                Section {
-                    Text("Saved collections update automatically as your notes change.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                }
+            LifeBoardComposerScaffoldShim {
+                SmartCollectionIdentitySection(name: $name, terms: $terms)
+                SmartCollectionLocationSection(
+                    folderID: $folderID,
+                    folders: folders,
+                    tags: tags,
+                    selectedTagIDs: $selectedTagIDs
+                )
+                SmartCollectionContentSection(
+                    requiresAttachments: $requiresAttachments,
+                    checklist: $checklist,
+                    linkFilter: $linkFilter
+                )
+                SmartCollectionRefineSection(
+                    favoritesOnly: $favoritesOnly,
+                    pinnedOnly: $pinnedOnly,
+                    modifiedRecently: $modifiedRecently
+                )
             }
             .navigationTitle("Smart Collection")
             .navigationBarTitleDisplayMode(.inline)
@@ -3597,6 +3717,6 @@ private struct LifeBoardKnowledgeGraphView: View {
         } label: {
             Label(title, systemImage: selection.wrappedValue == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.lifeBoardChip)
     }
 }
