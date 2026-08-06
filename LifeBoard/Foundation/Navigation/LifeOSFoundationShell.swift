@@ -90,6 +90,13 @@ public struct LifeOSFoundationShell: View {
     @State private var dictationController = UniversalDictationController()
     @State private var liveIntentResolveTask: Task<Void, Never>?
     @State private var showsDocumentScanner = false
+    @State private var showsHomeDisplayPanel = false
+    @State private var homeDisplayPanelHeight: CGFloat = 420
+    /// True while a finger is on the atmosphere slider. Suppresses the daypart
+    /// bloom, which would otherwise fire once per daypart crossed mid-drag.
+    @State private var atmosphereSliderIsDragging = false
+    /// Deferred so a `push` never lands under a still-animating sheet.
+    @State private var pendingDisplayPanelSettingsPush = false
     @State private var scannedDraft: LifeBoardScannedDraft?
     @State private var lifeBoardActionReceipt: LifeBoardActionReceipt?
     /// Fires the one-shot background warp when a card zooms into its detail
@@ -165,7 +172,48 @@ public struct LifeOSFoundationShell: View {
                     }
                     .onChange(of: atmosphereSnapshot.semanticDaypart) { oldValue, newValue in
                         guard oldValue != newValue else { return }
+                        // Dragging the atmosphere slider from Auto to Night
+                        // crosses four dayparts in a few hundred milliseconds.
+                        // One bloom per crossing would stack four Metal passes
+                        // on top of each other; the drag gets a single bloom
+                        // when the finger lifts.
+                        guard atmosphereSliderIsDragging == false else { return }
                         daypartBloomTrigger &+= 1
+                    }
+                    // Attached here, inside the atmosphere host's content,
+                    // rather than at the shell root with the other sheets:
+                    // `LifeBoardAtmosphereHost` injects the snapshot and the
+                    // `isHosted` flag onto its *content*, and the root sheets
+                    // are chained above it. A panel presented from there would
+                    // draw the wall-clock atmosphere and would not retint as
+                    // the slider moves — which is the whole point of it.
+                    .sheet(isPresented: $showsHomeDisplayPanel, onDismiss: {
+                        guard pendingDisplayPanelSettingsPush else { return }
+                        pendingDisplayPanelSettingsPush = false
+                        runtime.router.push(.settings, in: .home)
+                    }) {
+                        LifeBoardPresentationScaffold(mode: .utility, readableWidth: 520) {
+                            FoundationDisplayPanel(
+                                mode: dashboardModeBinding,
+                                density: dashboardDensityBinding,
+                                daypart: daypartSelectionBinding,
+                                resolvedDaypart: atmosphereSnapshot.semanticDaypart,
+                                activeOverride: runtime.preferences.activeDaypartOverride,
+                                onDragStateChange: { atmosphereSliderIsDragging = $0 },
+                                onOpenSettings: {
+                                    pendingDisplayPanelSettingsPush = true
+                                    showsHomeDisplayPanel = false
+                                },
+                                onMeasure: { homeDisplayPanelHeight = $0 }
+                            )
+                        }
+                        .environment(\.lifeBoardAtmosphereSnapshot, atmosphereSnapshot)
+                        .presentationDetents(
+                            dynamicTypeSize.isAccessibilitySize
+                                ? [.large]
+                                : [.height(homeDisplayPanelHeight), .large]
+                        )
+                        .presentationDragIndicator(.visible)
                     }
                 }
             }
@@ -477,11 +525,23 @@ public struct LifeOSFoundationShell: View {
             // The regular-width shell keeps its TabView: there the sidebar and
             // top bar are the switcher, and there is nothing to replace it with.
             ZStack {
+                // Nothing is ever behind the roots for longer than it takes one
+                // of them to build, but "nothing" here is the system's white
+                // window backing, not the warm canvas. Laying the canvas under
+                // the stack means any gap reads as the app's own paper.
+                Color(LifeBoardColorTokens.foundationCanvas)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
                 ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
-                    // Built on first visit. Dashboard roots stay alive; Eva is
-                    // removed when inactive. Building all five up front would
-                    // wake every root's stores on launch.
-                    if visitedRoots.contains(destination) {
+                    // Built when first selected, and kept afterwards. Dashboard
+                    // roots stay alive; Eva is removed when inactive. Building
+                    // all five up front would wake every root's stores on launch.
+                    if LifeBoardRootRetention.isRendered(
+                        destination,
+                        selected: router.selectedDestination,
+                        visited: visitedRoots
+                    ) {
                         let isCurrent = router.selectedDestination == destination
                         destinationNavigation(destination, router: router, atmosphereSnapshot: atmosphereSnapshot)
                             .safeAreaInset(edge: .bottom, spacing: 0) {
@@ -504,10 +564,14 @@ public struct LifeOSFoundationShell: View {
                 }
             }
             .onChange(of: router.selectedDestination, initial: true) { previous, destination in
-                visitedRoots.insert(destination)
-                if previous == .eva, destination != .eva {
-                    visitedRoots.remove(.eva)
-                }
+                // Retention only. Selection alone is enough to *render* a root
+                // (see `isRendered` above); this is what keeps it in the
+                // hierarchy after the selection moves on.
+                visitedRoots = LifeBoardRootRetention.retained(
+                    visited: visitedRoots,
+                    previous: previous,
+                    selected: destination
+                )
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .background(Color.clear)
@@ -568,12 +632,16 @@ public struct LifeOSFoundationShell: View {
         return UnitPoint(x: (Double(index) + 0.5) * slot, y: 0.5)
     }
 
+    // These three bindings deliberately carry no haptic. The controls they now
+    // feed — `LifeBoardAtmosphereSlider` and `LifeBoardLensPicker` — fire
+    // `LifeBoardHaptic.pick` themselves, routed through `LifeBoardMotionPolicy`
+    // so Low Power Mode and Catalyst are honoured. A tap in the binding as well
+    // would buzz twice per selection.
     private var daypartSelectionBinding: Binding<DaypartSelection> {
         Binding(
             get: { runtime.preferences.daypartSelection },
             set: { selection in
                 runtime.preferences.daypartSelection = selection
-                LifeBoardFeedback.selection()
             }
         )
     }
@@ -585,7 +653,6 @@ public struct LifeOSFoundationShell: View {
                 withAnimation(LifeBoardMotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
                     runtime.router.dashboardMode = mode
                 }
-                LifeBoardFeedback.selection()
             }
         )
     }
@@ -597,7 +664,6 @@ public struct LifeOSFoundationShell: View {
                 withAnimation(LifeBoardMotionProfile.cardReflow.animation(reduceMotion: reduceMotion)) {
                     dashboardDensity = density
                 }
-                LifeBoardFeedback.selection()
             }
         )
     }
@@ -626,6 +692,7 @@ public struct LifeOSFoundationShell: View {
         destination != .eva
             && activeScreenMode != .focused
             && activeScreenMode != .editor
+            && (destination != .home || dynamicTypeSize.isAccessibilitySize == false)
     }
 
     private func showsGlobalChrome(for destination: LifeBoardDestination) -> Bool {
@@ -798,65 +865,47 @@ public struct LifeOSFoundationShell: View {
                     LifeBoardFeedback.light()
                 },
                 secondaryActions: AnyView(
-                    Menu {
-                        // The mode control lived in `adaptiveHeader`, which was
-                        // never called — so Smart/Work/Personal/Low Energy were
-                        // persisted and restored with no way to change them.
+                    // Home's controls outgrew a menu. Atmosphere is a sequence
+                    // — a day — and a menu can only list it; SwiftUI menus
+                    // render buttons, pickers and toggles, never a slider. So
+                    // Home opens a panel, and the other roots keep the menu,
+                    // whose two rows do not justify a sheet.
+                    Group {
                         if destination == .home {
-                            Picker("Mode", selection: dashboardModeBinding) {
-                                ForEach(DashboardMode.allCases, id: \.self) { mode in
-                                    Label(mode.title, systemImage: mode.systemImage).tag(mode)
-                                }
+                            Button {
+                                showsHomeDisplayPanel = true
+                                LifeBoardFeedback.light()
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .frame(width: 44, height: 44)
                             }
-                            .pickerStyle(.menu)
-
-                            Picker("Density", selection: dashboardDensityBinding) {
-                                ForEach(DashboardDensity.allCases, id: \.self) { density in
-                                    Text(density.title).tag(density)
-                                }
-                            }
-                            .pickerStyle(.menu)
-
-                            // The daypart override was stranded in the same
-                            // dead header as the mode picker, so Auto was the
-                            // only reachable behaviour.
-                            Picker("Atmosphere", selection: daypartSelectionBinding) {
-                                ForEach(DaypartSelection.allCases, id: \.self) { selection in
-                                    Label(selection.title, systemImage: selection.systemImage).tag(selection)
-                                }
-                            }
-                            .pickerStyle(.menu)
-
-                            if runtime.preferences.activeDaypartOverride != nil {
-                                Button("Return to Auto", systemImage: "clock.arrow.circlepath") {
-                                    runtime.preferences.returnToAutomaticDaypart()
-                                    LifeBoardFeedback.selection()
-                                }
-                            }
-                            Divider()
-                        }
-                        // Add-to-Home was fully built — placement sheet, receipt
-                        // and Undo — and nothing ever set the request, so the
-                        // whole personalisation loop was unreachable.
-                        if let kinds = homeCardKinds(for: destination), kinds.isEmpty == false {
-                            Menu("Add to Home", systemImage: "plus.rectangle.on.rectangle") {
-                                ForEach(kinds, id: \.self) { kind in
-                                    if let descriptor = DefaultDashboardWidgetRegistry.shared.descriptor(for: kind) {
-                                        Button(descriptor.title) {
-                                            homeCardPlacementRequest = .init(kind: kind, destination: destination)
+                        } else {
+                            Menu {
+                                // Add-to-Home was fully built — placement sheet,
+                                // receipt and Undo — and nothing ever set the
+                                // request, so the whole personalisation loop was
+                                // unreachable.
+                                if let kinds = homeCardKinds(for: destination), kinds.isEmpty == false {
+                                    Menu("Add to Home", systemImage: "plus.rectangle.on.rectangle") {
+                                        ForEach(kinds, id: \.self) { kind in
+                                            if let descriptor = DefaultDashboardWidgetRegistry.shared.descriptor(for: kind) {
+                                                Button(descriptor.title) {
+                                                    homeCardPlacementRequest = .init(kind: kind, destination: destination)
+                                                }
+                                            }
                                         }
                                     }
+                                    .accessibilityIdentifier("home.addToHome.\(destination.rawValue)")
+                                    Divider()
                                 }
+                                Button("Settings", systemImage: "gearshape") {
+                                    runtime.router.push(.settings, in: destination)
+                                }
+                            } label: {
+                                Image(systemName: "ellipsis")
+                                    .frame(width: 44, height: 44)
                             }
-                            .accessibilityIdentifier("home.addToHome.\(destination.rawValue)")
-                            Divider()
                         }
-                        Button("Settings", systemImage: "gearshape") {
-                            runtime.router.push(.settings, in: destination)
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                            .frame(width: 44, height: 44)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
@@ -1244,7 +1293,7 @@ public struct LifeOSFoundationShell: View {
                 rescueRefreshGeneration: planRescueRefreshGeneration,
                 onOpenFocus: { _ in router.select(.plan) },
                 onAskEva: { router.select(.eva) },
-                onOpenWeeklyPlanner: { router.push(.weeklyPlanner, in: .plan) },
+                onOpenWeeklyPlanner: { router.push(.weeklyPlanningWorkspace(.week), in: .plan) },
                 onOpenWeeklyReview: { router.push(.weeklyReview, in: .plan) },
                 onOpenOverdueRescue: presentPlanOverdueRescue,
                 onReviewCapture: { item in
@@ -1299,6 +1348,7 @@ public struct LifeOSFoundationShell: View {
             return AnyView(FoundationInsightsDestination(
                 repository: trackFoundationRepository,
                 phaseIIRepository: phaseIIRepository,
+                wellnessRepository: wellnessRepository,
                 planningRepository: planningRepository,
                 gamificationRepository: gamificationRepository,
                 habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
@@ -2124,7 +2174,7 @@ public struct LifeOSFoundationShell: View {
                 rescueRefreshGeneration: planRescueRefreshGeneration,
                 onOpenFocus: { _ in runtime.router.select(.plan) },
                 onAskEva: { runtime.router.select(.eva) },
-                onOpenWeeklyPlanner: { runtime.router.push(.weeklyPlanner, in: .plan) },
+                onOpenWeeklyPlanner: { runtime.router.push(.weeklyPlanningWorkspace(.week), in: .plan) },
                 onOpenWeeklyReview: { runtime.router.push(.weeklyReview, in: .plan) },
                 onOpenOverdueRescue: presentPlanOverdueRescue,
                 onOpenTask: { runtime.router.push(.taskDetail($0), in: .plan) },
@@ -2150,10 +2200,21 @@ public struct LifeOSFoundationShell: View {
             planRoute(lens: .week, title: "Week", systemImage: "calendar")
         case .backlog:
             planRoute(lens: .backlog, title: "Backlog", systemImage: "tray.full")
-        case .weeklyPlanner:
-            FoundationWeeklyPlannerRoute(
-                onClose: { runtime.router.pop(in: .plan) }
-            )
+        // `weeklyPlanner` is the retired four-step wizard's route. It is kept so
+        // persisted navigation state, deep links and notification payloads
+        // written before the workspace existed still restore — into the surface
+        // that replaced it. `SunriseWeeklyPlannerView` is now unreachable in the
+        // product and can be deleted once a release has passed.
+        case .weeklyPlanner, .weeklyPlanningWorkspace:
+            if let planDependencies, let entry = route.weeklyPlanningEntry {
+                FoundationWeeklyPlanningWorkspaceRoute(
+                    dependencies: planDependencies,
+                    entry: entry,
+                    onClose: { runtime.router.pop(in: .plan) }
+                )
+            } else {
+                FoundationPlanRollbackRouteView(router: runtime.router)
+            }
         case .weeklyReview:
             // Insights pushes this into its own stack; popping `.plan`
             // unconditionally meant Close did nothing when opened from there.
@@ -2195,6 +2256,7 @@ public struct LifeOSFoundationShell: View {
             FoundationInsightsDestination(
                 repository: trackFoundationRepository,
                 phaseIIRepository: phaseIIRepository,
+                wellnessRepository: wellnessRepository,
                 planningRepository: planningRepository,
                 gamificationRepository: gamificationRepository,
                 habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
@@ -2203,6 +2265,11 @@ public struct LifeOSFoundationShell: View {
                 // A named record wants the widest window, not just today.
                 initialLens: evidenceID == nil ? .overview : .review,
                 focusedEvidenceID: evidenceID
+            )
+        case .healthInsight(let domain):
+            HealthInsightDetailView(
+                domain: domain,
+                wellnessRepository: wellnessRepository
             )
         case .settings:
             FoundationSettingsRouteView(router: runtime.router)
@@ -2605,8 +2672,10 @@ private struct FoundationFocusSessionRouteView: View {
 
 private struct FoundationInsightsDestination: View {
     @State private var store: TrackFoundationStore
+    @State private var healthStore = LifeBoardHealthRuntime.shared.connectionStore
     @State private var lens: InsightsLens = .overview
     @State private var persistedPlanningEvents: [NormalizedLifeEvent] = []
+    @State private var wellnessEvents: [NormalizedLifeEvent] = []
     @State private var planningEvidenceError: String?
     @State private var dayLoopEvidenceReport: DayLoopEvidenceReport?
     @State private var experienceAggregates: [DailyXPAggregateDefinition] = []
@@ -2617,6 +2686,7 @@ private struct FoundationInsightsDestination: View {
     let router: LifeBoardAppRouter
     private let planningRepository: CoreDataPlanningRepository?
     private let gamificationRepository: (any GamificationRepositoryProtocol)?
+    private let wellnessRepository: any WellnessRepository
     /// The record a deep link asked for. `.insightEvidence` carried a UUID that
     /// was discarded, so the route landed on a generic Insights screen and the
     /// user had to find the record again themselves.
@@ -2626,6 +2696,7 @@ private struct FoundationInsightsDestination: View {
     init(
         repository: CoreDataTrackFoundationRepository,
         phaseIIRepository: any LifeBoardPhaseIIRepository,
+        wellnessRepository: any WellnessRepository,
         planningRepository: CoreDataPlanningRepository?,
         gamificationRepository: (any GamificationRepositoryProtocol)?,
         habitProjectionService: (any TrackHabitProjectionService)?,
@@ -2642,6 +2713,7 @@ private struct FoundationInsightsDestination: View {
         ))
         self.planningRepository = planningRepository
         self.gamificationRepository = gamificationRepository
+        self.wellnessRepository = wellnessRepository
         self.router = router
         self.focusedEvidenceID = focusedEvidenceID
         _lens = State(initialValue: initialLens)
@@ -2651,7 +2723,7 @@ private struct FoundationInsightsDestination: View {
     }
 
     private var authorizedEvents: [NormalizedLifeEvent] {
-        SnapshotLifeEventProjectionRepository(events: store.snapshot.normalizedEvents + persistedPlanningEvents)
+        SnapshotLifeEventProjectionRepository(events: store.snapshot.normalizedEvents + persistedPlanningEvents + wellnessEvents)
             .authorizedEvents(for: .insights, journalConsentGranted: false)
     }
 
@@ -2721,10 +2793,10 @@ private struct FoundationInsightsDestination: View {
 
                     if lens == .experience {
                         insightContent
-                    } else if store.isLoading && events.isEmpty {
+                    } else if store.isLoading && events.isEmpty && healthStore.aggregates.isEmpty {
                         ProgressView("Reading today’s evidence…")
                             .frame(maxWidth: .infinity, minHeight: 180)
-                    } else if events.isEmpty {
+                    } else if events.isEmpty && healthStore.aggregates.isEmpty {
                         VStack(spacing: 12) {
                             ContentUnavailableView(
                                 "Nothing recorded yet",
@@ -2754,6 +2826,13 @@ private struct FoundationInsightsDestination: View {
         .navigationTitle("Insights")
         .navigationBarTitleDisplayMode(.inline)
         .task { await loadEvidence() }
+        .task {
+            let updates = await HealthSyncInvalidationHub.shared.updates()
+            for await _ in updates {
+                guard Task.isCancelled == false else { return }
+                await loadHealthEvidence()
+            }
+        }
         .refreshable { await loadEvidence() }
         .accessibilityIdentifier("foundation.insights")
     }
@@ -2762,6 +2841,7 @@ private struct FoundationInsightsDestination: View {
     private var insightContent: some View {
         switch lens {
         case .overview:
+            healthOverview
             interpretationSurface
             Button {
                 askEva()
@@ -2889,6 +2969,101 @@ private struct FoundationInsightsDestination: View {
             .padding(16)
             .lifeBoardClaySurface(.resting, cornerRadius: 20)
             .accessibilityIdentifier("insights.evidence")
+        }
+    }
+
+    private var healthOverview: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Body rhythm")
+                        .font(.title2.weight(.semibold))
+                    Text(healthInterpretation)
+                        .font(.subheadline)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+                Spacer()
+                Image(systemName: "heart.text.clipboard")
+                    .font(.title2)
+                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+            }
+
+            if healthStore.aggregates.isEmpty {
+                Text(HealthAuthorizationPromptState.hasRequested
+                    ? "No current Health records are available yet."
+                    : "Connect Apple Health in Track to bring movement and body context here.")
+                    .font(.body)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            } else {
+                Button {
+                    router.push(.healthInsight(.activity), in: .insights)
+                } label: {
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(healthMetricText(.steps))
+                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                            .monospacedDigit()
+                        Text("steps today")
+                            .font(.subheadline)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                HStack(spacing: 10) {
+                    healthFact(.energy, metric: .activeEnergy, label: "Active")
+                    healthFact(.hydration, metric: .water, label: "Hydration")
+                    healthFact(.body, metric: .restingHeartRate, label: "Resting HR")
+                }
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lifeBoardClaySurface(.raised, cornerRadius: 22)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("insights.healthOverview")
+    }
+
+    private func healthFact(_ domain: HealthInsightDomain, metric: HealthMetric, label: String) -> some View {
+        Button {
+            router.push(.healthInsight(domain), in: .insights)
+        } label: {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(healthMetricText(metric))
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .monospacedDigit()
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
+            .lifeBoardClaySurface(.well, cornerRadius: 14)
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var healthInterpretation: String {
+        guard let steps = healthStore.aggregates[.steps] else {
+            return "Health context stays factual until there is enough evidence."
+        }
+        if steps.value == 0 && steps.lastSampleAt == nil {
+            return "No movement record has arrived for today."
+        }
+        return "Today’s movement is available with its Apple Health source."
+    }
+
+    private func healthMetricText(_ metric: HealthMetric) -> String {
+        guard let value = healthStore.aggregates[metric]?.value else { return "—" }
+        switch metric {
+        case .steps: return value.formatted(.number.precision(.fractionLength(0)))
+        case .water: return "\(Int(value)) mL"
+        case .walkingRunningDistance: return "\((value / 1_000).formatted(.number.precision(.fractionLength(1)))) km"
+        case .restingHeartRate: return "\(Int(value)) bpm"
+        case .activeEnergy, .restingEnergy, .dietaryEnergy: return "\(Int(value)) kcal"
+        default: return value.formatted(.number.precision(.fractionLength(0...1)))
         }
     }
 
@@ -3083,6 +3258,7 @@ private struct FoundationInsightsDestination: View {
     private func loadEvidence() async {
         async let trackLoad: Void = store.load()
         async let experienceLoad: Void = loadExperience()
+        async let healthLoad: Void = loadHealthEvidence()
         if let planningRepository {
             do {
                 let records = try await planningRepository.fetchMutationReceipts(since: nil)
@@ -3111,6 +3287,26 @@ private struct FoundationInsightsDestination: View {
         }
         await trackLoad
         await experienceLoad
+        await healthLoad
+    }
+
+    @MainActor
+    private func loadHealthEvidence() async {
+        do {
+            async let body = wellnessRepository.bodyMetricSamples(kind: nil)
+            async let workouts = wellnessRepository.workoutRecords()
+            async let sleep = wellnessRepository.sleepNotes()
+            async let movement = wellnessRepository.movementRecords()
+            let projector = WellnessNormalizedEventProjector()
+            let (bodyValues, workoutValues, sleepValues, movementValues) = try await (body, workouts, sleep, movement)
+            let bodyEvents = bodyValues.map { projector.bodyMetric($0) }
+            let workoutEvents = workoutValues.map { projector.workout($0, timeZone: .autoupdatingCurrent) }
+            let sleepEvents = sleepValues.map { projector.sleep($0) }
+            let movementEvents = movementValues.map { projector.movement($0, timeZone: .autoupdatingCurrent) }
+            wellnessEvents = bodyEvents + workoutEvents + sleepEvents + movementEvents
+        } catch {
+            wellnessEvents = []
+        }
     }
 
     @MainActor
@@ -3269,6 +3465,284 @@ private struct FoundationInsightsDestination: View {
         case "focus": router.push(.focusSession(id), in: .insights)
         default: router.push(.trackHistory, in: .insights)
         }
+    }
+}
+
+private struct HealthInsightDetailView: View {
+    let domain: HealthInsightDomain
+    let wellnessRepository: any WellnessRepository
+
+    @State private var range: HealthHistoryRange = .thirtyDays
+    @State private var history: [HealthMetric: [HealthAggregateValue]] = [:]
+    @State private var bodySamples: [BodyMetricSample] = []
+    @State private var workouts: [WorkoutRecord] = []
+    @State private var sleepNotes: [SleepNote] = []
+    @State private var isLoading = false
+    @State private var errorCode: String?
+    @State private var chartReveal = 0.0
+    @State private var loadedRange: HealthHistoryRange?
+
+    private var primaryMetric: HealthMetric? {
+        switch domain {
+        case .activity: .steps
+        case .energy: .activeEnergy
+        case .hydration: .water
+        case .nutrition: .dietaryEnergy
+        case .body: .bodyMass
+        case .workouts, .sleep: nil
+        }
+    }
+
+    private var chartPoints: [HomeSeriesPoint] {
+        if let primaryMetric {
+            return (history[primaryMetric] ?? []).map { .init(date: $0.start, value: $0.value) }
+        }
+        switch domain {
+        case .workouts:
+            return workouts.map { .init(date: $0.startedAt, value: max(0, $0.duration / 60)) }.sorted { $0.date < $1.date }
+        case .sleep:
+            return HealthSleepPresentation.nightlySummaries(notes: sleepNotes)
+                .map { .init(date: $0.night, value: max(0, $0.totalDuration / 3_600)) }
+                .sorted { $0.date < $1.date }
+        default:
+            return []
+        }
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 20) {
+                interpretation
+
+                LifeBoardLensPicker(
+                    "History range",
+                    selection: $range,
+                    values: HealthHistoryRange.allCases,
+                    identifierPrefix: "health.insight.range",
+                    title: \.title,
+                    identifier: \.rawValue
+                )
+
+                if isLoading && chartPoints.isEmpty {
+                    ProgressView("Reading Apple Health history…")
+                        .frame(maxWidth: .infinity, minHeight: 180)
+                } else if chartPoints.count > 1 {
+                    let chart = LifeBoardTrendChart(
+                        points: chartPoints,
+                        tint: Color(LifeBoardColorTokens.foundationSageAccent),
+                        unit: chartUnit
+                    )
+                    chart
+                        .frame(height: 170)
+                        .lifeboardChartRevealSweep(progress: chartReveal)
+                    Text(chart.textEquivalent)
+                        .font(.footnote)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                } else {
+                    ContentUnavailableView(
+                        "Not enough history yet",
+                        systemImage: domain.symbolName,
+                        description: Text("A trend appears after at least two recorded days. Missing evidence is not treated as zero.")
+                    )
+                }
+
+                evidence
+            }
+            .frame(maxWidth: 680)
+            .padding(20)
+        }
+        .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+        .navigationTitle(domain.title)
+        .navigationBarTitleDisplayMode(.inline)
+        .task(id: range) { await load() }
+        .refreshable { await load(force: true) }
+        .task {
+            let updates = await HealthSyncInvalidationHub.shared.updates()
+            for await event in updates where event.metrics.isDisjoint(with: Set(domain.metrics)) == false {
+                await load(force: false)
+            }
+        }
+    }
+
+    private var interpretation: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(interpretationTitle, systemImage: domain.symbolName)
+                .font(.title2.weight(.semibold))
+            Text(interpretationDetail)
+                .font(.body)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            if let errorCode {
+                Label("Some history could not be refreshed. Cached evidence remains below. (\(errorCode))", systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+        }
+        .padding(18)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lifeBoardClaySurface(.raised, cornerRadius: 22)
+    }
+
+    private var interpretationTitle: String {
+        guard let latest = chartPoints.last else { return "No recorded pattern yet" }
+        return "Latest: \(format(latest.value, metric: primaryMetric))"
+    }
+
+    private var interpretationDetail: String {
+        guard chartPoints.count > 1 else {
+            return "LifeBoard will describe change once there is enough evidence, without grading or diagnosing it."
+        }
+        return "This view shows recorded change over \(range.title), with Apple Health provenance preserved below."
+    }
+
+    private var evidence: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text("Evidence")
+                .font(.title3.weight(.semibold))
+                .padding(.bottom, 8)
+            ForEach(dailyEvidence.prefix(240)) { value in
+                evidenceRow(
+                    title: metricTitle(value.metric),
+                    value: format(value.value, metric: value.metric),
+                    date: value.start,
+                    source: value.sourceLabel
+                )
+            }
+            if domain == .body {
+                ForEach(bodySamples.prefix(240)) { sample in
+                    evidenceRow(
+                        title: sample.kind.title,
+                        value: bodyValue(sample),
+                        date: sample.observedAt,
+                        source: sample.source == .healthKit ? "Apple Health" : "LifeBoard"
+                    )
+                }
+            }
+            if domain == .workouts {
+                ForEach(workouts.prefix(240)) { workout in
+                    evidenceRow(
+                        title: workout.activityKind,
+                        value: "\(Int(workout.duration / 60)) min",
+                        date: workout.startedAt,
+                        source: workout.source == .healthKit ? "Apple Health" : "LifeBoard"
+                    )
+                }
+            }
+            if domain == .sleep {
+                ForEach(sleepNotes.prefix(240)) { note in
+                    evidenceRow(
+                        title: "Sleep interval",
+                        value: Self.duration(note.duration),
+                        date: note.startedAt,
+                        source: note.source == .healthKit ? "Apple Health" : "LifeBoard"
+                    )
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("\(domain.title) evidence table")
+    }
+
+    private var dailyEvidence: [HealthAggregateValue] {
+        history.values.flatMap { $0 }.sorted { $0.start > $1.start }
+    }
+
+    private func evidenceRow(title: String, value: String, date: Date, source: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.body.weight(.medium))
+                Text("\(source) · \(date.formatted(date: .abbreviated, time: .shortened))")
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            Spacer()
+            Text(value).monospacedDigit()
+        }
+        .frame(minHeight: 52)
+        .padding(.vertical, 6)
+        .overlay(alignment: .bottom) { Divider() }
+        .accessibilityElement(children: .combine)
+    }
+
+    @MainActor
+    private func load(force: Bool = false) async {
+        isLoading = true
+        let coordinator = LifeBoardHealthRuntime.shared.coordinator
+        if force || loadedRange != range {
+            let result = await coordinator.sync(.historyBackfill(Set(domain.metrics), range))
+            errorCode = result.failures.isEmpty ? nil : "history_partial"
+            loadedRange = range
+        }
+        history = await coordinator.cachedHistory(domain: domain, range: range)
+        do {
+            switch domain {
+            case .body: bodySamples = try await wellnessRepository.bodyMetricSamples(kind: nil)
+            case .workouts: workouts = try await wellnessRepository.workoutRecords()
+            case .sleep: sleepNotes = try await wellnessRepository.sleepNotes()
+            default: break
+            }
+        } catch {
+            errorCode = "local_history"
+        }
+        isLoading = false
+        chartReveal = 0
+        withAnimation(.easeOut(duration: 0.42)) { chartReveal = 1 }
+    }
+
+    private var chartUnit: String {
+        switch domain {
+        case .activity: "steps"
+        case .energy, .nutrition: "kcal"
+        case .hydration: "mL"
+        case .body: "kg"
+        case .workouts: "minutes"
+        case .sleep: "hours"
+        }
+    }
+
+    private func metricTitle(_ metric: HealthMetric) -> String {
+        switch metric {
+        case .steps: "Steps"
+        case .walkingRunningDistance: "Walking distance"
+        case .activeEnergy: "Active energy"
+        case .restingEnergy: "Resting energy"
+        case .water: "Hydration"
+        case .dietaryEnergy: "Dietary energy"
+        case .dietaryProtein: "Protein"
+        case .dietaryCarbohydrates: "Carbohydrates"
+        case .dietaryFat: "Fat"
+        case .bodyMass: "Weight"
+        case .bodyFatPercentage: "Body fat"
+        case .waistCircumference: "Waist"
+        case .restingHeartRate: "Resting heart rate"
+        case .workout: "Workout"
+        case .sleep: "Sleep"
+        }
+    }
+
+    private func format(_ value: Double, metric: HealthMetric?) -> String {
+        guard let metric else { return value.formatted(.number.precision(.fractionLength(0...1))) }
+        switch metric {
+        case .steps: return value.formatted(.number.precision(.fractionLength(0)))
+        case .walkingRunningDistance: return "\((value / 1_000).formatted(.number.precision(.fractionLength(1)))) km"
+        case .water: return "\(Int(value)) mL"
+        case .bodyMass: return "\(value.formatted(.number.precision(.fractionLength(1)))) kg"
+        case .bodyFatPercentage: return "\(value.formatted(.number.precision(.fractionLength(1))))%"
+        case .waistCircumference: return "\(value.formatted(.number.precision(.fractionLength(1)))) cm"
+        case .restingHeartRate: return "\(Int(value)) bpm"
+        case .dietaryProtein, .dietaryCarbohydrates, .dietaryFat: return "\(Int(value)) g"
+        case .activeEnergy, .restingEnergy, .dietaryEnergy: return "\(Int(value)) kcal"
+        case .workout, .sleep: return value.formatted(.number.precision(.fractionLength(0...1)))
+        }
+    }
+
+    private func bodyValue(_ sample: BodyMetricSample) -> String {
+        let value = (try? sample.value(in: sample.displayUnit)) ?? sample.normalizedValue
+        return "\(value.formatted(.number.precision(.fractionLength(0...1)))) \(sample.displayUnit.symbol)"
+    }
+
+    private static func duration(_ interval: TimeInterval) -> String {
+        let minutes = max(0, Int(interval / 60))
+        return minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
     }
 }
 
@@ -5755,24 +6229,38 @@ private struct FoundationTimeBlockCaptureHost: View {
     }
 }
 
-/// Typed native route into the existing Weekly Operating Layer. This preserves
-/// its persisted outcomes, triage, capacity, and minimum-viable-week workflow
-/// instead of maintaining a second, divergent planner in the foundation shell.
+/// Host for "This week".
+///
+/// Builds its own `PlanStore` from the same dependencies the Plan root uses.
+/// A route pushed onto Plan cannot reach the root's `@State` store, and sharing
+/// one would couple the workspace's day selection to the Day lens behind it —
+/// the two surfaces are deliberately allowed to sit on different days.
 @MainActor
-private struct FoundationWeeklyPlannerRoute: View {
+private struct FoundationWeeklyPlanningWorkspaceRoute: View {
+    let entry: WeeklyPlanningEntry
     let onClose: () -> Void
-    @StateObject private var viewModel: WeeklyPlannerViewModel
+    @State private var store: PlanStore
 
-    init(onClose: @escaping () -> Void) {
+    init(dependencies: PlanFeatureDependencies, entry: WeeklyPlanningEntry, onClose: @escaping () -> Void) {
+        self.entry = entry
         self.onClose = onClose
-        _viewModel = StateObject(
-            wrappedValue: PresentationDependencyContainer.shared.makeWeeklyPlannerViewModel()
-        )
+        let repository = dependencies.planningRepository
+        _store = State(initialValue: PlanStore(
+            planningRepository: repository,
+            blockRepository: repository,
+            scenarioCoordinator: DefaultPlanningScenarioCoordinator(
+                planning: repository,
+                mutations: repository
+            ),
+            taskDefinitionRepository: dependencies.taskDefinitionRepository,
+            focusCommands: dependencies.focusCommands
+        ))
     }
 
     var body: some View {
-        SunriseWeeklyPlannerView(viewModel: viewModel, onClose: onClose)
-            .accessibilityIdentifier("plan.weeklyPlanner.route")
+        WeeklyPlanningWorkspaceView(store: store, entry: entry, onClose: onClose)
+            .task { await store.load() }
+            .accessibilityIdentifier("plan.weeklyPlanningWorkspace.route")
     }
 }
 
@@ -6257,5 +6745,241 @@ enum LifeBoardRootTransition {
         guard let from = order.firstIndex(of: destination),
               let to = order.firstIndex(of: selected) else { return 0 }
         return from < to ? -distance : distance
+    }
+}
+
+/// Which roots exist in the compact shell's stack, and which survive a change.
+///
+/// These are two different questions, and conflating them is what put a blank
+/// frame between Home and Plan. The stack used to render a root only once
+/// `visitedRoots` contained it, but that set is written from `onChange`, which
+/// runs *after* the render pass that observed the new selection. So the first
+/// pass after "Open Plan" drew a Plan that did not exist yet and a Home already
+/// faded to zero — no visible root at all, and the system's white window
+/// backing showed through for as long as Plan's stores took to build.
+///
+/// Selection is therefore sufficient on its own to render a root, and the
+/// visited set answers only the second question: what stays behind afterwards.
+enum LifeBoardRootRetention {
+    /// True when `destination` belongs in the stack this render pass.
+    ///
+    /// Being selected is enough. There is no transaction in which the selected
+    /// root is absent, so there is no interval with nothing on screen.
+    static func isRendered(
+        _ destination: LifeBoardDestination,
+        selected: LifeBoardDestination,
+        visited: Set<LifeBoardDestination>
+    ) -> Bool {
+        destination == selected || visited.contains(destination)
+    }
+
+    /// The visited set after a selection change.
+    ///
+    /// Dashboard roots accumulate so their scroll position and navigation depth
+    /// survive. Eva is dropped on the way out because its chat runtime owns
+    /// visibility-scoped work that should not keep running off screen — it is
+    /// still rendered while selected, so eviction never blanks it either.
+    static func retained(
+        visited: Set<LifeBoardDestination>,
+        previous: LifeBoardDestination?,
+        selected: LifeBoardDestination
+    ) -> Set<LifeBoardDestination> {
+        var next = visited
+        next.insert(selected)
+        if previous == .eva, selected != .eva {
+            next.remove(.eva)
+        }
+        return next
+    }
+}
+
+// MARK: - Display panel
+
+/// Home's presentation controls, as controls rather than menu rows.
+///
+/// The ⋯ menu carried Mode, Density and Atmosphere as nested `Picker`s, which
+/// flattened three different kinds of choice into one grammar of lists. Mode is
+/// a small set of named intents, density is a lens, and atmosphere is a
+/// *sequence* — a day — that only reads as one when you can drag along it. A
+/// SwiftUI `Menu` renders buttons, pickers and toggles and nothing else, so the
+/// slider could not live there at all.
+///
+/// Bindings arrive from the shell rather than being rebuilt here: `density` is
+/// backed by `@AppStorage` on the shell and both it and `mode` write inside a
+/// `cardReflow` animation, which is what makes Home reflow rather than snap.
+private struct FoundationDisplayPanel: View {
+    @Binding var mode: DashboardMode
+    @Binding var density: DashboardDensity
+    @Binding var daypart: DaypartSelection
+    /// Passed in, never read from preferences: `resolvedDaypart(at:)` lapses
+    /// expired overrides and writes to UserDefaults, so calling it from `body`
+    /// would persist once per frame of a drag.
+    let resolvedDaypart: ResolvedDaypart
+    let activeOverride: DaypartOverride?
+    let onDragStateChange: (Bool) -> Void
+    let onOpenSettings: () -> Void
+    let onMeasure: (CGFloat) -> Void
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.scenePhase) private var scenePhase
+
+    private let columns = [
+        GridItem(.flexible(), spacing: 8),
+        GridItem(.flexible(), spacing: 8)
+    ]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: LifeBoardSwiftUITokens.spacing.sectionGap) {
+            Text("Display")
+                .font(LifeBoardFoundationTypography.sectionTitle())
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+
+            modeSection
+            densitySection
+            atmosphereSection
+
+            Rectangle()
+                .fill(Color(LifeBoardColorTokens.foundationHairline))
+                .frame(height: 1)
+
+            Button(action: onOpenSettings) {
+                HStack(spacing: 12) {
+                    Image(systemName: "gearshape")
+                        .frame(width: 24)
+                    Text("Settings")
+                        .font(.lifeboard(.body))
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("foundation.display.settings")
+        }
+        .padding(LifeBoardSwiftUITokens.spacing.cardPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .onGeometryChange(for: CGFloat.self) { proxy in
+            proxy.size.height
+        } action: { height in
+            // Drives the sheet's compact detent, so the panel is exactly as
+            // tall as it needs to be and leaves the sky — and the celestial
+            // body the slider is moving — visible above it. The margin covers
+            // the drag indicator and the home indicator inset, nothing more.
+            onMeasure(height + 24)
+        }
+        .accessibilityIdentifier("foundation.display.panel")
+    }
+
+    // MARK: Mode
+
+    /// A grid, not a `LifeBoardLensPicker`: four segments in one row truncate
+    /// "Low Energy" to an ellipsis, and each mode's `summary` is worth showing
+    /// — these are intents, not lenses, and the names alone do not say what
+    /// Smart or Low Energy will actually do to the screen.
+    private var modeSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Mode")
+            LazyVGrid(columns: columns, spacing: 8) {
+                ForEach(DashboardMode.allCases, id: \.self) { candidate in
+                    modeTile(candidate)
+                }
+            }
+            Text(mode.summary)
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .fixedSize(horizontal: false, vertical: true)
+                .accessibilityHidden(true)
+        }
+    }
+
+    private func modeTile(_ candidate: DashboardMode) -> some View {
+        let selected = candidate == mode
+        return Button {
+            guard selected == false else { return }
+            LifeBoardHaptic.pick.play(policy: motionPolicy)
+            mode = candidate
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: candidate.systemImage)
+                    .font(.system(size: 15, weight: .semibold))
+                Text(candidate.title)
+                    // Weight carries selection alongside the fill, so the state
+                    // survives Differentiate Without Colour.
+                    .font(.lifeboard(selected ? .bodyStrong : .body))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 0)
+            }
+            .foregroundStyle(
+                Color(selected ? LifeBoardColorTokens.inkPrimary : LifeBoardColorTokens.inkSecondary)
+            )
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .background {
+                RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.compact, style: .continuous)
+                    .fill(
+                        Color(
+                            selected
+                                ? LifeBoardColorTokens.foundationSurfaceSelected
+                                : LifeBoardColorTokens.foundationSurfaceRecessed
+                        )
+                    )
+            }
+            .contentShape(RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.compact, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.display.mode.\(candidate.rawValue)")
+        .accessibilityLabel(Text("\(candidate.title). \(candidate.summary)"))
+        .accessibilityAddTraits(selected ? [.isButton, .isSelected] : .isButton)
+    }
+
+    // MARK: Density
+
+    private var densitySection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Density")
+            LifeBoardLensPicker(
+                "Density",
+                selection: $density,
+                values: DashboardDensity.allCases,
+                identifierPrefix: "home.display.density",
+                title: \.title,
+                identifier: \.rawValue
+            )
+        }
+    }
+
+    // MARK: Atmosphere
+
+    private var atmosphereSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            sectionLabel("Atmosphere")
+            LifeBoardAtmosphereSlider(
+                selection: $daypart,
+                resolvedDaypart: resolvedDaypart,
+                activeOverride: activeOverride,
+                onDragStateChange: onDragStateChange
+            )
+        }
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
+        Text(text)
+            .font(.lifeboard(.eyebrow))
+            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+    }
+
+    private var motionPolicy: LifeBoardMotionPolicy {
+        LifeBoardMotionPolicy.resolve(
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        )
     }
 }

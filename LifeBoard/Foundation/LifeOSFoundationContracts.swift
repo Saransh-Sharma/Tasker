@@ -226,11 +226,14 @@ public enum DashboardMode: String, Codable, CaseIterable, Hashable, Sendable {
 ///
 /// Work mode can be Minimal or Rich, and Low Energy remains a semantic mode
 /// rather than being overloaded as the only way to see less.
-public enum DashboardDensity: String, Codable, CaseIterable, Hashable, Sendable {
+public enum DashboardDensity: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
     case minimal
     case balanced
     case rich
 
+    /// `Identifiable` for the same reason `InsightsLens` is: it feeds
+    /// `LifeBoardLensPicker`, which is generic over identifiable values.
+    public var id: String { rawValue }
     public var title: String { rawValue.capitalized }
 }
 
@@ -645,6 +648,14 @@ public struct HomeContextCandidate: Codable, Hashable, Identifiable, Sendable {
     /// Optional only for decoding pre-role persisted candidates. Every new
     /// candidate receives a concrete role during initialization.
     public let semanticRole: HomeCandidateSemanticRole?
+    /// Where the card's action lands inside `destination`.
+    ///
+    /// Without this a card could only select a root, so "9 tasks are overdue"
+    /// dropped the user on Plan's Day lens and left them to find the weekly
+    /// workspace themselves. Optional and decoded with `decodeIfPresent`, so
+    /// candidates persisted before it existed still restore and simply select
+    /// the root as they always did.
+    public let route: AppRoute?
 
     public init(
         id: String,
@@ -657,8 +668,10 @@ public struct HomeContextCandidate: Codable, Hashable, Identifiable, Sendable {
         relevantFrom: Date = Date(),
         relevantUntil: Date? = nil,
         isUserStartedActiveState: Bool = false,
-        semanticRole: HomeCandidateSemanticRole? = nil
+        semanticRole: HomeCandidateSemanticRole? = nil,
+        route: AppRoute? = nil
     ) {
+        self.route = route
         self.id = id
         self.widgetKind = widgetKind
         self.title = title
@@ -674,6 +687,21 @@ public struct HomeContextCandidate: Codable, Hashable, Identifiable, Sendable {
 
     public var resolvedSemanticRole: HomeCandidateSemanticRole {
         semanticRole ?? Self.defaultSemanticRole(for: widgetKind)
+    }
+
+    /// What the card's button says.
+    ///
+    /// "Open Plan" names a tab, which is the least useful thing it could say
+    /// when the card is about overdue work. A card that knows its route names
+    /// the thing it opens.
+    public var actionTitle: String {
+        switch route {
+        case .weeklyPlanningWorkspace(.overdue): "Plan the overdue work"
+        case .weeklyPlanningWorkspace(.week): "Shape this week"
+        case .backlog: "Open the backlog"
+        case .planDay: "Open today's plan"
+        default: "Open \(destination.title)"
+        }
     }
 
     private static func defaultSemanticRole(for kind: DashboardWidgetKind) -> HomeCandidateSemanticRole {
