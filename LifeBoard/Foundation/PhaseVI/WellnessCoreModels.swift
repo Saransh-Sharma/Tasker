@@ -35,11 +35,15 @@ public enum WellnessDisplayUnit: String, Codable, CaseIterable, Hashable, Sendab
     }
 }
 
-public enum BodyMetricKind: String, Codable, CaseIterable, Hashable, Sendable {
+public enum BodyMetricKind: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
     case bodyMass
     case bodyFatPercentage
     case waistCircumference
     case restingHeartRate
+
+    /// `Identifiable` so the metric row can use `LifeBoardLensPicker`, the house
+    /// replacement for `.pickerStyle(.segmented)`.
+    public var id: String { rawValue }
 
     public var title: String {
         switch self {
@@ -597,6 +601,7 @@ public struct WellnessNormalizedEventProjector: Sendable {
     public func bodyMetric(_ sample: BodyMetricSample, now: Date = Date()) -> NormalizedLifeEvent {
         makeEvent(
             sourceID: sample.id,
+            domain: "body",
             kind: sample.kind.rawValue,
             occurredAt: sample.observedAt,
             numericValue: sample.normalizedValue,
@@ -610,6 +615,7 @@ public struct WellnessNormalizedEventProjector: Sendable {
     public func workout(_ value: WorkoutRecord, timeZone: TimeZone, now: Date = Date()) -> NormalizedLifeEvent {
         makeEvent(
             sourceID: value.id,
+            domain: "workout",
             kind: value.activityKind,
             occurredAt: value.startedAt,
             numericValue: value.duration,
@@ -623,6 +629,7 @@ public struct WellnessNormalizedEventProjector: Sendable {
     public func sleep(_ value: SleepNote, now: Date = Date()) -> NormalizedLifeEvent {
         makeEvent(
             sourceID: value.id,
+            domain: "sleep",
             kind: "sleepNote",
             occurredAt: value.endedAt,
             numericValue: value.duration,
@@ -640,6 +647,7 @@ public struct WellnessNormalizedEventProjector: Sendable {
     ) -> NormalizedLifeEvent {
         makeEvent(
             sourceID: value.id,
+            domain: "movement",
             kind: "movement",
             occurredAt: value.endedAt,
             numericValue: value.steps.map(Double.init),
@@ -652,6 +660,7 @@ public struct WellnessNormalizedEventProjector: Sendable {
 
     private func makeEvent(
         sourceID: UUID,
+        domain: String,
         kind: String,
         occurredAt: Date,
         numericValue: Double?,
@@ -662,7 +671,7 @@ public struct WellnessNormalizedEventProjector: Sendable {
     ) -> NormalizedLifeEvent {
         NormalizedLifeEventProjector(timeZone: timeZone).event(
             sourceID: sourceID,
-            domain: "wellness",
+            domain: domain,
             kind: kind,
             occurredAt: occurredAt,
             numericValue: numericValue,

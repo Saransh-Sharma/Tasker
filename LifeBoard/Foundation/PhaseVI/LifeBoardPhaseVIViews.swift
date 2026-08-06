@@ -643,40 +643,24 @@ private struct NutritionLogComposer: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Food") { TextField("Name", text: $name); Picker("Meal", selection: $slot) { ForEach(NutritionMealSlot.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) } } }
-                if provenance == .barcodeLocal || provenance == .barcodeRemote {
-                    Section("Source") {
-                        Label(
-                            provenance == .barcodeLocal ? "Saved local barcode match" : "Explicit online barcode match",
-                            systemImage: provenance == .barcodeLocal ? "internaldrive" : "network"
-                        )
-                        if let sourceReference {
-                            Text(sourceReference)
-                                .font(.caption)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                        }
-                    }
-                }
-                Section("Per 100 grams") {
-                    TextField("Calories", text: $calories).keyboardType(.decimalPad)
-                    TextField("Protein (g)", text: $protein).keyboardType(.decimalPad)
-                    TextField("Carbohydrates (g)", text: $carbohydrates).keyboardType(.decimalPad)
-                    TextField("Fat (g)", text: $fat).keyboardType(.decimalPad)
-                }
-                Section("Serving") {
-                    TextField("Serving grams", text: $servingGrams).keyboardType(.decimalPad)
-                    Stepper("Quantity \(quantity.formatted())", value: $quantity, in: 0.25...20, step: 0.25)
-                }
-                if let errorMessage { Text(errorMessage).foregroundStyle(.secondary) }
-            }
-            .lifeBoardFormSurface()
-            .navigationTitle("Review meal")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Log") { save() } }
-            }
+        LifeBoardComposerScaffold(
+            title: "Review meal",
+            subtitle: "A factual record of what you choose to log.",
+            confirmTitle: "Log",
+            isConfirmEnabled: name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+            identifier: "nutrition.log.composer",
+            onConfirm: save
+        ) {
+            NutritionFoodSection(name: $name, slot: $slot)
+            NutritionProvenanceSection(provenance: provenance, sourceReference: sourceReference)
+            NutritionMacroSection(
+                calories: $calories,
+                protein: $protein,
+                carbohydrates: $carbohydrates,
+                fat: $fat
+            )
+            NutritionServingSection(servingGrams: $servingGrams, quantity: $quantity)
+            NutritionErrorSection(message: errorMessage)
         }
     }
 
@@ -708,6 +692,103 @@ private struct NutritionLogComposer: View {
     private func number(_ text: String) throws -> Double {
         guard let value = Double(text.replacingOccurrences(of: ",", with: ".")), value >= 0 else { throw NutritionError.invalidMacros }
         return value
+    }
+}
+
+private struct NutritionFoodSection: View {
+    @Binding var name: String
+    @Binding var slot: NutritionMealSlot
+
+    var body: some View {
+        LifeBoardComposerSection("Food") {
+            LifeBoardComposerField(
+                "Name",
+                prompt: "What you ate",
+                text: $name,
+                showsLabel: false,
+                identifier: "nutrition.log.name"
+            )
+            LifeBoardOptionRail(
+                "Meal",
+                selection: $slot,
+                values: NutritionMealSlot.allCases,
+                identifierPrefix: "nutrition.log.slot",
+                title: { $0.rawValue.capitalized }
+            )
+        }
+    }
+}
+
+private struct NutritionProvenanceSection: View {
+    let provenance: NutritionLogProvenance
+    let sourceReference: String?
+
+    var body: some View {
+        if provenance == .barcodeLocal || provenance == .barcodeRemote {
+            LifeBoardComposerSection("Source", detail: sourceReference) {
+                Label(
+                    provenance == .barcodeLocal ? "Saved local barcode match" : "Explicit online barcode match",
+                    systemImage: provenance == .barcodeLocal ? "internaldrive" : "network"
+                )
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            }
+        }
+    }
+}
+
+private struct NutritionMacroSection: View {
+    @Binding var calories: String
+    @Binding var protein: String
+    @Binding var carbohydrates: String
+    @Binding var fat: String
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Per 100 grams",
+            detail: "Leave anything you do not know blank rather than guessing."
+        ) {
+            LifeBoardComposerField("Calories", prompt: "kcal", text: $calories, keyboard: .decimalPad)
+            LifeBoardComposerField("Protein", prompt: "grams", text: $protein, keyboard: .decimalPad)
+            LifeBoardComposerField("Carbohydrates", prompt: "grams", text: $carbohydrates, keyboard: .decimalPad)
+            LifeBoardComposerField("Fat", prompt: "grams", text: $fat, keyboard: .decimalPad)
+        }
+    }
+}
+
+private struct NutritionServingSection: View {
+    @Binding var servingGrams: String
+    @Binding var quantity: Double
+
+    var body: some View {
+        LifeBoardComposerSection("Serving") {
+            LifeBoardComposerField("Serving grams", prompt: "100", text: $servingGrams, keyboard: .decimalPad)
+            LifeBoardValueDrum(
+                "Quantity",
+                value: $quantity,
+                in: 0.25...20,
+                step: 0.25,
+                coarseStep: 1,
+                unit: "servings",
+                fractionDigits: 2,
+                identifier: "nutrition.log.quantity"
+            )
+        }
+    }
+}
+
+private struct NutritionErrorSection: View {
+    let message: String?
+
+    var body: some View {
+        if let message {
+            LifeBoardComposerSection {
+                Label(message, systemImage: "exclamationmark.circle")
+                    .font(.lifeboard(.support))
+                    .foregroundStyle(Color.lifeboard(.statusWarning))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 
@@ -772,6 +853,7 @@ struct LifeBoardWellnessView: View {
     @State private var showsCapture = false
     @State private var showsCustomization = false
     @State private var searchText = ""
+    @State private var chartRevealProgress: Double = 1
     init(
         repository: any WellnessRepository,
         preferenceStore: any WellnessPreferenceStore = UserDefaultsWellnessPreferenceStore()
@@ -798,10 +880,18 @@ struct LifeBoardWellnessView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                Picker("Metric", selection: $kind) {
-                    ForEach(enabledMetrics, id: \.self) { Text($0.title).tag($0) }
-                }
-                .pickerStyle(.segmented)
+                // The system segmented control is 32pt tall — a touch-target
+                // violation on every row it appeared in — and truncates to "…"
+                // rather than reflowing. The house lens picker exists for
+                // exactly this substitution.
+                LifeBoardLensPicker(
+                    "Wellness metric",
+                    selection: $kind,
+                    values: enabledMetrics,
+                    identifierPrefix: "wellness.metric",
+                    title: \.title,
+                    identifier: \.rawValue
+                )
                 todayCard
                 if case let .failed(message) = store.state {
                     ContentUnavailableView(
@@ -831,22 +921,15 @@ struct LifeBoardWellnessView: View {
                             .font(.subheadline).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary)).padding(.vertical, 8)
                     }
                     ForEach(filteredSamples) { sample in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(sample.observedAt.formatted(date: .abbreviated, time: .shortened))
-                                if sample.source == .healthKit {
-                                    Text("From Health").font(.caption2).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                                }
-                                if let note = sample.note {
-                                    Text(note).font(.caption2).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                                }
-                            }
-                            Spacer(); Text(display(sample)).monospacedDigit()
-                            Menu { Button("Delete", role: .destructive) { Task { await store.delete(sample, kind: kind) } } } label: { Image(systemName: "ellipsis.circle").frame(width: 44, height: 44) }
+                        WellnessHistoryRow(
+                            timestamp: sample.observedAt,
+                            value: display(sample),
+                            provenance: sourceLabel(sample.source),
+                            isImported: sample.source != .manual,
+                            note: sample.note
+                        ) {
+                            Task { await store.delete(sample, kind: kind) }
                         }
-                        .frame(minHeight: 44)
-                        .padding(.vertical, 8)
-                        .overlay(alignment: .bottom) { Divider() }
                     }
                 }.accessibilityElement(children: .contain).accessibilityLabel("\(kind.title) history table")
 
@@ -854,7 +937,9 @@ struct LifeBoardWellnessView: View {
                 sleepSection
             }.padding(20)
         }
-        .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+        .background {
+            LifeBoardGrainedCanvas()
+        }
         .navigationTitle("Wellness")
         .searchable(text: $searchText, prompt: "Search values or dates")
         .toolbar {
@@ -863,8 +948,33 @@ struct LifeBoardWellnessView: View {
                 Button("Add value", systemImage: "plus") { showsCapture = true }
             }
         }
-        .task(id: kind) { await store.load(kind: kind) }
-        .sheet(isPresented: $showsCapture) { WellnessMetricCapture(kind: kind) { value in Task { await store.save(value, kind: kind); await LifeBoardHealthRuntime.shared.jitCoordinator.offerConnectAfterReward(leadDomain: .body, trigger: "wellness_body_metric") } } }
+        .task(id: kind) {
+            await store.load(kind: kind)
+            // Replay the sweep for the newly selected metric's data.
+            chartRevealProgress = 0
+            withAnimation(.easeOut(duration: 0.62)) { chartRevealProgress = 1 }
+        }
+        .task {
+            let updates = await HealthSyncInvalidationHub.shared.updates()
+            for await event in updates {
+                guard Task.isCancelled == false,
+                      event.metrics.contains(where: { [.body, .workouts, .sleep].contains($0.domain) }) else {
+                    continue
+                }
+                await store.load(kind: kind)
+            }
+        }
+        // Seed the tape with the most recent reading. Almost every entry is a
+        // small move from the last one, so starting at a generic default made
+        // the person scrub past their own history to get back to where they are.
+        .sheet(isPresented: $showsCapture) {
+            WellnessMetricCapture(kind: kind, lastValue: store.samples.first.map(displayValue)) { value in
+                Task {
+                    await store.save(value, kind: kind)
+                    await LifeBoardHealthRuntime.shared.jitCoordinator.offerConnectAfterReward(leadDomain: .body, trigger: "wellness_body_metric")
+                }
+            }
+        }
         .sheet(isPresented: $showsCustomization) {
             WellnessCustomizationView(preferences: store.preferences) { updated in
                 store.savePreferences(updated)
@@ -919,32 +1029,37 @@ struct LifeBoardWellnessView: View {
     /// even though this module's own description promised them.
     @ViewBuilder
     private var sleepSection: some View {
-        if store.sleepNotes.isEmpty == false {
+        let nights = HealthSleepPresentation.nightlySummaries(notes: store.sleepNotes)
+        if nights.isEmpty == false {
             VStack(alignment: .leading, spacing: 10) {
                 Text("Sleep").font(LifeBoardFoundationTypography.sectionTitle())
                 LifeBoardTrendChart(
-                    points: store.sleepNotes
+                    points: nights
                         .prefix(30)
-                        .map { HomeSeriesPoint(date: $0.startedAt, value: max(0, $0.duration / 3_600)) }
+                        .map { HomeSeriesPoint(date: $0.night, value: max(0, $0.totalDuration / 3_600)) }
                         .sorted { $0.date < $1.date },
                     tint: Color(LifeBoardColorTokens.foundationSageAccent),
                     unit: "hours"
                 )
                 .frame(height: 120)
 
-                ForEach(store.sleepNotes.prefix(12)) { note in
+                ForEach(nights.prefix(12)) { night in
                     HStack {
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(Self.durationLabel(note.duration)).font(.body.weight(.medium))
-                            Text(note.startedAt.formatted(date: .abbreviated, time: .shortened))
+                            Text(Self.durationLabel(night.totalDuration)).font(.body.weight(.medium))
+                            Text(night.startedAt.formatted(date: .abbreviated, time: .shortened))
                                 .font(.caption2)
                                 .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                            if let annotation = note.note {
+                            if night.samples.count > 1 {
+                                Text("\(night.samples.count) Apple Health sleep stages")
+                                    .font(.caption2)
+                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            } else if let annotation = night.samples.first?.note {
                                 Text(annotation).font(.caption2).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                             }
                         }
                         Spacer()
-                        if let quality = note.quality {
+                        if let quality = night.samples.compactMap(\.quality).first {
                             Text("Quality \(quality)/5")
                                 .font(.caption)
                                 .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
@@ -978,15 +1093,20 @@ struct LifeBoardWellnessView: View {
                 Text(store.samples.first.map { "Last: \(display($0)) · \($0.observedAt.formatted(date: .abbreviated, time: .omitted))" } ?? "Nothing logged yet")
                     .font(.subheadline).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
             }
+            // `.borderedProminent` with a `.tint` is unsafe inside these roots:
+            // an ambient `foregroundStyle` propagates into the label and defeats
+            // the system's automatic contrasting colour. `.lifeBoardPrimary`
+            // pins the on-accent role explicitly, which is the only arrangement
+            // that survives it.
             Button {
                 showsCapture = true
             } label: {
-                Label(todaySamples.isEmpty ? "Log today’s \(kind.title.lowercased())" : "Add another value", systemImage: "plus.circle.fill")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity, minHeight: 44)
+                Label(
+                    todaySamples.isEmpty ? "Log today’s \(kind.title.lowercased())" : "Add another value",
+                    systemImage: "plus.circle.fill"
+                )
             }
-            .buttonStyle(.borderedProminent)
-            .tint(Color(LifeBoardColorTokens.inkPrimary))
+            .buttonStyle(.lifeBoardPrimary)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
@@ -1014,6 +1134,11 @@ struct LifeBoardWellnessView: View {
         .chartYScale(domain: .automatic(includesZero: false))
         .chartXAxis { AxisMarks(values: .automatic(desiredCount: 4)) { _ in AxisValueLabel(format: .dateTime.month(.abbreviated).day()) } }
         .frame(height: 148)
+        // Sweeps when valid data first appears and again when the range
+        // changes — which here means switching metric. Empty and denied states
+        // never reach this branch, so a sweep can never imply data that is not
+        // there.
+        .lifeboardChartRevealSweep(progress: chartRevealProgress)
         .padding(16)
         .lifeBoardClaySurface(.raised, cornerRadius: 20)
         .overlay { RoundedRectangle(cornerRadius: 20).stroke(Color(LifeBoardColorTokens.foundationHairline)) }
@@ -1089,6 +1214,113 @@ struct LifeBoardWellnessView: View {
     }
 }
 
+/// One recorded reading.
+///
+/// Provenance moves from a grey caption into a chip beside the value, because
+/// "where did this number come from" is the question people actually ask of a
+/// health history, and DESIGN.md requires value, timeframe and source to travel
+/// together. Manual entries get no chip — the absence is the signal, and a chip
+/// reading "Manual" on every hand-typed row is noise.
+
+private struct WellnessMetricOrderRow: View {
+    let kind: BodyMetricKind
+    @Binding var unit: WellnessDisplayUnit
+    let hide: () -> Void
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Text(kind.title)
+                .font(.lifeboard(.body))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            Spacer(minLength: 8)
+            Menu {
+                Picker(kind.title, selection: $unit) {
+                    ForEach(WellnessDisplayPreferences.units(for: kind), id: \.self) { option in
+                        Text(option.symbol).tag(option)
+                    }
+                }
+                .pickerStyle(.inline)
+                .labelsHidden()
+            } label: {
+                Text(unit.symbol)
+                    .font(.lifeboard(.meta))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .padding(.horizontal, 10)
+                    .frame(minHeight: 32)
+                    .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.pill)
+            }
+            .accessibilityLabel(Text("\(kind.title) unit"))
+            Button(action: hide) {
+                Image(systemName: "eye.slash")
+                    .font(.lifeboard(.support))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                    .frame(width: 34, height: 34)
+                    .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.pill)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(Text("Hide \(kind.title)"))
+        }
+    }
+}
+
+private struct WellnessHistoryRow: View {
+    let timestamp: Date
+    let value: String
+    let provenance: String
+    let isImported: Bool
+    let note: String?
+    let delete: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 12) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(timestamp.formatted(date: .abbreviated, time: .shortened))
+                    .font(.lifeboard(.body))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                HStack(spacing: 6) {
+                    if isImported {
+                        Text(provenance)
+                            .font(.lifeboard(.caption2))
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.pill)
+                    }
+                    if let note {
+                        Text(note)
+                            .font(.lifeboard(.caption2))
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .lineLimit(2)
+                    }
+                }
+            }
+            Spacer(minLength: 8)
+            Text(value)
+                .font(.lifeboard(.bodyStrong))
+                .monospacedDigit()
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            Menu {
+                Button("Delete", systemImage: "trash", role: .destructive, action: delete)
+            } label: {
+                Image(systemName: "ellipsis")
+                    .font(.lifeboard(.support))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                    .frame(width: 34, height: 34)
+                    .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.pill)
+            }
+            .accessibilityLabel(Text("Actions for \(value) on \(timestamp.formatted(date: .abbreviated, time: .shortened))"))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(minHeight: 56)
+        .lifeBoardClaySurface(.resting, cornerRadius: LifeBoardFoundationRadius.card)
+        .lifeBoardScrollEntrance(intensity: 0.55)
+        .accessibilityElement(children: .contain)
+    }
+}
+
 private struct WellnessCustomizationView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var draft: WellnessDisplayPreferences
@@ -1103,63 +1335,46 @@ private struct WellnessCustomizationView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            List {
-                Section {
-                    ForEach(draft.enabledMetrics, id: \.self) { kind in
-                        HStack {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(kind.title)
-                                Text("Position \(displayOrder(for: kind))")
-                                    .font(.caption)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                            }
-                            Spacer()
-                            Picker("\(kind.title) unit", selection: unitBinding(for: kind)) {
-                                ForEach(WellnessDisplayPreferences.units(for: kind), id: \.self) { unit in
-                                    Text(unit.symbol).tag(unit)
-                                }
-                            }
-                            .labelsHidden()
-                            Button {
-                                draft.enabledMetrics.removeAll { $0 == kind }
-                            } label: {
-                                Image(systemName: "eye.slash")
-                                    .frame(width: 44, height: 44)
-                            }
-                            .buttonStyle(.plain)
-                            .accessibilityLabel("Hide \(kind.title)")
-                        }
-                    }
-                    .onMove { source, destination in
-                        draft.enabledMetrics.move(fromOffsets: source, toOffset: destination)
-                    }
-                } header: {
-                    Text("Body dashboard")
-                } footer: {
-                    Text("Enabled metrics keep their order. Source readings and history are never deleted when a metric is hidden.")
-                }
-                if !hiddenMetrics.isEmpty {
-                    Section("Hidden metrics") {
-                        ForEach(hiddenMetrics, id: \.self) { kind in
-                            Button {
-                                draft.enabledMetrics.append(kind)
-                            } label: {
-                                Label("Show \(kind.title)", systemImage: "plus.circle")
-                                    .frame(minHeight: 44)
-                            }
-                        }
-                    }
+        LifeBoardComposerScaffold(
+            title: "Customize Wellness",
+            subtitle: "Which metrics appear, in which order.",
+            confirmTitle: "Save",
+            isConfirmEnabled: draft.enabledMetrics.isEmpty == false,
+            titleDisplayMode: .inline,
+            identifier: "wellness.customize",
+            onConfirm: { save(draft); dismiss() }
+        ) {
+            LifeBoardComposerSection(
+                "Body dashboard",
+                detail: "Drag to reorder, or use the Move up and Move down actions.",
+                footer: "Enabled metrics keep their order. Source readings and history are never deleted when a metric is hidden."
+            ) {
+                // `LifeBoardReorderableRows` rather than `List` + `EditButton`.
+                // Dropping edit mode would have removed the only Switch Control
+                // path to reordering, so the per-row Move actions the component
+                // requires are what make this substitution legitimate.
+                LifeBoardReorderableRows(
+                    items: $draft.enabledMetrics,
+                    rowIdentifier: { "wellness.customize.\($0.rawValue)" },
+                    accessibilityLabel: \.title
+                ) { kind in
+                    WellnessMetricOrderRow(
+                        kind: kind,
+                        unit: unitBinding(for: kind),
+                        hide: { draft.enabledMetrics.removeAll { $0 == kind } }
+                    )
                 }
             }
-            .navigationTitle("Customize Wellness")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .topBarLeading) { EditButton() }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save(draft); dismiss() }
-                        .disabled(draft.enabledMetrics.isEmpty)
+            if hiddenMetrics.isEmpty == false {
+                LifeBoardComposerSection("Hidden metrics") {
+                    ForEach(hiddenMetrics, id: \.self) { kind in
+                        Button {
+                            draft.enabledMetrics.append(kind)
+                        } label: {
+                            Label("Show \(kind.title)", systemImage: "plus.circle")
+                        }
+                        .buttonStyle(.lifeBoardChip)
+                    }
                 }
             }
         }
@@ -1181,24 +1396,149 @@ private struct WellnessCustomizationView: View {
     }
 }
 
+/// Logging one body measurement.
+///
+/// Was a bare `.decimalPad` field beside a `Stepper("Adjust")` that moved weight
+/// one kilogram per tap — the least tactile control in an app whose whole
+/// premise is tactility. The tape is the right instrument for this: almost every
+/// entry is a small move from the last reading, which is a scrub, not a typing
+/// task. The keyboard stays one tap away on the readout for the times it isn't.
 private struct WellnessMetricCapture: View {
     let kind: BodyMetricKind
     let onSave: (BodyMetricSample) -> Void
     @Environment(\.dismiss) private var dismiss
-    @State private var value = ""
+    @State private var value: Double
     @State private var unit: WellnessDisplayUnit
     @State private var pending: BodyMetricSample?
     @State private var reviewMessage: String?
-    init(kind: BodyMetricKind, onSave: @escaping (BodyMetricSample) -> Void) { self.kind = kind; self.onSave = onSave; _unit = State(initialValue: kind.canonicalUnit) }
-    var body: some View {
-        NavigationStack { Form {
-            Section(kind.title) { TextField("Value", text: $value).keyboardType(.decimalPad); Picker("Unit", selection: $unit) { ForEach(units, id: \.self) { Text($0.symbol).tag($0) } }; Stepper("Adjust", onIncrement: { adjust(1) }, onDecrement: { adjust(-1) }).accessibilityHint("Changes the value by one \(unit.symbol)") }
-            if let reviewMessage { Section("Please confirm") { Text(reviewMessage); Button("Save this value anyway") { if let pending { onSave(pending); dismiss() } } } }
-        }.navigationTitle("Review measurement").toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }; ToolbarItem(placement: .confirmationAction) { Button("Save") { prepare() }.disabled(Double(value) == nil) } } }
+    @State private var successTrigger = 0
+
+    init(kind: BodyMetricKind, lastValue: Double? = nil, onSave: @escaping (BodyMetricSample) -> Void) {
+        self.kind = kind
+        self.onSave = onSave
+        _unit = State(initialValue: kind.canonicalUnit)
+        _value = State(initialValue: lastValue ?? Self.tape(for: kind, unit: kind.canonicalUnit).start)
     }
-    private var units: [WellnessDisplayUnit] { switch kind { case .bodyMass: [.kilograms, .pounds]; case .waistCircumference: [.centimeters, .inches]; default: [kind.canonicalUnit] } }
-    private func adjust(_ delta: Double) { value = String(((Double(value) ?? 0) + delta).clamped(to: 0...10_000)) }
-    private func prepare() { guard let number = Double(value), let sample = try? BodyMetricSample(kind: kind, value: number, unit: unit) else { return }; switch WellnessOutlierPolicy().review(kind: kind, normalizedValue: sample.normalizedValue) { case .accepted: onSave(sample); dismiss(); case .requiresConfirmation(let message): pending = sample; reviewMessage = message } }
+
+    var body: some View {
+        LifeBoardComposerScaffold(
+            title: kind.title,
+            subtitle: "Scrub to the reading, or tap the number to type it.",
+            confirmTitle: "Save",
+            isConfirmEnabled: value > 0,
+            identifier: "wellness.capture",
+            onConfirm: prepare
+        ) {
+            WellnessCaptureValueSection(
+                kind: kind,
+                unit: $unit,
+                value: $value,
+                units: units
+            )
+            WellnessCaptureReviewSection(message: reviewMessage) {
+                guard let pending else { return }
+                onSave(pending)
+                successTrigger &+= 1
+                dismiss()
+            }
+        }
+        .lifeboardCompletionBurst(trigger: successTrigger)
+        .lifeboardHealthSyncPulse(trigger: successTrigger)
+    }
+
+    private var units: [WellnessDisplayUnit] {
+        switch kind {
+        case .bodyMass: [.kilograms, .pounds]
+        case .waistCircumference: [.centimeters, .inches]
+        default: [kind.canonicalUnit]
+        }
+    }
+
+    /// Sensible tape geometry per metric and unit. A weight tape stepping by 1 kg
+    /// and a body-fat tape stepping by 1% are the same control with completely
+    /// different physics; getting this wrong makes the scrub either useless or
+    /// impossible to land.
+    static func tape(
+        for kind: BodyMetricKind,
+        unit: WellnessDisplayUnit
+    ) -> (range: ClosedRange<Double>, step: Double, coarse: Double, digits: Int, start: Double) {
+        switch kind {
+        case .bodyMass:
+            unit == .pounds
+                ? (40...660, 0.2, 10, 1, 165)
+                : (20...300, 0.1, 5, 1, 75)
+        case .bodyFatPercentage:
+            (3...70, 0.1, 5, 1, 25)
+        case .waistCircumference:
+            unit == .inches
+                ? (16...80, 0.25, 5, 1, 34)
+                : (40...200, 0.5, 10, 1, 86)
+        case .restingHeartRate:
+            (30...200, 1, 10, 0, 60)
+        }
+    }
+
+    private func prepare() {
+        guard let sample = try? BodyMetricSample(kind: kind, value: value, unit: unit) else { return }
+        switch WellnessOutlierPolicy().review(kind: kind, normalizedValue: sample.normalizedValue) {
+        case .accepted:
+            onSave(sample)
+            successTrigger &+= 1
+            dismiss()
+        case .requiresConfirmation(let message):
+            // Unchanged behaviour: an implausible reading is never silently
+            // rejected or silently accepted, it is handed back with the reason.
+            pending = sample
+            reviewMessage = message
+        }
+    }
+}
+
+private struct WellnessCaptureValueSection: View {
+    let kind: BodyMetricKind
+    @Binding var unit: WellnessDisplayUnit
+    @Binding var value: Double
+    let units: [WellnessDisplayUnit]
+
+    var body: some View {
+        let tape = WellnessMetricCapture.tape(for: kind, unit: unit)
+        LifeBoardComposerSection(kind.title) {
+            LifeBoardValueDrum(
+                kind.title,
+                value: $value,
+                in: tape.range,
+                step: tape.step,
+                coarseStep: tape.coarse,
+                unit: unit.symbol,
+                fractionDigits: tape.digits,
+                identifier: "wellness.capture.value"
+            )
+            if units.count > 1 {
+                LifeBoardOptionRail(
+                    "Unit",
+                    selection: $unit,
+                    values: units,
+                    identifierPrefix: "wellness.capture.unit",
+                    title: \.symbol
+                )
+            }
+        }
+    }
+}
+
+private struct WellnessCaptureReviewSection: View {
+    let message: String?
+    let confirm: () -> Void
+
+    var body: some View {
+        if let message {
+            LifeBoardComposerSection("Please confirm", detail: message) {
+                Button("Save this value anyway", action: confirm)
+                    .buttonStyle(.lifeBoardPrimary)
+                    .accessibilityIdentifier("wellness.capture.confirmOutlier")
+            }
+        }
+    }
 }
 
 private extension Comparable { func clamped(to range: ClosedRange<Self>) -> Self { min(max(self, range.lowerBound), range.upperBound) } }
@@ -1255,22 +1595,39 @@ struct LifeBoardLifeMomentsView: View {
     }
 
     var body: some View {
-        List {
-            Section {
-                if store.moments.isEmpty { ContentUnavailableView("Keep a meaningful date close", systemImage: "sparkles", description: Text("Countdowns and anniversaries stay private unless you allow Home display.")) }
-                ForEach(filteredMoments) { moment in
-                    Button { editing = moment; showsComposer = true } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: moment.kind == .countdown ? "hourglass" : "calendar.badge.heart").frame(width: 30)
-                            VStack(alignment: .leading) { Text(moment.title).font(.headline); Text(moment.eventDate.formatted(date: .abbreviated, time: .omitted)).font(.caption).foregroundStyle(.secondary) }
-                            Spacer(); Text(moment.calendarDaysUntilNextOccurrence(from: Date()).map { $0 == 0 ? "Today" : "\($0)d" } ?? "Past").font(.subheadline.monospacedDigit().weight(.semibold))
-                        }.frame(minHeight: 54)
-                    }.buttonStyle(.plain).swipeActions { Button("Archive") { Task { await store.archive(moment) } }.tint(.orange); Button("Delete", role: .destructive) { Task { await store.delete(moment) } } }
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 12) {
+                if store.moments.isEmpty {
+                    ContentUnavailableView(
+                        "Keep a meaningful date close",
+                        systemImage: "sparkles",
+                        description: Text("Countdowns and anniversaries stay private unless you allow Home display.")
+                    )
+                    .padding(.top, 40)
+                } else {
+                    Text("Meaningful moments")
+                        .font(LifeBoardFoundationTypography.sectionTitle())
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .padding(.horizontal, 4)
                 }
-            } header: { Text("Meaningful moments") }
+                ForEach(filteredMoments) { moment in
+                    LifeMomentCard(moment: moment) {
+                        editing = moment
+                        showsComposer = true
+                    } archive: {
+                        Task { await store.archive(moment) }
+                    } delete: {
+                        Task { await store.delete(moment) }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.top, 8)
+            .padding(.bottom, 132)
         }
-        .lifeBoardFormSurface()
-        .scrollContentBackground(.hidden).background(Color(LifeBoardColorTokens.foundationCanvas))
+        .background {
+            LifeBoardGrainedCanvas()
+        }
         .navigationTitle("Life Moments")
         .searchable(text: $searchText, prompt: "Search moments")
         .toolbar {
@@ -1288,6 +1645,112 @@ struct LifeBoardLifeMomentsView: View {
     }
 }
 
+/// One meaningful date, as an object rather than a table row.
+///
+/// The list used `List` + `swipeActions`, which put archive and delete behind a
+/// gesture with no visible equivalent. On clay the row becomes a card and the
+/// two actions move into a menu, so they are reachable by pointer, keyboard and
+/// VoiceOver as well as by knowing to swipe.
+private struct LifeMomentCard: View {
+    let moment: LifeMoment
+    let open: () -> Void
+    let archive: () -> Void
+    let delete: () -> Void
+
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.lifeBoardTransitionCoordinator) private var transitions
+    @State private var developProgress: Double = 1
+    @State private var dissolveProgress: Double = 0
+
+    private var countdown: (label: String, isPast: Bool) {
+        guard let days = moment.calendarDaysUntilNextOccurrence(from: Date()) else {
+            return ("Past", true)
+        }
+        return (days == 0 ? "Today" : "\(days)d", false)
+    }
+
+    var body: some View {
+        Button(action: open) {
+            HStack(alignment: .center, spacing: 14) {
+                Image(systemName: moment.kind == .countdown ? "hourglass" : "calendar.badge.heart")
+                    .font(.lifeboard(.title3))
+                    .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                    .frame(width: 34, height: 34)
+                    .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.pill)
+                    .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(moment.title)
+                        .font(.lifeboard(.bodyStrong))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .multilineTextAlignment(.leading)
+                    Text(moment.eventDate.formatted(date: .abbreviated, time: .omitted))
+                        .font(.lifeboard(.meta))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+                Spacer(minLength: 8)
+
+                if dynamicTypeSize.isAccessibilitySize == false {
+                    countdownBadge
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 14)
+            .frame(minHeight: 64)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.lifeBoardClay(.raised, cornerRadius: LifeBoardFoundationRadius.largeCard))
+        // A Life Moment is literally a memory, which is what DESIGN.md reserves
+        // `memoryDevelopReveal` for. Claimed once per card per window session so
+        // it develops when the card first arrives and never again on scroll —
+        // repeated rows stay quiet.
+        .lifeboardMemoryDevelopReveal(progress: developProgress)
+        // The dissolve runs only after the repository delete resolves. A card
+        // that erodes ahead of a failing write is a lie about the data.
+        .lifeboardDissolveAway(
+            progress: dissolveProgress,
+            tint: Color(LifeBoardColorTokens.foundationApricotAccent)
+        )
+        .lifeBoardScrollEntrance(intensity: 0.7)
+        .task {
+            guard transitions?.claimOneShot("lifeMoment.develop.\(moment.id)") == true else { return }
+            developProgress = 0
+            withAnimation(.easeOut(duration: 0.7)) { developProgress = 1 }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(Text("\(moment.title), \(moment.eventDate.formatted(date: .abbreviated, time: .omitted)), \(countdown.label)"))
+        .accessibilityAction(named: Text("Archive"), archive)
+        .accessibilityAction(named: Text("Delete"), performDelete)
+        .contextMenu {
+            Button("Archive", systemImage: "archivebox", action: archive)
+            Button("Delete", systemImage: "trash", role: .destructive, action: performDelete)
+        }
+    }
+
+    /// Persist first, then dissolve. The caller's `delete` closure owns the
+    /// repository write; the erosion is only the receipt of it.
+    private func performDelete() {
+        delete()
+        withAnimation(.easeIn(duration: 0.42)) { dissolveProgress = 1 }
+    }
+
+    private var countdownBadge: some View {
+        Text(countdown.label)
+            .font(.lifeboard(.bodyStrong))
+            .monospacedDigit()
+            .foregroundStyle(
+                Color(countdown.isPast
+                    ? LifeBoardColorTokens.inkTertiary
+                    : LifeBoardColorTokens.inkPrimary)
+            )
+            .lineLimit(1)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 34)
+            .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.pill)
+            .accessibilityHidden(true)
+    }
+}
+
 private struct LifeMomentComposer: View {
     let existing: LifeMoment?
     let onSave: (LifeMoment) -> Void
@@ -1298,6 +1761,7 @@ private struct LifeMomentComposer: View {
     @State private var recurrence: LifeMomentRecurrenceRule
     @State private var note: String
     @State private var homeDisplay: Bool
+    @State private var successTrigger = 0
     init(existing: LifeMoment?, onSave: @escaping (LifeMoment) -> Void) {
         self.existing = existing; self.onSave = onSave
         _title = State(initialValue: existing?.title ?? ""); _date = State(initialValue: existing?.eventDate ?? Date())
@@ -1305,12 +1769,129 @@ private struct LifeMomentComposer: View {
         _note = State(initialValue: existing?.note ?? ""); _homeDisplay = State(initialValue: existing?.permitsHomeDisplay ?? false)
     }
     var body: some View {
-        NavigationStack { Form {
-            Section("Moment") { TextField("Title", text: $title); DatePicker("Date", selection: $date); Picker("Kind", selection: $kind) { ForEach(LifeMomentKind.allCases, id: \.self) { Text($0.rawValue.replacingOccurrences(of: "recurringMeaningfulEvent", with: "Recurring event").capitalized).tag($0) } } }
-            Section("Repeat") { Picker("Recurrence", selection: $recurrence) { Text("Never").tag(LifeMomentRecurrenceRule.none); Text("Weekly").tag(LifeMomentRecurrenceRule.weekly); Text("Monthly").tag(LifeMomentRecurrenceRule.monthly); Text("Yearly").tag(LifeMomentRecurrenceRule.yearly) } }
-            Section("Privacy") { Toggle("Allow date on Home", isOn: $homeDisplay); Text("The title and date stay off Home, widgets, and suggestions until enabled.").font(.caption).foregroundStyle(.secondary) }
-            Section("Note") { TextField("Optional note", text: $note, axis: .vertical) }
-        }.navigationTitle(existing == nil ? "New Moment" : "Edit Moment").toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }; ToolbarItem(placement: .confirmationAction) { Button("Save") { save() }.disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty) } } }
+        LifeBoardComposerScaffold(
+            title: existing == nil ? "New Moment" : "Edit Moment",
+            subtitle: "A date worth keeping close.",
+            confirmTitle: "Save",
+            isConfirmEnabled: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+            identifier: "lifeMoment.composer",
+            onConfirm: save
+        ) {
+            MomentDetailSection(title: $title, date: $date, kind: $kind)
+            MomentRepeatSection(recurrence: $recurrence)
+            MomentPrivacySection(homeDisplay: $homeDisplay)
+            MomentNoteSection(note: $note)
+        }
+        .lifeboardCompletionBurst(trigger: successTrigger)
     }
-    private func save() { guard let value = try? LifeMoment(id: existing?.id ?? UUID(), title: title, kind: kind, eventDate: date, recurrenceRule: recurrence, note: note, sensitivity: existing?.sensitivity ?? .privateStandard, permitsHomeDisplay: homeDisplay, createdAt: existing?.createdAt ?? Date(), updatedAt: Date()) else { return }; onSave(value); dismiss() }
+
+    private func save() {
+        guard let value = try? LifeMoment(
+            id: existing?.id ?? UUID(),
+            title: title,
+            kind: kind,
+            eventDate: date,
+            recurrenceRule: recurrence,
+            note: note,
+            sensitivity: existing?.sensitivity ?? .privateStandard,
+            permitsHomeDisplay: homeDisplay,
+            createdAt: existing?.createdAt ?? Date(),
+            updatedAt: Date()
+        ) else { return }
+        onSave(value)
+        successTrigger &+= 1
+        dismiss()
+    }
+}
+
+private struct MomentDetailSection: View {
+    @Binding var title: String
+    @Binding var date: Date
+    @Binding var kind: LifeMomentKind
+
+    var body: some View {
+        LifeBoardComposerSection("Moment") {
+            LifeBoardComposerField(
+                "Title",
+                prompt: "Anniversary, first day, the trip…",
+                text: $title,
+                showsLabel: false,
+                identifier: "lifeMoment.title"
+            )
+            LifeBoardDateCapsuleRow("Date", selection: $date)
+            LifeBoardOptionRail(
+                "Kind",
+                selection: $kind,
+                values: LifeMomentKind.allCases,
+                identifierPrefix: "lifeMoment.kind",
+                title: Self.kindTitle,
+                systemImage: { $0 == .countdown ? "hourglass" : "calendar.badge.heart" }
+            )
+        }
+    }
+
+    /// The raw value is a camel-cased identifier; `.capitalized` alone turned it
+    /// into "Recurringmeaningfulevent" on screen.
+    private static func kindTitle(_ kind: LifeMomentKind) -> String {
+        kind == .countdown ? "Countdown" : "Recurring event"
+    }
+}
+
+private struct MomentRepeatSection: View {
+    @Binding var recurrence: LifeMomentRecurrenceRule
+
+    private static let options: [LifeMomentRecurrenceRule] = [.none, .weekly, .monthly, .yearly]
+
+    var body: some View {
+        LifeBoardComposerSection("Repeat") {
+            LifeBoardOptionRail(
+                "Recurrence",
+                selection: $recurrence,
+                values: Self.options,
+                identifierPrefix: "lifeMoment.recurrence",
+                title: Self.title,
+                showsLabel: false
+            )
+        }
+    }
+
+    private static func title(_ rule: LifeMomentRecurrenceRule) -> String {
+        switch rule {
+        case .weekly: "Weekly"
+        case .monthly: "Monthly"
+        case .yearly: "Yearly"
+        default: "Never"
+        }
+    }
+}
+
+private struct MomentPrivacySection: View {
+    @Binding var homeDisplay: Bool
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Privacy",
+            footer: "The title and date stay off Home, widgets, and suggestions until enabled."
+        ) {
+            Toggle("Allow date on Home", isOn: $homeDisplay)
+                .toggleStyle(.lifeBoardClay)
+                .accessibilityIdentifier("lifeMoment.homeDisplay")
+        }
+    }
+}
+
+private struct MomentNoteSection: View {
+    @Binding var note: String
+
+    var body: some View {
+        LifeBoardComposerSection("Note") {
+            LifeBoardComposerField(
+                "Optional note",
+                prompt: "Why this one matters…",
+                text: $note,
+                shape: .prose(lineLimit: 2...6),
+                showsLabel: false
+            )
+        }
+    }
 }
