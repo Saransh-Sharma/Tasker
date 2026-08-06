@@ -1361,8 +1361,8 @@ public struct EvidenceAuthorizationPolicy: Sendable {
     public func allowedDestinations(domain: String, sensitivity: DataSensitivity) -> Set<LifeBoardDestination> {
         switch domain {
         case "journal": return [.track]
-        case "mood", "sleep", "medication", "care": return [.home, .track]
-        case "hydration": return [.home, .track, .insights]
+        case "mood", "medication", "care": return [.home, .track]
+        case "hydration", "body", "workout", "sleep", "movement": return [.home, .track, .insights]
         case "routine": return [.home, .track, .plan, .eva]
         case "habit": return [.home, .track, .insights, .eva]
         case "goal": return [.home, .track, .insights, .eva]

@@ -7,6 +7,7 @@ extension StarterPack: Identifiable {
 
 struct LifeBoardTrackFoundationRootView: View {
     @State private var store: TrackFoundationStore
+    @State private var healthStore = LifeBoardHealthRuntime.shared.connectionStore
     private let sourcePickerRepository: any TypedSourcePickerRepository
     private let onOpenHabitBoard: () -> Void
     private let onOpenHealth: () -> Void
@@ -29,6 +30,7 @@ struct LifeBoardTrackFoundationRootView: View {
     @State private var editingRoutine: RoutineDefinition?
     @State private var routinePendingDeletion: RoutineDefinition?
     @State private var showsHydrationTarget = false
+    @State private var captureLensTrigger = 0
     // Fasting used to exist only inside the legacy Track root, which was
     // presented as a sheet from inside this one. It is a first-class module
     // here now, so nothing is reachable through the legacy tree alone.
@@ -111,6 +113,14 @@ struct LifeBoardTrackFoundationRootView: View {
 
             ScrollView {
                 LazyVStack(spacing: 16) {
+                    TrackHeaderSection()
+                    TrackQuickLogStrip(
+                        store: store,
+                        showsMood: $showsMood,
+                        editingMood: $editingMood,
+                        showsSleep: $showsSleep,
+                        editingSleep: $editingSleep
+                    )
                     categoryRail
                     categoryContent
                 }
@@ -119,178 +129,69 @@ struct LifeBoardTrackFoundationRootView: View {
             }
             .refreshable { await store.load() }
         }
+        .background {
+            LifeBoardGrainedCanvas()
+        }
         .navigationTitle("Track")
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }
         .task { await reloadFasting() }
-        .sheet(isPresented: $showsFastingComposer) {
-            LifeBoardFastingComposer { target, _ in
-                Task {
-                    do {
-                        _ = try await fastingTimerStore.start(targetDuration: target)
-                        await reloadFasting()
-                    } catch {
-                        fastingError = error.localizedDescription
-                    }
-                }
+        .task {
+            let updates = await HealthSyncInvalidationHub.shared.updates()
+            for await _ in updates {
+                guard Task.isCancelled == false else { return }
+                await store.load()
+                await reloadFasting()
             }
         }
-        .sheet(isPresented: $showsFastingHistory) {
-            LifeBoardFastingHistoryView(
-                sessions: fastingSessions,
-                activeReceipt: { store.activeCorrection(domain: .fasting, sourceID: $0) },
-                onUndo: { receipt in
-                    await store.undoCorrection(receipt)
-                    await reloadFasting()
-                },
-                onCorrect: { session, startDelta, endDelta in
-                    do {
-                        _ = try await fastingTimerStore.correct(
-                            sessionID: session.id,
-                            startedAt: session.startedAt.addingTimeInterval(startDelta),
-                            endedAt: session.endedAt?.addingTimeInterval(endDelta),
-                            targetDuration: session.targetDuration,
-                            note: session.note
-                        )
-                        await reloadFasting()
-                    } catch {
-                        fastingError = error.localizedDescription
-                    }
-                }
-            )
+        // The presentation chain is split across two modifiers rather than
+        // chained inline for the same reason the sections below are structs:
+        // see the note on `categoryContent`.
+        .modifier(TrackComposerSheets(
+            store: store,
+            fastingTimerStore: fastingTimerStore,
+            sourcePickerRepository: sourcePickerRepository,
+            fastingSessions: fastingSessions,
+            reloadFasting: { await reloadFasting() },
+            showsFastingComposer: $showsFastingComposer,
+            showsFastingHistory: $showsFastingHistory,
+            fastingError: $fastingError,
+            showsMood: $showsMood,
+            editingMood: $editingMood,
+            showsSleep: $showsSleep,
+            editingSleep: $editingSleep,
+            showsGoal: $showsGoal,
+            editingGoal: $editingGoal,
+            linkingGoal: $linkingGoal,
+            showsStarterPacks: $showsStarterPacks,
+            showsHabitResilience: $showsHabitResilience,
+            showsRoutineComposer: $showsRoutineComposer,
+            editingRoutine: $editingRoutine,
+            showsHydrationTarget: $showsHydrationTarget
+        ))
+        .modifier(TrackDestructiveDialogs(
+            store: store,
+            goalUndoReceipt: $goalUndoReceipt,
+            routinePendingDeletion: $routinePendingDeletion,
+            goalPendingDeletion: $goalPendingDeletion
+        ))
+        // DESIGN.md reserves `contextLens` for "capture or composer mode
+        // handoff", and until now it had exactly one production use in the whole
+        // app. Every Track composer is that handoff: the root refracts once as
+        // the sheet takes over, which is what makes the sheet feel like it came
+        // from here rather than from nowhere.
+        .lifeboardContextLens(center: .top, trigger: captureLensTrigger)
+        .onChange(of: isPresentingComposer) { _, isPresenting in
+            guard isPresenting else { return }
+            captureLensTrigger &+= 1
         }
-        .sheet(isPresented: $showsMood, onDismiss: { editingMood = nil }) {
-            MoodEnergyComposer(checkIn: editingMood) { value in
-                await store.saveMood(value)
-                return store.errorMessage == nil
-            } delete: { value in
-                Task { await store.deleteMood(value) }
-            }
-        }
-        .sheet(isPresented: $showsSleep, onDismiss: { editingSleep = nil }) {
-            SleepContextComposer(existing: editingSleep) { record in
-                await store.saveSleep(record)
-                return store.errorMessage == nil
-            }
-        }
-        .sheet(isPresented: $showsGoal, onDismiss: { editingGoal = nil }) {
-            GoalComposer(existing: editingGoal) { draft in
-                await store.saveGoal(existing: editingGoal, draft: draft)
-                return store.errorMessage == nil
-            }
-        }
-        .sheet(item: $linkingGoal) { goal in
-            GoalLinkComposer(goal: goal, sourcePickerRepository: sourcePickerRepository) { source, sourceID in
-                Task { await store.saveGoalLink(goalID: goal.id, source: source, sourceID: sourceID) }
-            }
-        }
-        .sheet(isPresented: $showsStarterPacks) { StarterPackBrowser { preview in Task { await store.installStarterPack(preview) } } }
-        .sheet(isPresented: $showsHabitResilience) {
-            HabitResilienceLibrary(
-                repository: sourcePickerRepository,
-                policies: store.habitPolicies,
-                groups: store.habitGroups,
-                history: store.habitOccurrenceHistory,
-                save: { policy in
-                    await store.saveHabitPolicy(policy)
-                    return store.errorMessage == nil
-                },
-                recover: { habitID, day in await store.recoverHabit(habitID: habitID, day: day) },
-                undoRecovery: { habitID, day in await store.undoHabitRecovery(habitID: habitID, day: day) },
-                saveGroup: { group in Task { await store.saveHabitGroup(group) } },
-                deleteGroup: { group in Task { await store.deleteHabitGroup(group) } }
-            )
-        }
-        .sheet(isPresented: $showsRoutineComposer, onDismiss: { editingRoutine = nil }) {
-            RoutineComposer(
-                existing: editingRoutine,
-                schedule: editingRoutine.flatMap { routine in store.routineSchedules.first(where: { $0.routineID == routine.id }) },
-                sourcePickerRepository: sourcePickerRepository
-            ) { title, steps, weekdays, daypart in
-                await store.saveRoutine(existing: editingRoutine, title: title, steps: steps, weekdays: weekdays, daypart: daypart)
-                let succeeded = store.errorMessage == nil
-                if succeeded {
-                    await LifeBoardPermissionPrimingCoordinator.shared.offerAfterReward(
-                        kind: .notifications,
-                        trigger: "routine_scheduled"
-                    )
-                }
-                return succeeded
-            }
-        }
-        .sheet(isPresented: $showsHydrationTarget) {
-            HydrationTargetComposer(currentTarget: store.snapshot.hydrationTargetMilliliters) { milliliters in
-                await store.setHydrationTarget(milliliters)
-                return store.errorMessage == nil
-            }
-        }
-        .fullScreenCover(isPresented: Binding(
-            get: { store.activeRoutineRun != nil },
-            set: { _ in }
-        )) {
-            if let run = store.activeRoutineRun {
-                RoutineRunner(
-                    run: run,
-                    advance: { response, skip in
-                        Task { await store.advanceRoutine(response: response, skip: skip) }
-                    },
-                    pause: { Task { await store.pauseRoutine() } },
-                    resume: { Task { await store.resumeRoutine() } },
-                    abandon: { Task { await store.abandonRoutine() } }
-                )
-                    .interactiveDismissDisabled()
-            }
-        }
-        .alert("Track needs attention", isPresented: Binding(
-            get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } }
-        )) { Button("OK", role: .cancel) { store.errorMessage = nil } } message: { Text(store.errorMessage ?? "") }
-        .safeAreaInset(edge: .bottom) {
-            if let receipt = goalUndoReceipt {
-                HStack(spacing: 12) {
-                    Text("Goal \(receipt.after.effectiveStatus.rawValue).")
-                        .font(.subheadline)
-                    Spacer()
-                    Button("Undo") {
-                        goalUndoReceipt = nil
-                        Task { await store.undoGoalTransition(receipt) }
-                    }
-                    .frame(minHeight: 44)
-                }
-                .padding(.horizontal, 16)
-                .padding(.vertical, 8)
-                .background(.regularMaterial, in: Capsule())
-                .padding(.horizontal, 20)
-                .accessibilityElement(children: .contain)
-            }
-        }
-        .confirmationDialog(
-            "Delete this routine?",
-            isPresented: Binding(get: { routinePendingDeletion != nil }, set: { if !$0 { routinePendingDeletion = nil } }),
-            titleVisibility: .visible
-        ) {
-            Button("Delete routine", role: .destructive) {
-                guard let routine = routinePendingDeletion else { return }
-                routinePendingDeletion = nil
-                Task { await store.deleteRoutine(routine) }
-            }
-            Button("Cancel", role: .cancel) { routinePendingDeletion = nil }
-        } message: {
-            Text("The definition and schedule are removed. Completed and abandoned run history remains available for evidence and review.")
-        }
-        .confirmationDialog(
-            "Delete this goal?",
-            isPresented: Binding(get: { goalPendingDeletion != nil }, set: { if !$0 { goalPendingDeletion = nil } }),
-            titleVisibility: .visible
-        ) {
-            Button("Delete goal", role: .destructive) {
-                guard let goal = goalPendingDeletion else { return }
-                goalPendingDeletion = nil
-                Task { await store.deleteGoal(goal) }
-            }
-            Button("Cancel", role: .cancel) { goalPendingDeletion = nil }
-        } message: {
-            Text("The goal and its explicit progress links are removed. Source tasks, habits, routines, and tracker entries are unchanged.")
-        }
+    }
+
+    /// True while any Track composer owns the screen. Used only to fire the
+    /// capture lens once per presentation — never to gate content.
+    private var isPresentingComposer: Bool {
+        showsMood || showsSleep || showsGoal || showsStarterPacks
+            || showsRoutineComposer || showsHydrationTarget || showsFastingComposer
     }
 
     private var categoryRail: some View {
@@ -306,138 +207,246 @@ struct LifeBoardTrackFoundationRootView: View {
         .accessibilityIdentifier("track.lens")
     }
 
+    /// Every module below is a `View` struct rather than a computed
+    /// `some View` property, and it has to stay that way.
+    ///
+    /// A computed property is inlined into its caller's frame, so the whole
+    /// screen's view value used to be built inside two frames — `body` and this
+    /// getter. Debug builds at `-Onone`, which gives every SwiftUI temporary its
+    /// own stack slot instead of reusing them, and once this branch carried five
+    /// modules the getter walked off the bottom of the main thread's 1 MB stack
+    /// during generic metadata instantiation: `EXC_BAD_ACCESS (code=2)` on the
+    /// guard page, on launch, before a single pixel was drawn.
+    ///
+    /// A struct gets its own `body` call and therefore its own frame. Add the
+    /// next module as a struct too; do not fold one back into a property, and do
+    /// not collapse a whole lens into a single wrapper — `LazyVStack` needs one
+    /// child per module to stay lazy.
     @ViewBuilder private var categoryContent: some View {
         switch selectedLens {
         case .today:
-            dueAndUnresolved
+            TrackDueAndUnresolvedSection(store: store)
+            TrackHealthSummarySection(healthStore: healthStore, onOpenHealth: onOpenHealth)
             // A running fast is time-sensitive, so it earns a place in Today.
             // When nothing is running it stays in Body rather than adding a
             // permanent empty module to the day.
-            if activeFast != nil { fastingSection }
-            todayRoutines
-            careSnapshot
+            if activeFast != nil { fastingModule }
+            TrackTodayRoutinesSection(store: store)
+            TrackCareSnapshotSection(
+                store: store,
+                showsMood: $showsMood,
+                editingMood: $editingMood,
+                showsSleep: $showsSleep,
+                showsHydrationTarget: $showsHydrationTarget,
+                onOpenHabitBoard: onOpenHabitBoard,
+                onOpenHealth: onOpenHealth
+            )
         case .areas:
-            bodyCare
-            if activeFast == nil { fastingSection }
-            mindCare
-            routinesAndHabits
-            goals
-            modules
+            TrackBodyCareSection(
+                store: store,
+                careHistoryDays: $careHistoryDays,
+                showsSleep: $showsSleep,
+                editingSleep: $editingSleep,
+                showsHydrationTarget: $showsHydrationTarget,
+                onOpenHabitBoard: onOpenHabitBoard,
+                onOpenHealth: onOpenHealth
+            )
+            if activeFast == nil { fastingModule }
+            TrackMindCareSection(
+                store: store,
+                showsMood: $showsMood,
+                editingMood: $editingMood
+            )
+            TrackRoutinesAndHabitsSection(
+                store: store,
+                showsRoutineComposer: $showsRoutineComposer,
+                editingRoutine: $editingRoutine,
+                routinePendingDeletion: $routinePendingDeletion,
+                showsHabitResilience: $showsHabitResilience,
+                onOpenHabitBoard: onOpenHabitBoard
+            )
+            TrackGoalsSection(
+                store: store,
+                showsGoal: $showsGoal,
+                editingGoal: $editingGoal,
+                linkingGoal: $linkingGoal,
+                goalPendingDeletion: $goalPendingDeletion,
+                goalUndoReceipt: $goalUndoReceipt
+            )
+            TrackModulesSection(
+                store: store,
+                nutritionRepository: nutritionRepository,
+                lifeMomentRepository: lifeMomentRepository,
+                wellnessRepository: wellnessRepository,
+                showsStarterPacks: $showsStarterPacks
+            )
         case .history:
-            historyContent
+            TrackHistorySection(
+                store: store,
+                fastingSessions: fastingSessions,
+                careHistoryDays: $careHistoryDays,
+                showsSleep: $showsSleep,
+                editingSleep: $editingSleep
+            )
         }
     }
 
-    @ViewBuilder
-    private var todayRoutines: some View {
-        if store.snapshot.dueRoutines.isEmpty == false {
-            trackSectionHeader("Useful today", symbol: "sun.max")
-            ForEach(store.snapshot.dueRoutines) { routine in
-                Button { Task { await store.startRoutine(routine) } } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: "play.circle.fill")
-                            .font(.title2)
-                            .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(routine.title).font(.headline)
-                            Text("\(routine.steps.count) calm steps")
-                                .font(.caption)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                    }
-                    .trackClayCard()
-                }
-                .buttonStyle(.plain)
-            }
-        }
+    private var fastingModule: TrackFastingSection {
+        TrackFastingSection(
+            fastingTimerStore: fastingTimerStore,
+            sessions: fastingSessions,
+            fastingError: $fastingError,
+            showsFastingComposer: $showsFastingComposer,
+            showsFastingHistory: $showsFastingHistory,
+            reloadFasting: { await reloadFasting() }
+        )
+    }
+}
+
+// MARK: - Track section chrome
+//
+// These are the pieces more than one module draws. They are structs for the
+// same stack-budget reason as the modules themselves — see `categoryContent`.
+
+private struct TrackSectionHeader<Trailing: View>: View {
+    private let title: String
+    private let symbol: String
+    private let trailing: () -> Trailing
+
+    init(_ title: String, symbol: String, @ViewBuilder trailing: @escaping () -> Trailing) {
+        self.title = title
+        self.symbol = symbol
+        self.trailing = trailing
     }
 
-    private var historyContent: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Picker("History range", selection: $careHistoryDays) {
-                Text("7 days").tag(7)
-                Text("30 days").tag(30)
-            }
-            .pickerStyle(.segmented)
-
-            if filteredHydrationHistory.isEmpty
-                && filteredSleepHistory.isEmpty
-                && store.checkIns.isEmpty
-                && filteredFastingHistory.isEmpty
-                && filteredRoutineHistory.isEmpty
-                && store.snapshot.goals.isEmpty {
-                trackEmpty(
-                    "No history yet",
-                    detail: "Explicit records will appear here. Missing data is never treated as zero.",
-                    symbol: "clock.arrow.circlepath"
-                )
-            } else {
-                if filteredHydrationHistory.isEmpty == false {
-                    trackSectionHeader("Hydration", symbol: "drop")
-                    ForEach(filteredHydrationHistory) { hydrationHistoryRow($0) }
-                }
-                if filteredSleepHistory.isEmpty == false {
-                    trackSectionHeader("Sleep context", symbol: "moon.zzz")
-                    ForEach(filteredSleepHistory) { sleepHistoryRow($0) }
-                }
-                if store.checkIns.isEmpty == false {
-                    trackSectionHeader("Mind check-ins", symbol: "face.smiling")
-                    ForEach(Array(store.checkIns.prefix(12)), id: \.id) { checkIn in
-                        HStack(spacing: 12) {
-                            Image(systemName: "face.smiling")
-                                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(checkIn.mood.title).font(.body.weight(.medium))
-                                Text(moodCheckInDetail(checkIn))
-                                    .font(.caption)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                            }
-                            Spacer()
-                        }
-                        .padding(.vertical, 7)
-                    }
-                }
-                // History used to stop at hydration, sleep and mood, which
-                // made it read as a care log rather than a record of the
-                // whole tracked life.
-                if filteredFastingHistory.isEmpty == false {
-                    trackSectionHeader("Fasting", symbol: "timer")
-                    ForEach(filteredFastingHistory) { session in
-                        historyRow(
-                            symbol: "timer",
-                            title: Self.fastingClock(session.elapsed(at: session.endedAt ?? Date())),
-                            detail: session.startedAt.formatted(date: .abbreviated, time: .shortened)
-                        )
-                    }
-                }
-                if filteredRoutineHistory.isEmpty == false {
-                    trackSectionHeader("Routines", symbol: "repeat")
-                    ForEach(filteredRoutineHistory) { run in
-                        historyRow(
-                            symbol: "repeat",
-                            title: routineTitle(for: run),
-                            detail: run.startedAt.formatted(date: .abbreviated, time: .shortened)
-                        )
-                    }
-                }
-                if store.snapshot.goals.isEmpty == false {
-                    trackSectionHeader("Goals", symbol: "target")
-                    ForEach(store.snapshot.goals, id: \.goalID) { goal in
-                        historyRow(
-                            symbol: "target",
-                            title: goalTitle(for: goal.goalID),
-                            detail: goal.nextUsefulAction
-                        )
-                    }
-                }
-            }
+    var body: some View {
+        HStack {
+            Label(title, systemImage: symbol).font(LifeBoardFoundationTypography.sectionTitle())
+            Spacer()
+            trailing()
         }
-        .accessibilityIdentifier("track.history")
+        .padding(.top, 6)
+        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+    }
+}
+
+extension TrackSectionHeader where Trailing == EmptyView {
+    init(_ title: String, symbol: String) {
+        self.init(title, symbol: symbol) { EmptyView() }
+    }
+}
+
+private struct TrackEmptyStateRow: View {
+    private let title: String
+    private let detail: String
+    private let symbol: String
+
+    init(_ title: String, detail: String, symbol: String) {
+        self.title = title
+        self.detail = detail
+        self.symbol = symbol
     }
 
-    private func historyRow(symbol: String, title: String, detail: String) -> some View {
+    var body: some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol).font(.title2).foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.headline)
+                Text(detail).font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            Spacer()
+        }.trackClayCard()
+    }
+}
+
+private struct TrackModuleRow: View {
+    private let title: String
+    private let detail: String
+    private let symbol: String
+
+    init(_ title: String, detail: String, symbol: String) {
+        self.title = title
+        self.detail = detail
+        self.symbol = symbol
+    }
+
+    var body: some View {
+        rowBody
+            .lifeBoardTransitionSource("track.module.\(title)")
+    }
+
+    private var rowBody: some View {
+        HStack(spacing: 14) {
+            Image(systemName: symbol).font(.title3).frame(width: 28).foregroundStyle(Color(LifeBoardColorTokens.foundationFocusRing))
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title).font(.headline)
+                Text(detail).font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            Spacer()
+            Image(systemName: "chevron.right")
+        }.trackClayCard()
+    }
+}
+
+private struct TrackCareTile: View {
+    let title: String
+    let value: String
+    let symbol: String
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(title, systemImage: symbol).font(.headline)
+                Text(value).font(.subheadline.weight(.semibold))
+                Spacer(minLength: 0)
+                Image(systemName: "plus.circle").frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .frame(minHeight: 112, alignment: .topLeading)
+            .trackClayCard()
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct TrackBehaviorAreaLink: View {
+    let repository: any LifeBoardPhaseIIRepository
+    let area: LifeBoardBehaviorNativeAreasView.Area
+    let title: String
+    let value: String
+    let symbol: String
+    let onOpenHabitBoard: () -> Void
+    let onOpenHealth: () -> Void
+
+    var body: some View {
+        NavigationLink {
+            LifeBoardBehaviorAreaRouteView(
+                repository: repository,
+                initialArea: area,
+                onOpenHabitBoard: onOpenHabitBoard,
+                onOpenHealth: onOpenHealth
+            )
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                Label(title, systemImage: symbol).font(.headline)
+                Text(value).font(.subheadline.weight(.semibold))
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right")
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+            }
+            .frame(minHeight: 112, alignment: .topLeading)
+            .trackClayCard()
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct TrackHistoryRow: View {
+    let symbol: String
+    let title: String
+    let detail: String
+
+    var body: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
                 .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
@@ -453,87 +462,894 @@ struct LifeBoardTrackFoundationRootView: View {
         .padding(.vertical, 7)
         .accessibilityElement(children: .combine)
     }
+}
 
-    private var historyCutoff: Date {
-        Calendar.current.date(byAdding: .day, value: -careHistoryDays, to: Date()) ?? .distantPast
+private struct TrackHydrationTile: View {
+    let store: TrackFoundationStore
+    @Binding var showsHydrationTarget: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label("Hydration", systemImage: "drop.fill")
+                .font(.headline)
+            Text(TrackSectionCopy.hydrationLabel(store)).font(.title3.weight(.semibold))
+            if let amount = store.snapshot.hydrationAmountMilliliters, let target = store.snapshot.hydrationTargetMilliliters, target > 0 {
+                ProgressView(value: min(1, amount / target)).tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                Button("Edit target") { showsHydrationTarget = true }
+                    .font(.caption.weight(.semibold))
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("track.hydration.target")
+            } else {
+                HStack(spacing: 8) {
+                    Text("No target yet")
+                        .font(.caption)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    Spacer(minLength: 0)
+                    Button("Set target") { showsHydrationTarget = true }
+                        .font(.caption.weight(.semibold))
+                        .frame(minHeight: 44)
+                        .accessibilityIdentifier("track.hydration.target")
+                }
+            }
+            HStack(spacing: 8) {
+                Button("+250 ml") {
+                    Task { await store.quickAddHydration(250); await trackOfferHealthConnect() }
+                }
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .accessibilityIdentifier("track.hydration.add250")
+                Button("+500 ml") {
+                    Task { await store.quickAddHydration(500); await trackOfferHealthConnect() }
+                }
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .accessibilityIdentifier("track.hydration.add500")
+            }
+            .buttonStyle(.lifeBoardChip)
+        }
+        .trackClayCard()
+        .accessibilityIdentifier("track.hydration")
+    }
+}
+
+private struct TrackHydrationHistoryRow: View {
+    let store: TrackFoundationStore
+    let log: HydrationLog
+
+    var body: some View {
+        let amount = HydrationMeasurementService.milliliters(log.amount, unit: log.unit)
+        HStack(spacing: 12) {
+            Image(systemName: "drop.fill").foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(Int(amount)) ml").font(.body.weight(.medium))
+                Text(log.timestamp.formatted(date: .omitted, time: .shortened) + (log.correctedAt == nil ? "" : " · corrected"))
+                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            Spacer()
+            Menu {
+                Button("Add 50 ml") { Task { await store.correctHydration(log, amountMilliliters: amount + 50) } }
+                Button("Remove 50 ml") { Task { await store.correctHydration(log, amountMilliliters: max(0, amount - 50)) } }
+                if let receipt = store.activeCorrection(domain: .hydration, sourceID: log.id) {
+                    Button("Undo last correction", systemImage: "arrow.uturn.backward") {
+                        Task { await store.undoCorrection(receipt) }
+                    }
+                }
+                Button("Delete entry", systemImage: "trash", role: .destructive) { Task { await store.deleteHydration(log) } }
+            } label: { Image(systemName: "ellipsis.circle") }
+        }
+        .padding(.vertical, 7)
+        .accessibilityIdentifier("track.hydration.history.\(log.id.uuidString)")
+    }
+}
+
+private struct TrackSleepHistoryRow: View {
+    let store: TrackFoundationStore
+    let record: SleepContextRecord
+    @Binding var showsSleep: Bool
+    @Binding var editingSleep: SleepContextRecord?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "moon.zzz").foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+            VStack(alignment: .leading, spacing: 3) {
+                Text("\(record.bedtime.formatted(date: .abbreviated, time: .shortened))–\(record.wakeTime.formatted(date: .omitted, time: .shortened))")
+                    .font(.body.weight(.medium))
+                Text(record.perceivedRest.map { "Rest \($0)/5 · \(record.interruptionCount) interruptions" } ?? "\(record.interruptionCount) interruptions")
+                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            Spacer()
+            Menu {
+                Button("Edit", systemImage: "pencil") {
+                    editingSleep = record
+                    showsSleep = true
+                }
+                if let receipt = store.activeCorrection(domain: .sleep, sourceID: record.id) {
+                    Button("Undo last correction", systemImage: "arrow.uturn.backward") {
+                        Task { await store.undoCorrection(receipt) }
+                    }
+                }
+                Button("Delete", systemImage: "trash", role: .destructive) { Task { await store.deleteSleep(record) } }
+            } label: {
+                Image(systemName: "ellipsis")
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .accessibilityLabel("Actions for sleep context")
+        }
+        .padding(.vertical, 7)
+        .privacySensitive()
+    }
+}
+
+private struct TrackQuickLogButton: View {
+    let title: String
+    let detail: String
+    let symbol: String
+    let identifier: String
+    let action: () -> Void
+
+    var body: some View {
+        Button {
+            LifeBoardHaptic.pick.play()
+            action()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: symbol)
+                    .font(.subheadline.weight(.semibold))
+                    .frame(width: 32, height: 32)
+                    .background(
+                        Color(LifeBoardColorTokens.foundationSurfaceSelected),
+                        in: Circle()
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                    Text(detail)
+                        .font(.caption)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .lineLimit(1)
+                }
+            }
+            .padding(.horizontal, 13)
+            .frame(minHeight: 54)
+            .lifeBoardClaySurface(.well, cornerRadius: 16)
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(identifier)
+    }
+}
+
+private struct TrackHabitQualitySummary: View {
+    let store: TrackFoundationStore
+
+    var body: some View {
+        let graded = store.snapshot.habitGrades.compactMap(\.grade)
+        let average = graded.isEmpty ? nil : graded.reduce(0, +) / Double(graded.count)
+        let streak = store.snapshot.habitGrades.map(\.streak).max() ?? 0
+        HStack(spacing: 12) {
+            metric(
+                title: "30-day grade",
+                value: average.map { "\(Int(($0 * 100).rounded()))%" } ?? "Building",
+                symbol: "chart.line.uptrend.xyaxis"
+            )
+            metric(title: "Current streak", value: "\(streak) days", symbol: "flame")
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("track.habitQuality")
     }
 
-    private var filteredFastingHistory: [LifeBoardFastingSessionValue] {
-        fastingSessions
-            .filter { $0.endedAt != nil && $0.startedAt >= historyCutoff }
+    private func metric(title: String, value: String, symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Label(title, systemImage: symbol)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            Text(value)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+        }
+        .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
+        .padding(12)
+        .lifeBoardClaySurface(.raised, cornerRadius: 16)
+        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
+    }
+}
+
+private struct TrackMoodTrendView: View {
+    let store: TrackFoundationStore
+
+    var body: some View {
+        switch MoodTrendProjector.project(store.checkIns) {
+        case .empty:
+            TrackEmptyStateRow("No mood trend yet", detail: "Check in when it feels useful. Missing data is never treated as neutral.", symbol: "chart.line.downtrend.xyaxis")
+        case let .light(sampleCount):
+            TrackEmptyStateRow(
+                "A trend needs a little more context",
+                detail: "\(sampleCount) of 3 check-ins recorded. LifeBoard will not infer a pattern yet.",
+                symbol: "ellipsis"
+            )
+        case let .ready(summary):
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text("30-day rhythm").font(.headline)
+                        Text(TrackSectionCopy.moodTrendDescription(summary))
+                            .font(.caption)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
+                    Spacer()
+                    Text("\(summary.sampleCount) check-ins")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+                MoodTrendStrip(points: summary.dailyPoints)
+            }
+            .trackClayCard()
+            .privacySensitive()
+            .accessibilityElement(children: .combine)
+        }
+    }
+}
+
+// MARK: - Track section copy and derivations
+//
+// Shared by more than one module. Keeping them in one namespace is what stops
+// the same date-window or label logic being pasted into each section struct.
+
+@MainActor
+private enum TrackSectionCopy {
+    static func careGridColumns(_ dynamicTypeSize: DynamicTypeSize) -> [GridItem] {
+        if dynamicTypeSize.isAccessibilitySize {
+            return [GridItem(.flexible(), spacing: 12)]
+        }
+        return [GridItem(.adaptive(minimum: 150), spacing: 12)]
+    }
+
+    static func daypartTitle(_ preferences: LifeBoardPresentationPreferences) -> String {
+        switch preferences.resolvedDaypart() {
+        case .morning: "Good morning"
+        case .afternoon: "Good afternoon"
+        case .evening: "Good evening"
+        case .night: "A gentler night"
+        }
+    }
+
+    static func daypartSymbol(_ preferences: LifeBoardPresentationPreferences) -> String {
+        switch preferences.resolvedDaypart() {
+        case .morning: "sunrise"
+        case .afternoon: "sun.max"
+        case .evening: "sunset"
+        case .night: "moon.stars"
+        }
+    }
+
+    static func latestMood(_ store: TrackFoundationStore) -> String {
+        guard let latest = store.checkIns.first else { return "Check in when useful" }
+        return latest.energy.map { "\(latest.mood.title) · energy \($0)/5" } ?? latest.mood.title
+    }
+
+    static func latestSleep(_ store: TrackFoundationStore) -> String {
+        guard let record = store.sleepRecords.first else { return "No manual context" }
+        return record.perceivedRest.map { "Rest \($0)/5" } ?? "Recorded"
+    }
+
+    static func hydrationLabel(_ store: TrackFoundationStore) -> String {
+        guard let amount = store.snapshot.hydrationAmountMilliliters else { return "No data yet" }
+        if let target = store.snapshot.hydrationTargetMilliliters { return "\(Int(amount)) / \(Int(target)) ml" }
+        return "\(Int(amount)) ml"
+    }
+
+    static func moodCheckInDetail(_ checkIn: LifeBoardMoodEnergyCheckInValue) -> String {
+        let time = checkIn.createdAt.formatted(date: .abbreviated, time: .shortened)
+        guard let energy = checkIn.energy else { return time }
+        return "Energy \(energy)/5 · \(time)"
+    }
+
+    static func moodTrendDescription(_ summary: MoodTrendSummary) -> String {
+        let feeling: String
+        switch summary.averageValence {
+        case 1.5...: feeling = "mostly lighter"
+        case ..<(-1.5): feeling = "mostly heavier"
+        default: feeling = "varied"
+        }
+        guard let energy = summary.averageEnergy else { return "Your recorded mood has felt \(feeling). Energy was not consistently recorded." }
+        return "Your recorded mood has felt \(feeling), with average energy \(energy.formatted(.number.precision(.fractionLength(1))))/5."
+    }
+
+    static func progressLabel(_ progress: GoalProgressSnapshot?) -> String {
+        guard let progress else { return "Not linked" }
+        if let fraction = progress.progressFraction { return "\(Int(fraction * 100))%" }
+        return progress.missingLinkCount > 0 ? "Data incomplete" : "Ready"
+    }
+
+    static func starterPackTitle(_ pack: StarterPack) -> String {
+        switch pack {
+        case .morningFoundation: "Morning Foundation"
+        case .workdayReset: "Workday Reset"
+        case .lowEnergyRecovery: "Low Energy Recovery"
+        case .medicationSupport: "Medication Support"
+        case .eveningWindDown: "Evening Wind-down"
+        }
+    }
+
+    static func fastingClock(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval))
+        return String(format: "%d:%02d:%02d", total / 3_600, (total % 3_600) / 60, total % 60)
+    }
+
+    /// The care lenses and History share one window, expressed in whole days
+    /// back from the start of today so a record logged this morning is never
+    /// filtered out by a clock-time cutoff.
+    static func careHistoryCutoff(days: Int) -> Date {
+        Calendar.current.date(byAdding: .day, value: -(days - 1), to: Calendar.current.startOfDay(for: Date())) ?? .distantPast
+    }
+
+    static func historyCutoff(days: Int) -> Date {
+        Calendar.current.date(byAdding: .day, value: -days, to: Date()) ?? .distantPast
+    }
+
+    static func hydrationHistory(_ store: TrackFoundationStore, days: Int) -> [HydrationLog] {
+        store.hydrationHistory.filter { $0.timestamp >= careHistoryCutoff(days: days) }
+    }
+
+    static func sleepHistory(_ store: TrackFoundationStore, days: Int) -> [SleepContextRecord] {
+        store.sleepRecords.filter { $0.bedtime >= careHistoryCutoff(days: days) }
+    }
+
+    static func fastingHistory(_ sessions: [LifeBoardFastingSessionValue], days: Int) -> [LifeBoardFastingSessionValue] {
+        sessions
+            .filter { $0.endedAt != nil && $0.startedAt >= historyCutoff(days: days) }
             .sorted { $0.startedAt > $1.startedAt }
     }
 
-    private var filteredRoutineHistory: [RoutineRun] {
+    static func routineHistory(_ store: TrackFoundationStore, days: Int) -> [RoutineRun] {
         store.routineRuns
-            .filter { $0.startedAt >= historyCutoff }
+            .filter { $0.startedAt >= historyCutoff(days: days) }
             .sorted { $0.startedAt > $1.startedAt }
             .prefix(12)
             .map { $0 }
     }
 
-    private func routineTitle(for run: RoutineRun) -> String {
+    static func routineTitle(_ store: TrackFoundationStore, for run: RoutineRun) -> String {
         store.routines.first { $0.id == run.routineID }?.title ?? "Routine"
     }
 
-    private func goalTitle(for id: UUID) -> String {
+    static func goalTitle(_ store: TrackFoundationStore, for id: UUID) -> String {
         store.definitions.first { $0.id == id }?.title ?? "Goal"
     }
+}
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(daypartTitle)
+/// After a hydration log lands (and its fill animates), gently invite a
+/// not-yet-connected user to mirror water with Apple Health. Never blocks.
+@MainActor
+private func trackOfferHealthConnect() async {
+    await LifeBoardHealthRuntime.shared.jitCoordinator.offerConnectAfterReward(
+        leadDomain: .hydration,
+        trigger: "track_hydration_quick_add"
+    )
+}
+
+// MARK: - Track modules
+
+private struct TrackHeaderSection: View {
+    @Environment(LifeBoardPresentationPreferences.self) private var preferences
+
+    var body: some View {
+        let palette = LifeBoardDaypartTokens.palette(for: preferences.resolvedDaypart())
+        VStack(alignment: .leading, spacing: 6) {
+            Text(TrackSectionCopy.daypartTitle(preferences))
                 .font(LifeBoardFoundationTypography.screenTitle())
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-            Text("Care, routines, and progress — without judgment.")
+                .foregroundStyle(palette.color(for: .foreground))
+            Text("What would feel useful to record?")
                 .font(LifeBoardFoundationTypography.body())
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            HStack(spacing: 8) {
-                statusPill("\(store.snapshot.dueRoutines.count) routines", symbol: "figure.mind.and.body")
-                statusPill(store.snapshot.unresolvedMedicationEvents.isEmpty ? "Care clear" : "\(store.snapshot.unresolvedMedicationEvents.count) unresolved", symbol: "cross.case")
-            }
-            .padding(.top, 6)
+                .foregroundStyle(palette.color(for: .foregroundSecondary))
         }
-        .frame(minHeight: 150, alignment: .bottomLeading)
+        .padding(.top, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityIdentifier("track.header")
     }
+}
 
-    @ViewBuilder private var dueAndUnresolved: some View {
-        if !store.snapshot.unresolvedMedicationEvents.isEmpty {
-            trackSectionHeader("Needs a decision", symbol: "exclamationmark.circle")
-            ForEach(store.snapshot.unresolvedMedicationEvents) { event in
-                VStack(alignment: .leading, spacing: 12) {
-                    HStack {
-                        Image(systemName: "pills.fill").foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
-                        VStack(alignment: .leading) {
-                            Text(store.medicationName(id: event.medicationID)).font(.headline)
-                            Text(event.status == .unresolved ? "The window passed — choose what happened" : "Scheduled \(event.scheduledAt.formatted(date: .omitted, time: .shortened))")
-                                .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+private struct TrackQuickLogStrip: View {
+    let store: TrackFoundationStore
+    @Binding var showsMood: Bool
+    @Binding var editingMood: LifeBoardMoodEnergyCheckInValue?
+    @Binding var showsSleep: Bool
+    @Binding var editingSleep: SleepContextRecord?
+    @Environment(LifeBoardPresentationPreferences.self) private var preferences
+
+    var body: some View {
+        let palette = LifeBoardDaypartTokens.palette(for: preferences.resolvedDaypart())
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Quick log")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(palette.color(for: .foregroundSecondary))
+
+            ScrollView(.horizontal) {
+                HStack(spacing: 10) {
+                    TrackQuickLogButton(
+                        title: "Water",
+                        detail: "+250 mL",
+                        symbol: "drop.fill",
+                        identifier: "track.quick.water"
+                    ) {
+                        Task {
+                            await store.quickAddHydration(250)
+                            await trackOfferHealthConnect()
                         }
-                        Spacer()
                     }
-                    HStack {
-                        Button("Taken") { Task { await store.resolveMedication(event: event, status: .taken) } }.buttonStyle(.borderedProminent)
-                        Button("Skipped") { Task { await store.resolveMedication(event: event, status: .skipped) } }.buttonStyle(.bordered)
-                        Button("Snooze 15m") { Task { await store.snoozeMedication(event: event) } }.buttonStyle(.bordered)
+                    trackersLink
+                    TrackQuickLogButton(
+                        title: "Mood",
+                        detail: TrackSectionCopy.latestMood(store),
+                        symbol: "face.smiling",
+                        identifier: "track.quick.mood"
+                    ) {
+                        editingMood = nil
+                        showsMood = true
                     }
-                    .controlSize(.small)
+                    TrackQuickLogButton(
+                        title: "Sleep",
+                        detail: TrackSectionCopy.latestSleep(store),
+                        symbol: "moon.zzz",
+                        identifier: "track.quick.sleep"
+                    ) {
+                        editingSleep = nil
+                        showsSleep = true
+                    }
                 }
-                .trackClayCard()
-                .accessibilityIdentifier("track.medication.\(event.id.uuidString)")
+                .padding(.vertical, 2)
             }
+            .scrollIndicators(.hidden)
         }
     }
 
-    private var routinesAndHabits: some View {
+    private var trackersLink: some View {
+        NavigationLink {
+            LifeBoardBehaviorAreaRouteView(
+                repository: store.phaseIIRepository,
+                initialArea: .trackers
+            )
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "square.grid.3x3.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(width: 32, height: 32)
+                    .background(
+                        Color(LifeBoardColorTokens.foundationSurfaceSelected),
+                        in: Circle()
+                    )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Trackers")
+                        .font(.subheadline.weight(.semibold))
+                    Text("Your own")
+                        .font(.caption)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+            }
+            .padding(.horizontal, 13)
+            .frame(minHeight: 54)
+            .lifeBoardClaySurface(.well, cornerRadius: 16)
+            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(TapGesture().onEnded { LifeBoardHaptic.pick.play() })
+        .accessibilityIdentifier("track.quick.trackers")
+    }
+}
+
+private struct TrackDueAndUnresolvedSection: View {
+    let store: TrackFoundationStore
+
+    var body: some View {
+        if !store.snapshot.unresolvedMedicationEvents.isEmpty {
+            // 16 rather than 12: this module used to be a `@ViewBuilder`
+            // property whose header and cards landed directly in the screen's
+            // `LazyVStack(spacing: 16)`. Now that it is one child, the spacing
+            // has to be restated here to look the same.
+            VStack(spacing: 16) {
+                TrackSectionHeader("Needs a decision", symbol: "exclamationmark.circle")
+                ForEach(store.snapshot.unresolvedMedicationEvents) { event in
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack {
+                            Image(systemName: "pills.fill").foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                            VStack(alignment: .leading) {
+                                Text(store.medicationName(id: event.medicationID)).font(.headline)
+                                Text(event.status == .unresolved ? "The window passed — choose what happened" : "Scheduled \(event.scheduledAt.formatted(date: .omitted, time: .shortened))")
+                                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
+                            Spacer()
+                        }
+                        HStack {
+                            Button("Taken") { Task { await store.resolveMedication(event: event, status: .taken) } }.buttonStyle(.borderedProminent)
+                            Button("Skipped") { Task { await store.resolveMedication(event: event, status: .skipped) } }.buttonStyle(.bordered)
+                            Button("Snooze 15m") { Task { await store.snoozeMedication(event: event) } }.buttonStyle(.bordered)
+                        }
+                        .controlSize(.small)
+                    }
+                    .trackClayCard()
+                    .accessibilityIdentifier("track.medication.\(event.id.uuidString)")
+                }
+            }
+        }
+    }
+}
+
+private struct TrackHealthSummarySection: View {
+    let healthStore: HealthConnectionStore
+    let onOpenHealth: () -> Void
+
+    var body: some View {
+        Button(action: onOpenHealth) {
+            VStack(alignment: .leading, spacing: 12) {
+                HStack {
+                    Label("From Apple Health", systemImage: "heart.text.clipboard")
+                        .font(.headline)
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+
+                HStack(alignment: .firstTextBaseline, spacing: 18) {
+                    value(.steps, title: "Steps")
+                    value(.activeEnergy, title: "Active")
+                    value(.walkingRunningDistance, title: "Distance")
+                }
+
+                Text(status)
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lifeBoardClaySurface(.resting, cornerRadius: 20)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("track.healthSummary")
+    }
+
+    private func value(_ metric: HealthMetric, title: String) -> some View {
+        let aggregate = healthStore.aggregates[metric]
+        return VStack(alignment: .leading, spacing: 2) {
+            Text(aggregate.map { Self.text($0.value, metric: metric) } ?? "—")
+                .font(.title3.weight(.bold))
+                .monospacedDigit()
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
+    }
+
+    private var status: String {
+        if healthStore.isRefreshing { return "Updating from Apple Health…" }
+        if let date = healthStore.lastSuccessfulSync {
+            return "Updated \(date.formatted(.relative(presentation: .named)))"
+        }
+        return HealthAuthorizationPromptState.hasRequested
+            ? "No recent Health records"
+            : "Connect Apple Health to see movement here"
+    }
+
+    private static func text(_ value: Double, metric: HealthMetric) -> String {
+        switch metric {
+        case .steps: value.formatted(.number.precision(.fractionLength(0)))
+        case .walkingRunningDistance: "\((value / 1_000).formatted(.number.precision(.fractionLength(1)))) km"
+        case .activeEnergy: "\(Int(value)) kcal"
+        default: value.formatted(.number.precision(.fractionLength(0...1)))
+        }
+    }
+}
+
+/// Fasting as a first-class Track module. Leads with the running timer
+/// when there is one, because that is the only state that is time-sensitive.
+private struct TrackFastingSection: View {
+    let fastingTimerStore: FastingTimerStore
+    let sessions: [LifeBoardFastingSessionValue]
+    @Binding var fastingError: String?
+    @Binding var showsFastingComposer: Bool
+    @Binding var showsFastingHistory: Bool
+    let reloadFasting: () async -> Void
+
+    private var activeFast: LifeBoardFastingSessionValue? {
+        sessions.first { $0.endedAt == nil }
+    }
+
+    var body: some View {
         VStack(spacing: 12) {
-            trackSectionHeader("Current daypart", symbol: daypartSymbol, trailing: {
+            TrackSectionHeader("Fasting", symbol: "timer")
+
+            VStack(alignment: .leading, spacing: 12) {
+                if let activeFast {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        let elapsed = max(0, activeFast.elapsed(at: context.date))
+                        HStack(spacing: 14) {
+                            let fraction = activeFast.targetDuration.map { target in
+                                target > 0 ? min(1, elapsed / target) : 0
+                            } ?? 0
+                            LifeBoardProgressRing(
+                                fraction: fraction,
+                                tint: Color(LifeBoardColorTokens.foundationSunAccent),
+                                trackTint: Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                                lineWidth: 7
+                            )
+                            .frame(width: 56, height: 56)
+                            .lifeboardFastingEmberRing(
+                                progress: fraction,
+                                tint: Color(LifeBoardColorTokens.foundationSunAccent)
+                            )
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(TrackSectionCopy.fastingClock(elapsed))
+                                    .font(LifeBoardFoundationTypography.sectionTitle().weight(.bold))
+                                    .monospacedDigit()
+                                Text(
+                                    activeFast.targetDuration
+                                        .map { "Target \(Int($0 / 3_600))h" } ?? "No target set"
+                                )
+                                .font(.caption)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
+                            Spacer(minLength: 0)
+                        }
+                    }
+
+                    HStack(spacing: 10) {
+                        Button("Finish") {
+                            Task {
+                                _ = try? await fastingTimerStore.finish()
+                                await reloadFasting()
+                            }
+                        }
+                        .buttonStyle(.lifeBoardPrimary)
+                        Button("Cancel fast") {
+                            Task {
+                                _ = try? await fastingTimerStore.cancel()
+                                await reloadFasting()
+                            }
+                        }
+                        .buttonStyle(.lifeBoardChip)
+                    }
+                    .frame(minHeight: 44)
+                } else {
+                    Text("No fast is running.")
+                        .font(.subheadline)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    Button("Start a fast") { showsFastingComposer = true }
+                        .buttonStyle(.lifeBoardPrimary)
+                }
+
+                if let fastingError {
+                    Text(fastingError)
+                        .font(.caption)
+                        .foregroundStyle(Color(LifeBoardColorTokens.foundationDanger))
+                }
+
+                if sessions.contains(where: { $0.endedAt != nil }) {
+                    Divider()
+                    Button {
+                        showsFastingHistory = true
+                    } label: {
+                        HStack {
+                            Text("Fasting history")
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                        }
+                        .frame(minHeight: 44)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .lifeBoardClaySurface(.raised, cornerRadius: 20)
+            .accessibilityIdentifier("track.fasting")
+        }
+    }
+}
+
+private struct TrackTodayRoutinesSection: View {
+    let store: TrackFoundationStore
+
+    var body: some View {
+        if store.snapshot.dueRoutines.isEmpty == false {
+            // See `TrackDueAndUnresolvedSection` on why this is 16.
+            VStack(spacing: 16) {
+                TrackSectionHeader("Useful today", symbol: "sun.max")
+                ForEach(store.snapshot.dueRoutines) { routine in
+                    Button { Task { await store.startRoutine(routine) } } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: "play.circle.fill")
+                                .font(.title2)
+                                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(routine.title).font(.headline)
+                                Text("\(routine.steps.count) calm steps")
+                                    .font(.caption)
+                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                        }
+                        .trackClayCard()
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+}
+
+private struct TrackCareSnapshotSection: View {
+    let store: TrackFoundationStore
+    @Binding var showsMood: Bool
+    @Binding var editingMood: LifeBoardMoodEnergyCheckInValue?
+    @Binding var showsSleep: Bool
+    @Binding var showsHydrationTarget: Bool
+    let onOpenHabitBoard: () -> Void
+    let onOpenHealth: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        VStack(spacing: 12) {
+            TrackSectionHeader("Care snapshot", symbol: "heart.text.square")
+            TrackHydrationTile(store: store, showsHydrationTarget: $showsHydrationTarget)
+            LazyVGrid(columns: TrackSectionCopy.careGridColumns(dynamicTypeSize), spacing: 12) {
+                TrackCareTile(title: "Mood + energy", value: TrackSectionCopy.latestMood(store), symbol: "face.smiling") {
+                    editingMood = nil
+                    showsMood = true
+                }
+                TrackBehaviorAreaLink(
+                    repository: store.phaseIIRepository,
+                    area: .medication,
+                    title: "Medication",
+                    value: store.snapshot.unresolvedMedicationEvents.isEmpty ? "Up to date" : "Decision needed",
+                    symbol: "pills",
+                    onOpenHabitBoard: onOpenHabitBoard,
+                    onOpenHealth: onOpenHealth
+                )
+                TrackCareTile(title: "Sleep context", value: TrackSectionCopy.latestSleep(store), symbol: "moon.zzz") { showsSleep = true }
+                    .privacySensitive()
+            }
+        }
+    }
+}
+
+private struct TrackBodyCareSection: View {
+    let store: TrackFoundationStore
+    @Binding var careHistoryDays: Int
+    @Binding var showsSleep: Bool
+    @Binding var editingSleep: SleepContextRecord?
+    @Binding var showsHydrationTarget: Bool
+    let onOpenHabitBoard: () -> Void
+    let onOpenHealth: () -> Void
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let hydrationHistory = TrackSectionCopy.hydrationHistory(store, days: careHistoryDays)
+        let sleepHistory = TrackSectionCopy.sleepHistory(store, days: careHistoryDays)
+        VStack(spacing: 12) {
+            TrackSectionHeader("Body", symbol: "heart.text.square")
+            TrackHydrationTile(store: store, showsHydrationTarget: $showsHydrationTarget)
+            LazyVGrid(columns: TrackSectionCopy.careGridColumns(dynamicTypeSize), spacing: 12) {
+                TrackBehaviorAreaLink(
+                    repository: store.phaseIIRepository,
+                    area: .medication,
+                    title: "Medication",
+                    value: store.snapshot.unresolvedMedicationEvents.isEmpty ? "Up to date" : "Decision needed",
+                    symbol: "pills",
+                    onOpenHabitBoard: onOpenHabitBoard,
+                    onOpenHealth: onOpenHealth
+                )
+                TrackCareTile(title: "Sleep context", value: TrackSectionCopy.latestSleep(store), symbol: "moon.zzz") { showsSleep = true }
+                    .privacySensitive()
+            }
+            if !store.hydrationHistory.isEmpty || !store.sleepRecords.isEmpty {
+                LifeBoardOptionRail(
+                    "Care history range",
+                    selection: $careHistoryDays,
+                    values: [7, 30],
+                    identifierPrefix: "track.care.historyRange",
+                    title: { "\($0) days" },
+                    showsLabel: false
+                )
+            }
+            if !hydrationHistory.isEmpty {
+                TrackSectionHeader("Hydration history", symbol: "drop")
+                ForEach(hydrationHistory) { TrackHydrationHistoryRow(store: store, log: $0) }
+            }
+            if !sleepHistory.isEmpty {
+                TrackSectionHeader("Recent sleep context", symbol: "moon.zzz")
+                ForEach(sleepHistory) { record in
+                    TrackSleepHistoryRow(
+                        store: store,
+                        record: record,
+                        showsSleep: $showsSleep,
+                        editingSleep: $editingSleep
+                    )
+                }
+            }
+            Button(action: onOpenHealth) {
+                // Fasting is its own module now, so it no longer belongs in
+                // this row's promise.
+                TrackModuleRow("Health and care library", detail: "Medication, trackers, steps, and active energy", symbol: "heart.circle")
+            }
+            .buttonStyle(.plain)
+        }
+    }
+}
+
+private struct TrackMindCareSection: View {
+    let store: TrackFoundationStore
+    @Binding var showsMood: Bool
+    @Binding var editingMood: LifeBoardMoodEnergyCheckInValue?
+
+    var body: some View {
+        VStack(spacing: 12) {
+            TrackSectionHeader("Mind", symbol: "brain.head.profile")
+            TrackCareTile(title: "Mood + energy", value: TrackSectionCopy.latestMood(store), symbol: "face.smiling") {
+                editingMood = nil
+                showsMood = true
+            }
+            TrackMoodTrendView(store: store)
+            if !store.checkIns.isEmpty {
+                TrackSectionHeader("Recent check-ins", symbol: "clock.arrow.circlepath")
+                ForEach(Array(store.checkIns.prefix(8)), id: \.id) { checkIn in
+                    HStack(spacing: 12) {
+                        Image(systemName: "face.smiling").foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(checkIn.mood.title).font(.body.weight(.medium))
+                            Text(TrackSectionCopy.moodCheckInDetail(checkIn))
+                                .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                        Spacer()
+                        Menu {
+                            Button("Edit", systemImage: "pencil") {
+                                editingMood = checkIn
+                                showsMood = true
+                            }
+                            if let receipt = store.activeCorrection(domain: .mood, sourceID: checkIn.id) {
+                                Button("Undo last correction", systemImage: "arrow.uturn.backward") {
+                                    Task { await store.undoCorrection(receipt) }
+                                }
+                            }
+                            Button("Delete", systemImage: "trash", role: .destructive) {
+                                Task { await store.deleteMood(checkIn) }
+                            }
+                        } label: {
+                            Image(systemName: "ellipsis")
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .accessibilityLabel("Actions for \(checkIn.mood.title) check-in")
+                    }
+                    .padding(.vertical, 6)
+                    .privacySensitive()
+                }
+            }
+        }
+    }
+}
+
+private struct TrackRoutinesAndHabitsSection: View {
+    let store: TrackFoundationStore
+    @Binding var showsRoutineComposer: Bool
+    @Binding var editingRoutine: RoutineDefinition?
+    @Binding var routinePendingDeletion: RoutineDefinition?
+    @Binding var showsHabitResilience: Bool
+    let onOpenHabitBoard: () -> Void
+    @Environment(LifeBoardPresentationPreferences.self) private var preferences
+
+    var body: some View {
+        VStack(spacing: 12) {
+            TrackSectionHeader("Current daypart", symbol: TrackSectionCopy.daypartSymbol(preferences), trailing: {
                 Button { editingRoutine = nil; showsRoutineComposer = true } label: { Image(systemName: "plus") }
                     .accessibilityLabel("Create routine")
             })
             if store.snapshot.dueRoutines.isEmpty {
-                trackEmpty("No routines due", detail: "Start progressively or preview a starter pack.", symbol: "figure.cooldown")
+                TrackEmptyStateRow("No routines due", detail: "Start progressively or preview a starter pack.", symbol: "figure.cooldown")
             } else {
                 ForEach(store.snapshot.dueRoutines) { routine in
                     HStack(spacing: 8) {
@@ -605,333 +1421,27 @@ struct LifeBoardTrackFoundationRootView: View {
             .buttonStyle(.plain)
             .accessibilityIdentifier("track.habits.resilience")
             if !store.snapshot.habitGrades.isEmpty {
-                habitQualitySummary
+                TrackHabitQualitySummary(store: store)
             }
         }
     }
+}
 
-    private var habitQualitySummary: some View {
-        let graded = store.snapshot.habitGrades.compactMap(\.grade)
-        let average = graded.isEmpty ? nil : graded.reduce(0, +) / Double(graded.count)
-        let streak = store.snapshot.habitGrades.map(\.streak).max() ?? 0
-        return HStack(spacing: 12) {
-            habitMetric(
-                title: "30-day grade",
-                value: average.map { "\(Int(($0 * 100).rounded()))%" } ?? "Building",
-                symbol: "chart.line.uptrend.xyaxis"
-            )
-            habitMetric(title: "Current streak", value: "\(streak) days", symbol: "flame")
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("track.habitQuality")
-    }
+private struct TrackGoalsSection: View {
+    let store: TrackFoundationStore
+    @Binding var showsGoal: Bool
+    @Binding var editingGoal: GoalDefinition?
+    @Binding var linkingGoal: GoalDefinition?
+    @Binding var goalPendingDeletion: GoalDefinition?
+    @Binding var goalUndoReceipt: GoalTransitionReceipt?
 
-    private func habitMetric(title: String, value: String, symbol: String) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Label(title, systemImage: symbol)
-                .font(.caption.weight(.medium))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            Text(value)
-                .font(.title3.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-        }
-        .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
-        .padding(12)
-        .lifeBoardClaySurface(.raised, cornerRadius: 16)
-        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
-    }
-
-    /// Fasting as a first-class Track module. Leads with the running timer
-    /// when there is one, because that is the only state that is time-sensitive.
-    @ViewBuilder
-    private var fastingSection: some View {
+    var body: some View {
         VStack(spacing: 12) {
-            trackSectionHeader("Fasting", symbol: "timer")
-
-            VStack(alignment: .leading, spacing: 12) {
-                if let activeFast {
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        let elapsed = max(0, activeFast.elapsed(at: context.date))
-                        HStack(spacing: 14) {
-                            LifeBoardProgressRing(
-                                fraction: activeFast.targetDuration.map { target in
-                                    target > 0 ? min(1, elapsed / target) : 0
-                                } ?? 0,
-                                tint: Color(LifeBoardColorTokens.foundationSunAccent),
-                                trackTint: Color(LifeBoardColorTokens.foundationSurfaceRecessed),
-                                lineWidth: 7
-                            )
-                            .frame(width: 56, height: 56)
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(Self.fastingClock(elapsed))
-                                    .font(.system(.title2, design: .rounded, weight: .bold))
-                                    .monospacedDigit()
-                                Text(
-                                    activeFast.targetDuration
-                                        .map { "Target \(Int($0 / 3_600))h" } ?? "No target set"
-                                )
-                                .font(.caption)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                            }
-                            Spacer(minLength: 0)
-                        }
-                    }
-
-                    HStack(spacing: 10) {
-                        Button("Finish") {
-                            Task {
-                                _ = try? await fastingTimerStore.finish()
-                                await reloadFasting()
-                            }
-                        }
-                        .buttonStyle(.borderedProminent)
-                        Button("Cancel fast") {
-                            Task {
-                                _ = try? await fastingTimerStore.cancel()
-                                await reloadFasting()
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                    }
-                    .frame(minHeight: 44)
-                } else {
-                    Text("No fast is running.")
-                        .font(.subheadline)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                    Button("Start a fast") { showsFastingComposer = true }
-                        .buttonStyle(.borderedProminent)
-                        .frame(minHeight: 44)
-                }
-
-                if let fastingError {
-                    Text(fastingError)
-                        .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationDanger))
-                }
-
-                if fastingSessions.contains(where: { $0.endedAt != nil }) {
-                    Divider()
-                    Button {
-                        showsFastingHistory = true
-                    } label: {
-                        HStack {
-                            Text("Fasting history")
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.caption.weight(.semibold))
-                        }
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .lifeBoardClaySurface(.raised, cornerRadius: 20)
-            .accessibilityIdentifier("track.fasting")
-        }
-    }
-
-    private static func fastingClock(_ interval: TimeInterval) -> String {
-        let total = max(0, Int(interval))
-        return String(format: "%d:%02d:%02d", total / 3_600, (total % 3_600) / 60, total % 60)
-    }
-
-    private var careSnapshot: some View {
-        VStack(spacing: 12) {
-            trackSectionHeader("Care snapshot", symbol: "heart.text.square")
-            hydrationTile
-            LazyVGrid(columns: careGridColumns, spacing: 12) {
-                careButton(title: "Mood + energy", value: latestMood, symbol: "face.smiling") { presentMoodComposer() }
-                behaviorAreaLink(
-                    area: .medication,
-                    title: "Medication",
-                    value: store.snapshot.unresolvedMedicationEvents.isEmpty ? "Up to date" : "Decision needed",
-                    symbol: "pills"
-                )
-                careButton(title: "Sleep context", value: latestSleep, symbol: "moon.zzz") { showsSleep = true }
-                    .privacySensitive()
-            }
-        }
-    }
-
-    private var bodyCare: some View {
-        VStack(spacing: 12) {
-            trackSectionHeader("Body", symbol: "heart.text.square")
-            hydrationTile
-            LazyVGrid(columns: careGridColumns, spacing: 12) {
-                behaviorAreaLink(
-                    area: .medication,
-                    title: "Medication",
-                    value: store.snapshot.unresolvedMedicationEvents.isEmpty ? "Up to date" : "Decision needed",
-                    symbol: "pills"
-                )
-                careButton(title: "Sleep context", value: latestSleep, symbol: "moon.zzz") { showsSleep = true }
-                    .privacySensitive()
-            }
-            if !store.hydrationHistory.isEmpty || !store.sleepRecords.isEmpty {
-                Picker("Care history range", selection: $careHistoryDays) {
-                    Text("7 days").tag(7)
-                    Text("30 days").tag(30)
-                }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier("track.care.historyRange")
-            }
-            if !filteredHydrationHistory.isEmpty {
-                trackSectionHeader("Hydration history", symbol: "drop")
-                ForEach(filteredHydrationHistory) { hydrationHistoryRow($0) }
-            }
-            if !filteredSleepHistory.isEmpty {
-                trackSectionHeader("Recent sleep context", symbol: "moon.zzz")
-                ForEach(filteredSleepHistory) { sleepHistoryRow($0) }
-            }
-            Button(action: onOpenHealth) {
-                // Fasting is its own module now, so it no longer belongs in
-                // this row's promise.
-                moduleRow("Health and care library", detail: "Medication, trackers, steps, and active energy", symbol: "heart.circle")
-            }
-            .buttonStyle(.plain)
-        }
-    }
-
-    private var mindCare: some View {
-        VStack(spacing: 12) {
-            trackSectionHeader("Mind", symbol: "brain.head.profile")
-            careButton(title: "Mood + energy", value: latestMood, symbol: "face.smiling") { presentMoodComposer() }
-            moodTrend
-            if !store.checkIns.isEmpty {
-                trackSectionHeader("Recent check-ins", symbol: "clock.arrow.circlepath")
-                ForEach(Array(store.checkIns.prefix(8)), id: \.id) { checkIn in
-                    HStack(spacing: 12) {
-                        Image(systemName: "face.smiling").foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(checkIn.mood.title).font(.body.weight(.medium))
-                            Text(moodCheckInDetail(checkIn))
-                                .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                        }
-                        Spacer()
-                        Menu {
-                            Button("Edit", systemImage: "pencil") { presentMoodComposer(checkIn) }
-                            if let receipt = store.activeCorrection(domain: .mood, sourceID: checkIn.id) {
-                                Button("Undo last correction", systemImage: "arrow.uturn.backward") {
-                                    Task { await store.undoCorrection(receipt) }
-                                }
-                            }
-                            Button("Delete", systemImage: "trash", role: .destructive) {
-                                Task { await store.deleteMood(checkIn) }
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis")
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .accessibilityLabel("Actions for \(checkIn.mood.title) check-in")
-                    }
-                    .padding(.vertical, 6)
-                    .privacySensitive()
-                }
-            }
-        }
-    }
-
-    @ViewBuilder private var moodTrend: some View {
-        switch MoodTrendProjector.project(store.checkIns) {
-        case .empty:
-            trackEmpty("No mood trend yet", detail: "Check in when it feels useful. Missing data is never treated as neutral.", symbol: "chart.line.downtrend.xyaxis")
-        case let .light(sampleCount):
-            trackEmpty(
-                "A trend needs a little more context",
-                detail: "\(sampleCount) of 3 check-ins recorded. LifeBoard will not infer a pattern yet.",
-                symbol: "ellipsis"
-            )
-        case let .ready(summary):
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("30-day rhythm").font(.headline)
-                        Text(moodTrendDescription(summary))
-                            .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                    }
-                    Spacer()
-                    Text("\(summary.sampleCount) check-ins")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                }
-                MoodTrendStrip(points: summary.dailyPoints)
-            }
-            .trackClayCard()
-            .privacySensitive()
-            .accessibilityElement(children: .combine)
-        }
-    }
-
-    private var careGridColumns: [GridItem] {
-        if dynamicTypeSize.isAccessibilitySize {
-            return [GridItem(.flexible(), spacing: 12)]
-        }
-        return [GridItem(.adaptive(minimum: 150), spacing: 12)]
-    }
-
-    private var hydrationTile: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Hydration", systemImage: "drop.fill")
-                .font(.headline)
-            Text(hydrationLabel).font(.title3.weight(.semibold))
-            if let amount = store.snapshot.hydrationAmountMilliliters, let target = store.snapshot.hydrationTargetMilliliters, target > 0 {
-                ProgressView(value: min(1, amount / target)).tint(Color(LifeBoardColorTokens.foundationSageAccent))
-                Button("Edit target") { showsHydrationTarget = true }
-                    .font(.caption.weight(.semibold))
-                    .frame(minHeight: 44)
-                    .accessibilityIdentifier("track.hydration.target")
-            } else {
-                HStack(spacing: 8) {
-                    Text("No target yet")
-                        .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                    Spacer(minLength: 0)
-                    Button("Set target") { showsHydrationTarget = true }
-                        .font(.caption.weight(.semibold))
-                        .frame(minHeight: 44)
-                        .accessibilityIdentifier("track.hydration.target")
-                }
-            }
-            HStack(spacing: 8) {
-                Button("+250 ml") {
-                    Task { await store.quickAddHydration(250); await offerHealthConnect() }
-                }
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .accessibilityIdentifier("track.hydration.add250")
-                Button("+500 ml") {
-                    Task { await store.quickAddHydration(500); await offerHealthConnect() }
-                }
-                .frame(maxWidth: .infinity, minHeight: 44)
-                .accessibilityIdentifier("track.hydration.add500")
-            }
-            .buttonStyle(.lifeBoardChip)
-        }
-        .trackClayCard()
-        .accessibilityIdentifier("track.hydration")
-    }
-
-    /// After a hydration log lands (and its fill animates), gently invite a
-    /// not-yet-connected user to mirror water with Apple Health. Never blocks.
-    @MainActor
-    private func offerHealthConnect() async {
-        await LifeBoardHealthRuntime.shared.jitCoordinator.offerConnectAfterReward(
-            leadDomain: .hydration,
-            trigger: "track_hydration_quick_add"
-        )
-    }
-
-    private var goals: some View {
-        VStack(spacing: 12) {
-            trackSectionHeader("Goals and progress", symbol: "target", trailing: {
+            TrackSectionHeader("Goals and progress", symbol: "target", trailing: {
                 Button { editingGoal = nil; showsGoal = true } label: { Image(systemName: "plus") }.accessibilityLabel("Add goal")
             })
             if store.definitions.isEmpty {
-                trackEmpty("No goals required", detail: "Goals are optional. Add one only when it helps organize action.", symbol: "scope")
+                TrackEmptyStateRow("No goals required", detail: "Goals are optional. Add one only when it helps organize action.", symbol: "scope")
             } else {
                 ForEach(store.definitions) { goal in
                     let progress = store.snapshot.goals.first(where: { $0.goalID == goal.id })
@@ -944,7 +1454,7 @@ struct LifeBoardTrackFoundationRootView: View {
                                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                             }
                             Spacer()
-                            Text(progressLabel(progress)).font(.caption.weight(.semibold))
+                            Text(TrackSectionCopy.progressLabel(progress)).font(.caption.weight(.semibold))
                             Menu {
                                 Button("Link progress source", systemImage: "link.badge.plus") { linkingGoal = goal }
                                 Button("Edit goal", systemImage: "pencil") { editingGoal = goal; showsGoal = true }
@@ -988,244 +1498,6 @@ struct LifeBoardTrackFoundationRootView: View {
         }
     }
 
-    private var modules: some View {
-        VStack(spacing: 12) {
-            trackSectionHeader("Explore and reflect", symbol: "square.grid.2x2")
-            Button { showsStarterPacks = true } label: { moduleRow("Starter packs", detail: "Preview before creating anything", symbol: "shippingbox") }
-                .buttonStyle(.plain)
-            ForEach(store.starterPackInstallations.filter { $0.removedAt == nil }) { installation in
-                HStack(spacing: 12) {
-                    Image(systemName: "shippingbox.fill").foregroundStyle(Color(LifeBoardColorTokens.foundationFocusRing))
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text(starterPackTitle(installation.pack)).font(.headline)
-                        Text("Installed · history stays if removed")
-                            .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                    }
-                    Spacer()
-                    Button("Remove", role: .destructive) { Task { await store.removeStarterPack(installation) } }
-                        .font(.caption.weight(.semibold))
-                }
-                .padding(.vertical, 6)
-            }
-            NavigationLink { LifeBoardJournalModuleView(repository: store.phaseIIRepository) } label: { moduleRow("Journal", detail: "Write, reflect, and look back", symbol: "book.closed") }
-                .buttonStyle(.plain)
-            NavigationLink { LifeBoardKnowledgeModuleView(repository: store.phaseIIRepository) } label: { moduleRow("Notes", detail: "Notes and the links between them", symbol: "note.text") }
-                .buttonStyle(.plain)
-            if V2FeatureFlags.nutritionV1Enabled {
-                NavigationLink { LifeBoardNutritionView(repository: nutritionRepository) } label: { moduleRow("Nutrition", detail: "What you ate today", symbol: "fork.knife") }
-                    .buttonStyle(.plain)
-            }
-            if V2FeatureFlags.wellnessCoreV1Enabled {
-                NavigationLink { LifeBoardWellnessView(repository: wellnessRepository) } label: { moduleRow("Wellness", detail: "Weight, sleep, workouts, and trends", symbol: "heart.text.square") }
-                    .buttonStyle(.plain)
-            }
-            if V2FeatureFlags.lifeMomentsV1Enabled {
-                NavigationLink { LifeBoardLifeMomentsView(repository: lifeMomentRepository) } label: { moduleRow("Life Moments", detail: "Countdowns and dates that matter", symbol: "calendar.badge.heart") }
-                    .buttonStyle(.plain)
-            }
-            NavigationLink {
-                LifeBoardBehaviorAreaRouteView(
-                    repository: store.phaseIIRepository,
-                    initialArea: .trackers
-                )
-            } label: {
-                moduleRow(
-                    "Trackers and medication",
-                    detail: "Typed values, neutral schedules, corrections, and history",
-                    symbol: "square.grid.3x3"
-                )
-            }
-                .buttonStyle(.plain)
-        }
-    }
-
-    private func moduleRow(_ title: String, detail: String, symbol: String) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: symbol).font(.title3).frame(width: 28).foregroundStyle(Color(LifeBoardColorTokens.foundationFocusRing))
-            VStack(alignment: .leading, spacing: 3) { Text(title).font(.headline); Text(detail).font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary)) }
-            Spacer(); Image(systemName: "chevron.right")
-        }.trackClayCard()
-    }
-
-    private func hydrationHistoryRow(_ log: HydrationLog) -> some View {
-        let amount = HydrationMeasurementService.milliliters(log.amount, unit: log.unit)
-        return HStack(spacing: 12) {
-            Image(systemName: "drop.fill").foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("\(Int(amount)) ml").font(.body.weight(.medium))
-                Text(log.timestamp.formatted(date: .omitted, time: .shortened) + (log.correctedAt == nil ? "" : " · corrected"))
-                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            }
-            Spacer()
-            Menu {
-                Button("Add 50 ml") { Task { await store.correctHydration(log, amountMilliliters: amount + 50) } }
-                Button("Remove 50 ml") { Task { await store.correctHydration(log, amountMilliliters: max(0, amount - 50)) } }
-                if let receipt = store.activeCorrection(domain: .hydration, sourceID: log.id) {
-                    Button("Undo last correction", systemImage: "arrow.uturn.backward") {
-                        Task { await store.undoCorrection(receipt) }
-                    }
-                }
-                Button("Delete entry", systemImage: "trash", role: .destructive) { Task { await store.deleteHydration(log) } }
-            } label: { Image(systemName: "ellipsis.circle") }
-        }
-        .padding(.vertical, 7)
-        .accessibilityIdentifier("track.hydration.history.\(log.id.uuidString)")
-    }
-
-    private func sleepHistoryRow(_ record: SleepContextRecord) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "moon.zzz").foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
-            VStack(alignment: .leading, spacing: 3) {
-                Text("\(record.bedtime.formatted(date: .abbreviated, time: .shortened))–\(record.wakeTime.formatted(date: .omitted, time: .shortened))")
-                    .font(.body.weight(.medium))
-                Text(record.perceivedRest.map { "Rest \($0)/5 · \(record.interruptionCount) interruptions" } ?? "\(record.interruptionCount) interruptions")
-                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            }
-            Spacer()
-            Menu {
-                Button("Edit", systemImage: "pencil") {
-                    editingSleep = record
-                    showsSleep = true
-                }
-                if let receipt = store.activeCorrection(domain: .sleep, sourceID: record.id) {
-                    Button("Undo last correction", systemImage: "arrow.uturn.backward") {
-                        Task { await store.undoCorrection(receipt) }
-                    }
-                }
-                Button("Delete", systemImage: "trash", role: .destructive) { Task { await store.deleteSleep(record) } }
-            } label: {
-                Image(systemName: "ellipsis")
-                    .frame(width: 44, height: 44)
-                    .contentShape(Rectangle())
-            }
-            .accessibilityLabel("Actions for sleep context")
-        }
-        .padding(.vertical, 7)
-        .privacySensitive()
-    }
-
-    private var careHistoryCutoff: Date {
-        Calendar.current.date(byAdding: .day, value: -(careHistoryDays - 1), to: Calendar.current.startOfDay(for: Date())) ?? .distantPast
-    }
-    private var filteredHydrationHistory: [HydrationLog] {
-        store.hydrationHistory.filter { $0.timestamp >= careHistoryCutoff }
-    }
-    private var filteredSleepHistory: [SleepContextRecord] {
-        store.sleepRecords.filter { $0.bedtime >= careHistoryCutoff }
-    }
-
-    private func starterPackTitle(_ pack: StarterPack) -> String {
-        switch pack {
-        case .morningFoundation: "Morning Foundation"
-        case .workdayReset: "Workday Reset"
-        case .lowEnergyRecovery: "Low Energy Recovery"
-        case .medicationSupport: "Medication Support"
-        case .eveningWindDown: "Evening Wind-down"
-        }
-    }
-
-    private func careButton(title: String, value: String, symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            VStack(alignment: .leading, spacing: 10) {
-                Label(title, systemImage: symbol).font(.headline)
-                Text(value).font(.subheadline.weight(.semibold))
-                Spacer(minLength: 0)
-                Image(systemName: "plus.circle").frame(maxWidth: .infinity, alignment: .trailing)
-            }
-            .frame(minHeight: 112, alignment: .topLeading)
-            .trackClayCard()
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func behaviorAreaLink(
-        area: LifeBoardBehaviorNativeAreasView.Area,
-        title: String,
-        value: String,
-        symbol: String
-    ) -> some View {
-        NavigationLink {
-            LifeBoardBehaviorAreaRouteView(
-                repository: store.phaseIIRepository,
-                initialArea: area,
-                onOpenHabitBoard: onOpenHabitBoard,
-                onOpenHealth: onOpenHealth
-            )
-        } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                Label(title, systemImage: symbol).font(.headline)
-                Text(value).font(.subheadline.weight(.semibold))
-                Spacer(minLength: 0)
-                Image(systemName: "chevron.right")
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-            .frame(minHeight: 112, alignment: .topLeading)
-            .trackClayCard()
-        }
-        .buttonStyle(.plain)
-    }
-
-    private func trackEmpty(_ title: String, detail: String, symbol: String) -> some View {
-        HStack(spacing: 14) {
-            Image(systemName: symbol).font(.title2).foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
-            VStack(alignment: .leading, spacing: 3) { Text(title).font(.headline); Text(detail).font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary)) }
-            Spacer()
-        }.trackClayCard()
-    }
-
-    private func trackSectionHeader<Content: View>(_ title: String, symbol: String, @ViewBuilder trailing: () -> Content) -> some View {
-        HStack { Label(title, systemImage: symbol).font(LifeBoardFoundationTypography.sectionTitle()); Spacer(); trailing() }
-            .padding(.top, 6).foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-    }
-    private func trackSectionHeader(_ title: String, symbol: String) -> some View { trackSectionHeader(title, symbol: symbol) { EmptyView() } }
-    private func statusPill(_ title: String, symbol: String) -> some View {
-        Label(title, systemImage: symbol).font(.caption.weight(.medium)).padding(.horizontal, 10).padding(.vertical, 7)
-            .background(Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.84), in: Capsule())
-    }
-    private var daypartTitle: String {
-        switch preferences.resolvedDaypart() { case .morning: "Good morning"; case .afternoon: "Good afternoon"; case .evening: "Good evening"; case .night: "A gentler night" }
-    }
-    private var daypartSymbol: String {
-        switch preferences.resolvedDaypart() { case .morning: "sunrise"; case .afternoon: "sun.max"; case .evening: "sunset"; case .night: "moon.stars" }
-    }
-    private var latestMood: String {
-        guard let latest = store.checkIns.first else { return "Check in when useful" }
-        return latest.energy.map { "\(latest.mood.title) · energy \($0)/5" } ?? latest.mood.title
-    }
-    private func moodCheckInDetail(_ checkIn: LifeBoardMoodEnergyCheckInValue) -> String {
-        let time = checkIn.createdAt.formatted(date: .abbreviated, time: .shortened)
-        guard let energy = checkIn.energy else { return time }
-        return "Energy \(energy)/5 · \(time)"
-    }
-    private func presentMoodComposer(_ checkIn: LifeBoardMoodEnergyCheckInValue? = nil) {
-        editingMood = checkIn
-        showsMood = true
-    }
-    private func moodTrendDescription(_ summary: MoodTrendSummary) -> String {
-        let feeling: String
-        switch summary.averageValence {
-        case 1.5...: feeling = "mostly lighter"
-        case ..<(-1.5): feeling = "mostly heavier"
-        default: feeling = "varied"
-        }
-        guard let energy = summary.averageEnergy else { return "Your recorded mood has felt \(feeling). Energy was not consistently recorded." }
-        return "Your recorded mood has felt \(feeling), with average energy \(energy.formatted(.number.precision(.fractionLength(1))))/5."
-    }
-    private var latestSleep: String {
-        guard let record = store.sleepRecords.first else { return "No manual context" }
-        return record.perceivedRest.map { "Rest \($0)/5" } ?? "Recorded"
-    }
-    private var hydrationLabel: String {
-        guard let amount = store.snapshot.hydrationAmountMilliliters else { return "No data yet" }
-        if let target = store.snapshot.hydrationTargetMilliliters { return "\(Int(amount)) / \(Int(target)) ml" }
-        return "\(Int(amount)) ml"
-    }
-    private func progressLabel(_ progress: GoalProgressSnapshot?) -> String {
-        guard let progress else { return "Not linked" }
-        if let fraction = progress.progressFraction { return "\(Int(fraction * 100))%" }
-        return progress.missingLinkCount > 0 ? "Data incomplete" : "Ready"
-    }
-
     private func transition(
         _ goal: GoalDefinition,
         to status: GoalStatus,
@@ -1240,6 +1512,379 @@ struct LifeBoardTrackFoundationRootView: View {
                 showsGoal = true
             }
         }
+    }
+}
+
+private struct TrackModulesSection: View {
+    let store: TrackFoundationStore
+    let nutritionRepository: any NutritionRepository
+    let lifeMomentRepository: any LifeMomentRepository
+    let wellnessRepository: any WellnessRepository
+    @Binding var showsStarterPacks: Bool
+
+    var body: some View {
+        VStack(spacing: 12) {
+            TrackSectionHeader("Explore and reflect", symbol: "square.grid.2x2")
+            Button { showsStarterPacks = true } label: { TrackModuleRow("Starter packs", detail: "Preview before creating anything", symbol: "shippingbox") }
+                .buttonStyle(.plain)
+            ForEach(store.starterPackInstallations.filter { $0.removedAt == nil }) { installation in
+                HStack(spacing: 12) {
+                    Image(systemName: "shippingbox.fill").foregroundStyle(Color(LifeBoardColorTokens.foundationFocusRing))
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(TrackSectionCopy.starterPackTitle(installation.pack)).font(.headline)
+                        Text("Installed · history stays if removed")
+                            .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
+                    Spacer()
+                    Button("Remove", role: .destructive) { Task { await store.removeStarterPack(installation) } }
+                        .font(.caption.weight(.semibold))
+                }
+                .padding(.vertical, 6)
+            }
+            NavigationLink { LifeBoardJournalModuleView(repository: store.phaseIIRepository) } label: { TrackModuleRow("Journal", detail: "Write, reflect, and look back", symbol: "book.closed") }
+                .buttonStyle(.plain)
+            NavigationLink { LifeBoardKnowledgeModuleView(repository: store.phaseIIRepository) } label: { TrackModuleRow("Notes", detail: "Notes and the links between them", symbol: "note.text") }
+                .buttonStyle(.plain)
+            if V2FeatureFlags.nutritionV1Enabled {
+                NavigationLink { LifeBoardNutritionView(repository: nutritionRepository) } label: { TrackModuleRow("Nutrition", detail: "What you ate today", symbol: "fork.knife") }
+                    .buttonStyle(.plain)
+            }
+            if V2FeatureFlags.wellnessCoreV1Enabled {
+                NavigationLink { LifeBoardWellnessView(repository: wellnessRepository) } label: { TrackModuleRow("Wellness", detail: "Weight, sleep, workouts, and trends", symbol: "heart.text.square") }
+                    .buttonStyle(.plain)
+            }
+            if V2FeatureFlags.lifeMomentsV1Enabled {
+                NavigationLink { LifeBoardLifeMomentsView(repository: lifeMomentRepository) } label: { TrackModuleRow("Life Moments", detail: "Countdowns and dates that matter", symbol: "calendar.badge.heart") }
+                    .buttonStyle(.plain)
+            }
+            NavigationLink {
+                LifeBoardBehaviorAreaRouteView(
+                    repository: store.phaseIIRepository,
+                    initialArea: .trackers
+                )
+            } label: {
+                TrackModuleRow(
+                    "Trackers and medication",
+                    detail: "Typed values, neutral schedules, corrections, and history",
+                    symbol: "square.grid.3x3"
+                )
+            }
+                .buttonStyle(.plain)
+                .accessibilityIdentifier("track.module.behavior")
+        }
+    }
+}
+
+private struct TrackHistorySection: View {
+    let store: TrackFoundationStore
+    let fastingSessions: [LifeBoardFastingSessionValue]
+    @Binding var careHistoryDays: Int
+    @Binding var showsSleep: Bool
+    @Binding var editingSleep: SleepContextRecord?
+
+    var body: some View {
+        let hydrationHistory = TrackSectionCopy.hydrationHistory(store, days: careHistoryDays)
+        let sleepHistory = TrackSectionCopy.sleepHistory(store, days: careHistoryDays)
+        let fastingHistory = TrackSectionCopy.fastingHistory(fastingSessions, days: careHistoryDays)
+        let routineHistory = TrackSectionCopy.routineHistory(store, days: careHistoryDays)
+        VStack(alignment: .leading, spacing: 14) {
+            LifeBoardOptionRail(
+                "History range",
+                selection: $careHistoryDays,
+                values: [7, 30],
+                identifierPrefix: "track.history.range",
+                title: { "\($0) days" },
+                showsLabel: false
+            )
+
+            if hydrationHistory.isEmpty
+                && sleepHistory.isEmpty
+                && store.checkIns.isEmpty
+                && fastingHistory.isEmpty
+                && routineHistory.isEmpty
+                && store.snapshot.goals.isEmpty {
+                TrackEmptyStateRow(
+                    "No history yet",
+                    detail: "Explicit records will appear here. Missing data is never treated as zero.",
+                    symbol: "clock.arrow.circlepath"
+                )
+            } else {
+                if hydrationHistory.isEmpty == false {
+                    TrackSectionHeader("Hydration", symbol: "drop")
+                    ForEach(hydrationHistory) { TrackHydrationHistoryRow(store: store, log: $0) }
+                }
+                if sleepHistory.isEmpty == false {
+                    TrackSectionHeader("Sleep context", symbol: "moon.zzz")
+                    ForEach(sleepHistory) { record in
+                        TrackSleepHistoryRow(
+                            store: store,
+                            record: record,
+                            showsSleep: $showsSleep,
+                            editingSleep: $editingSleep
+                        )
+                    }
+                }
+                if store.checkIns.isEmpty == false {
+                    TrackSectionHeader("Mind check-ins", symbol: "face.smiling")
+                    ForEach(Array(store.checkIns.prefix(12)), id: \.id) { checkIn in
+                        HStack(spacing: 12) {
+                            Image(systemName: "face.smiling")
+                                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(checkIn.mood.title).font(.body.weight(.medium))
+                                Text(TrackSectionCopy.moodCheckInDetail(checkIn))
+                                    .font(.caption)
+                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            }
+                            Spacer()
+                        }
+                        .padding(.vertical, 7)
+                    }
+                }
+                // History used to stop at hydration, sleep and mood, which
+                // made it read as a care log rather than a record of the
+                // whole tracked life.
+                if fastingHistory.isEmpty == false {
+                    TrackSectionHeader("Fasting", symbol: "timer")
+                    ForEach(fastingHistory) { session in
+                        TrackHistoryRow(
+                            symbol: "timer",
+                            title: TrackSectionCopy.fastingClock(session.elapsed(at: session.endedAt ?? Date())),
+                            detail: session.startedAt.formatted(date: .abbreviated, time: .shortened)
+                        )
+                    }
+                }
+                if routineHistory.isEmpty == false {
+                    TrackSectionHeader("Routines", symbol: "repeat")
+                    ForEach(routineHistory) { run in
+                        TrackHistoryRow(
+                            symbol: "repeat",
+                            title: TrackSectionCopy.routineTitle(store, for: run),
+                            detail: run.startedAt.formatted(date: .abbreviated, time: .shortened)
+                        )
+                    }
+                }
+                if store.snapshot.goals.isEmpty == false {
+                    TrackSectionHeader("Goals", symbol: "target")
+                    ForEach(store.snapshot.goals, id: \.goalID) { goal in
+                        TrackHistoryRow(
+                            symbol: "target",
+                            title: TrackSectionCopy.goalTitle(store, for: goal.goalID),
+                            detail: goal.nextUsefulAction
+                        )
+                    }
+                }
+            }
+        }
+        .accessibilityIdentifier("track.history")
+    }
+}
+
+// MARK: - Track presentation
+
+private struct TrackComposerSheets: ViewModifier {
+    let store: TrackFoundationStore
+    let fastingTimerStore: FastingTimerStore
+    let sourcePickerRepository: any TypedSourcePickerRepository
+    let fastingSessions: [LifeBoardFastingSessionValue]
+    let reloadFasting: () async -> Void
+    @Binding var showsFastingComposer: Bool
+    @Binding var showsFastingHistory: Bool
+    @Binding var fastingError: String?
+    @Binding var showsMood: Bool
+    @Binding var editingMood: LifeBoardMoodEnergyCheckInValue?
+    @Binding var showsSleep: Bool
+    @Binding var editingSleep: SleepContextRecord?
+    @Binding var showsGoal: Bool
+    @Binding var editingGoal: GoalDefinition?
+    @Binding var linkingGoal: GoalDefinition?
+    @Binding var showsStarterPacks: Bool
+    @Binding var showsHabitResilience: Bool
+    @Binding var showsRoutineComposer: Bool
+    @Binding var editingRoutine: RoutineDefinition?
+    @Binding var showsHydrationTarget: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $showsFastingComposer) {
+                LifeBoardFastingComposer { target, _ in
+                    Task {
+                        do {
+                            _ = try await fastingTimerStore.start(targetDuration: target)
+                            await reloadFasting()
+                        } catch {
+                            fastingError = error.localizedDescription
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $showsFastingHistory) {
+                LifeBoardFastingHistoryView(
+                    sessions: fastingSessions,
+                    activeReceipt: { store.activeCorrection(domain: .fasting, sourceID: $0) },
+                    onUndo: { receipt in
+                        await store.undoCorrection(receipt)
+                        await reloadFasting()
+                    },
+                    onCorrect: { session, startDelta, endDelta in
+                        do {
+                            _ = try await fastingTimerStore.correct(
+                                sessionID: session.id,
+                                startedAt: session.startedAt.addingTimeInterval(startDelta),
+                                endedAt: session.endedAt?.addingTimeInterval(endDelta),
+                                targetDuration: session.targetDuration,
+                                note: session.note
+                            )
+                            await reloadFasting()
+                        } catch {
+                            fastingError = error.localizedDescription
+                        }
+                    }
+                )
+            }
+            .sheet(isPresented: $showsMood, onDismiss: { editingMood = nil }) {
+                MoodEnergyComposer(checkIn: editingMood) { value in
+                    await store.saveMood(value)
+                    return store.errorMessage == nil
+                } delete: { value in
+                    Task { await store.deleteMood(value) }
+                }
+            }
+            .sheet(isPresented: $showsSleep, onDismiss: { editingSleep = nil }) {
+                SleepContextComposer(existing: editingSleep) { record in
+                    await store.saveSleep(record)
+                    return store.errorMessage == nil
+                }
+            }
+            .sheet(isPresented: $showsGoal, onDismiss: { editingGoal = nil }) {
+                GoalComposer(existing: editingGoal) { draft in
+                    await store.saveGoal(existing: editingGoal, draft: draft)
+                    return store.errorMessage == nil
+                }
+            }
+            .sheet(item: $linkingGoal) { goal in
+                GoalLinkComposer(goal: goal, sourcePickerRepository: sourcePickerRepository) { source, sourceID in
+                    Task { await store.saveGoalLink(goalID: goal.id, source: source, sourceID: sourceID) }
+                }
+            }
+            .sheet(isPresented: $showsStarterPacks) { StarterPackBrowser { preview in Task { await store.installStarterPack(preview) } } }
+            .sheet(isPresented: $showsHabitResilience) {
+                HabitResilienceLibrary(
+                    repository: sourcePickerRepository,
+                    policies: store.habitPolicies,
+                    groups: store.habitGroups,
+                    history: store.habitOccurrenceHistory,
+                    save: { policy in
+                        await store.saveHabitPolicy(policy)
+                        return store.errorMessage == nil
+                    },
+                    recover: { habitID, day in await store.recoverHabit(habitID: habitID, day: day) },
+                    undoRecovery: { habitID, day in await store.undoHabitRecovery(habitID: habitID, day: day) },
+                    saveGroup: { group in Task { await store.saveHabitGroup(group) } },
+                    deleteGroup: { group in Task { await store.deleteHabitGroup(group) } }
+                )
+            }
+            .sheet(isPresented: $showsRoutineComposer, onDismiss: { editingRoutine = nil }) {
+                RoutineComposer(
+                    existing: editingRoutine,
+                    schedule: editingRoutine.flatMap { routine in store.routineSchedules.first(where: { $0.routineID == routine.id }) },
+                    sourcePickerRepository: sourcePickerRepository
+                ) { title, steps, weekdays, daypart in
+                    await store.saveRoutine(existing: editingRoutine, title: title, steps: steps, weekdays: weekdays, daypart: daypart)
+                    let succeeded = store.errorMessage == nil
+                    if succeeded {
+                        await LifeBoardPermissionPrimingCoordinator.shared.offerAfterReward(
+                            kind: .notifications,
+                            trigger: "routine_scheduled"
+                        )
+                    }
+                    return succeeded
+                }
+            }
+            .sheet(isPresented: $showsHydrationTarget) {
+                HydrationTargetComposer(currentTarget: store.snapshot.hydrationTargetMilliliters) { milliliters in
+                    await store.setHydrationTarget(milliliters)
+                    return store.errorMessage == nil
+                }
+            }
+            .fullScreenCover(isPresented: Binding(
+                get: { store.activeRoutineRun != nil },
+                set: { _ in }
+            )) {
+                if let run = store.activeRoutineRun {
+                    RoutineRunner(
+                        run: run,
+                        advance: { response, skip in
+                            Task { await store.advanceRoutine(response: response, skip: skip) }
+                        },
+                        pause: { Task { await store.pauseRoutine() } },
+                        resume: { Task { await store.resumeRoutine() } },
+                        abandon: { Task { await store.abandonRoutine() } }
+                    )
+                        .interactiveDismissDisabled()
+                }
+            }
+    }
+}
+
+private struct TrackDestructiveDialogs: ViewModifier {
+    let store: TrackFoundationStore
+    @Binding var goalUndoReceipt: GoalTransitionReceipt?
+    @Binding var routinePendingDeletion: RoutineDefinition?
+    @Binding var goalPendingDeletion: GoalDefinition?
+
+    func body(content: Content) -> some View {
+        content
+            .alert("Track needs attention", isPresented: Binding(
+                get: { store.errorMessage != nil }, set: { if !$0 { store.errorMessage = nil } }
+            )) { Button("OK", role: .cancel) { store.errorMessage = nil } } message: { Text(store.errorMessage ?? "") }
+            .safeAreaInset(edge: .bottom) {
+                if let receipt = goalUndoReceipt {
+                    HStack(spacing: 12) {
+                        Text("Goal \(receipt.after.effectiveStatus.rawValue).")
+                            .font(.subheadline)
+                        Spacer()
+                        Button("Undo") {
+                            goalUndoReceipt = nil
+                            Task { await store.undoGoalTransition(receipt) }
+                        }
+                        .frame(minHeight: 44)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 8)
+                    .background(.regularMaterial, in: Capsule())
+                    .padding(.horizontal, 20)
+                    .accessibilityElement(children: .contain)
+                }
+            }
+            .confirmationDialog(
+                "Delete this routine?",
+                isPresented: Binding(get: { routinePendingDeletion != nil }, set: { if !$0 { routinePendingDeletion = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Delete routine", role: .destructive) {
+                    guard let routine = routinePendingDeletion else { return }
+                    routinePendingDeletion = nil
+                    Task { await store.deleteRoutine(routine) }
+                }
+                Button("Cancel", role: .cancel) { routinePendingDeletion = nil }
+            } message: {
+                Text("The definition and schedule are removed. Completed and abandoned run history remains available for evidence and review.")
+            }
+            .confirmationDialog(
+                "Delete this goal?",
+                isPresented: Binding(get: { goalPendingDeletion != nil }, set: { if !$0 { goalPendingDeletion = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Delete goal", role: .destructive) {
+                    guard let goal = goalPendingDeletion else { return }
+                    goalPendingDeletion = nil
+                    Task { await store.deleteGoal(goal) }
+                }
+                Button("Cancel", role: .cancel) { goalPendingDeletion = nil }
+            } message: {
+                Text("The goal and its explicit progress links are removed. Source tasks, habits, routines, and tracker entries are unchanged.")
+            }
     }
 }
 
@@ -1271,8 +1916,12 @@ struct TrackUniversalCaptureView: View {
                     return store.errorMessage == nil
                 }
             case .hydration:
-                HydrationCaptureComposer { amount in
-                    Task { await store.quickAddHydration(amount); dismiss() }
+                HydrationCaptureComposer(
+                    todayAmount: store.snapshot.hydrationAmountMilliliters ?? 0,
+                    target: store.snapshot.hydrationTargetMilliliters
+                ) { amount in
+                    await store.quickAddHydration(amount)
+                    return store.errorMessage == nil
                 }
             case .medicationEvent:
                 List {
@@ -1329,76 +1978,315 @@ struct TrackUniversalCaptureView: View {
 }
 
 private struct HydrationCaptureComposer: View {
-    let save: (Double) -> Void
+    let todayAmount: Double
+    let target: Double?
+    let save: (Double) async -> Bool
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var amount = 250.0
+    @State private var commitPhase: LifeBoardComposerPhase = .idle
+    @State private var bloomTrigger = 0
+
+    private let presets: [(amount: Double, title: String, detail: String, symbol: String)] = [
+        (150, "Sip", "150 mL", "drop"),
+        (250, "Glass", "250 mL", "drop.fill"),
+        (500, "Bottle", "500 mL", "waterbottle.fill"),
+        (750, "Large", "750 mL", "waterbottle")
+    ]
 
     var body: some View {
-        Form {
-            Section("Amount") {
-                Picker("Quick amount", selection: $amount) {
-                    Text("250 ml").tag(250.0)
-                    Text("350 ml").tag(350.0)
-                    Text("500 ml").tag(500.0)
-                    Text("750 ml").tag(750.0)
+        ZStack {
+            Color(LifeBoardColorTokens.foundationCanvas)
+                .ignoresSafeArea()
+
+            ScrollView {
+                VStack(spacing: dynamicTypeSize.isAccessibilitySize ? 24 : 20) {
+                    VStack(spacing: 6) {
+                        Text("A little water for right now")
+                            .font(LifeBoardFoundationTypography.sectionTitle().weight(.bold))
+                            .multilineTextAlignment(.center)
+                        Text("Choose what feels true. You can fine-tune it below.")
+                            .font(.subheadline)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .multilineTextAlignment(.center)
+                    }
+                    .padding(.horizontal, 20)
+
+                    HydrationSelectionOrb(
+                        amount: amount,
+                        todayAmount: todayAmount,
+                        target: target,
+                        bloomTrigger: bloomTrigger
+                    )
+
+                    LazyVGrid(
+                        columns: dynamicTypeSize.isAccessibilitySize
+                            ? [GridItem(.flexible())]
+                            : [GridItem(.flexible()), GridItem(.flexible())],
+                        spacing: 10
+                    ) {
+                        ForEach(presets, id: \.amount) { preset in
+                            hydrationPreset(preset)
+                        }
+                    }
+
+                    fineAdjustment
+
+                    if let target, target > 0 {
+                        let projected = todayAmount + amount
+                        Label(
+                            "This would bring today to \(Int(projected)) of \(Int(target)) mL.",
+                            systemImage: projected >= target ? "checkmark.circle.fill" : "circle.dotted"
+                        )
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                        .lifeBoardClaySurface(.well, cornerRadius: 14)
+                    } else {
+                        Label(
+                            "This records what you drank; it does not prescribe a target.",
+                            systemImage: "heart.text.clipboard"
+                        )
+                        .font(.footnote)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(14)
+                        .lifeBoardClaySurface(.well, cornerRadius: 14)
+                    }
                 }
-                TextField("Milliliters", value: $amount, format: .number).keyboardType(.decimalPad)
+                .padding(.horizontal, 20)
+                .padding(.top, 8)
+                .padding(.bottom, 110)
             }
-            Text("LifeBoard records the amount against your own target; it does not generate a hydration recommendation.").font(.caption)
         }
-        .lifeBoardFormSurface()
         .navigationTitle("Log hydration")
-        .toolbar {
-            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-            ToolbarItem(placement: .confirmationAction) { Button("Add") { save(amount) }.disabled(amount <= 0) }
+        .navigationBarTitleDisplayMode(.inline)
+        .safeAreaInset(edge: .bottom) {
+            LifeBoardComposerCommitBar(
+                title: "Add \(Int(amount)) mL",
+                phase: commitPhase,
+                isEnabled: amount > 0,
+                action: commit
+            )
+            .accessibilityIdentifier("track.hydration.commit")
+        }
+        .interactiveDismissDisabled(isRunning)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("track.hydration.composer")
+    }
+
+    private func hydrationPreset(
+        _ preset: (amount: Double, title: String, detail: String, symbol: String)
+    ) -> some View {
+        let isSelected = amount == preset.amount
+        return Button {
+            withAnimation(LifeBoardMotionProfile.selection.animation(reduceMotion: reduceMotion)) {
+                amount = preset.amount
+            }
+            UISelectionFeedbackGenerator().selectionChanged()
+        } label: {
+            HStack(spacing: 11) {
+                Image(systemName: preset.symbol)
+                    .font(.body.weight(.semibold))
+                    .frame(width: 30, height: 30)
+                    .background(
+                        Color(LifeBoardColorTokens.foundationSageAccent)
+                            .opacity(isSelected ? 0.52 : 0.25),
+                        in: Circle()
+                    )
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(preset.title).font(.subheadline.weight(.semibold))
+                    Text(preset.detail)
+                        .font(.caption.monospacedDigit())
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+                Spacer(minLength: 0)
+                if isSelected {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .symbolEffect(.bounce, options: .nonRepeating, value: amount)
+                }
+            }
+            .padding(12)
+            .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
+            .lifeBoardClaySurface(isSelected ? .raised : .well, cornerRadius: 16)
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(
+                        Color(isSelected
+                            ? LifeBoardColorTokens.inkPrimary.withAlphaComponent(0.34)
+                            : LifeBoardColorTokens.foundationHairline),
+                        lineWidth: isSelected ? 1.25 : 1
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(preset.title), \(preset.detail)")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private var fineAdjustment: some View {
+        VStack(spacing: 12) {
+            HStack {
+                Text("Fine tune")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text("\(Int(amount)) mL")
+                    .font(.subheadline.monospaced().weight(.semibold))
+                    .contentTransition(.numericText())
+            }
+            HStack(spacing: 12) {
+                adjustmentButton(symbol: "minus", delta: -50)
+                Slider(value: $amount, in: 50...1_500, step: 50)
+                    .tint(Color(LifeBoardColorTokens.inkPrimary))
+                    .accessibilityLabel("Water amount")
+                    .accessibilityValue("\(Int(amount)) milliliters")
+                adjustmentButton(symbol: "plus", delta: 50)
+            }
+        }
+        .padding(14)
+        .lifeBoardClaySurface(.well, cornerRadius: 16)
+    }
+
+    private func adjustmentButton(symbol: String, delta: Double) -> some View {
+        Button {
+            withAnimation(LifeBoardMotionProfile.localState.animation(reduceMotion: reduceMotion)) {
+                amount = min(1_500, max(50, amount + delta))
+            }
+            UISelectionFeedbackGenerator().selectionChanged()
+        } label: {
+            Image(systemName: symbol)
+                .font(.subheadline.weight(.bold))
+                .frame(width: 44, height: 44)
+                .contentShape(Circle())
+        }
+        .buttonStyle(LifeBoardClayButtonStyle(depth: .raised, cornerRadius: 22))
+        .accessibilityLabel(delta > 0 ? "Add 50 milliliters" : "Remove 50 milliliters")
+    }
+
+    private var isRunning: Bool {
+        if case .running = commitPhase { return true }
+        return false
+    }
+
+    private func commit() {
+        guard isRunning == false, amount > 0 else { return }
+        commitPhase = .running(progress: nil)
+        let committedAmount = amount
+        Task {
+            if await save(committedAmount) {
+                commitPhase = .success(receipt: .init())
+                bloomTrigger &+= 1
+                UINotificationFeedbackGenerator().notificationOccurred(.success)
+                try? await Task.sleep(for: .milliseconds(reduceMotion ? 180 : 620))
+                dismiss()
+            } else {
+                commitPhase = .recoverableFailure(.init(
+                    message: "Your water was not saved. Nothing was changed.",
+                    recovery: .retry
+                ))
+                UINotificationFeedbackGenerator().notificationOccurred(.error)
+            }
         }
     }
 }
 
-private struct TrackComposerReceipt: Equatable, Sendable {
-    let operationID: UUID
-    let completedAt: Date
+private struct HydrationSelectionOrb: View {
+    let amount: Double
+    let todayAmount: Double
+    let target: Double?
+    let bloomTrigger: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeBoardTransitionCoordinator) private var transitions
+    @State private var targetCrossedTrigger = 0
 
-    init(operationID: UUID = UUID(), completedAt: Date = Date()) {
-        self.operationID = operationID
-        self.completedAt = completedAt
+    private var level: Double {
+        min(0.92, max(0.16, amount / 1_000))
     }
-}
 
-private struct TrackComposerCommitBar: View {
-    let title: String
-    let phase: AsyncActionPhase<TrackComposerReceipt>
-    let isEnabled: Bool
-    let action: () -> Void
+    private var hasReachedTarget: Bool {
+        guard let target, target > 0 else { return false }
+        return todayAmount >= target
+    }
+
+    private static func dayKey() -> String {
+        let components = Calendar.current.dateComponents([.year, .month, .day], from: Date())
+        return "\(components.year ?? 0)-\(components.month ?? 0)-\(components.day ?? 0)"
+    }
 
     var body: some View {
-        VStack(spacing: 8) {
-            if case .recoverableFailure(let failure) = phase {
-                Label(failure.message, systemImage: "exclamationmark.circle")
-                    .font(.footnote)
-                    .foregroundStyle(Color.lifeboard.statusWarning)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-            LifeBoardCommitControl(
-                title: title,
-                runningTitle: "Saving",
-                successTitle: "Saved",
-                phase: phase,
-                isEnabled: isEnabled,
-                action: action
+        ZStack {
+            Circle()
+                .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+            LifeBoardLiquidFill(
+                level: level,
+                tint: Color(LifeBoardColorTokens.foundationSageAccent)
             )
+            .clipShape(Circle().inset(by: 7))
+            Circle()
+                .stroke(Color(LifeBoardColorTokens.inkPrimary).opacity(0.28), lineWidth: 1.25)
+            Circle()
+                .inset(by: 7)
+                .stroke(Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.42), lineWidth: 1)
+
+            VStack(spacing: 3) {
+                Image(systemName: "drop.fill")
+                    .font(.body.weight(.semibold))
+                Text("\(Int(amount))")
+                    .font(LifeBoardFoundationTypography.hero().weight(.bold))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                Text("milliliters")
+                    .font(.caption.weight(.medium))
+                Text(projectedContext)
+                    .font(.caption2)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .padding(.top, 4)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 10)
-        .background(.regularMaterial)
+        .frame(width: 174, height: 174)
+        // Fires once per day, when the recorded total first crosses the target
+        // — a "corresponding recorded state change", which is the only thing
+        // DESIGN.md permits this shader for. Explicitly NOT on every +250 mL:
+        // the orb already blooms on selection, and doubling that per tap is
+        // exactly the ambient failure the design law names.
+        .lifeboardVitalOrbWarp(trigger: targetCrossedTrigger)
+        .onChange(of: hasReachedTarget) { _, reached in
+            guard reached else { return }
+            let key = "track.hydration.target.\(Self.dayKey())"
+            guard transitions?.claimOneShot(key) == true else { return }
+            targetCrossedTrigger &+= 1
+        }
+        .lifeBoardClaySurface(.raised, cornerRadius: 87)
+        .scaleEffect(reduceMotion ? 1 : 1.0)
+        .lifeBoardMotion(.controlMorph, value: level)
+        .lifeboardClayPressBloom(
+            center: .center,
+            trigger: bloomTrigger,
+            tint: Color(LifeBoardColorTokens.foundationSageAccent)
+        )
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Selected water amount")
+        .accessibilityValue("\(Int(amount)) milliliters. \(projectedContext)")
+    }
+
+    private var projectedContext: String {
+        let projected = todayAmount + amount
+        guard let target, target > 0 else { return "\(Int(projected)) mL today" }
+        return "\(Int(min(100, projected / target * 100)))% of today"
     }
 }
+
 
 private struct HydrationTargetComposer: View {
     let save: (Double) async -> Bool
     @Environment(\.dismiss) private var dismiss
     @State private var amount: Double
-    @State private var commitPhase: AsyncActionPhase<TrackComposerReceipt> = .idle
+    @State private var commitPhase: LifeBoardComposerPhase = .idle
+    @State private var successTrigger = 0
 
     init(currentTarget: Double?, save: @escaping (Double) async -> Bool) {
         self.save = save
@@ -1406,40 +2294,22 @@ private struct HydrationTargetComposer: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Your daily target") {
-                    TextField("Milliliters", value: $amount, format: .number)
-                        .keyboardType(.decimalPad)
-                    Picker("Preset", selection: $amount) {
-                        Text("1,500 ml").tag(1_500.0)
-                        Text("2,000 ml").tag(2_000.0)
-                        Text("2,500 ml").tag(2_500.0)
-                        Text("3,000 ml").tag(3_000.0)
-                    }
-                }
-                Section {
-                    Text("This is your own tracking target. LifeBoard does not calculate or recommend a medical hydration amount.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .lifeBoardFormSurface()
-            .navigationTitle("Hydration target")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-            }
-            .safeAreaInset(edge: .bottom) {
-                TrackComposerCommitBar(
-                    title: "Save target",
-                    phase: commitPhase,
-                    isEnabled: amount > 0,
-                    action: commit
-                )
-                .accessibilityIdentifier("track.hydration.target.commit")
-            }
+        LifeBoardComposerScaffold(
+            title: "Hydration target",
+            subtitle: "A number you chose, not one the app decided.",
+            identifier: "track.hydration.target.composer"
+        ) {
+            HydrationTargetSection(amount: $amount)
+        } commit: {
+            LifeBoardComposerCommitBar(
+                title: "Save target",
+                phase: commitPhase,
+                isEnabled: amount > 0,
+                identifier: "track.hydration.target.commit",
+                action: commit
+            )
         }
+        .lifeboardCompletionBurst(trigger: successTrigger)
     }
 
     private func commit() {
@@ -1448,6 +2318,7 @@ private struct HydrationTargetComposer: View {
             Task {
                 if await save(amount) {
                     commitPhase = .success(receipt: .init())
+                    successTrigger &+= 1
                     dismiss()
                 } else {
                     commitPhase = .recoverableFailure(.init(
@@ -1457,6 +2328,37 @@ private struct HydrationTargetComposer: View {
                 }
             }
             return
+        }
+    }
+}
+
+private struct HydrationTargetSection: View {
+    @Binding var amount: Double
+
+    private static let presets: [Double] = [1_500, 2_000, 2_500, 3_000]
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Your daily target",
+            footer: "This is your own tracking target. LifeBoard does not calculate or recommend a medical hydration amount."
+        ) {
+            LifeBoardValueDrum(
+                "Daily target",
+                value: $amount,
+                in: 0...5_000,
+                step: 50,
+                coarseStep: 500,
+                unit: "mL",
+                fractionDigits: 0,
+                identifier: "track.hydration.target.value"
+            )
+            LifeBoardOptionRail(
+                "Common targets",
+                selection: $amount,
+                values: Self.presets,
+                identifierPrefix: "track.hydration.target.preset",
+                title: { "\(Int($0).formatted()) mL" }
+            )
         }
     }
 }
@@ -1887,41 +2789,136 @@ private struct HabitGroupEditor: View {
     }
 
     var body: some View {
-        Form {
-            TextField("Group name", text: $title)
-            Picker("Planning context", selection: $planningContext) {
-                ForEach(PlanningContext.allCases, id: \.self) { context in
-                    Text(context.rawValue.capitalized).tag(context)
-                }
-            }
-            Text("Groups organize presentation only. Moving a habit never rewrites its occurrence history or recurrence schedule.")
-                .font(.caption)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+        LifeBoardComposerScaffold(
+            title: group == nil ? "New habit group" : "Edit habit group",
+            confirmTitle: "Save",
+            isConfirmEnabled: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
+            identifier: "track.habitGroup.composer",
+            onConfirm: commit
+        ) {
+            HabitGroupDetailSection(title: $title, planningContext: $planningContext)
         }
-        .lifeBoardFormSurface()
-        .navigationTitle(group == nil ? "New habit group" : "Edit habit group")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Save") {
-                    let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
-                    save(HabitGroup(
-                        id: group?.id ?? UUID(),
-                        title: trimmed,
-                        planningContext: planningContext,
-                        ordinal: group?.ordinal ?? nextOrdinal,
-                        createdAt: group?.createdAt ?? Date()
-                    ))
-                    dismiss()
+    }
+
+    private func commit() {
+        let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        save(HabitGroup(
+            id: group?.id ?? UUID(),
+            title: trimmed,
+            planningContext: planningContext,
+            ordinal: group?.ordinal ?? nextOrdinal,
+            createdAt: group?.createdAt ?? Date()
+        ))
+        dismiss()
+    }
+}
+
+private struct HabitGroupDetailSection: View {
+    @Binding var title: String
+    @Binding var planningContext: PlanningContext
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Group",
+            footer: "Groups organize presentation only. Moving a habit never rewrites its occurrence history or recurrence schedule."
+        ) {
+            LifeBoardComposerField(
+                "Group name",
+                prompt: "Mornings, wind-down, admin…",
+                text: $title,
+                showsLabel: false,
+                identifier: "track.habitGroup.name"
+            )
+            LifeBoardOptionRail(
+                "Planning context",
+                selection: $planningContext,
+                values: PlanningContext.allCases,
+                identifierPrefix: "track.habitGroup.context",
+                title: { $0.rawValue.capitalized }
+            )
+        }
+    }
+}
+
+
+private struct ResilienceGroupSection: View {
+    @Binding var groupID: UUID?
+    let groups: [HabitGroup]
+
+    var body: some View {
+        LifeBoardComposerSection("Group") {
+            LifeBoardMenuRow(
+                "Habit group",
+                selection: $groupID,
+                values: [UUID?.none] + groups.map { UUID?.some($0.id) },
+                title: { id in
+                    guard let id else { return "Ungrouped" }
+                    return groups.first { $0.id == id }?.title ?? "Ungrouped"
+                },
+                identifier: "track.resilience.group"
+            )
+        }
+    }
+}
+
+private struct ResilienceRecoverySection: View {
+    @Binding var recoveryEnabled: Bool
+    @Binding var streakPresentation: HabitStreakPresentation
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Recovery",
+            footer: "Recovered days count as completed eligible days, but remain visibly identified in history."
+        ) {
+            // Stays a real `Toggle` with a restyled `ToggleStyle`. The
+            // accessibility-XXXL suite drives `app.switches["Allow recovery
+            // completions"]`, and only a genuine Toggle reports as `.switch`.
+            Toggle("Allow recovery completions", isOn: $recoveryEnabled)
+                .toggleStyle(.lifeBoardClay)
+            LifeBoardOptionRail(
+                "Habit progress",
+                selection: $streakPresentation,
+                values: [.gradeAndStreak, .countsOnly],
+                identifierPrefix: "track.resilience.presentation",
+                title: { $0 == .gradeAndStreak ? "Grade and streak" : "Counts only" }
+            )
+        }
+    }
+}
+
+private struct ResilienceMinimumSection: View {
+    @Binding var minimumKind: HabitResilienceEditor.MinimumKind
+    @Binding var minimumValue: Double
+    @Binding var minimumUnit: String
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Gentle fallback",
+            footer: "Low Energy can offer this kinder version without changing the full target or silently completing it."
+        ) {
+            LifeBoardOptionRail(
+                "Low-energy minimum",
+                selection: $minimumKind,
+                values: HabitResilienceEditor.MinimumKind.allCases,
+                identifierPrefix: "track.resilience.minimum",
+                title: \.title
+            )
+            if [.quota, .timed, .quantitative].contains(minimumKind) {
+                LifeBoardComposerNumberField(
+                    "Amount",
+                    value: $minimumValue,
+                    unit: minimumKind == .timed ? "minutes" : (minimumKind == .quantitative ? nil : "times")
+                )
+                if minimumKind == .quantitative {
+                    LifeBoardComposerField("Unit", prompt: "grams, pages, reps…", text: $minimumUnit)
                 }
-                .disabled(title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
             }
         }
     }
 }
 
 private struct HabitResilienceEditor: View {
-    private enum MinimumKind: String, CaseIterable, Identifiable {
+    fileprivate enum MinimumKind: String, CaseIterable, Identifiable {
         case none, binary, avoidance, quota, timed, quantitative
         var id: String { rawValue }
         var title: String {
@@ -1958,7 +2955,7 @@ private struct HabitResilienceEditor: View {
     @State private var vacationStart = Date()
     @State private var vacationEnd = Date()
     @State private var mutatingDays: Set<PlanningDay> = []
-    @State private var commitPhase: AsyncActionPhase<TrackComposerReceipt> = .idle
+    @State private var commitPhase: LifeBoardComposerPhase = .idle
 
     init(
         habit: TypedSourcePickerItem,
@@ -1989,154 +2986,146 @@ private struct HabitResilienceEditor: View {
     }
 
     var body: some View {
-        Form {
-            Section("Group") {
-                Picker("Habit group", selection: $groupID) {
-                    Text("Ungrouped").tag(UUID?.none)
-                    ForEach(groups) { group in
-                        Text(group.title).tag(UUID?.some(group.id))
-                    }
-                }
-            }
-            Section("Recovery") {
-                Toggle("Allow recovery completions", isOn: $recoveryEnabled)
-                Text("Recovered days count as completed eligible days, but remain visibly identified in history.")
-                    .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            }
-
-            Section("Progress framing") {
-                Picker("Habit progress", selection: $streakPresentation) {
-                    Text("Grade and streak").tag(HabitStreakPresentation.gradeAndStreak)
-                    Text("Counts only").tag(HabitStreakPresentation.countsOnly)
-                }
-                .pickerStyle(.inline)
-            }
-
-            Section("Gentle fallback") {
-                Picker("Low-energy minimum", selection: $minimumKind) {
-                    ForEach(MinimumKind.allCases) { kind in
-                        Text(kind.title).tag(kind)
-                    }
-                }
-                if [.quota, .timed, .quantitative].contains(minimumKind) {
-                    HStack {
-                        TextField("Amount", value: $minimumValue, format: .number)
-                            .keyboardType(.decimalPad)
-                        if minimumKind == .quantitative {
-                            TextField("Unit", text: $minimumUnit)
-                                .multilineTextAlignment(.trailing)
-                        } else {
-                            Text(minimumKind == .timed ? "minutes" : "times")
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                        }
-                    }
-                }
-                Text("Low Energy can offer this kinder version without changing the full target or silently completing it.")
-                    .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            }
-
-            Section {
-                Picker("Correction window", selection: $backfillDays) {
-                    Text("Same day only").tag(0)
-                    Text("7 days").tag(7)
-                    Text("30 days").tag(30)
-                }
-                DatePicker("Vacation starts", selection: $vacationStart, displayedComponents: .date)
-                DatePicker("Vacation ends", selection: $vacationEnd, in: vacationStart..., displayedComponents: .date)
-                Button {
-                    let calendar = Calendar.current
-                    vacationRanges.append(HabitVacationRange(
-                        startDay: PlanningDay(date: vacationStart, timeZone: calendar.timeZone, calendar: calendar),
-                        endDay: PlanningDay(date: vacationEnd, timeZone: calendar.timeZone, calendar: calendar),
-                        label: "Vacation"
-                    ))
-                } label: {
-                    Label("Add vacation range", systemImage: "plus.circle")
-                        .frame(minHeight: 44)
-                }
-                ForEach(vacationRanges) { range in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text(range.label ?? "Intentional pause")
-                            Text(vacationSummary(range))
-                                .font(.caption)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                        }
-                        Spacer()
-                        Button(role: .destructive) {
-                            vacationRanges.removeAll { $0.id == range.id }
-                        } label: {
-                            Image(systemName: "trash")
-                                .frame(width: 44, height: 44)
-                        }
-                        .accessibilityLabel("Remove vacation range")
-                    }
-                }
-            } header: {
-                Text("Backfill and vacation")
-            } footer: {
-                Text("Vacation days and intentional off days remain distinct from missing data and never lower the eligible grade denominator.")
-            }
-
-            Section {
-                if recentHistory.isEmpty {
-                    Text("No due occurrences are available in the last 30 days.")
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                } else {
-                    ForEach(recentHistory) { occurrence in
-                        recoveryHistoryRow(occurrence)
-                    }
-                }
-            } header: {
-                Text("30-day history")
-            } footer: {
-                Text("Recovery completes the canonical occurrence first, then stores a reversible receipt. Existing completions can be labelled as recovered without changing their completion state.")
-            }
-
-            Section {
-                ForEach(exceptionDays, id: \.self) { day in
-                    Button {
-                        if offDays.contains(day) { offDays.remove(day) }
-                        else { offDays.insert(day) }
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(exceptionTitle(day))
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-                                Text(day.timeZoneIdentifier)
-                                    .font(.caption2)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
-                            }
-                            Spacer()
-                            if offDays.contains(day) {
-                                Image(systemName: "checkmark.circle.fill")
-                                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
-                            }
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityAddTraits(offDays.contains(day) ? .isSelected : [])
-                }
-            } header: {
-                Text("Intentional off-day exceptions")
-            } footer: {
-                Text("Exceptions use the local calendar day, survive travel and daylight-saving changes, and do not reduce the eligible grade denominator.")
-            }
-        }
-        .lifeBoardFormSurface()
-        .navigationTitle(habit.title)
-        .navigationBarTitleDisplayMode(.inline)
-        .safeAreaInset(edge: .bottom) {
-            TrackComposerCommitBar(
+        // A pushed editor, so `LifeBoardComposerPage` rather than the sheet
+        // scaffold: the host already owns the navigation stack and the title.
+        LifeBoardComposerPage(
+            subtitle: "How this habit behaves on the days it does not go to plan.",
+            identifier: "track.resilience.editor"
+        ) {
+            ResilienceGroupSection(groupID: $groupID, groups: groups)
+            ResilienceRecoverySection(
+                recoveryEnabled: $recoveryEnabled,
+                streakPresentation: $streakPresentation
+            )
+            ResilienceMinimumSection(
+                minimumKind: $minimumKind,
+                minimumValue: $minimumValue,
+                minimumUnit: $minimumUnit
+            )
+            backfillAndVacationSection
+            historySection
+            exceptionsSection
+        } commit: {
+            LifeBoardComposerCommitBar(
                 title: "Save resilience",
                 phase: commitPhase,
                 isEnabled: true,
+                identifier: "track.resilience.commit",
                 action: commit
             )
-            .accessibilityIdentifier("track.resilience.commit")
+        }
+    }
+
+    /// The last three sections stay computed rather than becoming structs
+    /// because each closes over instance helpers (`recoveryHistoryRow`,
+    /// `recentHistory`, `exceptionDays`). Extracting them would mean threading
+    /// four more bindings and a view builder through an initializer for no
+    /// structural gain; the first three sections carry the frame reduction.
+    @ViewBuilder
+    private var backfillAndVacationSection: some View {
+        LifeBoardComposerSection(
+            "Backfill and vacation",
+            footer: "Vacation days and intentional off days remain distinct from missing data and never lower the eligible grade denominator."
+        ) {
+            LifeBoardOptionRail(
+                "Correction window",
+                selection: $backfillDays,
+                values: [0, 7, 30],
+                identifierPrefix: "track.resilience.backfill",
+                title: { $0 == 0 ? "Same day only" : "\($0) days" }
+            )
+            LifeBoardDateCapsuleRow("Vacation starts", selection: $vacationStart, components: [.date])
+            LifeBoardDateCapsuleRow(
+                "Vacation ends",
+                selection: $vacationEnd,
+                components: [.date],
+                minimum: vacationStart
+            )
+            Button {
+                let calendar = Calendar.current
+                LifeBoardHaptic.commit.play()
+                vacationRanges.append(HabitVacationRange(
+                    startDay: PlanningDay(date: vacationStart, timeZone: calendar.timeZone, calendar: calendar),
+                    endDay: PlanningDay(date: vacationEnd, timeZone: calendar.timeZone, calendar: calendar),
+                    label: "Vacation"
+                ))
+            } label: {
+                Label("Add vacation range", systemImage: "plus.circle")
+            }
+            .buttonStyle(.lifeBoardChip)
+
+            ForEach(vacationRanges) { range in
+                LifeBoardComposerRow(range.label ?? "Intentional pause", detail: vacationSummary(range)) {
+                    Button {
+                        vacationRanges.removeAll { $0.id == range.id }
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.lifeboard(.support))
+                            .foregroundStyle(Color.lifeboard(.statusDanger))
+                            .frame(width: 34, height: 34)
+                            .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.pill)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove vacation range")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var historySection: some View {
+        LifeBoardComposerSection(
+            "30-day history",
+            footer: "Recovery completes the canonical occurrence first, then stores a reversible receipt. Existing completions can be labelled as recovered without changing their completion state."
+        ) {
+            if recentHistory.isEmpty {
+                Text("No due occurrences are available in the last 30 days.")
+                    .font(.lifeboard(.support))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            } else {
+                ForEach(recentHistory) { occurrence in
+                    recoveryHistoryRow(occurrence)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var exceptionsSection: some View {
+        LifeBoardComposerSection(
+            "Intentional off-day exceptions",
+            footer: "Exceptions use the local calendar day, survive travel and daylight-saving changes, and do not reduce the eligible grade denominator."
+        ) {
+            ForEach(exceptionDays, id: \.self) { day in
+                Button {
+                    LifeBoardHaptic.pick.play()
+                    if offDays.contains(day) { offDays.remove(day) } else { offDays.insert(day) }
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(exceptionTitle(day))
+                                .font(.lifeboard(.body))
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                            Text(day.timeZoneIdentifier)
+                                .font(.lifeboard(.caption2))
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        }
+                        Spacer(minLength: 8)
+                        Image(systemName: offDays.contains(day) ? "checkmark.circle.fill" : "circle")
+                            .foregroundStyle(Color(offDays.contains(day)
+                                ? LifeBoardColorTokens.foundationApricotAccent
+                                : LifeBoardColorTokens.inkTertiary))
+                    }
+                    .padding(.horizontal, 12)
+                    .frame(minHeight: 48)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.lifeBoardClay(
+                    offDays.contains(day) ? .resting : .well,
+                    cornerRadius: LifeBoardFoundationRadius.compact + 2
+                ))
+                .accessibilityAddTraits(offDays.contains(day) ? [.isButton, .isSelected] : .isButton)
+            }
         }
     }
 
@@ -2305,8 +3294,73 @@ private struct HabitResilienceEditor: View {
     }
 }
 
+
+/// One editable routine step.
+///
+/// Extracted from `RoutineComposer.body`, which was type-checking at 518 ms —
+/// over the 500 ms threshold this repo treats as a required split. The step row
+/// is the expensive part: six conditional branches over `RoutineStepKind`, two
+/// nested `Picker`s and a link button, all previously inlined into the enclosing
+/// `Form`'s tuple. Splitting it gives the row its own `body` call and its own
+/// stack frame, which is the same discipline the clay composers follow.
+private struct RoutineStepEditorRow: View {
+    @Binding var step: RoutineComposer.DraftStep
+    let choices: [String]
+    let forwardDestinations: [RoutineComposer.DraftStep]
+    let branchDestination: (String) -> Binding<UUID?>
+    let pickLink: () -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            TextField("Step title", text: $step.title)
+            Picker("Kind", selection: $step.kind) {
+                ForEach(RoutineStepKind.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
+            }
+            if step.kind == .timer {
+                Stepper("Duration: \(Int(step.durationMinutes)) minutes", value: $step.durationMinutes, in: 1...120)
+            }
+            if step.kind == .choice {
+                choiceEditor
+            }
+            if step.kind == .task || step.kind == .habit {
+                linkButton
+            }
+            Toggle("Required", isOn: $step.isRequired)
+            Toggle("May skip", isOn: $step.isSkippable)
+        }
+    }
+
+    @ViewBuilder
+    private var choiceEditor: some View {
+        TextField("Choices, separated by commas", text: $step.choices)
+        ForEach(choices, id: \.self) { choice in
+            Picker("If \u{201C}\(choice)\u{201D}", selection: branchDestination(choice)) {
+                Text("Continue in order").tag(UUID?.none)
+                ForEach(forwardDestinations) { destination in
+                    Text(destination.title).tag(UUID?.some(destination.id))
+                }
+            }
+        }
+    }
+
+    private var linkButton: some View {
+        Button(action: pickLink) {
+            HStack {
+                Text(step.linkedTitle.isEmpty ? "Link a \(step.kind == .task ? "task" : "habit")" : step.linkedTitle)
+                    .foregroundStyle(Color(step.linkedTitle.isEmpty ? LifeBoardColorTokens.inkSecondary : LifeBoardColorTokens.inkPrimary))
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+            }
+            .contentShape(Rectangle())
+        }
+        .accessibilityIdentifier("routine.step.link")
+    }
+}
+
 private struct RoutineComposer: View {
-    private struct DraftStep: Identifiable {
+    fileprivate struct DraftStep: Identifiable {
         var id: UUID
         var title: String
         var kind: RoutineStepKind
@@ -2342,7 +3396,7 @@ private struct RoutineComposer: View {
     @State private var weekdays: Set<Int>
     @State private var daypart: ResolvedDaypart?
     @State private var pickingStep: StepLinkTarget?
-    @State private var commitPhase: AsyncActionPhase<TrackComposerReceipt> = .idle
+    @State private var commitPhase: LifeBoardComposerPhase = .idle
 
     private struct StepLinkTarget: Identifiable { let id: UUID }
 
@@ -2366,6 +3420,12 @@ private struct RoutineComposer: View {
 
     var body: some View {
         NavigationStack {
+            // composer-kit:allow-form — the step list below depends on List
+            // semantics (.onDelete, .onMove, editMode). Moving this to the clay
+            // scaffold would silently remove reorder and swipe-delete from a
+            // fifteen-step editor, which is a functional regression the visual
+            // win does not justify. The step row is extracted to
+            // `RoutineStepEditorRow` so the stack-budget rule still holds.
             Form {
                 Section("Routine") {
                     TextField("Routine title", text: $title)
@@ -2390,60 +3450,34 @@ private struct RoutineComposer: View {
                                 if weekdays.contains(weekday) { weekdays.remove(weekday) } else { weekdays.insert(weekday) }
                             } label: {
                                 Text(Calendar.current.veryShortStandaloneWeekdaySymbols[weekday - 1])
-                                    .font(.caption.weight(.semibold))
-                                    .frame(maxWidth: .infinity, minHeight: 36)
-                                    .background(weekdays.contains(weekday) ? Color(LifeBoardColorTokens.foundationSurfaceSelected) : .clear, in: Capsule())
+                                    .font(.lifeboard(weekdays.contains(weekday) ? .bodyStrong : .body))
+                                    .foregroundStyle(Color(weekdays.contains(weekday)
+                                        ? LifeBoardColorTokens.inkPrimary
+                                        : LifeBoardColorTokens.inkSecondary))
+                                    .frame(maxWidth: .infinity, minHeight: 44)
+                                    .lifeBoardClaySurface(
+                                        weekdays.contains(weekday) ? .raised : .well,
+                                        cornerRadius: LifeBoardFoundationRadius.pill
+                                    )
+                                    .contentShape(Capsule())
                             }
                             .buttonStyle(.plain)
-                            .accessibilityAddTraits(weekdays.contains(weekday) ? .isSelected : [])
+                            .accessibilityLabel(Calendar.current.weekdaySymbols[weekday - 1])
+                            .accessibilityAddTraits(weekdays.contains(weekday) ? [.isButton, .isSelected] : .isButton)
                         }
                     }
                 }
                 Section("Steps") {
                     ForEach($steps) { $step in
-                        VStack(alignment: .leading, spacing: 10) {
-                            TextField("Step title", text: $step.title)
-                            Picker("Kind", selection: $step.kind) {
-                                ForEach(RoutineStepKind.allCases, id: \.self) { Text($0.rawValue.capitalized).tag($0) }
-                            }
-                            if step.kind == .timer {
-                                Stepper("Duration: \(Int(step.durationMinutes)) minutes", value: $step.durationMinutes, in: 1...120)
-                            }
-                            if step.kind == .choice {
-                                TextField("Choices, separated by commas", text: $step.choices)
-                                ForEach(parsedChoices(step.choices), id: \.self) { choice in
-                                    Picker(
-                                        "If “\(choice)”",
-                                        selection: branchDestinationBinding(
-                                            stepID: step.id,
-                                            response: choice
-                                        )
-                                    ) {
-                                        Text("Continue in order").tag(UUID?.none)
-                                        ForEach(forwardDestinations(after: step.id)) { destination in
-                                            Text(destination.title).tag(UUID?.some(destination.id))
-                                        }
-                                    }
-                                }
-                            }
-                            if step.kind == .task || step.kind == .habit {
-                                Button {
-                                    pickingStep = StepLinkTarget(id: step.id)
-                                } label: {
-                                    HStack {
-                                        Text(step.linkedTitle.isEmpty ? "Link a \(step.kind == .task ? "task" : "habit")" : step.linkedTitle)
-                                            .foregroundStyle(Color(step.linkedTitle.isEmpty ? LifeBoardColorTokens.inkSecondary : LifeBoardColorTokens.inkPrimary))
-                                        Spacer()
-                                        Image(systemName: "chevron.right")
-                                            .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
-                                    }
-                                    .contentShape(Rectangle())
-                                }
-                                .accessibilityIdentifier("routine.step.link")
-                            }
-                            Toggle("Required", isOn: $step.isRequired)
-                            Toggle("May skip", isOn: $step.isSkippable)
-                        }
+                        RoutineStepEditorRow(
+                            step: $step,
+                            choices: parsedChoices(step.choices),
+                            forwardDestinations: forwardDestinations(after: step.id),
+                            branchDestination: { response in
+                                branchDestinationBinding(stepID: step.id, response: response)
+                            },
+                            pickLink: { pickingStep = StepLinkTarget(id: step.id) }
+                        )
                     }
                     .onDelete { steps.remove(atOffsets: $0) }
                     .onMove { steps.move(fromOffsets: $0, toOffset: $1) }
@@ -2460,7 +3494,7 @@ private struct RoutineComposer: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             }
             .safeAreaInset(edge: .bottom) {
-                TrackComposerCommitBar(
+                LifeBoardComposerCommitBar(
                     title: existing == nil ? "Create routine" : "Save routine",
                     phase: commitPhase,
                     isEnabled: isValid,
@@ -2656,8 +3690,8 @@ private struct MoodEnergyComposer: View {
     @State private var mood: LifeBoardJournalMood
     @State private var energy: Int
     @State private var includesEnergy: Bool
-    @State private var confirmsDelete = false
-    @State private var commitPhase: AsyncActionPhase<TrackComposerReceipt> = .idle
+    @State private var commitPhase: LifeBoardComposerPhase = .idle
+    @State private var successTrigger = 0
 
     init(
         checkIn: LifeBoardMoodEnergyCheckInValue? = nil,
@@ -2673,43 +3707,28 @@ private struct MoodEnergyComposer: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Picker("Mood", selection: $mood) { ForEach(LifeBoardJournalMood.allCases) { Text($0.title).tag($0) } }
-                Toggle("Record energy", isOn: $includesEnergy)
-                if includesEnergy {
-                    Stepper("Energy: \(energy)/5", value: $energy, in: 1...5)
-                }
-                Text("This records your signal. LifeBoard does not assign a clinical interpretation.").font(.caption)
-                if checkIn != nil, delete != nil {
-                    Button("Delete check-in", systemImage: "trash", role: .destructive) { confirmsDelete = true }
-                }
+        LifeBoardComposerScaffold(
+            title: checkIn == nil ? "Mood + energy" : "Edit check-in",
+            subtitle: "However today actually is.",
+            identifier: "track.mood.composer"
+        ) {
+            MoodChoiceSection(mood: $mood)
+            MoodEnergySection(includesEnergy: $includesEnergy, energy: $energy)
+            MoodDeleteSection(isDeletable: checkIn != nil && delete != nil) {
+                guard let checkIn else { return }
+                delete?(checkIn)
+                dismiss()
             }
-            .lifeBoardFormSurface()
-            .navigationTitle(checkIn == nil ? "Mood + energy" : "Edit check-in")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-            }
-            .safeAreaInset(edge: .bottom) {
-                TrackComposerCommitBar(
-                    title: checkIn == nil ? "Save check-in" : "Save changes",
-                    phase: commitPhase,
-                    isEnabled: true,
-                    action: saveValue
-                )
-                .accessibilityIdentifier("track.mood.commit")
-            }
-            .confirmationDialog("Delete this check-in?", isPresented: $confirmsDelete, titleVisibility: .visible) {
-                Button("Delete", role: .destructive) {
-                    guard let checkIn else { return }
-                    delete?(checkIn)
-                    dismiss()
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("This removes only this recorded check-in. Other Journal and Track data stays intact.")
-            }
+        } commit: {
+            LifeBoardComposerCommitBar(
+                title: checkIn == nil ? "Save check-in" : "Save changes",
+                phase: commitPhase,
+                isEnabled: true,
+                identifier: "track.mood.commit",
+                action: saveValue
+            )
         }
+        .lifeboardCompletionBurst(trigger: successTrigger)
     }
 
     private func saveValue() {
@@ -2721,6 +3740,10 @@ private struct MoodEnergyComposer: View {
         Task {
             if await save(value) {
                 commitPhase = .success(receipt: .init())
+                // Inside the success arm on purpose: the burst is a claim that
+                // something was recorded, so it cannot be allowed to fire on a
+                // path where the write failed.
+                successTrigger &+= 1
                 dismiss()
             } else {
                 commitPhase = .recoverableFailure(.init(
@@ -2728,6 +3751,87 @@ private struct MoodEnergyComposer: View {
                     recovery: .retry
                 ))
             }
+        }
+    }
+}
+
+/// One struct per section, never a computed `some View`. See the note on
+/// `LifeBoardComposerScaffold`: a composer body that inlines every section
+/// builds all of their view values inside a single frame, which is the shape
+/// that exhausts the main thread's stack at `-Onone`.
+private struct MoodChoiceSection: View {
+    @Binding var mood: LifeBoardJournalMood
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Mood",
+            detail: "Pick the nearest one. There is no wrong answer and no score."
+        ) {
+            LifeBoardOptionRail(
+                "Mood",
+                selection: $mood,
+                values: LifeBoardJournalMood.dialOrder,
+                identifierPrefix: "track.mood.choice",
+                title: \.title,
+                showsLabel: false,
+                // Mood is the one choice on this screen that carries weight, so
+                // it is the one that earns the bloom.
+                pressBloomTint: Color(LifeBoardColorTokens.foundationSunAccent)
+            )
+            Text(mood.supportiveCopy)
+                .font(.lifeboard(.support))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .lifeBoardMotion(.contentInsertion, value: mood)
+        }
+    }
+}
+
+private struct MoodEnergySection: View {
+    @Binding var includesEnergy: Bool
+    @Binding var energy: Int
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Energy",
+            footer: "This records your signal. LifeBoard does not assign a clinical interpretation."
+        ) {
+            Toggle("Record energy", isOn: $includesEnergy)
+                .toggleStyle(.lifeBoardClay)
+            if includesEnergy {
+                LifeBoardBeadStepper(
+                    "Energy",
+                    value: $energy,
+                    in: 1...5,
+                    beadSymbol: "bolt.fill",
+                    caption: Self.caption
+                )
+            }
+        }
+    }
+
+    private static func caption(_ level: Int) -> String {
+        switch level {
+        case 1: "Running on empty"
+        case 2: "Low"
+        case 3: "Steady"
+        case 4: "Good"
+        default: "Full tank"
+        }
+    }
+}
+
+private struct MoodDeleteSection: View {
+    let isDeletable: Bool
+    let perform: () -> Void
+
+    var body: some View {
+        if isDeletable {
+            LifeBoardDangerRow(
+                "Delete check-in",
+                confirmationTitle: "Delete this check-in?",
+                confirmationMessage: "This removes only this recorded check-in. Other Journal and Track data stays intact.",
+                perform: perform
+            )
         }
     }
 }
@@ -2741,7 +3845,8 @@ private struct SleepContextComposer: View {
     @State private var rest: Int
     @State private var interruptions: Int
     @State private var notes: String
-    @State private var commitPhase: AsyncActionPhase<TrackComposerReceipt> = .idle
+    @State private var commitPhase: LifeBoardComposerPhase = .idle
+    @State private var successTrigger = 0
 
     init(existing: SleepContextRecord? = nil, save: @escaping (SleepContextRecord) async -> Bool) {
         self.existing = existing
@@ -2755,31 +3860,25 @@ private struct SleepContextComposer: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                DatePicker("Bedtime", selection: $bedtime)
-                DatePicker("Wake time", selection: $wake, in: bedtime...)
-                Stepper("Perceived rest: \(rest)/5", value: $rest, in: 1...5)
-                Stepper("Interruptions: \(interruptions)", value: $interruptions, in: 0...20)
-                TextField("Private notes", text: $notes, axis: .vertical)
-                Text("Sleep context stays out of widgets, Spotlight, Siri, and lock-screen previews.").font(.caption)
-            }
-            .lifeBoardFormSurface()
-            .privacySensitive()
-            .navigationTitle(existing == nil ? "Sleep context" : "Edit sleep context")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-            }
-            .safeAreaInset(edge: .bottom) {
-                TrackComposerCommitBar(
-                    title: existing == nil ? "Save sleep context" : "Save changes",
-                    phase: commitPhase,
-                    isEnabled: wake >= bedtime,
-                    action: saveValue
-                )
-                .accessibilityIdentifier("track.sleep.commit")
-            }
+        LifeBoardComposerScaffold(
+            title: existing == nil ? "Sleep context" : "Edit sleep context",
+            subtitle: "Record what the night was actually like.",
+            isPrivacySensitive: true,
+            identifier: "track.sleep.composer"
+        ) {
+            SleepWindowSection(bedtime: $bedtime, wake: $wake)
+            SleepQualitySection(rest: $rest, interruptions: $interruptions)
+            SleepNotesSection(notes: $notes)
+        } commit: {
+            LifeBoardComposerCommitBar(
+                title: existing == nil ? "Save sleep context" : "Save changes",
+                phase: commitPhase,
+                isEnabled: wake >= bedtime,
+                identifier: "track.sleep.commit",
+                action: saveValue
+            )
         }
+        .lifeboardCompletionBurst(trigger: successTrigger)
     }
 
     private func saveValue() {
@@ -2798,6 +3897,7 @@ private struct SleepContextComposer: View {
         Task {
             if await save(record) {
                 commitPhase = .success(receipt: .init())
+                successTrigger &+= 1
                 dismiss()
             } else {
                 commitPhase = .recoverableFailure(.init(
@@ -2805,6 +3905,81 @@ private struct SleepContextComposer: View {
                     recovery: .retry
                 ))
             }
+        }
+    }
+}
+
+private struct SleepWindowSection: View {
+    @Binding var bedtime: Date
+    @Binding var wake: Date
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "The night",
+            detail: "Bedtime and wake time as you remember them."
+        ) {
+            LifeBoardDateCapsuleRow("Bedtime", selection: $bedtime)
+            // The old `in: bedtime...` validation moves onto the control, so an
+            // impossible wake time cannot be entered and then rejected by a
+            // disabled commit button the person has to reason about.
+            LifeBoardDateCapsuleRow("Wake time", selection: $wake, minimum: bedtime)
+        }
+    }
+}
+
+private struct SleepQualitySection: View {
+    @Binding var rest: Int
+    @Binding var interruptions: Int
+
+    var body: some View {
+        LifeBoardComposerSection("How it felt") {
+            LifeBoardBeadStepper(
+                "Perceived rest",
+                value: $rest,
+                in: 1...5,
+                beadSymbol: "moon.fill",
+                caption: Self.restCaption
+            )
+            LifeBoardComposerDial(
+                "Times awake",
+                value: Binding(
+                    get: { Double(interruptions) },
+                    set: { interruptions = Int($0.rounded()) }
+                ),
+                in: 0...20,
+                step: 1,
+                unit: "Interruptions",
+                diameter: 132
+            )
+        }
+    }
+
+    private static func restCaption(_ level: Int) -> String {
+        switch level {
+        case 1: "Wrecked"
+        case 2: "Rough"
+        case 3: "Okay"
+        case 4: "Good"
+        default: "Rested"
+        }
+    }
+}
+
+private struct SleepNotesSection: View {
+    @Binding var notes: String
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Anything worth remembering",
+            footer: "Sleep context stays out of widgets, Spotlight, Siri, and lock-screen previews."
+        ) {
+            LifeBoardComposerField(
+                "Private notes",
+                prompt: "Woke at 3, back asleep by 4…",
+                text: $notes,
+                shape: .prose(lineLimit: 3...8),
+                showsLabel: false
+            )
         }
     }
 }
@@ -2824,7 +3999,8 @@ private struct GoalComposer: View {
     @State private var confidence: GoalConfidence?
     @State private var whyItMatters: String
     @State private var checkInCadence: GoalCheckInCadence
-    @State private var commitPhase: AsyncActionPhase<TrackComposerReceipt> = .idle
+    @State private var commitPhase: LifeBoardComposerPhase = .idle
+    @State private var successTrigger = 0
 
     init(
         existing: GoalDefinition? = nil,
@@ -2849,63 +4025,32 @@ private struct GoalComposer: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                TextField("Goal title", text: $title)
-                Picker("Goal type", selection: $type) {
-                    ForEach(GoalType.allCases, id: \.self) { Text(goalTypeTitle($0)).tag($0) }
-                }
-                Picker("Intent", selection: $intent) {
-                    ForEach(GoalIntent.allCases, id: \.self) { Text(goalIntentTitle($0)).tag($0) }
-                }
-                if usesNumericTarget {
-                    TextField(type == .duration ? "Target minutes" : "Target", value: $target, format: .number)
-                        .keyboardType(.decimalPad)
-                        .frame(minHeight: 44)
-                    Toggle("Use a baseline", isOn: $hasBaseline)
-                        .frame(minHeight: 44)
-                    if hasBaseline {
-                        TextField(type == .duration ? "Baseline minutes" : "Baseline", value: $baseline, format: .number)
-                            .keyboardType(.decimalPad)
-                            .frame(minHeight: 44)
-                    }
-                    if type == .quantity { TextField("Unit (optional)", text: $unit) }
-                }
-                if type == .targetDate { DatePicker("Target date", selection: $targetDate, displayedComponents: .date) }
-                Picker("Confidence", selection: $confidence) {
-                    Text("Not set").tag(GoalConfidence?.none)
-                    ForEach(GoalConfidence.allCases, id: \.self) { value in
-                        Text(value.rawValue.capitalized).tag(GoalConfidence?.some(value))
-                    }
-                }
-                Picker("Check in", selection: $checkInCadence) {
-                    ForEach(GoalCheckInCadence.allCases, id: \.self) { value in
-                        Text(checkInTitle(value)).tag(value)
-                    }
-                }
-                Section("Why it matters") {
-                    TextEditor(text: $whyItMatters)
-                        .frame(minHeight: 88)
-                }
-                Text("Progress comes only from sources you explicitly link after creating the goal.")
-                    .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            }
-            .lifeBoardFormSurface()
-            .navigationTitle(existing == nil ? "New goal" : "Edit goal")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-            }
-            .safeAreaInset(edge: .bottom) {
-                TrackComposerCommitBar(
-                    title: existing == nil ? "Create goal" : "Save goal",
-                    phase: commitPhase,
-                    isEnabled: canCommit,
-                    action: commit
-                )
-                .accessibilityIdentifier("track.goal.commit")
-            }
+        LifeBoardComposerScaffold(
+            title: existing == nil ? "New goal" : "Edit goal",
+            subtitle: "One thing you want to be true later.",
+            identifier: "track.goal.composer"
+        ) {
+            GoalIdentitySection(title: $title, type: $type, intent: $intent)
+            GoalTargetSection(
+                type: type,
+                target: $target,
+                hasBaseline: $hasBaseline,
+                baseline: $baseline,
+                unit: $unit,
+                targetDate: $targetDate
+            )
+            GoalCadenceSection(confidence: $confidence, checkInCadence: $checkInCadence)
+            GoalMeaningSection(whyItMatters: $whyItMatters)
+        } commit: {
+            LifeBoardComposerCommitBar(
+                title: existing == nil ? "Create goal" : "Save goal",
+                phase: commitPhase,
+                isEnabled: canCommit,
+                identifier: "track.goal.commit",
+                action: commit
+            )
         }
+        .lifeboardCompletionBurst(trigger: successTrigger)
     }
 
     private var usesNumericTarget: Bool { type == .count || type == .quantity || type == .duration }
@@ -2935,6 +4080,7 @@ private struct GoalComposer: View {
         Task {
             if await save(draft) {
                 commitPhase = .success(receipt: .init())
+                successTrigger &+= 1
                 dismiss()
             } else {
                 commitPhase = .recoverableFailure(.init(
@@ -2973,6 +4119,158 @@ private struct GoalComposer: View {
     }
 }
 
+private struct GoalIdentitySection: View {
+    @Binding var title: String
+    @Binding var type: GoalType
+    @Binding var intent: GoalIntent
+
+    var body: some View {
+        LifeBoardComposerSection("Goal") {
+            LifeBoardComposerField(
+                "Goal title",
+                prompt: "What you want to be true",
+                text: $title,
+                showsLabel: false,
+                identifier: "track.goal.title"
+            )
+            LifeBoardOptionRail(
+                "Goal type",
+                selection: $type,
+                values: GoalType.allCases,
+                identifierPrefix: "track.goal.type",
+                title: GoalComposerCopy.typeTitle,
+                pressBloomTint: Color(LifeBoardColorTokens.foundationSunAccent)
+            )
+            LifeBoardOptionRail(
+                "Intent",
+                selection: $intent,
+                values: GoalIntent.allCases,
+                identifierPrefix: "track.goal.intent",
+                title: GoalComposerCopy.intentTitle
+            )
+        }
+    }
+}
+
+private struct GoalTargetSection: View {
+    let type: GoalType
+    @Binding var target: Double
+    @Binding var hasBaseline: Bool
+    @Binding var baseline: Double
+    @Binding var unit: String
+    @Binding var targetDate: Date
+
+    private var usesNumericTarget: Bool { type == .count || type == .quantity || type == .duration }
+
+    var body: some View {
+        if usesNumericTarget || type == .targetDate {
+            LifeBoardComposerSection("Target") {
+                if usesNumericTarget {
+                    LifeBoardValueDrum(
+                        type == .duration ? "Target minutes" : "Target",
+                        value: $target,
+                        in: 0...1_000,
+                        step: 1,
+                        coarseStep: 10,
+                        unit: type == .duration ? "minutes" : (unit.isEmpty ? "units" : unit),
+                        fractionDigits: 0,
+                        identifier: "track.goal.target"
+                    )
+                    Toggle("Use a baseline", isOn: $hasBaseline)
+                        .toggleStyle(.lifeBoardClay)
+                    if hasBaseline {
+                        LifeBoardComposerNumberField(
+                            type == .duration ? "Baseline minutes" : "Baseline",
+                            value: $baseline
+                        )
+                    }
+                    if type == .quantity {
+                        LifeBoardComposerField("Unit", prompt: "Optional", text: $unit)
+                    }
+                }
+                if type == .targetDate {
+                    LifeBoardDateCapsuleRow("Target date", selection: $targetDate, components: [.date])
+                }
+            }
+        }
+    }
+}
+
+private struct GoalCadenceSection: View {
+    @Binding var confidence: GoalConfidence?
+    @Binding var checkInCadence: GoalCheckInCadence
+
+    var body: some View {
+        LifeBoardComposerSection("Rhythm") {
+            LifeBoardOptionRail(
+                "Confidence",
+                selection: $confidence,
+                values: [GoalConfidence?.none] + GoalConfidence.allCases.map(Optional.some),
+                identifierPrefix: "track.goal.confidence",
+                title: { $0.map { $0.rawValue.capitalized } ?? "Not set" }
+            )
+            LifeBoardMenuRow(
+                "Check in",
+                selection: $checkInCadence,
+                values: GoalCheckInCadence.allCases,
+                title: GoalComposerCopy.checkInTitle,
+                identifier: "track.goal.checkIn"
+            )
+        }
+    }
+}
+
+private struct GoalMeaningSection: View {
+    @Binding var whyItMatters: String
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Why it matters",
+            footer: "Progress comes only from sources you explicitly link after creating the goal."
+        ) {
+            LifeBoardComposerField(
+                "Why it matters",
+                prompt: "The reason, in your words…",
+                text: $whyItMatters,
+                shape: .prose(lineLimit: 3...8),
+                showsLabel: false
+            )
+        }
+    }
+}
+
+/// Shared display copy so the sections and the parent agree on one spelling.
+private enum GoalComposerCopy {
+    static func typeTitle(_ type: GoalType) -> String {
+        switch type {
+        case .completion: "Completion"
+        case .count: "Count"
+        case .quantity: "Quantity"
+        case .duration: "Duration"
+        case .targetDate: "Target date"
+        }
+    }
+
+    static func intentTitle(_ intent: GoalIntent) -> String {
+        switch intent {
+        case .outcome: "Outcome"
+        case .maintenance: "Maintenance"
+        case .milestone: "Milestone"
+        case .cumulative: "Cumulative"
+        case .directional: "Directional"
+        }
+    }
+
+    static func checkInTitle(_ cadence: GoalCheckInCadence) -> String {
+        switch cadence {
+        case .weekly: "Weekly"
+        case .biweekly: "Every two weeks"
+        case .monthly: "Monthly"
+        case .manual: "When I choose"
+        }
+    }
+}
+
 private struct GoalLinkComposer: View {
     let goal: GoalDefinition
     let sourcePickerRepository: any TypedSourcePickerRepository
@@ -2982,50 +4280,25 @@ private struct GoalLinkComposer: View {
     @State private var showsPicker = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Progress source") {
-                    Button {
-                        showsPicker = true
-                    } label: {
-                        HStack {
-                            Text(selection == nil ? "Choose a source" : selection!.kind.title)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                            Spacer()
-                            if let selection {
-                                Text(selection.title).foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-                            }
-                            Image(systemName: "chevron.right")
-                                .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
-                        }
-                        .contentShape(Rectangle())
-                    }
-                    .accessibilityIdentifier("goal.link.chooseSource")
-                }
-                Text("LifeBoard aggregates only this explicit link. Unrelated activity never completes a goal.")
-                    .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+        LifeBoardComposerScaffold(
+            title: "Link \(goal.title)",
+            confirmTitle: "Link",
+            isConfirmEnabled: selection != nil,
+            identifier: "goal.link.composer",
+            onConfirm: {
+                guard let selection else { return }
+                save(Self.goalSource(for: selection.kind), selection.id)
+                dismiss()
             }
-            .lifeBoardFormSurface()
-            .navigationTitle("Link \(goal.title)")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Link") {
-                        guard let selection else { return }
-                        save(Self.goalSource(for: selection.kind), selection.id)
-                        dismiss()
-                    }
-                    .disabled(selection == nil)
-                }
-            }
-            .sheet(isPresented: $showsPicker) {
-                TypedSourcePickerView(
-                    title: "Link \(goal.title)",
-                    kinds: TypedSourceKind.allCases,
-                    repository: sourcePickerRepository
-                ) { item in selection = item }
-            }
+        ) {
+            GoalLinkSourceSection(selection: selection) { showsPicker = true }
+        }
+        .sheet(isPresented: $showsPicker) {
+            TypedSourcePickerView(
+                title: "Link \(goal.title)",
+                kinds: TypedSourceKind.allCases,
+                repository: sourcePickerRepository
+            ) { item in selection = item }
         }
     }
 
@@ -3040,30 +4313,149 @@ private struct GoalLinkComposer: View {
     }
 }
 
+private struct GoalLinkSourceSection: View {
+    let selection: TypedSourcePickerItem?
+    let choose: () -> Void
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Progress source",
+            footer: "LifeBoard aggregates only this explicit link. Unrelated activity never completes a goal."
+        ) {
+            Button(action: choose) {
+                HStack(spacing: 10) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(selection?.kind.title ?? "Choose a source")
+                            .font(.lifeboard(.body))
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        if let selection {
+                            Text(selection.title)
+                                .font(.lifeboard(.bodyStrong))
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        }
+                    }
+                    Spacer(minLength: 8)
+                    Image(systemName: "chevron.right")
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                }
+                .padding(.horizontal, 12)
+                .frame(minHeight: 48)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.lifeBoardClay(.well, cornerRadius: LifeBoardFoundationRadius.compact + 2))
+            .accessibilityIdentifier("goal.link.chooseSource")
+        }
+    }
+}
+
 private struct StarterPackBrowser: View {
     let install: (StarterPackPreview) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var selectedPack: StarterPack?
     @State private var preview: StarterPackPreview?
     var body: some View {
-        NavigationStack {
-            List {
-                ForEach(StarterPack.allCases, id: \.self) { pack in
-                    Button { selectedPack = pack; preview = StarterPackCatalog.preview(pack) } label: {
-                        HStack { Label(packTitle(pack), systemImage: "shippingbox"); Spacer(); Image(systemName: "chevron.right") }
-                    }
-                }
+        LifeBoardComposerScaffold(
+            title: "Starter packs",
+            subtitle: "Look before anything is created.",
+            cancelTitle: "Close",
+            identifier: "track.starterPacks"
+        ) {
+            StarterPackListSection { pack in
+                selectedPack = pack
+                preview = StarterPackCatalog.preview(pack)
             }
-            .lifeBoardFormSurface()
-            .navigationTitle("Starter packs")
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } } }
-            .sheet(item: $selectedPack) { _ in
-                if let preview { StarterPackPreviewSheet(preview: preview) { install($0); dismiss() } }
+        } commit: {
+            EmptyView()
+        }
+        .sheet(item: $selectedPack) { _ in
+            if let preview { StarterPackPreviewSheet(preview: preview) { install($0); dismiss() } }
+        }
+    }
+}
+
+
+private struct StarterPackListSection: View {
+    let open: (StarterPack) -> Void
+
+    var body: some View {
+        LifeBoardComposerSection(
+            footer: "Previewing a pack creates nothing. You choose which pieces to keep on the next screen."
+        ) {
+            ForEach(StarterPack.allCases, id: \.self) { pack in
+                StarterPackRow(title: StarterPackCopy.title(pack)) { open(pack) }
             }
         }
     }
-    private func packTitle(_ pack: StarterPack) -> String {
-        switch pack { case .morningFoundation: "Morning Foundation"; case .workdayReset: "Workday Reset"; case .lowEnergyRecovery: "Low Energy Recovery"; case .medicationSupport: "Medication Support"; case .eveningWindDown: "Evening Wind-down" }
+}
+
+private struct StarterPackSelectionSection: View {
+    @Binding var preview: StarterPackPreview
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Nothing is created until you confirm",
+            footer: "Selected items use LifeBoard’s canonical creation flows. You can edit them afterward; removing the pack archives its definitions and preserves completed history."
+        ) {
+            ForEach($preview.items) { $item in
+                Toggle(isOn: $item.isSelected) {
+                    Label(item.title, systemImage: StarterPackCopy.symbol(item.kind))
+                }
+                .toggleStyle(.lifeBoardClay)
+            }
+        }
+    }
+}
+
+/// Shared so the browser and the preview sheet cannot drift on naming.
+private enum StarterPackCopy {
+    static func title(_ pack: StarterPack) -> String {
+        switch pack {
+        case .morningFoundation: "Morning Foundation"
+        case .workdayReset: "Workday Reset"
+        case .lowEnergyRecovery: "Low Energy Recovery"
+        case .medicationSupport: "Medication Support"
+        case .eveningWindDown: "Evening Wind-down"
+        }
+    }
+
+    static func symbol(_ kind: StarterPackItemKind) -> String {
+        switch kind {
+        case .goal: "target"
+        case .habit: "repeat.circle"
+        case .routine: "figure.mind.and.body"
+        case .reminder: "bell"
+        }
+    }
+}
+
+private struct StarterPackRow: View {
+    let title: String
+    let open: () -> Void
+
+    var body: some View {
+        Button(action: open) {
+            HStack(spacing: 12) {
+                Image(systemName: "shippingbox")
+                    .font(.lifeboard(.title3))
+                    .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                    .frame(width: 32, height: 32)
+                    .accessibilityHidden(true)
+                Text(title)
+                    .font(.lifeboard(.bodyStrong))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 8)
+                Image(systemName: "chevron.right")
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+            }
+            .padding(.horizontal, 12)
+            .frame(minHeight: 56)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.lifeBoardClay(.well, cornerRadius: LifeBoardFoundationRadius.card))
+        .accessibilityIdentifier("track.starterPacks.\(title)")
     }
 }
 
@@ -3072,25 +4464,15 @@ private struct StarterPackPreviewSheet: View {
     let install: (StarterPackPreview) -> Void
     @Environment(\.dismiss) private var dismiss
     var body: some View {
-        NavigationStack {
-            List {
-                Section("Nothing is created until you confirm") {
-                    ForEach($preview.items) { $item in
-                        Toggle(isOn: $item.isSelected) { Label(item.title, systemImage: itemSymbol(item.kind)) }
-                    }
-                }
-                Text("Selected items use LifeBoard’s canonical creation flows. You can edit them afterward; removing the pack archives its definitions and preserves completed history.").font(.caption)
-            }
-            .lifeBoardFormSurface()
-            .navigationTitle("Preview pack")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) { Button("Create selected") { install(preview); dismiss() }.disabled(!preview.items.contains(where: \.isSelected)) }
-            }
+        LifeBoardComposerScaffold(
+            title: "Preview pack",
+            confirmTitle: "Create selected",
+            isConfirmEnabled: preview.items.contains(where: \.isSelected),
+            identifier: "track.starterPacks.preview",
+            onConfirm: { install(preview); dismiss() }
+        ) {
+            StarterPackSelectionSection(preview: $preview)
         }
-    }
-    private func itemSymbol(_ kind: StarterPackItemKind) -> String {
-        switch kind { case .goal: "target"; case .habit: "repeat.circle"; case .routine: "figure.mind.and.body"; case .reminder: "bell" }
     }
 }
 

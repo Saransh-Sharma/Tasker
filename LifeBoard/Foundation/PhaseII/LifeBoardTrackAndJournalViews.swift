@@ -583,12 +583,11 @@ struct LifeBoardTrackRootView: View {
                 existing: editingTracker,
                 seed: trackerTemplateSeed
             ) { tracker, sensitiveHomeAuthorized in
-                Task {
-                    await store.saveTracker(
-                        tracker,
-                        sensitiveHomeAuthorized: sensitiveHomeAuthorized
-                    )
-                }
+                await store.saveTracker(
+                    tracker,
+                    sensitiveHomeAuthorized: sensitiveHomeAuthorized
+                )
+                return store.errorMessage == nil
             }
         }
         .sheet(isPresented: $showsTrackerTemplates) {
@@ -602,6 +601,7 @@ struct LifeBoardTrackRootView: View {
             LifeBoardTrackerValueCaptureView(tracker: tracker) { value, note, timestamp in
                 await store.log(tracker, value: value, note: note, at: timestamp)
                 loggingTracker = nil
+                return store.errorMessage == nil
             }
         }
         .sheet(item: $historyTracker) { tracker in
@@ -610,8 +610,13 @@ struct LifeBoardTrackRootView: View {
                 entries: store.trackerEntries.filter { $0.trackerID == tracker.id },
                 activeReceipt: { store.activeCorrection(domain: .tracker, sourceID: $0) },
                 onUndo: { await store.undoCorrection($0) },
-                onCorrect: { entry, value, note in
+                onCorrect: { (
+                    entry: LifeBoardTrackerEntryValue,
+                    value: TrackerValue,
+                    note: String?
+                ) async -> Bool in
                     await store.correct(entry, tracker: tracker, value: value, note: note)
+                    return store.errorMessage == nil
                 }
             )
         }
@@ -723,7 +728,7 @@ struct LifeBoardTrackRootView: View {
             HStack(spacing: 8) {
                 ForEach(availableModules) { item in
                     Button(item.rawValue) { module = item }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                         .tint(module == item ? palette.color(for: .foreground) : palette.color(for: .foregroundSecondary))
                         .accessibilityAddTraits(module == item ? .isSelected : [])
                 }
@@ -938,7 +943,7 @@ struct LifeBoardTrackRootView: View {
             Button("Record") {
                 loggingTracker = tracker
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.lifeBoardChip)
             Menu {
                 Button("History", systemImage: "clock.arrow.circlepath") { historyTracker = tracker }
                 Button("Edit", systemImage: "pencil") {
@@ -1060,6 +1065,7 @@ struct LifeBoardBehaviorNativeAreasView: View {
     @State private var editingMedication: LifeBoardMedicationDefinitionValue?
     @State private var historyMedication: LifeBoardMedicationDefinitionValue?
     @State private var deletingMedication: LifeBoardMedicationDefinitionValue?
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(
         repository: any LifeBoardPhaseIIRepository,
@@ -1070,23 +1076,45 @@ struct LifeBoardBehaviorNativeAreasView: View {
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(spacing: 16) {
-                Picker("Care area", selection: $area) {
-                    ForEach(Area.allCases) { Text($0.rawValue).tag($0) }
-                }
-                .pickerStyle(.segmented)
-                .accessibilityIdentifier("track.behavior.area")
+        ZStack {
+            Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+            ScrollView {
+                LazyVStack(spacing: dynamicTypeSize.isAccessibilitySize ? 24 : 20) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text(area == .trackers ? "Your signals" : "Care, clearly recorded")
+                            .font(LifeBoardFoundationTypography.screenTitle())
+                        Text(area == .trackers
+                            ? "Keep only what helps you notice something useful."
+                            : "A calm place for schedules, decisions, and the history you chose to keep.")
+                            .font(LifeBoardFoundationTypography.body())
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                switch area {
-                case .medication: medicationArea
-                case .trackers: trackerArea
+                    LifeBoardLensPicker(
+                        "Care area",
+                        selection: $area,
+                        values: Area.allCases,
+                        identifierPrefix: "track.behavior.area",
+                        title: \.rawValue,
+                        identifier: { $0.rawValue.lowercased() }
+                    )
+
+                    Group {
+                        switch area {
+                        case .medication: medicationArea
+                        case .trackers: trackerArea
+                        }
+                    }
+                    .id(area)
+                    .transition(.blurReplace.combined(with: .opacity))
                 }
+                .padding(.horizontal, 20)
+                .padding(.top, 12)
+                .padding(.bottom, 40)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
         }
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid).ignoresSafeArea())
+        .lifeBoardMotion(.selection, value: area)
         .navigationTitle(area.rawValue)
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }
@@ -1107,12 +1135,11 @@ struct LifeBoardBehaviorNativeAreasView: View {
                 existing: editingTracker,
                 seed: trackerTemplateSeed
             ) { tracker, sensitiveHomeAuthorized in
-                Task {
-                    await store.saveTracker(
-                        tracker,
-                        sensitiveHomeAuthorized: sensitiveHomeAuthorized
-                    )
-                }
+                await store.saveTracker(
+                    tracker,
+                    sensitiveHomeAuthorized: sensitiveHomeAuthorized
+                )
+                return store.errorMessage == nil
             }
         }
         .sheet(isPresented: $showsTrackerTemplates) {
@@ -1126,6 +1153,7 @@ struct LifeBoardBehaviorNativeAreasView: View {
             LifeBoardTrackerValueCaptureView(tracker: tracker) { value, note, timestamp in
                 await store.log(tracker, value: value, note: note, at: timestamp)
                 loggingTracker = nil
+                return store.errorMessage == nil
             }
         }
         .sheet(item: $historyTracker) { tracker in
@@ -1134,8 +1162,13 @@ struct LifeBoardBehaviorNativeAreasView: View {
                 entries: store.trackerEntries.filter { $0.trackerID == tracker.id },
                 activeReceipt: { store.activeCorrection(domain: .tracker, sourceID: $0) },
                 onUndo: { await store.undoCorrection($0) },
-                onCorrect: { entry, value, note in
+                onCorrect: { (
+                    entry: LifeBoardTrackerEntryValue,
+                    value: TrackerValue,
+                    note: String?
+                ) async -> Bool in
                     await store.correct(entry, tracker: tracker, value: value, note: note)
+                    return store.errorMessage == nil
                 }
             )
         }
@@ -1296,7 +1329,7 @@ struct LifeBoardBehaviorNativeAreasView: View {
                                     Label("More", systemImage: "ellipsis")
                                         .frame(minHeight: 44)
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.lifeBoardChip)
                                 .accessibilityLabel("More status choices for \(medication.name)")
                             }
                         } else {
@@ -1322,7 +1355,7 @@ struct LifeBoardBehaviorNativeAreasView: View {
         VStack(spacing: 12) {
             areaHeader(
                 title: "Trackers",
-                detail: "Boolean, count, quantity, rating, duration, text, choice, and time.",
+                detail: "One honest signal at a time. Every entry stays editable.",
                 symbol: "chart.bar.doc.horizontal",
                 actionTitle: "New"
             ) {
@@ -1332,8 +1365,25 @@ struct LifeBoardBehaviorNativeAreasView: View {
             Button {
                 showsTrackerTemplates = true
             } label: {
-                Label("Start from a template", systemImage: "square.grid.2x2")
-                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                HStack(spacing: 12) {
+                    Image(systemName: "sparkles.rectangle.stack")
+                        .font(.title3)
+                        .frame(width: 36, height: 36)
+                        .background(Color(LifeBoardColorTokens.foundationSurfaceSelected), in: Circle())
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Start with a gentle template")
+                            .font(.body.weight(.semibold))
+                        Text("A useful starting point, fully yours to edit")
+                            .font(.caption)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                }
+                .padding(14)
+                .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                .lifeBoardClaySurface(.well, cornerRadius: 16)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("track.tracker.templates")
@@ -1384,6 +1434,7 @@ struct LifeBoardBehaviorNativeAreasView: View {
                             .accessibilityLabel("Actions for \(tracker.title)")
                         }
                         Button("Record value") {
+                            LifeBoardHaptic.pick.play()
                             loggingTracker = tracker
                         }
                         .buttonStyle(.borderedProminent)
@@ -1422,10 +1473,11 @@ struct LifeBoardBehaviorNativeAreasView: View {
             }
             Spacer()
             Button(actionTitle, systemImage: "plus", action: action)
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
                 .frame(minHeight: 44)
+                .accessibilityIdentifier(title == "Trackers" ? "track.tracker.new" : "track.medication.new")
         }
-        .nativeBehaviorSurface()
+        .padding(.top, 4)
     }
 
     private func medicationResolution(
@@ -1451,7 +1503,7 @@ struct LifeBoardBehaviorNativeAreasView: View {
                 }
             }
         }
-        .buttonStyle(.bordered)
+        .buttonStyle(.lifeBoardChip)
         .controlSize(.small)
         .frame(minHeight: 44)
     }
@@ -1552,7 +1604,7 @@ private extension View {
     func nativeBehaviorSurface() -> some View {
         padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .lifeBoardClaySurface(.raised, cornerRadius: 20)
+            .lifeBoardClaySurface(.resting, cornerRadius: 20)
             .overlay {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
@@ -1597,54 +1649,143 @@ private extension TrackerPrivacyClass {
 private struct LifeBoardTrackerTemplatePicker: View {
     let onSelect: (LifeBoardTrackerTemplate) -> Void
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         NavigationStack {
-            List(LifeBoardTrackerTemplate.allCases) { template in
-                Button {
-                    onSelect(template)
-                } label: {
-                    VStack(alignment: .leading, spacing: 5) {
-                        HStack {
-                            Text(template.title)
-                                .font(.headline)
-                            if template.isHealthLike {
-                                Text("NON-CLINICAL")
-                                    .font(.caption2.weight(.semibold))
-                                    .padding(.horizontal, 7)
-                                    .padding(.vertical, 3)
-                                    .background(
-                                        Color(LifeBoardColorTokens.foundationSurfaceSelected),
-                                        in: Capsule()
-                                    )
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
+            ZStack {
+                Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+                ScrollView {
+                    LazyVStack(spacing: 12) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Begin with something familiar")
+                                .font(LifeBoardFoundationTypography.screenTitle())
+                            Text("Pick a starting shape. You’ll review every detail before anything is created.")
+                                .font(LifeBoardFoundationTypography.body())
                                 .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                         }
-                        Text(template.detail)
-                            .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.bottom, 8)
+
+                        ForEach(LifeBoardTrackerTemplate.allCases) { template in
+                            Button {
+                                LifeBoardHaptic.pick.play()
+                                onSelect(template)
+                            } label: {
+                                HStack(alignment: .top, spacing: 14) {
+                                    Image(systemName: symbol(for: template))
+                                        .font(.title3.weight(.semibold))
+                                        .frame(width: 42, height: 42)
+                                        .background(
+                                            Color(LifeBoardColorTokens.foundationSurfaceSelected),
+                                            in: Circle()
+                                        )
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        HStack(spacing: 7) {
+                                            Text(template.title)
+                                                .font(.headline)
+                                            if template.isHealthLike {
+                                                Text("Personal note")
+                                                    .font(.caption2.weight(.semibold))
+                                                    .padding(.horizontal, 7)
+                                                    .padding(.vertical, 3)
+                                                    .background(
+                                                        Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                                                        in: Capsule()
+                                                    )
+                                            }
+                                        }
+                                        Text(template.detail)
+                                            .font(.subheadline)
+                                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                            .fixedSize(horizontal: false, vertical: true)
+                                    }
+                                    Spacer(minLength: 4)
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption.weight(.semibold))
+                                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                                        .padding(.top, 13)
+                                }
+                                .padding(16)
+                                .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
+                                .lifeBoardClaySurface(.resting, cornerRadius: 20)
+                                .contentShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                            }
+                            .buttonStyle(.plain)
+                            .accessibilityHint("Creates an editable tracker draft")
+                        }
                     }
-                    .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, dynamicTypeSize.isAccessibilitySize ? 48 : 32)
                 }
-                .buttonStyle(.plain)
-                .accessibilityHint("Creates an editable tracker draft")
             }
-            .navigationTitle("Tracker templates")
+            .navigationTitle("Choose a template")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("Close") { dismiss() }
                 }
             }
+        }
+        .presentationCornerRadius(28)
+    }
+
+    private func symbol(for template: LifeBoardTrackerTemplate) -> String {
+        switch template {
+        case .pain: "waveform.path.ecg"
+        case .symptoms: "text.bubble"
+        case .caffeine: "cup.and.saucer.fill"
+        case .reading: "book.pages.fill"
+        case .spending: "creditcard.fill"
+        case .screenTime: "hourglass"
         }
     }
 }
 
+private struct TrackerCommitReceipt: Equatable, Sendable {
+    let id = UUID()
+}
+
+private struct TrackerCommitBar: View {
+    let title: String
+    let phase: AsyncActionPhase<TrackerCommitReceipt>
+    let isEnabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        VStack(spacing: 8) {
+            if case .recoverableFailure(let failure) = phase {
+                Label(failure.message, systemImage: "exclamationmark.circle")
+                    .font(.footnote)
+                    .foregroundStyle(Color.lifeboard(.statusWarning))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            LifeBoardCommitControl(
+                title: title,
+                runningTitle: "Saving",
+                successTitle: "Saved",
+                phase: phase,
+                isEnabled: isEnabled,
+                action: action
+            )
+        }
+        .padding(10)
+        .lifeBoardSystemGlass(
+            .regular,
+            in: RoundedRectangle(cornerRadius: 28, style: .continuous)
+        )
+        .padding(.horizontal, 12)
+        .padding(.bottom, 4)
+    }
+}
+
 struct LifeBoardTrackerComposer: View {
-    let onSave: (LifeBoardTrackerDefinitionValue, Bool) -> Void
+    let onSave: (LifeBoardTrackerDefinitionValue, Bool) async -> Bool
     private let existing: LifeBoardTrackerDefinitionValue?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var title = ""
     @State private var kind: LifeBoardTrackerKind = .boolean
     @State private var unit = ""
@@ -1659,11 +1800,14 @@ struct LifeBoardTrackerComposer: View {
     @State private var weekdays = Set(1...7)
     @State private var reminderEnabled = false
     @State private var reminderTime = Calendar.current.date(bySettingHour: 9, minute: 0, second: 0, of: Date()) ?? Date()
+    @State private var commitPhase: AsyncActionPhase<TrackerCommitReceipt> = .idle
+    @State private var typeBloomTrigger = 0
+    @FocusState private var titleIsFocused: Bool
 
     init(
         existing: LifeBoardTrackerDefinitionValue? = nil,
         seed: LifeBoardTrackerDefinitionValue? = nil,
-        onSave: @escaping (LifeBoardTrackerDefinitionValue, Bool) -> Void
+        onSave: @escaping (LifeBoardTrackerDefinitionValue, Bool) async -> Bool
     ) {
         self.existing = existing
         self.onSave = onSave
@@ -1694,30 +1838,67 @@ struct LifeBoardTrackerComposer: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("Signal") {
-                    TextField("Tracker name", text: $title)
-                    Picker("Value type", selection: $kind) {
-                        ForEach(LifeBoardTrackerKind.allCases, id: \.self) {
-                            Text($0.rawValue.capitalized).tag($0)
+            ZStack {
+                Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: dynamicTypeSize.isAccessibilitySize ? 28 : 24) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(existing == nil ? "Make a signal yours" : "Tune this signal")
+                                .font(LifeBoardFoundationTypography.screenTitle())
+                            Text("Give it one clear purpose. You can change the details whenever life changes.")
+                                .font(LifeBoardFoundationTypography.body())
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                         }
-                    }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                        trackerBuilderSection(
+                            "The signal",
+                            detail: "A short name is easiest to spot when you’re in a hurry."
+                        ) {
+                            TextField("What do you want to notice?", text: $title)
+                                .focused($titleIsFocused)
+                                .textFieldStyle(LifeBoardTextFieldStyle(isFocused: titleIsFocused))
+                                .submitLabel(.next)
+                                .accessibilityIdentifier("track.tracker.name")
+
+                            Text("How will you record it?")
+                                .font(.subheadline.weight(.semibold))
+                            ScrollView(.horizontal) {
+                                HStack(spacing: 10) {
+                                    ForEach(LifeBoardTrackerKind.allCases, id: \.self) { value in
+                                        trackerKindButton(value)
+                                    }
+                                }
+                                .padding(.vertical, 2)
+                            }
+                            .scrollIndicators(.hidden)
+                            .lifeboardClayPressBloom(
+                                center: .center,
+                                trigger: typeBloomTrigger,
+                                tint: Color(LifeBoardColorTokens.foundationApricotAccent)
+                            )
+
                     if kind == .quantity || kind == .duration {
-                        TextField(kind == .duration ? "Display unit (optional)" : "Unit", text: $unit)
+                                labeledField(kind == .duration ? "Display unit" : "Unit") {
+                                    TextField(kind == .duration ? "minutes, hours…" : "mL, km, ₹…", text: $unit)
+                                        .multilineTextAlignment(.trailing)
+                                }
                     }
                     if numericKinds.contains(kind) {
-                        TextField("Target (optional)", value: $target, format: .number)
-                            .keyboardType(.decimalPad)
-                        Toggle("Limit accepted range", isOn: $rangeEnabled)
+                                labeledField("Optional target") {
+                                    TextField("Target", value: $target, format: .number)
+                                        .keyboardType(.decimalPad)
+                                        .multilineTextAlignment(.trailing)
+                                }
+                                Toggle("Keep entries within a range", isOn: $rangeEnabled)
+                                    .tint(Color(LifeBoardColorTokens.foundationSageAccent))
                         if rangeEnabled {
-                            HStack {
-                                TextField("Minimum", value: $rangeMinimum, format: .number)
-                                    .keyboardType(.decimalPad)
-                                TextField("Maximum", value: $rangeMaximum, format: .number)
-                                    .keyboardType(.decimalPad)
+                                    ViewThatFits {
+                                        HStack(spacing: 10) { rangeField("Minimum", value: $rangeMinimum); rangeField("Maximum", value: $rangeMaximum) }
+                                        VStack(spacing: 10) { rangeField("Minimum", value: $rangeMinimum); rangeField("Maximum", value: $rangeMaximum) }
+                                    }
                             }
                         }
-                    }
                     if kind == .choice {
                         TextField(
                             "Choices, one per line",
@@ -1725,59 +1906,67 @@ struct LifeBoardTrackerComposer: View {
                             axis: .vertical
                         )
                         .lineLimit(3...8)
-                        Text("Choices stay explicit so corrections and exports retain their meaning.")
+                                .padding(12)
+                                .background(Color(LifeBoardColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        Text("Keep at least two choices. Their wording stays unchanged in history and exports.")
                             .font(.caption)
                             .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                     }
-                    Picker("Summary", selection: $aggregation) {
-                        ForEach(availableAggregations, id: \.self) {
-                            Text($0.displayName).tag($0)
-                        }
-                    }
-                }
 
-                Section("Privacy") {
-                    Picker("Classification", selection: $privacyClass) {
-                        ForEach(TrackerPrivacyClass.allCases, id: \.self) {
-                            Text($0.displayName).tag($0)
-                        }
-                    }
-                    Toggle("May appear on Home", isOn: $isHomeEligible)
-                    if privacyClass == .sensitive {
-                        Label(
-                            isHomeEligible
-                                ? "You explicitly authorized this tracker for Home. Widgets, summaries, notifications, and ordinary exports remain excluded."
-                                : "Sensitive trackers stay off Home, widgets, summaries, notifications, and ordinary exports until you authorize that tracker.",
-                            systemImage: "lock.fill"
-                        )
-                        .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                    }
-                }
-
-                Section("Schedule") {
-                    HStack {
-                        ForEach(1...7, id: \.self) { weekday in
-                            Button {
-                                if weekdays.contains(weekday) { weekdays.remove(weekday) } else { weekdays.insert(weekday) }
-                            } label: {
-                                Text(Calendar.current.veryShortStandaloneWeekdaySymbols[weekday - 1])
-                                    .font(.caption.weight(.semibold))
-                                    .frame(maxWidth: .infinity, minHeight: 44)
-                                    .background(weekdays.contains(weekday) ? Color(LifeBoardColorTokens.foundationSurfaceSelected) : .clear, in: Capsule())
+                            labeledField("Show in summaries") {
+                                Picker("Show in summaries", selection: $aggregation) {
+                                    ForEach(availableAggregations, id: \.self) {
+                                        Text($0.displayName).tag($0)
+                                    }
+                                }
+                                .labelsHidden()
                             }
-                            .buttonStyle(.plain)
-                            .contentShape(Rectangle())
-                            .accessibilityLabel(Calendar.current.weekdaySymbols[weekday - 1])
-                            .accessibilityAddTraits(weekdays.contains(weekday) ? .isSelected : [])
+                        }
+
+                        trackerBuilderSection(
+                            "Privacy",
+                            detail: "Choose how quietly LifeBoard should hold this signal."
+                        ) {
+                            HStack(spacing: 8) {
+                                ForEach(TrackerPrivacyClass.allCases, id: \.self) { value in
+                                    privacyButton(value)
+                                }
+                            }
+                            Toggle("May appear on Home", isOn: $isHomeEligible)
+                                .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                                .frame(minHeight: 44)
+                            privacyExplanation
+                        }
+
+                        trackerBuilderSection(
+                            "Rhythm",
+                            detail: "Select the days when this should be easy to reach."
+                        ) {
+                            ScrollView(.horizontal) {
+                                HStack(spacing: 8) {
+                                    ForEach(1...7, id: \.self) { weekday in
+                                        weekdayButton(weekday)
+                                    }
+                                }
+                                .padding(.vertical, 2)
+                            }
+                            .scrollIndicators(.hidden)
+                            Toggle("Give me a gentle reminder", isOn: $reminderEnabled)
+                                .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                                .frame(minHeight: 44)
+                            if reminderEnabled {
+                                DatePicker("Reminder time", selection: $reminderTime, displayedComponents: .hourAndMinute)
+                                    .datePickerStyle(.compact)
+                            }
                         }
                     }
-                    Toggle("Reminder", isOn: $reminderEnabled)
-                    if reminderEnabled { DatePicker("Time", selection: $reminderTime, displayedComponents: .hourAndMinute) }
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, 120)
                 }
             }
-            .lifeBoardFormSurface()
             .navigationTitle(existing == nil ? "New Tracker" : "Edit Tracker")
+            .navigationBarTitleDisplayMode(.inline)
             .onChange(of: kind) { _, newKind in
                 if availableAggregations.contains(aggregation) == false {
                     aggregation = defaultAggregation(for: newKind)
@@ -1785,39 +1974,228 @@ struct LifeBoardTrackerComposer: View {
             }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        let calendar = Calendar.current
-                        let reminderMinutes = reminderEnabled
-                            ? calendar.component(.hour, from: reminderTime) * 60 + calendar.component(.minute, from: reminderTime)
-                            : nil
-                        let definition = LifeBoardTrackerDefinitionValue(
-                            id: existing?.id ?? UUID(),
-                            title: title,
-                            kind: kind,
-                            unitLabel: unit.isEmpty ? nil : unit,
-                            targetValue: numericKinds.contains(kind) ? target : nil,
-                            schedule: weekdays,
-                            reminderMinutes: reminderMinutes,
-                            isArchived: existing?.isArchived ?? false,
-                            createdAt: existing?.createdAt ?? Date(),
-                            updatedAt: Date(),
-                            valueType: kind,
-                            rangeMin: rangeEnabled && numericKinds.contains(kind) ? rangeMinimum : nil,
-                            rangeMax: rangeEnabled && numericKinds.contains(kind) ? rangeMaximum : nil,
-                            aggregation: aggregation,
-                            privacyClass: privacyClass,
-                            isHomeEligible: isHomeEligible,
-                            choiceOptions: kind == .choice ? choiceOptions : nil
-                        )
-                        onSave(
-                            definition,
-                            privacyClass == .sensitive && isHomeEligible
-                        )
-                        dismiss()
-                    }
-                    .disabled(isInvalid)
-                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                TrackerCommitBar(
+                    title: existing == nil ? "Create tracker" : "Save changes",
+                    phase: commitPhase,
+                    isEnabled: isInvalid == false,
+                    action: commit
+                )
+                .accessibilityIdentifier("track.tracker.commit")
+            }
+        }
+        .presentationCornerRadius(28)
+        .interactiveDismissDisabled(isRunning)
+    }
+
+    private var isRunning: Bool {
+        if case .running = commitPhase { return true }
+        return false
+    }
+
+    private func trackerBuilderSection<Content: View>(
+        _ heading: String,
+        detail: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 3) {
+                Text(heading).font(LifeBoardFoundationTypography.sectionTitle())
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            content()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lifeBoardClaySurface(.resting, cornerRadius: 20)
+    }
+
+    private func trackerKindButton(_ value: LifeBoardTrackerKind) -> some View {
+        let selected = value == kind
+        return Button {
+            guard selected == false else { return }
+            LifeBoardHaptic.pick.play()
+            typeBloomTrigger += 1
+            withAnimation(LifeBoardMotionProfile.selection.animation(reduceMotion: reduceMotion)) {
+                kind = value
+            }
+        } label: {
+            VStack(alignment: .leading, spacing: 8) {
+                Image(systemName: trackerKindSymbol(value))
+                    .font(.body.weight(.semibold))
+                Text(trackerKindTitle(value))
+                    .font(.subheadline.weight(selected ? .bold : .semibold))
+            }
+            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .padding(12)
+            .frame(width: 112, height: 74, alignment: .leading)
+            .lifeBoardClaySurface(selected ? .raised : .well, cornerRadius: 16)
+            .overlay {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(
+                        selected
+                            ? Color.lifeboard(.borderStrong)
+                            : Color(LifeBoardColorTokens.foundationHairline),
+                        lineWidth: selected ? 1.5 : 1
+                    )
+            }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+        .accessibilityIdentifier("track.tracker.kind.\(value.rawValue)")
+    }
+
+    private func privacyButton(_ value: TrackerPrivacyClass) -> some View {
+        let selected = value == privacyClass
+        return Button {
+            LifeBoardHaptic.pick.play()
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.24)) {
+                privacyClass = value
+                if value == .sensitive { isHomeEligible = false }
+            }
+        } label: {
+            Text(value.displayName)
+                .font(.footnote.weight(selected ? .bold : .semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(
+                    selected
+                        ? Color(LifeBoardColorTokens.foundationSurfaceSelected)
+                        : Color.clear,
+                    in: Capsule()
+                )
+                .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    @ViewBuilder
+    private var privacyExplanation: some View {
+        let text = switch privacyClass {
+        case .standard: "Available to the LifeBoard surfaces you choose, including Home."
+        case .personal: "Kept private by default, with Home visibility under your control."
+        case .sensitive: isHomeEligible
+            ? "Home visibility is explicitly allowed. Widgets, notifications, and ordinary exports still stay private."
+            : "Hidden from Home, widgets, notifications, summaries, and ordinary exports."
+        }
+        Label(text, systemImage: privacyClass == .sensitive ? "lock.fill" : "hand.raised.fill")
+            .font(.caption)
+            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
+    private func weekdayButton(_ weekday: Int) -> some View {
+        let selected = weekdays.contains(weekday)
+        return Button {
+            LifeBoardHaptic.pick.play()
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.22)) {
+                if selected { weekdays.remove(weekday) } else { weekdays.insert(weekday) }
+            }
+        } label: {
+            Text(Calendar.current.veryShortStandaloneWeekdaySymbols[weekday - 1])
+                .font(.caption.weight(.bold))
+                .frame(width: 44, height: 44)
+                .background(
+                    selected
+                        ? Color(LifeBoardColorTokens.foundationSurfaceSelected)
+                        : Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                    in: Circle()
+                )
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(Calendar.current.weekdaySymbols[weekday - 1])
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func labeledField<Content: View>(_ label: String, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 12) {
+            Text(label).font(.subheadline)
+            Spacer(minLength: 8)
+            content()
+        }
+        .padding(.horizontal, 12)
+        .frame(minHeight: 48)
+        .background(Color(LifeBoardColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+
+    private func rangeField(_ label: String, value: Binding<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(label).font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            TextField(label, value: value, format: .number)
+                .keyboardType(.decimalPad)
+                .textFieldStyle(LifeBoardTextFieldStyle())
+        }
+    }
+
+    private func trackerKindTitle(_ kind: LifeBoardTrackerKind) -> String {
+        switch kind {
+        case .boolean: "Yes / no"
+        case .count: "Count"
+        case .quantity: "Amount"
+        case .rating: "Rating"
+        case .duration: "Duration"
+        case .text: "Note"
+        case .choice: "Choice"
+        case .timestamp: "Time"
+        }
+    }
+
+    private func trackerKindSymbol(_ kind: LifeBoardTrackerKind) -> String {
+        switch kind {
+        case .boolean: "checkmark.circle"
+        case .count: "number.circle"
+        case .quantity: "ruler"
+        case .rating: "slider.horizontal.3"
+        case .duration: "timer"
+        case .text: "text.cursor"
+        case .choice: "list.bullet.circle"
+        case .timestamp: "clock.badge.checkmark"
+        }
+    }
+
+    private func commit() {
+        guard isInvalid == false, isRunning == false else { return }
+        let calendar = Calendar.current
+        let reminderMinutes = reminderEnabled
+            ? calendar.component(.hour, from: reminderTime) * 60 + calendar.component(.minute, from: reminderTime)
+            : nil
+        let trimmedTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedUnit = unit.trimmingCharacters(in: .whitespacesAndNewlines)
+        let definition = LifeBoardTrackerDefinitionValue(
+            id: existing?.id ?? UUID(),
+            title: trimmedTitle,
+            kind: kind,
+            unitLabel: trimmedUnit.isEmpty ? nil : trimmedUnit,
+            targetValue: numericKinds.contains(kind) ? target : nil,
+            schedule: weekdays,
+            reminderMinutes: reminderMinutes,
+            isArchived: existing?.isArchived ?? false,
+            createdAt: existing?.createdAt ?? Date(),
+            updatedAt: Date(),
+            valueType: kind,
+            rangeMin: rangeEnabled && numericKinds.contains(kind) ? rangeMinimum : nil,
+            rangeMax: rangeEnabled && numericKinds.contains(kind) ? rangeMaximum : nil,
+            aggregation: aggregation,
+            privacyClass: privacyClass,
+            isHomeEligible: isHomeEligible,
+            choiceOptions: kind == .choice ? choiceOptions : nil
+        )
+        commitPhase = .running(progress: nil)
+        Task {
+            if await onSave(definition, privacyClass == .sensitive && isHomeEligible) {
+                commitPhase = .success(receipt: .init())
+                LifeBoardHaptic.commit.play()
+                try? await Task.sleep(for: .milliseconds(reduceMotion ? 80 : 360))
+                dismiss()
+            } else {
+                commitPhase = .recoverableFailure(.init(
+                    message: "This tracker could not be saved. Your choices are still here.",
+                    recovery: .retry
+                ))
+                LifeBoardHaptic.fail.play()
             }
         }
     }
@@ -1864,8 +2242,10 @@ struct LifeBoardTrackerComposer: View {
 private struct LifeBoardTrackerValueCaptureView: View {
     let tracker: LifeBoardTrackerDefinitionValue
     let title: String
-    let onSave: (TrackerValue, String?, Date) async -> Void
+    let onSave: (TrackerValue, String?, Date) async -> Bool
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var booleanValue: Bool
     @State private var countValue: Int
     @State private var numericValue: Double
@@ -1874,12 +2254,14 @@ private struct LifeBoardTrackerValueCaptureView: View {
     @State private var choiceValue: String
     @State private var timestampValue: Date
     @State private var note: String
+    @State private var commitPhase: AsyncActionPhase<TrackerCommitReceipt> = .idle
+    @State private var saveBloomTrigger = 0
 
     init(
         tracker: LifeBoardTrackerDefinitionValue,
         entry: LifeBoardTrackerEntryValue? = nil,
         title: String = "Record value",
-        onSave: @escaping (TrackerValue, String?, Date) async -> Void
+        onSave: @escaping (TrackerValue, String?, Date) async -> Bool
     ) {
         self.tracker = tracker
         self.title = title
@@ -1899,7 +2281,11 @@ private struct LifeBoardTrackerValueCaptureView: View {
         case .quantity(let current, _), .rating(let current):
             _numericValue = State(initialValue: current)
         default:
-            _numericValue = State(initialValue: entry?.numericValue ?? tracker.rangeMin ?? 0)
+            _numericValue = State(initialValue:
+                entry?.numericValue
+                    ?? tracker.rangeMin
+                    ?? (tracker.effectiveValueType == .rating ? 1 : 0)
+            )
         }
         if case .duration(let seconds) = value {
             _durationMinutes = State(initialValue: seconds / 60)
@@ -1926,92 +2312,309 @@ private struct LifeBoardTrackerValueCaptureView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section(tracker.title) {
-                    valueEditor
-                    if tracker.effectiveValueType != .text {
-                        TextField("Note (optional)", text: $note, axis: .vertical)
-                            .lineLimit(2...5)
+            ZStack {
+                Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: dynamicTypeSize.isAccessibilitySize ? 28 : 22) {
+                        VStack(spacing: 8) {
+                            Image(systemName: trackerSymbol)
+                                .font(.title2.weight(.semibold))
+                                .frame(width: 52, height: 52)
+                                .background(
+                                    Color(LifeBoardColorTokens.foundationSurfaceSelected),
+                                    in: Circle()
+                                )
+                            Text(tracker.title)
+                                .font(LifeBoardFoundationTypography.sectionTitle().weight(.bold))
+                                .multilineTextAlignment(.center)
+                            Text("Record what is true right now.")
+                                .font(.subheadline)
+                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        }
+                        .frame(maxWidth: .infinity)
+                        .lifeboardClayPressBloom(
+                            center: .center,
+                            trigger: saveBloomTrigger,
+                            tint: Color(LifeBoardColorTokens.foundationSageAccent)
+                        )
+
+                        VStack(alignment: .leading, spacing: 14) {
+                            valueEditor
+                        }
+                        .padding(16)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .lifeBoardClaySurface(.resting, cornerRadius: 20)
+
+                        if tracker.effectiveValueType != .text {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text("A note, if it helps")
+                                    .font(.subheadline.weight(.semibold))
+                                TextField("Anything you want to remember…", text: $note, axis: .vertical)
+                                    .lineLimit(2...5)
+                                    .padding(12)
+                                    .background(
+                                        Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                                        in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                    )
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+
+                        if let minimum = tracker.rangeMin, let maximum = tracker.rangeMax {
+                            Label(
+                                "This tracker accepts \(minimum.formatted()) through \(maximum.formatted()).",
+                                systemImage: "slider.horizontal.below.rectangle"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                        if tracker.effectivePrivacyClass != .standard {
+                            Label(
+                                tracker.effectivePrivacyClass == .sensitive
+                                    ? "This entry stays on your sensitive-content path."
+                                    : "This entry is held as personal.",
+                                systemImage: "lock.fill"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        }
                     }
-                }
-                if let minimum = tracker.rangeMin, let maximum = tracker.rangeMax {
-                    LabeledContent(
-                        "Accepted range",
-                        value: "\(minimum.formatted())–\(maximum.formatted())"
-                    )
-                }
-                if tracker.effectivePrivacyClass != .standard {
-                    Label(
-                        tracker.effectivePrivacyClass == .sensitive
-                            ? "This value is treated as sensitive."
-                            : "This value is treated as personal.",
-                        systemImage: "lock.fill"
-                    )
-                    .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .padding(.horizontal, 20)
+                    .padding(.top, 12)
+                    .padding(.bottom, 112)
                 }
             }
-            .lifeBoardFormSurface()
             .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        guard let value = typedValue else { return }
-                        Task {
-                            let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
-                            await onSave(
-                                value,
-                                trimmedNote.isEmpty ? nil : trimmedNote,
-                                timestampValue
-                            )
-                            dismiss()
-                        }
-                    }
-                    .disabled(typedValue == nil)
-                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                TrackerCommitBar(
+                    title: title == "Correct entry" ? "Save correction" : "Record value",
+                    phase: commitPhase,
+                    isEnabled: typedValue != nil,
+                    action: commit
+                )
+                .accessibilityIdentifier("track.tracker.value.commit")
             }
         }
+        .presentationCornerRadius(28)
+        .interactiveDismissDisabled(isRunning)
     }
 
     @ViewBuilder
     private var valueEditor: some View {
         switch tracker.effectiveValueType {
         case .boolean:
-            Toggle("Yes", isOn: $booleanValue)
-                .frame(minHeight: 44)
+            HStack(spacing: 10) {
+                binaryChoice("Yes", symbol: "checkmark", value: true)
+                binaryChoice("No", symbol: "xmark", value: false)
+            }
         case .count:
-            TextField("Count", value: $countValue, format: .number)
-                .keyboardType(.numberPad)
-        case .quantity:
-            TextField(
-                tracker.unitLabel.map { "Value (\($0))" } ?? "Value",
-                value: $numericValue,
-                format: .number
+            stepperEditor(
+                value: Binding(
+                    get: { Double(countValue) },
+                    set: { countValue = max(0, Int($0.rounded())) }
+                ),
+                unit: "count",
+                step: 1
             )
-            .keyboardType(.decimalPad)
+        case .quantity:
+            numericEditor(value: $numericValue, unit: tracker.unitLabel ?? "amount")
         case .rating:
-            TextField("Rating", value: $numericValue, format: .number)
-                .keyboardType(.decimalPad)
+            ratingEditor
         case .duration:
-            TextField("Minutes", value: $durationMinutes, format: .number)
-                .keyboardType(.decimalPad)
+            stepperEditor(value: $durationMinutes, unit: tracker.unitLabel ?? "minutes", step: 5)
         case .text:
             TextField("What did you notice?", text: $textValue, axis: .vertical)
-                .lineLimit(3...8)
+                .lineLimit(4...10)
+                .padding(14)
+                .background(
+                    Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                )
         case .choice:
             if let choices = tracker.choiceOptions, choices.isEmpty == false {
-                Picker("Choice", selection: $choiceValue) {
-                    ForEach(choices, id: \.self) { Text($0).tag($0) }
+                LazyVGrid(
+                    columns: dynamicTypeSize.isAccessibilitySize
+                        ? [GridItem(.flexible())]
+                        : [GridItem(.adaptive(minimum: 120), spacing: 10)],
+                    spacing: 10
+                ) {
+                    ForEach(choices, id: \.self) { choice in
+                        choiceButton(choice)
+                    }
                 }
             } else {
                 Text("This tracker has no saved choices.")
                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
             }
         case .timestamp:
-            DatePicker("Time", selection: $timestampValue)
+            DatePicker("When", selection: $timestampValue)
+                .datePickerStyle(.compact)
+        }
+    }
+
+    private var isRunning: Bool {
+        if case .running = commitPhase { return true }
+        return false
+    }
+
+    private var trackerSymbol: String {
+        switch tracker.effectiveValueType {
+        case .boolean: "checkmark.circle"
+        case .count: "number.circle"
+        case .quantity: "ruler"
+        case .rating: "slider.horizontal.3"
+        case .duration: "timer"
+        case .text: "text.bubble"
+        case .choice: "list.bullet.circle"
+        case .timestamp: "clock.badge.checkmark"
+        }
+    }
+
+    private func binaryChoice(_ label: String, symbol: String, value: Bool) -> some View {
+        let selected = booleanValue == value
+        return Button {
+            LifeBoardHaptic.pick.play()
+            withAnimation(LifeBoardMotionProfile.selection.animation(reduceMotion: reduceMotion)) {
+                booleanValue = value
+            }
+        } label: {
+            VStack(spacing: 8) {
+                Image(systemName: symbol)
+                    .font(.title3.weight(.bold))
+                Text(label).font(.body.weight(.semibold))
+            }
+            .frame(maxWidth: .infinity, minHeight: 78)
+            .lifeBoardClaySurface(selected ? .raised : .well, cornerRadius: 16)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func numericEditor(value: Binding<Double>, unit: String) -> some View {
+        VStack(spacing: 8) {
+            TextField("Value", value: value, format: .number)
+                .keyboardType(.decimalPad)
+                .multilineTextAlignment(.center)
+                .font(LifeBoardFoundationTypography.hero().weight(.bold))
+                .monospacedDigit()
+                .accessibilityIdentifier("track.tracker.value.numeric")
+            Text(unit)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+        }
+        .padding(.vertical, 18)
+        .frame(maxWidth: .infinity)
+        .background(
+            Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+        )
+    }
+
+    private func stepperEditor(value: Binding<Double>, unit: String, step: Double) -> some View {
+        HStack(spacing: 14) {
+            stepButton("minus", enabled: value.wrappedValue >= step) {
+                value.wrappedValue = max(0, value.wrappedValue - step)
+            }
+            VStack(spacing: 3) {
+            TextField("Value", value: value, format: .number)
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.center)
+                    .font(LifeBoardFoundationTypography.hero().weight(.bold))
+                    .monospacedDigit()
+                    .accessibilityIdentifier("track.tracker.value.numeric")
+                Text(unit)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+            .frame(maxWidth: .infinity)
+            stepButton("plus", enabled: true) { value.wrappedValue += step }
+        }
+    }
+
+    private func stepButton(_ symbol: String, enabled: Bool, action: @escaping () -> Void) -> some View {
+        Button {
+            LifeBoardHaptic.pick.play()
+            withAnimation(reduceMotion ? nil : .snappy(duration: 0.2)) { action() }
+        } label: {
+            Image(systemName: symbol)
+                .font(.headline)
+                .frame(width: 48, height: 48)
+                .lifeBoardClaySurface(.well, cornerRadius: 24)
+        }
+        .buttonStyle(.plain)
+        .disabled(enabled == false)
+        .opacity(enabled ? 1 : 0.42)
+    }
+
+    private var ratingEditor: some View {
+        let lower = tracker.rangeMin ?? 1
+        let upper = max(lower + 1, tracker.rangeMax ?? 5)
+        return VStack(spacing: 14) {
+            Text(numericValue.formatted(.number.precision(.fractionLength(0...1))))
+                .font(LifeBoardFoundationTypography.hero().weight(.bold))
+                .contentTransition(.numericText())
+                .monospacedDigit()
+            Slider(value: $numericValue, in: lower...upper, step: 1)
+                .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+            HStack {
+                Text(lower.formatted())
+                Spacer()
+                Text(upper.formatted())
+            }
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+        }
+    }
+
+    private func choiceButton(_ choice: String) -> some View {
+        let selected = choiceValue == choice
+        return Button {
+            LifeBoardHaptic.pick.play()
+            withAnimation(LifeBoardMotionProfile.selection.animation(reduceMotion: reduceMotion)) {
+                choiceValue = choice
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Text(choice)
+                    .font(.subheadline.weight(.semibold))
+                    .multilineTextAlignment(.leading)
+                Spacer(minLength: 4)
+                if selected { Image(systemName: "checkmark.circle.fill") }
+            }
+            .padding(.horizontal, 12)
+            .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            .lifeBoardClaySurface(selected ? .raised : .well, cornerRadius: 16)
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
+    }
+
+    private func commit() {
+        guard let value = typedValue, isRunning == false else { return }
+        let trimmedNote = note.trimmingCharacters(in: .whitespacesAndNewlines)
+        commitPhase = .running(progress: nil)
+        Task {
+            if await onSave(value, trimmedNote.isEmpty ? nil : trimmedNote, timestampValue) {
+                commitPhase = .success(receipt: .init())
+                saveBloomTrigger += 1
+                LifeBoardHaptic.commit.play()
+                try? await Task.sleep(for: .milliseconds(reduceMotion ? 80 : 360))
+                dismiss()
+            } else {
+                commitPhase = .recoverableFailure(.init(
+                    message: "That value could not be recorded. Nothing you entered was lost.",
+                    recovery: .retry
+                ))
+                LifeBoardHaptic.fail.play()
+            }
         }
     }
 
@@ -2051,38 +2654,89 @@ private struct LifeBoardTrackerHistoryView: View {
     let entries: [LifeBoardTrackerEntryValue]
     let activeReceipt: (UUID) -> TrackCorrectionReceipt?
     let onUndo: (TrackCorrectionReceipt) async -> Void
-    let onCorrect: (LifeBoardTrackerEntryValue, TrackerValue, String?) async -> Void
+    let onCorrect: (LifeBoardTrackerEntryValue, TrackerValue, String?) async -> Bool
     @State private var correcting: LifeBoardTrackerEntryValue?
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         NavigationStack {
-            Group {
+            ZStack {
+                Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
                 if entries.isEmpty {
-                    ContentUnavailableView("No entries yet", systemImage: "chart.xyaxis.line")
+                    ContentUnavailableView {
+                        Label("A clear page", systemImage: "chart.xyaxis.line")
+                    } description: {
+                        Text("Your first recorded value will begin this history.")
+                    }
                 } else {
-                    List(entries.sorted(by: { $0.timestamp > $1.timestamp }).prefix(30)) { entry in
-                        Button { correcting = entry } label: {
+                    ScrollView {
+                        LazyVStack(spacing: 0) {
+                            historySummary
+                                .padding(.bottom, 24)
+
                             HStack {
-                                Text(value(entry))
+                                Text("Recent entries")
+                                    .font(LifeBoardFoundationTypography.sectionTitle())
                                 Spacer()
-                                Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
-                                    .font(.caption).foregroundStyle(.secondary)
+                                Text("Tap any entry to correct it")
+                                    .font(.caption)
+                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                             }
-                            .frame(minHeight: 44)
-                        }
-                        .swipeActions(edge: .leading, allowsFullSwipe: false) {
-                            if let receipt = activeReceipt(entry.id) {
-                                Button("Undo", systemImage: "arrow.uturn.backward") {
-                                    Task { await onUndo(receipt) }
+                            .padding(.bottom, 8)
+
+                            ForEach(sortedEntries.prefix(30)) { entry in
+                                HStack(spacing: 10) {
+                                    Button {
+                                        LifeBoardHaptic.pick.play()
+                                        correcting = entry
+                                    } label: {
+                                        ViewThatFits(in: .horizontal) {
+                                            HStack(alignment: .firstTextBaseline, spacing: 12) {
+                                                historyValue(entry)
+                                                Spacer(minLength: 8)
+                                                historyTimestamp(entry)
+                                            }
+                                            VStack(alignment: .leading, spacing: 4) {
+                                                historyValue(entry)
+                                                historyTimestamp(entry)
+                                            }
+                                        }
+                                        .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    Menu {
+                                        Button("Correct entry", systemImage: "pencil") {
+                                            correcting = entry
+                                        }
+                                        if let receipt = activeReceipt(entry.id) {
+                                            Button("Undo last correction", systemImage: "arrow.uturn.backward") {
+                                                Task { await onUndo(receipt) }
+                                            }
+                                        }
+                                    } label: {
+                                        Image(systemName: "ellipsis.circle")
+                                            .frame(width: 44, height: 44)
+                                    }
+                                    .accessibilityLabel("Actions for entry from \(entry.timestamp.formatted())")
                                 }
-                                .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                                .overlay(alignment: .bottom) {
+                                    Rectangle()
+                                        .fill(Color(LifeBoardColorTokens.foundationHairline))
+                                        .frame(height: 1)
+                                }
                             }
                         }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 14)
+                        .padding(.bottom, 40)
                     }
                 }
             }
             .navigationTitle(tracker.title)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
             .sheet(item: $correcting) { entry in
                 LifeBoardTrackerValueCaptureView(
@@ -2090,11 +2744,127 @@ private struct LifeBoardTrackerHistoryView: View {
                     entry: entry,
                     title: "Correct entry"
                 ) { value, note, _ in
-                    await onCorrect(entry, value, note)
-                    correcting = nil
+                    let succeeded = await onCorrect(entry, value, note)
+                    if succeeded { correcting = nil }
+                    return succeeded
                 }
             }
         }
+        .presentationCornerRadius(28)
+    }
+
+    private var sortedEntries: [LifeBoardTrackerEntryValue] {
+        entries.sorted { $0.timestamp > $1.timestamp }
+    }
+
+    private var historySummary: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("\(entries.count) \(entries.count == 1 ? "entry" : "entries")")
+                        .font(LifeBoardFoundationTypography.sectionTitle().weight(.bold))
+                        .contentTransition(.numericText())
+                    Text(lastRecordedDescription)
+                        .font(.caption)
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                }
+                Spacer()
+                Label(tracker.effectiveAggregation.displayName, systemImage: "function")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            }
+
+            if let magnitudes = recentMagnitudes, magnitudes.isEmpty == false {
+                if magnitudes.count == 1, let entry = sortedEntries.first {
+                    HStack(spacing: 10) {
+                        Circle()
+                            .fill(Color(LifeBoardColorTokens.foundationSageAccent))
+                            .frame(width: 9, height: 9)
+                        Text("First value")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        Spacer()
+                        Text(value(entry))
+                            .font(.body.weight(.semibold).monospacedDigit())
+                    }
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 52)
+                    .background(
+                        Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    )
+                } else {
+                    GeometryReader { proxy in
+                        let maximum = max(magnitudes.max() ?? 1, 1)
+                        HStack(alignment: .bottom, spacing: 6) {
+                            ForEach(Array(magnitudes.enumerated()), id: \.offset) { _, magnitude in
+                                Capsule()
+                                    .fill(Color(LifeBoardColorTokens.foundationSageAccent))
+                                    .frame(
+                                        maxWidth: .infinity,
+                                        minHeight: 6,
+                                        maxHeight: max(6, proxy.size.height * CGFloat(magnitude / maximum))
+                                    )
+                            }
+                        }
+                        .frame(maxHeight: .infinity, alignment: .bottom)
+                    }
+                    .frame(height: dynamicTypeSize.isAccessibilitySize ? 64 : 78)
+                    .lifeboardChartRevealSweep(progress: 1)
+                    .accessibilityHidden(true)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .lifeBoardClaySurface(.raised, cornerRadius: 20)
+        .privacySensitive(tracker.effectivePrivacyClass != .standard)
+        .accessibilityIdentifier("track.tracker.history.summary")
+    }
+
+    private var lastRecordedDescription: String {
+        guard let latest = sortedEntries.first else { return "No recorded values" }
+        return "Last recorded \(latest.timestamp.formatted(.relative(presentation: .named)))"
+    }
+
+    private var recentMagnitudes: [Double]? {
+        let values = sortedEntries.prefix(12).reversed().compactMap { magnitude($0) }
+        return values.isEmpty ? nil : values
+    }
+
+    private func magnitude(_ entry: LifeBoardTrackerEntryValue) -> Double? {
+        if let value = entry.value {
+            switch value {
+            case .boolean(let flag): return flag ? 1 : 0
+            case .count(let count): return Double(count)
+            case .quantity(let number, _), .rating(let number): return max(0, number)
+            case .duration(let seconds): return max(0, seconds)
+            case .text, .choice, .timestamp: return nil
+            }
+        }
+        if let number = entry.numericValue { return max(0, number) }
+        if let flag = entry.booleanValue { return flag ? 1 : 0 }
+        return nil
+    }
+
+    private func historyValue(_ entry: LifeBoardTrackerEntryValue) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(value(entry))
+                .font(.body.weight(.semibold))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            if let note = entry.note, note.isEmpty == false {
+                Text(note)
+                    .font(.caption)
+                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .lineLimit(2)
+            }
+        }
+    }
+
+    private func historyTimestamp(_ entry: LifeBoardTrackerEntryValue) -> some View {
+        Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
+            .font(.caption.monospacedDigit())
+            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
     }
 
     private func value(_ entry: LifeBoardTrackerEntryValue) -> String {
@@ -2179,114 +2949,80 @@ private struct LifeBoardMedicationComposer: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section("Medication") {
-                    TextField("Name", text: $name)
-                    TextField("Form (optional, for example tablet)", text: $form)
-                    TextField("Dose label (optional)", text: $dosage)
-                    TextField("Instructions (optional)", text: $instructions, axis: .vertical)
-                }
-                Section {
-                    Text("LifeBoard keeps an informational record only. It does not provide dose, interaction, diagnosis, or treatment advice.")
-                        .font(.caption)
-                }
-                Section("Active dates") {
-                    Toggle("Use a start date", isOn: $hasStartDate)
-                    if hasStartDate {
-                        DatePicker("Starts", selection: $startDate, displayedComponents: .date)
-                    }
-                    Toggle("Use an end date", isOn: $hasEndDate)
-                    if hasEndDate {
-                        DatePicker("Ends", selection: $endDate, displayedComponents: .date)
-                    }
-                }
-                Section("Refill information") {
-                    Toggle("Track refill count", isOn: $refillEnabled)
-                    if refillEnabled {
-                        TextField("Quantity after refill", value: $refillQuantity, format: .number)
-                            .keyboardType(.decimalPad)
-                        TextField("Remaining", value: $refillRemaining, format: .number)
-                            .keyboardType(.decimalPad)
-                        TextField("Inform me at or below", value: $refillThreshold, format: .number)
-                            .keyboardType(.decimalPad)
-                        Toggle("Record last refill date", isOn: $recordsLastRefill)
-                        if recordsLastRefill {
-                            DatePicker("Last refilled", selection: $lastRefilledAt, displayedComponents: .date)
-                        }
-                        Text("Refill tracking is opt-in and informational. LifeBoard does not tell you when or how to take medication.")
-                            .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                    }
-                }
-                Section("Schedule") {
-                    DatePicker("Window starts", selection: $windowStart, displayedComponents: .hourAndMinute)
-                    DatePicker("Window ends", selection: $windowEnd, displayedComponents: .hourAndMinute)
-                    HStack {
-                        ForEach(1...7, id: \.self) { weekday in
-                            Button {
-                                if weekdays.contains(weekday) { weekdays.remove(weekday) } else { weekdays.insert(weekday) }
-                            } label: {
-                                Text(Calendar.current.veryShortStandaloneWeekdaySymbols[weekday - 1])
-                                    .font(.caption.weight(.semibold))
-                                    .frame(maxWidth: .infinity, minHeight: 44)
-                                    .background(weekdays.contains(weekday) ? Color(LifeBoardColorTokens.foundationSurfaceSelected) : .clear, in: Capsule())
-                            }
-                            .buttonStyle(.plain)
-                            .contentShape(Rectangle())
-                            .accessibilityLabel(Calendar.current.weekdaySymbols[weekday - 1])
-                            .accessibilityAddTraits(weekdays.contains(weekday) ? .isSelected : [])
-                        }
-                    }
-                    Toggle("Reminder enabled", isOn: $reminderEnabled)
-                }
-            }
-            .lifeBoardFormSurface()
-            .navigationTitle(existing == nil ? "Add Medication" : "Edit Medication")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        let trimmedForm = form.trimmingCharacters(in: .whitespacesAndNewlines)
-                        let medication = LifeBoardMedicationDefinitionValue(
-                            id: existing?.id ?? UUID(),
-                            name: name,
-                            dosageText: dosage.isEmpty ? nil : dosage,
-                            instructions: instructions.isEmpty ? nil : instructions,
-                            healthCorrelationID: existing?.healthCorrelationID,
-                            isArchived: existing?.isArchived ?? false,
-                            createdAt: existing?.createdAt ?? Date(),
-                            updatedAt: Date(),
-                            formRaw: trimmedForm.isEmpty ? nil : trimmedForm,
-                            startDate: hasStartDate ? Calendar.current.startOfDay(for: startDate) : nil,
-                            endDate: hasEndDate ? Calendar.current.date(
-                                bySettingHour: 23,
-                                minute: 59,
-                                second: 59,
-                                of: endDate
-                            ) : nil,
-                            refillQuantity: refillEnabled ? refillQuantity : nil,
-                            refillRemaining: refillEnabled ? refillRemaining : nil,
-                            refillThreshold: refillEnabled ? refillThreshold : nil,
-                            lastRefilledAt: refillEnabled && recordsLastRefill ? lastRefilledAt : nil
-                        )
-                        let calendar = Calendar.current
-                        let startMinutes = calendar.component(.hour, from: windowStart) * 60 + calendar.component(.minute, from: windowStart)
-                        let endMinutes = calendar.component(.hour, from: windowEnd) * 60 + calendar.component(.minute, from: windowEnd)
-                        onSave(medication, .init(
-                            id: existingSchedule?.id ?? UUID(),
-                            medicationID: medication.id,
-                            windowStartMinutes: startMinutes,
-                            windowEndMinutes: endMinutes,
-                            weekdays: weekdays,
-                            reminderEnabled: reminderEnabled
-                        ))
-                        dismiss()
-                    }
-                    .disabled(isInvalid)
-                }
-            }
+        LifeBoardComposerScaffold(
+            title: existing == nil ? "Add Medication" : "Edit Medication",
+            subtitle: "An informational record you control.",
+            confirmTitle: "Save",
+            isConfirmEnabled: isInvalid == false,
+            isPrivacySensitive: true,
+            identifier: "track.medication.composer",
+            onConfirm: commit
+        ) {
+            MedicationIdentitySection(
+                name: $name,
+                form: $form,
+                dosage: $dosage,
+                instructions: $instructions
+            )
+            MedicationActiveDatesSection(
+                hasStartDate: $hasStartDate,
+                startDate: $startDate,
+                hasEndDate: $hasEndDate,
+                endDate: $endDate
+            )
+            MedicationRefillSection(
+                refillEnabled: $refillEnabled,
+                refillQuantity: $refillQuantity,
+                refillRemaining: $refillRemaining,
+                refillThreshold: $refillThreshold,
+                recordsLastRefill: $recordsLastRefill,
+                lastRefilledAt: $lastRefilledAt
+            )
+            MedicationScheduleSection(
+                windowStart: $windowStart,
+                windowEnd: $windowEnd,
+                weekdays: $weekdays,
+                reminderEnabled: $reminderEnabled
+            )
         }
+    }
+
+    private func commit() {
+        let trimmedForm = form.trimmingCharacters(in: .whitespacesAndNewlines)
+        let medication = LifeBoardMedicationDefinitionValue(
+            id: existing?.id ?? UUID(),
+            name: name,
+            dosageText: dosage.isEmpty ? nil : dosage,
+            instructions: instructions.isEmpty ? nil : instructions,
+            healthCorrelationID: existing?.healthCorrelationID,
+            isArchived: existing?.isArchived ?? false,
+            createdAt: existing?.createdAt ?? Date(),
+            updatedAt: Date(),
+            formRaw: trimmedForm.isEmpty ? nil : trimmedForm,
+            startDate: hasStartDate ? Calendar.current.startOfDay(for: startDate) : nil,
+            endDate: hasEndDate ? Calendar.current.date(
+                bySettingHour: 23,
+                minute: 59,
+                second: 59,
+                of: endDate
+            ) : nil,
+            refillQuantity: refillEnabled ? refillQuantity : nil,
+            refillRemaining: refillEnabled ? refillRemaining : nil,
+            refillThreshold: refillEnabled ? refillThreshold : nil,
+            lastRefilledAt: refillEnabled && recordsLastRefill ? lastRefilledAt : nil
+        )
+        let calendar = Calendar.current
+        let startMinutes = calendar.component(.hour, from: windowStart) * 60 + calendar.component(.minute, from: windowStart)
+        let endMinutes = calendar.component(.hour, from: windowEnd) * 60 + calendar.component(.minute, from: windowEnd)
+        onSave(medication, .init(
+            id: existingSchedule?.id ?? UUID(),
+            medicationID: medication.id,
+            windowStartMinutes: startMinutes,
+            windowEndMinutes: endMinutes,
+            weekdays: weekdays,
+            reminderEnabled: reminderEnabled
+        ))
+        dismiss()
     }
 
     private var isInvalid: Bool {
@@ -2303,6 +3039,142 @@ private struct LifeBoardMedicationComposer: View {
                     || refillThreshold < 0
                     || refillRemaining > refillQuantity
             ))
+    }
+}
+
+private struct MedicationIdentitySection: View {
+    @Binding var name: String
+    @Binding var form: String
+    @Binding var dosage: String
+    @Binding var instructions: String
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Medication",
+            footer: "LifeBoard keeps an informational record only. It does not provide dose, interaction, diagnosis, or treatment advice."
+        ) {
+            LifeBoardComposerField("Name", prompt: "What it is called", text: $name, identifier: "track.medication.name")
+            LifeBoardComposerField("Form", prompt: "Tablet, capsule, liquid…", text: $form)
+            LifeBoardComposerField("Dose label", prompt: "Optional", text: $dosage)
+            LifeBoardComposerField("Instructions", prompt: "Optional", text: $instructions, shape: .prose(lineLimit: 2...5))
+        }
+    }
+}
+
+private struct MedicationActiveDatesSection: View {
+    @Binding var hasStartDate: Bool
+    @Binding var startDate: Date
+    @Binding var hasEndDate: Bool
+    @Binding var endDate: Date
+
+    var body: some View {
+        LifeBoardComposerSection("Active dates") {
+            Toggle("Use a start date", isOn: $hasStartDate)
+                .toggleStyle(.lifeBoardClay)
+            if hasStartDate {
+                LifeBoardDateCapsuleRow("Starts", selection: $startDate, components: [.date])
+            }
+            Toggle("Use an end date", isOn: $hasEndDate)
+                .toggleStyle(.lifeBoardClay)
+            if hasEndDate {
+                LifeBoardDateCapsuleRow(
+                    "Ends",
+                    selection: $endDate,
+                    components: [.date],
+                    minimum: hasStartDate ? startDate : nil
+                )
+            }
+        }
+    }
+}
+
+private struct MedicationRefillSection: View {
+    @Binding var refillEnabled: Bool
+    @Binding var refillQuantity: Double
+    @Binding var refillRemaining: Double
+    @Binding var refillThreshold: Double
+    @Binding var recordsLastRefill: Bool
+    @Binding var lastRefilledAt: Date
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Refill information",
+            footer: refillEnabled
+                ? "Refill tracking is opt-in and informational. LifeBoard does not tell you when or how to take medication."
+                : nil
+        ) {
+            Toggle("Track refill count", isOn: $refillEnabled)
+                .toggleStyle(.lifeBoardClay)
+            if refillEnabled {
+                LifeBoardComposerNumberField("Quantity after refill", value: $refillQuantity)
+                LifeBoardComposerNumberField("Remaining", value: $refillRemaining)
+                LifeBoardComposerNumberField("Inform me at or below", value: $refillThreshold)
+                Toggle("Record last refill date", isOn: $recordsLastRefill)
+                    .toggleStyle(.lifeBoardClay)
+                if recordsLastRefill {
+                    LifeBoardDateCapsuleRow("Last refilled", selection: $lastRefilledAt, components: [.date])
+                }
+            }
+        }
+    }
+}
+
+private struct MedicationScheduleSection: View {
+    @Binding var windowStart: Date
+    @Binding var windowEnd: Date
+    @Binding var weekdays: Set<Int>
+    @Binding var reminderEnabled: Bool
+
+    var body: some View {
+        LifeBoardComposerSection("Schedule") {
+            LifeBoardDateCapsuleRow("Window starts", selection: $windowStart, components: [.time])
+            LifeBoardDateCapsuleRow("Window ends", selection: $windowEnd, components: [.time])
+            MedicationWeekdayRail(weekdays: $weekdays)
+            Toggle("Reminder enabled", isOn: $reminderEnabled)
+                .toggleStyle(.lifeBoardClay)
+        }
+    }
+}
+
+/// Weekdays as clay chips.
+///
+/// The previous row painted a bare `Capsule` behind selected days, so selection
+/// was carried by tint alone — invisible under Differentiate Without Colour.
+/// Clay depth carries it here instead.
+private struct MedicationWeekdayRail: View {
+    @Binding var weekdays: Set<Int>
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Days")
+                .font(.lifeboard(.meta))
+                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            HStack(spacing: 6) {
+                ForEach(1...7, id: \.self) { weekday in
+                    let isOn = weekdays.contains(weekday)
+                    Button {
+                        LifeBoardHaptic.pick.play()
+                        if isOn { weekdays.remove(weekday) } else { weekdays.insert(weekday) }
+                    } label: {
+                        Text(Calendar.current.veryShortStandaloneWeekdaySymbols[weekday - 1])
+                            .font(.lifeboard(isOn ? .bodyStrong : .body))
+                            .foregroundStyle(Color(isOn
+                                ? LifeBoardColorTokens.inkPrimary
+                                : LifeBoardColorTokens.inkSecondary))
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .lifeBoardClaySurface(
+                                isOn ? .raised : .well,
+                                cornerRadius: LifeBoardFoundationRadius.pill
+                            )
+                            .contentShape(Capsule())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(Calendar.current.weekdaySymbols[weekday - 1])
+                    .accessibilityAddTraits(isOn ? [.isButton, .isSelected] : .isButton)
+                }
+            }
+            .lifeBoardMotion(.selection, value: weekdays)
+        }
     }
 }
 
@@ -2386,29 +3258,42 @@ private struct LifeBoardMedicationCorrectionView: View {
     }
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Picker("Status", selection: $status) {
-                    ForEach(LifeBoardMedicationEventStatus.allCases, id: \.self) { value in
-                        Text(value.rawValue.capitalized).tag(value)
-                    }
+        LifeBoardComposerScaffold(
+            title: "Correct status",
+            subtitle: "Record what actually happened.",
+            confirmTitle: "Save",
+            identifier: "track.medication.correction",
+            onConfirm: {
+                Task {
+                    await onSave(status, scheduledAt, resolvedAt, note)
+                    dismiss()
                 }
-                DatePicker("Scheduled", selection: $scheduledAt)
-                if status != .scheduled && status != .unresolved { DatePicker("Resolved", selection: $resolvedAt) }
-                TextField("Correction note", text: $note, axis: .vertical)
             }
-            .lifeBoardFormSurface()
-            .navigationTitle("Correct status")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
-                        Task {
-                            await onSave(status, scheduledAt, resolvedAt, note)
-                            dismiss()
-                        }
-                    }
+        ) {
+            LifeBoardComposerSection("Status") {
+                LifeBoardOptionRail(
+                    "Status",
+                    selection: $status,
+                    values: LifeBoardMedicationEventStatus.allCases,
+                    identifierPrefix: "track.medication.status",
+                    title: { $0.rawValue.capitalized },
+                    showsLabel: false
+                )
+            }
+            LifeBoardComposerSection("Times") {
+                LifeBoardDateCapsuleRow("Scheduled", selection: $scheduledAt)
+                if status != .scheduled && status != .unresolved {
+                    LifeBoardDateCapsuleRow("Resolved", selection: $resolvedAt)
                 }
+            }
+            LifeBoardComposerSection("Note") {
+                LifeBoardComposerField(
+                    "Correction note",
+                    prompt: "Optional",
+                    text: $note,
+                    shape: .prose(lineLimit: 2...5),
+                    showsLabel: false
+                )
             }
         }
     }
@@ -2424,28 +3309,50 @@ struct LifeBoardFastingComposer: View {
     @State private var reminderEnabled = false
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Toggle("Use my own target", isOn: $usesTarget)
-                if usesTarget {
-                    Stepper("Target: \(Int(targetHours)) hours", value: $targetHours, in: 1...48)
-                    Toggle("Remind one hour before target", isOn: $reminderEnabled)
-                }
-                Text("LifeBoard provides a neutral timer only. It does not recommend a protocol or make metabolic claims.")
-                    .font(.caption)
+        LifeBoardComposerScaffold(
+            title: "Start fasting timer",
+            subtitle: "A neutral clock. Nothing is prescribed.",
+            confirmTitle: "Start",
+            identifier: "track.fasting.composer",
+            onConfirm: {
+                let target = usesTarget ? targetHours * 3_600 : nil
+                let reminders = usesTarget && reminderEnabled ? [max(0, targetHours * 3_600 - 3_600)] : []
+                onStart(target, reminders)
+                dismiss()
             }
-            .lifeBoardFormSurface()
-            .navigationTitle("Start fasting timer")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Start") {
-                        let target = usesTarget ? targetHours * 3_600 : nil
-                        let reminders = usesTarget && reminderEnabled ? [max(0, targetHours * 3_600 - 3_600)] : []
-                        onStart(target, reminders)
-                        dismiss()
-                    }
-                }
+        ) {
+            FastingTargetSection(
+                usesTarget: $usesTarget,
+                targetHours: $targetHours,
+                reminderEnabled: $reminderEnabled
+            )
+        }
+    }
+}
+
+private struct FastingTargetSection: View {
+    @Binding var usesTarget: Bool
+    @Binding var targetHours: Double
+    @Binding var reminderEnabled: Bool
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Target",
+            footer: "LifeBoard provides a neutral timer only. It does not recommend a protocol or make metabolic claims."
+        ) {
+            Toggle("Use my own target", isOn: $usesTarget)
+                .toggleStyle(.lifeBoardClay)
+            if usesTarget {
+                LifeBoardComposerDial(
+                    "Target",
+                    value: $targetHours,
+                    in: 1...48,
+                    step: 1,
+                    unit: "hours",
+                    diameter: 140
+                )
+                Toggle("Remind one hour before target", isOn: $reminderEnabled)
+                    .toggleStyle(.lifeBoardClay)
             }
         }
     }
@@ -3526,10 +4433,14 @@ struct LifeBoardJournalModuleView: View {
 
     private func journalSurface(palette: LifeBoardDaypartPalette) -> some View {
         VStack(spacing: 0) {
-            Picker("Journal section", selection: $store.section) {
-                ForEach(LifeBoardJournalStore.Section.allCases) { Text($0.rawValue).tag($0) }
-            }
-            .pickerStyle(.segmented)
+            LifeBoardLensPicker(
+                "Journal section",
+                selection: $store.section,
+                values: LifeBoardJournalStore.Section.allCases,
+                identifierPrefix: "journal.section",
+                title: \.rawValue,
+                identifier: \.rawValue
+            )
             .padding(.horizontal, 20)
             .padding(.vertical, 10)
 
@@ -3657,7 +4568,7 @@ struct LifeBoardJournalModuleView: View {
                                 Button("Remove", role: .destructive) {
                                     Task { await store.discardWatchRecoveryRecord(id: record.id) }
                                 }
-                                .buttonStyle(.bordered)
+                                .buttonStyle(.lifeBoardChip)
                             }
                             .controlSize(.small)
                         }
@@ -3934,7 +4845,7 @@ struct LifeBoardJournalModuleView: View {
                 }
                 if case .recoveryRequired = privacy.state {
                     Button("Privacy settings", systemImage: "gearshape") { showsPrivacy = true }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                         .accessibilityHint("Lets you disable Journal authentication after device authentication becomes unavailable")
                 }
             }
@@ -4005,14 +4916,14 @@ struct LifeBoardJournalModuleView: View {
             PhotosPicker(selection: $photoSelection, maxSelectionCount: 5, matching: .images) {
                 Label("Photo", systemImage: "photo").frame(maxWidth: .infinity, minHeight: 44)
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.lifeBoardChip)
             .tint(palette.color(for: .foreground))
         }
     }
 
     private func captureAction(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) { Label(title, systemImage: symbol).frame(maxWidth: .infinity, minHeight: 44) }
-            .buttonStyle(.bordered)
+            .buttonStyle(.lifeBoardChip)
     }
 
     private func library(palette: LifeBoardDaypartPalette) -> some View {
@@ -4258,7 +5169,7 @@ struct LifeBoardJournalModuleView: View {
                             Label("Sources", systemImage: "quote.bubble")
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
 
                         Button {
                             Task { await store.regenerateReflection(weekContaining: reflectionWeekDate) }
@@ -4279,7 +5190,7 @@ struct LifeBoardJournalModuleView: View {
                             Label(report.takeaway == nil ? "Add takeaway" : "Edit takeaway", systemImage: "bookmark")
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                         .disabled(store.selectedReflection == nil)
 
                         Menu {
@@ -4295,7 +5206,7 @@ struct LifeBoardJournalModuleView: View {
                             Label("Export", systemImage: "square.and.arrow.up")
                                 .frame(maxWidth: .infinity, minHeight: 44)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                         .disabled(store.selectedReflection == nil)
 
                         Menu {
@@ -4307,7 +5218,7 @@ struct LifeBoardJournalModuleView: View {
                             Image(systemName: "ellipsis")
                                 .frame(width: 44, height: 44)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                         .disabled(store.selectedReflection == nil)
                         .accessibilityLabel("More reflection actions")
                     }
@@ -4605,7 +5516,7 @@ private struct LifeBoardJournalPhotoEditor: View {
                     }
                     .frame(maxWidth: .infinity, minHeight: 44)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.lifeBoardChip)
             }
             .padding(20)
             .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
@@ -5198,54 +6109,77 @@ private struct JournalPrivacySettingsView: View {
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    Toggle("Require device authentication", isOn: Binding(
-                        get: { controller.policy.requiresAuthentication },
-                        set: { controller.updateAuthenticationRequirement($0) }
-                    ))
-                    Toggle("Hide Journal in the app switcher", isOn: $controller.policy.shieldsAppSwitcher)
-                } header: {
-                    Text("Access")
-                } footer: {
-                    Text("Authentication uses Face ID, Touch ID, or the device passcode. Cancelling always leaves Journal locked.")
-                }
+        LifeBoardComposerScaffold(
+            title: "Journal Privacy",
+            subtitle: "What leaves Journal, and what never does.",
+            cancelTitle: "Done",
+            titleDisplayMode: .inline,
+            isPrivacySensitive: true,
+            identifier: "journal.privacy"
+        ) {
+            JournalAccessSection(controller: controller)
+            JournalSharingSection(controller: controller)
+            JournalRecoverySection(onCreateBackup: onCreateBackup, onImportBackup: onImportBackup)
+        } commit: {
+            EmptyView()
+        }
+    }
+}
 
-                Section {
-                    Toggle("Exclude sensitive entries from ordinary exports", isOn: $controller.policy.excludesSensitiveEntriesFromExport)
-                    Toggle("Allow Journal evidence for Eva", isOn: $controller.policy.permitsJournalEvidenceForEva)
-                    // The Home journal card was hard-coded to a degraded state
-                    // with no way to grant consent anywhere in the app. This is
-                    // that switch.
-                    Toggle("Show Journal on Home", isOn: Binding(
-                        get: { JournalHomeConsentStore.isGranted },
-                        set: { JournalHomeConsentStore.isGranted = $0 }
-                    ))
-                    .accessibilityIdentifier("journal.privacy.homeConsent")
-                } header: {
-                    Text("Sharing")
-                } footer: {
-                    Text("Journal evidence is off by default. Enabling it permits eligible evidence references, not unrestricted entry access.")
-                }
+private struct JournalAccessSection: View {
+    @Bindable var controller: JournalPrivacyController
 
-                Section {
-                    Label("Semantic indexes remain protected and local-only, and are never included in ordinary exports.", systemImage: "internaldrive.fill")
-                        .font(.footnote)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                }
+    var body: some View {
+        LifeBoardComposerSection(
+            "Access",
+            footer: "Authentication uses Face ID, Touch ID, or the device passcode. Cancelling always leaves Journal locked."
+        ) {
+            Toggle("Require device authentication", isOn: Binding(
+                get: { controller.policy.requiresAuthentication },
+                set: { controller.updateAuthenticationRequirement($0) }
+            ))
+            .toggleStyle(.lifeBoardClay)
+            .accessibilityIdentifier("journal.privacy.lock")
+            Toggle("Hide Journal in the app switcher", isOn: $controller.policy.shieldsAppSwitcher)
+                .toggleStyle(.lifeBoardClay)
+        }
+    }
+}
 
-                Section("Encrypted recovery") {
-                    Button("Create encrypted backup", systemImage: "lock.doc") { onCreateBackup() }
-                    Button("Import encrypted backup", systemImage: "square.and.arrow.down") { onImportBackup() }
-                }
-            }
-            .lifeBoardFormSurface()
-            .navigationTitle("Journal Privacy")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
-            }
+private struct JournalSharingSection: View {
+    @Bindable var controller: JournalPrivacyController
+
+    var body: some View {
+        LifeBoardComposerSection(
+            "Sharing",
+            footer: "Journal evidence is off by default. Enabling it permits eligible evidence references, not unrestricted entry access. Semantic indexes remain protected and local-only, and are never included in ordinary exports."
+        ) {
+            Toggle("Exclude sensitive entries from ordinary exports", isOn: $controller.policy.excludesSensitiveEntriesFromExport)
+                .toggleStyle(.lifeBoardClay)
+            Toggle("Allow Journal evidence for Eva", isOn: $controller.policy.permitsJournalEvidenceForEva)
+                .toggleStyle(.lifeBoardClay)
+            // The Home journal card was hard-coded to a degraded state with no
+            // way to grant consent anywhere in the app. This is that switch.
+            Toggle("Show Journal on Home", isOn: Binding(
+                get: { JournalHomeConsentStore.isGranted },
+                set: { JournalHomeConsentStore.isGranted = $0 }
+            ))
+            .toggleStyle(.lifeBoardClay)
+            .accessibilityIdentifier("journal.privacy.homeConsent")
+        }
+    }
+}
+
+private struct JournalRecoverySection: View {
+    let onCreateBackup: () -> Void
+    let onImportBackup: () -> Void
+
+    var body: some View {
+        LifeBoardComposerSection("Encrypted recovery") {
+            Button("Create encrypted backup", systemImage: "lock.doc", action: onCreateBackup)
+                .buttonStyle(.lifeBoardPrimary)
+            Button("Import encrypted backup", systemImage: "square.and.arrow.down", action: onImportBackup)
+                .buttonStyle(.lifeBoardClay(.well, cornerRadius: LifeBoardFoundationRadius.pill))
         }
     }
 }
@@ -5308,7 +6242,7 @@ struct LifeBoardJournalAudioCapture: View {
                             Button(purpose == .search ? "Use text" : "Save text") { Task { await saveManualTranscription() } }
                                 .disabled(manualTranscription.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                         if purpose == .journal {
                             Button("Keep audio without text") { dismiss() }
                             Button("Discard recording", role: .destructive) { Task { await discardRecording() } }
@@ -5342,7 +6276,7 @@ struct LifeBoardJournalAudioCapture: View {
                 .buttonStyle(.borderedProminent)
                 if capturedURL != nil {
                     Button(purpose == .search ? "Search journal" : "Save audio") { Task { await save() } }
-                        .buttonStyle(.bordered)
+                        .buttonStyle(.lifeBoardChip)
                         .disabled(isTranscribing || didPersist)
                 }
                 Text(purpose == .search
