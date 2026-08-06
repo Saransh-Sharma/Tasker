@@ -794,12 +794,16 @@ struct LifeBoardAdaptiveHome: View {
 
     @State private var store: AdaptiveHomeStore
     @State private var lifeOSStore: HomeLifeOSProjectionStore
+    @State private var healthStore = LifeBoardHealthRuntime.shared.connectionStore
     @State private var selectedMood: LifeBoardJournalMood = .none
     @State private var moodEnergy: Int?
     @State private var showsMoodDial = false
     @State private var captureOrbState = CaptureOrbPresentationState()
     @State private var contextReasonCandidate: HomeContextCandidate?
     @State private var expandedTaskWidgetIDs: Set<UUID> = []
+    @State private var showsFastingError = false
+    @State private var showsFastEndReceipt = false
+    @State private var fastingStateChangeTrigger = 0
     /// Drives the one-shot daypart cross-dissolve. Incremented on a real
     /// daypart boundary or a manual override, never on a redraw.
     @State private var daypartTransitionTrigger = 0
@@ -816,7 +820,11 @@ struct LifeBoardAdaptiveHome: View {
     @State private var dayLoopCommittedToday = false
     @State private var composerText = ""
     @FocusState private var composerIsFocused: Bool
-    @AppStorage("lifeOS.home.sensitive_cards.enabled") private var permitsSensitiveHomeContent = false
+    /// In-app Home is already behind the device unlock, so a glanceable card
+    /// shows its real value here by default. Redaction is for surfaces that
+    /// render outside the unlocked app — widgets, Spotlight, notification
+    /// previews — and for Work mode, which is what gets screen-shared.
+    @AppStorage("lifeOS.home.sensitive_cards.enabled") private var permitsSensitiveHomeContent = true
     @AppStorage("lifeOS.home.dashboardDensity.v1") private var dashboardDensity: DashboardDensity = .balanced
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
@@ -937,6 +945,13 @@ struct LifeBoardAdaptiveHome: View {
                         palette: ambientPalette
                     )
                     signalRowWidget(palette: ambientPalette)
+                    if showsFastEndReceipt {
+                        fastingEndReceipt(palette: ambientPalette)
+                            .transition(.asymmetric(
+                                insertion: .scale(scale: 0.96, anchor: .top).combined(with: .opacity),
+                                removal: .opacity
+                            ))
+                    }
 
                     // Today's committed work sits directly under orientation.
                     // It previously fell through to "Your space" and rendered
@@ -1046,6 +1061,11 @@ struct LifeBoardAdaptiveHome: View {
         }
         .foregroundStyle(palette.color(for: .foreground))
         .toolbar(.hidden, for: .navigationBar)
+        .alert("Fasting needs attention", isPresented: $showsFastingError) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(lifeOSStore.fastingMutationError ?? "The timer could not be updated.")
+        }
         .task {
             await store.load()
             await lifeOSStore.load()
@@ -1055,6 +1075,14 @@ struct LifeBoardAdaptiveHome: View {
                 moodEnergy = latest.energy
             }
             refreshContextSelection(boundary: .appForeground)
+        }
+        .task {
+            let updates = await HealthSyncInvalidationHub.shared.updates()
+            for await _ in updates {
+                guard Task.isCancelled == false else { return }
+                await lifeOSStore.load()
+                refreshContextSelection(boundary: .trackerCommit)
+            }
         }
         .onChange(of: lifeOSStore.heroSnapshot?.id) { _, _ in refreshContextSelection(boundary: .taskMutation) }
         .onChange(of: projectionAdapter.snapshot) { _, _ in refreshContextSelection(boundary: .taskMutation) }
@@ -1069,7 +1097,17 @@ struct LifeBoardAdaptiveHome: View {
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             refreshContextSelection(boundary: .appForeground)
-            Task { await refreshDayLoopStage() }
+            Task {
+                await lifeOSStore.load()
+                await refreshDayLoopStage()
+            }
+        }
+        // A meal can be logged in Track while Home remains mounted. Refresh
+        // when the user returns so the fasting clock anchors to that meal
+        // immediately instead of waiting for a foreground transition.
+        .onChange(of: router.selectedDestination) { _, destination in
+            guard destination == .home else { return }
+            Task { await lifeOSStore.load() }
         }
         // Returning from the ritual pops back to Home without a scene-phase
         // change, so without this the row would keep offering a day that was
@@ -1272,15 +1310,24 @@ struct LifeBoardAdaptiveHome: View {
         return "\(count) need attention"
     }
 
+    /// - Parameter showsHeading: `false` when the loop spine is already titling
+    ///   this region. The spine's `.act` stage *is* "Now", so a heading here
+    ///   would name the same thing twice — the same reason `spineRepairBody`
+    ///   passes `header: nil` to its deck.
     @ViewBuilder
-    private func nowSection(palette: LifeBoardDaypartPalette) -> some View {
+    private func nowSection(
+        palette: LifeBoardDaypartPalette,
+        showsHeading: Bool = true
+    ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            homeSectionHeading(
-                "Now",
-                state: nowSectionState,
-                palette: palette,
-                usesInverseInk: atmosphereSnapshot.phase == .night
-            )
+            if showsHeading {
+                homeSectionHeading(
+                    "Now",
+                    state: nowSectionState,
+                    palette: palette,
+                    usesInverseInk: atmosphereSnapshot.phase == .night
+                )
+            }
             if store.contextSelection.candidates.isEmpty {
                 focusNowWidget(palette: palette)
             } else if let candidate = store.contextSelection.candidates.first {
@@ -1396,11 +1443,20 @@ struct LifeBoardAdaptiveHome: View {
 
             Button {
                 pinContextAfterAction(candidate)
-                router.select(candidate.destination)
+                if let route = candidate.route {
+                    // `navigate` rather than `select` + `push`: it lets the root
+                    // change finish before the typed leaf is appended, so a
+                    // just-popped empty path cannot be written over the new
+                    // route. Root selection alone never leaves a blank frame now
+                    // (`LifeBoardRootRetention`), but the ordering still matters.
+                    router.navigate(route, in: candidate.destination)
+                } else {
+                    router.select(candidate.destination)
+                }
                 UIImpactFeedbackGenerator(style: .soft).impactOccurred()
             } label: {
                 HStack {
-                    Text("Open \(candidate.destination.title)")
+                    Text(candidate.actionTitle)
                     Spacer()
                     Image(systemName: "arrow.up.right")
                 }
@@ -1408,6 +1464,9 @@ struct LifeBoardAdaptiveHome: View {
                 .frame(minHeight: 44)
             }
             .buttonStyle(.plain)
+            .lifeBoardTransitionSource(
+                candidate.route?.spatialTransitionID ?? "route.home.context.\(candidate.id)"
+            )
         }
         .padding(16)
         .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
@@ -2180,10 +2239,21 @@ struct LifeBoardAdaptiveHome: View {
     ) -> some View {
         let stage = dayLoopStage
         VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(spineTitle(for: stage))
                     .font(LifeBoardFoundationTypography.sectionTitle())
                     .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                // The count belongs to whichever heading survives. `.act` used
+                // to stack the spine's title above `nowSection`'s own, so the
+                // screen read "Now" twice and only the lower one carried the
+                // number. One row now, and it keeps the number.
+                if let state = spineState(for: stage) {
+                    Text(state)
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .monospacedDigit()
+                        .lineLimit(1)
+                }
                 Spacer(minLength: 8)
                 if let rhythm = dayLoopRhythmText {
                     Text(rhythm)
@@ -2209,7 +2279,7 @@ struct LifeBoardAdaptiveHome: View {
                 // The ritual is the stage body, not a row buried below one.
                 dayRitualEntry(palette: palette)
             case .act:
-                nowSection(palette: palette)
+                nowSection(palette: palette, showsHeading: false)
             case .repair:
                 spineRepairBody
             case .rest:
@@ -2223,6 +2293,14 @@ struct LifeBoardAdaptiveHome: View {
     private var dashboardSectionTitle: String {
         let base = V2FeatureFlags.homeLoopSpineV1Enabled ? "Your dashboard" : "Your space"
         return store.isCustomizing ? "\(base) · drag to arrange" : base
+    }
+
+    /// The count the stage's body would otherwise have titled for itself.
+    ///
+    /// Only `.act` has one: its body is `nowSection`, whose heading is
+    /// suppressed so the spine owns the single row.
+    private func spineState(for stage: DayLoopStage) -> String? {
+        stage == .act ? nowSectionState : nil
     }
 
     private func spineTitle(for stage: DayLoopStage) -> String {
@@ -2552,7 +2630,8 @@ struct LifeBoardAdaptiveHome: View {
 
     @ViewBuilder
     private func signalRowWidget(palette: LifeBoardDaypartPalette) -> some View {
-        let hydrationAmount = lifeOSStore.trackSnapshot?.hydrationAmountMilliliters
+        let hydrationAmount = healthStore.aggregates[.water]?.value
+            ?? lifeOSStore.trackSnapshot?.hydrationAmountMilliliters
         let hydrationTarget = lifeOSStore.trackSnapshot?.hydrationTargetMilliliters
         let hydrationProgress = hydrationAmount.flatMap { amount in
             hydrationTarget.flatMap { $0 > 0 ? min(1, amount / $0) : nil }
@@ -2566,58 +2645,301 @@ struct LifeBoardAdaptiveHome: View {
         } else {
             .available
         }
-        let slots = [
+        let steps = healthStore.aggregates[.steps]
+        let activeEnergy = healthStore.aggregates[.activeEnergy]
+        let candidates = [
             HomeSignalSlot(
                 id: "hydration", title: "Hydration",
                 valueText: hydrationAmount.map { "\(Int($0)) ml" }, progress: hydrationProgress,
                 systemImage: "drop.fill",
                 availability: hydrationAvailability
             ),
-            HomeSignalSlot(id: "steps", title: "Steps", systemImage: "figure.walk", availability: .permissionRequired),
-            HomeSignalSlot(id: "active", title: "Active", systemImage: "flame.fill", availability: .permissionRequired),
+            HomeSignalSlot(
+                id: "steps",
+                title: "Steps",
+                valueText: steps.map { $0.value.formatted(.number.precision(.fractionLength(0))) },
+                progress: steps.map { min(1, $0.value / 10_000) },
+                systemImage: "figure.walk",
+                availability: homeAvailability(for: .activity, value: steps)
+            ),
+            HomeSignalSlot(
+                id: "active",
+                title: "Active",
+                valueText: activeEnergy.map { "\(Int($0.value)) kcal" },
+                progress: activeEnergy.map { min(1, $0.value / 500) },
+                systemImage: "flame.fill",
+                availability: homeAvailability(for: .energy, value: activeEnergy)
+            ),
             HomeSignalSlot(
                 id: "fasting",
                 title: "Fasting",
-                valueText: lifeOSStore.activeFast.map { homeDuration($0.elapsed()) },
+                valueText: nil,
                 progress: lifeOSStore.activeFast.flatMap { fast in
                     fast.targetDuration.flatMap { $0 > 0 ? min(1, fast.elapsed() / $0) : nil }
                 },
                 systemImage: "timer",
-                availability: lifeOSStore.activeFast == nil ? .setupRequired : .available
+                availability: phaseIIRepository != nil ? .available : .unavailable
             )
         ]
+        // These are explicitly configured Home signals. The relevance budget
+        // still controls every other Home module, but silently dropping a
+        // configured timer makes its active state unreachable. Preserve all
+        // four and use ranking only to order the three Health facts.
+        let healthSlots = candidates
+            .filter { $0.id != "fasting" }
+            .sorted { signalRank($0) > signalRank($1) }
+        let slots = healthSlots + candidates.filter { $0.id == "fasting" }
         if dynamicTypeSize.isAccessibilitySize {
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
                 ForEach(slots) { slot in compactSignalRing(slot, palette: palette) }
             }
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home.signalRow")
         } else {
             HStack(spacing: 8) {
                 ForEach(slots) { slot in compactSignalRing(slot, palette: palette) }
             }
             .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .contain)
             .accessibilityIdentifier("home.signalRow")
         }
     }
 
-    private func compactSignalRing(_ slot: HomeSignalSlot, palette: LifeBoardDaypartPalette) -> some View {
-        Button {
-            if slot.id == "hydration" { captureRouter.request(kind: .hydration, source: .shell) }
-            else { router.select(.track) }
-        } label: {
-            LifeBoardMetricRing(
-                label: slot.title,
-                state: ringState(for: slot),
-                diameter: 58,
-                palette: palette,
-                liquidTint: liquidTint(for: slot, palette: palette)
-            )
-            .frame(maxWidth: .infinity, minHeight: 84)
-            .contentShape(Rectangle())
+    private func homeAvailability(
+        for domain: HealthDomain,
+        value: HealthAggregateValue?
+    ) -> HomeSignalState {
+        let signal = healthStore.statuses[domain]?.signal ?? .setupRequired
+        switch signal {
+        case .loading: return .loading
+        case .setupRequired: return .permissionRequired
+        case .stale, .partial: return value == nil ? .unavailable : .stale
+        case .unavailable, .protectedDataLocked, .offline, .writeDenied: return value == nil ? .unavailable : .stale
+        case .noRecord: return .setupRequired
+        case .explicitZero, .recorded: return value == nil ? .setupRequired : .available
         }
-        .buttonStyle(.plain)
-        .accessibilityLabel("\(slot.title), \(slot.valueText ?? accessibilityAvailability(slot.availability))")
-        .accessibilityIdentifier("home.signal.\(slot.id)")
+    }
+
+    private func signalRank(_ slot: HomeSignalSlot) -> Int {
+        let stateRank: Int = switch slot.availability {
+        case .available: 40
+        case .stale: 30
+        case .loading: 20
+        case .setupRequired, .permissionRequired: 10
+        case .unavailable: 0
+        }
+        let domainRank: Int = switch slot.id {
+        case "steps": 4
+        case "active": 3
+        case "hydration": 2
+        case "fasting": 1
+        default: 0
+        }
+        return stateRank + domainRank
+    }
+
+    @ViewBuilder
+    private func compactSignalRing(_ slot: HomeSignalSlot, palette: LifeBoardDaypartPalette) -> some View {
+        if slot.id == "fasting" {
+            fastingSignal(palette: palette)
+        } else {
+            Button {
+                if slot.id == "hydration" { captureRouter.request(kind: .hydration, source: .shell) }
+                else { router.select(.track) }
+            } label: {
+                LifeBoardMetricRing(
+                    label: slot.title,
+                    state: ringState(for: slot),
+                    diameter: 58,
+                    palette: palette,
+                    liquidTint: liquidTint(for: slot, palette: palette)
+                )
+                .frame(maxWidth: .infinity, minHeight: 100)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(slot.title), \(slot.valueText ?? accessibilityAvailability(slot.availability))")
+            .accessibilityIdentifier("home.signal.\(slot.id)")
+        }
+    }
+
+    private func fastingSignal(palette: LifeBoardDaypartPalette) -> some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let activeFast = lifeOSStore.activeFast
+            let mealAnchor = HomeFastingAnchorPolicy.recentMealAnchor(
+                latestMealAt: lifeOSStore.recentMealAt,
+                now: context.date
+            )
+            let openAnchor = mealAnchor ?? lifeOSStore.latestEndedFast?.endedAt
+            let elapsed = activeFast?.elapsed(at: context.date)
+                ?? openAnchor.map { max(0, context.date.timeIntervalSince($0)) }
+                ?? 0
+            let progress = activeFast?.targetDuration.flatMap { target in
+                target > 0 ? min(1, elapsed / target) : nil
+            } ?? 0
+            let isAvailable = phaseIIRepository != nil
+
+            Button {
+                guard isAvailable else {
+                    router.select(.track)
+                    return
+                }
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                if activeFast == nil {
+                    let startDate = HomeFastingAnchorPolicy.recentMealAnchor(
+                        latestMealAt: lifeOSStore.recentMealAt,
+                        now: Date()
+                    ) ?? Date()
+                    Task { await commitFastStart(at: startDate) }
+                } else {
+                    Task { await commitFastEnd() }
+                }
+            } label: {
+                VStack(spacing: 5) {
+                    ZStack {
+                        Circle()
+                            .fill(palette.color(for: .canvasSecondary).opacity(0.62))
+                        Circle()
+                            .stroke(
+                                palette.color(for: .foregroundSecondary).opacity(activeFast == nil ? 0.48 : 0.20),
+                                style: StrokeStyle(lineWidth: activeFast == nil ? 2.5 : 5, dash: activeFast == nil ? [3, 5] : [])
+                            )
+                        if activeFast != nil {
+                            Circle()
+                                .trim(from: 0, to: max(0.025, progress))
+                                .stroke(
+                                    Color(LifeBoardColorTokens.foundationSunAccent),
+                                    style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                                )
+                                .rotationEffect(.degrees(-90))
+                                .lifeboardFastingEmberRing(
+                                    progress: progress,
+                                    tint: Color(LifeBoardColorTokens.foundationSunAccent)
+                                )
+                        }
+                        VStack(spacing: 0) {
+                            Text(compactHours(elapsed))
+                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .monospacedDigit()
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.68)
+                                .contentTransition(.numericText())
+                            Text(activeFast != nil ? "fast" : (mealAnchor == nil ? "open" : "since meal"))
+                                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                                .foregroundStyle(palette.color(for: .foregroundSecondary))
+                        }
+                    }
+                    .frame(width: 58, height: 58)
+
+                    Text("Fasting")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                    Text(isAvailable ? (activeFast == nil ? (mealAnchor == nil ? "Start" : "Start from meal") : "End") : "Unavailable")
+                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.68)
+                        .foregroundStyle(
+                            isAvailable
+                                ? Color(LifeBoardColorTokens.inkPrimary)
+                                : palette.color(for: .foregroundSecondary)
+                        )
+                }
+                .frame(maxWidth: .infinity, minHeight: 100)
+                .contentShape(Rectangle())
+                .lifeboardClayPressBloom(
+                    center: .center,
+                    trigger: fastingStateChangeTrigger,
+                    tint: Color(LifeBoardColorTokens.foundationSunAccent)
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(activeFast == nil ? "Start fasting timer" : "End fasting timer")
+            .accessibilityValue(
+                activeFast == nil
+                    ? "Open window, \(spokenHours(elapsed))"
+                    : "Fasting, \(spokenHours(elapsed))"
+            )
+            .accessibilityHint(
+                activeFast == nil
+                    ? (mealAnchor == nil ? "Starts now" : "Starts from your latest meal with one tap")
+                    : "Saves the end time with one tap; an Undo appears below"
+            )
+            .accessibilityIdentifier("home.signal.fasting")
+        }
+    }
+
+    private func compactHours(_ interval: TimeInterval) -> String {
+        let totalMinutes = max(0, Int(interval / 60))
+        return "\(totalMinutes / 60)h \(totalMinutes % 60)m"
+    }
+
+    private func spokenHours(_ interval: TimeInterval) -> String {
+        let totalMinutes = max(0, Int(interval / 60))
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        return "\(hours) hours, \(minutes) minutes"
+    }
+
+    @MainActor
+    private func commitFastStart(at date: Date) async {
+        if await lifeOSStore.startFast(targetDuration: nil, at: date) {
+            showsFastEndReceipt = false
+            fastingStateChangeTrigger &+= 1
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } else {
+            showsFastingError = true
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
+    }
+
+    @MainActor
+    private func commitFastEnd() async {
+        if await lifeOSStore.endActiveFast() {
+            withAnimation(reduceMotion ? nil : .spring(duration: 0.38, bounce: 0.16)) {
+                showsFastEndReceipt = true
+            }
+            fastingStateChangeTrigger &+= 1
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } else {
+            showsFastingError = true
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
+    }
+
+    private func fastingEndReceipt(palette: LifeBoardDaypartPalette) -> some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Fast saved")
+                    .font(.subheadline.weight(.semibold))
+                Text("Your open-window clock is running.")
+                    .font(.caption)
+                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+            }
+            Spacer(minLength: 8)
+            Button("Undo") {
+                Task {
+                    if await lifeOSStore.undoLastFastEnd() {
+                        withAnimation(reduceMotion ? nil : .spring(duration: 0.34, bounce: 0.12)) {
+                            showsFastEndReceipt = false
+                        }
+                        fastingStateChangeTrigger &+= 1
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    } else {
+                        showsFastingError = true
+                    }
+                }
+            }
+            .font(.subheadline.weight(.semibold))
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 10)
+        .padding(.vertical, 8)
+        .lifeBoardClaySurface(.raised, cornerRadius: 16)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.fasting.receipt")
     }
 
     /// Water-like signals fill with liquid; movement signals keep the plain

@@ -1,6 +1,24 @@
 import Foundation
 import Observation
 
+enum HomeFastingAnchorPolicy {
+    static let recentMealWindow: TimeInterval = 24 * 60 * 60
+
+    /// A meal may transparently anchor a one-tap fast only while it is recent.
+    /// Future-dated records and older history deliberately fall back to a
+    /// manual start, so the signal never fabricates an extreme duration.
+    static func recentMealAnchor(
+        latestMealAt: Date?,
+        now: Date,
+        maximumAge: TimeInterval = recentMealWindow
+    ) -> Date? {
+        guard let latestMealAt else { return nil }
+        let age = now.timeIntervalSince(latestMealAt)
+        guard age >= 0, age <= maximumAge else { return nil }
+        return latestMealAt
+    }
+}
+
 struct HomeTaskAgendaProjection: Equatable, Sendable {
     let selectedDate: Date
     let overdueTasks: [PlanningTaskSummary]
@@ -82,6 +100,13 @@ final class HomeLifeOSProjectionStore {
     private(set) var focusResult: FocusRankResult?
     private(set) var latestMood: LifeBoardMoodEnergyCheckInValue?
     private(set) var activeFast: LifeBoardFastingSessionValue?
+    /// The most recently completed session anchors the open-window clock on
+    /// Home. Keeping this beside `activeFast` means the signal never reaches
+    /// into persistence from its TimelineView redraws.
+    private(set) var latestEndedFast: LifeBoardFastingSessionValue?
+    private(set) var recentMealAt: Date?
+    private(set) var fastingMutationError: String?
+    private var fastEndUndoSession: LifeBoardFastingSessionValue?
     private(set) var activeFocusSession: FocusSessionV2?
     /// Today's repair proposals, already stripped of the ones the person
     /// resolved. Home reads these rather than recomputing from `planSnapshot`:
@@ -103,6 +128,7 @@ final class HomeLifeOSProjectionStore {
     private let planStore: PlanStore?
     private let trackStore: TrackFoundationStore?
     private let phaseIIRepository: (any LifeBoardPhaseIIRepository)?
+    private let fastingTimerStore: FastingTimerStore?
     private let rankingService: any FocusRankingService
     private let wellnessRepository: (any WellnessRepository)?
     private let nutritionRepository: (any NutritionRepository)?
@@ -139,6 +165,9 @@ final class HomeLifeOSProjectionStore {
             trackStore = nil
         }
         self.phaseIIRepository = phaseIIRepository
+        fastingTimerStore = phaseIIRepository.map {
+            FastingTimerStore(repository: LifeBoardFastingRepositoryAdapter(repository: $0))
+        }
         self.wellnessRepository = wellnessRepository
         self.nutritionRepository = nutritionRepository
         self.lifeMomentRepository = lifeMomentRepository
@@ -206,8 +235,23 @@ final class HomeLifeOSProjectionStore {
                 .filter { $0.endedAt == nil }
                 .sorted { $0.startedAt > $1.startedAt }
                 .first
+            latestEndedFast = sessions
+                .filter { $0.endedAt != nil }
+                .sorted { ($0.endedAt ?? .distantPast) > ($1.endedAt ?? .distantPast) }
+                .first
         } else {
             activeFast = nil
+            latestEndedFast = nil
+        }
+        if let nutritionRepository {
+            let now = Date()
+            let oneDayAgo = now.addingTimeInterval(-HomeFastingAnchorPolicy.recentMealWindow)
+            recentMealAt = try? await nutritionRepository
+                .logs(from: oneDayAgo, to: now.addingTimeInterval(1))
+                .first?
+                .loggedAt
+        } else {
+            recentMealAt = nil
         }
         activeFocusSession = planStore?.activeFocusSession
         rebuildTaskAgenda()
@@ -292,11 +336,69 @@ final class HomeLifeOSProjectionStore {
         await load()
     }
 
-    func endActiveFast(at date: Date = Date()) async {
-        guard var activeFast, let phaseIIRepository else { return }
-        activeFast.endedAt = max(activeFast.startedAt, date)
-        try? await phaseIIRepository.saveFastingSession(activeFast)
-        await load()
+    @discardableResult
+    func startFast(
+        targetDuration: TimeInterval?,
+        reminderOffsets: [TimeInterval] = [],
+        at date: Date = Date()
+    ) async -> Bool {
+        guard let fastingTimerStore else {
+            fastingMutationError = "Fasting is unavailable right now."
+            return false
+        }
+        do {
+            _ = try await fastingTimerStore.start(
+                targetDuration: targetDuration,
+                reminderOffsets: reminderOffsets,
+                at: date
+            )
+            fastingMutationError = nil
+            await load()
+            return true
+        } catch {
+            fastingMutationError = error.localizedDescription
+            return false
+        }
+    }
+
+    @discardableResult
+    func endActiveFast(at date: Date = Date()) async -> Bool {
+        guard let fastingTimerStore else {
+            fastingMutationError = "Fasting is unavailable right now."
+            return false
+        }
+        do {
+            let undoSession = activeFast
+            _ = try await fastingTimerStore.finish(at: date)
+            fastEndUndoSession = undoSession
+            fastingMutationError = nil
+            await load()
+            return true
+        } catch {
+            fastingMutationError = error.localizedDescription
+            return false
+        }
+    }
+
+    @discardableResult
+    func undoLastFastEnd() async -> Bool {
+        guard let fastingTimerStore, let session = fastEndUndoSession else { return false }
+        do {
+            _ = try await fastingTimerStore.correct(
+                sessionID: session.id,
+                startedAt: session.startedAt,
+                endedAt: nil,
+                targetDuration: session.targetDuration,
+                note: session.note
+            )
+            fastEndUndoSession = nil
+            fastingMutationError = nil
+            await load()
+            return true
+        } catch {
+            fastingMutationError = error.localizedDescription
+            return false
+        }
     }
 
     /// Home renders only these display-ready projections. The provider registry
