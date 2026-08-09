@@ -1,5 +1,7 @@
 import Foundation
 import Combine
+import LifeBoardDomain
+import OSLog
 
 public enum CalendarAccessAction: Equatable {
     case requestPermission
@@ -211,6 +213,10 @@ public enum CalendarAccessDiagnostics {
 /// are allowed to arrive on arbitrary queues and hop to `MainActor` before mutating `snapshot`.
 @MainActor
 public final class CalendarIntegrationService: ObservableObject {
+    private static let logger = Logger(
+        subsystem: Bundle.main.bundleIdentifier ?? "com.lifeboard",
+        category: "CalendarIntegration"
+    )
     private struct DayProjectionKey: Hashable {
         let revision: UInt64
         let startOfDay: Date
@@ -224,7 +230,7 @@ public final class CalendarIntegrationService: ObservableObject {
 
     @Published public private(set) var snapshot: CalendarSnapshot
 
-    private let provider: CalendarEventsProviderProtocol?
+    private let provider: CalendarEventsRepositoryProtocol?
     private let workspacePreferencesStore: WorkspacePreferencesStore
     private let accessAttemptStore: CalendarAccessAttemptStore
     private let filterEvents = FilterCalendarEventsUseCase()
@@ -242,7 +248,7 @@ public final class CalendarIntegrationService: ObservableObject {
     private var cancellables: Set<AnyCancellable> = []
 
     public init(
-        provider: CalendarEventsProviderProtocol?,
+        provider: CalendarEventsRepositoryProtocol?,
         workspacePreferencesStore: WorkspacePreferencesStore = .shared,
         accessAttemptStore: CalendarAccessAttemptStore = UserDefaultsCalendarAccessAttemptStore.shared
     ) {
@@ -884,17 +890,12 @@ public final class CalendarIntegrationService: ObservableObject {
         fields: [String: String]
     ) {
         CalendarDiagnosticsStore.shared.record(
-            level: LogLevel.warning.label,
+            level: "WARN",
             event: event,
             message: message,
             fields: fields
         )
-        logWarning(
-            event: event,
-            message: message,
-            component: "CalendarIntegration",
-            fields: fields
-        )
+        Self.logger.warning("evt=\(event, privacy: .public) msg=\(message, privacy: .public) fields=\(Self.formattedLogFields(fields), privacy: .public)")
     }
 
     private func logCalendarInfo(
@@ -903,17 +904,18 @@ public final class CalendarIntegrationService: ObservableObject {
         fields: [String: String]
     ) {
         CalendarDiagnosticsStore.shared.record(
-            level: LogLevel.info.label,
+            level: "INFO",
             event: event,
             message: message,
             fields: fields
         )
-        logInfo(
-            event: event,
-            message: message,
-            component: "CalendarIntegration",
-            fields: fields
-        )
+        Self.logger.info("evt=\(event, privacy: .public) msg=\(message, privacy: .public) fields=\(Self.formattedLogFields(fields), privacy: .public)")
+    }
+
+    private static func formattedLogFields(_ fields: [String: String]) -> String {
+        fields.keys.sorted().map { key in
+            "\(key)=\(fields[key] ?? "")"
+        }.joined(separator: " ")
     }
 
     private func calendarDiagnosticFields(

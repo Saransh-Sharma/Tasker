@@ -1,7 +1,7 @@
 import Foundation
 import Combine
 
-public protocol CalendarEventsProviderProtocol: Sendable {
+public protocol CalendarEventsRepositoryProtocol: Sendable {
     func authorizationStatus() -> TaskerCalendarAuthorizationStatus
     func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void)
     func resetStoreStateAfterPermissionChange()
@@ -24,7 +24,7 @@ public protocol CalendarEventsProviderProtocol: Sendable {
     func storeChangedPublisher() -> AnyPublisher<Void, Never>
 }
 
-public extension CalendarEventsProviderProtocol {
+public extension CalendarEventsRepositoryProtocol {
     public func fetchEventSlices(
         startDate: Date,
         endDate: Date,

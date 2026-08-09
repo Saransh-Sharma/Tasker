@@ -24,7 +24,7 @@ struct EventKitCalendarChooserSheet: View {
         _selectedCalendarIDs = State(initialValue: Set(initialSelectedCalendarIDs))
     }
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     private var sections: [CalendarChooserSection] {
         CalendarPresentation.chooserSections(from: service.snapshot.availableCalendars)

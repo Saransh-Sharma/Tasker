@@ -1763,7 +1763,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         )
     }
 
-    private func makeCoordinator(provider: CalendarEventsProviderProtocol, seedTasks: [TaskDefinition] = []) -> UseCaseCoordinator {
+    private func makeCoordinator(provider: CalendarEventsRepositoryProtocol, seedTasks: [TaskDefinition] = []) -> UseCaseCoordinator {
         V3TestHarness.makeCoordinator(
             taskDefinitionRepository: InMemoryTaskDefinitionRepositoryStub(seed: seedTasks),
             taskReadModelRepository: InMemoryTaskReadModelRepositoryStub(tasks: seedTasks),

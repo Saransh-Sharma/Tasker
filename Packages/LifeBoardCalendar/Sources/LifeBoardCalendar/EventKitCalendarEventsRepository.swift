@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import LifeBoardDomain
 
 #if canImport(EventKit)
  @preconcurrency import EventKit
@@ -13,7 +14,7 @@ private final class EventKitEventStoreBox: @unchecked Sendable {
 }
 
 /// EventKit wrapper with all `EKEventStore` access confined to its worker queue or EventKit callbacks.
-public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtocol, @unchecked Sendable {
+public final class EventKitCalendarEventsRepository: CalendarEventsRepositoryProtocol, @unchecked Sendable {
     private let storeBox: EventKitEventStoreBox
     private let center: NotificationCenter
     private let workerQueue: DispatchQueue
@@ -280,7 +281,7 @@ public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtoco
     }
 }
 #else
-public final class EventKitCalendarEventsProvider: CalendarEventsProviderProtocol, @unchecked Sendable {
+public final class EventKitCalendarEventsRepository: CalendarEventsRepositoryProtocol, @unchecked Sendable {
     public init() {}
 
     public func authorizationStatus() -> TaskerCalendarAuthorizationStatus {

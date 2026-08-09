@@ -3,7 +3,7 @@ import Foundation
 import XCTest
 @testable import LifeBoard
 
-final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
+final class CalendarEventsProviderStub: CalendarEventsRepositoryProtocol {
     private struct State {
         var authorizationStatusValue: CalendarAuthorizationStatus = .authorized
         var authorizationStatusAfterAccess: CalendarAuthorizationStatus?

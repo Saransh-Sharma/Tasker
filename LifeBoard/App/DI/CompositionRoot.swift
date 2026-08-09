@@ -95,8 +95,8 @@ public final class CompositionRoot: @unchecked Sendable {
     var _habitLibraryViewModel: HabitLibraryViewModel?
     private(set) var schedulingEngine: SchedulingEngineProtocol?
     private(set) var notificationService: NotificationServiceProtocol?
-    private(set) var remindersProvider: AppleRemindersProviderProtocol?
-    private(set) var calendarEventsProvider: CalendarEventsProviderProtocol?
+    private(set) var remindersProvider: AppleRemindersRepositoryProtocol?
+    private(set) var calendarEventsProvider: CalendarEventsRepositoryProtocol?
     
     // MARK: - Initialization
     
@@ -250,7 +250,7 @@ public final class CompositionRoot: @unchecked Sendable {
             )
         }
         self.notificationService = LocalNotificationService()
-        self.remindersProvider = EventKitAppleRemindersProvider()
+        self.remindersProvider = EventKitAppleRemindersRepository()
         if let calendarMode = calendarUITestMode() {
             UserDefaultsCalendarAccessAttemptStore.shared.reset()
             if calendarMode == .deniedAfterAttempt {
@@ -264,10 +264,10 @@ public final class CompositionRoot: @unchecked Sendable {
                     )
                 )
             }
-            self.calendarEventsProvider = UITestCalendarEventsProvider(mode: calendarMode)
+            self.calendarEventsProvider = UITestCalendarEventsRepository(mode: calendarMode)
             applyCalendarUITestWorkspaceDefaults(mode: calendarMode)
         } else {
-            self.calendarEventsProvider = EventKitCalendarEventsProvider()
+            self.calendarEventsProvider = EventKitCalendarEventsRepository()
         }
 
         guard let lifeAreaRepository,

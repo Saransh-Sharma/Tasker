@@ -1,6 +1,7 @@
 import XCTest
 import Combine
 @testable import LifeBoard
+@testable import LifeBoardCalendar
 #if canImport(EventKit)
 import EventKit
 #endif
@@ -124,10 +125,10 @@ final class CalendarIntegrationServiceTests: XCTestCase {
     }
 
     func testEventTitleSanitizerUsesFallbackForNilAndBlankTitles() {
-        XCTAssertEqual(EventKitCalendarEventsProvider.sanitizedTitle(nil), "Untitled Event")
-        XCTAssertEqual(EventKitCalendarEventsProvider.sanitizedTitle(""), "Untitled Event")
-        XCTAssertEqual(EventKitCalendarEventsProvider.sanitizedTitle("   "), "Untitled Event")
-        XCTAssertEqual(EventKitCalendarEventsProvider.sanitizedTitle(" Focus Block "), "Focus Block")
+        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle(nil), "Untitled Event")
+        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle(""), "Untitled Event")
+        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle("   "), "Untitled Event")
+        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle(" Focus Block "), "Focus Block")
     }
 
     func testWorkspacePreferencesDefaultCanceledSettingIsFalse() {
@@ -303,9 +304,9 @@ final class CalendarIntegrationServiceTests: XCTestCase {
 
 #if canImport(EventKit)
     func testEventStatusMapperMapsCanceledStatusSeparatelyFromParticipationStatus() {
-        XCTAssertEqual(EventKitCalendarEventsProvider.eventStatus(for: .canceled), .canceled)
-        XCTAssertEqual(EventKitCalendarEventsProvider.eventStatus(for: .confirmed), .unknown)
-        XCTAssertEqual(EventKitCalendarEventsProvider.eventStatus(for: .tentative), .unknown)
+        XCTAssertEqual(EventKitCalendarEventsRepository.eventStatus(for: .canceled), .canceled)
+        XCTAssertEqual(EventKitCalendarEventsRepository.eventStatus(for: .confirmed), .unknown)
+        XCTAssertEqual(EventKitCalendarEventsRepository.eventStatus(for: .tentative), .unknown)
     }
 #endif
 
@@ -1089,7 +1090,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
     }
 }
 
-private final class CalendarEventsProviderRaceStub: CalendarEventsProviderProtocol, @unchecked Sendable {
+private final class CalendarEventsProviderRaceStub: CalendarEventsRepositoryProtocol, @unchecked Sendable {
     var authorizationStatusValue: CalendarAuthorizationStatus = .authorized
     var calendars: [CalendarSourceSnapshot] = []
     private var calendarCompletions: [(Result<[CalendarSourceSnapshot], Error>) -> Void] = []

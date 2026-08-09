@@ -74,8 +74,8 @@ public final class UseCaseCoordinator: @unchecked Sendable {
         public let gamificationRepository: GamificationRepositoryProtocol
         public let assistantActionRepository: AssistantActionRepositoryProtocol
         public let externalSyncRepository: ExternalSyncRepositoryProtocol
-        public let remindersProvider: AppleRemindersProviderProtocol?
-        public let calendarEventsProvider: CalendarEventsProviderProtocol?
+        public let remindersProvider: AppleRemindersRepositoryProtocol?
+        public let calendarEventsProvider: CalendarEventsRepositoryProtocol?
         public let workspacePreferencesStore: WorkspacePreferencesStore
 
         /// Initializes a new instance.
@@ -103,8 +103,8 @@ public final class UseCaseCoordinator: @unchecked Sendable {
             gamificationRepository: GamificationRepositoryProtocol,
             assistantActionRepository: AssistantActionRepositoryProtocol,
             externalSyncRepository: ExternalSyncRepositoryProtocol,
-            remindersProvider: AppleRemindersProviderProtocol? = nil,
-            calendarEventsProvider: CalendarEventsProviderProtocol? = nil,
+            remindersProvider: AppleRemindersRepositoryProtocol? = nil,
+            calendarEventsProvider: CalendarEventsRepositoryProtocol? = nil,
             workspacePreferencesStore: WorkspacePreferencesStore = .shared
         ) {
             self.projectRepository = projectRepository

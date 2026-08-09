@@ -55,7 +55,7 @@ public struct AppleReminderListSnapshot: Codable, Equatable, Hashable, Sendable 
     }
 }
 
-public protocol AppleRemindersProviderProtocol: Sendable {
+public protocol AppleRemindersRepositoryProtocol: Sendable {
     /// Executes requestAccess.
     func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void)
     /// Executes fetchLists.

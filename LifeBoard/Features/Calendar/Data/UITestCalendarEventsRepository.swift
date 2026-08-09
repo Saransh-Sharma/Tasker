@@ -5,7 +5,7 @@ import CoreData
 // The scripted calendar used by UI tests. It lived inside the dependency
 // container purely because that is where it was first needed; it is a
 // calendar provider, not composition.
-final class UITestCalendarEventsProvider: CalendarEventsProviderProtocol, @unchecked Sendable {
+final class UITestCalendarEventsRepository: CalendarEventsRepositoryProtocol, @unchecked Sendable {
     private let mode: UITestCalendarMode
     private let storeChangedSubject = PassthroughSubject<Void, Never>()
     private var authStatus: CalendarAuthorizationStatus

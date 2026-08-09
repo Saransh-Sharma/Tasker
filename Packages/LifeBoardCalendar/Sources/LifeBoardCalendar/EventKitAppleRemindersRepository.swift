@@ -1,4 +1,5 @@
 import Foundation
+import LifeBoardDomain
 
 #if canImport(EventKit)
 @preconcurrency import EventKit
@@ -12,7 +13,7 @@ private final class EventKitReminderStoreBox: @unchecked Sendable {
 }
 
 /// EventKit reminders wrapper; `EKEventStore` access is confined to the worker queue or EventKit callbacks.
-public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtocol, @unchecked Sendable {
+public final class EventKitAppleRemindersRepository: AppleRemindersRepositoryProtocol, @unchecked Sendable {
     private let storeBox: EventKitReminderStoreBox
     private let workerQueue: DispatchQueue
     private let mergeEngine = ReminderMergeService()
@@ -227,7 +228,7 @@ public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtoco
     }
 }
 #else
-public final class EventKitAppleRemindersProvider: AppleRemindersProviderProtocol, @unchecked Sendable {
+public final class EventKitAppleRemindersRepository: AppleRemindersRepositoryProtocol, @unchecked Sendable {
     /// Initializes a new instance.
     public init() {}
 

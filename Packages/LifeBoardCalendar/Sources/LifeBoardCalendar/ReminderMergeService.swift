@@ -1,4 +1,5 @@
 import Foundation
+import LifeBoardDomain
 
 public final class ReminderMergeService: Sendable {
     public enum TombstoneDecision: Equatable, Sendable {
