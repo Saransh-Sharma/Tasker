@@ -2,4 +2,5 @@
 // keeps existing App-tier composition call sites source-compatible while the
 // implementations compile only in their owning modules.
 @_exported import LifeBoardCalendar
+@_exported import LifeBoardDomain
 @_exported import LifeBoardPersistence
