@@ -1,15 +1,15 @@
 import SwiftUI
-
+import LifeBoardTokens
 /// The four ways a card can leave the hand.
 ///
 /// Declaration order is slot order: a surface offering fewer actions than the
 /// deck has directions fills right, left, up, down and leaves the rest inert
 /// rather than doubling anything up.
-public enum LifeBoardDeckDirection: CaseIterable, Hashable, Sendable {
+public enum DeckDirection: CaseIterable, Hashable, Sendable {
     case right, left, up, down
 
     /// Where a committed card leaves the screen.
-    public func exitOffset(distance: CGFloat = LifeBoardDeckPhysics.exitDistance) -> CGSize {
+    public func exitOffset(distance: CGFloat = DeckPhysics.exitDistance) -> CGSize {
         switch self {
         case .right: CGSize(width: distance, height: 0)
         case .left: CGSize(width: -distance, height: 0)
@@ -28,7 +28,7 @@ public enum LifeBoardDeckDirection: CaseIterable, Hashable, Sendable {
 /// A flick has to commit to an axis. Diagonals resolve to nothing rather than
 /// guessing, because picking wrong here mutates the user's plan or files their
 /// capture somewhere they did not choose.
-public enum LifeBoardDeckPhysics {
+public enum DeckPhysics {
     public static let threshold: CGFloat = 96
     public static let minimumIntent: CGFloat = 24
     /// How far the dominant axis must beat the other before the flick counts as
@@ -39,7 +39,7 @@ public enum LifeBoardDeckPhysics {
     public static func direction(
         translation: CGSize,
         predictedEndTranslation: CGSize
-    ) -> LifeBoardDeckDirection? {
+    ) -> DeckDirection? {
         guard max(abs(translation.width), abs(translation.height)) >= minimumIntent else { return nil }
         let dx = predictedEndTranslation.width
         let dy = predictedEndTranslation.height
@@ -61,10 +61,10 @@ public enum LifeBoardDeckPhysics {
     /// Inbox's triage decisions share one implementation without this layer
     /// importing either domain.
     public static func action<Action>(
-        for direction: LifeBoardDeckDirection,
+        for direction: DeckDirection,
         candidates: [Action]
     ) -> Action? {
-        guard let slot = LifeBoardDeckDirection.allCases.firstIndex(of: direction),
+        guard let slot = DeckDirection.allCases.firstIndex(of: direction),
               slot < candidates.count else { return nil }
         return candidates[slot]
     }
@@ -99,16 +99,16 @@ public enum LifeBoardDeckPhysics {
 /// Accessibility contract: the deck contributes a named VoiceOver action per
 /// available direction, and callers are still expected to render visible button
 /// equivalents — the gesture is an accelerator, never the only path.
-public struct LifeBoardDirectionalDeck<Item: Identifiable, Action, Card: View>: View {
+public struct DirectionalDeck<Item: Identifiable, Action, LifeBoardCard: View>: View {
     private let items: [Item]
     private let candidates: (Item) -> [Action]
     private let actionLabel: (Action) -> String
     private let onCommit: (Item, Action) -> Void
-    private let card: (Item, LifeBoardDeckDirection?) -> Card
+    private let card: (Item, DeckDirection?) -> LifeBoardCard
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dragTranslation: CGSize = .zero
-    @State private var armedDirection: LifeBoardDeckDirection?
+    @State private var armedDirection: DeckDirection?
     @State private var exitOffset: CGSize = .zero
     @State private var committingID: Item.ID?
 
@@ -117,7 +117,7 @@ public struct LifeBoardDirectionalDeck<Item: Identifiable, Action, Card: View>: 
         candidates: @escaping (Item) -> [Action],
         actionLabel: @escaping (Action) -> String,
         onCommit: @escaping (Item, Action) -> Void,
-        @ViewBuilder card: @escaping (Item, LifeBoardDeckDirection?) -> Card
+        @ViewBuilder card: @escaping (Item, DeckDirection?) -> LifeBoardCard
     ) {
         self.items = items
         self.candidates = candidates
@@ -170,7 +170,7 @@ public struct LifeBoardDirectionalDeck<Item: Identifiable, Action, Card: View>: 
     /// gesture rather than decoration, but the tilt and the throw are dropped.
     private var liveTilt: Double {
         guard reduceMotion == false else { return 0 }
-        return LifeBoardDeckPhysics.tiltDegrees(for: dragTranslation)
+        return DeckPhysics.tiltDegrees(for: dragTranslation)
     }
 
     private var liveOffset: CGSize {
@@ -178,10 +178,10 @@ public struct LifeBoardDirectionalDeck<Item: Identifiable, Action, Card: View>: 
         return dragTranslation
     }
 
-    private func availablePairs(for item: Item) -> [(LifeBoardDeckDirection, Action)] {
+    private func availablePairs(for item: Item) -> [(DeckDirection, Action)] {
         let available = candidates(item)
-        return LifeBoardDeckDirection.allCases.compactMap { direction in
-            LifeBoardDeckPhysics.action(for: direction, candidates: available)
+        return DeckDirection.allCases.compactMap { direction in
+            DeckPhysics.action(for: direction, candidates: available)
                 .map { (direction, $0) }
         }
     }
@@ -190,12 +190,12 @@ public struct LifeBoardDirectionalDeck<Item: Identifiable, Action, Card: View>: 
         DragGesture(minimumDistance: 12)
             .onChanged { value in
                 dragTranslation = value.translation
-                let resolved = LifeBoardDeckPhysics.direction(
+                let resolved = DeckPhysics.direction(
                     translation: value.translation,
                     predictedEndTranslation: value.predictedEndTranslation
                 )
                 let reachable = resolved.flatMap { direction in
-                    LifeBoardDeckPhysics.action(for: direction, candidates: candidates(item))
+                    DeckPhysics.action(for: direction, candidates: candidates(item))
                         .map { _ in direction }
                 }
                 if reachable != armedDirection {
@@ -207,17 +207,17 @@ public struct LifeBoardDirectionalDeck<Item: Identifiable, Action, Card: View>: 
                 }
             }
             .onEnded { value in
-                let resolved = LifeBoardDeckPhysics.direction(
+                let resolved = DeckPhysics.direction(
                     translation: value.translation,
                     predictedEndTranslation: value.predictedEndTranslation
                 )
                 guard let direction = resolved,
-                      let action = LifeBoardDeckPhysics.action(
+                      let action = DeckPhysics.action(
                           for: direction,
                           candidates: candidates(item)
                       ) else {
                     armedDirection = nil
-                    withAnimation(LifeBoardMotionProfile.directManipulation.animation(reduceMotion: reduceMotion)) {
+                    withAnimation(MotionProfile.directManipulation.animation(reduceMotion: reduceMotion)) {
                         dragTranslation = .zero
                     }
                     return
@@ -229,7 +229,7 @@ public struct LifeBoardDirectionalDeck<Item: Identifiable, Action, Card: View>: 
     /// Throws the card out along its committed direction, then applies the
     /// mutation on the animation's real completion rather than a guessed delay,
     /// so a slower device cannot commit against a card still on screen.
-    private func commit(item: Item, action: Action, direction: LifeBoardDeckDirection?) {
+    private func commit(item: Item, action: Action, direction: DeckDirection?) {
         armedDirection = nil
         guard let direction, reduceMotion == false else {
             dragTranslation = .zero
@@ -238,7 +238,7 @@ public struct LifeBoardDirectionalDeck<Item: Identifiable, Action, Card: View>: 
         }
         committingID = item.id
         withAnimation(
-            LifeBoardMotionProfile.directManipulation.animation(reduceMotion: reduceMotion)
+            MotionProfile.directManipulation.animation(reduceMotion: reduceMotion)
         ) {
             exitOffset = direction.exitOffset()
         } completion: {
@@ -255,7 +255,7 @@ public struct LifeBoardDirectionalDeck<Item: Identifiable, Action, Card: View>: 
 /// Split into its own modifier because `accessibilityAction(named:)` cannot be
 /// applied from a loop inside a `ViewBuilder` without collapsing the element.
 private struct DeckVoiceOverActions<Action>: ViewModifier {
-    let pairs: [(LifeBoardDeckDirection, Action)]
+    let pairs: [(DeckDirection, Action)]
     let label: (Action) -> String
     let perform: (Action) -> Void
 

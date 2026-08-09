@@ -1,5 +1,5 @@
 import SwiftUI
-
+import LifeBoardTokens
 /// Angle and value math for an arc-shaped dial.
 ///
 /// Kept apart from the view because everything that can be wrong here is
@@ -10,7 +10,7 @@ import SwiftUI
 ///
 /// Angles are measured clockwise from twelve o'clock, in degrees, so they read
 /// the way the control looks rather than the way trigonometry prefers.
-public enum LifeBoardArcDialGeometry {
+public enum ArcDialGeometry {
     /// Where the track begins. Down-left, leaving the gap at the bottom where a
     /// gripping hand already covers the control.
     public static let startAngle: Double = 225
@@ -101,7 +101,7 @@ private extension Double {
 /// tick as they pass, and the arc fills behind. The whole control is one
 /// adjustable accessibility element, so VoiceOver gets the same detents the
 /// finger does.
-public struct LifeBoardArcDial: View {
+public struct ArcDial: View {
     private let title: String
     private let range: ClosedRange<Double>
     private let step: Double
@@ -126,7 +126,7 @@ public struct LifeBoardArcDial: View {
     }
 
     private var progress: Double {
-        LifeBoardArcDialGeometry.progress(forValue: value, range: range)
+        ArcDialGeometry.progress(forValue: value, range: range)
     }
 
     public var body: some View {
@@ -145,7 +145,7 @@ public struct LifeBoardArcDial: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { drag in
                         apply(
-                            LifeBoardArcDialGeometry.progress(at: drag.location, center: center)
+                            ArcDialGeometry.progress(at: drag.location, center: center)
                         )
                     }
                     .onEnded { _ in lastDetent = nil }
@@ -161,7 +161,7 @@ public struct LifeBoardArcDial: View {
     }
 
     private func apply(_ rawProgress: Double) {
-        let next = LifeBoardArcDialGeometry.value(
+        let next = ArcDialGeometry.value(
             forProgress: rawProgress, range: range, step: step
         )
         guard next != value else { return }
@@ -169,7 +169,7 @@ public struct LifeBoardArcDial: View {
         // One tick per detent crossed, not per touch sample.
         if lastDetent != next {
             lastDetent = next
-            LifeBoardHaptic.pick.play()
+            Haptic.pick.play()
         }
     }
 
@@ -190,12 +190,12 @@ public struct LifeBoardArcDial: View {
             .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: progress)
     }
 
-    private func arcShape(to end: Double) -> LifeBoardArcDialTrack {
-        LifeBoardArcDialTrack(progress: end)
+    private func arcShape(to end: Double) -> ArcDialTrack {
+        ArcDialTrack(progress: end)
     }
 
     private func knob(side: CGFloat) -> some View {
-        let angle = Angle(degrees: LifeBoardArcDialGeometry.angle(forProgress: progress) - 90)
+        let angle = Angle(degrees: ArcDialGeometry.angle(forProgress: progress) - 90)
         let radius = side / 2 - side * 0.05
         return Circle()
             .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
@@ -219,7 +219,7 @@ public struct LifeBoardArcDial: View {
 
 /// The dial's arc, drawn from the shared geometry so the track, the fill and the
 /// knob cannot drift apart.
-public struct LifeBoardArcDialTrack: Shape {
+public struct ArcDialTrack: Shape {
     public var progress: Double
 
     public init(progress: Double) {
@@ -238,8 +238,8 @@ public struct LifeBoardArcDialTrack: Shape {
             center: CGPoint(x: rect.midX, y: rect.midY),
             radius: radius,
             // Shift by 90° because Path measures from east, the geometry from north.
-            startAngle: .degrees(LifeBoardArcDialGeometry.startAngle - 90),
-            endAngle: .degrees(LifeBoardArcDialGeometry.angle(forProgress: progress) - 90),
+            startAngle: .degrees(ArcDialGeometry.startAngle - 90),
+            endAngle: .degrees(ArcDialGeometry.angle(forProgress: progress) - 90),
             clockwise: false
         )
         return path

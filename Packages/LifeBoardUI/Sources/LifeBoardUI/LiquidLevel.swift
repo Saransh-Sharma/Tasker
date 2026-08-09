@@ -9,7 +9,7 @@
 //  level approaches empty or full, and the sample step is resolution-aware.
 
 import SwiftUI
-
+import LifeBoardTokens
 /// A liquid surface that can be masked into any shape to show a fill level.
 ///
 /// Built for the day ring, where it shows how much of the evening's reconciliation
@@ -19,7 +19,7 @@ import SwiftUI
 /// Both `phase` and `level` animate. `phase` alone would ripple forever, which the
 /// design law forbids — so callers advance `phase` **once per level change** and let
 /// it come to rest. The ripple is the splash of the level moving, not a loop.
-struct LifeBoardLiquidLevel: Shape {
+struct LiquidLevel: Shape {
     /// Horizontal phase of the surface, in wavelengths. Advancing it slides the crests.
     var phase: CGFloat
     /// 0 = empty, 1 = full.
@@ -75,26 +75,6 @@ struct LifeBoardLiquidLevel: Shape {
     }
 }
 
-/// Shared identifiers for the zoom transition into the day-loop rituals.
-///
-/// Named in one place because the source lives on Home and the destination
-/// lives in the shell's route switch — two files that otherwise share nothing.
-/// A typo in either would silently fall back to a plain push, which looks like
-/// "the animation didn't work" rather than "the ids don't match".
-public enum LifeBoardDayLoopTransition {
-    public static let close = "route.dayClose"
-    public static let open = "route.dayOpen"
-
-    /// Resolves the id for a ritual route. Any other route gets the close id
-    /// rather than crashing — a wrong-but-harmless transition beats a trap.
-    public static func id(for route: AppRoute) -> String {
-        switch route {
-        case .dayOpen: open
-        default: close
-        }
-    }
-}
-
 /// A vertical thread linking the acts of a ritual, filled to the act you have
 /// reached.
 ///
@@ -103,7 +83,7 @@ public enum LifeBoardDayLoopTransition {
 /// taps. But a scroll with no sense of extent gives you no way to judge whether
 /// to start now or later. A thread answers that without ever telling you which
 /// act you are supposed to be in.
-public struct LifeBoardActThread: Shape {
+public struct ActThread: Shape {
     /// 0 = nothing settled, 1 = every act complete.
     public var progress: Double
 
@@ -132,7 +112,7 @@ public struct LifeBoardActThread: Shape {
 /// Knots appear at every act, but only settled acts take on the warm clay fill
 /// and lift. They are deliberately decorative and hidden from accessibility;
 /// the acts themselves carry the state and labels.
-public struct LifeBoardActThreadKnots: View {
+public struct ActThreadKnots: View {
     public var progress: Double
     public var count: Int
 

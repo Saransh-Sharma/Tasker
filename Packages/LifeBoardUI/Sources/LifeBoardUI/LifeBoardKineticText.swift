@@ -1,5 +1,5 @@
 import SwiftUI
-
+import LifeBoardTokens
 // MARK: - Kinetic text
 //
 // Per-glyph proximity response. Interaction concept adapted from Shubham Kumar
@@ -26,20 +26,25 @@ import SwiftUI
 /// `intensity` is the animatable channel: it rises when the finger lands and
 /// settles back to zero on release, so the effect eases in and out instead of
 /// snapping.
-struct LifeBoardKineticTextRenderer: TextRenderer, Animatable {
+public struct KineticTextRenderer: TextRenderer, Animatable {
     /// Horizontal touch position in the text's own coordinate space, or `nil`
     /// when nothing is touching it.
-    var touchX: CGFloat?
+    public var touchX: CGFloat?
     /// 0 at rest, 1 fully engaged.
-    var intensity: Double
+    public var intensity: Double
 
     /// The furthest a glyph may travel. Small on purpose: this is a greeting,
     /// not a toy, and it has to stay legible mid-gesture.
-    static let maximumRise: CGFloat = 6
+    static let maximumRise: CGFloat = KineticTextMetrics.maximumRise
     /// How far the influence spreads either side of the finger, in points.
-    static let falloff: CGFloat = 46
+    static let falloff: CGFloat = KineticTextMetrics.falloff
 
-    var animatableData: Double {
+    public init(touchX: CGFloat?, intensity: Double) {
+        self.touchX = touchX
+        self.intensity = intensity
+    }
+
+    public var animatableData: Double {
         get { intensity }
         set { intensity = newValue }
     }
@@ -49,13 +54,10 @@ struct LifeBoardKineticTextRenderer: TextRenderer, Animatable {
     /// A gaussian keeps the crest smooth: a linear falloff produces a visible
     /// kink at the edge of the influence radius.
     static func rise(glyphMidX: CGFloat, touchX: CGFloat?, intensity: Double) -> CGFloat {
-        guard let touchX, intensity > 0 else { return 0 }
-        let distance = (glyphMidX - touchX) / falloff
-        let bell = exp(-distance * distance)
-        return -maximumRise * bell * CGFloat(min(max(intensity, 0), 1))
+        KineticTextMetrics.rise(glyphMidX: glyphMidX, touchX: touchX, intensity: intensity)
     }
 
-    func draw(layout: Text.Layout, in context: inout GraphicsContext) {
+    public func draw(layout: Text.Layout, in context: inout GraphicsContext) {
         for line in layout {
             for run in line {
                 for glyph in run {
@@ -80,7 +82,7 @@ struct LifeBoardKineticTextRenderer: TextRenderer, Animatable {
 /// comfort profile, and the reduced-motion screenshot fixture. At accessibility
 /// Dynamic Type sizes the greeting wraps and per-glyph displacement stops
 /// reading as intentional, so it is dropped there too.
-private struct LifeBoardKineticTextModifier: ViewModifier {
+private struct KineticTextModifier: ViewModifier {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -92,8 +94,8 @@ private struct LifeBoardKineticTextModifier: ViewModifier {
     private var isEnabled: Bool {
         guard dynamicTypeSize.isAccessibilitySize == false else { return false }
         guard LifeBoardAnimation.areProcessAnimationsDisabled == false else { return false }
-        guard LifeBoardVisualAppearanceFixture.active?.usesReducedMotion != true else { return false }
-        return LifeBoardMotionPolicy.resolve(
+        guard VisualAppearanceFixture.active?.usesReducedMotion != true else { return false }
+        return MotionPolicy.resolve(
             reduceMotion: reduceMotion,
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
@@ -104,7 +106,7 @@ private struct LifeBoardKineticTextModifier: ViewModifier {
         if isEnabled {
             content
                 .textRenderer(
-                    LifeBoardKineticTextRenderer(touchX: touchX, intensity: intensity)
+                    KineticTextRenderer(touchX: touchX, intensity: intensity)
                 )
                 // Simultaneous and zero-distance so the greeting responds to a
                 // touch without ever taking a scroll away from the page.
@@ -113,12 +115,12 @@ private struct LifeBoardKineticTextModifier: ViewModifier {
                         .onChanged { value in
                             touchX = value.location.x
                             guard intensity < 1 else { return }
-                            withAnimation(LifeBoardInteractionMotion.cardLift(reduceMotion: false)) {
+                            withAnimation(InteractionMotion.cardLift(reduceMotion: false)) {
                                 intensity = 1
                             }
                         }
                         .onEnded { _ in
-                            withAnimation(LifeBoardInteractionMotion.dragRelease(reduceMotion: false)) {
+                            withAnimation(InteractionMotion.dragRelease(reduceMotion: false)) {
                                 intensity = 0
                             }
                             touchX = nil
@@ -136,13 +138,13 @@ public extension View {
     /// Intended for the Home greeting. Do not apply to body copy, evidence,
     /// health values, or anything the reader has to parse carefully.
     func lifeBoardKineticGreeting() -> some View {
-        modifier(LifeBoardKineticTextModifier())
+        modifier(KineticTextModifier())
     }
 }
 
 /// Applies `lifeBoardKineticGreeting()` only when the header opted in, without
 /// forcing callers into an `if` that would change the `Text`'s identity.
-public struct LifeBoardOptionalKineticGreeting: ViewModifier {
+public struct OptionalKineticGreeting: ViewModifier {
     public let isEnabled: Bool
 
     public init(isEnabled: Bool) {

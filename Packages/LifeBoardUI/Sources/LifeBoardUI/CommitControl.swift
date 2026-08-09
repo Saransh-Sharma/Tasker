@@ -1,5 +1,5 @@
 import SwiftUI
-
+import LifeBoardTokens
 // MARK: - Commit control
 //
 // A primary action that morphs through the real state of the work it started:
@@ -26,7 +26,7 @@ private struct CommitSuccessValues {
 /// Sized for the 44-point minimum at every phase, including while collapsed —
 /// the circle is 48 points, so the control never becomes a target the user
 /// cannot hit halfway through their own action.
-public struct LifeBoardCommitControl<Receipt: Equatable & Sendable>: View {
+public struct CommitControl<Receipt: Equatable & Sendable>: View {
     private let title: String
     private let runningTitle: String
     private let successTitle: String
@@ -131,7 +131,7 @@ public struct LifeBoardCommitControl<Receipt: Equatable & Sendable>: View {
     @ViewBuilder
     private var successMark: some View {
         if reduceMotion {
-            LifeBoardCompletionMark(progress: 1)
+            CompletionMark(progress: 1)
                 .stroke(inverseInk, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                 .frame(width: 22, height: 22)
         } else {
@@ -139,7 +139,7 @@ public struct LifeBoardCommitControl<Receipt: Equatable & Sendable>: View {
                 initialValue: CommitSuccessValues(),
                 trigger: successTitle
             ) { values in
-                LifeBoardCompletionMark(progress: values.mark)
+                CompletionMark(progress: values.mark)
                     .stroke(inverseInk, style: StrokeStyle(lineWidth: 2.5, lineCap: .round))
                     .frame(width: 22, height: 22)
                     .scaleEffect(values.scale)
@@ -191,7 +191,7 @@ public struct LifeBoardCommitControl<Receipt: Equatable & Sendable>: View {
     }
 
     private var morph: Animation? {
-        LifeBoardMotionProfile.controlMorph.animation(reduceMotion: reduceMotion)
+        MotionProfile.controlMorph.animation(reduceMotion: reduceMotion)
     }
 
     // MARK: Accessibility

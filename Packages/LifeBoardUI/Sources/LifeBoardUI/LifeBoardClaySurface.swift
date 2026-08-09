@@ -1,6 +1,6 @@
 import SwiftUI
 import UIKit
-
+import LifeBoardTokens
 // MARK: - Clay depth scale
 
 /// The canonical depth scale for LifeBoard content surfaces.
@@ -16,7 +16,7 @@ import UIKit
 /// gives the form its puffiness. `well` inverts the two inner layers so a
 /// recessed surface reads as genuinely carved into the paper rather than
 /// merely tinted darker.
-public enum LifeBoardClayDepth: String, CaseIterable, Sendable {
+public enum ClayDepth: String, CaseIterable, Sendable {
     /// Carved into the canvas: inputs, segmented tracks, metric wells.
     case well
     /// Barely lifted: list rows and grouped reading surfaces.
@@ -26,7 +26,7 @@ public enum LifeBoardClayDepth: String, CaseIterable, Sendable {
     /// One hero per screen, plus transient overlays.
     case floating
 
-    var cornerRadius: CGFloat {
+    public var cornerRadius: CGFloat {
         switch self {
         case .well: return 14
         case .resting: return 16
@@ -79,8 +79,8 @@ public enum LifeBoardClayDepth: String, CaseIterable, Sendable {
 
 // MARK: - Surface modifier
 
-public struct LifeBoardClaySurfaceModifier: ViewModifier {
-    public let depth: LifeBoardClayDepth
+public struct ClaySurfaceModifier: ViewModifier {
+    public let depth: ClayDepth
     public let cornerRadius: CGFloat
     public let fill: Color?
     public let isPressed: Bool
@@ -89,7 +89,7 @@ public struct LifeBoardClaySurfaceModifier: ViewModifier {
     @Environment(\.colorSchemeContrast) private var contrast
 
     public init(
-        depth: LifeBoardClayDepth,
+        depth: ClayDepth,
         cornerRadius: CGFloat? = nil,
         fill: Color? = nil,
         isPressed: Bool = false
@@ -104,7 +104,7 @@ public struct LifeBoardClaySurfaceModifier: ViewModifier {
         content
             .background(claySurface)
             .overlay(hairline)
-            .modifier(LifeBoardClayDropShadow(depth: depth, isPressed: isPressed))
+            .modifier(ClayDropShadow(depth: depth, isPressed: isPressed))
     }
 
     private var shape: RoundedRectangle {
@@ -158,14 +158,14 @@ public struct LifeBoardClaySurfaceModifier: ViewModifier {
     }
 
     private var usesFlatSurface: Bool {
-        reduceTransparency || LifeBoardVisualAppearanceFixture.active?.usesReducedTransparency == true
+        reduceTransparency || VisualAppearanceFixture.active?.usesReducedTransparency == true
     }
 }
 
 /// Split out so the `.shadow` call stays inside `DesignSystem/`, which is the
 /// only place the token-law guardrail permits raw shadow geometry.
-private struct LifeBoardClayDropShadow: ViewModifier {
-    let depth: LifeBoardClayDepth
+private struct ClayDropShadow: ViewModifier {
+    let depth: ClayDepth
     let isPressed: Bool
 
     func body(content: Content) -> some View {
@@ -189,12 +189,12 @@ public extension View {
     /// The single sanctioned content elevation. Glass remains reserved for
     /// navigation and control chrome.
     func lifeBoardClaySurface(
-        _ depth: LifeBoardClayDepth,
+        _ depth: ClayDepth,
         cornerRadius: CGFloat? = nil,
         fill: Color? = nil,
         isPressed: Bool = false
     ) -> some View {
-        modifier(LifeBoardClaySurfaceModifier(
+        modifier(ClaySurfaceModifier(
             depth: depth,
             cornerRadius: cornerRadius,
             fill: fill,
@@ -209,15 +209,15 @@ public extension View {
 /// canvas, its contact shade deepens, and the drop shadow pulls in. Scale is
 /// deliberately small (0.985) — clay is heavy, and a large bounce would read as
 /// plastic.
-public struct LifeBoardClayButtonStyle: ButtonStyle {
-    public let depth: LifeBoardClayDepth
+public struct ClayButtonStyle: ButtonStyle {
+    public let depth: ClayDepth
     public let cornerRadius: CGFloat?
     public let fill: Color?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init(
-        depth: LifeBoardClayDepth = .raised,
+        depth: ClayDepth = .raised,
         cornerRadius: CGFloat? = nil,
         fill: Color? = nil
     ) {
@@ -236,21 +236,21 @@ public struct LifeBoardClayButtonStyle: ButtonStyle {
             )
             .scaleEffect(reduceMotion || configuration.isPressed == false ? 1 : 0.985)
             .animation(
-                LifeBoardMotionProfile.press.animation(reduceMotion: reduceMotion),
+                MotionProfile.press.animation(reduceMotion: reduceMotion),
                 value: configuration.isPressed
             )
     }
 }
 
-public extension ButtonStyle where Self == LifeBoardClayButtonStyle {
-    static var lifeBoardClay: LifeBoardClayButtonStyle { LifeBoardClayButtonStyle() }
+public extension ButtonStyle where Self == ClayButtonStyle {
+    static var lifeBoardClay: ClayButtonStyle { ClayButtonStyle() }
 
     static func lifeBoardClay(
-        _ depth: LifeBoardClayDepth,
+        _ depth: ClayDepth,
         cornerRadius: CGFloat? = nil,
         fill: Color? = nil
-    ) -> LifeBoardClayButtonStyle {
-        LifeBoardClayButtonStyle(depth: depth, cornerRadius: cornerRadius, fill: fill)
+    ) -> ClayButtonStyle {
+        ClayButtonStyle(depth: depth, cornerRadius: cornerRadius, fill: fill)
     }
 }
 
@@ -264,7 +264,7 @@ public extension ButtonStyle where Self == LifeBoardClayButtonStyle {
 /// label. The Journal card's primary button rendered as a completely blank
 /// cocoa pill for exactly this reason. Pinning the on-accent role explicitly is
 /// the only arrangement that survives an ambient foreground style.
-public struct LifeBoardPrimaryActionStyle: ButtonStyle {
+public struct PrimaryActionStyle: ButtonStyle {
     public let fill: Color?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.isEnabled) private var isEnabled
@@ -287,14 +287,14 @@ public struct LifeBoardPrimaryActionStyle: ButtonStyle {
             .opacity(isEnabled ? 1 : 0.45)
             .scaleEffect(reduceMotion || configuration.isPressed == false ? 1 : 0.98)
             .animation(
-                LifeBoardMotionProfile.press.animation(reduceMotion: reduceMotion),
+                MotionProfile.press.animation(reduceMotion: reduceMotion),
                 value: configuration.isPressed
             )
     }
 }
 
-public extension ButtonStyle where Self == LifeBoardPrimaryActionStyle {
-    static var lifeBoardPrimary: LifeBoardPrimaryActionStyle { LifeBoardPrimaryActionStyle() }
+public extension ButtonStyle where Self == PrimaryActionStyle {
+    static var lifeBoardPrimary: PrimaryActionStyle { PrimaryActionStyle() }
 }
 
 // MARK: - Form surface
@@ -308,7 +308,7 @@ public extension ButtonStyle where Self == LifeBoardPrimaryActionStyle {
 /// scroll background and substituting the canvas is what brings those screens
 /// back into the clay language; individual sections can still opt into a raised
 /// row fill where grouping needs to be explicit.
-public struct LifeBoardFormSurfaceModifier: ViewModifier {
+public struct FormSurfaceModifier: ViewModifier {
     public init() {}
 
     public func body(content: Content) -> some View {
@@ -321,13 +321,13 @@ public struct LifeBoardFormSurfaceModifier: ViewModifier {
 public extension View {
     /// Apply directly to a `Form` or `List`.
     func lifeBoardFormSurface() -> some View {
-        modifier(LifeBoardFormSurfaceModifier())
+        modifier(FormSurfaceModifier())
     }
 
     /// The row fill for grouped form content that needs to read as a card.
     func lifeBoardFormRowSurface() -> some View {
         listRowBackground(
-            RoundedRectangle(cornerRadius: LifeBoardClayDepth.resting.cornerRadius, style: .continuous)
+            RoundedRectangle(cornerRadius: ClayDepth.resting.cornerRadius, style: .continuous)
                 .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
         )
     }
@@ -341,7 +341,7 @@ public extension View {
 /// squeeze their labels until they wrap mid-word — the hydration quick-adds
 /// were showing as "+2 50" and "Tar- get" in grey circles. This keeps the label
 /// on one line and lets the caller stack the row when it genuinely will not fit.
-public struct LifeBoardChipButtonStyle: ButtonStyle {
+public struct ChipButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init() {}
@@ -355,18 +355,18 @@ public struct LifeBoardChipButtonStyle: ButtonStyle {
             .frame(minHeight: 34)
             .lifeBoardClaySurface(
                 .well,
-                cornerRadius: LifeBoardFoundationRadius.pill,
+                cornerRadius: Radius.pill,
                 isPressed: configuration.isPressed
             )
             .contentShape(Capsule())
             .scaleEffect(reduceMotion || configuration.isPressed == false ? 1 : 0.97)
             .animation(
-                LifeBoardMotionProfile.press.animation(reduceMotion: reduceMotion),
+                MotionProfile.press.animation(reduceMotion: reduceMotion),
                 value: configuration.isPressed
             )
     }
 }
 
-public extension ButtonStyle where Self == LifeBoardChipButtonStyle {
-    static var lifeBoardChip: LifeBoardChipButtonStyle { LifeBoardChipButtonStyle() }
+public extension ButtonStyle where Self == ChipButtonStyle {
+    static var lifeBoardChip: ChipButtonStyle { ChipButtonStyle() }
 }

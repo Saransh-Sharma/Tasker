@@ -1,5 +1,5 @@
 import SwiftUI
-
+import LifeBoardTokens
 // MARK: - Day ring
 //
 // Two arcs growing symmetrically from twelve o'clock. Structure adapted from
@@ -20,7 +20,7 @@ import SwiftUI
 /// Split out as a `Shape` so the arc animates through `animatableData` rather
 /// than by re-laying-out a `Circle().trim`, which cannot interpolate its own
 /// trim across a mirrored `rotation3DEffect` without visible snapping.
-public struct LifeBoardDayRingArc: Shape {
+public struct DayRingArc: Shape {
     /// Portion of the half-circle drawn, 0...1.
     public var extent: Double
     /// `false` mirrors the sweep to the other side of twelve o'clock.
@@ -62,7 +62,7 @@ public struct LifeBoardDayRingArc: Shape {
 /// blocks renders a bare track and says so; it never renders a 0% arc, because
 /// "nothing was planned" and "everything planned was missed" are different facts
 /// and only one of them is true.
-public struct LifeBoardDayRing: View {
+public struct DayRing: View {
     private let plannedMinutes: Int?
     private let focusedMinutes: Int?
     /// Drives the closing checkmark. Only ever set at the moment a day is
@@ -123,7 +123,7 @@ public struct LifeBoardDayRing: View {
             if let settledLevel {
                 // Inside the inner track, so it never crosses either arc or the
                 // centre numerals — it is the water in the glass, not a third score.
-                LifeBoardLiquidLevel(
+                LiquidLevel(
                     phase: reduceMotion ? 0 : liquidPhase,
                     level: min(max(settledLevel, 0), 1)
                 )
@@ -132,7 +132,7 @@ public struct LifeBoardDayRing: View {
                 .padding(24)
                 .allowsHitTesting(false)
                 .animation(
-                    LifeBoardMotionProfile.deckSettle.animation(reduceMotion: reduceMotion),
+                    MotionProfile.deckSettle.animation(reduceMotion: reduceMotion),
                     value: settledLevel
                 )
                 .onChange(of: settledLevel) { _, _ in
@@ -154,7 +154,7 @@ public struct LifeBoardDayRing: View {
 
             if closedProgress > 0 {
                 // Reuses the shipped ring→tick morph rather than re-porting it.
-                LifeBoardCompletionMark(progress: closedProgress)
+                CompletionMark(progress: closedProgress)
                     .stroke(
                         Color(LifeBoardColorTokens.foundationSunAccent),
                         style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
@@ -180,9 +180,9 @@ public struct LifeBoardDayRing: View {
 
     private func arcPair(extent: Double, inset: CGFloat, lineWidth: CGFloat) -> some View {
         ZStack {
-            LifeBoardDayRingArc(extent: extent, isTrailing: true)
+            DayRingArc(extent: extent, isTrailing: true)
                 .stroke(style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
-            LifeBoardDayRingArc(extent: extent, isTrailing: false)
+            DayRingArc(extent: extent, isTrailing: false)
                 .stroke(style: StrokeStyle(lineWidth: lineWidth, lineCap: .round))
         }
         .padding(inset)
@@ -192,24 +192,24 @@ public struct LifeBoardDayRing: View {
     private var centreFigures: some View {
         VStack(spacing: 2) {
             if let focusedMinutes {
-                LifeBoardNumericRoll(
+                NumericRoll(
                     value: Double(focusedMinutes),
                     unit: "min",
                     emphasis: .hero
                 )
                 Text("focused")
-                    .font(LifeBoardFoundationTypography.metadata())
+                    .font(Typography.metadata())
                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
             } else if plannedMinutes == nil {
                 // Not an error and not a zero. The day simply had no shape to
                 // report, which is an ordinary way for a day to go.
                 Text("Open day")
-                    .font(LifeBoardFoundationTypography.metric())
+                    .font(Typography.metric())
                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                     .multilineTextAlignment(.center)
             } else {
                 Text("No focus\nrecorded")
-                    .font(LifeBoardFoundationTypography.metadata())
+                    .font(Typography.metadata())
                     .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
                     .multilineTextAlignment(.center)
             }

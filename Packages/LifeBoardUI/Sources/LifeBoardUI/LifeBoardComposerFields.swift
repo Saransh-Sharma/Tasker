@@ -1,6 +1,6 @@
 import SwiftUI
 import UIKit
-
+import LifeBoardTokens
 // MARK: - Text field
 
 /// Text entry carved into the clay.
@@ -17,7 +17,7 @@ import UIKit
 /// *surface* animates; the text never does. Animating the content of a field
 /// someone is actively typing into is the fastest way to make a premium control
 /// feel unstable.
-public struct LifeBoardComposerField: View {
+public struct ComposerField: View {
     public enum Shape: Equatable, Sendable {
         /// One line, submits on return.
         case line
@@ -75,11 +75,11 @@ public struct LifeBoardComposerField: View {
                 .frame(minHeight: 44, alignment: .topLeading)
                 .lifeBoardClaySurface(
                     isFocused ? .resting : .well,
-                    cornerRadius: LifeBoardFoundationRadius.compact + 2
+                    cornerRadius: Radius.compact + 2
                 )
                 .overlay {
                     RoundedRectangle(
-                        cornerRadius: LifeBoardFoundationRadius.compact + 2,
+                        cornerRadius: Radius.compact + 2,
                         style: .continuous
                     )
                     .stroke(
@@ -88,7 +88,7 @@ public struct LifeBoardComposerField: View {
                     )
                 }
                 .lifeBoardMotion(.controlMorph, value: isFocused)
-                .modifier(LifeBoardFieldIdentity(identifier: identifier))
+                .modifier(FieldIdentity(identifier: identifier))
                 .accessibilityLabel(Text(label))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -108,11 +108,15 @@ public struct LifeBoardComposerField: View {
 
 /// Applies an accessibility identifier only when one was supplied, so a field
 /// without one does not become an opaque container in the accessibility tree.
-struct LifeBoardFieldIdentity: ViewModifier {
+public struct FieldIdentity: ViewModifier {
     let identifier: String?
 
+    public init(identifier: String?) {
+        self.identifier = identifier
+    }
+
     @ViewBuilder
-    func body(content: Content) -> some View {
+    public func body(content: Content) -> some View {
         if let identifier {
             content.accessibilityIdentifier(identifier)
         } else {
@@ -130,7 +134,7 @@ struct LifeBoardFieldIdentity: ViewModifier {
 /// stranded the keyboard over the commit bar with no way back except a scroll
 /// gesture that many people never discover, so the accessory `Done` is part of
 /// the control rather than something each call site remembers.
-public struct LifeBoardComposerNumberField: View {
+public struct ComposerNumberField: View {
     private let label: String
     private let prompt: String?
     private let unit: String?
@@ -157,7 +161,7 @@ public struct LifeBoardComposerNumberField: View {
     }
 
     public var body: some View {
-        LifeBoardComposerRow(label, detail: unit) {
+        ComposerRow(label, detail: unit) {
             HStack(spacing: 6) {
                 TextField(prompt ?? label, value: $value, format: format)
                     .font(.lifeboard(.bodyStrong))
@@ -166,7 +170,7 @@ public struct LifeBoardComposerNumberField: View {
                     .keyboardType(.decimalPad)
                     .focused($isFocused)
                     .frame(minWidth: 64)
-                    .modifier(LifeBoardFieldIdentity(identifier: identifier))
+                    .modifier(FieldIdentity(identifier: identifier))
                     .accessibilityLabel(Text(label))
                 if let unit {
                     Text(unit)
@@ -179,7 +183,7 @@ public struct LifeBoardComposerNumberField: View {
             .padding(.vertical, 8)
             .lifeBoardClaySurface(
                 isFocused ? .resting : .well,
-                cornerRadius: LifeBoardFoundationRadius.compact
+                cornerRadius: Radius.compact
             )
             .lifeBoardMotion(.controlMorph, value: isFocused)
         }
@@ -205,7 +209,7 @@ public struct LifeBoardComposerNumberField: View {
 /// The on state moves the knob, tints the track *and* fills the knob's notch, so
 /// it survives greyscale, Differentiate Without Colour, and the screenshot of a
 /// screenshot someone will inevitably send.
-public struct LifeBoardClayToggleStyle: ToggleStyle {
+public struct ClayToggleStyle: ToggleStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Namespace private var knob
@@ -232,7 +236,7 @@ public struct LifeBoardClayToggleStyle: ToggleStyle {
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
         .onTapGesture {
-            LifeBoardHaptic.pick.play()
+            Haptic.pick.play()
             configuration.isOn.toggle()
         }
         .lifeBoardMotion(.controlMorph, value: configuration.isOn)
@@ -265,7 +269,7 @@ public struct LifeBoardClayToggleStyle: ToggleStyle {
         .frame(width: trackWidth, height: knobSide + 6)
         .lifeBoardClaySurface(
             .well,
-            cornerRadius: LifeBoardFoundationRadius.pill,
+            cornerRadius: Radius.pill,
             // Apricot, not `foundationSageAccent`: despite the name, sage
             // resolves to #C9C6BA, a warm grey. An "on" track in it reads as
             // disabled, and it matched the off state closely enough that the
@@ -277,8 +281,8 @@ public struct LifeBoardClayToggleStyle: ToggleStyle {
     }
 }
 
-public extension ToggleStyle where Self == LifeBoardClayToggleStyle {
-    static var lifeBoardClay: LifeBoardClayToggleStyle { LifeBoardClayToggleStyle() }
+public extension ToggleStyle where Self == ClayToggleStyle {
+    static var lifeBoardClay: ClayToggleStyle { ClayToggleStyle() }
 }
 
 // MARK: - Menu row
@@ -290,7 +294,7 @@ public extension ToggleStyle where Self == LifeBoardClayToggleStyle {
 /// correct for free, and it reports as `.button` — exactly what `Picker(.menu)`
 /// reported before, so nothing that referenced it needs to change. Only the row
 /// becomes ours.
-public struct LifeBoardMenuRow<Value: Hashable>: View {
+public struct MenuRow<Value: Hashable>: View {
     private let label: String
     private let values: [Value]
     private let title: (Value) -> String
@@ -315,7 +319,7 @@ public struct LifeBoardMenuRow<Value: Hashable>: View {
     }
 
     public var body: some View {
-        LifeBoardComposerRow(label) {
+        ComposerRow(label) {
             Menu {
                 Picker(label, selection: $selection) {
                     ForEach(values, id: \.self) { value in
@@ -340,9 +344,9 @@ public struct LifeBoardMenuRow<Value: Hashable>: View {
                 }
                 .padding(.horizontal, 12)
                 .frame(minHeight: 38)
-                .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.pill)
+                .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
             }
-            .modifier(LifeBoardFieldIdentity(identifier: identifier))
+            .modifier(FieldIdentity(identifier: identifier))
             .accessibilityLabel(Text(label))
             .accessibilityValue(Text(title(selection)))
         }
@@ -362,7 +366,7 @@ public struct LifeBoardMenuRow<Value: Hashable>: View {
 /// Only one capsule expands at a time within a row. Sleep has bedtime and wake
 /// adjacent, and two open graphical pickers is roughly seven hundred points of
 /// calendar for a question that takes two taps.
-public struct LifeBoardDateCapsuleRow: View {
+public struct DateCapsuleRow: View {
     public struct Components: OptionSet, Sendable {
         public let rawValue: Int
         public init(rawValue: Int) { self.rawValue = rawValue }
@@ -399,7 +403,7 @@ public struct LifeBoardDateCapsuleRow: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            LifeBoardComposerRow(label) {
+            ComposerRow(label) {
                 HStack(spacing: 8) {
                     if components.contains(.date) {
                         capsule(
@@ -420,14 +424,14 @@ public struct LifeBoardDateCapsuleRow: View {
                     .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .modifier(LifeBoardFieldIdentity(identifier: identifier))
+        .modifier(FieldIdentity(identifier: identifier))
         .lifeBoardMotion(.controlMorph, value: expanded)
     }
 
     private func capsule(text: String, expansion: Expansion) -> some View {
         let isOpen = expanded == expansion
         return Button {
-            LifeBoardHaptic.pick.play()
+            Haptic.pick.play()
             expanded = isOpen ? nil : expansion
         } label: {
             Text(text)
@@ -441,7 +445,7 @@ public struct LifeBoardDateCapsuleRow: View {
                 .frame(minHeight: 38)
                 .lifeBoardClaySurface(
                     isOpen ? .raised : .well,
-                    cornerRadius: LifeBoardFoundationRadius.pill
+                    cornerRadius: Radius.pill
                 )
                 .contentShape(Capsule())
         }
@@ -460,11 +464,11 @@ public struct LifeBoardDateCapsuleRow: View {
         case .date:
             boundedPicker(displaying: [.date])
                 .datePickerStyle(.graphical)
-                .modifier(LifeBoardDatePickerChrome())
+                .modifier(DatePickerChrome())
         case .time:
             boundedPicker(displaying: [.hourAndMinute])
                 .datePickerStyle(.wheel)
-                .modifier(LifeBoardDatePickerChrome())
+                .modifier(DatePickerChrome())
         }
     }
 
@@ -486,14 +490,14 @@ public struct LifeBoardDateCapsuleRow: View {
     }
 }
 
-private struct LifeBoardDatePickerChrome: ViewModifier {
+private struct DatePickerChrome: ViewModifier {
     func body(content: Content) -> some View {
         content
             .labelsHidden()
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 4)
             .padding(.vertical, 6)
-            .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.card)
+            .lifeBoardClaySurface(.well, cornerRadius: Radius.card)
     }
 }
 
@@ -506,7 +510,7 @@ private struct LifeBoardDatePickerChrome: ViewModifier {
 /// of the surface reads as an invitation. It owns its own confirmation dialog so
 /// no call site can forget to explain the consequence first, which DESIGN.md
 /// requires before anything destructive.
-public struct LifeBoardDangerRow: View {
+public struct DangerRow: View {
     private let title: String
     private let systemImage: String
     private let confirmationTitle: String
@@ -537,7 +541,7 @@ public struct LifeBoardDangerRow: View {
 
     public var body: some View {
         Button {
-            LifeBoardHaptic.decline.play()
+            Haptic.decline.play()
             isConfirming = true
         } label: {
             Label(title, systemImage: systemImage)
@@ -546,15 +550,15 @@ public struct LifeBoardDangerRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 12)
                 .frame(minHeight: 48)
-                .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.compact + 2)
+                .lifeBoardClaySurface(.well, cornerRadius: Radius.compact + 2)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .modifier(LifeBoardFieldIdentity(identifier: identifier))
+        .modifier(FieldIdentity(identifier: identifier))
         .confirmationDialog(confirmationTitle, isPresented: $isConfirming, titleVisibility: .visible) {
             Button(confirmActionTitle, role: .destructive) {
                 perform()
-                LifeBoardHaptic.commit.play()
+                Haptic.commit.play()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -573,7 +577,7 @@ public struct LifeBoardDangerRow: View {
 /// needs a non-gesture equivalent. The grip glyph is always visible for the same
 /// reason: a capability discoverable only by guessing that a row is draggable is
 /// not a capability.
-public struct LifeBoardReorderableRows<Item: Identifiable & Equatable, RowContent: View>: View {
+public struct ReorderableRows<Item: Identifiable & Equatable, RowContent: View>: View {
     private let rowIdentifier: (Item) -> String
     private let accessibilityLabel: (Item) -> String
     private let row: (Item) -> RowContent
@@ -627,7 +631,7 @@ public struct LifeBoardReorderableRows<Item: Identifiable & Equatable, RowConten
         .frame(minHeight: 52)
         .lifeBoardClaySurface(
             isDragging ? .floating : .resting,
-            cornerRadius: LifeBoardFoundationRadius.card
+            cornerRadius: Radius.card
         )
         .offset(y: isDragging ? dragTranslation : 0)
         .zIndex(isDragging ? 1 : 0)
@@ -644,7 +648,7 @@ public struct LifeBoardReorderableRows<Item: Identifiable & Equatable, RowConten
         LongPressGesture(minimumDuration: 0.22)
             .onEnded { _ in
                 draggingID = item.id
-                LifeBoardHaptic.lift.play()
+                Haptic.lift.play()
             }
             .sequenced(before: DragGesture(minimumDistance: 0))
             .onChanged { sequence in
@@ -659,7 +663,7 @@ public struct LifeBoardReorderableRows<Item: Identifiable & Equatable, RowConten
                 guard let current = items.firstIndex(of: item) else { return }
                 let displacement = Int((dragTranslation / rowPitch).rounded())
                 guard displacement != 0 else {
-                    LifeBoardHaptic.settle.play()
+                    Haptic.settle.play()
                     return
                 }
                 move(item, by: displacement)
@@ -674,6 +678,6 @@ public struct LifeBoardReorderableRows<Item: Identifiable & Equatable, RowConten
         let moved = updated.remove(at: current)
         updated.insert(moved, at: target)
         items = updated
-        LifeBoardHaptic.settle.play()
+        Haptic.settle.play()
     }
 }

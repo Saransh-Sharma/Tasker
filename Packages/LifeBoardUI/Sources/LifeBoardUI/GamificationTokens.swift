@@ -1,5 +1,5 @@
 import UIKit
-
+import LifeBoardTokens
 public enum GamificationTokens {
 
     // MARK: - XP Ring Sizes
@@ -39,7 +39,7 @@ public enum GamificationTokens {
     public static let streakFlameSize: CGFloat = 20
     public static let streakGlowOpacity: CGFloat = 0.15
 
-    // MARK: - Achievement Card
+    // MARK: - Achievement LifeBoardCard
 
     public static let achievementCardIconSize: CGFloat = 72
     public static let lockedOverlayOpacity: CGFloat = 0.6
@@ -62,7 +62,7 @@ public enum GamificationTokens {
     public static let progressBarHeight: CGFloat = 6
     public static let progressBarHeightLarge: CGFloat = 8
 
-    // MARK: - Animation Durations
+    // MARK: - LifeBoardAnimation Durations
 
     public static let xpCelebrationDuration: TimeInterval = 0.9
     public static let levelUpDuration: TimeInterval = 2.5

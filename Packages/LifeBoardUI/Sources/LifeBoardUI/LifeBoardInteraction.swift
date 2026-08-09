@@ -1,6 +1,6 @@
 import SwiftUI
 import UIKit
-
+import LifeBoardTokens
 // MARK: - Purpose-named motion
 //
 // Motion tokens are named for what the interface is *doing*, never for how the
@@ -12,7 +12,7 @@ import UIKit
 // geometry is permitted; feature code composes these instead of writing springs.
 
 @MainActor
-public enum LifeBoardInteractionMotion {
+public enum InteractionMotion {
     /// A card arriving into the viewport.
     public static func cardEntrance(reduceMotion: Bool) -> Animation? {
         reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.86)
@@ -64,10 +64,10 @@ public enum LifeBoardInteractionMotion {
 /// The app previously called `UIImpactFeedbackGenerator` directly in 37 places
 /// with no shared vocabulary, so the same physical tap meant "saved", "picked"
 /// and "crossed a threshold" on different screens. Routing everything through
-/// one type also gives a single place to honour `LifeBoardMotionPolicy`, which
+/// one type also gives a single place to honour `MotionPolicy`, which
 /// suppresses haptics under Low Power Mode and on Catalyst.
 @MainActor
-public enum LifeBoardHaptic {
+public enum Haptic {
     /// Something was recorded: a task completed, an entry saved.
     case commit
     /// The selection moved: a tab, a chip, a day.
@@ -83,8 +83,8 @@ public enum LifeBoardHaptic {
     /// Something failed.
     case fail
 
-    public func play(policy: LifeBoardMotionPolicy? = nil) {
-        let resolved = policy ?? LifeBoardMotionPolicy.resolve(
+    public func play(policy: MotionPolicy? = nil) {
+        let resolved = policy ?? MotionPolicy.resolve(
             reduceMotion: false,
             reduceTransparency: false,
             sceneIsActive: true
@@ -113,7 +113,7 @@ public enum LifeBoardHaptic {
 /// The effect is deliberately asymmetric: content is treated only on the way
 /// *in* from the bottom. Applying it to the top edge as well makes scrolling up
 /// feel like the interface is dissolving behind you.
-private struct LifeBoardScrollEntrance: ViewModifier {
+private struct ScrollEntrance: ViewModifier {
     let intensity: CGFloat
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -137,7 +137,7 @@ public extension View {
     /// Applies the shared scroll entrance. `intensity` scales the whole effect
     /// so dense rails can use a lighter touch than full-width cards.
     func lifeBoardScrollEntrance(intensity: CGFloat = 1) -> some View {
-        modifier(LifeBoardScrollEntrance(intensity: intensity))
+        modifier(ScrollEntrance(intensity: intensity))
     }
 }
 
@@ -154,7 +154,7 @@ public extension View {
 /// reachable as a button, a keyboard action and a VoiceOver custom action. This
 /// modifier supplies the accessibility action itself; callers are responsible
 /// for the visible control.
-private struct LifeBoardMagneticToggle: ViewModifier {
+private struct MagneticToggle: ViewModifier {
     let threshold: CGFloat
     let actionLabel: String
     let perform: () -> Void
@@ -167,7 +167,7 @@ private struct LifeBoardMagneticToggle: ViewModifier {
         content
             .offset(x: translation)
             .gesture(dragGesture)
-            .animation(LifeBoardInteractionMotion.dragRelease(reduceMotion: reduceMotion), value: translation)
+            .animation(InteractionMotion.dragRelease(reduceMotion: reduceMotion), value: translation)
             .accessibilityAction(named: Text(actionLabel), perform)
     }
 
@@ -182,7 +182,7 @@ private struct LifeBoardMagneticToggle: ViewModifier {
                 let crossed = raw >= threshold
                 if crossed != hasCrossed {
                     hasCrossed = crossed
-                    if crossed { LifeBoardHaptic.threshold.play() }
+                    if crossed { Haptic.threshold.play() }
                 }
             }
             .onEnded { value in
@@ -190,10 +190,10 @@ private struct LifeBoardMagneticToggle: ViewModifier {
                 translation = 0
                 hasCrossed = false
                 if committed {
-                    LifeBoardHaptic.commit.play()
+                    Haptic.commit.play()
                     perform()
                 } else if abs(value.translation.width) > 8 {
-                    LifeBoardHaptic.settle.play()
+                    Haptic.settle.play()
                 }
             }
     }
@@ -217,7 +217,7 @@ public extension View {
         actionLabel: String,
         perform: @escaping () -> Void
     ) -> some View {
-        modifier(LifeBoardMagneticToggle(
+        modifier(MagneticToggle(
             threshold: threshold,
             actionLabel: actionLabel,
             perform: perform

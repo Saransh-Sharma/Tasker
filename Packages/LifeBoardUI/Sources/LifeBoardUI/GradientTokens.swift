@@ -1,20 +1,20 @@
 import UIKit
 import SwiftUI
-
+import LifeBoardTokens
 // MARK: - LifeBoard Header Gradient
 
 /// Provides a reusable multi-stop gradient + scrim + noise for header backdrops.
 /// The look is fixed to the LifeBoard brand: gateway sunrise in light mode and
 /// forest ink in dark mode.
 @MainActor
-public struct LifeBoardHeaderGradient {
+public struct HeaderGradient {
 
     // MARK: - Public API
 
     /// Apply the full header treatment (gradient + scrim + bottom fade + noise) to a UIKit layer.
     /// Call again in `viewDidLayoutSubviews` so the layers resize correctly.
     public static func apply(to layer: CALayer, bounds: CGRect, traits: UITraitCollection) {
-        let patterns = LifeBoardThemeManager.shared.currentTheme.patterns
+        let patterns = ThemeStore.shared.currentTheme.patterns
 
         removeLayers(from: layer)
 
@@ -104,7 +104,7 @@ public struct LifeBoardHeaderGradient {
 
     // MARK: - Gradient Color Generation
 
-    private static func gradientColors(patterns: LifeBoardPatternTokens, traits: UITraitCollection) -> [CGColor] {
+    private static func gradientColors(patterns: PatternTokens, traits: UITraitCollection) -> [CGColor] {
         let isDark = traits.userInterfaceStyle == .dark
         if isDark {
             return [
@@ -114,7 +114,7 @@ public struct LifeBoardHeaderGradient {
                 blendColors(patterns.forestInkTop, patterns.forestInkBottom, ratio: 0.28).cgColor
             ]
         } else {
-            let canvas = LifeBoardThemeManager.shared.currentTheme.tokens.color.bgCanvas.resolvedColor(with: traits)
+            let canvas = ThemeStore.shared.currentTheme.tokens.color.bgCanvas.resolvedColor(with: traits)
             return [
                 blendColors(patterns.gatewaySunriseTop, canvas, ratio: 0.18).cgColor,
                 shade(patterns.gatewaySunriseMid, by: 0.02).cgColor,
@@ -171,7 +171,7 @@ public struct LifeBoardHeaderGradient {
 
     /// Executes bottomFadeColors.
     private static func bottomFadeColors(traits: UITraitCollection) -> [CGColor] {
-        let colors = LifeBoardThemeManager.shared.currentTheme.tokens.color
+        let colors = ThemeStore.shared.currentTheme.tokens.color
         let target = colors.bgCanvas.resolvedColor(with: traits)
         let isDark = traits.userInterfaceStyle == .dark
         let midAlpha: CGFloat = isDark ? 0.68 : 0.55
@@ -251,7 +251,7 @@ private final class HeaderGradientHostingView: UIView {
 
     private func applyGradientIfNeeded() {
         guard bounds.width > 0, bounds.height > 0 else { return }
-        LifeBoardHeaderGradient.apply(to: layer, bounds: bounds, traits: traitCollection)
+        HeaderGradient.apply(to: layer, bounds: bounds, traits: traitCollection)
     }
 }
 
@@ -259,7 +259,7 @@ private final class HeaderGradientHostingView: UIView {
 @MainActor
 public struct HeaderGradientView: UIViewRepresentable {
     /// Initializes a new instance.
-    @ObservedObject private var themeManager = LifeBoardThemeManager.shared
+    @ObservedObject private var themeManager = ThemeStore.shared
 
     public init() {}
 
@@ -275,7 +275,7 @@ public struct HeaderGradientView: UIViewRepresentable {
         if let hostingView = uiView as? HeaderGradientHostingView {
             hostingView.refreshGradient()
         } else {
-            LifeBoardHeaderGradient.apply(to: uiView.layer, bounds: uiView.bounds, traits: uiView.traitCollection)
+            HeaderGradient.apply(to: uiView.layer, bounds: uiView.bounds, traits: uiView.traitCollection)
         }
     }
 }
