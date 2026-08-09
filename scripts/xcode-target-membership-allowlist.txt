@@ -1,25 +1,9 @@
-# Known Swift files that are intentionally not referenced by LifeBoard.xcodeproj yet.
-# Each entry must be investigated and resolved as: add to a target, move to test support, or delete.
-LifeBoard/DesignSystem/LifeBoardMeshTokens.swift
-LifeBoard/Domain/Models/PulseModels.swift
-LifeBoard/Presentation/Models/AgendaPresentationModels.swift
-LifeBoard/Presentation/Models/HomeBandLayoutPlanner.swift
-LifeBoard/Presentation/Models/InsightsModuleVisibilityPlanner.swift
-LifeBoard/Presentation/Models/TaskAgendaPresentationModel.swift
-LifeBoard/Presentation/ViewModels/InsightsViewModel+Presentation.swift
-LifeBoard/View/AgendaRowScaffold.swift
-LifeBoard/View/Effects/LifeBoardAnimatedMesh.swift
-LifeBoard/View/Effects/LifeBoardMeshModifiers.swift
-LifeBoardTests/AISuggestionServiceTests.swift
-LifeBoardTests/AssistantCardPayloadTests.swift
-LifeBoardTests/AssistantDiffPreviewBuilderTests.swift
-LifeBoardTests/EvaHomeIntelligenceUseCasesTests.swift
-LifeBoardTests/HomeBandLayoutPlannerTests.swift
-LifeBoardTests/HomeSearchStateTests.swift
-LifeBoardTests/HomeTaskSurfaceStyleTests.swift
-LifeBoardTests/InsightsModuleVisibilityPlannerTests.swift
-LifeBoardTests/OverdueTriageServiceTests.swift
-LifeBoardTests/TaskAgendaPresentationModelBuilderTests.swift
-LifeBoardTests/TaskAgendaPresentationModelTests.swift
-LifeBoardUITests/AddTaskSuggestionFlowTests.swift
-LifeBoardUITests/TaskBreakdownFlowTests.swift
+# Swift files intentionally present but not referenced by LifeBoard.xcodeproj.
+#
+# This list is empty and should stay that way. A Swift file that no target
+# compiles is not "pending wiring" — it is unreachable code that no build, test
+# or guardrail can observe, and it rots silently. Wire a new file into a target
+# in the same change that adds it, or do not add it.
+#
+# Files excluded on purpose (Core Data hand-written accessors) live in
+# scripts/xcode-target-membership-exclusions.txt instead.

@@ -1,0 +1,12 @@
+# Production accessibilityIdentifier expression snapshot. Intentional changes
+# require updating this file in the same reviewed change.
+#
+# 2026-08-09, Wave 5: the digest moved because this gate snapshots the
+# *expression text*, and 142 of the 828 expressions name a type that the rename
+# campaign renamed (`AppOnboardingAccessibilityID.customTask` and friends). The
+# 686 string-literal identifiers — the actual UI-test contract — are byte
+# identical, and the expression count is unchanged at 828. The only two literals
+# that even mention a renamed prefix, "LifeBoardCompactChrome" and
+# "LifeBoardExpandedChrome", are present unmodified at HEAD.
+count=828
+sha256=214c8a0c8171f6f4c11dd1fe7217e0a043be5276a4b1ea56068e3ecda42ec74a

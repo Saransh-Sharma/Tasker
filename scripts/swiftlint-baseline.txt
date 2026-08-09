@@ -1,0 +1,18 @@
+# Frozen existing SwiftLint error counts. New violations fail the guardrail.
+#
+# This is a ratchet: the counts may only go down. Most of this debt sits in
+# LifeBoard/View (the Sunrise generation) and is expected to disappear with
+# dead-code retirement rather than through a remediation pass.
+#
+# History
+# 2026-08-07  159 -> 158 (token_law_font_system) after deleting the 18 Swift
+#             files that no target compiled; AgendaRowScaffold.swift carried one.
+# 2026-08-07  274 -> 273 (token_law_font_system) from the -Onone split pass.
+# 2026-08-07  194 -> 350 total. Not a regression: the token-law scope was
+#             widened from `View|Views|ViewControllers|Presentation/Views|LLM/Views`
+#             to every consumer directory, which brought Foundation/ (76),
+#             Presentation/ (55) and Onboarding/ (17) under the law for the first
+#             time. Foundation/ alone is ~81k lines and had never been linted.
+token_law_font_system	273
+token_law_shadow_usage	43
+token_law_uicolor_constructor	33

@@ -49,6 +49,28 @@ jobs:
           TOKEN_LAW_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: bash scripts/token-law-guardrails.sh
 
+      # Structural-refactor gates. These hold the invariants that file moves,
+      # splits and renames are most likely to break silently: target membership,
+      # layer boundaries, file size in both directions, and the accessibility
+      # and localization contracts that UI tests and translations bind to.
+      - name: Enforce Xcode target membership
+        run: bash scripts/check-xcode-target-membership.sh
+
+      - name: Enforce module boundaries
+        run: bash scripts/check-module-boundaries.sh
+
+      - name: Enforce file-size ratchets
+        run: bash scripts/check-file-size-guardrails.sh
+
+      - name: Enforce directory shrapnel ratchet
+        run: bash scripts/check-directory-shrapnel.sh
+
+      - name: Enforce accessibility-identifier snapshot
+        run: bash scripts/check-accessibility-identifiers.sh
+
+      - name: Enforce localization-key snapshot
+        run: bash scripts/check-localization-keys.sh
+
       - name: Install flowctl
         env:
           FLOWCTL_DOWNLOAD_URL: ${{ secrets.FLOWCTL_DOWNLOAD_URL }}

@@ -1,0 +1,22 @@
+# Directory-shrapnel ratchet.
+# 2026-08-07: keys repointed after LLM -> Features/Eva and Onboarding ->
+# Features/Onboarding. The recorded file counts and averages are carried over
+# unchanged — regenerating instead would have reset the ratchet and permitted
+# these directories to fragment further.
+# 2026-08-08: LifeBoard/Features/Home/UI/ViewModels dropped, not raised. The
+# nine loose Home view models from Presentation/ViewModels/ merged into it and
+# pulled the average from 122.1 to 153.8 — above MIN_AVERAGE_LINES, so it is no
+# longer a shrapnel candidate. Removing the row is stricter than raising it:
+# the generic rule now fails the directory the moment it drops back below 150.
+# Existing small-file concentrations. Do not add shards or reduce the average
+# LOC until an intentional feature-boundary consolidation removes the entry.
+LifeBoard/Domain/Interfaces	23	110.826087
+LifeBoard/Features/Eva/Views/Chat/Chrome	15	129.066667
+LifeBoard/Features/Eva/Views/Chat/Conversation	24	101.500000
+LifeBoard/LifeBoardDesign/Components	24	97.750000
+LifeBoard/Features/Onboarding/Components	26	62.423077
+LifeBoard/Features/Onboarding/Models	71	66.577465
+LifeBoard/Features/Home/UI/Modals/OverdueRescue	45	91.044444
+LifeBoard/Features/Home/UI/Timeline/Surface	97	72.226804
+LifeBoard/Features/Home/UI/Models	11	149.181818
+LifeBoard/Features/Settings/LifeManagement	46	59.673913

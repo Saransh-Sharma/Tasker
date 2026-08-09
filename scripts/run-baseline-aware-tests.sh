@@ -5,6 +5,10 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
+# Use a dedicated DerivedData directory by default. This makes the test
+# baseline independent of Xcode's interactive build database, which otherwise
+# produces an inconclusive lock failure rather than a test result.
+DERIVED_DATA="${LIFEBOARD_TEST_DERIVED_DATA:-build/DerivedData/StructuralRefactorTests}"
 BASELINE_FILE="${LIFEBOARD_TEST_BASELINE_FILE:-scripts/lifeboard-test-failure-baseline.txt}"
 RESULT_BUNDLE="${LIFEBOARD_TEST_RESULT_BUNDLE:-build/test-results/LifeBoardTests.xcresult}"
 DESTINATION="${LIFEBOARD_TEST_DESTINATION:-platform=iOS Simulator,name=LifeBoard Test iPhone,OS=latest}"
@@ -21,6 +25,7 @@ xcodebuild \
   -workspace "LifeBoard.xcworkspace" \
   -scheme "LifeBoard" \
   -destination "$DESTINATION" \
+  -derivedDataPath "$DERIVED_DATA" \
   -only-testing:LifeBoardTests \
   -resultBundlePath "$RESULT_BUNDLE" \
   test

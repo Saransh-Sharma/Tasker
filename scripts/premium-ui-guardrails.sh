@@ -30,20 +30,20 @@ fail_if_matches \
 fail_if_matches \
   "The canonical secondary destination scaffold cannot recreate legacy scenery or material cards" \
   'LinearGradient|ultraThinMaterial|thinMaterial|regularMaterial' \
-  LifeBoard/View/SunriseDestinationScaffold.swift
+  LifeBoard/Shared/UI/DestinationScaffold.swift
 
 fail_if_matches \
   "LBGlassCard is now a compatibility clay surface and cannot own blur material" \
   'ultraThinMaterial|thinMaterial|regularMaterial' \
-  LifeBoard/LifeBoardDesign/Components/LBGlassCard.swift
+  LifeBoard/LifeBoardDesign/Components/GlassCard.swift
 
-if ! rg -q 'LifeBoardScreenScaffold' LifeBoard/View/SunriseDestinationScaffold.swift; then
-  echo "❌ Secondary destinations must use LifeBoardScreenScaffold"
+if ! rg -q 'ScreenScaffold' LifeBoard/Shared/UI/DestinationScaffold.swift; then
+  echo "❌ Secondary destinations must use ScreenScaffold"
   FAILED=1
 fi
 
-if ! rg -q 'LifeBoardScreenScaffold' LifeBoard/Views/Settings/SettingsRootView.swift; then
-  echo "❌ Settings must use LifeBoardScreenScaffold"
+if ! rg -q 'ScreenScaffold' LifeBoard/Features/Settings/SettingsRootView.swift; then
+  echo "❌ Settings must use ScreenScaffold"
   FAILED=1
 fi
 
@@ -64,8 +64,8 @@ fi
 #      fifth thing lands in the body. See LifeBoardTrackFoundationViews.swift:193.
 
 MIGRATED_COMPOSER_FILES=(
-  LifeBoard/Foundation/PhaseIV/LifeBoardTrackFoundationViews.swift
-  LifeBoard/Foundation/PhaseVI/LifeBoardPhaseVIViews.swift
+  LifeBoard/Features/Track/UI/LifeBoardTrackFoundationViews.swift
+  LifeBoard/Features/Health/UI/LifeBoardPhaseVIViews.swift
 )
 
 for file in "${MIGRATED_COMPOSER_FILES[@]}"; do
@@ -91,11 +91,11 @@ done
 # controls inline. A `LifeBoardComposerSection(` opening directly inside a
 # scaffold's trailing closure is the inlining pattern rule 2 forbids.
 if rg -qU 'LifeBoardComposerScaffold\([^)]*\)\s*\{\s*\n\s*LifeBoardComposerSection\(' \
-     LifeBoard/Foundation LifeBoard/Presentation 2>/dev/null; then
+     LifeBoard/Foundation LifeBoard/Features 2>/dev/null; then
   echo "❌ Clay composer kit: a composer inlines LifeBoardComposerSection into its scaffold closure."
   echo "   Extract one 'private struct <Name>Section: View' per section (stack-budget rule)."
   rg -nU 'LifeBoardComposerScaffold\([^)]*\)\s*\{\s*\n\s*LifeBoardComposerSection\(' \
-     LifeBoard/Foundation LifeBoard/Presentation 2>/dev/null | head -5
+     LifeBoard/Foundation LifeBoard/Features 2>/dev/null | head -5
   FAILED=1
 fi
 

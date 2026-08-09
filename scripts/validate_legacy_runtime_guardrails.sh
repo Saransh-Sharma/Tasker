@@ -9,20 +9,20 @@ LEGACY_STORYBOARD_PATTERN='addTaskLegacy_unreachable|customClass="NAddTaskScreen
 LEGACY_SINGLETON_PATTERN='(^|[^A-Za-z0-9_])DependencyContainer\.shared\b'
 LEGACY_SCREEN_PATTERN='\bNAddTaskScreen\b'
 PRODUCTION_SWIFT_ROOT="LifeBoard"
-CHAT_SWIFT_ROOT="LifeBoard/LLM/Views/Chat"
+CHAT_SWIFT_ROOT="LifeBoard/Features/Eva/Views/Chat"
 CHAT_MUTATION_BYPASS_PATTERN='\b(createTaskDefinition|updateTaskDefinition|deleteTaskDefinition|completeTaskDefinition|rescheduleTaskDefinition)\b'
 CHAT_SEMANTIC_REBUILD_PATTERN='TaskSemanticRetrievalService\.shared\.(rebuildIndex|index)\('
 PROPOSAL_RUN_GUARD_PATTERN='payload\.runID\s*==\s*nil'
 PROPOSAL_RUN_GUARD_FILES=(
-  "LifeBoard/LLM/Views/Chat/ConversationView.swift"
-  "LifeBoard/LLM/Views/Chat/Conversation"
+  "LifeBoard/Features/Eva/Views/Chat/ConversationView.swift"
+  "LifeBoard/Features/Eva/Views/Chat/Conversation"
 )
 
 RUNTIME_FILES=(
   "LifeBoard/AppDelegate.swift"
   "LifeBoard/SceneDelegate.swift"
-  "LifeBoard/Presentation/DI/PresentationDependencyContainer.swift"
-  "LifeBoard/State/DI/EnhancedDependencyContainer.swift"
+  "LifeBoard/App/DI/PresentationDependencyContainer.swift"
+  "LifeBoard/Persistence/Bootstrap/EnhancedDependencyContainer.swift"
   "LifeBoard/UseCases/Coordinator/UseCaseCoordinator.swift"
 )
 
@@ -61,7 +61,7 @@ check_banned_symbol "V2TaskRepositoryAdapter" 'V2TaskRepositoryAdapter'
 check_banned_symbol "TaskData" '\bTaskData\b'
 check_banned_symbol "toLegacyTask" 'toLegacyTask'
 if rg -n -P 'legacyTask' "$PRODUCTION_SWIFT_ROOT" --glob '*.swift' \
-  | rg -v '^LifeBoard/Onboarding/AppOnboarding.swift:[0-9]+:.*legacyTaskIDMap'; then
+  | rg -v '^LifeBoard/Features/Onboarding/AppOnboarding.swift:[0-9]+:.*legacyTaskIDMap'; then
   echo "Banned legacy symbol detected: legacyTask"
   exit 1
 fi
@@ -102,7 +102,7 @@ if ! rg -n -P "$PROPOSAL_RUN_GUARD_PATTERN" "${PROPOSAL_RUN_GUARD_FILES[@]}" --g
 fi
 
 if rg -n "assistantApplyEnabled" "$PRODUCTION_SWIFT_ROOT" --glob '*.swift' \
-  | rg -v "^LifeBoard/Services/V2FeatureFlags.swift:|^LifeBoard/UseCases/LLM/AssistantActionPipelineUseCase.swift:"; then
+  | rg -v "^LifeBoard/Services/V2FeatureFlags.swift:|^LifeBoard/Features/Eva/Domain/AssistantActionPipelineUseCase.swift:"; then
   echo "assistantApplyEnabled must only be checked in feature flags and assistant pipeline"
   exit 1
 fi

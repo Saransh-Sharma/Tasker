@@ -1,0 +1,173 @@
+# Existing oversized Swift files. Each entry ratchets its current counts downward
+# until it reaches the defaults: 800 lines / 12 top-level types / 400 lines in the
+# largest top-level declaration.
+#
+# Columns: path <TAB> lines <TAB> types <TAB> largest-top-level-type
+#
+# 'largest' is the metric that predicts the -Onone launch crash: Debug inlines a
+# computed 'some View' property into its caller's frame, so it is the size of the
+# TYPE, not the file, that overflows the 1 MB main stack. Extracting a section into
+# a sibling struct therefore shows up here as progress even though the file grows.
+#
+# 2026-08-07 regenerated after the parallel -Onone split pass. File 'lines' grew for
+# ChatView / WeeklyPlanningWorkspaceView / LifeOSFoundationShell because extracting a
+# section into a sibling struct adds declarations; 'largest' is the column that matters
+# and it fell sharply. AdaptiveHome was reverted (work preserved in
+# docs/evidence/wip/adaptive-home-split.patch) so its numbers are unchanged.
+# 2026-08-07 +38 lines / +1 type / +3 largest: HealthDateRangeValidator and three
+# `validate(start:end:)` calls, fixing an intermittent SIGSEGV where a malformed date
+# bound reached HealthKit's predicate description and faulted in __dtoa. A crash fix,
+# not drift.
+# 2026-08-08: three rows gained 3-6 lines when the Home shrapnel was
+# consolidated — each file picked up a header explaining why it is kept
+# separate. The type sizes (603, 402, 409) are unchanged, which is the
+# number this ratchet exists to drive down.
+# 2026-08-09, Wave 6: fifteen rows grew by 1-6 lines. Each view that read
+# `ThemeStore.shared.tokens(for: layoutClass)` now declares
+# `@Environment(\.lifeboardTokens)` instead — one line added, one singleton
+# reference removed. Type sizes are unchanged except where the property
+# sits inside the largest type.
+LifeBoard/AppDelegate.swift	2056	15	1666
+LifeBoard/DesignSystem/ComposerScaffold.swift	623	13	106
+LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift	665	1	655
+LifeBoard/DesignSystem/ScreenScaffold.swift	423	14	97
+LifeBoard/DesignSystem/LifeBoardSignatureEffects.swift	1946	52	145
+LifeBoard/DesignSystem/LifeBoardValueControls.swift	804	8	178
+LifeBoard/Features/DailyLoop/Data/DayCloseStore.swift	618	3	572
+LifeBoard/Features/DailyLoop/Data/HomeLifeOSProjectionStore.swift	941	4	827
+LifeBoard/Features/DailyLoop/UI/LifeBoardDayCloseViews.swift	948	5	705
+LifeBoard/Features/Eva/ChatHostViewController.swift	1374	10	885
+LifeBoard/Features/Eva/Models/AISuggestionService.swift	572	11	549
+LifeBoard/Features/Eva/Models/AssistantPlannerService.swift	2265	32	914
+LifeBoard/Features/Eva/Models/Data.swift	1004	24	256
+LifeBoard/Features/Eva/Models/EvaDayOverview.swift	869	17	434
+LifeBoard/Features/Eva/Models/EvaProposalCard.swift	481	15	260
+LifeBoard/Features/Eva/Models/LLMContextProjectionService.swift	2199	17	1298
+LifeBoard/Features/Eva/Models/LLMEvaluator.swift	640	8	522
+LifeBoard/Features/Eva/Models/LLMGenerationProfile.swift	1399	15	266
+LifeBoard/Features/Eva/Models/LLMInferenceEngine.swift	645	13	424
+LifeBoard/Features/Eva/Models/LLMRuntimeCoordinator.swift	873	11	761
+LifeBoard/Features/Eva/Models/LifeBoardAppShortcuts.swift	793	25	70
+LifeBoard/Features/Eva/Models/Models.swift	1018	21	295
+LifeBoard/Features/Eva/Models/SlashCommandExecutionService.swift	479	6	427
+LifeBoard/Features/Eva/Views/Chat/ChatView.swift	2545	10	424
+LifeBoard/Features/Eva/Views/Chat/Chrome/ChatComposerView+StructuredComposer.swift	496	0	494
+LifeBoard/Features/Eva/Views/Chat/Conversation/MessageView+DayOverviewAndProposalActions.swift	409	0	402
+LifeBoard/Features/Eva/Views/Chat/Conversation/MessageView+EvaProposalAndDayOverview.swift	430	0	423
+LifeBoard/Features/Eva/Views/Onboarding/EvaActivationComponents.swift	546	14	82
+LifeBoard/Features/Eva/Views/Shared/EvaMediaView.swift	844	22	106
+LifeBoard/Features/Health/HealthSync/HealthKitGateway.swift	689	5	598
+LifeBoard/Features/Health/HealthSync/HealthSyncLedger.swift	582	7	430
+LifeBoard/Features/Health/HealthSync/HealthSyncModels.swift	515	24	80
+LifeBoard/Features/Health/UI/LifeBoardPhaseVIViews.swift	1897	28	366
+LifeBoard/Features/Inbox/UI/InboxView.swift	1366	6	647
+LifeBoard/Features/Journal/Data/LifeBoardPhaseIIPersistence.swift	1997	16	1395
+LifeBoard/Features/Journal/Domain/LifeBoardJournalDerivedIndex.swift	555	3	547
+LifeBoard/Features/Journal/Domain/LifeBoardPhaseIIModels.swift	2485	99	199
+LifeBoard/Features/Journal/UI/LifeBoardTrackAndJournalViews.swift	6448	51	1117
+LifeBoard/Features/Knowledge/UI/LifeBoardKnowledgeCompletion.swift	1624	31	304
+LifeBoard/Features/Knowledge/UI/LifeBoardKnowledgeViews.swift	3722	20	950
+LifeBoard/Features/Nutrition/Data/NutritionLifeMomentsPersistence.swift	596	2	505
+LifeBoard/Features/Nutrition/Domain/NutritionModels.swift	1110	34	164
+LifeBoard/Features/Onboarding/Models/StarterWorkspaceCatalog.swift	1996	1	1988
+LifeBoard/Features/Plan/Data/PlanningCorePersistence.swift	1085	7	819
+LifeBoard/Features/Plan/Domain/PlanStore+WeeklyWorkspace.swift	447	0	437
+LifeBoard/Features/Plan/Domain/PlanStore.swift	1548	5	1511
+LifeBoard/Features/Plan/Domain/PlanningCoreModels.swift	1396	75	118
+LifeBoard/Features/Plan/Domain/PlanningCoreServices.swift	957	15	218
+LifeBoard/Features/Plan/Domain/TaskExecutionContracts.swift	1910	25	467
+LifeBoard/Features/Track/Data/TrackFoundationPersistence.swift	999	7	794
+LifeBoard/Features/Track/Domain/TrackFoundationModels.swift	1864	94	148
+LifeBoard/Features/Track/Domain/TrackFoundationServices.swift	1028	15	115
+LifeBoard/Features/Track/UI/LifeBoardTrackFoundationViews.swift	4487	75	376
+LifeBoard/Features/Track/UI/TrackFoundationStore.swift	1266	7	1137
+LifeBoard/Features/Weekly/Domain/WeeklyPlanningWorkspace.swift	867	29	90
+LifeBoard/Features/Weekly/UI/WeeklyPlanningWorkspaceView.swift	2642	28	749
+LifeBoard/Features/Wellness/Domain/WellnessCoreModels.swift	887	26	187
+LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift	1387	29	273
+LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift	5014	61	1100
+LifeBoard/Foundation/LifeOSFoundationContracts.swift	3095	133	209
+LifeBoard/Foundation/Navigation/AppRouter.swift	835	10	477
+LifeBoard/Foundation/Navigation/FoundationShell.swift	7112	56	2120
+LifeBoard/Persistence/Repositories/DashboardLayoutRepository.swift	631	13	234
+LifeBoard/LifeBoardDesign/HomeScreen.swift	1823	11	1405
+LifeBoard/LifeBoardDesign/ScheduleScreen.swift	1288	2	1117
+LifeBoard/LifeBoardDesign/Tokens/LBColorTokens.swift	308	23	138
+LifeBoard/App/DI/PresentationDependencyContainer.swift	531	5	413
+LifeBoard/Features/Home/UI/Modals/HomeDailySummaryModalView.swift	525	1	518
+LifeBoard/Features/Home/UI/Modals/OverdueRescue/OverdueRescueViewModelActions.swift	616	0	603
+LifeBoard/Features/Home/UI/RenderState/HomeRenderState.swift	1051	41	124
+LifeBoard/Features/Home/UI/Search/HomeSearchState.swift	980	14	348
+LifeBoard/Features/Home/UI/Shell/HomeiPadShell.swift	776	12	476
+LifeBoard/Features/Home/UI/Timeline/Surface/TimelineCanvasRail.swift	408	0	402
+LifeBoard/Features/Home/UI/Timeline/Surface/TimelineVisualTimeMapping.swift	414	2	409
+LifeBoard/Features/Habits/UI/ViewModels/AddHabitViewModel.swift	2065	22	810
+LifeBoard/Features/Tasks/UI/ViewModels/AddTaskViewModel.swift	1716	6	1567
+LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+CompletionProjection.swift	432	1	416
+LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+HabitMutationPatching.swift	432	0	416
+LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+HabitMutations.swift	430	0	414
+LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+ReloadBatchingAndReplanLauncher.swift	451	0	435
+LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+SectionProjection.swift	469	0	453
+LifeBoard/Features/Home/UI/ViewModels/HomeViewModelRoot.swift	539	1	522
+LifeBoard/Features/Home/UI/ViewModels/HomeTaskListWidgetSnapshotService.swift	1381	5	739
+LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+Timeline.swift	1028	2	928
+LifeBoard/Features/Insights/UI/ViewModels/InsightsViewModel.swift	2668	21	2134
+LifeBoard/Features/Settings/UI/ViewModels/LifeManagementViewModel.swift	1638	24	844
+LifeBoard/Features/Projects/UI/ViewModels/ProjectManagementViewModel.swift	717	7	591
+LifeBoard/Features/Tasks/UI/ViewModels/TaskDetailViewModel.swift	1604	17	1508
+LifeBoard/Features/Tasks/UI/ViewModels/TaskIconSupport.swift	551	7	503
+LifeBoard/Features/Weekly/UI/ViewModels/WeeklyPlannerViewModel.swift	1339	17	1046
+LifeBoard/Features/Weekly/UI/ViewModels/WeeklyReviewViewModel.swift	693	9	621
+LifeBoard/SceneDelegate.swift	1176	4	952
+LifeBoard/Services/LocalNotificationService.swift	1346	9	700
+LifeBoard/Services/V2FeatureFlags.swift	720	3	707
+LifeBoard/App/DI/CompositionRoot.swift	471	5	422
+LifeBoard/Persistence/Bootstrap/PersistentStoreBootstrapService.swift	2200	14	865
+LifeBoard/Persistence/Repositories/CoreDataExternalSyncRepository.swift	440	1	437
+LifeBoard/Persistence/Repositories/CoreDataGamificationRepository.swift	910	2	895
+LifeBoard/Persistence/Repositories/CoreDataHabitRuntimeReadRepository.swift	812	2	797
+LifeBoard/Persistence/Repositories/CoreDataProjectRepository.swift	978	3	953
+LifeBoard/Persistence/Repositories/CoreDataTaskDefinitionRepository.swift	1482	9	840
+LifeBoard/Persistence/Repositories/CoreDataTaskReadModelRepository.swift	795	2	780
+LifeBoard/Persistence/Repositories/CoreDataWeeklyRepositories.swift	1332	16	261
+LifeBoard/Persistence/Services/CalendarIntegrationService.swift	946	10	734
+LifeBoard/Persistence/Services/CoreSchedulingEngine.swift	728	4	612
+LifeBoard/Persistence/Sync/WriteClosedRepositoryAdapters.swift	887	22	105
+LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift	1640	1	1630
+LifeBoard/Features/Insights/Domain/CalculateAnalyticsUseCase.swift	1277	14	878
+LifeBoard/UseCases/Coordinator/LifeManagementDestructiveFlowCoordinator.swift	451	8	406
+LifeBoard/UseCases/Coordinator/UseCaseCoordinator.swift	862	13	694
+LifeBoard/Features/Gamification/Domain/GamificationEngine.swift	1517	8	1201
+LifeBoard/Features/Habits/Domain/HabitRuntimeUseCases.swift	2235	25	338
+LifeBoard/UseCases/Home/HomeTimelineProjectionBuilder.swift	955	6	925
+LifeBoard/Features/Eva/Domain/AssistantActionPipelineUseCase.swift	933	5	917
+LifeBoard/Features/Projects/Domain/ManageProjectsUseCase.swift	728	7	588
+LifeBoard/Features/Sync/Domain/ReconcileExternalRemindersUseCase.swift	1151	6	1033
+LifeBoard/Features/Sync/Domain/ReminderMergeEngine.swift	437	5	435
+LifeBoard/Features/Tasks/Domain/GetHomeFilteredTasksUseCase.swift	1865	34	627
+LifeBoard/Features/Tasks/Domain/GetTasksUseCase.swift	636	8	510
+LifeBoard/Features/Tasks/Domain/SortTasksUseCase.swift	593	10	482
+LifeBoard/Features/Tasks/Domain/TaskCaptureParser.swift	625	11	549
+LifeBoard/Features/Weekly/Domain/WeeklyOperatingUseCases.swift	996	18	218
+LifeBoard/Utils/LoggingService.swift	850	9	329
+LifeBoard/Features/Habits/UI/HabitBoardViews.swift	2251	43	389
+LifeBoard/Features/Home/UI/HomeQuickFilterDropdown.swift	448	3	404
+LifeBoard/Features/Habits/UI/AddHabitSheetView.swift	1110	10	451
+LifeBoard/Features/Tasks/UI/AddTaskSheetView.swift	854	11	309
+LifeBoard/Features/Home/UI/CompactHeaderChrome.swift	439	1	437
+LifeBoard/Features/Eva/UI/SunriseEvaSheets.swift	1856	25	307
+LifeBoard/Features/Focus/UI/FocusZone.swift	586	13	248
+LifeBoard/Features/Habits/UI/HabitDetailScreen.swift	1160	10	743
+LifeBoard/Features/Projects/UI/ProjectManagementView.swift	565	2	557
+LifeBoard/Features/Tasks/UI/TaskDetailScreen.swift	967	15	880
+LifeBoard/Features/Tasks/UI/TaskListView.swift	1355	9	972
+LifeBoard/Features/Tasks/UI/TaskRowView.swift	981	11	514
+LifeBoard/Features/Tasks/UI/TaskSectionView.swift	849	8	260
+LifeBoard/Features/Weekly/UI/WeeklyPlannerView.swift	1381	19	240
+LifeBoard/Features/Tasks/UI/TaskDetailComponents.swift	521	13	59
+LifeBoard/Features/Tasks/UI/TaskDetailPresentationContracts.swift	19	13	4
+LifeBoard/Features/Weekly/UI/WeeklyRitualComponents.swift	990	15	158
+LifeBoard/Features/Home/UI/HomeSearchViewModel.swift	778	8	757
+LifeBoard/Features/Settings/Components/SettingsNavigationRow.swift	680	18	98
+LifeBoard/Features/Settings/SettingsRootView.swift	1284	3	1232
+LifeBoard/Features/Settings/SettingsViewModel.swift	635	1	630
