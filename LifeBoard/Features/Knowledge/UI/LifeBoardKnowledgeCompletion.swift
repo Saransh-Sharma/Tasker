@@ -1,6 +1,11 @@
+import LifeBoardContracts
+import LifeBoardDomain
+import LifeBoardPersistence
+import LifeBoardTokens
+import LifeBoardUI
 import CryptoKit
 import Foundation
-import JournalSecurityKit
+import LifeBoardPersistence
 import Observation
 import Security
 import SQLite3

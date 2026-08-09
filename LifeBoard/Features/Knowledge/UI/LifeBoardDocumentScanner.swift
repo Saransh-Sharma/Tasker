@@ -1,3 +1,8 @@
+import LifeBoardContracts
+import LifeBoardDomain
+import LifeBoardPersistence
+import LifeBoardTokens
+import LifeBoardUI
 import SwiftUI
 @preconcurrency import UIKit
 import Vision
@@ -154,10 +159,10 @@ public struct ScanReviewView: View {
                     .font(.body)
                     .scrollContentBackground(.hidden)
                     .padding(12)
-                    .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 18))
+                    .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 18))
                     .overlay {
                         RoundedRectangle(cornerRadius: 18)
-                            .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                            .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
                     }
                     .accessibilityLabel("Scanned text")
                 Text("\(pageCount) scanned page\(pageCount == 1 ? "" : "s") · processed locally")
@@ -165,7 +170,7 @@ public struct ScanReviewView: View {
                     .foregroundStyle(.secondary)
             }
             .padding(20)
-            .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+            .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onCancel) }
                 ToolbarItem(placement: .confirmationAction) {

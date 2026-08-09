@@ -1,3 +1,8 @@
+import LifeBoardContracts
+import LifeBoardDomain
+import LifeBoardPersistence
+import LifeBoardTokens
+import LifeBoardUI
 import Foundation
 import Observation
 import PhotosUI
@@ -988,8 +993,8 @@ struct KnowledgeModuleView: View {
                         Label(collection.label, systemImage: collection.symbol)
                             .font(.lifeboard(store.selectedCollection == collection ? .bodyStrong : .body))
                             .foregroundStyle(Color(store.selectedCollection == collection
-                                ? LifeBoardColorTokens.inkPrimary
-                                : LifeBoardColorTokens.inkSecondary))
+                                ? SemanticColorTokens.inkPrimary
+                                : SemanticColorTokens.inkSecondary))
                             .padding(.horizontal, 14)
                             .frame(minHeight: 44)
                             .lifeBoardClaySurface(
@@ -2707,7 +2712,7 @@ private struct NoteAIProposalReview: View {
                 .padding(24)
                 .frame(maxWidth: .infinity)
             }
-            .background(Color(LifeBoardColorTokens.foundationCanvas))
+            .background(Color(SemanticColorTokens.foundationCanvas))
             .navigationTitle("EVA Proposal")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -2802,7 +2807,7 @@ private struct LockedKnowledgeNoteEditor: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+                Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea()
                 SceneCaptureMonitor(isCaptured: $isCaptured)
                     .frame(width: 0, height: 0)
                 if let session {
@@ -2982,7 +2987,7 @@ private struct LockedKnowledgeNoteEditor: View {
         }
         .foregroundStyle(.secondary)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(LifeBoardColorTokens.foundationCanvas))
+        .background(Color(SemanticColorTokens.foundationCanvas))
         .accessibilityElement(children: .combine)
     }
 
@@ -3430,7 +3435,7 @@ private struct SmartCollectionLocationSection: View {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(selectedTagIDs.isEmpty ? "Tags" : "Tags · \(selectedTagIDs.count)")
                         .font(.lifeboard(.meta))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     OptionFlow(spacing: 8) {
                         ForEach(tags) { tag in
                             let isOn = selectedTagIDs.contains(tag.id)
@@ -3441,8 +3446,8 @@ private struct SmartCollectionLocationSection: View {
                                 Text(tag.name)
                                     .font(.lifeboard(isOn ? .bodyStrong : .body))
                                     .foregroundStyle(Color(isOn
-                                        ? LifeBoardColorTokens.inkPrimary
-                                        : LifeBoardColorTokens.inkSecondary))
+                                        ? SemanticColorTokens.inkPrimary
+                                        : SemanticColorTokens.inkSecondary))
                                     .padding(.horizontal, 14)
                                     .frame(minHeight: 44)
                                     .lifeBoardClaySurface(

@@ -19,7 +19,8 @@ let package = Package(
         .library(name: "LifeBoardDomain", targets: ["LifeBoardDomain"]),
         .library(name: "LifeBoardPersistence", targets: ["LifeBoardPersistence"]),
         .library(name: "LifeBoardCalendar", targets: ["LifeBoardCalendar"]),
-        .library(name: "LifeBoardTranscription", targets: ["LifeBoardTranscription"])
+        .library(name: "LifeBoardTranscription", targets: ["LifeBoardTranscription"]),
+        .library(name: "KnowledgeFeature", targets: ["KnowledgeFeature"])
     ],
     targets: [
         .target(
@@ -56,6 +57,17 @@ let package = Package(
             name: "LifeBoardTranscription",
             dependencies: ["LifeBoardContracts"],
             path: "Packages/LifeBoardTranscription/Sources/LifeBoardTranscription"
+        ),
+        .target(
+            name: "KnowledgeFeature",
+            dependencies: [
+                "LifeBoardContracts",
+                "LifeBoardDomain",
+                "LifeBoardPersistence",
+                "LifeBoardTokens",
+                "LifeBoardUI"
+            ],
+            path: "LifeBoard/Features/Knowledge"
         )
     ]
 )
