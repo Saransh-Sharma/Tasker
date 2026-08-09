@@ -1,68 +1,163 @@
-# LifeBoard iOS - V2-Only Architecture Guide
+# LifeBoard iOS — architecture guide
 
 > **Classification: Canonical architecture reference.** Product and interaction behavior lives in the [LifeBoard 5.0 product handbook](../product/README.md); current completion is owned by the [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 
-**iOS 16.0+ | Swift 5+ | TaskDefinition-first runtime**
+**iOS 26.0+ | Swift 6 | TaskDefinition-first runtime**
 
-LifeBoard is now V2-only for task domain/runtime flows.
-Legacy task contracts (`Task`, `TaskRepositoryProtocol`, bridge adapters, legacy task usecases) are removed from production runtime.
+LifeBoard is V2-only for task domain and runtime flows. Legacy task contracts
+(`Task`, `TaskRepositoryProtocol`, bridge adapters, legacy task use cases) are
+gone from the production runtime.
 
-## Runtime Composition
+## The module graph
 
-Flow:
-`View/ViewController -> ViewModel -> UseCaseCoordinator -> UseCase -> RepositoryProtocol -> State Repository -> CoreData`
+Four in-repo SwiftPM packages sit under the app, in strict dependency order.
+The graph is acyclic and the compiler enforces it.
 
-Canonical boot/runtime anchors:
-- `LifeBoard/AppDelegate.swift`
-- `LifeBoard/State/DI/EnhancedDependencyContainer.swift`
-- `LifeBoard/Presentation/DI/PresentationDependencyContainer.swift`
-- `LifeBoard/UseCases/Coordinator/UseCaseCoordinator.swift`
+```
+App (LifeBoard.xcodeproj)
+  AppDelegate · SceneDelegate · AppRouter · FoundationShell · App/DI
+        │  maps AppRoute onto each feature's route factory
+        ▼
+LifeBoard/Features/<Feature>/{Domain,Data,UI}      23 features
+        │
+        ▼
+LifeBoard/Persistence/          CoreData lives here and in feature Data/ only
+        │
+        ▼
+LifeBoardDomain → LifeBoardUI → LifeBoardTokens → LifeBoardContracts
+```
 
-## Canonical Task Contracts
+`LifeBoardDomain` builds independently as a package. That is the acceptance test
+for the whole separation: if it stopped building alone, the layering would be
+decorative.
 
-- Domain task model: `TaskDefinition` (`LifeBoard/Domain/Models/Task.swift`)
-- Read model query contracts: `TaskReadQuery`, `TaskSliceResult` (`LifeBoard/Domain/Models/TaskReadQueries.swift`)
-- Task read repository: `TaskReadModelRepositoryProtocol`
-- Task write repository: `TaskDefinitionRepositoryProtocol`
-- View-layer alias: `DomainTask = TaskDefinition` (`LifeBoard/Domain/Models/DomainTask.swift`)
+### Where things live
 
-## Dependency Rules
+| Layer | Holds | Never |
+|---|---|---|
+| `Features/<F>/Domain/` | models, use cases, services, ports | SwiftUI, UIKit, CoreData |
+| `Features/<F>/Data/` | repositories, mappers | SwiftUI, another feature |
+| `Features/<F>/UI/` | screens, sections, rows, stores | CoreData, the app router |
+| `LifeBoard/Persistence/` | the Core Data stack, repositories, mappers | feature UI types |
+| `LifeBoard/Shared/UI/` | chrome no single feature owns | feature models |
+| `LifeBoard/App/` | composition roots | — |
 
-- Use cases depend only on domain protocols.
-- State repositories own CoreData access and mapping.
-- Presentation never imports CoreData.
-- Runtime is fail-closed if required V2 dependencies are missing.
+Features never import other features. Cross-feature behavior goes through a
+domain contract or App-tier coordination, and the App maps `AppRoute` onto each
+feature's exported route factory — never the reverse.
 
-## Local LLM / EVA
+## Naming
 
-The local assistant architecture is documented in `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.
+- No generational or phase prefix: `Sunrise`, `LifeOS`, `LB`, `PhaseII…VI` are gone
+  from type names, and `LifeBoard` is dropped where it was redundant.
+  675 types were renamed; `scripts/rename-manifest.tsv` is the record.
+- One role per suffix: `…Repository` (port in `Domain/Ports/`, implementation in
+  `Data/`), `…Store` (observable feature state), `…Service` (stateless
+  operation), `…UseCase` (one user intent), `…Coordinator` (cross-feature, App
+  tier only).
+- Filename equals the file's primary exported type.
 
-LLM-driven task changes still follow the V2 runtime boundaries: UI routes user intent, the planner emits schema-validated commands, `AssistantActionPipelineUseCase` validates and applies mutations, and repositories persist state. Chat or proposal UI must not write task state directly.
+Names that could not be collapsed mechanically are listed in
+`scripts/rename-collisions.tsv` with the reason — two different palettes cannot
+both become `ColorTokens`, and that is a product decision, not a rename.
 
-Timeline-aware Eva guidance follows the same rule. Calendar and timeline projections may inform chat answers and proposal rationale, but external calendar events remain read-only and LifeBoard-owned task changes still flow through the assistant action pipeline.
+## Canonical task contracts
 
-## Cutover Policy
+- Domain task model: `TaskDefinition`
+- Read query contracts: `TaskReadQuery`, `TaskSliceResult`
+- Read repository: `TaskReadModelRepositoryProtocol`
+- Write repository: `TaskDefinitionRepositoryProtocol`
+- View-layer alias: `DomainTask = TaskDefinition`
+
+## Persistence
+
+`TaskModelV3.xcdatamodeld`, 23 shipped versions, opened with lightweight
+migration (`NSMigratePersistentStoresAutomaticallyOption` +
+`NSInferMappingModelAutomaticallyOption`) across two configurations —
+`CloudSync` and `LocalOnly` — one store each.
+
+There are no hand-written mapping models. `CoreDataMigrationChainTests` is what
+keeps that safe: it proves every shipped version can still infer a migration to
+the current model, that data written at the oldest version survives the
+migration, and that no entity sits outside a configuration the app opens.
+
+`LifeBoardPersistence` is a directory rather than a package because eleven
+entities use Core Data `class` codegen, and classes generated inside a package
+are internal to it — the app would lose access to its own entity types. The
+boundary is enforced instead by `check-module-boundaries.sh`, which bans
+`import CoreData` outside `LifeBoard/Persistence/` and feature `Data/` folders.
 
 - Store epoch key: `lifeboard.v3.store.epoch`
-- CoreData model container name: `TaskModelV2`
 - CloudKit container: `iCloud.TaskerCloudKitV3`
-- Upgrade policy: destructive reset accepted for this hard cut.
+
+## Local LLM / Eva
+
+The local assistant architecture is documented in
+`docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.
+
+Assistant-driven changes follow the same boundaries: UI routes intent, the
+planner emits schema-validated commands, `AssistantActionPipelineUseCase`
+validates and applies mutations, repositories persist. Chat and proposal UI
+never write task state directly. Calendar and timeline projections may inform
+answers, but external calendar events stay read-only.
 
 ## Guardrails
 
-Run before merge/release:
+Thirteen scripts gate a change; run them before merge.
 
 ```bash
-xcodebuild -workspace LifeBoard.xcworkspace -scheme "LifeBoard" -configuration Debug -destination "platform=iOS Simulator,name=iPhone 16" build
-./scripts/validate_legacy_runtime_guardrails.sh
+for s in check-accessibility-identifiers check-directory-shrapnel check-file-size-guardrails check-localization-keys check-module-boundaries check-no-print-logs check-swiftlint-baseline check-xcode-target-membership phase1-foundation-guardrails premium-ui-guardrails validate_coredata_codegen_guardrails validate_legacy_runtime_guardrails validate_legacy_test_guardrails; do bash "scripts/$s.sh" || echo "FAILED: $s"; done
 ```
 
-Guardrail script enforces absence of banned legacy symbols in production code.
+Three of them are ratchets rather than pass/fail rules — file size, directory
+shrapnel, and the SwiftLint token-law baseline. They record today's debt and
+refuse to let it grow. Two invariants matter more than any individual check:
+
+- **No change reduces guardrail coverage.** If a move takes files out of a
+  scanned directory, the scanned set changes in the same commit. This is the
+  failure mode most likely to pass unnoticed, because it leaves the build green
+  and the numbers *improving*.
+- **Exceptions are named, not patterned.** `scripts/module-boundary-exceptions.txt`
+  keys on `<path>\t<import>`, so an entry excuses one import in one file and a
+  second violation in the same file still fails.
+
+Then the suite, run serially:
+
+```bash
+bash scripts/run-baseline-aware-tests.sh
+```
+
+A red result has three distinct shapes and they are not interchangeable: check
+the `Executed N tests` line first. `runner hung before establishing connection`
+with 0 executed is an environment problem, `crashed with signal` with 0 executed
+is a launch crash, and only `Executed N tests, with M failures` is a real
+failure.
+
+## Debug builds and the stack
+
+Debug compiles at `-Onone`, where a computed `some View` property is inlined
+into its caller's frame. A screen whose sections are all computed properties
+builds its entire view value in two frames and walks off the 1 MB main stack
+during generic metadata instantiation — `EXC_BAD_ACCESS (code=2)`, top frame
+`swift::SubstGenericParametersFromMetadata`. Release coalesces the slots, so
+**a Release build proves nothing here**; the acceptance gate is a Debug launch.
+
+The fix is that each `LazyVStack` child is a `struct: View`. When extracting
+one, restate the parent's spacing inside it or the layout silently tightens, and
+keep `LazyVStack` rather than `VStack` wherever the list is unbounded — swapping
+it is a behavior change, not a restyle.
 
 ## Release and visual-system authority
 
-The active LifeBoard 5.0 completion tracker is `docs/life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md`; dated audits preserve their source and automated evidence boundaries. `DESIGN.md` is the agent-readable visual contract, while `LifeBoardColorTokens`, companion token groups, and named components remain the runtime source of truth. `lifeOSUnifiedPresentationV2` remains a disable-only, data-preserving diagnostic rollback; app and extension targets default to the unified palette in Release.
+`DESIGN.md` is the agent-readable visual contract; the token packages are the
+runtime source of truth. `lifeOSUnifiedPresentationV2` remains a disable-only,
+data-preserving diagnostic rollback; app and extension targets default to the
+unified palette in Release.
 
-Before release, run the build and baseline-aware test script serially with token-law and premium UI guardrails. Signed-device performance, paired Watch, App Group, migration, iCloud/account, and accessibility-device checks cannot be closed by the simulator alone.
+Signed-device performance, paired Watch, App Group, migration, iCloud/account,
+and accessibility-device checks cannot be closed by the simulator alone.
 
-Product intent and screen behavior live in `docs/product/README.md`; global interaction and responsive rules live in `docs/design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md`. Architecture documents own runtime composition, dependency direction, persistence, and trust boundaries. Avoid duplicating product requirements here.
+Product intent and screen behavior live in `docs/product/README.md`; global
+interaction and responsive rules live in
+`docs/design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md`. Architecture documents own
+runtime composition, dependency direction, persistence, and trust boundaries.
