@@ -496,12 +496,12 @@ struct InboxView: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Needs review")
                     .font(.headline)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 Spacer(minLength: 8)
                 Text(deckPositionLabel)
                     .font(.caption)
                     .monospacedDigit()
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .accessibilityIdentifier("plan.inbox.deck.position")
             }
 
@@ -544,7 +544,7 @@ struct InboxView: View {
             HStack(alignment: .top, spacing: 8) {
                 Text(proposalTitle(for: item))
                     .font(.title3.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 0)
             }
@@ -593,7 +593,7 @@ struct InboxView: View {
                 systemImage: "arrow.uturn.forward.circle"
             )
             .font(.caption)
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             .accessibilityIdentifier("plan.inbox.repeatedSkip.\(item.id.uuidString)")
         }
     }
@@ -603,11 +603,11 @@ struct InboxView: View {
         if let flick {
             Label(flick.label, systemImage: flick.symbol)
                 .font(.footnote.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(
-                    Capsule().fill(Color(LifeBoardColorTokens.foundationSurfaceSelected))
+                    Capsule().fill(Color(SemanticColorTokens.foundationSurfaceSelected))
                 )
                 .transition(.opacity)
                 .accessibilityHidden(true)
@@ -679,7 +679,7 @@ struct InboxView: View {
     }
 
     private func beginFiling(_ item: InboxItem) {
-        LifeBoardFeedback.light()
+        HapticFeedback.light()
         triageSettleDirection = 1
         triageSettleTrigger &+= 1
         filingItem = item
@@ -688,7 +688,7 @@ struct InboxView: View {
     /// Sinks the capture in the deck. No mutation, no receipt: the capture is
     /// untouched and will be waiting next time — including after a relaunch.
     private func skip(_ item: InboxItem) {
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
         let next = (skipCounts[item.id] ?? 0) + 1
         InboxSkipLedger.record(count: next, for: item.id)
         triageSettleDirection = -1
@@ -714,7 +714,7 @@ struct InboxView: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Already in your system")
                 .font(.headline)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             if selection.isEmpty == false { batchBar }
             ForEach(settledItems) { item in
                 settledRow(item)
@@ -732,7 +732,7 @@ struct InboxView: View {
                 else { selection.insert(item.id) }
             } label: {
                 Image(systemName: selection.contains(item.id) ? "checkmark.circle.fill" : "circle")
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .frame(width: 44, height: 44, alignment: .leading)
             }
             .buttonStyle(.plain)
@@ -740,7 +740,7 @@ struct InboxView: View {
 
             Text(item.title)
                 .font(.body)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .frame(minHeight: 44, alignment: .leading)
 
             Spacer(minLength: 0)
@@ -760,7 +760,7 @@ struct InboxView: View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(0..<2, id: \.self) { index in
                 RoundedRectangle(cornerRadius: Radius.largeCard, style: .continuous)
-                    .fill(Color(LifeBoardColorTokens.foundationSurfaceRecessed))
+                    .fill(Color(SemanticColorTokens.foundationSurfaceRecessed))
                     .frame(height: index == 0 ? 132 : 96)
                     .opacity(index == 0 ? 1 : 0.55)
             }
@@ -775,10 +775,10 @@ struct InboxView: View {
         VStack(alignment: .leading, spacing: 10) {
             Label("Couldn’t load your inbox", systemImage: "exclamationmark.arrow.circlepath")
                 .font(.headline)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             Text("Nothing has been lost. Your captures are still saved.")
                 .font(.subheadline)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             Button("Try again") { Task { await store.load() } }
                 .buttonStyle(.lifeBoardPrimary)
                 .accessibilityIdentifier("plan.inbox.retry")
@@ -807,10 +807,10 @@ struct InboxView: View {
                 .foregroundStyle(Color.lifeboard.textTertiary)
             Text(title)
                 .font(.headline)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             Text(detail)
                 .font(.subheadline)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
@@ -912,7 +912,7 @@ struct InboxView: View {
             Text(text)
         }
         .font(.caption2)
-        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         .padding(.horizontal, 7)
         .padding(.vertical, 3)
         .background(
@@ -929,7 +929,7 @@ struct InboxView: View {
             Button("Return to Inbox") { triage(item, to: .inbox) }
         } label: {
             Image(systemName: "ellipsis.circle")
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
         .accessibilityLabel("Triage \(item.title)")
         .accessibilityIdentifier("plan.inbox.triage.\(item.id.uuidString)")
@@ -939,7 +939,7 @@ struct InboxView: View {
         HStack(spacing: 12) {
             Text("\(selection.count) selected")
                 .font(.subheadline)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             Spacer()
             Button("Someday") { triageSelection(to: .someday) }
             Button("Reference") { triageSelection(to: .reference) }
@@ -956,7 +956,7 @@ struct InboxView: View {
                 .foregroundStyle(Color.lifeboard.statusSuccess)
             Text(summary)
                 .font(.footnote)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .fixedSize(horizontal: false, vertical: true)
             Spacer(minLength: 8)
             Button("Undo") { Task { await store.undoLast() } }
@@ -1087,7 +1087,7 @@ private struct InboxCaptureReviewSheet: View {
                 .padding(.top, 8)
                 .padding(.bottom, 12)
                 .background(
-                    Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea(edges: .bottom)
+                    Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea(edges: .bottom)
                 )
                 .accessibilityIdentifier("plan.inbox.review.file")
             }
@@ -1139,7 +1139,7 @@ private struct InboxCaptureReviewSheet: View {
                 return
             }
             commitPhase = .success(receipt: draft.commitRequest.title)
-            LifeBoardFeedback.success()
+            HapticFeedback.success()
             // Long enough to read as a confirmation, short enough not to feel like
             // a wait. The receipt and its Undo are waiting on the Inbox behind.
             try? await Task.sleep(for: .milliseconds(420))
@@ -1273,7 +1273,7 @@ private struct InboxCaptureReviewSheet: View {
                 if conflicts.isEmpty == false {
                     Text("Confirm each highlighted choice before merging.")
                         .font(.footnote)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 ForEach(DuplicateMergeResolution.Field.allCases.filter(conflicts.contains), id: \.self) { field in
                     Picker("Use \(field.title)", selection: conflictBinding(field)) {
@@ -1314,7 +1314,7 @@ private struct InboxCaptureReviewSheet: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(label)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             HStack(alignment: .firstTextBaseline) {
                 Text("Existing: \(existing)")
                 Spacer(minLength: 12)
