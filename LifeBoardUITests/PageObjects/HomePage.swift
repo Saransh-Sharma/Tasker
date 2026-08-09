@@ -818,6 +818,21 @@ class HomePage {
     func tapAddTask() -> AddTaskPage {
         let addTaskPage = AddTaskPage(app: app)
         for _ in 0..<3 {
+            // The foundation Home surface exposes task creation from the pinned
+            // tasks card. Keep the legacy floating-button identifier as a
+            // fallback for layouts that still render it.
+            let homeTaskAction = app.buttons["home.tasks.add"]
+            if homeTaskAction.waitForExistence(timeout: 1) {
+                if homeTaskAction.isHittable {
+                    homeTaskAction.tap()
+                } else {
+                    homeTaskAction.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap()
+                }
+                if addTaskPage.verifyIsDisplayed(timeout: 2) {
+                    return addTaskPage
+                }
+            }
+
             let byButtonID = app.buttons[AccessibilityIdentifiers.Home.addTaskButton]
             if byButtonID.waitForExistence(timeout: 1) {
                 if byButtonID.isHittable {
