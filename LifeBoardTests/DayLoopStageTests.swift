@@ -112,9 +112,17 @@ final class DayLoopClosureLogTests: XCTestCase {
         return calendar
     }
 
+    /// Relative to now, not a fixed instant.
+    ///
+    /// `write` prunes anything older than the 14-day retention window, so a
+    /// hardcoded date is a time bomb: this test was pinned to 2026-07-25 and
+    /// passed until that date aged out of the window, then began failing on a
+    /// day nobody had touched the code.
+    private var recentDay: Date { Date().addingTimeInterval(-2 * 24 * 3_600) }
+
     func testMarkingADayClosedRecordsItsStamp() {
         let log = DayLoopClosureLog(defaults: defaults)
-        let day = Date(timeIntervalSince1970: 1_785_000_000)
+        let day = recentDay
 
         log.markClosed(day, calendar: calendar)
 
@@ -123,7 +131,7 @@ final class DayLoopClosureLogTests: XCTestCase {
 
     func testUndoClearsTheStampSoTheNudgeComesBack() {
         let log = DayLoopClosureLog(defaults: defaults)
-        let day = Date(timeIntervalSince1970: 1_785_000_000)
+        let day = recentDay
         log.markClosed(day, calendar: calendar)
 
         log.clearClosed(day, calendar: calendar)
@@ -159,7 +167,7 @@ final class DayLoopClosureLogTests: XCTestCase {
 final class NotificationDateResolutionTests: XCTestCase {
 
     func testAStampResolvesToItsOwnCalendarDay() {
-        let date = try? XCTUnwrap(LifeBoardAppRouter.notificationDate(from: "20260731"))
+        let date = try? XCTUnwrap(AppRouter.notificationDate(from: "20260731"))
         let parts = Calendar.current.dateComponents([.year, .month, .day], from: date ?? Date())
 
         XCTAssertEqual(parts.year, 2026)
@@ -172,8 +180,8 @@ final class NotificationDateResolutionTests: XCTestCase {
         // "today" had become; falling back to now is the same behaviour, but
         // only when there is genuinely nothing to resolve.
         let before = Date().addingTimeInterval(-5)
-        XCTAssertGreaterThan(LifeBoardAppRouter.notificationDate(from: nil), before)
-        XCTAssertGreaterThan(LifeBoardAppRouter.notificationDate(from: ""), before)
-        XCTAssertGreaterThan(LifeBoardAppRouter.notificationDate(from: "not-a-date"), before)
+        XCTAssertGreaterThan(AppRouter.notificationDate(from: nil), before)
+        XCTAssertGreaterThan(AppRouter.notificationDate(from: ""), before)
+        XCTAssertGreaterThan(AppRouter.notificationDate(from: "not-a-date"), before)
     }
 }

@@ -164,7 +164,7 @@ final class AppOnboardingTests: XCTestCase {
     func testOnboardingAccentPairsMeetWCAGContrast() {
         let lightTraits = UITraitCollection(userInterfaceStyle: .light)
         let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
-        let tokens = LifeBoardTheme(index: 0).tokens.color
+        let tokens = Theme(index: 0).tokens.color
 
         XCTAssertGreaterThanOrEqual(contrast(tokens.actionPrimary, tokens.accentOnPrimary, traits: lightTraits), 4.5)
         XCTAssertGreaterThanOrEqual(contrast(tokens.actionPrimary, tokens.accentOnPrimary, traits: darkTraits), 4.5)
@@ -821,11 +821,11 @@ private struct StoreContext {
 }
 
 private final class TestNotificationService: NotificationServiceProtocol {
-    var status: LifeBoardNotificationAuthorizationStatus
+    var status: NotificationAuthorizationStatus
     var permissionGranted = true
     private(set) var requestPermissionCallCount = 0
 
-    init(status: LifeBoardNotificationAuthorizationStatus) {
+    init(status: NotificationAuthorizationStatus) {
         self.status = status
     }
 
@@ -840,12 +840,12 @@ private final class TestNotificationService: NotificationServiceProtocol {
     func checkAuthorizationStatus(completion: @escaping @Sendable (Bool) -> Void) {
         completion(status == .authorized || status == .provisional || status == .ephemeral)
     }
-    func schedule(request: LifeBoardLocalNotificationRequest) {}
+    func schedule(request: LocalNotificationRequest) {}
     func cancel(ids: [String]) {}
-    func pendingRequests(completion: @escaping @Sendable ([LifeBoardPendingNotificationRequest]) -> Void) { completion([]) }
+    func pendingRequests(completion: @escaping @Sendable ([PendingNotificationRequest]) -> Void) { completion([]) }
     func registerCategories(_ categories: Set<UNNotificationCategory>) {}
     func setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {}
-    func fetchAuthorizationStatus(completion: @escaping @Sendable (LifeBoardNotificationAuthorizationStatus) -> Void) {
+    func fetchAuthorizationStatus(completion: @escaping @Sendable (NotificationAuthorizationStatus) -> Void) {
         completion(status)
     }
 }
@@ -860,11 +860,11 @@ final class OnboardingRebuiltFlowTests: XCTestCase {
 
     override func setUp() {
         super.setUp()
-        LifeBoardPermissionPromptState.resetAll()
+        PermissionPromptState.resetAll()
     }
 
     override func tearDown() {
-        LifeBoardPermissionPromptState.resetAll()
+        PermissionPromptState.resetAll()
         super.tearDown()
     }
 
@@ -949,43 +949,43 @@ final class OnboardingRebuiltFlowTests: XCTestCase {
     // MARK: Permission semantics
 
     func testSkippingInOnboardingIsNotCountedAsARefusal() {
-        LifeBoardPermissionPromptState.recordOnboardingDeferral(.notifications)
+        PermissionPromptState.recordOnboardingDeferral(.notifications)
 
-        XCTAssertTrue(LifeBoardPermissionPromptState.wasDeferredInOnboarding(.notifications))
-        XCTAssertEqual(LifeBoardPermissionPromptState.declineCount(.notifications), 0)
-        XCTAssertNil(LifeBoardPermissionPromptState.snoozedUntil(.notifications))
+        XCTAssertTrue(PermissionPromptState.wasDeferredInOnboarding(.notifications))
+        XCTAssertEqual(PermissionPromptState.declineCount(.notifications), 0)
+        XCTAssertNil(PermissionPromptState.snoozedUntil(.notifications))
         // The point of the distinction: the feature may still ask once, in context.
-        XCTAssertTrue(LifeBoardPermissionPromptState.shouldOffer(.notifications))
+        XCTAssertTrue(PermissionPromptState.shouldOffer(.notifications))
     }
 
     func testRefusingInContextSnoozesAndEventuallyStopsOffering() {
         let now = Date()
-        LifeBoardPermissionPromptState.recordDecline(.notifications, now: now)
-        XCTAssertFalse(LifeBoardPermissionPromptState.shouldOffer(.notifications, now: now.addingTimeInterval(60)))
+        PermissionPromptState.recordDecline(.notifications, now: now)
+        XCTAssertFalse(PermissionPromptState.shouldOffer(.notifications, now: now.addingTimeInterval(60)))
 
-        let afterSnooze = now.addingTimeInterval(LifeBoardPermissionPromptState.snoozeInterval + 1)
-        XCTAssertTrue(LifeBoardPermissionPromptState.shouldOffer(.notifications, now: afterSnooze))
+        let afterSnooze = now.addingTimeInterval(PermissionPromptState.snoozeInterval + 1)
+        XCTAssertTrue(PermissionPromptState.shouldOffer(.notifications, now: afterSnooze))
 
-        LifeBoardPermissionPromptState.recordDecline(.notifications, now: afterSnooze)
+        PermissionPromptState.recordDecline(.notifications, now: afterSnooze)
         XCTAssertFalse(
-            LifeBoardPermissionPromptState.shouldOffer(
+            PermissionPromptState.shouldOffer(
                 .notifications,
-                now: afterSnooze.addingTimeInterval(LifeBoardPermissionPromptState.snoozeInterval * 5)
+                now: afterSnooze.addingTimeInterval(PermissionPromptState.snoozeInterval * 5)
             ),
             "Two refusals should end the invitation permanently"
         )
     }
 
     func testGrantingStopsAnyFurtherOffers() {
-        LifeBoardPermissionPromptState.recordRequested(.calendar)
-        XCTAssertTrue(LifeBoardPermissionPromptState.hasRequested(.calendar))
-        XCTAssertFalse(LifeBoardPermissionPromptState.shouldOffer(.calendar))
+        PermissionPromptState.recordRequested(.calendar)
+        XCTAssertTrue(PermissionPromptState.hasRequested(.calendar))
+        XCTAssertFalse(PermissionPromptState.shouldOffer(.calendar))
     }
 
     func testPermissionsRequestedAtPointOfUseAreNeverPrimedAhead() {
-        for kind in [LifeBoardPermissionKind.microphone, .speech, .camera] {
+        for kind in [PermissionKind.microphone, .speech, .camera] {
             XCTAssertFalse(
-                LifeBoardPermissionPromptState.shouldOffer(kind),
+                PermissionPromptState.shouldOffer(kind),
                 "\(kind.rawValue) is asked for by iOS at first use; priming it would mean two dialogs"
             )
         }
@@ -993,7 +993,7 @@ final class OnboardingRebuiltFlowTests: XCTestCase {
 
     func testHealthPromptStateStillReadsThroughItsOriginalFace() {
         HealthAuthorizationPromptState.recordRequested()
-        XCTAssertTrue(LifeBoardPermissionPromptState.hasRequested(.appleHealth))
+        XCTAssertTrue(PermissionPromptState.hasRequested(.appleHealth))
         XCTAssertTrue(HealthAuthorizationPromptState.hasRequested)
     }
 }

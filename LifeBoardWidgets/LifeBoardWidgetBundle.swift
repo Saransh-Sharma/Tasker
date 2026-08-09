@@ -10,7 +10,7 @@ struct LifeBoardWidgetBundle: WidgetBundle {
         // Control Center / Lock Screen capture. Gated on iOS 18, where
         // `ControlWidget` exists; every other surface is unaffected.
         if #available(iOS 18.0, *) {
-            LifeBoardCaptureControl()
+            CaptureControl()
         }
         FocusLiveActivityWidget()
         FastingLiveActivityWidget()

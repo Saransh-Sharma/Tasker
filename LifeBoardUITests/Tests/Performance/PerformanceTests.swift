@@ -484,7 +484,7 @@ class PerformanceTests: BaseUITest {
         takeScreenshot(named: "performance_project_filter")
     }
 
-    // MARK: - Test 74: Animation Performance
+    // MARK: - Test 74: LifeBoardAnimation Performance
 
     func testAnimationPerformance() throws {
         // GIVEN: Tasks exist with animations
@@ -714,7 +714,6 @@ class PerformanceTests: BaseUITest {
             "-LIFEBOARD_ENABLE_LIFE_OS_FOUNDATION",
             "-LIFEBOARD_ENABLE_LIFE_OS_UNIFIED_PRESENTATION_V2",
             "-LIFEBOARD_ENABLE_PREMIUM_IA_V5",
-            "-LIFEBOARD_ENABLE_PLAN_DESTINATION_V1",
             "-LIFEBOARD_ENABLE_TRACK_FOUNDATIONS_V2"
         ]
         if evaActivationCompleted {

@@ -5,17 +5,17 @@ import XCTest
 final class LifeBoardShortcutDeepLinkTests: XCTestCase {
     func testChatDeepLinkRoundTripsPrompt() {
         let prompt = "What should I focus on first today?"
-        let url = LifeBoardShortcutDeepLink.chatURL(prompt: prompt)
+        let url = ShortcutDeepLink.chatURL(prompt: prompt)
 
         XCTAssertEqual(url.absoluteString, "lifeboard://chat?prompt=What%20should%20I%20focus%20on%20first%20today%3F")
-        XCTAssertEqual(LifeBoardShortcutDeepLink.chatPrompt(from: url), prompt)
+        XCTAssertEqual(ShortcutDeepLink.chatPrompt(from: url), prompt)
     }
 
     func testChatDeepLinkOmitsBlankPrompt() {
-        let url = LifeBoardShortcutDeepLink.chatURL(prompt: "   ")
+        let url = ShortcutDeepLink.chatURL(prompt: "   ")
 
         XCTAssertEqual(url.absoluteString, "lifeboard://chat")
-        XCTAssertNil(LifeBoardShortcutDeepLink.chatPrompt(from: url))
+        XCTAssertNil(ShortcutDeepLink.chatPrompt(from: url))
     }
 }
 
@@ -119,11 +119,11 @@ final class PersistentStoreLocationServiceTests: XCTestCase {
         XCTAssertEqual(location.legacyDirectoryURL.standardizedFileURL, legacyURL.standardizedFileURL)
         XCTAssertEqual(
             location.cloudStoreURL,
-            appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.cloudStoreFileName)
+            appGroupURL.appendingPathComponent(PersistentStoreLocationService.cloudStoreFileName)
         )
         XCTAssertEqual(
             location.localStoreURL,
-            appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.localStoreFileName)
+            appGroupURL.appendingPathComponent(PersistentStoreLocationService.localStoreFileName)
         )
         XCTAssertTrue(location.usesSharedAppGroupStore)
     }
@@ -149,8 +149,8 @@ final class PersistentStoreLocationServiceTests: XCTestCase {
 
     func testPrepareSharedStoreLocationSkipsMigrationWhenCanonicalStoreAlreadyExists() throws {
         let service = makeService()
-        let canonicalCloudURL = appGroupURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.cloudStoreFileName)
-        let legacyCloudURL = legacyURL.appendingPathComponent(LifeBoardPersistentStoreLocationService.cloudStoreFileName)
+        let canonicalCloudURL = appGroupURL.appendingPathComponent(PersistentStoreLocationService.cloudStoreFileName)
+        let legacyCloudURL = legacyURL.appendingPathComponent(PersistentStoreLocationService.cloudStoreFileName)
         XCTAssertTrue(fileManager.createFile(atPath: canonicalCloudURL.path, contents: Data("canonical".utf8)))
         XCTAssertTrue(fileManager.createFile(atPath: legacyCloudURL.path, contents: Data("legacy".utf8)))
 
@@ -162,8 +162,8 @@ final class PersistentStoreLocationServiceTests: XCTestCase {
         XCTAssertTrue(fileManager.fileExists(atPath: legacyCloudURL.path))
     }
 
-    private func makeService() -> LifeBoardPersistentStoreLocationService {
-        LifeBoardPersistentStoreLocationService(
+    private func makeService() -> PersistentStoreLocationService {
+        PersistentStoreLocationService(
             fileManager: fileManager,
             appGroupContainerURLProvider: { [appGroupURL] in appGroupURL },
             legacyStoreDirectoryURLProvider: { [legacyURL] in
@@ -207,7 +207,7 @@ final class PersistentRuntimeInitializerTests: XCTestCase {
 
         try context.save()
 
-        let initializer = LifeBoardPersistentRuntimeInitializer()
+        let initializer = PersistentRuntimeInitializer()
         initializer.initialize(container: container)
         initializer.initialize(container: container)
 
@@ -353,7 +353,7 @@ final class FocusSessionShortcutRecoveryTests: XCTestCase {
                 newestSession
             ]
         )
-        let useCase = FocusSessionUseCase(repository: repository, engine: GamificationEngine(repository: repository))
+        let useCase = FocusSessionUseCase(repository: repository, engine: GamificationService(repository: repository))
 
         let session = try awaitResult { completion in
             useCase.fetchActiveSession(completion: completion)
@@ -382,7 +382,7 @@ final class FocusSessionShortcutRecoveryTests: XCTestCase {
                 )
             ]
         )
-        let useCase = FocusSessionUseCase(repository: repository, engine: GamificationEngine(repository: repository))
+        let useCase = FocusSessionUseCase(repository: repository, engine: GamificationService(repository: repository))
 
         let session = try awaitResult { completion in
             useCase.fetchActiveSession(completion: completion)

@@ -1,3 +1,4 @@
+import LifeBoardContracts
 import UIKit
 import UniformTypeIdentifiers
 

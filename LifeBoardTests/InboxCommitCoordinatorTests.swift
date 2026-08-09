@@ -1,6 +1,7 @@
 import CoreData
 import XCTest
 @testable import LifeBoard
+import LifeBoardContracts
 
 /// In-memory stand-in for the task repository.
 ///

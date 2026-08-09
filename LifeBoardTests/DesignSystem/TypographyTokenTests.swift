@@ -5,7 +5,7 @@ import UIKit
 @MainActor
 final class TypographyTokenTests: XCTestCase {
     func testTypographyStylesExist() {
-        let typography = LifeBoardTheme(index: 0).tokens.typography
+        let typography = Theme(index: 0).tokens.typography
 
         XCTAssertGreaterThan(typography.heroDisplay.pointSize, 0)
         XCTAssertGreaterThan(typography.screenTitle.pointSize, 0)
@@ -17,7 +17,7 @@ final class TypographyTokenTests: XCTestCase {
     }
 
     func testDisplayFontClampsToExpectedRange() {
-        let typography = LifeBoardTheme(index: 0).tokens.typography
+        let typography = Theme(index: 0).tokens.typography
         let largeAccessibility = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
         let display = typography.dynamicFont(for: .display, compatibleWith: largeAccessibility)
         XCTAssertLessThanOrEqual(display.pointSize, 40)
@@ -25,20 +25,20 @@ final class TypographyTokenTests: XCTestCase {
     }
 
     func testButtonStylesAreSemiboldLike() {
-        let typography = LifeBoardTheme(index: 0).tokens.typography
+        let typography = Theme(index: 0).tokens.typography
 
         XCTAssertGreaterThanOrEqual(typography.button.pointSize, typography.buttonSmall.pointSize)
     }
 
     func testMetricAndMonoRolesUseSpecializedDesigns() {
-        let typography = LifeBoardTheme(index: 0).tokens.typography
+        let typography = Theme(index: 0).tokens.typography
 
         XCTAssertTrue(typography.metric.fontName.localizedCaseInsensitiveContains("rounded"))
         XCTAssertTrue(typography.monoMeta.fontName.localizedCaseInsensitiveContains("mono"))
     }
 
     func testTextStylesAreDynamicTypeCompatibleAndNotHelvetica() {
-        let typography = LifeBoardTheme(index: 0).tokens.typography
+        let typography = Theme(index: 0).tokens.typography
 
         let expectedStyles: [(LifeBoardTextStyle, UIFont, UIFont.TextStyle)] = [
             (.display, typography.display, .largeTitle),
@@ -69,7 +69,7 @@ final class TypographyTokenTests: XCTestCase {
     }
 
     func testNonDisplayStylesScaleWithoutClampInLargeAccessibility() {
-        let typography = LifeBoardTheme(index: 0).tokens.typography
+        let typography = Theme(index: 0).tokens.typography
         let largeAccessibility = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
         let scaledTitle1 = typography.dynamicFont(for: .title1, compatibleWith: largeAccessibility)
 #if targetEnvironment(macCatalyst)

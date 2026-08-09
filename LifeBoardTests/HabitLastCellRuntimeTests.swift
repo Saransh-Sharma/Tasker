@@ -19,7 +19,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         let habitRepository = HabitRepositoryStub(habits: [habit])
         let occurrenceRepository = OccurrenceRepositoryStub(occurrences: [occurrence])
         let gamificationRepository = InMemoryGamificationRepositoryStub()
-        let engine = GamificationEngine(repository: gamificationRepository)
+        let engine = GamificationService(repository: gamificationRepository)
         let useCase = ResetHabitOccurrenceUseCase(
             habitRepository: habitRepository,
             occurrenceRepository: occurrenceRepository,
@@ -70,7 +70,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         let habitRepository = HabitRepositoryStub(habits: [skippedHabit, failedHabit])
         let occurrenceRepository = OccurrenceRepositoryStub(occurrences: [skippedOccurrence, failedOccurrence])
         let gamificationRepository = InMemoryGamificationRepositoryStub()
-        let engine = GamificationEngine(repository: gamificationRepository)
+        let engine = GamificationService(repository: gamificationRepository)
         let useCase = ResetHabitOccurrenceUseCase(
             habitRepository: habitRepository,
             occurrenceRepository: occurrenceRepository,
@@ -139,7 +139,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
                 habitRepository: habitRepository,
                 occurrenceRepository: occurrenceRepository
             ),
-            gamificationEngine: GamificationEngine(repository: gamificationRepository)
+            gamificationEngine: GamificationService(repository: gamificationRepository)
         )
 
         let completion = expectation(description: "resolve complete")
@@ -193,7 +193,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
                 habitRepository: habitRepository,
                 occurrenceRepository: occurrenceRepository
             ),
-            gamificationEngine: GamificationEngine(repository: InMemoryGamificationRepositoryStub())
+            gamificationEngine: GamificationService(repository: InMemoryGamificationRepositoryStub())
         )
 
         let completion = expectation(description: "resolve skip")
@@ -237,7 +237,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
                 habitRepository: habitRepository,
                 occurrenceRepository: occurrenceRepository
             ),
-            gamificationEngine: GamificationEngine(repository: InMemoryGamificationRepositoryStub())
+            gamificationEngine: GamificationService(repository: InMemoryGamificationRepositoryStub())
         )
 
         let completion = expectation(description: "resolve fails after targeted lookup")
@@ -278,7 +278,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
                 habitRepository: habitRepository,
                 occurrenceRepository: occurrenceRepository
             ),
-            gamificationEngine: GamificationEngine(repository: InMemoryGamificationRepositoryStub())
+            gamificationEngine: GamificationService(repository: InMemoryGamificationRepositoryStub())
         )
 
         let completion = expectation(description: "resolve fails after latest lookup")
@@ -321,7 +321,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         let habitID = UUID()
         let date = Self.date("2026-04-09")
         let repository = InMemoryGamificationRepositoryStub()
-        let engine = GamificationEngine(repository: repository)
+        let engine = GamificationService(repository: repository)
 
         let firstResult = expectation(description: "first award")
         engine.recordEvent(
@@ -396,7 +396,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         let taskID = UUID()
         let date = Self.date("2026-04-09")
         let repository = InMemoryGamificationRepositoryStub()
-        let engine = GamificationEngine(repository: repository)
+        let engine = GamificationService(repository: repository)
 
         let firstResult = expectation(description: "first award by task")
         engine.recordEvent(
@@ -455,7 +455,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         let habitID = UUID()
         let historicalDate = Self.date("2026-04-09")
         let repository = InMemoryGamificationRepositoryStub()
-        let engine = GamificationEngine(repository: repository)
+        let engine = GamificationService(repository: repository)
 
         let historicalAward = expectation(description: "historical award")
         engine.recordEvent(
@@ -512,7 +512,7 @@ final class HabitLastCellRuntimeTests: XCTestCase {
         let payload = resultPayload.read()
         XCTAssertEqual(payload?.dailyXPSoFar, 0)
         XCTAssertEqual(
-            repository.dailyAggregates[XPCalculationEngine.periodKey(for: historicalDate)]?.totalXP,
+            repository.dailyAggregates[XPCalculationService.periodKey(for: historicalDate)]?.totalXP,
             payload?.dailyXPSoFar
         )
     }

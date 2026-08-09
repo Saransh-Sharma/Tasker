@@ -57,7 +57,7 @@ public struct CaptureToInboxIntent: AppIntent {
 }
 
 @available(iOS 18.0, *)
-public struct LifeBoardCaptureControl: ControlWidget {
+public struct CaptureControl: ControlWidget {
     public init() {}
 
     public var body: some ControlWidgetConfiguration {

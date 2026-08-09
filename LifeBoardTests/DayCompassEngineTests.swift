@@ -13,7 +13,7 @@ final class DayCompassEngineTests: XCTestCase {
     func testPriorityChoosesReplanBeforeMorningRescueInboxAndResume() {
         let now = date(hour: 8)
         let taskID = UUID()
-        let model = DayCompassEngine().resolve(
+        let model = DayCompassService().resolve(
             signals: signals(
                 now: now,
                 replanCandidateCount: 2,
@@ -30,14 +30,14 @@ final class DayCompassEngineTests: XCTestCase {
     }
 
     func testMorningPlanOnlyAppearsInsideMorningWindow() {
-        let morning = DayCompassEngine().resolve(
+        let morning = DayCompassService().resolve(
             signals: signals(
                 now: date(hour: 8),
                 hasCommittedDailyPlan: false,
                 todayOpenTaskCount: 2
             )
         )
-        let midday = DayCompassEngine().resolve(
+        let midday = DayCompassService().resolve(
             signals: signals(
                 now: date(hour: 12),
                 hasCommittedDailyPlan: false,
@@ -50,7 +50,7 @@ final class DayCompassEngineTests: XCTestCase {
     }
 
     func testEveningReviewUsesDoneAndOpenCountsAfterEveningStart() {
-        let model = DayCompassEngine().resolve(
+        let model = DayCompassService().resolve(
             signals: signals(
                 now: date(hour: 19),
                 hasOpenReflectionTarget: true,
@@ -63,21 +63,21 @@ final class DayCompassEngineTests: XCTestCase {
     }
 
     func testQuietHoursSuppressOnlyRescueAndInbox() {
-        let rescue = DayCompassEngine().resolve(
+        let rescue = DayCompassService().resolve(
             signals: signals(
                 now: date(hour: 14),
                 rescueEligibleCount: 1,
                 isQuietHours: true
             )
         )
-        let inbox = DayCompassEngine().resolve(
+        let inbox = DayCompassService().resolve(
             signals: signals(
                 now: date(hour: 14),
                 inboxReadyCount: 2,
                 isQuietHours: true
             )
         )
-        let replan = DayCompassEngine().resolve(
+        let replan = DayCompassService().resolve(
             signals: signals(
                 now: date(hour: 14),
                 replanCandidateCount: 1,
@@ -97,10 +97,10 @@ final class DayCompassEngineTests: XCTestCase {
             resumeDismissedForSession: false
         )
 
-        let rescue = DayCompassEngine().resolve(
+        let rescue = DayCompassService().resolve(
             signals: signals(now: now, rescueEligibleCount: 1, snoozes: snoozes)
         )
-        let inbox = DayCompassEngine().resolve(
+        let inbox = DayCompassService().resolve(
             signals: signals(now: now, inboxReadyCount: 2, snoozes: snoozes)
         )
 
@@ -109,7 +109,7 @@ final class DayCompassEngineTests: XCTestCase {
     }
 
     func testOffTodayAndActiveFlowSuppressCompass() {
-        let offToday = DayCompassEngine().resolve(
+        let offToday = DayCompassService().resolve(
             signals: signals(
                 now: date(hour: 8),
                 selectedDate: date(day: 25, hour: 8),
@@ -117,7 +117,7 @@ final class DayCompassEngineTests: XCTestCase {
                 todayOpenTaskCount: 1
             )
         )
-        let activeFlow = DayCompassEngine().resolve(
+        let activeFlow = DayCompassService().resolve(
             signals: signals(
                 now: date(hour: 8),
                 isAnotherFlowPresented: true,
@@ -132,14 +132,14 @@ final class DayCompassEngineTests: XCTestCase {
 
     func testAllClearAppearsTemporarilyWhenOtherwiseClear() {
         let now = date(hour: 14)
-        let visible = DayCompassEngine().resolve(
+        let visible = DayCompassService().resolve(
             signals: signals(
                 now: now,
                 allClearFlow: .inbox,
                 allClearExpiresAt: now.addingTimeInterval(2)
             )
         )
-        let expired = DayCompassEngine().resolve(
+        let expired = DayCompassService().resolve(
             signals: signals(
                 now: now,
                 allClearFlow: .inbox,
@@ -155,32 +155,32 @@ final class DayCompassEngineTests: XCTestCase {
         let now = date(hour: 14)
 
         XCTAssertNil(
-            DayCompassEngine().resolve(signals: signals(now: now, rescueEligibleCount: 0))
+            DayCompassService().resolve(signals: signals(now: now, rescueEligibleCount: 0))
         )
         XCTAssertEqual(
-            DayCompassEngine().resolve(signals: signals(now: now, rescueEligibleCount: 1))?.state,
+            DayCompassService().resolve(signals: signals(now: now, rescueEligibleCount: 1))?.state,
             .rescue(count: 1)
         )
         XCTAssertNil(
-            DayCompassEngine().resolve(signals: signals(now: now, inboxReadyCount: 1))
+            DayCompassService().resolve(signals: signals(now: now, inboxReadyCount: 1))
         )
         XCTAssertEqual(
-            DayCompassEngine().resolve(signals: signals(now: now, inboxReadyCount: 2))?.state,
+            DayCompassService().resolve(signals: signals(now: now, inboxReadyCount: 2))?.state,
             .inbox(count: 2)
         )
     }
 
     func testMorningAndEveningWindowEdges() {
-        let beforeDawn = DayCompassEngine().resolve(
+        let beforeDawn = DayCompassService().resolve(
             signals: signals(now: date(hour: 4), hasCommittedDailyPlan: false, todayOpenTaskCount: 1)
         )
-        let atDawn = DayCompassEngine().resolve(
+        let atDawn = DayCompassService().resolve(
             signals: signals(now: date(hour: 5), hasCommittedDailyPlan: false, todayOpenTaskCount: 1)
         )
-        let beforeEvening = DayCompassEngine().resolve(
+        let beforeEvening = DayCompassService().resolve(
             signals: signals(now: date(hour: 17), hasOpenReflectionTarget: true, todayDoneTaskCount: 1)
         )
-        let atEvening = DayCompassEngine().resolve(
+        let atEvening = DayCompassService().resolve(
             signals: signals(now: date(hour: 18), hasOpenReflectionTarget: true, todayDoneTaskCount: 1)
         )
 
@@ -191,7 +191,7 @@ final class DayCompassEngineTests: XCTestCase {
     }
 
     func testEveningReviewOutranksRescueAndInboxInItsWindow() {
-        let model = DayCompassEngine().resolve(
+        let model = DayCompassService().resolve(
             signals: signals(
                 now: date(hour: 19),
                 hasOpenReflectionTarget: true,

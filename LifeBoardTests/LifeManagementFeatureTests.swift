@@ -696,7 +696,7 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
             try? context.save()
         }
 
-        LifeBoardPersistentRuntimeInitializer().initialize(container: container)
+        PersistentRuntimeInitializer().initialize(container: container)
 
         context.performAndWait {
             let missingColor = Self.fetchLifeAreaColor(in: context, id: missingID)
@@ -724,7 +724,7 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
             try? context.save()
         }
 
-        let initializer = LifeBoardPersistentRuntimeInitializer()
+        let initializer = PersistentRuntimeInitializer()
         initializer.initialize(container: container)
 
         context.performAndWait {
@@ -756,7 +756,7 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
             try? context.save()
         }
 
-        LifeBoardPersistentRuntimeInitializer().initialize(container: container)
+        PersistentRuntimeInitializer().initialize(container: container)
 
         context.performAndWait {
             let request = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")

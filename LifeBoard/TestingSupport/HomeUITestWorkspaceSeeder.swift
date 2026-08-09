@@ -77,7 +77,7 @@ final class HomeUITestWorkspaceSeeder {
         }
     }
 
-    func seedUITestEstablishedWorkspaceIfNeeded(presentationDependencyContainer: PresentationDependencyContainer?, completion: @escaping () -> Void) {
+    func seedUITestEstablishedWorkspaceIfNeeded(presentationDependencyContainer: CompositionRoot?, completion: @escaping () -> Void) {
         guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_ESTABLISHED_WORKSPACE") else {
             completion()
             return
@@ -204,7 +204,7 @@ final class HomeUITestWorkspaceSeeder {
     }
 
     func seedUITestSearchWorkspaceIfNeeded(
-        presentationDependencyContainer: PresentationDependencyContainer?,
+        presentationDependencyContainer: CompositionRoot?,
         viewModel: HomeViewModel?,
         completion: @escaping () -> Void
     ) {
@@ -354,7 +354,7 @@ final class HomeUITestWorkspaceSeeder {
         }
     }
 
-    func seedUITestRescueWorkspaceIfNeeded(presentationDependencyContainer: PresentationDependencyContainer?, viewModel: HomeViewModel?, completion: @escaping () -> Void) {
+    func seedUITestRescueWorkspaceIfNeeded(presentationDependencyContainer: CompositionRoot?, viewModel: HomeViewModel?, completion: @escaping () -> Void) {
         let arguments = ProcessInfo.processInfo.arguments
         let shouldSeedExpandedRescue = arguments.contains("-LIFEBOARD_TEST_SEED_RESCUE_WORKSPACE")
         let shouldSeedCompactRescue = arguments.contains("-LIFEBOARD_TEST_SEED_COMPACT_RESCUE_WORKSPACE")
@@ -579,7 +579,7 @@ final class HomeUITestWorkspaceSeeder {
     }
 
 
-    func seedUITestFocusWorkspaceIfNeeded(presentationDependencyContainer: PresentationDependencyContainer?, completion: @escaping () -> Void) {
+    func seedUITestFocusWorkspaceIfNeeded(presentationDependencyContainer: CompositionRoot?, completion: @escaping () -> Void) {
         let arguments = ProcessInfo.processInfo.arguments
         let shouldSeedFocusWorkspace = arguments.contains("-LIFEBOARD_TEST_SEED_FOCUS_WORKSPACE")
         let shouldSeedFocusNowSuite = arguments.contains("-LIFEBOARD_TEST_SEED_FOCUS_NOW_SUITE")
@@ -740,7 +740,7 @@ final class HomeUITestWorkspaceSeeder {
     }
 
     func seedAppStoreScreenshotWorkspaceIfNeeded(
-        presentationDependencyContainer: PresentationDependencyContainer?,
+        presentationDependencyContainer: CompositionRoot?,
         viewModel: HomeViewModel?,
         completion: @escaping () -> Void
     ) {
@@ -754,7 +754,7 @@ final class HomeUITestWorkspaceSeeder {
             return
         }
         guard let presentationDependencyContainer else {
-            fatalError("App Store screenshot seeding requires PresentationDependencyContainer")
+            fatalError("App Store screenshot seeding requires CompositionRoot")
         }
 
         Self.hasSeededAppStoreScreenshotWorkspace = true
@@ -1253,7 +1253,7 @@ final class HomeUITestWorkspaceSeeder {
         }
     }
 
-    func seedUITestHabitBoardWorkspaceIfNeeded(presentationDependencyContainer: PresentationDependencyContainer?, completion: @escaping () -> Void) {
+    func seedUITestHabitBoardWorkspaceIfNeeded(presentationDependencyContainer: CompositionRoot?, completion: @escaping () -> Void) {
         guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_HABIT_BOARD_WORKSPACE") else {
             completion()
             return
@@ -1339,7 +1339,7 @@ final class HomeUITestWorkspaceSeeder {
         }
     }
 
-    func seedUITestQuietTrackingWorkspaceIfNeeded(presentationDependencyContainer: PresentationDependencyContainer?, completion: @escaping () -> Void) {
+    func seedUITestQuietTrackingWorkspaceIfNeeded(presentationDependencyContainer: CompositionRoot?, completion: @escaping () -> Void) {
         let arguments = ProcessInfo.processInfo.arguments
         guard arguments.contains("-LIFEBOARD_TEST_SEED_QUIET_TRACKING_WORKSPACE")
             || arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE") else {
@@ -1416,7 +1416,7 @@ final class HomeUITestWorkspaceSeeder {
         }
     }
 
-    func seedUITestFullTimelineWorkspaceIfNeeded(presentationDependencyContainer: PresentationDependencyContainer?, viewModel: HomeViewModel?, completion: @escaping () -> Void) {
+    func seedUITestFullTimelineWorkspaceIfNeeded(presentationDependencyContainer: CompositionRoot?, viewModel: HomeViewModel?, completion: @escaping () -> Void) {
         guard ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_FULL_TIMELINE_WORKSPACE") else {
             completion()
             return

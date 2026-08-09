@@ -20,7 +20,7 @@ final class AccessibilityContractTests: XCTestCase {
     ///
     /// `LifeOSFoundationTests` checked exactly one pair out of roughly twenty.
     /// The gap mattered: the foundation statics and the semantic roles are two
-    /// different palettes (see `LifeBoardTokenBridge`), so a pair that passes on
+    /// different palettes (see `TokenBridge`), so a pair that passes on
     /// one vocabulary says nothing about the other.
     func testInkOverSurfaceContrastClearsWCAGInEveryAppearance() {
         let inks: [(String, UIColor, CGFloat)] = [
@@ -90,7 +90,7 @@ final class AccessibilityContractTests: XCTestCase {
     /// returns a literal animation, would silently animate for someone who
     /// asked the system not to.
     func testEveryMotionProfileRespectsReduceMotion() {
-        for profile in LifeBoardMotionProfile.allCases {
+        for profile in MotionProfile.allCases {
             XCTAssertNil(
                 profile.animation(reduceMotion: true),
                 "\(profile) still animates under Reduce Motion"
@@ -101,7 +101,7 @@ final class AccessibilityContractTests: XCTestCase {
     func testMotionProfilesDoAnimateWhenReduceMotionIsOff() {
         // The mirror of the above: a resolver that returned nil unconditionally
         // would pass the Reduce Motion test while disabling the whole app.
-        let animated = LifeBoardMotionProfile.allCases.filter {
+        let animated = MotionProfile.allCases.filter {
             $0.animation(reduceMotion: false) != nil
         }
         XCTAssertFalse(

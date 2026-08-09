@@ -21,8 +21,8 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testTimelineAnchorTimeBindingsPersistWorkspacePreferences() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let notificationStore = LifeBoardNotificationPreferencesStore(defaults: defaults)
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let notificationStore = NotificationPreferencesStore(defaults: defaults)
+        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
         let calendarService = CalendarIntegrationService(
             provider: nil,
             workspacePreferencesStore: workspaceStore
@@ -45,7 +45,7 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testTimelineAnchorSelectionPersistsWakePreference() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
 
         TimelineAnchorSelection.wake.save(time: time(hour: 5, minute: 45), to: workspaceStore)
 
@@ -58,7 +58,7 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testTimelineAnchorSelectionPersistsWindDownPreference() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
 
         TimelineAnchorSelection.windDown.save(time: time(hour: 23, minute: 30), to: workspaceStore)
 
@@ -71,8 +71,8 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testTimelineAnchorDraftDoesNotPersistUntilCommitted() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        workspaceStore.save(LifeBoardWorkspacePreferences())
+        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(WorkspacePreferences())
 
         var draft = TimelineAnchorDraft(preferences: workspaceStore.load())
         draft.setTime(time(hour: 5, minute: 45), for: .wake)
@@ -90,8 +90,8 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testTimelineAnchorDraftSkipsNoopCommitAndDoesNotEmitDidChange() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        workspaceStore.save(LifeBoardWorkspacePreferences())
+        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
+        workspaceStore.save(WorkspacePreferences())
 
         var draft = TimelineAnchorDraft(preferences: workspaceStore.load())
         draft.setTime(time(hour: 5, minute: 45), for: .wake)
@@ -99,7 +99,7 @@ final class SettingsViewModelTests: XCTestCase {
 
         let notificationCount = LockedTestState(0)
         let observer = NotificationCenter.default.addObserver(
-            forName: LifeBoardWorkspacePreferencesStore.didChangeNotification,
+            forName: WorkspacePreferencesStore.didChangeNotification,
             object: nil,
             queue: .main
         ) { _ in
@@ -117,8 +117,8 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testCommitTimelineAnchorDraftPersistsSettingsChangesWithSingleNotification() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let notificationStore = LifeBoardNotificationPreferencesStore(defaults: defaults)
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let notificationStore = NotificationPreferencesStore(defaults: defaults)
+        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
         let calendarService = CalendarIntegrationService(
             provider: nil,
             workspacePreferencesStore: workspaceStore
@@ -138,7 +138,7 @@ final class SettingsViewModelTests: XCTestCase {
 
         let notificationCount = LockedTestState(0)
         let observer = NotificationCenter.default.addObserver(
-            forName: LifeBoardWorkspacePreferencesStore.didChangeNotification,
+            forName: WorkspacePreferencesStore.didChangeNotification,
             object: nil,
             queue: .main
         ) { _ in
@@ -160,7 +160,7 @@ final class SettingsViewModelTests: XCTestCase {
     }
 
     func testTimelineAnchorSelectionTreatsEarlyMorningWindDownAsNextDay() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             timelineRiseAndShineHour: 8,
             timelineRiseAndShineMinute: 0,
             timelineWindDownHour: 1,
@@ -178,10 +178,10 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testTimelineWindDownSummaryMarksEarlyMorningAsNextDay() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let notificationStore = LifeBoardNotificationPreferencesStore(defaults: defaults)
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let notificationStore = NotificationPreferencesStore(defaults: defaults)
+        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
         workspaceStore.save(
-            LifeBoardWorkspacePreferences(
+            WorkspacePreferences(
                 timelineRiseAndShineHour: 8,
                 timelineRiseAndShineMinute: 0,
                 timelineWindDownHour: 1,
@@ -218,16 +218,16 @@ final class SettingsViewModelTests: XCTestCase {
         }
         """.utf8)
 
-        let preferences = try JSONDecoder().decode(LifeBoardWorkspacePreferences.self, from: data)
+        let preferences = try JSONDecoder().decode(WorkspacePreferences.self, from: data)
 
         XCTAssertEqual(preferences.chiefOfStaffMascotID, .eva)
     }
 
     func testMascotSelectionPersistsAndPostsWorkspaceChange() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
         let expectation = expectation(
-            forNotification: LifeBoardWorkspacePreferencesStore.didChangeNotification,
+            forNotification: WorkspacePreferencesStore.didChangeNotification,
             object: nil,
             handler: nil
         )
@@ -242,7 +242,7 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testAssistantIdentityModelPublishesWorkspacePreferenceChanges() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
         let model = AssistantIdentityModel(workspacePreferencesStore: workspaceStore)
         var cancellables = Set<AnyCancellable>()
         let expectation = expectation(description: "identity model publishes selected mascot")
@@ -266,8 +266,8 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testSettingsViewModelSelectChiefOfStaffMascotPersistsSelection() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let notificationStore = LifeBoardNotificationPreferencesStore(defaults: defaults)
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let notificationStore = NotificationPreferencesStore(defaults: defaults)
+        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
         let calendarService = CalendarIntegrationService(
             provider: nil,
             workspacePreferencesStore: workspaceStore
@@ -287,7 +287,7 @@ final class SettingsViewModelTests: XCTestCase {
 
     func testOnboardingFlowModelSelectChiefOfStaffMascotPersistsSelection() {
         let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
         let flowModel = OnboardingFlowModel(
             workspacePreferencesStore: workspaceStore,
             isEvaBackgroundPreparationEnabled: false
@@ -301,7 +301,7 @@ final class SettingsViewModelTests: XCTestCase {
     }
 
     func testSettingsSetupStatusCollapsesHealthyServicesIntoOneReassuringItem() {
-        let status = LifeBoardSettingsSetupStatusResolver.resolve(
+        let status = SettingsSetupStatusResolver.resolve(
             notificationPermissionGranted: true,
             notificationPermissionDenied: false,
             enabledNotificationCount: 3,
@@ -316,7 +316,7 @@ final class SettingsViewModelTests: XCTestCase {
     }
 
     func testSettingsSetupStatusPrioritizesTheTwoItemsThatNeedAttention() {
-        let status = LifeBoardSettingsSetupStatusResolver.resolve(
+        let status = SettingsSetupStatusResolver.resolve(
             notificationPermissionGranted: false,
             notificationPermissionDenied: true,
             enabledNotificationCount: 0,

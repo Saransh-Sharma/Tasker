@@ -5,29 +5,29 @@ import UIKit
 @MainActor
 final class LifeBoardThemeManagerTests: XCTestCase {
     func testThemeManagerAlwaysResolvesSingleBrandTheme() {
-        let currentTheme = LifeBoardThemeManager.shared.currentTheme
+        let currentTheme = ThemeStore.shared.currentTheme
 
         XCTAssertEqual(currentTheme.index, 0)
         XCTAssertEqual(currentTheme.palette, .sunrise)
     }
 
     func testLifeBoardThemePreservesPassedIndexForCompatibility() {
-        let theme = LifeBoardTheme(index: 7)
+        let theme = Theme(index: 7)
 
         XCTAssertEqual(theme.index, 7)
         XCTAssertEqual(theme.palette, .sunrise)
     }
 
     func testReloadFromPersistenceKeepsSingleBrandTheme() {
-        LifeBoardThemeManager.shared.reloadFromPersistence()
+        ThemeStore.shared.reloadFromPersistence()
 
-        XCTAssertEqual(LifeBoardThemeManager.shared.currentTheme.index, 0)
-        XCTAssertEqual(LifeBoardThemeManager.shared.currentTheme.palette, .sunrise)
+        XCTAssertEqual(ThemeStore.shared.currentTheme.index, 0)
+        XCTAssertEqual(ThemeStore.shared.currentTheme.palette, .sunrise)
     }
 
     func testTokenResolverKeepsPhoneValuesStable() {
-        let baseline = LifeBoardThemeManager.shared.currentTheme.tokens
-        let resolved = LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified)
+        let baseline = ThemeStore.shared.currentTheme.tokens
+        let resolved = ThemeStore.shared.tokens(for: .phone, traits: .unspecified)
 
         XCTAssertEqual(resolved.spacing.s16, baseline.spacing.s16)
         XCTAssertEqual(resolved.corner.r2, baseline.corner.r2)
@@ -39,14 +39,14 @@ final class LifeBoardThemeManagerTests: XCTestCase {
     }
 
     func testTokenResolverIsStableForSameLayoutAndTraitCluster() {
-        let traits = LifeBoardTokenTraitContext(
+        let traits = TokenTraitContext(
             colorScheme: .light,
             contentSizeCategory: .large,
             accessibilityContrast: .normal
         )
 
-        let first = LifeBoardThemeManager.shared.tokens(for: .padRegular, traits: traits)
-        let second = LifeBoardThemeManager.shared.tokens(for: .padRegular, traits: traits)
+        let first = ThemeStore.shared.tokens(for: .padRegular, traits: traits)
+        let second = ThemeStore.shared.tokens(for: .padRegular, traits: traits)
 
         XCTAssertEqual(first.spacing.sectionGap, second.spacing.sectionGap)
         XCTAssertEqual(first.corner.card, second.corner.card)
@@ -54,7 +54,7 @@ final class LifeBoardThemeManagerTests: XCTestCase {
     }
 
     func testCurrentPaletteCarriesSunriseNeutrals() {
-        let palette = LifeBoardThemeManager.shared.currentTheme.palette
+        let palette = ThemeStore.shared.currentTheme.palette
 
         assertEqualColor(palette.neutralIvory, UIColor(lifeboardHex: "#FFFDFC"))
         assertEqualColor(palette.neutralDarkInk0, UIColor(lifeboardHex: "#080C17"))

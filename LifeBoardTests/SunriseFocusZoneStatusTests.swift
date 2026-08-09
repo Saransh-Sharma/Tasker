@@ -12,7 +12,7 @@ final class SunriseFocusZoneStatusTests: XCTestCase {
         )
         let insight = EvaFocusTaskInsight(taskID: task.id, score: 1, badge: "Quick win", rationale: [])
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: task, insight: insight, now: now)
+        let presentation = FocusZoneRowPresentation.make(task: task, insight: insight, now: now)
 
         XCTAssertEqual(presentation.secondaryLineText, "Late by 3d")
     }
@@ -26,7 +26,7 @@ final class SunriseFocusZoneStatusTests: XCTestCase {
         )
         let insight = EvaFocusTaskInsight(taskID: task.id, score: 1, badge: "Quick win", rationale: [])
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: task, insight: insight, now: now)
+        let presentation = FocusZoneRowPresentation.make(task: task, insight: insight, now: now)
 
         XCTAssertEqual(presentation.secondaryLineText, "Due soon")
     }
@@ -40,7 +40,7 @@ final class SunriseFocusZoneStatusTests: XCTestCase {
         )
         let insight = EvaFocusTaskInsight(taskID: task.id, score: 1, badge: "Quick win", rationale: [])
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: task, insight: insight, now: now)
+        let presentation = FocusZoneRowPresentation.make(task: task, insight: insight, now: now)
 
         XCTAssertNil(presentation.secondaryLineText)
     }
@@ -53,7 +53,7 @@ final class SunriseFocusZoneStatusTests: XCTestCase {
             estimatedDuration: nil
         )
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: task, insight: nil, now: now)
+        let presentation = FocusZoneRowPresentation.make(task: task, insight: nil, now: now)
 
         XCTAssertNil(presentation.secondaryLineText)
     }
@@ -67,7 +67,7 @@ final class SunriseFocusZoneStatusTests: XCTestCase {
         )
         task.isComplete = true
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: task, insight: nil, now: now)
+        let presentation = FocusZoneRowPresentation.make(task: task, insight: nil, now: now)
 
         XCTAssertNil(presentation.secondaryLineText)
     }

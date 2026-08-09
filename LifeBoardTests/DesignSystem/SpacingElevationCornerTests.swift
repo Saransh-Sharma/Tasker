@@ -1,11 +1,11 @@
 import XCTest
 import UIKit
 @testable import LifeBoard
-
+import LifeBoardTokens
 @MainActor
 final class SpacingElevationCornerTests: XCTestCase {
     func testSpacingRecipeValues() {
-        let spacing = LifeBoardTheme(index: 0).tokens.spacing
+        let spacing = Theme(index: 0).tokens.spacing
 
         XCTAssertEqual(spacing.screenHorizontal, 20)
         XCTAssertEqual(spacing.cardPadding, 20)
@@ -14,7 +14,7 @@ final class SpacingElevationCornerTests: XCTestCase {
     }
 
     func testCornerScaleValues() {
-        let corner = LifeBoardTheme(index: 0).tokens.corner
+        let corner = Theme(index: 0).tokens.corner
 
         XCTAssertEqual(corner.r1, 12)
         XCTAssertEqual(corner.r2, 14)
@@ -24,52 +24,52 @@ final class SpacingElevationCornerTests: XCTestCase {
     }
 
     func testElevationOrdering() {
-        let elevation = LifeBoardTheme(index: 0).tokens.elevation
+        let elevation = Theme(index: 0).tokens.elevation
 
         XCTAssertLessThan(elevation.e1.shadowOffsetY, elevation.e2.shadowOffsetY)
         XCTAssertLessThan(elevation.e2.shadowOffsetY, elevation.e3.shadowOffsetY)
     }
 
     func testLayoutResolverClassifiesBreakpointsAsExpected() {
-        let phoneMetrics = LifeBoardLayoutMetrics(width: 390, height: 844, idiom: .phone)
-        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: phoneMetrics), .phone)
+        let phoneMetrics = LayoutMetrics(width: 390, height: 844, idiom: .phone)
+        XCTAssertEqual(LayoutResolver.classify(metrics: phoneMetrics), .phone)
         XCTAssertEqual(phoneMetrics.platform, .phone)
 
-        let compactPad = LifeBoardLayoutMetrics(width: 699, height: 1024, idiom: .pad)
-        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: compactPad), .padCompact)
+        let compactPad = LayoutMetrics(width: 699, height: 1024, idiom: .pad)
+        XCTAssertEqual(LayoutResolver.classify(metrics: compactPad), .padCompact)
         XCTAssertEqual(compactPad.platform, .pad)
 
-        let regularPad = LifeBoardLayoutMetrics(width: 700, height: 1024, idiom: .pad)
-        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: regularPad), .padRegular)
+        let regularPad = LayoutMetrics(width: 700, height: 1024, idiom: .pad)
+        XCTAssertEqual(LayoutResolver.classify(metrics: regularPad), .padRegular)
 
-        let expandedPad = LifeBoardLayoutMetrics(width: 1024, height: 1366, idiom: .pad)
-        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: expandedPad), .padExpanded)
+        let expandedPad = LayoutMetrics(width: 1024, height: 1366, idiom: .pad)
+        XCTAssertEqual(LayoutResolver.classify(metrics: expandedPad), .padExpanded)
     }
 
     func testLayoutResolverClassifiesMacCatalystMetricsAsExpandedLayout() {
-        let compactMac = LifeBoardLayoutMetrics(
+        let compactMac = LayoutMetrics(
             width: 640,
             height: 900,
             idiom: .pad,
             platform: .macCatalyst
         )
-        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: compactMac), .padCompact)
+        XCTAssertEqual(LayoutResolver.classify(metrics: compactMac), .padCompact)
 
-        let regularMac = LifeBoardLayoutMetrics(
+        let regularMac = LayoutMetrics(
             width: 900,
             height: 900,
             idiom: .pad,
             platform: .macCatalyst
         )
-        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: regularMac), .padRegular)
+        XCTAssertEqual(LayoutResolver.classify(metrics: regularMac), .padRegular)
 
-        let expandedMac = LifeBoardLayoutMetrics(
+        let expandedMac = LayoutMetrics(
             width: 1280,
             height: 900,
             idiom: .pad,
             platform: .macCatalyst
         )
-        XCTAssertEqual(LifeBoardLayoutResolver.classify(metrics: expandedMac), .padExpanded)
+        XCTAssertEqual(LayoutResolver.classify(metrics: expandedMac), .padExpanded)
     }
 
     @MainActor
@@ -80,14 +80,14 @@ final class SpacingElevationCornerTests: XCTestCase {
         window.addSubview(view)
         window.layoutIfNeeded()
 
-        let metrics = LifeBoardLayoutResolver.metrics(for: view)
+        let metrics = LayoutResolver.metrics(for: view)
         let sceneSize = windowScene.effectiveGeometry.coordinateSpace.bounds.size
         XCTAssertEqual(metrics.width, sceneSize.width, accuracy: 0.1)
         XCTAssertEqual(metrics.height, sceneSize.height, accuracy: 0.1)
     }
 
     func testPhoneLayoutTokensMatchLegacyThemeTokens() {
-        let theme = LifeBoardTheme(index: 0)
+        let theme = Theme(index: 0)
         let legacy = theme.tokens
         let phone = theme.tokens(for: .phone)
 
@@ -101,7 +101,7 @@ final class SpacingElevationCornerTests: XCTestCase {
     }
 
     func testPadLayoutTokensIncreaseDensityAndScale() {
-        let theme = LifeBoardTheme(index: 0)
+        let theme = Theme(index: 0)
         let phone = theme.tokens(for: .phone)
         let pad = theme.tokens(for: .padRegular)
 
@@ -113,21 +113,21 @@ final class SpacingElevationCornerTests: XCTestCase {
 
     @MainActor
     func testLifeBoardChipTintedSelectionUsesMutedBackground() {
-        let chip = LifeBoardChipView(frame: CGRect(x: 0, y: 0, width: 120, height: 44))
+        let chip = ChipView(frame: CGRect(x: 0, y: 0, width: 120, height: 44))
         chip.selectedStyle = .tinted
         chip.isSelected = true
 
-        let expected = LifeBoardThemeManager.shared.currentTheme.tokens.color.accentWash
+        let expected = ThemeStore.shared.currentTheme.tokens.color.accentWash
         XCTAssertEqualColor(chip.backgroundColor, expected)
     }
 
     @MainActor
     func testLifeBoardChipFilledSelectionUsesPrimaryBackground() {
-        let chip = LifeBoardChipView(frame: CGRect(x: 0, y: 0, width: 120, height: 44))
+        let chip = ChipView(frame: CGRect(x: 0, y: 0, width: 120, height: 44))
         chip.selectedStyle = .filled
         chip.isSelected = true
 
-        let expected = LifeBoardThemeManager.shared.currentTheme.tokens.color.chipSelectedBackground
+        let expected = ThemeStore.shared.currentTheme.tokens.color.chipSelectedBackground
         XCTAssertEqualColor(chip.backgroundColor, expected)
     }
 

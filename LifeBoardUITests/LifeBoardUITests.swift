@@ -997,7 +997,7 @@ class LifeBoardUITests: XCTestCase {
 
         /// Normalised x of this stop's lane centre. Auto owns a wider leading
         /// lane than the dayparts, so these are not evenly spaced — see
-        /// `LifeBoardAtmosphereSliderGeometry`, which owns the real arithmetic.
+        /// `AtmosphereSliderGeometry`, which owns the real arithmetic.
         var normalizedX: CGFloat {
             switch self {
             case .automatic: 0.07
@@ -1212,13 +1212,10 @@ class LifeBoardUITests: XCTestCase {
             "-LIFEBOARD_ENABLE_JOURNAL_V1",
             "-LIFEBOARD_ENABLE_KNOWLEDGE_NOTES_V1",
             "-LIFEBOARD_ENABLE_PLANNING_CORE_V1",
-            "-LIFEBOARD_ENABLE_PLAN_DESTINATION_V1",
             "-LIFEBOARD_ENABLE_FOCUS_EXECUTION_V2",
             "-LIFEBOARD_ENABLE_TRACK_FOUNDATIONS_V2",
-            "-LIFEBOARD_ENABLE_HABIT_RESILIENCE_V2",
             "-LIFEBOARD_ENABLE_GOALS_ROUTINES_V1",
             "-LIFEBOARD_ENABLE_CARE_MODULES_V2",
-            "-LIFEBOARD_ENABLE_STARTER_PACKS_V1",
             "-LIFEBOARD_ENABLE_LIFE_OS_UNIFIED_PRESENTATION_V2",
             "-UIPreferredContentSizeCategoryName",
             accessibilityCategory

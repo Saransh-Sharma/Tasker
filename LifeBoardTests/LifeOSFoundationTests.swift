@@ -5,6 +5,9 @@ import ReflectionKit
 import UIKit
 import XCTest
 @testable import LifeBoard
+// `@testable import LifeBoard` does not reach into the packages the app
+// links; a package's public surface needs a plain import.
+import LifeBoardUI
 
 private struct StubNutritionRemoteLookup: NutritionRemoteFoodLookingUp {
     var value: FoodItem?
@@ -184,35 +187,35 @@ final class HomeTaskAgendaProjectionTests: XCTestCase {
 
 final class LifeOSFoundationContractTests: XCTestCase {
     func testVisualFixtureCatalogCoversEveryRootAndReleaseState() {
-        let fixtures = LifeBoardVisualFixture.catalog
+        let fixtures = VisualFixture.catalog
         XCTAssertEqual(
             fixtures.count,
-            LifeBoardVisualFixtureRoot.allCases.count * LifeBoardVisualFixtureState.allCases.count
+            VisualFixtureRoot.allCases.count * VisualFixtureState.allCases.count
         )
         XCTAssertEqual(Set(fixtures.map(\.id)).count, fixtures.count)
 
         for fixture in fixtures {
-            XCTAssertEqual(LifeBoardVisualFixture(arguments: [fixture.launchArgument]), fixture)
+            XCTAssertEqual(VisualFixture(arguments: [fixture.launchArgument]), fixture)
         }
-        XCTAssertNil(LifeBoardVisualFixture(arguments: ["-LIFEBOARD_VISUAL_FIXTURE=home:not-real"]))
+        XCTAssertNil(VisualFixture(arguments: ["-LIFEBOARD_VISUAL_FIXTURE=home:not-real"]))
     }
 
     func testVisualAppearanceFixturesRoundTripEveryReleaseComfortMode() {
-        XCTAssertEqual(LifeBoardVisualAppearanceFixture.allCases.count, 7)
-        for appearance in LifeBoardVisualAppearanceFixture.allCases {
+        XCTAssertEqual(VisualAppearanceFixture.allCases.count, 7)
+        for appearance in VisualAppearanceFixture.allCases {
             XCTAssertEqual(
-                LifeBoardVisualAppearanceFixture(arguments: [appearance.launchArgument]),
+                VisualAppearanceFixture(arguments: [appearance.launchArgument]),
                 appearance
             )
         }
         XCTAssertNil(
-            LifeBoardVisualAppearanceFixture(arguments: ["-LIFEBOARD_VISUAL_APPEARANCE=not-real"])
+            VisualAppearanceFixture(arguments: ["-LIFEBOARD_VISUAL_APPEARANCE=not-real"])
         )
-        XCTAssertTrue(LifeBoardVisualAppearanceFixture.highContrastLight.usesHighContrast)
-        XCTAssertTrue(LifeBoardVisualAppearanceFixture.highContrastDark.usesHighContrast)
-        XCTAssertTrue(LifeBoardVisualAppearanceFixture.reducedTransparency.usesReducedTransparency)
-        XCTAssertTrue(LifeBoardVisualAppearanceFixture.reducedMotion.usesReducedMotion)
-        XCTAssertTrue(LifeBoardVisualAppearanceFixture.grayscale.usesGrayscale)
+        XCTAssertTrue(VisualAppearanceFixture.highContrastLight.usesHighContrast)
+        XCTAssertTrue(VisualAppearanceFixture.highContrastDark.usesHighContrast)
+        XCTAssertTrue(VisualAppearanceFixture.reducedTransparency.usesReducedTransparency)
+        XCTAssertTrue(VisualAppearanceFixture.reducedMotion.usesReducedMotion)
+        XCTAssertTrue(VisualAppearanceFixture.grayscale.usesGrayscale)
     }
 
     func testDashboardResponsiveSpansPreserveSemanticDensityAcrossFourEightAndTwelveColumns() {
@@ -242,19 +245,19 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(TrackLens.allCases.map(\.rawValue), ["today", "areas", "history"])
         XCTAssertEqual(InsightsLens.allCases.map(\.rawValue), ["overview", "trends", "review", "experience"])
         XCTAssertEqual(
-            LifeBoardInteractionPhase.allCases.map(\.rawValue),
+            InteractionPhase.allCases.map(\.rawValue),
             ["idle", "pressed", "running", "success", "recoverableFailure", "cancelled"]
         )
         // The allowlist is append-only and every entry must be unique; asserting
         // on `.last` just pinned whichever effect was added most recently.
-        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.contextLens))
-        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.chartRevealSweep))
-        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.liquidGlassRefract))
-        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.cardMorphWarp))
-        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.paperGrain))
-        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.dissolveAway))
-        XCTAssertTrue(LifeBoardSignatureEffect.allCases.contains(.triageSettle))
-        XCTAssertEqual(Set(LifeBoardSignatureEffect.allCases).count, LifeBoardSignatureEffect.allCases.count)
+        XCTAssertTrue(SignatureEffect.allCases.contains(.contextLens))
+        XCTAssertTrue(SignatureEffect.allCases.contains(.chartRevealSweep))
+        XCTAssertTrue(SignatureEffect.allCases.contains(.liquidGlassRefract))
+        XCTAssertTrue(SignatureEffect.allCases.contains(.cardMorphWarp))
+        XCTAssertTrue(SignatureEffect.allCases.contains(.paperGrain))
+        XCTAssertTrue(SignatureEffect.allCases.contains(.dissolveAway))
+        XCTAssertTrue(SignatureEffect.allCases.contains(.triageSettle))
+        XCTAssertEqual(Set(SignatureEffect.allCases).count, SignatureEffect.allCases.count)
     }
 
     @MainActor
@@ -263,7 +266,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             .deletingLastPathComponent()
             .deletingLastPathComponent()
         let metalURL = projectRoot
-            .appendingPathComponent("LifeBoard/View/Effects/LifeBoardSignatureEffects.metal")
+            .appendingPathComponent("LifeBoard/DesignSystem/Effects/LifeBoardSignatureEffects.metal")
         let source = try String(contentsOf: metalURL, encoding: .utf8)
         let expression = try NSRegularExpression(
             pattern: #"\[\[\s*stitchable\s*\]\]\s+\w+\s+(LifeBoard\w+)\s*\("#
@@ -274,7 +277,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             return String(source[range])
         }
         let declared = Set(declaredNames)
-        let registered = Set(LifeBoardSignatureShaders.functionNames)
+        let registered = Set(SignatureShaders.functionNames)
 
         // 20 since LifeBoardValueDrumWarp (2026-08-05). This number, the
         // registry, the [[stitchable]] declarations and DESIGN.md's approved
@@ -292,29 +295,29 @@ final class LifeOSFoundationContractTests: XCTestCase {
     // MARK: Completion control
 
     func testCompletionMarkIsAClosedRingAtRestAndAFullTickWhenComplete() {
-        XCTAssertEqual(LifeBoardCompletionMark.ringExtent(at: 0), 1)
-        XCTAssertEqual(LifeBoardCompletionMark.tickExtent(at: 0), 0)
+        XCTAssertEqual(CompletionMark.ringExtent(at: 0), 1)
+        XCTAssertEqual(CompletionMark.tickExtent(at: 0), 0)
 
-        XCTAssertEqual(LifeBoardCompletionMark.ringExtent(at: 1), 0)
-        XCTAssertEqual(LifeBoardCompletionMark.tickExtent(at: 1), 1)
+        XCTAssertEqual(CompletionMark.ringExtent(at: 1), 0)
+        XCTAssertEqual(CompletionMark.tickExtent(at: 1), 1)
 
         // The ring is fully unwound by the split and the tick has not started,
         // so the two phases never draw over each other.
-        XCTAssertEqual(LifeBoardCompletionMark.ringExtent(at: LifeBoardCompletionMark.phaseSplit), 0)
-        XCTAssertEqual(LifeBoardCompletionMark.tickExtent(at: LifeBoardCompletionMark.phaseSplit), 0)
+        XCTAssertEqual(CompletionMark.ringExtent(at: CompletionMark.phaseSplit), 0)
+        XCTAssertEqual(CompletionMark.tickExtent(at: CompletionMark.phaseSplit), 0)
 
         // Out-of-range progress clamps rather than producing an inverted arc.
-        XCTAssertEqual(LifeBoardCompletionMark.ringExtent(at: -4), 1)
-        XCTAssertEqual(LifeBoardCompletionMark.tickExtent(at: 9), 1)
+        XCTAssertEqual(CompletionMark.ringExtent(at: -4), 1)
+        XCTAssertEqual(CompletionMark.tickExtent(at: 9), 1)
     }
 
     func testCompletionMarkRingAndTickAreMonotonicAcrossTheMorph() {
-        var previousRing = LifeBoardCompletionMark.ringExtent(at: 0)
-        var previousTick = LifeBoardCompletionMark.tickExtent(at: 0)
+        var previousRing = CompletionMark.ringExtent(at: 0)
+        var previousTick = CompletionMark.tickExtent(at: 0)
         for step in 1...100 {
             let progress = Double(step) / 100
-            let ring = LifeBoardCompletionMark.ringExtent(at: progress)
-            let tick = LifeBoardCompletionMark.tickExtent(at: progress)
+            let ring = CompletionMark.ringExtent(at: progress)
+            let tick = CompletionMark.tickExtent(at: progress)
             XCTAssertLessThanOrEqual(ring, previousRing, "Ring must only unwind, never regrow, at \(progress)")
             XCTAssertGreaterThanOrEqual(tick, previousTick, "Tick must only draw in, never retract, at \(progress)")
             previousRing = ring
@@ -324,14 +327,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testCompletionMarkProducesAnEmptyPathOnlyForADegenerateRect() {
         let box = CGRect(x: 0, y: 0, width: 44, height: 44)
-        XCTAssertFalse(LifeBoardCompletionMark(progress: 0).path(in: box).isEmpty)
-        XCTAssertFalse(LifeBoardCompletionMark(progress: 0.5).path(in: box).isEmpty)
-        XCTAssertFalse(LifeBoardCompletionMark(progress: 1).path(in: box).isEmpty)
-        XCTAssertTrue(LifeBoardCompletionMark(progress: 1).path(in: .zero).isEmpty)
+        XCTAssertFalse(CompletionMark(progress: 0).path(in: box).isEmpty)
+        XCTAssertFalse(CompletionMark(progress: 0.5).path(in: box).isEmpty)
+        XCTAssertFalse(CompletionMark(progress: 1).path(in: box).isEmpty)
+        XCTAssertTrue(CompletionMark(progress: 1).path(in: .zero).isEmpty)
     }
 
     func testCompletionMarkAnimatableDataRoundTrips() {
-        var mark = LifeBoardCompletionMark(progress: 0.2)
+        var mark = CompletionMark(progress: 0.2)
         mark.animatableData = 0.75
         XCTAssertEqual(mark.progress, 0.75)
         XCTAssertEqual(mark.animatableData, 0.75)
@@ -341,8 +344,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let box = CGRect(x: 0, y: 0, width: 44, height: 44)
         // A partial tick must end short of the finished tick's far point; a
         // scaled-down whole glyph would keep the same end point and only shrink.
-        let partial = LifeBoardCompletionMark.tickPath(in: box, extent: 0.5).currentPoint
-        let complete = LifeBoardCompletionMark.tickPath(in: box, extent: 1).currentPoint
+        let partial = CompletionMark.tickPath(in: box, extent: 0.5).currentPoint
+        let complete = CompletionMark.tickPath(in: box, extent: 1).currentPoint
         XCTAssertNotNil(partial)
         XCTAssertNotNil(complete)
         XCTAssertLessThan(partial?.x ?? .infinity, complete?.x ?? 0)
@@ -611,19 +614,19 @@ final class LifeOSFoundationContractTests: XCTestCase {
     // MARK: Root transition
 
     func testTheCurrentRootSitsOnScreen() {
-        for destination in LifeBoardDestination.allCases {
+        for destination in Destination.allCases {
             XCTAssertEqual(
-                LifeBoardRootTransition.offset(for: destination, selected: destination), 0,
+                RootTransition.offset(for: destination, selected: destination), 0,
                 "\(destination) is the current root and must be centred"
             )
         }
     }
 
     func testARootWaitsOnTheSideItOccupiesInTheDock() {
-        let order = LifeBoardDestination.allCases
+        let order = Destination.allCases
         let middle = order[2]
         for (index, destination) in order.enumerated() where destination != middle {
-            let offset = LifeBoardRootTransition.offset(
+            let offset = RootTransition.offset(
                 for: destination, selected: middle, distance: 24
             )
             if index < 2 {
@@ -637,21 +640,21 @@ final class LifeOSFoundationContractTests: XCTestCase {
     /// Distance is capped rather than scaled by how far apart the roots are: a
     /// far root is invisible either way, and a longer throw only slows arrival.
     func testDistantRootsAreNoFurtherOffThanNeighbours() {
-        let order = LifeBoardDestination.allCases
-        let neighbour = LifeBoardRootTransition.offset(
+        let order = Destination.allCases
+        let neighbour = RootTransition.offset(
             for: order[1], selected: order[0], distance: 24
         )
-        let distant = LifeBoardRootTransition.offset(
+        let distant = RootTransition.offset(
             for: order[order.count - 1], selected: order[0], distance: 24
         )
         XCTAssertEqual(neighbour, distant)
     }
 
     func testReduceMotionCollapsesTheSlideToAPlainChange() {
-        let order = LifeBoardDestination.allCases
+        let order = Destination.allCases
         for destination in order {
             XCTAssertEqual(
-                LifeBoardRootTransition.offset(for: destination, selected: order[0], distance: 0),
+                RootTransition.offset(for: destination, selected: order[0], distance: 0),
                 0,
                 "With no distance every root rests centred and only the crossfade remains"
             )
@@ -666,9 +669,9 @@ final class LifeOSFoundationContractTests: XCTestCase {
     /// visited set alone left that pass with Home faded out and Plan not yet
     /// built, and the white window backing showed through the gap.
     func testTheSelectedRootIsRenderedBeforeItHasEverBeenVisited() {
-        for destination in LifeBoardDestination.allCases {
+        for destination in Destination.allCases {
             XCTAssertTrue(
-                LifeBoardRootRetention.isRendered(destination, selected: destination, visited: []),
+                RootRetention.isRendered(destination, selected: destination, visited: []),
                 "\(destination) is selected, so it must be on screen even on the pass that selects it"
             )
         }
@@ -677,32 +680,32 @@ final class LifeOSFoundationContractTests: XCTestCase {
     /// The property the blank frame violated, stated directly: at every
     /// combination of selection and visited set, something is on screen.
     func testSomeRootIsAlwaysOnScreen() {
-        let order = LifeBoardDestination.allCases
-        var visited: Set<LifeBoardDestination> = []
+        let order = Destination.allCases
+        var visited: Set<Destination> = []
         for selected in order + order.reversed() {
             let rendered = order.filter {
-                LifeBoardRootRetention.isRendered($0, selected: selected, visited: visited)
+                RootRetention.isRendered($0, selected: selected, visited: visited)
             }
             XCTAssertTrue(
                 rendered.contains(selected),
                 "Selecting \(selected) with visited=\(visited.count) left no visible root"
             )
-            visited = LifeBoardRootRetention.retained(
+            visited = RootRetention.retained(
                 visited: visited, previous: nil, selected: selected
             )
         }
     }
 
     func testAVisitedRootStaysInTheStackAfterTheSelectionMovesOn() {
-        let visited = LifeBoardRootRetention.retained(
+        let visited = RootRetention.retained(
             visited: [], previous: nil, selected: .home
         )
         XCTAssertTrue(
-            LifeBoardRootRetention.isRendered(.home, selected: .plan, visited: visited),
+            RootRetention.isRendered(.home, selected: .plan, visited: visited),
             "Home keeps its scroll position and navigation depth while Plan is on screen"
         )
         XCTAssertFalse(
-            LifeBoardRootRetention.isRendered(.track, selected: .plan, visited: visited),
+            RootRetention.isRendered(.track, selected: .plan, visited: visited),
             "An unvisited root is not built just because another root is selected"
         )
     }
@@ -710,19 +713,19 @@ final class LifeOSFoundationContractTests: XCTestCase {
     /// Eva is evicted on the way out, but eviction must never be able to blank
     /// the screen: it only ever removes a root that is no longer selected.
     func testEvaIsEvictedOnTheWayOutAndStillRendersWhileSelected() {
-        var visited = LifeBoardRootRetention.retained(
+        var visited = RootRetention.retained(
             visited: [.home], previous: .home, selected: .eva
         )
         XCTAssertTrue(
-            LifeBoardRootRetention.isRendered(.eva, selected: .eva, visited: visited),
+            RootRetention.isRendered(.eva, selected: .eva, visited: visited),
             "Eva is on screen while it is the selection"
         )
-        visited = LifeBoardRootRetention.retained(
+        visited = RootRetention.retained(
             visited: visited, previous: .eva, selected: .plan
         )
         XCTAssertFalse(visited.contains(.eva), "Eva's runtime is released once it is off screen")
         XCTAssertTrue(
-            LifeBoardRootRetention.isRendered(.plan, selected: .plan, visited: visited),
+            RootRetention.isRendered(.plan, selected: .plan, visited: visited),
             "The arriving root is still rendered in the same pass that evicts Eva"
         )
     }
@@ -730,15 +733,15 @@ final class LifeOSFoundationContractTests: XCTestCase {
     /// Home ↔ Plan hammered back and forth: no pass may render an empty stack,
     /// and the two roots must not be rebuilt on each change.
     func testRapidRootChangesNeverProduceAnEmptyStack() {
-        var visited: Set<LifeBoardDestination> = []
-        var previous: LifeBoardDestination?
+        var visited: Set<Destination> = []
+        var previous: Destination?
         for step in 0..<12 {
-            let selected: LifeBoardDestination = step.isMultiple(of: 2) ? .home : .plan
+            let selected: Destination = step.isMultiple(of: 2) ? .home : .plan
             XCTAssertTrue(
-                LifeBoardRootRetention.isRendered(selected, selected: selected, visited: visited),
+                RootRetention.isRendered(selected, selected: selected, visited: visited),
                 "Step \(step) selected \(selected) with nothing rendered"
             )
-            visited = LifeBoardRootRetention.retained(
+            visited = RootRetention.retained(
                 visited: visited, previous: previous, selected: selected
             )
             previous = selected
@@ -764,12 +767,12 @@ final class LifeOSFoundationContractTests: XCTestCase {
     private var gregorian: Calendar { Calendar(identifier: .gregorian) }
 
     func testDayProgressTracksTheClockIncludingMinutes() {
-        XCTAssertEqual(LifeBoardDaypartProgress.dayProgress(at: moment(0), calendar: gregorian), 0, accuracy: 0.0001)
-        XCTAssertEqual(LifeBoardDaypartProgress.dayProgress(at: moment(12), calendar: gregorian), 0.5, accuracy: 0.0001)
-        XCTAssertEqual(LifeBoardDaypartProgress.dayProgress(at: moment(18), calendar: gregorian), 0.75, accuracy: 0.0001)
+        XCTAssertEqual(DaypartProgress.dayProgress(at: moment(0), calendar: gregorian), 0, accuracy: 0.0001)
+        XCTAssertEqual(DaypartProgress.dayProgress(at: moment(12), calendar: gregorian), 0.5, accuracy: 0.0001)
+        XCTAssertEqual(DaypartProgress.dayProgress(at: moment(18), calendar: gregorian), 0.75, accuracy: 0.0001)
         XCTAssertGreaterThan(
-            LifeBoardDaypartProgress.dayProgress(at: moment(9, 30), calendar: gregorian),
-            LifeBoardDaypartProgress.dayProgress(at: moment(9, 0), calendar: gregorian),
+            DaypartProgress.dayProgress(at: moment(9, 30), calendar: gregorian),
+            DaypartProgress.dayProgress(at: moment(9, 0), calendar: gregorian),
             "Half an hour must move the indicator, or it looks frozen"
         )
     }
@@ -777,12 +780,12 @@ final class LifeOSFoundationContractTests: XCTestCase {
     func testPhaseProgressIsMeasuredWithinTheMomentsOwnPhase() {
         // Midday runs 12:00–17:00, so 14:30 is half way through it.
         XCTAssertEqual(
-            LifeBoardDaypartProgress.phaseProgress(at: moment(14, 30), calendar: gregorian),
+            DaypartProgress.phaseProgress(at: moment(14, 30), calendar: gregorian),
             0.5, accuracy: 0.0001
         )
         // Golden hour runs 17:00–19:00.
         XCTAssertEqual(
-            LifeBoardDaypartProgress.phaseProgress(at: moment(18), calendar: gregorian),
+            DaypartProgress.phaseProgress(at: moment(18), calendar: gregorian),
             0.5, accuracy: 0.0001
         )
     }
@@ -790,8 +793,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
     /// Night runs 21:00 to 05:00. The hours after midnight are late in that
     /// phase, not the start of a new one — the wrap is where this goes wrong.
     func testNightProgressCarriesAcrossMidnight() {
-        let evening = LifeBoardDaypartProgress.phaseProgress(at: moment(22), calendar: gregorian)
-        let smallHours = LifeBoardDaypartProgress.phaseProgress(at: moment(3), calendar: gregorian)
+        let evening = DaypartProgress.phaseProgress(at: moment(22), calendar: gregorian)
+        let smallHours = DaypartProgress.phaseProgress(at: moment(3), calendar: gregorian)
 
         XCTAssertEqual(evening, 0.125, accuracy: 0.0001, "22:00 is one hour into an eight-hour night")
         XCTAssertEqual(smallHours, 0.75, accuracy: 0.0001, "03:00 is six hours in")
@@ -799,35 +802,35 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testTheArcGivesDaylightAndNightTheirOwnFullSweep() {
-        XCTAssertEqual(LifeBoardDaypartProgress.arcProgress(at: moment(5), calendar: gregorian), 0, accuracy: 0.0001)
-        XCTAssertEqual(LifeBoardDaypartProgress.arcProgress(at: moment(13), calendar: gregorian), 0.5, accuracy: 0.0001)
-        XCTAssertEqual(LifeBoardDaypartProgress.arcProgress(at: moment(20, 59), calendar: gregorian), 1, accuracy: 0.01)
+        XCTAssertEqual(DaypartProgress.arcProgress(at: moment(5), calendar: gregorian), 0, accuracy: 0.0001)
+        XCTAssertEqual(DaypartProgress.arcProgress(at: moment(13), calendar: gregorian), 0.5, accuracy: 0.0001)
+        XCTAssertEqual(DaypartProgress.arcProgress(at: moment(20, 59), calendar: gregorian), 1, accuracy: 0.01)
 
         // Night restarts the sweep so the moon rises rather than resuming at dusk's height.
-        XCTAssertEqual(LifeBoardDaypartProgress.arcProgress(at: moment(21), calendar: gregorian), 0, accuracy: 0.0001)
-        XCTAssertEqual(LifeBoardDaypartProgress.arcProgress(at: moment(1), calendar: gregorian), 0.5, accuracy: 0.0001)
+        XCTAssertEqual(DaypartProgress.arcProgress(at: moment(21), calendar: gregorian), 0, accuracy: 0.0001)
+        XCTAssertEqual(DaypartProgress.arcProgress(at: moment(1), calendar: gregorian), 0.5, accuracy: 0.0001)
     }
 
     func testDaylightIsEveryPhaseButNight() {
-        XCTAssertTrue(LifeBoardDaypartProgress.isDaylight(at: moment(6), calendar: gregorian))
-        XCTAssertTrue(LifeBoardDaypartProgress.isDaylight(at: moment(16), calendar: gregorian))
-        XCTAssertTrue(LifeBoardDaypartProgress.isDaylight(at: moment(20), calendar: gregorian))
-        XCTAssertFalse(LifeBoardDaypartProgress.isDaylight(at: moment(23), calendar: gregorian))
-        XCTAssertFalse(LifeBoardDaypartProgress.isDaylight(at: moment(2), calendar: gregorian))
+        XCTAssertTrue(DaypartProgress.isDaylight(at: moment(6), calendar: gregorian))
+        XCTAssertTrue(DaypartProgress.isDaylight(at: moment(16), calendar: gregorian))
+        XCTAssertTrue(DaypartProgress.isDaylight(at: moment(20), calendar: gregorian))
+        XCTAssertFalse(DaypartProgress.isDaylight(at: moment(23), calendar: gregorian))
+        XCTAssertFalse(DaypartProgress.isDaylight(at: moment(2), calendar: gregorian))
     }
 
     func testPhaseBoundsCoverTheWholeDayWithoutOverlap() {
-        let total = LifeBoardCelestialPhase.allCases
-            .map { LifeBoardDaypartProgress.bounds(of: $0).length }
+        let total = CelestialPhase.allCases
+            .map { DaypartProgress.bounds(of: $0).length }
             .reduce(0, +)
         XCTAssertEqual(total, 24, "The phases must tile the day exactly once")
     }
 
     func testTheCelestialBodyRisesAndSetsAcrossTheArc() {
         let rect = CGRect(x: 0, y: 0, width: 200, height: 100)
-        let rise = LifeBoardCelestialArc.point(forProgress: 0, in: rect)
-        let peak = LifeBoardCelestialArc.point(forProgress: 0.5, in: rect)
-        let set = LifeBoardCelestialArc.point(forProgress: 1, in: rect)
+        let rise = CelestialArc.point(forProgress: 0, in: rect)
+        let peak = CelestialArc.point(forProgress: 0.5, in: rect)
+        let set = CelestialArc.point(forProgress: 1, in: rect)
 
         XCTAssertEqual(rise.x, 0, accuracy: 0.001)
         XCTAssertEqual(rise.y, rect.maxY, accuracy: 0.001, "It starts on the horizon")
@@ -841,40 +844,40 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testTheDialRunsFromItsStartAngleToItsEnd() {
         XCTAssertEqual(
-            LifeBoardArcDialGeometry.angle(forProgress: 0),
-            LifeBoardArcDialGeometry.startAngle
+            ArcDialGeometry.angle(forProgress: 0),
+            ArcDialGeometry.startAngle
         )
         XCTAssertEqual(
-            LifeBoardArcDialGeometry.angle(forProgress: 1),
-            LifeBoardArcDialGeometry.endAngle
+            ArcDialGeometry.angle(forProgress: 1),
+            ArcDialGeometry.endAngle
         )
         XCTAssertEqual(
-            LifeBoardArcDialGeometry.angle(forProgress: 0.5),
-            LifeBoardArcDialGeometry.startAngle + LifeBoardArcDialGeometry.sweep / 2
+            ArcDialGeometry.angle(forProgress: 0.5),
+            ArcDialGeometry.startAngle + ArcDialGeometry.sweep / 2
         )
     }
 
     func testProgressOutsideTheTrackIsClampedNotWrapped() {
-        XCTAssertEqual(LifeBoardArcDialGeometry.angle(forProgress: -3), LifeBoardArcDialGeometry.startAngle)
-        XCTAssertEqual(LifeBoardArcDialGeometry.angle(forProgress: 4), LifeBoardArcDialGeometry.endAngle)
+        XCTAssertEqual(ArcDialGeometry.angle(forProgress: -3), ArcDialGeometry.startAngle)
+        XCTAssertEqual(ArcDialGeometry.angle(forProgress: 4), ArcDialGeometry.endAngle)
     }
 
     /// The gap at the bottom of the dial is where a wrap-around bug lives: a
     /// thumb crossing it must park at the near end, never jump the full range.
     func testAnAngleInTheGapSnapsToTheNearerEnd() {
-        let gap = 360 - LifeBoardArcDialGeometry.sweep
-        let justPastEnd = LifeBoardArcDialGeometry.endAngle + gap * 0.2
-        let justBeforeStart = LifeBoardArcDialGeometry.startAngle - gap * 0.2
+        let gap = 360 - ArcDialGeometry.sweep
+        let justPastEnd = ArcDialGeometry.endAngle + gap * 0.2
+        let justBeforeStart = ArcDialGeometry.startAngle - gap * 0.2
 
-        XCTAssertEqual(LifeBoardArcDialGeometry.progress(forAngle: justPastEnd), 1)
-        XCTAssertEqual(LifeBoardArcDialGeometry.progress(forAngle: justBeforeStart), 0)
+        XCTAssertEqual(ArcDialGeometry.progress(forAngle: justPastEnd), 1)
+        XCTAssertEqual(ArcDialGeometry.progress(forAngle: justBeforeStart), 0)
     }
 
     func testAngleAndProgressRoundTrip() {
         for percent in stride(from: 0.0, through: 1.0, by: 0.05) {
-            let angle = LifeBoardArcDialGeometry.angle(forProgress: percent)
+            let angle = ArcDialGeometry.angle(forProgress: percent)
             XCTAssertEqual(
-                LifeBoardArcDialGeometry.progress(forAngle: angle), percent, accuracy: 0.0001,
+                ArcDialGeometry.progress(forAngle: angle), percent, accuracy: 0.0001,
                 "Progress \(percent) did not survive the trip through its angle"
             )
         }
@@ -883,21 +886,21 @@ final class LifeOSFoundationContractTests: XCTestCase {
     func testATouchIsReadAsAnAngleWhereverItLands() {
         let center = CGPoint(x: 100, y: 100)
         // Straight up is the midpoint of a 270° sweep starting down-left.
-        let up = LifeBoardArcDialGeometry.progress(at: CGPoint(x: 100, y: 20), center: center)
+        let up = ArcDialGeometry.progress(at: CGPoint(x: 100, y: 20), center: center)
         XCTAssertEqual(up, 0.5, accuracy: 0.0001)
 
         // Distance must not matter: the same bearing far off the ring reads the same.
-        let farUp = LifeBoardArcDialGeometry.progress(at: CGPoint(x: 100, y: -900), center: center)
+        let farUp = ArcDialGeometry.progress(at: CGPoint(x: 100, y: -900), center: center)
         XCTAssertEqual(farUp, up, accuracy: 0.0001)
 
         // The track starts south-west and runs clockwise through west and north,
         // so west is one sixth along and east is five sixths.
         XCTAssertEqual(
-            LifeBoardArcDialGeometry.progress(at: CGPoint(x: 20, y: 100), center: center),
+            ArcDialGeometry.progress(at: CGPoint(x: 20, y: 100), center: center),
             1.0 / 6.0, accuracy: 0.0001, "Due west"
         )
         XCTAssertEqual(
-            LifeBoardArcDialGeometry.progress(at: CGPoint(x: 180, y: 100), center: center),
+            ArcDialGeometry.progress(at: CGPoint(x: 180, y: 100), center: center),
             5.0 / 6.0, accuracy: 0.0001, "Due east"
         )
     }
@@ -905,26 +908,26 @@ final class LifeOSFoundationContractTests: XCTestCase {
     func testValuesQuantiseToTheirStepAndStayInRange() {
         let range = 0.0...60.0
         XCTAssertEqual(
-            LifeBoardArcDialGeometry.value(forProgress: 0.5, range: range, step: 15), 30
+            ArcDialGeometry.value(forProgress: 0.5, range: range, step: 15), 30
         )
         XCTAssertEqual(
-            LifeBoardArcDialGeometry.value(forProgress: 0.13, range: range, step: 15), 15,
+            ArcDialGeometry.value(forProgress: 0.13, range: range, step: 15), 15,
             "A value between detents lands on the nearest one"
         )
-        XCTAssertEqual(LifeBoardArcDialGeometry.value(forProgress: -5, range: range, step: 15), 0)
-        XCTAssertEqual(LifeBoardArcDialGeometry.value(forProgress: 5, range: range, step: 15), 60)
+        XCTAssertEqual(ArcDialGeometry.value(forProgress: -5, range: range, step: 15), 0)
+        XCTAssertEqual(ArcDialGeometry.value(forProgress: 5, range: range, step: 15), 60)
     }
 
     func testADegenerateRangeCannotProduceNonsense() {
         let flat = 20.0...20.0
-        XCTAssertEqual(LifeBoardArcDialGeometry.value(forProgress: 0.7, range: flat, step: 5), 20)
-        XCTAssertEqual(LifeBoardArcDialGeometry.progress(forValue: 20, range: flat), 0)
+        XCTAssertEqual(ArcDialGeometry.value(forProgress: 0.7, range: flat, step: 5), 20)
+        XCTAssertEqual(ArcDialGeometry.progress(forValue: 20, range: flat), 0)
     }
 
     func testAStepOfZeroLeavesTheValueContinuous() {
         let range = 0.0...10.0
         XCTAssertEqual(
-            LifeBoardArcDialGeometry.value(forProgress: 0.333, range: range, step: 0),
+            ArcDialGeometry.value(forProgress: 0.333, range: range, step: 0),
             3.33, accuracy: 0.0001
         )
     }
@@ -1012,12 +1015,12 @@ final class LifeOSFoundationContractTests: XCTestCase {
         // it out, or the appearance fixture matrix stops being deterministic.
         for midX in stride(from: 0.0, through: 320.0, by: 16.0) {
             XCTAssertEqual(
-                LifeBoardKineticTextRenderer.rise(glyphMidX: CGFloat(midX), touchX: nil, intensity: 1),
+                KineticTextMetrics.rise(glyphMidX: CGFloat(midX), touchX: nil, intensity: 1),
                 0,
                 "An untouched greeting must not move"
             )
             XCTAssertEqual(
-                LifeBoardKineticTextRenderer.rise(glyphMidX: CGFloat(midX), touchX: 120, intensity: 0),
+                KineticTextMetrics.rise(glyphMidX: CGFloat(midX), touchX: 120, intensity: 0),
                 0,
                 "A settled greeting must not move"
             )
@@ -1026,16 +1029,16 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testKineticGreetingRiseStaysWithinItsBoundAndPeaksUnderTheFinger() {
         let touchX: CGFloat = 140
-        let peak = LifeBoardKineticTextRenderer.rise(glyphMidX: touchX, touchX: touchX, intensity: 1)
-        XCTAssertEqual(peak, -LifeBoardKineticTextRenderer.maximumRise, accuracy: 0.0001)
+        let peak = KineticTextMetrics.rise(glyphMidX: touchX, touchX: touchX, intensity: 1)
+        XCTAssertEqual(peak, -KineticTextMetrics.maximumRise, accuracy: 0.0001)
 
         var previousMagnitude = abs(peak)
         for offset in stride(from: 0.0, through: 240.0, by: 8.0) {
-            let rise = LifeBoardKineticTextRenderer.rise(
+            let rise = KineticTextMetrics.rise(
                 glyphMidX: touchX + CGFloat(offset), touchX: touchX, intensity: 1
             )
             XCTAssertLessThanOrEqual(
-                abs(rise), LifeBoardKineticTextRenderer.maximumRise + 0.0001,
+                abs(rise), KineticTextMetrics.maximumRise + 0.0001,
                 "Displacement must stay bounded so the line stays readable"
             )
             XCTAssertLessThanOrEqual(
@@ -1045,7 +1048,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             previousMagnitude = abs(rise)
 
             // Symmetric either side of the finger.
-            let mirrored = LifeBoardKineticTextRenderer.rise(
+            let mirrored = KineticTextMetrics.rise(
                 glyphMidX: touchX - CGFloat(offset), touchX: touchX, intensity: 1
             )
             XCTAssertEqual(rise, mirrored, accuracy: 0.0001)
@@ -1053,14 +1056,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testKineticGreetingIntensityIsTheAnimatableChannel() {
-        var renderer = LifeBoardKineticTextRenderer(touchX: 40, intensity: 0.25)
+        var renderer = KineticTextRenderer(touchX: 40, intensity: 0.25)
         renderer.animatableData = 0.8
         XCTAssertEqual(renderer.intensity, 0.8)
         XCTAssertEqual(renderer.animatableData, 0.8)
 
         // Out-of-range intensity clamps rather than flinging glyphs off-line.
-        let overdriven = LifeBoardKineticTextRenderer.rise(glyphMidX: 40, touchX: 40, intensity: 9)
-        XCTAssertEqual(overdriven, -LifeBoardKineticTextRenderer.maximumRise, accuracy: 0.0001)
+        let overdriven = KineticTextMetrics.rise(glyphMidX: 40, touchX: 40, intensity: 9)
+        XCTAssertEqual(overdriven, -KineticTextMetrics.maximumRise, accuracy: 0.0001)
     }
 
     // MARK: Schedule snapping
@@ -1307,18 +1310,18 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testNightDaypartDoesNotForceDarkFunctionalAppearance() {
-        let light = LifeBoardDaypartTokens.functionalPalette(for: .night, colorScheme: .light)
+        let light = DaypartTokens.functionalPalette(for: .night, colorScheme: .light)
         XCTAssertEqual(light.canvas, "#FFF7D8")
         XCTAssertEqual(light.foreground, "#2B2118")
-        XCTAssertEqual(light.celestialCore, LifeBoardDaypartTokens.night.celestialCore)
+        XCTAssertEqual(light.celestialCore, DaypartTokens.night.celestialCore)
 
         // Dark appearance must still express the *current* daypart. This
         // previously asserted that morning-in-dark resolved to the night
         // palette, which is precisely why a dark-mode user saw the same screen
         // at 7am and 11pm.
-        let dark = LifeBoardDaypartTokens.functionalPalette(for: .morning, colorScheme: .dark)
-        XCTAssertEqual(dark.canvas, LifeBoardDaypartTokens.morningDark.canvas)
-        XCTAssertNotEqual(dark.canvas, LifeBoardDaypartTokens.night.canvas)
+        let dark = DaypartTokens.functionalPalette(for: .morning, colorScheme: .dark)
+        XCTAssertEqual(dark.canvas, DaypartTokens.morningDark.canvas)
+        XCTAssertNotEqual(dark.canvas, DaypartTokens.night.canvas)
         XCTAssertTrue(dark.isNocturnal, "A dark-appearance palette must report itself as nocturnal")
         XCTAssertEqual(dark.daypart, .morning)
     }
@@ -1327,24 +1330,24 @@ final class LifeOSFoundationContractTests: XCTestCase {
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Kolkata"))
 
-        XCTAssertEqual(LifeBoardDaypartResolver.resolve(at: date(hour: 4, minute: 59, calendar: calendar), calendar: calendar), .night)
-        XCTAssertEqual(LifeBoardDaypartResolver.resolve(at: date(hour: 5, minute: 0, calendar: calendar), calendar: calendar), .morning)
-        XCTAssertEqual(LifeBoardDaypartResolver.resolve(at: date(hour: 11, minute: 59, calendar: calendar), calendar: calendar), .morning)
-        XCTAssertEqual(LifeBoardDaypartResolver.resolve(at: date(hour: 12, minute: 0, calendar: calendar), calendar: calendar), .afternoon)
-        XCTAssertEqual(LifeBoardDaypartResolver.resolve(at: date(hour: 16, minute: 59, calendar: calendar), calendar: calendar), .afternoon)
-        XCTAssertEqual(LifeBoardDaypartResolver.resolve(at: date(hour: 17, minute: 0, calendar: calendar), calendar: calendar), .evening)
-        XCTAssertEqual(LifeBoardDaypartResolver.resolve(at: date(hour: 20, minute: 59, calendar: calendar), calendar: calendar), .evening)
-        XCTAssertEqual(LifeBoardDaypartResolver.resolve(at: date(hour: 21, minute: 0, calendar: calendar), calendar: calendar), .night)
+        XCTAssertEqual(DaypartResolver.resolve(at: date(hour: 4, minute: 59, calendar: calendar), calendar: calendar), .night)
+        XCTAssertEqual(DaypartResolver.resolve(at: date(hour: 5, minute: 0, calendar: calendar), calendar: calendar), .morning)
+        XCTAssertEqual(DaypartResolver.resolve(at: date(hour: 11, minute: 59, calendar: calendar), calendar: calendar), .morning)
+        XCTAssertEqual(DaypartResolver.resolve(at: date(hour: 12, minute: 0, calendar: calendar), calendar: calendar), .afternoon)
+        XCTAssertEqual(DaypartResolver.resolve(at: date(hour: 16, minute: 59, calendar: calendar), calendar: calendar), .afternoon)
+        XCTAssertEqual(DaypartResolver.resolve(at: date(hour: 17, minute: 0, calendar: calendar), calendar: calendar), .evening)
+        XCTAssertEqual(DaypartResolver.resolve(at: date(hour: 20, minute: 59, calendar: calendar), calendar: calendar), .evening)
+        XCTAssertEqual(DaypartResolver.resolve(at: date(hour: 21, minute: 0, calendar: calendar), calendar: calendar), .night)
     }
 
     func testApprovedScreenshotSwatchesRemainExact() {
-        XCTAssertEqual(LifeBoardDaypartTokens.morning.canvas, "#FFF9E4")
-        XCTAssertEqual(LifeBoardDaypartTokens.morning.celestialPrimary, "#F7D98E")
-        XCTAssertEqual(LifeBoardDaypartTokens.afternoon.canvas, "#FFF2C9")
-        XCTAssertEqual(LifeBoardDaypartTokens.afternoon.celestialPrimary, "#F3C45F")
-        XCTAssertEqual(LifeBoardDaypartTokens.evening.foreground, "#2B2118")
-        XCTAssertEqual(LifeBoardDaypartTokens.night.canvas, "#151B2D")
-        XCTAssertEqual(LifeBoardDaypartTokens.night.foreground, "#F7F1E7")
+        XCTAssertEqual(DaypartTokens.morning.canvas, "#FFF9E4")
+        XCTAssertEqual(DaypartTokens.morning.celestialPrimary, "#F7D98E")
+        XCTAssertEqual(DaypartTokens.afternoon.canvas, "#FFF2C9")
+        XCTAssertEqual(DaypartTokens.afternoon.celestialPrimary, "#F3C45F")
+        XCTAssertEqual(DaypartTokens.evening.foreground, "#2B2118")
+        XCTAssertEqual(DaypartTokens.night.canvas, "#151B2D")
+        XCTAssertEqual(DaypartTokens.night.foreground, "#F7F1E7")
     }
 
     /// The adaptive-daypart promise is that the screen is recognisably
@@ -1354,11 +1357,11 @@ final class LifeOSFoundationContractTests: XCTestCase {
     /// locked in place. This asserts the property that actually matters, so a
     /// regression back to a single shared canvas fails loudly.
     func testLightDaypartsAreVisuallyDistinct() {
-        let canvases = ResolvedDaypart.allCases.map { LifeBoardDaypartTokens.palette(for: $0).canvas }
+        let canvases = ResolvedDaypart.allCases.map { DaypartTokens.palette(for: $0).canvas }
         XCTAssertEqual(Set(canvases).count, ResolvedDaypart.allCases.count,
                        "Every daypart needs its own canvas")
 
-        let celestials = ResolvedDaypart.allCases.map { LifeBoardDaypartTokens.palette(for: $0).celestialPrimary }
+        let celestials = ResolvedDaypart.allCases.map { DaypartTokens.palette(for: $0).celestialPrimary }
         XCTAssertEqual(Set(celestials).count, ResolvedDaypart.allCases.count,
                        "Every daypart needs its own celestial colour")
     }
@@ -1366,12 +1369,12 @@ final class LifeOSFoundationContractTests: XCTestCase {
     /// The dark compositions must be distinct from each other too, and every
     /// one of them must actually be dark.
     func testDarkDaypartsAreDistinctAndDark() throws {
-        let canvases = ResolvedDaypart.allCases.map { LifeBoardDaypartTokens.darkPalette(for: $0).canvas }
+        let canvases = ResolvedDaypart.allCases.map { DaypartTokens.darkPalette(for: $0).canvas }
         XCTAssertEqual(Set(canvases).count, ResolvedDaypart.allCases.count,
                        "Every daypart needs its own dark canvas")
 
         for daypart in ResolvedDaypart.allCases {
-            let palette = LifeBoardDaypartTokens.darkPalette(for: daypart)
+            let palette = DaypartTokens.darkPalette(for: daypart)
             let canvas = try rgbComponents(from: palette.canvas)
             XCTAssertLessThan(relativeLuminance(canvas), 0.04,
                               "\(daypart.rawValue) dark canvas must be genuinely dark")
@@ -1390,15 +1393,15 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testEveryDaypartDefinesEverySemanticRole() {
         for daypart in ResolvedDaypart.allCases {
-            for role in LifeBoardDaypartColorRole.allCases {
-                XCTAssertTrue(LifeBoardDaypartTokens.palette(for: daypart).hex(for: role).hasPrefix("#"))
+            for role in DaypartColorRole.allCases {
+                XCTAssertTrue(DaypartTokens.palette(for: daypart).hex(for: role).hasPrefix("#"))
             }
         }
     }
 
     func testFunctionalDaypartTextMeetsWCAGContrast() throws {
         for daypart in ResolvedDaypart.allCases {
-            let palette = LifeBoardDaypartTokens.palette(for: daypart)
+            let palette = DaypartTokens.palette(for: daypart)
             let canvas = try rgbComponents(from: palette.canvas)
 
             XCTAssertGreaterThanOrEqual(
@@ -1432,7 +1435,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let foreground = try rgbComponents(from: LifeBoardColorTokens.foundationOnCelestialAccent)
         for daypart in ResolvedDaypart.allCases {
             let background = try rgbComponents(
-                from: LifeBoardDaypartTokens.palette(for: daypart).celestialCore
+                from: DaypartTokens.palette(for: daypart).celestialCore
             )
             XCTAssertGreaterThanOrEqual(
                 contrastRatio(foreground, background),
@@ -1463,7 +1466,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
                     $0.userInterfaceStyle = style
                     $0.accessibilityContrast = accessibilityContrast
                 })
-                for pair in LifeBoardLegibilityPair.releaseGate {
+                for pair in LegibilityPair.releaseGate {
                     let foreground = try rgbComponents(
                         from: UIColor.lifeboard(pair.foreground).resolvedColor(with: traits)
                     )
@@ -1481,14 +1484,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testImageReadabilityPolicyIsBoundedAndDeterministic() {
-        XCTAssertEqual(LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: 0.1), .lightContent)
-        XCTAssertEqual(LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: 0.9), .darkContent)
+        XCTAssertEqual(ImageReadabilityPolicy.foregroundStyle(forLuminance: 0.1), .lightContent)
+        XCTAssertEqual(ImageReadabilityPolicy.foregroundStyle(forLuminance: 0.9), .darkContent)
         XCTAssertGreaterThan(
-            LifeBoardImageReadabilityPolicy.scrimOpacity(forLuminance: 0.5),
-            LifeBoardImageReadabilityPolicy.scrimOpacity(forLuminance: 0.05)
+            ImageReadabilityPolicy.scrimOpacity(forLuminance: 0.5),
+            ImageReadabilityPolicy.scrimOpacity(forLuminance: 0.05)
         )
         for luminance in stride(from: CGFloat(-0.2), through: CGFloat(1.2), by: 0.1) {
-            let opacity = LifeBoardImageReadabilityPolicy.scrimOpacity(forLuminance: luminance)
+            let opacity = ImageReadabilityPolicy.scrimOpacity(forLuminance: luminance)
             XCTAssertTrue((0...1).contains(opacity))
         }
     }
@@ -1517,7 +1520,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testSharedMotionPolicyDisablesPremiumEffectsUnderEveryConstraint() {
-        let nominal = LifeBoardMotionPolicy.resolve(
+        let nominal = MotionPolicy.resolve(
             reduceMotion: false,
             reduceTransparency: false,
             lowPowerMode: false,
@@ -1530,7 +1533,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertTrue(nominal.allowsIdleMotion)
         XCTAssertFalse(nominal.usesOpaqueSurfaces)
 
-        let constrained: [LifeBoardMotionPolicy] = [
+        let constrained: [MotionPolicy] = [
             .resolve(reduceMotion: true, reduceTransparency: false, lowPowerMode: false, thermalState: .nominal, sceneIsActive: true),
             .resolve(reduceMotion: false, reduceTransparency: true, lowPowerMode: false, thermalState: .nominal, sceneIsActive: true),
             .resolve(reduceMotion: false, reduceTransparency: false, lowPowerMode: true, thermalState: .nominal, sceneIsActive: true),
@@ -1547,7 +1550,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testSharedMotionPolicySeparatesFocusedAndCalmIdleMotionFromDirectInteraction() {
-        let calm = LifeBoardMotionPolicy.resolve(
+        let calm = MotionPolicy.resolve(
             reduceMotion: false,
             reduceTransparency: false,
             lowPowerMode: false,
@@ -1559,7 +1562,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertTrue(calm.allowsSpatialMotion)
         XCTAssertFalse(calm.allowsCustomShaders)
 
-        let focused = LifeBoardMotionPolicy.resolve(
+        let focused = MotionPolicy.resolve(
             reduceMotion: false,
             reduceTransparency: false,
             lowPowerMode: false,
@@ -1576,7 +1579,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     @MainActor
     func testTransitionCoordinatorClaimsSemanticEffectsOnlyOnceUntilReset() {
-        let coordinator = LifeBoardTransitionCoordinator()
+        let coordinator = TransitionCoordinator()
         XCTAssertTrue(coordinator.claimOneShot("task.completed.1"))
         XCTAssertFalse(coordinator.claimOneShot("task.completed.1"))
         coordinator.resetOneShot("task.completed.1")
@@ -1600,8 +1603,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertNil(AppRoute.settings.spatialTransitionID)
         XCTAssertEqual(AppRoute.settings.screenMode, .utility)
         XCTAssertEqual(AppRoute.focusSession(nil).screenMode, .focused)
-        XCTAssertEqual(LifeBoardGlassMorphRole.capture.rawValue, "capture")
-        XCTAssertEqual(LifeBoardGlassMorphRole.evaComposer.rawValue, "evaComposer")
+        XCTAssertEqual(GlassMorphRole.capture.rawValue, "capture")
+        XCTAssertEqual(GlassMorphRole.evaComposer.rawValue, "evaComposer")
     }
 
     func testPlanRepairDeckUsesVelocityButRequiresHorizontalIntent() {
@@ -1654,20 +1657,20 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testFocusDialProgressUsesElapsedFractionAndClampsDomainEdges() throws {
         XCTAssertNil(
-            LifeBoardFocusDialMetrics.elapsedFraction(
+            FocusDialMetrics.elapsedFraction(
                 totalDuration: nil,
                 remainingDuration: 60
             )
         )
         XCTAssertNil(
-            LifeBoardFocusDialMetrics.elapsedFraction(
+            FocusDialMetrics.elapsedFraction(
                 totalDuration: 0,
                 remainingDuration: 0
             )
         )
         XCTAssertEqual(
             try XCTUnwrap(
-                LifeBoardFocusDialMetrics.elapsedFraction(
+                FocusDialMetrics.elapsedFraction(
                     totalDuration: 1_200,
                     remainingDuration: 900
                 )
@@ -1676,14 +1679,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
             accuracy: 0.000_1
         )
         XCTAssertEqual(
-            LifeBoardFocusDialMetrics.elapsedFraction(
+            FocusDialMetrics.elapsedFraction(
                 totalDuration: 1_200,
                 remainingDuration: 1_500
             ),
             0
         )
         XCTAssertEqual(
-            LifeBoardFocusDialMetrics.elapsedFraction(
+            FocusDialMetrics.elapsedFraction(
                 totalDuration: 1_200,
                 remainingDuration: -10
             ),
@@ -1717,7 +1720,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let suite = "LifeOSFoundationTests.WeeklyRoutes.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let router = LifeBoardAppRouter(defaults: defaults)
+        let router = AppRouter(defaults: defaults)
 
         router.push(.weeklyPlanner, in: .plan)
         router.push(.weeklyReview, in: .plan)
@@ -1735,7 +1738,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let suite = "LifeOSFoundationTests.RootActivation.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let router = LifeBoardAppRouter(defaults: defaults)
+        let router = AppRouter(defaults: defaults)
 
         router.push(.taskDetail(UUID()), in: .home)
         router.push(.planDay, in: .plan)
@@ -1756,7 +1759,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let suite = "LifeOSFoundationTests.InteractiveNavigation.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let router = LifeBoardAppRouter(defaults: defaults)
+        let router = AppRouter(defaults: defaults)
 
         let transition = router.navigate(.careLibrary, in: .track)
         XCTAssertEqual(router.selectedDestination, .track)
@@ -1772,7 +1775,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let suite = "LifeOSFoundationTests.InteractiveSameRootNavigation.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let router = LifeBoardAppRouter(defaults: defaults)
+        let router = AppRouter(defaults: defaults)
 
         router.push(.journalSearch, in: .home)
         router.activateRoot(.home)
@@ -1812,10 +1815,10 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
 
-        let preferences = LifeBoardPresentationPreferences(defaults: defaults)
+        let preferences = PresentationPreferences(defaults: defaults)
         preferences.daypartSelection = .evening
         let captureRouter = CaptureRouter()
-        let router = LifeBoardAppRouter(defaults: defaults, preferences: preferences, captureRouter: captureRouter)
+        let router = AppRouter(defaults: defaults, preferences: preferences, captureRouter: captureRouter)
         router.select(.plan)
         router.push(.weeklyPlanner)
         router.persist()
@@ -1824,7 +1827,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertTrue(captureRouter.request(.init(kind: .task, source: .widget, draftID: draftID)))
         XCTAssertFalse(captureRouter.request(.init(kind: .task, source: .deepLink, draftID: draftID)))
 
-        let restored = LifeBoardAppRouter(defaults: defaults, preferences: preferences)
+        let restored = AppRouter(defaults: defaults, preferences: preferences)
         XCTAssertEqual(restored.selectedDestination, .plan)
         XCTAssertEqual(restored.path(for: .plan), [.weeklyPlanner])
         XCTAssertEqual(restored.restorationSnapshot().daypartSelection, .evening)
@@ -1858,7 +1861,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let suite = "LifeOSFoundationDeepLinkTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        let router = LifeBoardAppRouter(defaults: defaults)
+        let router = AppRouter(defaults: defaults)
 
         XCTAssertTrue(router.handle(url: URL(string: "lifeboard://weekly/review")!))
         XCTAssertEqual(router.selectedDestination, .plan)
@@ -1871,7 +1874,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let suite = "LifeOSFoundationNotesDeepLinkTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let router = LifeBoardAppRouter(defaults: defaults)
+        let router = AppRouter(defaults: defaults)
         let folderID = UUID()
         let tagID = UUID()
 
@@ -1901,7 +1904,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         try JournalPrivacyPolicyPersistence.save(policy, to: defaults)
 
         let dayID = UUID()
-        let router = LifeBoardAppRouter(defaults: defaults)
+        let router = AppRouter(defaults: defaults)
         XCTAssertTrue(router.handle(url: URL(string: "lifeboard://journal/\(dayID.uuidString)")!))
         XCTAssertFalse(router.isJournalAccessUnlocked)
         XCTAssertEqual(router.path(for: .track), [.journalSearch])
@@ -1911,9 +1914,9 @@ final class LifeOSFoundationContractTests: XCTestCase {
         )
 
         let lockedSnapshotData = try XCTUnwrap(
-            defaults.data(forKey: LifeBoardFoundationPreferenceKey.restorationState)
+            defaults.data(forKey: FoundationPreferenceKey.restorationState)
         )
-        let lockedSnapshot = try JSONDecoder().decode(LifeBoardRestorationState.self, from: lockedSnapshotData)
+        let lockedSnapshot = try JSONDecoder().decode(RestorationState.self, from: lockedSnapshotData)
         XCTAssertEqual(lockedSnapshot.paths[.track], [.journalSearch])
 
         router.journalDidUnlock()
@@ -1926,7 +1929,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(router.path(for: .track), [.journalSearch])
         XCTAssertEqual(router.deferredProtectedRoute?.route, .journalDay(dayID))
 
-        let restored = LifeBoardAppRouter(defaults: defaults)
+        let restored = AppRouter(defaults: defaults)
         XCTAssertFalse(restored.isJournalAccessUnlocked)
         XCTAssertEqual(restored.path(for: .track), [.journalSearch])
         XCTAssertTrue(restored.restorationSnapshot().paths.values.flatMap { $0 }.contains(.journalDay(dayID)) == false)
@@ -1937,7 +1940,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let suite = "LifeOSFoundationLeafDeepLinkTests.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let router = LifeBoardAppRouter(defaults: defaults)
+        let router = AppRouter(defaults: defaults)
         let focusID = UUID()
         let trackerID = UUID()
 
@@ -1989,7 +1992,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let suite = "LifeOSFoundationBoundaryRoutes.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let router = LifeBoardAppRouter(defaults: defaults)
+        let router = AppRouter(defaults: defaults)
         let projectID = UUID()
 
         XCTAssertTrue(router.handle(url: URL(string: "lifeboard://habits/library")!))
@@ -2024,13 +2027,13 @@ final class LifeOSFoundationContractTests: XCTestCase {
     func testSpotlightJournalIdentifierTranslatesWithoutExposingMalformedRoutes() throws {
         let dayID = UUID()
         let url = try XCTUnwrap(
-            LifeBoardSpotlightRouteTranslator.url(
-                for: "\(LifeBoardSpotlightRouteTranslator.journalPrefix)\(dayID.uuidString)"
+            SpotlightRouteTranslator.url(
+                for: "\(SpotlightRouteTranslator.journalPrefix)\(dayID.uuidString)"
             )
         )
         XCTAssertEqual(url.absoluteString, "lifeboard://journal/\(dayID.uuidString)")
-        XCTAssertNil(LifeBoardSpotlightRouteTranslator.url(for: "lifeboard-journal-not-a-uuid"))
-        XCTAssertNil(LifeBoardSpotlightRouteTranslator.url(for: "third-party-result"))
+        XCTAssertNil(SpotlightRouteTranslator.url(for: "lifeboard-journal-not-a-uuid"))
+        XCTAssertNil(SpotlightRouteTranslator.url(for: "third-party-result"))
     }
 
     @MainActor
@@ -2038,7 +2041,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let suite = "LifeOSFoundationNotificationRoutes.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        let router = LifeBoardAppRouter(defaults: defaults)
+        let router = AppRouter(defaults: defaults)
         let taskID = UUID()
 
         router.handle(notificationRoute: .taskDetail(taskID: taskID))
@@ -2080,7 +2083,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let suite = "LifeOSFoundationMalformedDeepLinkTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        let router = LifeBoardAppRouter(defaults: defaults)
+        let router = AppRouter(defaults: defaults)
         router.push(.weeklyPlanner, in: .plan)
 
         XCTAssertTrue(router.handle(url: URL(string: "lifeboard://task/not-a-uuid")!))
@@ -2322,9 +2325,9 @@ final class LifeOSFoundationContractTests: XCTestCase {
         calendar.timeZone = try XCTUnwrap(TimeZone(identifier: "Asia/Kolkata"))
         let capturedCalendar = calendar
         let now = date(hour: 15, minute: 30, calendar: calendar)
-        defaults.set(DaypartSelection.morning.rawValue, forKey: LifeBoardFoundationPreferenceKey.daypartSelection)
+        defaults.set(DaypartSelection.morning.rawValue, forKey: FoundationPreferenceKey.daypartSelection)
 
-        let preferences = LifeBoardPresentationPreferences(
+        let preferences = PresentationPreferences(
             defaults: defaults,
             now: { now },
             calendar: { capturedCalendar }
@@ -2479,7 +2482,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     /// Ranking by row count always named the chattiest tracker; consistency is
     /// the honest signal, and below the floor nothing is claimed at all.
     func testInsightsInterpretationRanksConsistencyAndRefusesBelowTheFloor() throws {
-        let engine = InsightsInterpretationEngine()
+        let engine = InsightsInterpretationService()
         let calendar = Calendar(identifier: .gregorian)
         let day = calendar.startOfDay(for: Date(timeIntervalSince1970: 1_700_000_000))
 
@@ -2629,7 +2632,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         )
         let migrated = try CoreDataDashboardLayoutRepository(container: container).migrate(legacy)
 
-        XCTAssertEqual(migrated.schemaVersion, LifeOSFoundationSchema.dashboardLayoutVersion)
+        XCTAssertEqual(migrated.schemaVersion, FoundationSchema.dashboardLayoutVersion)
         XCTAssertEqual(migrated.placements.first(where: { $0.widgetKind == DashboardWidgetKind.care.rawValue })?.id, stableCareID)
         XCTAssertEqual(migrated.placements.first(where: { $0.widgetKind == DashboardWidgetKind.care.rawValue })?.semanticSize, .tall)
         XCTAssertTrue(migrated.placements.contains { $0.widgetKind == DashboardWidgetKind.tasks.rawValue })
@@ -2638,7 +2641,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testNamespacedOffRecordMoodAssetsAreAvailableToJournal() {
-        for mood in LifeBoardJournalMood.allCases {
+        for mood in JournalMood.allCases {
             XCTAssertNotNil(UIImage(named: mood.largeAssetName), "Missing large artwork for \(mood.title)")
             XCTAssertNotNil(UIImage(named: mood.faceAssetName), "Missing dial face for \(mood.title)")
             XCTAssertNotNil(UIImage(named: mood.glowAssetName), "Missing glow artwork for \(mood.title)")
@@ -2654,7 +2657,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let firstID = UUID()
         let secondID = UUID()
         let days = [
-            LifeBoardJournalDayValue(
+            JournalDayValue(
                 id: firstID,
                 day: today,
                 blocks: [
@@ -2662,7 +2665,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
                     .init(dayID: firstID, kind: .mood, mood: .calm, energy: 4, ordinal: 1)
                 ]
             ),
-            LifeBoardJournalDayValue(
+            JournalDayValue(
                 id: secondID,
                 day: yesterday,
                 blocks: [
@@ -2672,7 +2675,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             )
         ]
 
-        let snapshot = LifeBoardJournalInsightEngine.makeSnapshot(days: days, now: now, calendar: calendar)
+        let snapshot = JournalInsightService.makeSnapshot(days: days, now: now, calendar: calendar)
         XCTAssertEqual(snapshot.daysWritten, 2)
         XCTAssertEqual(snapshot.currentStreak, 2)
         XCTAssertEqual(snapshot.totalWords, 7)
@@ -2761,7 +2764,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let monday = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 7, day: 13)))
         let outside = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 7, day: 20)))
 
-        let empty = WeeklyReflectionEngine.makeReport(entries: [], weekContaining: reference, calendar: calendar)
+        let empty = WeeklyReflectionService.makeReport(entries: [], weekContaining: reference, calendar: calendar)
         XCTAssertEqual(empty.density, .empty)
         XCTAssertTrue(calendar.isDate(empty.weekStart, inSameDayAs: monday))
 
@@ -2786,13 +2789,13 @@ final class LifeOSFoundationContractTests: XCTestCase {
             id: UUID(), date: outside, title: nil, text: repeatedWords, mood: .sad, energy: 1,
             isStarred: false, attachments: [], updatedAt: outside
         )
-        let full = WeeklyReflectionEngine.makeReport(entries: entries + [outsideEntry], weekContaining: reference, calendar: calendar)
+        let full = WeeklyReflectionService.makeReport(entries: entries + [outsideEntry], weekContaining: reference, calendar: calendar)
         XCTAssertEqual(full.density, .full)
         XCTAssertEqual(full.sourceSelection.includedEntryIDs, Set(entries.map(\.id)))
         XCTAssertFalse(full.sourceSelection.includedEntryIDs.contains(outsideEntry.id))
         XCTAssertTrue(full.summary.contains("Calm"))
 
-        let regenerated = WeeklyReflectionEngine.makeReport(
+        let regenerated = WeeklyReflectionService.makeReport(
             entries: entries,
             weekContaining: reference,
             calendar: calendar,
@@ -2860,9 +2863,9 @@ final class LifeOSFoundationContractTests: XCTestCase {
             )],
             updatedAt: date
         )
-        var first = WeeklyReflectionEngine.makeReport(entries: [entry], weekContaining: date, calendar: calendar)
+        var first = WeeklyReflectionService.makeReport(entries: [entry], weekContaining: date, calendar: calendar)
         first.takeaway = "Keep the afternoon spacious."
-        let second = WeeklyReflectionEngine.makeReport(
+        let second = WeeklyReflectionService.makeReport(
             entries: [entry],
             weekContaining: date,
             calendar: calendar,
@@ -2913,21 +2916,21 @@ final class LifeOSFoundationContractTests: XCTestCase {
     @MainActor
     func testJournalMediaReconciliationAndPhotoEditingPreserveStableIdentity() throws {
         let dayID = UUID()
-        let keptMedia = LifeBoardJournalMediaValue(
+        let keptMedia = JournalMediaValue(
             dayID: dayID,
             kind: .photo,
             payload: Data("kept".utf8),
             syncPolicy: .privateCloud
         )
-        let orphanMedia = LifeBoardJournalMediaValue(
+        let orphanMedia = JournalMediaValue(
             dayID: dayID,
             kind: .audio,
             relativePath: "orphan.m4a",
             syncPolicy: .protectedLocalOnly
         )
-        let keptBlock = LifeBoardJournalBlockValue(dayID: dayID, kind: .photo, mediaID: keptMedia.id, ordinal: 4)
-        let missingBlock = LifeBoardJournalBlockValue(dayID: dayID, kind: .audio, mediaID: UUID(), ordinal: 9)
-        let value = LifeBoardJournalDayValue(
+        let keptBlock = JournalBlockValue(dayID: dayID, kind: .photo, mediaID: keptMedia.id, ordinal: 4)
+        let missingBlock = JournalBlockValue(dayID: dayID, kind: .audio, mediaID: UUID(), ordinal: 9)
+        let value = JournalDayValue(
             id: dayID,
             day: Date(),
             blocks: [keptBlock, missingBlock],
@@ -2977,7 +2980,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let audioName = "source.m4a"
         let audioData = Data("protected audio fixture".utf8)
         try audioData.write(to: audioRoot.appendingPathComponent(audioName), options: .atomic)
-        let media = LifeBoardJournalMediaValue(
+        let media = JournalMediaValue(
             id: audioID,
             dayID: dayID,
             kind: .audio,
@@ -2985,13 +2988,13 @@ final class LifeOSFoundationContractTests: XCTestCase {
             duration: 4,
             syncPolicy: .protectedLocalOnly
         )
-        let day = LifeBoardJournalDayValue(
+        let day = JournalDayValue(
             id: dayID,
             day: Date(),
             blocks: [.init(dayID: dayID, kind: .audio, mediaID: audioID)],
             media: [media]
         )
-        let report = WeeklyReflectionEngine.makeReport(entries: [JournalEntrySnapshot(day: day)])
+        let report = WeeklyReflectionService.makeReport(entries: [JournalEntrySnapshot(day: day)])
         let service = try LocalJournalBackupService(
             rootURL: backupRoot,
             audioRootURL: audioRoot,
@@ -3083,16 +3086,16 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testUnresolvedMedicationDoesNotContributeToAdherence() {
-        XCTAssertFalse(LifeBoardMedicationEventStatus.unresolved.contributesToAdherence)
-        XCTAssertFalse(LifeBoardMedicationEventStatus.scheduled.contributesToAdherence)
-        XCTAssertTrue(LifeBoardMedicationEventStatus.taken.contributesToAdherence)
-        XCTAssertTrue(LifeBoardMedicationEventStatus.skipped.contributesToAdherence)
+        XCTAssertFalse(MedicationEventStatus.unresolved.contributesToAdherence)
+        XCTAssertFalse(MedicationEventStatus.scheduled.contributesToAdherence)
+        XCTAssertTrue(MedicationEventStatus.taken.contributesToAdherence)
+        XCTAssertTrue(MedicationEventStatus.skipped.contributesToAdherence)
     }
 
     func testKnowledgeBlockPayloadMigratesLegacyValuesAndRoundTripsTypedMetadata() throws {
         let noteID = UUID()
         let linkedNoteID = UUID()
-        let legacyTable = LifeBoardKnowledgeBlockValue(
+        let legacyTable = KnowledgeBlockValue(
             noteID: noteID,
             kind: .table,
             text: "Name,Status\nJournal,Ready"
@@ -3104,7 +3107,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         encodedTable.metadata = tablePayload.encoded()
         XCTAssertEqual(KnowledgeBlockPayload.decode(from: encodedTable), tablePayload)
 
-        let legacyNoteLink = LifeBoardKnowledgeBlockValue(
+        let legacyNoteLink = KnowledgeBlockValue(
             noteID: noteID,
             kind: .noteLink,
             text: linkedNoteID.uuidString
@@ -3118,7 +3121,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             summary: "A durable preview"
         ))
         let encoded = try XCTUnwrap(bookmarkPayload.encoded())
-        let bookmarkBlock = LifeBoardKnowledgeBlockValue(
+        let bookmarkBlock = KnowledgeBlockValue(
             noteID: noteID,
             kind: .bookmark,
             text: bookmarkURL.absoluteString,
@@ -3131,7 +3134,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             attachmentID: attachmentID,
             fileName: "reference.pdf"
         ))
-        let attachmentBlock = LifeBoardKnowledgeBlockValue(
+        let attachmentBlock = KnowledgeBlockValue(
             noteID: noteID,
             kind: .file,
             text: "reference.pdf",
@@ -3142,9 +3145,9 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testKnowledgeFolderHierarchyBuildsBreadcrumbsAndPreventsCycles() {
         let spaceID = UUID()
-        let root = LifeBoardKnowledgeFolderValue(spaceID: spaceID, title: "Projects")
-        let child = LifeBoardKnowledgeFolderValue(spaceID: spaceID, parentFolderID: root.id, title: "LifeBoard")
-        let grandchild = LifeBoardKnowledgeFolderValue(spaceID: spaceID, parentFolderID: child.id, title: "Research")
+        let root = KnowledgeFolderValue(spaceID: spaceID, title: "Projects")
+        let child = KnowledgeFolderValue(spaceID: spaceID, parentFolderID: root.id, title: "LifeBoard")
+        let grandchild = KnowledgeFolderValue(spaceID: spaceID, parentFolderID: child.id, title: "Research")
         let folders = [grandchild, root, child]
 
         XCTAssertEqual(KnowledgeFolderHierarchy.path(to: grandchild.id, in: folders).map(\.id), [root.id, child.id, grandchild.id])
@@ -3153,7 +3156,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertFalse(KnowledgeFolderHierarchy.canMove(folderID: root.id, to: grandchild.id, in: folders))
         XCTAssertTrue(KnowledgeFolderHierarchy.canMove(folderID: root.id, to: nil, in: folders))
 
-        let cyclicRoot = LifeBoardKnowledgeFolderValue(
+        let cyclicRoot = KnowledgeFolderValue(
             id: root.id,
             spaceID: spaceID,
             parentFolderID: grandchild.id,
@@ -3170,7 +3173,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             .appendingPathComponent("KnowledgeAttachmentTest-\(UUID().uuidString)", isDirectory: true)
         defer { try? FileManager.default.removeItem(at: root) }
         let files = ProtectedKnowledgeAttachmentFiles(rootURL: root)
-        let attachment = LifeBoardKnowledgeAttachmentValue(
+        let attachment = KnowledgeAttachmentValue(
             noteID: UUID(),
             kind: "txt",
             fileName: "Private Reflection.txt",
@@ -3206,7 +3209,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testTrackerReminderPolicyUsesStableWeekdayRequestsAndCancelsArchivedTrackers() {
         let trackerID = UUID()
-        let tracker = LifeBoardTrackerDefinitionValue(
+        let tracker = TrackerDefinitionValue(
             id: trackerID,
             title: "Blood pressure",
             kind: .quantity,
@@ -3226,8 +3229,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testMedicationReminderPolicyHonorsScheduleAndArchiveState() {
-        let medication = LifeBoardMedicationDefinitionValue(name: "Vitamin D", dosageText: "1 tablet")
-        let schedule = LifeBoardMedicationScheduleValue(
+        let medication = MedicationDefinitionValue(name: "Vitamin D", dosageText: "1 tablet")
+        let schedule = MedicationScheduleValue(
             medicationID: medication.id,
             windowStartMinutes: 18 * 60 + 30,
             windowEndMinutes: 19 * 60,
@@ -3257,7 +3260,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let container = try await makeHealthPrivacyValidatedContainer(name: "PhaseIIRoundTrip")
         let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
 
-        let tracker = LifeBoardTrackerDefinitionValue(
+        let tracker = TrackerDefinitionValue(
             title: "Water",
             kind: .quantity,
             unitLabel: "ml",
@@ -3269,7 +3272,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             isHomeEligible: true
         )
         try await repository.saveTracker(tracker)
-        let trackerEntry = LifeBoardTrackerEntryValue(
+        let trackerEntry = TrackerEntryValue(
             trackerID: tracker.id,
             numericValue: 450,
             value: .quantity(450, unit: "ml")
@@ -3302,7 +3305,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertTrue(deletedTrackerEntries.isEmpty)
 
         let medicationStart = journalDateForRepositoryTest().addingTimeInterval(-86_400)
-        let medication = LifeBoardMedicationDefinitionValue(
+        let medication = MedicationDefinitionValue(
             name: "Vitamin D",
             formRaw: "tablet",
             startDate: medicationStart,
@@ -3311,14 +3314,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
             refillThreshold: 5,
             lastRefilledAt: medicationStart
         )
-        let medicationSchedule = LifeBoardMedicationScheduleValue(
+        let medicationSchedule = MedicationScheduleValue(
             medicationID: medication.id,
             windowStartMinutes: 480,
             windowEndMinutes: 540
         )
         try await repository.saveMedication(medication)
         try await repository.saveMedicationSchedule(medicationSchedule)
-        var medicationEvent = LifeBoardMedicationEventValue(
+        var medicationEvent = MedicationEventValue(
             medicationID: medication.id,
             scheduledAt: journalDateForRepositoryTest()
         )
@@ -3350,7 +3353,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertTrue(deletedMedicationSchedules.isEmpty)
         XCTAssertTrue(deletedMedicationEvents.isEmpty)
 
-        var moodCheckIn = LifeBoardMoodEnergyCheckInValue(mood: .calm, energy: 3)
+        var moodCheckIn = MoodEnergyCheckInValue(mood: .calm, energy: 3)
         try await repository.saveMoodCheckIn(moodCheckIn)
         moodCheckIn.mood = .grateful
         moodCheckIn.energy = 4
@@ -3364,7 +3367,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertTrue(deletedMoodCheckIns.isEmpty)
 
         let dayID = UUID()
-        let journal = LifeBoardJournalDayValue(
+        let journal = JournalDayValue(
             id: dayID,
             day: Calendar.current.startOfDay(for: Date()),
             blocks: [
@@ -3378,7 +3381,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(fetchedJournal.displayText, "A private reflection")
         XCTAssertEqual(fetchedJournal.latestMood, .calm)
 
-        let draft = LifeBoardJournalDraftValue(
+        let draft = JournalDraftValue(
             dayID: dayID,
             day: journal.day,
             text: "Recovered after interruption",
@@ -3396,10 +3399,10 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let deletedDraft = try await repository.fetchJournalDraft(dayID: dayID)
         XCTAssertNil(deletedDraft)
 
-        let space = LifeBoardKnowledgeSpaceValue(title: "Personal")
+        let space = KnowledgeSpaceValue(title: "Personal")
         try await repository.saveKnowledgeSpace(space)
         let noteID = UUID()
-        let note = LifeBoardKnowledgeNoteValue(
+        let note = KnowledgeNoteValue(
             id: noteID,
             spaceID: space.id,
             title: "Useful idea",
@@ -3442,7 +3445,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
         let dayID = UUID()
         let mediaID = UUID()
-        let media = LifeBoardJournalMediaValue(
+        let media = JournalMediaValue(
             id: mediaID,
             dayID: dayID,
             kind: .audio,
@@ -3471,7 +3474,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testJournalMediaMapsIntoSharedAttachmentLifecycle() {
         let dayID = UUID()
-        let local = LifeBoardJournalMediaValue(
+        let local = JournalMediaValue(
             dayID: dayID,
             kind: .audio,
             relativePath: "voice.m4a",
@@ -3483,7 +3486,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(local.fileName, "voice.m4a")
         XCTAssertEqual(local.duration, 12)
 
-        let missing = LifeBoardJournalMediaValue(
+        let missing = JournalMediaValue(
             dayID: dayID,
             kind: .photo,
             syncPolicy: .privateCloud
@@ -3501,14 +3504,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
             DashboardWidgetPlacementValue(widgetKind: DashboardWidgetKind.care.rawValue, semanticSize: .expanded, ordinal: 3)
         ]
 
-        let packed = HomeGridPackingEngine.normalized(placements)
+        let packed = HomeGridPackingService.normalized(placements)
 
         XCTAssertEqual(packed.map(\.ordinal), [0, 1, 2, 3])
         XCTAssertEqual(try XCTUnwrap(packed[0].gridPosition), HomeGridPosition(column: 0, row: 0))
         XCTAssertEqual(try XCTUnwrap(packed[1].gridPosition), HomeGridPosition(column: 2, row: 0))
         XCTAssertEqual(try XCTUnwrap(packed[2].gridPosition), HomeGridPosition(column: 0, row: 1))
         XCTAssertEqual(try XCTUnwrap(packed[3].gridPosition), HomeGridPosition(column: 0, row: 3))
-        XCTAssertEqual(HomeGridPackingEngine.normalized(packed), packed)
+        XCTAssertEqual(HomeGridPackingService.normalized(packed), packed)
     }
 
     func testAdaptiveHomePackingRemainsCollisionFreeAtFourEightAndTwelveColumns() throws {
@@ -3522,7 +3525,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         }
 
         for columns in [4, 8, 12] {
-            let packed = HomeGridPackingEngine.normalized(placements, columns: columns)
+            let packed = HomeGridPackingService.normalized(placements, columns: columns)
             var occupied = Set<HomeGridPosition>()
             for placement in packed {
                 let origin = try XCTUnwrap(placement.gridPosition)
@@ -3539,7 +3542,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
                     }
                 }
             }
-            XCTAssertEqual(HomeGridPackingEngine.normalized(packed, columns: columns), packed)
+            XCTAssertEqual(HomeGridPackingService.normalized(packed, columns: columns), packed)
         }
     }
 
@@ -3734,7 +3737,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             destination: .track, priority: 600, relevantFrom: now,
             isUserStartedActiveState: true
         )
-        let engine = HomeContextEngine(minimumDisplayDuration: 60)
+        let engine = HomeContextService(minimumDisplayDuration: 60)
 
         let initial = engine.reevaluate(
             candidates: [focus], dispositions: [:],
@@ -3786,7 +3789,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             priority: 100,
             relevantFrom: now
         )
-        let engine = HomeContextEngine(minimumDisplayDuration: 0, repetitionCooldown: 1_800)
+        let engine = HomeContextService(minimumDisplayDuration: 0, repetitionCooldown: 1_800)
         let cooledDown = engine.reevaluate(
             candidates: [candidate],
             dispositions: store.dispositions(now: now),
@@ -3809,14 +3812,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testFastingSessionElapsedUsesAbsoluteDatesAndClampsCorrections() {
         let start = Date(timeIntervalSince1970: 40_000)
-        let session = LifeBoardFastingSessionValue(
+        let session = FastingSessionValue(
             startedAt: start,
             endedAt: start.addingTimeInterval(7_200),
             targetDuration: 10_800
         )
         XCTAssertEqual(session.elapsed(at: start.addingTimeInterval(99_999)), 7_200)
 
-        let future = LifeBoardFastingSessionValue(startedAt: start.addingTimeInterval(100))
+        let future = FastingSessionValue(startedAt: start.addingTimeInterval(100))
         XCTAssertEqual(future.elapsed(at: start), 0)
         XCTAssertTrue(DefaultDashboardWidgetRegistry.shared
             .descriptor(for: .fasting)?.supportedSizes.contains(.expanded) == true)
@@ -3852,11 +3855,11 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testFastingTimerStoreRecoversLegacyDuplicateActiveSessionsDeterministically() async throws {
         let now = Date(timeIntervalSince1970: 140_000)
-        let older = LifeBoardFastingSessionValue(
+        let older = FastingSessionValue(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
             startedAt: now.addingTimeInterval(-7_200)
         )
-        let newer = LifeBoardFastingSessionValue(
+        let newer = FastingSessionValue(
             id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
             startedAt: now.addingTimeInterval(-3_600)
         )
@@ -4075,15 +4078,15 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testMutationCoordinatorAppliesAndUndoesTheSamePreparedCommand() async throws {
         let recorder = MutationRecorderFixture()
-        let preview = LifeBoardTransactionPreview(
+        let preview = TransactionPreview(
             destination: .plan,
             summary: "Move one task",
             changes: ["Reading: 3:00 PM → 4:00 PM"],
             origin: .conversation
         )
-        let coordinator = LifeBoardMutationCoordinator()
+        let coordinator = MutationCoordinator()
         _ = await coordinator.prepare(
-            LifeBoardMutationCommand(
+            MutationCommand(
                 preview: preview,
                 apply: {
                     await recorder.recordApply()
@@ -4104,7 +4107,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testMutationIntentAdapterOnlyExposesAnExecutablePreview() async throws {
         let recorder = MutationRecorderFixture()
-        let coordinator = LifeBoardMutationCoordinator()
+        let coordinator = MutationCoordinator()
         let resolver = LifeThreadIntentResolver(
             mutationAdapters: [PlanMutationIntentAdapterFixture(recorder: recorder)],
             mutationCoordinator: coordinator
@@ -4195,8 +4198,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
             .appendingPathComponent("LifeBoardSystemSnapshotTests", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let store = LifeBoardSystemSnapshotStore(directoryURL: directory)
-        let privateSnapshot = LifeBoardSystemSurfaceSnapshot(
+        let store = SystemSnapshotStore(directoryURL: directory)
+        let privateSnapshot = SystemSurfaceSnapshot(
             id: UUID(),
             title: "Mood",
             primaryValue: "Overwhelmed",
@@ -4207,7 +4210,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             deepLinkPath: "lifeboard://track/journal",
             updatedAt: Date(timeIntervalSince1970: 90_000)
         )
-        let first = LifeBoardSystemSnapshotEnvelope(
+        let first = SystemSnapshotEnvelope(
             domain: .journal,
             generatedAt: Date(timeIntervalSince1970: 90_000),
             snapshots: [privateSnapshot]
@@ -4223,7 +4226,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(redacted?.snapshots.first?.primaryValue, "Open LifeBoard to view")
         XCTAssertNil(redacted?.snapshots.first?.secondaryValue)
 
-        let second = LifeBoardSystemSnapshotEnvelope(
+        let second = SystemSnapshotEnvelope(
             domain: .journal,
             generatedAt: Date(timeIntervalSince1970: 90_100),
             snapshots: []
@@ -4302,7 +4305,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         )
         XCTAssertTrue(remotePolicy.permits(.journal, forAccountID: "account-a"))
 
-        let snapshot = LifeBoardSystemSurfaceSnapshot(
+        let snapshot = SystemSurfaceSnapshot(
             id: UUID(),
             title: "Private journal title",
             primaryValue: "Private journal text",
@@ -4318,7 +4321,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     func testSystemSurfaceEnvelopeDeduplicatesAndOrdersNewestFirst() throws {
         let duplicateID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000101"))
         let secondID = try XCTUnwrap(UUID(uuidString: "00000000-0000-0000-0000-000000000102"))
-        let older = LifeBoardSystemSurfaceSnapshot(
+        let older = SystemSurfaceSnapshot(
             id: duplicateID,
             title: "Older",
             primaryValue: "1",
@@ -4327,7 +4330,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             isExplicitlyAuthorized: true,
             updatedAt: Date(timeIntervalSince1970: 100)
         )
-        let newest = LifeBoardSystemSurfaceSnapshot(
+        let newest = SystemSurfaceSnapshot(
             id: duplicateID,
             title: "Newest",
             primaryValue: "2",
@@ -4336,7 +4339,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             isExplicitlyAuthorized: true,
             updatedAt: Date(timeIntervalSince1970: 300)
         )
-        let middle = LifeBoardSystemSurfaceSnapshot(
+        let middle = SystemSurfaceSnapshot(
             id: secondID,
             title: "Middle",
             primaryValue: "3",
@@ -4346,7 +4349,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             updatedAt: Date(timeIntervalSince1970: 200)
         )
 
-        let envelope = LifeBoardSystemSnapshotEnvelope(
+        let envelope = SystemSnapshotEnvelope(
             domain: .goals,
             generatedAt: Date(timeIntervalSince1970: 400),
             snapshots: [older, middle, newest]
@@ -4356,14 +4359,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testSystemSurfaceReaderAcceptsLegacyAndRejectsFutureSchemaAndWrongDomain() throws {
-        func data(for envelope: LifeBoardSystemSnapshotEnvelope) throws -> Data {
+        func data(for envelope: SystemSnapshotEnvelope) throws -> Data {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .millisecondsSince1970
             return try encoder.encode(envelope)
         }
 
-        let legacy = LifeBoardSystemSnapshotEnvelope(schemaVersion: 0, domain: .routines, snapshots: [])
-        let decodedLegacy = try LifeBoardSystemSnapshotReader.decode(
+        let legacy = SystemSnapshotEnvelope(schemaVersion: 0, domain: .routines, snapshots: [])
+        let decodedLegacy = try SystemSnapshotReader.decode(
             data(for: legacy),
             expectedDomain: .routines
         )
@@ -4374,27 +4377,27 @@ final class LifeOSFoundationContractTests: XCTestCase {
                        legacy.generatedAt.timeIntervalSince1970,
                        accuracy: 0.001)
 
-        let future = LifeBoardSystemSnapshotEnvelope(
-            schemaVersion: LifeBoardSystemSnapshotEnvelope.currentSchemaVersion + 1,
+        let future = SystemSnapshotEnvelope(
+            schemaVersion: SystemSnapshotEnvelope.currentSchemaVersion + 1,
             domain: .routines,
             snapshots: []
         )
         XCTAssertThrowsError(
-            try LifeBoardSystemSnapshotReader.decode(data(for: future), expectedDomain: .routines)
+            try SystemSnapshotReader.decode(data(for: future), expectedDomain: .routines)
         ) { error in
             XCTAssertEqual(
-                error as? LifeBoardSystemSnapshotStoreError,
+                error as? SystemSnapshotStoreError,
                 .incompatibleSchema(
-                    found: LifeBoardSystemSnapshotEnvelope.currentSchemaVersion + 1,
-                    supported: LifeBoardSystemSnapshotEnvelope.currentSchemaVersion
+                    found: SystemSnapshotEnvelope.currentSchemaVersion + 1,
+                    supported: SystemSnapshotEnvelope.currentSchemaVersion
                 )
             )
         }
 
         XCTAssertThrowsError(
-            try LifeBoardSystemSnapshotReader.decode(data(for: legacy), expectedDomain: .goals)
+            try SystemSnapshotReader.decode(data(for: legacy), expectedDomain: .goals)
         ) { error in
-            XCTAssertEqual(error as? LifeBoardSystemSnapshotStoreError, .domainMismatch)
+            XCTAssertEqual(error as? SystemSnapshotStoreError, .domainMismatch)
         }
     }
 
@@ -4403,7 +4406,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             .appendingPathComponent("LifeBoardSystemSnapshotOfflineTests", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let store = LifeBoardSystemSnapshotStore(directoryURL: directory)
+        let store = SystemSnapshotStore(directoryURL: directory)
 
         let loadedEnvelope = try await store.load(.nutrition)
         XCTAssertNil(loadedEnvelope)
@@ -4515,7 +4518,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertNil(glance.detail)
     }
 
-    func testWellnessNormalizedEventIsSensitiveAndUsesCaptureDay() throws {
+    func testBodyMetricNormalizedEventIsSensitiveAndUsesCaptureDay() throws {
         let kolkata = try XCTUnwrap(TimeZone(identifier: "Asia/Kolkata"))
         let observed = Date(timeIntervalSince1970: 1711911600) // 2024-04-01 locally, 2024-03-31 UTC.
         let sample = try BodyMetricSample(
@@ -4526,7 +4529,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             capturedTimeZone: kolkata
         )
         let event = WellnessNormalizedEventProjector().bodyMetric(sample, now: observed)
-        XCTAssertEqual(event.domain, "wellness")
+        XCTAssertEqual(event.domain, "body")
         XCTAssertEqual(event.sensitivity, .privateSensitive)
         XCTAssertEqual(event.localDay, PlanningDay(date: observed, timeZone: kolkata))
         XCTAssertEqual(event.evidence.first?.sourceID, sample.id)
@@ -4677,7 +4680,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let container = try await makeHealthPrivacyValidatedContainer(name: "FastingCompletionRoundTrip")
         let startedAt = Date(timeIntervalSince1970: 1_721_430_000)
         let correctedAt = startedAt.addingTimeInterval(7_200)
-        let expected = LifeBoardFastingSessionValue(
+        let expected = FastingSessionValue(
             startedAt: startedAt,
             endedAt: correctedAt,
             targetDuration: 5_400,
@@ -4701,10 +4704,10 @@ final class LifeOSFoundationContractTests: XCTestCase {
     func testFastingTemplateStartsCanonicalSessionAndCorrectionUndoRestoresHistory() async throws {
         let container = try await makeHealthPrivacyValidatedContainer(name: "FastingTemplateRoundTrip")
         let phaseII = CoreDataLifeBoardPhaseIIRepository(container: container)
-        let repository = LifeBoardFastingRepositoryAdapter(repository: phaseII)
+        let repository = FastingRepositoryAdapter(repository: phaseII)
         let now = Date(timeIntervalSince1970: 1_721_430_000)
         let store = FastingTimerStore(repository: repository, now: { now })
-        let template = try LifeBoardFastingTemplateValue(
+        let template = try FastingTemplateValue(
             label: "My quiet timer",
             targetDuration: 7_200,
             reminderOffsets: [3_600],
@@ -4741,9 +4744,9 @@ final class LifeOSFoundationContractTests: XCTestCase {
     func testNativeTrackStoreRoutesTrackerAndMedicationWritesThroughValidationServices() async throws {
         let container = try await makeHealthPrivacyValidatedContainer(name: "NativeTrackValidationBoundary")
         let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
-        let store = await LifeBoardTrackStore(repository: repository)
+        let store = await TrackStore(repository: repository)
 
-        let invalidTracker = LifeBoardTrackerDefinitionValue(
+        let invalidTracker = TrackerDefinitionValue(
             title: "Pain",
             kind: .rating,
             rangeMin: 10,
@@ -4757,12 +4760,12 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let trackers = try await repository.fetchTrackers()
         XCTAssertTrue(trackers.isEmpty)
 
-        let invalidMedication = LifeBoardMedicationDefinitionValue(
+        let invalidMedication = MedicationDefinitionValue(
             name: "Personal record",
             startDate: Date(),
             endDate: Date().addingTimeInterval(-60)
         )
-        let schedule = LifeBoardMedicationScheduleValue(
+        let schedule = MedicationScheduleValue(
             medicationID: invalidMedication.id,
             windowStartMinutes: 480,
             windowEndMinutes: 540
@@ -4779,9 +4782,9 @@ final class LifeOSFoundationContractTests: XCTestCase {
     func testMedicationScheduleIsPreflightedBeforeDefinitionPersistence() async throws {
         let container = try await makeHealthPrivacyValidatedContainer(name: "MedicationSchedulePreflight")
         let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
-        let store = await LifeBoardTrackStore(repository: repository)
-        let medication = LifeBoardMedicationDefinitionValue(name: "Personal record")
-        let invalidSchedule = LifeBoardMedicationScheduleValue(
+        let store = await TrackStore(repository: repository)
+        let medication = MedicationDefinitionValue(name: "Personal record")
+        let invalidSchedule = MedicationScheduleValue(
             medicationID: medication.id,
             windowStartMinutes: 600,
             windowEndMinutes: 500,
@@ -4802,7 +4805,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let container = try await makeHealthPrivacyValidatedContainer(name: "TrackerFiniteValidation")
         let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
         let service = TrackerDefinitionService(repository: repository)
-        let ambiguousChoice = LifeBoardTrackerDefinitionValue(
+        let ambiguousChoice = TrackerDefinitionValue(
             title: "Signal",
             kind: .choice,
             valueType: .choice,
@@ -4817,7 +4820,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             XCTAssertEqual(error as? TrackerDefinitionServiceError, .invalidChoiceOptions)
         }
 
-        let quantity = LifeBoardTrackerDefinitionValue(
+        let quantity = TrackerDefinitionValue(
             title: "Quantity",
             kind: .quantity,
             valueType: .quantity,
@@ -4839,7 +4842,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let container = try await makeHealthPrivacyValidatedContainer(name: "TrackerTaggedValues")
         let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
         let service = TrackerDefinitionService(repository: repository)
-        let definitions: [(LifeBoardTrackerDefinitionValue, TrackerValue)] = [
+        let definitions: [(TrackerDefinitionValue, TrackerValue)] = [
             (.init(title: "Boolean", kind: .boolean, valueType: .boolean, privacyClass: .personal), .boolean(false)),
             (.init(title: "Count", kind: .count, valueType: .count, privacyClass: .personal), .count(0)),
             (.init(title: "Quantity", kind: .quantity, valueType: .quantity, privacyClass: .personal), .quantity(2.5, unit: "cups")),
@@ -4861,10 +4864,10 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testTrackerTemplatesCreateFreshNeutralPrivacyAwareDefinitions() {
-        let first = LifeBoardTrackerTemplate.pain.instantiate(
+        let first = TrackerTemplate.pain.instantiate(
             at: Date(timeIntervalSince1970: 1_721_430_000)
         )
-        let second = LifeBoardTrackerTemplate.pain.instantiate(
+        let second = TrackerTemplate.pain.instantiate(
             at: Date(timeIntervalSince1970: 1_721_430_000)
         )
 
@@ -4872,8 +4875,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(first.effectiveValueType, .rating)
         XCTAssertEqual(first.effectivePrivacyClass, .sensitive)
         XCTAssertFalse(first.permitsHomeProjection)
-        XCTAssertTrue(LifeBoardTrackerTemplate.pain.detail.localizedCaseInsensitiveContains("non-clinical"))
-        XCTAssertEqual(LifeBoardTrackerTemplate.allCases.count, 6)
+        XCTAssertTrue(TrackerTemplate.pain.detail.localizedCaseInsensitiveContains("non-clinical"))
+        XCTAssertEqual(TrackerTemplate.allCases.count, 6)
     }
 
     func testNutritionServingConversionCreatesAnImmutableHistoricalSnapshot() throws {
@@ -5294,7 +5297,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             date: Date(timeIntervalSince1970: 81_000),
             title: nil,
             text: "SecretName visited HiddenPlace.",
-            mood: LifeBoardJournalMood.none,
+            mood: JournalMood.none,
             energy: nil,
             isStarred: false,
             attachments: [],
@@ -5406,22 +5409,22 @@ final class LifeOSFoundationContractTests: XCTestCase {
         calendar.date(from: DateComponents(year: 2026, month: 7, day: 13, hour: hour, minute: minute))!
     }
 
-    private actor FastingSessionRepositoryFixture: LifeBoardFastingSessionRepository {
-        private var values: [UUID: LifeBoardFastingSessionValue]
+    private actor FastingSessionRepositoryFixture: FastingSessionRepository {
+        private var values: [UUID: FastingSessionValue]
 
-        init(seed: [LifeBoardFastingSessionValue] = []) {
+        init(seed: [FastingSessionValue] = []) {
             values = Dictionary(uniqueKeysWithValues: seed.map { ($0.id, $0) })
         }
 
-        func fetchFastingSessions(limit: Int) async throws -> [LifeBoardFastingSessionValue] {
+        func fetchFastingSessions(limit: Int) async throws -> [FastingSessionValue] {
             Array(values.values.sorted { $0.startedAt > $1.startedAt }.prefix(limit))
         }
 
-        func saveFastingSession(_ value: LifeBoardFastingSessionValue) async throws {
+        func saveFastingSession(_ value: FastingSessionValue) async throws {
             values[value.id] = value
         }
 
-        func all() -> [LifeBoardFastingSessionValue] {
+        func all() -> [FastingSessionValue] {
             values.values.sorted { $0.startedAt > $1.startedAt }
         }
     }
@@ -5719,7 +5722,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let spaceID = UUID()
         let pinnedID = UUID()
         let checklistID = UUID()
-        let pinned = LifeBoardKnowledgeNoteValue(
+        let pinned = KnowledgeNoteValue(
             id: pinnedID,
             spaceID: spaceID,
             title: "Launch Brief",
@@ -5727,7 +5730,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             updatedAt: Date(timeIntervalSince1970: 20),
             blocks: [.init(noteID: pinnedID, text: "Premium notes")]
         )
-        let checklist = LifeBoardKnowledgeNoteValue(
+        let checklist = KnowledgeNoteValue(
             id: checklistID,
             spaceID: spaceID,
             title: "Today",
@@ -5760,7 +5763,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let noteID = UUID()
         let meeting = try XCTUnwrap(KnowledgeNoteTemplate.library.first { $0.id == "meeting" })
         let blocks = meeting.blocks.enumerated().map { index, template in
-            LifeBoardKnowledgeBlockValue(
+            KnowledgeBlockValue(
                 noteID: noteID,
                 kind: template.kind,
                 text: template.text,
@@ -5837,7 +5840,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testKnowledgeBlockSplitMergeAndMutationInversePreserveIdentity() {
         let id = UUID()
-        let original = LifeBoardKnowledgeBlockValue(id: id, noteID: UUID(), text: "Hello world", ordinal: 3)
+        let original = KnowledgeBlockValue(id: id, noteID: UUID(), text: "Hello world", ordinal: 3)
         let split = KnowledgeNoteDocument.split(block: original, atUTF16Offset: 5)
 
         XCTAssertEqual(split.leading.id, id)
@@ -5912,7 +5915,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(blocks[4].text, "~~future syntax~~")
         XCTAssertEqual(blocks.map(\.ordinal), Array(blocks.indices))
 
-        let note = LifeBoardKnowledgeNoteValue(id: noteID, spaceID: UUID(), title: "Research", blocks: blocks)
+        let note = KnowledgeNoteValue(id: noteID, spaceID: UUID(), title: "Research", blocks: blocks)
         let exported = KnowledgeMarkdownCodec.render(note)
         XCTAssertTrue(exported.contains("# Research"))
         XCTAssertTrue(exported.contains("- [x] Verified migration"))
@@ -5923,7 +5926,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let spaceID = UUID()
         let tagID = UUID()
         let linkedID = UUID()
-        let matching = LifeBoardKnowledgeNoteValue(
+        let matching = KnowledgeNoteValue(
             id: linkedID,
             spaceID: spaceID,
             title: "Launch",
@@ -5934,7 +5937,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             tagIDs: [tagID]
         )
         let olderID = UUID()
-        let older = LifeBoardKnowledgeNoteValue(
+        let older = KnowledgeNoteValue(
             id: olderID,
             spaceID: spaceID,
             title: "Older",
@@ -6009,7 +6012,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
 private struct HomeCardProviderFixture: HomeCardProvider {
     let definition: HomeCardDefinition
-    let primaryDestination: LifeBoardDestination
+    let primaryDestination: Destination
     let privacyClassification: DataSensitivity
 
     init(
@@ -6065,15 +6068,15 @@ private struct SemanticIntentAdapterFixture: LifeThreadIntentAdapter {
 private struct PlanMutationIntentAdapterFixture: LifeThreadMutationIntentAdapter {
     let recorder: MutationRecorderFixture
 
-    func resolveMutation(_ input: LifeThreadIntentInput) async -> LifeBoardMutationCommand? {
+    func resolveMutation(_ input: LifeThreadIntentInput) async -> MutationCommand? {
         guard input.text == "move reading" else { return nil }
-        let preview = LifeBoardTransactionPreview(
+        let preview = TransactionPreview(
             destination: .plan,
             summary: "Move Reading",
             changes: ["Time: 3:00 PM → 4:00 PM"],
             origin: input.origin
         )
-        return LifeBoardMutationCommand(
+        return MutationCommand(
             preview: preview,
             apply: {
                 await recorder.recordApply()
@@ -6117,14 +6120,14 @@ private actor MutationRecorderFixture {
 /// Exercises the fasting lifecycle without a Core Data store, so the contract
 /// is verified independently of the persistence failures inherited by this
 /// worktree.
-private actor InMemoryFastingSessionRepository: LifeBoardFastingSessionRepository {
-    private var storage: [LifeBoardFastingSessionValue] = []
+private actor InMemoryFastingSessionRepository: FastingSessionRepository {
+    private var storage: [FastingSessionValue] = []
 
-    func fetchFastingSessions(limit: Int) async throws -> [LifeBoardFastingSessionValue] {
+    func fetchFastingSessions(limit: Int) async throws -> [FastingSessionValue] {
         Array(storage.sorted { $0.startedAt > $1.startedAt }.prefix(max(1, limit)))
     }
 
-    func saveFastingSession(_ value: LifeBoardFastingSessionValue) async throws {
+    func saveFastingSession(_ value: FastingSessionValue) async throws {
         if let index = storage.firstIndex(where: { $0.id == value.id }) {
             storage[index] = value
         } else {
@@ -6181,12 +6184,12 @@ private actor JournalProjectionInvalidationFixture {
 final class LifeBoardRecoveryStatusTests: XCTestCase {
 
     private func makeService(
-        storeMode: LifeBoardRecoveryStatusService.StoreMode = .fullSync,
-        journalIndex: LifeBoardRecoveryStatusService.DerivedIndexState = .ready,
-        notesIndex: LifeBoardRecoveryStatusService.DerivedIndexState = .ready,
+        storeMode: RecoveryStatusService.StoreMode = .fullSync,
+        journalIndex: RecoveryStatusService.DerivedIndexState = .ready,
+        notesIndex: RecoveryStatusService.DerivedIndexState = .ready,
         pendingJobs: Int = 0
-    ) -> LifeBoardRecoveryStatusService {
-        LifeBoardRecoveryStatusService(
+    ) -> RecoveryStatusService {
+        RecoveryStatusService(
             storeMode: { storeMode },
             journalIndex: { journalIndex },
             notesIndex: { notesIndex },
@@ -6253,7 +6256,7 @@ final class LifeBoardRecoveryStatusTests: XCTestCase {
     /// this is what makes the button safe to press while worried.
     func testEveryRecoveryActionPromisesCanonicalContentIsUntouched() {
         for recovery in [
-            LifeBoardRecoveryStatus.Recovery.rebuildJournalIndex,
+            RecoveryStatus.Recovery.rebuildJournalIndex,
             .rebuildNotesIndex,
             .rebuildHomeProjections
         ] {
@@ -6279,13 +6282,13 @@ final class InboxTriageContractTests: XCTestCase {
 
     /// The Inbox must never invite triage on something already gone.
     func testScopesNeverMatchArchivedOrDeletedWork() {
-        for scope in LifeBoardInboxQuery.Scope.allCases {
-            let matching = LifeBoardInboxQuery(scope: scope).matchingDispositions
+        for scope in InboxQuery.Scope.allCases {
+            let matching = InboxQuery(scope: scope).matchingDispositions
             XCTAssertFalse(matching.contains(.archived), "\(scope) must not surface archived work")
             XCTAssertFalse(matching.contains(.deleted), "\(scope) must not surface tombstones")
         }
-        XCTAssertEqual(LifeBoardInboxQuery(scope: .untriaged).matchingDispositions, [.inbox])
-        XCTAssertEqual(LifeBoardInboxQuery(scope: .reference).matchingDispositions, [.reference])
+        XCTAssertEqual(InboxQuery(scope: .untriaged).matchingDispositions, [.inbox])
+        XCTAssertEqual(InboxQuery(scope: .reference).matchingDispositions, [.reference])
     }
 
     /// Someday and Reference mean different things; conflating them makes the
@@ -6306,7 +6309,7 @@ final class InboxTriageContractTests: XCTestCase {
     }
 
     func testPaginationRejectsDegenerateValues() {
-        let query = LifeBoardInboxQuery(scope: .untriaged, limit: 0, offset: -5)
+        let query = InboxQuery(scope: .untriaged, limit: 0, offset: -5)
         XCTAssertEqual(query.limit, 1, "A zero limit would fetch nothing forever")
         XCTAssertEqual(query.offset, 0)
     }
@@ -6468,7 +6471,7 @@ final class InboxReaderTests: XCTestCase {
             day: PlanningDay(year: 2026, month: 7, day: 28, timeZoneIdentifier: "Asia/Kolkata")
         )
         let items = try await reader(tasks: [task("Untriaged"), scheduled])
-            .items(for: LifeBoardInboxQuery(scope: .untriaged))
+            .items(for: InboxQuery(scope: .untriaged))
         XCTAssertEqual(items.map(\.title), ["Untriaged"])
     }
 
@@ -6477,7 +6480,7 @@ final class InboxReaderTests: XCTestCase {
         let items = try await reader(
             tasks: [task("A canonical task")],
             captures: [PendingCapture(rawText: "From the widget", source: "widget")]
-        ).items(for: LifeBoardInboxQuery(scope: .untriaged))
+        ).items(for: InboxQuery(scope: .untriaged))
 
         XCTAssertEqual(items.first?.title, "From the widget")
         XCTAssertEqual(items.first?.captureSource, "widget")
@@ -6492,10 +6495,10 @@ final class InboxReaderTests: XCTestCase {
             tasks: [task("Deferred", disposition: .someday), task("Kept", disposition: .reference)],
             captures: [PendingCapture(rawText: "Unreviewed", source: "control")]
         )
-        let someday = try await subject.items(for: LifeBoardInboxQuery(scope: .someday))
+        let someday = try await subject.items(for: InboxQuery(scope: .someday))
         XCTAssertEqual(someday.map(\.title), ["Deferred"])
 
-        let reference = try await subject.items(for: LifeBoardInboxQuery(scope: .reference))
+        let reference = try await subject.items(for: InboxQuery(scope: .reference))
         XCTAssertEqual(reference.map(\.title), ["Kept"])
     }
 
@@ -6504,7 +6507,7 @@ final class InboxReaderTests: XCTestCase {
             task("Gone", disposition: .deleted),
             task("Filed", disposition: .archived),
             task("Real")
-        ]).items(for: LifeBoardInboxQuery(scope: .untriaged))
+        ]).items(for: InboxQuery(scope: .untriaged))
         XCTAssertEqual(items.map(\.title), ["Real"])
     }
 
@@ -6770,8 +6773,8 @@ private struct NoopInboxMutationRepository: PlanningMutationRepository {
 
 final class CalendarSelectionSemanticsTests: XCTestCase {
 
-    private func event(_ id: String, calendarID: String) -> LifeBoardCalendarEventSnapshot {
-        LifeBoardCalendarEventSnapshot(
+    private func event(_ id: String, calendarID: String) -> CalendarEventSnapshot {
+        CalendarEventSnapshot(
             id: id,
             calendarID: calendarID,
             calendarTitle: calendarID,
@@ -6782,7 +6785,7 @@ final class CalendarSelectionSemanticsTests: XCTestCase {
         )
     }
 
-    private func filter(_ events: [LifeBoardCalendarEventSnapshot], selected: Set<String>) -> [String] {
+    private func filter(_ events: [CalendarEventSnapshot], selected: Set<String>) -> [String] {
         FilterCalendarEventsUseCase().execute(
             events: events,
             selectedCalendarIDs: selected,
@@ -6822,7 +6825,7 @@ final class CalendarSelectionSemanticsTests: XCTestCase {
 
 final class RecoveryIndexClassificationTests: XCTestCase {
 
-    private typealias Service = LifeBoardRecoveryStatusService
+    private typealias Service = RecoveryStatusService
 
     /// An index that cannot report its own contents is omitted, never shown as
     /// healthy — the Recovery Center must not invent reassurance.
@@ -6849,7 +6852,7 @@ final class RecoveryIndexClassificationTests: XCTestCase {
 
     /// The classification drives whether a rebuild button appears at all.
     func testOnlyNeedsRebuildSurfacesAnAction() {
-        func status(_ state: Service.DerivedIndexState?) -> LifeBoardRecoveryStatus {
+        func status(_ state: Service.DerivedIndexState?) -> RecoveryStatus {
             Service(
                 storeMode: { .fullSync },
                 journalIndex: { state },

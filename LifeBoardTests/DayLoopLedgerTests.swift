@@ -431,7 +431,7 @@ final class DayLoopLedgerTests: XCTestCase {
 
     func testTheFloorMatchesTheSharedPatternFloor() {
         var days: [NormalizedLifeEvent] = []
-        for offset in 1...InsightsInterpretationEngine.minimumDaysForPattern {
+        for offset in 1...InsightsInterpretationService.minimumDaysForPattern {
             days.append(loopEvent(kind: DayLoopLedger.EventKind.closed, day: day(offsetFromNow: -offset)))
         }
         XCTAssertTrue(DayLoopLedger.review(events: days).meetsFloor)

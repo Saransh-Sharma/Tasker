@@ -5,7 +5,7 @@ import UIKit
 @MainActor
 final class ColorTokenGenerationTests: XCTestCase {
     func testSunrisePaletteMatchesSpec() {
-        let palette = LifeBoardBrandPalette.sunrise
+        let palette = BrandPalette.sunrise
 
         assertEqualColor(palette.brandEmerald, UIColor(lifeboardHex: "#28B53F"))
         assertEqualColor(palette.brandMagenta, UIColor(lifeboardHex: "#6842FF"))
@@ -22,7 +22,7 @@ final class ColorTokenGenerationTests: XCTestCase {
     // values remain covered by `testSunrisePaletteMatchesSpec`, which checks
     // the brand palette struct directly.
     func testSemanticNeutralsStayStableAcrossBrandTheme() {
-        let colors = LifeBoardTheme(index: 0).tokens.color
+        let colors = Theme(index: 0).tokens.color
 
         assertEqualColor(
             colors.bgCanvas.resolvedColor(with: .init(userInterfaceStyle: .light)),
@@ -43,7 +43,7 @@ final class ColorTokenGenerationTests: XCTestCase {
     }
 
     func testPrimaryAndAssistantAccentsMatchBrandRoles() {
-        let colors = LifeBoardTheme(index: 0).tokens.color
+        let colors = Theme(index: 0).tokens.color
 
         // Primary action is cocoa ink on paper; the dark treatment flips to
         // warm sun so labels keep contrast.
@@ -63,7 +63,7 @@ final class ColorTokenGenerationTests: XCTestCase {
     }
 
     func testPriorityColorsUseBrandFamilies() {
-        let colors = LifeBoardTheme(index: 0).tokens.color
+        let colors = Theme(index: 0).tokens.color
 
         let traits = UITraitCollection(userInterfaceStyle: .light)
         assertEqualColor(colors.priorityNone.resolvedColor(with: traits), UIColor(lifeboardHex: "#877B68"))
@@ -73,7 +73,7 @@ final class ColorTokenGenerationTests: XCTestCase {
     }
 
     func testCompatibilityAliasesMapToSemanticRoles() {
-        let colors = LifeBoardTheme(index: 0).tokens.color
+        let colors = Theme(index: 0).tokens.color
         let darkTraits = UITraitCollection(userInterfaceStyle: .dark)
 
         assertEqualColor(colors.accentPrimary.resolvedColor(with: darkTraits), colors.actionPrimary.resolvedColor(with: darkTraits))
@@ -83,7 +83,7 @@ final class ColorTokenGenerationTests: XCTestCase {
     }
 
     func testFocusRoleIsOpaqueAndDistinctFromDecorativeAccentRing() {
-        let colors = LifeBoardTheme(index: 0).tokens.color
+        let colors = Theme(index: 0).tokens.color
 
         for style in [UIUserInterfaceStyle.light, .dark] {
             let traits = UITraitCollection(userInterfaceStyle: style)
@@ -97,8 +97,8 @@ final class ColorTokenGenerationTests: XCTestCase {
     }
 
     func testSemanticReadingRolesClearEveryOpaqueFallbackSurfaceInAllAppearances() {
-        let colors = LifeBoardTheme(index: 0).tokens.color
-        let contexts = LifeBoardSurfaceContext.allCases.filter {
+        let colors = Theme(index: 0).tokens.color
+        let contexts = SurfaceContext.allCases.filter {
             $0 != .image && $0 != .modalScrim
         }
 
@@ -119,7 +119,7 @@ final class ColorTokenGenerationTests: XCTestCase {
                         ? composited(rawBackground, over: canvas)
                         : rawBackground
 
-                    for role in [LifeBoardLegibilityRole.primary, .secondary] {
+                    for role in [LegibilityRole.primary, .secondary] {
                         let foreground = colors.color(for: role, on: context).resolvedColor(with: traits)
                         XCTAssertGreaterThanOrEqual(
                             contrastRatio(foreground, background),
@@ -133,7 +133,7 @@ final class ColorTokenGenerationTests: XCTestCase {
     }
 
     func testImageForegroundPolicyReturnsDeterministicReadableInkFamilies() {
-        let colors = LifeBoardTheme(index: 0).tokens.color
+        let colors = Theme(index: 0).tokens.color
         let traits = UITraitCollection(userInterfaceStyle: .light)
 
         assertEqualColor(
@@ -180,7 +180,7 @@ final class HeaderGradientTokenTests: XCTestCase {
     func testHeaderGradientLayerOrderAndNames() {
         let hostLayer = CALayer()
         let bounds = CGRect(x: 0, y: 0, width: 320, height: 180)
-        LifeBoardHeaderGradient.apply(to: hostLayer, bounds: bounds, traits: UITraitCollection(userInterfaceStyle: .light))
+        HeaderGradient.apply(to: hostLayer, bounds: bounds, traits: UITraitCollection(userInterfaceStyle: .light))
 
         let hostNames = hostLayer.sublayers?.compactMap(\.name) ?? []
         XCTAssertEqual(hostNames, ["lifeboardHeaderGradientContainer"])
@@ -195,7 +195,7 @@ final class HeaderGradientTokenTests: XCTestCase {
 
     func testHeaderGradientUsesBrandPatternFamilies() {
         let lightLayer = CALayer()
-        LifeBoardHeaderGradient.apply(
+        HeaderGradient.apply(
             to: lightLayer,
             bounds: CGRect(x: 0, y: 0, width: 320, height: 180),
             traits: UITraitCollection(userInterfaceStyle: .light)
@@ -211,7 +211,7 @@ final class HeaderGradientTokenTests: XCTestCase {
         XCTAssertEqual(UIColor(cgColor: lightColors[1]).cgColor.alpha, 1, accuracy: 0.01)
 
         let darkLayer = CALayer()
-        LifeBoardHeaderGradient.apply(
+        HeaderGradient.apply(
             to: darkLayer,
             bounds: CGRect(x: 0, y: 0, width: 320, height: 180),
             traits: UITraitCollection(userInterfaceStyle: .dark)

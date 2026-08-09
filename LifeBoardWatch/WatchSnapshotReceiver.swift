@@ -1,3 +1,4 @@
+import LifeBoardContracts
 import Foundation
 import WatchCaptureKit
 import WidgetKit

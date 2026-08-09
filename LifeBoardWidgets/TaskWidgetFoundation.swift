@@ -16,18 +16,18 @@ extension Color {
 
 @MainActor
 enum TaskWidgetTypography {
-    static let eyebrow = LifeBoardTheme.Typography.eyebrow
-    static let caption = LifeBoardTheme.Typography.caption
-    static let captionStrong = LifeBoardTheme.Typography.captionSemibold
-    static let meta = LifeBoardTheme.Typography.meta
-    static let support = LifeBoardTheme.Typography.support
-    static let body = LifeBoardTheme.Typography.body
-    static let bodyStrong = LifeBoardTheme.Typography.bodyStrong
-    static let title = LifeBoardTheme.Typography.title3
-    static let titleLarge = LifeBoardTheme.Typography.title2
-    static let metric = LifeBoardTheme.Typography.metric
-    static let display = LifeBoardTheme.Typography.display
-    static let mono = LifeBoardTheme.Typography.monoMeta
+    static let eyebrow = Theme.Typography.eyebrow
+    static let caption = Theme.Typography.caption
+    static let captionStrong = Theme.Typography.captionSemibold
+    static let meta = Theme.Typography.meta
+    static let support = Theme.Typography.support
+    static let body = Theme.Typography.body
+    static let bodyStrong = Theme.Typography.bodyStrong
+    static let title = Theme.Typography.title3
+    static let titleLarge = Theme.Typography.title2
+    static let metric = Theme.Typography.metric
+    static let display = Theme.Typography.display
+    static let mono = Theme.Typography.monoMeta
 }
 
 struct TaskWidgetViewContext {
@@ -301,7 +301,7 @@ struct TaskWidgetPanel<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     private var resolvedCornerRadius: CGFloat {
-        LifeBoardTheme.CornerRadius.card
+        Theme.CornerRadius.card
     }
 
     private var effectiveAccent: Color {
@@ -585,7 +585,7 @@ struct TaskWidgetActionBandLabel: View {
     var accent: Color = WidgetBrand.actionPrimary
 
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: LifeBoardTheme.CornerRadius.card, style: .continuous)
+        let shape = RoundedRectangle(cornerRadius: Theme.CornerRadius.card, style: .continuous)
 
         HStack {
             Spacer(minLength: 0)

@@ -6,7 +6,7 @@ import XCTest
 /// one point off, or an RTL mirror applied to the touch but not the knob, looks
 /// perfectly fine on screen and puts the wrong daypart under the finger.
 final class AtmosphereSliderGeometryTests: XCTestCase {
-    private typealias Geometry = LifeBoardAtmosphereSliderGeometry
+    private typealias Geometry = AtmosphereSliderGeometry
 
     private let width: CGFloat = 323 // a 375pt phone inside the panel's margins
 

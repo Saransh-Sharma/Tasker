@@ -5,14 +5,14 @@ import UIKit
 @MainActor
 final class HomeCalendarIntegrationTests: XCTestCase {
     nonisolated(unsafe) private var workspaceSuiteName: String!
-    nonisolated(unsafe) private var workspaceStore: LifeBoardWorkspacePreferencesStore!
+    nonisolated(unsafe) private var workspaceStore: WorkspacePreferencesStore!
     nonisolated(unsafe) private var ephemeralSuiteNames: [String] = []
 
     override func setUp() {
         super.setUp()
         workspaceSuiteName = "HomeCalendarIntegrationTests.Workspace.\(UUID().uuidString)"
         let workspaceDefaults = UserDefaults(suiteName: workspaceSuiteName)!
-        workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: workspaceDefaults)
+        workspaceStore = WorkspacePreferencesStore(defaults: workspaceDefaults)
         ephemeralSuiteNames = []
     }
 
@@ -30,7 +30,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeViewModelRefreshesCalendarContextManuallyAndOnStoreChanges() {
-        workspaceStore.save(LifeBoardWorkspacePreferences(
+        workspaceStore.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeAllDayInAgenda: true,
@@ -78,7 +78,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testSettingsToHomePropagationUpdatesCalendarModuleState() {
-        workspaceStore.save(LifeBoardWorkspacePreferences(
+        workspaceStore.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -120,7 +120,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeSnapshotHidesCanceledEventsByDefault() {
-        workspaceStore.save(LifeBoardWorkspacePreferences(
+        workspaceStore.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -145,7 +145,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeSnapshotCanIncludeCanceledEventsWhenEnabled() {
-        workspaceStore.save(LifeBoardWorkspacePreferences(
+        workspaceStore.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: true,
@@ -170,7 +170,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeCalendarSnapshotFollowsSelectedDateAndRefreshesCalendarReferenceDate() throws {
-        workspaceStore.save(LifeBoardWorkspacePreferences(
+        workspaceStore.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -212,7 +212,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotHidesCalendarEventsWhenTimelineSettingIsDisabled() {
-        let timelineHiddenPreferences = LifeBoardWorkspacePreferences(
+        let timelineHiddenPreferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -253,7 +253,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotIncludesCalendarEventsWhenTimelineSettingIsEnabled() {
-        let timelineVisiblePreferences = LifeBoardWorkspacePreferences(
+        let timelineVisiblePreferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -291,7 +291,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineShowsDateOnlyRescueTasksAsAllDayItems() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -338,7 +338,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineShowsDateOnlyRescueTasksWithStaleScheduleAsAllDayItems() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -389,7 +389,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineIncludesAllRescuedAllDayTasksBeyondAgendaDisplayCount() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -436,7 +436,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testTimelineTaskCandidatesIgnoreProjectionCacheWhenQueryKeyDoesNotMatch() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -527,7 +527,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHiddenHomeTimelineCalendarEventsAreFilteredOnlyFromTimelineProjection() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -602,7 +602,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineBlocksIncludeOnlyBusyTimedCalendarEvents() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -643,7 +643,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineBlocksGroupMixedTaskAndCalendarConflictAndSuppressGapInsideOverlap() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -710,7 +710,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineDenseCalendarOnlyWindowKeepsAllBusyEventsVisible() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -767,7 +767,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotUsesWorkspaceTimelineAnchorTimes() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -808,7 +808,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotIgnoresQuietHoursForTimelineAnchors() {
-        let notificationStore = LifeBoardNotificationPreferencesStore.shared
+        let notificationStore = NotificationPreferencesStore.shared
         let originalNotificationPreferences = notificationStore.load()
         defer { notificationStore.save(originalNotificationPreferences) }
         var customNotificationPreferences = originalNotificationPreferences
@@ -819,7 +819,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         customNotificationPreferences.quietHoursEndMinute = 45
         notificationStore.save(customNotificationPreferences)
 
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -860,7 +860,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotRollsWindDownToNextDayWhenItIsEarlierThanRiseAndShine() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -900,7 +900,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotKeepsCompactHeuristicForEmptyDayButPhoneRendererUsesUnifiedCanvas() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -931,14 +931,14 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         XCTAssertEqual(timeline.day.layoutMode, .compact)
         XCTAssertEqual(
-            SunriseTimelineRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: timeline.day.layoutMode, isAccessibilitySize: false),
+            TimelineRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: timeline.day.layoutMode, isAccessibilitySize: false),
             .expanded
         )
         XCTAssertTrue(timeline.day.timedItems.isEmpty)
     }
 
     func testHomeTimelineSnapshotKeepsCompactHeuristicForSparseDayButPhoneRendererUsesUnifiedCanvas() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -972,14 +972,14 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         XCTAssertEqual(timeline.day.layoutMode, .compact)
         XCTAssertEqual(
-            SunriseTimelineRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: timeline.day.layoutMode, isAccessibilitySize: false),
+            TimelineRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: timeline.day.layoutMode, isAccessibilitySize: false),
             .expanded
         )
         XCTAssertEqual(timeline.day.timedItems.count, 2)
     }
 
     func testHomeTimelineSnapshotKeepsExpandedLayoutForBusyDay() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -1073,7 +1073,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     }
 
     func testHomeTimelineSnapshotRendersPreWakeItemsAsTimelineRowsAndSuppressesOvernightPrompts() {
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -1309,7 +1309,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             scheduledEndAt: lateStart.addingTimeInterval(15 * 60),
             isComplete: false
         )
-        let preferences = LifeBoardWorkspacePreferences(
+        let preferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -1403,7 +1403,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         let windDownComponents = currentCalendar.dateComponents([.hour, .minute], from: windDownBeforeNow)
         let afterSleepHour = windDownComponents.hour ?? 0
         let afterSleepMinute = windDownComponents.minute ?? 0
-        let beforeWakePreferences = LifeBoardWorkspacePreferences(
+        let beforeWakePreferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -1447,7 +1447,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         XCTAssertEqual(beforeWakeTimeline.day.currentItemID, "event:current_before_wake")
         XCTAssertEqual(beforeWakeTimeline.day.afterSleepItems.map(\.eventID), ["current_before_wake"])
 
-        let afterSleepPreferences = LifeBoardWorkspacePreferences(
+        let afterSleepPreferences = WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: false,
@@ -1485,7 +1485,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
         let resolved = viewModel.resolvedTimelineAnchorWindow(
             on: todayDate(hour: 0),
-            preferences: LifeBoardWorkspacePreferences(
+            preferences: WorkspacePreferences(
                 timelineRiseAndShineHour: 1,
                 timelineRiseAndShineMinute: 0,
                 timelineWindDownHour: 0,
@@ -1693,21 +1693,21 @@ final class HomeCalendarIntegrationTests: XCTestCase {
 
     func testChooserSectionsGroupCalendarsBySourceAndSortRows() {
         let calendars = [
-            LifeBoardCalendarSourceSnapshot(
+            CalendarSourceSnapshot(
                 id: "personal",
                 title: "Personal",
                 sourceTitle: "Google",
                 colorHex: "#34C759",
                 allowsContentModifications: false
             ),
-            LifeBoardCalendarSourceSnapshot(
+            CalendarSourceSnapshot(
                 id: "work",
                 title: "Work",
                 sourceTitle: "iCloud",
                 colorHex: "#007AFF",
                 allowsContentModifications: false
             ),
-            LifeBoardCalendarSourceSnapshot(
+            CalendarSourceSnapshot(
                 id: "errands",
                 title: "Errands",
                 sourceTitle: "Google",
@@ -1716,14 +1716,14 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             )
         ]
 
-        let sections = LifeBoardCalendarPresentation.chooserSections(from: calendars)
+        let sections = CalendarPresentation.chooserSections(from: calendars)
 
         XCTAssertEqual(sections.map(\.title), ["Google", "iCloud"])
         XCTAssertEqual(sections.first?.calendars.map(\.title), ["Errands", "Personal"])
     }
 
     func testBadgesDifferentiateEventStateWithoutColorOnly() {
-        let event = LifeBoardCalendarEventSnapshot(
+        let event = CalendarEventSnapshot(
             id: "event",
             calendarID: "work",
             calendarTitle: "Work",
@@ -1737,7 +1737,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
             participationStatus: .declined
         )
 
-        let badges = LifeBoardCalendarPresentation.badges(for: event)
+        let badges = CalendarPresentation.badges(for: event)
 
         XCTAssertEqual(badges.map(\.title), ["All Day", "Declined", "Canceled"])
     }
@@ -1745,7 +1745,7 @@ final class HomeCalendarIntegrationTests: XCTestCase {
     private func makeHomeViewModel(
         coordinator: UseCaseCoordinator,
         defaults: UserDefaults,
-        workspacePreferences: LifeBoardWorkspacePreferences? = nil,
+        workspacePreferences: WorkspacePreferences? = nil,
         hiddenCalendarEventStore: HomeTimelineHiddenCalendarEventStore? = nil
     ) -> HomeViewModel {
         if let workspacePreferences {
@@ -1779,8 +1779,8 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         return UserDefaults(suiteName: suiteName)!
     }
 
-    private func calendar(id: String) -> LifeBoardCalendarSourceSnapshot {
-        LifeBoardCalendarSourceSnapshot(
+    private func calendar(id: String) -> CalendarSourceSnapshot {
+        CalendarSourceSnapshot(
             id: id,
             title: "Work",
             sourceTitle: "iCloud",
@@ -1794,10 +1794,10 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         start: Date,
         end: Date,
         isAllDay: Bool = false,
-        availability: LifeBoardCalendarEventAvailability = .busy,
-        eventStatus: LifeBoardCalendarEventStatus = .unknown
-    ) -> LifeBoardCalendarEventSnapshot {
-        LifeBoardCalendarEventSnapshot(
+        availability: CalendarEventAvailability = .busy,
+        eventStatus: CalendarEventStatus = .unknown
+    ) -> CalendarEventSnapshot {
+        CalendarEventSnapshot(
             id: id,
             calendarID: "work",
             calendarTitle: "Work",
@@ -1818,9 +1818,9 @@ final class HomeCalendarIntegrationTests: XCTestCase {
         minute: Int,
         durationMinutes: Int,
         isAllDay: Bool = false,
-        availability: LifeBoardCalendarEventAvailability = .busy,
-        eventStatus: LifeBoardCalendarEventStatus = .unknown
-    ) -> LifeBoardCalendarEventSnapshot {
+        availability: CalendarEventAvailability = .busy,
+        eventStatus: CalendarEventStatus = .unknown
+    ) -> CalendarEventSnapshot {
         let start = CalendarTestClock.date(day: day, hour: hour, minute: minute)
         let end = CalendarTestClock.calendar.date(byAdding: .minute, value: durationMinutes, to: start) ?? start
         return event(
@@ -1988,7 +1988,7 @@ final class CalendarSchedulePresentationStateTests: XCTestCase {
             start: CalendarTestClock.date(day: 15, hour: 13),
             end: CalendarTestClock.date(day: 15, hour: 14)
         )
-        var cache = LifeBoardCalendarTimelinePlanCache()
+        var cache = CalendarTimelinePlanCache()
 
         let first = cache.plan(
             for: [planning],
@@ -2059,8 +2059,8 @@ final class CalendarSchedulePresentationStateTests: XCTestCase {
         XCTAssertNil(state.activeSheet)
     }
 
-    private func snapshot(events: [LifeBoardCalendarEventSnapshot]) -> LifeBoardCalendarSnapshot {
-        LifeBoardCalendarSnapshot(
+    private func snapshot(events: [CalendarEventSnapshot]) -> CalendarSnapshot {
+        CalendarSnapshot(
             authorizationStatus: .authorized,
             availableCalendars: [],
             selectedCalendarIDs: ["work"],
@@ -2082,8 +2082,8 @@ final class CalendarSchedulePresentationStateTests: XCTestCase {
         start: Date,
         end: Date,
         isAllDay: Bool = false
-    ) -> LifeBoardCalendarEventSnapshot {
-        LifeBoardCalendarEventSnapshot(
+    ) -> CalendarEventSnapshot {
+        CalendarEventSnapshot(
             id: id,
             calendarID: "work",
             calendarTitle: "Work",

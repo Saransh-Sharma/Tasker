@@ -502,7 +502,7 @@ final class EvaActivationTests: XCTestCase {
 
     func testNavigationChromeUsesSelectedMascotTitle() throws {
         let defaults = try makeDefaults()
-        let workspaceStore = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
         workspaceStore.update { preferences in
             preferences.chiefOfStaffMascotID = .sato
         }
@@ -624,7 +624,7 @@ final class EvaActivationTests: XCTestCase {
         return EvaActivationCoordinator(
             appManager: appManager,
             defaults: defaults,
-            workspacePreferencesStore: LifeBoardWorkspacePreferencesStore(defaults: defaults),
+            workspacePreferencesStore: WorkspacePreferencesStore(defaults: defaults),
             deviceSupportsLocalEvaProvider: { true }
         )
     }

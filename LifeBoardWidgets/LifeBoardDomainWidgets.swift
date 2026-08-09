@@ -1,28 +1,28 @@
 import SwiftUI
 import WidgetKit
 
-private struct LifeBoardDomainWidgetEntry: TimelineEntry {
+private struct DomainWidgetEntry: TimelineEntry {
     let date: Date
-    let snapshot: LifeBoardSystemSurfaceSnapshot?
+    let snapshot: SystemSurfaceSnapshot?
 }
 
-private struct LifeBoardDomainWidgetProvider: TimelineProvider {
-    let domain: LifeBoardSystemSurfaceDomain
-    func placeholder(in context: Context) -> LifeBoardDomainWidgetEntry { .init(date: Date(), snapshot: nil) }
-    func getSnapshot(in context: Context, completion: @escaping (LifeBoardDomainWidgetEntry) -> Void) { completion(entry()) }
-    func getTimeline(in context: Context, completion: @escaping (Timeline<LifeBoardDomainWidgetEntry>) -> Void) { completion(.init(entries: [entry()], policy: .after(Date().addingTimeInterval(900)))) }
-    private func entry() -> LifeBoardDomainWidgetEntry {
-        let envelope = try? LifeBoardSystemSnapshotReader.load(domain)
+private struct DomainWidgetProvider: TimelineProvider {
+    let domain: SystemSurfaceDomain
+    func placeholder(in context: Context) -> DomainWidgetEntry { .init(date: Date(), snapshot: nil) }
+    func getSnapshot(in context: Context, completion: @escaping (DomainWidgetEntry) -> Void) { completion(entry()) }
+    func getTimeline(in context: Context, completion: @escaping (Timeline<DomainWidgetEntry>) -> Void) { completion(.init(entries: [entry()], policy: .after(Date().addingTimeInterval(900)))) }
+    private func entry() -> DomainWidgetEntry {
+        let envelope = try? SystemSnapshotReader.load(domain)
         return .init(date: Date(), snapshot: envelope?.snapshots.first)
     }
 }
 
 @MainActor
-private struct LifeBoardDomainWidgetConfiguration {
-    let domain: LifeBoardSystemSurfaceDomain
+private struct DomainWidgetConfiguration {
+    let domain: SystemSurfaceDomain
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: "LifeBoard.\(domain.rawValue).v2", provider: LifeBoardDomainWidgetProvider(domain: domain)) { entry in
-            LifeBoardDomainWidgetView(domain: domain, entry: entry)
+        StaticConfiguration(kind: "LifeBoard.\(domain.rawValue).v2", provider: DomainWidgetProvider(domain: domain)) { entry in
+            DomainWidgetView(domain: domain, entry: entry)
                 .containerBackground(for: .widget) { Color(red: 0.98, green: 0.96, blue: 0.91) }
         }
         .configurationDisplayName(domain.title)
@@ -31,9 +31,9 @@ private struct LifeBoardDomainWidgetConfiguration {
     }
 }
 
-private struct LifeBoardDomainWidgetView: View {
-    let domain: LifeBoardSystemSurfaceDomain
-    let entry: LifeBoardDomainWidgetEntry
+private struct DomainWidgetView: View {
+    let domain: SystemSurfaceDomain
+    let entry: DomainWidgetEntry
     @Environment(\.widgetFamily) private var family
     var body: some View {
         Group {
@@ -54,15 +54,15 @@ private struct LifeBoardDomainWidgetView: View {
     }
 }
 
-@MainActor struct JournalDomainWidget: Widget { var body: some WidgetConfiguration { LifeBoardDomainWidgetConfiguration(domain: .journal).body } }
-@MainActor struct FastingDomainWidget: Widget { var body: some WidgetConfiguration { LifeBoardDomainWidgetConfiguration(domain: .fasting).body } }
-@MainActor struct NutritionDomainWidget: Widget { var body: some WidgetConfiguration { LifeBoardDomainWidgetConfiguration(domain: .nutrition).body } }
-@MainActor struct WellnessDomainWidget: Widget { var body: some WidgetConfiguration { LifeBoardDomainWidgetConfiguration(domain: .wellness).body } }
-@MainActor struct LifeMomentsDomainWidget: Widget { var body: some WidgetConfiguration { LifeBoardDomainWidgetConfiguration(domain: .lifeMoments).body } }
-@MainActor struct GoalsDomainWidget: Widget { var body: some WidgetConfiguration { LifeBoardDomainWidgetConfiguration(domain: .goals).body } }
-@MainActor struct RoutinesDomainWidget: Widget { var body: some WidgetConfiguration { LifeBoardDomainWidgetConfiguration(domain: .routines).body } }
+@MainActor struct JournalDomainWidget: Widget { var body: some WidgetConfiguration { DomainWidgetConfiguration(domain: .journal).body } }
+@MainActor struct FastingDomainWidget: Widget { var body: some WidgetConfiguration { DomainWidgetConfiguration(domain: .fasting).body } }
+@MainActor struct NutritionDomainWidget: Widget { var body: some WidgetConfiguration { DomainWidgetConfiguration(domain: .nutrition).body } }
+@MainActor struct WellnessDomainWidget: Widget { var body: some WidgetConfiguration { DomainWidgetConfiguration(domain: .wellness).body } }
+@MainActor struct LifeMomentsDomainWidget: Widget { var body: some WidgetConfiguration { DomainWidgetConfiguration(domain: .lifeMoments).body } }
+@MainActor struct GoalsDomainWidget: Widget { var body: some WidgetConfiguration { DomainWidgetConfiguration(domain: .goals).body } }
+@MainActor struct RoutinesDomainWidget: Widget { var body: some WidgetConfiguration { DomainWidgetConfiguration(domain: .routines).body } }
 
-private extension LifeBoardSystemSurfaceDomain {
+private extension SystemSurfaceDomain {
     var title: String { switch self { case .journal: "Journal"; case .fasting: "Fasting"; case .nutrition: "Nutrition"; case .wellness: "Wellness"; case .lifeMoments: "Life Moments"; case .goals: "Goals"; case .routines: "Routines" } }
     var symbol: String { switch self { case .journal: "book.closed"; case .fasting: "timer"; case .nutrition: "fork.knife"; case .wellness: "heart.text.square"; case .lifeMoments: "calendar.badge.heart"; case .goals: "target"; case .routines: "repeat" } }
     var deepLinkPath: String { switch self { case .journal: "journal"; case .fasting, .nutrition, .wellness, .routines: "track"; case .lifeMoments, .goals: "insights" } }

@@ -4,7 +4,7 @@ import WidgetKit
 
 struct FocusLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: LifeBoardFocusActivityAttributes.self) { context in
+        ActivityConfiguration(for: FocusActivityAttributes.self) { context in
             HStack(spacing: 12) {
                 Image(systemName: context.state.phase == "paused" ? "pause.circle.fill" : "scope")
                     .font(.title2)
@@ -22,7 +22,7 @@ struct FocusLiveActivityWidget: Widget {
                         .background(Color(red: 0.94, green: 0.80, blue: 0.53), in: Circle())
                 }
                 .accessibilityLabel(context.state.phase == "paused" ? "Resume focus" : "Pause focus")
-                Link(destination: LifeBoardFocusActivityLink.url(
+                Link(destination: FocusActivityLink.url(
                     sessionID: context.attributes.sessionID,
                     command: "end",
                     token: context.state.endCommandToken
@@ -53,7 +53,7 @@ struct FocusLiveActivityWidget: Widget {
     }
 
     @ViewBuilder
-    private func focusTime(_ state: LifeBoardFocusActivityAttributes.ContentState) -> some View {
+    private func focusTime(_ state: FocusActivityAttributes.ContentState) -> some View {
         if state.phase == "running", let end = state.expectedEndAt {
             Text(timerInterval: Date()...max(Date().addingTimeInterval(1), end), countsDown: true)
                 .font(.subheadline.monospacedDigit())
@@ -64,8 +64,8 @@ struct FocusLiveActivityWidget: Widget {
         }
     }
 
-    private func primaryURL(_ context: ActivityViewContext<LifeBoardFocusActivityAttributes>) -> URL {
-        LifeBoardFocusActivityLink.url(
+    private func primaryURL(_ context: ActivityViewContext<FocusActivityAttributes>) -> URL {
+        FocusActivityLink.url(
             sessionID: context.attributes.sessionID,
             command: context.state.phase == "paused" ? "resume" : "pause",
             token: context.state.primaryCommandToken
@@ -80,7 +80,7 @@ struct FocusLiveActivityWidget: Widget {
 
 struct FastingLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: LifeBoardFastingActivityAttributes.self) { context in
+        ActivityConfiguration(for: FastingActivityAttributes.self) { context in
             HStack(spacing: 12) {
                 Image(systemName: "timer")
                     .font(.title2)
@@ -93,7 +93,7 @@ struct FastingLiveActivityWidget: Widget {
                 }
                 Spacer(minLength: 8)
                 if context.state.phase == "active" {
-                    Link(destination: LifeBoardFastingActivityLink.url(
+                    Link(destination: FastingActivityLink.url(
                         sessionID: context.attributes.sessionID,
                         command: "finish",
                         token: context.state.finishCommandToken
@@ -103,7 +103,7 @@ struct FastingLiveActivityWidget: Widget {
                             .background(Color(red: 0.77, green: 0.85, blue: 0.68), in: Circle())
                     }
                     .accessibilityLabel("End fast")
-                    Link(destination: LifeBoardFastingActivityLink.url(
+                    Link(destination: FastingActivityLink.url(
                         sessionID: context.attributes.sessionID,
                         command: "cancel",
                         token: context.state.cancelCommandToken
@@ -135,7 +135,7 @@ struct FastingLiveActivityWidget: Widget {
     }
 
     @ViewBuilder
-    private func fastingTime(_ state: LifeBoardFastingActivityAttributes.ContentState) -> some View {
+    private func fastingTime(_ state: FastingActivityAttributes.ContentState) -> some View {
         if state.phase == "active", let targetEndAt = state.targetEndAt {
             Text(timerInterval: Date()...max(Date().addingTimeInterval(1), targetEndAt), countsDown: true)
                 .font(.subheadline.monospacedDigit())
@@ -157,7 +157,7 @@ struct FastingLiveActivityWidget: Widget {
 
 struct RoutineLiveActivityWidget: Widget {
     var body: some WidgetConfiguration {
-        ActivityConfiguration(for: LifeBoardRoutineActivityAttributes.self) { context in
+        ActivityConfiguration(for: RoutineActivityAttributes.self) { context in
             HStack(spacing: 12) {
                 Image(systemName: "repeat.circle.fill")
                     .font(.title2)
@@ -179,7 +179,7 @@ struct RoutineLiveActivityWidget: Widget {
                             .background(Color(red: 0.94, green: 0.80, blue: 0.53), in: Circle())
                     }
                     .accessibilityLabel(context.state.status == "running" ? "Pause routine" : "Resume routine")
-                    Link(destination: LifeBoardRoutineActivityLink.url(
+                    Link(destination: RoutineActivityLink.url(
                         runID: context.attributes.runID,
                         command: "stop",
                         token: context.state.stopCommandToken
@@ -217,9 +217,9 @@ struct RoutineLiveActivityWidget: Widget {
     }
 
     private func primaryURL(
-        _ context: ActivityViewContext<LifeBoardRoutineActivityAttributes>
+        _ context: ActivityViewContext<RoutineActivityAttributes>
     ) -> URL {
-        LifeBoardRoutineActivityLink.url(
+        RoutineActivityLink.url(
             runID: context.attributes.runID,
             command: context.state.status == "running" ? "pause" : "resume",
             token: context.state.primaryCommandToken

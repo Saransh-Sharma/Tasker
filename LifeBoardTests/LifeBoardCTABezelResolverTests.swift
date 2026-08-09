@@ -12,7 +12,7 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
     }
 
     func testOnboardingHighlightMovesPastCreatedTemplate() {
-        let highlighted = LifeBoardCTABezelResolver.highlightedOnboardingTemplateID(
+        let highlighted = CTABezelResolver.highlightedOnboardingTemplateID(
             primarySuggestionIDs: ["first", "second", "third"],
             taskTemplateStates: [
                 "first": .created(UUID()),
@@ -25,7 +25,7 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
     }
 
     func testOnboardingHighlightReturnsNilWhenAllPrimarySuggestionsAreCreated() {
-        let highlighted = LifeBoardCTABezelResolver.highlightedOnboardingTemplateID(
+        let highlighted = CTABezelResolver.highlightedOnboardingTemplateID(
             primarySuggestionIDs: ["first", "second"],
             taskTemplateStates: [
                 "first": .created(UUID()),
@@ -69,11 +69,11 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            LifeBoardCTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: morning),
+            CTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: morning),
             "home.dailySummary.cta.startToday"
         )
         XCTAssertEqual(
-            LifeBoardCTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: nightly),
+            CTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: nightly),
             "home.dailySummary.cta.planTomorrow"
         )
     }
@@ -109,9 +109,9 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
     }
 
     func testHomeBackdropNoiseOpacityMappingTracksPercentage() {
-        XCTAssertEqual(LifeBoardBackdropNoise.opacity(for: -12), 0, accuracy: 0.0001)
-        XCTAssertEqual(LifeBoardBackdropNoise.opacity(for: 20), 0.02, accuracy: 0.0001)
-        XCTAssertEqual(LifeBoardBackdropNoise.opacity(for: 100), 0.10, accuracy: 0.0001)
-        XCTAssertEqual(LifeBoardBackdropNoise.opacity(for: 180), 0.10, accuracy: 0.0001)
+        XCTAssertEqual(BackdropNoise.opacity(for: -12), 0, accuracy: 0.0001)
+        XCTAssertEqual(BackdropNoise.opacity(for: 20), 0.02, accuracy: 0.0001)
+        XCTAssertEqual(BackdropNoise.opacity(for: 100), 0.10, accuracy: 0.0001)
+        XCTAssertEqual(BackdropNoise.opacity(for: 180), 0.10, accuracy: 0.0001)
     }
 }
