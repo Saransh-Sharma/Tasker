@@ -97,7 +97,7 @@ final class OnboardingFeedbackController {
         #if targetEnvironment(macCatalyst)
         return false
         #else
-        return LifeBoardMotionPolicy.resolve(
+        return MotionPolicy.resolve(
             reduceMotion: UIAccessibility.isReduceMotionEnabled,
             reduceTransparency: UIAccessibility.isReduceTransparencyEnabled,
             sceneIsActive: UIApplication.shared.applicationState != .background

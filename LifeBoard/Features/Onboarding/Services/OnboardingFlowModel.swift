@@ -47,7 +47,7 @@ final class OnboardingFlowModel: ObservableObject {
 
     let evaDefaults: UserDefaults
 
-    let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
+    let workspacePreferencesStore: WorkspacePreferencesStore
 
     let isEvaBackgroundPreparationEnabled: Bool
 
@@ -75,9 +75,9 @@ final class OnboardingFlowModel: ObservableObject {
 
     @Published var selectedModuleIDs: Set<String> = []
 
-    @Published var grantedPermissionKinds: Set<LifeBoardPermissionKind> = []
+    @Published var grantedPermissionKinds: Set<PermissionKind> = []
 
-    @Published var permissionInFlight: LifeBoardPermissionKind?
+    @Published var permissionInFlight: PermissionKind?
 
     @Published var selectedStarterHabitPreference: OnboardingStarterHabitPreference = .positive
 
@@ -165,7 +165,7 @@ final class OnboardingFlowModel: ObservableObject {
         saveHomeLayout: @escaping (DashboardLayoutValue) async throws -> Void = { _ in },
         evaAppManager: AppManager = AppManager(),
         evaDefaults: UserDefaults = .standard,
-        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
+        workspacePreferencesStore: WorkspacePreferencesStore = .shared,
         isEvaBackgroundPreparationEnabled: Bool = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
     ) {
         self.stateStore = stateStore

@@ -45,8 +45,8 @@ struct AppOnboardingJourneyView: View {
 
     /// Resolved per-view, as everywhere else in the app — there is no environment
     /// key for the motion policy.
-    var motionPolicy: LifeBoardMotionPolicy {
-        LifeBoardMotionPolicy.resolve(
+    var motionPolicy: MotionPolicy {
+        MotionPolicy.resolve(
             reduceMotion: reduceMotion,
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active

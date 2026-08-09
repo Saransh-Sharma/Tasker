@@ -204,7 +204,7 @@ extension AppOnboardingJourneyView {
         .lifeboardConfirmationRipple(trigger: permissionRippleTrigger, tint: currentVisualTheme.accent)
     }
 
-    private func permissionRow(_ kind: LifeBoardPermissionKind) -> some View {
+    private func permissionRow(_ kind: PermissionKind) -> some View {
         let isGranted = viewModel.grantedPermissionKinds.contains(kind)
         let isInFlight = viewModel.permissionInFlight == kind
 

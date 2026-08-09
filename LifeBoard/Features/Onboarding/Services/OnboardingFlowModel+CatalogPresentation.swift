@@ -167,11 +167,11 @@ extension OnboardingFlowModel {
         OnboardingModuleCatalog.all
     }
 
-    var requestablePermissionKinds: [LifeBoardPermissionKind] {
+    var requestablePermissionKinds: [PermissionKind] {
         OnboardingModuleCatalog.requestablePermissions(for: selectedModuleIDs)
     }
 
-    var pointOfUsePermissionKinds: [LifeBoardPermissionKind] {
+    var pointOfUsePermissionKinds: [PermissionKind] {
         OnboardingModuleCatalog.pointOfUsePermissions(for: selectedModuleIDs)
     }
 
@@ -243,7 +243,7 @@ extension OnboardingFlowModel {
         dayShape = snapshot.dayShape
         selectedModuleIDs = Set(snapshot.selectedModuleIDs)
         grantedPermissionKinds = Set(
-            snapshot.grantedPermissionKinds.compactMap(LifeBoardPermissionKind.init(rawValue:))
+            snapshot.grantedPermissionKinds.compactMap(PermissionKind.init(rawValue:))
         )
         selectedStarterHabitPreference = snapshot.selectedStarterHabitPreference
         selectedStarterHabitTemplateID = snapshot.selectedStarterHabitTemplateID

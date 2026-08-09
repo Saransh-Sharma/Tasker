@@ -2,7 +2,7 @@ import SwiftUI
 
 extension AppOnboardingJourneyView {
     var spacing: LifeBoardSpacingTokens {
-        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
+        ThemeStore.shared.tokens(for: layoutClass).spacing
     }
 
     var horizontalPadding: CGFloat {

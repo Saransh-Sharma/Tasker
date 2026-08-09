@@ -314,7 +314,7 @@ extension OnboardingFlowModel {
 
     func fetchAuthorizationStatus(
         using notificationService: NotificationServiceProtocol
-    ) async -> LifeBoardNotificationAuthorizationStatus {
+    ) async -> NotificationAuthorizationStatus {
         await withCheckedContinuation { continuation in
             notificationService.fetchAuthorizationStatus { status in
                 continuation.resume(returning: status)

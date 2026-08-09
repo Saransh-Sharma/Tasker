@@ -8,7 +8,7 @@ import MLXLMCommon
 
 @MainActor
 protocol AppOnboardingHostAdapter: AnyObject {
-    var currentOnboardingLayoutClass: LifeBoardLayoutClass { get }
+    var currentOnboardingLayoutClass: LayoutClass { get }
     var presentedViewController: UIViewController? { get }
 
     func prepareForOnboardingHomeGuidance()
@@ -33,18 +33,18 @@ protocol AppOnboardingHostAdapter: AnyObject {
 /// It contains no Home behavior: its only jobs are child containment and the
 /// three UIKit presentations onboarding still requires.
 @MainActor
-final class LifeBoardApplicationHostController: UIViewController, AppOnboardingHostAdapter {
+final class ApplicationHostController: UIViewController, AppOnboardingHostAdapter {
     private let root: AnyView
-    private let presentationDependencies: PresentationDependencyContainer
+    private let presentationDependencies: CompositionRoot
     private let planDependencies: PlanFeatureDependencies?
-    private let router: LifeBoardAppRouter
+    private let router: AppRouter
     private var taskDetailDismissBridges: [ObjectIdentifier: OnboardingTaskDetailDismissBridge] = [:]
 
     init(
         root: AnyView,
-        presentationDependencies: PresentationDependencyContainer,
+        presentationDependencies: CompositionRoot,
         planDependencies: PlanFeatureDependencies?,
-        router: LifeBoardAppRouter
+        router: AppRouter
     ) {
         self.root = root
         self.presentationDependencies = presentationDependencies
@@ -71,8 +71,8 @@ final class LifeBoardApplicationHostController: UIViewController, AppOnboardingH
         host.didMove(toParent: self)
     }
 
-    var currentOnboardingLayoutClass: LifeBoardLayoutClass {
-        LifeBoardLayoutResolver.classify(view: view)
+    var currentOnboardingLayoutClass: LayoutClass {
+        LayoutResolver.classify(view: view)
     }
 
     func prepareForOnboardingHomeGuidance() {
@@ -86,12 +86,12 @@ final class LifeBoardApplicationHostController: UIViewController, AppOnboardingH
     ) -> UIViewController? {
         let model = presentationDependencies.makeNewAddTaskViewModel()
         model.applyPrefill(prefill)
-        let content = SunriseAddTaskSheetView(
+        let content = AddTaskSheetView(
             viewModel: model,
             onTaskCreated: onTaskCreated,
             onDismissWithoutTask: onDismissWithoutTask
         )
-        let host = UIHostingController(rootView: AnyView(content.lifeboardLayoutClass(currentOnboardingLayoutClass)))
+        let host = UIHostingController(rootView: AnyView(content.lifeBoardTokenEnvironment(for: currentOnboardingLayoutClass)))
         configureComposerSheet(host)
         return host
     }
@@ -103,12 +103,12 @@ final class LifeBoardApplicationHostController: UIViewController, AppOnboardingH
     ) -> UIViewController? {
         let model = presentationDependencies.makeNewAddHabitViewModel()
         model.applyPrefill(prefill)
-        let content = SunriseAddHabitSheetView(
+        let content = AddHabitSheetView(
             viewModel: model,
             onHabitCreated: onHabitCreated,
             onDismissWithoutHabit: onDismissWithoutTask
         )
-        let host = UIHostingController(rootView: AnyView(content.lifeboardLayoutClass(currentOnboardingLayoutClass)))
+        let host = UIHostingController(rootView: AnyView(content.lifeBoardTokenEnvironment(for: currentOnboardingLayoutClass)))
         configureComposerSheet(host)
         return host
     }
@@ -119,9 +119,9 @@ final class LifeBoardApplicationHostController: UIViewController, AppOnboardingH
     ) -> UIViewController? {
         guard let planDependencies else { return nil }
         let content = NavigationStack {
-            FoundationTaskRouteView(id: task.id, dependencies: planDependencies, router: router)
+            TaskRouteView(id: task.id, dependencies: planDependencies, router: router)
         }
-        .lifeboardLayoutClass(currentOnboardingLayoutClass)
+        .lifeBoardTokenEnvironment(for: currentOnboardingLayoutClass)
         let host = UIHostingController(rootView: AnyView(content))
         host.modalPresentationStyle = currentOnboardingLayoutClass == .phone ? .pageSheet : .formSheet
         if currentOnboardingLayoutClass != .phone {

@@ -39,7 +39,7 @@ struct OnboardingStepVisualTheme: Equatable {
         }
     }
 
-    private static func make(id: String, role: LifeBoardColorRole) -> OnboardingStepVisualTheme {
+    private static func make(id: String, role: ColorRole) -> OnboardingStepVisualTheme {
         OnboardingStepVisualTheme(
             id: id,
             // A wash, not a fill: the daypart atmosphere stays readable behind it.

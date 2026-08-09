@@ -8,8 +8,8 @@ import MLXLMCommon
 
 struct AppOnboardingBackground: View {
     var body: some View {
-        LifeBoardAdaptiveAtmosphere(
-            snapshot: LifeBoardAtmosphereSnapshot.resolve(at: Date()).replacingPhase(.dawn),
+        AdaptiveAtmosphere(
+            snapshot: AtmosphereSnapshot.resolve(at: Date()).replacingPhase(.dawn),
             placement: .onboarding,
             requestedTier: .static,
             comfortProfile: .calm

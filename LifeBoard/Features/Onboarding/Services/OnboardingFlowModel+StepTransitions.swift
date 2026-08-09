@@ -138,14 +138,14 @@ extension OnboardingFlowModel {
 
     // MARK: - Permissions
 
-    var isPermissionGranted: (LifeBoardPermissionKind) -> Bool {
+    var isPermissionGranted: (PermissionKind) -> Bool {
         { [grantedPermissionKinds] kind in grantedPermissionKinds.contains(kind) }
     }
 
     /// Runs one permission request. Each row is independent — the screen never
     /// blocks on a refusal, and a refusal here is recorded as a deferral rather
     /// than a decline so the feature may still offer once, in context.
-    func requestPermission(_ kind: LifeBoardPermissionKind) async {
+    func requestPermission(_ kind: PermissionKind) async {
         guard permissionInFlight == nil else { return }
         permissionInFlight = kind
         defer { permissionInFlight = nil }
@@ -153,7 +153,7 @@ extension OnboardingFlowModel {
         let domains = kind == .appleHealth
             ? OnboardingModuleCatalog.healthDomains(for: selectedModuleIDs)
             : []
-        await LifeBoardPermissionPrimingCoordinator.shared.performRequest(
+        await PermissionPrimingCoordinator.shared.performRequest(
             kind: kind,
             healthDomains: domains
         )
@@ -162,8 +162,8 @@ extension OnboardingFlowModel {
         persistJourney()
     }
 
-    func skipPermission(_ kind: LifeBoardPermissionKind) {
-        LifeBoardPermissionPromptState.recordOnboardingDeferral(kind)
+    func skipPermission(_ kind: PermissionKind) {
+        PermissionPromptState.recordOnboardingDeferral(kind)
         logOnboardingInfo(event: "onboarding_permission_deferred", fields: ["kind": kind.rawValue])
         persistJourney()
     }
@@ -172,10 +172,10 @@ extension OnboardingFlowModel {
         // Anything the user passed over is marked deferred, not declined, so the
         // just-in-time layer may still offer it once at the point of use.
         for kind in requestablePermissionKinds where grantedPermissionKinds.contains(kind) == false {
-            LifeBoardPermissionPromptState.recordOnboardingDeferral(kind)
+            PermissionPromptState.recordOnboardingDeferral(kind)
         }
         for kind in pointOfUsePermissionKinds {
-            LifeBoardPermissionPromptState.recordOnboardingDeferral(kind)
+            PermissionPromptState.recordOnboardingDeferral(kind)
         }
 
         if let task = createdTasks.first(where: \.isComplete) ?? createdTasks.first {

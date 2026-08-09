@@ -13,7 +13,7 @@ struct AppOnboardingPromptSheetView: View {
     let onNotNow: () -> Void
 
     var spacing: LifeBoardSpacingTokens {
-        LifeBoardThemeManager.shared.tokens(for: layoutClass).spacing
+        ThemeStore.shared.tokens(for: layoutClass).spacing
     }
 
     var body: some View {

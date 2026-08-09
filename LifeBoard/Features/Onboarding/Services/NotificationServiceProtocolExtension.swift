@@ -7,7 +7,7 @@ import Network
 import MLXLMCommon
 
 extension NotificationServiceProtocol {
-    func fetchAuthorizationStatusAsync() async -> LifeBoardNotificationAuthorizationStatus {
+    func fetchAuthorizationStatusAsync() async -> NotificationAuthorizationStatus {
         await withCheckedContinuation { continuation in
             fetchAuthorizationStatus { status in
                 continuation.resume(returning: status)

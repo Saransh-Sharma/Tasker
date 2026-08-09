@@ -38,7 +38,7 @@ struct OnboardingSuccessHero: View {
             // shared completion spring: the one place in the system where an
             // overshoot is earned.
             haloScale = 0.86
-            withAnimation(LifeBoardInteractionMotion.completion(reduceMotion: reduceMotion)) {
+            withAnimation(InteractionMotion.completion(reduceMotion: reduceMotion)) {
                 haloScale = 1
             }
             withAnimation(LifeBoardAnimation.celebration.repeatCount(2, autoreverses: true)) {

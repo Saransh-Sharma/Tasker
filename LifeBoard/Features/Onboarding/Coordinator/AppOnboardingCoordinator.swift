@@ -11,7 +11,7 @@ final class AppOnboardingCoordinator: NSObject {
     weak var hostAdapter: (UIViewController & AppOnboardingHostAdapter)?
 
 
-    let presentationDependencyContainer: PresentationDependencyContainer
+    let presentationDependencyContainer: CompositionRoot
 
     let guidanceModel: HomeOnboardingGuidanceModel
 
@@ -37,7 +37,7 @@ final class AppOnboardingCoordinator: NSObject {
 
     lazy var viewModel = OnboardingFlowModel(
         stateStore: stateStore,
-        notificationService: EnhancedDependencyContainer.shared.notificationService,
+        notificationService: CompositionRoot.shared.notificationService,
         calendarService: presentationDependencyContainer.coordinator.calendarIntegrationService,
         fetchLifeAreas: { [weak self] in
             guard let self else { return [] }
@@ -133,7 +133,7 @@ final class AppOnboardingCoordinator: NSObject {
 
     init?(
         hostAdapter: UIViewController & AppOnboardingHostAdapter,
-        presentationDependencyContainer: PresentationDependencyContainer?,
+        presentationDependencyContainer: CompositionRoot?,
         guidanceModel: HomeOnboardingGuidanceModel,
         stateStore: AppOnboardingStateStore = .shared,
         notificationCenter: NotificationCenter = .default

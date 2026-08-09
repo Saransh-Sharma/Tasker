@@ -22,7 +22,7 @@ struct OnboardingTrackableModule: Identifiable, Hashable, Sendable {
     let needsNotifications: Bool
     /// Permissions iOS asks for at the point of use. Onboarding explains these
     /// but must not request them — that would mean two dialogs for one action.
-    let pointOfUsePermissions: [LifeBoardPermissionKind]
+    let pointOfUsePermissions: [PermissionKind]
     /// Whether the surface is compiled into this build at all.
     let isAvailable: Bool
 }
@@ -216,21 +216,21 @@ enum OnboardingModuleCatalog {
 
     /// The permissions the onboarding step should actually ask for. Calendar is
     /// always included: it fills two cards that ship in every Home layout.
-    static func requestablePermissions(for selection: Set<String>) -> [LifeBoardPermissionKind] {
-        var kinds: [LifeBoardPermissionKind] = []
+    static func requestablePermissions(for selection: Set<String>) -> [PermissionKind] {
+        var kinds: [PermissionKind] = []
         if all.contains(where: { selection.contains($0.id) && $0.needsNotifications }) {
             kinds.append(.notifications)
         }
         kinds.append(.calendar)
         if healthDomains(for: selection).isEmpty == false,
-           LifeBoardPermissionKind.appleHealth.isSupportedOnThisDevice {
+           PermissionKind.appleHealth.isSupportedOnThisDevice {
             kinds.append(.appleHealth)
         }
         return kinds
     }
 
     /// Permissions worth naming on the same screen but not requesting there.
-    static func pointOfUsePermissions(for selection: Set<String>) -> [LifeBoardPermissionKind] {
+    static func pointOfUsePermissions(for selection: Set<String>) -> [PermissionKind] {
         var seen: Set<String> = []
         return all
             .filter { selection.contains($0.id) }
@@ -272,7 +272,7 @@ enum OnboardingModuleCatalog {
                 ordinal: index
             )
         }
-        return HomeGridPackingEngine.normalized(placements)
+        return HomeGridPackingService.normalized(placements)
     }
 
     private static func size(for kind: DashboardWidgetKind) -> WidgetSizePreset {

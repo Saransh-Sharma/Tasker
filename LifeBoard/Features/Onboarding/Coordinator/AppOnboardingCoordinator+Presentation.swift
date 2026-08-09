@@ -142,7 +142,7 @@ extension AppOnboardingCoordinator {
                         self?.dismissPrompt(animated: true, completion: nil)
                     }
                 )
-                .lifeboardLayoutClass(hostAdapter.currentOnboardingLayoutClass)
+                .lifeBoardTokenEnvironment(for: hostAdapter.currentOnboardingLayoutClass)
             )
         )
         controller.modalPresentationStyle = .pageSheet
@@ -201,7 +201,7 @@ extension AppOnboardingCoordinator {
                 self.dismissFullFlow(animated: true)
             }
         )
-        .lifeboardLayoutClass(hostAdapter.currentOnboardingLayoutClass)
+        .lifeBoardTokenEnvironment(for: hostAdapter.currentOnboardingLayoutClass)
 
         let controller = UIHostingController(rootView: AnyView(rootView))
         controller.modalPresentationStyle = .fullScreen
