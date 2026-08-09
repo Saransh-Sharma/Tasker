@@ -91,7 +91,10 @@ enum AssistantCardCodec {
     /// Executes encode.
     static func encode(_ payload: AssistantCardPayload) -> String {
         let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            var container = encoder.singleValueContainer()
+            try container.encode(date.timeIntervalSinceReferenceDate)
+        }
         guard let data = try? encoder.encode(payload) else {
             return prefix + "{}"
         }
@@ -104,12 +107,34 @@ enum AssistantCardCodec {
         let body = String(content.dropFirst(prefix.count))
         guard let data = body.data(using: .utf8) else { return nil }
         let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            if let referenceInterval = try? container.decode(TimeInterval.self) {
+                return Date(timeIntervalSinceReferenceDate: referenceInterval)
+            }
+            let value = try container.decode(String.self)
+            if let date = iso8601Date(from: value, includingFractionalSeconds: true)
+                ?? iso8601Date(from: value, includingFractionalSeconds: false) {
+                return date
+            }
+            throw DecodingError.dataCorruptedError(
+                in: container,
+                debugDescription: "Invalid ISO 8601 date: \(value)"
+            )
+        }
         return try? decoder.decode(AssistantCardPayload.self, from: data)
     }
 
     /// Executes isCard.
     static func isCard(_ content: String) -> Bool {
         content.hasPrefix(prefix)
+    }
+
+    private static func iso8601Date(from value: String, includingFractionalSeconds: Bool) -> Date? {
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = includingFractionalSeconds
+            ? [.withInternetDateTime, .withFractionalSeconds]
+            : [.withInternetDateTime]
+        return formatter.date(from: value)
     }
 }
