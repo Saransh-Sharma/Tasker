@@ -2,7 +2,7 @@ import Foundation
 
 /// Domains that may publish a display-only projection into the LifeBoard app
 /// group. Extensions never use these values to infer or mutate canonical data.
-public enum LifeBoardSystemSurfaceDomain: String, Codable, CaseIterable, Hashable, Sendable {
+public enum SystemSurfaceDomain: String, Codable, CaseIterable, Hashable, Sendable {
     case journal
     case fasting
     case nutrition
@@ -14,7 +14,7 @@ public enum LifeBoardSystemSurfaceDomain: String, Codable, CaseIterable, Hashabl
 
 /// A transport-safe privacy classification shared by the app, widgets, and
 /// Watch. It intentionally does not depend on the app's domain model module.
-public enum LifeBoardSystemSurfaceSensitivity: String, Codable, CaseIterable, Hashable, Sendable {
+public enum SystemSurfaceSensitivity: String, Codable, CaseIterable, Hashable, Sendable {
     case privateSensitive
     case privateStandard
     case shareEligible
@@ -22,13 +22,13 @@ public enum LifeBoardSystemSurfaceSensitivity: String, Codable, CaseIterable, Ha
 
 /// A deliberately small, display-ready projection. It contains no canonical
 /// model blobs, repository identifiers, source text, or free-form private notes.
-public struct LifeBoardSystemSurfaceSnapshot: Codable, Hashable, Identifiable, Sendable {
+public struct SystemSurfaceSnapshot: Codable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public let title: String
     public let primaryValue: String
     public let secondaryValue: String?
     public let systemImage: String
-    public let sensitivity: LifeBoardSystemSurfaceSensitivity
+    public let sensitivity: SystemSurfaceSensitivity
     public let isExplicitlyAuthorized: Bool
     public let deepLinkPath: String?
     public let updatedAt: Date
@@ -39,7 +39,7 @@ public struct LifeBoardSystemSurfaceSnapshot: Codable, Hashable, Identifiable, S
         primaryValue: String,
         secondaryValue: String? = nil,
         systemImage: String,
-        sensitivity: LifeBoardSystemSurfaceSensitivity,
+        sensitivity: SystemSurfaceSensitivity,
         isExplicitlyAuthorized: Bool,
         deepLinkPath: String? = nil,
         updatedAt: Date
@@ -72,24 +72,24 @@ public struct LifeBoardSystemSurfaceSnapshot: Codable, Hashable, Identifiable, S
     }
 }
 
-public struct LifeBoardSystemSnapshotEnvelope: Codable, Hashable, Sendable {
+public struct SystemSnapshotEnvelope: Codable, Hashable, Sendable {
     public static let currentSchemaVersion = 1
 
     public let schemaVersion: Int
-    public let domain: LifeBoardSystemSurfaceDomain
+    public let domain: SystemSurfaceDomain
     public let generatedAt: Date
-    public let snapshots: [LifeBoardSystemSurfaceSnapshot]
+    public let snapshots: [SystemSurfaceSnapshot]
 
     public init(
         schemaVersion: Int = Self.currentSchemaVersion,
-        domain: LifeBoardSystemSurfaceDomain,
+        domain: SystemSurfaceDomain,
         generatedAt: Date = Date(),
-        snapshots: [LifeBoardSystemSurfaceSnapshot]
+        snapshots: [SystemSurfaceSnapshot]
     ) {
         self.schemaVersion = schemaVersion
         self.domain = domain
         self.generatedAt = generatedAt
-        var newestByID: [UUID: LifeBoardSystemSurfaceSnapshot] = [:]
+        var newestByID: [UUID: SystemSurfaceSnapshot] = [:]
         for snapshot in snapshots.map(\.redactedForExternalDisplay) {
             guard let existing = newestByID[snapshot.id] else {
                 newestByID[snapshot.id] = snapshot
@@ -107,7 +107,7 @@ public struct LifeBoardSystemSnapshotEnvelope: Codable, Hashable, Sendable {
     }
 }
 
-public enum LifeBoardSystemSnapshotStoreError: LocalizedError, Equatable, Sendable {
+public enum SystemSnapshotStoreError: LocalizedError, Equatable, Sendable {
     case incompatibleSchema(found: Int, supported: Int)
     case domainMismatch
     case unreadablePrimaryAndBackup
@@ -124,20 +124,20 @@ public enum LifeBoardSystemSnapshotStoreError: LocalizedError, Equatable, Sendab
     }
 }
 
-public enum LifeBoardSystemSnapshotLocation {
+public enum SystemSnapshotLocation {
     public static var directoryURL: URL? {
         AppGroupConstants.containerURL?
             .appendingPathComponent("SystemSurfaceSnapshots", isDirectory: true)
     }
 
-    public static func primaryURL(for domain: LifeBoardSystemSurfaceDomain) -> URL? {
+    public static func primaryURL(for domain: SystemSurfaceDomain) -> URL? {
         directoryURL?.appendingPathComponent(
             "lifeboard-\(domain.rawValue)-snapshot-v1.json",
             isDirectory: false
         )
     }
 
-    public static func backupURL(for domain: LifeBoardSystemSurfaceDomain) -> URL? {
+    public static func backupURL(for domain: SystemSurfaceDomain) -> URL? {
         directoryURL?.appendingPathComponent(
             "lifeboard-\(domain.rawValue)-snapshot-v1.backup.json",
             isDirectory: false
@@ -148,14 +148,14 @@ public enum LifeBoardSystemSnapshotLocation {
 /// Read-only extension entry point. It validates schema and domain, then falls
 /// back to the last known-good envelope when an interrupted app write leaves a
 /// corrupt primary file. Extensions still never open LifeBoard's main store.
-public enum LifeBoardSystemSnapshotReader {
+public enum SystemSnapshotReader {
     public static func load(
-        _ domain: LifeBoardSystemSurfaceDomain,
+        _ domain: SystemSurfaceDomain,
         fileManager: FileManager = .default
-    ) throws -> LifeBoardSystemSnapshotEnvelope? {
+    ) throws -> SystemSnapshotEnvelope? {
         guard
-            let primary = LifeBoardSystemSnapshotLocation.primaryURL(for: domain),
-            let backup = LifeBoardSystemSnapshotLocation.backupURL(for: domain)
+            let primary = SystemSnapshotLocation.primaryURL(for: domain),
+            let backup = SystemSnapshotLocation.backupURL(for: domain)
         else { return nil }
 
         guard fileManager.fileExists(atPath: primary.path)
@@ -168,39 +168,39 @@ public enum LifeBoardSystemSnapshotReader {
         if let envelope = try? decode(backup, expectedDomain: domain) {
             return envelope
         }
-        throw LifeBoardSystemSnapshotStoreError.unreadablePrimaryAndBackup
+        throw SystemSnapshotStoreError.unreadablePrimaryAndBackup
     }
 
     public static func decode(
         _ data: Data,
-        expectedDomain: LifeBoardSystemSurfaceDomain
-    ) throws -> LifeBoardSystemSnapshotEnvelope {
+        expectedDomain: SystemSurfaceDomain
+    ) throws -> SystemSnapshotEnvelope {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .millisecondsSince1970
-        let envelope = try decoder.decode(LifeBoardSystemSnapshotEnvelope.self, from: data)
+        let envelope = try decoder.decode(SystemSnapshotEnvelope.self, from: data)
         try validate(envelope, expectedDomain: expectedDomain)
         return envelope
     }
 
     private static func decode(
         _ url: URL,
-        expectedDomain: LifeBoardSystemSurfaceDomain
-    ) throws -> LifeBoardSystemSnapshotEnvelope {
+        expectedDomain: SystemSurfaceDomain
+    ) throws -> SystemSnapshotEnvelope {
         try decode(Data(contentsOf: url), expectedDomain: expectedDomain)
     }
 
     private static func validate(
-        _ envelope: LifeBoardSystemSnapshotEnvelope,
-        expectedDomain: LifeBoardSystemSurfaceDomain
+        _ envelope: SystemSnapshotEnvelope,
+        expectedDomain: SystemSurfaceDomain
     ) throws {
-        guard envelope.schemaVersion <= LifeBoardSystemSnapshotEnvelope.currentSchemaVersion else {
-            throw LifeBoardSystemSnapshotStoreError.incompatibleSchema(
+        guard envelope.schemaVersion <= SystemSnapshotEnvelope.currentSchemaVersion else {
+            throw SystemSnapshotStoreError.incompatibleSchema(
                 found: envelope.schemaVersion,
-                supported: LifeBoardSystemSnapshotEnvelope.currentSchemaVersion
+                supported: SystemSnapshotEnvelope.currentSchemaVersion
             )
         }
         guard envelope.domain == expectedDomain else {
-            throw LifeBoardSystemSnapshotStoreError.domainMismatch
+            throw SystemSnapshotStoreError.domainMismatch
         }
     }
 }

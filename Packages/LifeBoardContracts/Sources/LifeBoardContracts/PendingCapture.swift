@@ -82,7 +82,10 @@ public enum PendingCaptureInbox {
     }
 
     @discardableResult
-    static func upsert(_ captures: [PendingCapture], at url: URL) -> Bool {
+    // URL-taking overloads are the seam the tests drive against a temp file.
+    // They were internal when this type was compiled into each target; across a
+    // module boundary that hides them from LifeBoardTests.
+    public static func upsert(_ captures: [PendingCapture], at url: URL) -> Bool {
         mutate(at: url) { queue in
             for capture in captures {
                 if let index = queue.firstIndex(where: { $0.id == capture.id }) {
@@ -109,7 +112,7 @@ public enum PendingCaptureInbox {
         return read(from: url)
     }
 
-    static func read(from url: URL) -> [PendingCapture] {
+    public static func read(from url: URL) -> [PendingCapture] {
         let coordinator = NSFileCoordinator(filePresenter: nil)
         var coordinationError: NSError?
         var result: [PendingCapture] = []
@@ -135,7 +138,7 @@ public enum PendingCaptureInbox {
     }
 
     @discardableResult
-    static func remove(ids: Set<UUID>, at url: URL) -> Bool {
+    public static func remove(ids: Set<UUID>, at url: URL) -> Bool {
         mutate(at: url) { queue in
             queue.removeAll { ids.contains($0.id) }
         }

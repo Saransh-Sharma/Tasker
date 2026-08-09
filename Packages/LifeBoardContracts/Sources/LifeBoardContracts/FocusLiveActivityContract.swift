@@ -3,7 +3,7 @@ import Foundation
 #if canImport(ActivityKit) && !targetEnvironment(macCatalyst)
 import ActivityKit
 
-public struct LifeBoardFocusActivityAttributes: ActivityAttributes, Sendable {
+public struct FocusActivityAttributes: ActivityAttributes, Sendable {
     public struct ContentState: Codable, Hashable, Sendable {
         public var phase: String
         public var remainingDuration: TimeInterval
@@ -38,7 +38,7 @@ public struct LifeBoardFocusActivityAttributes: ActivityAttributes, Sendable {
     }
 }
 
-public enum LifeBoardFocusActivityLink {
+public enum FocusActivityLink {
     public static func url(sessionID: UUID, command: String, token: UUID) -> URL {
         var components = URLComponents()
         components.scheme = "lifeboard"
@@ -52,7 +52,7 @@ public enum LifeBoardFocusActivityLink {
     }
 }
 
-public struct LifeBoardFastingActivityAttributes: ActivityAttributes, Sendable {
+public struct FastingActivityAttributes: ActivityAttributes, Sendable {
     public struct ContentState: Codable, Hashable, Sendable {
         public var phase: String
         public var startedAt: Date
@@ -90,7 +90,7 @@ public struct LifeBoardFastingActivityAttributes: ActivityAttributes, Sendable {
     }
 }
 
-public enum LifeBoardFastingActivityLink {
+public enum FastingActivityLink {
     public static func url(sessionID: UUID, command: String, token: UUID) -> URL {
         var components = URLComponents()
         components.scheme = "lifeboard"
@@ -104,7 +104,7 @@ public enum LifeBoardFastingActivityLink {
     }
 }
 
-public struct LifeBoardRoutineActivityAttributes: ActivityAttributes, Sendable {
+public struct RoutineActivityAttributes: ActivityAttributes, Sendable {
     public struct ContentState: Codable, Hashable, Sendable {
         public var status: String
         public var stepTitle: String
@@ -144,7 +144,7 @@ public struct LifeBoardRoutineActivityAttributes: ActivityAttributes, Sendable {
     }
 }
 
-public enum LifeBoardRoutineActivityLink {
+public enum RoutineActivityLink {
     public static func url(runID: UUID, command: String, token: UUID) -> URL {
         var components = URLComponents()
         components.scheme = "lifeboard"
