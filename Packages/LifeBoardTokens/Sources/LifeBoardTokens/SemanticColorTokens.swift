@@ -1,7 +1,7 @@
 import LifeBoardContracts
 import UIKit
 
-public struct LifeBoardColorTokens: TokenGroup, @unchecked Sendable {
+public struct SemanticColorTokens: TokenGroup, @unchecked Sendable {
     public let bgCanvas: UIColor
     public let bgCanvasSecondary: UIColor
     public let bgElevated: UIColor
@@ -210,7 +210,7 @@ public struct LifeBoardColorTokens: TokenGroup, @unchecked Sendable {
     /// Executes make. The unified Life OS presentation resolves the warm
     /// paper/cocoa system. A stored disable override remains a data-preserving
     /// diagnostic rollback, but extensions never default to the retired palette.
-    public static func make(palette: BrandPalette) -> LifeBoardColorTokens {
+    public static func make(palette: BrandPalette) -> SemanticColorTokens {
         if unifiedPresentationEnabled {
             return makeWarmPaper()
         }
@@ -243,7 +243,7 @@ public struct LifeBoardColorTokens: TokenGroup, @unchecked Sendable {
     /// sun/apricot/sage accents, and a designed warm-indigo dark treatment.
     /// Saturated color is reserved for semantic status and the one primary
     /// action; violet survives only as the assistant/focus domain color.
-    private static func makeWarmPaper() -> LifeBoardColorTokens {
+    private static func makeWarmPaper() -> SemanticColorTokens {
         func adaptive(
             light: String,
             dark: String,
@@ -328,7 +328,7 @@ public struct LifeBoardColorTokens: TokenGroup, @unchecked Sendable {
         let overlayScrim = adaptive(light: "#2B2118", dark: "#000000", lightAlpha: 0.16, darkAlpha: 0.52)
         let overlayGlassTint = adaptive(light: "#FFFDF7", dark: "#1C2338", lightAlpha: 0.86, darkAlpha: 0.86)
 
-        return LifeBoardColorTokens(
+        return SemanticColorTokens(
             bgCanvas: bgCanvas,
             bgCanvasSecondary: bgCanvasSecondary,
             bgElevated: bgElevated,
@@ -383,7 +383,7 @@ public struct LifeBoardColorTokens: TokenGroup, @unchecked Sendable {
         )
     }
 
-    private static func makeLegacySunrise(palette _: BrandPalette) -> LifeBoardColorTokens {
+    private static func makeLegacySunrise(palette _: BrandPalette) -> SemanticColorTokens {
         func adaptive(
             light: String,
             dark: String,
@@ -449,7 +449,7 @@ public struct LifeBoardColorTokens: TokenGroup, @unchecked Sendable {
         let overlayScrim = adaptive(light: "#071B52", dark: "#000000", lightAlpha: 0.18, darkAlpha: 0.54)
         let overlayGlassTint = adaptive(light: "#FFFFFF", dark: "#171C2B", lightAlpha: 0.88, darkAlpha: 0.86)
 
-        return LifeBoardColorTokens(
+        return SemanticColorTokens(
             bgCanvas: bgCanvas,
             bgCanvasSecondary: bgCanvasSecondary,
             bgElevated: bgElevated,
@@ -511,7 +511,7 @@ public struct LifeBoardColorTokens: TokenGroup, @unchecked Sendable {
 /// rectangle with a drop shadow. Consumed by `LifeBoardClaySurface` and by the
 /// premium-surface highlight in `SwiftUI+TokenAdapters`, which previously
 /// hardcoded `.white.opacity(0.34)`.
-public extension LifeBoardColorTokens {
+public extension SemanticColorTokens {
     /// The lit inner rim. Warm white on paper; a restrained lift in the dark
     /// composition, where a bright rim would read as a hard plastic edge.
     static let clayHighlight = UIColor { traits in

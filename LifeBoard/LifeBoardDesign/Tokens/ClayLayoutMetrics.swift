@@ -1,6 +1,6 @@
 import CoreGraphics
 
-enum LBSpacingTokens {
+enum ClayLayoutMetrics {
     static let xxs: CGFloat = 4
     static let xs: CGFloat = 8
     static let sm: CGFloat = 12

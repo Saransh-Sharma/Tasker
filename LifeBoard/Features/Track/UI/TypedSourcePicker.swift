@@ -210,13 +210,13 @@ public struct TypedSourcePickerView: View {
                         } label: {
                             HStack(spacing: 12) {
                                 Image(systemName: item.kind.systemImage)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                                     .frame(width: 22)
                                 VStack(alignment: .leading, spacing: 2) {
-                                    Text(item.title).foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                                    Text(item.title).foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                                     if let subtitle = item.subtitle, !subtitle.isEmpty {
                                         Text(subtitle).font(.caption)
-                                            .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                                            .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                                     }
                                 }
                             }

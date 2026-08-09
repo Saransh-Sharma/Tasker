@@ -22,7 +22,7 @@ protocol HomeReloading: AnyObject {
 protocol HomeTimelineProjecting: AnyObject {
     func buildTimelineSnapshot(
         calendarSnapshot: HomeCalendarSnapshot,
-        sunriseAnchor: SunriseAnchor,
+        sunriseAnchor: HomeScrollAnchor,
         now: Date,
         calendar: Calendar
     ) -> HomeTimelineSnapshot

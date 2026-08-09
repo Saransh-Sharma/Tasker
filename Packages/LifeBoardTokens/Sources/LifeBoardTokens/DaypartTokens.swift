@@ -257,7 +257,7 @@ public enum DaypartTokens {
     }
 }
 
-public extension LifeBoardColorTokens {
+public extension SemanticColorTokens {
     static let foundationCanvas = UIColor { traits in
         UIColor(lifeboardHex: traits.userInterfaceStyle == .dark ? "#151B2D" : "#FFF7D8")
     }

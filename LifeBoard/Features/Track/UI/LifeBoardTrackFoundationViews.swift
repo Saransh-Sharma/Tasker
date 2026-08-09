@@ -49,7 +49,7 @@ struct TrackFoundationRootView: View {
         phaseIIRepository: any PhaseIIRepository,
         habitProjectionService: (any TrackHabitProjectionService)? = nil,
         linkedMutationApplier: (any RoutineLinkedMutationApplying)? = nil,
-        goalSampleProvider: (any GoalSampleProvider)? = nil,
+        goalSampleProvider: (any GoalSampleRepository)? = nil,
         starterPackMutationApplier: (any StarterPackCanonicalMutationApplying)? = nil,
         habitRecoveryMutationApplier: (any HabitRecoveryMutationApplying)? = nil,
         sourcePickerRepository: (any TypedSourcePickerRepository)? = nil,
@@ -326,7 +326,7 @@ private struct TrackSectionHeader<Trailing: View>: View {
             trailing()
         }
         .padding(.top, 6)
-        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
     }
 }
 
@@ -349,10 +349,10 @@ private struct TrackEmptyStateRow: View {
 
     var body: some View {
         HStack(spacing: 14) {
-            Image(systemName: symbol).font(.title2).foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+            Image(systemName: symbol).font(.title2).foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.headline)
-                Text(detail).font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                Text(detail).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
         }.trackClayCard()
@@ -377,10 +377,10 @@ private struct TrackModuleRow: View {
 
     private var rowBody: some View {
         HStack(spacing: 14) {
-            Image(systemName: symbol).font(.title3).frame(width: 28).foregroundStyle(Color(LifeBoardColorTokens.foundationFocusRing))
+            Image(systemName: symbol).font(.title3).frame(width: 28).foregroundStyle(Color(SemanticColorTokens.foundationFocusRing))
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.headline)
-                Text(detail).font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                Text(detail).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
             Image(systemName: "chevron.right")
@@ -449,12 +449,12 @@ private struct TrackHistoryRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.body.weight(.medium))
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .lineLimit(2)
             }
             Spacer()
@@ -474,7 +474,7 @@ private struct TrackHydrationTile: View {
                 .font(.headline)
             Text(TrackSectionCopy.hydrationLabel(store)).font(.title3.weight(.semibold))
             if let amount = store.snapshot.hydrationAmountMilliliters, let target = store.snapshot.hydrationTargetMilliliters, target > 0 {
-                ProgressView(value: min(1, amount / target)).tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                ProgressView(value: min(1, amount / target)).tint(Color(SemanticColorTokens.foundationSageAccent))
                 Button("Edit target") { showsHydrationTarget = true }
                     .font(.caption.weight(.semibold))
                     .frame(minHeight: 44)
@@ -483,7 +483,7 @@ private struct TrackHydrationTile: View {
                 HStack(spacing: 8) {
                     Text("No target yet")
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Spacer(minLength: 0)
                     Button("Set target") { showsHydrationTarget = true }
                         .font(.caption.weight(.semibold))
@@ -517,11 +517,11 @@ private struct TrackHydrationHistoryRow: View {
     var body: some View {
         let amount = HydrationMeasurementService.milliliters(log.amount, unit: log.unit)
         HStack(spacing: 12) {
-            Image(systemName: "drop.fill").foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+            Image(systemName: "drop.fill").foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
             VStack(alignment: .leading, spacing: 3) {
                 Text("\(Int(amount)) ml").font(.body.weight(.medium))
                 Text(log.timestamp.formatted(date: .omitted, time: .shortened) + (log.correctedAt == nil ? "" : " · corrected"))
-                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
             Menu {
@@ -548,12 +548,12 @@ private struct TrackSleepHistoryRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
-            Image(systemName: "moon.zzz").foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+            Image(systemName: "moon.zzz").foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
             VStack(alignment: .leading, spacing: 3) {
                 Text("\(record.bedtime.formatted(date: .abbreviated, time: .shortened))–\(record.wakeTime.formatted(date: .omitted, time: .shortened))")
                     .font(.body.weight(.medium))
                 Text(record.perceivedRest.map { "Rest \($0)/5 · \(record.interruptionCount) interruptions" } ?? "\(record.interruptionCount) interruptions")
-                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
             Menu {
@@ -596,7 +596,7 @@ private struct TrackQuickLogButton: View {
                     .font(.subheadline.weight(.semibold))
                     .frame(width: 32, height: 32)
                     .background(
-                        Color(LifeBoardColorTokens.foundationSurfaceSelected),
+                        Color(SemanticColorTokens.foundationSurfaceSelected),
                         in: Circle()
                     )
                 VStack(alignment: .leading, spacing: 2) {
@@ -604,7 +604,7 @@ private struct TrackQuickLogButton: View {
                         .font(.subheadline.weight(.semibold))
                     Text(detail)
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .lineLimit(1)
                 }
             }
@@ -641,15 +641,15 @@ private struct TrackHabitQualitySummary: View {
         VStack(alignment: .leading, spacing: 7) {
             Label(title, systemImage: symbol)
                 .font(.caption.weight(.medium))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             Text(value)
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
         }
         .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
         .padding(12)
         .lifeBoardClaySurface(.raised, cornerRadius: 16)
-        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
+        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1) }
     }
 }
 
@@ -673,12 +673,12 @@ private struct TrackMoodTrendView: View {
                         Text("30-day rhythm").font(.headline)
                         Text(TrackSectionCopy.moodTrendDescription(summary))
                             .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     Spacer()
                     Text("\(summary.sampleCount) check-ins")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 MoodTrendStrip(points: summary.dailyPoints)
             }
@@ -914,7 +914,7 @@ private struct TrackQuickLogStrip: View {
                     .font(.subheadline.weight(.semibold))
                     .frame(width: 32, height: 32)
                     .background(
-                        Color(LifeBoardColorTokens.foundationSurfaceSelected),
+                        Color(SemanticColorTokens.foundationSurfaceSelected),
                         in: Circle()
                     )
                 VStack(alignment: .leading, spacing: 2) {
@@ -922,7 +922,7 @@ private struct TrackQuickLogStrip: View {
                         .font(.subheadline.weight(.semibold))
                     Text("Your own")
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             }
             .padding(.horizontal, 13)
@@ -950,11 +950,11 @@ private struct TrackDueAndUnresolvedSection: View {
                 ForEach(store.snapshot.unresolvedMedicationEvents) { event in
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Image(systemName: "pills.fill").foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                            Image(systemName: "pills.fill").foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                             VStack(alignment: .leading) {
                                 Text(store.medicationName(id: event.medicationID)).font(.headline)
                                 Text(event.status == .unresolved ? "The window passed — choose what happened" : "Scheduled \(event.scheduledAt.formatted(date: .omitted, time: .shortened))")
-                                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
                         }
@@ -986,7 +986,7 @@ private struct TrackHealthSummarySection: View {
                     Spacer()
                     Image(systemName: "chevron.right")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
 
                 HStack(alignment: .firstTextBaseline, spacing: 18) {
@@ -997,7 +997,7 @@ private struct TrackHealthSummarySection: View {
 
                 Text(status)
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -1016,7 +1016,7 @@ private struct TrackHealthSummarySection: View {
                 .monospacedDigit()
             Text(title)
                 .font(.caption)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -1070,14 +1070,14 @@ private struct TrackFastingSection: View {
                             } ?? 0
                             ProgressRing(
                                 fraction: fraction,
-                                tint: Color(LifeBoardColorTokens.foundationSunAccent),
-                                trackTint: Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                                tint: Color(SemanticColorTokens.foundationSunAccent),
+                                trackTint: Color(SemanticColorTokens.foundationSurfaceRecessed),
                                 lineWidth: 7
                             )
                             .frame(width: 56, height: 56)
                             .lifeboardFastingEmberRing(
                                 progress: fraction,
-                                tint: Color(LifeBoardColorTokens.foundationSunAccent)
+                                tint: Color(SemanticColorTokens.foundationSunAccent)
                             )
 
                             VStack(alignment: .leading, spacing: 2) {
@@ -1089,7 +1089,7 @@ private struct TrackFastingSection: View {
                                         .map { "Target \(Int($0 / 3_600))h" } ?? "No target set"
                                 )
                                 .font(.caption)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer(minLength: 0)
                         }
@@ -1115,7 +1115,7 @@ private struct TrackFastingSection: View {
                 } else {
                     Text("No fast is running.")
                         .font(.subheadline)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Button("Start a fast") { showsFastingComposer = true }
                         .buttonStyle(.lifeBoardPrimary)
                 }
@@ -1123,7 +1123,7 @@ private struct TrackFastingSection: View {
                 if let fastingError {
                     Text(fastingError)
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationDanger))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationDanger))
                 }
 
                 if sessions.contains(where: { $0.endedAt != nil }) {
@@ -1163,12 +1163,12 @@ private struct TrackTodayRoutinesSection: View {
                         HStack(spacing: 14) {
                             Image(systemName: "play.circle.fill")
                                 .font(.title2)
-                                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(routine.title).font(.headline)
                                 Text("\(routine.steps.count) calm steps")
                                     .font(.caption)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
@@ -1298,11 +1298,11 @@ private struct TrackMindCareSection: View {
                 TrackSectionHeader("Recent check-ins", symbol: "clock.arrow.circlepath")
                 ForEach(Array(store.checkIns.prefix(8)), id: \.id) { checkIn in
                     HStack(spacing: 12) {
-                        Image(systemName: "face.smiling").foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                        Image(systemName: "face.smiling").foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                         VStack(alignment: .leading, spacing: 3) {
                             Text(checkIn.mood.title).font(.body.weight(.medium))
                             Text(TrackSectionCopy.moodCheckInDetail(checkIn))
-                                .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
                         Spacer()
                         Menu {
@@ -1355,11 +1355,11 @@ private struct TrackRoutinesAndHabitsSection: View {
                     HStack(spacing: 8) {
                     Button { Task { await store.startRoutine(routine) } } label: {
                         HStack(spacing: 14) {
-                            Image(systemName: "play.circle.fill").font(.title2).foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                            Image(systemName: "play.circle.fill").font(.title2).foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(routine.title).font(.headline)
                                 Text("\(routine.steps.count) calm steps · version \(routine.version)")
-                                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
                             Image(systemName: "chevron.right")
@@ -1388,11 +1388,11 @@ private struct TrackRoutinesAndHabitsSection: View {
                 onOpenHabitBoard()
             } label: {
                 HStack {
-                    Image(systemName: "repeat.circle.fill").foregroundStyle(Color(LifeBoardColorTokens.foundationFocusRing))
+                    Image(systemName: "repeat.circle.fill").foregroundStyle(Color(SemanticColorTokens.foundationFocusRing))
                     VStack(alignment: .leading) {
                         Text("Habits and resilience").font(.headline)
                         Text("Grade, streak, off days, recovery, and full history")
-                            .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     Spacer(); Image(systemName: "arrow.up.right")
                 }
@@ -1405,11 +1405,11 @@ private struct TrackRoutinesAndHabitsSection: View {
             } label: {
                 HStack(spacing: 12) {
                     Image(systemName: "shield.lefthalf.filled")
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
                     VStack(alignment: .leading, spacing: 3) {
                         Text("Resilience settings").font(.headline)
                         Text("Choose intentional off days, recovery, and how streaks are framed.")
-                            .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -1451,7 +1451,7 @@ private struct TrackGoalsSection: View {
                                 Text(goal.title).font(.headline)
                                 Text("\(goal.effectiveIntent.rawValue.capitalized) · \(goal.effectiveStatus.rawValue.capitalized)")
                                     .font(.caption)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
                             Text(TrackSectionCopy.progressLabel(progress)).font(.caption.weight(.semibold))
@@ -1482,14 +1482,14 @@ private struct TrackGoalsSection: View {
                             }
                             .accessibilityLabel("Actions for \(goal.title)")
                         }
-                        if let fraction = progress?.progressFraction { ProgressView(value: fraction).tint(Color(LifeBoardColorTokens.foundationFocusRing)) }
+                        if let fraction = progress?.progressFraction { ProgressView(value: fraction).tint(Color(SemanticColorTokens.foundationFocusRing)) }
                         if let why = goal.whyItMatters, !why.isEmpty {
                             Text(why)
                                 .font(.subheadline)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                         }
                         Text(progress?.nextUsefulAction ?? "Link a source to measure progress.")
-                            .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     .trackClayCard()
                     .accessibilityIdentifier("track.goal.\(goal.id.uuidString)")
@@ -1529,11 +1529,11 @@ private struct TrackModulesSection: View {
                 .buttonStyle(.plain)
             ForEach(store.starterPackInstallations.filter { $0.removedAt == nil }) { installation in
                 HStack(spacing: 12) {
-                    Image(systemName: "shippingbox.fill").foregroundStyle(Color(LifeBoardColorTokens.foundationFocusRing))
+                    Image(systemName: "shippingbox.fill").foregroundStyle(Color(SemanticColorTokens.foundationFocusRing))
                     VStack(alignment: .leading, spacing: 3) {
                         Text(TrackSectionCopy.starterPackTitle(installation.pack)).font(.headline)
                         Text("Installed · history stays if removed")
-                            .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     Spacer()
                     Button("Remove", role: .destructive) { Task { await store.removeStarterPack(installation) } }
@@ -1629,12 +1629,12 @@ private struct TrackHistorySection: View {
                     ForEach(Array(store.checkIns.prefix(12)), id: \.id) { checkIn in
                         HStack(spacing: 12) {
                             Image(systemName: "face.smiling")
-                                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(checkIn.mood.title).font(.body.weight(.medium))
                                 Text(TrackSectionCopy.moodCheckInDetail(checkIn))
                                     .font(.caption)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
                         }
@@ -1997,7 +1997,7 @@ private struct HydrationCaptureComposer: View {
 
     var body: some View {
         ZStack {
-            Color(LifeBoardColorTokens.foundationCanvas)
+            Color(SemanticColorTokens.foundationCanvas)
                 .ignoresSafeArea()
 
             ScrollView {
@@ -2008,7 +2008,7 @@ private struct HydrationCaptureComposer: View {
                             .multilineTextAlignment(.center)
                         Text("Choose what feels true. You can fine-tune it below.")
                             .font(.subheadline)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             .multilineTextAlignment(.center)
                     }
                     .padding(.horizontal, 20)
@@ -2040,7 +2040,7 @@ private struct HydrationCaptureComposer: View {
                             systemImage: projected >= target ? "checkmark.circle.fill" : "circle.dotted"
                         )
                         .font(.footnote.weight(.medium))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
                         .lifeBoardClaySurface(.well, cornerRadius: 14)
@@ -2050,7 +2050,7 @@ private struct HydrationCaptureComposer: View {
                             systemImage: "heart.text.clipboard"
                         )
                         .font(.footnote)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(14)
                         .lifeBoardClaySurface(.well, cornerRadius: 14)
@@ -2092,7 +2092,7 @@ private struct HydrationCaptureComposer: View {
                     .font(.body.weight(.semibold))
                     .frame(width: 30, height: 30)
                     .background(
-                        Color(LifeBoardColorTokens.foundationSageAccent)
+                        Color(SemanticColorTokens.foundationSageAccent)
                             .opacity(isSelected ? 0.52 : 0.25),
                         in: Circle()
                     )
@@ -2100,12 +2100,12 @@ private struct HydrationCaptureComposer: View {
                     Text(preset.title).font(.subheadline.weight(.semibold))
                     Text(preset.detail)
                         .font(.caption.monospacedDigit())
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 Spacer(minLength: 0)
                 if isSelected {
                     Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                         .symbolEffect(.bounce, options: .nonRepeating, value: amount)
                 }
             }
@@ -2116,8 +2116,8 @@ private struct HydrationCaptureComposer: View {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
                     .stroke(
                         Color(isSelected
-                            ? LifeBoardColorTokens.inkPrimary.withAlphaComponent(0.34)
-                            : LifeBoardColorTokens.foundationHairline),
+                            ? SemanticColorTokens.inkPrimary.withAlphaComponent(0.34)
+                            : SemanticColorTokens.foundationHairline),
                         lineWidth: isSelected ? 1.25 : 1
                     )
             }
@@ -2140,7 +2140,7 @@ private struct HydrationCaptureComposer: View {
             HStack(spacing: 12) {
                 adjustmentButton(symbol: "minus", delta: -50)
                 Slider(value: $amount, in: 50...1_500, step: 50)
-                    .tint(Color(LifeBoardColorTokens.inkPrimary))
+                    .tint(Color(SemanticColorTokens.inkPrimary))
                     .accessibilityLabel("Water amount")
                     .accessibilityValue("\(Int(amount)) milliliters")
                 adjustmentButton(symbol: "plus", delta: 50)
@@ -2219,17 +2219,17 @@ private struct HydrationSelectionOrb: View {
     var body: some View {
         ZStack {
             Circle()
-                .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
             LiquidFill(
                 level: level,
-                tint: Color(LifeBoardColorTokens.foundationSageAccent)
+                tint: Color(SemanticColorTokens.foundationSageAccent)
             )
             .clipShape(Circle().inset(by: 7))
             Circle()
-                .stroke(Color(LifeBoardColorTokens.inkPrimary).opacity(0.28), lineWidth: 1.25)
+                .stroke(Color(SemanticColorTokens.inkPrimary).opacity(0.28), lineWidth: 1.25)
             Circle()
                 .inset(by: 7)
-                .stroke(Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.42), lineWidth: 1)
+                .stroke(Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.42), lineWidth: 1)
 
             VStack(spacing: 3) {
                 Image(systemName: "drop.fill")
@@ -2242,9 +2242,9 @@ private struct HydrationSelectionOrb: View {
                     .font(.caption.weight(.medium))
                 Text(projectedContext)
                     .font(.caption2)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             .padding(.top, 4)
         }
         .frame(width: 174, height: 174)
@@ -2266,7 +2266,7 @@ private struct HydrationSelectionOrb: View {
         .lifeboardClayPressBloom(
             center: .center,
             trigger: bloomTrigger,
-            tint: Color(LifeBoardColorTokens.foundationSageAccent)
+            tint: Color(SemanticColorTokens.foundationSageAccent)
         )
         .accessibilityElement(children: .ignore)
         .accessibilityLabel("Selected water amount")
@@ -2380,7 +2380,7 @@ private struct RoutineRunner: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+                Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: 22) {
                         RoutineRunnerProgressHeader(
@@ -2484,7 +2484,7 @@ private struct RoutineRunner: View {
                 .font(Typography.sectionTitle())
             Text("Your place and timer are saved.")
                 .font(.subheadline)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             Button("Resume", systemImage: "play.fill", action: resume)
                 .frame(maxWidth: .infinity, minHeight: 48)
         }
@@ -2513,12 +2513,12 @@ private struct RoutineRunnerProgressHeader: View {
         VStack(spacing: 7) {
             Text("Step \(min(index + 1, stepCount)) of \(stepCount)")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             ProgressView(
                 value: Double(index + 1),
                 total: Double(max(1, stepCount))
             )
-            .tint(Color(LifeBoardColorTokens.foundationFocusRing))
+            .tint(Color(SemanticColorTokens.foundationFocusRing))
         }
     }
 }
@@ -2533,7 +2533,7 @@ private struct RoutineStepCard: View {
         VStack(spacing: 18) {
             Image(systemName: symbol)
                 .font(.largeTitle)
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                 .symbolEffect(.breathe, options: .nonRepeating, value: step.id)
             Text(step.title)
                 .font(Typography.screenTitle())
@@ -2543,7 +2543,7 @@ private struct RoutineStepCard: View {
                 RoutineTimerProgress(run: run, duration: duration)
             } else if let duration = step.duration {
                 Text("About \(Int(duration / 60)) minutes")
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             if step.choices.isEmpty == false {
                 RoutineResponseMenu(choices: step.choices, response: $response)
@@ -2591,7 +2591,7 @@ private struct RoutineTimerProgress: View {
                     value: max(0, duration - remaining),
                     total: max(1, duration)
                 )
-                .tint(Color(LifeBoardColorTokens.foundationFocusRing))
+                .tint(Color(SemanticColorTokens.foundationFocusRing))
             }
         }
     }
@@ -2684,7 +2684,7 @@ private struct HabitResilienceLibrary: View {
                                             Text(group.title)
                                             Text(group.planningContext.rawValue.capitalized)
                                                 .font(.caption)
-                                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                                         }
                                     }
                                     Menu {
@@ -2715,7 +2715,7 @@ private struct HabitResilienceLibrary: View {
                                         Text(habit.title)
                                         Text(policySummary(policy(for: habit.id)))
                                             .font(.caption)
-                                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                                     }
                                     .padding(.vertical, 4)
                                 }
@@ -3081,7 +3081,7 @@ private struct HabitResilienceEditor: View {
             if recentHistory.isEmpty {
                 Text("No due occurrences are available in the last 30 days.")
                     .font(.lifeboard(.support))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 ForEach(recentHistory) { occurrence in
                     recoveryHistoryRow(occurrence)
@@ -3105,16 +3105,16 @@ private struct HabitResilienceEditor: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text(exceptionTitle(day))
                                 .font(.lifeboard(.body))
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                             Text(day.timeZoneIdentifier)
                                 .font(.lifeboard(.caption2))
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                         }
                         Spacer(minLength: 8)
                         Image(systemName: offDays.contains(day) ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(Color(offDays.contains(day)
-                                ? LifeBoardColorTokens.foundationApricotAccent
-                                : LifeBoardColorTokens.inkTertiary))
+                                ? SemanticColorTokens.foundationApricotAccent
+                                : SemanticColorTokens.inkTertiary))
                     }
                     .padding(.horizontal, 12)
                     .frame(minHeight: 48)
@@ -3163,10 +3163,10 @@ private struct HabitResilienceEditor: View {
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(exceptionTitle(occurrence.day))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 Text(historyStatus(occurrence, recovered: isRecovered))
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer(minLength: 8)
             if mutatingDays.contains(occurrence.day) {
@@ -3196,7 +3196,7 @@ private struct HabitResilienceEditor: View {
                     }
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                .tint(Color(SemanticColorTokens.foundationSageAccent))
                 .accessibilityIdentifier("track.habit.recover.\(occurrence.id)")
             }
         }
@@ -3347,11 +3347,11 @@ private struct RoutineStepEditorRow: View {
         Button(action: pickLink) {
             HStack {
                 Text(step.linkedTitle.isEmpty ? "Link a \(step.kind == .task ? "task" : "habit")" : step.linkedTitle)
-                    .foregroundStyle(Color(step.linkedTitle.isEmpty ? LifeBoardColorTokens.inkSecondary : LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(step.linkedTitle.isEmpty ? SemanticColorTokens.inkSecondary : SemanticColorTokens.inkPrimary))
                 Spacer()
                 Image(systemName: "chevron.right")
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
             }
             .contentShape(Rectangle())
         }
@@ -3452,8 +3452,8 @@ private struct RoutineComposer: View {
                                 Text(Calendar.current.veryShortStandaloneWeekdaySymbols[weekday - 1])
                                     .font(.lifeboard(weekdays.contains(weekday) ? .bodyStrong : .body))
                                     .foregroundStyle(Color(weekdays.contains(weekday)
-                                        ? LifeBoardColorTokens.inkPrimary
-                                        : LifeBoardColorTokens.inkSecondary))
+                                        ? SemanticColorTokens.inkPrimary
+                                        : SemanticColorTokens.inkSecondary))
                                     .frame(maxWidth: .infinity, minHeight: 44)
                                     .lifeBoardClaySurface(
                                         weekdays.contains(weekday) ? .raised : .well,
@@ -3485,7 +3485,7 @@ private struct RoutineComposer: View {
                 }
                 Text("Routine history stores this version. Future edits never rewrite prior runs.")
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .lifeBoardFormSurface()
             .navigationTitle(existing == nil ? "New routine" : "Edit routine")
@@ -3654,7 +3654,7 @@ private struct MoodTrendStrip: View {
                     path.move(to: CGPoint(x: 0, y: geometry.size.height / 2))
                     path.addLine(to: CGPoint(x: geometry.size.width, y: geometry.size.height / 2))
                 }
-                .stroke(Color(LifeBoardColorTokens.foundationHairline), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                .stroke(Color(SemanticColorTokens.foundationHairline), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
 
                 Path { path in
                     guard let first = coordinates.first else { return }
@@ -3662,15 +3662,15 @@ private struct MoodTrendStrip: View {
                     for coordinate in coordinates.dropFirst() { path.addLine(to: coordinate) }
                 }
                 .stroke(
-                    Color(LifeBoardColorTokens.foundationApricotAccent),
+                    Color(SemanticColorTokens.foundationApricotAccent),
                     style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
                 )
 
                 ForEach(Array(points.enumerated()), id: \.element.id) { index, _ in
                     Circle()
-                        .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                        .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
                         .overlay {
-                            Circle().stroke(Color(LifeBoardColorTokens.foundationApricotAccent), lineWidth: 2)
+                            Circle().stroke(Color(SemanticColorTokens.foundationApricotAccent), lineWidth: 2)
                         }
                         .frame(width: 9, height: 9)
                         .position(coordinates[index])
@@ -3776,11 +3776,11 @@ private struct MoodChoiceSection: View {
                 showsLabel: false,
                 // Mood is the one choice on this screen that carries weight, so
                 // it is the one that earns the bloom.
-                pressBloomTint: Color(LifeBoardColorTokens.foundationSunAccent)
+                pressBloomTint: Color(SemanticColorTokens.foundationSunAccent)
             )
             Text(mood.supportiveCopy)
                 .font(.lifeboard(.support))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 .lifeBoardMotion(.contentInsertion, value: mood)
         }
     }
@@ -4139,7 +4139,7 @@ private struct GoalIdentitySection: View {
                 values: GoalType.allCases,
                 identifierPrefix: "track.goal.type",
                 title: GoalComposerCopy.typeTitle,
-                pressBloomTint: Color(LifeBoardColorTokens.foundationSunAccent)
+                pressBloomTint: Color(SemanticColorTokens.foundationSunAccent)
             )
             OptionRail(
                 "Intent",
@@ -4327,17 +4327,17 @@ private struct GoalLinkSourceSection: View {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(selection?.kind.title ?? "Choose a source")
                             .font(.lifeboard(.body))
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         if let selection {
                             Text(selection.title)
                                 .font(.lifeboard(.bodyStrong))
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                         }
                     }
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
                         .font(.lifeboard(.caption1))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
                 .padding(.horizontal, 12)
                 .frame(minHeight: 48)
@@ -4438,17 +4438,17 @@ private struct StarterPackRow: View {
             HStack(spacing: 12) {
                 Image(systemName: "shippingbox")
                     .font(.lifeboard(.title3))
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                     .frame(width: 32, height: 32)
                     .accessibilityHidden(true)
                 Text(title)
                     .font(.lifeboard(.bodyStrong))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                     .multilineTextAlignment(.leading)
                 Spacer(minLength: 8)
                 Image(systemName: "chevron.right")
                     .font(.lifeboard(.caption1))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
             }
             .padding(.horizontal, 12)
             .frame(minHeight: 56)

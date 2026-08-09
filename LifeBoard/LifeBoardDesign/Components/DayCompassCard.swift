@@ -17,7 +17,7 @@ struct DayCompassCard: View {
 
     var body: some View {
         let copy = copy(for: model.state)
-        let style = LBColorTokens.role(copy.role)
+        let style = ClayColorTokens.role(copy.role)
 
         ZStack {
             GlassCard(
@@ -25,18 +25,18 @@ struct DayCompassCard: View {
                 borderColor: style.border,
                 fill: style.softSurface.opacity(0.88)
             ) {
-                VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
-                    HStack(alignment: .center, spacing: LBSpacingTokens.sm) {
+                VStack(alignment: .leading, spacing: ClayLayoutMetrics.sm) {
+                    HStack(alignment: .center, spacing: ClayLayoutMetrics.sm) {
                         iconWell(copy, style: style)
 
                         VStack(alignment: .leading, spacing: 2) {
                             Text(copy.eyebrow)
-                                .font(LBTypographyTokens.meta)
+                                .font(ClayTypography.meta)
                                 .foregroundStyle(style.deep)
                                 .textCase(.uppercase)
                             Text(copy.title)
-                                .font(LBTypographyTokens.cardTitle)
-                                .foregroundStyle(LBColorTokens.navy)
+                                .font(ClayTypography.cardTitle)
+                                .foregroundStyle(ClayColorTokens.navy)
                                 .fixedSize(horizontal: false, vertical: true)
                         }
 
@@ -44,27 +44,27 @@ struct DayCompassCard: View {
 
                         if let count = countBadge(for: model.state) {
                             Text("\(count)")
-                                .font(LBTypographyTokens.meta)
+                                .font(ClayTypography.meta)
                                 .foregroundStyle(style.deep)
-                                .padding(.horizontal, LBSpacingTokens.sm)
-                                .padding(.vertical, LBSpacingTokens.xxs)
+                                .padding(.horizontal, ClayLayoutMetrics.sm)
+                                .padding(.vertical, ClayLayoutMetrics.xxs)
                                 .background(style.base.opacity(0.14), in: Capsule())
                                 .accessibilityHidden(true)
                         }
                     }
 
                     Text(copy.subtitle)
-                        .font(LBTypographyTokens.body)
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .font(ClayTypography.body)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                         .fixedSize(horizontal: false, vertical: true)
                         .lineLimit(2)
-                        .padding(.trailing, LBSpacingTokens.xl)
+                        .padding(.trailing, ClayLayoutMetrics.xl)
 
                     if copy.isActionable {
                         actionRow(copy)
                     }
                 }
-                .padding(LBSpacingTokens.md)
+                .padding(ClayLayoutMetrics.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(alignment: .bottomTrailing) {
                     DecorImage(asset: decorAsset(for: model.state), size: 116, opacity: 0.18)
@@ -106,7 +106,7 @@ struct DayCompassCard: View {
 
     private func iconWell(_ copy: Copy, style: RoleStyle) -> some View {
         Image(systemName: copy.symbolName)
-            .font(LBTypographyTokens.cardTitle)
+            .font(ClayTypography.cardTitle)
             .foregroundStyle(style.deep)
             .frame(width: 36, height: 36)
             .background(style.base.opacity(0.16), in: Circle())
@@ -123,7 +123,7 @@ struct DayCompassCard: View {
     /// one gentle reward, skipped under Reduce Motion and UI tests.
     private func playAllClearMomentIfNeeded() {
         guard isAllClear else { return }
-        LifeBoardFeedback.success()
+        HapticFeedback.success()
         guard reduceMotion == false, isUITesting == false else {
             allClearSealScale = 1
             return
@@ -190,12 +190,12 @@ struct DayCompassCard: View {
     @ViewBuilder
     private func actionRow(_ copy: Copy) -> some View {
         if dynamicTypeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: LBSpacingTokens.xs) {
+            VStack(alignment: .leading, spacing: ClayLayoutMetrics.xs) {
                 primaryButton(copy)
                 snoozeButton
             }
         } else {
-            HStack(spacing: LBSpacingTokens.sm) {
+            HStack(spacing: ClayLayoutMetrics.sm) {
                 primaryButton(copy)
                 snoozeButton
                 Spacer(minLength: 0)
@@ -205,7 +205,7 @@ struct DayCompassCard: View {
 
     private func primaryButton(_ copy: Copy) -> some View {
         PrimaryButton(title: copy.primaryTitle, systemImage: copy.primarySymbol) {
-            LifeBoardFeedback.medium()
+            HapticFeedback.medium()
             onPrimary(model.state)
         }
         .accessibilityIdentifier("home.sunrise.dayCompass.primary")
@@ -213,14 +213,14 @@ struct DayCompassCard: View {
 
     private var snoozeButton: some View {
         Button {
-            LifeBoardFeedback.light()
+            HapticFeedback.light()
             onSnooze(model.state.flow)
         } label: {
             Text("Later")
-                .font(LBTypographyTokens.chip)
-                .foregroundStyle(LBColorTokens.navyMuted)
+                .font(ClayTypography.chip)
+                .foregroundStyle(ClayColorTokens.navyMuted)
                 .frame(minHeight: 48)
-                .padding(.horizontal, LBSpacingTokens.md)
+                .padding(.horizontal, ClayLayoutMetrics.md)
         }
         .buttonStyle(.plain)
         .contentShape(Rectangle())
@@ -235,7 +235,7 @@ struct DayCompassCard: View {
             }
             .onEnded { value in
                 if value.translation.width > 72 {
-                    LifeBoardFeedback.light()
+                    HapticFeedback.light()
                     onSnooze(model.state.flow)
                 }
                 dragOffset = 0
@@ -366,6 +366,6 @@ private struct Copy {
     let primaryTitle: String
     let primarySymbol: String?
     let symbolName: String
-    let role: LBRole
+    let role: ClayRole
     var isActionable = true
 }

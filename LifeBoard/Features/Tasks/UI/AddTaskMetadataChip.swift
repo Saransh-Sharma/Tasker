@@ -17,7 +17,7 @@ struct AddTaskMetadataChip: View {
     let tintHex: String?
     let action: () -> Void
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var hasTint: Bool { HexColor.normalized(tintHex) != nil }
     private var tintColor: Color { HexColor.color(tintHex, fallback: Color.lifeboard.accentPrimary) }
 
@@ -37,17 +37,17 @@ struct AddTaskMetadataChip: View {
 
     var body: some View {
         Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         } label: {
             HStack(spacing: 6) {
                 Image(systemName: icon)
-                    .font(LBTypographyTokens.meta)
+                    .font(ClayTypography.meta)
 
                 Text(text)
                     .lineLimit(1)
             }
-            .font(LBTypographyTokens.meta)
+            .font(ClayTypography.meta)
             .fixedSize(horizontal: true, vertical: false)
             .foregroundColor(
                 isActive

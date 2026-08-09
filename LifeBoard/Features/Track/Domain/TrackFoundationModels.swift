@@ -1707,7 +1707,7 @@ public protocol TrackFoundationRepository: Sendable {
     func saveStarterPackInstallation(_ value: StarterPackInstallation) async throws
 }
 
-public protocol GoalSampleProvider: Sendable {
+public protocol GoalSampleRepository: Sendable {
     func samples(for links: [GoalLink], asOf date: Date) async throws -> [GoalProgressSample]
 }
 
@@ -1765,7 +1765,7 @@ public protocol GoalProgressService: Sendable {
 /// Surfaces a goal whose user-chosen target date is inside its final week.
 /// Deterministic and explainable: the reason names the exact date the user
 /// picked; nothing is inferred about likelihood or effort.
-public struct GoalHomeContextCandidateProvider: HomeContextCandidateProvider {
+public struct GoalHomeContextCandidateSource: HomeContextCandidateSource {
     public let providerID = "goals"
     private let repository: any TrackFoundationRepository
     private let thresholdDays: Int
@@ -1810,7 +1810,7 @@ public struct GoalHomeContextCandidateProvider: HomeContextCandidateProvider {
 /// Surfaces routines scheduled for the current weekday and daypart that have
 /// not produced a run today. Mirrors the Track store's due logic without
 /// reaching through it, so Home candidates stay a pure domain projection.
-public struct RoutineHomeContextCandidateProvider: HomeContextCandidateProvider {
+public struct RoutineHomeContextCandidateSource: HomeContextCandidateSource {
     public let providerID = "routines"
     private let repository: any TrackFoundationRepository
     private let daypart: @Sendable (Date) -> ResolvedDaypart

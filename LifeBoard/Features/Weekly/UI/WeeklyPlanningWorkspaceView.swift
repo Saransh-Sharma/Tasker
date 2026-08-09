@@ -107,7 +107,7 @@ struct WeeklyPlanningWorkspaceView: View {
         // alive. Keeping it behind content is both cheaper and guarantees the
         // shader can never soften type or controls.
         .background {
-            Color(LifeBoardColorTokens.foundationCanvas)
+            Color(SemanticColorTokens.foundationCanvas)
                 .ignoresSafeArea()
                 .lifeboardPaperGrain(intensity: 0.18)
         }
@@ -139,7 +139,7 @@ struct WeeklyPlanningWorkspaceView: View {
             )
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
-            .presentationBackground(Color(LifeBoardColorTokens.foundationCanvas))
+            .presentationBackground(Color(SemanticColorTokens.foundationCanvas))
         }
         .confirmationDialog(
             WeeklyWorkspaceCopy.bankruptcyConfirmation(count: briefing.count),
@@ -795,7 +795,7 @@ private struct WeeklyIntentionSection: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("This week is about")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 TextField("One line is enough", text: $viewModel.focusStatement, axis: .vertical)
                     .font(.subheadline)
                     .lineLimit(1...3)
@@ -809,7 +809,7 @@ private struct WeeklyIntentionSection: View {
                 HStack {
                     Text("Outcomes")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Spacer()
                     if viewModel.canAddOutcome {
                         Button("Add", systemImage: "plus") { viewModel.addOutcomeDraft() }
@@ -822,7 +822,7 @@ private struct WeeklyIntentionSection: View {
                 if viewModel.outcomeDrafts.isEmpty {
                     Text("Three at most. A week with nine outcomes has none.")
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
                 ForEach($viewModel.outcomeDrafts) { $draft in
                     HStack(spacing: 10) {
@@ -833,7 +833,7 @@ private struct WeeklyIntentionSection: View {
                             viewModel.removeOutcomeDraft(id: draft.id)
                         } label: {
                             Image(systemName: "minus.circle")
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel("Remove outcome")
@@ -850,7 +850,7 @@ private struct WeeklyIntentionSection: View {
                         .font(.subheadline)
                     Text("Name the smallest version that still counts.")
                         .font(.caption2)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
             }
             .accessibilityIdentifier("plan.week.workspace.minimumViableWeek")
@@ -875,7 +875,7 @@ private struct WeeklyIntentionSection: View {
                 if let message = viewModel.saveMessage, savedAt != nil {
                     Text(message)
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
                         .transition(.opacity)
                 }
                 Spacer(minLength: 0)
@@ -885,7 +885,7 @@ private struct WeeklyIntentionSection: View {
             if let error = viewModel.errorMessage {
                 Text(error)
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationDanger))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationDanger))
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -1198,7 +1198,7 @@ private enum WeeklyWorkspaceSectionCopy {
 private struct WeeklyWorkspaceHairline: View {
     var body: some View {
         Rectangle()
-            .fill(Color(LifeBoardColorTokens.foundationHairline))
+            .fill(Color(SemanticColorTokens.foundationHairline))
             .frame(height: 0.5)
     }
 }
@@ -1206,7 +1206,7 @@ private struct WeeklyWorkspaceHairline: View {
 private struct WeeklyWorkspaceVerticalHairline: View {
     var body: some View {
         Rectangle()
-            .fill(Color(LifeBoardColorTokens.foundationHairline))
+            .fill(Color(SemanticColorTokens.foundationHairline))
             .frame(width: 0.5)
             .frame(maxHeight: .infinity)
     }
@@ -1222,12 +1222,12 @@ private struct WeeklyWorkspaceLoadBar: View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 Capsule()
-                    .fill(Color(LifeBoardColorTokens.metricRingTrack).opacity(0.5))
+                    .fill(Color(SemanticColorTokens.metricRingTrack).opacity(0.5))
                 Capsule()
                     .fill(
                         metrics.isOverCapacity
-                            ? Color(LifeBoardColorTokens.foundationApricotAccent)
-                            : Color(LifeBoardColorTokens.foundationSageAccent)
+                            ? Color(SemanticColorTokens.foundationApricotAccent)
+                            : Color(SemanticColorTokens.foundationSageAccent)
                     )
                     .frame(
                         width: min(
@@ -1288,10 +1288,10 @@ private struct WeeklyWorkspaceHeader: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(WeeklyWorkspaceSectionCopy.weekRangeLabel(store: store))
                         .lifeboardFont(.title2)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                     Text(WeeklyWorkspaceSectionCopy.headerSubtitle(store: store))
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 Spacer()
                 if briefing.isEmpty == false {
@@ -1328,11 +1328,11 @@ private struct WeeklyWorkspaceHeader: View {
             HStack(spacing: 8) {
                 Text("What matters this week")
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 if showsIntention == false, let summary = intentionSummary {
                     Text(summary)
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .lineLimit(1)
                 }
             }
@@ -1420,7 +1420,7 @@ private struct WeeklyWorkspaceRibbon: View {
                     .frame(minHeight: 28)
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 .accessibilityIdentifier("plan.week.workspace.softDaysToggle")
             }
         }
@@ -1428,7 +1428,7 @@ private struct WeeklyWorkspaceRibbon: View {
         .padding(.vertical, 7)
         .background {
             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(reduceTransparency ? 1 : 0.08))
+                .fill(Color(SemanticColorTokens.foundationSurfaceSolid).opacity(reduceTransparency ? 1 : 0.08))
                 .lifeboardLiquidGlassRefract(
                     center: ribbonSelectionCenter,
                     radius: 0.24,
@@ -1494,20 +1494,20 @@ private struct WeeklyWorkspaceRibbonChip: View {
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .fill(
                         isSelected
-                            ? Color(LifeBoardColorTokens.foundationSurfaceSelected)
+                            ? Color(SemanticColorTokens.foundationSurfaceSelected)
                             : Color.clear
                     )
             }
             .overlay {
                 if metrics.isToday {
                     RoundedRectangle(cornerRadius: 12, style: .continuous)
-                        .stroke(Color(LifeBoardColorTokens.foundationApricotAccent), lineWidth: 1.5)
+                        .stroke(Color(SemanticColorTokens.foundationApricotAccent), lineWidth: 1.5)
                 }
             }
             .foregroundStyle(
                 canReceive
-                    ? Color(LifeBoardColorTokens.inkPrimary)
-                    : Color(LifeBoardColorTokens.inkTertiary)
+                    ? Color(SemanticColorTokens.inkPrimary)
+                    : Color(SemanticColorTokens.inkTertiary)
             )
             .contentShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
         }
@@ -1620,13 +1620,13 @@ private struct WeeklyWorkspaceWideDayColumn: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(WeeklyWorkspaceSectionCopy.shortDayName(store: store, day))
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                     Text("\(day.day)")
                         .lifeboardFont(.title3)
                     WeeklyWorkspaceLoadBar(metrics: dayMetrics)
                     Text(dayMetrics.summary)
                         .font(.caption2)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .lineLimit(2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -1652,7 +1652,7 @@ private struct WeeklyWorkspaceWideDayColumn: View {
             if tasks.isEmpty && dayMeetings.isEmpty {
                 Text("Room to breathe")
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                     .padding(.horizontal, 10)
                     .padding(.vertical, 18)
             } else {
@@ -1672,7 +1672,7 @@ private struct WeeklyWorkspaceWideDayColumn: View {
                 } label: {
                     Label("Add", systemImage: "plus")
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .frame(maxWidth: .infinity, minHeight: 42, alignment: .leading)
                 }
                 .buttonStyle(.plain)
@@ -1686,16 +1686,16 @@ private struct WeeklyWorkspaceWideDayColumn: View {
             RoundedRectangle(cornerRadius: targetedDay == day ? 24 : 18, style: .continuous)
                 .fill(
                     selected
-                        ? Color(LifeBoardColorTokens.foundationSurfaceSelected).opacity(0.72)
-                        : Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.72)
+                        ? Color(SemanticColorTokens.foundationSurfaceSelected).opacity(0.72)
+                        : Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.72)
                 )
         }
         .overlay {
             RoundedRectangle(cornerRadius: targetedDay == day ? 24 : 18, style: .continuous)
                 .stroke(
                     targetedDay == day
-                        ? Color(LifeBoardColorTokens.foundationApricotAccent)
-                        : Color(LifeBoardColorTokens.foundationHairline),
+                        ? Color(SemanticColorTokens.foundationApricotAccent)
+                        : Color(SemanticColorTokens.foundationHairline),
                     lineWidth: targetedDay == day ? 1.5 : 0.7
                 )
         }
@@ -1724,11 +1724,11 @@ private struct WeeklyWorkspaceWideTaskRow: View {
         HStack(alignment: .top, spacing: 6) {
             Image(systemName: "circle")
                 .font(.caption)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 .padding(.top, 2)
             Text(task.title)
                 .font(.caption)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .lineLimit(2)
             Spacer(minLength: 0)
         }
@@ -1752,13 +1752,13 @@ private struct WeeklyWorkspaceWideMeetingRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(WeeklyWorkspaceSectionCopy.timeLabel(store: store, meeting.commitment))
                     .font(.caption2.weight(.medium))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 Text(meeting.commitment.title)
                     .font(.caption)
                     .foregroundStyle(
                         meeting.intent == .skipping
-                            ? Color(LifeBoardColorTokens.inkTertiary)
-                            : Color(LifeBoardColorTokens.inkPrimary)
+                            ? Color(SemanticColorTokens.inkTertiary)
+                            : Color(SemanticColorTokens.inkPrimary)
                     )
                     .strikethrough(meeting.intent == .skipping)
                     .lineLimit(2)
@@ -1827,13 +1827,13 @@ private struct WeeklyWorkspaceDayLane: View {
                     Spacer()
                     Text(metrics.summary)
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .multilineTextAlignment(.trailing)
                 }
                 if let hint = metrics.overloadHint {
                     Label(hint, systemImage: "exclamationmark.circle")
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                         .accessibilityIdentifier("plan.week.workspace.overloadHint")
                         .padding(.top, 8)
                 }
@@ -1863,7 +1863,7 @@ private struct WeeklyWorkspaceDayLane: View {
                 if placed.isEmpty && meetings.isEmpty {
                     Text("\(WeeklyWorkspaceSectionCopy.shortDayName(store: store, store.selectedDay)) still has room.")
                         .font(.subheadline)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .padding(.vertical, 18)
                 } else {
                     ForEach(placed) { task in
@@ -1901,14 +1901,14 @@ private struct WeeklyWorkspaceDayLane: View {
             .background {
                 ZStack {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.86))
+                        .fill(Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.86))
                     Color.clear
                         .lifeboardTaskLandingCaustic(trigger: landingTrigger)
                 }
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 0.7)
+                    .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 0.7)
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
@@ -1953,19 +1953,19 @@ private struct WeeklyWorkspacePlacedRow: View {
             } label: {
                 Image(systemName: "circle")
                     .font(.title3)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .buttonStyle(.plain)
             .accessibilityLabel("Complete \(task.title)")
 
             Text(task.title)
                 .font(.subheadline)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             Spacer(minLength: 8)
             if let estimate = task.estimatedDuration, estimate > 0 {
                 Text(WeeklyWorkspaceLoad.durationPhrase(Int(estimate / 60)))
                     .font(.caption2)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
             }
         }
         .padding(.vertical, 9)
@@ -1975,7 +1975,7 @@ private struct WeeklyWorkspacePlacedRow: View {
             RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(
                     hoveredTaskID == task.id
-                        ? Color(LifeBoardColorTokens.foundationSurfaceSelected).opacity(0.55)
+                        ? Color(SemanticColorTokens.foundationSurfaceSelected).opacity(0.55)
                         : Color.clear
                 )
         }
@@ -2042,7 +2042,7 @@ private struct WeeklyWorkspaceComposer: View {
         HStack(spacing: 10) {
             Image(systemName: "plus")
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             TextField(
                 WeeklyWorkspaceCopy.placementHint(
                     dayName: WeeklyWorkspaceSectionCopy.shortDayName(store: store, store.selectedDay)
@@ -2081,13 +2081,13 @@ private struct WeeklyWorkspaceMeetingRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(WeeklyWorkspaceSectionCopy.timeLabel(store: store, commitment))
                     .font(.caption2.weight(.medium))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 Text(commitment.title)
                     .font(.subheadline)
                     .foregroundStyle(
                         meeting.intent == .skipping
-                            ? Color(LifeBoardColorTokens.inkTertiary)
-                            : Color(LifeBoardColorTokens.inkPrimary)
+                            ? Color(SemanticColorTokens.inkTertiary)
+                            : Color(SemanticColorTokens.inkPrimary)
                     )
                     .strikethrough(meeting.intent == .skipping)
                 if badge.isEmpty == false {
@@ -2096,7 +2096,7 @@ private struct WeeklyWorkspaceMeetingRow: View {
                     // here would promise a reply LifeBoard cannot send.
                     Text(badge)
                         .font(.caption2)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
             }
             Spacer(minLength: 8)
@@ -2181,7 +2181,7 @@ private struct WeeklyWorkspaceTray: View {
             if shelfDetent == .expanded && usesSideBySideLayout == false {
                 HStack(spacing: 8) {
                     Image(systemName: "magnifyingglass")
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                     TextField("Find something to place", text: $traySearch)
                         .font(.subheadline)
                         .textInputAutocapitalization(.never)
@@ -2191,7 +2191,7 @@ private struct WeeklyWorkspaceTray: View {
                 .padding(.horizontal, 12)
                 .frame(height: 38)
                 .background(
-                    Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.72),
+                    Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.72),
                     in: RoundedRectangle(cornerRadius: 13, style: .continuous)
                 )
                 .padding(.horizontal, 14)
@@ -2216,7 +2216,7 @@ private struct WeeklyWorkspaceTray: View {
             if rows.isEmpty {
                 Text(WeeklyWorkspaceSectionCopy.emptyTrayMessage(lane))
                     .font(.subheadline)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.horizontal, 16)
                     .padding(.vertical, 20)
@@ -2252,7 +2252,7 @@ private struct WeeklyWorkspaceTray: View {
         }
         .background {
             RoundedRectangle(cornerRadius: usesSideBySideLayout ? 0 : 24, style: .continuous)
-                .fill(Color(LifeBoardColorTokens.foundationCanvasSoft))
+                .fill(Color(SemanticColorTokens.foundationCanvasSoft))
                 .overlay(alignment: .top) { WeeklyWorkspaceHairline() }
                 .ignoresSafeArea(edges: .bottom)
         }
@@ -2271,18 +2271,18 @@ private struct WeeklyWorkspaceShelfHandle: View {
         VStack(spacing: 5) {
             if usesSideBySideLayout == false {
                 Capsule()
-                    .fill(Color(LifeBoardColorTokens.inkTertiary).opacity(0.34))
+                    .fill(Color(SemanticColorTokens.inkTertiary).opacity(0.34))
                     .frame(width: 36, height: 4)
             }
             HStack {
                 Text("Choose what deserves a place")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 Spacer()
                 if usesSideBySideLayout == false {
                     Image(systemName: shelfDetent == .expanded ? "chevron.down" : "chevron.up")
                         .font(.caption2.weight(.semibold))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
             }
         }
@@ -2337,7 +2337,7 @@ private struct WeeklyWorkspaceLaneSwitcher: View {
                         .background {
                             if lane == value {
                                 Capsule()
-                                    .fill(Color(LifeBoardColorTokens.foundationSurfaceSelected))
+                                    .fill(Color(SemanticColorTokens.foundationSurfaceSelected))
                                     .matchedGeometryEffect(id: "weekly-lane", in: namespace)
                             }
                         }
@@ -2372,16 +2372,16 @@ private struct WeeklyWorkspaceTrayRow: View {
             if isSelecting {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.title3)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             VStack(alignment: .leading, spacing: 2) {
                 Text(task.title)
                     .font(.subheadline)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 if let waited = WeeklyWorkspaceSectionCopy.waitingLabel(store: store, lane: lane, task) {
                     Text(waited)
                         .font(.caption2)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
             }
             Spacer(minLength: 8)
@@ -2396,7 +2396,7 @@ private struct WeeklyWorkspaceTrayRow: View {
                     } else {
                         Image(systemName: "plus.circle.fill")
                             .font(.title2)
-                            .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                            .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                     }
                 }
                 .buttonStyle(.plain)
@@ -2427,13 +2427,13 @@ private struct WeeklyWorkspaceTrayRow: View {
             Button("Someday") {
                 onReleaseToSomeday([task.id])
             }
-            .tint(Color(LifeBoardColorTokens.inkSecondary))
+            .tint(Color(SemanticColorTokens.inkSecondary))
         }
         .swipeActions(edge: .leading, allowsFullSwipe: true) {
             Button("Today") {
                 onPlace([task.id], store.todayPlanningDay())
             }
-            .tint(Color(LifeBoardColorTokens.foundationApricotAccent))
+            .tint(Color(SemanticColorTokens.foundationApricotAccent))
         }
         .accessibilityActions {
             weeklyWorkspaceMoveActions(
@@ -2472,7 +2472,7 @@ private struct WeeklyWorkspaceSelectionBar: View {
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSelected))
+        .background(Color(SemanticColorTokens.foundationSurfaceSelected))
         .accessibilityIdentifier("plan.week.workspace.selectionBar")
     }
 }
@@ -2493,11 +2493,11 @@ private struct WeeklyWorkspaceBriefingSheet: View {
             if let detail = briefing.detail() {
                 Text(detail)
                     .font(.subheadline)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Text("Bringing everything forward only works if the week can hold it, so spreading stops when the days are full and tells you what is left.")
                 .font(.footnote)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
 
             VStack(spacing: 10) {
                 Button {
@@ -2532,7 +2532,7 @@ private struct WeeklyWorkspaceBriefingSheet: View {
             Spacer()
         }
         .padding(24)
-        .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+        .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
         .presentationDetents([.medium])
         .accessibilityIdentifier("plan.week.workspace.briefing")
     }
@@ -2551,19 +2551,19 @@ private struct WeeklyWorkspaceCompletionSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Your week has shape.")
                     .lifeboardFont(.title2)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 Text(summary)
                     .font(.subheadline)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(18)
             .background {
                 RoundedRectangle(cornerRadius: 22, style: .continuous)
-                    .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                    .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
                     .lifeboardFirstLight(
                         trigger: completionTrigger,
-                        tint: Color(LifeBoardColorTokens.foundationApricotAccent)
+                        tint: Color(SemanticColorTokens.foundationApricotAccent)
                     )
             }
 
@@ -2575,7 +2575,7 @@ private struct WeeklyWorkspaceCompletionSheet: View {
             Spacer(minLength: 0)
         }
         .padding(22)
-        .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+        .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
         .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.height(300)])
         .presentationDragIndicator(.visible)
         .accessibilityIdentifier("plan.week.workspace.completion")
@@ -2591,13 +2591,13 @@ private struct WeeklyWorkspaceCompletionSheet: View {
                     .frame(maxWidth: .infinity, minHeight: 48)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             .lifeBoardSystemGlass(
                 .regular,
                 in: RoundedRectangle(cornerRadius: 16, style: .continuous),
                 interactive: true
             )
-            .tint(Color(LifeBoardColorTokens.foundationApricotAccent))
+            .tint(Color(SemanticColorTokens.foundationApricotAccent))
             .accessibilityIdentifier("plan.week.workspace.finish")
 
             Button("Keep planning") { showsCompletion = false }
@@ -2617,7 +2617,7 @@ private struct WeeklyWorkspaceReceiptToast: View {
             HStack(spacing: 12) {
                 Text(receipt.message)
                     .font(.footnote)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 Spacer(minLength: 8)
                 if let undoToken = receipt.undoToken {
                     Button("Undo") {
@@ -2631,7 +2631,7 @@ private struct WeeklyWorkspaceReceiptToast: View {
             .padding(.vertical, 12)
             .background {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                    .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
             }
             .padding(.horizontal, 16)
             .padding(.bottom, 12)

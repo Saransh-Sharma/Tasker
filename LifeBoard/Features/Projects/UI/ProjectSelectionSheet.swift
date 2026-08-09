@@ -22,7 +22,7 @@ struct ProjectSelectionSheet: View {
     @State private var currentSelection: Set<UUID>
     @State private var pinnedProjects: Set<UUID> // Track pinned state separately
     private var colors: SwiftUIColorTokens { Color.lifeboard }
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corners: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     private let maxSelections = 5
@@ -273,7 +273,7 @@ struct ProjectRow: View {
     let isPinned: Bool
     let onTogglePin: () -> Void
     private var colors: SwiftUIColorTokens { Color.lifeboard }
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corners: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     var body: some View {

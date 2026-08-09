@@ -17,8 +17,8 @@ public struct XPBadge: View {
     var isCompact: Bool = false
     var showLabel: Bool = true
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
-    private var themeColors: LifeBoardColorTokens { ThemeStore.shared.currentTheme.tokens.color }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var themeColors: SemanticColorTokens { ThemeStore.shared.currentTheme.tokens.color }
 
     private var isHighValue: Bool {
         priority == .max || priority == .high

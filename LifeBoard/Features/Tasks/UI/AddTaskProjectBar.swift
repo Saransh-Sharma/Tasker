@@ -18,7 +18,7 @@ struct AddTaskProjectBar: View {
     @State private var showInlineCreator = false
     @State private var newProjectName = ""
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         VStack(spacing: spacing.s8) {
@@ -26,7 +26,7 @@ struct AddTaskProjectBar: View {
                 HStack(spacing: spacing.chipSpacing) {
                     // Add project button
                     Button {
-                        LifeBoardFeedback.selection()
+                        HapticFeedback.selection()
                         withAnimation(LifeBoardAnimation.stateChange) {
                             showInlineCreator = true
                         }

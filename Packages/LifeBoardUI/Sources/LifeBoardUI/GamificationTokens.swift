@@ -39,7 +39,7 @@ public enum GamificationTokens {
     public static let streakFlameSize: CGFloat = 20
     public static let streakGlowOpacity: CGFloat = 0.15
 
-    // MARK: - Achievement LifeBoardCard
+    // MARK: - Achievement SurfaceCard
 
     public static let achievementCardIconSize: CGFloat = 72
     public static let lockedOverlayOpacity: CGFloat = 0.6

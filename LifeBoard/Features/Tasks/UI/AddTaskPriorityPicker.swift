@@ -13,7 +13,7 @@ struct AddTaskPriorityPicker: View {
     @Environment(\.lifeboardTokens) private var tokens
     @Binding var selectedPriority: TaskPriority
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     private let priorities: [TaskPriority] = TaskPriority.uiOrder  // [.none, .low, .high, .max]
 

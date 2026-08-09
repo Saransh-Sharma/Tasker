@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -65,7 +65,7 @@ struct HealthInsightDetailView: View {
                 } else if chartPoints.count > 1 {
                     let chart = TrendChart(
                         points: chartPoints,
-                        tint: Color(LifeBoardColorTokens.foundationSageAccent),
+                        tint: Color(SemanticColorTokens.foundationSageAccent),
                         unit: chartUnit
                     )
                     chart
@@ -73,7 +73,7 @@ struct HealthInsightDetailView: View {
                         .lifeboardChartRevealSweep(progress: chartReveal)
                     Text(chart.textEquivalent)
                         .font(.footnote)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 } else {
                     ContentUnavailableView(
                         "Not enough history yet",
@@ -87,7 +87,7 @@ struct HealthInsightDetailView: View {
             .frame(maxWidth: 680)
             .padding(20)
         }
-        .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+        .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
         .navigationTitle(domain.title)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: range) { await load() }
@@ -106,11 +106,11 @@ struct HealthInsightDetailView: View {
                 .font(.title2.weight(.semibold))
             Text(interpretationDetail)
                 .font(.body)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             if let errorCode {
                 Label("Some history could not be refreshed. Cached evidence remains below. (\(errorCode))", systemImage: "exclamationmark.triangle")
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
         }
         .padding(18)
@@ -188,7 +188,7 @@ struct HealthInsightDetailView: View {
                 Text(title).font(.body.weight(.medium))
                 Text("\(source) · \(date.formatted(date: .abbreviated, time: .shortened))")
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
             Text(value).monospacedDigit()

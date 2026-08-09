@@ -40,7 +40,7 @@ final class TypographyTokenTests: XCTestCase {
     func testTextStylesAreDynamicTypeCompatibleAndNotHelvetica() {
         let typography = Theme(index: 0).tokens.typography
 
-        let expectedStyles: [(LifeBoardTextStyle, UIFont, UIFont.TextStyle)] = [
+        let expectedStyles: [(TypographyStyle, UIFont, UIFont.TextStyle)] = [
             (.display, typography.display, .largeTitle),
             (.title1, typography.title1, .title1),
             (.title2, typography.title2, .title2),
@@ -80,8 +80,8 @@ final class TypographyTokenTests: XCTestCase {
     }
 
     func testDynamicFontPreservesLayoutClassScale() {
-        let phoneTypography = LifeBoardTypographyTokens.make(for: .phone)
-        let padTypography = LifeBoardTypographyTokens.make(for: .padExpanded)
+        let phoneTypography = SemanticTypographyTokens.make(for: .phone)
+        let padTypography = SemanticTypographyTokens.make(for: .padExpanded)
         let largeAccessibility = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
 
         XCTAssertEqual(phoneTypography.layoutScale, 1.0)
@@ -97,10 +97,10 @@ final class TypographyTokenTests: XCTestCase {
             preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge
         )
 
-        for style in LifeBoardTextStyle.allCases {
-            let phone = LifeBoardTypographyTokens.make(for: .phone)
-            let compactPad = LifeBoardTypographyTokens.make(for: .padCompact)
-            let expandedPad = LifeBoardTypographyTokens.make(for: .padExpanded)
+        for style in TypographyStyle.allCases {
+            let phone = SemanticTypographyTokens.make(for: .phone)
+            let compactPad = SemanticTypographyTokens.make(for: .padCompact)
+            let expandedPad = SemanticTypographyTokens.make(for: .padExpanded)
             let phoneBase = phone.font(for: style)
             let phoneAccessibility = phone.dynamicFont(for: style, compatibleWith: accessibilityTraits)
 

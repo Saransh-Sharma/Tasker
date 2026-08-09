@@ -10,7 +10,7 @@ struct ChatsSettingsView: View {
 
     @Binding var currentThread: Thread?
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 
@@ -112,7 +112,7 @@ struct ChatsSettingsView: View {
     }
 
     private var hapticsCard: some View {
-        LifeBoardCard {
+        SurfaceCard {
             SettingsToggleRow(
                 iconName: "waveform.path",
                 title: "Chat Haptics",

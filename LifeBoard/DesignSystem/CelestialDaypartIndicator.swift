@@ -102,12 +102,12 @@ public struct CelestialDaypartIndicator: View {
             ZStack {
                 CelestialArc()
                     .stroke(
-                        Color(LifeBoardColorTokens.foundationHairline),
+                        Color(SemanticColorTokens.foundationHairline),
                         style: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [3, 4])
                     )
                 CelestialArc(progress: progress)
                     .stroke(
-                        Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.55),
+                        Color(SemanticColorTokens.foundationApricotAccent).opacity(0.55),
                         style: StrokeStyle(lineWidth: 2, lineCap: .round)
                     )
                 celestialBody(side: side)

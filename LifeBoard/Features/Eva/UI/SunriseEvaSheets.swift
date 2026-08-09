@@ -33,7 +33,7 @@ struct EvaFocusWhySheet: View {
     @State private var showDiscardConfirmation = false
     @State private var showRefineSheet = false
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var activeTask: TaskDefinition? { draftState.activeTask }
     private var hasDraftChanges: Bool { draftState.hasUnsavedChanges(comparedTo: focusTasks) }
 
@@ -153,7 +153,7 @@ struct EvaFocusWhySheet: View {
                             } label: {
                                 Text(toastMessage)
                                     .font(.lifeboard(.caption1).weight(.semibold))
-                                    .foregroundStyle(LBColorTokens.navyMuted)
+                                    .foregroundStyle(ClayColorTokens.navyMuted)
                                     .padding(.horizontal, 14)
                                     .padding(.vertical, 10)
                                     .background(EvaClayStyle.cream, in: Capsule())
@@ -496,7 +496,7 @@ struct FocusNowHeader: View {
                 Button("Back", systemImage: "chevron.left", action: onClose)
                     .labelStyle(.iconOnly)
                     .font(.lifeboard(.caption1).weight(.bold))
-                    .foregroundStyle(LBColorTokens.navy)
+                    .foregroundStyle(ClayColorTokens.navy)
                     .frame(width: 44, height: 44)
                     .background(EvaClayStyle.cream, in: Circle())
                     .lbShadow(ShadowTokens.card)
@@ -507,13 +507,13 @@ struct FocusNowHeader: View {
 
             Text("Focus Now")
                 .font(.lifeboard(.title1).weight(.bold))
-                .foregroundStyle(LBColorTokens.navy)
+                .foregroundStyle(ClayColorTokens.navy)
                 .multilineTextAlignment(.center)
                 .padding(.top, -4)
 
             Text("Tap or swap until this set feels right.")
                 .font(.lifeboard(.callout))
-                .foregroundStyle(LBColorTokens.navyMuted)
+                .foregroundStyle(ClayColorTokens.navyMuted)
                 .multilineTextAlignment(.center)
 
             SelectedCountPill(count: selectedCount)
@@ -530,7 +530,7 @@ struct SelectedCountPill: View {
     var body: some View {
         Label("^[\(count) task](inflect: true) selected", systemImage: "checkmark.circle.fill")
             .font(.lifeboard(.caption1).weight(.semibold))
-            .foregroundStyle(LBColorTokens.navySoft)
+            .foregroundStyle(ClayColorTokens.navySoft)
             .padding(.horizontal, 14)
             .padding(.vertical, 9)
             .background(EvaClayStyle.cream, in: Capsule())
@@ -543,15 +543,15 @@ struct SelectedCountPill: View {
 
 struct FocusNowEmptyState: View {
     var body: some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.sm) {
             Text("No focus set yet")
                 .font(.lifeboard(.headline))
-                .foregroundStyle(LBColorTokens.navy)
+                .foregroundStyle(ClayColorTokens.navy)
             Text("Add one task to anchor your next focus block.")
                 .font(.lifeboard(.callout))
-                .foregroundStyle(LBColorTokens.navyMuted)
+                .foregroundStyle(ClayColorTokens.navyMuted)
         }
-        .padding(LBSpacingTokens.lg)
+        .padding(ClayLayoutMetrics.lg)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 24))
         .accessibilityIdentifier("focusNow.empty")
@@ -658,7 +658,7 @@ struct FocusTaskCard: View {
         .lbShadow(isActive ? ShadowTokens.floating : ShadowTokens.card)
         .overlay {
             RoundedRectangle(cornerRadius: 28)
-                .stroke(isSelectedForSwap ? heroImage.accentColor.opacity(0.56) : LBColorTokens.whiteStroke.opacity(0.46), lineWidth: isSelectedForSwap ? 2 : 1)
+                .stroke(isSelectedForSwap ? heroImage.accentColor.opacity(0.56) : ClayColorTokens.whiteStroke.opacity(0.46), lineWidth: isSelectedForSwap ? 2 : 1)
         }
         .accessibilityElement(children: .contain)
         .scaleEffect(isActive ? 1 : 0.992)
@@ -710,7 +710,7 @@ struct FocusTaskCardFront: View {
                     HStack {
                         Text("Tap to swap")
                             .font(.lifeboard(.caption1).weight(.semibold))
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                             .lineLimit(1)
 
                         Spacer(minLength: 8)
@@ -751,14 +751,14 @@ struct FocusTaskCardFront: View {
 
                 Text(task.title)
                     .font(.lifeboard(.headline).weight(.bold))
-                    .foregroundStyle(LBColorTokens.navy)
+                    .foregroundStyle(ClayColorTokens.navy)
                     .lineLimit(3)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityIdentifier("focusNow.card.title.\(task.id.uuidString)")
 
             Text(summaryText)
                 .font(.lifeboard(.caption1))
-                .foregroundStyle(LBColorTokens.navyMuted)
+                .foregroundStyle(ClayColorTokens.navyMuted)
                 .lineLimit(3)
                 .fixedSize(horizontal: false, vertical: true)
 
@@ -808,18 +808,18 @@ struct FocusTaskCardBack: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Ready to focus?")
                     .font(.lifeboard(.title2).weight(.bold))
-                    .foregroundStyle(LBColorTokens.navy)
+                    .foregroundStyle(ClayColorTokens.navy)
 
                 Text("Review the task or start a focused block.")
                     .font(.lifeboard(.callout))
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
             VStack(spacing: 10) {
                 Button("View details", systemImage: "doc.text.magnifyingglass", action: onViewDetails)
                     .font(.lifeboard(.bodyEmphasis))
-                    .foregroundStyle(LBColorTokens.navy)
+                    .foregroundStyle(ClayColorTokens.navy)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 50)
                     .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 16))
@@ -829,7 +829,7 @@ struct FocusTaskCardBack: View {
                     .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 52)
-                    .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 16))
+                    .background(ClayColorTokens.navy, in: RoundedRectangle(cornerRadius: 16))
                     .accessibilityIdentifier("focusNow.card.startTimer")
             }
 
@@ -865,7 +865,7 @@ struct FocusModeSegmentedControl: View {
                 } label: {
                     Label(mode.title, systemImage: mode.systemImage)
                         .font(.lifeboard(.caption1).weight(.semibold))
-                        .foregroundStyle(selectedMode == mode ? LBColorTokens.navy : LBColorTokens.navyMuted)
+                        .foregroundStyle(selectedMode == mode ? ClayColorTokens.navy : ClayColorTokens.navyMuted)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 42)
                         .background(selectedMode == mode ? EvaClayStyle.cream : Color.clear, in: Capsule())
@@ -895,20 +895,20 @@ struct CandidateSection: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text("Other great fits")
                     .font(.lifeboard(.headline))
-                    .foregroundStyle(LBColorTokens.navy)
+                    .foregroundStyle(ClayColorTokens.navy)
                 Text(selectedMode == .shuffleView ? "Fresh alternatives for your active card." : "Tap a task to swap it into your set.")
                     .font(.lifeboard(.callout))
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
             }
 
             if candidates.isEmpty {
                 VStack(alignment: .leading, spacing: 4) {
                     Text("No better fits right now")
                         .font(.lifeboard(.callout).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
                     Text("Your current set already looks focused.")
                         .font(.lifeboard(.caption1))
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                 }
                 .padding(14)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -956,11 +956,11 @@ struct CandidateTaskRow: View {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(task.title)
                             .font(.lifeboard(.callout).weight(.semibold))
-                            .foregroundStyle(LBColorTokens.navy)
+                            .foregroundStyle(ClayColorTokens.navy)
                             .lineLimit(2)
                         Text(summaryText)
                             .font(.lifeboard(.caption1))
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                             .lineLimit(2)
                     }
 
@@ -976,7 +976,7 @@ struct CandidateTaskRow: View {
             Button("Swap into Focus Now", systemImage: "arrow.triangle.2.circlepath", action: onSwapTap)
                 .labelStyle(.iconOnly)
                 .font(.lifeboard(.caption1).weight(.bold))
-                .foregroundStyle(LBColorTokens.navyMuted)
+                .foregroundStyle(ClayColorTokens.navyMuted)
                 .frame(width: 44, height: 44)
                 .background(EvaClayStyle.blueSurface.opacity(0.52), in: Circle())
                 .accessibilityLabel("Swap into Focus Now")
@@ -1013,7 +1013,7 @@ struct ShuffleAgainCard: View {
             HStack(spacing: 14) {
                 Image(systemName: "shuffle")
                     .font(.lifeboard(.callout).weight(.bold))
-                    .foregroundStyle(LBColorTokens.violetDeep)
+                    .foregroundStyle(ClayColorTokens.violetDeep)
                     .frame(width: 48, height: 48)
                     .background(EvaClayStyle.cream.opacity(0.9), in: Circle())
                     .rotationEffect(.degrees(isShuffling ? 360 : 0))
@@ -1022,10 +1022,10 @@ struct ShuffleAgainCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Shuffle Again")
                         .font(.lifeboard(.callout).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
                     Text("Fresh ideas, same Focus Now.")
                         .font(.lifeboard(.caption1))
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                 }
 
                 Spacer()
@@ -1067,7 +1067,7 @@ struct FocusBottomActions: View {
                     Image(systemName: isStarting ? "hourglass" : "play.fill")
                         .font(.lifeboard(.callout).weight(.bold))
                         .frame(width: 48, height: 48)
-                        .background(LBColorTokens.whiteStroke.opacity(0.14), in: Circle())
+                        .background(ClayColorTokens.whiteStroke.opacity(0.14), in: Circle())
 
                     VStack(alignment: .leading, spacing: 3) {
                         Text(isStarting ? "Starting..." : "Start focus")
@@ -1083,7 +1083,7 @@ struct FocusBottomActions: View {
                 .padding(.horizontal, 14)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 74)
-                .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 20))
+                .background(ClayColorTokens.navy, in: RoundedRectangle(cornerRadius: 20))
             }
             .buttonStyle(.plain)
             .disabled(!canStart || isStarting)
@@ -1102,12 +1102,12 @@ struct FocusBottomActions: View {
                             .font(.lifeboard(.bodyEmphasis))
                         Text("Adjust until it's right")
                             .font(.lifeboard(.caption1))
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                     }
 
                     Spacer(minLength: 0)
                 }
-                .foregroundStyle(LBColorTokens.navy)
+                .foregroundStyle(ClayColorTokens.navy)
                 .padding(.horizontal, 14)
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 74)
@@ -1155,10 +1155,10 @@ struct RefineFocusSheet: View {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Refine Focus Now")
                             .font(.lifeboard(.title2).weight(.bold))
-                            .foregroundStyle(LBColorTokens.navy)
+                            .foregroundStyle(ClayColorTokens.navy)
                         Text("Choose up to three tasks for this focus block.")
                             .font(.lifeboard(.callout))
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                         SelectedCountPill(count: selectedIDs.count)
                             .padding(.top, 4)
                     }
@@ -1185,7 +1185,7 @@ struct RefineFocusSheet: View {
                         dismiss()
                     }
                     .font(.lifeboard(.bodyEmphasis))
-                    .foregroundStyle(LBColorTokens.navy)
+                    .foregroundStyle(ClayColorTokens.navy)
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 54)
                     .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 18))
@@ -1200,7 +1200,7 @@ struct RefineFocusSheet: View {
                     .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                     .frame(maxWidth: .infinity)
                     .frame(minHeight: 54)
-                    .background(selectedIDs.isEmpty ? LBColorTokens.navyMuted.opacity(0.48) : LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
+                    .background(selectedIDs.isEmpty ? ClayColorTokens.navyMuted.opacity(0.48) : ClayColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
                     .disabled(selectedIDs.isEmpty)
                     .accessibilityIdentifier("focusNow.refine.done")
                 }
@@ -1246,16 +1246,16 @@ struct RefineFocusSheet: View {
             HStack(spacing: 12) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .font(.lifeboard(.callout).weight(.semibold))
-                    .foregroundStyle(isSelected ? LBColorTokens.role(.focus).deep : LBColorTokens.navyMuted)
+                    .foregroundStyle(isSelected ? ClayColorTokens.role(.focus).deep : ClayColorTokens.navyMuted)
 
                 VStack(alignment: .leading, spacing: 4) {
                     Text(task.title)
                         .font(.lifeboard(.callout).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
                         .lineLimit(2)
                     Text(insightProvider(task.id)?.rationale.first?.label ?? task.projectName ?? "Inbox")
                         .font(.lifeboard(.caption1))
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                         .lineLimit(2)
                 }
 
@@ -1301,7 +1301,7 @@ struct FocusTaskDetailSheet: View {
                 VStack(alignment: .leading, spacing: 16) {
                     Text(task.title)
                         .font(.lifeboard(.title2).weight(.bold))
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
                         .fixedSize(horizontal: false, vertical: true)
 
                     detailGrid
@@ -1309,10 +1309,10 @@ struct FocusTaskDetailSheet: View {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Why this task?")
                             .font(.lifeboard(.headline))
-                            .foregroundStyle(LBColorTokens.navy)
+                            .foregroundStyle(ClayColorTokens.navy)
                         Text(insight?.rationale.first?.label ?? "It fits your current focus set and helps keep today narrow.")
                             .font(.lifeboard(.callout))
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     .padding(14)
@@ -1322,10 +1322,10 @@ struct FocusTaskDetailSheet: View {
                         VStack(alignment: .leading, spacing: 8) {
                             Text("Notes")
                                 .font(.lifeboard(.headline))
-                                .foregroundStyle(LBColorTokens.navy)
+                                .foregroundStyle(ClayColorTokens.navy)
                             Text(details)
                                 .font(.lifeboard(.callout))
-                                .foregroundStyle(LBColorTokens.navyMuted)
+                                .foregroundStyle(ClayColorTokens.navyMuted)
                         }
                     }
                 }
@@ -1339,12 +1339,12 @@ struct FocusTaskDetailSheet: View {
                         .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 52)
-                        .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 16))
+                        .background(ClayColorTokens.navy, in: RoundedRectangle(cornerRadius: 16))
                         .accessibilityIdentifier("focusNow.taskDetail.startTimer")
 
                     Button("Swap task", systemImage: "arrow.triangle.2.circlepath", action: onSwapTask)
                         .font(.lifeboard(.bodyEmphasis))
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 52)
                         .background(EvaClayStyle.cream, in: RoundedRectangle(cornerRadius: 16))
@@ -1377,15 +1377,15 @@ struct FocusTaskDetailSheet: View {
     private func detailRow(_ title: String, value: String, systemImage: String) -> some View {
         HStack(spacing: 10) {
             Image(systemName: systemImage)
-                .foregroundStyle(LBColorTokens.navyMuted)
+                .foregroundStyle(ClayColorTokens.navyMuted)
                 .frame(width: 24)
             Text(title)
                 .font(.lifeboard(.caption1))
-                .foregroundStyle(LBColorTokens.navyMuted)
+                .foregroundStyle(ClayColorTokens.navyMuted)
             Spacer()
             Text(value)
                 .font(.lifeboard(.caption1).weight(.semibold))
-                .foregroundStyle(LBColorTokens.navy)
+                .foregroundStyle(ClayColorTokens.navy)
                 .multilineTextAlignment(.trailing)
         }
     }
@@ -1415,11 +1415,11 @@ struct FocusDurationPickerSheet: View {
             VStack(alignment: .leading, spacing: 18) {
                 Text("How long do you want to focus?")
                     .font(.lifeboard(.title2).weight(.bold))
-                    .foregroundStyle(LBColorTokens.navy)
+                    .foregroundStyle(ClayColorTokens.navy)
 
                 Text(task.title)
                     .font(.lifeboard(.callout))
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
                     .lineLimit(2)
 
                 HStack(spacing: 8) {
@@ -1429,7 +1429,7 @@ struct FocusDurationPickerSheet: View {
                             customMinutes = ""
                         }
                         .font(.lifeboard(.caption1).weight(.semibold))
-                        .foregroundStyle(selectedDurationSeconds == minutes * 60 ? Color.lifeboard(.accentOnPrimary) : LBColorTokens.navy)
+                        .foregroundStyle(selectedDurationSeconds == minutes * 60 ? Color.lifeboard(.accentOnPrimary) : ClayColorTokens.navy)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 44)
                     .background(selectedDurationSeconds == minutes * 60 ? Color.lifeboard(.actionPrimary) : EvaClayStyle.cream, in: Capsule())
@@ -1457,7 +1457,7 @@ struct FocusDurationPickerSheet: View {
                 .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                 .frame(maxWidth: .infinity)
                 .frame(minHeight: 54)
-                .background(LBColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
+                .background(ClayColorTokens.navy, in: RoundedRectangle(cornerRadius: 18))
                 .disabled(isStarting)
                 .accessibilityIdentifier("focusNow.timer.start")
             }
@@ -1564,10 +1564,10 @@ enum TaskHeroImage: String, CaseIterable, Hashable {
     var accentColor: Color {
         switch self {
         case .meditation, .greenPath: return Color(lifeboardHex: "#2F7A4D")
-        case .genericClouds: return LBColorTokens.violetDeep
+        case .genericClouds: return ClayColorTokens.violetDeep
         case .recoveryLake: return Color(lifeboardHex: "#6F57B8")
         case .sunrisePath: return Color(lifeboardHex: "#C9672B")
-        case .deskNotebook: return LBColorTokens.navySoft
+        case .deskNotebook: return ClayColorTokens.navySoft
         }
     }
 

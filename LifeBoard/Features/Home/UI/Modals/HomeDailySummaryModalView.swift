@@ -279,8 +279,8 @@ struct DailySummaryModalView: View {
                     if row.isOverdue {
                         statusBadge(
                             text: "Rescue",
-                            foreground: LBColorTokens.role(.warning).deep,
-                            background: LBColorTokens.role(.warning).softSurface
+                            foreground: ClayColorTokens.role(.warning).deep,
+                            background: ClayColorTokens.role(.warning).softSurface
                         )
                     }
                     if row.isBlocked {
@@ -295,7 +295,7 @@ struct DailySummaryModalView: View {
                     if let dueLabel = dueLabel(for: row) {
                         Text(dueLabel)
                             .font(.lifeboard(.caption2))
-                            .foregroundColor(row.isOverdue ? LBColorTokens.role(.warning).deep : Color.lifeboard.textSecondary)
+                            .foregroundColor(row.isOverdue ? ClayColorTokens.role(.warning).deep : Color.lifeboard.textSecondary)
                     }
                     if let estimatedDuration = row.estimatedDuration {
                         Text(durationLabel(seconds: estimatedDuration))

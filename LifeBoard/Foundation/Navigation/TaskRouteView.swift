@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -94,7 +94,7 @@ struct TaskRouteView: View {
                     if let receipt = store.activeReceipt {
                         HStack(spacing: 12) {
                             Image(systemName: "checkmark.circle.fill")
-                                .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+                                .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
                             Text("Task updated")
                                 .font(.subheadline.weight(.semibold))
                             Spacer()
@@ -255,14 +255,14 @@ struct TaskRouteView: View {
                     )
                     .font(.headline)
                 }
-                .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                .tint(Color(SemanticColorTokens.foundationSageAccent))
                 .accessibilityIdentifier("task.editor.completion")
                 .taskEditorSurface()
 
                 if case .failed(let message) = store.mutationState {
                     Label(message, systemImage: "exclamationmark.triangle")
                         .font(.footnote)
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationDanger))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationDanger))
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .taskEditorSurface()
                 }
@@ -271,7 +271,7 @@ struct TaskRouteView: View {
             .padding(.vertical, 16)
             .padding(.bottom, 70)
         }
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid).ignoresSafeArea())
+        .background(Color(SemanticColorTokens.foundationSurfaceSolid).ignoresSafeArea())
     }
 
     private func dateAndPlanning(editor: Bindable<TaskEditorStore>) -> some View {
@@ -329,7 +329,7 @@ struct TaskRouteView: View {
                     systemImage: "exclamationmark.triangle"
                 )
                 .font(.caption)
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationDanger))
+                .foregroundStyle(Color(SemanticColorTokens.foundationDanger))
                 .accessibilityIdentifier("task.editor.schedule-error")
             }
         }

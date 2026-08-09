@@ -14,19 +14,19 @@ struct EmptyState: View {
 
     var body: some View {
         GlassCard(cornerRadius: RadiusTokens.largeCard) {
-            VStack(spacing: LBSpacingTokens.md) {
+            VStack(spacing: ClayLayoutMetrics.md) {
                 IconBadge(systemName: model.systemImage, role: .assistant, size: 52)
                 Text(model.title)
-                    .font(LBTypographyTokens.sectionTitle)
-                    .foregroundStyle(LBColorTokens.navy)
+                    .font(ClayTypography.sectionTitle)
+                    .foregroundStyle(ClayColorTokens.navy)
                     .multilineTextAlignment(.center)
                 Text(model.message)
-                    .font(LBTypographyTokens.body)
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .font(ClayTypography.body)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
                     .multilineTextAlignment(.center)
                 PrimaryButton(title: model.actionTitle, systemImage: model.actionSystemImage, action: action)
             }
-            .padding(LBSpacingTokens.xl)
+            .padding(ClayLayoutMetrics.xl)
             .frame(maxWidth: .infinity)
         }
     }

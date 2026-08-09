@@ -176,7 +176,7 @@ public struct ArcDial: View {
     private func track(lineWidth: CGFloat) -> some View {
         arcShape(to: 1)
             .stroke(
-                Color(LifeBoardColorTokens.foundationHairline),
+                Color(SemanticColorTokens.foundationHairline),
                 style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
             )
     }
@@ -184,7 +184,7 @@ public struct ArcDial: View {
     private func fill(lineWidth: CGFloat) -> some View {
         arcShape(to: progress)
             .stroke(
-                Color(LifeBoardColorTokens.foundationApricotAccent),
+                Color(SemanticColorTokens.foundationApricotAccent),
                 style: StrokeStyle(lineWidth: lineWidth, lineCap: .round)
             )
             .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: progress)
@@ -198,8 +198,8 @@ public struct ArcDial: View {
         let angle = Angle(degrees: ArcDialGeometry.angle(forProgress: progress) - 90)
         let radius = side / 2 - side * 0.05
         return Circle()
-            .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
-            .overlay { Circle().stroke(Color(LifeBoardColorTokens.foundationApricotAccent), lineWidth: 2) }
+            .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
+            .overlay { Circle().stroke(Color(SemanticColorTokens.foundationApricotAccent), lineWidth: 2) }
             .frame(width: side * 0.14, height: side * 0.14)
             .offset(x: radius * cos(angle.radians), y: radius * sin(angle.radians))
             .animation(reduceMotion ? nil : LifeBoardAnimation.directManipulation, value: progress)
@@ -212,7 +212,7 @@ public struct ArcDial: View {
                 .monospacedDigit()
             Text(title)
                 .font(.caption)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
     }
 }

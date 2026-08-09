@@ -67,7 +67,7 @@ struct HealthHubView: View {
         .onChange(of: store.lastSuccessfulSync) { oldValue, newValue in
             guard newValue != nil, newValue != oldValue else { return }
             healthSyncPulseTrigger &+= 1
-            LifeBoardFeedback.success()
+            HapticFeedback.success()
         }
         .onChange(of: store.aggregates[.water]?.value) { _, newValue in
             guard let newValue, newValue >= 2_000,
@@ -75,7 +75,7 @@ struct HealthHubView: View {
                 return
             }
             vitalOrbWarpTrigger &+= 1
-            LifeBoardFeedback.success()
+            HapticFeedback.success()
         }
         .sheet(item: $educationDomain) { domain in
             HealthConnectPromptSheet(
@@ -425,7 +425,7 @@ struct HealthConnectPromptSheet: View {
         .presentationDetents([.medium, .large])
         .presentationDragIndicator(.visible)
         .onAppear {
-            LifeBoardFeedback.light()
+            HapticFeedback.light()
             if reduceMotion == false { pulseTrigger &+= 1 }
         }
     }
@@ -496,7 +496,7 @@ struct HealthConnectPromptSheet: View {
     private var actions: some View {
         VStack(spacing: 10) {
             Button {
-                LifeBoardFeedback.success()
+                HapticFeedback.success()
                 onConnect(selectedWritableDomains)
             } label: {
                 Text("Connect Apple Health")

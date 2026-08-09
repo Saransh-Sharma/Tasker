@@ -22,7 +22,7 @@ struct HomeEvaChatTopChromeView: View {
         self.onNewChat = onNewChat
     }
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         HStack(alignment: .center, spacing: spacing.s12) {

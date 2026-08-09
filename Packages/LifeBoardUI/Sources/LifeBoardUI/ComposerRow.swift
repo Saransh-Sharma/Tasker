@@ -41,18 +41,18 @@ public struct ComposerRow<Trailing: View>: View {
                 if let systemImage {
                     Image(systemName: systemImage)
                         .font(.lifeboard(.support))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                         .frame(width: 20)
                         .accessibilityHidden(true)
                 }
                 VStack(alignment: .leading, spacing: 2) {
                     Text(label)
                         .font(.lifeboard(.body))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                     if let detail {
                         Text(detail)
                             .font(.lifeboard(.meta))
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }

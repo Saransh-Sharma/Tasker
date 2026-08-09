@@ -93,7 +93,7 @@ struct PromptMiddleware {
 
     /// Executes fetchAllTasks.
     private static func fetchAllTasks() async -> [TaskDefinition] {
-        guard let repository = LLMContextRepositoryProvider.taskReadModelRepository else {
+        guard let repository = LLMContextRepositoryFactory.taskReadModelRepository else {
             return []
         }
 

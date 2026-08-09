@@ -12,7 +12,7 @@ struct EvaAboutYouView: View {
     @State private var isMomentumNoteExpanded = false
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 

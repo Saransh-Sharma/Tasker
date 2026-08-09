@@ -18,7 +18,7 @@ public struct BadgeDetailSheet: View {
         self.progressState = progressState
     }
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     public var body: some View {
         VStack(spacing: spacing.s16) {

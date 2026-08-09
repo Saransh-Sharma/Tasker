@@ -1,4 +1,5 @@
 import Foundation
+import LifeBoardPersistence
 
 public enum LLMChatPrewarmMode: String, CaseIterable {
     case disabled
@@ -625,8 +626,8 @@ public enum V2FeatureFlags {
     }
 
     public static var iPadPerfCoreDataMappingSnapshotV3Enabled: Bool {
-        get { defaults.object(forKey: "feature.ipad.perf.coredata_mapping_snapshot_v3") as? Bool ?? true }
-        set { defaults.set(newValue, forKey: "feature.ipad.perf.coredata_mapping_snapshot_v3") }
+        get { CoreDataTaskMappingConfiguration.isSnapshotMappingEnabled }
+        set { CoreDataTaskMappingConfiguration.isSnapshotMappingEnabled = newValue }
     }
 
     // MARK: - Gamification v2

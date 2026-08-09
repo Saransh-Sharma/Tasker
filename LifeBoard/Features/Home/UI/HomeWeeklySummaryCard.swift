@@ -8,7 +8,7 @@ struct HomeWeeklySummaryCard: View {
     let onPrimaryAction: () -> Void
     let onRetryAction: () -> Void
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     private var titleText: String {
         guard let summary else { return "Weekly planning" }

@@ -160,7 +160,7 @@ struct TimelineCompactAnchorRow: View {
                     .frame(width: 10, height: 10)
                     .overlay {
                         Circle()
-                            .stroke(LBColorTokens.whiteStroke.opacity(0.72), lineWidth: 2)
+                            .stroke(ClayColorTokens.whiteStroke.opacity(0.72), lineWidth: 2)
                     }
                     .frame(width: metrics.compactLaneWidth)
                     .accessibilityHidden(true)
@@ -312,7 +312,7 @@ struct TimelineCompactGapRow: View {
                     .frame(width: metrics.compactTimeToLaneGap)
 
                 Image(systemName: gap.emphasis == .quietWindow ? "moon.zzz" : "clock")
-                    .font(LBTypographyTokens.meta)
+                    .font(ClayTypography.meta)
                     .foregroundStyle(TimelineVisualTokens.utilityText)
                     .frame(width: metrics.compactLaneWidth)
                     .accessibilityHidden(true)

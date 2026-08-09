@@ -21,7 +21,7 @@ struct RecoveryCenterView: View {
     @State private var runningRecovery: RecoveryStatus.Recovery?
     @State private var lastOutcome: String?
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 
@@ -40,7 +40,7 @@ struct RecoveryCenterView: View {
                 if let lastOutcome {
                     Text(lastOutcome)
                         .font(.footnote)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .accessibilityAddTraits(.updatesFrequently)
                         .padding(.top, 4)
                 }
@@ -59,10 +59,10 @@ struct RecoveryCenterView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text(status.headline)
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             Text("Checked \(status.generatedAt.formatted(date: .omitted, time: .shortened))")
                 .font(.footnote)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
@@ -77,10 +77,10 @@ struct RecoveryCenterView: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(area.title)
                         .font(.body.weight(.medium))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                     Text(area.detail)
                         .font(.subheadline)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer(minLength: 0)
@@ -139,7 +139,7 @@ struct RecoveryCenterView: View {
     private func tint(for health: RecoveryStatus.Health) -> Color {
         switch health {
         case .healthy: return Color.lifeboard.statusSuccess
-        case .working: return Color(LifeBoardColorTokens.inkSecondary)
+        case .working: return Color(SemanticColorTokens.inkSecondary)
         case .attention: return Color.lifeboard.statusWarning
         case .unavailable: return Color.lifeboard.statusWarning
         }

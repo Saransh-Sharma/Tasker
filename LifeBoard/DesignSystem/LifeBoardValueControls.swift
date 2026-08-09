@@ -59,7 +59,7 @@ public struct OptionRail<Value: Hashable>: View {
             if showsLabel {
                 Text(label)
                     .font(.lifeboard(.meta))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             rail
         }
@@ -111,13 +111,13 @@ public struct OptionRail<Value: Hashable>: View {
                 if let detail {
                     Text(detail(value))
                         .font(.lifeboard(.caption2))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
             }
             .foregroundStyle(
                 Color(isSelected
-                    ? LifeBoardColorTokens.inkPrimary
-                    : LifeBoardColorTokens.inkSecondary)
+                    ? SemanticColorTokens.inkPrimary
+                    : SemanticColorTokens.inkSecondary)
             )
             .lineLimit(2)
             .multilineTextAlignment(.leading)
@@ -274,12 +274,12 @@ public struct BeadStepper: View {
             HStack {
                 Text(label)
                     .font(.lifeboard(.meta))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 Spacer(minLength: 8)
                 if let caption {
                     Text(caption(value))
                         .font(.lifeboard(.meta))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 }
             }
             GeometryReader { proxy in
@@ -313,14 +313,14 @@ public struct BeadStepper: View {
         return ZStack {
             Circle()
                 .fill(Color(filled
-                    ? LifeBoardColorTokens.foundationApricotAccent
-                    : LifeBoardColorTokens.foundationSurfaceSolid))
+                    ? SemanticColorTokens.foundationApricotAccent
+                    : SemanticColorTokens.foundationSurfaceSolid))
             if let beadSymbol {
                 Image(systemName: beadSymbol)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color(filled
-                        ? LifeBoardColorTokens.foundationOnCelestialAccent
-                        : LifeBoardColorTokens.inkTertiary))
+                        ? SemanticColorTokens.foundationOnCelestialAccent
+                        : SemanticColorTokens.inkTertiary))
             }
         }
         .frame(maxWidth: .infinity)
@@ -330,7 +330,7 @@ public struct BeadStepper: View {
             // answer is legible with no colour at all.
             if step == value {
                 Capsule()
-                    .stroke(Color(LifeBoardColorTokens.inkPrimary), lineWidth: 2)
+                    .stroke(Color(SemanticColorTokens.inkPrimary), lineWidth: 2)
             }
         }
         .clipShape(Capsule())
@@ -413,7 +413,7 @@ public struct ComposerDial: View {
                 nudge(-step, systemImage: "minus", label: "Decrease \(label)")
                 Text(label)
                     .font(.lifeboard(.meta))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .frame(maxWidth: .infinity)
                     .accessibilityHidden(true)
                 nudge(step, systemImage: "plus", label: "Increase \(label)")
@@ -432,7 +432,7 @@ public struct ComposerDial: View {
         } label: {
             Image(systemName: systemImage)
                 .font(.lifeboard(.bodyStrong))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .frame(width: 44, height: 44)
                 .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
                 .contentShape(Circle())
@@ -625,7 +625,7 @@ public struct ValueDrum: View {
             .multilineTextAlignment(.center)
             .keyboardType(.decimalPad)
             .focused($isTyping)
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             .frame(maxWidth: .infinity)
             .frame(minHeight: 52)
             .modifier(FieldIdentity(identifier: identifier))
@@ -633,7 +633,7 @@ public struct ValueDrum: View {
 
             Text(unit)
                 .font(.lifeboard(.meta))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
     }
 
@@ -684,7 +684,7 @@ public struct ValueDrum: View {
     private var centreIndicator: some View {
         VStack(spacing: 0) {
             Capsule()
-                .fill(Color(LifeBoardColorTokens.foundationApricotAccent))
+                .fill(Color(SemanticColorTokens.foundationApricotAccent))
                 .frame(width: 2.5, height: 30)
             Spacer(minLength: 0)
         }
@@ -784,8 +784,8 @@ private struct ValueDrumTape: View {
                     )),
                     with: .color(
                         Color(isCoarse
-                            ? LifeBoardColorTokens.inkSecondary
-                            : LifeBoardColorTokens.inkTertiary)
+                            ? SemanticColorTokens.inkSecondary
+                            : SemanticColorTokens.inkTertiary)
                         .opacity(falloff)
                     )
                 )
@@ -793,7 +793,7 @@ private struct ValueDrumTape: View {
                 if isCoarse {
                     let text = Text(tick.formatted(.number.precision(.fractionLength(0))))
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary).opacity(falloff))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary).opacity(falloff))
                     context.draw(text, at: CGPoint(x: x, y: size.height / 2 + 22))
                 }
             }

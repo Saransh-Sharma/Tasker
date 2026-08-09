@@ -35,7 +35,7 @@ public struct UrgencyBadge: View {
     let level: UrgencyLevel
     var isCompact: Bool = false
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     public var body: some View {
         switch level {
@@ -43,8 +43,8 @@ public struct UrgencyBadge: View {
             badgeContent(
                 icon: "lifepreserver",
                 text: "Rescue",
-                backgroundColor: LBColorTokens.role(.warning).softSurface,
-                foregroundColor: LBColorTokens.role(.warning).deep
+                backgroundColor: ClayColorTokens.role(.warning).softSurface,
+                foregroundColor: ClayColorTokens.role(.warning).deep
             )
         case .dueSoon:
             badgeContent(

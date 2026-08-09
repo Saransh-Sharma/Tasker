@@ -4,11 +4,11 @@ struct HomeBackToTodayButtonView: View {
     @Environment(\.lifeboardTokens) private var tokens
     let action: () -> Void
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         } label: {
             HStack(spacing: spacing.s4) {

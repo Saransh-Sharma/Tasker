@@ -59,14 +59,14 @@ struct PlanWeekSection: View {
             HStack(alignment: .top, spacing: 14) {
                 Image(systemName: "calendar.badge.checkmark")
                     .font(.title2)
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                     .frame(width: 34)
                 VStack(alignment: .leading, spacing: 4) {
                     Text("Shape the week")
                         .font(.headline)
                     Text("Set outcomes and a minimum viable week, then review unfinished work without losing this seven-day capacity view.")
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             }
             HStack(spacing: 10) {
@@ -105,7 +105,7 @@ struct PlanWeekSection: View {
                     Text("\(day.deadlineCount) due")
                 }
                 .font(.caption)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .frame(maxWidth: .infinity, minHeight: 116, alignment: .topLeading)
             .foundationClayCard()
@@ -132,7 +132,7 @@ struct PlanWeekSection: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(task.title).font(.body.weight(.medium))
                     Text(task.metadata.planningDay.map(PlanSectionCopy.shortDayTitle) ?? "No day")
-                        .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(Rectangle())

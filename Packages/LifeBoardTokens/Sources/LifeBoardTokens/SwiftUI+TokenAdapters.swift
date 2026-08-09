@@ -50,7 +50,7 @@ public struct SwiftUIColorTokens {
     public let priorityNone: Color
 
     /// Initializes a new instance.
-    public init(_ ui: LifeBoardColorTokens) {
+    public init(_ ui: SemanticColorTokens) {
         self.bgCanvas = Color(uiColor: ui.bgCanvas)
         self.bgCanvasSecondary = Color(uiColor: ui.bgCanvasSecondary)
         self.bgElevated = Color(uiColor: ui.bgElevated)
@@ -108,7 +108,7 @@ public enum SwiftUITokens {
         color(for: .phone, traits: .unspecified)
     }
 
-    public static var spacing: LifeBoardSpacingTokens {
+    public static var spacing: SemanticSpacingTokens {
         ThemeStore.shared.tokens(for: .phone, traits: .unspecified).spacing
     }
 
@@ -116,7 +116,7 @@ public enum SwiftUITokens {
         ThemeStore.shared.tokens(for: .phone, traits: .unspecified).corner
     }
 
-    public static var typography: LifeBoardTypographyTokens {
+    public static var typography: SemanticTypographyTokens {
         ThemeStore.shared.tokens(for: .phone, traits: .unspecified).typography
     }
 
@@ -147,14 +147,14 @@ public enum SwiftUITokens {
         return resolved
     }
 
-    public static func spacing(for layoutClass: LayoutClass) -> LifeBoardSpacingTokens {
+    public static func spacing(for layoutClass: LayoutClass) -> SemanticSpacingTokens {
         spacing(for: layoutClass, traits: .unspecified)
     }
 
     public static func spacing(
         for layoutClass: LayoutClass,
         traits: TokenTraitContext
-    ) -> LifeBoardSpacingTokens {
+    ) -> SemanticSpacingTokens {
         ThemeStore.tokens(for: layoutClass, traits: traits).spacing
     }
 
@@ -169,14 +169,14 @@ public enum SwiftUITokens {
         ThemeStore.tokens(for: layoutClass, traits: traits).corner
     }
 
-    public static func typography(for layoutClass: LayoutClass) -> LifeBoardTypographyTokens {
+    public static func typography(for layoutClass: LayoutClass) -> SemanticTypographyTokens {
         typography(for: layoutClass, traits: .unspecified)
     }
 
     public static func typography(
         for layoutClass: LayoutClass,
         traits: TokenTraitContext
-    ) -> LifeBoardTypographyTokens {
+    ) -> SemanticTypographyTokens {
         ThemeStore.tokens(for: layoutClass, traits: traits).typography
     }
 
@@ -349,7 +349,7 @@ public extension View {
 @MainActor
 public extension Font {
     /// Executes lifeboard.
-    static func lifeboard(_ style: LifeBoardTextStyle) -> Font {
+    static func lifeboard(_ style: TypographyStyle) -> Font {
         Font(SwiftUITokens.typography.font(for: style))
     }
 }
@@ -360,7 +360,7 @@ private struct FontModifier: ViewModifier {
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @Environment(\.legibilityWeight) private var legibilityWeight
     @Environment(\.lifeboardLayoutClass) private var layoutClass
-    let style: LifeBoardTextStyle
+    let style: TypographyStyle
 
     @MainActor
     @ViewBuilder
@@ -394,7 +394,7 @@ private struct FontModifier: ViewModifier {
 
 @MainActor
 public extension View {
-    func lifeboardFont(_ style: LifeBoardTextStyle) -> some View {
+    func lifeboardFont(_ style: TypographyStyle) -> some View {
         modifier(FontModifier(style: style))
     }
 }
@@ -496,7 +496,7 @@ private struct PremiumSurfaceModifier: ViewModifier {
                     .fill(
                         LinearGradient(
                             colors: [
-                                Color(LifeBoardColorTokens.clayHighlight).opacity(0.38),
+                                Color(SemanticColorTokens.clayHighlight).opacity(0.38),
                                 .clear
                             ],
                             startPoint: .top,
@@ -718,7 +718,7 @@ private struct ReadableContentModifier: ViewModifier {
     }
 }
 
-public struct LifeBoardTextFieldStyle: TextFieldStyle {
+public struct TokenTextFieldStyle: TextFieldStyle {
     public var isFocused: Bool
 
     /// Initializes a new instance.
@@ -835,7 +835,7 @@ public struct Chip: View {
     }
 }
 
-public struct LifeBoardCard<Content: View>: View {
+public struct SurfaceCard<Content: View>: View {
     public var active: Bool
     public var elevated: Bool
     private let content: Content

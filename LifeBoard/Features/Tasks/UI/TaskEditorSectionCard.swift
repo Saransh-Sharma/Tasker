@@ -45,7 +45,7 @@ struct TaskEditorSectionCard<Content: View>: View {
         self.content = content()
     }
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {

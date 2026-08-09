@@ -18,8 +18,8 @@ public struct FocusTimerView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardTokens) private var tokens
 
-    private let focusStyle = LBColorTokens.role(.focus)
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private let focusStyle = ClayColorTokens.role(.focus)
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     private var remainingSeconds: Int {
         max(0, targetDurationSeconds - elapsedSeconds)
@@ -43,10 +43,10 @@ public struct FocusTimerView: View {
                 Button("Close", systemImage: "xmark", action: onCancel)
                     .labelStyle(.iconOnly)
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
                     .frame(width: 44, height: 44)
-                    .background(LBColorTokens.glassStrong, in: Circle())
-                    .overlay(Circle().stroke(LBColorTokens.glassBorder, lineWidth: 1))
+                    .background(ClayColorTokens.glassStrong, in: Circle())
+                    .overlay(Circle().stroke(ClayColorTokens.glassBorder, lineWidth: 1))
                 .accessibilityLabel("Close")
             }
             .padding(.horizontal, spacing.screenHorizontal)
@@ -69,12 +69,12 @@ public struct FocusTimerView: View {
                 VStack(spacing: 8) {
                     Text(timeString)
                         .font(.system(.largeTitle, design: .rounded).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
                         .monospacedDigit()
                     Text(isRunning ? "Protected focus" : "Paused")
                         .font(.lifeboard(.callout))
                         .fontDesign(.rounded)
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                 }
             }
             .frame(width: 248, height: 248)
@@ -87,7 +87,7 @@ public struct FocusTimerView: View {
                     Text(title)
                         .font(.lifeboard(.headline))
                         .fontDesign(.rounded)
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
                         .lineLimit(3)
                         .multilineTextAlignment(.center)
 
@@ -95,7 +95,7 @@ public struct FocusTimerView: View {
                         Text(priority)
                             .font(.lifeboard(.caption1))
                             .fontDesign(.rounded)
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                     }
                 }
                 .padding(.horizontal, spacing.screenHorizontal)
@@ -111,7 +111,7 @@ public struct FocusTimerView: View {
                 .fontDesign(.rounded)
                 .foregroundStyle(focusStyle.deep)
                 .frame(maxWidth: .infinity, minHeight: 48)
-                .background(LBColorTokens.glassStrong, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .background(ClayColorTokens.glassStrong, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(focusStyle.border, lineWidth: 1))
 
                 Button("Finish focus", systemImage: "checkmark") {
@@ -122,7 +122,7 @@ public struct FocusTimerView: View {
                 .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                 .frame(maxWidth: .infinity, minHeight: 50)
                 .background(
-                    LinearGradient(colors: LBColorTokens.actionGradient(for: .focus), startPoint: .topLeading, endPoint: .bottomTrailing),
+                    LinearGradient(colors: ClayColorTokens.actionGradient(for: .focus), startPoint: .topLeading, endPoint: .bottomTrailing),
                     in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                 )
             }
@@ -131,7 +131,7 @@ public struct FocusTimerView: View {
         }
         .background(
             LinearGradient(
-                colors: [LBColorTokens.coolCanvas, focusStyle.softSurface.opacity(0.64), LBColorTokens.canvas],
+                colors: [ClayColorTokens.coolCanvas, focusStyle.softSurface.opacity(0.64), ClayColorTokens.canvas],
                 startPoint: .top,
                 endPoint: .bottom
             )
@@ -151,7 +151,7 @@ public struct FocusTimerView: View {
             Task { @MainActor in
                 elapsedSeconds += 1
                 if elapsedSeconds >= targetDurationSeconds {
-                    LifeBoardFeedback.success()
+                    HapticFeedback.success()
                     completeIfNeeded()
                 }
             }

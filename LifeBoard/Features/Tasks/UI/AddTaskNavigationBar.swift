@@ -15,7 +15,7 @@ struct AddTaskNavigationBar: View {
     let onCancel: () -> Void
     let onSave: () -> Void
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         HStack {
@@ -39,7 +39,7 @@ struct AddTaskNavigationBar: View {
 
             Button {
                 if canSave {
-                    LifeBoardFeedback.medium()
+                    HapticFeedback.medium()
                     onSave()
                 }
             } label: {

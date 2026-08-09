@@ -32,15 +32,15 @@ struct RecurringTaskDeleteConfirmationView: View {
             ZStack {
                 Color.lifeboard.bgCanvas.ignoresSafeArea()
 
-                VStack(alignment: .leading, spacing: LBSpacingTokens.lg) {
+                VStack(alignment: .leading, spacing: ClayLayoutMetrics.lg) {
                     header
 
                     GlassCard(
                         cornerRadius: RadiusTokens.largeCard,
-                        fill: reduceTransparency ? Color.lifeboard.surfacePrimary : LBColorTokens.glassStrong.opacity(0.86),
+                        fill: reduceTransparency ? Color.lifeboard.surfacePrimary : ClayColorTokens.glassStrong.opacity(0.86),
                         usesMaterialBackground: reduceTransparency == false
                     ) {
-                        VStack(spacing: LBSpacingTokens.sm) {
+                        VStack(spacing: ClayLayoutMetrics.sm) {
                             destructiveAction(
                                 title: "Delete This Task",
                                 systemImage: "calendar.badge.minus",
@@ -58,7 +58,7 @@ struct RecurringTaskDeleteConfirmationView: View {
                                 action: onDeleteSeries
                             )
                         }
-                        .padding(LBSpacingTokens.md)
+                        .padding(ClayLayoutMetrics.md)
                     }
 
                     Button("Cancel") {
@@ -71,7 +71,7 @@ struct RecurringTaskDeleteConfirmationView: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("home.recurringTaskDelete.cancel")
                 }
-                .padding(LBSpacingTokens.lg)
+                .padding(ClayLayoutMetrics.lg)
                 .frame(maxWidth: 560)
             }
             .toolbar {
@@ -87,7 +87,7 @@ struct RecurringTaskDeleteConfirmationView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.xs) {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.xs) {
             Text("Delete recurring task?")
                 .font(.lifeboard(.title3))
                 .foregroundColor(Color.lifeboard.textPrimary)
@@ -105,7 +105,7 @@ struct RecurringTaskDeleteConfirmationView: View {
             dismiss()
             action()
         } label: {
-            HStack(spacing: LBSpacingTokens.sm) {
+            HStack(spacing: ClayLayoutMetrics.sm) {
                 Image(systemName: systemImage)
                     .font(.system(size: 18, weight: .semibold))
                     .frame(width: 28, height: 28)

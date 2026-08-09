@@ -16,7 +16,7 @@ struct PlanCapacityCard: View {
                         .font(.headline)
                     Text(PlanSectionCopy.loadLabel(capacity))
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 Spacer()
                 NumericRoll(
@@ -49,7 +49,7 @@ struct PlanCapacityCard: View {
                 }
             }
             .font(.caption)
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
         .foundationClayCard()
         .accessibilityIdentifier("plan.capacity")

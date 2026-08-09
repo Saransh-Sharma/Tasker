@@ -19,7 +19,7 @@ struct AddTaskTypeChips: View {
     @Environment(\.lifeboardTokens) private var tokens
     @Binding var selectedType: TaskType
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     private let types: [(type: TaskType, icon: String, label: String)] = [
         (.morning, "sun.max", "Morning"),
@@ -64,7 +64,7 @@ struct ComposerOptionGrid<ID: Hashable>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var corner: CornerTokens { tokens.corner }
     private var columns: [GridItem] {
         [GridItem(.adaptive(minimum: dynamicTypeSize.isAccessibilitySize ? 168 : 128), spacing: spacing.s8, alignment: .leading)]
@@ -130,7 +130,7 @@ struct ComposerOptionGrid<ID: Hashable>: View {
         let hasAccent = HexColor.normalized(accentHex) != nil
         let accentColor = HexColor.color(accentHex, fallback: Color.lifeboard.accentPrimary)
         return Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         } label: {
             HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
@@ -196,12 +196,12 @@ struct ComposerDisclosureRow: View {
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var corner: CornerTokens { tokens.corner }
 
     var body: some View {
         Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         } label: {
             HStack(alignment: .top, spacing: spacing.s12) {

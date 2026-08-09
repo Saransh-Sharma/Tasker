@@ -7,7 +7,7 @@ struct QuietHoursCard: View {
     private var isEnabled: Bool { viewModel.preferences.quietHoursEnabled }
 
     var body: some View {
-        LifeBoardCard {
+        SurfaceCard {
             VStack(spacing: SwiftUITokens.spacing.s16) {
                 // Header toggle row
                 HStack(spacing: SwiftUITokens.spacing.s12) {

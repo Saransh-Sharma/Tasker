@@ -1,6 +1,6 @@
 import Foundation
 
-public struct LifeBoardProjectSection: Codable, Equatable, Hashable, Sendable {
+public struct ProjectSectionDefinition: Codable, Equatable, Hashable, Sendable {
     public let id: UUID
     public var projectID: UUID
     public var name: String
@@ -29,4 +29,4 @@ public struct LifeBoardProjectSection: Codable, Equatable, Hashable, Sendable {
     }
 }
 
-public typealias TaskerProjectSection = LifeBoardProjectSection
+public typealias TaskerProjectSection = ProjectSectionDefinition

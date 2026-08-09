@@ -7,7 +7,7 @@ struct LifeManagementProjectIconPicker: View {
     @Environment(\.lifeboardTokens) private var tokens
     @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         LazyVGrid(

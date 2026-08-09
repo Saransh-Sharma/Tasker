@@ -11,7 +11,7 @@ struct InsightsInterpretationSurface: View {
         VStack(alignment: .leading, spacing: 12) {
             Label("What changed", systemImage: "sparkles")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             Text(interpretation.claim)
                 .font(.system(.title2, design: .rounded, weight: .bold))
             Text(interpretation.recommendedAction)

@@ -22,7 +22,7 @@ enum HomeTimelineColumnLayout {
     static func bottomContentClearance(
         taskListBottomInset: CGFloat,
         layoutClass: LayoutClass,
-        spacing: LifeBoardSpacingTokens
+        spacing: SemanticSpacingTokens
     ) -> CGFloat {
         guard layoutClass == .phone else {
             return taskListBottomInset

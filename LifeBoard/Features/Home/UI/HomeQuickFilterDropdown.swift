@@ -30,7 +30,7 @@ public struct HomeQuickFilterDropdown: View {
 
     // MARK: - Tokens
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     // MARK: - Initialization
@@ -396,7 +396,7 @@ public struct HomeQuickFilterDropdown: View {
 
     /// Executes provideHapticFeedback.
     private func provideHapticFeedback() {
-        LifeBoardFeedback.light()
+        HapticFeedback.light()
     }
 
     /// Executes dismissWithAnimation.

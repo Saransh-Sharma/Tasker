@@ -117,7 +117,7 @@ struct ScheduleScreen: View {
                 }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
-                .presentationBackground(LBColorTokens.canvas)
+                .presentationBackground(ClayColorTokens.canvas)
             case .chooser:
                 EventKitCalendarChooserSheet(
                     service: service,
@@ -132,7 +132,7 @@ struct ScheduleScreen: View {
                 )
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
-                .presentationBackground(LBColorTokens.canvas)
+                .presentationBackground(ClayColorTokens.canvas)
             }
         }
     }
@@ -140,7 +140,7 @@ struct ScheduleScreen: View {
     private var screenBody: some View {
         GeometryReader { proxy in
             ZStack(alignment: .top) {
-                LBColorTokens.canvas
+                ClayColorTokens.canvas
                     .ignoresSafeArea()
 
                 ScrollView {
@@ -151,7 +151,7 @@ struct ScheduleScreen: View {
                             .transition(daySwipeTransition)
                             .animation(daySwipeAnimation, value: selectedDayKey)
                             .padding(.top, contentTopGap)
-                            .padding(.bottom, bottomInset + LBSpacingTokens.bottomDockClearance)
+                            .padding(.bottom, bottomInset + ClayLayoutMetrics.bottomDockClearance)
                     }
                     .contentShape(Rectangle())
                     .background {
@@ -285,11 +285,11 @@ struct ScheduleScreen: View {
     }
 
     private var content: some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
             segmentControl
             scheduleContent(presentation: schedulePresentation)
         }
-        .padding(.horizontal, LBSpacingTokens.screenMargin)
+        .padding(.horizontal, ClayLayoutMetrics.screenMargin)
     }
 
     private func header(safeAreaTop: CGFloat) -> some View {
@@ -324,7 +324,7 @@ struct ScheduleScreen: View {
     }
 
     private var segmentControl: some View {
-        HStack(spacing: LBSpacingTokens.xs) {
+        HStack(spacing: ClayLayoutMetrics.xs) {
             ForEach(CalendarScheduleTab.allCases) { tab in
                 scheduleSegmentButton(for: tab)
             }
@@ -333,8 +333,8 @@ struct ScheduleScreen: View {
         .background {
             clearRoundedRectangleSurface(
                 cornerRadius: 22,
-                fill: LBColorTokens.glass.opacity(0.56),
-                stroke: LBColorTokens.glassBorder
+                fill: ClayColorTokens.glass.opacity(0.56),
+                stroke: ClayColorTokens.glassBorder
             )
         }
         .accessibilityIdentifier("schedule.segmented")
@@ -343,7 +343,7 @@ struct ScheduleScreen: View {
     private func scheduleSegmentButton(for tab: CalendarScheduleTab) -> some View {
         let isSelected = selectedTab == tab
         return Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             withAnimation(.spring(response: 0.34, dampingFraction: 0.88)) {
                 selectedTab = tab
                 if tab == .week {
@@ -358,15 +358,15 @@ struct ScheduleScreen: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.82)
             }
-            .font(LBTypographyTokens.chip)
-            .foregroundStyle(isSelected ? Color.lifeboard(.accentOnPrimary) : LBColorTokens.navy)
+            .font(ClayTypography.chip)
+            .foregroundStyle(isSelected ? Color.lifeboard(.accentOnPrimary) : ClayColorTokens.navy)
             .frame(maxWidth: .infinity, minHeight: 44)
             .background {
                 if isSelected {
                     clearRoundedRectangleSurface(
                         cornerRadius: 18,
-                        fill: LBColorTokens.violetFill.opacity(0.58),
-                        stroke: LBColorTokens.violet.opacity(0.36)
+                        fill: ClayColorTokens.violetFill.opacity(0.58),
+                        stroke: ClayColorTokens.violet.opacity(0.36)
                     )
                 }
             }
@@ -384,13 +384,13 @@ struct ScheduleScreen: View {
                 .fill(.clear)
                 .lifeBoardSystemGlass(.regular, in: shape)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
+                .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         } else {
             shape
                 .fill(.ultraThinMaterial)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay.opacity(0.8)) }
+                .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }
@@ -400,12 +400,12 @@ struct ScheduleScreen: View {
         if service.snapshot.authorizationStatus.isAuthorizedForRead == false {
             permissionRequiredView
         } else if isInitialLoadingStateVisible {
-            GlassCard(cornerRadius: RadiusTokens.largeCard, fill: LBColorTokens.glassStrong.opacity(0.82)) {
-                VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+            GlassCard(cornerRadius: RadiusTokens.largeCard, fill: ClayColorTokens.glassStrong.opacity(0.82)) {
+                VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
                     SectionHeader(title: "Loading schedule", systemImage: "calendar.badge.clock")
                     LoadingSkeleton(lineCount: 4)
                 }
-                .padding(LBSpacingTokens.lg)
+                .padding(ClayLayoutMetrics.lg)
             }
             .accessibilityIdentifier("schedule.loading.initial")
         } else if let error = service.snapshot.errorMessage, !error.isEmpty {
@@ -461,7 +461,7 @@ struct ScheduleScreen: View {
     }
 
     private func todayContent(events: [CalendarEventSnapshot]) -> some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
             nextUpCard
             timelineSection(
                 date: selectedDate,
@@ -480,7 +480,7 @@ struct ScheduleScreen: View {
     }
 
     private func weekContent(presentation: CalendarSchedulePresentation) -> some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
             if presentation.weekEventCount == 0 {
                 stateCard(
                     title: String(localized: "No events this week"),
@@ -506,34 +506,34 @@ struct ScheduleScreen: View {
     }
 
     private var nextUpCard: some View {
-        GlassCard(cornerRadius: RadiusTokens.card, borderColor: LBColorTokens.role(.meeting).border, fill: LBColorTokens.role(.meeting).softSurface.opacity(0.72)) {
-            HStack(alignment: .top, spacing: LBSpacingTokens.md) {
+        GlassCard(cornerRadius: RadiusTokens.card, borderColor: ClayColorTokens.role(.meeting).border, fill: ClayColorTokens.role(.meeting).softSurface.opacity(0.72)) {
+            HStack(alignment: .top, spacing: ClayLayoutMetrics.md) {
                 IconBadge(systemName: nextUpIconName, role: .meeting, size: 36)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(nextUpPrimaryLine)
-                        .font(LBTypographyTokens.cardTitle)
-                        .foregroundStyle(LBColorTokens.navy)
+                        .font(ClayTypography.cardTitle)
+                        .foregroundStyle(ClayColorTokens.navy)
                         .lineLimit(2)
                     Text(nextUpSecondaryLine)
-                        .font(LBTypographyTokens.meta)
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .font(ClayTypography.meta)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                         .lineLimit(2)
                 }
                 Spacer(minLength: 0)
             }
-            .padding(LBSpacingTokens.md)
+            .padding(ClayLayoutMetrics.md)
         }
         .accessibilityIdentifier("schedule.today.nextUp")
     }
 
     private func weekStrip(dates: [Date]) -> some View {
-        GlassCard(cornerRadius: RadiusTokens.card, fill: LBColorTokens.glass.opacity(0.82), shadow: ShadowTokens.card) {
+        GlassCard(cornerRadius: RadiusTokens.card, fill: ClayColorTokens.glass.opacity(0.82), shadow: ShadowTokens.card) {
             HStack(spacing: 6) {
                 ForEach(dates, id: \.timeIntervalSince1970) { date in
                     weekDayButton(date)
                 }
             }
-            .padding(LBSpacingTokens.sm)
+            .padding(ClayLayoutMetrics.sm)
         }
     }
 
@@ -541,39 +541,39 @@ struct ScheduleScreen: View {
         let isSelected = Calendar.current.isDate(date, inSameDayAs: selectedWeekDate)
         let eventCount = eventCount(for: date)
         return Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             withAnimation(.spring(response: 0.32, dampingFraction: 0.9)) {
                 selectedWeekDate = date
             }
         } label: {
             VStack(spacing: 4) {
                 Text(date.formatted(.dateTime.weekday(.narrow)))
-                    .font(LBTypographyTokens.habitDayLabel)
-                    .foregroundStyle(isSelected ? Color.lifeboard(.accentOnPrimary).opacity(0.84) : LBColorTokens.textTertiary)
+                    .font(ClayTypography.habitDayLabel)
+                    .foregroundStyle(isSelected ? Color.lifeboard(.accentOnPrimary).opacity(0.84) : ClayColorTokens.textTertiary)
                 Text(date.formatted(.dateTime.day()))
-                    .font(LBTypographyTokens.bodyStrong)
-                    .foregroundStyle(isSelected ? Color.lifeboard(.accentOnPrimary) : LBColorTokens.navy)
+                    .font(ClayTypography.bodyStrong)
+                    .foregroundStyle(isSelected ? Color.lifeboard(.accentOnPrimary) : ClayColorTokens.navy)
                 Circle()
-                    .fill(isSelected ? LBColorTokens.whiteStroke.opacity(eventCount > 0 ? 0.94 : 0.0) : LBColorTokens.violet.opacity(eventCount > 0 ? 0.85 : 0.0))
+                    .fill(isSelected ? ClayColorTokens.whiteStroke.opacity(eventCount > 0 ? 0.94 : 0.0) : ClayColorTokens.violet.opacity(eventCount > 0 ? 0.85 : 0.0))
                     .frame(width: 5, height: 5)
             }
             .frame(maxWidth: .infinity, minHeight: 58)
             .background {
                 if isSelected {
                     LinearGradient(
-                        colors: [LBColorTokens.violetFill, LBColorTokens.violetFillDeep],
+                        colors: [ClayColorTokens.violetFill, ClayColorTokens.violetFillDeep],
                         startPoint: .topLeading,
                         endPoint: .bottomTrailing
                     )
                     .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
                 } else {
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(LBColorTokens.glassStrong.opacity(0.62))
+                        .fill(ClayColorTokens.glassStrong.opacity(0.62))
                 }
             }
             .overlay {
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(isSelected ? LBColorTokens.whiteStroke.opacity(0.42) : LBColorTokens.hairline.opacity(0.62), lineWidth: 1)
+                    .stroke(isSelected ? ClayColorTokens.whiteStroke.opacity(0.42) : ClayColorTokens.hairline.opacity(0.62), lineWidth: 1)
             }
         }
         .buttonStyle(.plain)
@@ -583,19 +583,19 @@ struct ScheduleScreen: View {
 
     private func selectedDaySummary(count: Int) -> some View {
         let suffix = count == 1 ? String(localized: "event") : String(localized: "events")
-        return HStack(spacing: LBSpacingTokens.xs) {
+        return HStack(spacing: ClayLayoutMetrics.xs) {
             Image(systemName: "calendar")
             Text("Selected day: \(CalendarPresentation.scheduleDateText(for: selectedWeekDate)) • \(count) \(suffix)")
                 .lineLimit(2)
                 .minimumScaleFactor(0.86)
         }
-        .font(LBTypographyTokens.meta)
-        .foregroundStyle(LBColorTokens.navyMuted)
-        .padding(.horizontal, LBSpacingTokens.sm)
-        .padding(.vertical, LBSpacingTokens.xs)
-        .background(LBColorTokens.glassStrong.opacity(0.82), in: Capsule())
+        .font(ClayTypography.meta)
+        .foregroundStyle(ClayColorTokens.navyMuted)
+        .padding(.horizontal, ClayLayoutMetrics.sm)
+        .padding(.vertical, ClayLayoutMetrics.xs)
+        .background(ClayColorTokens.glassStrong.opacity(0.82), in: Capsule())
         .overlay {
-            Capsule().stroke(LBColorTokens.hairline.opacity(0.62), lineWidth: 1)
+            Capsule().stroke(ClayColorTokens.hairline.opacity(0.62), lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("schedule.week.selectedDay")
@@ -606,14 +606,14 @@ struct ScheduleScreen: View {
         events: [CalendarEventSnapshot],
         emptyText: String
     ) -> some View {
-        GlassCard(cornerRadius: RadiusTokens.largeCard, fill: LBColorTokens.glassStrong.opacity(0.84)) {
-            VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+        GlassCard(cornerRadius: RadiusTokens.largeCard, fill: ClayColorTokens.glassStrong.opacity(0.84)) {
+            VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
                 HStack(alignment: .firstTextBaseline) {
                     SectionHeader(title: "Timeline", systemImage: "clock")
                     Spacer(minLength: 0)
                     Text(CalendarPresentation.scheduleDateText(for: date))
-                        .font(LBTypographyTokens.meta)
-                        .foregroundStyle(LBColorTokens.textTertiary)
+                        .font(ClayTypography.meta)
+                        .foregroundStyle(ClayColorTokens.textTertiary)
                 }
 
                 let targetHour = CalendarTimelinePlanner.initialExpandedHour(
@@ -635,25 +635,25 @@ struct ScheduleScreen: View {
                     }
                 )
             }
-            .padding(LBSpacingTokens.md)
+            .padding(ClayLayoutMetrics.md)
         }
     }
 
     private func emptyScheduleCard(title: String, message: String, accessibilityIdentifier: String) -> some View {
-        GlassCard(cornerRadius: RadiusTokens.card, borderColor: LBColorTokens.role(.neutral).border, fill: LBColorTokens.role(.neutral).softSurface.opacity(0.74)) {
-            HStack(alignment: .top, spacing: LBSpacingTokens.md) {
+        GlassCard(cornerRadius: RadiusTokens.card, borderColor: ClayColorTokens.role(.neutral).border, fill: ClayColorTokens.role(.neutral).softSurface.opacity(0.74)) {
+            HStack(alignment: .top, spacing: ClayLayoutMetrics.md) {
                 IconBadge(systemName: "sun.max", role: .routine, size: 36)
                 VStack(alignment: .leading, spacing: 4) {
                     Text(title)
-                        .font(LBTypographyTokens.cardTitle)
-                        .foregroundStyle(LBColorTokens.navy)
+                        .font(ClayTypography.cardTitle)
+                        .foregroundStyle(ClayColorTokens.navy)
                     Text(message)
-                        .font(LBTypographyTokens.meta)
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .font(ClayTypography.meta)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                 }
                 Spacer(minLength: 0)
             }
-            .padding(LBSpacingTokens.md)
+            .padding(ClayLayoutMetrics.md)
         }
         .accessibilityIdentifier(accessibilityIdentifier)
     }
@@ -661,25 +661,25 @@ struct ScheduleScreen: View {
     private func stateCard(
         title: String,
         message: String,
-        role: LBRole,
+        role: ClayRole,
         bodyAccessibilityIdentifier: String,
         buttonTitle: String?,
         buttonAccessibilityIdentifier: String?,
         action: (() -> Void)?
     ) -> some View {
-        let style = LBColorTokens.role(role)
+        let style = ClayColorTokens.role(role)
         return GlassCard(cornerRadius: RadiusTokens.largeCard, borderColor: style.border, fill: style.softSurface.opacity(0.78)) {
-            VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
-                HStack(alignment: .top, spacing: LBSpacingTokens.md) {
+            VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
+                HStack(alignment: .top, spacing: ClayLayoutMetrics.md) {
                     IconBadge(systemName: style.symbolName, role: role, size: 40)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(title)
-                            .font(LBTypographyTokens.sectionTitle)
-                            .foregroundStyle(LBColorTokens.navy)
+                            .font(ClayTypography.sectionTitle)
+                            .foregroundStyle(ClayColorTokens.navy)
                             .lineLimit(3)
                         Text(message)
-                            .font(LBTypographyTokens.body)
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .font(ClayTypography.body)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                             .fixedSize(horizontal: false, vertical: true)
                             .accessibilityIdentifier(bodyAccessibilityIdentifier)
                     }
@@ -687,16 +687,16 @@ struct ScheduleScreen: View {
 
                 if let buttonTitle, let action {
                     Button(action: action) {
-                        HStack(spacing: LBSpacingTokens.xs) {
+                        HStack(spacing: ClayLayoutMetrics.xs) {
                             Text(buttonTitle)
                             Image(systemName: "arrow.right")
                         }
-                        .font(LBTypographyTokens.bodyStrong)
+                        .font(ClayTypography.bodyStrong)
                         .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                         .frame(maxWidth: .infinity, minHeight: 50)
                         .background {
                             LinearGradient(
-                                colors: LBColorTokens.actionGradient(for: role),
+                                colors: ClayColorTokens.actionGradient(for: role),
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -707,7 +707,7 @@ struct ScheduleScreen: View {
                     .accessibilityIdentifier(buttonAccessibilityIdentifier ?? "")
                 }
             }
-            .padding(LBSpacingTokens.lg)
+            .padding(ClayLayoutMetrics.lg)
         }
     }
 
@@ -779,7 +779,7 @@ struct ScheduleScreen: View {
         }
     }
 
-    private var permissionRole: LBRole {
+    private var permissionRole: ClayRole {
         switch service.snapshot.authorizationStatus {
         case .denied, .restricted, .writeOnly:
             return .warning
@@ -808,11 +808,11 @@ struct ScheduleScreen: View {
     }
 
     private var headerHeight: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.compactHeaderAccessibilityHeight : LBSpacingTokens.compactHeaderHeight
+        dynamicTypeSize.isAccessibilitySize ? ClayLayoutMetrics.compactHeaderAccessibilityHeight : ClayLayoutMetrics.compactHeaderHeight
     }
 
     private var contentTopGap: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.md : LBSpacingTokens.sm
+        dynamicTypeSize.isAccessibilitySize ? ClayLayoutMetrics.md : ClayLayoutMetrics.sm
     }
 
     private var selectedDayKey: Int {
@@ -987,7 +987,7 @@ struct ScheduleScreen: View {
         guard isDaySwipeGestureEnabled else { return }
         committedDaySwipeDirection = direction
         let dayOffset = direction == .previous ? -1 : 1
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
         withAnimation(daySwipeAnimation) {
             shiftSelectedDate(by: dayOffset)
         }
@@ -1144,7 +1144,7 @@ private struct ScheduleHeaderChrome: View {
     }
 
     private var topChrome: some View {
-        HStack(spacing: LBSpacingTokens.sm) {
+        HStack(spacing: ClayLayoutMetrics.sm) {
             if isModal {
                 headerCircleButton(systemName: "xmark", accessibilityLabel: "Close", action: onClose)
             } else {
@@ -1167,10 +1167,10 @@ private struct ScheduleHeaderChrome: View {
                         .lineLimit(1)
                         .minimumScaleFactor(0.78)
                 }
-                .font(LBTypographyTokens.chip)
+                .font(ClayTypography.chip)
                 .foregroundStyle(context.foregroundStyle.controlColor)
                 .frame(minHeight: 44)
-                .padding(.horizontal, LBSpacingTokens.sm)
+                .padding(.horizontal, ClayLayoutMetrics.sm)
                 .background {
                     clearCapsuleSurface(fill: context.foregroundStyle.glassFill.opacity(0.76), stroke: context.foregroundStyle.glassStroke.opacity(0.72))
                 }
@@ -1179,7 +1179,7 @@ private struct ScheduleHeaderChrome: View {
             .accessibilityIdentifier("schedule.toolbar.filters")
             .accessibilityLabel(String(localized: "Choose calendars"))
         }
-        .padding(.horizontal, LBSpacingTokens.screenMargin)
+        .padding(.horizontal, ClayLayoutMetrics.screenMargin)
     }
 
     private var titleGroup: some View {
@@ -1189,13 +1189,13 @@ private struct ScheduleHeaderChrome: View {
                 .minimumScaleFactor(0.75)
                 .lineLimit(1)
                 .foregroundStyle(context.foregroundStyle.titleColor)
-                .shadow(color: LBColorTokens.elevationShadow, radius: 6, y: 2)
+                .shadow(color: ClayColorTokens.elevationShadow, radius: 6, y: 2)
 
             HStack(spacing: 6) {
                 Image(systemName: context.period.symbolName)
-                    .foregroundStyle(LBColorTokens.sunriseGold)
+                    .foregroundStyle(ClayColorTokens.sunriseGold)
                 Text(contextLine)
-                    .font(LBTypographyTokens.heroOverline)
+                    .font(ClayTypography.heroOverline)
                     .tracking(2.8)
                     .foregroundStyle(context.foregroundStyle.controlColor)
                     .lineLimit(1)
@@ -1203,7 +1203,7 @@ private struct ScheduleHeaderChrome: View {
             }
             .accessibilityIdentifier("schedule.header.context")
         }
-        .padding(.horizontal, LBSpacingTokens.screenMargin * 2)
+        .padding(.horizontal, ClayLayoutMetrics.screenMargin * 2)
         .frame(maxWidth: .infinity)
     }
 
@@ -1256,13 +1256,13 @@ private struct ScheduleHeaderChrome: View {
                 .fill(.clear)
                 .lifeBoardSystemGlass(.regular, in: shape)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
+                .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         } else {
             shape
                 .fill(.ultraThinMaterial)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay.opacity(0.8)) }
+                .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }
@@ -1275,13 +1275,13 @@ private struct ScheduleHeaderChrome: View {
                 .fill(.clear)
                 .lifeBoardSystemGlass(.regular, in: shape)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
+                .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         } else {
             shape
                 .fill(.ultraThinMaterial)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay.opacity(0.8)) }
+                .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }

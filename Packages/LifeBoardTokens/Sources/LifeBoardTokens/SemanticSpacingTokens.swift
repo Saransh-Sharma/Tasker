@@ -1,6 +1,6 @@
 import UIKit
 
-public struct LifeBoardSpacingTokens: TokenGroup, Sendable {
+public struct SemanticSpacingTokens: TokenGroup, Sendable {
     public let s2: CGFloat
     public let s4: CGFloat
     public let s8: CGFloat
@@ -26,7 +26,7 @@ public struct LifeBoardSpacingTokens: TokenGroup, Sendable {
         token.rawValue
     }
 
-    public static let `default` = LifeBoardSpacingTokens(
+    public static let `default` = SemanticSpacingTokens(
         s2: 2,
         s4: 4,
         s8: 8,
@@ -46,7 +46,7 @@ public struct LifeBoardSpacingTokens: TokenGroup, Sendable {
         buttonHeight: 48
     )
 
-    public static let padCompact = LifeBoardSpacingTokens(
+    public static let padCompact = SemanticSpacingTokens(
         s2: 2,
         s4: 4,
         s8: 8,
@@ -66,7 +66,7 @@ public struct LifeBoardSpacingTokens: TokenGroup, Sendable {
         buttonHeight: 48
     )
 
-    public static let padRegular = LifeBoardSpacingTokens(
+    public static let padRegular = SemanticSpacingTokens(
         s2: 2,
         s4: 4,
         s8: 8,
@@ -86,7 +86,7 @@ public struct LifeBoardSpacingTokens: TokenGroup, Sendable {
         buttonHeight: 50
     )
 
-    public static let padExpanded = LifeBoardSpacingTokens(
+    public static let padExpanded = SemanticSpacingTokens(
         s2: 2,
         s4: 4,
         s8: 8,
@@ -107,7 +107,7 @@ public struct LifeBoardSpacingTokens: TokenGroup, Sendable {
     )
 
     /// Executes forLayout.
-    public static func forLayout(_ layoutClass: LayoutClass) -> LifeBoardSpacingTokens {
+    public static func forLayout(_ layoutClass: LayoutClass) -> SemanticSpacingTokens {
         switch layoutClass {
         case .phone:
             return `default`

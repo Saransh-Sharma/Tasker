@@ -2,7 +2,7 @@ import SwiftUI
 import UIKit
 
 extension LifeManagementView {
-    var spacing: LifeBoardSpacingTokens {
+    var spacing: SemanticSpacingTokens {
         ThemeStore.shared.tokens(for: layoutClass).spacing
     }
 

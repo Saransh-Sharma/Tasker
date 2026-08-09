@@ -703,7 +703,7 @@ public struct ProjectExecutionSnapshot: Equatable, Sendable {
     public let name: String
     public let isArchived: Bool
     public let executionMode: ProjectExecutionMode
-    public let sections: [LifeBoardProjectSection]
+    public let sections: [ProjectSectionDefinition]
     public let milestones: [ProjectMilestone]
     public let tasks: [PlanningTaskSummary]
     public let sectionIDByTaskID: [UUID: UUID]
@@ -715,7 +715,7 @@ public struct ProjectExecutionSnapshot: Equatable, Sendable {
         name: String,
         isArchived: Bool,
         executionMode: ProjectExecutionMode,
-        sections: [LifeBoardProjectSection],
+        sections: [ProjectSectionDefinition],
         milestones: [ProjectMilestone],
         tasks: [PlanningTaskSummary],
         sectionIDByTaskID: [UUID: UUID] = [:],
@@ -889,7 +889,7 @@ public struct TaskExecutionProjection: Sendable {
     public func projectSnapshot(
         projectID: UUID,
         completedTaskCount: Int,
-        sections: [LifeBoardProjectSection] = [],
+        sections: [ProjectSectionDefinition] = [],
         milestones: [ProjectMilestone] = []
     ) async throws -> ProjectExecutionSnapshot? {
         guard let project = try await projects().first(where: { $0.id == projectID }) else {

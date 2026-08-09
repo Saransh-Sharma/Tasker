@@ -20,7 +20,7 @@ struct PlanFocusReflectionCard: View {
                             + "\(PlanSectionCopy.duration(receipt.targetDuration)) planned"
                     )
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 Spacer()
                 Button {
@@ -50,7 +50,7 @@ struct PlanFocusReflectionCard: View {
                         systemImage: "bell.slash"
                     )
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 CommitControl(
                     title: "Save reflection",

@@ -120,7 +120,7 @@ final class DailyBriefService {
     }
 
     private func resolveHabitSignals(suppliedSignals: [LifeBoardHabitSignal]) async -> [LifeBoardHabitSignal] {
-        guard suppliedSignals.isEmpty, let repository = LLMContextRepositoryProvider.habitRuntimeReadRepository else {
+        guard suppliedSignals.isEmpty, let repository = LLMContextRepositoryFactory.habitRuntimeReadRepository else {
             return suppliedSignals
         }
         let calendar = Calendar.current

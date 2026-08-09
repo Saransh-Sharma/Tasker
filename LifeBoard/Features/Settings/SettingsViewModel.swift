@@ -380,26 +380,26 @@ final class SettingsViewModel: ObservableObject, Sendable {
     func togglePreference(_ keyPath: WritableKeyPath<NotificationPreferences, Bool>, value: Bool) {
         preferences[keyPath: keyPath] = value
         saveAndReconcile()
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
 
     func updateDueSoonLeadMinutes(_ minutes: Int) {
         preferences.dueSoonLeadMinutes = minutes
         saveAndReconcile()
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
 
     func updateWeekStartsOn(_ weekday: Weekday) {
         guard workspacePreferences.weekStartsOn != weekday else { return }
         workspacePreferences.weekStartsOn = weekday
         saveWorkspacePreferences()
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
 
     func setDecorativeButtonEffectsEnabled(_ isEnabled: Bool) {
         decorativeButtonEffectsEnabled = isEnabled
         V2FeatureFlags.userDecorativeCTAEffectsEnabled = isEnabled
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
 
     // MARK: - Permission
@@ -425,7 +425,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
 
     func requestNotificationPermission() {
         guard let service = notificationService else { return }
-        LifeBoardFeedback.medium()
+        HapticFeedback.medium()
         switch permissionStatus {
         case .denied:
             guard let url = URL(string: UIApplication.openSettingsURLString),
@@ -457,7 +457,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     func restartOnboarding() {
-        LifeBoardFeedback.medium()
+        HapticFeedback.medium()
         if let onRestartOnboarding {
             onRestartOnboarding()
         } else {
@@ -471,14 +471,14 @@ final class SettingsViewModel: ObservableObject, Sendable {
     }
 
     func requestCalendarPermission() {
-        LifeBoardFeedback.medium()
+        HapticFeedback.medium()
         _ = calendarIntegrationService.performAccessAction(source: "settings", openSystemSettings: openSystemSettings)
     }
 
     #if DEBUG
     func copyCalendarDiagnostics() {
         UIPasteboard.general.string = CalendarDiagnosticsStore.shared.recentEntriesText(limit: 20)
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
     #endif
 
@@ -500,7 +500,7 @@ final class SettingsViewModel: ObservableObject, Sendable {
             "generated_at=\(ISO8601DateFormatter().string(from: Date()))"
         ]
         UIPasteboard.general.string = lines.joined(separator: "\n")
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
 
     func openCalendarChooser() {
@@ -540,14 +540,14 @@ final class SettingsViewModel: ObservableObject, Sendable {
         showCalendarEventsInTimeline = show
         workspacePreferences.showCalendarEventsInTimeline = show
         saveWorkspacePreferences()
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
 
     func selectChiefOfStaffMascot(_ id: AssistantMascotID) {
         guard workspacePreferences.chiefOfStaffMascotID != id else { return }
         workspacePreferences.chiefOfStaffMascotID = id
         saveWorkspacePreferences()
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
 
     func commitTimelineAnchorDraft(_ draft: TimelineAnchorDraft) {

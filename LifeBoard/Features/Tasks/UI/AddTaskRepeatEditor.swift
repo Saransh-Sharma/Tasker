@@ -16,7 +16,7 @@ struct AddTaskRepeatEditor: View {
 
     @State private var showWeekdayPicker = false
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     private var activePreset: RepeatPreset {
         guard let pattern = repeatPattern else { return .none }
@@ -142,7 +142,7 @@ struct WeekdayPickerRow: View {
     @Environment(\.lifeboardTokens) private var tokens
     @Binding var selectedDays: TaskRepeatPattern.DaysOfWeek
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     private let weekdays: [WeekdayItem] = [
         WeekdayItem(id: 0, label: "S", day: .sunday),
@@ -158,7 +158,7 @@ struct WeekdayPickerRow: View {
         HStack(spacing: spacing.s4) {
             ForEach(weekdays) { item in
                 Button {
-                    LifeBoardFeedback.selection()
+                    HapticFeedback.selection()
                     withAnimation(LifeBoardAnimation.stateChange) {
                         if selectedDays.contains(item.day) {
                             selectedDays.remove(item.day)

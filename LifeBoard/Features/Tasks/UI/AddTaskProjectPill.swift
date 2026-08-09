@@ -16,7 +16,7 @@ struct AddTaskProjectPill: View {
 
     var body: some View {
         Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         } label: {
             Text(name)

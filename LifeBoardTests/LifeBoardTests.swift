@@ -708,7 +708,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
         let modelDirectory = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-            .appendingPathComponent("LifeBoard/TaskModelV3.xcdatamodeld")
+            .appendingPathComponent("LifeBoard/Persistence/Resources/TaskModelV3.xcdatamodeld")
         let contents = try String(
             contentsOf: modelDirectory.appendingPathComponent(".xccurrentversion"),
             encoding: .utf8
@@ -1732,15 +1732,7 @@ final class HabitCoreDataSchemaRegressionTests: XCTestCase {
     }
 
     private func taskModelBundleURL() throws -> URL {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        for bundle in bundles {
-            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") {
-                return url
-            }
-        }
-        throw NSError(domain: "HabitCoreDataSchemaRegressionTests", code: 3, userInfo: [
-            NSLocalizedDescriptionKey: "Unable to locate TaskModelV3.momd in test bundles"
-        ])
+        try PersistenceTestModel.url()
     }
 
     private func makeContainer(
@@ -2368,9 +2360,9 @@ private final class LegacyNoopLifeAreaRepository: LifeAreaRepositoryProtocol {
 }
 
 private final class LegacyNoopSectionRepository: SectionRepositoryProtocol {
-    func fetchSections(projectID: UUID, completion: @escaping @Sendable (Result<[LifeBoardProjectSection], Error>) -> Void) { completion(.success([])) }
-    func create(_ section: LifeBoardProjectSection, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) { completion(.success(section)) }
-    func update(_ section: LifeBoardProjectSection, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) { completion(.success(section)) }
+    func fetchSections(projectID: UUID, completion: @escaping @Sendable (Result<[ProjectSectionDefinition], Error>) -> Void) { completion(.success([])) }
+    func create(_ section: ProjectSectionDefinition, completion: @escaping @Sendable (Result<ProjectSectionDefinition, Error>) -> Void) { completion(.success(section)) }
+    func update(_ section: ProjectSectionDefinition, completion: @escaping @Sendable (Result<ProjectSectionDefinition, Error>) -> Void) { completion(.success(section)) }
     func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
@@ -3127,9 +3119,8 @@ final class TaskDefinitionLinkHydrationTests: XCTestCase {
     }
 
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
-              model.entitiesByName["TaskDefinition"] != nil
+        let model = try PersistenceTestModel.model()
+        guard model.entitiesByName["TaskDefinition"] != nil
         else {
             throw NSError(domain: "TaskDefinitionLinkHydrationTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
@@ -3365,9 +3356,8 @@ final class DeterministicFetchTests: XCTestCase {
     }
 
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
-              model.entitiesByName["TaskDefinition"] != nil
+        let model = try PersistenceTestModel.model()
+        guard model.entitiesByName["TaskDefinition"] != nil
         else {
             throw NSError(domain: "DeterministicFetchTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
@@ -3752,13 +3742,14 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         let project = try loadWorkspaceFile("LifeBoard.xcodeproj/project.pbxproj")
 
         XCTAssertTrue(
-            project.contains(#"XCLocalSwiftPackageReference "LifeBoardTokens""#),
-            "The token package must be referenced by the project."
+            project.contains(#"XCLocalSwiftPackageReference "LifeBoardModules""#),
+            "The unified in-repository package must be referenced by the project."
         )
         XCTAssertTrue(
-            project.contains("relativePath = Packages/LifeBoardTokens"),
-            "The token package must resolve from inside this repository."
+            project.contains("relativePath = .;"),
+            "The unified package must resolve from the repository root."
         )
+        XCTAssertTrue(project.contains("productName = LifeBoardTokens;"))
 
         // Both the app and the widget extension must take the dependency, or the
         // two processes can drift to different palettes again.
@@ -3777,7 +3768,7 @@ final class TaskListWidgetSourceContractTests: XCTestCase {
         // And the old duplication must be gone: no target may compile the token
         // sources directly any more.
         for source in ["LifeBoardTokens.swift in Sources", "LifeBoardTheme.swift in Sources",
-                       "SwiftUI+TokenAdapters.swift in Sources", "LifeBoardAnimations.swift in Sources"] {
+                       "SwiftUI+TokenAdapters.swift in Sources", "MotionAnimations.swift in Sources"] {
             XCTAssertFalse(
                 project.contains(source),
                 "\(source) is owned by the LifeBoardTokens package and must not be compiled into a target."
@@ -5350,6 +5341,36 @@ final class TombstoneRetentionTests: XCTestCase {
 
 @MainActor
 final class CoreDataModelCompatibilityTests: XCTestCase {
+    func testPersistenceModelFactoryPreservesManualManagedObjectClasses() throws {
+        let modelURL = try XCTUnwrap(LifeBoardPersistenceModel.modelURL)
+        XCTAssertEqual(modelURL.pathExtension, "momd")
+
+        let model = try LifeBoardPersistenceModel.makeModel()
+        let expectedClassesByEntity = [
+            "ExternalContainerMap": "ExternalContainerMap",
+            "HabitDefinition": "HabitDefinition",
+            "LifeArea": "LifeAreaEntity",
+            "ProjectSection": "ProjectSectionEntity",
+            "ReflectionNote": "ReflectionNoteEntity",
+            "Tag": "TagEntity",
+            "TaskDependency": "TaskDependency",
+            "TaskTagLink": "TaskTagLink",
+            "WeeklyOutcome": "WeeklyOutcomeEntity",
+            "WeeklyPlan": "WeeklyPlanEntity",
+            "WeeklyReview": "WeeklyReviewEntity"
+        ]
+
+        for (entityName, className) in expectedClassesByEntity {
+            let entity = try XCTUnwrap(model.entitiesByName[entityName])
+            XCTAssertEqual(entity.managedObjectClassName, className)
+            XCTAssertNotNil(NSClassFromString(className), "Missing Objective-C class \(className)")
+        }
+
+        let container = try LifeBoardPersistenceModel.makeCloudKitContainer()
+        XCTAssertEqual(container.name, "TaskModelV3")
+        XCTAssertEqual(container.managedObjectModel.entitiesByName.keys, model.entitiesByName.keys)
+    }
+
     func testFreshInstallLoadsCurrentTaskModelV3TrackFoundationsModel() throws {
         let model = try currentTaskModelV3Model()
         let storeURL = temporaryStoreURL(name: "fresh-current-taskmodelv3")
@@ -5437,14 +5458,7 @@ final class CoreDataModelCompatibilityTests: XCTestCase {
     }
 
     private func taskModelV3MomdURL() throws -> URL {
-        for bundle in [Bundle.main, Bundle(for: type(of: self))] {
-            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") {
-                return url
-            }
-        }
-        throw NSError(domain: "CoreDataModelCompatibilityTests", code: 1, userInfo: [
-            NSLocalizedDescriptionKey: "Unable to locate TaskModelV3.momd in test bundles"
-        ])
+        try PersistenceTestModel.url()
     }
 
     private func makeSQLiteContainer(
@@ -6010,14 +6024,14 @@ final class V2RepositoryInvariantTests: XCTestCase {
 
         _ = try awaitResult { completion in
             repository.create(
-                LifeBoardProjectSection(projectID: projectID, name: "Backlog"),
+                ProjectSectionDefinition(projectID: projectID, name: "Backlog"),
                 completion: completion
             )
         }
 
         XCTAssertThrowsError(try awaitResult { completion in
             repository.create(
-                LifeBoardProjectSection(projectID: projectID, name: " backlog "),
+                ProjectSectionDefinition(projectID: projectID, name: " backlog "),
                 completion: completion
             )
         }) { error in
@@ -6035,7 +6049,7 @@ final class V2RepositoryInvariantTests: XCTestCase {
 
         XCTAssertThrowsError(try awaitResult { completion in
             repository.create(
-                LifeBoardProjectSection(projectID: projectID, name: "backlog"),
+                ProjectSectionDefinition(projectID: projectID, name: "backlog"),
                 completion: completion
             )
         }) { error in
@@ -6240,9 +6254,8 @@ final class V2RepositoryInvariantTests: XCTestCase {
     }
 
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
-              model.entitiesByName["TaskDefinition"] != nil
+        let model = try PersistenceTestModel.model()
+        guard model.entitiesByName["TaskDefinition"] != nil
         else {
             throw NSError(domain: "V2RepositoryInvariantTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
@@ -6411,9 +6424,8 @@ final class TaskTagLinkUniquenessTests: XCTestCase {
     }
 
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
-              model.entitiesByName["TaskDefinition"] != nil
+        let model = try PersistenceTestModel.model()
+        guard model.entitiesByName["TaskDefinition"] != nil
         else {
             throw NSError(domain: "TaskTagLinkUniquenessTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
@@ -6535,9 +6547,8 @@ final class ExternalMapUniquenessTests: XCTestCase {
     }
 
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
-              model.entitiesByName["TaskDefinition"] != nil
+        let model = try PersistenceTestModel.model()
+        guard model.entitiesByName["TaskDefinition"] != nil
         else {
             throw NSError(domain: "ExternalMapUniquenessTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
@@ -6973,9 +6984,8 @@ final class ConcurrencyRaceTests: XCTestCase {
     }
 
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
-              model.entitiesByName["TaskDefinition"] != nil
+        let model = try PersistenceTestModel.model()
+        guard model.entitiesByName["TaskDefinition"] != nil
         else {
             throw NSError(domain: "ConcurrencyRaceTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
@@ -9250,7 +9260,7 @@ private final class InMemoryExternalSyncRepository: ExternalSyncRepositoryProtoc
     }
 }
 
-private final class InMemoryAppleRemindersProvider: AppleRemindersProviderProtocol, @unchecked Sendable {
+private final class InMemoryAppleRemindersProvider: AppleRemindersRepositoryProtocol, @unchecked Sendable {
     var requestAccessGranted = true
     var lists: [AppleReminderListSnapshot] = []
     var remindersByListID: [String: [AppleReminderItemSnapshot]] = [:]
@@ -9453,9 +9463,8 @@ final class LifeAreaIdentityRepairTests: XCTestCase {
     }
 
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
-              model.entitiesByName["TaskDefinition"] != nil
+        let model = try PersistenceTestModel.model()
+        guard model.entitiesByName["TaskDefinition"] != nil
         else {
             throw NSError(domain: "LifeAreaIdentityRepairTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
@@ -11271,9 +11280,8 @@ final class TaskDefinitionClearFlagPersistenceTests: XCTestCase {
     }
 
     private func makeInMemoryV2Container() throws -> NSPersistentContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
-              model.entitiesByName["TaskDefinition"] != nil
+        let model = try PersistenceTestModel.model()
+        guard model.entitiesByName["TaskDefinition"] != nil
         else {
             throw NSError(domain: "TaskDefinitionClearFlagPersistenceTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Unable to load TaskModelV3 from test bundles"])
         }
@@ -14734,15 +14742,7 @@ final class CoreDataWeeklyReviewMutationRepositoryTests: XCTestCase {
     }
 
     private func makeWeeklyContainer() throws -> NSPersistentContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        guard let modelURL = bundles.compactMap({ $0.url(forResource: "TaskModelV3", withExtension: "momd") }).first,
-              let model = NSManagedObjectModel(contentsOf: modelURL) else {
-            throw NSError(
-                domain: "CoreDataWeeklyReviewMutationRepositoryTests",
-                code: 1,
-                userInfo: [NSLocalizedDescriptionKey: "Unable to load compiled TaskModelV3 model"]
-            )
-        }
+        let model = try PersistenceTestModel.model()
 
         let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
         let description = NSPersistentStoreDescription()
@@ -16105,7 +16105,7 @@ final class DailyBriefServiceTests: XCTestCase {
                 )
             ]
         )
-        LLMContextRepositoryProvider.configure(
+        LLMContextRepositoryFactory.configure(
             taskReadModelRepository: nil,
             projectRepository: nil,
             lifeAreaRepository: nil,
@@ -16113,7 +16113,7 @@ final class DailyBriefServiceTests: XCTestCase {
             habitRuntimeReadRepository: repository
         )
         defer {
-            LLMContextRepositoryProvider.configure(
+            LLMContextRepositoryFactory.configure(
                 taskReadModelRepository: nil,
                 projectRepository: nil,
                 lifeAreaRepository: nil,

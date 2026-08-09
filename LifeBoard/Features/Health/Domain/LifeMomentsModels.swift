@@ -164,7 +164,7 @@ public actor InMemoryLifeMomentRepository: LifeMomentRepository {
     }
 }
 
-public struct LifeMomentHomeCardProvider: HomeCardProvider {
+public struct LifeMomentHomeCardSource: HomeCardSource {
     public let definition: HomeCardDefinition
     public let primaryDestination = Destination.insights
     public let privacyClassification: DataSensitivity
@@ -235,7 +235,7 @@ public struct LifeMomentHomeCardProvider: HomeCardProvider {
     }
 }
 
-public struct LifeMomentContextCandidateProvider: HomeContextCandidateProvider {
+public struct LifeMomentContextCandidateSource: HomeContextCandidateSource {
     public let providerID = "life-moments"
     private let repository: any LifeMomentRepository
     private let thresholdDays: Int
@@ -274,7 +274,7 @@ public struct LifeMomentContextCandidateProvider: HomeContextCandidateProvider {
     }
 }
 
-public struct LifeMomentsOverviewHomeCardProvider: HomeCardProvider {
+public struct LifeMomentsOverviewHomeCardSource: HomeCardSource {
     public let definition: HomeCardDefinition
     public let primaryDestination = Destination.insights
     public let privacyClassification = DataSensitivity.privateStandard

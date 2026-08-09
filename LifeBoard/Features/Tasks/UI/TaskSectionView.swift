@@ -155,7 +155,7 @@ struct TaskSectionView: View {
     @State private var isExpanded: Bool = true
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var themeColors: LifeBoardColorTokens {
+    private var themeColors: SemanticColorTokens {
         tokens.color
     }
 
@@ -234,7 +234,7 @@ struct TaskSectionView: View {
                 withAnimation(LifeBoardAnimation.stateChange) {
                     isExpanded.toggle()
                 }
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
             },
             headerActionTitle: headerActionTitle,
             onHeaderAction: onHeaderAction,
@@ -326,7 +326,7 @@ struct TaskSectionView: View {
         Button {
             let nextCollapsed = !isCompletedCollapsed
             onCompletedCollapsedChange?(nextCollapsed, derivedState.completedCount)
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
         } label: {
             HStack(spacing: Theme.Spacing.sm) {
                 Text("Completed")
@@ -618,7 +618,7 @@ struct HomeListSectionView: View {
                         withAnimation(LifeBoardAnimation.stateChange) {
                             isExpanded.toggle()
                         }
-                        LifeBoardFeedback.selection()
+                        HapticFeedback.selection()
                     },
                     headerActionTitle: headerActionTitle,
                     onHeaderAction: onHeaderAction,
@@ -742,7 +742,7 @@ struct HomeListSectionView: View {
         Button {
             let nextCollapsed = !isResolvedCollapsed
             onCompletedCollapsedChange?(nextCollapsed, resolvedCount)
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
         } label: {
             HStack(spacing: Theme.Spacing.sm) {
                 Text("Resolved")

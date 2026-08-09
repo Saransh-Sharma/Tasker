@@ -4,7 +4,7 @@ struct PermissionCard: View {
     struct Model: Equatable {
         let title: String
         let message: String
-        let role: LBRole
+        let role: ClayRole
         let primaryActionTitle: String
         let secondaryActionTitle: String?
     }
@@ -14,34 +14,34 @@ struct PermissionCard: View {
     var secondaryAction: (() -> Void)?
 
     var body: some View {
-        let style = LBColorTokens.role(model.role)
+        let style = ClayColorTokens.role(model.role)
         GlassCard(cornerRadius: RadiusTokens.card, borderColor: style.border, fill: style.softSurface.opacity(0.78)) {
-            HStack(alignment: .top, spacing: LBSpacingTokens.md) {
+            HStack(alignment: .top, spacing: ClayLayoutMetrics.md) {
                 IconBadge(systemName: style.symbolName, role: model.role)
-                VStack(alignment: .leading, spacing: LBSpacingTokens.xs) {
+                VStack(alignment: .leading, spacing: ClayLayoutMetrics.xs) {
                     Text(model.title)
-                        .font(LBTypographyTokens.cardTitle)
-                        .foregroundStyle(LBColorTokens.navy)
+                        .font(ClayTypography.cardTitle)
+                        .foregroundStyle(ClayColorTokens.navy)
                     Text(model.message)
-                        .font(LBTypographyTokens.meta)
-                        .foregroundStyle(LBColorTokens.navyMuted)
-                    HStack(spacing: LBSpacingTokens.sm) {
+                        .font(ClayTypography.meta)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
+                    HStack(spacing: ClayLayoutMetrics.sm) {
                         Button(model.primaryActionTitle, action: primaryAction)
-                            .font(LBTypographyTokens.meta)
+                            .font(ClayTypography.meta)
                             .buttonStyle(.plain)
                             .foregroundStyle(style.deep)
                         if let secondary = model.secondaryActionTitle, let secondaryAction {
                             Button(secondary, action: secondaryAction)
-                                .font(LBTypographyTokens.meta)
+                                .font(ClayTypography.meta)
                                 .buttonStyle(.plain)
-                                .foregroundStyle(LBColorTokens.navyMuted)
+                                .foregroundStyle(ClayColorTokens.navyMuted)
                         }
                     }
-                    .padding(.top, LBSpacingTokens.xxs)
+                    .padding(.top, ClayLayoutMetrics.xxs)
                 }
                 Spacer(minLength: 0)
             }
-            .padding(LBSpacingTokens.md)
+            .padding(ClayLayoutMetrics.md)
         }
     }
 }

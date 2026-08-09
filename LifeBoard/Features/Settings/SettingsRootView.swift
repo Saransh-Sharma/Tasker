@@ -103,7 +103,7 @@ struct SettingsRootView: View {
         ($0, $0.displayTitle)
     }
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 
@@ -380,7 +380,7 @@ struct SettingsRootView: View {
     private func selectPadCategory(_ route: SettingsRoute) {
         if route.isCategory {
             selectedPadCategory = route
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
         } else {
             navigate(route)
         }
@@ -1120,7 +1120,7 @@ struct SettingsRootView: View {
                         action: {
                             #if os(iOS)
                             UIPasteboard.general.string = "v\(viewModel.appVersion) (\(viewModel.buildNumber))"
-                            LifeBoardFeedback.selection()
+                            HapticFeedback.selection()
                             withAnimation(LifeBoardAnimation.roleLocalState) { copiedVersion = true }
                             Task { @MainActor in
                                 try? await Task.sleep(for: .seconds(1.4))

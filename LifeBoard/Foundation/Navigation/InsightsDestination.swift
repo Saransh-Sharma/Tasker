@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -34,7 +34,7 @@ struct InsightsDestination: View {
         planningRepository: CoreDataPlanningRepository?,
         gamificationRepository: (any GamificationRepositoryProtocol)?,
         habitProjectionService: (any TrackHabitProjectionService)?,
-        goalSampleProvider: (any GoalSampleProvider)?,
+        goalSampleProvider: (any GoalSampleRepository)?,
         router: AppRouter,
         initialLens: InsightsLens = .overview,
         focusedEvidenceID: UUID? = nil
@@ -141,7 +141,7 @@ struct InsightsDestination: View {
                                 router.select(.track)
                             }
                             .buttonStyle(.borderedProminent)
-                            .tint(Color(LifeBoardColorTokens.foundationApricotAccent))
+                            .tint(Color(SemanticColorTokens.foundationApricotAccent))
                             .frame(minHeight: 44)
                             .accessibilityIdentifier("insights.empty.openTrack")
                         }
@@ -187,7 +187,7 @@ struct InsightsDestination: View {
                     .frame(maxWidth: .infinity, minHeight: 48)
             }
             .buttonStyle(.borderedProminent)
-            .tint(Color(LifeBoardColorTokens.foundationApricotAccent))
+            .tint(Color(SemanticColorTokens.foundationApricotAccent))
         case .trends:
             InsightsTrendsSection(
                 interpretation: interpretation,

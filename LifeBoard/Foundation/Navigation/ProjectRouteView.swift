@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -137,7 +137,7 @@ struct ProjectRouteView: View {
                         .font(.title2.weight(.semibold))
                     Text(projectStatus(snapshot))
                         .font(.subheadline)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 Spacer()
                 if let fraction = snapshot.completionFraction {
@@ -147,7 +147,7 @@ struct ProjectRouteView: View {
             }
             if let fraction = snapshot.completionFraction {
                 ProgressView(value: fraction)
-                    .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                    .tint(Color(SemanticColorTokens.foundationSageAccent))
             }
             if let next = snapshot.nextAction {
                 Button {
@@ -182,7 +182,7 @@ struct ProjectRouteView: View {
             if snapshot.milestones.isEmpty {
                 Text("No milestones yet")
                     .font(.subheadline)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 ForEach(snapshot.milestones) { milestone in
                     HStack(spacing: 10) {
@@ -202,7 +202,7 @@ struct ProjectRouteView: View {
                             if let target = milestone.targetDay?.startDate() {
                                 Text(target.formatted(date: .abbreviated, time: .omitted))
                                     .font(.caption)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                         }
                         Spacer()
@@ -213,7 +213,7 @@ struct ProjectRouteView: View {
         .taskEditorSurface()
     }
 
-    private func fetchSections() async throws -> [LifeBoardProjectSection] {
+    private func fetchSections() async throws -> [ProjectSectionDefinition] {
         guard let repository = dependencies.sectionRepository else { return [] }
         return try await withCheckedThrowingContinuation { continuation in
             repository.fetchSections(projectID: id) { continuation.resume(with: $0) }

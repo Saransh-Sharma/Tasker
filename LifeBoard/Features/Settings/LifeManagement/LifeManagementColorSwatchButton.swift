@@ -11,11 +11,11 @@ struct LifeManagementColorSwatchButton: View {
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.lifeboardTokens) private var tokens
 
-    var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         } label: {
             VStack(spacing: spacing.s8) {

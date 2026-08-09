@@ -598,7 +598,7 @@ struct TimelineInboxPlanningCard: View {
     let onTaskTap: (TimelinePlanItem) -> Void
 
     var body: some View {
-        let style = LBColorTokens.role(.assistant)
+        let style = ClayColorTokens.role(.assistant)
         GlassCard(
             cornerRadius: RadiusTokens.card,
             borderColor: style.border.opacity(0.78),
@@ -606,10 +606,10 @@ struct TimelineInboxPlanningCard: View {
             shadow: nil,
             usesMaterialBackground: false
         ) {
-            VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
-                HStack(alignment: .top, spacing: LBSpacingTokens.sm) {
+            VStack(alignment: .leading, spacing: ClayLayoutMetrics.sm) {
+                HStack(alignment: .top, spacing: ClayLayoutMetrics.sm) {
                     Image(systemName: "tray.full")
-                        .font(LBTypographyTokens.bodyStrong)
+                        .font(ClayTypography.bodyStrong)
                         .foregroundStyle(style.deep)
                         .frame(width: 34, height: 34)
                         .background(style.softSurface.opacity(0.82), in: Circle())
@@ -617,14 +617,14 @@ struct TimelineInboxPlanningCard: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text(inboxItems.count == 1 ? "1 inbox task ready" : "\(inboxItems.count) inbox tasks ready")
-                            .font(LBTypographyTokens.meta)
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .font(ClayTypography.meta)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                         Text("Inbox waiting for placement")
-                            .font(LBTypographyTokens.cardTitle)
-                            .foregroundStyle(LBColorTokens.navy)
+                            .font(ClayTypography.cardTitle)
+                            .foregroundStyle(ClayColorTokens.navy)
                         Text("Day Compass will offer a placement pass when enough unscheduled work needs a home.")
-                            .font(LBTypographyTokens.body)
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .font(ClayTypography.body)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                     Spacer(minLength: 0)
@@ -637,14 +637,14 @@ struct TimelineInboxPlanningCard: View {
                                 onTaskTap(item)
                             } label: {
                                 Text(item.title)
-                                    .font(LBTypographyTokens.meta)
-                                    .foregroundStyle(LBColorTokens.navy)
+                                    .font(ClayTypography.meta)
+                                    .foregroundStyle(ClayColorTokens.navy)
                                     .padding(.horizontal, 12)
                                     .padding(.vertical, 9)
-                                    .background(LBColorTokens.glassStrong.opacity(0.72), in: Capsule())
+                                    .background(ClayColorTokens.glassStrong.opacity(0.72), in: Capsule())
                                     .overlay {
                                         Capsule()
-                                            .stroke(LBColorTokens.hairline.opacity(0.7), lineWidth: 1)
+                                            .stroke(ClayColorTokens.hairline.opacity(0.7), lineWidth: 1)
                                     }
                             }
                             .buttonStyle(.plain)
@@ -652,11 +652,11 @@ struct TimelineInboxPlanningCard: View {
 
                         if inboxItems.count > 4 {
                             Text("+\(inboxItems.count - 4) more")
-                                .font(LBTypographyTokens.meta)
-                                .foregroundStyle(LBColorTokens.navyMuted)
+                                .font(ClayTypography.meta)
+                                .foregroundStyle(ClayColorTokens.navyMuted)
                                 .padding(.horizontal, 12)
                                 .padding(.vertical, 9)
-                                .background(LBColorTokens.glassStrong.opacity(0.72), in: Capsule())
+                                .background(ClayColorTokens.glassStrong.opacity(0.72), in: Capsule())
                                 .accessibilityLabel("\(inboxItems.count - 4) more inbox tasks")
                         }
                     }
@@ -665,7 +665,7 @@ struct TimelineInboxPlanningCard: View {
                 .accessibilityLabel("Inbox task previews")
                 .accessibilityHint(inboxItems.count > 4 ? "Scroll horizontally to inspect more inbox tasks." : "Swipe through inbox tasks to inspect them.")
             }
-            .padding(LBSpacingTokens.md)
+            .padding(ClayLayoutMetrics.md)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.timeline.inboxShelf")

@@ -92,7 +92,7 @@ struct DayCloseRoute: View {
     // MARK: - Backdrop
 
     private var backdrop: some View {
-        Color(LifeBoardColorTokens.foundationCanvas)
+        Color(SemanticColorTokens.foundationCanvas)
             .lifeboardPaperGrain()
             .ignoresSafeArea()
             .accessibilityHidden(true)
@@ -106,7 +106,7 @@ struct DayCloseRoute: View {
         VStack(alignment: .leading, spacing: 12) {
             ForEach(0..<3, id: \.self) { _ in
                 RoundedRectangle(cornerRadius: 6, style: .continuous)
-                    .fill(Color(LifeBoardColorTokens.metricRingTrack))
+                    .fill(Color(SemanticColorTokens.metricRingTrack))
                     .frame(height: 18)
             }
         }
@@ -160,7 +160,7 @@ struct DayCloseRoute: View {
                 if ribbon.segments.isEmpty {
                     Text("Nothing was scheduled today.")
                         .font(Typography.body())
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 } else {
                     DayCloseRibbonStrip(ribbon: ribbon)
                 }
@@ -173,7 +173,7 @@ struct DayCloseRoute: View {
     private func factLine(_ text: String) -> some View {
         Text(text)
             .font(Typography.metric())
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
     }
 
     // MARK: - Act 2 — reconcile
@@ -213,10 +213,10 @@ struct DayCloseRoute: View {
                     // that changes on every decision, and a hard cut makes the
                     // deck feel like it is resetting rather than advancing.
                     NumericRoll(value: Double(store.remainingCount))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Text("left")
                         .font(Typography.metadata())
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Spacer()
                     if store.decisionOrder.isEmpty == false {
                         Button("Bring back the last card") {
@@ -251,7 +251,7 @@ struct DayCloseRoute: View {
             ZStack {
                 ActThread(progress: actProgress)
                     .stroke(
-                        Color(LifeBoardColorTokens.foundationSunAccent).opacity(0.5),
+                        Color(SemanticColorTokens.foundationSunAccent).opacity(0.5),
                         style: StrokeStyle(lineWidth: 2, lineCap: .round)
                     )
                     .frame(width: 2)
@@ -262,7 +262,7 @@ struct DayCloseRoute: View {
                     // The unfilled remainder, so the thread reads as a length
                     // you are moving along rather than a bar that grows.
                     Capsule()
-                        .fill(Color(LifeBoardColorTokens.foundationHairline))
+                        .fill(Color(SemanticColorTokens.foundationHairline))
                         .frame(width: 2)
                 }
                 .lifeBoardMotion(.threadAdvance, value: actProgress)
@@ -301,12 +301,12 @@ struct DayCloseRoute: View {
                 systemImage: "checkmark.seal"
             )
             .font(Typography.sectionTitle())
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             if store.summaryLines.isEmpty == false {
                 ForEach(store.summaryLines, id: \.self) { line in
                     Text(line)
                         .font(Typography.metric())
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             }
         }
@@ -355,7 +355,7 @@ struct DayCloseRoute: View {
             if reflections == nil {
                 Text("Notes can't be saved right now. The rest of the day still closes.")
                     .font(Typography.metadata())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
         }
         .dayCloseCard()
@@ -403,7 +403,7 @@ struct DayCloseRoute: View {
                 // Not an error, not a nag.
                 Text("Nothing to anchor tomorrow yet.")
                     .font(Typography.body())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 ForEach(store.anchorCandidates) { candidate in
                     anchorRow(candidate)
@@ -425,8 +425,8 @@ struct DayCloseRoute: View {
                 Image(systemName: isAnchor ? "sunrise.fill" : "circle")
                     .foregroundStyle(
                         isAnchor
-                            ? Color(LifeBoardColorTokens.foundationSunAccent)
-                            : Color(LifeBoardColorTokens.inkTertiary)
+                            ? Color(SemanticColorTokens.foundationSunAccent)
+                            : Color(SemanticColorTokens.inkTertiary)
                     )
                     // The geometry carries the meaning: the chosen task's marker
                     // travels to the anchor slot rather than one icon fading out
@@ -438,7 +438,7 @@ struct DayCloseRoute: View {
                     )
                 Text(candidate.title)
                     .font(Typography.body())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 Spacer(minLength: 0)
             }
             .contentShape(Rectangle())
@@ -473,14 +473,14 @@ struct DayCloseRoute: View {
                 // pretending otherwise would be the lie.
                 Text("Undo puts your tasks back. Your note stays.")
                     .font(Typography.metadata())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 Button("Done") { onFinished() }
                     .buttonStyle(.lifeBoardPrimary)
             } else {
                 ForEach(store.summary) { line in
                     Text(line.text)
                         .font(Typography.metric())
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         // Released rows erode rather than fade — the effect's
                         // documented role, applied to the nearest true meaning.
                         // Scoped to `.release`: this ran over every line, so
@@ -488,7 +488,7 @@ struct DayCloseRoute: View {
                         // says the opposite of what happened to it.
                         .lifeboardDissolveAway(
                             progress: line.direction == .release ? releaseDissolve : 0,
-                            tint: Color(LifeBoardColorTokens.foundationApricotAccent)
+                            tint: Color(SemanticColorTokens.foundationApricotAccent)
                         )
                         // The other half of `.doneAnyway`'s vocabulary. The card
                         // only settles while armed; the burst is success
@@ -503,7 +503,7 @@ struct DayCloseRoute: View {
                 if hasUnsavedNote {
                     Text("Your line isn't saved yet. Save it, or close and keep just the plan changes.")
                         .font(Typography.metadata())
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .accessibilityIdentifier("dayClose.unsavedNote")
                 }
 
@@ -542,14 +542,14 @@ struct DayCloseRoute: View {
             if store.alreadyCommitted {
                 Label("Today is set.", systemImage: "checkmark.seal")
                     .font(Typography.sectionTitle())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 Button("Undo") { Task { await store.undoOpen() } }
                     .buttonStyle(.lifeBoardChip)
                     .accessibilityIdentifier("dayOpen.undo")
             } else if store.openProposal.isEmpty {
                 Text("Nothing is waiting. Today is yours to shape.")
                     .font(Typography.body())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 CommitControl(
                     title: "Start with a clear day",
                     runningTitle: "Setting today…",
@@ -603,7 +603,7 @@ struct DayCloseRoute: View {
                 .accessibilityIdentifier("dayOpen.commit")
                 Text("Tap any line to leave it out.")
                     .font(Typography.metadata())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
         }
         .dayCloseCard()
@@ -614,7 +614,7 @@ struct DayCloseRoute: View {
         // ledger has not been told yet.
         .lifeboardFirstLight(
             trigger: firstLightTrigger,
-            tint: Color(LifeBoardColorTokens.foundationSunAccent)
+            tint: Color(SemanticColorTokens.foundationSunAccent)
         )
         .accessibilityIdentifier("dayOpen.commitAct")
     }
@@ -637,17 +637,17 @@ struct DayCloseRoute: View {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(
                         isSelected
-                            ? Color(LifeBoardColorTokens.foundationSunAccent)
-                            : Color(LifeBoardColorTokens.inkTertiary)
+                            ? Color(SemanticColorTokens.foundationSunAccent)
+                            : Color(SemanticColorTokens.inkTertiary)
                     )
                 VStack(alignment: .leading, spacing: 2) {
                     Text(candidate.task.title)
                         .font(Typography.body())
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                     if candidate.origin == .anchor {
                         Text("You chose this last night")
                             .font(Typography.metadata())
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                 }
                 Spacer(minLength: 0)
@@ -669,14 +669,14 @@ struct DayCloseRoute: View {
                 sectionHeader("You said start here")
                 HStack(spacing: 10) {
                     Image(systemName: "sunrise.fill")
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationSunAccent))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
                     Text(anchor.title)
                         .font(Typography.sectionTitle())
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 }
                 Text("Chosen when you closed yesterday.")
                     .font(Typography.metadata())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .dayCloseCard()
             .accessibilityIdentifier("dayOpen.anchor")
@@ -687,21 +687,21 @@ struct DayCloseRoute: View {
             if store.unfinished.isEmpty {
                 Text("Nothing carried over. Today starts clear.")
                     .font(Typography.body())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else if store.retrospectiveDayWasClosed == false {
                 // Honest about provenance: these are today's commitments, not
                 // the outcome of a close that never happened.
                 Text("Yesterday wasn't closed, so nothing was carried deliberately. Here's what's open today.")
                     .font(Typography.metadata())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             ForEach(store.unfinished) { task in
                 Text(task.title)
                     .font(Typography.body())
                     .foregroundStyle(
                         task.id == store.carriedAnchorTaskID
-                            ? Color(LifeBoardColorTokens.inkTertiary)
-                            : Color(LifeBoardColorTokens.inkPrimary)
+                            ? Color(SemanticColorTokens.inkTertiary)
+                            : Color(SemanticColorTokens.inkPrimary)
                     )
             }
             Button("Open plan") { onFinished() }
@@ -716,7 +716,7 @@ struct DayCloseRoute: View {
     private func sectionHeader(_ title: String) -> some View {
         Text(title)
             .font(Typography.sectionTitle())
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
     }
 }
 
@@ -790,7 +790,7 @@ private struct DayCloseRibbonStrip: View {
 
     private func completionView(_ mark: DayCloseCompletionMark) -> some View {
         Circle()
-            .fill(Color(LifeBoardColorTokens.foundationSunAccent))
+            .fill(Color(SemanticColorTokens.foundationSunAccent))
             .frame(width: 7, height: 7)
             .offset(
                 x: CGFloat(ribbon.position(of: mark.completedAt) ?? 0) * width,
@@ -802,9 +802,9 @@ private struct DayCloseRibbonStrip: View {
     /// must never imply LifeBoard scheduled someone else's meeting.
     private func fill(for kind: DayCloseRibbonSegment.Kind) -> Color {
         switch kind {
-        case .planned: Color(LifeBoardColorTokens.foundationApricotAccent)
-        case .commitment: Color(LifeBoardColorTokens.foundationSageAccent)
-        case .focused: Color(LifeBoardColorTokens.foundationSunAccent)
+        case .planned: Color(SemanticColorTokens.foundationApricotAccent)
+        case .commitment: Color(SemanticColorTokens.foundationSageAccent)
+        case .focused: Color(SemanticColorTokens.foundationSunAccent)
         }
     }
 }
@@ -825,13 +825,13 @@ private struct DayCloseCard: View {
         VStack(alignment: .leading, spacing: 10) {
             Text(task.title)
                 .font(Typography.sectionTitle())
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .multilineTextAlignment(.leading)
 
             if let estimate = task.estimatedDuration {
                 Text("\(Int(estimate / 60)) min planned")
                     .font(Typography.metadata())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
 
             // The armed direction has to be visible before the finger lifts. A
@@ -841,8 +841,8 @@ private struct DayCloseCard: View {
                 .font(Typography.metric())
                 .foregroundStyle(
                     armed == nil
-                        ? Color(LifeBoardColorTokens.inkTertiary)
-                        : Color(LifeBoardColorTokens.inkPrimary)
+                        ? Color(SemanticColorTokens.inkTertiary)
+                        : Color(SemanticColorTokens.inkPrimary)
                 )
         }
         .frame(maxWidth: .infinity, minHeight: 132, alignment: .leading)
@@ -865,7 +865,7 @@ private struct DayCloseCard: View {
     /// Warm rather than alarming: releasing something is a legitimate outcome,
     /// not a failure, and the anti-guilt law puts no punitive red on this path.
     private var releaseTint: Color {
-        Color(LifeBoardColorTokens.foundationApricotAccent)
+        Color(SemanticColorTokens.foundationApricotAccent)
     }
 
     /// A hint of erosion, never enough to hide the title being decided about.
@@ -932,7 +932,7 @@ private struct DayCloseDirectionPad: View {
     }
 }
 
-// MARK: - LifeBoardCard surface
+// MARK: - SurfaceCard surface
 
 private extension View {
     /// Local twin of Plan's `foundationClayCard`, which is `fileprivate` to its

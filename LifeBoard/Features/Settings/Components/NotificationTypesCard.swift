@@ -23,7 +23,7 @@ struct NotificationTypesCard: View {
     private var disabled: Bool { viewModel.isPermissionDenied }
 
     var body: some View {
-        LifeBoardCard {
+        SurfaceCard {
             VStack(spacing: 0) {
                 ForEach(Array(rows.enumerated()), id: \.element.id) { index, row in
                     toggleRow(row)

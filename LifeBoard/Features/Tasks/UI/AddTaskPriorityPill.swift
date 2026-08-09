@@ -37,7 +37,7 @@ struct AddTaskPriorityPill: View {
 
     var body: some View {
         Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         } label: {
             HStack(spacing: 6) {

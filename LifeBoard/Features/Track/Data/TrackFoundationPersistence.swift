@@ -134,7 +134,7 @@ public extension TrackCorrectionReceipt {
     }
 }
 
-public final class CoreDataGoalSampleProvider: GoalSampleProvider, @unchecked Sendable {
+public final class CoreDataGoalSampleRepository: GoalSampleRepository, @unchecked Sendable {
     private let container: NSPersistentContainer
 
     public init(container: NSPersistentContainer) { self.container = container }

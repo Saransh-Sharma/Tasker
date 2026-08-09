@@ -33,7 +33,7 @@ public struct FocusZone: View {
 
     @State private var isTargeted = false
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
     private var prefersBudgetVisuals: Bool { shellPhase != .interactive }
     private var taskRows: [TaskDefinition] {
@@ -428,7 +428,7 @@ private struct FocusZoneRow: View {
     let onStartFocus: () -> Void
     let onDragStarted: () -> Void
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var presentation: FocusZoneRowPresentation {
         FocusZoneRowPresentation.make(task: task, insight: insight)
     }

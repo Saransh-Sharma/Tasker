@@ -22,7 +22,7 @@ struct InsightsEvidenceDisclosure: View {
                         .background {
                             if event.sourceID == focusedEvidenceID {
                                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                    .fill(Color(LifeBoardColorTokens.foundationSurfaceSelected))
+                                    .fill(Color(SemanticColorTokens.foundationSurfaceSelected))
                                     .padding(.horizontal, -8)
                             }
                         }

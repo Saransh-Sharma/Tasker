@@ -18,7 +18,7 @@ public struct NumericRoll: View {
         /// The card's single largest element.
         case hero
 
-        var textStyle: LifeBoardTextStyle {
+        var textStyle: TypographyStyle {
             switch self {
             case .standard: .metric
             case .hero: .heroDisplay

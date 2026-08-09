@@ -1006,7 +1006,7 @@ struct TimelineWeekSummary: Equatable {
 
 struct HomeTimelineSnapshot: Equatable {
     let selectedDate: Date
-    let sunriseAnchor: SunriseAnchor
+    let sunriseAnchor: HomeScrollAnchor
     let day: TimelineDayProjection
     let week: TimelineWeekSummary
     let placementCandidate: TimelinePlacementCandidate?

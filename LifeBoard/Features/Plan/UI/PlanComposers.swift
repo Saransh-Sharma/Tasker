@@ -72,7 +72,7 @@ struct PlanWorkingHoursComposer: View {
                                 Text(weekdayLabel(weekday))
                                     .font(.caption.weight(.semibold))
                                     .frame(maxWidth: .infinity, minHeight: 36)
-                                    .background(activeWeekdays.contains(weekday) ? Color(LifeBoardColorTokens.foundationSurfaceSelected) : .clear, in: Capsule())
+                                    .background(activeWeekdays.contains(weekday) ? Color(SemanticColorTokens.foundationSurfaceSelected) : .clear, in: Capsule())
                             }
                             .buttonStyle(.plain)
                             .accessibilityAddTraits(activeWeekdays.contains(weekday) ? .isSelected : [])

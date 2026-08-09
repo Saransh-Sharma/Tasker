@@ -1,5 +1,5 @@
 //
-//  LifeBoardAnimations.swift
+//  MotionAnimations.swift
 //  LifeBoard
 //
 //  Reusable animation tokens and ViewModifiers for the Sarvam-inspired single-brand system.
@@ -171,7 +171,7 @@ public struct EnhancedStaggeredAppearance: ViewModifier {
     }
 }
 
-// MARK: - LifeBoardCard Entrance Modifier
+// MARK: - SurfaceCard Entrance Modifier
 
 /// Fade + 8pt rise entrance per the Sunrise Glass card-entrance spec, with a capped stagger.
 /// Entrance is keyed to `onAppear` only — callers embedding this inside a periodically
@@ -245,7 +245,7 @@ public struct CompletionCelebration: ViewModifier {
             }
             .onChange(of: isComplete) { _, newValue in
                 guard newValue else { return }
-                LifeBoardFeedback.success()
+                HapticFeedback.success()
                 guard LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false else { return }
                 withAnimation(LifeBoardAnimation.celebration) { swell = true }
                 DispatchQueue.main.asyncAfter(deadline: .now() + LifeBoardAnimation.celebrationDuration) {
@@ -351,7 +351,7 @@ public struct ActiveGlow: ViewModifier {
     }
 }
 
-// MARK: - LifeBoardCard Press Effect Modifier
+// MARK: - SurfaceCard Press Effect Modifier
 
 public struct CardPressEffect: ViewModifier {
     @State private var isPressed = false
@@ -556,7 +556,7 @@ public extension UIView {
 // MARK: - Haptic Helpers
 
 @MainActor
-public enum LifeBoardFeedback {
+public enum HapticFeedback {
     public static func light() {
         guard isHapticFeedbackAvailable else { return }
         UIImpactFeedbackGenerator(style: .light).impactOccurred()

@@ -11,7 +11,7 @@ struct TaskExecutionBatchActionBar: View {
     let scope: TaskExecutionQuery.Scope
     let tags: [TagDefinition]
     let projects: [Project]
-    let sectionsByProjectID: [UUID: [LifeBoardProjectSection]]
+    let sectionsByProjectID: [UUID: [ProjectSectionDefinition]]
     let isApplyingBatch: Bool
     let applyBatch: (TaskBatchMutation) -> Void
     @Binding var destructiveMutation: TaskBatchMutation?
@@ -20,7 +20,7 @@ struct TaskExecutionBatchActionBar: View {
         HStack(spacing: 10) {
             Text("\(selectionCount) selected")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 .accessibilityLabel("\(selectionCount) tasks selected")
 
             Spacer(minLength: 4)

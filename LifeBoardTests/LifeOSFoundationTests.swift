@@ -1,7 +1,7 @@
 import CoreData
-import JournalFoundation
+import LifeBoardDomain
 import KnowledgeGraphKit
-import ReflectionKit
+import LifeBoardDomain
 import UIKit
 import XCTest
 @testable import LifeBoard
@@ -1185,10 +1185,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     private nonisolated func completionModelBundleURL() throws -> URL {
-        for bundle in [Bundle.main, Bundle(for: Self.self)] {
-            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") { return url }
-        }
-        throw NSError(domain: "LifeOSFoundationContractTests", code: 1)
+        try PersistenceTestModel.url()
     }
 
     private nonisolated func loadCompletionStores(_ container: NSPersistentContainer) async throws {
@@ -1424,15 +1421,15 @@ final class LifeOSFoundationContractTests: XCTestCase {
                     $0.userInterfaceStyle = style
                     $0.accessibilityContrast = contrast
                 })
-                let ink = try rgbComponents(from: LifeBoardColorTokens.inkPrimary.resolvedColor(with: traits))
-                let surface = try rgbComponents(from: LifeBoardColorTokens.foundationSurfaceSolid.resolvedColor(with: traits))
+                let ink = try rgbComponents(from: SemanticColorTokens.inkPrimary.resolvedColor(with: traits))
+                let surface = try rgbComponents(from: SemanticColorTokens.foundationSurfaceSolid.resolvedColor(with: traits))
                 XCTAssertGreaterThanOrEqual(contrastRatio(ink, surface), 4.5)
             }
         }
     }
 
     func testCelestialAccentControlsUseVerifiedCocoaForeground() throws {
-        let foreground = try rgbComponents(from: LifeBoardColorTokens.foundationOnCelestialAccent)
+        let foreground = try rgbComponents(from: SemanticColorTokens.foundationOnCelestialAccent)
         for daypart in ResolvedDaypart.allCases {
             let background = try rgbComponents(
                 from: DaypartTokens.palette(for: daypart).celestialCore
@@ -1446,11 +1443,11 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testSettingsHeroUsesAStableReadableForeground() throws {
-        let foreground = try rgbComponents(from: LifeBoardColorTokens.foundationOnSettingsHero)
+        let foreground = try rgbComponents(from: SemanticColorTokens.foundationOnSettingsHero)
         for backgroundColor in [
-            LifeBoardColorTokens.foundationSettingsHeroStart,
-            LifeBoardColorTokens.foundationSettingsHeroMiddle,
-            LifeBoardColorTokens.foundationSettingsHeroEnd
+            SemanticColorTokens.foundationSettingsHeroStart,
+            SemanticColorTokens.foundationSettingsHeroMiddle,
+            SemanticColorTokens.foundationSettingsHeroEnd
         ] {
             XCTAssertGreaterThanOrEqual(
                 contrastRatio(foreground, try rgbComponents(from: backgroundColor)),
@@ -2098,9 +2095,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testLifeOSModelVersionContainsCloudSyncedLayoutEntities() throws {
-        let model = try XCTUnwrap(
-            NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)])
-        )
+        let model = try PersistenceTestModel.model()
         XCTAssertNotNil(model.entitiesByName["DashboardLayout"])
         XCTAssertNotNil(model.entitiesByName["DashboardWidgetPlacement"])
         let cloudEntities = try XCTUnwrap(model.entities(forConfigurationName: "CloudSync"))
@@ -2110,7 +2105,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testPhaseIIModelKeepsPrivateAndDerivedDataInTheCorrectStores() throws {
-        let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)]))
+        let model = try PersistenceTestModel.model()
         let cloud = Set(try XCTUnwrap(model.entities(forConfigurationName: "CloudSync")).compactMap(\.name))
         let local = Set(try XCTUnwrap(model.entities(forConfigurationName: "LocalOnly")).compactMap(\.name))
 
@@ -2132,7 +2127,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testBehaviorFlagshipModelContainsOnlyTheAdditiveBehaviorFields() throws {
-        let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)]))
+        let model = try PersistenceTestModel.model()
         let expected: [String: Set<String>] = [
             "MedicationDefinition": [
                 "formRaw", "startDate", "endDate", "refillQuantity", "refillRemaining",
@@ -2248,9 +2243,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testDashboardLayoutRepositoryRoundTrip() async throws {
-        let model = try XCTUnwrap(
-            NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)])
-        )
+        let model = try PersistenceTestModel.model()
         let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
         let description = NSPersistentStoreDescription()
         description.type = NSInMemoryStoreType
@@ -4491,7 +4484,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         )
         let repository = InMemoryWellnessRepository(bodyMetrics: [sample])
         let definition = try XCTUnwrap(DefaultDashboardWidgetRegistry.shared.descriptor(for: .bodyMetric))
-        let provider = WellnessHomeCardProvider(
+        let provider = WellnessHomeCardSource(
             definition: definition,
             focus: .bodyMetric(.bodyMass),
             repository: repository
@@ -4606,7 +4599,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testWellnessCoreModelPlacesAdditiveEntitiesInCloudSync() throws {
-        let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)]))
+        let model = try PersistenceTestModel.model()
         let cloud = Set(try XCTUnwrap(model.entities(forConfigurationName: "CloudSync")).compactMap(\.name))
         for name in ["BodyMetricSample", "WorkoutRecord", "SleepNote", "MovementContextRecord"] {
             XCTAssertNotNil(model.entitiesByName[name])
@@ -5210,7 +5203,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
             permitsHomeDisplay: false
         )
         let repository = InMemoryLifeMomentRepository(values: [privateMoment, visible])
-        let provider = LifeMomentContextCandidateProvider(repository: repository, thresholdDays: 7)
+        let provider = LifeMomentContextCandidateSource(repository: repository, thresholdDays: 7)
         let candidates = await provider.candidates(context: .init(
             date: now,
             timeZone: .gmt,
@@ -5234,7 +5227,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         )
         let repository = InMemoryLifeMomentRepository(values: [moment])
         let definition = try XCTUnwrap(DefaultDashboardWidgetRegistry.shared.descriptor(for: .lifeMoment))
-        let provider = LifeMomentHomeCardProvider(
+        let provider = LifeMomentHomeCardSource(
             definition: definition,
             momentID: moment.id,
             sensitivity: moment.sensitivity,
@@ -5434,12 +5427,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     private func taskModelBundleURL() throws -> URL {
-        for bundle in [Bundle.main, Bundle(for: Self.self)] {
-            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") {
-                return url
-            }
-        }
-        throw XCTSkip("The compiled TaskModelV3.momd is unavailable in this test host")
+        try PersistenceTestModel.url()
     }
 
     /// The current model version as the *built product* records it, read from
@@ -5776,7 +5764,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testNotesProModelAddsRecoveryAndRichContentFields() throws {
-        let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)]))
+        let model = try PersistenceTestModel.model()
         let note = try XCTUnwrap(model.entitiesByName["KnowledgeNote"])
         let block = try XCTUnwrap(model.entitiesByName["KnowledgeBlock"])
         let attachment = try XCTUnwrap(model.entitiesByName["KnowledgeAttachment"])
@@ -5791,7 +5779,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testNotesCompletionModelKeepsSecureAndDerivedDataSeparated() throws {
-        let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main, Bundle(for: Self.self)]))
+        let model = try PersistenceTestModel.model()
         let cloud = Set(try XCTUnwrap(model.entities(forConfigurationName: "CloudSync")).compactMap(\.name))
         let local = Set(try XCTUnwrap(model.entities(forConfigurationName: "LocalOnly")).compactMap(\.name))
         let draft = try XCTUnwrap(model.entitiesByName["KnowledgeNoteDraft"])
@@ -6010,7 +5998,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 }
 
-private struct HomeCardProviderFixture: HomeCardProvider {
+private struct HomeCardProviderFixture: HomeCardSource {
     let definition: HomeCardDefinition
     let primaryDestination: Destination
     let privacyClassification: DataSensitivity
@@ -6087,7 +6075,7 @@ private struct PlanMutationIntentAdapterFixture: LifeThreadMutationIntentAdapter
     }
 }
 
-private struct ContextCandidateProviderFixture: HomeContextCandidateProvider {
+private struct ContextCandidateProviderFixture: HomeContextCandidateSource {
     let providerID: String
     let candidateID: String
     let priority: Int
@@ -7305,8 +7293,8 @@ final class TaskExecutionProjectionTests: XCTestCase {
             projectID: projectID,
             completedTaskCount: 0,
             sections: [
-                LifeBoardProjectSection(projectID: projectID, name: "Second", sortOrder: 2),
-                LifeBoardProjectSection(projectID: projectID, name: "First", sortOrder: 1)
+                ProjectSectionDefinition(projectID: projectID, name: "Second", sortOrder: 2),
+                ProjectSectionDefinition(projectID: projectID, name: "First", sortOrder: 1)
             ],
             milestones: [
                 ProjectMilestone(projectID: projectID, title: "Beta", sortOrder: 2),
@@ -7556,10 +7544,7 @@ final class StartDayPersistenceTests: XCTestCase {
     }
 
     private func startDayModelBundleURL() throws -> URL {
-        for bundle in [Bundle.main, Bundle(for: Self.self)] {
-            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") { return url }
-        }
-        throw XCTSkip("Compiled TaskModelV3.momd unavailable")
+        try PersistenceTestModel.url()
     }
 
     private func makeStartDayContainer() async throws -> NSPersistentContainer {

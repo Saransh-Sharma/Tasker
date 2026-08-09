@@ -691,7 +691,7 @@ public enum WellnessHomeCardFocus: Hashable, Sendable {
     case movement
 }
 
-public struct WellnessHomeCardProvider: HomeCardProvider {
+public struct WellnessHomeCardSource: HomeCardSource {
     public let definition: HomeCardDefinition
     public let primaryDestination = Destination.track
     public let privacyClassification = DataSensitivity.privateSensitive

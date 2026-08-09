@@ -1114,7 +1114,7 @@ final class LLMChatGenerationLimiterTests: XCTestCase {
 
 final class PromptMiddlewareTests: XCTestCase {
     override func tearDown() {
-        LLMContextRepositoryProvider.configure(
+        LLMContextRepositoryFactory.configure(
             taskReadModelRepository: nil,
             projectRepository: nil,
             tagRepository: nil
@@ -1136,7 +1136,7 @@ final class PromptMiddlewareTests: XCTestCase {
             isComplete: false
         )
 
-        LLMContextRepositoryProvider.configure(
+        LLMContextRepositoryFactory.configure(
             taskReadModelRepository: MockTaskReadModelRepository(tasks: [todayTask, overdueTask]),
             projectRepository: MockProjectRepository(),
             tagRepository: nil

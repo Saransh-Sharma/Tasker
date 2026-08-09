@@ -1033,7 +1033,7 @@ public enum NutritionHomeCardFocus: Sendable {
     case logMeal
 }
 
-public struct NutritionHomeCardProvider: HomeCardProvider {
+public struct NutritionHomeCardSource: HomeCardSource {
     public let definition: HomeCardDefinition
     public let primaryDestination = Destination.track
     public let privacyClassification = DataSensitivity.privateSensitive

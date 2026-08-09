@@ -27,8 +27,8 @@ struct TimelineAnchorRitualTheme {
                 accentSoft: adaptiveColor(light: "#FFF0E4", dark: "#241812"),
                 accentMist: adaptiveColor(light: "#FFE5D4", dark: "#33211A"),
                 surface: adaptiveColor(light: "#FFFDFC", dark: "#15161D"),
-                title: LBColorTokens.navy,
-                subtitle: LBColorTokens.navyMuted,
+                title: ClayColorTokens.navy,
+                subtitle: ClayColorTokens.navyMuted,
                 cardBorder: adaptiveColor(light: "#F5E6DA", dark: "#2C2620"),
                 ctaGradient: LinearGradient(
                     colors: [
@@ -49,8 +49,8 @@ struct TimelineAnchorRitualTheme {
                 accentSoft: adaptiveColor(light: "#F0E8FF", dark: "#1C1630"),
                 accentMist: adaptiveColor(light: "#E7DCFF", dark: "#281E42"),
                 surface: adaptiveColor(light: "#FFFDFC", dark: "#15151E"),
-                title: LBColorTokens.navy,
-                subtitle: LBColorTokens.navyMuted,
+                title: ClayColorTokens.navy,
+                subtitle: ClayColorTokens.navyMuted,
                 cardBorder: adaptiveColor(light: "#E9E0F7", dark: "#262233"),
                 ctaGradient: LinearGradient(
                     colors: [

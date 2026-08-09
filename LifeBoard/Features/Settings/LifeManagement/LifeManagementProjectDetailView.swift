@@ -13,7 +13,7 @@ struct LifeManagementProjectDetailView: View {
 
     @Environment(\.lifeboardTokens) private var tokens
 
-    var spacing: LifeBoardSpacingTokens {
+    var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 

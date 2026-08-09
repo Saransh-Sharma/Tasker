@@ -20,7 +20,7 @@ struct LifeManagementComposerMetricTile: View {
         .padding(.vertical, 10)
         .background(
             RoundedRectangle(cornerRadius: Theme.CornerRadius.md, style: .continuous)
-                .fill(LBColorTokens.whiteStroke.opacity(0.12))
+                .fill(ClayColorTokens.whiteStroke.opacity(0.12))
         )
     }
 }

@@ -62,7 +62,7 @@ public enum InteractionPhase: String, Codable, CaseIterable, Hashable, Sendable 
 }
 
 /// A stable, serializable point used to hand capture motion between screen coordinates.
-public struct LifeBoardNormalizedPoint: Codable, Hashable, Sendable {
+public struct UnitPoint2D: Codable, Hashable, Sendable {
     public let x: Double
     public let y: Double
 
@@ -74,12 +74,12 @@ public struct LifeBoardNormalizedPoint: Codable, Hashable, Sendable {
 
 public struct CapturePresentationContext: Codable, Hashable, Sendable {
     public let sourceRoot: Destination
-    public let sourcePoint: LifeBoardNormalizedPoint?
+    public let sourcePoint: UnitPoint2D?
     public let preferredCaptureKind: CaptureKind?
 
     public init(
         sourceRoot: Destination,
-        sourcePoint: LifeBoardNormalizedPoint? = nil,
+        sourcePoint: UnitPoint2D? = nil,
         preferredCaptureKind: CaptureKind? = nil
     ) {
         self.sourceRoot = sourceRoot
@@ -722,19 +722,19 @@ public struct HomeContextCandidateContext: Hashable, Sendable {
 /// Domain modules own candidate creation. Home only merges display-ready
 /// candidates, preventing the adaptive canvas from reaching into canonical
 /// repositories or learning domain-specific eligibility rules.
-public protocol HomeContextCandidateProvider: Sendable {
+public protocol HomeContextCandidateSource: Sendable {
     var providerID: String { get }
     func candidates(context: HomeContextCandidateContext) async -> [HomeContextCandidate]
 }
 
 public actor HomeContextCandidateProviderRegistry {
-    private var providers: [String: any HomeContextCandidateProvider] = [:]
+    private var providers: [String: any HomeContextCandidateSource] = [:]
 
-    public init(providers: [any HomeContextCandidateProvider] = []) {
+    public init(providers: [any HomeContextCandidateSource] = []) {
         self.providers = Dictionary(uniqueKeysWithValues: providers.map { ($0.providerID, $0) })
     }
 
-    public func register(_ provider: any HomeContextCandidateProvider) {
+    public func register(_ provider: any HomeContextCandidateSource) {
         providers[provider.providerID] = provider
     }
 
@@ -2830,7 +2830,7 @@ public struct HomeCardSnapshot: Codable, Hashable, Sendable {
 /// Domain-owned providers keep Home out of canonical databases. In-app cards,
 /// widgets, and previews may consume the same snapshot while retaining separate
 /// rendering lifecycles.
-public protocol HomeCardProvider: Sendable {
+public protocol HomeCardSource: Sendable {
     var definition: HomeCardDefinition { get }
     var primaryDestination: Destination { get }
     var privacyClassification: DataSensitivity { get }
@@ -2843,7 +2843,7 @@ public protocol HomeCardProvider: Sendable {
     func snapshot(context: HomeCardSnapshotContext) async -> HomeCardSnapshot
 }
 
-public extension HomeCardProvider {
+public extension HomeCardSource {
     var inlineActions: [HomeCardActionDescriptor] {
         [
             .init(
@@ -2886,9 +2886,9 @@ public enum HomeCardProviderRegistryError: Error, Equatable, Sendable {
 /// A stable provider lookup boundary. Home asks this actor for display-ready
 /// snapshots and never reaches into a domain repository itself.
 public actor HomeCardProviderRegistry {
-    private var providers: [DashboardWidgetKind: any HomeCardProvider] = [:]
+    private var providers: [DashboardWidgetKind: any HomeCardSource] = [:]
 
-    public init(providers: [any HomeCardProvider] = []) throws {
+    public init(providers: [any HomeCardSource] = []) throws {
         for provider in providers {
             let kind = provider.definition.kind
             guard self.providers[kind] == nil else {
@@ -2898,7 +2898,7 @@ public actor HomeCardProviderRegistry {
         }
     }
 
-    public func register(_ provider: any HomeCardProvider) throws {
+    public func register(_ provider: any HomeCardSource) throws {
         let kind = provider.definition.kind
         guard providers[kind] == nil else {
             throw HomeCardProviderRegistryError.duplicateProvider(kind)
@@ -2919,7 +2919,7 @@ public actor HomeCardProviderRegistry {
             }
     }
 
-    public func provider(for kind: DashboardWidgetKind) -> (any HomeCardProvider)? {
+    public func provider(for kind: DashboardWidgetKind) -> (any HomeCardSource)? {
         providers[kind]
     }
 

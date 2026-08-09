@@ -226,9 +226,8 @@ final class PersistentRuntimeInitializerTests: XCTestCase {
     }
 
     private func makeInMemoryContainer() throws -> NSPersistentCloudKitContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
-              model.entitiesByName["TaskDefinition"] != nil else {
+        let model = try PersistenceTestModel.model()
+        guard model.entitiesByName["TaskDefinition"] != nil else {
             throw NSError(
                 domain: "PersistentRuntimeInitializerTests",
                 code: 1,

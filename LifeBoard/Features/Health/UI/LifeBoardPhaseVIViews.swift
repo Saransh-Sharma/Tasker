@@ -170,7 +170,7 @@ struct NutritionView: View {
             timelineContent
                 .padding(20)
         }
-        .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+        .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
         .navigationTitle("Nutrition")
         .toolbar { nutritionToolbar }
         .task { await store.load() }
@@ -304,7 +304,7 @@ struct NutritionView: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Today’s nourishment").font(Typography.screenTitle())
             Text("A factual record of what you choose to log—never a grade.")
-                .font(.subheadline).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
     }
 
@@ -356,7 +356,7 @@ struct NutritionView: View {
         HStack(spacing: 10) {
             Text("Removed “\(deleted.foodNameSnapshot)”")
                 .font(.caption)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             Spacer(minLength: 8)
             Button("Undo") { Task { await store.undoDelete() } }
                 .font(.caption.weight(.semibold))
@@ -372,7 +372,7 @@ struct NutritionView: View {
         }
         .padding(.horizontal, 14)
         .frame(minHeight: 48)
-        .lifeBoardClaySurface(.well, cornerRadius: 15, fill: Color(LifeBoardColorTokens.foundationSurfaceSelected))
+        .lifeBoardClaySurface(.well, cornerRadius: 15, fill: Color(SemanticColorTokens.foundationSurfaceSelected))
     }
 
     private var macroSummary: some View {
@@ -387,12 +387,12 @@ struct NutritionView: View {
 
     private func macro(_ title: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(title).font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            Text(title).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             Text(value).font(.subheadline.monospacedDigit().weight(.semibold))
         }
         .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
         .padding(10)
-        .lifeBoardClaySurface(.well, cornerRadius: 15, fill: Color(LifeBoardColorTokens.foundationSurfaceSelected))
+        .lifeBoardClaySurface(.well, cornerRadius: 15, fill: Color(SemanticColorTokens.foundationSurfaceSelected))
     }
 
     /// Honest trailing-week report: recorded energy per day, no goals or
@@ -403,14 +403,14 @@ struct NutritionView: View {
             Text("Past 7 days").font(Typography.sectionTitle())
             if report.allSatisfy({ $0.calories == 0 }) {
                 Text("Logged meals will build this picture over the week.")
-                    .font(.subheadline).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 Chart(report) { item in
                     BarMark(
                         x: .value("Day", item.day, unit: .day),
                         y: .value("Energy", item.calories)
                     )
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSunAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
                     .cornerRadius(5)
                 }
                 .chartXAxis { AxisMarks(values: .stride(by: .day)) { _ in AxisValueLabel(format: .dateTime.weekday(.narrow)) } }
@@ -481,7 +481,7 @@ private struct NutritionBarcodeReviewSheet: View {
                     Section {
                         Text("Nothing is merged or replaced automatically. Review the name, brand, serving, and nutrition values before choosing.")
                             .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                 case .noMatchRemoteDisabled:
                     ContentUnavailableView(
@@ -509,13 +509,13 @@ private struct NutritionBarcodeReviewSheet: View {
             if let brand = food.brand { Text(brand).font(.subheadline) }
             Text(provenance)
                 .font(.caption)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             Text(
                 "\(food.macrosPer100Grams.calories.formatted()) kcal · "
                     + "\(food.macrosPer100Grams.proteinGrams.formatted()) g protein per 100 g"
             )
             .font(.caption.monospacedDigit())
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
         .frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
     }
@@ -543,7 +543,7 @@ private struct NutritionMealSectionView: View {
                     Text("\(loggedCalories) kcal")
                         .font(.footnote.weight(.medium))
                         .monospacedDigit()
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             }
             if entries.isEmpty {
@@ -552,12 +552,12 @@ private struct NutritionMealSectionView: View {
                 // kind sentence into wallpaper.
                 Text("Nothing logged")
                     .font(.subheadline)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 VStack(spacing: 0) {
                     ForEach(Array(entries.enumerated()), id: \.element.id) { index, entry in
                         if index > 0 {
-                            Divider().overlay(Color(LifeBoardColorTokens.foundationHairline))
+                            Divider().overlay(Color(SemanticColorTokens.foundationHairline))
                         }
                         row(entry)
                     }
@@ -580,7 +580,7 @@ private struct NutritionMealSectionView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.foodNameSnapshot).font(.headline)
                 Text("\(quantityText) × \(entry.servingNameSnapshot) · \(calorieCount) kcal")
-                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
             Menu {
@@ -731,7 +731,7 @@ private struct NutritionProvenanceSection: View {
                     systemImage: provenance == .barcodeLocal ? "internaldrive" : "network"
                 )
                 .font(.lifeboard(.body))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             }
         }
     }
@@ -918,7 +918,7 @@ struct WellnessView: View {
                     Text("History").font(Typography.sectionTitle())
                     if filteredSamples.isEmpty, searchText.isEmpty == false {
                         Text("No entries match “\(searchText)”. History is unchanged.")
-                            .font(.subheadline).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary)).padding(.vertical, 8)
+                            .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary)).padding(.vertical, 8)
                     }
                     ForEach(filteredSamples) { sample in
                         WellnessHistoryRow(
@@ -996,7 +996,7 @@ struct WellnessView: View {
                         .prefix(30)
                         .map { HomeSeriesPoint(date: $0.startedAt, value: max(0, $0.duration / 60)) }
                         .sorted { $0.date < $1.date },
-                    tint: Color(LifeBoardColorTokens.foundationApricotAccent),
+                    tint: Color(SemanticColorTokens.foundationApricotAccent),
                     unit: "minutes"
                 )
                 .frame(height: 120)
@@ -1007,9 +1007,9 @@ struct WellnessView: View {
                             Text(workout.activityKind).font(.body.weight(.medium))
                             Text(workout.startedAt.formatted(date: .abbreviated, time: .shortened))
                                 .font(.caption2)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             if let note = workout.note {
-                                Text(note).font(.caption2).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                Text(note).font(.caption2).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                         }
                         Spacer()
@@ -1038,7 +1038,7 @@ struct WellnessView: View {
                         .prefix(30)
                         .map { HomeSeriesPoint(date: $0.night, value: max(0, $0.totalDuration / 3_600)) }
                         .sorted { $0.date < $1.date },
-                    tint: Color(LifeBoardColorTokens.foundationSageAccent),
+                    tint: Color(SemanticColorTokens.foundationSageAccent),
                     unit: "hours"
                 )
                 .frame(height: 120)
@@ -1049,20 +1049,20 @@ struct WellnessView: View {
                             Text(Self.durationLabel(night.totalDuration)).font(.body.weight(.medium))
                             Text(night.startedAt.formatted(date: .abbreviated, time: .shortened))
                                 .font(.caption2)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             if night.samples.count > 1 {
                                 Text("\(night.samples.count) Apple Health sleep stages")
                                     .font(.caption2)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             } else if let annotation = night.samples.first?.note {
-                                Text(annotation).font(.caption2).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                Text(annotation).font(.caption2).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                         }
                         Spacer()
                         if let quality = night.samples.compactMap(\.quality).first {
                             Text("Quality \(quality)/5")
                                 .font(.caption)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
                     }
                     .frame(minHeight: 44)
@@ -1084,14 +1084,14 @@ struct WellnessView: View {
     /// screen; history and analysis follow.
     private var todayCard: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Today").font(.caption.weight(.semibold)).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            Text("Today").font(.caption.weight(.semibold)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             if let sample = todaySamples.first {
                 Text(display(sample)).font(.system(.largeTitle, design: .rounded, weight: .semibold)).monospacedDigit()
                 Text("Logged \(sample.observedAt.formatted(date: .omitted, time: .shortened))")
-                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 Text(store.samples.first.map { "Last: \(display($0)) · \($0.observedAt.formatted(date: .abbreviated, time: .omitted))" } ?? "Nothing logged yet")
-                    .font(.subheadline).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             // `.borderedProminent` with a `.tint` is unsafe inside these roots:
             // an ambient `foregroundStyle` propagates into the label and defeats
@@ -1110,7 +1110,7 @@ struct WellnessView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(18)
-        .lifeBoardClaySurface(.well, cornerRadius: 22, fill: Color(LifeBoardColorTokens.foundationSurfaceSelected))
+        .lifeBoardClaySurface(.well, cornerRadius: 22, fill: Color(SemanticColorTokens.foundationSurfaceSelected))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Today, \(kind.title)")
     }
@@ -1122,13 +1122,13 @@ struct WellnessView: View {
                 x: .value("Date", sample.observedAt),
                 y: .value(kind.title, displayValue(sample))
             )
-            .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+            .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
             .interpolationMethod(.catmullRom)
             PointMark(
                 x: .value("Date", sample.observedAt),
                 y: .value(kind.title, displayValue(sample))
             )
-            .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+            .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
             .symbolSize(28)
         }
         .chartYScale(domain: .automatic(includesZero: false))
@@ -1141,7 +1141,7 @@ struct WellnessView: View {
         .lifeboardChartRevealSweep(progress: chartRevealProgress)
         .padding(16)
         .lifeBoardClaySurface(.raised, cornerRadius: 20)
-        .overlay { RoundedRectangle(cornerRadius: 20).stroke(Color(LifeBoardColorTokens.foundationHairline)) }
+        .overlay { RoundedRectangle(cornerRadius: 20).stroke(Color(SemanticColorTokens.foundationHairline)) }
         .accessibilityLabel("\(kind.title) trend chart")
         .accessibilityValue(store.samples.isEmpty ? "No data" : "\(store.samples.count) entries. Latest \(display(store.samples[0])).")
     }
@@ -1153,7 +1153,7 @@ struct WellnessView: View {
                 Text("Source review").font(Typography.sectionTitle())
                 Text("These readings arrived close together from different sources. Choosing one changes only the display; source history stays intact.")
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 ForEach(store.conflicts) { conflict in
                     VStack(alignment: .leading, spacing: 8) {
                         ForEach(conflict.samples) { sample in
@@ -1164,16 +1164,16 @@ struct WellnessView: View {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 2) {
                                         Text(display(sample))
-                                            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                                            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                                         Text("\(sourceLabel(sample.source)) · \(sample.observedAt.formatted(date: .abbreviated, time: .shortened))")
                                             .font(.caption)
-                                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                                     }
                                     Spacer()
                                     Image(systemName: isPreferred ? "checkmark.circle.fill" : "circle")
                                         .foregroundStyle(isPreferred
-                                            ? Color(LifeBoardColorTokens.foundationSageAccent)
-                                            : Color(LifeBoardColorTokens.inkTertiary))
+                                            ? Color(SemanticColorTokens.foundationSageAccent)
+                                            : Color(SemanticColorTokens.inkTertiary))
                                 }
                                 .frame(minHeight: 44)
                                 .contentShape(Rectangle())
@@ -1231,7 +1231,7 @@ private struct WellnessMetricOrderRow: View {
         HStack(spacing: 10) {
             Text(kind.title)
                 .font(.lifeboard(.body))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             Spacer(minLength: 8)
             Menu {
                 Picker(kind.title, selection: $unit) {
@@ -1244,7 +1244,7 @@ private struct WellnessMetricOrderRow: View {
             } label: {
                 Text(unit.symbol)
                     .font(.lifeboard(.meta))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .padding(.horizontal, 10)
                     .frame(minHeight: 32)
                     .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
@@ -1253,7 +1253,7 @@ private struct WellnessMetricOrderRow: View {
             Button(action: hide) {
                 Image(systemName: "eye.slash")
                     .font(.lifeboard(.support))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                     .frame(width: 34, height: 34)
                     .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
             }
@@ -1278,12 +1278,12 @@ private struct WellnessHistoryRow: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(timestamp.formatted(date: .abbreviated, time: .shortened))
                     .font(.lifeboard(.body))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 HStack(spacing: 6) {
                     if isImported {
                         Text(provenance)
                             .font(.lifeboard(.caption2))
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             .padding(.horizontal, 8)
                             .padding(.vertical, 3)
                             .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
@@ -1291,7 +1291,7 @@ private struct WellnessHistoryRow: View {
                     if let note {
                         Text(note)
                             .font(.lifeboard(.caption2))
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             .lineLimit(2)
                     }
                 }
@@ -1300,13 +1300,13 @@ private struct WellnessHistoryRow: View {
             Text(value)
                 .font(.lifeboard(.bodyStrong))
                 .monospacedDigit()
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             Menu {
                 Button("Delete", systemImage: "trash", role: .destructive, action: delete)
             } label: {
                 Image(systemName: "ellipsis")
                     .font(.lifeboard(.support))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                     .frame(width: 34, height: 34)
                     .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
             }
@@ -1607,7 +1607,7 @@ struct LifeMomentsView: View {
                 } else {
                     Text("Meaningful moments")
                         .font(Typography.sectionTitle())
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                         .padding(.horizontal, 4)
                 }
                 ForEach(filteredMoments) { moment in
@@ -1674,7 +1674,7 @@ private struct LifeMomentCard: View {
             HStack(alignment: .center, spacing: 14) {
                 Image(systemName: moment.kind == .countdown ? "hourglass" : "calendar.badge.heart")
                     .font(.lifeboard(.title3))
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                     .frame(width: 34, height: 34)
                     .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
                     .accessibilityHidden(true)
@@ -1682,11 +1682,11 @@ private struct LifeMomentCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text(moment.title)
                         .font(.lifeboard(.bodyStrong))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                         .multilineTextAlignment(.leading)
                     Text(moment.eventDate.formatted(date: .abbreviated, time: .omitted))
                         .font(.lifeboard(.meta))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 Spacer(minLength: 8)
 
@@ -1709,7 +1709,7 @@ private struct LifeMomentCard: View {
         // that erodes ahead of a failing write is a lie about the data.
         .lifeboardDissolveAway(
             progress: dissolveProgress,
-            tint: Color(LifeBoardColorTokens.foundationApricotAccent)
+            tint: Color(SemanticColorTokens.foundationApricotAccent)
         )
         .lifeBoardScrollEntrance(intensity: 0.7)
         .task {
@@ -1740,8 +1740,8 @@ private struct LifeMomentCard: View {
             .monospacedDigit()
             .foregroundStyle(
                 Color(countdown.isPast
-                    ? LifeBoardColorTokens.inkTertiary
-                    : LifeBoardColorTokens.inkPrimary)
+                    ? SemanticColorTokens.inkTertiary
+                    : SemanticColorTokens.inkPrimary)
             )
             .lineLimit(1)
             .padding(.horizontal, 12)

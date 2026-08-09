@@ -588,7 +588,7 @@ final class HealthSyncTests: XCTestCase {
     }
 
     private func makeInMemoryHealthContainer() async throws -> NSPersistentContainer {
-        let model = try XCTUnwrap(NSManagedObjectModel.mergedModel(from: [Bundle.main]))
+        let model = try PersistenceTestModel.model()
         let container = NSPersistentContainer(name: "TaskModelV3", managedObjectModel: model)
         let cloud = NSPersistentStoreDescription()
         cloud.type = NSInMemoryStoreType

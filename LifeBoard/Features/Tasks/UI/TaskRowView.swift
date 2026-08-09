@@ -478,7 +478,7 @@ struct TaskRowView: View, Equatable {
         derivedState.displayModel
     }
 
-    private var themeColors: LifeBoardColorTokens {
+    private var themeColors: SemanticColorTokens {
         tokens.color
     }
 
@@ -924,7 +924,7 @@ private struct TaskRowChromeModifier: ViewModifier {
                             RoundedRectangle(cornerRadius: 18, style: .continuous)
                                 .stroke(highlightStrokeColor.opacity(isOnboardingHighlighted ? 1 : 0.42), lineWidth: isOnboardingHighlighted ? 2 : 1)
                         )
-                        .shadow(color: LBColorTokens.elevationShadow.opacity(0.38), radius: 12, x: 0, y: 7)
+                        .shadow(color: ClayColorTokens.elevationShadow.opacity(0.38), radius: 12, x: 0, y: 7)
                 }
         case .flatHomeList:
             content

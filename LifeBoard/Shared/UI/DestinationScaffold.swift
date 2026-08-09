@@ -63,7 +63,7 @@ struct SecondaryScreenShell<Content: View>: View {
             bottomClearance: bottomInset,
             readableWidth: 860
         ) {
-            VStack(spacing: LBSpacingTokens.md) {
+            VStack(spacing: ClayLayoutMetrics.md) {
                 SecondaryScreenHeader(
                     title: title,
                     subtitle: subtitle,
@@ -81,13 +81,13 @@ struct SecondaryScreenShell<Content: View>: View {
                 content
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
-            .padding(.horizontal, LBSpacingTokens.screenMargin)
+            .padding(.horizontal, ClayLayoutMetrics.screenMargin)
             .padding(.top, topPadding + max(0, topContentInset))
         }
     }
 
     private var topPadding: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.lg : LBSpacingTokens.sm
+        dynamicTypeSize.isAccessibilitySize ? ClayLayoutMetrics.lg : ClayLayoutMetrics.sm
     }
 
 }
@@ -117,7 +117,7 @@ struct SecondaryScreenHeader: View {
                     action: leadingAction
                 )
 
-                Spacer(minLength: LBSpacingTokens.md)
+                Spacer(minLength: ClayLayoutMetrics.md)
 
                 if let trailingSystemImage, let trailingAction {
                     SecondaryHeaderButton(
@@ -133,7 +133,7 @@ struct SecondaryScreenHeader: View {
                 }
             }
 
-            VStack(spacing: dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.xs : 3) {
+            VStack(spacing: dynamicTypeSize.isAccessibilitySize ? ClayLayoutMetrics.xs : 3) {
                 Text(title)
                     .font(.lifeboard(.screenTitle))
                     .foregroundStyle(Color.lifeboard(.primary, on: .canvas))
@@ -192,7 +192,7 @@ struct SecondaryMetricPill: View {
             .foregroundStyle(Color.lifeboard(.link, on: .raised))
             .lineLimit(1)
             .minimumScaleFactor(0.82)
-            .padding(.horizontal, LBSpacingTokens.sm)
+            .padding(.horizontal, ClayLayoutMetrics.sm)
             .frame(minHeight: 30)
             .background(Color.lifeboard(.surfaceSecondary), in: Capsule())
             .overlay(Capsule().stroke(Color.lifeboard(.borderDefault), lineWidth: 1))
@@ -201,7 +201,7 @@ struct SecondaryMetricPill: View {
 }
 
 struct SecondaryGlassCardSurface<Content: View>: View {
-    var role: LBRole = .neutral
+    var role: ClayRole = .neutral
     var cornerRadius: CGFloat = 24
     @ViewBuilder let content: Content
 
@@ -222,9 +222,9 @@ struct SecondaryChipRow: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: LBSpacingTokens.sm) {
+            HStack(spacing: ClayLayoutMetrics.sm) {
                 ForEach(chips) { chip in
-                    LifeBoardFilterChip(
+                    FilterChip(
                         title: chip.title,
                         systemImage: chip.systemImage,
                         count: chip.count,
@@ -252,44 +252,44 @@ struct SecondaryStateRenderer: View {
 
     var body: some View {
         SecondaryGlassCardSurface(role: .assistant, cornerRadius: 28) {
-            VStack(spacing: LBSpacingTokens.md) {
+            VStack(spacing: ClayLayoutMetrics.md) {
                 DecorImage(asset: asset, size: 116, opacity: 0.86)
                     .accessibilityHidden(true)
 
-                VStack(spacing: LBSpacingTokens.xs) {
+                VStack(spacing: ClayLayoutMetrics.xs) {
                     Text(title)
                         .font(.lifeboard(.headline).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
                         .multilineTextAlignment(.center)
 
                     Text(message)
                         .font(.lifeboard(.callout))
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
                 }
 
-                HStack(spacing: LBSpacingTokens.sm) {
+                HStack(spacing: ClayLayoutMetrics.sm) {
                     if let primaryTitle, let primaryAction {
                         Button(primaryTitle, systemImage: "arrow.right", action: primaryAction)
                             .font(.lifeboard(.callout).weight(.semibold))
                             .foregroundStyle(Color.lifeboard(.accentOnPrimary))
-                            .padding(.horizontal, LBSpacingTokens.md)
+                            .padding(.horizontal, ClayLayoutMetrics.md)
                             .frame(minHeight: 44)
-                            .background(Capsule().fill(LBColorTokens.violetFill))
+                            .background(Capsule().fill(ClayColorTokens.violetFill))
                     }
 
                     if let secondaryTitle, let secondaryAction {
                         Button(secondaryTitle, systemImage: "sparkles", action: secondaryAction)
                             .font(.lifeboard(.callout).weight(.semibold))
-                            .foregroundStyle(LBColorTokens.violetDeep)
-                            .padding(.horizontal, LBSpacingTokens.md)
+                            .foregroundStyle(ClayColorTokens.violetDeep)
+                            .padding(.horizontal, ClayLayoutMetrics.md)
                             .frame(minHeight: 44)
-                            .background(Capsule().fill(LBColorTokens.glassStrong))
+                            .background(Capsule().fill(ClayColorTokens.glassStrong))
                     }
                 }
             }
-            .padding(LBSpacingTokens.lg)
+            .padding(ClayLayoutMetrics.lg)
             .frame(maxWidth: .infinity)
         }
         .accessibilityElement(children: .combine)

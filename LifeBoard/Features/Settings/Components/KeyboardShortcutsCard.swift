@@ -10,7 +10,7 @@ struct KeyboardShortcutsCard: View {
     ]
 
     var body: some View {
-        LifeBoardCard {
+        SurfaceCard {
             VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s12) {
                 ForEach(shortcuts, id: \.key) { shortcut in
                     HStack(spacing: SwiftUITokens.spacing.s12) {

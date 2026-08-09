@@ -17,12 +17,12 @@ import WidgetKit
 @MainActor
 final class HomeTimelineViewModel: ObservableObject {
     @Published private(set) var selectedDate: Date
-    @Published private(set) var sunriseAnchor: SunriseAnchor
+    @Published private(set) var sunriseAnchor: HomeScrollAnchor
     @Published private(set) var dragTranslation: CGFloat
 
     init(
         selectedDate: Date = Date(),
-        sunriseAnchor: SunriseAnchor = .collapsed,
+        sunriseAnchor: HomeScrollAnchor = .collapsed,
         dragTranslation: CGFloat = 0
     ) {
         self.selectedDate = selectedDate
@@ -35,7 +35,7 @@ final class HomeTimelineViewModel: ObservableObject {
         selectedDate = date
     }
 
-    func snap(to anchor: SunriseAnchor) {
+    func snap(to anchor: HomeScrollAnchor) {
         sunriseAnchor = anchor
         dragTranslation = 0
     }
@@ -53,7 +53,7 @@ final class HomeTimelineViewModel: ObservableObject {
             max(current + (predictedTranslation - dragTranslation), metrics.offset(for: .collapsed)),
             metrics.offset(for: .fullReveal)
         )
-        let anchors: [SunriseAnchor] = [.collapsed, .midReveal, .fullReveal]
+        let anchors: [HomeScrollAnchor] = [.collapsed, .midReveal, .fullReveal]
         let target = anchors.min { lhs, rhs in
             abs(metrics.offset(for: lhs) - projected) < abs(metrics.offset(for: rhs) - projected)
         } ?? .collapsed

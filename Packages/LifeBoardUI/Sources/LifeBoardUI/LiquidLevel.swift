@@ -128,18 +128,18 @@ public struct ActThreadKnots: View {
                 Circle()
                     .fill(
                         settled
-                            ? Color(LifeBoardColorTokens.foundationSunAccent)
-                            : Color(LifeBoardColorTokens.foundationSurfaceSolid)
+                            ? Color(SemanticColorTokens.foundationSunAccent)
+                            : Color(SemanticColorTokens.foundationSurfaceSolid)
                     )
                     .overlay {
                         Circle().stroke(
-                            Color(LifeBoardColorTokens.foundationHairline),
+                            Color(SemanticColorTokens.foundationHairline),
                             lineWidth: settled ? 1.5 : 1
                         )
                     }
                     .shadow(
                         color: settled
-                            ? Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.14)
+                            ? Color(SemanticColorTokens.foundationWarmShadow).opacity(0.14)
                             : .clear,
                         radius: 2,
                         y: 1

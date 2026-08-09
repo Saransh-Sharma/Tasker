@@ -14,7 +14,7 @@ struct EvaModelChoiceView: View {
     private let fastModel = ModelConfiguration.qwen_3_0_6b_4bit
     private let smarterModel = ModelConfiguration.qwen_3_5_0_8b_optiq_4bit
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 

@@ -206,7 +206,7 @@ extension MessageView {
         #endif
             .overlay(
                 RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
-                    .stroke(LBColorTokens.whiteStroke.opacity(0.32), lineWidth: 1)
+                    .stroke(ClayColorTokens.whiteStroke.opacity(0.32), lineWidth: 1)
             )
             .shadow(color: EvaChatSunriseGlass.primary.opacity(0.16), radius: 12, x: 0, y: 6)
             .frame(maxWidth: messageMaxWidth, alignment: .trailing)

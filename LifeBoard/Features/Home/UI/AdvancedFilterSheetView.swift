@@ -21,7 +21,7 @@ struct AdvancedFilterSheetView: View {
     /// Initializes a new instance.
     @Environment(\.dismiss) private var dismiss
     @Environment(\.lifeboardTokens) private var tokens
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     @State private var selectedPriorities: Set<TaskPriority>
     @State private var selectedCategories: Set<TaskCategory>

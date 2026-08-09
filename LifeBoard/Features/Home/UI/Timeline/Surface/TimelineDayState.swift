@@ -423,7 +423,7 @@ struct TimelineWeekDayCell: View {
                   items.contains(placementCandidate.taskID.uuidString) else {
                 return false
             }
-            LifeBoardFeedback.success()
+            HapticFeedback.success()
             onDropPlacement(placementCandidate)
             return true
         }, isTargeted: { newValue in
@@ -431,7 +431,7 @@ struct TimelineWeekDayCell: View {
         })
         .onChange(of: isDropTargeted) { _, newValue in
             guard newValue else { return }
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
         }
     }
 
@@ -504,7 +504,7 @@ struct TimelineWeekDayCell: View {
 struct TimelineBar: View {
 
 
-    let onSnapAnchor: (SunriseAnchor) -> Void
+    let onSnapAnchor: (HomeScrollAnchor) -> Void
 
     let onDragChanged: (CGFloat) -> Void
 

@@ -16,7 +16,7 @@ struct TaskExecutionLibraryView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var selectedTaskIDs: Set<UUID> = []
     @State private var projects: [Project] = []
-    @State private var sectionsByProjectID: [UUID: [LifeBoardProjectSection]] = [:]
+    @State private var sectionsByProjectID: [UUID: [ProjectSectionDefinition]] = [:]
     @State private var tags: [TagDefinition] = []
     @State private var isApplyingBatch = false
     @State private var batchReceipt: TaskBatchReceipt?
@@ -83,7 +83,7 @@ struct TaskExecutionLibraryView: View {
                         systemImage: "clock.arrow.circlepath"
                     )
                     .font(.footnote)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             case .loaded, .loading:
                 taskRows
@@ -170,23 +170,23 @@ struct TaskExecutionLibraryView: View {
                         Image(systemName: store.query.scope == .completed ? "checkmark.circle.fill" : "circle")
                             .foregroundStyle(
                                 store.query.scope == .completed
-                                    ? Color(LifeBoardColorTokens.foundationSageAccent)
-                                    : Color(LifeBoardColorTokens.inkSecondary)
+                                    ? Color(SemanticColorTokens.foundationSageAccent)
+                                    : Color(SemanticColorTokens.inkSecondary)
                             )
                         VStack(alignment: .leading, spacing: 4) {
                             Text(task.title)
                                 .font(.body.weight(.medium))
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                                 .multilineTextAlignment(.leading)
                             Text(taskMetadata(task))
                                 .font(.caption)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                                 .lineLimit(2)
                         }
                         Spacer(minLength: 8)
                         Image(systemName: "chevron.right")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     .frame(minHeight: 52)
                     .contentShape(Rectangle())
@@ -213,10 +213,10 @@ struct TaskExecutionLibraryView: View {
     private func batchUndoBar(_ receipt: TaskBatchReceipt) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
             Text(receiptSummary(receipt))
                 .font(.subheadline)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             Spacer()
             Button("Undo") { undoBatch(receipt) }
                 .font(.subheadline.weight(.semibold))
@@ -314,10 +314,10 @@ struct TaskExecutionLibraryView: View {
             sectionsByProjectID = [:]
             return
         }
-        var loadedSections: [UUID: [LifeBoardProjectSection]] = [:]
+        var loadedSections: [UUID: [ProjectSectionDefinition]] = [:]
         for project in projects {
             let values = await withCheckedContinuation {
-                (continuation: CheckedContinuation<[LifeBoardProjectSection], Never>) in
+                (continuation: CheckedContinuation<[ProjectSectionDefinition], Never>) in
                 sectionRepository.fetchSections(projectID: project.id) { result in
                     continuation.resume(returning: (try? result.get()) ?? [])
                 }

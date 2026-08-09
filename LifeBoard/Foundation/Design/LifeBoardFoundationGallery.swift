@@ -662,7 +662,7 @@ private struct JournalMoodWheel: View {
                             )
                             .overlay(Circle().stroke(Color.lifeboard(.textInverse).opacity(0.62), lineWidth: 1))
                             .shadow(
-                                color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(mood == selectedMood ? 0.2 : 0.08),
+                                color: Color(SemanticColorTokens.foundationWarmShadow).opacity(mood == selectedMood ? 0.2 : 0.08),
                                 radius: mood == selectedMood ? 10 : 4,
                                 y: 3
                             )
@@ -845,7 +845,7 @@ struct AdaptiveHome: View {
         phaseIIRepository: (any PhaseIIRepository)? = nil,
         planningRepository: CoreDataPlanningRepository? = nil,
         trackFoundationRepository: CoreDataTrackFoundationRepository? = nil,
-        goalSampleProvider: (any GoalSampleProvider)? = nil,
+        goalSampleProvider: (any GoalSampleRepository)? = nil,
         wellnessRepository: (any WellnessRepository)? = nil,
         nutritionRepository: (any NutritionRepository)? = nil,
         lifeMomentRepository: (any LifeMomentRepository)? = nil,
@@ -862,24 +862,24 @@ struct AdaptiveHome: View {
         self.hasTrackFoundationRepository = trackFoundationRepository != nil
         self.showsEmbeddedComposer = showsEmbeddedComposer
         self.onCustomizationChanged = onCustomizationChanged
-        var candidateProviders: [any HomeContextCandidateProvider] = []
+        var candidateProviders: [any HomeContextCandidateSource] = []
         if let planningRepository {
-            candidateProviders.append(PlanningHomeContextCandidateProvider(repository: planningRepository))
+            candidateProviders.append(PlanningHomeContextCandidateSource(repository: planningRepository))
         }
         if let phaseIIRepository {
-            candidateProviders.append(JournalHomeContextCandidateProvider(repository: phaseIIRepository))
-            candidateProviders.append(WeeklyReflectionHomeContextCandidateProvider(repository: phaseIIRepository))
-            candidateProviders.append(JournalMemoryHomeContextCandidateProvider(repository: phaseIIRepository))
-            candidateProviders.append(FastingHomeContextCandidateProvider(
+            candidateProviders.append(JournalHomeContextCandidateSource(repository: phaseIIRepository))
+            candidateProviders.append(WeeklyReflectionHomeContextCandidateSource(repository: phaseIIRepository))
+            candidateProviders.append(JournalMemoryHomeContextCandidateSource(repository: phaseIIRepository))
+            candidateProviders.append(FastingHomeContextCandidateSource(
                 repository: FastingRepositoryAdapter(repository: phaseIIRepository)
             ))
         }
         if let trackFoundationRepository {
-            candidateProviders.append(GoalHomeContextCandidateProvider(repository: trackFoundationRepository))
-            candidateProviders.append(RoutineHomeContextCandidateProvider(repository: trackFoundationRepository))
+            candidateProviders.append(GoalHomeContextCandidateSource(repository: trackFoundationRepository))
+            candidateProviders.append(RoutineHomeContextCandidateSource(repository: trackFoundationRepository))
         }
         if let lifeMomentRepository {
-            candidateProviders.append(LifeMomentContextCandidateProvider(repository: lifeMomentRepository))
+            candidateProviders.append(LifeMomentContextCandidateSource(repository: lifeMomentRepository))
         }
         self.contextProviderRegistry = HomeContextCandidateProviderRegistry(providers: candidateProviders)
         _store = State(initialValue: AdaptiveHomeStore(repository: repository))
@@ -1648,7 +1648,7 @@ struct AdaptiveHome: View {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Text(HomeSectionCopy.spineTitle(for: stage))
                     .font(Typography.sectionTitle())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 // The count belongs to whichever heading survives. `.act` used
                 // to stack the spine's title above `nowSection`'s own, so the
                 // screen read "Now" twice and only the lower one carried the
@@ -1659,7 +1659,7 @@ struct AdaptiveHome: View {
                 if stage == .act, let state = nowSectionState {
                     Text(state)
                         .font(.footnote.weight(.medium))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .monospacedDigit()
                         .lineLimit(1)
                 }
@@ -1667,7 +1667,7 @@ struct AdaptiveHome: View {
                 if let rhythm = HomeSectionCopy.dayLoopRhythmText(dayLoopSummary) {
                     Text(rhythm)
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         // Two lines, never truncation: this once shortened to
                         // "1 of 14 days · 1 day…", hiding one of the two honest
                         // facts. Both numbers carry equal weight
@@ -1966,8 +1966,8 @@ private enum HomeSectionCopy {
     static func liquidTint(for slot: HomeSignalSlot, palette: DaypartPalette) -> Color? {
         guard slot.availability == .available || slot.availability == .stale else { return nil }
         switch slot.id {
-        case "hydration": return Color(LifeBoardColorTokens.foundationSageAccent).opacity(0.55)
-        case "fasting": return Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.6)
+        case "hydration": return Color(SemanticColorTokens.foundationSageAccent).opacity(0.55)
+        case "fasting": return Color(SemanticColorTokens.foundationApricotAccent).opacity(0.6)
         default: return nil
         }
     }
@@ -2421,7 +2421,7 @@ private struct HomeContextReasonSheet: View {
             .frame(maxWidth: .infinity)
         }
         .padding(24)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+        .background(Color(SemanticColorTokens.foundationSurfaceSolid))
     }
 }
 
@@ -2571,9 +2571,9 @@ private struct HomeLifeThreadComposer: View {
                       ? "waveform"
                       : "arrow.up")
                     .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
                     .frame(width: 44, height: 44)
-                    .background(Color(LifeBoardColorTokens.inkPrimary), in: Circle())
+                    .background(Color(SemanticColorTokens.inkPrimary), in: Circle())
             }
             .accessibilityLabel(
                 composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -2585,9 +2585,9 @@ private struct HomeLifeThreadComposer: View {
         .lifeBoardGlassSurface(cornerRadius: 27, interactive: true)
         .overlay {
             RoundedRectangle(cornerRadius: 27, style: .continuous)
-                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
-        .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.18), radius: 14, y: 8)
+        .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.18), radius: 14, y: 8)
     }
 
     private func submitComposer() {
@@ -2633,7 +2633,7 @@ private struct HomeCustomizationActionBar: View {
         .lifeBoardGlassSurface(cornerRadius: 28, interactive: true)
         .overlay {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.customization.actions")
@@ -2674,19 +2674,19 @@ private struct HomeDayRitualRow: View {
                 HStack(spacing: 12) {
                     Image(systemName: ritual.symbol)
                         .font(.title3)
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationSunAccent))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
                     VStack(alignment: .leading, spacing: 2) {
                         Text(ritual.title)
                             .font(.headline)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                         Text(ritual.subtitle)
                             .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.right")
                         .font(.footnote)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
@@ -2735,7 +2735,7 @@ private struct HomeSpineRepairBody: View {
                     : "\(count) things didn't happen when you planned them. Nothing has changed yet."
             )
             .font(Typography.body())
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             .fixedSize(horizontal: false, vertical: true)
 
             PlanRepairDeck(
@@ -2783,7 +2783,7 @@ private struct HomeSpineRestBody: View {
 
             Text("Nothing more is being asked of you today.")
                 .font(Typography.body())
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 .fixedSize(horizontal: false, vertical: true)
 
             Spacer(minLength: 0)
@@ -2987,13 +2987,13 @@ private struct HomeFastingSignal: View {
                             Circle()
                                 .trim(from: 0, to: max(0.025, progress))
                                 .stroke(
-                                    Color(LifeBoardColorTokens.foundationSunAccent),
+                                    Color(SemanticColorTokens.foundationSunAccent),
                                     style: StrokeStyle(lineWidth: 5, lineCap: .round)
                                 )
                                 .rotationEffect(.degrees(-90))
                                 .lifeboardFastingEmberRing(
                                     progress: progress,
-                                    tint: Color(LifeBoardColorTokens.foundationSunAccent)
+                                    tint: Color(SemanticColorTokens.foundationSunAccent)
                                 )
                         }
                         VStack(spacing: 0) {
@@ -3019,7 +3019,7 @@ private struct HomeFastingSignal: View {
                         .minimumScaleFactor(0.68)
                         .foregroundStyle(
                             isAvailable
-                                ? Color(LifeBoardColorTokens.inkPrimary)
+                                ? Color(SemanticColorTokens.inkPrimary)
                                 : palette.color(for: .foregroundSecondary)
                         )
                 }
@@ -3028,7 +3028,7 @@ private struct HomeFastingSignal: View {
                 .lifeboardClayPressBloom(
                     center: .center,
                     trigger: fastingStateChangeTrigger,
-                    tint: Color(LifeBoardColorTokens.foundationSunAccent)
+                    tint: Color(SemanticColorTokens.foundationSunAccent)
                 )
             }
             .buttonStyle(.plain)
@@ -3085,7 +3085,7 @@ private struct HomeFastingEndReceipt: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
             VStack(alignment: .leading, spacing: 2) {
                 Text("Fast saved")
                     .font(.subheadline.weight(.semibold))
@@ -3151,7 +3151,7 @@ private struct HomeDashboardWidget: View {
                 HStack(spacing: 8) {
                     Image(systemName: "line.3.horizontal")
                         .font(.headline)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .frame(width: 44, height: 44)
                         .contentShape(Rectangle())
                         .accessibilityLabel("Drag widget")
@@ -3484,10 +3484,10 @@ private struct HomeFocusNowWidget: View {
             } label: {
                 Text(HomeSectionCopy.compactHeroActionTitle(hero?.primaryActionTitle ?? (primary == nil ? "Choose" : "Start")))
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
                     .padding(.horizontal, 14)
                     .frame(minHeight: 44)
-                    .background(Color(LifeBoardColorTokens.inkPrimary), in: Capsule())
+                    .background(Color(SemanticColorTokens.inkPrimary), in: Capsule())
             }
             .buttonStyle(.plain)
             .frame(maxWidth: 112)
@@ -3595,7 +3595,7 @@ private struct HomeCareWidget: View {
                     .accessibilityIdentifier("home.care.event.\(event.id.uuidString)")
                 }
             }
-            Divider().overlay(Color(LifeBoardColorTokens.foundationHairline))
+            Divider().overlay(Color(SemanticColorTokens.foundationHairline))
             Button("Open Care") { router.navigate(.careLibrary, in: .track) }
                 .font(.subheadline.weight(.semibold))
                 .frame(minHeight: 44)
@@ -4068,7 +4068,7 @@ private struct HomeProgressWidget: View {
                 }
             }
             .font(.caption.weight(.medium))
-            Divider().overlay(Color(LifeBoardColorTokens.foundationHairline))
+            Divider().overlay(Color(SemanticColorTokens.foundationHairline))
             Button {
                 // The label promises evidence, so open the evidence route with
                 // its disclosure already expanded rather than the Insights
@@ -4259,8 +4259,8 @@ private struct HomeCustomizationControls: View {
             Image(systemName: "ellipsis")
                 .font(.headline)
                 .frame(width: 44, height: 44)
-                .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: Circle())
-                .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow), radius: 6, y: 2)
+                .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: Circle())
+                .shadow(color: Color(SemanticColorTokens.foundationWarmShadow), radius: 6, y: 2)
         }
         .accessibilityLabel("Edit widget")
         .accessibilityIdentifier("home.widget.edit.\(placement.id.uuidString)")
@@ -4292,7 +4292,7 @@ private struct AdaptiveWidgetGallery: View {
                                         Image(systemName: descriptor.systemImage)
                                             .font(.title3)
                                             .frame(width: 38, height: 38)
-                                            .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 12))
+                                            .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 12))
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(descriptor.title).font(.headline)
                                             Text("\(descriptor.defaultSize.title) · \(descriptor.multiplicity.title)")
@@ -4380,14 +4380,14 @@ private struct HomeCardReorderModifier: ViewModifier {
                 .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .draggable(placementID.uuidString) {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.94))
+                        .fill(Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.94))
                         .frame(width: 170, height: 108)
                         .overlay {
                             Image(systemName: "hand.draw.fill")
                                 .font(.title2)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
-                        .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.18), radius: 14, y: 8)
+                        .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.18), radius: 14, y: 8)
                 }
                 .dropDestination(for: String.self) { items, _ in
                     guard let source = items.compactMap(UUID.init(uuidString:)).first,
@@ -4812,15 +4812,15 @@ public struct ReferenceDashboard: View {
                 .frame(maxWidth: .infinity)
                 .foregroundStyle(
                     destination == .home
-                        ? Color(LifeBoardColorTokens.inkPrimary)
-                        : Color(LifeBoardColorTokens.inkSecondary)
+                        ? Color(SemanticColorTokens.inkPrimary)
+                        : Color(SemanticColorTokens.inkSecondary)
                 )
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background(
-            Color(LifeBoardColorTokens.warmMenuGlass)
+            Color(SemanticColorTokens.warmMenuGlass)
                 .opacity(reduceTransparency ? 1 : 0.96),
             in: RoundedRectangle(cornerRadius: 28, style: .continuous)
         )
@@ -4828,7 +4828,7 @@ public struct ReferenceDashboard: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(Color.lifeboard(.textInverse).opacity(colorScheme == .dark ? 0.15 : 0.68), lineWidth: 1)
         }
-        .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow), radius: 18, y: 8)
+        .shadow(color: Color(SemanticColorTokens.foundationWarmShadow), radius: 18, y: 8)
         .padding(.horizontal, 16)
         .padding(.bottom, 6)
         .accessibilityElement(children: .contain)
@@ -4860,7 +4860,7 @@ public struct TokenGallery: View {
                                         .frame(height: 72)
                                         .overlay {
                                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .stroke(Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.08), lineWidth: 1)
+                                                .stroke(Color(SemanticColorTokens.foundationWarmShadow).opacity(0.08), lineWidth: 1)
                                         }
                                     Text(role.rawValue)
                                         .font(.caption.weight(.semibold))
@@ -4868,7 +4868,7 @@ public struct TokenGallery: View {
                                         .font(.caption.monospaced())
                                 }
                                 .padding(10)
-                                .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                             }
                         }
                     }
@@ -4879,7 +4879,7 @@ public struct TokenGallery: View {
             .padding(20)
         }
         .navigationTitle("Daypart tokens")
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+        .background(Color(SemanticColorTokens.foundationSurfaceSolid))
     }
 }
 
@@ -4899,10 +4899,10 @@ private struct ReferenceMetricRing: View {
             ZStack {
                 Circle()
                     .trim(from: 0.12, to: 0.88)
-                    .stroke(Color(LifeBoardColorTokens.metricRingTrack), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .stroke(Color(SemanticColorTokens.metricRingTrack), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 Circle()
                     .trim(from: 0.12, to: 0.12 + 0.76 * progress)
-                    .stroke(Color(LifeBoardColorTokens.metricRingFill), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .stroke(Color(SemanticColorTokens.metricRingFill), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 Text(value)
                     .font(Typography.metadata().weight(.semibold))
                     .foregroundStyle(palette.color(for: .foreground))
@@ -4979,8 +4979,8 @@ private struct ReferenceTodoRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Circle()
-                .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
-                .overlay(Circle().stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1.5))
+                .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
+                .overlay(Circle().stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1.5))
                 .frame(width: 28, height: 28)
             Text(title)
                 .font(Typography.body())

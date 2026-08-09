@@ -24,7 +24,7 @@ struct TimelineGapPrompt: View {
         HStack(alignment: .center, spacing: 10) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
                 Image(systemName: gap.emphasis == .quietWindow ? "moon.zzz" : "clock")
-                    .font(LBTypographyTokens.meta)
+                    .font(ClayTypography.meta)
                     .foregroundStyle(TimelineVisualTokens.utilityText)
                     .accessibilityHidden(true)
                 timelineGapPromptText(for: gap, row: row)
@@ -57,7 +57,7 @@ struct TimelineGapPrompt: View {
                 Button(TimelineGapAction.dismiss.title, role: .destructive) {}
             } label: {
                 Image(systemName: "ellipsis.circle")
-                    .font(LBTypographyTokens.bodyStrong)
+                    .font(ClayTypography.bodyStrong)
                     .foregroundStyle(TimelineVisualTokens.utilityText)
                     .frame(width: 36, height: 36)
                     .contentShape(Circle())
@@ -129,7 +129,7 @@ struct TimelinePlacementDock: View {
                     withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast) {
                         isDragging = true
                     }
-                    LifeBoardFeedback.light()
+                    HapticFeedback.light()
                 }
                 .onEnded { _ in
                     withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast) {
@@ -158,7 +158,7 @@ struct TimelinePlacementPrompt: View {
     @Environment(\.dynamicTypeSize) var dynamicTypeSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardTokens) private var tokens
-    var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     var body: some View {
@@ -250,7 +250,7 @@ struct TimelinePlacementPrompt: View {
 
     func placementButton(_ title: String, systemImage: String, emphasized: Bool, action: @escaping () -> Void) -> some View {
         Button(action: {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         }) {
             Label(title, systemImage: systemImage)
@@ -291,7 +291,7 @@ struct TimelinePlanningShelf: View {
         VStack(alignment: .leading, spacing: 14) {
             if let placementCandidate {
                 Button {
-                    LifeBoardFeedback.selection()
+                    HapticFeedback.selection()
                     onPlaceReplanAllDay(placementCandidate, selectedDate)
                 } label: {
                     HStack(spacing: 12) {
@@ -326,7 +326,7 @@ struct TimelinePlanningShelf: View {
                 .scaleEffect(isAllDayTargeted && reduceMotion == false ? 1.012 : 1)
                 .dropDestination(for: String.self, action: { items, _ in
                     guard items.contains(placementCandidate.taskID.uuidString) else { return false }
-                    LifeBoardFeedback.success()
+                    HapticFeedback.success()
                     onPlaceReplanAllDay(placementCandidate, selectedDate)
                     return true
                 }, isTargeted: { newValue in
@@ -334,7 +334,7 @@ struct TimelinePlanningShelf: View {
                 })
                 .onChange(of: isAllDayTargeted) { _, newValue in
                     guard newValue else { return }
-                    LifeBoardFeedback.selection()
+                    HapticFeedback.selection()
                 }
                 .accessibilityHint("Places the replanned task in the all-day row for this date.")
                 .accessibilityIdentifier("home.needsReplan.hotZone.allDay")

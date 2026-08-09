@@ -106,13 +106,13 @@ struct PlanScheduleSection: View {
                 .font(.caption.weight(.semibold))
             Text("\(count)")
                 .font(.caption2.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 .padding(.horizontal, 6)
                 .padding(.vertical, 1)
-                .background(Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.14), in: Capsule())
+                .background(Color(SemanticColorTokens.foundationApricotAccent).opacity(0.14), in: Capsule())
             Spacer(minLength: 0)
         }
-        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         .padding(.top, 2)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(daypart.title), \(count) scheduled")
@@ -164,11 +164,11 @@ struct PlanScheduleSection: View {
                 Text("\(PlanSectionCopy.time(window.startAt))–\(PlanSectionCopy.time(window.endAt))")
                     .font(.subheadline.weight(.semibold))
                 Text("\(PlanSectionCopy.duration(window.duration)) open").font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)
-            .background(Color(LifeBoardColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .background(Color(SemanticColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
         }
         .buttonStyle(.plain)
         .accessibilityHint("Creates a one-hour LifeBoard block, or uses the full opening when shorter")
@@ -214,13 +214,13 @@ struct PlanScheduleSection: View {
                                         + "\(PlanSectionCopy.time(candidate.window.endAt))"
                                 )
                                 .font(.caption)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             .padding(.horizontal, 14)
                             .padding(.vertical, 11)
                             .frame(minHeight: 52)
                             .background(
-                                Color(LifeBoardColorTokens.foundationSageAccent).opacity(0.14),
+                                Color(SemanticColorTokens.foundationSageAccent).opacity(0.14),
                                 in: RoundedRectangle(cornerRadius: 13, style: .continuous)
                             )
                         }
@@ -246,7 +246,7 @@ struct PlanScheduleSection: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(commitment.title).font(.headline)
                 Text("\(PlanSectionCopy.time(commitment.startAt))–\(PlanSectionCopy.time(commitment.endAt)) · read-only context")
-                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
         }
@@ -256,11 +256,11 @@ struct PlanScheduleSection: View {
 
     private func blockCard(_ block: InternalTimeBlock) -> some View {
         HStack(spacing: 14) {
-            RoundedRectangle(cornerRadius: 4).fill(Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.72)).frame(width: 6)
+            RoundedRectangle(cornerRadius: 4).fill(Color(SemanticColorTokens.foundationApricotAccent).opacity(0.72)).frame(width: 6)
             VStack(alignment: .leading, spacing: 4) {
                 Text(block.title).font(.headline)
                 Text("\(PlanSectionCopy.time(block.startAt))–\(PlanSectionCopy.time(block.endAt)) · \(PlanSectionCopy.duration(block.duration))")
-                    .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
             Menu {

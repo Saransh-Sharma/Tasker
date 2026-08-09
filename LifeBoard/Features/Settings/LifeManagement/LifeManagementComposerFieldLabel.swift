@@ -6,7 +6,7 @@ struct LifeManagementComposerFieldLabel: View {
     let detail: String
 
     @Environment(\.lifeboardTokens) private var tokens
-    var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s4) {

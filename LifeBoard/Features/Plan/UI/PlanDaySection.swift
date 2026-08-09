@@ -136,7 +136,7 @@ struct PlanDaySection: View {
             PlanMinimumViableDayCard(store: store)
         } else if store.repairProposals.isEmpty == false {
             PlanRepairDeck(proposals: store.repairProposals) { action, proposal in
-                LifeBoardFeedback.light()
+                HapticFeedback.light()
                 if action == .askEva {
                     onAskEva()
                 } else if let proposal {
@@ -165,7 +165,7 @@ struct PlanDaySection: View {
             if requiresAgendaPresentation {
                 Text("Agenda keeps every block linear and operable.")
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
         }
     }
@@ -210,16 +210,16 @@ struct PlanOpenDayRescueCard: View {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("This day is open")
                         .font(.headline)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                     Text("Choose overdue work that still deserves a place.")
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .multilineTextAlignment(.leading)
                 }
                 Spacer(minLength: 12)
                 Image(systemName: "chevron.right")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .accessibilityHidden(true)
             }
             .frame(maxWidth: .infinity, minHeight: 58, alignment: .leading)
@@ -241,6 +241,6 @@ struct PlanOpenDayRescueCard: View {
             planningMetadataByTaskID: metadataByTaskID
         )
         onOpenOverdueRescue(context)
-        LifeBoardFeedback.light()
+        HapticFeedback.light()
     }
 }

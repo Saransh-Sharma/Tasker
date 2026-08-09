@@ -1193,7 +1193,7 @@ private struct OverdueGroupedSectionView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             TaskSectionHeaderRow(
-                accentColor: LBColorTokens.role(.warning).base,
+                accentColor: ClayColorTokens.role(.warning).base,
                 iconSystemName: "lifepreserver",
                 title: "Rescue",
                 taskCount: totalTaskCount,
@@ -1202,7 +1202,7 @@ private struct OverdueGroupedSectionView: View {
                     withAnimation(LifeBoardAnimation.stateChange) {
                         isExpanded.toggle()
                     }
-                    LifeBoardFeedback.selection()
+                    HapticFeedback.selection()
                 }
             )
             .padding(.horizontal, layoutStyle.headerHorizontalPadding)

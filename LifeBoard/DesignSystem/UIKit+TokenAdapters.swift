@@ -2,15 +2,15 @@ import UIKit
 
 @MainActor
 public enum UIKitTokens {
-    public static var color: LifeBoardColorTokens {
+    public static var color: SemanticColorTokens {
         ThemeStore.shared.currentTheme.tokens.color
     }
 
-    public static var typography: LifeBoardTypographyTokens {
+    public static var typography: SemanticTypographyTokens {
         ThemeStore.shared.currentTheme.tokens.typography
     }
 
-    public static var spacing: LifeBoardSpacingTokens {
+    public static var spacing: SemanticSpacingTokens {
         ThemeStore.shared.currentTheme.tokens.spacing
     }
 
@@ -25,7 +25,7 @@ public enum UIKitTokens {
 
 @MainActor
 public extension UIColor {
-    static var lifeboard: LifeBoardColorTokens {
+    static var lifeboard: SemanticColorTokens {
         UIKitTokens.color
     }
 }
@@ -38,7 +38,7 @@ public extension UIColor {
 
 @MainActor
 public extension UIFont {
-    static var lifeboard: LifeBoardTypographyTokens {
+    static var lifeboard: SemanticTypographyTokens {
         UIKitTokens.typography
     }
 }
@@ -128,7 +128,7 @@ public struct NavButtonStyle {
 }
 
 @MainActor
-public final class LifeBoardTextField: UITextField {
+public final class TokenTextField: UITextField {
     public enum Kind {
         case singleLine
         case multiline

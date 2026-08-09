@@ -46,6 +46,6 @@ struct SettingsProfileHeaderView: View {
     private var headerInk: Color {
         colorScheme == .dark
             ? Color.lifeboard(.accentOnPrimary)
-            : Color(LifeBoardColorTokens.foundationOnSettingsHero)
+            : Color(SemanticColorTokens.foundationOnSettingsHero)
     }
 }

@@ -1,3 +1,5 @@
+import LifeBoardContracts
+import LifeBoardDomain
 import Foundation
 
 struct SyncWriteGate: Sendable {
@@ -284,17 +286,17 @@ final class WriteClosedSectionRepositoryAdapter: SectionRepositoryProtocol {
         self.gate = gate
     }
 
-    func fetchSections(projectID: UUID, completion: @escaping @Sendable (Result<[LifeBoardProjectSection], Error>) -> Void) {
+    func fetchSections(projectID: UUID, completion: @escaping @Sendable (Result<[ProjectSectionDefinition], Error>) -> Void) {
         base.fetchSections(projectID: projectID, completion: completion)
     }
 
-    func create(_ section: LifeBoardProjectSection, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) {
+    func create(_ section: ProjectSectionDefinition, completion: @escaping @Sendable (Result<ProjectSectionDefinition, Error>) -> Void) {
         gate.performWrite(operation: "SectionRepository.create", completion: completion) {
             self.base.create(section, completion: completion)
         }
     }
 
-    func update(_ section: LifeBoardProjectSection, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) {
+    func update(_ section: ProjectSectionDefinition, completion: @escaping @Sendable (Result<ProjectSectionDefinition, Error>) -> Void) {
         gate.performWrite(operation: "SectionRepository.update", completion: completion) {
             self.base.update(section, completion: completion)
         }

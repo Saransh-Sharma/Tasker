@@ -13,7 +13,7 @@ struct NeedsReplanSummaryOverlay: View {
     let onViewToday: () -> Void
     let onDone: () -> Void
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     var body: some View {
@@ -92,7 +92,7 @@ struct NeedsReplanSummaryOverlay: View {
 
     private func summaryPrimaryButton(_ title: String, systemImage: String, action: @escaping () -> Void) -> some View {
         Button(action: {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         }) {
             Label(title, systemImage: systemImage)

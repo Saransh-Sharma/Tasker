@@ -130,7 +130,7 @@ struct LensPicker<Value: Hashable & Identifiable>: View {
                 // survives Differentiate Without Colour and a greyscale screen.
                 .font(.lifeboard(selected ? .bodyStrong : .body))
                 .foregroundStyle(
-                    Color(selected ? LifeBoardColorTokens.inkPrimary : LifeBoardColorTokens.inkSecondary)
+                    Color(selected ? SemanticColorTokens.inkPrimary : SemanticColorTokens.inkSecondary)
                 )
                 .lineLimit(1)
                 .frame(maxWidth: .infinity)
@@ -138,7 +138,7 @@ struct LensPicker<Value: Hashable & Identifiable>: View {
                 .background {
                     if selected {
                         Capsule()
-                            .fill(Color(LifeBoardColorTokens.foundationSurfaceSelected))
+                            .fill(Color(SemanticColorTokens.foundationSurfaceSelected))
                             .matchedGeometryEffect(id: "lifeboard.lens.thumb", in: thumb)
                     }
                 }

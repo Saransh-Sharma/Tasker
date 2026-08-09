@@ -716,16 +716,10 @@ final class HomeSearchState: ObservableObject {
         engine = resolvedEngine
         resolvedEngine.invalidateSearchCache(revision: currentSearchCacheRevision)
         resolvedEngine.onResultsUpdated = { [weak self] revision, tasks in
-            guard let self else { return }
-            Task { @MainActor in
-                self.handleResults(tasks, revision: revision)
-            }
+            self?.handleResults(tasks, revision: revision)
         }
         resolvedEngine.loadProjects { [weak self] in
-            guard let self else { return }
-            Task { @MainActor in
-                self.refreshAvailableProjects()
-            }
+            self?.refreshAvailableProjects()
         }
     }
 
@@ -765,7 +759,7 @@ final class HomeSearchState: ObservableObject {
     func setCommandMode(_ mode: CommandSearchMode) {
         guard commandMode != mode else { return }
         commandMode = mode
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
 
     func updateQuery(_ newValue: String) {
@@ -852,12 +846,12 @@ final class HomeSearchState: ObservableObject {
             selectedStatus = .all
         }
         recordRecentSearch(result.command.title)
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
 
     func toggleCompletedExpansion() {
         isCompletedExpanded.toggle()
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
 
     func markDataMutated() {

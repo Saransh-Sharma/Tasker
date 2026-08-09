@@ -48,7 +48,7 @@ struct EvaWakeEvaInstallView: View {
         _currentSelectionTitle = State(initialValue: selectionTitle)
     }
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 
@@ -451,7 +451,7 @@ struct EvaActivationStageView<Content: View, Footer: View>: View {
         self.content = content
     }
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 

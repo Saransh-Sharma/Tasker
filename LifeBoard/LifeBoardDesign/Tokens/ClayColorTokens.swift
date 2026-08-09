@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 #endif
 
-enum LBRole: String, CaseIterable {
+enum ClayRole: String, CaseIterable {
     case routine
     case windDown
     case task
@@ -25,17 +25,17 @@ struct RoleStyle: Equatable {
     let symbolName: String
 }
 
-enum LBColorTokens {
+enum ClayColorTokens {
     // Compatibility bridge for the Life OS semantic system. New foundation
-    // surfaces resolve through LifeBoardColorTokens; legacy Sunrise values stay
+    // surfaces resolve through SemanticColorTokens; legacy Sunrise values stay
     // stable while the production feature flag is off.
-    static var lifeOSInkPrimary: Color { Color(LifeBoardColorTokens.inkPrimary) }
-    static var lifeOSInkSecondary: Color { Color(LifeBoardColorTokens.inkSecondary) }
-    static var lifeOSSurfaceSolid: Color { Color(LifeBoardColorTokens.foundationSurfaceSolid) }
-    static var lifeOSHairline: Color { Color(LifeBoardColorTokens.foundationHairline) }
+    static var lifeOSInkPrimary: Color { Color(SemanticColorTokens.inkPrimary) }
+    static var lifeOSInkSecondary: Color { Color(SemanticColorTokens.inkSecondary) }
+    static var lifeOSSurfaceSolid: Color { Color(SemanticColorTokens.foundationSurfaceSolid) }
+    static var lifeOSHairline: Color { Color(SemanticColorTokens.foundationHairline) }
 
     static func lifeOSPalette(for daypart: ResolvedDaypart) -> DaypartPalette {
-        LifeBoardColorTokens.daypartPalette(for: daypart)
+        SemanticColorTokens.daypartPalette(for: daypart)
     }
 
     // Compatibility wrappers: the Sunrise-era names now resolve to the warm
@@ -74,7 +74,7 @@ enum LBColorTokens {
     static let amberSoft = adaptive(light: "#FFF7DF", dark: "#332611", darkHighContrast: "#483618")
     static let coralSoft = adaptive(light: "#FFF1E9", dark: "#3A2018", darkHighContrast: "#522D21")
 
-    static func role(_ role: LBRole) -> RoleStyle {
+    static func role(_ role: ClayRole) -> RoleStyle {
         switch role {
         case .routine:
             return RoleStyle(base: sunriseGold, deep: adaptive(light: "#D88900", dark: "#FFD36A"), softSurface: amberSoft, border: adaptive(light: "#F6DE9A", dark: "#7E6425"), symbolName: "sun.max")
@@ -101,7 +101,7 @@ enum LBColorTokens {
         }
     }
 
-    static func actionGradient(for role: LBRole) -> [Color] {
+    static func actionGradient(for role: ClayRole) -> [Color] {
         switch role {
         case .routine, .windDown, .warning:
             return [
@@ -164,18 +164,18 @@ enum LBColorTokens {
     }
 }
 
-typealias LBSunriseColorTokens = LBColorTokens
-typealias LBSunriseTypographyTokens = LBTypographyTokens
-typealias LBSunriseSpacingTokens = LBSpacingTokens
+typealias LBSunriseColorTokens = ClayColorTokens
+typealias LBSunriseTypographyTokens = ClayTypography
+typealias LBSunriseSpacingTokens = ClayLayoutMetrics
 typealias LBSunriseRadiusTokens = RadiusTokens
 typealias LBSunriseElevationTokens = ShadowTokens
-typealias LBSunriseRoleTokens = LBRole
+typealias LBSunriseRoleTokens = ClayRole
 
 enum MaterialTokens {
-    static let glass = LBColorTokens.glass
-    static let glassStrong = LBColorTokens.glassStrong
-    static let border = LBColorTokens.glassBorder
-    static let dimmingOverlay = LBColorTokens.glassDimmingOverlay
+    static let glass = ClayColorTokens.glass
+    static let glassStrong = ClayColorTokens.glassStrong
+    static let border = ClayColorTokens.glassBorder
+    static let dimmingOverlay = ClayColorTokens.glassDimmingOverlay
 }
 
 enum MotionTokens {
@@ -184,11 +184,11 @@ enum MotionTokens {
 }
 
 enum HabitTokens {
-    static let completed = LBColorTokens.leaf
-    static let dueToday = LBColorTokens.violet
-    static let skipped = LBColorTokens.coral
-    static let bridge = LBColorTokens.sky
-    static let noActivity = LBColorTokens.textTertiary
+    static let completed = ClayColorTokens.leaf
+    static let dueToday = ClayColorTokens.violet
+    static let skipped = ClayColorTokens.coral
+    static let bridge = ClayColorTokens.sky
+    static let noActivity = ClayColorTokens.textTertiary
 }
 
 typealias SunriseScaffold<Content: View> = DestinationScaffold<Content>
@@ -212,11 +212,11 @@ struct GlassButton: View {
 struct InlineBanner: View {
     let title: String
     let message: String
-    var role: LBRole = .assistant
+    var role: ClayRole = .assistant
 
     var body: some View {
-        let style = LBColorTokens.role(role)
-        HStack(alignment: .top, spacing: LBSpacingTokens.sm) {
+        let style = ClayColorTokens.role(role)
+        HStack(alignment: .top, spacing: ClayLayoutMetrics.sm) {
             Image(systemName: style.symbolName)
                 .font(.headline)
                 .foregroundStyle(style.deep)
@@ -224,15 +224,15 @@ struct InlineBanner: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text(title)
-                    .font(LBTypographyTokens.cardTitle)
-                    .foregroundStyle(LBColorTokens.navy)
+                    .font(ClayTypography.cardTitle)
+                    .foregroundStyle(ClayColorTokens.navy)
                 Text(message)
-                    .font(LBTypographyTokens.body)
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .font(ClayTypography.body)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(LBSpacingTokens.md)
+        .padding(ClayLayoutMetrics.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(style.softSurface.opacity(0.74), in: RoundedRectangle(cornerRadius: RadiusTokens.card, style: .continuous))
         .overlay {
@@ -249,22 +249,22 @@ struct UndoSnackbar: View {
     let undo: () -> Void
 
     var body: some View {
-        HStack(spacing: LBSpacingTokens.sm) {
+        HStack(spacing: ClayLayoutMetrics.sm) {
             Text(message)
-                .font(LBTypographyTokens.body)
-                .foregroundStyle(LBColorTokens.navy)
+                .font(ClayTypography.body)
+                .foregroundStyle(ClayColorTokens.navy)
                 .lineLimit(2)
-            Spacer(minLength: LBSpacingTokens.xs)
+            Spacer(minLength: ClayLayoutMetrics.xs)
             Button(undoTitle, action: undo)
-                .font(LBTypographyTokens.chip)
-                .foregroundStyle(LBColorTokens.violetDeep)
+                .font(ClayTypography.chip)
+                .foregroundStyle(ClayColorTokens.violetDeep)
                 .frame(minHeight: 44)
         }
-        .padding(.horizontal, LBSpacingTokens.md)
-        .padding(.vertical, LBSpacingTokens.sm)
-        .background(LBColorTokens.glassStrong, in: Capsule())
-        .overlay(Capsule().stroke(LBColorTokens.glassBorder, lineWidth: 1))
-        .shadow(color: LBColorTokens.elevationShadow, radius: 14, y: 7)
+        .padding(.horizontal, ClayLayoutMetrics.md)
+        .padding(.vertical, ClayLayoutMetrics.sm)
+        .background(ClayColorTokens.glassStrong, in: Capsule())
+        .overlay(Capsule().stroke(ClayColorTokens.glassBorder, lineWidth: 1))
+        .shadow(color: ClayColorTokens.elevationShadow, radius: 14, y: 7)
     }
 }
 
@@ -274,13 +274,13 @@ struct DecisionDeck<Content: View>: View {
 
     var body: some View {
         GlassCard(cornerRadius: RadiusTokens.largeCard) {
-            VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+            VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
                 Text(progressText)
-                    .font(LBTypographyTokens.meta)
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .font(ClayTypography.meta)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
                 content
             }
-            .padding(LBSpacingTokens.lg)
+            .padding(ClayLayoutMetrics.lg)
         }
     }
 }

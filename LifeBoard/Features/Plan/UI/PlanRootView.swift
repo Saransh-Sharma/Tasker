@@ -353,7 +353,7 @@ struct PlanRootView: View {
                     .font(.subheadline.weight(.semibold))
                 Text(receipt.createdProject.name)
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .lineLimit(1)
             }
             Spacer(minLength: 8)

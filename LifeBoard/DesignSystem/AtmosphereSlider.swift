@@ -286,7 +286,7 @@ public struct AtmosphereSlider: View {
 
     private func autoLane(innerWidth: CGFloat) -> some View {
         Capsule()
-            .fill(Color(LifeBoardColorTokens.foundationSurfaceRecessed).opacity(0.6))
+            .fill(Color(SemanticColorTokens.foundationSurfaceRecessed).opacity(0.6))
             .frame(width: AtmosphereSliderGeometry.autoLaneWidth)
             .offset(x: laneOffset(
                 0,
@@ -299,7 +299,7 @@ public struct AtmosphereSlider: View {
         let origin = AtmosphereSliderGeometry.autoLaneWidth
             + AtmosphereSliderGeometry.separatorWidth / 2
         return Rectangle()
-            .fill(Color(LifeBoardColorTokens.foundationHairline))
+            .fill(Color(SemanticColorTokens.foundationHairline))
             .frame(width: 1, height: knobSide - 16)
             .offset(x: laneOffset(origin, width: 1, innerWidth: innerWidth))
     }
@@ -330,11 +330,11 @@ public struct AtmosphereSlider: View {
     /// The night stop is dark even in Light appearance.
     private func glyphInk(for stop: DaypartSelection) -> Color {
         guard let daypart = ResolvedDaypart(rawValue: stop.rawValue) else {
-            return Color(LifeBoardColorTokens.inkSecondary)
+            return Color(SemanticColorTokens.inkSecondary)
         }
         return artPalette(daypart).isNocturnal
-            ? Color(LifeBoardColorTokens.foundationOnScenicDark)
-            : Color(LifeBoardColorTokens.inkSecondary)
+            ? Color(SemanticColorTokens.foundationOnScenicDark)
+            : Color(SemanticColorTokens.inkSecondary)
     }
 
     private func knob(innerWidth: CGFloat) -> some View {
@@ -342,11 +342,11 @@ public struct AtmosphereSlider: View {
             forIndex: selectedIndex, innerWidth: innerWidth, isRTL: isRTL
         )
         return Circle()
-            .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+            .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
             .overlay {
                 Image(systemName: selection.systemImage)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             }
             .frame(width: knobSide, height: knobSide)
             .lifeBoardClaySurface(.raised, cornerRadius: knobSide / 2)
@@ -382,8 +382,8 @@ public struct AtmosphereSlider: View {
                     .foregroundStyle(
                         Color(
                             index == selectedIndex
-                                ? LifeBoardColorTokens.inkPrimary
-                                : LifeBoardColorTokens.inkSecondary
+                                ? SemanticColorTokens.inkPrimary
+                                : SemanticColorTokens.inkSecondary
                         )
                     )
                     .padding(.horizontal, 12)
@@ -405,10 +405,10 @@ public struct AtmosphereSlider: View {
         (
             Text(selection.title)
                 .font(.lifeboard(.bodyStrong))
-                .foregroundColor(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundColor(Color(SemanticColorTokens.inkPrimary))
                 + Text(readoutSuffix)
                 .font(.lifeboard(.caption1))
-                .foregroundColor(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundColor(Color(SemanticColorTokens.inkSecondary))
         )
         .lineLimit(2)
         .fixedSize(horizontal: false, vertical: true)

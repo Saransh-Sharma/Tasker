@@ -4,7 +4,7 @@ import SwiftUI
 struct ChipRailSeparator: View {
     var body: some View {
         Capsule()
-            .fill(LBColorTokens.hairline.opacity(0.70))
+            .fill(ClayColorTokens.hairline.opacity(0.70))
             .frame(width: 1, height: 20)
             .padding(.horizontal, 2)
             .accessibilityHidden(true)

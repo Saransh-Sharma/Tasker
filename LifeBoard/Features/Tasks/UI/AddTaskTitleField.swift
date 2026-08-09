@@ -38,7 +38,7 @@ struct AddTaskTitleField: View {
         self.onSubmit = onSubmit
     }
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     var body: some View {

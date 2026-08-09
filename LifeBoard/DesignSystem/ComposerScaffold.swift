@@ -133,7 +133,7 @@ public struct ComposerScaffold<Content: View, Commit: View>: View {
                 if let subtitle {
                     Text(subtitle)
                         .font(.lifeboard(.support))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .fixedSize(horizontal: false, vertical: true)
                         .padding(.bottom, 2)
                 }
@@ -241,7 +241,7 @@ public struct ComposerPage<Content: View, Commit: View>: View {
                 if let subtitle {
                     Text(subtitle)
                         .font(.lifeboard(.support))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .fixedSize(horizontal: false, vertical: true)
                 }
                 content
@@ -301,10 +301,10 @@ public struct GrainedCanvas: View {
 
     public var body: some View {
         ZStack {
-            Color(LifeBoardColorTokens.foundationCanvas)
+            Color(SemanticColorTokens.foundationCanvas)
             GeometryReader { proxy in
                 Rectangle()
-                    .fill(Color(LifeBoardColorTokens.foundationCanvas))
+                    .fill(Color(SemanticColorTokens.foundationCanvas))
                     .frame(width: proxy.size.width, height: proxy.size.height)
                     .lifeboardPaperGrain(intensity: intensity)
             }
@@ -389,12 +389,12 @@ public struct ComposerSection<Content: View>: View {
                     if let header {
                         Text(header)
                             .font(Typography.sectionTitle())
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                     }
                     if let detail {
                         Text(detail)
                             .font(.lifeboard(.support))
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
@@ -412,7 +412,7 @@ public struct ComposerSection<Content: View>: View {
             if let footer {
                 Text(footer)
                     .font(.lifeboard(.meta))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.horizontal, 4)
             }
@@ -524,7 +524,7 @@ public struct ComposerCommitBar: View {
         // record today is lit and the fifth is not.
         .lifeboardFirstLight(
             trigger: firstLightTrigger,
-            tint: Color(LifeBoardColorTokens.foundationSunAccent)
+            tint: Color(SemanticColorTokens.foundationSunAccent)
         )
         .onChange(of: isSucceeded) { _, succeeded in
             guard succeeded else { return }

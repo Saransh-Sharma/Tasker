@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -43,14 +43,14 @@ struct DisplayPanel: View {
         VStack(alignment: .leading, spacing: SwiftUITokens.spacing.sectionGap) {
             Text("Display")
                 .font(Typography.sectionTitle())
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
 
             modeSection
             densitySection
             atmosphereSection
 
             Rectangle()
-                .fill(Color(LifeBoardColorTokens.foundationHairline))
+                .fill(Color(SemanticColorTokens.foundationHairline))
                 .frame(height: 1)
 
             Button(action: onOpenSettings) {
@@ -62,9 +62,9 @@ struct DisplayPanel: View {
                     Spacer(minLength: 8)
                     Image(systemName: "chevron.right")
                         .font(.footnote.weight(.semibold))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .frame(minHeight: 44)
                 .contentShape(Rectangle())
             }
@@ -101,7 +101,7 @@ struct DisplayPanel: View {
             }
             Text(mode.summary)
                 .font(.lifeboard(.caption1))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 .fixedSize(horizontal: false, vertical: true)
                 .accessibilityHidden(true)
         }
@@ -126,7 +126,7 @@ struct DisplayPanel: View {
                 Spacer(minLength: 0)
             }
             .foregroundStyle(
-                Color(selected ? LifeBoardColorTokens.inkPrimary : LifeBoardColorTokens.inkSecondary)
+                Color(selected ? SemanticColorTokens.inkPrimary : SemanticColorTokens.inkSecondary)
             )
             .padding(.horizontal, 12)
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -135,8 +135,8 @@ struct DisplayPanel: View {
                     .fill(
                         Color(
                             selected
-                                ? LifeBoardColorTokens.foundationSurfaceSelected
-                                : LifeBoardColorTokens.foundationSurfaceRecessed
+                                ? SemanticColorTokens.foundationSurfaceSelected
+                                : SemanticColorTokens.foundationSurfaceRecessed
                         )
                     )
             }
@@ -181,7 +181,7 @@ struct DisplayPanel: View {
     private func sectionLabel(_ text: String) -> some View {
         Text(text)
             .font(.lifeboard(.eyebrow))
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
     }
 
     private var motionPolicy: MotionPolicy {

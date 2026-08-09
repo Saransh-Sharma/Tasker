@@ -13,7 +13,7 @@ struct WeeklyPlannerView: View {
 
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         NavigationStack {
@@ -213,9 +213,9 @@ struct WeeklyPlannerView: View {
         guard let decision = viewModel.assignCurrentTriageTask(to: bucket) else { return }
 
         if bucket == .thisWeek {
-            LifeBoardFeedback.success()
+            HapticFeedback.success()
         } else {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
         }
 
         snackbar = SnackbarData(
@@ -236,7 +236,7 @@ struct WeeklyPlannerView: View {
 
     private func handleAddTaskToReviewFlow(_ taskID: UUID) {
         guard viewModel.addTaskToReviewFlow(taskID) else { return }
-        LifeBoardFeedback.success()
+        HapticFeedback.success()
         snackbar = SnackbarData(message: WeeklyCopy.addedToReview, autoDismissSeconds: 2)
     }
 }
@@ -383,7 +383,7 @@ private struct WeeklyPlannerDirectionStep: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
@@ -468,7 +468,7 @@ private struct WeeklyPlannerOutcomesStep: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         WeeklySectionCard(
@@ -585,7 +585,7 @@ private struct WeeklyPlannerLaneSummaryView: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
@@ -643,7 +643,7 @@ private struct WeeklyPlannerTasksStep: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
@@ -711,7 +711,7 @@ private struct WeeklyPlannerReviewStep: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
@@ -1013,7 +1013,7 @@ private struct WeeklyPlannerTaskSourceSheet: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         NavigationStack {

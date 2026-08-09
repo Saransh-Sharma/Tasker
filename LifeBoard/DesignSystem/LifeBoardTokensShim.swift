@@ -1,7 +1,7 @@
 // The token layer now lives in Packages/Tokens.
 //
 // Re-exported so the ~2,600 existing call sites (`Color.lifeboard(...)`,
-// `ThemeStore.shared.tokens(...)`, `LifeBoardAnimations`, …) keep
+// `ThemeStore.shared.tokens(...)`, `MotionAnimations`, …) keep
 // compiling without an import churn commit. This mirrors how the repo already
 // consumes JournalKit.
 //

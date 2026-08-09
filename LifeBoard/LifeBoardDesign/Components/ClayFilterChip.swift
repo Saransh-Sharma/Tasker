@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct LBFilterChip: View {
+struct ClayFilterChip: View {
     struct Model: Identifiable, Equatable {
         let id: String
         let title: String
@@ -39,7 +39,7 @@ struct LBFilterChip: View {
 
     var body: some View {
         Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         } label: {
             ZStack(alignment: .topTrailing) {
@@ -49,7 +49,7 @@ struct LBFilterChip: View {
                             .fill(Color(lifeboardHex: dotHex))
                             .frame(width: 8, height: 8)
                             .overlay {
-                                Circle().stroke(LBColorTokens.whiteStroke.opacity(model.isSelected ? 0.9 : 0.5), lineWidth: 0.5)
+                                Circle().stroke(ClayColorTokens.whiteStroke.opacity(model.isSelected ? 0.9 : 0.5), lineWidth: 0.5)
                             }
                             .accessibilityHidden(true)
                     }
@@ -61,34 +61,34 @@ struct LBFilterChip: View {
                     }
                 }
                 .font(.system(size: 13, weight: .semibold, design: .rounded))
-                .foregroundStyle(model.isSelected ? Color.lifeboard(.accentOnPrimary) : LBColorTokens.navyMuted)
+                .foregroundStyle(model.isSelected ? Color.lifeboard(.accentOnPrimary) : ClayColorTokens.navyMuted)
                 .frame(minHeight: 34)
                 .padding(.horizontal, model.hidesTitle ? 12 : 10)
                 .background {
                     Group {
                         if model.isSelected {
                             LinearGradient(
-                                colors: [LBColorTokens.violetFill, LBColorTokens.violetFillDeep],
+                                colors: [ClayColorTokens.violetFill, ClayColorTokens.violetFillDeep],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
                         } else {
-                            LinearGradient(colors: [LBColorTokens.glassStrong, LBColorTokens.glass], startPoint: .top, endPoint: .bottom)
+                            LinearGradient(colors: [ClayColorTokens.glassStrong, ClayColorTokens.glass], startPoint: .top, endPoint: .bottom)
                         }
                     }
                     .clipShape(Capsule())
                 }
                 .overlay {
                     Capsule()
-                        .stroke(model.isSelected ? LBColorTokens.whiteStroke : LBColorTokens.hairline.opacity(0.70), lineWidth: 1)
+                        .stroke(model.isSelected ? ClayColorTokens.whiteStroke : ClayColorTokens.hairline.opacity(0.70), lineWidth: 1)
                 }
 
                 if model.showsIndicator {
                     Circle()
-                        .fill(LBColorTokens.sunriseGold)
+                        .fill(ClayColorTokens.sunriseGold)
                         .frame(width: 8, height: 8)
                         .overlay {
-                            Circle().stroke(LBColorTokens.whiteStroke, lineWidth: 1)
+                            Circle().stroke(ClayColorTokens.whiteStroke, lineWidth: 1)
                         }
                         .offset(x: 1, y: -1)
                 }

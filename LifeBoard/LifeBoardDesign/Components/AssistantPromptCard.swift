@@ -6,7 +6,7 @@ struct AssistantPromptCard: View {
     let action: () -> Void
 
     var body: some View {
-        let style = LBColorTokens.role(.assistant)
+        let style = ClayColorTokens.role(.assistant)
         Button(action: action) {
             GlassCard(
                 cornerRadius: 20,
@@ -15,9 +15,9 @@ struct AssistantPromptCard: View {
                 shadow: nil,
                 usesMaterialBackground: false
             ) {
-                HStack(spacing: LBSpacingTokens.md) {
+                HStack(spacing: ClayLayoutMetrics.md) {
                     Image(systemName: style.symbolName)
-                        .font(LBTypographyTokens.bodyStrong)
+                        .font(ClayTypography.bodyStrong)
                         .foregroundStyle(style.deep)
                         .frame(width: 34, height: 34)
                         .background(style.softSurface.opacity(0.82), in: Circle())
@@ -25,26 +25,26 @@ struct AssistantPromptCard: View {
 
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
-                            .font(LBTypographyTokens.bodyStrong)
-                            .foregroundStyle(LBColorTokens.navy)
+                            .font(ClayTypography.bodyStrong)
+                            .foregroundStyle(ClayColorTokens.navy)
                         Text(subtitle)
-                            .font(LBTypographyTokens.meta)
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .font(ClayTypography.meta)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                     }
                     Spacer()
                     Text("Add")
-                        .font(LBTypographyTokens.meta)
+                        .font(ClayTypography.meta)
                         .foregroundStyle(style.deep)
-                        .padding(.horizontal, LBSpacingTokens.sm)
-                        .padding(.vertical, LBSpacingTokens.xs)
-                        .background(LBColorTokens.glassStrong.opacity(0.62), in: Capsule())
+                        .padding(.horizontal, ClayLayoutMetrics.sm)
+                        .padding(.vertical, ClayLayoutMetrics.xs)
+                        .background(ClayColorTokens.glassStrong.opacity(0.62), in: Capsule())
                         .overlay {
                             Capsule()
                                 .stroke(style.border.opacity(0.62), lineWidth: 1)
                         }
                 }
-                .padding(.horizontal, LBSpacingTokens.md)
-                .padding(.vertical, LBSpacingTokens.sm)
+                .padding(.horizontal, ClayLayoutMetrics.md)
+                .padding(.vertical, ClayLayoutMetrics.sm)
             }
         }
         .buttonStyle(.plain)

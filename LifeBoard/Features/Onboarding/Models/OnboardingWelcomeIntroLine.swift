@@ -8,7 +8,7 @@ import MLXLMCommon
 
 struct OnboardingWelcomeIntroLine: View {
     let text: String
-    let style: LifeBoardTextStyle
+    let style: TypographyStyle
     let isVisible: Bool
     let secondary: Bool
 

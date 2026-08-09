@@ -1476,7 +1476,7 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
             task.setValue(Date(), forKey: "updatedAt")
             try context.save()
         }
-        let goalSamples = try await CoreDataGoalSampleProvider(container: container).samples(for: [goalLink], asOf: Date())
+        let goalSamples = try await CoreDataGoalSampleRepository(container: container).samples(for: [goalLink], asOf: Date())
         XCTAssertEqual(goalSamples.first?.isComplete, true)
         goal.title = "Ship LifeBoard"
         goal.status = .paused
@@ -1798,10 +1798,7 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
     #endif
 
     private func modelBundleURL() throws -> URL {
-        for bundle in [Bundle.main, Bundle(for: Self.self)] {
-            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") { return url }
-        }
-        throw NSError(domain: "LifeBoardPlanningTrackFoundationTests", code: 1)
+        try PersistenceTestModel.url()
     }
 
     private func makeTrackFoundationContainer() async throws -> NSPersistentContainer {

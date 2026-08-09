@@ -1217,7 +1217,7 @@ public protocol PlanningRepository: Sendable {
     func saveTaskMetadata(_ values: [PlanningTaskMetadata]) async throws
 }
 
-public struct PlanningHomeContextCandidateProvider: HomeContextCandidateProvider {
+public struct PlanningHomeContextCandidateSource: HomeContextCandidateSource {
     public let providerID = "planning"
     /// Widened to include `PlanningMutationRepository` so the carry can be read
     /// out of the close receipt. `CoreDataPlanningRepository` — the only

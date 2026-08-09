@@ -16,7 +16,7 @@ struct AddTaskDurationPicker: View {
     @State private var showCustom = false
     @State private var customMinutes: String = ""
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     private let presets: [(label: String, seconds: TimeInterval)] = [

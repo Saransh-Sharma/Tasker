@@ -11,15 +11,15 @@ enum SearchChromeStyle {
     static let projectHeaderCornerRadius: CGFloat = 16
     static let projectHeaderHeight: CGFloat = 44
 
-    static func tintedSelectedBackground(tokens: LifeBoardColorTokens) -> UIColor {
+    static func tintedSelectedBackground(tokens: SemanticColorTokens) -> UIColor {
         tokens.accentMuted.withAlphaComponent(0.92)
     }
 
-    static func tintedSelectedBorder(tokens: LifeBoardColorTokens) -> UIColor {
+    static func tintedSelectedBorder(tokens: SemanticColorTokens) -> UIColor {
         tokens.accentPrimary.withAlphaComponent(0.28)
     }
 
-    static func projectHeaderBackground(tokens: LifeBoardColorTokens) -> UIColor {
+    static func projectHeaderBackground(tokens: SemanticColorTokens) -> UIColor {
         tokens.surfaceSecondary
     }
 }
@@ -45,7 +45,7 @@ struct SearchHeaderView: View {
     let onSubmit: () -> Void
     let onClear: () -> Void
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         HStack(spacing: spacing.s8) {
@@ -60,7 +60,7 @@ struct SearchHeaderView: View {
                 .autocorrectionDisabled()
                 .font(.lifeboard(.headline))
                 .foregroundStyle(Color.lifeboard.textPrimary)
-                .tint(LBColorTokens.violetDeep)
+                .tint(ClayColorTokens.violetDeep)
                 .accessibilityIdentifier("search.searchField")
                 .onChange(of: query) { _, newValue in
                     onQueryChanged(newValue)
@@ -70,7 +70,7 @@ struct SearchHeaderView: View {
             if isCommandMode {
                 Image(systemName: "sparkles")
                     .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.violetDeep)
+                    .foregroundStyle(ClayColorTokens.violetDeep)
                     .accessibilityHidden(true)
             }
 
@@ -89,7 +89,7 @@ struct SearchHeaderView: View {
         .frame(height: SearchChromeStyle.searchFieldHeight)
         .background {
             RoundedRectangle(cornerRadius: SearchChromeStyle.headerCornerRadius, style: .continuous)
-                .fill(LBColorTokens.glassStrong.opacity(0.82))
+                .fill(ClayColorTokens.glassStrong.opacity(0.82))
                 .lifeBoardSystemGlass(
                     .regular,
                     in: RoundedRectangle(cornerRadius: SearchChromeStyle.headerCornerRadius, style: .continuous),
@@ -97,9 +97,9 @@ struct SearchHeaderView: View {
                 )
                 .overlay {
                     RoundedRectangle(cornerRadius: SearchChromeStyle.headerCornerRadius, style: .continuous)
-                        .stroke(isFocused ? LBColorTokens.violet.opacity(0.82) : LBColorTokens.hairline.opacity(0.38), lineWidth: isFocused ? 1.5 : 1)
+                        .stroke(isFocused ? ClayColorTokens.violet.opacity(0.82) : ClayColorTokens.hairline.opacity(0.38), lineWidth: isFocused ? 1.5 : 1)
                 }
-                .shadow(color: LBColorTokens.elevationShadow, radius: 15, x: 0, y: 8)
+                .shadow(color: ClayColorTokens.elevationShadow, radius: 15, x: 0, y: 8)
         }
     }
 }
@@ -108,13 +108,13 @@ struct SearchFilterChipsView: View {
     @Environment(\.lifeboardTokens) private var tokens
     let chips: [SearchFilterChipDescriptor]
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: SearchChromeStyle.filterSpacing) {
                 ForEach(chips) { chip in
-                    LifeBoardFilterChip(
+                    FilterChip(
                         title: chip.title,
                         isSelected: chip.isSelected,
                         accentColor: chip.tintColor,

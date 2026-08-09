@@ -8,7 +8,7 @@ struct HomeMiniMomentumCardView: View {
     let animate: Bool
     let onTap: () -> Void
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     private var completionPercent: Int {

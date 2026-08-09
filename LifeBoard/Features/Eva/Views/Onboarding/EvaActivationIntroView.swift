@@ -12,7 +12,7 @@ struct EvaActivationIntroView: View {
 
     private let trustChips = ["On-device", "Private", "Ready in a minute"]
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 

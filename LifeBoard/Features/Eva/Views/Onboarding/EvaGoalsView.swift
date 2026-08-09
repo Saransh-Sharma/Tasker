@@ -12,7 +12,7 @@ struct EvaGoalsView: View {
     @State private var draftGoalText = ""
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 

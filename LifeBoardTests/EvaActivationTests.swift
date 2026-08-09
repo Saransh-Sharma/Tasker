@@ -180,12 +180,12 @@ final class EvaActivationTests: XCTestCase {
     }
 
     func testMascotSpriteSheetContract() {
-        XCTAssertEqual(MascotSpriteFrameProvider.sheetPixelWidth, 1536)
-        XCTAssertEqual(MascotSpriteFrameProvider.sheetPixelHeight, 1872)
-        XCTAssertEqual(MascotSpriteFrameProvider.columns, 8)
-        XCTAssertEqual(MascotSpriteFrameProvider.rows, 9)
-        XCTAssertEqual(MascotSpriteFrameProvider.cellWidth, 192)
-        XCTAssertEqual(MascotSpriteFrameProvider.cellHeight, 208)
+        XCTAssertEqual(MascotSpriteFrameSource.sheetPixelWidth, 1536)
+        XCTAssertEqual(MascotSpriteFrameSource.sheetPixelHeight, 1872)
+        XCTAssertEqual(MascotSpriteFrameSource.columns, 8)
+        XCTAssertEqual(MascotSpriteFrameSource.rows, 9)
+        XCTAssertEqual(MascotSpriteFrameSource.cellWidth, 192)
+        XCTAssertEqual(MascotSpriteFrameSource.cellHeight, 208)
 
         XCTAssertEqual(MascotAnimation.idle.frameCount, 6)
         XCTAssertEqual(MascotAnimation.runRight.frameCount, 8)
@@ -215,14 +215,14 @@ final class EvaActivationTests: XCTestCase {
 
         for persona in spritePersonas {
             XCTAssertNotNil(
-                MascotSpriteFrameProvider.shared.metadataURL(for: persona),
+                MascotSpriteFrameSource.shared.metadataURL(for: persona),
                 "Missing mascot metadata for \(persona.displayName)"
             )
             XCTAssertNotNil(
-                MascotSpriteFrameProvider.shared.spritesheetURL(for: persona),
+                MascotSpriteFrameSource.shared.spritesheetURL(for: persona),
                 "Missing mascot spritesheet for \(persona.displayName)"
             )
-            let frame = await MascotSpriteFrameProvider.shared.frame(persona: persona, animation: .idle, index: 0)
+            let frame = await MascotSpriteFrameSource.shared.frame(persona: persona, animation: .idle, index: 0)
             XCTAssertNotNil(
                 frame,
                 "Could not crop idle frame for \(persona.displayName)"
@@ -231,7 +231,7 @@ final class EvaActivationTests: XCTestCase {
     }
 
     func testMascotSpriteProviderClearsDecodedCaches() async throws {
-        let provider = MascotSpriteFrameProvider.shared
+        let provider = MascotSpriteFrameSource.shared
         await provider.clearCaches(reason: "test_setup")
 
         let persona = try XCTUnwrap(AssistantMascotPersona.all.first { $0.id == .cloudlet })
@@ -247,7 +247,7 @@ final class EvaActivationTests: XCTestCase {
         await provider.clearCaches(reason: "test")
 
         let clearedCounts = await provider.cacheCounts()
-        XCTAssertEqual(clearedCounts, MascotSpriteFrameProvider.CacheCounts(sheets: 0, frames: 0))
+        XCTAssertEqual(clearedCounts, MascotSpriteFrameSource.CacheCounts(sheets: 0, frames: 0))
     }
     #endif
 

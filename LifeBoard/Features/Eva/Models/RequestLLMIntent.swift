@@ -107,7 +107,7 @@ struct RequestLLMIntent: AppIntent {
 
             let contextResult = await LLMChatPlanningContextBuilder.build(
                 timeoutMs: 800,
-                service: LLMContextRepositoryProvider.makeService(
+                service: LLMContextRepositoryFactory.makeService(
                     maxTasksPerSlice: LLMChatBudgets.active.maxProjectionTasksPerSlice,
                     compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
                 ),

@@ -35,7 +35,7 @@ struct HabitLibraryView: View {
     @Environment(\.lifeboardTokens) private var tokens
     @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var corner: CornerTokens { tokens.corner }
 
     init(viewModel: HabitLibraryViewModel, presentationStyle: PresentationStyle = .modal) {
@@ -251,7 +251,7 @@ private struct HabitLibrarySummaryHeader: View {
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
@@ -309,7 +309,7 @@ private struct HabitLibraryControlRail: View {
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
@@ -358,7 +358,7 @@ private struct HabitLibraryCard: View {
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
@@ -495,7 +495,7 @@ private struct HabitEmptyStateCard: View {
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(spacing: spacing.s12) {

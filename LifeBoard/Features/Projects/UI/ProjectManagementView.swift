@@ -247,14 +247,14 @@ struct ProjectManagementView: View {
                             .foregroundStyle(Color.lifeboard.textPrimary)
 
                         TextField("Project name", text: $newProjectName)
-                            .textFieldStyle(LifeBoardTextFieldStyle())
+                            .textFieldStyle(TokenTextFieldStyle())
                             .focused($projectNameFocused)
                             .submitLabel(.done)
                             .onSubmit(createProjectFromDraft)
 
                         TextField("Description (optional)", text: $newProjectDescription, axis: .vertical)
                             .lineLimit(3...6)
-                            .textFieldStyle(LifeBoardTextFieldStyle())
+                            .textFieldStyle(TokenTextFieldStyle())
                     }
                     .padding(16)
                     .lifeboardChromeSurface(

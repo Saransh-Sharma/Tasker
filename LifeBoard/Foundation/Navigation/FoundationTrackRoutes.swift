@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -53,12 +53,12 @@ struct RoutineRouteView: View {
                                 .foregroundStyle(.secondary)
                         }
                         .padding(12)
-                        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                        .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         .accessibilityElement(children: .combine)
                     }
                 }
                 Button("Open in Track", systemImage: "chart.bar.fill") { router.select(.track) }
-                    .buttonStyle(.borderedProminent).tint(Color(LifeBoardColorTokens.inkPrimary))
+                    .buttonStyle(.borderedProminent).tint(Color(SemanticColorTokens.inkPrimary))
             }
         }
         .task(id: id) { await load() }
@@ -125,7 +125,7 @@ struct GoalRouteView: View {
 
     let id: UUID
     let repository: CoreDataTrackFoundationRepository?
-    let sampleProvider: (any GoalSampleProvider)?
+    let sampleProvider: (any GoalSampleRepository)?
     let sourceRepository: any TypedSourcePickerRepository
     let router: AppRouter
     @State private var state: RouteLoadState<Snapshot> = .loading
@@ -199,7 +199,7 @@ struct GoalRouteView: View {
                     }
                 }
                 Button("Open in Track", systemImage: "chart.bar.fill") { router.select(.track) }
-                    .buttonStyle(.borderedProminent).tint(Color(LifeBoardColorTokens.inkPrimary))
+                    .buttonStyle(.borderedProminent).tint(Color(SemanticColorTokens.inkPrimary))
             }
         }
         .task(id: id) { await load() }
@@ -249,7 +249,7 @@ struct GoalRouteView: View {
     private func progressHistory(
         goal: GoalDefinition,
         links: [GoalLink],
-        provider: any GoalSampleProvider,
+        provider: any GoalSampleRepository,
         service: DefaultGoalProgressService
     ) async -> [HistoryPoint] {
         await withTaskGroup(of: HistoryPoint?.self) { group in

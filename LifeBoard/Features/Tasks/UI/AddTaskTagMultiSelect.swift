@@ -19,7 +19,7 @@ struct AddTaskTagMultiSelect: View {
     @State private var newTagName = ""
     @State private var isCreatingTag = false
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     var body: some View {
@@ -32,7 +32,7 @@ struct AddTaskTagMultiSelect: View {
                 HStack(spacing: spacing.chipSpacing) {
                     // Add tag button
                     Button {
-                        LifeBoardFeedback.selection()
+                        HapticFeedback.selection()
                         withAnimation(LifeBoardAnimation.stateChange) {
                             showInlineCreate.toggle()
                         }
@@ -111,7 +111,7 @@ struct AddTaskTagMultiSelect: View {
         let isSelected = selectedTagIDs.contains(tag.id)
 
         return Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             withAnimation(LifeBoardAnimation.celebration) {
                 if isSelected {
                     selectedTagIDs.remove(tag.id)

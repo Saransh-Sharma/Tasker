@@ -1,3 +1,5 @@
+import LifeBoardContracts
+import LifeBoardDomain
 import Foundation
 import CoreData
 

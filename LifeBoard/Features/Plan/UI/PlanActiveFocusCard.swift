@@ -25,7 +25,7 @@ struct PlanActiveFocusCard: View {
                     }
                 }
                 .font(.caption)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 if companion.intention.isEmpty == false {
                     Text(companion.intention)
                         .font(.subheadline)
@@ -86,7 +86,7 @@ struct PlanActiveFocusCard: View {
                     HStack {
                         Text(endPrompt(outcome))
                             .font(.subheadline)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         Spacer(minLength: 8)
                         Button("Cancel") { pendingFocusEndOutcome = nil }
                             .font(.subheadline.weight(.semibold))
@@ -109,7 +109,7 @@ struct PlanActiveFocusCard: View {
         .foundationClayCard()
         .overlay {
             RoundedRectangle(cornerRadius: Radius.card)
-                .stroke(Color(LifeBoardColorTokens.foundationFocusRing).opacity(0.25), lineWidth: 1)
+                .stroke(Color(SemanticColorTokens.foundationFocusRing).opacity(0.25), lineWidth: 1)
         }
         .lifeBoardMotion(.contentInsertion, value: pendingFocusEndOutcome)
         .accessibilityIdentifier("plan.activeFocus")
@@ -138,7 +138,7 @@ struct PlanActiveFocusCard: View {
                     }
                     Text(session.state == .paused ? "Paused" : "In focus")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             }
         }

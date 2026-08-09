@@ -50,7 +50,7 @@ struct InsightsExperienceSection: View {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Experience, if it helps")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 Text("\(aggregates.reduce(0) { $0 + $1.totalXP }) XP")
                     .font(Typography.screenTitle().weight(.bold))
                     .monospacedDigit()
@@ -80,7 +80,7 @@ struct InsightsExperienceSection: View {
                     .frame(minHeight: 48)
                     .overlay(alignment: .bottom) {
                         Rectangle()
-                            .fill(Color(LifeBoardColorTokens.foundationHairline))
+                            .fill(Color(SemanticColorTokens.foundationHairline))
                             .frame(height: 1)
                     }
                 }

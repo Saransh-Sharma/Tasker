@@ -145,14 +145,14 @@ public enum LayoutResolver {
 public protocol TokenGroup {}
 
 public protocol TokenContainer {
-    var color: LifeBoardColorTokens { get }
-    var typography: LifeBoardTypographyTokens { get }
-    var spacing: LifeBoardSpacingTokens { get }
+    var color: SemanticColorTokens { get }
+    var typography: SemanticTypographyTokens { get }
+    var spacing: SemanticSpacingTokens { get }
     var elevation: ElevationTokens { get }
     var corner: CornerTokens { get }
 }
 
-public enum LifeBoardTextStyle: String, CaseIterable {
+public enum TypographyStyle: String, CaseIterable {
     case heroDisplay
     case screenTitle
     case sectionTitle
@@ -419,17 +419,17 @@ public enum ChipSelectionStyle: String, CaseIterable {
 }
 
 public struct Tokens: TokenContainer {
-    public let color: LifeBoardColorTokens
-    public let typography: LifeBoardTypographyTokens
-    public let spacing: LifeBoardSpacingTokens
+    public let color: SemanticColorTokens
+    public let typography: SemanticTypographyTokens
+    public let spacing: SemanticSpacingTokens
     public let elevation: ElevationTokens
     public let corner: CornerTokens
 
     /// Initializes a new instance.
     public init(
-        color: LifeBoardColorTokens,
-        typography: LifeBoardTypographyTokens,
-        spacing: LifeBoardSpacingTokens,
+        color: SemanticColorTokens,
+        typography: SemanticTypographyTokens,
+        spacing: SemanticSpacingTokens,
         elevation: ElevationTokens,
         corner: CornerTokens
     ) {

@@ -24,7 +24,7 @@ struct PlanDayTimeCanvas: View {
                 if conflictCount > 0 {
                     Label("\(conflictCount) conflict\(conflictCount == 1 ? "" : "s")", systemImage: "exclamationmark.triangle.fill")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                         .accessibilityHint("Overlapping commitments and LifeBoard blocks are highlighted in the timeline")
                 }
             }
@@ -40,12 +40,12 @@ struct PlanDayTimeCanvas: View {
             .accessibilityIdentifier("plan.day.canvas")
 
             HStack(spacing: 14) {
-                canvasLegend("Open", color: Color(LifeBoardColorTokens.foundationSageAccent).opacity(0.28))
-                canvasLegend("Calendar", color: Color(LifeBoardColorTokens.foundationSurfaceRecessed))
-                canvasLegend("LifeBoard", color: Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.62))
+                canvasLegend("Open", color: Color(SemanticColorTokens.foundationSageAccent).opacity(0.28))
+                canvasLegend("Calendar", color: Color(SemanticColorTokens.foundationSurfaceRecessed))
+                canvasLegend("LifeBoard", color: Color(SemanticColorTokens.foundationApricotAccent).opacity(0.62))
             }
             .font(.caption2)
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
         .foundationClayCard()
     }
@@ -56,10 +56,10 @@ struct PlanDayTimeCanvas: View {
             HStack(spacing: 8) {
                 Text(hourLabel(hour))
                     .font(.caption2.monospacedDigit())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                     .frame(width: rulerWidth - 8, alignment: .trailing)
                 Rectangle()
-                    .fill(Color(LifeBoardColorTokens.foundationHairline).opacity(offset % 2 == 0 ? 0.72 : 0.42))
+                    .fill(Color(SemanticColorTokens.foundationHairline).opacity(offset % 2 == 0 ? 0.72 : 0.42))
                     .frame(width: max(0, width - rulerWidth), height: 1)
             }
             .offset(y: CGFloat(offset) * hourHeight)
@@ -79,11 +79,11 @@ struct PlanDayTimeCanvas: View {
                             .font(.caption2)
                     }
                 }
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 .padding(.horizontal, 9)
                 .frame(width: max(1, width - rulerWidth - 8), height: blockHeight(from: window.startAt, to: window.endAt), alignment: .topLeading)
-                .background(Color(LifeBoardColorTokens.foundationSageAccent).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .overlay { RoundedRectangle(cornerRadius: 10).stroke(Color(LifeBoardColorTokens.foundationSageAccent).opacity(0.34), style: StrokeStyle(lineWidth: 1, dash: [5, 4])) }
+                .background(Color(SemanticColorTokens.foundationSageAccent).opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .overlay { RoundedRectangle(cornerRadius: 10).stroke(Color(SemanticColorTokens.foundationSageAccent).opacity(0.34), style: StrokeStyle(lineWidth: 1, dash: [5, 4])) }
             }
             .buttonStyle(.plain)
             .offset(x: rulerWidth, y: yPosition(window.startAt))
@@ -495,7 +495,7 @@ struct PlanCanvasBlock: View {
         HStack(alignment: .top, spacing: isCompact ? 4 : 7) {
             if isCompact == false {
                 RoundedRectangle(cornerRadius: 3)
-                    .fill(Color(LifeBoardColorTokens.foundationApricotAccent))
+                    .fill(Color(SemanticColorTokens.foundationApricotAccent))
                     .frame(width: 5)
             }
             VStack(alignment: .leading, spacing: 2) {
@@ -531,7 +531,7 @@ struct PlanCanvasBlock: View {
                     .frame(width: isCompact ? 22 : 30, height: 30)
             }
         }
-        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
         .padding(.leading, isCompact ? 5 : 7)
         .padding(.trailing, isCompact ? 2 : 5)
         .frame(
@@ -544,14 +544,14 @@ struct PlanCanvasBlock: View {
         )
         .background(
             showsConflict
-                ? Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.34)
-                : Color(LifeBoardColorTokens.foundationSurfaceSelected),
+                ? Color(SemanticColorTokens.foundationApricotAccent).opacity(0.34)
+                : Color(SemanticColorTokens.foundationSurfaceSelected),
             in: RoundedRectangle(cornerRadius: 11, style: .continuous)
         )
         .overlay {
             RoundedRectangle(cornerRadius: 11)
                 .stroke(
-                    Color(LifeBoardColorTokens.foundationApricotAccent)
+                    Color(SemanticColorTokens.foundationApricotAccent)
                         .opacity(isDragging ? 0.9 : 0.48),
                     lineWidth: isDragging ? 2 : 1
                 )
@@ -694,7 +694,7 @@ struct PlanCanvasBlock: View {
 
     private func resizeHandle(label: String, identifier: String) -> some View {
         Capsule()
-            .fill(Color(LifeBoardColorTokens.foundationApricotAccent))
+            .fill(Color(SemanticColorTokens.foundationApricotAccent))
             .frame(width: 30, height: 4)
             .frame(maxWidth: .infinity)
             .frame(height: 44)

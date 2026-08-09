@@ -91,7 +91,7 @@ final class HomeAIActionCoordinator {
     /// Initializes a new instance.
     init(
         pipeline: AssistantActionPipelineUseCase,
-        contextServiceFactory: @escaping ContextServiceFactory = { LLMContextRepositoryProvider.makeService() }
+        contextServiceFactory: @escaping ContextServiceFactory = { LLMContextRepositoryFactory.makeService() }
     ) {
         self.pipeline = pipeline
         self.contextServiceFactory = contextServiceFactory

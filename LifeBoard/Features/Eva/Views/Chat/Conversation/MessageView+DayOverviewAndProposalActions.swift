@@ -293,7 +293,7 @@ extension MessageView {
     }
 
     func applyEvaProposal(payload: AssistantCardPayload, proposal: EvaProposalReviewPayload) {
-        guard let runID = payload.runID, let pipeline = LLMAssistantPipelineProvider.pipeline else {
+        guard let runID = payload.runID, let pipeline = LLMAssistantPipelineFactory.pipeline else {
             evaApplyMessage = "\(AssistantIdentityText.currentSnapshot().displayName) cannot apply this plan right now."
             return
         }

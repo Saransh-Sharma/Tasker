@@ -22,7 +22,7 @@ public struct HomeQuickFilterTriggerButton: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     /// Initializes a new instance.
@@ -38,7 +38,7 @@ public struct HomeQuickFilterTriggerButton: View {
 
     public var body: some View {
         Button(action: {
-            LifeBoardFeedback.light()
+            HapticFeedback.light()
             onTap()
         }) {
             HStack(spacing: spacing.s8) {

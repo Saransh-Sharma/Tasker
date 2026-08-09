@@ -127,7 +127,7 @@ public struct DayRing: View {
                     phase: reduceMotion ? 0 : liquidPhase,
                     level: min(max(settledLevel, 0), 1)
                 )
-                .fill(Color(LifeBoardColorTokens.foundationSunAccent).opacity(0.16))
+                .fill(Color(SemanticColorTokens.foundationSunAccent).opacity(0.16))
                 .clipShape(Circle())
                 .padding(24)
                 .allowsHitTesting(false)
@@ -145,18 +145,18 @@ public struct DayRing: View {
             }
 
             arcPair(extent: plannedExtent, inset: 0, lineWidth: 7)
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
 
             if let focusExtent {
                 arcPair(extent: focusExtent, inset: 18, lineWidth: 7)
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSunAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
             }
 
             if closedProgress > 0 {
                 // Reuses the shipped ring→tick morph rather than re-porting it.
                 CompletionMark(progress: closedProgress)
                     .stroke(
-                        Color(LifeBoardColorTokens.foundationSunAccent),
+                        Color(SemanticColorTokens.foundationSunAccent),
                         style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round)
                     )
                     .frame(width: diameter * 0.32, height: diameter * 0.32)
@@ -174,7 +174,7 @@ public struct DayRing: View {
 
     private func track(inset: CGFloat) -> some View {
         Circle()
-            .stroke(Color(LifeBoardColorTokens.metricRingTrack), lineWidth: 7)
+            .stroke(Color(SemanticColorTokens.metricRingTrack), lineWidth: 7)
             .padding(inset)
     }
 
@@ -199,18 +199,18 @@ public struct DayRing: View {
                 )
                 Text("focused")
                     .font(Typography.metadata())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else if plannedMinutes == nil {
                 // Not an error and not a zero. The day simply had no shape to
                 // report, which is an ordinary way for a day to go.
                 Text("Open day")
                     .font(Typography.metric())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .multilineTextAlignment(.center)
             } else {
                 Text("No focus\nrecorded")
                     .font(Typography.metadata())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .multilineTextAlignment(.center)
             }
         }

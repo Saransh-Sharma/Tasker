@@ -68,7 +68,7 @@ public struct CompletionControl: View {
                     // control: the lock explains *why* it cannot be completed.
                     Image(systemName: "lock.circle")
                         .font(.system(size: markSide, weight: .regular))
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                 }
             }
             .frame(width: 44, height: 44)
@@ -89,8 +89,8 @@ public struct CompletionControl: View {
         // Shape carries the state, not colour: the ring and the tick are
         // different marks, so this survives Differentiate Without Color.
         isComplete
-            ? Color(LifeBoardColorTokens.foundationSageAccent)
-            : Color(LifeBoardColorTokens.inkTertiary)
+            ? Color(SemanticColorTokens.foundationSageAccent)
+            : Color(SemanticColorTokens.inkTertiary)
     }
 
     private var accessibilityValue: String {

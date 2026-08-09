@@ -21,13 +21,13 @@ struct PlanMinimumViableDayCard: View {
                         systemImage: "arrow.triangle.2.circlepath"
                     )
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                     .accessibilityIdentifier("plan.minimumViableDay.refreshed")
                     DisclosureGroup("What changed") {
                         ForEach(refresh.previousDiff) { change in
                             Text("\(change.title): \(change.after ?? "No selection")")
                                 .font(.caption)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
                     }
                     .font(.caption)
@@ -38,14 +38,14 @@ struct PlanMinimumViableDayCard: View {
                         if let after = change.after {
                             Text(after)
                                 .font(.caption)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
                     }
                 }
                 ForEach(scenario.validationIssues, id: \.self) { issue in
                     Label(issue, systemImage: "exclamationmark.circle")
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 if scenario.source == .minimumViableDay,
                    scenario.isReadyToApply == false,
@@ -78,7 +78,7 @@ struct PlanMinimumViableDayCard: View {
                     .frame(minHeight: 44)
             }
             .buttonStyle(.plain)
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             .accessibilityHint("Previews essential care, one achievable outcome, and protected rest before changing the plan")
             .accessibilityIdentifier("plan.minimumViableDay")
         }
@@ -125,7 +125,7 @@ struct PlanMinimumViableDayCard: View {
         return VStack(alignment: .leading, spacing: 8) {
             Text("Complete the three-part day")
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             HStack(spacing: 8) {
                 Menu {
                     ForEach(readyTasks) { task in

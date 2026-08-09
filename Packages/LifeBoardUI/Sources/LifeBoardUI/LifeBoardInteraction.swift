@@ -91,13 +91,13 @@ public enum Haptic {
         )
         guard resolved.allowsHaptics else { return }
         switch self {
-        case .commit: LifeBoardFeedback.success()
-        case .pick: LifeBoardFeedback.selection()
-        case .lift: LifeBoardFeedback.medium()
-        case .settle: LifeBoardFeedback.light()
-        case .threshold: LifeBoardFeedback.medium()
-        case .decline: LifeBoardFeedback.warning()
-        case .fail: LifeBoardFeedback.error()
+        case .commit: HapticFeedback.success()
+        case .pick: HapticFeedback.selection()
+        case .lift: HapticFeedback.medium()
+        case .settle: HapticFeedback.light()
+        case .threshold: HapticFeedback.medium()
+        case .decline: HapticFeedback.warning()
+        case .fail: HapticFeedback.error()
         }
     }
 }

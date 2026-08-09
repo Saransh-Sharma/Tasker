@@ -26,7 +26,9 @@ private struct DomainWidgetConfiguration {
                 .containerBackground(for: .widget) { Color(red: 0.98, green: 0.96, blue: 0.91) }
         }
         .configurationDisplayName(domain.title)
-        .description("A privacy-aware \(domain.title.lowercased()) glance from LifeBoard.")
+        .description(
+            LocalizedStringKey("A privacy-aware \(domain.title.lowercased()) glance from LifeBoard.")
+        )
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryRectangular])
     }
 }

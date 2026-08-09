@@ -46,10 +46,10 @@ public struct DeckDepth: ViewModifier {
                     ZStack {
                         ForEach(Array((1...backingCount).reversed()), id: \.self) { depth in
                             RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                                .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
                                 .overlay {
                                     RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                        .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                                        .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
                                 }
                                 .scaleEffect(1 - (CGFloat(depth) * 0.038))
                                 .offset(

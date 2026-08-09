@@ -36,7 +36,7 @@ struct AutosaveWhisper: View {
                         .fill(tint)
                         .frame(width: 6, height: 6)
                     Text(label)
-                        .font(LBTypographyTokens.meta)
+                        .font(ClayTypography.meta)
                         .foregroundStyle(labelColor)
                 }
                 .transition(.opacity)
@@ -61,7 +61,7 @@ struct AutosaveWhisper: View {
         switch state {
         case .failed: return DetailTonePalette.dangerText
         case .saved: return DetailTonePalette.successText
-        default: return LBColorTokens.textTertiary
+        default: return ClayColorTokens.textTertiary
         }
     }
 
@@ -69,7 +69,7 @@ struct AutosaveWhisper: View {
         if case .failed = state {
             return DetailTonePalette.dangerText
         }
-        return LBColorTokens.textTertiary
+        return ClayColorTokens.textTertiary
     }
 
     private func handle(_ newValue: TaskDetailAutosaveState) {
@@ -108,7 +108,7 @@ struct DetailDisclosureCard<Content: View>: View {
     let content: Content
 
     @Environment(\.lifeboardTokens) private var tokens
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     init(
         title: String,
@@ -232,13 +232,13 @@ struct CalmSummaryChip: View {
     let icon: String
     let label: String
     let state: FillState
-    var accentColor: Color = LBColorTokens.violet
+    var accentColor: Color = ClayColorTokens.violet
     var showsChevron: Bool = true
     let action: () -> Void
 
     var body: some View {
         Button(action: {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         }) {
             HStack(spacing: 6) {
@@ -269,7 +269,7 @@ struct CalmSummaryChip: View {
 
     private var foreground: Color {
         switch state {
-        case .empty: return LBColorTokens.textTertiary
+        case .empty: return ClayColorTokens.textTertiary
         case .filled, .active: return accentColor
         }
     }
@@ -277,7 +277,7 @@ struct CalmSummaryChip: View {
     @ViewBuilder private var background: some View {
         switch state {
         case .empty:
-            Capsule().fill(LBColorTokens.glassStrong.opacity(0.5))
+            Capsule().fill(ClayColorTokens.glassStrong.opacity(0.5))
         case .filled:
             Capsule().fill(accentColor.opacity(0.10))
         case .active:
@@ -288,7 +288,7 @@ struct CalmSummaryChip: View {
     @ViewBuilder private var border: some View {
         switch state {
         case .empty:
-            Capsule().strokeBorder(LBColorTokens.hairline, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
+            Capsule().strokeBorder(ClayColorTokens.hairline, style: StrokeStyle(lineWidth: 1, dash: [4, 3]))
         case .filled:
             Capsule().strokeBorder(accentColor.opacity(0.22), lineWidth: 1)
         case .active:
@@ -309,24 +309,24 @@ struct CalmInlineReveal<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: isExpanded ? LBSpacingTokens.md : 0) {
+        VStack(alignment: .leading, spacing: isExpanded ? ClayLayoutMetrics.md : 0) {
             Button(action: onToggle) {
-                HStack(spacing: LBSpacingTokens.sm) {
+                HStack(spacing: ClayLayoutMetrics.sm) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(title)
                             .font(.lifeboard(.callout).weight(.semibold))
-                            .foregroundStyle(isExpanded ? LBColorTokens.violet : LBColorTokens.navy)
+                            .foregroundStyle(isExpanded ? ClayColorTokens.violet : ClayColorTokens.navy)
                         if isExpanded == false {
                             Text(collapsedHint)
                                 .font(.lifeboard(.caption1))
-                                .foregroundStyle(LBColorTokens.navyMuted)
+                                .foregroundStyle(ClayColorTokens.navyMuted)
                                 .lineLimit(1)
                         }
                     }
                     Spacer(minLength: 0)
                     Image(systemName: "chevron.down")
                         .font(.lifeboard(.caption1).weight(.semibold))
-                        .foregroundStyle(isExpanded ? LBColorTokens.violet : LBColorTokens.textTertiary)
+                        .foregroundStyle(isExpanded ? ClayColorTokens.violet : ClayColorTokens.textTertiary)
                         .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 }
                 .contentShape(Rectangle())
@@ -339,14 +339,14 @@ struct CalmInlineReveal<Content: View>: View {
                     .transition(.sunriseDisclosureReveal)
             }
         }
-        .padding(LBSpacingTokens.md)
+        .padding(ClayLayoutMetrics.md)
         .background(
             RoundedRectangle(cornerRadius: RadiusTokens.card, style: .continuous)
-                .fill(LBColorTokens.glass.opacity(isExpanded ? 0.9 : 0.55))
+                .fill(ClayColorTokens.glass.opacity(isExpanded ? 0.9 : 0.55))
         )
         .overlay(
             RoundedRectangle(cornerRadius: RadiusTokens.card, style: .continuous)
-                .stroke(LBColorTokens.glassBorder, lineWidth: 1)
+                .stroke(ClayColorTokens.glassBorder, lineWidth: 1)
         )
         .animation(LifeBoardAnimation.stateChange, value: isExpanded)
     }
@@ -359,11 +359,11 @@ struct CalmFieldGroup<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.sm) {
             Text(title.uppercased())
                 .font(.lifeboard(.meta))
                 .tracking(0.8)
-                .foregroundStyle(LBColorTokens.textTertiary)
+                .foregroundStyle(ClayColorTokens.textTertiary)
             content()
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -379,8 +379,8 @@ private struct CalmCanvasKitPreview: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: LBSpacingTokens.lg) {
-                HStack(spacing: LBSpacingTokens.xs) {
+            VStack(alignment: .leading, spacing: ClayLayoutMetrics.lg) {
+                HStack(spacing: ClayLayoutMetrics.xs) {
                     CalmSummaryChip(icon: "clock", label: "Choose time", state: .empty) {}
                     CalmSummaryChip(icon: "leaf", label: "Health", state: .filled, accentColor: .green) {}
                     CalmSummaryChip(icon: "circle.dashed", label: "Any area", state: .active) {}
@@ -393,22 +393,22 @@ private struct CalmCanvasKitPreview: View {
                     accessibilityID: "preview.refine",
                     onToggle: { refineExpanded.toggle() }
                 ) {
-                    VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+                    VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
                         CalmFieldGroup(title: "Notes") {
                             Text("Add the details that don't need to be up front.")
                                 .font(.lifeboard(.callout))
-                                .foregroundStyle(LBColorTokens.navyMuted)
+                                .foregroundStyle(ClayColorTokens.navyMuted)
                         }
                         CalmFieldGroup(title: "Organize") {
                             Text("Project · Priority · Tags")
                                 .font(.lifeboard(.callout))
-                                .foregroundStyle(LBColorTokens.navyMuted)
+                                .foregroundStyle(ClayColorTokens.navyMuted)
                         }
                     }
                 }
             }
             .padding()
         }
-        .background(LBColorTokens.canvas)
+        .background(ClayColorTokens.canvas)
     }
 }

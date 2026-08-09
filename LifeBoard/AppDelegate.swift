@@ -1559,14 +1559,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         scheduleDeferredStartupReconciliation(stateContainer: root)
 
         // Configure LLM access through repositories (no direct Core Data context pulls).
-        LLMContextRepositoryProvider.configure(
+        LLMContextRepositoryFactory.configure(
             taskReadModelRepository: root.taskReadModelRepository,
             projectRepository: root.projectRepository,
             lifeAreaRepository: root.lifeAreaRepository,
             tagRepository: root.tagRepository,
             habitRuntimeReadRepository: root.habitRuntimeReadRepository
         )
-        LLMAssistantPipelineProvider.configure(pipeline: root.useCaseCoordinator.assistantActionPipeline)
+        LLMAssistantPipelineFactory.configure(pipeline: root.useCaseCoordinator.assistantActionPipeline)
         configureSemanticRetrievalLifecycle(stateContainer: root)
         return true
     }

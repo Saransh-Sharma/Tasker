@@ -44,8 +44,8 @@ struct PlanTaskCard: View {
                 Image(systemName: task.dependenciesReady ? "circle" : "lock.circle")
                     .foregroundStyle(
                         task.dependenciesReady
-                            ? Color(LifeBoardColorTokens.inkTertiary)
-                            : Color(LifeBoardColorTokens.foundationApricotAccent)
+                            ? Color(SemanticColorTokens.inkTertiary)
+                            : Color(SemanticColorTokens.foundationApricotAccent)
                     )
             }
             // The body opens the task. It previously did nothing at all: the card
@@ -62,11 +62,11 @@ struct PlanTaskCard: View {
                         Text(task.title).font(.body.weight(.medium)).lineLimit(2)
                         if task.metadata.commitmentLevel == .mustDo {
                             Text("MUST DO").font(.caption2.weight(.bold)).padding(.horizontal, 6).padding(.vertical, 3)
-                                .background(Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.22), in: Capsule())
+                                .background(Color(SemanticColorTokens.foundationApricotAccent).opacity(0.22), in: Capsule())
                         }
                     }
                     Text(metadataLine)
-                        .font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(Rectangle())
@@ -140,7 +140,7 @@ struct PlanTaskCard: View {
         .contentShape(Rectangle())
         .overlay(alignment: .bottom) {
             Rectangle()
-                .fill(Color(LifeBoardColorTokens.foundationHairline))
+                .fill(Color(SemanticColorTokens.foundationHairline))
                 .frame(height: 1)
         }
         .draggable(task.id.uuidString)

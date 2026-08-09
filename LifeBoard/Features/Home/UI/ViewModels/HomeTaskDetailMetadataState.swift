@@ -16,6 +16,6 @@ import WidgetKit
 
 struct HomeTaskDetailMetadataState: Sendable {
     var projects: [Project]
-    var sections: [LifeBoardProjectSection] = []
+    var sections: [ProjectSectionDefinition] = []
     var weeklyOutcomes: [WeeklyOutcome] = []
 }

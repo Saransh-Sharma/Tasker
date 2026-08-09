@@ -28,7 +28,7 @@ public struct AddHabitSheetView: View {
     @State private var successResetTask: Task<Void, Never>?
     @State private var snackbar: SnackbarData?
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 
@@ -111,7 +111,7 @@ public struct AddHabitSheetView: View {
         }
         .lifeboardSnackbar($snackbar)
         .overlay(
-            LBColorTokens.leaf
+            ClayColorTokens.leaf
                 .opacity(successFlash ? 0.06 : 0)
                 .animation(LifeBoardAnimation.heroReveal, value: successFlash)
                 .allowsHitTesting(false)
@@ -309,7 +309,7 @@ public struct AddHabitSheetView: View {
         ) {
                 VStack(alignment: .leading, spacing: spacing.s12) {
                     TextField("Search icons", text: $viewModel.iconSearchQuery)
-                        .textFieldStyle(LifeBoardTextFieldStyle())
+                        .textFieldStyle(TokenTextFieldStyle())
                         .accessibilityIdentifier("addHabit.iconSearchField")
 
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -319,7 +319,7 @@ public struct AddHabitSheetView: View {
                                     viewModel.selectedIconSymbolName = option.symbolName
                                 } label: {
                                     Image(systemName: option.symbolName)
-                                        .font(LBTypographyTokens.bodyStrong)
+                                        .font(ClayTypography.bodyStrong)
                                         .foregroundStyle(viewModel.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
                                         .frame(width: CreationChipMetrics.compactSwatchSize, height: CreationChipMetrics.compactSwatchSize)
                                         .background(viewModel.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: CreationChipMetrics.compactCornerRadius, style: .continuous))
@@ -392,10 +392,10 @@ public struct AddHabitSheetView: View {
 
     private func handleCancel() {
         if viewModel.hasUnsavedChanges {
-            LifeBoardFeedback.medium()
+            HapticFeedback.medium()
             showDiscardConfirmation = true
         } else {
-            LifeBoardFeedback.light()
+            HapticFeedback.light()
             dismiss()
         }
     }
@@ -415,7 +415,7 @@ public struct AddHabitSheetView: View {
                 case .success(let habit):
                     didCreateHabit = true
                     onHabitCreated?(habit.id)
-                    LifeBoardFeedback.success()
+                    HapticFeedback.success()
                     runSuccessFlash()
                     dismiss()
                 case .failure(let error):
@@ -708,7 +708,7 @@ struct HabitTargetEditor: View {
                         .multilineTextAlignment(.trailing)
                         .frame(maxWidth: 100)
                     Text(kindBinding.wrappedValue == .timed ? "minutes" : unitSuffix)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             }
         }
@@ -868,7 +868,7 @@ private struct AddHabitWeekdayPickerRow: View {
             ForEach(weekdays, id: \.day) { item in
                 let isSelected = selectedDays.contains(item.day)
                 Button {
-                    LifeBoardFeedback.selection()
+                    HapticFeedback.selection()
                     if isSelected {
                         selectedDays.removeAll { $0 == item.day }
                     } else {
@@ -915,7 +915,7 @@ struct HabitReminderWindowPicker: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
@@ -932,8 +932,8 @@ struct HabitReminderWindowPicker: View {
                 Spacer(minLength: 0)
                 if isEnabled {
                     Button("Clear", systemImage: "xmark.circle", action: onClear)
-                        .font(LBTypographyTokens.meta)
-                        .foregroundStyle(LBColorTokens.textTertiary)
+                        .font(ClayTypography.meta)
+                        .foregroundStyle(ClayColorTokens.textTertiary)
                         .buttonStyle(.plain)
                         .accessibilityIdentifier("\(accessibilityIdentifierPrefix).clear")
                 }
@@ -953,7 +953,7 @@ struct HabitReminderWindowPicker: View {
                         Image(systemName: "plus.circle.fill")
                             .foregroundStyle(Color.lifeboard.accentPrimary)
                     }
-                    .font(LBTypographyTokens.meta)
+                    .font(ClayTypography.meta)
                     .foregroundStyle(Color.lifeboard.textPrimary)
                     .padding(.horizontal, spacing.s12)
                     .frame(minHeight: 44)
@@ -1054,8 +1054,8 @@ private struct HabitBottomActionBar: View {
             .background(
                 LinearGradient(
                     colors: successFlash
-                        ? [LBColorTokens.leaf, LBColorTokens.sky]
-                        : [LBColorTokens.violetFill, LBColorTokens.violetFillDeep],
+                        ? [ClayColorTokens.leaf, ClayColorTokens.sky]
+                        : [ClayColorTokens.violetFill, ClayColorTokens.violetFillDeep],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 ),
@@ -1075,9 +1075,9 @@ private struct HabitSheetBackground: View {
     var body: some View {
         LinearGradient(
             colors: [
-                LBColorTokens.warmCanvas,
-                LBColorTokens.coolCanvas,
-                LBColorTokens.canvas
+                ClayColorTokens.warmCanvas,
+                ClayColorTokens.coolCanvas,
+                ClayColorTokens.canvas
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -1095,16 +1095,16 @@ private extension View {
                 shape
                     .fill(.clear)
                     .lifeBoardSystemGlass(.regular, in: shape)
-                    .overlay(shape.fill(LBColorTokens.glass.opacity(0.66)))
+                    .overlay(shape.fill(ClayColorTokens.glass.opacity(0.66)))
             } else {
                 shape
                     .fill(.regularMaterial)
-                    .overlay(shape.fill(LBColorTokens.glass))
+                    .overlay(shape.fill(ClayColorTokens.glass))
             }
         }
         .overlay {
-            shape.stroke(LBColorTokens.glassBorder, lineWidth: 1)
+            shape.stroke(ClayColorTokens.glassBorder, lineWidth: 1)
         }
-        .shadow(color: LBColorTokens.elevationShadow, radius: 18, x: 0, y: 10)
+        .shadow(color: ClayColorTokens.elevationShadow, radius: 18, x: 0, y: 10)
     }
 }

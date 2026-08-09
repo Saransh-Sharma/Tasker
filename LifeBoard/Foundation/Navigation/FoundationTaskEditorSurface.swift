@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -11,7 +11,7 @@ extension View {
             .lifeBoardClaySurface(.raised, cornerRadius: 20)
             .overlay {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                    .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
             }
     }
 }

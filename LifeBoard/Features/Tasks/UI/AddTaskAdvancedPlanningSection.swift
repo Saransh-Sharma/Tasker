@@ -93,7 +93,7 @@ struct AddTaskDependenciesPicker: View {
     @Binding var selectedTaskIDs: Set<UUID>
     @Binding var dependencyKind: TaskDependencyKind
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {

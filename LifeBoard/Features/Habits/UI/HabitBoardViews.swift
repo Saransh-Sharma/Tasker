@@ -280,7 +280,7 @@ struct HabitHomeSectionCard: View {
 
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     init(
         title: String,
@@ -339,7 +339,7 @@ struct HabitHomeSectionCard: View {
                         .frame(width: 44, height: 44)
                         .background(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(LBColorTokens.whiteStroke.opacity(0.7))
+                                .fill(ClayColorTokens.whiteStroke.opacity(0.7))
                         )
                         .overlay(
                             RoundedRectangle(cornerRadius: 10, style: .continuous)
@@ -472,7 +472,7 @@ struct HabitBoardScreen: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var layoutMetrics: HabitBoardLayoutMetrics {
         HabitBoardLayoutMetrics.forContainerWidth(resolvedBoardWidth, dynamicTypeSize: dynamicTypeSize)
     }
@@ -684,10 +684,10 @@ struct HabitBoardScreen: View {
         VStack(spacing: spacing.s12) {
             Image(systemName: "sun.max.fill")
                 .font(.system(size: 28, weight: .semibold, design: .rounded))
-                .foregroundStyle(LBColorTokens.role(.routine).deep)
+                .foregroundStyle(ClayColorTokens.role(.routine).deep)
                 .frame(width: 64, height: 64)
-                .background(LBColorTokens.role(.routine).softSurface, in: Circle())
-                .overlay(Circle().stroke(LBColorTokens.role(.routine).border, lineWidth: 1))
+                .background(ClayColorTokens.role(.routine).softSurface, in: Circle())
+                .overlay(Circle().stroke(ClayColorTokens.role(.routine).border, lineWidth: 1))
 
             Text("No habits yet")
                 .font(.lifeboard(.headline))
@@ -1122,7 +1122,7 @@ private struct HabitBoardLegend: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
@@ -1360,7 +1360,7 @@ private struct HabitBoardCellView: View {
                         let x = CGFloat((index * 7) % 11) / 11 * size.width
                         let y = CGFloat((index * 11) % 13) / 13 * size.height
                         path.addEllipse(in: CGRect(x: x, y: y, width: 0.6, height: 0.6))
-                        context.fill(path, with: .color(LBColorTokens.whiteStroke.opacity(0.12)))
+                        context.fill(path, with: .color(ClayColorTokens.whiteStroke.opacity(0.12)))
                     }
                 }
                 .clipShape(RoundedRectangle(cornerRadius: mode.cornerRadius, style: .continuous))
@@ -1486,8 +1486,8 @@ enum HabitEverydayPalette {
 
     static func gridStroke(colorScheme: ColorScheme) -> Color {
         colorScheme == .dark
-            ? LBColorTokens.whiteStroke.opacity(0.07)
-            : LBColorTokens.elevationShadow.opacity(0.4)
+            ? ClayColorTokens.whiteStroke.opacity(0.07)
+            : ClayColorTokens.elevationShadow.opacity(0.4)
     }
 
     static func paperFill(colorScheme: ColorScheme) -> Color {
@@ -1822,7 +1822,7 @@ private struct HabitBoardScoreHeader: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     private var completed: Int { days.suffix(7).reduce(0) { $0 + $1.completedCount } }
     private var scheduled: Int { days.suffix(7).reduce(0) { $0 + $1.habitCount } }
@@ -1840,7 +1840,7 @@ private struct HabitBoardScoreHeader: View {
                 Circle()
                     .trim(from: 0, to: hasSignal ? fraction : 0)
                     .stroke(
-                        hasSignal ? LBColorTokens.role(.routine).deep : Color.lifeboard.textTertiary,
+                        hasSignal ? ClayColorTokens.role(.routine).deep : Color.lifeboard.textTertiary,
                         style: StrokeStyle(lineWidth: 6, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
@@ -1882,7 +1882,7 @@ private struct HabitBoardDayLens: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s16) {
@@ -1932,7 +1932,7 @@ private struct HabitBoardDayCard: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var accent: Color { HabitEverydayPalette.familyPreview(row.colorFamily) }
     private var status: HabitTodayStatus { HabitTodayStatus.status(for: row.cells.last?.state) }
 
@@ -1996,7 +1996,7 @@ private enum HabitTodayStatus {
 
     @MainActor var foreground: Color {
         switch self {
-        case .done: return LBColorTokens.role(.routine).deep
+        case .done: return ClayColorTokens.role(.routine).deep
         case .pending: return Color.lifeboard.textPrimary
         case .missed: return Color.lifeboard.statusWarning
         case .skipped, .notDue, .upcoming: return Color.lifeboard.textTertiary
@@ -2005,7 +2005,7 @@ private enum HabitTodayStatus {
 
     @MainActor var background: Color {
         switch self {
-        case .done: return LBColorTokens.role(.routine).softSurface
+        case .done: return ClayColorTokens.role(.routine).softSurface
         case .pending: return Color.lifeboard.surfaceSecondary.opacity(0.5)
         case .missed: return Color.lifeboard.statusWarning.opacity(0.14)
         case .skipped, .notDue, .upcoming: return Color.lifeboard.surfaceSecondary.opacity(0.35)
@@ -2035,7 +2035,7 @@ private struct HabitBoardGraphLens: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         if isLoading {
@@ -2068,7 +2068,7 @@ private struct HabitGraphCard: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var accent: Color { HabitEverydayPalette.familyPreview(row.colorFamily) }
 
     var body: some View {

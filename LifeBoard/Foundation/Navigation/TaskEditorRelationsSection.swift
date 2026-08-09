@@ -19,7 +19,7 @@ struct TaskEditorRelationsSection: View {
             if editor.wrappedValue.tags.isEmpty {
                 Text("No tags yet")
                     .font(.subheadline)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 LazyVGrid(
                     columns: [GridItem(.adaptive(minimum: 104), spacing: 8)],
@@ -41,8 +41,8 @@ struct TaskEditorRelationsSection: View {
                         }
                         .buttonStyle(.bordered)
                         .tint(selected
-                            ? Color(LifeBoardColorTokens.foundationSageAccent)
-                            : Color(LifeBoardColorTokens.inkSecondary))
+                            ? Color(SemanticColorTokens.foundationSageAccent)
+                            : Color(SemanticColorTokens.inkSecondary))
                         .accessibilityAddTraits(selected ? .isSelected : [])
                     }
                 }
@@ -80,7 +80,7 @@ struct TaskEditorRelationsSection: View {
             if editor.wrappedValue.draft.subtasks.isEmpty {
                 Text("Break this down by linking an existing task.")
                     .font(.subheadline)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 ForEach(
                     Array(editor.wrappedValue.draft.subtasks.enumerated()),
@@ -163,7 +163,7 @@ struct TaskEditorRelationsSection: View {
             if editor.wrappedValue.draft.dependencies.isEmpty {
                 Text("Nothing else has to finish first.")
                     .font(.subheadline)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 ForEach(editor.wrappedValue.draft.dependencies, id: \.id) { link in
                     HStack(spacing: 10) {
@@ -172,7 +172,7 @@ struct TaskEditorRelationsSection: View {
                                 .font(.subheadline.weight(.medium))
                             Text(link.kind == .blocks ? "Must finish first" : "Related")
                                 .font(.caption)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
                         Spacer()
                         Menu {

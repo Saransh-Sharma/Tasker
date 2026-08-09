@@ -19,14 +19,14 @@ struct AddTaskCreateButton: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     var body: some View {
         VStack(spacing: spacing.s8) {
             Button {
                 if isEnabled && !isLoading {
-                    LifeBoardFeedback.light()
+                    HapticFeedback.light()
                     onCreateAction()
                 }
             } label: {
@@ -81,7 +81,7 @@ struct AddTaskCreateButton: View {
 
             if showAddAnother {
                 Button {
-                    LifeBoardFeedback.selection()
+                    HapticFeedback.selection()
                     onAddAnotherAction()
                 } label: {
                     Text("Add Another")

@@ -121,7 +121,7 @@ extension DailyTimelineCanvas {
                   items.contains(placementCandidate.taskID.uuidString) else {
                 return false
             }
-            LifeBoardFeedback.success()
+            HapticFeedback.success()
             onPlaceReplanAtTime(placementCandidate, plan.date(atY: location.y))
             return true
         }, isTargeted: { newValue in
@@ -129,7 +129,7 @@ extension DailyTimelineCanvas {
         })
         .onChange(of: isCanvasDropTargeted) { _, newValue in
             guard newValue else { return }
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
         }
     }
 
@@ -224,7 +224,7 @@ extension DailyTimelineCanvas {
                 .frame(width: dotSize, height: dotSize)
                 .overlay {
                     Circle()
-                        .stroke(LBColorTokens.whiteStroke.opacity(0.72), lineWidth: 2)
+                        .stroke(ClayColorTokens.whiteStroke.opacity(0.72), lineWidth: 2)
                 }
                 .offset(x: mountedSpineX - (dotSize / 2), y: anchorCenterY - (dotSize / 2))
                 .accessibilityHidden(true)

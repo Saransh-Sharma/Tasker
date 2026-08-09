@@ -221,7 +221,7 @@ struct OverdueRescueDeckView: View {
                     cardWidth: metrics.cardWidth
                 )
                 if candidate != nil, snapCandidate == nil {
-                    LifeBoardFeedback.selection()
+                    HapticFeedback.selection()
                 }
                 snapCandidate = candidate
             }
@@ -232,7 +232,7 @@ struct OverdueRescueDeckView: View {
                     predictedEndTranslation: value.predictedEndTranslation,
                     cardWidth: metrics.cardWidth
                 ) {
-                    LifeBoardFeedback.medium()
+                    HapticFeedback.medium()
                     commitDrag(action, metrics: metrics)
                 } else {
                     withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.stateChange) {

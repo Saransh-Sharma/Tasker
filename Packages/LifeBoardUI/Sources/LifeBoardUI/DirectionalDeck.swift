@@ -99,12 +99,12 @@ public enum DeckPhysics {
 /// Accessibility contract: the deck contributes a named VoiceOver action per
 /// available direction, and callers are still expected to render visible button
 /// equivalents — the gesture is an accelerator, never the only path.
-public struct DirectionalDeck<Item: Identifiable, Action, LifeBoardCard: View>: View {
+public struct DirectionalDeck<Item: Identifiable, Action, SurfaceCard: View>: View {
     private let items: [Item]
     private let candidates: (Item) -> [Action]
     private let actionLabel: (Action) -> String
     private let onCommit: (Item, Action) -> Void
-    private let card: (Item, DeckDirection?) -> LifeBoardCard
+    private let card: (Item, DeckDirection?) -> SurfaceCard
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var dragTranslation: CGSize = .zero
@@ -117,7 +117,7 @@ public struct DirectionalDeck<Item: Identifiable, Action, LifeBoardCard: View>: 
         candidates: @escaping (Item) -> [Action],
         actionLabel: @escaping (Action) -> String,
         onCommit: @escaping (Item, Action) -> Void,
-        @ViewBuilder card: @escaping (Item, DeckDirection?) -> LifeBoardCard
+        @ViewBuilder card: @escaping (Item, DeckDirection?) -> SurfaceCard
     ) {
         self.items = items
         self.candidates = candidates
@@ -203,7 +203,7 @@ public struct DirectionalDeck<Item: Identifiable, Action, LifeBoardCard: View>: 
                     // Only when a direction actually arms, so the hand feels the
                     // moment the decision becomes available rather than buzzing
                     // continuously through the drag.
-                    if reachable != nil { LifeBoardFeedback.selection() }
+                    if reachable != nil { HapticFeedback.selection() }
                 }
             }
             .onEnded { value in

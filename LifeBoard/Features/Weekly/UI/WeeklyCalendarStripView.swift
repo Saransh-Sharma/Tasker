@@ -107,7 +107,7 @@ struct WeeklyCalendarStripView: View {
     @Environment(\.lifeboardTokens) private var tokens
 
     private let calendar = Calendar.current
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
     private static let weekdayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.calendar = Calendar.current
@@ -172,7 +172,7 @@ struct WeeklyCalendarStripView: View {
                         withAnimation(LifeBoardAnimation.stateChange) {
                             selectedDate = date
                         }
-                        LifeBoardFeedback.selection()
+                        HapticFeedback.selection()
                     } label: {
                         dayCell(date: date)
                             .frame(maxWidth: .infinity)
@@ -262,7 +262,7 @@ struct WeeklyCalendarStripView: View {
             withAnimation(LifeBoardAnimation.stateChange) {
                 selectedDate = date
             }
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
         } label: {
             ZStack {
                 if isSelected {
@@ -300,7 +300,7 @@ struct WeeklyCalendarStripView: View {
             withAnimation(LifeBoardAnimation.stateChange) {
                 isExpanded.toggle()
             }
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
         } label: {
             Image(systemName: "chevron.down")
                 .font(.system(size: 10, weight: .bold))
@@ -334,7 +334,7 @@ struct WeeklyCalendarStripView: View {
         withAnimation(LifeBoardAnimation.stateChange) {
             displayedWeekStart = newStart
         }
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
 
     // MARK: - Formatters

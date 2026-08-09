@@ -49,5 +49,5 @@ enum TaskEditorControls {
     static func header(_ title: String, symbol: String) -> some View {
         Label(title, systemImage: symbol)
             .font(.headline)
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
     }}

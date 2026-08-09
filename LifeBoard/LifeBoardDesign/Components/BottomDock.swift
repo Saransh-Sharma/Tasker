@@ -34,7 +34,7 @@ struct BottomDock: View {
                     dockButton(item)
                 }
             }
-            .padding(.horizontal, LBSpacingTokens.sm)
+            .padding(.horizontal, ClayLayoutMetrics.sm)
             .frame(height: 68)
             .background {
                 RoundedRectangle(cornerRadius: RadiusTokens.dock, style: .continuous)
@@ -94,7 +94,7 @@ struct BottomDock: View {
     }
 
     private func handleTap(_ item: HomeBottomBarItem) {
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
         withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
             state.select(item)
         }
@@ -117,7 +117,7 @@ struct BottomDock: View {
     }
 
     private func handleCreate() {
-        LifeBoardFeedback.medium()
+        HapticFeedback.medium()
         withAnimation(.spring(response: 0.38, dampingFraction: 0.86)) {
             state.selectMomentaryCreate()
         }

@@ -1,5 +1,5 @@
 import Foundation
-import WatchCaptureKit
+import LifeBoardContracts
 
 @MainActor
 final class WatchJournalCaptureStore: ObservableObject {

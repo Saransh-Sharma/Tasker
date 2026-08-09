@@ -28,7 +28,7 @@ struct QuietTrackingComposerView: View {
         _outcome = State(initialValue: snapshot.initialOutcome)
     }
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var heroSubtitle: String { snapshot.heroSubtitle(for: selectedEntry) }
     private var progressTitle: String { snapshot.progressTitle(for: selectedEntry) }
     private var progressDetail: String { snapshot.progressDetail(for: selectedEntry) }
@@ -350,7 +350,7 @@ private struct QuietTrackingHabitPickerRow: View, Equatable {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     nonisolated static func == (lhs: QuietTrackingHabitPickerRow, rhs: QuietTrackingHabitPickerRow) -> Bool {
         lhs.entry == rhs.entry && lhs.isSelected == rhs.isSelected
@@ -425,7 +425,7 @@ private struct QuietTrackingSectionCard<Content: View>: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {

@@ -152,15 +152,15 @@ struct ProjectTemplatePicker: View {
         return HStack(spacing: 12) {
             Image(systemName: template.icon.rawValue)
                 .frame(width: 28)
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
             VStack(alignment: .leading, spacing: 3) {
                 Text(template.name)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 if let description = template.projectDescription,
                    description.isEmpty == false {
                     Text(description)
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .lineLimit(2)
                 }
             }
@@ -169,7 +169,7 @@ struct ProjectTemplatePicker: View {
                 .foregroundStyle(
                     isSelected
                         ? Color.lifeboard(.statusSuccess)
-                        : Color(LifeBoardColorTokens.inkSecondary)
+                        : Color(SemanticColorTokens.inkSecondary)
                 )
         }
         .frame(minHeight: 52)

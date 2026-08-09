@@ -23,7 +23,7 @@ struct AddTaskEntityPicker: View {
     let items: [AddTaskEntityPickerItem]
     @Binding var selectedID: UUID?
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s8) {
@@ -70,7 +70,7 @@ struct AddTaskEnumChipRow<T: Hashable & CaseIterable>: View where T.AllCases: Ra
     let icon: ((T) -> String)?
     @Binding var selected: T
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     /// Initializes a new instance.
     init(label: String, displayName: @escaping (T) -> String, icon: ((T) -> String)? = nil, selected: Binding<T>) {

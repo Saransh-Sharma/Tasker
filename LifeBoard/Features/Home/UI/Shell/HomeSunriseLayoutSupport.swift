@@ -9,7 +9,7 @@ import SwiftUI
 
 // MARK: - Sunrise Anchor
 
-enum SunriseAnchor: Equatable {
+enum HomeScrollAnchor: Equatable {
     /// Sunrise covers calendar + charts. Default state.
     case collapsed
     /// Sunrise anchors below the weekly calendar strip.
@@ -25,7 +25,7 @@ struct HomeSunriseLayoutMetrics {
     var geometryHeight: CGFloat = 0
 
     /// Executes offset.
-    func offset(for anchor: SunriseAnchor) -> CGFloat {
+    func offset(for anchor: HomeScrollAnchor) -> CGFloat {
         let measuredCalendarHeight = max(calendarExpandedHeight, 72)
         let measuredHeaderHeight = max(timelineHeaderHeight, 56)
         let measuredWeekHeight = max(weeklyBackdropHeight, measuredHeaderHeight + 44)
@@ -58,7 +58,7 @@ struct HomeSunriseHintEligibility {
     /// Executes canTrigger.
     static func canTrigger(
         isHomeVisible: Bool,
-        sunriseAnchor: SunriseAnchor,
+        sunriseAnchor: HomeScrollAnchor,
         reduceMotionEnabled: Bool,
         isUITesting: Bool,
         hasRunningAnimation: Bool,
@@ -77,7 +77,7 @@ struct HomeSunriseHintEligibility {
     }
 }
 
-extension SunriseAnchor {
+extension HomeScrollAnchor {
     var accessibilityValue: String {
         switch self {
         case .collapsed:

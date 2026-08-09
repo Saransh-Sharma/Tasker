@@ -25,17 +25,17 @@ final class AccessibilityContractTests: XCTestCase {
     func testInkOverSurfaceContrastClearsWCAGInEveryAppearance() {
         let inks: [(String, UIColor, CGFloat)] = [
             // 4.5:1 is the body-text floor; tertiary is metadata-only at 3:1.
-            ("inkPrimary", LifeBoardColorTokens.inkPrimary, 4.5),
-            ("inkSecondary", LifeBoardColorTokens.inkSecondary, 4.5),
-            ("inkTertiary", LifeBoardColorTokens.inkTertiary, 3.0)
+            ("inkPrimary", SemanticColorTokens.inkPrimary, 4.5),
+            ("inkSecondary", SemanticColorTokens.inkSecondary, 4.5),
+            ("inkTertiary", SemanticColorTokens.inkTertiary, 3.0)
         ]
         let surfaces: [(String, UIColor)] = [
-            ("foundationCanvas", LifeBoardColorTokens.foundationCanvas),
-            ("foundationCanvasSoft", LifeBoardColorTokens.foundationCanvasSoft),
-            ("foundationCanvasMuted", LifeBoardColorTokens.foundationCanvasMuted),
-            ("foundationSurfaceSolid", LifeBoardColorTokens.foundationSurfaceSolid),
-            ("foundationSurfaceRecessed", LifeBoardColorTokens.foundationSurfaceRecessed),
-            ("foundationSurfaceSelected", LifeBoardColorTokens.foundationSurfaceSelected)
+            ("foundationCanvas", SemanticColorTokens.foundationCanvas),
+            ("foundationCanvasSoft", SemanticColorTokens.foundationCanvasSoft),
+            ("foundationCanvasMuted", SemanticColorTokens.foundationCanvasMuted),
+            ("foundationSurfaceSolid", SemanticColorTokens.foundationSurfaceSolid),
+            ("foundationSurfaceRecessed", SemanticColorTokens.foundationSurfaceRecessed),
+            ("foundationSurfaceSelected", SemanticColorTokens.foundationSurfaceSelected)
         ]
         let appearances: [(UIUserInterfaceStyle, UIAccessibilityContrast, String)] = [
             (.light, .normal, "light"),
@@ -67,12 +67,12 @@ final class AccessibilityContractTests: XCTestCase {
     func testIncreasedContrastNeverWeakensPrimaryInk() {
         for style in [UIUserInterfaceStyle.light, .dark] {
             let normal = contrastRatio(
-                resolvedColor(Color(LifeBoardColorTokens.inkPrimary), style: style, contrast: .normal),
-                resolvedColor(Color(LifeBoardColorTokens.foundationCanvas), style: style, contrast: .normal)
+                resolvedColor(Color(SemanticColorTokens.inkPrimary), style: style, contrast: .normal),
+                resolvedColor(Color(SemanticColorTokens.foundationCanvas), style: style, contrast: .normal)
             )
             let high = contrastRatio(
-                resolvedColor(Color(LifeBoardColorTokens.inkPrimary), style: style, contrast: .high),
-                resolvedColor(Color(LifeBoardColorTokens.foundationCanvas), style: style, contrast: .high)
+                resolvedColor(Color(SemanticColorTokens.inkPrimary), style: style, contrast: .high),
+                resolvedColor(Color(SemanticColorTokens.foundationCanvas), style: style, contrast: .high)
             )
             XCTAssertGreaterThanOrEqual(
                 high, normal,

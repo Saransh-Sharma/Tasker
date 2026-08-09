@@ -132,7 +132,7 @@ private struct HomePrimaryWidgetRail: View {
     @Environment(\.lifeboardTokens) private var tokens
     @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var corner: CornerTokens { tokens.corner }
 
     var body: some View {

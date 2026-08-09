@@ -43,7 +43,7 @@ public struct QuickViewSelector: View {
                 Button {
                     selectedQuickView = quickView
                     onSelect?(quickView)
-                    LifeBoardFeedback.selection()
+                    HapticFeedback.selection()
                 } label: {
                     HStack {
                         Text(quickView.title)
@@ -65,7 +65,7 @@ public struct QuickViewSelector: View {
                     if let onShowDatePicker {
                         Button {
                             onShowDatePicker()
-                            LifeBoardFeedback.selection()
+                            HapticFeedback.selection()
                         } label: {
                             Label("Select date...", systemImage: "calendar")
                         }
@@ -75,7 +75,7 @@ public struct QuickViewSelector: View {
                     if let onShowAdvancedFilters {
                         Button {
                             onShowAdvancedFilters()
-                            LifeBoardFeedback.selection()
+                            HapticFeedback.selection()
                         } label: {
                             Label("Advanced filters", systemImage: "slider.horizontal.3")
                         }
@@ -85,7 +85,7 @@ public struct QuickViewSelector: View {
                     if let onResetFilters {
                         Button(role: .destructive) {
                             onResetFilters()
-                            LifeBoardFeedback.selection()
+                            HapticFeedback.selection()
                         } label: {
                             Label("Reset filters", systemImage: "line.3.horizontal.decrease.circle")
                         }
@@ -202,7 +202,7 @@ public struct CompactNavSelector: View {
                 Button {
                     selectedQuickView = quickView
                     onSelect?(quickView)
-                    LifeBoardFeedback.selection()
+                    HapticFeedback.selection()
                 } label: {
                     Label {
                         Text(quickView.title)

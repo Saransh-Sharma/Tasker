@@ -1,6 +1,6 @@
 import SwiftUI
 
-enum LBTimelineTemporalState: String, Equatable {
+enum ClayTimelineTemporalState: String, Equatable {
     case past
     case current
     case future
@@ -30,11 +30,11 @@ struct TimelineCard: View, Equatable {
         let title: String
         let subtitle: String
         let timeText: String
-        let role: LBRole
+        let role: ClayRole
         let kind: Kind
         let tintHex: String?
         let accessoryText: String?
-        let temporalState: LBTimelineTemporalState
+        let temporalState: ClayTimelineTemporalState
         let isCompleted: Bool
         let isCurrent: Bool
     }
@@ -57,7 +57,7 @@ struct TimelineCard: View, Equatable {
             )
             .accessibilityIdentifier(accessibilityIdentifier)
         } else {
-            let style = LBColorTokens.role(model.role)
+            let style = ClayColorTokens.role(model.role)
             Button(action: onTap) {
                 GlassCard(
                     cornerRadius: cornerRadius,
@@ -66,26 +66,26 @@ struct TimelineCard: View, Equatable {
                     shadow: nil,
                     usesMaterialBackground: false
                 ) {
-                    HStack(spacing: LBSpacingTokens.sm) {
+                    HStack(spacing: ClayLayoutMetrics.sm) {
                         VStack(alignment: .leading, spacing: 4) {
                             Text(model.title)
-                                .font(LBTypographyTokens.cardTitle)
+                                .font(ClayTypography.cardTitle)
                                 .foregroundStyle(titleColor)
                                 .lineLimit(2)
-                                .strikethrough(model.isCompleted && model.kind == .task, color: LBColorTokens.navyMuted.opacity(0.65))
+                                .strikethrough(model.isCompleted && model.kind == .task, color: ClayColorTokens.navyMuted.opacity(0.65))
                             Text(model.subtitle.isEmpty ? model.timeText : "\(model.timeText)  •  \(model.subtitle)")
-                                .font(LBTypographyTokens.meta)
+                                .font(ClayTypography.meta)
                                 .foregroundStyle(metaColor)
                                 .lineLimit(2)
                         }
                         .layoutPriority(1)
-                        Spacer(minLength: LBSpacingTokens.xs)
+                        Spacer(minLength: ClayLayoutMetrics.xs)
                         if let accessoryText = model.accessoryText {
                             Text(accessoryText)
-                                .font(LBTypographyTokens.meta)
+                                .font(ClayTypography.meta)
                                 .foregroundStyle(accessoryColor(style))
-                                .padding(.horizontal, LBSpacingTokens.sm)
-                                .padding(.vertical, LBSpacingTokens.xs)
+                                .padding(.horizontal, ClayLayoutMetrics.sm)
+                                .padding(.vertical, ClayLayoutMetrics.xs)
                                 .background(accessoryFill(style), in: Capsule())
                         }
                     }
@@ -149,11 +149,11 @@ struct TimelineCard: View, Equatable {
     }
 
     private var horizontalPadding: CGFloat {
-        model.kind == .anchor ? LBSpacingTokens.sm : LBSpacingTokens.md
+        model.kind == .anchor ? ClayLayoutMetrics.sm : ClayLayoutMetrics.md
     }
 
     private var verticalPadding: CGFloat {
-        model.kind == .anchor ? 10 : LBSpacingTokens.sm
+        model.kind == .anchor ? 10 : ClayLayoutMetrics.sm
     }
 
     /// Non-anchor cards keep the 66pt design-language minimum so short titles
@@ -164,16 +164,16 @@ struct TimelineCard: View, Equatable {
 
     private var titleColor: Color {
         if model.isCompleted && model.kind == .task {
-            return LBColorTokens.navyMuted
+            return ClayColorTokens.navyMuted
         }
         if model.temporalState == .past {
-            return LBColorTokens.navyMuted
+            return ClayColorTokens.navyMuted
         }
-        return LBColorTokens.navy
+        return ClayColorTokens.navy
     }
 
     private var metaColor: Color {
-        model.temporalState == .past ? LBColorTokens.textTertiary : LBColorTokens.navyMuted
+        model.temporalState == .past ? ClayColorTokens.textTertiary : ClayColorTokens.navyMuted
     }
 
     private func fillColor(_ style: RoleStyle) -> Color {

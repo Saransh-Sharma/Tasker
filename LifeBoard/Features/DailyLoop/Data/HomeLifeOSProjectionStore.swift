@@ -138,7 +138,7 @@ final class HomeLifeOSProjectionStore {
         planningRepository: CoreDataPlanningRepository?,
         trackRepository: CoreDataTrackFoundationRepository?,
         phaseIIRepository: (any PhaseIIRepository)?,
-        goalSampleProvider: (any GoalSampleProvider)? = nil,
+        goalSampleProvider: (any GoalSampleRepository)? = nil,
         wellnessRepository: (any WellnessRepository)? = nil,
         nutritionRepository: (any NutritionRepository)? = nil,
         lifeMomentRepository: (any LifeMomentRepository)? = nil,
@@ -422,9 +422,9 @@ final class HomeLifeOSProjectionStore {
             (.quickCapture, .home),
             (.evaConversation, .eva)
         ]
-        var providers: [any HomeCardProvider] = kinds.compactMap { kind, destination in
+        var providers: [any HomeCardSource] = kinds.compactMap { kind, destination in
             guard let definition = registry.descriptor(for: kind) else { return nil }
-            return ProjectionHomeCardProvider(
+            return ProjectionHomeCardSource(
                 definition: definition,
                 destination: destination,
                 snapshotBuilder: { [self] size, date in
@@ -437,7 +437,7 @@ final class HomeLifeOSProjectionStore {
                 (.bodyMetric, .bodyMetric(.bodyMass)), (.workout, .workouts), (.sleep, .sleep), (.movement, .movement)
             ]
             providers += focuses.compactMap { kind, focus in
-                registry.descriptor(for: kind).map { WellnessHomeCardProvider(definition: $0, focus: focus, repository: wellnessRepository) }
+                registry.descriptor(for: kind).map { WellnessHomeCardSource(definition: $0, focus: focus, repository: wellnessRepository) }
             }
         }
         if let nutritionRepository {
@@ -445,11 +445,11 @@ final class HomeLifeOSProjectionStore {
                 (.nutritionSummary, .dailySummary), (.recentMeal, .recentMeal), (.logMeal, .logMeal)
             ]
             providers += focuses.compactMap { kind, focus in
-                registry.descriptor(for: kind).map { NutritionHomeCardProvider(definition: $0, focus: focus, repository: nutritionRepository) }
+                registry.descriptor(for: kind).map { NutritionHomeCardSource(definition: $0, focus: focus, repository: nutritionRepository) }
             }
         }
         if let lifeMomentRepository, let definition = registry.descriptor(for: .lifeMoment) {
-            providers.append(LifeMomentsOverviewHomeCardProvider(definition: definition, repository: lifeMomentRepository))
+            providers.append(LifeMomentsOverviewHomeCardSource(definition: definition, repository: lifeMomentRepository))
         }
         return try HomeCardProviderRegistry(providers: providers)
     }
@@ -914,7 +914,7 @@ final class HomeLifeOSProjectionStore {
     }
 }
 
-private struct ProjectionHomeCardProvider: HomeCardProvider {
+private struct ProjectionHomeCardSource: HomeCardSource {
     let definition: HomeCardDefinition
     let primaryDestination: Destination
     let privacyClassification: DataSensitivity

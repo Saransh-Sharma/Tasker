@@ -104,7 +104,7 @@ public final class AddTaskViewModel: ObservableObject {
 
     @Published public private(set) var projects: [Project] = []
     @Published public private(set) var lifeAreas: [LifeArea] = []
-    @Published public private(set) var sections: [LifeBoardProjectSection] = []
+    @Published public private(set) var sections: [ProjectSectionDefinition] = []
     @Published public private(set) var tags: [TagDefinition] = []
     @Published public private(set) var isLoading: Bool = false
     @Published public private(set) var errorMessage: String?
@@ -1710,7 +1710,7 @@ public struct AddTaskViewState {
     public let validationErrors: [ValidationError]
     public let projects: [Project]
     public let lifeAreas: [LifeArea]
-    public let sections: [LifeBoardProjectSection]
+    public let sections: [ProjectSectionDefinition]
     public let tags: [TagDefinition]
     public let canSubmit: Bool
 }

@@ -184,7 +184,7 @@ struct TaskTimeWheelPicker: View {
         guard TaskDetailViewModel.roundedToNearestScheduleSlot(slot.date, intervalMinutes: intervalMinutes) != startDate else {
             return
         }
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
         withAnimation(reduceMotion ? nil : LifeBoardAnimation.stateChange) {
             startDate = slot.date
         }
@@ -575,7 +575,7 @@ private struct TaskDurationSegmentedPicker: View {
 
     private func select(_ minutes: Int) {
         guard durationMinutes != minutes else { return }
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
         withAnimation(reduceMotion ? nil : LifeBoardAnimation.stateChange) {
             durationMinutes = minutes
         }

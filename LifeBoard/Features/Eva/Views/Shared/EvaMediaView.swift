@@ -540,7 +540,7 @@ struct MascotSpriteAnimationView: View {
             }
         }
         .task(id: "\(persona.id.rawValue)-\(animation.rawValue)") {
-            frames = await MascotSpriteFrameProvider.shared.frames(persona: persona, animation: animation)
+            frames = await MascotSpriteFrameSource.shared.frames(persona: persona, animation: animation)
         }
     }
 
@@ -567,8 +567,8 @@ struct MascotSpriteAnimationView: View {
 }
 
 @MainActor
-final class MascotSpriteFrameProvider {
-    static let shared = MascotSpriteFrameProvider()
+final class MascotSpriteFrameSource {
+    static let shared = MascotSpriteFrameSource()
 
     struct CacheCounts: Equatable {
         let sheets: Int
@@ -698,10 +698,10 @@ private actor MascotSpriteFrameDecoder {
                 continue
             }
             let rect = CGRect(
-                x: clampedIndex * MascotSpriteFrameProvider.cellWidth,
-                y: animation.rowIndex * MascotSpriteFrameProvider.cellHeight,
-                width: MascotSpriteFrameProvider.cellWidth,
-                height: MascotSpriteFrameProvider.cellHeight
+                x: clampedIndex * MascotSpriteFrameSource.cellWidth,
+                y: animation.rowIndex * MascotSpriteFrameSource.cellHeight,
+                width: MascotSpriteFrameSource.cellWidth,
+                height: MascotSpriteFrameSource.cellHeight
             )
             guard let cropped = sheet.image.cropping(to: rect) else { continue }
             let decoded = MascotSpriteDecodedFrame(image: cropped)
@@ -711,15 +711,15 @@ private actor MascotSpriteFrameDecoder {
         return result
     }
 
-    func clearCaches() -> MascotSpriteFrameProvider.CacheCounts {
+    func clearCaches() -> MascotSpriteFrameSource.CacheCounts {
         let previousCounts = cacheCounts()
         sheetCache.removeAll()
         frameCache.removeAll()
         return previousCounts
     }
 
-    func cacheCounts() -> MascotSpriteFrameProvider.CacheCounts {
-        MascotSpriteFrameProvider.CacheCounts(sheets: sheetCache.count, frames: frameCache.count)
+    func cacheCounts() -> MascotSpriteFrameSource.CacheCounts {
+        MascotSpriteFrameSource.CacheCounts(sheets: sheetCache.count, frames: frameCache.count)
     }
 
     private func sheet(personaID: AssistantMascotID, url: URL) -> MascotSpriteDecodedFrame? {

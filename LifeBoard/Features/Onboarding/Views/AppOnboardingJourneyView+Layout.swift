@@ -1,7 +1,7 @@
 import SwiftUI
 
 extension AppOnboardingJourneyView {
-    var spacing: LifeBoardSpacingTokens {
+    var spacing: SemanticSpacingTokens {
         ThemeStore.shared.tokens(for: layoutClass).spacing
     }
 

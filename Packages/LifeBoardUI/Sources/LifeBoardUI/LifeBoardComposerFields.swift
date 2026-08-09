@@ -61,11 +61,11 @@ public struct ComposerField: View {
             if showsLabel {
                 Text(label)
                     .font(.lifeboard(.meta))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             field
                 .font(.lifeboard(.body))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .focused($isFocused)
                 .submitLabel(submitLabel)
                 .keyboardType(keyboard)
@@ -175,7 +175,7 @@ public struct ComposerNumberField: View {
                 if let unit {
                     Text(unit)
                         .font(.lifeboard(.meta))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                         .accessibilityHidden(true)
                 }
             }
@@ -227,7 +227,7 @@ public struct ClayToggleStyle: ToggleStyle {
         return layout {
             configuration.label
                 .font(.lifeboard(.body))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .fixedSize(horizontal: false, vertical: true)
                 .frame(maxWidth: .infinity, alignment: .leading)
             track(isOn: configuration.isOn)
@@ -247,19 +247,19 @@ public struct ClayToggleStyle: ToggleStyle {
             if isOn { Spacer(minLength: 0) }
             ZStack {
                 Circle()
-                    .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                    .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
                 Image(systemName: isOn ? "checkmark" : "minus")
                     .font(.system(size: 11, weight: .bold))
                     .foregroundStyle(
                         Color(isOn
-                            ? LifeBoardColorTokens.inkPrimary
-                            : LifeBoardColorTokens.inkTertiary)
+                            ? SemanticColorTokens.inkPrimary
+                            : SemanticColorTokens.inkTertiary)
                     )
             }
             .frame(width: knobSide, height: knobSide)
             .matchedGeometryEffect(id: "lifeboard.clayToggle.knob", in: knob)
             .shadow(
-                color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.7),
+                color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.7),
                 radius: 3,
                 y: 1
             )
@@ -275,8 +275,8 @@ public struct ClayToggleStyle: ToggleStyle {
             // disabled, and it matched the off state closely enough that the
             // knob position was doing all the work.
             fill: isOn
-                ? Color(LifeBoardColorTokens.foundationApricotAccent)
-                : Color(LifeBoardColorTokens.foundationSurfaceRecessed)
+                ? Color(SemanticColorTokens.foundationApricotAccent)
+                : Color(SemanticColorTokens.foundationSurfaceRecessed)
         )
     }
 }
@@ -336,11 +336,11 @@ public struct MenuRow<Value: Hashable>: View {
                 HStack(spacing: 6) {
                     Text(title(selection))
                         .font(.lifeboard(.bodyStrong))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                         .lineLimit(1)
                     Image(systemName: "chevron.up.chevron.down")
                         .font(.lifeboard(.caption2))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
                 .padding(.horizontal, 12)
                 .frame(minHeight: 38)
@@ -437,7 +437,7 @@ public struct DateCapsuleRow: View {
             Text(text)
                 .font(.lifeboard(.bodyStrong))
                 .monospacedDigit()
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .lineLimit(1)
                 // Never shrink the value to preserve the row; the row gives way.
                 .fixedSize(horizontal: true, vertical: false)
@@ -620,7 +620,7 @@ public struct ReorderableRows<Item: Identifiable & Equatable, RowContent: View>:
         return HStack(spacing: 10) {
             Image(systemName: "line.3.horizontal")
                 .font(.lifeboard(.support))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 .frame(width: 28, height: 44)
                 .contentShape(Rectangle())
                 .accessibilityHidden(true)

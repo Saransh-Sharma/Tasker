@@ -798,7 +798,7 @@ public extension View {
     func lifeboardTaskLandingCaustic(
         trigger: Int,
         center: UnitPoint = .center,
-        tint: Color = Color(LifeBoardColorTokens.foundationApricotAccent)
+        tint: Color = Color(SemanticColorTokens.foundationApricotAccent)
     ) -> some View {
         modifier(TaskLandingCausticModifierEnvironment(
             trigger: trigger,
@@ -889,7 +889,7 @@ struct TriageSettleModifier: ViewModifier {
                 if elapsed <= duration {
                     let progress = max(0, min(1, elapsed / duration))
                     if usesFallback {
-                        Color(LifeBoardColorTokens.foundationApricotAccent)
+                        Color(SemanticColorTokens.foundationApricotAccent)
                             .opacity(0.16 * sin(progress * .pi))
                     } else {
                         GeometryReader { proxy in
@@ -1645,7 +1645,7 @@ public extension View {
     func lifeboardClayPressBloom(
         center: UnitPoint = .center,
         trigger: Int,
-        tint: Color = Color(LifeBoardColorTokens.foundationSunAccent)
+        tint: Color = Color(SemanticColorTokens.foundationSunAccent)
     ) -> some View {
         modifier(ClayPressBloomModifierEnvironment(center: center, trigger: trigger, tint: tint))
     }

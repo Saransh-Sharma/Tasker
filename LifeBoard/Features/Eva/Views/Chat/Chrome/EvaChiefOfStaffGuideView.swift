@@ -52,9 +52,9 @@ struct EvaChiefOfStaffGuideView: View {
 
             LinearGradient(
                 colors: [
-                    LBColorTokens.role(.assistant).softSurface.opacity(reduceTransparency ? 0.62 : 0.36),
-                    LBColorTokens.canvas.opacity(0.08),
-                    LBColorTokens.coolCanvas.opacity(0.34)
+                    ClayColorTokens.role(.assistant).softSurface.opacity(reduceTransparency ? 0.62 : 0.36),
+                    ClayColorTokens.canvas.opacity(0.08),
+                    ClayColorTokens.coolCanvas.opacity(0.34)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -67,9 +67,9 @@ struct EvaChiefOfStaffGuideView: View {
     var hero: some View {
         GlassCard(
             cornerRadius: RadiusTokens.largeCard,
-            borderColor: LBColorTokens.role(.assistant).border.opacity(0.82),
-            fill: reduceTransparency ? LBColorTokens.glassStrong : LBColorTokens.glassStrong.opacity(0.78),
-            shadow: ShadowToken(color: LBColorTokens.elevationShadow, radius: 24, x: 0, y: 12),
+            borderColor: ClayColorTokens.role(.assistant).border.opacity(0.82),
+            fill: reduceTransparency ? ClayColorTokens.glassStrong : ClayColorTokens.glassStrong.opacity(0.78),
+            shadow: ShadowToken(color: ClayColorTokens.elevationShadow, radius: 24, x: 0, y: 12),
             usesMaterialBackground: !reduceTransparency
         ) {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
@@ -78,19 +78,19 @@ struct EvaChiefOfStaffGuideView: View {
 
                     VStack(alignment: .leading, spacing: 4) {
                         Text("\(assistantIdentity.snapshot.displayName) as Chief of Staff")
-                            .font(LBTypographyTokens.sectionTitle)
-                            .foregroundStyle(LBColorTokens.navy)
+                            .font(ClayTypography.sectionTitle)
+                            .foregroundStyle(ClayColorTokens.navy)
                             .fixedSize(horizontal: false, vertical: true)
                         Text("Plan, triage, and apply with confirmation.")
-                            .font(LBTypographyTokens.bodyStrong)
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .font(ClayTypography.bodyStrong)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }
 
                 Text("Start with one of these prompts, or read the examples to learn when \(assistantIdentity.snapshot.displayName) is strongest.")
-                    .font(LBTypographyTokens.body)
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .font(ClayTypography.body)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
                     .fixedSize(horizontal: false, vertical: true)
             }
             .padding(Theme.Spacing.lg)
@@ -108,32 +108,32 @@ struct EvaChiefOfStaffGuideView: View {
     var mascotWell: some View {
         ZStack {
             Circle()
-                .fill(LBColorTokens.role(.assistant).softSurface.opacity(0.86))
+                .fill(ClayColorTokens.role(.assistant).softSurface.opacity(0.86))
                 .overlay {
                     Circle()
-                        .stroke(LBColorTokens.role(.assistant).border.opacity(0.84), lineWidth: 1)
+                        .stroke(ClayColorTokens.role(.assistant).border.opacity(0.84), lineWidth: 1)
                 }
 
             Circle()
-                .fill(LBColorTokens.glassStrong.opacity(0.56))
+                .fill(ClayColorTokens.glassStrong.opacity(0.56))
                 .frame(width: 42, height: 42)
 
             EvaMascotView(placement: .chiefOfStaffGuide, size: .custom(36))
                 .frame(width: 40, height: 40)
         }
         .frame(width: 52, height: 52)
-        .shadow(color: LBColorTokens.elevationShadow.opacity(0.14), radius: 12, x: 0, y: 6)
+        .shadow(color: ClayColorTokens.elevationShadow.opacity(0.14), radius: 12, x: 0, y: 6)
         .accessibilityHidden(true)
     }
 
     func sectionCard(_ section: EvaChiefOfStaffGuideSection) -> some View {
-        let assistantStyle = LBColorTokens.role(.assistant)
+        let assistantStyle = ClayColorTokens.role(.assistant)
 
         return GlassCard(
             cornerRadius: RadiusTokens.card,
             borderColor: assistantStyle.border.opacity(0.76),
-            fill: reduceTransparency ? LBColorTokens.glassStrong : assistantStyle.softSurface.opacity(0.54),
-            shadow: ShadowToken(color: LBColorTokens.elevationShadow, radius: 18, x: 0, y: 8),
+            fill: reduceTransparency ? ClayColorTokens.glassStrong : assistantStyle.softSurface.opacity(0.54),
+            shadow: ShadowToken(color: ClayColorTokens.elevationShadow, radius: 18, x: 0, y: 8),
             usesMaterialBackground: !reduceTransparency
         ) {
             VStack(alignment: .leading, spacing: Theme.Spacing.md) {
@@ -142,12 +142,12 @@ struct EvaChiefOfStaffGuideView: View {
 
                     VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
                         Text(section.title)
-                            .font(LBTypographyTokens.cardTitle)
-                            .foregroundStyle(LBColorTokens.navy)
+                            .font(ClayTypography.cardTitle)
+                            .foregroundStyle(ClayColorTokens.navy)
                             .fixedSize(horizontal: false, vertical: true)
                         Text(section.body)
-                            .font(LBTypographyTokens.body)
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .font(ClayTypography.body)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                             .fixedSize(horizontal: false, vertical: true)
                     }
                 }

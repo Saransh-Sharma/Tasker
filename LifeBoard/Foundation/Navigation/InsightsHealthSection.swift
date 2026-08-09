@@ -14,12 +14,12 @@ struct InsightsHealthSection: View {
                         .font(.title2.weight(.semibold))
                     Text(interpretation)
                         .font(.subheadline)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 Spacer()
                 Image(systemName: "heart.text.clipboard")
                     .font(.title2)
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
             }
 
             if healthStore.aggregates.isEmpty {
@@ -27,7 +27,7 @@ struct InsightsHealthSection: View {
                     ? "No current Health records are available yet."
                     : "Connect Apple Health in Track to bring movement and body context here.")
                     .font(.body)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 Button {
                     router.push(.healthInsight(.activity), in: .insights)
@@ -38,7 +38,7 @@ struct InsightsHealthSection: View {
                             .monospacedDigit()
                         Text("steps today")
                             .font(.subheadline)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         Spacer()
                         Image(systemName: "chevron.right")
                     }
@@ -70,7 +70,7 @@ struct InsightsHealthSection: View {
                     .monospacedDigit()
                 Text(label)
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .padding(12)
             .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)

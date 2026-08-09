@@ -421,7 +421,7 @@ struct CurvingDayStreamView: View {
             )
             context.stroke(
                 path,
-                with: .color(LBColorTokens.whiteStroke.opacity(0.58 * fullOpacity)),
+                with: .color(ClayColorTokens.whiteStroke.opacity(0.58 * fullOpacity)),
                 style: StrokeStyle(
                     lineWidth: TimelineStreamGeometry.coreLineWidth,
                     lineCap: .round,

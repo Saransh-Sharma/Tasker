@@ -29,7 +29,7 @@ struct AddTaskReminderChip: View {
                     withAnimation(LifeBoardAnimation.feedbackFast) {
                         hasReminder = false
                     }
-                    LifeBoardFeedback.light()
+                    HapticFeedback.light()
                 } else {
                     showTimePicker = true
                 }
@@ -72,7 +72,7 @@ struct AddTaskTimePickerSheet: View {
 
     @State private var selectedTime = Date()
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     var body: some View {
@@ -82,7 +82,7 @@ struct AddTaskTimePickerSheet: View {
                 HStack(spacing: spacing.s8) {
                     ForEach(ReminderPreset.allCases, id: \.self) { preset in
                         Button {
-                            LifeBoardFeedback.selection()
+                            HapticFeedback.selection()
                             selectedTime = preset.date
                         } label: {
                             Text(preset.label)
@@ -112,7 +112,7 @@ struct AddTaskTimePickerSheet: View {
                 Button {
                     reminderTime = selectedTime
                     hasReminder = true
-                    LifeBoardFeedback.success()
+                    HapticFeedback.success()
                     isPresented = false
                 } label: {
                     Text("Set Reminder")

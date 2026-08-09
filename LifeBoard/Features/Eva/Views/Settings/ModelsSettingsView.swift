@@ -9,7 +9,7 @@ struct ModelsSettingsView: View {
     @State private var showOnboardingInstallModelView = false
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 
@@ -135,7 +135,7 @@ struct ModelsSettingsView: View {
         let isActive = appManager.currentModelName == model.name
         let compatibility = entry.compatibility
 
-        LifeBoardCard(active: isActive, elevated: true) {
+        SurfaceCard(active: isActive, elevated: true) {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 HStack(alignment: .top, spacing: spacing.s12) {
                     SettingsRowIcon(

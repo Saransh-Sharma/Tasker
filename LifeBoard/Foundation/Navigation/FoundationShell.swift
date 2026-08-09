@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -16,7 +16,7 @@ public struct FoundationShell: View {
     let trackFoundationRepository: CoreDataTrackFoundationRepository
     let habitRuntimeReadRepository: any HabitRuntimeReadRepositoryProtocol
     let routineLinkedMutationApplier: any RoutineLinkedMutationApplying
-    let goalSampleProvider: any GoalSampleProvider
+    let goalSampleProvider: any GoalSampleRepository
     let starterPackMutationApplier: any StarterPackCanonicalMutationApplying
     let habitRecoveryMutationApplier: any HabitRecoveryMutationApplying
     let nutritionRepository: any NutritionRepository
@@ -79,7 +79,7 @@ public struct FoundationShell: View {
         trackFoundationRepository: CoreDataTrackFoundationRepository,
         habitRuntimeReadRepository: any HabitRuntimeReadRepositoryProtocol,
         routineLinkedMutationApplier: any RoutineLinkedMutationApplying,
-        goalSampleProvider: any GoalSampleProvider,
+        goalSampleProvider: any GoalSampleRepository,
         starterPackMutationApplier: any StarterPackCanonicalMutationApplying,
         habitRecoveryMutationApplier: any HabitRecoveryMutationApplying,
         nutritionRepository: any NutritionRepository,
@@ -179,7 +179,7 @@ public struct FoundationShell: View {
         // Default-tinted controls (menu labels, plain buttons) resolve to cocoa
         // ink instead of system blue, keeping the warm palette everywhere
         // without tinting each control individually.
-        .tint(Color(LifeBoardColorTokens.inkPrimary))
+        .tint(Color(SemanticColorTokens.inkPrimary))
         .background {
             // Hardware-keyboard capture shortcut for iPad / Mac Catalyst (⌘N).
             Button {
@@ -359,7 +359,7 @@ public struct FoundationShell: View {
         let selection = CaptureOrbDragSelectionPolicy.selection(at: location, targets: targets)
         guard selection != compactCaptureState.highlightedKind else { return }
         compactCaptureState.highlightedKind = selection
-        if selection != nil { LifeBoardFeedback.selection() }
+        if selection != nil { HapticFeedback.selection() }
     }
 
     private func finishCompactCaptureDrag(at location: CGPoint) {
@@ -382,7 +382,7 @@ public struct FoundationShell: View {
                 preferredCaptureKind: kind
             )
         )
-        LifeBoardFeedback.light()
+        HapticFeedback.light()
     }
 
     private var availableCaptureKinds: [CaptureKind] {

@@ -17,7 +17,7 @@ struct LifeManagementProjectComposerView: View {
     @Environment(\.lifeboardTokens) private var tokens
     @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    var spacing: SemanticSpacingTokens { tokens.spacing }
     var readableWidth: CGFloat {
         switch containerMode {
         case .inspector:
@@ -110,7 +110,7 @@ struct LifeManagementProjectComposerView: View {
                                 )
 
                                 TextField("What is this project for?", text: $draft.description, axis: .vertical)
-                                    .textFieldStyle(LifeBoardTextFieldStyle())
+                                    .textFieldStyle(TokenTextFieldStyle())
                                     .lineLimit(3, reservesSpace: true)
                             }
 

@@ -430,7 +430,7 @@ public struct FastingSessionMutationReceipt: Codable, Hashable, Identifiable, Se
     }
 }
 
-public struct FastingHomeContextCandidateProvider: HomeContextCandidateProvider {
+public struct FastingHomeContextCandidateSource: HomeContextCandidateSource {
     public let providerID = "fasting"
     private let repository: any FastingSessionRepository
 

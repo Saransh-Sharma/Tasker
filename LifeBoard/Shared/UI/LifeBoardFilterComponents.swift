@@ -24,7 +24,7 @@ extension View {
     }
 }
 
-struct LifeBoardFilterChip: View {
+struct FilterChip: View {
     let title: String
     var systemImage: String? = nil
     var count: Int? = nil
@@ -37,7 +37,7 @@ struct LifeBoardFilterChip: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         Button(action: handleTap) {
@@ -52,7 +52,7 @@ struct LifeBoardFilterChip: View {
     }
 
     private func handleTap() {
-        LifeBoardFeedback.light()
+        HapticFeedback.light()
         action()
     }
 
@@ -153,7 +153,7 @@ struct FilterRow: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         Button(action: action) {
@@ -260,7 +260,7 @@ struct FilterSectionHeader: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         let header = Text(title)

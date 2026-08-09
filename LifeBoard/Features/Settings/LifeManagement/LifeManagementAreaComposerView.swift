@@ -16,7 +16,7 @@ struct LifeManagementAreaComposerView: View {
     @Environment(\.lifeboardTokens) private var tokens
     @Environment(\.lifeboardLayoutClass) private var layoutClass
 
-    var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    var spacing: SemanticSpacingTokens { tokens.spacing }
     var readableWidth: CGFloat {
         switch containerMode {
         case .inspector:

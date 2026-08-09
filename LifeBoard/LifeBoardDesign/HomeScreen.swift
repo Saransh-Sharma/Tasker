@@ -77,7 +77,7 @@ struct HomeScreen: View {
                             .transition(daySwipeTransition)
                             .animation(daySwipeAnimation, value: selectedDayKey)
                             .padding(.top, -headerContentOverlap)
-                            .padding(.bottom, bottomInset + LBSpacingTokens.bottomDockClearance)
+                            .padding(.bottom, bottomInset + ClayLayoutMetrics.bottomDockClearance)
                     }
                     .contentShape(Rectangle())
                     .background {
@@ -205,7 +205,7 @@ struct HomeScreen: View {
                         navigatorGlassFill: context.foregroundStyle.glassFill,
                         navigatorGlassStroke: context.foregroundStyle.glassStroke,
                         isOnNonTodayLens: activeLens != .today,
-                        backToTodayColor: LBColorTokens.sunriseGold,
+                        backToTodayColor: ClayColorTokens.sunriseGold,
                         hasNotifications: false,
                         hasActiveFilters: chrome.activeFilterState.hasActiveFilters
                     ),
@@ -215,7 +215,7 @@ struct HomeScreen: View {
                     onSearch: onOpenSearch,
                     onDateTap: onShowDatePicker,
                     onBackToToday: {
-                        LifeBoardFeedback.selection()
+                        HapticFeedback.selection()
                         onSelectLens(.today)
                     }
                 )
@@ -269,11 +269,11 @@ struct HomeScreen: View {
     }
 
     private var headerHeight: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.compactHeaderAccessibilityHeight : LBSpacingTokens.compactHeaderHeight
+        dynamicTypeSize.isAccessibilitySize ? ClayLayoutMetrics.compactHeaderAccessibilityHeight : ClayLayoutMetrics.compactHeaderHeight
     }
 
     private var headerContentOverlap: CGFloat {
-        dynamicTypeSize.isAccessibilitySize ? LBSpacingTokens.sunriseHeaderAccessibilityContentOverlap : LBSpacingTokens.sunriseHeaderContentOverlap
+        dynamicTypeSize.isAccessibilitySize ? ClayLayoutMetrics.sunriseHeaderAccessibilityContentOverlap : ClayLayoutMetrics.sunriseHeaderContentOverlap
     }
 
     private var selectedDayKey: Int {
@@ -317,18 +317,18 @@ struct HomeScreen: View {
     }
 
     private var filterRowTopPadding: CGFloat {
-        headerContentOverlap + LBSpacingTokens.xs
+        headerContentOverlap + ClayLayoutMetrics.xs
     }
 
     /// When the day compass card is shown it carries the header clearance, so the
     /// chip row only needs a normal gap beneath it. Otherwise the chip row is the
     /// first element and must clear the header itself.
     private var chipRowTopPadding: CGFloat {
-        chrome.dayCompass == nil ? filterRowTopPadding : LBSpacingTokens.xs
+        chrome.dayCompass == nil ? filterRowTopPadding : ClayLayoutMetrics.xs
     }
 
     private var content: some View {
-        VStack(spacing: LBSpacingTokens.xxs) {
+        VStack(spacing: ClayLayoutMetrics.xxs) {
             if let dayCompass = chrome.dayCompass {
                 DayCompassCard(
                     model: dayCompass,
@@ -336,7 +336,7 @@ struct HomeScreen: View {
                     onSnooze: onDayCompassSnooze
                 )
                 .padding(.top, filterRowTopPadding)
-                .padding(.bottom, LBSpacingTokens.xs)
+                .padding(.bottom, ClayLayoutMetrics.xs)
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
 
@@ -369,7 +369,7 @@ struct HomeScreen: View {
                 }
             }
         }
-        .padding(.horizontal, LBSpacingTokens.screenMargin)
+        .padding(.horizontal, ClayLayoutMetrics.screenMargin)
     }
 
     private var rescueTailState: RescueTailState? {
@@ -380,7 +380,7 @@ struct HomeScreen: View {
     }
 
     private func rescueEntryCard(_ state: RescueTailState) -> some View {
-        let style = LBColorTokens.role(.warning)
+        let style = ClayColorTokens.role(.warning)
         return Button(action: onOpenRescue) {
             GlassCard(
                 cornerRadius: RadiusTokens.card,
@@ -389,32 +389,32 @@ struct HomeScreen: View {
                 shadow: nil,
                 usesMaterialBackground: false
             ) {
-                HStack(spacing: LBSpacingTokens.md) {
+                HStack(spacing: ClayLayoutMetrics.md) {
                     Image(systemName: style.symbolName)
-                        .font(LBTypographyTokens.bodyStrong)
+                        .font(ClayTypography.bodyStrong)
                         .foregroundStyle(style.deep)
                         .frame(width: 34, height: 34)
                         .background(style.softSurface.opacity(0.82), in: Circle())
                         .accessibilityHidden(true)
 
-                    VStack(alignment: .leading, spacing: LBSpacingTokens.xxs) {
+                    VStack(alignment: .leading, spacing: ClayLayoutMetrics.xxs) {
                         Text(String(localized: "Rescue available"))
-                            .font(LBTypographyTokens.cardTitle)
-                            .foregroundStyle(LBColorTokens.navy)
+                            .font(ClayTypography.cardTitle)
+                            .foregroundStyle(ClayColorTokens.navy)
 
                         Text(state.subtitle)
-                            .font(LBTypographyTokens.meta)
-                            .foregroundStyle(LBColorTokens.navyMuted)
+                            .font(ClayTypography.meta)
+                            .foregroundStyle(ClayColorTokens.navyMuted)
                             .multilineTextAlignment(.leading)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
                     Image(systemName: "chevron.right")
-                        .font(LBTypographyTokens.meta)
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .font(ClayTypography.meta)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                         .accessibilityHidden(true)
                 }
-                .padding(LBSpacingTokens.md)
+                .padding(ClayLayoutMetrics.md)
             }
         }
         .buttonStyle(.plain)
@@ -447,15 +447,15 @@ struct HomeScreen: View {
 
     private var homeChipRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: LBSpacingTokens.xs) {
+            HStack(spacing: ClayLayoutMetrics.xs) {
                 ForEach(homeChipRailItems) { item in
                     homeChipRailItemView(item)
                 }
             }
-            .padding(.horizontal, LBSpacingTokens.screenMargin)
+            .padding(.horizontal, ClayLayoutMetrics.screenMargin)
         }
         .accessibilityIdentifier("home.sunrise.chipRail")
-        .padding(.horizontal, -LBSpacingTokens.screenMargin)
+        .padding(.horizontal, -ClayLayoutMetrics.screenMargin)
         .padding(.top, chipRowTopPadding)
     }
 
@@ -463,8 +463,8 @@ struct HomeScreen: View {
     private func homeChipRailItemView(_ item: HomeChipRailItem) -> some View {
         switch item {
         case .lens(let chip):
-            LBFilterChip(
-                model: LBFilterChip.Model(
+            ClayFilterChip(
+                model: ClayFilterChip.Model(
                     id: chip.id,
                     title: chip.title,
                     systemImage: chip.systemImage,
@@ -478,15 +478,15 @@ struct HomeScreen: View {
         case .separator:
             ChipRailSeparator()
         case .todayFacet(let scope):
-            LBFilterChip(model: HomeChipRailBuilder.todayFacetChipModel(for: scope, isSelected: selectedContentScope == scope)) {
+            ClayFilterChip(model: HomeChipRailBuilder.todayFacetChipModel(for: scope, isSelected: selectedContentScope == scope)) {
                 selectedContentScope = scope
             }
         case .manageLifeAreas:
-            LBFilterChip(model: HomeChipRailBuilder.manageLifeAreasChipModel()) {
+            ClayFilterChip(model: HomeChipRailBuilder.manageLifeAreasChipModel()) {
                 onManageLenses()
             }
         case .advancedFilters(let hasActiveFilters):
-            LBFilterChip(model: HomeChipRailBuilder.advancedFiltersChipModel(hasActiveFilters: hasActiveFilters)) {
+            ClayFilterChip(model: HomeChipRailBuilder.advancedFiltersChipModel(hasActiveFilters: hasActiveFilters)) {
                 onShowAdvancedFilters()
             }
         }
@@ -508,9 +508,9 @@ struct HomeScreen: View {
         if sections.isEmpty {
             let empty = streamEmptyStateModel
             EmptyState(model: empty.model, action: empty.action)
-                .padding(.top, LBSpacingTokens.md)
+                .padding(.top, ClayLayoutMetrics.md)
         } else {
-            LazyVStack(spacing: LBSpacingTokens.sm) {
+            LazyVStack(spacing: ClayLayoutMetrics.sm) {
                 lifeAreaTodayTimelineStrip
 
                 ForEach(sections) { section in
@@ -530,7 +530,7 @@ struct HomeScreen: View {
                     )
                 }
             }
-            .padding(.top, LBSpacingTokens.sm)
+            .padding(.top, ClayLayoutMetrics.sm)
         }
     }
 
@@ -540,7 +540,7 @@ struct HomeScreen: View {
             TimelineView(.periodic(from: .now, by: 60)) { context in
                 let rows = lifeAreaTodayTimelineRows(lifeAreaID: lifeAreaID, now: context.date)
                 if rows.isEmpty == false {
-                    LazyVStack(spacing: LBSpacingTokens.xs) {
+                    LazyVStack(spacing: ClayLayoutMetrics.xs) {
                         ForEach(rows.prefix(4)) { row in
                             if case .item(let item) = row.kind {
                                 TimelineCard(
@@ -556,7 +556,7 @@ struct HomeScreen: View {
                             }
                         }
                     }
-                    .padding(.bottom, LBSpacingTokens.xs)
+                    .padding(.bottom, ClayLayoutMetrics.xs)
                 }
             }
         }
@@ -653,7 +653,7 @@ struct HomeScreen: View {
                     action: emptyState.action
                 )
             } else {
-                LazyVStack(spacing: LBSpacingTokens.sm) {
+                LazyVStack(spacing: ClayLayoutMetrics.sm) {
                     ForEach(Array(rows.enumerated()), id: \.element.id) { rowIndex, row in
                         let temporalState = row.temporalState(now: context.date)
                         Group {
@@ -767,8 +767,8 @@ struct HomeScreen: View {
             onAddHabit: onAddHabit
         )
         .equatable()
-        .padding(.top, LBSpacingTokens.xs)
-        .padding(.bottom, LBSpacingTokens.xxl)
+        .padding(.top, ClayLayoutMetrics.xs)
+        .padding(.bottom, ClayLayoutMetrics.xxl)
         .transaction { transaction in
             // Stay static while scrolling; let check-in interactions animate.
             if isScrollActive || LifeBoardAnimation.isUITesting {
@@ -824,13 +824,13 @@ struct HomeScreen: View {
         }
     }
 
-    nonisolated static func filterChipModels(selectedContentScope: HomeContentScope, hasActiveFilters: Bool = false) -> [LBFilterChip.Model] {
+    nonisolated static func filterChipModels(selectedContentScope: HomeContentScope, hasActiveFilters: Bool = false) -> [ClayFilterChip.Model] {
         HomeContentScope.allCases.map {
             HomeChipRailBuilder.todayFacetChipModel(for: $0, isSelected: selectedContentScope == $0)
         } + [HomeChipRailBuilder.advancedFiltersChipModel(hasActiveFilters: hasActiveFilters)]
     }
 
-    nonisolated static func todayFacetChipModels(selectedContentScope: HomeContentScope) -> [LBFilterChip.Model] {
+    nonisolated static func todayFacetChipModels(selectedContentScope: HomeContentScope) -> [ClayFilterChip.Model] {
         HomeContentScope.allCases.map {
             HomeChipRailBuilder.todayFacetChipModel(for: $0, isSelected: selectedContentScope == $0)
         }
@@ -1041,7 +1041,7 @@ struct HomeScreen: View {
 
     private func timelineCardModel(
         for item: TimelinePlanItem,
-        temporalState: LBTimelineTemporalState,
+        temporalState: ClayTimelineTemporalState,
         now: Date,
         nextUpcomingCalendarItemID: String?
     ) -> TimelineCard.Model {
@@ -1072,7 +1072,7 @@ struct HomeScreen: View {
         return .task
     }
 
-    private func role(for item: TimelinePlanItem) -> LBRole {
+    private func role(for item: TimelinePlanItem) -> ClayRole {
         if item.source == .calendarEvent || item.isMeetingLike { return .meeting }
         let title = item.title.lowercased()
         if title.contains("lunch") || title.contains("dinner") || title.contains("meal") { return .meal }
@@ -1080,7 +1080,7 @@ struct HomeScreen: View {
         return .task
     }
 
-    private func role(for anchor: TimelineAnchorItem) -> LBRole {
+    private func role(for anchor: TimelineAnchorItem) -> ClayRole {
         anchor.id == "sleep" ? .windDown : .routine
     }
 
@@ -1313,7 +1313,7 @@ struct HomeScreen: View {
         guard isDaySwipeInteractionEnabled else { return }
         committedDaySwipeDirection = direction
         let dayOffset = direction == .previous ? -1 : 1
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
         withAnimation(daySwipeAnimation) {
             onShiftSelectedDay(dayOffset, .swipe)
         }
@@ -1597,8 +1597,8 @@ enum HomeContentScope: String, CaseIterable, Sendable {
     }
 }
 
-private struct SunriseFilterChip: Identifiable {
-    let model: LBFilterChip.Model
+private struct HomeFilterChipAction: Identifiable {
+    let model: ClayFilterChip.Model
     let action: () -> Void
     var id: String { model.id }
 }
@@ -1632,13 +1632,13 @@ private struct HabitGridCard: View, Equatable {
     var body: some View {
         ZStack {
             GlassCard(cornerRadius: RadiusTokens.largeCard) {
-                VStack(spacing: LBSpacingTokens.md) {
+                VStack(spacing: ClayLayoutMetrics.md) {
                     HStack {
                         SectionHeader(title: "Habits", systemImage: "chart.bar")
                         Spacer()
                         Button("View All Habits", action: onOpenHabitBoard)
-                            .font(LBTypographyTokens.meta)
-                            .foregroundStyle(LBColorTokens.violetDeep)
+                            .font(ClayTypography.meta)
+                            .foregroundStyle(ClayColorTokens.violetDeep)
                             .buttonStyle(.plain)
                             .accessibilityIdentifier("home.habits.openBoard")
                     }
@@ -1652,7 +1652,7 @@ private struct HabitGridCard: View, Equatable {
                         }
                     }
                 }
-                .padding(LBSpacingTokens.lg)
+                .padding(ClayLayoutMetrics.lg)
             }
 
             Color.clear
@@ -1670,26 +1670,26 @@ private struct HabitGridCard: View, Equatable {
     }
 
     private var emptyState: some View {
-        let style = LBColorTokens.role(.personal)
+        let style = ClayColorTokens.role(.personal)
         return Button(action: onAddHabit) {
-            HStack(alignment: .center, spacing: LBSpacingTokens.sm) {
+            HStack(alignment: .center, spacing: ClayLayoutMetrics.sm) {
                 Image(systemName: "heart")
-                    .font(LBTypographyTokens.bodyStrong)
+                    .font(ClayTypography.bodyStrong)
                     .foregroundStyle(style.deep)
                     .frame(width: 34, height: 34)
                     .background(style.softSurface.opacity(0.8), in: Circle())
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Start with one small rhythm.")
-                        .font(LBTypographyTokens.bodyStrong)
-                        .foregroundStyle(LBColorTokens.navy)
+                        .font(ClayTypography.bodyStrong)
+                        .foregroundStyle(ClayColorTokens.navy)
                     Text("Create habit")
-                        .font(LBTypographyTokens.meta)
-                        .foregroundStyle(LBColorTokens.violetDeep)
+                        .font(ClayTypography.meta)
+                        .foregroundStyle(ClayColorTokens.violetDeep)
                 }
-                Spacer(minLength: LBSpacingTokens.sm)
+                Spacer(minLength: ClayLayoutMetrics.sm)
             }
-            .padding(LBSpacingTokens.md)
+            .padding(ClayLayoutMetrics.md)
             .background(style.softSurface.opacity(0.5), in: RoundedRectangle(cornerRadius: RadiusTokens.card, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: RadiusTokens.card, style: .continuous)
@@ -1716,9 +1716,9 @@ private struct HabitGridRow: View, Equatable {
             // Explicit completion earns the success haptic; every other
             // cycle step stays light, per the design-doc haptic budget.
             if model.nextAction == .complete {
-                LifeBoardFeedback.success()
+                HapticFeedback.success()
             } else {
-                LifeBoardFeedback.light()
+                HapticFeedback.light()
             }
             onCycleHabit(model)
             PerformanceTrace.end(interval)
@@ -1787,7 +1787,7 @@ enum TimelineRow: Identifiable {
         displayDate ?? now
     }
 
-    func temporalState(now: Date) -> LBTimelineTemporalState {
+    func temporalState(now: Date) -> ClayTimelineTemporalState {
         switch self {
         case .now:
             return .current

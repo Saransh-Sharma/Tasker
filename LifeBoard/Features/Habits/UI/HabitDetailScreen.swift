@@ -38,7 +38,7 @@ struct HabitDetailScreen: View {
     @State private var isInitialEditorSupportHydrationComplete = false
     @State private var snackbar: SnackbarData?
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var isInitialDraftHydrationComplete: Bool {
         isInitialReadOnlyHydrationComplete && isInitialEditorSupportHydrationComplete
     }
@@ -206,7 +206,7 @@ struct HabitDetailScreen: View {
             isExpanded: $showDetailReveal,
             accessibilityID: HabitDetailAccessibilityID.detailsDisclosure,
             onToggle: {
-                LifeBoardFeedback.light()
+                HapticFeedback.light()
                 withAnimation(LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) ? nil : LifeBoardAnimation.stateChange) {
                     showDetailReveal.toggle()
                 }
@@ -413,7 +413,7 @@ struct HabitDetailScreen: View {
 
                 TextField("Notes", text: $viewModel.draft.notes, axis: .vertical)
                     .lineLimit(3...7)
-                    .textFieldStyle(LifeBoardTextFieldStyle())
+                    .textFieldStyle(TokenTextFieldStyle())
 
         }
     }
@@ -421,7 +421,7 @@ struct HabitDetailScreen: View {
     private var appearanceContent: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
                 TextField("Search icons", text: $viewModel.draft.iconSearchQuery)
-                    .textFieldStyle(LifeBoardTextFieldStyle())
+                    .textFieldStyle(TokenTextFieldStyle())
 
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: spacing.s8) {
@@ -430,7 +430,7 @@ struct HabitDetailScreen: View {
                                 viewModel.draft.selectedIconSymbolName = option.symbolName
                             } label: {
                                 Image(systemName: option.symbolName)
-                                    .font(LBTypographyTokens.bodyStrong)
+                                    .font(ClayTypography.bodyStrong)
                                     .foregroundStyle(viewModel.draft.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentOnPrimary : Color.lifeboard.textPrimary)
                                     .frame(width: CreationChipMetrics.compactSwatchSize, height: CreationChipMetrics.compactSwatchSize)
                                     .background(viewModel.draft.selectedIconSymbolName == option.symbolName ? Color.lifeboard.accentPrimary : Color.lifeboard.surfaceSecondary, in: RoundedRectangle(cornerRadius: CreationChipMetrics.compactCornerRadius, style: .continuous))
@@ -516,9 +516,9 @@ struct HabitDetailScreen: View {
     private var sunriseBackground: some View {
         LinearGradient(
             colors: [
-                LBColorTokens.warmCanvas,
-                LBColorTokens.canvas,
-                LBColorTokens.coolCanvas
+                ClayColorTokens.warmCanvas,
+                ClayColorTokens.canvas,
+                ClayColorTokens.coolCanvas
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -760,9 +760,9 @@ struct HabitDetailScreen: View {
 
     private func playMutationHaptic(_ haptic: HabitDetailMutationFeedbackHaptic) {
         switch haptic {
-        case .selection: LifeBoardFeedback.selection()
-        case .success: LifeBoardFeedback.success()
-        case .warning: LifeBoardFeedback.warning()
+        case .selection: HapticFeedback.selection()
+        case .success: HapticFeedback.success()
+        case .warning: HapticFeedback.warning()
         }
     }
 }
@@ -820,7 +820,7 @@ private struct HabitMetricGrid: View {
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         ViewThatFits(in: .horizontal) {
@@ -930,7 +930,7 @@ private struct HabitCalendarSection: View {
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         VStack(alignment: .leading, spacing: spacing.s12) {
@@ -1127,7 +1127,7 @@ private struct HabitWeekdayPickerRow: View {
             ForEach(weekdays, id: \.day) { item in
                 let isSelected = selectedDays.contains(item.day)
                 Button {
-                    LifeBoardFeedback.selection()
+                    HapticFeedback.selection()
                     if isSelected {
                         selectedDays.removeAll { $0 == item.day }
                     } else {

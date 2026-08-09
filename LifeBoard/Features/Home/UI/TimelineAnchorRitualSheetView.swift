@@ -90,7 +90,7 @@ struct TimelineAnchorRitualSheetView: View {
 
     private func selectTime(_ option: TimelineAnchorRitualTimeOption) {
         selectedDate = option.date
-        LifeBoardFeedback.light()
+        HapticFeedback.light()
     }
 
     private func saveChanges() {
@@ -113,7 +113,7 @@ struct TimelineAnchorRitualSheetView: View {
             calendar: calendar
         )
         if playFeedback {
-            LifeBoardFeedback.success()
+            HapticFeedback.success()
         }
     }
 
@@ -145,8 +145,8 @@ private struct TimelineAnchorRitualHero: View {
                 .overlay {
                     LinearGradient(
                         colors: [
-                            LBColorTokens.whiteStroke.opacity(0.18),
-                            LBColorTokens.whiteStroke.opacity(0.02),
+                            ClayColorTokens.whiteStroke.opacity(0.18),
+                            ClayColorTokens.whiteStroke.opacity(0.02),
                             Color.clear
                         ],
                         startPoint: .top,
@@ -164,12 +164,12 @@ private struct TimelineAnchorRitualHero: View {
                 Button(action: close) {
                     Image(systemName: "xmark")
                         .font(.system(size: 25, weight: .medium))
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
                         .frame(width: 60, height: 60)
                         .background(.regularMaterial, in: Circle())
                         .overlay {
                             Circle()
-                                .stroke(LBColorTokens.hairline, lineWidth: 1)
+                                .stroke(ClayColorTokens.hairline, lineWidth: 1)
                         }
                         .lbShadow(ShadowTokens.ritualClose)
                 }
@@ -238,7 +238,7 @@ private struct TimelineAnchorRitualContent: View {
                     .background(theme.ctaGradient, in: Capsule())
                     .overlay {
                         Capsule()
-                            .stroke(LBColorTokens.whiteStroke.opacity(0.18), lineWidth: 1)
+                            .stroke(ClayColorTokens.whiteStroke.opacity(0.18), lineWidth: 1)
                     }
                     .shadow(color: theme.accent.opacity(0.26), radius: 16, x: 0, y: 8)
             }
@@ -270,7 +270,7 @@ private struct TimelineAnchorRitualContent: View {
                     .fill(theme.surface)
                     .frame(width: metrics.sheetWidth, height: 112)
                     .offset(y: -82)
-                    .shadow(color: LBColorTokens.hairline, radius: 2, x: 0, y: -1)
+                    .shadow(color: ClayColorTokens.hairline, radius: 2, x: 0, y: -1)
             }
         }
         .overlay(alignment: .top) {
@@ -298,7 +298,7 @@ private struct TimelineAnchorFloatingToken: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                LBColorTokens.glassStrong,
+                                ClayColorTokens.glassStrong,
                                 theme.accentSoft.opacity(0.84)
                             ],
                             center: .center,
@@ -376,7 +376,7 @@ private struct TimelineAnchorTimeSelectorCard: View {
         .frame(minHeight: metrics.selectorCardHeight, alignment: .top)
         .background(
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(reduceTransparency ? theme.surface : LBColorTokens.glass)
+                .fill(reduceTransparency ? theme.surface : ClayColorTokens.glass)
         )
         .overlay {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
@@ -464,11 +464,11 @@ private struct TimelineAnchorTimeChip: View {
                 .frame(width: width, height: visualHeight)
                 .background(
                     RoundedRectangle(cornerRadius: 17, style: .continuous)
-                        .fill(option.isSelected ? theme.accentSoft : LBColorTokens.glass.opacity(0.5))
+                        .fill(option.isSelected ? theme.accentSoft : ClayColorTokens.glass.opacity(0.5))
                 )
                 .overlay {
                     RoundedRectangle(cornerRadius: 17, style: .continuous)
-                        .stroke(option.isSelected ? theme.accentMist : LBColorTokens.hairline, lineWidth: option.isSelected ? 2 : 1)
+                        .stroke(option.isSelected ? theme.accentMist : ClayColorTokens.hairline, lineWidth: option.isSelected ? 2 : 1)
                 }
                 .lbShadow(ShadowTokens.ritualOption(isSelected: option.isSelected, accent: theme.accent))
             }

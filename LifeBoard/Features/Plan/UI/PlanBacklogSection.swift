@@ -124,7 +124,7 @@ struct PlanBacklogSection: View {
             .font(.subheadline)
         }
         .padding(12)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color(SemanticColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: 14))
     }
 
     private var bulkActionBar: some View {
@@ -168,20 +168,20 @@ struct PlanBacklogSection: View {
             .scrollIndicators(.hidden)
         }
         .padding(12)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: 14))
+        .background(Color(SemanticColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: 14))
         .accessibilityIdentifier("plan.backlog.bulkActions")
     }
 
     private func deletionUndoBanner(_ state: BacklogDeletionUndoState) -> some View {
         HStack(spacing: 12) {
             Image(systemName: "trash.slash.fill")
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
             VStack(alignment: .leading, spacing: 2) {
                 Text("\(state.deletedCount) item\(state.deletedCount == 1 ? "" : "s") removed")
                     .font(.subheadline.weight(.semibold))
                 Text("Deletion is synced as a reversible tombstone.")
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
             Button("Undo") { Task { await store.undoLastMutation() } }

@@ -13,7 +13,7 @@ struct NextActionModule: View {
     let focusPinnedCount: Int
     let onStartFifteenMinuteFocus: () -> Void
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     @ViewBuilder
     var body: some View {

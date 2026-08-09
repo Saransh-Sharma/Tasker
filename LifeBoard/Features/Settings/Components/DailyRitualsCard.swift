@@ -6,7 +6,7 @@ struct DailyRitualsCard: View {
     private var disabled: Bool { viewModel.isPermissionDenied }
 
     var body: some View {
-        LifeBoardCard {
+        SurfaceCard {
             VStack(spacing: SwiftUITokens.spacing.s24) {
                 // Morning Agenda
                 ritualSection(

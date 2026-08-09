@@ -113,8 +113,8 @@ public struct ClaySurfaceModifier: ViewModifier {
 
     private var resolvedFill: Color {
         fill ?? Color(depth == .well
-            ? LifeBoardColorTokens.foundationSurfaceRecessed
-            : LifeBoardColorTokens.foundationSurfaceSolid)
+            ? SemanticColorTokens.foundationSurfaceRecessed
+            : SemanticColorTokens.foundationSurfaceSolid)
     }
 
     /// Under Reduce Transparency the soft inner layers are dropped entirely and
@@ -128,13 +128,13 @@ public struct ClaySurfaceModifier: ViewModifier {
             shape.fill(
                 resolvedFill
                     .shadow(.inner(
-                        color: Color(LifeBoardColorTokens.clayHighlight)
+                        color: Color(SemanticColorTokens.clayHighlight)
                             .opacity(depth.innerHighlight.opacity),
                         radius: depth.innerHighlight.radius,
                         y: depth.innerHighlight.y
                     ))
                     .shadow(.inner(
-                        color: Color(LifeBoardColorTokens.clayInnerShade)
+                        color: Color(SemanticColorTokens.clayInnerShade)
                             .opacity(pressedShadeOpacity),
                         radius: depth.innerShade.radius,
                         y: depth.innerShade.y
@@ -151,7 +151,7 @@ public struct ClaySurfaceModifier: ViewModifier {
 
     private var hairline: some View {
         shape.stroke(
-            Color(LifeBoardColorTokens.foundationHairline)
+            Color(SemanticColorTokens.foundationHairline)
                 .opacity(contrast == .increased ? 1 : depth.strokeOpacity),
             lineWidth: contrast == .increased ? 1.5 : 1
         )
@@ -172,7 +172,7 @@ private struct ClayDropShadow: ViewModifier {
         if let drop = depth.dropShadow {
             let compression: CGFloat = isPressed ? 0.45 : 1
             content.shadow(
-                color: Color(LifeBoardColorTokens.foundationWarmShadow)
+                color: Color(SemanticColorTokens.foundationWarmShadow)
                     .opacity(drop.opacity * compression),
                 radius: drop.radius * compression,
                 y: drop.y * compression
@@ -314,7 +314,7 @@ public struct FormSurfaceModifier: ViewModifier {
     public func body(content: Content) -> some View {
         content
             .scrollContentBackground(.hidden)
-            .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+            .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
     }
 }
 
@@ -328,7 +328,7 @@ public extension View {
     func lifeBoardFormRowSurface() -> some View {
         listRowBackground(
             RoundedRectangle(cornerRadius: ClayDepth.resting.cornerRadius, style: .continuous)
-                .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
         )
     }
 }

@@ -1,9 +1,9 @@
 import SwiftUI
 
 struct TimelineSpine: View {
-    let role: LBRole
+    let role: ClayRole
     var tintHex: String?
-    var temporalState: LBTimelineTemporalState = .future
+    var temporalState: ClayTimelineTemporalState = .future
     var iconSystemName: String?
     var iconAccessibilityLabel: String?
     var iconAccessibilityValue: String?
@@ -11,7 +11,7 @@ struct TimelineSpine: View {
     var iconIsCompleted: Bool?
 
     var body: some View {
-        let style = LBColorTokens.role(role)
+        let style = ClayColorTokens.role(role)
         let baseColor = resolvedBaseColor(fallback: style.base)
         let hasTint = HexColor.normalized(tintHex) != nil
         VStack(spacing: 0) {
@@ -42,9 +42,9 @@ struct TimelineSpine: View {
             }
         } else {
             Circle()
-                .fill(temporalState == .current ? (hasTint ? baseColor : LBColorTokens.violet) : baseColor.opacity(dotOpacity))
+                .fill(temporalState == .current ? (hasTint ? baseColor : ClayColorTokens.violet) : baseColor.opacity(dotOpacity))
                 .frame(width: temporalState == .current ? 12 : 7, height: temporalState == .current ? 12 : 7)
-                .overlay(Circle().stroke(LBColorTokens.canvas.opacity(0.92), lineWidth: temporalState == .current ? 3 : 2))
+                .overlay(Circle().stroke(ClayColorTokens.canvas.opacity(0.92), lineWidth: temporalState == .current ? 3 : 2))
         }
     }
 
@@ -55,7 +55,7 @@ struct TimelineSpine: View {
             .frame(width: 44, height: 44)
             .background {
                 Circle()
-                    .fill(LBColorTokens.glassStrong.opacity(iconBackgroundOpacity))
+                    .fill(ClayColorTokens.glassStrong.opacity(iconBackgroundOpacity))
                     .frame(width: 34, height: 34)
             }
             .overlay {

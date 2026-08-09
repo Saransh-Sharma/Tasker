@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -15,7 +15,7 @@ struct InsightMetric: View {
         }
         .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
         .padding(13)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.86), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .background(Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.86), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
         .accessibilityElement(children: .combine)
     }
 }
@@ -27,7 +27,7 @@ struct EvidenceRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: "checkmark.shield")
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationFocusRing))
+                .foregroundStyle(Color(SemanticColorTokens.foundationFocusRing))
                 .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 4) {
                 Text(event.kind.replacingOccurrences(of: "_", with: " ").capitalized)

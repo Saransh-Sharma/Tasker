@@ -1,3 +1,5 @@
+import LifeBoardContracts
+import LifeBoardDomain
 import Foundation
 import CoreData
 
@@ -920,7 +922,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
 
     /// Executes mapTaskDefinition.
     static func mapTaskDefinition(_ entity: NSManagedObject) -> TaskDefinition {
-        if V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled {
+        if CoreDataTaskMappingConfiguration.isSnapshotMappingEnabled {
             return mapTaskDefinition(from: TaskEntitySnapshot(entity: entity))
         }
 
@@ -1021,7 +1023,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         context: NSManagedObjectContext
     ) throws -> [TaskDefinition] {
         guard entities.isEmpty == false else { return [] }
-        if V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled {
+        if CoreDataTaskMappingConfiguration.isSnapshotMappingEnabled {
             logDebug(
                 event: "taskMapSnapshotPathUsed",
                 message: "Using snapshot-based Core Data task mapping path",
@@ -1084,7 +1086,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         var seen: [UUID: Set<UUID>] = [:]
 
         for object in objects {
-            if V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled {
+            if CoreDataTaskMappingConfiguration.isSnapshotMappingEnabled {
                 let snapshot = TaskTagLinkSnapshot(object: object)
                 guard let taskID = snapshot.taskID, let tagID = snapshot.tagID else {
                     continue
@@ -1137,7 +1139,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         var seen: [UUID: Set<String>] = [:]
 
         for object in objects {
-            if V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled {
+            if CoreDataTaskMappingConfiguration.isSnapshotMappingEnabled {
                 let snapshot = TaskDependencySnapshot(object: object)
                 guard
                     let taskID = snapshot.taskID,
@@ -1216,7 +1218,7 @@ public final class CoreDataTaskDefinitionRepository: TaskDefinitionRepositoryPro
         let objects = try context.fetch(request)
         var namesByID: [UUID: String] = [:]
         for object in objects {
-            if V2FeatureFlags.iPadPerfCoreDataMappingSnapshotV3Enabled {
+            if CoreDataTaskMappingConfiguration.isSnapshotMappingEnabled {
                 let snapshot = ProjectNameSnapshot(object: object)
                 guard
                     let id = snapshot.id,

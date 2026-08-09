@@ -102,7 +102,7 @@ public struct BrandPalette: Equatable, @unchecked Sendable {
 }
 
 public enum ThreadSafeTokenResolver {
-    private static let sunriseColorTokens = LifeBoardColorTokens.make(palette: .sunrise)
+    private static let sunriseColorTokens = SemanticColorTokens.make(palette: .sunrise)
 
     /// - Parameter traits: Reserved for future trait-aware token resolution; currently unused.
     public static func color(
@@ -192,9 +192,9 @@ public struct Theme {
         self.patterns = PatternTokens(palette: palette)
         self.widgets = WidgetTokens(palette: palette)
         self.tokens = Tokens(
-            color: LifeBoardColorTokens.make(palette: palette),
-            typography: LifeBoardTypographyTokens.makeDefault(),
-            spacing: LifeBoardSpacingTokens.default,
+            color: SemanticColorTokens.make(palette: palette),
+            typography: SemanticTypographyTokens.makeDefault(),
+            spacing: SemanticSpacingTokens.default,
             elevation: ElevationTokens.default,
             corner: CornerTokens.default
         )
@@ -203,8 +203,8 @@ public struct Theme {
     public func tokens(for layoutClass: LayoutClass) -> Tokens {
         Tokens(
             color: tokens.color,
-            typography: LifeBoardTypographyTokens.make(for: layoutClass),
-            spacing: LifeBoardSpacingTokens.forLayout(layoutClass),
+            typography: SemanticTypographyTokens.make(for: layoutClass),
+            spacing: SemanticSpacingTokens.forLayout(layoutClass),
             elevation: ElevationTokens.forLayout(layoutClass),
             corner: CornerTokens.forLayout(layoutClass)
         )
@@ -234,7 +234,7 @@ public final class ThemeStore: ObservableObject {
     public func reloadFromPersistence() {
         currentTheme = Theme()
         tokenCache.removeAll(keepingCapacity: false)
-        LifeBoardTypographyTokens.resetCache()
+        SemanticTypographyTokens.resetCache()
     }
 
     public func tokens(for layoutClass: LayoutClass) -> Tokens {

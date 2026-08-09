@@ -1,7 +1,7 @@
 import Foundation
 import CoreData
 import CryptoKit
-import WatchCaptureKit
+import LifeBoardContracts
 
 #if canImport(WatchConnectivity) && os(iOS)
 import WatchConnectivity

@@ -53,7 +53,7 @@ struct FocusSetupSheet: View {
                             .font(.title2.weight(.semibold))
                         Text("Choose the rhythm that fits this moment.")
                             .font(.subheadline)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
 
                     Picker("Focus mode", selection: $mode) {
@@ -167,7 +167,7 @@ struct FocusSetupSheet: View {
             Text(title)
             Spacer()
             Text(value)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 .monospacedDigit()
         }
     }
@@ -177,14 +177,14 @@ struct FocusSetupSheet: View {
             Image(systemName: symbol)
                 .frame(width: 32, height: 32)
                 .background(
-                    Color(LifeBoardColorTokens.foundationSageAccent).opacity(0.16),
+                    Color(SemanticColorTokens.foundationSageAccent).opacity(0.16),
                     in: RoundedRectangle(cornerRadius: 10)
                 )
             VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.subheadline.weight(.semibold))
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
         }
         .frame(minHeight: 52)

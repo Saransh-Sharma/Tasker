@@ -17,7 +17,7 @@ struct TimelineSurface: View {
 
     let onSelectDate: (Date) -> Void
 
-    let onSnapAnchor: (SunriseAnchor) -> Void
+    let onSnapAnchor: (HomeScrollAnchor) -> Void
 
     let onDragChanged: (CGFloat) -> Void
 
@@ -53,7 +53,7 @@ struct TimelineSurface: View {
         showsRevealHandle: Bool = true,
         hasNextHomeWidget: Bool = false,
         onSelectDate: @escaping (Date) -> Void,
-        onSnapAnchor: @escaping (SunriseAnchor) -> Void,
+        onSnapAnchor: @escaping (HomeScrollAnchor) -> Void,
         onDragChanged: @escaping (CGFloat) -> Void,
         onDragEnded: @escaping (CGFloat) -> Void,
         onTaskTap: @escaping (TimelinePlanItem) -> Void,
@@ -189,7 +189,7 @@ struct TimelineSurface: View {
 // MARK: - TimelineSurface+PlacementHelpers
 
 extension TimelineSurface {
-    var spacing: LifeBoardSpacingTokens { ThemeStore.shared.tokens(for: layoutClass).spacing }
+    var spacing: SemanticSpacingTokens { ThemeStore.shared.tokens(for: layoutClass).spacing }
 
     var metrics: TimelineSurfaceMetrics { .make(for: layoutClass) }
 

@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -16,19 +16,19 @@ struct PlanRollbackRouteView: View {
         VStack(spacing: 18) {
             Image(systemName: "checklist")
                 .font(Typography.screenTitle())
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                 .frame(width: 62, height: 62)
                 .background(
-                    Color(LifeBoardColorTokens.foundationSurfaceSelected),
+                    Color(SemanticColorTokens.foundationSurfaceSelected),
                     in: RoundedRectangle(cornerRadius: 22, style: .continuous)
                 )
             VStack(spacing: 7) {
                 Text("Your tasks are on Home")
                     .font(Typography.sectionTitle())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 Text("The daily planning workspace is currently turned off. Nothing has been removed or rewritten.")
                     .font(Typography.body())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .multilineTextAlignment(.center)
             }
             Button {
@@ -36,11 +36,11 @@ struct PlanRollbackRouteView: View {
             } label: {
                 Text("Open Home")
                     .font(Typography.body().weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
                     .frame(minWidth: 132, minHeight: 44)
                     .padding(.horizontal, 12)
                     .background(
-                        Color(LifeBoardColorTokens.inkPrimary),
+                        Color(SemanticColorTokens.inkPrimary),
                         in: Capsule(style: .continuous)
                     )
             }
@@ -51,7 +51,7 @@ struct PlanRollbackRouteView: View {
         .frame(maxWidth: 430)
         .lifeBoardPaperCard()
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid).ignoresSafeArea())
+        .background(Color(SemanticColorTokens.foundationSurfaceSolid).ignoresSafeArea())
         .navigationTitle("Plan")
         .accessibilityIdentifier("plan.rollback")
     }

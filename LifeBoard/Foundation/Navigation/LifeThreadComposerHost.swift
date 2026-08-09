@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -76,13 +76,13 @@ struct LifeThreadComposerHost: View {
                     HStack {
                         Text(clarification.question)
                             .font(.caption.weight(.medium))
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         Spacer()
                         Button {
                             composer.dismissClarification()
                         } label: {
                             Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                                 .frame(width: 44, height: 44)
                                 .contentShape(Rectangle())
                         }
@@ -103,10 +103,10 @@ struct LifeThreadComposerHost: View {
                                     .font(.subheadline.weight(.medium))
                                     .padding(.horizontal, 12)
                                     .frame(minHeight: 44)
-                                    .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: Capsule())
+                                    .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: Capsule())
                                     .overlay {
                                         Capsule()
-                                            .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                                            .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
                                     }
                                 }
                                 .buttonStyle(.plain)
@@ -131,15 +131,15 @@ struct LifeThreadComposerHost: View {
                                 .foregroundColor(Color.lifeboard(.accentPrimary))
                             Text(interpretation.label)
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
 
                             ForEach(interpretation.chips) { chip in
                                 Text(chip.label)
                                     .font(.caption2.weight(.medium))
                                     .padding(.horizontal, 6)
                                     .padding(.vertical, 3)
-                                    .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: Capsule())
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: Capsule())
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
                             Image(systemName: "arrow.right.circle.fill")
@@ -150,7 +150,7 @@ struct LifeThreadComposerHost: View {
                         .background(Color.lifeboard(.surfaceSecondary), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                         .overlay {
                             RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
                         }
                     }
                     .buttonStyle(.plain)
@@ -160,7 +160,7 @@ struct LifeThreadComposerHost: View {
                     } label: {
                         Image(systemName: "xmark")
                             .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundColor(Color(SemanticColorTokens.inkSecondary))
                             .frame(width: 26, height: 26)
                             .background(Color.lifeboard(.surfaceSecondary), in: Circle())
                             .frame(width: 44, height: 44)
@@ -184,7 +184,7 @@ struct LifeThreadComposerHost: View {
                     }()
                     Circle()
                         .fill(dictationController.phase == .preparing || dictationController.phase == .finalizing
-                              ? Color(LifeBoardColorTokens.inkSecondary)
+                              ? Color(SemanticColorTokens.inkSecondary)
                               : Color.lifeboard(.statusDanger))
                         .frame(width: 8, height: 8)
                         .opacity(dictationController.phase == .recording ? (reduceMotion ? 1 : 0.55) : 1)
@@ -192,7 +192,7 @@ struct LifeThreadComposerHost: View {
                         .animation(reduceMotion ? nil : .easeInOut(duration: 0.8).repeatForever(autoreverses: true), value: dictationController.isRecording)
                     Text("\(phaseLabel) \(formatElapsedSeconds(dictationController.elapsedSeconds))")
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .accessibilityLabel("\(phaseLabel) elapsed \(dictationController.elapsedSeconds) seconds")
                         .accessibilityIdentifier("lifeThread.composer.dictation.badge")
                     Spacer()
@@ -222,7 +222,7 @@ struct LifeThreadComposerHost: View {
                     ProgressView().controlSize(.small)
                     Text(workingLabel)
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Spacer()
                 }
                 .padding(.horizontal, 12)
@@ -233,7 +233,7 @@ struct LifeThreadComposerHost: View {
                 HStack(spacing: 10) {
                     Text(composer.recoveryMessage ?? "Your draft is still here.")
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Spacer(minLength: 8)
                     Button(recovery == .continue ? "Continue" : "Retry") {
                         submitLifeThreadComposer(router: router)
@@ -251,7 +251,7 @@ struct LifeThreadComposerHost: View {
                     withAnimation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
                         composer.state == .tools ? composer.focus() : composer.showTools()
                     }
-                    LifeBoardFeedback.light()
+                    HapticFeedback.light()
                 } label: {
                     // The plus rotates into the close glyph rather than
                     // swapping, so the control reads as one object opening.
@@ -275,7 +275,7 @@ struct LifeThreadComposerHost: View {
 
                 TextField(text: $composer.draftText, axis: .vertical) {
                     Text(composerPlaceholder(for: composer.destination))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                     .lineLimit(1...4)
                     .disabled(
@@ -334,7 +334,7 @@ struct LifeThreadComposerHost: View {
                         Label("Cancel", systemImage: "xmark.circle.fill")
                             .labelStyle(.iconOnly)
                             .font(.system(size: 16, weight: .semibold))
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             .frame(width: 44, height: 44)
                             .background(Color.lifeboard(.surfaceSecondary), in: Circle())
                     }
@@ -349,9 +349,9 @@ struct LifeThreadComposerHost: View {
                         Label("Done", systemImage: "stop.fill")
                             .labelStyle(.iconOnly)
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                            .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
                             .frame(width: 44, height: 44)
-                            .background(Color(LifeBoardColorTokens.inkPrimary), in: Circle())
+                            .background(Color(SemanticColorTokens.inkPrimary), in: Circle())
                     }
                     .buttonStyle(.plain)
                     .disabled(composer.state == .working)
@@ -367,9 +367,9 @@ struct LifeThreadComposerHost: View {
                     } label: {
                         Image(systemName: composer.hasDraft ? "arrow.up" : "waveform")
                             .font(.system(size: 16, weight: .bold))
-                            .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                            .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
                             .frame(width: 44, height: 44)
-                            .background(Color(LifeBoardColorTokens.inkPrimary), in: Circle())
+                            .background(Color(SemanticColorTokens.inkPrimary), in: Circle())
                     }
                     .buttonStyle(.plain)
                     .disabled(composer.state == .working)
@@ -385,9 +385,9 @@ struct LifeThreadComposerHost: View {
             .lifeBoardGlassSurface(cornerRadius: 27, interactive: true)
             .overlay {
                 RoundedRectangle(cornerRadius: 27, style: .continuous)
-                    .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                    .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
             }
-            .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.16), radius: 12, y: 6)
+            .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.16), radius: 12, y: 6)
         }
         .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.88), value: composer.state)
     }

@@ -16,7 +16,7 @@ final class HomeTimelineSnapshotRenderCache: ObservableObject {
         let timelineRevision: UInt64
         let calendarSnapshot: HomeCalendarSnapshot
         let selectedDate: Date
-        let sunriseAnchor: SunriseAnchor
+        let sunriseAnchor: HomeScrollAnchor
     }
 
     private var entries: [(key: Key, snapshot: HomeTimelineSnapshot)] = []

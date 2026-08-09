@@ -66,10 +66,10 @@ enum HomeChipRailBuilder {
     static func todayFacetChipModel(
         for scope: HomeContentScope,
         isSelected: Bool
-    ) -> LBFilterChip.Model {
+    ) -> ClayFilterChip.Model {
         switch scope {
         case .all:
-            return LBFilterChip.Model(
+            return ClayFilterChip.Model(
                 id: "all",
                 title: "All",
                 systemImage: "square.grid.2x2",
@@ -78,7 +78,7 @@ enum HomeChipRailBuilder {
                 accessibilityID: "home.sunrise.filter.all"
             )
         case .meetings:
-            return LBFilterChip.Model(
+            return ClayFilterChip.Model(
                 id: "meetings",
                 title: "Meetings",
                 systemImage: "calendar",
@@ -87,7 +87,7 @@ enum HomeChipRailBuilder {
                 accessibilityID: "home.sunrise.filter.meetings"
             )
         case .tasks:
-            return LBFilterChip.Model(
+            return ClayFilterChip.Model(
                 id: "tasks",
                 title: "Tasks",
                 systemImage: "checkmark.square",
@@ -96,7 +96,7 @@ enum HomeChipRailBuilder {
                 accessibilityID: "home.sunrise.filter.tasks"
             )
         case .habits:
-            return LBFilterChip.Model(
+            return ClayFilterChip.Model(
                 id: "habits",
                 title: "Habits",
                 systemImage: "heart",
@@ -107,8 +107,8 @@ enum HomeChipRailBuilder {
         }
     }
 
-    static func advancedFiltersChipModel(hasActiveFilters: Bool) -> LBFilterChip.Model {
-        LBFilterChip.Model(
+    static func advancedFiltersChipModel(hasActiveFilters: Bool) -> ClayFilterChip.Model {
+        ClayFilterChip.Model(
             id: "filters",
             title: "Filters",
             systemImage: "slider.horizontal.3",
@@ -119,8 +119,8 @@ enum HomeChipRailBuilder {
         )
     }
 
-    static func manageLifeAreasChipModel() -> LBFilterChip.Model {
-        LBFilterChip.Model(
+    static func manageLifeAreasChipModel() -> ClayFilterChip.Model {
+        ClayFilterChip.Model(
             id: "lens.manage",
             title: "Manage life areas",
             systemImage: "plus",

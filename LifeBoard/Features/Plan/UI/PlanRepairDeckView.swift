@@ -58,7 +58,7 @@ struct PlanRepairDeck: View {
                     .font(.headline)
             }
             Text(proposal?.explanation ?? fallbackExplanation)
-                .font(.subheadline).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             if candidates.isEmpty == false {
                 repairDirectionPad(candidates)
             }
@@ -128,12 +128,12 @@ struct PlanRepairDeck: View {
             }
             .font(.caption2.weight(armed ? .bold : .regular))
             .foregroundStyle(
-                Color(armed ? LifeBoardColorTokens.inkPrimary : LifeBoardColorTokens.inkSecondary)
+                Color(armed ? SemanticColorTokens.inkPrimary : SemanticColorTokens.inkSecondary)
             )
             .padding(.horizontal, 8)
             .padding(.vertical, 4)
             .background(
-                Color(LifeBoardColorTokens.foundationApricotAccent)
+                Color(SemanticColorTokens.foundationApricotAccent)
                     .opacity(armed ? 0.30 : 0.10),
                 in: Capsule()
             )
@@ -151,7 +151,7 @@ struct PlanRepairDeck: View {
                     predictedEndTranslation: value.predictedEndTranslation,
                     candidates: candidates
                 )
-                if candidate != nil, snapAction == nil { LifeBoardFeedback.selection() }
+                if candidate != nil, snapAction == nil { HapticFeedback.selection() }
                 snapAction = candidate
             }
             .onEnded { value in
@@ -170,7 +170,7 @@ struct PlanRepairDeck: View {
                     }
                     return
                 }
-                LifeBoardFeedback.medium()
+                HapticFeedback.medium()
                 guard animationsOff == false else {
                     dragOffset = .zero
                     onAction(action, proposal)

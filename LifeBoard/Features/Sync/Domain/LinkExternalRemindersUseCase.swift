@@ -75,13 +75,13 @@ public final class LinkExternalRemindersUseCase: @unchecked Sendable {
     }
 
     private let externalRepository: ExternalSyncRepositoryProtocol
-    private let remindersProvider: AppleRemindersProviderProtocol?
+    private let remindersProvider: AppleRemindersRepositoryProtocol?
     private let taskRepository: TaskDefinitionRepositoryProtocol?
 
     /// Initializes a new instance.
     public init(
         externalRepository: ExternalSyncRepositoryProtocol,
-        remindersProvider: AppleRemindersProviderProtocol? = nil,
+        remindersProvider: AppleRemindersRepositoryProtocol? = nil,
         taskRepository: TaskDefinitionRepositoryProtocol? = nil
     ) {
         self.externalRepository = externalRepository

@@ -2447,7 +2447,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
             "TimelineSpine.swift"
         )
 
-        XCTAssertEqual(LBSpacingTokens.timelineRailWidth, 36, accuracy: 0.001)
+        XCTAssertEqual(ClayLayoutMetrics.timelineRailWidth, 36, accuracy: 0.001)
         XCTAssertTrue(itemSource.contains("spineIconSystemName"))
         XCTAssertTrue(itemSource.contains("spineIconAccessibilityValue"))
         XCTAssertTrue(spineSource.contains("var iconSystemName: String?"))

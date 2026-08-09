@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -59,7 +59,7 @@ extension FoundationShell {
                 .navigationDestination(for: AppRoute.self) { route in
                     if let transitionID = route.spatialTransitionID {
                         ZStack {
-                            // The warp rides the background plane only. LifeBoardCard
+                            // The warp rides the background plane only. SurfaceCard
                             // content, text and charts must never distort.
                             activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
                                 .lifeboardCardMorphWarp(

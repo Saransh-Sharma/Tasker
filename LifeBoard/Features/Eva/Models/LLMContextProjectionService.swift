@@ -130,7 +130,7 @@ private final class LLMStringCompletion: @unchecked Sendable {
     }
 }
 
-enum LLMContextRepositoryProvider {
+enum LLMContextRepositoryFactory {
     private static let storage = LLMContextRepositoryStorage()
 
     static var taskReadModelRepository: TaskReadModelRepositoryProtocol? { storage.taskReadModelRepository }
@@ -1883,14 +1883,14 @@ struct EvaExecutiveContextService: @unchecked Sendable {
     private static let cache = EvaExecutiveContextCache()
 
     static func makeDefault() -> EvaExecutiveContextService? {
-        guard let taskReadModelRepository = LLMContextRepositoryProvider.taskReadModelRepository,
-              let projectRepository = LLMContextRepositoryProvider.projectRepository else {
+        guard let taskReadModelRepository = LLMContextRepositoryFactory.taskReadModelRepository,
+              let projectRepository = LLMContextRepositoryFactory.projectRepository else {
             return nil
         }
         return EvaExecutiveContextService(
             taskReadModelRepository: taskReadModelRepository,
             projectRepository: projectRepository,
-            lifeAreaRepository: LLMContextRepositoryProvider.lifeAreaRepository
+            lifeAreaRepository: LLMContextRepositoryFactory.lifeAreaRepository
         )
     }
 

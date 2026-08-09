@@ -10,7 +10,7 @@ struct HomeMomentumSummaryCard: View {
     var onChartTap: (() -> Void)? = nil
     var onOpenReflection: (() -> Void)? = nil
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     private var progressRatio: Double {

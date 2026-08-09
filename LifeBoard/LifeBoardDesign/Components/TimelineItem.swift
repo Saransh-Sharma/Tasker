@@ -2,9 +2,9 @@ import SwiftUI
 
 struct TimelineItem<Content: View>: View {
     let timeText: String
-    let role: LBRole
+    let role: ClayRole
     var tintHex: String?
-    var temporalState: LBTimelineTemporalState = .future
+    var temporalState: ClayTimelineTemporalState = .future
     var spineIconSystemName: String?
     var spineIconAccessibilityLabel: String?
     var spineIconAccessibilityValue: String?
@@ -14,9 +14,9 @@ struct TimelineItem<Content: View>: View {
 
     init(
         timeText: String,
-        role: LBRole,
+        role: ClayRole,
         tintHex: String? = nil,
-        temporalState: LBTimelineTemporalState = .future,
+        temporalState: ClayTimelineTemporalState = .future,
         spineIconSystemName: String? = nil,
         spineIconAccessibilityLabel: String? = nil,
         spineIconAccessibilityValue: String? = nil,
@@ -37,18 +37,18 @@ struct TimelineItem<Content: View>: View {
     }
 
     var body: some View {
-        HStack(alignment: .top, spacing: LBSpacingTokens.timelineCardGap) {
+        HStack(alignment: .top, spacing: ClayLayoutMetrics.timelineCardGap) {
             Text(timeText)
-                .font(LBTypographyTokens.numeric)
+                .font(ClayTypography.numeric)
                 .foregroundStyle(timeColor)
                 .lineLimit(2)
                 .minimumScaleFactor(0.72)
                 .multilineTextAlignment(.trailing)
-                .frame(width: LBSpacingTokens.timelineTimeColumnWidth, alignment: .trailing)
-                .padding(.top, LBSpacingTokens.sm)
+                .frame(width: ClayLayoutMetrics.timelineTimeColumnWidth, alignment: .trailing)
+                .padding(.top, ClayLayoutMetrics.sm)
 
             spine
-                .frame(width: LBSpacingTokens.timelineRailWidth)
+                .frame(width: ClayLayoutMetrics.timelineRailWidth)
 
             content
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -72,11 +72,11 @@ struct TimelineItem<Content: View>: View {
     private var timeColor: Color {
         switch temporalState {
         case .past:
-            return LBColorTokens.textTertiary
+            return ClayColorTokens.textTertiary
         case .current:
-            return LBColorTokens.violetDeep
+            return ClayColorTokens.violetDeep
         case .future:
-            return LBColorTokens.navyMuted
+            return ClayColorTokens.navyMuted
         }
     }
 }

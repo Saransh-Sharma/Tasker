@@ -167,7 +167,7 @@ public final class ReconcileExternalRemindersUseCase: @unchecked Sendable {
     }
 
     private let externalRepository: ExternalSyncRepositoryProtocol
-    private let remindersProvider: AppleRemindersProviderProtocol?
+    private let remindersProvider: AppleRemindersRepositoryProtocol?
     private let taskRepository: TaskDefinitionRepositoryProtocol?
     private let nodeID: String
     private let mergeEngine: ReminderMergeService
@@ -175,7 +175,7 @@ public final class ReconcileExternalRemindersUseCase: @unchecked Sendable {
     /// Initializes a new instance.
     public init(
         externalRepository: ExternalSyncRepositoryProtocol,
-        remindersProvider: AppleRemindersProviderProtocol? = nil,
+        remindersProvider: AppleRemindersRepositoryProtocol? = nil,
         taskRepository: TaskDefinitionRepositoryProtocol? = nil,
         nodeID: String = ReconcileExternalRemindersUseCase.defaultNodeID(),
         mergeEngine: ReminderMergeService = ReminderMergeService()
@@ -387,7 +387,7 @@ public final class ReconcileExternalRemindersUseCase: @unchecked Sendable {
         externalReminders: [AppleReminderItemSnapshot],
         itemMappings: [ExternalItemMapDefinition],
         tasks: [TaskDefinition],
-        remindersProvider: AppleRemindersProviderProtocol,
+        remindersProvider: AppleRemindersRepositoryProtocol,
         taskRepository: TaskDefinitionRepositoryProtocol,
         completion: @escaping @Sendable (Result<ReconcileSummary, Error>) -> Void
     ) {

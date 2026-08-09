@@ -6,20 +6,20 @@ struct SectionHeader: View {
     var trailingText: String?
 
     var body: some View {
-        HStack(spacing: LBSpacingTokens.sm) {
+        HStack(spacing: ClayLayoutMetrics.sm) {
             if let systemImage {
                 Image(systemName: systemImage)
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.violet)
+                    .foregroundStyle(ClayColorTokens.violet)
             }
             Text(title)
-                .font(LBTypographyTokens.sectionTitle)
-                .foregroundStyle(LBColorTokens.navy)
+                .font(ClayTypography.sectionTitle)
+                .foregroundStyle(ClayColorTokens.navy)
             Spacer()
             if let trailingText {
                 Text(trailingText)
-                    .font(LBTypographyTokens.meta)
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .font(ClayTypography.meta)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
             }
         }
     }

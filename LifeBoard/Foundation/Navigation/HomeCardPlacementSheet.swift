@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -39,12 +39,12 @@ struct HomeCardPlacementSheet: View {
                     VStack(alignment: .leading, spacing: 7) {
                         Label("From \(destination.title)", systemImage: destination.systemImage)
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         Text("Add \(descriptor.title) to Home")
                             .font(.system(.largeTitle, design: .rounded, weight: .bold))
                         Text("Choose how much this card should reveal. You can resize or move it any time.")
                             .font(.body)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
 
                     homeMiniature
@@ -60,17 +60,17 @@ struct HomeCardPlacementSheet: View {
 
                     HStack(spacing: 10) {
                         Image(systemName: "hand.draw")
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         Text("LifeBoard will use the first open position. Your existing cards never move unless you choose to edit Home.")
                             .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     .padding(14)
-                    .background(Color(LifeBoardColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(Color(SemanticColorTokens.foundationSurfaceSelected), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                 }
                 .padding(22)
             }
-            .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+            .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
             .safeAreaInset(edge: .bottom) {
                 Button {
                     onAdd(selectedSize)
@@ -80,7 +80,7 @@ struct HomeCardPlacementSheet: View {
                         .frame(maxWidth: .infinity, minHeight: 52)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(Color(LifeBoardColorTokens.inkPrimary))
+                .tint(Color(SemanticColorTokens.inkPrimary))
                 .padding(.horizontal, 22)
                 .padding(.vertical, 12)
                 .background(.ultraThinMaterial)
@@ -113,8 +113,8 @@ struct HomeCardPlacementSheet: View {
             }
             .buttonStyle(.bordered)
             .tint(selectedSize == size
-                  ? Color(LifeBoardColorTokens.inkPrimary)
-                  : Color(LifeBoardColorTokens.inkSecondary))
+                  ? Color(SemanticColorTokens.inkPrimary)
+                  : Color(SemanticColorTokens.inkSecondary))
             .accessibilityLabel(size.title)
             .accessibilityHint("Uses (size.canonicalGridSpan.columns) columns and (size.canonicalGridSpan.rows) rows")
             .accessibilityValue(selectedSize == size ? "Selected" : "")
@@ -130,7 +130,7 @@ struct HomeCardPlacementSheet: View {
                 Spacer()
                 Text(selectedSize.title)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             GeometryReader { proxy in
                 let gap: CGFloat = 7
@@ -138,7 +138,7 @@ struct HomeCardPlacementSheet: View {
                 ZStack(alignment: .topLeading) {
                     ForEach(0..<16, id: \.self) { index in
                         RoundedRectangle(cornerRadius: 8, style: .continuous)
-                            .fill(Color(LifeBoardColorTokens.foundationCanvas))
+                            .fill(Color(SemanticColorTokens.foundationCanvas))
                             .frame(width: unit, height: unit * 0.58)
                             .offset(
                                 x: CGFloat(index % 4) * (unit + gap),
@@ -146,7 +146,7 @@ struct HomeCardPlacementSheet: View {
                             )
                     }
                     RoundedRectangle(cornerRadius: 15, style: .continuous)
-                        .fill(Color(LifeBoardColorTokens.foundationSunAccent))
+                        .fill(Color(SemanticColorTokens.foundationSunAccent))
                         .overlay(alignment: .topLeading) {
                             Label(descriptor.title, systemImage: descriptor.systemImage)
                                 .font(.caption.weight(.semibold))
@@ -157,7 +157,7 @@ struct HomeCardPlacementSheet: View {
                             width: (unit * CGFloat(span.columns)) + (gap * CGFloat(span.columns - 1)),
                             height: max(unit * 0.58, (unit * 0.58 * CGFloat(span.rows)) + (gap * CGFloat(span.rows - 1)))
                         )
-                        .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.18), radius: 10, y: 5)
+                        .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.18), radius: 10, y: 5)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
@@ -165,10 +165,10 @@ struct HomeCardPlacementSheet: View {
             .clipped()
         }
         .padding(16)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
     }
 }
@@ -185,31 +185,31 @@ struct ComposerPreviewCard: View {
                 Image(systemName: preview.destination.systemImage)
                     .font(.system(size: 15, weight: .semibold))
                     .frame(width: 32, height: 32)
-                    .background(Color(LifeBoardColorTokens.foundationSunAccent).opacity(0.2), in: Circle())
+                    .background(Color(SemanticColorTokens.foundationSunAccent).opacity(0.2), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Review before applying")
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Text(preview.summary)
                         .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 }
                 Spacer(minLength: 0)
                 Text(preview.destination.title)
                     .font(.caption2.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
 
             VStack(alignment: .leading, spacing: 7) {
                 ForEach(Array(preview.changes.enumerated()), id: \.offset) { _, change in
                     Label(change, systemImage: "arrow.right.circle.fill")
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 }
                 ForEach(Array(preview.warnings.enumerated()), id: \.offset) { _, warning in
                     Label(warning, systemImage: "exclamationmark.triangle.fill")
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             }
             .accessibilityElement(children: .combine)
@@ -224,17 +224,17 @@ struct ComposerPreviewCard: View {
                     .frame(minHeight: 44)
                 Button("Apply", action: onApply)
                     .buttonStyle(.borderedProminent)
-                    .tint(Color(LifeBoardColorTokens.inkPrimary))
+                    .tint(Color(SemanticColorTokens.inkPrimary))
                     .frame(maxWidth: .infinity, minHeight: 44)
             }
         }
         .padding(15)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
+        .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
-        .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.14), radius: 12, y: 6)
+        .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.14), radius: 12, y: 6)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("lifeThread.preview")
     }
@@ -248,10 +248,10 @@ struct ComposerReceiptView: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationSunAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
             Text(receipt.message)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .frame(maxWidth: .infinity, alignment: .leading)
             if receipt.canUndo {
                 Button("Undo", action: onUndo)
@@ -269,7 +269,7 @@ struct ComposerReceiptView: View {
         .lifeBoardGlassSurface(cornerRadius: 22, interactive: true)
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("lifeThread.receipt")
@@ -292,7 +292,7 @@ struct HomeCardPlacementReceiptView: View {
         HStack(spacing: 12) {
             Image(systemName: "checkmark.circle.fill")
                 .font(.title3)
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationSunAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
             Text(receipt.title)
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -311,9 +311,9 @@ struct HomeCardPlacementReceiptView: View {
         .lifeBoardGlassSurface(cornerRadius: 22, interactive: true)
         .overlay {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
-        .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.2), radius: 16, y: 8)
+        .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.2), radius: 16, y: 8)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("home.addCard.receipt")
     }

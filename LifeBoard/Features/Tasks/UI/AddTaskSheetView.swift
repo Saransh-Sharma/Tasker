@@ -30,7 +30,7 @@ public struct AddTaskSheetView: View {
     @State private var previewPop = false
     @State private var previewPopTask: Task<Void, Never>?
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var canCreate: Bool {
         viewModel.viewState.canSubmit && viewModel.scheduledStartAt != nil && !viewModel.isLoading
     }
@@ -166,7 +166,7 @@ public struct AddTaskSheetView: View {
             Text("You have unsaved changes that will be lost.")
         }
         .overlay(
-            LBColorTokens.leaf
+            ClayColorTokens.leaf
                 .opacity(successFlash ? 0.06 : 0)
                 .animation(LifeBoardAnimation.heroReveal, value: successFlash)
                 .allowsHitTesting(false)
@@ -236,10 +236,10 @@ public struct AddTaskSheetView: View {
 
     private func handleCancel() {
         if viewModel.hasUnsavedChanges {
-            LifeBoardFeedback.medium()
+            HapticFeedback.medium()
             showDiscardConfirmation = true
         } else {
-            LifeBoardFeedback.light()
+            HapticFeedback.light()
             dismiss()
         }
     }
@@ -270,7 +270,7 @@ public struct AddTaskSheetView: View {
 
         switch behavior {
         case .dismiss:
-            LifeBoardFeedback.success()
+            HapticFeedback.success()
             dismiss()
         case .addAnother:
             runSuccessReset {
@@ -284,7 +284,7 @@ public struct AddTaskSheetView: View {
 
     private func runSuccessReset(afterReset: @escaping @MainActor () -> Void) {
         successResetTask?.cancel()
-        LifeBoardFeedback.success()
+        HapticFeedback.success()
         withAnimation(LifeBoardAnimation.stateChange) {
             successFlash = true
         }
@@ -308,7 +308,7 @@ public struct AddTaskSheetView: View {
     }
 
     private func expandSheet() {
-        LifeBoardFeedback.light()
+        HapticFeedback.light()
         withAnimation(LifeBoardAnimation.heroReveal) {
             selectedDetent = .large
         }
@@ -341,21 +341,21 @@ private struct TaskEssentials: View {
     }
 
     private var lifeAreaAccent: Color {
-        guard let area = selectedLifeArea else { return LBColorTokens.violet }
+        guard let area = selectedLifeArea else { return ClayColorTokens.violet }
         return Color(lifeboardHex: LifeAreaColorPalette.normalizeOrMap(hex: area.color, for: area.id))
     }
 
     private var lifeAreaIcon: String { selectedLifeArea?.icon ?? "circle.dashed" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.sm) {
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: LBSpacingTokens.xs) {
+                HStack(spacing: ClayLayoutMetrics.xs) {
                     CalmSummaryChip(
                         icon: "clock",
                         label: timeText,
                         state: scheduledStartAt == nil ? .empty : .filled,
-                        accentColor: LBColorTokens.violet,
+                        accentColor: ClayColorTokens.violet,
                         action: onEditTime
                     )
                     .accessibilityIdentifier("addTask.schedule.timeRow")
@@ -395,7 +395,7 @@ private struct TaskTimelinePreview: View {
     var isAwaiting: Bool = false
     let action: () -> Void
 
-    private var role: RoleStyle { LBColorTokens.role(.task) }
+    private var role: RoleStyle { ClayColorTokens.role(.task) }
     private var displayTitle: String {
         let trimmed = title.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? "New task" : trimmed
@@ -418,11 +418,11 @@ private struct TaskTimelinePreview: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(alignment: .top, spacing: LBSpacingTokens.sm) {
+            HStack(alignment: .top, spacing: ClayLayoutMetrics.sm) {
                 VStack(spacing: 6) {
                     Text(scheduledStartAt.map(Self.hourText(for:)) ?? "--")
                         .font(.system(size: 15, weight: .semibold, design: .monospaced))
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                         .frame(width: 58, alignment: .trailing)
                     Circle()
                         .fill(role.base)
@@ -435,40 +435,40 @@ private struct TaskTimelinePreview: View {
                 }
                 .accessibilityHidden(true)
 
-                VStack(alignment: .leading, spacing: LBSpacingTokens.xs) {
+                VStack(alignment: .leading, spacing: ClayLayoutMetrics.xs) {
                     HStack(alignment: .firstTextBaseline) {
                         Label(timeText, systemImage: "clock")
                             .font(.lifeboard(.caption1).weight(.semibold))
                             .foregroundStyle(role.deep)
-                        Spacer(minLength: LBSpacingTokens.xs)
+                        Spacer(minLength: ClayLayoutMetrics.xs)
                         if let durationText {
                             Text(durationText)
                                 .font(.lifeboard(.caption1).weight(.semibold))
-                                .foregroundStyle(LBColorTokens.navyMuted)
+                                .foregroundStyle(ClayColorTokens.navyMuted)
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
-                                .background(Capsule().fill(LBColorTokens.glassStrong))
+                                .background(Capsule().fill(ClayColorTokens.glassStrong))
                         }
                     }
 
                     Text(displayTitle)
                         .font(.lifeboard(.headline))
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
                         .lineLimit(2)
                         .contentTransition(.opacity)
                         .animation(LifeBoardAnimation.stateChange, value: displayTitle)
 
                     Label(lifeAreaText, systemImage: role.symbolName)
                         .font(.lifeboard(.caption1))
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                 }
-                .padding(LBSpacingTokens.md)
+                .padding(ClayLayoutMetrics.md)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .background(
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
                         .fill(
                             LinearGradient(
-                                colors: [role.softSurface, LBColorTokens.glassStrong],
+                                colors: [role.softSurface, ClayColorTokens.glassStrong],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             )
@@ -507,13 +507,13 @@ private struct DurationPicker: View {
     ]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.xs) {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.xs) {
             Text("Duration")
                 .font(.lifeboard(.callout).weight(.semibold))
-                .foregroundStyle(LBColorTokens.navy)
+                .foregroundStyle(ClayColorTokens.navy)
 
             ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: LBSpacingTokens.xs) {
+                HStack(spacing: ClayLayoutMetrics.xs) {
                     ForEach(presets, id: \.minutes) { preset in
                         AddTaskMetadataChip(
                             icon: "timer",
@@ -538,21 +538,21 @@ private struct DurationPicker: View {
             }
 
             if showCustomDuration {
-                HStack(spacing: LBSpacingTokens.xs) {
+                HStack(spacing: ClayLayoutMetrics.xs) {
                     TextField("Minutes", text: $customMinutes)
                         .font(.lifeboard(.callout))
                         .keyboardType(.numberPad)
-                        .padding(.horizontal, LBSpacingTokens.sm)
+                        .padding(.horizontal, ClayLayoutMetrics.sm)
                         .frame(width: 116, height: 44)
                         .background(
                             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                                .fill(LBColorTokens.glassStrong)
+                                .fill(ClayColorTokens.glassStrong)
                         )
                         .accessibilityIdentifier("addTask.schedule.customDurationField")
 
                     Button("Set", action: applyCustom)
                         .font(.lifeboard(.callout).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.violet)
+                        .foregroundStyle(ClayColorTokens.violet)
                         .buttonStyle(.plain)
 
                     Spacer(minLength: 0)
@@ -560,8 +560,8 @@ private struct DurationPicker: View {
                 .transition(.move(edge: .top).combined(with: .opacity))
             }
         }
-        .padding(LBSpacingTokens.md)
-        .sunriseGlassCard(cornerRadius: 22, accentColor: LBColorTokens.leaf)
+        .padding(ClayLayoutMetrics.md)
+        .sunriseGlassCard(cornerRadius: 22, accentColor: ClayColorTokens.leaf)
         .accessibilityIdentifier("addTask.scheduleEditor")
     }
 
@@ -638,7 +638,7 @@ private struct AddTaskDetails: View {
     let onExpand: () -> Void
 
     var body: some View {
-        VStack(spacing: LBSpacingTokens.lg) {
+        VStack(spacing: ClayLayoutMetrics.lg) {
             CalmFieldGroup(title: "Notes") {
                 AddTaskDescriptionField(
                     text: $viewModel.taskDetails,
@@ -705,7 +705,7 @@ private struct AddTaskDetails: View {
                     onExpand()
                 }
             } content: {
-                VStack(spacing: LBSpacingTokens.sm) {
+                VStack(spacing: ClayLayoutMetrics.sm) {
                     if viewModel.availableParentTasks.isEmpty == false {
                         AddTaskTaskPicker(
                             label: "Parent Task",
@@ -733,7 +733,7 @@ private struct TaskTimeEditorSheet: View {
 
     var body: some View {
         NavigationStack {
-            VStack(alignment: .leading, spacing: LBSpacingTokens.lg) {
+            VStack(alignment: .leading, spacing: ClayLayoutMetrics.lg) {
                 DatePicker(
                     "Start",
                     selection: $draftDate,
@@ -741,7 +741,7 @@ private struct TaskTimeEditorSheet: View {
                     displayedComponents: [.date, .hourAndMinute]
                 )
                 .datePickerStyle(.graphical)
-                .tint(LBColorTokens.violet)
+                .tint(ClayColorTokens.violet)
                 .accessibilityIdentifier("addTask.schedule.timePicker")
 
                 TaskTimelinePreview(
@@ -754,7 +754,7 @@ private struct TaskTimeEditorSheet: View {
                 )
                 .allowsHitTesting(false)
             }
-            .padding(LBSpacingTokens.lg)
+            .padding(ClayLayoutMetrics.lg)
             .background(AddTaskBackground().ignoresSafeArea())
             .navigationTitle("Task time")
             .navigationBarTitleDisplayMode(.inline)
@@ -790,12 +790,12 @@ private struct AddTaskErrorView: View {
     var body: some View {
         Label(message, systemImage: "exclamationmark.triangle.fill")
             .font(.lifeboard(.callout))
-            .foregroundStyle(LBColorTokens.role(.warning).deep)
+            .foregroundStyle(ClayColorTokens.role(.warning).deep)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(LBSpacingTokens.md)
+            .padding(ClayLayoutMetrics.md)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .fill(LBColorTokens.role(.warning).softSurface)
+                    .fill(ClayColorTokens.role(.warning).softSurface)
             )
     }
 }
@@ -804,9 +804,9 @@ private struct AddTaskBackground: View {
     var body: some View {
         LinearGradient(
             colors: [
-                LBColorTokens.warmCanvas,
-                LBColorTokens.coolCanvas,
-                LBColorTokens.canvas
+                ClayColorTokens.warmCanvas,
+                ClayColorTokens.coolCanvas,
+                ClayColorTokens.canvas
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -832,15 +832,15 @@ private struct GlassCardModifier: ViewModifier {
                     shape
                         .fill(.clear)
                         .lifeBoardSystemGlass(.regular, in: shape)
-                        .overlay(shape.fill(LBColorTokens.glass.opacity(0.50)))
+                        .overlay(shape.fill(ClayColorTokens.glass.opacity(0.50)))
                 } else {
                     shape
                         .fill(.regularMaterial)
-                        .overlay(shape.fill(LBColorTokens.glass))
+                        .overlay(shape.fill(ClayColorTokens.glass))
                 }
             }
             .overlay {
-                shape.stroke(LBColorTokens.glassBorder, lineWidth: 1)
+                shape.stroke(ClayColorTokens.glassBorder, lineWidth: 1)
             }
             .overlay(alignment: .topLeading) {
                 Capsule()
@@ -849,6 +849,6 @@ private struct GlassCardModifier: ViewModifier {
                     .padding(.top, 11)
                     .padding(.leading, 14)
             }
-            .shadow(color: LBColorTokens.elevationShadow, radius: 18, x: 0, y: 10)
+            .shadow(color: ClayColorTokens.elevationShadow, radius: 18, x: 0, y: 10)
     }
 }

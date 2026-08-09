@@ -77,24 +77,24 @@ struct DateHeroHeader: View {
                 .accessibilityLabel("Search")
                 .accessibilityIdentifier("home.searchButton")
         }
-        .padding(.horizontal, LBSpacingTokens.screenMargin)
+        .padding(.horizontal, ClayLayoutMetrics.screenMargin)
     }
 
     private var dateGroup: some View {
         return Button(action: onDateTap) {
             VStack(spacing: 2) {
                 Text(Self.dateTitle(model.date))
-                    .font(LBTypographyTokens.dateHero)
+                    .font(ClayTypography.dateHero)
                     .minimumScaleFactor(0.72)
                     .lineLimit(1)
                     .foregroundStyle(model.heroTitleColor)
-                    .shadow(color: LBColorTokens.elevationShadow.opacity(1.2), radius: 6, y: 2)
+                    .shadow(color: ClayColorTokens.elevationShadow.opacity(1.2), radius: 6, y: 2)
 
                 HStack(spacing: 6) {
                     Image(systemName: model.period.symbolName)
-                        .foregroundStyle(LBColorTokens.sunriseGold)
+                        .foregroundStyle(ClayColorTokens.sunriseGold)
                     Text(model.subtitle)
-                        .font(LBTypographyTokens.heroOverline)
+                        .font(ClayTypography.heroOverline)
                         .tracking(4)
                         .foregroundStyle(model.heroSubtitleColor)
                     Image(systemName: "sparkle")
@@ -106,7 +106,7 @@ struct DateHeroHeader: View {
             .frame(maxWidth: .infinity)
         }
         .buttonStyle(.plain)
-        .padding(.horizontal, LBSpacingTokens.screenMargin * 2)
+        .padding(.horizontal, ClayLayoutMetrics.screenMargin * 2)
     }
 
     private var navigatorRow: some View {
@@ -120,7 +120,7 @@ struct DateHeroHeader: View {
         .id(model.isOnNonTodayLens)
         .transition(navigatorTransition)
         .animation(navigatorAnimation, value: model.isOnNonTodayLens)
-        .padding(.horizontal, LBSpacingTokens.screenMargin)
+        .padding(.horizontal, ClayLayoutMetrics.screenMargin)
         .frame(maxWidth: .infinity)
     }
 
@@ -170,7 +170,7 @@ struct DateHeroHeader: View {
         fill: Color,
         stroke: Color
     ) -> some View {
-        HStack(spacing: LBSpacingTokens.sm) {
+        HStack(spacing: ClayLayoutMetrics.sm) {
             Image(systemName: leadingSystemName)
             Text(title)
             if let trailingSystemName {
@@ -178,10 +178,10 @@ struct DateHeroHeader: View {
                     .font(.system(size: 12, weight: .bold))
             }
         }
-        .font(LBTypographyTokens.chip)
+        .font(ClayTypography.chip)
         .foregroundStyle(model.navigatorColor)
         .frame(minHeight: 44)
-        .padding(.horizontal, LBSpacingTokens.md)
+        .padding(.horizontal, ClayLayoutMetrics.md)
         .background {
             clearCapsuleSurface(fill: fill, stroke: stroke)
         }
@@ -207,9 +207,9 @@ struct DateHeroHeader: View {
 
     private var navigatorTop: CGFloat {
         if dynamicTypeSize.isAccessibilitySize {
-            return safeHeaderTop + 159 + LBSpacingTokens.xs
+            return safeHeaderTop + 159 + ClayLayoutMetrics.xs
         }
-        return safeHeaderTop + 117 + LBSpacingTokens.xs
+        return safeHeaderTop + 117 + ClayLayoutMetrics.xs
     }
 
     private var topChromeTop: CGFloat {
@@ -232,7 +232,7 @@ struct DateHeroHeader: View {
                     }
                 if showsDot {
                     Circle()
-                        .fill(LBColorTokens.sunriseGold)
+                        .fill(ClayColorTokens.sunriseGold)
                         .frame(width: 11, height: 11)
                         .offset(x: -5, y: 5)
                 }
@@ -255,13 +255,13 @@ struct DateHeroHeader: View {
                 .fill(.clear)
                 .lifeBoardSystemGlass(.regular, in: shape)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
+                .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         } else {
             shape
                 .fill(.ultraThinMaterial)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay.opacity(0.8)) }
+                .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }
@@ -278,13 +278,13 @@ struct DateHeroHeader: View {
                 .fill(.clear)
                 .lifeBoardSystemGlass(.regular, in: shape)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay) }
+                .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         } else {
             shape
                 .fill(.ultraThinMaterial)
                 .overlay { shape.fill(fill) }
-                .overlay { shape.fill(LBColorTokens.glassDimmingOverlay.opacity(0.8)) }
+                .overlay { shape.fill(ClayColorTokens.glassDimmingOverlay.opacity(0.8)) }
                 .overlay { shape.stroke(stroke, lineWidth: 1) }
         }
     }

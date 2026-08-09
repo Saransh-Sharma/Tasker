@@ -24,10 +24,10 @@ public struct FocusSessionSummaryView: View {
         self.onContinueMomentum = onContinueMomentum
     }
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     private var minutesFocused: Int { durationSeconds / 60 }
-    private var focusStyle: RoleStyle { LBColorTokens.role(.focus) }
+    private var focusStyle: RoleStyle { ClayColorTokens.role(.focus) }
 
     public var body: some View {
         VStack(spacing: spacing.s16) {
@@ -38,7 +38,7 @@ public struct FocusSessionSummaryView: View {
             Text("Focus protected")
                 .font(.title2.bold())
                 .fontDesign(.rounded)
-                .foregroundStyle(LBColorTokens.navy)
+                .foregroundStyle(ClayColorTokens.navy)
 
             VStack(spacing: spacing.s8) {
                 Text("\(minutesFocused) min")
@@ -50,7 +50,7 @@ public struct FocusSessionSummaryView: View {
                 Text("Time protected for the task you chose.")
                     .font(.lifeboard(.body))
                     .fontDesign(.rounded)
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
                     .multilineTextAlignment(.center)
             }
             .padding(spacing.s16)
@@ -62,7 +62,7 @@ public struct FocusSessionSummaryView: View {
                 Text("Next: choose another small action when you are ready.")
                     .font(.lifeboard(.callout))
                     .fontDesign(.rounded)
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
                     .multilineTextAlignment(.center)
             }
 
@@ -74,7 +74,7 @@ public struct FocusSessionSummaryView: View {
                     .fontDesign(.rounded)
                     .foregroundStyle(focusStyle.deep)
                     .frame(maxWidth: .infinity, minHeight: 44)
-                    .background(LBColorTokens.glassStrong, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .background(ClayColorTokens.glassStrong, in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                     .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(focusStyle.border, lineWidth: 1))
             }
 
@@ -84,13 +84,13 @@ public struct FocusSessionSummaryView: View {
                 .foregroundStyle(Color.lifeboard(.accentOnPrimary))
                 .frame(maxWidth: .infinity, minHeight: 48)
                 .background(
-                    LinearGradient(colors: LBColorTokens.actionGradient(for: .focus), startPoint: .topLeading, endPoint: .bottomTrailing),
+                    LinearGradient(colors: ClayColorTokens.actionGradient(for: .focus), startPoint: .topLeading, endPoint: .bottomTrailing),
                     in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                 )
         }
         .padding(.horizontal, spacing.screenHorizontal)
         .padding(.bottom, spacing.s16)
-        .background(LBColorTokens.canvas.ignoresSafeArea())
+        .background(ClayColorTokens.canvas.ignoresSafeArea())
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Focus protected. \(minutesFocused) minutes focused.")
     }

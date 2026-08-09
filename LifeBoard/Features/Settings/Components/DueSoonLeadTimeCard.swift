@@ -17,7 +17,7 @@ struct DueSoonLeadTimeCard: View {
     }
 
     var body: some View {
-        LifeBoardCard {
+        SurfaceCard {
             VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s12) {
                 Text("DUE SOON LEAD TIME")
                     .font(.lifeboard(.caption2))

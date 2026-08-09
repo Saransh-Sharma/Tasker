@@ -17,7 +17,7 @@ import WidgetKit
 extension HomeViewModel {
     func buildTimelineSnapshot(
         calendarSnapshot: HomeCalendarSnapshot,
-        sunriseAnchor: SunriseAnchor,
+        sunriseAnchor: HomeScrollAnchor,
         now: Date = Date(),
         calendar: Calendar = .current
     ) -> HomeTimelineSnapshot {

@@ -20,11 +20,11 @@ struct ChatStorageDegradedBanner: View {
         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
-                .fill(LBColorTokens.role(.warning).softSurface.opacity(0.72))
+                .fill(ClayColorTokens.role(.warning).softSurface.opacity(0.72))
         )
         .overlay(
             RoundedRectangle(cornerRadius: Theme.CornerRadius.sm, style: .continuous)
-                .stroke(LBColorTokens.role(.warning).border.opacity(0.76), lineWidth: 1)
+                .stroke(ClayColorTokens.role(.warning).border.opacity(0.76), lineWidth: 1)
         )
         .accessibilityLabel("Chat history is temporarily limited")
         .accessibilityHint("Storage fallback reason: \(reason)")

@@ -47,7 +47,7 @@ extension MessageView {
     }
 
     func undoEvaRun(_ runID: UUID, payloadRunID: UUID?) {
-        guard let pipeline = LLMAssistantPipelineProvider.pipeline else {
+        guard let pipeline = LLMAssistantPipelineFactory.pipeline else {
             evaApplyMessage = "\(AssistantIdentityText.currentSnapshot().displayName) cannot undo this plan right now."
             return
         }

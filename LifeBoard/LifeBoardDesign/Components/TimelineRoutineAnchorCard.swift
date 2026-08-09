@@ -28,7 +28,7 @@ struct TimelineRoutineAnchorCard: View {
                 .stroke(style.borderColor.opacity(0.74), lineWidth: 1)
         }
         .shadow(
-            color: scrollOptimizedRendering ? .clear : LBColorTokens.elevationShadow.opacity(0.08),
+            color: scrollOptimizedRendering ? .clear : ClayColorTokens.elevationShadow.opacity(0.08),
             radius: scrollOptimizedRendering ? 0 : 10,
             x: 0,
             y: scrollOptimizedRendering ? 0 : 5

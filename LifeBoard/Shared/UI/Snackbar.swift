@@ -57,7 +57,7 @@ struct ReceiptToast: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     var body: some View {
@@ -73,7 +73,7 @@ struct ReceiptToast: View {
             // Action buttons
             ForEach(data.actions, id: \.title) { action in
                 Button {
-                    LifeBoardFeedback.selection()
+                    HapticFeedback.selection()
                     action.action()
                     dismissSnackbar()
                 } label: {

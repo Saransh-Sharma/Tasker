@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct EvaActivationMetrics {
-    let spacing: LifeBoardSpacingTokens
+    let spacing: SemanticSpacingTokens
     let corner: CornerTokens
     let layoutClass: LayoutClass
 

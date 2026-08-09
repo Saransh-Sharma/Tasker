@@ -1,6 +1,6 @@
 import LifeBoardContracts
 import Foundation
-import WatchCaptureKit
+import LifeBoardContracts
 import WidgetKit
 
 #if canImport(WatchConnectivity)

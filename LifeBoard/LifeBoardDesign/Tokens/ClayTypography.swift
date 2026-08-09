@@ -11,7 +11,7 @@ import SwiftUI
 /// previously `.serif`, which made every legacy screen read as a different
 /// product from the Foundation roots, and `body` was `.rounded`, which put
 /// long-form reading in the wrong family.
-enum LBTypographyTokens {
+enum ClayTypography {
     static let dateHero = Font.system(.largeTitle, design: .rounded, weight: .semibold)
     static let heroOverline = Font.system(.caption2, design: .rounded, weight: .bold)
     static let sectionTitle = Font.system(.title2, design: .rounded, weight: .semibold)

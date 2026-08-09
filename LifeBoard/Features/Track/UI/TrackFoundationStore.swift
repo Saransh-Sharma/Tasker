@@ -36,7 +36,7 @@ final class TrackFoundationStore {
     private let routineValidator: RoutineValidator
     private let goalService: any GoalProgressService
     private let goalLifecycleService: GoalLifecycleService
-    private let goalSampleProvider: (any GoalSampleProvider)?
+    private let goalSampleProvider: (any GoalSampleRepository)?
     private let habitProjectionService: (any TrackHabitProjectionService)?
     private let habitGradeEngine: any HabitGradeService
     private let linkedMutationApplier: (any RoutineLinkedMutationApplying)?
@@ -49,7 +49,7 @@ final class TrackFoundationStore {
         phaseIIRepository: any PhaseIIRepository,
         routineService: any RoutineExecutionService = DefaultRoutineExecutionService(),
         goalService: any GoalProgressService = DefaultGoalProgressService(),
-        goalSampleProvider: (any GoalSampleProvider)? = nil,
+        goalSampleProvider: (any GoalSampleRepository)? = nil,
         habitProjectionService: (any TrackHabitProjectionService)? = nil,
         habitGradeEngine: any HabitGradeService = DefaultHabitGradeService(),
         linkedMutationApplier: (any RoutineLinkedMutationApplying)? = nil,

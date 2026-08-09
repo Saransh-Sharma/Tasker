@@ -431,7 +431,7 @@ extension ChatComposerView {
 
     var generateButton: some View {
         Button {
-            LifeBoardFeedback.light()
+            HapticFeedback.light()
             onGenerate()
         } label: {
             Image(systemName: "arrow.up")

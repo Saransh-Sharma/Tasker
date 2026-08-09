@@ -47,14 +47,14 @@ struct HabitCell: View, Equatable {
     }
 
     var body: some View {
-        HStack(alignment: .center, spacing: LBSpacingTokens.sm) {
+        HStack(alignment: .center, spacing: ClayLayoutMetrics.sm) {
             Image(systemName: model.systemImage)
                 .font(.system(size: 17, weight: .semibold))
                 .foregroundStyle(model.color)
                 .frame(width: 26)
             Text(model.title)
-                .font(LBTypographyTokens.bodyStrong)
-                .foregroundStyle(LBColorTokens.navy)
+                .font(ClayTypography.bodyStrong)
+                .foregroundStyle(ClayColorTokens.navy)
                 .lineLimit(model.allowsTwoLineTitle ? 2 : 1)
                 .minimumScaleFactor(0.86)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -64,8 +64,8 @@ struct HabitCell: View, Equatable {
                     VStack(spacing: 3) {
                         if index < model.dayLabels.count {
                             Text(model.dayLabels[index])
-                                .font(LBTypographyTokens.habitDayLabel)
-                                .foregroundStyle(cell.isToday ? model.color : LBColorTokens.textTertiary)
+                                .font(ClayTypography.habitDayLabel)
+                                .foregroundStyle(cell.isToday ? model.color : ClayColorTokens.textTertiary)
                                 .frame(width: 16)
                         }
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
@@ -82,7 +82,7 @@ struct HabitCell: View, Equatable {
                 }
             }
         }
-        .padding(.horizontal, LBSpacingTokens.xs)
+        .padding(.horizontal, ClayLayoutMetrics.xs)
         .frame(minHeight: 48)
         .animation(
             (LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) || scrollOptimized) ? nil : LifeBoardAnimation.habitFill,

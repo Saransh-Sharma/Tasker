@@ -4,14 +4,14 @@ import SwiftUI
 
 public struct TaskDetailMetadataPayload: Sendable {
     public let projects: [Project]
-    public let sections: [LifeBoardProjectSection]
+    public let sections: [ProjectSectionDefinition]
     public let weeklyOutcomes: [WeeklyOutcome]
     public let projectMotivation: ProjectWeeklyMotivation?
 
     /// Initializes a new instance.
     public init(
         projects: [Project],
-        sections: [LifeBoardProjectSection],
+        sections: [ProjectSectionDefinition],
         weeklyOutcomes: [WeeklyOutcome] = [],
         projectMotivation: ProjectWeeklyMotivation? = nil
     ) {
@@ -110,7 +110,7 @@ public final class TaskDetailViewModel: ObservableObject {
     @Published public private(set) var persistedTask: TaskDefinition
     @Published public private(set) var projects: [Project]
     @Published public private(set) var lifeAreas: [LifeArea] = []
-    @Published public private(set) var sections: [LifeBoardProjectSection] = []
+    @Published public private(set) var sections: [ProjectSectionDefinition] = []
     @Published public private(set) var tags: [TagDefinition] = []
     @Published public private(set) var availableTasks: [TaskDefinition] = []
     @Published public private(set) var childSteps: [TaskDefinition] = []

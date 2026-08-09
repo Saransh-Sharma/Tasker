@@ -2,11 +2,11 @@ import SwiftUI
 
 struct IconBadge: View {
     let systemName: String
-    var role: LBRole = .neutral
+    var role: ClayRole = .neutral
     var size: CGFloat = 42
 
     var body: some View {
-        let style = LBColorTokens.role(role)
+        let style = ClayColorTokens.role(role)
         Image(systemName: systemName)
             .font(.system(size: size * 0.45, weight: .semibold, design: .rounded))
             .foregroundStyle(style.base)

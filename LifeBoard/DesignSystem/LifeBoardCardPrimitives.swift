@@ -48,7 +48,7 @@ public struct FocusDial<Content: View>: View {
         ZStack {
             Circle()
                 .stroke(
-                    Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                    Color(SemanticColorTokens.foundationSurfaceRecessed),
                     style: StrokeStyle(lineWidth: 11)
                 )
 
@@ -57,13 +57,13 @@ public struct FocusDial<Content: View>: View {
                     .trim(from: 0, to: max(0.018, progress))
                     .stroke(
                         isPaused
-                            ? Color(LifeBoardColorTokens.foundationSageAccent)
-                            : Color(LifeBoardColorTokens.foundationApricotAccent),
+                            ? Color(SemanticColorTokens.foundationSageAccent)
+                            : Color(SemanticColorTokens.foundationApricotAccent),
                         style: StrokeStyle(lineWidth: 11, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
                     .shadow(
-                        color: Color(LifeBoardColorTokens.foundationApricotAccent)
+                        color: Color(SemanticColorTokens.foundationApricotAccent)
                             .opacity(isPaused ? 0 : 0.2),
                         radius: 8
                     )
@@ -75,7 +75,7 @@ public struct FocusDial<Content: View>: View {
                 Circle()
                     .trim(from: 0, to: 0.72)
                     .stroke(
-                        Color(LifeBoardColorTokens.foundationSageAccent),
+                        Color(SemanticColorTokens.foundationSageAccent),
                         style: StrokeStyle(lineWidth: 11, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
@@ -135,7 +135,7 @@ public struct TrendBadge: View {
     private var tint: Color {
         // Direction is not judgement: a downward weight trend is not "bad".
         // Callers that need valence colour it themselves.
-        Color(LifeBoardColorTokens.inkSecondary)
+        Color(SemanticColorTokens.inkSecondary)
     }
 }
 

@@ -18,7 +18,7 @@ struct HomeTimelineSnapshotCacheKey: Equatable {
     let dataRevision: HomeDataRevision
     let selectedDay: Date
     let currentMinuteStamp: Int
-    let sunriseAnchor: SunriseAnchor
+    let sunriseAnchor: HomeScrollAnchor
     let calendarSignature: HomeTimelineCalendarSignature
     let workspacePreferences: HomeTimelineWorkspacePreferencesSignature
     let hiddenCalendarEvents: [HomeTimelineHiddenCalendarEventKey]

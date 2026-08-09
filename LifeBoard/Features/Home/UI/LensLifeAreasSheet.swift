@@ -173,7 +173,7 @@ struct LensLifeAreasSheet: View {
         return Button {
             togglePin(area.id)
         } label: {
-            HStack(spacing: LBSpacingTokens.sm) {
+            HStack(spacing: ClayLayoutMetrics.sm) {
                 Circle()
                     .fill(Color(lifeboardHex: accentHex))
                     .frame(width: 12, height: 12)
@@ -185,7 +185,7 @@ struct LensLifeAreasSheet: View {
                     .font(.lifeboard(.body))
                     .foregroundStyle(Color.lifeboard.textPrimary)
                     .lineLimit(1)
-                Spacer(minLength: LBSpacingTokens.sm)
+                Spacer(minLength: ClayLayoutMetrics.sm)
                 Image(systemName: isPinned ? "pin.fill" : "pin")
                     .font(.system(size: 15, weight: .semibold))
                     .foregroundStyle(isPinned ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary.opacity(0.5))

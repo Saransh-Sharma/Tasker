@@ -17,7 +17,7 @@ struct AddTaskInlineCreator: View {
 
     @FocusState private var isFocused: Bool
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     var body: some View {
@@ -39,7 +39,7 @@ struct AddTaskInlineCreator: View {
             // Create button
             Button {
                 guard !projectName.trimmingCharacters(in: .whitespaces).isEmpty else { return }
-                LifeBoardFeedback.success()
+                HapticFeedback.success()
                 onCreate()
             } label: {
                 Text("Create")
@@ -57,7 +57,7 @@ struct AddTaskInlineCreator: View {
 
             // Cancel button
             Button {
-                LifeBoardFeedback.light()
+                HapticFeedback.light()
                 onCancel()
             } label: {
                 Image(systemName: "xmark.circle.fill")

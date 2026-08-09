@@ -636,7 +636,7 @@ public struct HomeCardBody: View {
     }
 
     private var overdueTint: Color {
-        Color(LifeBoardColorTokens.foundationDanger)
+        Color(SemanticColorTokens.foundationDanger)
     }
 
     private func itemNoun(_ count: Int) -> String {

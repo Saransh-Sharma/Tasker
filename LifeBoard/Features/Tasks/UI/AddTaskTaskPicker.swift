@@ -17,7 +17,7 @@ struct AddTaskTaskPicker: View {
 
     @State private var searchText = ""
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     private var filteredTasks: [TaskDefinition] {
@@ -62,7 +62,7 @@ struct AddTaskTaskPicker: View {
                         .lineLimit(1)
                     Spacer()
                     Button {
-                        LifeBoardFeedback.light()
+                        HapticFeedback.light()
                         withAnimation(LifeBoardAnimation.feedbackFast) {
                             self.selectedTaskID = nil
                         }
@@ -85,7 +85,7 @@ struct AddTaskTaskPicker: View {
                 VStack(spacing: 0) {
                     ForEach(filteredTasks.prefix(5), id: \.id) { task in
                         Button {
-                            LifeBoardFeedback.selection()
+                            HapticFeedback.selection()
                             withAnimation(LifeBoardAnimation.stateChange) {
                                 selectedTaskID = task.id
                                 searchText = ""

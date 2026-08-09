@@ -202,7 +202,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         }
         let trackFoundationRepository = CoreDataTrackFoundationRepository(container: persistentContainer)
         let habitRuntimeReadRepository = CoreDataHabitRuntimeReadRepository(container: persistentContainer)
-        let goalSampleProvider = CoreDataGoalSampleProvider(container: persistentContainer)
+        let goalSampleProvider = CoreDataGoalSampleRepository(container: persistentContainer)
         let nutritionRepository = CoreDataNutritionRepository(container: persistentContainer)
         let lifeMomentRepository = CoreDataLifeMomentRepository(container: persistentContainer)
         let wellnessRepository = CoreDataWellnessRepository(container: persistentContainer)
@@ -575,12 +575,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         let shield = UIView(frame: window.bounds)
         shield.autoresizingMask = [.flexibleWidth, .flexibleHeight]
-        shield.backgroundColor = LifeBoardColorTokens.foundationCanvas
+        shield.backgroundColor = SemanticColorTokens.foundationCanvas
         shield.isAccessibilityElement = true
         shield.accessibilityLabel = "LifeBoard content hidden for privacy"
 
         let symbol = UIImageView(image: UIImage(systemName: "lock.shield.fill"))
-        symbol.tintColor = LifeBoardColorTokens.foundationApricotAccent
+        symbol.tintColor = SemanticColorTokens.foundationApricotAccent
         symbol.preferredSymbolConfiguration = UIImage.SymbolConfiguration(pointSize: 34, weight: .semibold)
         symbol.translatesAutoresizingMaskIntoConstraints = false
         shield.addSubview(symbol)
@@ -995,7 +995,7 @@ private final class UITestSeedGateViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = LifeBoardColorTokens.foundationCanvas
+        view.backgroundColor = SemanticColorTokens.foundationCanvas
         progress.translatesAutoresizingMaskIntoConstraints = false
         progress.startAnimating()
         progress.accessibilityLabel = "Preparing LifeBoard test workspace"

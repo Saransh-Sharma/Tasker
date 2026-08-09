@@ -92,7 +92,7 @@ extension Theme {
 extension Theme {
     @MainActor
     public enum Spacing {
-        private static var tokens: LifeBoardSpacingTokens {
+        private static var tokens: SemanticSpacingTokens {
             ThemeStore.shared.tokens(for: .phone, traits: .unspecified).spacing
         }
 
@@ -111,7 +111,7 @@ extension Theme {
         /// Extra bottom padding for views behind a tab bar
         public static var tabBarHeight: CGFloat { 80 }
 
-        public static func forLayout(_ layoutClass: LayoutClass) -> LifeBoardSpacingTokens {
+        public static func forLayout(_ layoutClass: LayoutClass) -> SemanticSpacingTokens {
             ThemeStore.tokens(for: layoutClass).spacing
         }
     }

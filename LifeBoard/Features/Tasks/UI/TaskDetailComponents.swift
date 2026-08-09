@@ -18,19 +18,19 @@ struct PriorityPillSelector: View {
         HStack(spacing: Theme.Spacing.sm) {
             PriorityPill(label: "None", color: Color.lifeboard.priorityNone, isSelected: selectedPriority == 1) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedPriority = 1 }
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
             }
             PriorityPill(label: "Low", color: Color.lifeboard.priorityLow, isSelected: selectedPriority == 2) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedPriority = 2 }
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
             }
             PriorityPill(label: "High", color: Color.lifeboard.priorityHigh, isSelected: selectedPriority == 3) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedPriority = 3 }
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
             }
             PriorityPill(label: "Max", color: Color.lifeboard.priorityMax, isSelected: selectedPriority == 4) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedPriority = 4 }
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
             }
         }
     }
@@ -110,9 +110,9 @@ struct PriorityBadge: View {
 // MARK: - Shared Status And Metric Components
 
 enum DetailTonePalette {
-    static let successText = LBColorTokens.adaptive(light: "#0F7A25", dark: "#95F0A4", darkHighContrast: "#C8FFD1")
-    static let warningText = LBColorTokens.adaptive(light: "#704600", dark: "#FFE0A0", darkHighContrast: "#FFF0C2")
-    static let dangerText = LBColorTokens.adaptive(light: "#8E2E23", dark: "#FFB7AD", darkHighContrast: "#FFD8D0")
+    static let successText = ClayColorTokens.adaptive(light: "#0F7A25", dark: "#95F0A4", darkHighContrast: "#C8FFD1")
+    static let warningText = ClayColorTokens.adaptive(light: "#704600", dark: "#FFE0A0", darkHighContrast: "#FFF0C2")
+    static let dangerText = ClayColorTokens.adaptive(light: "#8E2E23", dark: "#FFB7AD", darkHighContrast: "#FFD8D0")
 }
 
 @MainActor
@@ -148,11 +148,11 @@ enum StatusPillTone {
         case .neutral:
             return Color.lifeboard.surfacePrimary
         case .success:
-            return LBColorTokens.role(.task).softSurface
+            return ClayColorTokens.role(.task).softSurface
         case .warning:
-            return LBColorTokens.role(.warning).softSurface
+            return ClayColorTokens.role(.warning).softSurface
         case .danger:
-            return LBColorTokens.role(.error).softSurface
+            return ClayColorTokens.role(.error).softSurface
         case .quiet:
             return Color.lifeboard.surfaceSecondary
         }
@@ -165,11 +165,11 @@ enum StatusPillTone {
         case .neutral:
             return Color.lifeboard.strokeHairline.opacity(0.9)
         case .success:
-            return LBColorTokens.role(.task).border
+            return ClayColorTokens.role(.task).border
         case .warning:
-            return LBColorTokens.role(.warning).border
+            return ClayColorTokens.role(.warning).border
         case .danger:
-            return LBColorTokens.role(.error).border
+            return ClayColorTokens.role(.error).border
         case .quiet:
             return Color.lifeboard.strokeHairline.opacity(0.72)
         }
@@ -228,9 +228,9 @@ enum HeroMetricTone {
         case .accent:
             return Color.lifeboard.accentWash.opacity(0.92)
         case .success:
-            return LBColorTokens.role(.task).softSurface
+            return ClayColorTokens.role(.task).softSurface
         case .warning:
-            return LBColorTokens.role(.warning).softSurface
+            return ClayColorTokens.role(.warning).softSurface
         case .neutral:
             return Color.lifeboard.surfacePrimary.opacity(0.8)
         }
@@ -241,9 +241,9 @@ enum HeroMetricTone {
         case .accent:
             return Color.lifeboard.accentPrimary.opacity(0.18)
         case .success:
-            return LBColorTokens.role(.task).border
+            return ClayColorTokens.role(.task).border
         case .warning:
-            return LBColorTokens.role(.warning).border
+            return ClayColorTokens.role(.warning).border
         case .neutral:
             return Color.lifeboard.strokeHairline.opacity(0.72)
         }
@@ -410,15 +410,15 @@ struct TypeChipSelector: View {
         HStack(spacing: Theme.Spacing.sm) {
             Chip(title: "Morning", isSelected: selectedType == 1, selectedStyle: .tinted) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedType = 1 }
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
             }
             Chip(title: "Evening", isSelected: selectedType == 2, selectedStyle: .tinted) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedType = 2 }
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
             }
             Chip(title: "Upcoming", isSelected: selectedType == 3, selectedStyle: .tinted) {
                 withAnimation(LifeBoardAnimation.stateChange) { selectedType = 3 }
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
             }
         }
     }

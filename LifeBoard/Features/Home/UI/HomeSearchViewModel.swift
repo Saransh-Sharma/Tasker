@@ -9,7 +9,7 @@ import Foundation
 
 private struct SearchTaskDetailMetadataState: Sendable {
     var projects: [Project]
-    var sections: [LifeBoardProjectSection]
+    var sections: [ProjectSectionDefinition]
 }
 
 private struct SearchTaskDetailRelationshipMetadataState: Sendable {

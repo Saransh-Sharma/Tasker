@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -12,7 +12,7 @@ import VisionKit
 /// It is drawn on every root, so as a computed member it inlined its whole view
 /// value into the shell's own frame every time. See the `-Onone` note on
 /// `PlanSectionCopy` in LifeBoardPlanViews.swift for why that matters.
-struct FoundationRootHeader: View {
+struct ScreenRootHeader: View {
     let destination: Destination
     let atmosphereSnapshot: AtmosphereSnapshot
     let runtime: FoundationCoordinator
@@ -40,7 +40,7 @@ struct FoundationRootHeader: View {
             titleRespondsToTouch: destination == .home
         )
         VStack(alignment: .trailing, spacing: 8) {
-            LifeBoardRootHeader(
+            AppRootHeader(
                 model: model,
                 captureExpanded: captureState.isExpanded,
                 usesInverseInk: AtmosphereDescriptor.usesInverseHeaderInk(
@@ -52,7 +52,7 @@ struct FoundationRootHeader: View {
                         captureState.highlightedKind = nil
                         captureRippleTrigger &+= 1
                     }
-                    LifeBoardFeedback.light()
+                    HapticFeedback.light()
                 },
                 secondaryActions: AnyView(
                     // Home's controls outgrew a menu. Atmosphere is a sequence
@@ -64,7 +64,7 @@ struct FoundationRootHeader: View {
                         if destination == .home {
                             Button {
                                 showsHomeDisplayPanel = true
-                                LifeBoardFeedback.light()
+                                HapticFeedback.light()
                             } label: {
                                 Image(systemName: "ellipsis")
                                     .frame(width: 44, height: 44)
@@ -98,7 +98,7 @@ struct FoundationRootHeader: View {
                         }
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
                     .accessibilityLabel("More")
                     .accessibilityIdentifier("foundation.more.\(destination.rawValue)")
@@ -122,7 +122,7 @@ struct FoundationRootHeader: View {
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.plain)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                         .accessibilityLabel("Capture \(trayTitle(kind))")
                     }
                 }
@@ -132,12 +132,12 @@ struct FoundationRootHeader: View {
                 .lifeBoardGlassIdentity(.captureTray)
                 .background {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Color(LifeBoardColorTokens.foundationCanvasSoft).opacity(0.44))
+                        .fill(Color(SemanticColorTokens.foundationCanvasSoft).opacity(0.44))
                         .lifeboardContextLens(trigger: captureRippleTrigger)
                 }
                 .overlay {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                        .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
                 }
                 .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .topTrailing)))
                 .accessibilityIdentifier("foundation.capture.palette")

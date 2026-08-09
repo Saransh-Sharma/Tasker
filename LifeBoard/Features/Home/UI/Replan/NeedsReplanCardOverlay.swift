@@ -84,7 +84,7 @@ private struct ReplanHotZoneTarget: View {
             })
             .onChange(of: isTargeted) { _, newValue in
                 guard newValue else { return }
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
             }
             .animation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast, value: isVisible)
             .animation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.feedbackFast, value: isTargeted)
@@ -170,7 +170,7 @@ struct NeedsReplanCardOverlay: View {
                                 withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.panelIn) {
                                     isDraggingTask = true
                                 }
-                                LifeBoardFeedback.light()
+                                HapticFeedback.light()
                             }
                             .onEnded { _ in
                                 resetDragState()
@@ -335,19 +335,19 @@ struct NeedsReplanCardOverlay: View {
         resetDragState()
         switch zone {
         case .planToday:
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             onFeedback("Drag into a time or All Day.")
             onReschedule()
         case .moveToInbox:
-            LifeBoardFeedback.success()
+            HapticFeedback.success()
             onFeedback("Moved to Inbox")
             onMoveToInbox()
         case .complete:
-            LifeBoardFeedback.success()
+            HapticFeedback.success()
             onFeedback("Marked complete")
             onCheckOff()
         case .delete:
-            LifeBoardFeedback.warning()
+            HapticFeedback.warning()
             onFeedback("Deleted")
             onDelete()
         }

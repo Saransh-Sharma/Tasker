@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -21,7 +21,7 @@ struct HabitRouteView: View {
                 if let notes = habit.notes, notes.isEmpty == false { Text(notes).font(.body).foregroundStyle(.secondary) }
                 Button("Open in Track", systemImage: "chart.bar.fill") { router.select(.track) }
                     .buttonStyle(.borderedProminent)
-                    .tint(Color(LifeBoardColorTokens.inkPrimary))
+                    .tint(Color(SemanticColorTokens.inkPrimary))
             }
         }
         .task(id: id) { await load() }

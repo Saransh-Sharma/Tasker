@@ -2,8 +2,8 @@ import SwiftUI
 
 struct GlassCard<Content: View>: View {
     var cornerRadius: CGFloat = RadiusTokens.card
-    var borderColor: Color = LBColorTokens.glassBorder
-    var fill: Color = LBColorTokens.glass
+    var borderColor: Color = ClayColorTokens.glassBorder
+    var fill: Color = ClayColorTokens.glass
     var shadow: ShadowToken? = ShadowTokens.card
     var usesMaterialBackground = true
     @ViewBuilder let content: Content

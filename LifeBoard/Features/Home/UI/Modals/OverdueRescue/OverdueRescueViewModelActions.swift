@@ -95,7 +95,7 @@ extension OverdueRescueViewModel {
     func requestEdit() {
         guard state == .active, currentCard != nil else { return }
         transition(to: .editing)
-        LifeBoardFeedback.selection()
+        HapticFeedback.selection()
     }
 
     func cancelEdit() {
@@ -316,7 +316,7 @@ extension OverdueRescueViewModel {
         snackbar = SnackbarData(message: "Applied \(fixes.count) safe fixes", actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
         showSafeFixesConfirmation = false
         _ = transition(to: cards.isEmpty ? .completed : .active)
-        LifeBoardFeedback.success()
+        HapticFeedback.success()
     }
 
     func undoLast() {
@@ -475,7 +475,7 @@ extension OverdueRescueViewModel {
         }
         snackbar = SnackbarData(message: message, actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
         advance()
-        LifeBoardFeedback.success()
+        HapticFeedback.success()
     }
 
     func rollbackTaskUpdate(_ task: TaskDefinition, afterPlanningFailure planningError: Error) {
@@ -553,7 +553,7 @@ extension OverdueRescueViewModel {
                     self.summary.deleted += 1
                     self.snackbar = SnackbarData(message: "Deleted", actions: [SnackbarAction(title: "Undo") { self.undoLast() }])
                     self.advance()
-                    LifeBoardFeedback.success()
+                    HapticFeedback.success()
                 case .failure(let error):
                     self.errorMessage = error.localizedDescription
                     _ = self.transition(to: .error)

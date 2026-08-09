@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -35,7 +35,7 @@ struct EntityRouteScaffold<Value, Content: View>: View {
             .padding(24)
             .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+        .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar(.visible, for: .navigationBar)

@@ -38,7 +38,7 @@ extension HomeViewModel {
         // succeeded. Keep the completion acknowledgement at that persistence
         // boundary, without exposing XP magnitude or routing a celebration on
         // Home. Insights remains the optional place to inspect XP.
-        LifeBoardFeedback.success()
+        HapticFeedback.success()
     }
 
     public func makeInsightsViewModel() -> InsightsViewModel {

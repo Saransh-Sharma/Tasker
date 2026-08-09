@@ -8,30 +8,30 @@ struct PlanningSummaryRow: View {
     var action: (() -> Void)?
 
     var body: some View {
-        HStack(alignment: .top, spacing: LBSpacingTokens.sm) {
+        HStack(alignment: .top, spacing: ClayLayoutMetrics.sm) {
             Image(systemName: systemImage)
                 .font(.system(size: 13, weight: .semibold))
-                .foregroundStyle(LBColorTokens.navyMuted)
+                .foregroundStyle(ClayColorTokens.navyMuted)
                 .frame(width: 18, height: 22)
                 .accessibilityHidden(true)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                     .font(.lifeboard(.caption1).weight(.semibold))
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
                 Text(value)
                     .font(.lifeboard(.callout))
-                    .foregroundStyle(LBColorTokens.navy)
+                    .foregroundStyle(ClayColorTokens.navy)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
-            Spacer(minLength: LBSpacingTokens.sm)
+            Spacer(minLength: ClayLayoutMetrics.sm)
 
             if let actionTitle, let action {
                 Button(actionTitle, action: action)
                     .font(.lifeboard(.caption1).weight(.semibold))
                     .buttonStyle(.plain)
-                    .foregroundStyle(LBColorTokens.role(.focus).deep)
+                    .foregroundStyle(ClayColorTokens.role(.focus).deep)
                     .frame(minHeight: 44)
             }
         }

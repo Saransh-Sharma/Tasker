@@ -1,6 +1,6 @@
 import UIKit
 
-public struct LifeBoardTypographyTokens: TokenGroup {
+public struct SemanticTypographyTokens: TokenGroup {
     private struct Spec {
         let textStyle: UIFont.TextStyle
         let pointSize: CGFloat
@@ -34,7 +34,7 @@ public struct LifeBoardTypographyTokens: TokenGroup {
     public let layoutScale: CGFloat
 
     /// Executes font.
-    public func font(for style: LifeBoardTextStyle) -> UIFont {
+    public func font(for style: TypographyStyle) -> UIFont {
         switch style {
         case .heroDisplay: return heroDisplay
         case .screenTitle: return screenTitle
@@ -61,19 +61,19 @@ public struct LifeBoardTypographyTokens: TokenGroup {
     }
 
     /// Executes dynamicFont.
-    public func dynamicFont(for style: LifeBoardTextStyle, compatibleWith traitCollection: UITraitCollection? = nil) -> UIFont {
+    public func dynamicFont(for style: TypographyStyle, compatibleWith traitCollection: UITraitCollection? = nil) -> UIFont {
         Self.font(for: Self.spec(for: style, scale: layoutScale), compatibleWith: traitCollection)
     }
 
     /// Executes makeDefault.
-    public static func makeDefault() -> LifeBoardTypographyTokens {
+    public static func makeDefault() -> SemanticTypographyTokens {
         make(for: .phone)
     }
 
     /// Executes make.
-    public static func make(for layoutClass: LayoutClass) -> LifeBoardTypographyTokens {
+    public static func make(for layoutClass: LayoutClass) -> SemanticTypographyTokens {
         let scale = scaleFactor(for: layoutClass)
-        return LifeBoardTypographyTokens(
+        return SemanticTypographyTokens(
             heroDisplay: font(for: spec(for: .heroDisplay, scale: scale), compatibleWith: nil),
             screenTitle: font(for: spec(for: .screenTitle, scale: scale), compatibleWith: nil),
             sectionTitle: font(for: spec(for: .sectionTitle, scale: scale), compatibleWith: nil),
@@ -102,7 +102,7 @@ public struct LifeBoardTypographyTokens: TokenGroup {
     static func resetCache() {}
 
     /// Executes spec.
-    private static func spec(for style: LifeBoardTextStyle, scale: CGFloat) -> Spec {
+    private static func spec(for style: TypographyStyle, scale: CGFloat) -> Spec {
         func scaled(_ base: CGFloat) -> CGFloat {
             max(11, base * scale)
         }

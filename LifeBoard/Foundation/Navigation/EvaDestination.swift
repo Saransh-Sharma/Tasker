@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -19,7 +19,7 @@ struct EvaDestination: View {
         phaseIIRepository: any PhaseIIRepository,
         planningRepository: CoreDataPlanningRepository?,
         habitProjectionService: (any TrackHabitProjectionService)?,
-        goalSampleProvider: (any GoalSampleProvider)?,
+        goalSampleProvider: (any GoalSampleRepository)?,
         router: AppRouter
     ) {
         let manager = AppManager()
@@ -63,7 +63,7 @@ struct EvaDestination: View {
                 HStack(spacing: 10) {
                     Label("Private on-device context", systemImage: "lock.shield")
                         .font(.caption.weight(.medium))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     Spacer(minLength: 8)
                     evidenceSharingMenu
                 }

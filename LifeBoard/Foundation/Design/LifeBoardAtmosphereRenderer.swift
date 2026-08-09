@@ -492,8 +492,8 @@ public struct AdaptiveAtmosphere: View {
         let darkBoost = colorScheme == .dark ? 0.20 : 0
         return LinearGradient(
             colors: descriptor.usesInverseHeaderInk
-                ? [Color.black.opacity(descriptor.scrimStrength + contrastBoost), Color.clear, Color(LifeBoardColorTokens.foundationCanvas).opacity(0.12 + darkBoost)]
-                : [Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(descriptor.scrimStrength + contrastBoost), Color.clear, Color(LifeBoardColorTokens.foundationCanvas).opacity(darkBoost)],
+                ? [Color.black.opacity(descriptor.scrimStrength + contrastBoost), Color.clear, Color(SemanticColorTokens.foundationCanvas).opacity(0.12 + darkBoost)]
+                : [Color(SemanticColorTokens.foundationSurfaceSolid).opacity(descriptor.scrimStrength + contrastBoost), Color.clear, Color(SemanticColorTokens.foundationCanvas).opacity(darkBoost)],
             startPoint: .top,
             endPoint: .bottom
         )
@@ -769,15 +769,15 @@ public struct PaperSection<Content: View>: View {
     public var body: some View {
         content
             .padding(padding)
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             .background(
-                Color(LifeBoardColorTokens.foundationSurfaceSolid),
+                Color(SemanticColorTokens.foundationSurfaceSolid),
                 in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             )
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(
-                        Color(LifeBoardColorTokens.foundationHairline),
+                        Color(SemanticColorTokens.foundationHairline),
                         lineWidth: contrast == .increased ? 1.5 : 1
                     )
             }
@@ -801,7 +801,7 @@ public struct TactileTile<Label: View>: View {
 
     public var body: some View {
         Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         } label: {
             label
@@ -822,12 +822,12 @@ public struct TactileTileButtonStyle: ButtonStyle {
         configuration.label
             .padding(12)
             .background(
-                Color(LifeBoardColorTokens.foundationSurfaceSolid),
+                Color(SemanticColorTokens.foundationSurfaceSolid),
                 in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
             )
             .overlay {
                 RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
-                    .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                    .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
             }
             .scaleEffect(configuration.isPressed && reduceMotion == false ? 0.97 : 1)
             .brightness(configuration.isPressed ? -0.025 : 0)
@@ -1009,7 +1009,7 @@ public struct StatusSurface: View {
                         .font(.headline)
                     Text(message)
                         .font(.subheadline)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .fixedSize(horizontal: false, vertical: true)
 
                     if let actionTitle, let action {
@@ -1080,7 +1080,7 @@ public struct StatusSurface: View {
 public struct PaperCardModifier: ViewModifier {
     public func body(content: Content) -> some View {
         content
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
     }
 }
@@ -1093,7 +1093,7 @@ public struct GlassSurfaceModifier: ViewModifier {
     public func body(content: Content) -> some View {
         if reduceTransparency || VisualAppearanceFixture.active?.usesReducedTransparency == true {
             content.background(
-                Color(LifeBoardColorTokens.foundationSurfaceSolid),
+                Color(SemanticColorTokens.foundationSurfaceSolid),
                 in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             )
         } else {
@@ -1174,11 +1174,11 @@ public extension DaypartPalette {
         case .resting, .raised:
             return isNocturnal
                 ? color(for: .layerOne)
-                : Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.94)
+                : Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.94)
         case .floating:
             return isNocturnal
                 ? color(for: .layerOne)
-                : Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.97)
+                : Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.97)
         }
     }
 }
@@ -1243,8 +1243,8 @@ public struct MetricRing: View {
                 Circle()
                     .stroke(
                         Color(trackIsTheSignal
-                            ? LifeBoardColorTokens.metricRingTrackProminent
-                            : LifeBoardColorTokens.metricRingTrack),
+                            ? SemanticColorTokens.metricRingTrackProminent
+                            : SemanticColorTokens.metricRingTrack),
                         style: StrokeStyle(
                             lineWidth: trackIsTheSignal ? 3 : 5,
                             dash: usesDashedTrack ? [3, 5] : []
@@ -1297,12 +1297,12 @@ public struct MetricRing: View {
 
     private var ringColor: Color {
         if case .complete = state {
-            return Color(LifeBoardColorTokens.foundationSageAccent)
+            return Color(SemanticColorTokens.foundationSageAccent)
         }
         if case .stale = state {
-            return Color(LifeBoardColorTokens.foundationApricotAccent)
+            return Color(SemanticColorTokens.foundationApricotAccent)
         }
-        return Color(LifeBoardColorTokens.metricRingFill)
+        return Color(SemanticColorTokens.metricRingFill)
     }
 
     private var usesDashedTrack: Bool {

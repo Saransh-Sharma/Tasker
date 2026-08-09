@@ -55,7 +55,7 @@ struct SettingsCard<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        LifeBoardCard(active: active) {
+        SurfaceCard(active: active) {
             content
         }
     }
@@ -70,7 +70,7 @@ struct SettingsSectionView<Content: View>: View {
 
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 
@@ -101,7 +101,7 @@ struct SettingsHeroCard: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 
@@ -163,20 +163,20 @@ struct SettingsHeroCard: View {
         ZStack {
             LinearGradient(
                 colors: [
-                    Color(LifeBoardColorTokens.foundationSettingsHeroStart),
-                    Color(LifeBoardColorTokens.foundationSettingsHeroMiddle),
-                    Color(LifeBoardColorTokens.foundationSettingsHeroEnd)
+                    Color(SemanticColorTokens.foundationSettingsHeroStart),
+                    Color(SemanticColorTokens.foundationSettingsHeroMiddle),
+                    Color(SemanticColorTokens.foundationSettingsHeroEnd)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
 
-            Color(LifeBoardColorTokens.foundationOnSettingsHero).opacity(0.025)
+            Color(SemanticColorTokens.foundationOnSettingsHero).opacity(0.025)
         }
     }
 
     private var heroInk: Color {
-        Color(LifeBoardColorTokens.foundationOnSettingsHero)
+        Color(SemanticColorTokens.foundationOnSettingsHero)
     }
 
     @ViewBuilder
@@ -229,7 +229,7 @@ struct SettingsStatusChip: View {
     }
 
     private var heroInk: Color {
-        Color(LifeBoardColorTokens.foundationOnSettingsHero)
+        Color(SemanticColorTokens.foundationOnSettingsHero)
     }
 }
 
@@ -243,7 +243,7 @@ struct SettingsFieldCard<Content: View>: View {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 
@@ -440,7 +440,7 @@ struct SettingsChipSelector<Option: Hashable>: View {
                             isSelected: option.value == selectedValue,
                             selectedStyle: .filled,
                             action: {
-                                LifeBoardFeedback.selection()
+                                HapticFeedback.selection()
                                 onSelect(option.value)
                             }
                         )
@@ -579,7 +579,7 @@ struct SettingsNavigationRow: View {
         Group {
             if let action {
                 Button {
-                    LifeBoardFeedback.light()
+                    HapticFeedback.light()
                     action()
                 } label: {
                     rowContent

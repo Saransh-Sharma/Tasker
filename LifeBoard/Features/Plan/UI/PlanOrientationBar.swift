@@ -18,10 +18,10 @@ struct PlanOrientationBar: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(lens == .day ? dayTitle(store.selectedDay) : lens.rawValue)
                     .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 Text(contextLine)
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .lineLimit(1)
             }
             Spacer()

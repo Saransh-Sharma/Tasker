@@ -12,7 +12,7 @@ struct LifeManagementComposerPreviewCard: View {
     @Environment(\.lifeboardLayoutClass) var layoutClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    var spacing: LifeBoardSpacingTokens { ThemeStore.shared.tokens(for: layoutClass).spacing }
+    var spacing: SemanticSpacingTokens { ThemeStore.shared.tokens(for: layoutClass).spacing }
 
     var previewSignature: String {
         "\(title)-\(subtitle)-\(iconName)-\(metrics.map(\.value).joined(separator: "|"))"
@@ -23,7 +23,7 @@ struct LifeManagementComposerPreviewCard: View {
             HStack(alignment: .top, spacing: spacing.s12) {
                 ZStack {
                     RoundedRectangle(cornerRadius: 18, style: .continuous)
-                        .fill(LBColorTokens.whiteStroke.opacity(0.18))
+                        .fill(ClayColorTokens.whiteStroke.opacity(0.18))
                         .frame(width: 58, height: 58)
 
                     Group {
@@ -91,7 +91,7 @@ struct LifeManagementComposerPreviewCard: View {
                 colors: [
                     Color.lifeboard(.overlayScrim).opacity(0.50),
                     Color.lifeboard(.overlayScrim).opacity(0.15),
-                    LBColorTokens.whiteStroke.opacity(0.08)
+                    ClayColorTokens.whiteStroke.opacity(0.08)
                 ],
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
@@ -100,7 +100,7 @@ struct LifeManagementComposerPreviewCard: View {
         .lifeboardPremiumSurface(
             cornerRadius: Theme.CornerRadius.card,
             fillColor: .clear,
-            strokeColor: LBColorTokens.whiteStroke.opacity(0.16),
+            strokeColor: ClayColorTokens.whiteStroke.opacity(0.16),
             accentColor: accentColor,
             level: .e2
         )

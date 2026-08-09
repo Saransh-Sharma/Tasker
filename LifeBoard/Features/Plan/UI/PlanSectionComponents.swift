@@ -27,8 +27,8 @@ enum PlanSectionCopy {
 
     static func loadColor(_ value: CapacityBudget) -> Color {
         value.overloadDuration > 0
-            ? Color(LifeBoardColorTokens.foundationApricotAccent)
-            : Color(LifeBoardColorTokens.foundationFocusRing)
+            ? Color(SemanticColorTokens.foundationApricotAccent)
+            : Color(SemanticColorTokens.foundationFocusRing)
     }
 
     static func loadLabel(_ value: CapacityBudget) -> String {
@@ -55,7 +55,7 @@ struct PlanSectionHeader<Trailing: View>: View {
             trailing()
         }
         .padding(.top, 6)
-        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
     }
 }
 
@@ -81,11 +81,11 @@ struct PlanEmptyCard: View {
             } else {
                 Image(systemName: symbol)
                     .font(.title2)
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
             }
             VStack(alignment: .leading, spacing: 3) {
                 Text(title).font(.headline)
-                Text(detail).font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                Text(detail).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
         }
@@ -109,7 +109,7 @@ struct PlanCalendarStateSection: View {
                     Text("Calendar can reveal real openings").font(.subheadline.weight(.semibold))
                     Text("Optional and read-only.")
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 Spacer()
                 Button("Allow") {
@@ -131,7 +131,7 @@ struct PlanCalendarStateSection: View {
             HStack(spacing: 10) {
                 Label("Calendar off · planning still works", systemImage: "calendar.badge.exclamationmark")
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 Spacer()
                 Button("Settings") {
                     guard let url = URL(string: UIApplication.openSettingsURLString) else { return }
@@ -150,13 +150,13 @@ struct PlanCalendarStateSection: View {
                     .controlSize(.small)
                 Text("Refreshing read-only calendar context")
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 Spacer()
             }
             .padding(.horizontal, 12)
             .frame(minHeight: 44)
             .background(
-                Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                Color(SemanticColorTokens.foundationSurfaceRecessed),
                 in: RoundedRectangle(cornerRadius: 14, style: .continuous)
             )
             .accessibilityIdentifier("plan.calendar.loading")
@@ -166,7 +166,7 @@ struct PlanCalendarStateSection: View {
                 systemImage: "calendar.badge.checkmark"
             )
             .font(.caption)
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .accessibilityIdentifier("plan.calendar.fresh")
         case .staleCached(let fetchedAt, let message):
@@ -193,7 +193,7 @@ struct PlanCalendarStateSection: View {
                         .font(.caption.weight(.semibold))
                     Text(message)
                         .font(.caption2)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .lineLimit(2)
                 }
                 Spacer()
@@ -202,7 +202,7 @@ struct PlanCalendarStateSection: View {
             }
             .padding(.horizontal, 12)
             .background(
-                Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                Color(SemanticColorTokens.foundationSurfaceRecessed),
                 in: RoundedRectangle(cornerRadius: 14, style: .continuous)
             )
             .accessibilityIdentifier("plan.calendar.failed")
@@ -225,7 +225,7 @@ struct PlanCalendarCacheWarning: View {
                     .font(.caption.weight(.semibold))
                 Text(detail)
                     .font(.caption2)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .lineLimit(2)
             }
             Spacer()
@@ -234,7 +234,7 @@ struct PlanCalendarCacheWarning: View {
         }
         .padding(.horizontal, 12)
         .background(
-            Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+            Color(SemanticColorTokens.foundationSurfaceRecessed),
             in: RoundedRectangle(cornerRadius: 14, style: .continuous)
         )
         .accessibilityIdentifier(identifier)
@@ -248,7 +248,7 @@ struct PlanCalibrationSuggestionRow: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "timer.square")
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+                .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
             VStack(alignment: .leading, spacing: 2) {
                 Text("Observed median: \(PlanSectionCopy.duration(suggestion.suggestedDuration))")
                     .font(.caption.weight(.semibold))
@@ -256,7 +256,7 @@ struct PlanCalibrationSuggestionRow: View {
                     "\(suggestion.evidenceSessionCount) sessions · \(PlanSectionCopy.duration(suggestion.observedMinimum))–\(PlanSectionCopy.duration(suggestion.observedMaximum)) observed"
                 )
                 .font(.caption2)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer(minLength: 4)
             Button("Use estimate") {

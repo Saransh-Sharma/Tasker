@@ -6,7 +6,7 @@ import UIKit
 /// Proves the legacy colour accessors and their canonical roles resolve to the
 /// same colour, so migrating a call site is a rename rather than a redesign.
 ///
-/// Without this, "replace `LifeBoardColorTokens.inkPrimary` with
+/// Without this, "replace `SemanticColorTokens.inkPrimary` with
 /// `Color.lifeboard(.textPrimary)`" is a leap of faith across 81 files. With it,
 /// any divergence surfaces here as a concrete pair of hex values that somebody
 /// decides about deliberately.

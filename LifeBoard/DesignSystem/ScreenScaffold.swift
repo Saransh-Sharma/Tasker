@@ -84,7 +84,7 @@ public struct RootHeaderModel: Equatable, Sendable {
 
 /// One quiet, left-aligned header shared by every root. Capture remains visible;
 /// optional gestures only accelerate controls that are already on screen.
-public struct LifeBoardRootHeader: View {
+public struct AppRootHeader: View {
     public let model: RootHeaderModel
     public let captureExpanded: Bool
     /// True when the header sits over a dark scenic backdrop. The daypart
@@ -112,14 +112,14 @@ public struct LifeBoardRootHeader: View {
 
     private var primaryInk: Color {
         usesInverseInk
-            ? Color(LifeBoardColorTokens.foundationOnScenicDark)
-            : Color(LifeBoardColorTokens.inkPrimary)
+            ? Color(SemanticColorTokens.foundationOnScenicDark)
+            : Color(SemanticColorTokens.inkPrimary)
     }
 
     private var secondaryInk: Color {
         usesInverseInk
-            ? Color(LifeBoardColorTokens.foundationOnScenicDarkSecondary)
-            : Color(LifeBoardColorTokens.inkSecondary)
+            ? Color(SemanticColorTokens.foundationOnScenicDarkSecondary)
+            : Color(SemanticColorTokens.inkSecondary)
     }
 
     public var body: some View {

@@ -12,7 +12,7 @@ import UIKit
 
 private struct ChatTaskDetailMetadataState: Sendable {
     var projects: [Project]
-    var sections: [LifeBoardProjectSection]
+    var sections: [ProjectSectionDefinition]
 }
 
 private struct ChatTaskDetailRelationshipMetadataState: Sendable {
@@ -927,19 +927,19 @@ private struct ChatUnavailableSheet: View {
             ZStack {
                 Color.lifeboard.bgCanvas.ignoresSafeArea()
 
-                VStack(alignment: .leading, spacing: LBSpacingTokens.lg) {
+                VStack(alignment: .leading, spacing: ClayLayoutMetrics.lg) {
                     GlassCard(
                         cornerRadius: RadiusTokens.largeCard,
-                        fill: reduceTransparency ? Color.lifeboard.surfacePrimary : LBColorTokens.glassStrong.opacity(0.86),
+                        fill: reduceTransparency ? Color.lifeboard.surfacePrimary : ClayColorTokens.glassStrong.opacity(0.86),
                         usesMaterialBackground: reduceTransparency == false
                     ) {
-                        VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+                        VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
                             Image(systemName: "exclamationmark.triangle.fill")
                                 .font(.system(size: 28, weight: .semibold))
                                 .foregroundColor(Color.lifeboard.statusWarning)
                                 .accessibilityHidden(true)
 
-                            VStack(alignment: .leading, spacing: LBSpacingTokens.xs) {
+                            VStack(alignment: .leading, spacing: ClayLayoutMetrics.xs) {
                                 Text(title)
                                     .font(.lifeboard(.title3))
                                     .foregroundColor(Color.lifeboard.textPrimary)
@@ -950,7 +950,7 @@ private struct ChatUnavailableSheet: View {
                                     .fixedSize(horizontal: false, vertical: true)
                             }
                         }
-                        .padding(LBSpacingTokens.lg)
+                        .padding(ClayLayoutMetrics.lg)
                     }
 
                     Button("Done") {
@@ -961,7 +961,7 @@ private struct ChatUnavailableSheet: View {
                     .frame(maxWidth: .infinity, minHeight: 48)
                     .background(
                         LinearGradient(
-                            colors: [LBColorTokens.violetFill, LBColorTokens.violetFillDeep],
+                            colors: [ClayColorTokens.violetFill, ClayColorTokens.violetFillDeep],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
                         ),
@@ -970,7 +970,7 @@ private struct ChatUnavailableSheet: View {
                     .buttonStyle(.plain)
                     .accessibilityIdentifier("chat.unavailable.done")
                 }
-                .padding(LBSpacingTokens.lg)
+                .padding(ClayLayoutMetrics.lg)
                 .frame(maxWidth: 560)
             }
             .toolbar {

@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -74,14 +74,14 @@ extension LifeThreadComposerHost {
                     preferredCaptureKind: kind
                 )
             )
-            LifeBoardFeedback.light()
+            HapticFeedback.light()
         } label: {
             Label(title, systemImage: systemImage)
                 .font(.caption.weight(.semibold))
                 .padding(.horizontal, 12)
                 .frame(minHeight: 44)
-                .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: Capsule())
-                .overlay { Capsule().stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
+                .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: Capsule())
+                .overlay { Capsule().stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1) }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)
@@ -97,8 +97,8 @@ extension LifeThreadComposerHost {
                 .font(.caption.weight(.semibold))
                 .padding(.horizontal, 12)
                 .frame(minHeight: 44)
-                .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: Capsule())
-                .overlay { Capsule().stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
+                .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: Capsule())
+                .overlay { Capsule().stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1) }
         }
         .buttonStyle(.plain)
         .accessibilityLabel(title)

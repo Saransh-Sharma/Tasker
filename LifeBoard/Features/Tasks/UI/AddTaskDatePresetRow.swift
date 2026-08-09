@@ -22,7 +22,7 @@ struct AddTaskDatePresetRow: View {
     let customChipAccessibilityIdentifier: String?
     @State private var showDatePicker = false
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     private var activePreset: DatePreset? {
         guard let dueDate else { return .someday }
@@ -152,7 +152,7 @@ struct AddTaskCustomDatePickerSheet: View {
 
     @State private var selectedDate = Date()
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
 
     var body: some View {
         NavigationStack {
@@ -182,7 +182,7 @@ struct AddTaskCustomDatePickerSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Set Date") {
                         dueDate = selectedDate
-                        LifeBoardFeedback.success()
+                        HapticFeedback.success()
                         isPresented = false
                     }
                     .font(.lifeboard(.button))

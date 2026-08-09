@@ -43,7 +43,7 @@ struct TaskEditorRecurrenceSection: View {
                         : "Future occurrences stay on their intended calendar rhythm."
                 )
                 .font(.caption)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
         }
         .taskEditorSurface()
@@ -245,14 +245,14 @@ struct TaskEditorRecurrenceSection: View {
                         .frame(width: 44, height: 44)
                         .background(
                             selected
-                                ? Color(LifeBoardColorTokens.foundationSageAccent)
-                                : Color(LifeBoardColorTokens.foundationSurfaceSolid),
+                                ? Color(SemanticColorTokens.foundationSageAccent)
+                                : Color(SemanticColorTokens.foundationSurfaceSolid),
                             in: Capsule()
                         )
                         .foregroundStyle(
                             selected
-                                ? Color(LifeBoardColorTokens.inkPrimary)
-                                : Color(LifeBoardColorTokens.inkSecondary)
+                                ? Color(SemanticColorTokens.inkPrimary)
+                                : Color(SemanticColorTokens.inkSecondary)
                         )
                 }
                 .buttonStyle(.plain)

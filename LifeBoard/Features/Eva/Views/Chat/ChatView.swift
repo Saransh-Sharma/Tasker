@@ -302,7 +302,7 @@ private enum ChatContextAssembly {
     ) async -> (payload: String, usedTimeoutFallback: Bool) {
         let result = await LLMChatPlanningContextBuilder.build(
             timeoutMs: timeoutMs,
-            service: LLMContextRepositoryProvider.makeService(
+            service: LLMContextRepositoryFactory.makeService(
                 maxTasksPerSlice: budgets.maxProjectionTasksPerSlice,
                 compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
             ),
@@ -321,7 +321,7 @@ private enum ChatContextAssembly {
     ) async -> (payload: String, usedTimeoutFallback: Bool, fromCache: Bool) {
         let built = await LLMChatContextEnvelopeBuilder.build(
             timeoutMs: timeoutMs,
-            service: LLMContextRepositoryProvider.makeService(
+            service: LLMContextRepositoryFactory.makeService(
                 maxTasksPerSlice: budgets.maxProjectionTasksPerSlice,
                 compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
             ),
@@ -371,7 +371,7 @@ private enum ChatContextAssembly {
 
         let built = await LLMChatPlanningContextBuilder.build(
             timeoutMs: timeoutMs,
-            service: LLMContextRepositoryProvider.makeService(
+            service: LLMContextRepositoryFactory.makeService(
                 maxTasksPerSlice: budgets.maxProjectionTasksPerSlice,
                 compactTaskPayload: V2FeatureFlags.llmChatContextStrategy == .bounded
             ),
@@ -1479,7 +1479,7 @@ extension ChatView {
 
         let service = AssistantPlannerService(
             llm: llm,
-            taskReadModelRepository: LLMContextRepositoryProvider.taskReadModelRepository
+            taskReadModelRepository: LLMContextRepositoryFactory.taskReadModelRepository
         )
         let planResult = await service.generatePlan(
             userPrompt: message,
@@ -1529,7 +1529,7 @@ extension ChatView {
             }
 
             let pipeline = await MainActor.run {
-                LLMAssistantPipelineProvider.pipeline
+                LLMAssistantPipelineFactory.pipeline
             }
             guard let pipeline else {
                 await MainActor.run {

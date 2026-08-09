@@ -3,8 +3,8 @@ import UIKit
 /// Maps every legacy colour accessor to its canonical `ColorRole`.
 ///
 /// The app grew **four** ways to name the same colour: `Color.lifeboard(_:)`
-/// (semantic roles, ~818 refs), the `LifeBoardColorTokens` foundation statics
-/// (~560), the legacy `LBColorTokens` (~621 across 81 files), and
+/// (semantic roles, ~818 refs), the `SemanticColorTokens` foundation statics
+/// (~560), the legacy `ClayColorTokens` (~621 across 81 files), and
 /// `palette.color(for:)`. Four vocabularies for one palette means a change to
 /// "the canvas colour" has to be made in four places, and a drift between any
 /// two of them is invisible until someone screenshots the app.
@@ -66,7 +66,7 @@ enum TokenBridge {
         var isAssertable: Bool { TokenBridge.equivalentNames.contains(legacyName) }
     }
 
-    /// The foundation statics on `LifeBoardColorTokens`.
+    /// The foundation statics on `SemanticColorTokens`.
     ///
     /// Note the two deliberate divergences, which are **not** bugs to "fix":
     /// `inkSecondary` and `inkTertiary` were darkened from the values the
@@ -76,36 +76,36 @@ enum TokenBridge {
     /// documented accessibility regression.
     static var foundationEntries: [Entry] {
         [
-            Entry(legacyName: "foundationCanvas", role: .bgCanvas) { LifeBoardColorTokens.foundationCanvas },
-            Entry(legacyName: "foundationCanvasSoft", role: .bgCanvasSecondary) { LifeBoardColorTokens.foundationCanvasSoft },
-            Entry(legacyName: "foundationSurfaceRecessed", role: .surfaceSecondary) { LifeBoardColorTokens.foundationSurfaceRecessed },
-            Entry(legacyName: "foundationSurfaceSelected", role: .surfaceTertiary) { LifeBoardColorTokens.foundationSurfaceSelected },
-            Entry(legacyName: "foundationSurfaceSolid", role: .surfacePrimary) { LifeBoardColorTokens.foundationSurfaceSolid },
-            Entry(legacyName: "foundationSunAccent", role: .accentSecondary) { LifeBoardColorTokens.foundationSunAccent },
-            Entry(legacyName: "foundationApricotAccent", role: .accentSecondaryPressed) { LifeBoardColorTokens.foundationApricotAccent },
-            Entry(legacyName: "foundationDanger", role: .statusDanger) { LifeBoardColorTokens.foundationDanger },
-            Entry(legacyName: "foundationHairline", role: .strokeHairline) { LifeBoardColorTokens.foundationHairline },
-            Entry(legacyName: "foundationFocusRing", role: .actionFocus) { LifeBoardColorTokens.foundationFocusRing },
-            Entry(legacyName: "inkPrimary", role: .textPrimary) { LifeBoardColorTokens.inkPrimary },
-            Entry(legacyName: "inkSecondary", role: .textSecondary) { LifeBoardColorTokens.inkSecondary },
-            Entry(legacyName: "inkTertiary", role: .textTertiary) { LifeBoardColorTokens.inkTertiary },
+            Entry(legacyName: "foundationCanvas", role: .bgCanvas) { SemanticColorTokens.foundationCanvas },
+            Entry(legacyName: "foundationCanvasSoft", role: .bgCanvasSecondary) { SemanticColorTokens.foundationCanvasSoft },
+            Entry(legacyName: "foundationSurfaceRecessed", role: .surfaceSecondary) { SemanticColorTokens.foundationSurfaceRecessed },
+            Entry(legacyName: "foundationSurfaceSelected", role: .surfaceTertiary) { SemanticColorTokens.foundationSurfaceSelected },
+            Entry(legacyName: "foundationSurfaceSolid", role: .surfacePrimary) { SemanticColorTokens.foundationSurfaceSolid },
+            Entry(legacyName: "foundationSunAccent", role: .accentSecondary) { SemanticColorTokens.foundationSunAccent },
+            Entry(legacyName: "foundationApricotAccent", role: .accentSecondaryPressed) { SemanticColorTokens.foundationApricotAccent },
+            Entry(legacyName: "foundationDanger", role: .statusDanger) { SemanticColorTokens.foundationDanger },
+            Entry(legacyName: "foundationHairline", role: .strokeHairline) { SemanticColorTokens.foundationHairline },
+            Entry(legacyName: "foundationFocusRing", role: .actionFocus) { SemanticColorTokens.foundationFocusRing },
+            Entry(legacyName: "inkPrimary", role: .textPrimary) { SemanticColorTokens.inkPrimary },
+            Entry(legacyName: "inkSecondary", role: .textSecondary) { SemanticColorTokens.inkSecondary },
+            Entry(legacyName: "inkTertiary", role: .textTertiary) { SemanticColorTokens.inkTertiary },
 
             // Unmapped on purpose — no role expresses these, and inventing one
             // would be a design decision disguised as a refactor.
-            Entry(legacyName: "foundationCanvasMuted", role: nil) { LifeBoardColorTokens.foundationCanvasMuted },
-            Entry(legacyName: "foundationSageAccent", role: nil) { LifeBoardColorTokens.foundationSageAccent },
-            Entry(legacyName: "foundationOnCelestialAccent", role: nil) { LifeBoardColorTokens.foundationOnCelestialAccent },
-            Entry(legacyName: "foundationOnSettingsHero", role: nil) { LifeBoardColorTokens.foundationOnSettingsHero },
-            Entry(legacyName: "foundationSettingsHeroStart", role: nil) { LifeBoardColorTokens.foundationSettingsHeroStart },
-            Entry(legacyName: "foundationSettingsHeroMiddle", role: nil) { LifeBoardColorTokens.foundationSettingsHeroMiddle },
-            Entry(legacyName: "foundationSettingsHeroEnd", role: nil) { LifeBoardColorTokens.foundationSettingsHeroEnd },
-            Entry(legacyName: "foundationOnScenicDark", role: nil) { LifeBoardColorTokens.foundationOnScenicDark },
-            Entry(legacyName: "foundationOnScenicDarkSecondary", role: nil) { LifeBoardColorTokens.foundationOnScenicDarkSecondary },
-            Entry(legacyName: "foundationWarmShadow", role: nil) { LifeBoardColorTokens.foundationWarmShadow },
-            Entry(legacyName: "metricRingFill", role: nil) { LifeBoardColorTokens.metricRingFill },
-            Entry(legacyName: "metricRingTrack", role: nil) { LifeBoardColorTokens.metricRingTrack },
-            Entry(legacyName: "metricRingTrackProminent", role: nil) { LifeBoardColorTokens.metricRingTrackProminent },
-            Entry(legacyName: "warmMenuGlass", role: nil) { LifeBoardColorTokens.warmMenuGlass }
+            Entry(legacyName: "foundationCanvasMuted", role: nil) { SemanticColorTokens.foundationCanvasMuted },
+            Entry(legacyName: "foundationSageAccent", role: nil) { SemanticColorTokens.foundationSageAccent },
+            Entry(legacyName: "foundationOnCelestialAccent", role: nil) { SemanticColorTokens.foundationOnCelestialAccent },
+            Entry(legacyName: "foundationOnSettingsHero", role: nil) { SemanticColorTokens.foundationOnSettingsHero },
+            Entry(legacyName: "foundationSettingsHeroStart", role: nil) { SemanticColorTokens.foundationSettingsHeroStart },
+            Entry(legacyName: "foundationSettingsHeroMiddle", role: nil) { SemanticColorTokens.foundationSettingsHeroMiddle },
+            Entry(legacyName: "foundationSettingsHeroEnd", role: nil) { SemanticColorTokens.foundationSettingsHeroEnd },
+            Entry(legacyName: "foundationOnScenicDark", role: nil) { SemanticColorTokens.foundationOnScenicDark },
+            Entry(legacyName: "foundationOnScenicDarkSecondary", role: nil) { SemanticColorTokens.foundationOnScenicDarkSecondary },
+            Entry(legacyName: "foundationWarmShadow", role: nil) { SemanticColorTokens.foundationWarmShadow },
+            Entry(legacyName: "metricRingFill", role: nil) { SemanticColorTokens.metricRingFill },
+            Entry(legacyName: "metricRingTrack", role: nil) { SemanticColorTokens.metricRingTrack },
+            Entry(legacyName: "metricRingTrackProminent", role: nil) { SemanticColorTokens.metricRingTrackProminent },
+            Entry(legacyName: "warmMenuGlass", role: nil) { SemanticColorTokens.warmMenuGlass }
         ]
     }
 

@@ -21,14 +21,14 @@ struct CurrentTimeBubble: View {
                 .minimumScaleFactor(0.65)
                 .allowsTightening(true)
         }
-        .foregroundStyle(LBColorTokens.violetDeep)
-        .padding(.horizontal, LBSpacingTokens.xxs)
+        .foregroundStyle(ClayColorTokens.violetDeep)
+        .padding(.horizontal, ClayLayoutMetrics.xxs)
         .padding(.vertical, 5)
         .frame(maxWidth: .infinity)
-        .background(LBColorTokens.violetSoft.opacity(0.82), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(ClayColorTokens.violetSoft.opacity(0.82), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .stroke(LBColorTokens.violet, lineWidth: 1)
+                .stroke(ClayColorTokens.violet, lineWidth: 1)
         }
     }
 }

@@ -133,7 +133,7 @@ final class SpacingElevationCornerTests: XCTestCase {
 
     @MainActor
     func testLifeBoardTextFieldFocusRingUsesActionFocus() {
-        let textField = LifeBoardTextField(kind: .singleLine)
+        let textField = TokenTextField(kind: .singleLine)
         textField.sendActions(for: .editingDidBegin)
 
         XCTAssertEqual(textField.layer.borderWidth, 2)

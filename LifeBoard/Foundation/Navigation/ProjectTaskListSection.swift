@@ -46,7 +46,7 @@ struct ProjectTaskListSection: View {
                         if tasks.isEmpty {
                             Text("No tasks")
                                 .font(.caption)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                                 .frame(maxWidth: .infinity, minHeight: 70)
                         } else {
                             ForEach(tasks) { task in
@@ -79,7 +79,7 @@ struct ProjectTaskListSection: View {
                             .multilineTextAlignment(.leading)
                         Text(task.estimatedDuration.map(Self.durationLabel) ?? "No estimate")
                             .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     Spacer()
                 }
@@ -104,7 +104,7 @@ struct ProjectTaskListSection: View {
         }
         .padding(.horizontal, 12)
         .background(
-            Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+            Color(SemanticColorTokens.foundationSurfaceRecessed),
             in: RoundedRectangle(cornerRadius: 14, style: .continuous)
         )
     }
@@ -116,11 +116,11 @@ struct ProjectTaskListSection: View {
         }
     }
 
-    private func boardSections(_ snapshot: ProjectExecutionSnapshot) -> [LifeBoardProjectSection] {
+    private func boardSections(_ snapshot: ProjectExecutionSnapshot) -> [ProjectSectionDefinition] {
         var sections = snapshot.sections.sorted { $0.sortOrder < $1.sortOrder }
         if snapshot.tasks.contains(where: { snapshot.sectionIDByTaskID[$0.id] == nil }) {
             sections.append(
-                LifeBoardProjectSection(
+                ProjectSectionDefinition(
                     id: UUID(uuidString: "00000000-0000-0000-0000-000000000001")!,
                     projectID: projectID,
                     name: "Unsectioned",

@@ -115,14 +115,14 @@ struct SegmentedControl<Option: Hashable>: View {
                 } label: {
                     Text(title(option))
                         .font(.lifeboard(.callout).weight(.semibold))
-                        .foregroundStyle(selection == option ? LBColorTokens.violetDeep : LBColorTokens.navyMuted)
+                        .foregroundStyle(selection == option ? ClayColorTokens.violetDeep : ClayColorTokens.navyMuted)
                         .frame(maxWidth: .infinity)
                         .frame(minHeight: 50)
                         .background {
                             if selection == option {
                                 Capsule()
-                                    .fill(LBColorTokens.glassStrong)
-                                    .shadow(color: LBColorTokens.elevationShadow, radius: 12, x: 0, y: 6)
+                                    .fill(ClayColorTokens.glassStrong)
+                                    .shadow(color: ClayColorTokens.elevationShadow, radius: 12, x: 0, y: 6)
                             }
                         }
                 }
@@ -136,9 +136,9 @@ struct SegmentedControl<Option: Hashable>: View {
         .padding(3)
         .background {
             Capsule()
-                .fill(LBColorTokens.glass.opacity(0.66))
+                .fill(ClayColorTokens.glass.opacity(0.66))
                 .lifeBoardSystemGlass(.regular, in: Capsule(), interactive: true)
-                .overlay(Capsule().stroke(LBColorTokens.hairline.opacity(0.42), lineWidth: 1))
+                .overlay(Capsule().stroke(ClayColorTokens.hairline.opacity(0.42), lineWidth: 1))
         }
     }
 }

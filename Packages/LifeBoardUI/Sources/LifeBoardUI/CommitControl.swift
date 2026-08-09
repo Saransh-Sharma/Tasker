@@ -61,7 +61,7 @@ public struct CommitControl<Receipt: Equatable & Sendable>: View {
                 .frame(minHeight: Self.collapsedSide)
                 .frame(maxWidth: isCollapsed ? Self.collapsedSide : .infinity)
                 .background(background)
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
         }
         .buttonStyle(.plain)
         .disabled(isEnabled == false || isRunning)
@@ -168,12 +168,12 @@ public struct CommitControl<Receipt: Equatable & Sendable>: View {
         case .recoverableFailure:
             Color.lifeboard(.statusWarning)
         case .idle, .running, .cancelled:
-            Color(LifeBoardColorTokens.inkPrimary)
+            Color(SemanticColorTokens.inkPrimary)
         }
     }
 
     private var inverseInk: Color {
-        Color(LifeBoardColorTokens.foundationSurfaceSolid)
+        Color(SemanticColorTokens.foundationSurfaceSolid)
     }
 
     /// Collapsed only while the control is showing state rather than an

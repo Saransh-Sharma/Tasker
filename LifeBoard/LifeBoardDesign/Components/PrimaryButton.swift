@@ -7,19 +7,19 @@ struct PrimaryButton: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: LBSpacingTokens.xs) {
+            HStack(spacing: ClayLayoutMetrics.xs) {
                 if let systemImage {
                     Image(systemName: systemImage)
                 }
                 Text(title)
             }
-            .font(LBTypographyTokens.chip)
+            .font(ClayTypography.chip)
             .foregroundStyle(Color.lifeboard(.accentOnPrimary))
             .frame(minHeight: 48)
-            .padding(.horizontal, LBSpacingTokens.lg)
+            .padding(.horizontal, ClayLayoutMetrics.lg)
             .background {
                 LinearGradient(
-                    colors: [LBColorTokens.violetFill, LBColorTokens.violetFillDeep],
+                    colors: [ClayColorTokens.violetFill, ClayColorTokens.violetFillDeep],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
                 )

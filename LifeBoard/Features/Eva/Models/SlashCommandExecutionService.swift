@@ -62,14 +62,14 @@ struct SlashCommandExecutionService {
     }
 
     static func makeDefault() -> SlashCommandExecutionService? {
-        guard let taskReadModelRepository = LLMContextRepositoryProvider.taskReadModelRepository,
-              let projectRepository = LLMContextRepositoryProvider.projectRepository else {
+        guard let taskReadModelRepository = LLMContextRepositoryFactory.taskReadModelRepository,
+              let projectRepository = LLMContextRepositoryFactory.projectRepository else {
             return nil
         }
         return SlashCommandExecutionService(
             taskReadModelRepository: taskReadModelRepository,
             projectRepository: projectRepository,
-            lifeAreaRepository: LLMContextRepositoryProvider.lifeAreaRepository
+            lifeAreaRepository: LLMContextRepositoryFactory.lifeAreaRepository
         )
     }
 

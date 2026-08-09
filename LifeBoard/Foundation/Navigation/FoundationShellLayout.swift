@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -41,7 +41,7 @@ extension FoundationShell {
                 // of them to build, but "nothing" here is the system's white
                 // window backing, not the warm canvas. Laying the canvas under
                 // the stack means any gap reads as the app's own paper.
-                Color(LifeBoardColorTokens.foundationCanvas)
+                Color(SemanticColorTokens.foundationCanvas)
                     .ignoresSafeArea()
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
@@ -125,7 +125,7 @@ extension FoundationShell {
                         LinearGradient(
                             colors: [
                                 Color.clear,
-                                Color(LifeBoardColorTokens.foundationCanvas)
+                                Color(SemanticColorTokens.foundationCanvas)
                                     .opacity(HomeBottomBarVisibilityPolicy.chromeBackdropMaximumOpacity),
                                 Color.clear
                             ],
@@ -163,7 +163,7 @@ extension FoundationShell {
                             withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                                 router.activateRoot(destination)
                             }
-                            LifeBoardFeedback.selection()
+                            HapticFeedback.selection()
                         } label: {
                             VStack(spacing: 3) {
                                 Image(systemName: destination.systemImage)
@@ -181,14 +181,14 @@ extension FoundationShell {
                             }
                             .foregroundStyle(
                                 router.selectedDestination == destination
-                                    ? Color(LifeBoardColorTokens.inkPrimary)
-                                    : Color(LifeBoardColorTokens.inkSecondary)
+                                    ? Color(SemanticColorTokens.inkPrimary)
+                                    : Color(SemanticColorTokens.inkSecondary)
                             )
                             .frame(maxWidth: .infinity, minHeight: 52)
                             .background {
                                 if router.selectedDestination == destination {
                                     Capsule()
-                                        .fill(Color(LifeBoardColorTokens.foundationSurfaceSelected).opacity(0.9))
+                                        .fill(Color(SemanticColorTokens.foundationSurfaceSelected).opacity(0.9))
                                         .padding(.horizontal, 4)
                                         .padding(.vertical, 5)
                                         .matchedGeometryEffect(id: "foundation.dock.selection", in: dockSelectionNamespace)
@@ -219,8 +219,8 @@ extension FoundationShell {
                 )
                 .lifeBoardGlassSurface(cornerRadius: 30, interactive: true)
                 .lifeBoardGlassIdentity(.dockSelection)
-                .overlay { RoundedRectangle(cornerRadius: 30).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
-                .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.18), radius: 12, y: 6)
+                .overlay { RoundedRectangle(cornerRadius: 30).stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1) }
+                .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.18), radius: 12, y: 6)
             }
         }
     }
@@ -232,7 +232,7 @@ extension FoundationShell {
         // Where the floating composer is mounted it owns capture; a second
         // "+" in the header would offer the same tray twice.
         let headerOwnsCapture = showsFloatingComposer(for: destination) == false
-        return FoundationRootHeader(
+        return ScreenRootHeader(
             destination: destination,
             atmosphereSnapshot: atmosphereSnapshot,
             runtime: runtime,
@@ -373,12 +373,12 @@ extension FoundationShell {
                         .background {
                             if isSelected {
                                 Capsule(style: .continuous)
-                                    .fill(Color(LifeBoardColorTokens.foundationCanvasSoft).opacity(0.82))
+                                    .fill(Color(SemanticColorTokens.foundationCanvasSoft).opacity(0.82))
                             }
                         }
                 }
                 .buttonStyle(.plain)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .accessibilityIdentifier("foundation.expanded.destination.\(destination.rawValue)")
                 .accessibilityAddTraits(isSelected ? .isSelected : [])
                 .keyboardShortcut(
@@ -394,7 +394,7 @@ extension FoundationShell {
         .lifeBoardGlassSurface(cornerRadius: 24, interactive: true)
         .overlay {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
         }
         .padding(.horizontal, 20)
         .padding(.top, 4)

@@ -132,31 +132,31 @@ struct OverdueRescueSunriseHero: View {
 /// Every role now resolves from the canonical tokens, so the deck follows
 /// appearance, Increase Contrast and any future palette change for free.
 enum OverdueRescuePalette {
-    static let ink = Color(LifeBoardColorTokens.inkPrimary)
-    static let secondaryInk = Color(LifeBoardColorTokens.inkSecondary)
+    static let ink = Color(SemanticColorTokens.inkPrimary)
+    static let secondaryInk = Color(SemanticColorTokens.inkSecondary)
 
-    static let backgroundTop = Color(LifeBoardColorTokens.foundationCanvas)
-    static let backgroundMid = Color(LifeBoardColorTokens.foundationCanvasSoft)
-    static let backgroundBottom = Color(LifeBoardColorTokens.foundationCanvasMuted)
+    static let backgroundTop = Color(SemanticColorTokens.foundationCanvas)
+    static let backgroundMid = Color(SemanticColorTokens.foundationCanvasSoft)
+    static let backgroundBottom = Color(SemanticColorTokens.foundationCanvasMuted)
 
-    static let glassFill = Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.78)
-    static let glassStroke = Color(LifeBoardColorTokens.foundationHairline).opacity(0.62)
+    static let glassFill = Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.78)
+    static let glassStroke = Color(SemanticColorTokens.foundationHairline).opacity(0.62)
 
     /// Front task-card surface, on the canonical raised paper.
-    static let cardSurfaceTop = Color(LifeBoardColorTokens.foundationSurfaceSolid)
-    static let cardSurfaceBottom = Color(LifeBoardColorTokens.foundationCanvasSoft)
-    static let cardStroke = Color(LifeBoardColorTokens.foundationHairline)
+    static let cardSurfaceTop = Color(SemanticColorTokens.foundationSurfaceSolid)
+    static let cardSurfaceBottom = Color(SemanticColorTokens.foundationCanvasSoft)
+    static let cardStroke = Color(SemanticColorTokens.foundationHairline)
 
     /// Body copy inside the inner "needs a decision" box.
-    static let innerBody = Color(LifeBoardColorTokens.inkSecondary)
-    static let softShadow = Color(LifeBoardColorTokens.foundationWarmShadow)
-    static let progressTrack = Color(LifeBoardColorTokens.metricRingTrack)
+    static let innerBody = Color(SemanticColorTokens.inkSecondary)
+    static let softShadow = Color(SemanticColorTokens.foundationWarmShadow)
+    static let progressTrack = Color(SemanticColorTokens.metricRingTrack)
 
     /// The deck's primary action stays in the warm system. Assistant violet is
     /// reserved for Eva context and must not become a generic accent, and this
     /// is task triage rather than an assistant surface.
     static let accentPrimary = Color.lifeboard(.actionPrimary)
-    static let accentSoftFill = Color(LifeBoardColorTokens.foundationSurfaceSelected).opacity(0.82)
+    static let accentSoftFill = Color(SemanticColorTokens.foundationSurfaceSelected).opacity(0.82)
     static let accentSoftStroke = Color.lifeboard(.actionPrimary).opacity(0.26)
     static let accentGradient = LinearGradient(
         colors: [
@@ -178,8 +178,8 @@ enum OverdueRescuePalette {
 
     /// Edit was system blue, the one colour the redesign explicitly removes.
     /// It becomes a neutral ink action — editing is not a status.
-    static let editFill = Color(LifeBoardColorTokens.foundationSurfaceRecessed)
-    static let editForeground = Color(LifeBoardColorTokens.inkPrimary)
+    static let editFill = Color(SemanticColorTokens.foundationSurfaceRecessed)
+    static let editForeground = Color(SemanticColorTokens.inkPrimary)
 
     static let deleteFill = Color.lifeboard(.statusDanger).opacity(0.14)
     static let deleteForeground = Color.lifeboard(.statusDanger)
@@ -188,10 +188,10 @@ enum OverdueRescuePalette {
     /// reads as layered paper in whichever atmosphere is current.
     static func backCard(_ index: Int) -> Color {
         switch index {
-        case 0: return Color(LifeBoardColorTokens.foundationCanvasSoft)
-        case 1: return Color(LifeBoardColorTokens.foundationSurfaceRecessed)
-        case 2: return Color(LifeBoardColorTokens.foundationCanvasMuted)
-        default: return Color(LifeBoardColorTokens.foundationSurfaceSelected)
+        case 0: return Color(SemanticColorTokens.foundationCanvasSoft)
+        case 1: return Color(SemanticColorTokens.foundationSurfaceRecessed)
+        case 2: return Color(SemanticColorTokens.foundationCanvasMuted)
+        default: return Color(SemanticColorTokens.foundationSurfaceSelected)
         }
     }
 }

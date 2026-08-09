@@ -54,7 +54,7 @@ struct TaskDetailScreen: View {
     private let containerMode: TaskDetailContainerMode
     private let onSaveReflectionNote: SaveReflectionNoteHandler
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
     private var readableContentWidth: CGFloat { containerMode == .inspector && layoutClass == .padExpanded ? 900 : 760 }
 
     init(
@@ -356,7 +356,7 @@ struct TaskDetailScreen: View {
             isExpanded: $showRefine,
             accessibilityID: "taskDetail.disclosure.details",
             onToggle: {
-                LifeBoardFeedback.light()
+                HapticFeedback.light()
                 withAnimation(LifeBoardAnimation.stateChange) { showRefine.toggle() }
             }
         ) {
@@ -592,7 +592,7 @@ struct TaskDetailScreen: View {
             isExpanded: expandedSections.contains(section),
             accessibilityIdentifier: accessibilityIdentifier
         ) {
-            LifeBoardFeedback.light()
+            HapticFeedback.light()
             withAnimation(LifeBoardAnimation.stateChange) {
                 toggle(section)
             }
@@ -726,9 +726,9 @@ struct TaskDetailScreen: View {
     private var sunriseBackground: some View {
         LinearGradient(
             colors: [
-                LBColorTokens.warmCanvas,
-                LBColorTokens.canvas,
-                LBColorTokens.coolCanvas
+                ClayColorTokens.warmCanvas,
+                ClayColorTokens.canvas,
+                ClayColorTokens.coolCanvas
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -831,13 +831,13 @@ struct TaskDetailScreen: View {
     private func taskFitStyle(for classification: TaskFitClassification) -> (symbol: String, tint: Color, fill: Color, stroke: Color) {
         switch classification {
         case .fit:
-            let role = LBColorTokens.role(.task)
+            let role = ClayColorTokens.role(.task)
             return ("checkmark.circle.fill", DetailTonePalette.successText, role.softSurface, role.border)
         case .tight:
-            let role = LBColorTokens.role(.warning)
+            let role = ClayColorTokens.role(.warning)
             return ("exclamationmark.triangle.fill", DetailTonePalette.warningText, role.softSurface, role.border)
         case .conflict:
-            let role = LBColorTokens.role(.error)
+            let role = ClayColorTokens.role(.error)
             return ("xmark.octagon.fill", DetailTonePalette.dangerText, role.softSurface, role.border)
         case .unknown:
             return ("questionmark.circle.fill", Color.lifeboard.textSecondary, Color.lifeboard.surfaceSecondary, Color.lifeboard.strokeHairline)
@@ -869,7 +869,7 @@ struct TaskDetailScreen: View {
     }
 
     private func promptDeleteTask() {
-        LifeBoardFeedback.warning()
+        HapticFeedback.warning()
         if viewModel.persistedTask.recurrenceSeriesID != nil {
             showDeleteScopeDialog = true
         } else {
@@ -882,7 +882,7 @@ struct TaskDetailScreen: View {
             Task { @MainActor in
                 switch result {
                 case .success:
-                    LifeBoardFeedback.success()
+                    HapticFeedback.success()
                     dismiss()
                 case .failure(let error):
                     viewModel.autosaveState = .failed(error.localizedDescription)
@@ -909,7 +909,7 @@ private struct TaskDetailHeroMetricRow: View {
 
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @Environment(\.lifeboardTokens) private var tokens
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     var body: some View {
         ViewThatFits(in: .horizontal) {

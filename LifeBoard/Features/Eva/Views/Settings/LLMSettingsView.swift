@@ -11,7 +11,7 @@ struct LLMSettingsView: View {
     var showsCloseButton: Bool = false
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 
@@ -92,7 +92,7 @@ struct LLMSettingsView: View {
     }
 
     private var evaIdentityCard: some View {
-        LifeBoardCard {
+        SurfaceCard {
             HStack(alignment: .center, spacing: spacing.s12) {
                 EvaMascotView(placement: .settingsIdentity, size: .inline)
                 VStack(alignment: .leading, spacing: spacing.s4) {
@@ -146,7 +146,7 @@ struct LLMSettingsView: View {
             .padding(.top, spacing.sectionGap)
 
             VStack(spacing: spacing.cardStackVertical) {
-                LifeBoardCard {
+                SurfaceCard {
                     NavigationLink {
                         ChatsSettingsView(currentThread: $currentThread)
                             .environmentObject(appManager)
@@ -167,7 +167,7 @@ struct LLMSettingsView: View {
                 }
                 .enhancedStaggeredAppearance(index: baseIndex + 1)
 
-                LifeBoardCard(active: memoryItemCount > 0) {
+                SurfaceCard(active: memoryItemCount > 0) {
                     NavigationLink {
                         LLMPersonalMemorySettingsView()
                     } label: {
@@ -200,7 +200,7 @@ struct LLMSettingsView: View {
             .enhancedStaggeredAppearance(index: baseIndex)
             .padding(.top, spacing.sectionGap)
 
-            LifeBoardCard {
+            SurfaceCard {
                 NavigationLink {
                     ModelsSettingsView()
                         .environmentObject(appManager)
@@ -235,7 +235,7 @@ struct LLMSettingsView: View {
             .enhancedStaggeredAppearance(index: baseIndex)
             .padding(.top, spacing.sectionGap)
 
-            LifeBoardCard {
+            SurfaceCard {
                 NavigationLink {
                     LLMDataPrivacySettingsView(currentThread: $currentThread)
                 } label: {
@@ -306,7 +306,7 @@ struct LLMPersonalMemorySettingsView: View {
     @Environment(\.lifeboardTokens) private var tokens
     @StateObject private var assistantIdentity = AssistantIdentityModel()
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 
@@ -457,7 +457,7 @@ struct LLMDataPrivacySettingsView: View {
     @StateObject private var assistantIdentity = AssistantIdentityModel()
     @Binding var currentThread: Thread?
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         tokens.spacing
     }
 

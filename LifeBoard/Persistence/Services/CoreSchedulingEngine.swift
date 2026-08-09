@@ -1,3 +1,5 @@
+import LifeBoardContracts
+import LifeBoardDomain
 import Foundation
 
 public final class CoreSchedulingService: SchedulingEngineProtocol, BehaviorScheduleResolving, @unchecked Sendable {

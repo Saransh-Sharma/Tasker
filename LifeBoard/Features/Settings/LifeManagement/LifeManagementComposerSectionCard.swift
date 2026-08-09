@@ -9,7 +9,7 @@ struct LifeManagementComposerSectionCard<Content: View>: View {
 
     @Environment(\.lifeboardTokens) private var tokens
 
-    var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    var spacing: SemanticSpacingTokens { tokens.spacing }
 
     init(
         title: String,

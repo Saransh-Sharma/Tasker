@@ -1,6 +1,6 @@
 import CoreData
 import Foundation
-import JournalFoundation
+import LifeBoardDomain
 import UserNotifications
 
 struct TrackerReminderRequest: Equatable, Sendable {
@@ -614,7 +614,7 @@ public final class CoreDataLifeBoardPhaseIIRepository: PhaseIIRepository, Journa
     ) -> JournalDerivedPipelineCoordinator {
         JournalDerivedPipelineCoordinator(
             derivedIndex: derivedIndex,
-            graphStore: LifeBoardKnowledgeGraphStore(container: container),
+            graphStore: JournalKnowledgeGraphStoreAdapter(container: container),
             snapshotProvider: { [weak self] in
                 guard let self else { return [] }
                 return try await self

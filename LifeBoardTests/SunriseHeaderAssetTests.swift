@@ -464,7 +464,7 @@ final class SunriseHeaderAssetTests: XCTestCase {
 
         XCTAssertTrue(rows.contains { $0.id == "anchor-sleep" })
         // Assistant gap prompts were removed from the timeline in the polish pass.
-        XCTAssertEqual(LBColorTokens.role(.windDown).symbolName, "moon.stars.fill")
+        XCTAssertEqual(ClayColorTokens.role(.windDown).symbolName, "moon.stars.fill")
     }
 
     func testTemporalStateMarksPastCurrentAndFutureRows() {
@@ -639,9 +639,9 @@ final class SunriseHeaderAssetTests: XCTestCase {
 
     #if canImport(UIKit)
     func testSunriseTokensResolveDarkModeGlassAwayFromNearWhite() {
-        let darkGlass = resolvedColor(LBColorTokens.glass, style: .dark)
-        let darkStrongGlass = resolvedColor(LBColorTokens.glassStrong, style: .dark)
-        let darkCanvas = resolvedColor(LBColorTokens.canvas, style: .dark)
+        let darkGlass = resolvedColor(ClayColorTokens.glass, style: .dark)
+        let darkStrongGlass = resolvedColor(ClayColorTokens.glassStrong, style: .dark)
+        let darkCanvas = resolvedColor(ClayColorTokens.canvas, style: .dark)
 
         XCTAssertLessThan(relativeLuminance(darkGlass), 0.04)
         XCTAssertLessThan(relativeLuminance(darkStrongGlass), 0.06)
@@ -652,22 +652,22 @@ final class SunriseHeaderAssetTests: XCTestCase {
     }
 
     func testSunriseDarkModeTextAndDockContrast() {
-        let darkCanvas = resolvedColor(LBColorTokens.canvas, style: .dark)
-        let darkGlassStrong = resolvedColor(LBColorTokens.glassStrong, style: .dark)
+        let darkCanvas = resolvedColor(ClayColorTokens.canvas, style: .dark)
+        let darkGlassStrong = resolvedColor(ClayColorTokens.glassStrong, style: .dark)
         let primaryText = resolvedColor(Color.lifeboard(.textPrimary), style: .dark)
         let secondaryText = resolvedColor(Color.lifeboard(.textSecondary), style: .dark)
-        let selectedDockText = resolvedColor(LBColorTokens.violetDeep, style: .dark)
-        let selectedDockFill = resolvedColor(LBColorTokens.violetSoft, style: .dark)
+        let selectedDockText = resolvedColor(ClayColorTokens.violetDeep, style: .dark)
+        let selectedDockFill = resolvedColor(ClayColorTokens.violetSoft, style: .dark)
 
         XCTAssertGreaterThan(contrastRatio(primaryText, darkCanvas), 12.0)
         XCTAssertGreaterThan(contrastRatio(secondaryText, darkGlassStrong), 7.0)
         XCTAssertGreaterThan(contrastRatio(selectedDockText, selectedDockFill), 6.0)
 
-        for role in [LBRole.task, .meeting, .warning, .error, .neutral] {
-            let style = LBColorTokens.role(role)
+        for role in [ClayRole.task, .meeting, .warning, .error, .neutral] {
+            let style = ClayColorTokens.role(role)
             XCTAssertGreaterThan(
                 contrastRatio(
-                    resolvedColor(LBColorTokens.navy, style: .dark),
+                    resolvedColor(ClayColorTokens.navy, style: .dark),
                     resolvedColor(style.softSurface, style: .dark)
                 ),
                 7.0,
@@ -677,10 +677,10 @@ final class SunriseHeaderAssetTests: XCTestCase {
     }
 
     func testSunriseIncreasedContrastStrengthensDarkSeparators() {
-        let normalHairline = resolvedColor(LBColorTokens.hairline, style: .dark)
-        let highContrastHairline = resolvedColor(LBColorTokens.hairline, style: .dark, contrast: .high)
-        let normalGlass = resolvedColor(LBColorTokens.glassStrong, style: .dark)
-        let highContrastGlass = resolvedColor(LBColorTokens.glassStrong, style: .dark, contrast: .high)
+        let normalHairline = resolvedColor(ClayColorTokens.hairline, style: .dark)
+        let highContrastHairline = resolvedColor(ClayColorTokens.hairline, style: .dark, contrast: .high)
+        let normalGlass = resolvedColor(ClayColorTokens.glassStrong, style: .dark)
+        let highContrastGlass = resolvedColor(ClayColorTokens.glassStrong, style: .dark, contrast: .high)
 
         XCTAssertGreaterThan(relativeLuminance(highContrastHairline), relativeLuminance(normalHairline))
         XCTAssertGreaterThan(alphaComponent(highContrastGlass), alphaComponent(normalGlass))
@@ -920,8 +920,8 @@ final class EvaClayStyleTests: XCTestCase {
         let darkCream = resolvedColor(EvaClayStyle.cream, style: .dark)
         let darkPeach = resolvedColor(EvaClayStyle.peachSurfaceStrong, style: .dark)
         let darkBlue = resolvedColor(EvaClayStyle.blueSurfaceStrong, style: .dark)
-        let primaryText = resolvedColor(LBColorTokens.navy, style: .dark)
-        let secondaryText = resolvedColor(LBColorTokens.navyMuted, style: .dark)
+        let primaryText = resolvedColor(ClayColorTokens.navy, style: .dark)
+        let secondaryText = resolvedColor(ClayColorTokens.navyMuted, style: .dark)
 
         XCTAssertLessThan(relativeLuminance(darkCanvas), 0.02)
         XCTAssertLessThan(relativeLuminance(darkCream), 0.08)
@@ -969,9 +969,9 @@ final class EvaClayStyleTests: XCTestCase {
 final class HabitDetailStyleTests: XCTestCase {
     func testHabitDetailBackgroundStopsResolveDark() {
         let darkStops = [
-            resolvedColor(LBColorTokens.warmCanvas, style: .dark),
-            resolvedColor(LBColorTokens.canvas, style: .dark),
-            resolvedColor(LBColorTokens.coolCanvas, style: .dark)
+            resolvedColor(ClayColorTokens.warmCanvas, style: .dark),
+            resolvedColor(ClayColorTokens.canvas, style: .dark),
+            resolvedColor(ClayColorTokens.coolCanvas, style: .dark)
         ]
 
         for stop in darkStops {
@@ -1020,14 +1020,14 @@ final class TaskDetailStyleTests: XCTestCase {
 
     func testTaskDetailBackgroundStopsResolveDark() {
         let darkStops = [
-            resolvedColor(LBColorTokens.warmCanvas, style: .dark),
-            resolvedColor(LBColorTokens.canvas, style: .dark),
-            resolvedColor(LBColorTokens.coolCanvas, style: .dark)
+            resolvedColor(ClayColorTokens.warmCanvas, style: .dark),
+            resolvedColor(ClayColorTokens.canvas, style: .dark),
+            resolvedColor(ClayColorTokens.coolCanvas, style: .dark)
         ]
         let highContrastDarkStops = [
-            resolvedColor(LBColorTokens.warmCanvas, style: .dark, contrast: .high),
-            resolvedColor(LBColorTokens.canvas, style: .dark, contrast: .high),
-            resolvedColor(LBColorTokens.coolCanvas, style: .dark, contrast: .high)
+            resolvedColor(ClayColorTokens.warmCanvas, style: .dark, contrast: .high),
+            resolvedColor(ClayColorTokens.canvas, style: .dark, contrast: .high),
+            resolvedColor(ClayColorTokens.coolCanvas, style: .dark, contrast: .high)
         ]
         let primaryText = resolvedColor(Color.lifeboard(.textPrimary), style: .dark)
         let highContrastPrimaryText = resolvedColor(Color.lifeboard(.textPrimary), style: .dark, contrast: .high)
@@ -1079,7 +1079,7 @@ final class TaskDetailStyleTests: XCTestCase {
                 resolvedColor(Color.lifeboard(.accentWash).opacity(0.92), style: traits.style, contrast: traits.contrast),
                 over: surfacePrimary
             )
-            let successMetricFill = resolvedColor(LBColorTokens.role(.task).softSurface, style: traits.style, contrast: traits.contrast)
+            let successMetricFill = resolvedColor(ClayColorTokens.role(.task).softSurface, style: traits.style, contrast: traits.contrast)
             let editorRowFill = composited(
                 resolvedColor(Color.lifeboard(.surfaceSecondary).opacity(0.72), style: traits.style, contrast: traits.contrast),
                 over: surfacePrimary
@@ -1103,9 +1103,9 @@ final class TaskDetailStyleTests: XCTestCase {
             let dangerText = resolvedColor(DetailTonePalette.dangerText, style: traits.style, contrast: traits.contrast)
             let accentFill = resolvedColor(Color.lifeboard(.accentWash), style: traits.style, contrast: traits.contrast)
             let quietFill = resolvedColor(Color.lifeboard(.surfaceSecondary), style: traits.style, contrast: traits.contrast)
-            let successFill = resolvedColor(LBColorTokens.role(.task).softSurface, style: traits.style, contrast: traits.contrast)
-            let warningFill = resolvedColor(LBColorTokens.role(.warning).softSurface, style: traits.style, contrast: traits.contrast)
-            let dangerFill = resolvedColor(LBColorTokens.role(.error).softSurface, style: traits.style, contrast: traits.contrast)
+            let successFill = resolvedColor(ClayColorTokens.role(.task).softSurface, style: traits.style, contrast: traits.contrast)
+            let warningFill = resolvedColor(ClayColorTokens.role(.warning).softSurface, style: traits.style, contrast: traits.contrast)
+            let dangerFill = resolvedColor(ClayColorTokens.role(.error).softSurface, style: traits.style, contrast: traits.contrast)
 
             XCTAssertGreaterThan(contrastRatio(accentText, accentFill), 4.0)
             XCTAssertGreaterThan(contrastRatio(quietText, quietFill), 4.5)

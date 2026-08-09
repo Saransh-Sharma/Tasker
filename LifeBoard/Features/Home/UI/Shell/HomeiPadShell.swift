@@ -257,7 +257,7 @@ struct SunriseiPadSplitShellView: View {
     @StateObject private var primarySurfaceMonitor = HomeiPadPrimarySurfaceMonitor()
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    private var spacing: LifeBoardSpacingTokens {
+    private var spacing: SemanticSpacingTokens {
         ThemeStore.shared.tokens(for: layoutClass).spacing
     }
 

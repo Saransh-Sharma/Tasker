@@ -210,7 +210,7 @@ struct SettingsSetupStatusCard: View {
 
             ForEach(status.visibleItems) { item in
                 Button {
-                    LifeBoardFeedback.light()
+                    HapticFeedback.light()
                     onNavigate(item.route)
                 } label: {
                     HStack(spacing: SwiftUITokens.spacing.s12) {
@@ -304,7 +304,7 @@ private struct SettingsCategoryButton: View {
 
     var body: some View {
         Button {
-            LifeBoardFeedback.light()
+            HapticFeedback.light()
             bloomTrigger &+= 1
             if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) {
                 onNavigate(route)

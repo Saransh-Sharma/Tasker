@@ -61,13 +61,13 @@ struct SearchFaceView<ResultsContent: View>: View {
             bottomInset: 0,
             topContentInset: topContentInset
         ) {
-            VStack(spacing: LBSpacingTokens.md) {
+            VStack(spacing: ClayLayoutMetrics.md) {
                 searchChrome
 
                 GeometryReader { proxy in
                     ScrollView(.vertical, showsIndicators: false) {
                         bodyContent(availableHeight: proxy.size.height)
-                            .padding(.bottom, bottomInset + LBSpacingTokens.lg)
+                            .padding(.bottom, bottomInset + ClayLayoutMetrics.lg)
                     }
                     .scrollDismissesKeyboard(.interactively)
                     .accessibilityIdentifier("search.contentContainer")
@@ -91,7 +91,7 @@ struct SearchFaceView<ResultsContent: View>: View {
     }
 
     private var searchChrome: some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.sm) {
             SearchHeaderView(
                 query: $query,
                 isFocused: _isFocused,
@@ -117,7 +117,7 @@ struct SearchFaceView<ResultsContent: View>: View {
             accessibilityIdentifier: { "search.mode.\($0.rawValue)" },
             action: { mode in
                 commandMode = mode
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
             }
         )
     }
@@ -133,7 +133,7 @@ struct SearchFaceView<ResultsContent: View>: View {
                 accessibilityIdentifier: "search.filter.more"
             ) {
                 showsAdvancedFilters = true
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
             }
         ]
     }
@@ -168,7 +168,7 @@ struct SearchFaceView<ResultsContent: View>: View {
             )
             .frame(maxWidth: .infinity, minHeight: max(availableHeight - bottomInset, 260), alignment: .top)
         } else {
-            VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+            VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
                 if shouldShowAskEvaRow {
                     CommandSearchAskEvaRow(
                         query: trimmedQuery,
@@ -179,7 +179,7 @@ struct SearchFaceView<ResultsContent: View>: View {
 
                 Text(resultCount == 1 ? "1 result" : "\(resultCount) results")
                     .font(.lifeboard(.caption1).weight(.semibold))
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
                     .accessibilityIdentifier("search.resultsSummary")
 
                 resultsContent
@@ -228,12 +228,12 @@ private struct CommandSearchDefaultState: View {
     let onAskEva: (String) -> Void
 
     var body: some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
             Text("Suggested commands")
                 .font(.lifeboard(.headline).weight(.semibold))
-                .foregroundStyle(LBColorTokens.navy)
+                .foregroundStyle(ClayColorTokens.navy)
 
-            LazyVStack(spacing: LBSpacingTokens.sm) {
+            LazyVStack(spacing: ClayLayoutMetrics.sm) {
                 ForEach(suggestions) { suggestion in
                     CommandSearchSuggestionRow(suggestion: suggestion) {
                         onRunSuggestion(suggestion)
@@ -244,17 +244,17 @@ private struct CommandSearchDefaultState: View {
             if recentSearches.isEmpty == false {
                 Text("Recent")
                     .font(.lifeboard(.headline).weight(.semibold))
-                    .foregroundStyle(LBColorTokens.navy)
-                    .padding(.top, LBSpacingTokens.xs)
+                    .foregroundStyle(ClayColorTokens.navy)
+                    .padding(.top, ClayLayoutMetrics.xs)
 
-                LazyVStack(spacing: LBSpacingTokens.xs) {
+                LazyVStack(spacing: ClayLayoutMetrics.xs) {
                     ForEach(recentSearches, id: \.self) { search in
                         Button {
                             onAskEva(search)
                         } label: {
                             Label(search, systemImage: "clock.arrow.circlepath")
                                 .font(.lifeboard(.callout))
-                                .foregroundStyle(LBColorTokens.navySoft)
+                                .foregroundStyle(ClayColorTokens.navySoft)
                                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         }
                         .buttonStyle(.plain)
@@ -271,20 +271,20 @@ private struct CommandSearchSuggestionRow: View {
 
     var body: some View {
         Button(action: action) {
-            HStack(spacing: LBSpacingTokens.sm) {
+            HStack(spacing: ClayLayoutMetrics.sm) {
                 Image(systemName: suggestion.symbol)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.violetDeep)
+                    .foregroundStyle(ClayColorTokens.violetDeep)
                     .frame(width: 42, height: 42)
-                    .background(LBColorTokens.violetSoft, in: Circle())
+                    .background(ClayColorTokens.violetSoft, in: Circle())
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(suggestion.title)
                         .font(.lifeboard(.headline).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
                     Text(suggestion.context)
                         .font(.lifeboard(.caption1))
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                         .lineLimit(2)
                 }
 
@@ -292,18 +292,18 @@ private struct CommandSearchSuggestionRow: View {
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.textTertiary)
+                    .foregroundStyle(ClayColorTokens.textTertiary)
             }
-            .padding(LBSpacingTokens.md)
+            .padding(ClayLayoutMetrics.md)
             .frame(maxWidth: .infinity, minHeight: 78, alignment: .leading)
         }
         .buttonStyle(.plain)
         .accessibilityIdentifier("search.suggestion.\(suggestion.rawValue)")
         .background {
             RoundedRectangle(cornerRadius: 22, style: .continuous)
-                .fill(LBColorTokens.glassStrong.opacity(0.82))
+                .fill(ClayColorTokens.glassStrong.opacity(0.82))
                 .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(LBColorTokens.glassBorder, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(ClayColorTokens.glassBorder, lineWidth: 1))
         }
         .accessibilityElement(children: .combine)
     }
@@ -316,36 +316,36 @@ private struct CommandSearchAskEvaRow: View {
 
     var body: some View {
         Button(action: onAsk) {
-            HStack(spacing: LBSpacingTokens.sm) {
+            HStack(spacing: ClayLayoutMetrics.sm) {
                 Image(systemName: isSlashCommand ? "terminal" : "sparkles")
                     .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.violetDeep)
+                    .foregroundStyle(ClayColorTokens.violetDeep)
                     .frame(width: 44, height: 44)
-                    .background(LBColorTokens.violetSoft, in: Circle())
+                    .background(ClayColorTokens.violetSoft, in: Circle())
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(isSlashCommand ? "Run command" : "Ask Eva")
                         .font(.lifeboard(.headline).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
                     Text(query)
                         .font(.lifeboard(.callout))
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                         .lineLimit(2)
                 }
 
                 Spacer()
                 Image(systemName: "arrow.up.right")
                     .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.textTertiary)
+                    .foregroundStyle(ClayColorTokens.textTertiary)
             }
-            .padding(LBSpacingTokens.md)
+            .padding(ClayLayoutMetrics.md)
         }
         .buttonStyle(.plain)
         .background {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(LBColorTokens.glassStrong.opacity(0.86))
+                .fill(ClayColorTokens.glassStrong.opacity(0.86))
                 .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(LBColorTokens.violet.opacity(0.30), lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(ClayColorTokens.violet.opacity(0.30), lineWidth: 1))
         }
         .accessibilityIdentifier("search.askEvaRow")
         .accessibilityElement(children: .combine)
@@ -380,24 +380,24 @@ struct SearchResultsSurface<Content: View>: View {
     @ViewBuilder let content: Content
 
     var body: some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
             Color.clear
                 .frame(height: 0)
                 .accessibilityIdentifier("search.resultsList")
 
             content
         }
-        .padding(LBSpacingTokens.md)
+        .padding(ClayLayoutMetrics.md)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(LBColorTokens.glass.opacity(0.74))
+                .fill(ClayColorTokens.glass.opacity(0.74))
                 .background(Color.lifeboard(.surfacePrimary), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .overlay(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
-                        .stroke(LBColorTokens.glassBorder, lineWidth: 1)
+                        .stroke(ClayColorTokens.glassBorder, lineWidth: 1)
                 )
-                .shadow(color: LBColorTokens.elevationShadow, radius: 16, x: 0, y: 9)
+                .shadow(color: ClayColorTokens.elevationShadow, radius: 16, x: 0, y: 9)
         }
     }
 }
@@ -407,26 +407,26 @@ struct HomeSearchCommandResultHeader: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: LBSpacingTokens.xs) {
+            HStack(spacing: ClayLayoutMetrics.xs) {
                 Image(systemName: result.command.symbol)
                     .font(.system(size: 14, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.violetDeep)
+                    .foregroundStyle(ClayColorTokens.violetDeep)
                     .accessibilityHidden(true)
 
                 Text(result.title)
                     .font(.lifeboard(.headline).weight(.semibold))
-                    .foregroundStyle(LBColorTokens.navy)
+                    .foregroundStyle(ClayColorTokens.navy)
 
                 Spacer(minLength: 0)
 
                 Text(result.resultCount == 1 ? "1 result" : "\(result.resultCount) results")
                     .font(.lifeboard(.caption2).weight(.semibold))
-                    .foregroundStyle(LBColorTokens.navyMuted)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
             }
 
             Text(result.subtitle)
                 .font(.lifeboard(.caption1))
-                .foregroundStyle(LBColorTokens.navyMuted)
+                .foregroundStyle(ClayColorTokens.navyMuted)
                 .lineLimit(2)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -440,22 +440,22 @@ struct HomeSearchHabitResultRow: View {
 
     var body: some View {
         Button(action: onOpen) {
-            HStack(spacing: LBSpacingTokens.sm) {
+            HStack(spacing: ClayLayoutMetrics.sm) {
                 Image(systemName: row.iconSymbolName)
                     .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.violetDeep)
+                    .foregroundStyle(ClayColorTokens.violetDeep)
                     .frame(width: 40, height: 40)
-                    .background(LBColorTokens.violetSoft, in: Circle())
+                    .background(ClayColorTokens.violetSoft, in: Circle())
                     .accessibilityHidden(true)
 
                 VStack(alignment: .leading, spacing: 3) {
                     Text(row.title)
                         .font(.lifeboard(.headline).weight(.semibold))
-                        .foregroundStyle(LBColorTokens.navy)
+                        .foregroundStyle(ClayColorTokens.navy)
 
                     Text(subtitle)
                         .font(.lifeboard(.caption1))
-                        .foregroundStyle(LBColorTokens.navyMuted)
+                        .foregroundStyle(ClayColorTokens.navyMuted)
                         .lineLimit(2)
                 }
 
@@ -463,17 +463,17 @@ struct HomeSearchHabitResultRow: View {
 
                 Image(systemName: "chevron.right")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(LBColorTokens.textTertiary)
+                    .foregroundStyle(ClayColorTokens.textTertiary)
                     .accessibilityHidden(true)
             }
-            .padding(LBSpacingTokens.sm)
+            .padding(ClayLayoutMetrics.sm)
             .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
         }
         .buttonStyle(.plain)
         .background {
             RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(LBColorTokens.glassStrong.opacity(0.68))
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(LBColorTokens.glassBorder, lineWidth: 1))
+                .fill(ClayColorTokens.glassStrong.opacity(0.68))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(ClayColorTokens.glassBorder, lineWidth: 1))
         }
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("search.habitResult.\(row.id)")
@@ -509,14 +509,14 @@ private struct CommandSearchAdvancedFilterSheet: View {
     var body: some View {
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: LBSpacingTokens.lg) {
+                VStack(alignment: .leading, spacing: ClayLayoutMetrics.lg) {
                     filterSection(title: "Status", chips: statusChips)
                     filterSection(title: "Priority", chips: priorityChips)
                     filterSection(title: "Type", chips: typeChips)
                     filterSection(title: "Date", chips: dateChips)
                     filterSection(title: "Category", chips: projectChips.isEmpty ? categoryFallbackChips : projectChips)
                 }
-                .padding(LBSpacingTokens.screenMargin)
+                .padding(ClayLayoutMetrics.screenMargin)
             }
             .navigationTitle("Refine search")
             .toolbar {
@@ -532,10 +532,10 @@ private struct CommandSearchAdvancedFilterSheet: View {
     }
 
     private func filterSection(title: String, chips: [SearchFilterChipDescriptor]) -> some View {
-        VStack(alignment: .leading, spacing: LBSpacingTokens.sm) {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.sm) {
             Text(title)
                 .font(.lifeboard(.headline).weight(.semibold))
-                .foregroundStyle(LBColorTokens.navy)
+                .foregroundStyle(ClayColorTokens.navy)
             FlexibleChipWrap(chips: chips)
         }
     }
@@ -548,7 +548,7 @@ private struct CommandSearchAdvancedFilterSheet: View {
                 isSelected: title == "Tasks",
                 tintColor: Color.lifeboard.accentSecondary,
                 accessibilityIdentifier: "search.type.\(title.lowercased())",
-                action: { LifeBoardFeedback.selection() }
+                action: { HapticFeedback.selection() }
             )
         }
     }
@@ -561,7 +561,7 @@ private struct CommandSearchAdvancedFilterSheet: View {
                 isSelected: false,
                 tintColor: Color.lifeboard.accentPrimary,
                 accessibilityIdentifier: "search.date.\(title.lowercased().replacingOccurrences(of: " ", with: ""))",
-                action: { LifeBoardFeedback.selection() }
+                action: { HapticFeedback.selection() }
             )
         }
     }
@@ -574,7 +574,7 @@ private struct CommandSearchAdvancedFilterSheet: View {
                 isSelected: false,
                 tintColor: Color.lifeboard.accentSecondary,
                 accessibilityIdentifier: "search.category.\(title.lowercased())",
-                action: { LifeBoardFeedback.selection() }
+                action: { HapticFeedback.selection() }
             )
         }
     }
@@ -584,9 +584,9 @@ private struct FlexibleChipWrap: View {
     let chips: [SearchFilterChipDescriptor]
 
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: LBSpacingTokens.sm)], alignment: .leading, spacing: LBSpacingTokens.sm) {
+        LazyVGrid(columns: [GridItem(.adaptive(minimum: 104), spacing: ClayLayoutMetrics.sm)], alignment: .leading, spacing: ClayLayoutMetrics.sm) {
             ForEach(chips) { chip in
-                LifeBoardFilterChip(
+                FilterChip(
                     title: chip.title,
                     systemImage: chip.systemImage,
                     count: chip.count,

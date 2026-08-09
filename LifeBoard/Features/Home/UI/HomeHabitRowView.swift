@@ -51,7 +51,7 @@ private struct HomeHabitRowInteractiveButton<Label: View>: View {
         func play() {
             switch self {
             case .selection:
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
             }
         }
     }
@@ -175,7 +175,7 @@ struct HomeHabitRowView: View {
     @Environment(\.lifeboardScrollOptimizedRendering) private var scrollOptimizedRendering
     @State private var measuredStreakWidth: CGFloat = 0
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     private var family: HabitColorFamily {
         HabitColorFamily.family(for: row.accentHex, fallback: row.kind == .positive ? .green : .coral)

@@ -19,7 +19,7 @@ struct InsightsTrendsSection: View {
             if resolved.dailyCounts.count > 1 {
                 let chart = TrendChart(
                     points: resolved.dailyCounts,
-                    tint: Color(LifeBoardColorTokens.foundationApricotAccent),
+                    tint: Color(SemanticColorTokens.foundationApricotAccent),
                     unit: "records"
                 )
                 chart.frame(height: 150)

@@ -31,7 +31,7 @@ struct PlanCanvasCommitmentCard: View {
             )
             .font(.caption2).lineLimit(1)
         }
-        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
         .padding(.horizontal, compact ? 5 : 9)
         .frame(
             width: max(1, width),
@@ -40,11 +40,11 @@ struct PlanCanvasCommitmentCard: View {
         )
         .background(
             conflict
-                ? Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.20)
-                : Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                ? Color(SemanticColorTokens.foundationApricotAccent).opacity(0.20)
+                : Color(SemanticColorTokens.foundationSurfaceRecessed),
             in: RoundedRectangle(cornerRadius: 10, style: .continuous)
         )
-        .overlay { RoundedRectangle(cornerRadius: 10).stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1) }
+        .overlay { RoundedRectangle(cornerRadius: 10).stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1) }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(commitment.title), \(PlanSectionCopy.time(commitment.startAt)) to \(PlanSectionCopy.time(commitment.endAt))\(conflict ? ", conflicts with another item" : "")")
     }

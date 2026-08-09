@@ -24,7 +24,7 @@ import Lottie
 /// bump `trigger` to fire.
 struct CelebrationBurst: View {
     let trigger: Int
-    var tint: Color = LBColorTokens.leaf
+    var tint: Color = ClayColorTokens.leaf
 
     @State private var firedAt: Date?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -225,7 +225,7 @@ extension View {
     /// Overlays a one-shot celebration burst; bump `trigger` to fire.
     /// Reserve for event-gated moments (first completion of the day,
     /// streak milestones) — not every interaction.
-    func lbCelebrationBurst(trigger: Int, tint: Color = LBColorTokens.leaf) -> some View {
+    func lbCelebrationBurst(trigger: Int, tint: Color = ClayColorTokens.leaf) -> some View {
         overlay(CelebrationBurst(trigger: trigger, tint: tint))
     }
 

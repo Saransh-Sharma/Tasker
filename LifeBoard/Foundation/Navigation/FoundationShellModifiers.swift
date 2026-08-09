@@ -1,6 +1,6 @@
 import SwiftUI
 import SwiftData
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import VisionKit
 
@@ -112,7 +112,7 @@ struct ShellSheets: ViewModifier {
                                 ProgressView()
                                 Text("Preparing voice capture…")
                                     .font(.subheadline)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .navigationTitle("Voice note")

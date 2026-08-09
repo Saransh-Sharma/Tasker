@@ -6,7 +6,7 @@ struct HomeTimelineSnapshotProjectionInput {
     let now: Date
     let calendar: Calendar
     let currentMinuteStamp: Int
-    let sunriseAnchor: SunriseAnchor
+    let sunriseAnchor: HomeScrollAnchor
     let calendarSnapshot: HomeCalendarSnapshot
     let workspacePreferences: WorkspacePreferences
     let hiddenCalendarEvents: [HomeTimelineHiddenCalendarEventKey]

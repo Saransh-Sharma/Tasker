@@ -11,7 +11,7 @@ struct NeedsReplanLauncherSheet: View {
     let onStart: () -> Void
     let onLater: () -> Void
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     private var corner: CornerTokens { ThemeStore.shared.currentTheme.tokens.corner }
 
     var body: some View {
@@ -81,7 +81,7 @@ struct NeedsReplanLauncherSheet: View {
             }
 
             Button(action: {
-                LifeBoardFeedback.selection()
+                HapticFeedback.selection()
                 onStart()
             }) {
                 Label(summary.launcherPrimaryActionTitle, systemImage: summary.count == 0 ? "plus.circle.fill" : "arrow.triangle.2.circlepath")
@@ -97,7 +97,7 @@ struct NeedsReplanLauncherSheet: View {
 
             HStack {
                 Button("Later") {
-                    LifeBoardFeedback.light()
+                    HapticFeedback.light()
                     onLater()
                 }
                     .font(.lifeboard(.body).weight(.semibold))

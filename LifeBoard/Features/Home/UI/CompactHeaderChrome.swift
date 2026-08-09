@@ -15,7 +15,7 @@ struct CompactHeaderChrome: View {
     let onOpenReflection: () -> Void
     let onOpenSettings: () -> Void
 
-    private var spacing: LifeBoardSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.lifeboardTokens) private var tokens
@@ -324,7 +324,7 @@ struct CompactHeaderChrome: View {
 
     private var reflectionButton: some View {
         Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             onOpenReflection()
         } label: {
             Text(presentation.reflectionCTATitle)
@@ -345,7 +345,7 @@ struct CompactHeaderChrome: View {
                 ForEach(HomeQuickView.allCases, id: \.rawValue) { quickView in
                     Button {
                         onSelectQuickView(quickView)
-                        LifeBoardFeedback.selection()
+                        HapticFeedback.selection()
                     } label: {
                         HStack {
                             Label(quickView.title, systemImage: iconName(for: quickView))
