@@ -8,7 +8,7 @@ struct HomeTimelineSnapshotProjectionInput {
     let currentMinuteStamp: Int
     let sunriseAnchor: SunriseAnchor
     let calendarSnapshot: HomeCalendarSnapshot
-    let workspacePreferences: LifeBoardWorkspacePreferences
+    let workspacePreferences: WorkspacePreferences
     let hiddenCalendarEvents: [HomeTimelineHiddenCalendarEventKey]
     let pinnedFocusTaskIDs: [UUID]
     let needsReplanCandidates: [HomeReplanCandidate]
@@ -17,7 +17,7 @@ struct HomeTimelineSnapshotProjectionInput {
     let taskIndexByID: [UUID: TaskDefinition]
     let projects: [Project]
     let lifeAreas: [LifeArea]
-    let calendarWeekAgenda: [LifeBoardCalendarDayAgenda]
+    let calendarWeekAgenda: [CalendarDayAgenda]
 }
 
 // Compatibility alias retained while older Home call sites migrate to the
@@ -380,7 +380,7 @@ struct HomeTimelineProjectionBuilder {
         )
     }
 
-    private func timelinePlanItem(from event: LifeBoardCalendarEventSnapshot) -> TimelinePlanItem {
+    private func timelinePlanItem(from event: CalendarEventSnapshot) -> TimelinePlanItem {
         TimelinePlanItem(
             id: "event:\(event.id)",
             source: .calendarEvent,
@@ -407,7 +407,7 @@ struct HomeTimelineProjectionBuilder {
 
     private func resolvedTimelineAnchorWindow(
         on day: Date,
-        preferences: LifeBoardWorkspacePreferences,
+        preferences: WorkspacePreferences,
         calendar: Calendar
     ) -> (wake: Date, sleep: Date) {
         let fallbackWake = timelineAnchorTime(on: day, hour: 5, minute: 0, calendar: calendar)
@@ -766,7 +766,7 @@ struct HomeTimelineProjectionBuilder {
         return "\(roundedMinutes)m remaining"
     }
 
-    private func timelineIsMeetingLikeEvent(_ event: LifeBoardCalendarEventSnapshot) -> Bool {
+    private func timelineIsMeetingLikeEvent(_ event: CalendarEventSnapshot) -> Bool {
         let normalized = "\(event.title) \(event.calendarTitle)".lowercased()
         if normalized.contains("google meet") || normalized.contains("slack huddle") {
             return true

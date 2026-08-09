@@ -1,11 +1,11 @@
 import Foundation
 import UserNotifications
 
-public enum LifeBoardNotificationRuntime {
+public enum NotificationCoordinator {
     private final class Storage: @unchecked Sendable {
         private let lock = NSLock()
         private var orchestratorStorage: TaskNotificationOrchestrator?
-        private var actionHandlerStorage: LifeBoardNotificationActionHandler?
+        private var actionHandlerStorage: NotificationActionUseCase?
 
         var orchestrator: TaskNotificationOrchestrator? {
             get {
@@ -20,7 +20,7 @@ public enum LifeBoardNotificationRuntime {
             }
         }
 
-        var actionHandler: LifeBoardNotificationActionHandler? {
+        var actionHandler: NotificationActionUseCase? {
             get {
                 lock.lock()
                 defer { lock.unlock() }
@@ -41,7 +41,7 @@ public enum LifeBoardNotificationRuntime {
         set { storage.orchestrator = newValue }
     }
 
-    public static var actionHandler: LifeBoardNotificationActionHandler? {
+    public static var actionHandler: NotificationActionUseCase? {
         get { storage.actionHandler }
         set { storage.actionHandler = newValue }
     }
@@ -62,7 +62,7 @@ public final class LocalNotificationService: NotificationServiceProtocol, @unche
     /// Executes scheduleTaskReminder.
     public func scheduleTaskReminder(taskId: UUID, taskName: String, at date: Date) {
         schedule(
-            request: LifeBoardLocalNotificationRequest(
+            request: LocalNotificationRequest(
                 id: "task.reminder.\(taskId.uuidString)",
                 kind: .taskReminder,
                 title: "Task Reminder",
@@ -119,9 +119,9 @@ public final class LocalNotificationService: NotificationServiceProtocol, @unche
     }
 
     /// Executes fetchAuthorizationStatus.
-    public func fetchAuthorizationStatus(completion: @escaping @Sendable (LifeBoardNotificationAuthorizationStatus) -> Void) {
+    public func fetchAuthorizationStatus(completion: @escaping @Sendable (NotificationAuthorizationStatus) -> Void) {
         center.getNotificationSettings { settings in
-            let mapped: LifeBoardNotificationAuthorizationStatus
+            let mapped: NotificationAuthorizationStatus
             switch settings.authorizationStatus {
             case .notDetermined:
                 mapped = .notDetermined
@@ -141,7 +141,7 @@ public final class LocalNotificationService: NotificationServiceProtocol, @unche
     }
 
     /// Executes schedule.
-    public func schedule(request: LifeBoardLocalNotificationRequest) {
+    public func schedule(request: LocalNotificationRequest) {
         let content = UNMutableNotificationContent()
         content.title = request.title
         content.body = request.body
@@ -150,11 +150,11 @@ public final class LocalNotificationService: NotificationServiceProtocol, @unche
         content.threadIdentifier = request.kind.rawValue
 
         var userInfo = request.userInfo
-        userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.kind] = request.kind.rawValue
-        userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.route] = request.route.payload
-        userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.fireDateUnix] = String(Int(request.fireDate.timeIntervalSince1970.rounded()))
+        userInfo[LocalNotificationRequest.UserInfoKey.kind] = request.kind.rawValue
+        userInfo[LocalNotificationRequest.UserInfoKey.route] = request.route.payload
+        userInfo[LocalNotificationRequest.UserInfoKey.fireDateUnix] = String(Int(request.fireDate.timeIntervalSince1970.rounded()))
         if let taskID = request.taskID {
-            userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.taskID] = taskID.uuidString
+            userInfo[LocalNotificationRequest.UserInfoKey.taskID] = taskID.uuidString
         }
         content.userInfo = userInfo
 
@@ -192,21 +192,21 @@ public final class LocalNotificationService: NotificationServiceProtocol, @unche
     }
 
     /// Executes pendingRequests.
-    public func pendingRequests(completion: @escaping @Sendable ([LifeBoardPendingNotificationRequest]) -> Void) {
+    public func pendingRequests(completion: @escaping @Sendable ([PendingNotificationRequest]) -> Void) {
         center.getPendingNotificationRequests { requests in
             let now = Date()
-            let mapped = requests.map { request -> LifeBoardPendingNotificationRequest in
-                let persistedFireDateRaw = request.content.userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.fireDateUnix] as? String
+            let mapped = requests.map { request -> PendingNotificationRequest in
+                let persistedFireDateRaw = request.content.userInfo[LocalNotificationRequest.UserInfoKey.fireDateUnix] as? String
                 let persistedFireDate = persistedFireDateRaw
                     .flatMap(TimeInterval.init)
                     .map(Date.init(timeIntervalSince1970:))
                 let fireDate = persistedFireDate ?? Self.resolveFireDate(from: request.trigger, now: now)
-                let kindRaw = request.content.userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.kind] as? String
-                let kind = kindRaw.flatMap(LifeBoardLocalNotificationKind.init(rawValue:))
-                let routePayload = request.content.userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.route] as? String
-                let taskIDRaw = request.content.userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.taskID] as? String
+                let kindRaw = request.content.userInfo[LocalNotificationRequest.UserInfoKey.kind] as? String
+                let kind = kindRaw.flatMap(LocalNotificationKind.init(rawValue:))
+                let routePayload = request.content.userInfo[LocalNotificationRequest.UserInfoKey.route] as? String
+                let taskIDRaw = request.content.userInfo[LocalNotificationRequest.UserInfoKey.taskID] as? String
                 let taskID = taskIDRaw.flatMap(UUID.init(uuidString:))
-                return LifeBoardPendingNotificationRequest(
+                return PendingNotificationRequest(
                     id: request.identifier,
                     fireDate: fireDate,
                     kind: kind,
@@ -263,69 +263,69 @@ public final class LocalNotificationService: NotificationServiceProtocol, @unche
     }
 }
 
-public enum LifeBoardNotificationCategories {
+public enum NotificationCategories {
     public static func all() -> Set<UNNotificationCategory> {
         let openAction = UNNotificationAction(
-            identifier: LifeBoardNotificationActionID.open.rawValue,
+            identifier: NotificationActionID.open.rawValue,
             title: "Open",
             options: [.foreground]
         )
         let completeAction = UNNotificationAction(
-            identifier: LifeBoardNotificationActionID.complete.rawValue,
+            identifier: NotificationActionID.complete.rawValue,
             title: "Complete",
             options: []
         )
         let snooze15Action = UNNotificationAction(
-            identifier: LifeBoardNotificationActionID.snooze15m.rawValue,
+            identifier: NotificationActionID.snooze15m.rawValue,
             title: "Snooze 15m",
             options: []
         )
         let taskCategory = UNNotificationCategory(
-            identifier: LifeBoardNotificationCategoryID.taskActionable.rawValue,
+            identifier: NotificationCategoryID.taskActionable.rawValue,
             actions: [openAction, completeAction, snooze15Action],
             intentIdentifiers: [],
             options: []
         )
 
         let openTodayAction = UNNotificationAction(
-            identifier: LifeBoardNotificationActionID.openToday.rawValue,
+            identifier: NotificationActionID.openToday.rawValue,
             title: "Open Today",
             options: [.foreground]
         )
         let planWeekAction = UNNotificationAction(
-            identifier: LifeBoardNotificationActionID.openWeeklyPlanner.rawValue,
+            identifier: NotificationActionID.openWeeklyPlanner.rawValue,
             title: "Plan Week",
             options: [.foreground]
         )
         let snooze30Action = UNNotificationAction(
-            identifier: LifeBoardNotificationActionID.snooze30m.rawValue,
+            identifier: NotificationActionID.snooze30m.rawValue,
             title: "Snooze 30m",
             options: []
         )
         let morningCategory = UNNotificationCategory(
-            identifier: LifeBoardNotificationCategoryID.dailyMorning.rawValue,
+            identifier: NotificationCategoryID.dailyMorning.rawValue,
             actions: [openTodayAction, planWeekAction, snooze30Action],
             intentIdentifiers: [],
             options: []
         )
 
         let openDoneAction = UNNotificationAction(
-            identifier: LifeBoardNotificationActionID.openDone.rawValue,
+            identifier: NotificationActionID.openDone.rawValue,
             title: "Open Done",
             options: [.foreground]
         )
         let reviewWeekAction = UNNotificationAction(
-            identifier: LifeBoardNotificationActionID.openWeeklyReview.rawValue,
+            identifier: NotificationActionID.openWeeklyReview.rawValue,
             title: "Review Week",
             options: [.foreground]
         )
         let snooze60Action = UNNotificationAction(
-            identifier: LifeBoardNotificationActionID.snooze60m.rawValue,
+            identifier: NotificationActionID.snooze60m.rawValue,
             title: "Snooze 60m",
             options: []
         )
         let nightlyCategory = UNNotificationCategory(
-            identifier: LifeBoardNotificationCategoryID.dailyNightly.rawValue,
+            identifier: NotificationCategoryID.dailyNightly.rawValue,
             actions: [openDoneAction, reviewWeekAction, snooze60Action],
             intentIdentifiers: [],
             options: []
@@ -335,16 +335,16 @@ public enum LifeBoardNotificationCategories {
     }
 }
 
-public final class LifeBoardNotificationRouteBus: @unchecked Sendable {
+public final class NotificationRouteBus: @unchecked Sendable {
     public static let routeDidChange = Notification.Name("LifeBoardNotificationRouteDidChange")
-    public static let shared = LifeBoardNotificationRouteBus()
+    public static let shared = NotificationRouteBus()
 
-    private var pendingRoute: LifeBoardNotificationRoute?
+    private var pendingRoute: NotificationRoute?
     private let lock = NSLock()
 
     private init() {}
 
-    public func post(route: LifeBoardNotificationRoute) {
+    public func post(route: NotificationRoute) {
         lock.lock()
         pendingRoute = route
         lock.unlock()
@@ -355,7 +355,7 @@ public final class LifeBoardNotificationRouteBus: @unchecked Sendable {
         )
     }
 
-    public func consumePendingRoute() -> LifeBoardNotificationRoute? {
+    public func consumePendingRoute() -> NotificationRoute? {
         lock.lock()
         defer { lock.unlock() }
         let route = pendingRoute
@@ -365,11 +365,11 @@ public final class LifeBoardNotificationRouteBus: @unchecked Sendable {
 }
 
 /// Notification action bridge. Dependencies are immutable and callbacks are hopped back to the main actor.
-public final class LifeBoardNotificationActionHandler: @unchecked Sendable {
+public final class NotificationActionUseCase: @unchecked Sendable {
     private let notificationService: NotificationServiceProtocol
     private let coordinatorProvider: () -> UseCaseCoordinator?
-    private let routeBus: LifeBoardNotificationRouteBus
-    private let preferencesStore: LifeBoardNotificationPreferencesStore
+    private let routeBus: NotificationRouteBus
+    private let preferencesStore: NotificationPreferencesStore
     private let calendar: Calendar
     private let now: () -> Date
     private let actionCompletionTimeoutSeconds: TimeInterval = 4
@@ -378,8 +378,8 @@ public final class LifeBoardNotificationActionHandler: @unchecked Sendable {
     public init(
         notificationService: NotificationServiceProtocol,
         coordinatorProvider: @escaping () -> UseCaseCoordinator?,
-        routeBus: LifeBoardNotificationRouteBus = .shared,
-        preferencesStore: LifeBoardNotificationPreferencesStore = .shared,
+        routeBus: NotificationRouteBus = .shared,
+        preferencesStore: NotificationPreferencesStore = .shared,
         calendar: Calendar = .current,
         now: @escaping () -> Date = Date.init
     ) {
@@ -413,7 +413,7 @@ public final class LifeBoardNotificationActionHandler: @unchecked Sendable {
             return
         }
 
-        guard let action = LifeBoardNotificationActionID(rawValue: identifier) else {
+        guard let action = NotificationActionID(rawValue: identifier) else {
             finish()
             return
         }
@@ -487,7 +487,7 @@ public final class LifeBoardNotificationActionHandler: @unchecked Sendable {
 
     private func snooze(request: UNNotificationRequest, minutes: Int) {
         let currentKind = kind(from: request)
-        let kind: LifeBoardLocalNotificationKind
+        let kind: LocalNotificationKind
         switch currentKind {
         case .morningPlan, .snoozedMorning:
             kind = .snoozedMorning
@@ -504,7 +504,7 @@ public final class LifeBoardNotificationActionHandler: @unchecked Sendable {
         let requestID = "task.snooze.\(request.identifier).\(Int(fireDate.timeIntervalSince1970))"
 
         notificationService.schedule(
-            request: LifeBoardLocalNotificationRequest(
+            request: LocalNotificationRequest(
                 id: requestID,
                 kind: kind,
                 title: request.content.title,
@@ -527,18 +527,18 @@ public final class LifeBoardNotificationActionHandler: @unchecked Sendable {
     }
 
     private func taskID(from request: UNNotificationRequest) -> UUID? {
-        let raw = request.content.userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.taskID] as? String
+        let raw = request.content.userInfo[LocalNotificationRequest.UserInfoKey.taskID] as? String
         return raw.flatMap(UUID.init(uuidString:))
     }
 
-    private func kind(from request: UNNotificationRequest) -> LifeBoardLocalNotificationKind {
-        let raw = request.content.userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.kind] as? String
-        return raw.flatMap(LifeBoardLocalNotificationKind.init(rawValue:)) ?? .taskReminder
+    private func kind(from request: UNNotificationRequest) -> LocalNotificationKind {
+        let raw = request.content.userInfo[LocalNotificationRequest.UserInfoKey.kind] as? String
+        return raw.flatMap(LocalNotificationKind.init(rawValue:)) ?? .taskReminder
     }
 
-    private func routeFrom(request: UNNotificationRequest) -> LifeBoardNotificationRoute {
-        let payload = request.content.userInfo[LifeBoardLocalNotificationRequest.UserInfoKey.route] as? String
-        return LifeBoardNotificationRoute.from(
+    private func routeFrom(request: UNNotificationRequest) -> NotificationRoute {
+        let payload = request.content.userInfo[LocalNotificationRequest.UserInfoKey.route] as? String
+        return NotificationRoute.from(
             payload: payload ?? "home_today",
             fallbackTaskID: taskID(from: request)
         )
@@ -564,7 +564,7 @@ public final class LifeBoardNotificationActionHandler: @unchecked Sendable {
         }
     }
 
-    private func adjustedSnoozeFireDate(_ fireDate: Date, for kind: LifeBoardLocalNotificationKind) -> Date {
+    private func adjustedSnoozeFireDate(_ fireDate: Date, for kind: LocalNotificationKind) -> Date {
         let preferences = preferencesStore.load()
         guard preferences.quietHoursEnabled else { return fireDate }
         guard shouldApplyQuietHoursToSnooze(kind: kind, preferences: preferences) else { return fireDate }
@@ -573,8 +573,8 @@ public final class LifeBoardNotificationActionHandler: @unchecked Sendable {
     }
 
     private func shouldApplyQuietHoursToSnooze(
-        kind: LifeBoardLocalNotificationKind,
-        preferences: LifeBoardNotificationPreferences
+        kind: LocalNotificationKind,
+        preferences: NotificationPreferences
     ) -> Bool {
         switch kind {
         case .snoozedTask:
@@ -586,7 +586,7 @@ public final class LifeBoardNotificationActionHandler: @unchecked Sendable {
         }
     }
 
-    private func isDateInQuietHours(_ date: Date, preferences: LifeBoardNotificationPreferences) -> Bool {
+    private func isDateInQuietHours(_ date: Date, preferences: NotificationPreferences) -> Bool {
         let startMinutes = preferences.quietHoursStartHour * 60 + preferences.quietHoursStartMinute
         let endMinutes = preferences.quietHoursEndHour * 60 + preferences.quietHoursEndMinute
         guard startMinutes != endMinutes else { return false }
@@ -601,7 +601,7 @@ public final class LifeBoardNotificationActionHandler: @unchecked Sendable {
         return currentMinutes >= startMinutes || currentMinutes < endMinutes
     }
 
-    private func nextAllowedDate(after date: Date, preferences: LifeBoardNotificationPreferences) -> Date {
+    private func nextAllowedDate(after date: Date, preferences: NotificationPreferences) -> Date {
         let startMinutes = preferences.quietHoursStartHour * 60 + preferences.quietHoursStartMinute
         let endMinutes = preferences.quietHoursEndHour * 60 + preferences.quietHoursEndMinute
         guard startMinutes != endMinutes else { return date }
@@ -638,7 +638,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
     private let taskRepository: TaskDefinitionRepositoryProtocol
     private let notificationService: NotificationServiceProtocol
     private let gamificationRepository: GamificationRepositoryProtocol?
-    private let preferencesStore: LifeBoardNotificationPreferencesStore
+    private let preferencesStore: NotificationPreferencesStore
     private let calendar: Calendar
     private let now: () -> Date
     private let dayLoopClosureLog: DayLoopClosureLog
@@ -666,7 +666,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         taskRepository: TaskDefinitionRepositoryProtocol,
         notificationService: NotificationServiceProtocol,
         gamificationRepository: GamificationRepositoryProtocol? = nil,
-        preferencesStore: LifeBoardNotificationPreferencesStore = .shared,
+        preferencesStore: NotificationPreferencesStore = .shared,
         calendar: Calendar = .current,
         now: @escaping () -> Date = Date.init,
         reconcileDebounceInterval: TimeInterval = 0,
@@ -752,7 +752,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         pendingReconcileReasons.removeAll()
         pendingReconcileWorkItem = nil
 
-        let interval = LifeBoardPerformanceTrace.begin("NotificationReconcile")
+        let interval = PerformanceTrace.begin("NotificationReconcile")
         let mergedReason = reasons.joined(separator: ",")
         taskRepository.fetchAll(query: nil) { [weak self] result in
             guard let self else { return }
@@ -766,11 +766,11 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
                         "error": error.localizedDescription
                     ]
                 )
-                LifeBoardPerformanceTrace.end(interval)
+                PerformanceTrace.end(interval)
                 self.completeReconcileCycle()
             case .success(let tasks):
                 self.applyReconciliation(tasks: tasks, reason: mergedReason) {
-                    LifeBoardPerformanceTrace.end(interval)
+                    PerformanceTrace.end(interval)
                     self.completeReconcileCycle()
                 }
             }
@@ -806,12 +806,12 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
                 preferences: preferences,
                 exactDailyXPByDateKey: exactDailyXPByDateKey
             )
-            let desiredByID = desired.reduce(into: [String: LifeBoardLocalNotificationRequest]()) { partialResult, request in
+            let desiredByID = desired.reduce(into: [String: LocalNotificationRequest]()) { partialResult, request in
                 partialResult[request.id] = request
             }
 
             self.notificationService.pendingRequests { pending in
-                let pendingByID = pending.reduce(into: [String: LifeBoardPendingNotificationRequest]()) { partialResult, request in
+                let pendingByID = pending.reduce(into: [String: PendingNotificationRequest]()) { partialResult, request in
                     partialResult[request.id] = request
                 }
 
@@ -865,8 +865,8 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
 
         let startOfToday = calendar.startOfDay(for: nowDate)
         let endDate = calendar.date(byAdding: .day, value: 2, to: startOfToday) ?? startOfToday
-        let startKey = XPCalculationEngine.periodKey(for: startOfToday)
-        let endKey = XPCalculationEngine.periodKey(for: endDate)
+        let startKey = XPCalculationService.periodKey(for: startOfToday)
+        let endKey = XPCalculationService.periodKey(for: endDate)
 
         gamificationRepository.fetchDailyAggregates(from: startKey, to: endKey) { result in
             switch result {
@@ -887,11 +887,11 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
     private func desiredRequests(
         tasks: [TaskDefinition],
         nowDate: Date,
-        preferences: LifeBoardNotificationPreferences,
+        preferences: NotificationPreferences,
         exactDailyXPByDateKey: [String: Int] = [:]
-    ) -> [LifeBoardLocalNotificationRequest] {
+    ) -> [LocalNotificationRequest] {
         let openTasks = tasks.filter { !$0.isComplete }
-        var requests: [LifeBoardLocalNotificationRequest] = []
+        var requests: [LocalNotificationRequest] = []
 
         if preferences.taskRemindersEnabled {
             requests.append(contentsOf: makeTaskReminders(tasks: openTasks, nowDate: nowDate))
@@ -917,7 +917,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         return quietHoursAdjusted.filter { $0.fireDate > nowDate }
     }
 
-    private func makeTaskReminders(tasks: [TaskDefinition], nowDate: Date) -> [LifeBoardLocalNotificationRequest] {
+    private func makeTaskReminders(tasks: [TaskDefinition], nowDate: Date) -> [LocalNotificationRequest] {
         tasks.compactMap { task in
             guard let reminderTime = task.alertReminderTime, reminderTime > nowDate else {
                 return nil
@@ -931,7 +931,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
                 body = "\"\(task.title)\" is waiting for you."
             }
 
-            return LifeBoardLocalNotificationRequest(
+            return LocalNotificationRequest(
                 id: "task.reminder.\(task.id.uuidString)",
                 kind: .taskReminder,
                 title: "Task Reminder",
@@ -946,8 +946,8 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
     private func makeDueSoonNotifications(
         tasks: [TaskDefinition],
         nowDate: Date,
-        preferences: LifeBoardNotificationPreferences
-    ) -> [LifeBoardLocalNotificationRequest] {
+        preferences: NotificationPreferences
+    ) -> [LocalNotificationRequest] {
         let horizon = nowDate.addingTimeInterval(120 * 60)
         let candidates = tasks.filter { task in
             guard let dueDate = task.dueDate else { return false }
@@ -977,7 +977,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         }
 
         return [
-            LifeBoardLocalNotificationRequest(
+            LocalNotificationRequest(
                 id: "task.dueSoon.\(primaryTask.id.uuidString).\(stamp)",
                 kind: .dueSoon,
                 title: "Due Soon",
@@ -989,7 +989,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         ]
     }
 
-    private func makeOverdueNotifications(tasks: [TaskDefinition], nowDate: Date) -> [LifeBoardLocalNotificationRequest] {
+    private func makeOverdueNotifications(tasks: [TaskDefinition], nowDate: Date) -> [LocalNotificationRequest] {
         let startOfToday = calendar.startOfDay(for: nowDate)
         let overdueTasks = tasks
             .filter { task in
@@ -1009,7 +1009,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
 
         let slots: [(suffix: String, hour: Int)] = [("am", 10), ("pm", 16)]
         let offsets = [0, 1]
-        return offsets.flatMap { offset -> [LifeBoardLocalNotificationRequest] in
+        return offsets.flatMap { offset -> [LocalNotificationRequest] in
             guard let day = calendar.date(byAdding: .day, value: offset, to: startOfToday) else {
                 return []
             }
@@ -1020,7 +1020,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
                 else {
                     return nil
                 }
-                return LifeBoardLocalNotificationRequest(
+                return LocalNotificationRequest(
                     id: "task.overdue.\(primary.id.uuidString).\(stamp).\(slot.suffix)",
                     kind: .overdue,
                     title: "Overdue Task",
@@ -1036,8 +1036,8 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
     private func makeMorningAgendaNotifications(
         tasks: [TaskDefinition],
         nowDate: Date,
-        preferences: LifeBoardNotificationPreferences
-    ) -> [LifeBoardLocalNotificationRequest] {
+        preferences: NotificationPreferences
+    ) -> [LocalNotificationRequest] {
         makeDailyNotifications(
             prefix: "daily.morning",
             kind: .morningPlan,
@@ -1053,9 +1053,9 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
     private func makeNightlyRetrospectiveNotifications(
         tasks: [TaskDefinition],
         nowDate: Date,
-        preferences: LifeBoardNotificationPreferences,
+        preferences: NotificationPreferences,
         exactDailyXPByDateKey: [String: Int]
-    ) -> [LifeBoardLocalNotificationRequest] {
+    ) -> [LocalNotificationRequest] {
         let closedStamps = dayLoopClosureLog.closedStamps()
         return makeDailyNotifications(
             prefix: "daily.nightly",
@@ -1075,13 +1075,13 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
 
     private func makeDailyNotifications(
         prefix: String,
-        kind: LifeBoardLocalNotificationKind,
+        kind: LocalNotificationKind,
         title: String,
         nowDate: Date,
         hour: Int,
         minute: Int,
         bodyBuilder: (Date, String) -> String
-    ) -> [LifeBoardLocalNotificationRequest] {
+    ) -> [LocalNotificationRequest] {
         let startOfToday = calendar.startOfDay(for: nowDate)
         let offsets = [0, 1, 2]
 
@@ -1094,11 +1094,11 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
             }
 
             let dateStamp = dateStamp(for: day)
-            let summaryKind: LifeBoardDailySummaryKind = (kind == .nightlyRetrospective) ? .nightly : .morning
+            let summaryKind: DailySummaryKind = (kind == .nightlyRetrospective) ? .nightly : .morning
             let compassFlow: DayCompassFlow = (summaryKind == .nightly) ? .eveningReview : .morningPlan
-            let route: LifeBoardNotificationRoute = .dayCompass(flow: compassFlow, dateStamp: dateStamp)
+            let route: NotificationRoute = .dayCompass(flow: compassFlow, dateStamp: dateStamp)
 
-            return LifeBoardLocalNotificationRequest(
+            return LocalNotificationRequest(
                 id: "\(prefix).\(dateStamp)",
                 kind: kind,
                 title: title,
@@ -1182,7 +1182,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         stampFormatter.string(from: date)
     }
 
-    private func fingerprint(for request: LifeBoardLocalNotificationRequest) -> NotificationFingerprint {
+    private func fingerprint(for request: LocalNotificationRequest) -> NotificationFingerprint {
         NotificationFingerprint(
             kind: request.kind.rawValue,
             fireDateSecond: Int(request.fireDate.timeIntervalSince1970.rounded()),
@@ -1194,7 +1194,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         )
     }
 
-    private func fingerprint(for request: LifeBoardPendingNotificationRequest) -> NotificationFingerprint {
+    private func fingerprint(for request: PendingNotificationRequest) -> NotificationFingerprint {
         NotificationFingerprint(
             kind: request.kind?.rawValue ?? "",
             fireDateSecond: request.fireDate.map { Int($0.timeIntervalSince1970.rounded()) },
@@ -1227,10 +1227,10 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
     }
 
     private func applyQuietHours(
-        to requests: [LifeBoardLocalNotificationRequest],
+        to requests: [LocalNotificationRequest],
         nowDate: Date,
-        preferences: LifeBoardNotificationPreferences
-    ) -> [LifeBoardLocalNotificationRequest] {
+        preferences: NotificationPreferences
+    ) -> [LocalNotificationRequest] {
         guard preferences.quietHoursEnabled else { return requests }
 
         return requests.map { request in
@@ -1243,7 +1243,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
             let adjustedDate = nextAllowedDate(after: request.fireDate, nowDate: nowDate, preferences: preferences)
             guard adjustedDate != request.fireDate else { return request }
 
-            return LifeBoardLocalNotificationRequest(
+            return LocalNotificationRequest(
                 id: request.id,
                 kind: request.kind,
                 title: request.title,
@@ -1259,8 +1259,8 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
     }
 
     private func shouldApplyQuietHours(
-        for kind: LifeBoardLocalNotificationKind,
-        preferences: LifeBoardNotificationPreferences
+        for kind: LocalNotificationKind,
+        preferences: NotificationPreferences
     ) -> Bool {
         switch kind {
         case .taskReminder, .dueSoon, .overdue, .snoozedTask:
@@ -1270,7 +1270,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
         }
     }
 
-    private func isDateInQuietHours(_ date: Date, preferences: LifeBoardNotificationPreferences) -> Bool {
+    private func isDateInQuietHours(_ date: Date, preferences: NotificationPreferences) -> Bool {
         let startMinutes = preferences.quietHoursStartHour * 60 + preferences.quietHoursStartMinute
         let endMinutes = preferences.quietHoursEndHour * 60 + preferences.quietHoursEndMinute
         guard startMinutes != endMinutes else { return false }
@@ -1288,7 +1288,7 @@ public final class TaskNotificationOrchestrator: @unchecked Sendable {
     private func nextAllowedDate(
         after date: Date,
         nowDate: Date,
-        preferences: LifeBoardNotificationPreferences
+        preferences: NotificationPreferences
     ) -> Date {
         let startMinutes = preferences.quietHoursStartHour * 60 + preferences.quietHoursStartMinute
         let endMinutes = preferences.quietHoursEndHour * 60 + preferences.quietHoursEndMinute

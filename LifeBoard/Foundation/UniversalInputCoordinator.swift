@@ -24,7 +24,7 @@ public actor UniversalInputCoordinator {
     private let resolver: LifeThreadIntentResolver
     
     public init(
-        mutationCoordinator: LifeBoardMutationCoordinator = .init(),
+        mutationCoordinator: MutationCoordinator = .init(),
         mutationAdapters: [any LifeThreadMutationIntentAdapter] = [],
         semanticAdapter: (any LifeThreadIntentAdapter)? = UniversalInputSemanticAdapter()
     ) {

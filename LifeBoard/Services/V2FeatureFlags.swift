@@ -159,11 +159,6 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.planning_core_v1") }
     }
 
-    public static var planDestinationV1Enabled: Bool {
-        get { stagedFeatureEnabled(key: "feature.life_os.plan_destination_v1", argument: "PLAN_DESTINATION_V1") }
-        set { setStagedFeature(newValue, key: "feature.life_os.plan_destination_v1") }
-    }
-
     public static var focusExecutionV2Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.focus_execution_v2", argument: "FOCUS_EXECUTION_V2") }
         set { setStagedFeature(newValue, key: "feature.life_os.focus_execution_v2") }
@@ -174,10 +169,13 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.track_foundations_v2") }
     }
 
-    public static var habitResilienceV2Enabled: Bool {
-        get { stagedFeatureEnabled(key: "feature.life_os.habit_resilience_v2", argument: "HABIT_RESILIENCE_V2") }
-        set { setStagedFeature(newValue, key: "feature.life_os.habit_resilience_v2") }
-    }
+    // `habitResilienceV2Enabled`, `planDestinationV1Enabled` and
+    // `starterPacksV1Enabled` were removed rather than promoted, for the same
+    // reason as the two Notes flags above: none had a single call site, so none
+    // gated anything. Their surfaces shipped unconditionally and their
+    // `-LIFEBOARD_ENABLE_*` launch arguments — still passed by the UI tests —
+    // set a default nothing read. A flag that controls nothing only makes the
+    // promotion table lie about what is staged.
 
     public static var goalsRoutinesV1Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.goals_routines_v1", argument: "GOALS_ROUTINES_V1") }
@@ -187,11 +185,6 @@ public enum V2FeatureFlags {
     public static var careModulesV2Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.life_os.care_modules_v2", argument: "CARE_MODULES_V2") }
         set { setStagedFeature(newValue, key: "feature.life_os.care_modules_v2") }
-    }
-
-    public static var starterPacksV1Enabled: Bool {
-        get { stagedFeatureEnabled(key: "feature.life_os.starter_packs_v1", argument: "STARTER_PACKS_V1") }
-        set { setStagedFeature(newValue, key: "feature.life_os.starter_packs_v1") }
     }
 
     /// Stage 1 of the Beyond Notes rollout: trust, recovery and release closure.
@@ -296,13 +289,10 @@ public enum V2FeatureFlags {
         "feature.life_os.journal_parity_v1": true,
         "feature.life_os.knowledge_notes_v1": true,
         "feature.life_os.planning_core_v1": true,
-        "feature.life_os.plan_destination_v1": true,
         "feature.life_os.focus_execution_v2": true,
         "feature.life_os.track_foundations_v2": true,
-        "feature.life_os.habit_resilience_v2": true,
         "feature.life_os.goals_routines_v1": true,
         "feature.life_os.care_modules_v2": true,
-        "feature.life_os.starter_packs_v1": true,
         // The Notes flagship. These had no entry at all, so they resolved to
         // `false` and Release shipped none of the TextKit editor, the ranked
         // search index, per-note encryption, or the Notes Eva actions — every

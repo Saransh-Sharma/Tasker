@@ -8,11 +8,11 @@ import SwiftUI
 /// registered card kinds drew literally nothing for anyone using large type.
 /// Dispatching on archetype makes that class of failure unrepresentable: a
 /// registered kind has an archetype, and an archetype always draws something.
-public struct LifeBoardHomeCardBody: View {
+public struct HomeCardBody: View {
     private let snapshot: HomeCardSnapshot?
     private let archetype: HomeCardArchetype
     private let preset: WidgetSizePreset
-    private let palette: LifeBoardDaypartPalette
+    private let palette: DaypartPalette
     private let title: String
     private let symbol: String
     private let queueLimit: Int
@@ -25,7 +25,7 @@ public struct LifeBoardHomeCardBody: View {
         snapshot: HomeCardSnapshot?,
         archetype: HomeCardArchetype,
         preset: WidgetSizePreset,
-        palette: LifeBoardDaypartPalette,
+        palette: DaypartPalette,
         title: String,
         symbol: String,
         queueLimit: Int = 4,
@@ -116,14 +116,14 @@ public struct LifeBoardHomeCardBody: View {
         if case .metric(let metric) = snapshot.payload {
             VStack(alignment: .leading, spacing: 6) {
                 HStack(alignment: .firstTextBaseline, spacing: 8) {
-                    LifeBoardNumericRoll(
+                    NumericRoll(
                         value: metric.amount,
                         fractionDigits: metric.fractionDigits,
                         unit: metric.unit,
                         emphasis: usesLargeNumeral ? .hero : .standard
                     )
                     .foregroundStyle(palette.color(for: .foreground))
-                    LifeBoardTrendBadge(trend: metric.trend, description: metric.deltaDescription)
+                    TrendBadge(trend: metric.trend, description: metric.deltaDescription)
                 }
 
                 if let detail = snapshot.detail, preset != .compact {
@@ -138,10 +138,10 @@ public struct LifeBoardHomeCardBody: View {
                 // and label already fill the card.
                 if metric.history.count > 1, showsInlineGraphics {
                     if preset == .standard {
-                        LifeBoardSparkline(points: metric.history, tint: accentTint)
+                        Sparkline(points: metric.history, tint: accentTint)
                             .frame(height: 26)
                     } else {
-                        LifeBoardTrendChart(
+                        TrendChart(
                             points: metric.history,
                             tint: accentTint,
                             unit: metric.unit,
@@ -160,7 +160,7 @@ public struct LifeBoardHomeCardBody: View {
     private func ringBody(_ snapshot: HomeCardSnapshot) -> some View {
         if case .progress(let fraction, let label) = snapshot.payload {
             HStack(spacing: 12) {
-                LifeBoardProgressRing(
+                ProgressRing(
                     fraction: fraction,
                     tint: accentTint,
                     trackTint: palette.color(for: .canvasSecondary),
@@ -206,13 +206,13 @@ public struct LifeBoardHomeCardBody: View {
                 }
 
                 if showsInlineGraphics {
-                    let chart = LifeBoardTrendChart(
+                    let chart = TrendChart(
                         points: points,
                         tint: accentTint,
                         showsAxis: preset == .tall || preset == .expanded
                     )
                     if preset == .compact {
-                        LifeBoardSparkline(points: points, tint: accentTint)
+                        Sparkline(points: points, tint: accentTint)
                             .frame(height: 22)
                     } else {
                         chart.frame(height: chartHeight)
@@ -227,7 +227,7 @@ public struct LifeBoardHomeCardBody: View {
                     }
                 } else {
                     // Accessibility sizes: prose instead of a shrunken chart.
-                    Text(LifeBoardTrendChart(points: points, tint: accentTint).textEquivalent)
+                    Text(TrendChart(points: points, tint: accentTint).textEquivalent)
                         .lifeboardFont(.body)
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
                         .fixedSize(horizontal: false, vertical: true)
@@ -243,7 +243,7 @@ public struct LifeBoardHomeCardBody: View {
         if case .queue(let items) = snapshot.payload, items.isEmpty == false {
             VStack(alignment: .leading, spacing: 8) {
                 if preset == .compact {
-                    LifeBoardNumericRoll(value: Double(items.count), unit: itemNoun(items.count))
+                    NumericRoll(value: Double(items.count), unit: itemNoun(items.count))
                         .foregroundStyle(palette.color(for: .foreground))
                 } else {
                     ForEach(items.prefix(rowCount)) { item in
@@ -297,7 +297,7 @@ public struct LifeBoardHomeCardBody: View {
                         .lineLimit(1)
                 }
                 if showsInlineGraphics {
-                    LifeBoardStreakGrid(
+                    StreakGrid(
                         days: Array(days.suffix(streakDayCount)),
                         tint: accentTint,
                         columns: 7
@@ -420,7 +420,7 @@ public struct LifeBoardHomeCardBody: View {
             ).day ?? 0
             VStack(alignment: .leading, spacing: 4) {
                 HStack(alignment: .firstTextBaseline, spacing: 6) {
-                    LifeBoardNumericRoll(
+                    NumericRoll(
                         value: Double(abs(days)),
                         unit: abs(days) == 1 ? "day" : "days",
                         emphasis: usesLargeNumeral ? .hero : .standard

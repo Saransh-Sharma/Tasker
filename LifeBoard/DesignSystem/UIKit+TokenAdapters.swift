@@ -1,53 +1,53 @@
 import UIKit
 
 @MainActor
-public enum LifeBoardUIKitTokens {
+public enum UIKitTokens {
     public static var color: LifeBoardColorTokens {
-        LifeBoardThemeManager.shared.currentTheme.tokens.color
+        ThemeStore.shared.currentTheme.tokens.color
     }
 
     public static var typography: LifeBoardTypographyTokens {
-        LifeBoardThemeManager.shared.currentTheme.tokens.typography
+        ThemeStore.shared.currentTheme.tokens.typography
     }
 
     public static var spacing: LifeBoardSpacingTokens {
-        LifeBoardThemeManager.shared.currentTheme.tokens.spacing
+        ThemeStore.shared.currentTheme.tokens.spacing
     }
 
-    public static var elevation: LifeBoardElevationTokens {
-        LifeBoardThemeManager.shared.currentTheme.tokens.elevation
+    public static var elevation: ElevationTokens {
+        ThemeStore.shared.currentTheme.tokens.elevation
     }
 
-    public static var corner: LifeBoardCornerTokens {
-        LifeBoardThemeManager.shared.currentTheme.tokens.corner
+    public static var corner: CornerTokens {
+        ThemeStore.shared.currentTheme.tokens.corner
     }
 }
 
 @MainActor
 public extension UIColor {
     static var lifeboard: LifeBoardColorTokens {
-        LifeBoardUIKitTokens.color
+        UIKitTokens.color
     }
 }
 
 public extension UIColor {
-    static func lifeboard(_ role: LifeBoardColorRole) -> UIColor {
-        LifeBoardThreadSafeTokenResolver.color(for: role)
+    static func lifeboard(_ role: ColorRole) -> UIColor {
+        ThreadSafeTokenResolver.color(for: role)
     }
 }
 
 @MainActor
 public extension UIFont {
     static var lifeboard: LifeBoardTypographyTokens {
-        LifeBoardUIKitTokens.typography
+        UIKitTokens.typography
     }
 }
 
 public extension UIView {
     /// Executes applyLifeBoardElevation.
     @MainActor
-    func applyLifeBoardElevation(_ level: LifeBoardElevationLevel) {
-        let style = LifeBoardUIKitTokens.elevation.style(for: level)
+    func applyLifeBoardElevation(_ level: ElevationLevel) {
+        let style = UIKitTokens.elevation.style(for: level)
         layer.shadowColor = style.shadowColor.cgColor
         layer.shadowOpacity = style.shadowOpacity
         layer.shadowOffset = CGSize(width: 0, height: style.shadowOffsetY)
@@ -59,26 +59,26 @@ public extension UIView {
 
     /// Executes applyLifeBoardCorner.
     @MainActor
-    func applyLifeBoardCorner(_ token: LifeBoardCornerToken) {
-        let value = LifeBoardUIKitTokens.corner.value(for: token, height: bounds.height)
+    func applyLifeBoardCorner(_ token: CornerToken) {
+        let value = UIKitTokens.corner.value(for: token, height: bounds.height)
         layer.cornerRadius = value
         layer.cornerCurve = .continuous
     }
 }
 
 @MainActor
-public struct LifeBoardNavButtonStyle {
+public struct NavButtonStyle {
     public static let minimumHitTarget = CGSize(width: 44, height: 44)
     public static let pressedAlpha: CGFloat = 0.6
     public static let pressedDuration: TimeInterval = 0.12
 
     /// Executes titleColor.
     public static func titleColor(
-        context: LifeBoardNavButtonContext,
-        emphasis: LifeBoardNavButtonEmphasis,
+        context: NavButtonContext,
+        emphasis: NavButtonEmphasis,
         enabled: Bool = true
     ) -> UIColor {
-        let colors = LifeBoardUIKitTokens.color
+        let colors = UIKitTokens.color
         let base: UIColor
 
         switch (context, emphasis) {
@@ -99,39 +99,32 @@ public struct LifeBoardNavButtonStyle {
 
     /// Executes attributes.
     public static func attributes(
-        context: LifeBoardNavButtonContext,
-        emphasis: LifeBoardNavButtonEmphasis,
+        context: NavButtonContext,
+        emphasis: NavButtonEmphasis,
         enabled: Bool = true
     ) -> [NSAttributedString.Key: Any] {
         [
             .foregroundColor: titleColor(context: context, emphasis: emphasis, enabled: enabled),
-            .font: LifeBoardUIKitTokens.typography.bodyEmphasis
+            .font: UIKitTokens.typography.bodyEmphasis
         ]
     }
 
     /// Executes apply.
     public static func apply(
         to item: UIBarButtonItem,
-        context: LifeBoardNavButtonContext,
-        emphasis: LifeBoardNavButtonEmphasis
+        context: NavButtonContext,
+        emphasis: NavButtonEmphasis
     ) {
         item.setTitleTextAttributes(attributes(context: context, emphasis: emphasis, enabled: true), for: .normal)
         item.setTitleTextAttributes(
             [
                 .foregroundColor: titleColor(context: context, emphasis: emphasis, enabled: true).withAlphaComponent(pressedAlpha),
-                .font: LifeBoardUIKitTokens.typography.bodyEmphasis
+                .font: UIKitTokens.typography.bodyEmphasis
             ],
             for: .highlighted
         )
         item.setTitleTextAttributes(attributes(context: context, emphasis: emphasis, enabled: false), for: .disabled)
     }
-}
-
-@MainActor
-public struct LifeBoardTextFieldTokens {
-    public static let singleLineHeight: CGFloat = 48
-    public static let multilineMinHeight: CGFloat = 96
-    public static let multilineMaxHeight: CGFloat = 120
 }
 
 @MainActor
@@ -142,8 +135,8 @@ public final class LifeBoardTextField: UITextField {
     }
 
     public let kind: Kind
-    private let colors = LifeBoardUIKitTokens.color
-    private let corners = LifeBoardUIKitTokens.corner
+    private let colors = UIKitTokens.color
+    private let corners = UIKitTokens.corner
 
     /// Initializes a new instance.
     public init(kind: Kind = .singleLine) {
@@ -161,7 +154,7 @@ public final class LifeBoardTextField: UITextField {
 
     /// Executes configure.
     private func configure() {
-        font = LifeBoardUIKitTokens.typography.body
+        font = UIKitTokens.typography.body
         textColor = colors.textPrimary
         tintColor = colors.actionPrimary
         backgroundColor = colors.surfaceSecondary
@@ -175,8 +168,8 @@ public final class LifeBoardTextField: UITextField {
         addTarget(self, action: #selector(editingDidEnd), for: .editingDidEnd)
 
         let targetHeight: CGFloat = kind == .singleLine
-            ? LifeBoardTextFieldTokens.singleLineHeight
-            : LifeBoardTextFieldTokens.multilineMinHeight
+            ? TextFieldTokens.singleLineHeight
+            : TextFieldTokens.multilineMinHeight
         heightAnchor.constraint(greaterThanOrEqualToConstant: targetHeight).isActive = true
     }
 
@@ -186,7 +179,7 @@ public final class LifeBoardTextField: UITextField {
             string: text,
             attributes: [
                 .foregroundColor: colors.textQuaternary,
-                .font: LifeBoardUIKitTokens.typography.body
+                .font: UIKitTokens.typography.body
             ]
         )
     }
@@ -203,9 +196,9 @@ public final class LifeBoardTextField: UITextField {
 }
 
 @MainActor
-public final class LifeBoardChipView: UIControl {
+public final class ChipView: UIControl {
     public let titleLabel = UILabel()
-    public var selectedStyle: LifeBoardChipSelectionStyle = .tinted {
+    public var selectedStyle: ChipSelectionStyle = .tinted {
         didSet { refreshAppearance() }
     }
 
@@ -232,10 +225,10 @@ public final class LifeBoardChipView: UIControl {
 
     /// Executes configure.
     private func configure() {
-        let spacing = LifeBoardUIKitTokens.spacing
+        let spacing = UIKitTokens.spacing
         addSubview(titleLabel)
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
-        titleLabel.font = LifeBoardUIKitTokens.typography.callout
+        titleLabel.font = UIKitTokens.typography.callout
         titleLabel.textAlignment = .center
         titleLabel.setContentCompressionResistancePriority(.required, for: .horizontal)
 
@@ -248,14 +241,14 @@ public final class LifeBoardChipView: UIControl {
             heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
         ])
 
-        layer.cornerRadius = LifeBoardUIKitTokens.corner.chip
+        layer.cornerRadius = UIKitTokens.corner.chip
         layer.cornerCurve = .continuous
         refreshAppearance()
     }
 
     /// Executes refreshAppearance.
     private func refreshAppearance() {
-        let colors = LifeBoardUIKitTokens.color
+        let colors = UIKitTokens.color
         if isSelected {
             switch selectedStyle {
             case .tinted:
@@ -279,7 +272,7 @@ public final class LifeBoardChipView: UIControl {
 }
 
 @MainActor
-public final class LifeBoardCardView: UIView {
+public final class CardView: UIView {
     public var highlighted = false {
         didSet { applyStyle() }
     }
@@ -302,9 +295,9 @@ public final class LifeBoardCardView: UIView {
 
     /// Executes applyStyle.
     private func applyStyle() {
-        let colors = LifeBoardUIKitTokens.color
+        let colors = UIKitTokens.color
         backgroundColor = colors.surfacePrimary
-        layer.cornerRadius = LifeBoardUIKitTokens.corner.r3
+        layer.cornerRadius = UIKitTokens.corner.r3
         layer.cornerCurve = .continuous
         layer.borderWidth = 1
         layer.borderColor = (highlighted ? colors.borderStrong : colors.borderDefault).cgColor
@@ -315,7 +308,7 @@ public final class LifeBoardCardView: UIView {
 public extension TaskPriorityConfig.Priority {
     @MainActor
     var color: UIColor {
-        let colors = LifeBoardUIKitTokens.color
+        let colors = UIKitTokens.color
         switch self {
         case .none: return colors.priorityNone
         case .low:  return colors.priorityLow

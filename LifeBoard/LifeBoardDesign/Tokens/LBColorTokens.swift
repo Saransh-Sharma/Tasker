@@ -17,7 +17,7 @@ enum LBRole: String, CaseIterable {
     case neutral
 }
 
-struct LBRoleStyle: Equatable {
+struct RoleStyle: Equatable {
     let base: Color
     let deep: Color
     let softSurface: Color
@@ -34,7 +34,7 @@ enum LBColorTokens {
     static var lifeOSSurfaceSolid: Color { Color(LifeBoardColorTokens.foundationSurfaceSolid) }
     static var lifeOSHairline: Color { Color(LifeBoardColorTokens.foundationHairline) }
 
-    static func lifeOSPalette(for daypart: ResolvedDaypart) -> LifeBoardDaypartPalette {
+    static func lifeOSPalette(for daypart: ResolvedDaypart) -> DaypartPalette {
         LifeBoardColorTokens.daypartPalette(for: daypart)
     }
 
@@ -74,30 +74,30 @@ enum LBColorTokens {
     static let amberSoft = adaptive(light: "#FFF7DF", dark: "#332611", darkHighContrast: "#483618")
     static let coralSoft = adaptive(light: "#FFF1E9", dark: "#3A2018", darkHighContrast: "#522D21")
 
-    static func role(_ role: LBRole) -> LBRoleStyle {
+    static func role(_ role: LBRole) -> RoleStyle {
         switch role {
         case .routine:
-            return LBRoleStyle(base: sunriseGold, deep: adaptive(light: "#D88900", dark: "#FFD36A"), softSurface: amberSoft, border: adaptive(light: "#F6DE9A", dark: "#7E6425"), symbolName: "sun.max")
+            return RoleStyle(base: sunriseGold, deep: adaptive(light: "#D88900", dark: "#FFD36A"), softSurface: amberSoft, border: adaptive(light: "#F6DE9A", dark: "#7E6425"), symbolName: "sun.max")
         case .windDown:
-            return LBRoleStyle(base: adaptive(light: "#E7A900", dark: "#F0C96A"), deep: adaptive(light: "#8F6500", dark: "#F7DD97"), softSurface: adaptive(light: "#FFF9EC", dark: "#292414"), border: adaptive(light: "#F4E0B8", dark: "#69572D"), symbolName: "moon.stars.fill")
+            return RoleStyle(base: adaptive(light: "#E7A900", dark: "#F0C96A"), deep: adaptive(light: "#8F6500", dark: "#F7DD97"), softSurface: adaptive(light: "#FFF9EC", dark: "#292414"), border: adaptive(light: "#F4E0B8", dark: "#69572D"), symbolName: "moon.stars.fill")
         case .task:
-            return LBRoleStyle(base: leaf, deep: adaptive(light: "#15952B", dark: "#8AF09A"), softSurface: adaptive(light: "#EFF9EC", dark: "#152819"), border: adaptive(light: "#D6EFD3", dark: "#315F38"), symbolName: "checkmark.square")
+            return RoleStyle(base: leaf, deep: adaptive(light: "#15952B", dark: "#8AF09A"), softSurface: adaptive(light: "#EFF9EC", dark: "#152819"), border: adaptive(light: "#D6EFD3", dark: "#315F38"), symbolName: "checkmark.square")
         case .meeting:
-            return LBRoleStyle(base: violet, deep: adaptive(light: "#5230F3", dark: "#C7B9FF"), softSurface: adaptive(light: "#F4F0FF", dark: "#211B38"), border: adaptive(light: "#E2D8FF", dark: "#4C3D76"), symbolName: "calendar")
+            return RoleStyle(base: violet, deep: adaptive(light: "#5230F3", dark: "#C7B9FF"), softSurface: adaptive(light: "#F4F0FF", dark: "#211B38"), border: adaptive(light: "#E2D8FF", dark: "#4C3D76"), symbolName: "calendar")
         case .personal:
-            return LBRoleStyle(base: coral, deep: adaptive(light: "#C74716", dark: "#FFB494"), softSurface: coralSoft, border: adaptive(light: "#FFD8C5", dark: "#7A442F"), symbolName: "figure.walk")
+            return RoleStyle(base: coral, deep: adaptive(light: "#C74716", dark: "#FFB494"), softSurface: coralSoft, border: adaptive(light: "#FFD8C5", dark: "#7A442F"), symbolName: "figure.walk")
         case .focus:
-            return LBRoleStyle(base: sky, deep: adaptive(light: "#1266D6", dark: "#A8D0FF"), softSurface: adaptive(light: "#EAF6FF", dark: "#11283C"), border: adaptive(light: "#CFE9FF", dark: "#315F86"), symbolName: "sparkles")
+            return RoleStyle(base: sky, deep: adaptive(light: "#1266D6", dark: "#A8D0FF"), softSurface: adaptive(light: "#EAF6FF", dark: "#11283C"), border: adaptive(light: "#CFE9FF", dark: "#315F86"), symbolName: "sparkles")
         case .meal:
-            return LBRoleStyle(base: adaptive(light: "#F26C35", dark: "#FF9A70"), deep: adaptive(light: "#B84312", dark: "#FFB99F"), softSurface: adaptive(light: "#FFF0E8", dark: "#351F17"), border: adaptive(light: "#FFD8C5", dark: "#74442E"), symbolName: "fork.knife")
+            return RoleStyle(base: adaptive(light: "#F26C35", dark: "#FF9A70"), deep: adaptive(light: "#B84312", dark: "#FFB99F"), softSurface: adaptive(light: "#FFF0E8", dark: "#351F17"), border: adaptive(light: "#FFD8C5", dark: "#74442E"), symbolName: "fork.knife")
         case .assistant:
-            return LBRoleStyle(base: violet, deep: violetDeep, softSurface: adaptive(light: "#F6F2FF", dark: "#231D3B"), border: adaptive(light: "#DACDFF", dark: "#51417E"), symbolName: "sparkles")
+            return RoleStyle(base: violet, deep: violetDeep, softSurface: adaptive(light: "#F6F2FF", dark: "#231D3B"), border: adaptive(light: "#DACDFF", dark: "#51417E"), symbolName: "sparkles")
         case .warning:
-            return LBRoleStyle(base: adaptive(light: "#D88900", dark: "#FFD36A"), deep: adaptive(light: "#9B6200", dark: "#FFE0A0"), softSurface: amberSoft, border: adaptive(light: "#F4E0B8", dark: "#7B622D"), symbolName: "exclamationmark.triangle")
+            return RoleStyle(base: adaptive(light: "#D88900", dark: "#FFD36A"), deep: adaptive(light: "#9B6200", dark: "#FFE0A0"), softSurface: amberSoft, border: adaptive(light: "#F4E0B8", dark: "#7B622D"), symbolName: "exclamationmark.triangle")
         case .error:
-            return LBRoleStyle(base: coral, deep: adaptive(light: "#A83A32", dark: "#FFB7AD"), softSurface: coralSoft, border: adaptive(light: "#FFD8C5", dark: "#80463F"), symbolName: "exclamationmark.circle")
+            return RoleStyle(base: coral, deep: adaptive(light: "#A83A32", dark: "#FFB7AD"), softSurface: coralSoft, border: adaptive(light: "#FFD8C5", dark: "#80463F"), symbolName: "exclamationmark.circle")
         case .neutral:
-            return LBRoleStyle(base: textTertiary, deep: navyMuted, softSurface: adaptive(light: "#F8FAFF", dark: "#171C2B"), border: hairline, symbolName: "minus")
+            return RoleStyle(base: textTertiary, deep: navyMuted, softSurface: adaptive(light: "#F8FAFF", dark: "#171C2B"), border: hairline, symbolName: "minus")
         }
     }
 
@@ -167,23 +167,23 @@ enum LBColorTokens {
 typealias LBSunriseColorTokens = LBColorTokens
 typealias LBSunriseTypographyTokens = LBTypographyTokens
 typealias LBSunriseSpacingTokens = LBSpacingTokens
-typealias LBSunriseRadiusTokens = LBRadiusTokens
-typealias LBSunriseElevationTokens = LBShadowTokens
+typealias LBSunriseRadiusTokens = RadiusTokens
+typealias LBSunriseElevationTokens = ShadowTokens
 typealias LBSunriseRoleTokens = LBRole
 
-enum LBSunriseMaterialTokens {
+enum MaterialTokens {
     static let glass = LBColorTokens.glass
     static let glassStrong = LBColorTokens.glassStrong
     static let border = LBColorTokens.glassBorder
     static let dimmingOverlay = LBColorTokens.glassDimmingOverlay
 }
 
-enum LBSunriseMotionTokens {
+enum MotionTokens {
     static let responsive = Animation.spring(response: 0.38, dampingFraction: 0.86)
     static let gentle = Animation.easeInOut(duration: 0.22)
 }
 
-enum LBSunriseHabitTokens {
+enum HabitTokens {
     static let completed = LBColorTokens.leaf
     static let dueToday = LBColorTokens.violet
     static let skipped = LBColorTokens.coral
@@ -191,25 +191,25 @@ enum LBSunriseHabitTokens {
     static let noActivity = LBColorTokens.textTertiary
 }
 
-typealias SunriseScaffold<Content: View> = SunriseDestinationScaffold<Content>
-typealias SunriseScenicHeader<Content: View> = SunriseHeaderView<Content>
-typealias SunriseGlassDock = LBBottomDock
-typealias SunriseEmptyState = LBEmptyState
-typealias SunriseLoadingSkeleton = LBLoadingSkeleton
-typealias SunriseTimelineSpine = LBTimelineSpine
-typealias SunriseRoleCard = LBTimelineCard
+typealias SunriseScaffold<Content: View> = DestinationScaffold<Content>
+typealias SunriseScenicHeader<Content: View> = HeaderView<Content>
+typealias SunriseGlassDock = BottomDock
+typealias SunriseEmptyState = EmptyState
+typealias SunriseLoadingSkeleton = LoadingSkeleton
+typealias SunriseTimelineSpine = TimelineSpine
+typealias SunriseRoleCard = TimelineCard
 
-struct SunriseGlassButton: View {
+struct GlassButton: View {
     let title: String
     var systemImage: String?
     var action: () -> Void
 
     var body: some View {
-        LBPrimaryButton(title: title, systemImage: systemImage, action: action)
+        PrimaryButton(title: title, systemImage: systemImage, action: action)
     }
 }
 
-struct SunriseInlineBanner: View {
+struct InlineBanner: View {
     let title: String
     let message: String
     var role: LBRole = .assistant
@@ -234,16 +234,16 @@ struct SunriseInlineBanner: View {
         }
         .padding(LBSpacingTokens.md)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(style.softSurface.opacity(0.74), in: RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous))
+        .background(style.softSurface.opacity(0.74), in: RoundedRectangle(cornerRadius: RadiusTokens.card, style: .continuous))
         .overlay {
-            RoundedRectangle(cornerRadius: LBRadiusTokens.card, style: .continuous)
+            RoundedRectangle(cornerRadius: RadiusTokens.card, style: .continuous)
                 .stroke(style.border, lineWidth: 1)
         }
         .accessibilityElement(children: .combine)
     }
 }
 
-struct SunriseUndoSnackbar: View {
+struct UndoSnackbar: View {
     let message: String
     let undoTitle: String
     let undo: () -> Void
@@ -268,12 +268,12 @@ struct SunriseUndoSnackbar: View {
     }
 }
 
-struct SunriseDecisionDeck<Content: View>: View {
+struct DecisionDeck<Content: View>: View {
     let progressText: String
     @ViewBuilder let content: Content
 
     var body: some View {
-        LBGlassCard(cornerRadius: LBRadiusTokens.largeCard) {
+        GlassCard(cornerRadius: RadiusTokens.largeCard) {
             VStack(alignment: .leading, spacing: LBSpacingTokens.md) {
                 Text(progressText)
                     .font(LBTypographyTokens.meta)

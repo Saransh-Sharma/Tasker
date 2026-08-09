@@ -1,147 +1,11 @@
 import SwiftUI
 import UIKit
 @preconcurrency import Metal
-
-public struct LifeBoardMotionPolicy: Equatable, Sendable {
-    public let allowsCustomShaders: Bool
-    public let allowsIdleMotion: Bool
-    public let allowsSpatialMotion: Bool
-    public let allowsHaptics: Bool
-    public let usesOpaqueSurfaces: Bool
-    public let transitionDuration: TimeInterval
-    public let springDamping: Double
-    public let comfortProfile: LifeBoardComfortProfile
-    public let isFocusedPresentation: Bool
-
-    public static func resolve(
-        reduceMotion: Bool,
-        reduceTransparency: Bool,
-        lowPowerMode: Bool = ProcessInfo.processInfo.isLowPowerModeEnabled,
-        thermalState: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState,
-        sceneIsActive: Bool,
-        supportsCustomShaders: Bool = true,
-        isCatalyst: Bool = ProcessInfo.processInfo.isMacCatalystApp,
-        comfortProfile: LifeBoardComfortProfile = .balanced,
-        isFocusedPresentation: Bool = false
-    ) -> LifeBoardMotionPolicy {
-        let thermallyConstrained = thermalState == .serious || thermalState == .critical
-        let energyConstrained = lowPowerMode || thermallyConstrained
-        let allowsSpatialMotion = sceneIsActive && reduceMotion == false && energyConstrained == false
-        let allowsIdleMotion = allowsSpatialMotion
-            && isFocusedPresentation == false
-            && comfortProfile != .calm
-        let allowsShaders = allowsSpatialMotion
-            && reduceTransparency == false
-            && supportsCustomShaders
-            && isCatalyst == false
-            && isFocusedPresentation == false
-            && comfortProfile != .calm
-        return LifeBoardMotionPolicy(
-            allowsCustomShaders: allowsShaders,
-            allowsIdleMotion: allowsIdleMotion,
-            allowsSpatialMotion: allowsSpatialMotion,
-            allowsHaptics: sceneIsActive && isCatalyst == false,
-            usesOpaqueSurfaces: reduceTransparency,
-            transitionDuration: reduceMotion ? 0 : (energyConstrained ? 0.12 : 0.28),
-            springDamping: reduceMotion ? 1 : (comfortProfile == .playful ? 0.78 : 0.86),
-            comfortProfile: comfortProfile,
-            isFocusedPresentation: isFocusedPresentation
-        )
-    }
-}
-
-@MainActor
-public extension LifeBoardMotionProfile {
-    func animation(reduceMotion: Bool) -> Animation? {
-        guard LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false else { return nil }
-        return switch self {
-        case .press, .micro:
-            LifeBoardAnimation.rolePress
-        case .selection:
-            LifeBoardAnimation.selection
-        case .localState:
-            LifeBoardAnimation.roleLocalState
-        case .contentInsertion:
-            LifeBoardAnimation.contentInsertion
-        case .controlMorph:
-            LifeBoardAnimation.controlMorph
-        case .cardReflow:
-            LifeBoardAnimation.cardReflow
-        case .directManipulation:
-            LifeBoardAnimation.directManipulation
-        case .route:
-            LifeBoardAnimation.roleRoute
-        case .celebration:
-            LifeBoardAnimation.celebration
-        case .deckSettle:
-            LifeBoardAnimation.deckSettle
-        case .threadAdvance:
-            LifeBoardAnimation.threadAdvance
-        case .firstLight:
-            LifeBoardAnimation.firstLight
-        case .ambient:
-            LifeBoardAnimation.roleAmbient
-        }
-    }
-}
-
-/// Reads Reduce Motion for the caller and resolves it through the semantic role
-/// table, so a feature never spells the accessibility check itself.
-///
-/// Feature code had been writing `reduceMotion ? nil : LifeBoardAnimation.x`
-/// inline. That honours Reduce Motion but not `-UI_TESTING` or
-/// `-DISABLE_ANIMATIONS`, so those animations still ran during UI tests and
-/// charged every assertion their settle time. Routing through
-/// `LifeBoardMotionProfile.animation(reduceMotion:)` picks up
-/// `LifeBoardAnimation.animationsDisabled` for free.
-private struct LifeBoardMotionRoleModifier<Value: Equatable>: ViewModifier {
-    let profile: LifeBoardMotionProfile
-    let value: Value
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    func body(content: Content) -> some View {
-        content.animation(profile.animation(reduceMotion: reduceMotion), value: value)
-    }
-}
-
-public extension View {
-    /// Animates changes to `value` with the curve for a semantic motion role.
-    ///
-    /// Prefer this over `.animation(_:value:)` in feature code: it is the only
-    /// form that resolves accessibility *and* process animation flags centrally.
-    func lifeBoardMotion<Value: Equatable>(
-        _ profile: LifeBoardMotionProfile,
-        value: Value
-    ) -> some View {
-        modifier(LifeBoardMotionRoleModifier(profile: profile, value: value))
-    }
-}
-
-public struct AsyncActionFailure: Error, Equatable, Sendable {
-    public enum Recovery: String, Equatable, Sendable { case retry, edit, discard, reopen }
-
-    public let message: String
-    public let recovery: Recovery
-
-    public init(message: String, recovery: Recovery) {
-        self.message = message
-        self.recovery = recovery
-    }
-}
-
-public enum AsyncActionPhase<Receipt: Equatable & Sendable>: Equatable, Sendable {
-    case idle
-    case running(progress: Double?)
-    case success(receipt: Receipt)
-    case recoverableFailure(AsyncActionFailure)
-    case cancelled
-}
-
 /// A compact action surface that morphs around real asynchronous state.
 /// Interaction concepts were adapted from Shubham Kumar Singh's Apache-2.0
 /// SwiftUI-Animations SubmitView/DownloadButton examples and substantially
 /// rewritten for cancellable domain work and LifeBoard accessibility policy.
-public struct LifeBoardAsyncActionControl<Receipt: Equatable & Sendable>: View {
+public struct AsyncActionControl<Receipt: Equatable & Sendable>: View {
     public let title: String
     public let runningTitle: String
     public let successTitle: String
@@ -225,7 +89,7 @@ public struct LifeBoardAsyncActionControl<Receipt: Equatable & Sendable>: View {
 /// A restrained two-page indicator that exists only while Journal work is active.
 /// The page concept was adapted from the Apache-2.0 SwiftUI-Animations BookLoader
 /// example and rewritten to pause completely outside real work and under Reduce Motion.
-public struct LifeBoardJournalWorkIndicator: View {
+public struct JournalWorkIndicator: View {
     public let isActive: Bool
     public let progress: Double?
 
@@ -278,7 +142,7 @@ public struct LifeBoardJournalWorkIndicator: View {
 /// A short, low-amplitude confirmation ripple for real committed actions.
 /// The effect is intentionally local to the control and disappears entirely
 /// under Reduce Motion, Low Power, thermal pressure, or an inactive scene.
-private struct LifeBoardConfirmationRippleModifier: ViewModifier {
+private struct ConfirmationRippleModifier: ViewModifier {
     let trigger: Int
     let tint: Color
 
@@ -294,7 +158,7 @@ private struct LifeBoardConfirmationRippleModifier: ViewModifier {
             .overlay { ripple }
             .clipped()
             .onChange(of: trigger) { _, _ in
-                let policy = LifeBoardMotionPolicy.resolve(
+                let policy = MotionPolicy.resolve(
                     reduceMotion: reduceMotion,
                     reduceTransparency: reduceTransparency,
                     sceneIsActive: scenePhase == .active
@@ -328,7 +192,7 @@ private struct LifeBoardConfirmationRippleModifier: ViewModifier {
 /// compiles asynchronously before first use, and degrades to a plain opacity/scale fallback under
 /// Reduce Motion, Low Power, thermal pressure, Reduce Transparency, or when the flag is off.
 @MainActor
-public enum LifeBoardSignatureShaders {
+public enum SignatureShaders {
     public enum PreloadState: Equatable, Sendable {
         case idle
         case loading
@@ -467,14 +331,14 @@ struct DaypartBloomModifier: ViewModifier {
         content
             .overlay { bloomOverlay }
             .onChange(of: trigger) { _, _ in
-                guard sceneIsActive, LifeBoardSignatureShaders.isReadyForRendering else { return }
+                guard sceneIsActive, SignatureShaders.isReadyForRendering else { return }
                 startDate = Date()
             }
     }
 
     @ViewBuilder
     private var bloomOverlay: some View {
-        if let startDate, sceneIsActive, LifeBoardSignatureShaders.isReadyForRendering, reduceMotion == false, reduceTransparency == false {
+        if let startDate, sceneIsActive, SignatureShaders.isReadyForRendering, reduceMotion == false, reduceTransparency == false {
             TimelineView(.animation) { context in
                 let elapsed = context.date.timeIntervalSince(startDate)
                 if elapsed <= duration {
@@ -549,7 +413,7 @@ struct EvaInkRevealModifier: ViewModifier, @preconcurrency Animatable {
     }
 
     func body(content: Content) -> some View {
-        if progress >= 1.0 || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.isReadyForRendering == false {
+        if progress >= 1.0 || reduceTransparency || sceneIsActive == false || SignatureShaders.isReadyForRendering == false {
             // Settled or degraded: fully static text, no shimmer.
             content
         } else if reduceMotion {
@@ -596,7 +460,7 @@ struct JournalMediaRevealModifier: ViewModifier, @preconcurrency Animatable {
     }
 
     func body(content: Content) -> some View {
-        if progress >= 1.0 || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.isReadyForRendering == false {
+        if progress >= 1.0 || reduceTransparency || sceneIsActive == false || SignatureShaders.isReadyForRendering == false {
             content
         } else if reduceMotion {
             // Reduce Motion: simple cross-fade instead of an aperture.
@@ -630,7 +494,7 @@ private struct MemoryDevelopRevealModifier: ViewModifier, @preconcurrency Animat
 
     func body(content: Content) -> some View {
         let settled = min(1, max(0, progress))
-        if settled >= 1 || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.isReadyForRendering == false {
+        if settled >= 1 || reduceTransparency || sceneIsActive == false || SignatureShaders.isReadyForRendering == false {
             content
         } else if reduceMotion {
             content.opacity(settled)
@@ -656,7 +520,7 @@ private struct FastingEmberRingModifier: ViewModifier {
     let sceneIsActive: Bool
 
     func body(content: Content) -> some View {
-        if reduceMotion || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.isReadyForRendering == false {
+        if reduceMotion || reduceTransparency || sceneIsActive == false || SignatureShaders.isReadyForRendering == false {
             content
         } else {
             TimelineView(.animation(minimumInterval: 1 / 30, paused: sceneIsActive == false)) { context in
@@ -704,7 +568,7 @@ private struct HealthSyncPulseModifier: ViewModifier {
                 if let startDate {
                     TimelineView(.animation) { context in
                         let progress = min(1, context.date.timeIntervalSince(startDate) / 0.52)
-                        if reduceMotion || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.isReadyForRendering == false {
+                        if reduceMotion || reduceTransparency || sceneIsActive == false || SignatureShaders.isReadyForRendering == false {
                             Color.lifeboard(.statusSuccess)
                                 .opacity(0.12 * (1 - progress))
                                 .scaleEffect(0.98 + progress * 0.02)
@@ -748,7 +612,7 @@ private struct VitalOrbWarpModifier: ViewModifier {
             if let startDate {
                 TimelineView(.animation) { context in
                     let progress = min(1, context.date.timeIntervalSince(startDate) / 0.42)
-                    if reduceMotion || reduceTransparency || sceneIsActive == false || LifeBoardSignatureShaders.isReadyForRendering == false {
+                    if reduceMotion || reduceTransparency || sceneIsActive == false || SignatureShaders.isReadyForRendering == false {
                         content.scaleEffect(0.985 + progress * 0.015)
                     } else {
                         content.visualEffect { effect, proxy in
@@ -826,7 +690,7 @@ private struct ContextLensModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || LifeBoardSignatureShaders.isReadyForRendering == false
+            || SignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -835,13 +699,13 @@ private struct ContextLensModifier: ViewModifier {
 public extension View {
     /// Plays only when `trigger` changes after a real action commits.
     func lifeboardConfirmationRipple(trigger: Int, tint: Color = .white) -> some View {
-        modifier(LifeBoardConfirmationRippleModifier(trigger: trigger, tint: tint))
+        modifier(ConfirmationRippleModifier(trigger: trigger, tint: tint))
     }
 
     /// Plays a radial daypart bloom over this surface each time `trigger` changes.
     @MainActor
     func lifeboardDaypartBloom(center: UnitPoint = .center, trigger: Int, daypart: ResolvedDaypart) -> some View {
-        let (r, g, b) = LifeBoardSignatureShaders.tintComponents(for: daypart)
+        let (r, g, b) = SignatureShaders.tintComponents(for: daypart)
         return modifier(DaypartBloomModifierEnvironment(center: center, trigger: trigger, tint: Color(.sRGB, red: Double(r), green: Double(g), blue: Double(b))))
     }
 
@@ -1058,7 +922,7 @@ struct TriageSettleModifier: ViewModifier {
         true
 #else
         reduceMotion || reduceTransparency
-            || LifeBoardSignatureShaders.isReadyForRendering == false
+            || SignatureShaders.isReadyForRendering == false
 #endif
     }
 }
@@ -1118,7 +982,7 @@ struct TaskLandingCausticModifier: ViewModifier {
                     tint.opacity(0.10 * sin(progress * .pi))
                 } else {
                     GeometryReader { proxy in
-                        let components = LifeBoardSignatureShaders.components(of: tint)
+                        let components = SignatureShaders.components(of: tint)
                         Color.white.opacity(0.001)
                             .colorEffect(Shader(
                                 function: ShaderFunction(
@@ -1141,7 +1005,7 @@ struct TaskLandingCausticModifier: ViewModifier {
     }
 
     private var usesFallback: Bool {
-        reduceMotion || reduceTransparency || LifeBoardSignatureShaders.isReadyForRendering == false
+        reduceMotion || reduceTransparency || SignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -1187,7 +1051,7 @@ struct ChartRevealSweepModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || sceneIsActive == false
-            || LifeBoardSignatureShaders.isReadyForRendering == false
+            || SignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -1243,7 +1107,7 @@ struct LiquidGlassRefractModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || LifeBoardSignatureShaders.isReadyForRendering == false
+            || SignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -1313,7 +1177,7 @@ struct CardMorphWarpModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || LifeBoardSignatureShaders.isReadyForRendering == false
+            || SignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -1340,7 +1204,7 @@ struct PaperGrainModifier: ViewModifier {
     func body(content: Content) -> some View {
         // Grain is texture, not information. Increased Contrast removes it so
         // it can never eat into a text/background ratio.
-        if increasedContrast || reduceTransparency || LifeBoardSignatureShaders.isReadyForRendering == false {
+        if increasedContrast || reduceTransparency || SignatureShaders.isReadyForRendering == false {
             content
         } else {
             content.layerEffect(
@@ -1387,7 +1251,7 @@ struct DissolveAwayModifier: ViewModifier {
         } else if progress <= 0.001 {
             content
         } else {
-            let components = LifeBoardSignatureShaders.components(of: tint)
+            let components = SignatureShaders.components(of: tint)
             content.layerEffect(
                 Shader(
                     function: ShaderFunction(library: .default, name: "LifeBoardDissolveAway"),
@@ -1404,7 +1268,7 @@ struct DissolveAwayModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || sceneIsActive == false
-            || LifeBoardSignatureShaders.isReadyForRendering == false
+            || SignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -1581,7 +1445,7 @@ private struct ClayPressBloomModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || LifeBoardSignatureShaders.isReadyForRendering == false
+            || SignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -1615,7 +1479,7 @@ private struct DaypartCrossDissolveModifier: ViewModifier {
                                 .opacity(0.16 * sin(progress * .pi))
                         } else {
                             GeometryReader { proxy in
-                                let tint = LifeBoardSignatureShaders.tintComponents(for: daypart)
+                                let tint = SignatureShaders.tintComponents(for: daypart)
                                 Rectangle()
                                     .fill(.clear)
                                     .colorEffect(Shader(
@@ -1640,13 +1504,13 @@ private struct DaypartCrossDissolveModifier: ViewModifier {
     }
 
     private var fallbackTint: Color {
-        let tint = LifeBoardSignatureShaders.tintComponents(for: daypart)
+        let tint = SignatureShaders.tintComponents(for: daypart)
         return Color(red: Double(tint.0), green: Double(tint.1), blue: Double(tint.2))
     }
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || LifeBoardSignatureShaders.isReadyForRendering == false
+            || SignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -1703,7 +1567,7 @@ private struct CompletionBurstModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || LifeBoardSignatureShaders.isReadyForRendering == false
+            || SignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -1842,7 +1706,7 @@ struct FirstLightModifier: ViewModifier {
                         // mattering once `startDate` is cleared below.
                         content
                     } else {
-                        let components = LifeBoardSignatureShaders.components(of: tint)
+                        let components = SignatureShaders.components(of: tint)
                         content.visualEffect { effect, proxy in
                             effect.colorEffect(
                                 Shader(
@@ -1873,7 +1737,7 @@ struct FirstLightModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || sceneIsActive == false
-            || LifeBoardSignatureShaders.isReadyForRendering == false
+            || SignatureShaders.isReadyForRendering == false
     }
 }
 
@@ -1930,7 +1794,7 @@ struct ValueDrumWarpModifier: ViewModifier {
 
     private var usesFallback: Bool {
         reduceMotion || reduceTransparency || sceneIsActive == false
-            || LifeBoardSignatureShaders.isReadyForRendering == false
+            || SignatureShaders.isReadyForRendering == false
     }
 }
 

@@ -367,13 +367,13 @@ final class LoggingService: @unchecked Sendable {
     }
 }
 
-public struct LifeBoardPerformanceInterval: Sendable {
+public struct PerformanceInterval: Sendable {
     fileprivate let name: StaticString
     fileprivate let signpostID: OSSignpostID?
     fileprivate let isEnabled: Bool
 }
 
-public enum LifeBoardPerformanceTrace {
+public enum PerformanceTrace {
     private static let launchArguments = Set(ProcessInfo.processInfo.arguments)
     private static let launchEnvironment = ProcessInfo.processInfo.environment
     private static let performanceLog = OSLog(
@@ -397,9 +397,9 @@ public enum LifeBoardPerformanceTrace {
     public static var isPointsOfInterestEnabled: Bool { pointsOfInterestEnabled }
 
     /// Begins a signposted interval for Instruments correlation.
-    public static func begin(_ name: StaticString) -> LifeBoardPerformanceInterval {
+    public static func begin(_ name: StaticString) -> PerformanceInterval {
         guard tracingEnabled || pointsOfInterestEnabled else {
-            return LifeBoardPerformanceInterval(name: name, signpostID: nil, isEnabled: false)
+            return PerformanceInterval(name: name, signpostID: nil, isEnabled: false)
         }
         let signpostID = OSSignpostID(log: performanceLog)
         if tracingEnabled {
@@ -408,11 +408,11 @@ public enum LifeBoardPerformanceTrace {
         if pointsOfInterestEnabled {
             os_signpost(.begin, log: pointsOfInterestLog, name: name, signpostID: signpostID)
         }
-        return LifeBoardPerformanceInterval(name: name, signpostID: signpostID, isEnabled: true)
+        return PerformanceInterval(name: name, signpostID: signpostID, isEnabled: true)
     }
 
     /// Ends a previously started signposted interval.
-    public static func end(_ interval: LifeBoardPerformanceInterval) {
+    public static func end(_ interval: PerformanceInterval) {
         guard interval.isEnabled, let signpostID = interval.signpostID else { return }
         if tracingEnabled {
             os_signpost(.end, log: performanceLog, name: interval.name, signpostID: signpostID)
@@ -453,25 +453,25 @@ public enum LifeBoardPerformanceTrace {
 /// therefore cannot detect metadata stalls during the tab switch itself.
 @MainActor
 enum EvaNavigationPerformanceTrace {
-    private static var openInterval: LifeBoardPerformanceInterval?
+    private static var openInterval: PerformanceInterval?
 
     static func begin() {
         cancel(reason: "superseded")
-        openInterval = LifeBoardPerformanceTrace.begin("EvaTabOpenToInteractive")
+        openInterval = PerformanceTrace.begin("EvaTabOpenToInteractive")
     }
 
     static func markInteractive() {
         guard let openInterval else { return }
-        LifeBoardPerformanceTrace.end(openInterval)
+        PerformanceTrace.end(openInterval)
         self.openInterval = nil
-        LifeBoardPerformanceTrace.event("EvaTabInteractive")
+        PerformanceTrace.event("EvaTabInteractive")
     }
 
     static func cancel(reason: StaticString = "navigation_cancelled") {
         guard let openInterval else { return }
-        LifeBoardPerformanceTrace.end(openInterval)
+        PerformanceTrace.end(openInterval)
         self.openInterval = nil
-        LifeBoardPerformanceTrace.event(reason)
+        PerformanceTrace.event(reason)
     }
 }
 
@@ -479,7 +479,7 @@ enum EvaNavigationPerformanceTrace {
 /// Callers may attach counts, but never titles, notes, transcripts, prompts, or
 /// other user-authored values. This keeps Instruments useful without making
 /// private content part of the diagnostics surface.
-public enum LifeOSPerformanceOperation: CaseIterable, Sendable {
+public enum PerformanceOperation: CaseIterable, Sendable {
     case homeCardSnapshot
     case homeContextEvaluation
     case composerResolution
@@ -500,26 +500,26 @@ public enum LifeOSPerformanceOperation: CaseIterable, Sendable {
         }
     }
 
-    public func begin() -> LifeBoardPerformanceInterval {
-        LifeBoardPerformanceTrace.begin(signpostName)
+    public func begin() -> PerformanceInterval {
+        PerformanceTrace.begin(signpostName)
     }
 
-    public func end(_ interval: LifeBoardPerformanceInterval) {
-        LifeBoardPerformanceTrace.end(interval)
+    public func end(_ interval: PerformanceInterval) {
+        PerformanceTrace.end(interval)
     }
 
     public func mark(count: Int? = nil) {
         if let count {
-            LifeBoardPerformanceTrace.event(signpostName, value: count)
+            PerformanceTrace.event(signpostName, value: count)
         } else {
-            LifeBoardPerformanceTrace.event(signpostName)
+            PerformanceTrace.event(signpostName)
         }
     }
 }
 
-typealias TaskerPerformanceTrace = LifeBoardPerformanceTrace
+typealias TaskerPerformanceTrace = PerformanceTrace
 
-enum LifeBoardMemoryDiagnostics {
+enum MemoryDiagnostics {
     #if DEBUG
     private static func makeByteFormatter() -> ByteCountFormatter {
         let formatter = ByteCountFormatter()
@@ -605,7 +605,7 @@ enum LifeBoardMemoryDiagnostics {
     #endif
 }
 
-typealias TaskerMemoryDiagnostics = LifeBoardMemoryDiagnostics
+typealias TaskerMemoryDiagnostics = MemoryDiagnostics
 
 // MARK: - Global Convenience Functions
 
