@@ -1,5 +1,16 @@
 # LifeBoard Structural Refactor Execution
 
+> **Audit correction — 2026-08-09:** This file is a historical execution
+> ledger, not proof that the structural program is complete. The current tree
+> has one manifest and six compiler-enforced core/support products, but the 21
+> approved feature targets and their public route factories have not been
+> extracted. Persistence is only partially packaged, 81 test files still use
+> `@testable import LifeBoard`, and Watch membership is unverified because the
+> installed Xcode has no watchOS 26.5 runtime. Any earlier “complete,” “all
+> targets,” or green-gate statement below is scoped to the wave and environment
+> recorded at that point. The authoritative status and resolution evidence is
+> [the 2026-08-09 structural audit](../audits/LIFEBOARD_STRUCTURAL_REFACTOR_AUDIT_2026-08-09.md).
+
 This is the active execution ledger for the structural refactor. It intentionally
 tracks only the work authorized by the staff refactor plan; visual-token
 consolidation, Core Data schema changes, and receipt/Undo behavior changes remain
@@ -1040,7 +1051,7 @@ acceptance gate. Neither should be attempted in the same pass as a 675-type rena
 
 ---
 
-## Wave 6 — convergence (complete)
+## Wave 6 — convergence (historical wave result)
 
 **2,170 tests, 0 failures, gate exit 0**, all 13 guardrails green.
 
@@ -1107,7 +1118,7 @@ Three passes of over-reach, each caught by the compiler:
 The lesson is the same one Wave 5 taught: a per-file textual edit cannot see type scope.
 The final repair keys on the declaring type and on whether the name is already bound.
 
-## Programme complete
+## Historical wave summary (not programme completion)
 
 | Wave | Outcome |
 |---|---|
@@ -1118,8 +1129,12 @@ The final repair keys on the declaring type and on whether the name is already b
 | 5 | 675 types and 101 files renamed; manifest and collision list recorded |
 | 6 | One composition root; theme reads through the environment; docs rewritten |
 
-Plus the persistence boundary and the Core Data migration-chain test that made it safe.
+These outcomes describe the directory/naming waves only. They did not create the
+21 feature targets or feature route factories required by the structural plan.
 
-**Still open, deliberately:** the 8 naming collision groups and 28 `…Provider` types
-(both need product judgment, both listed with reasons), and `LifeBoardPersistence` as a
-package (blocked on Core Data `class` codegen, documented above).
+The naming collision groups and internal `Provider` roles have since been
+resolved with reviewed semantic names. `LifeBoardPersistence` now packages the
+model and model-loading surface after conversion to Manual/None codegen, but its
+remaining implementation directories are still app-owned. The authoritative
+open list is the Priority 0 section of
+`docs/todos/LIFEBOARD_POST_REFACTOR_IMPROVEMENTS.md`.
