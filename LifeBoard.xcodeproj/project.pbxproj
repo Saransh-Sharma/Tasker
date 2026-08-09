@@ -500,7 +500,6 @@
 		A11E0000000000000000010B /* HealthOutboxCoreDataWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E0000000000000000000B /* HealthOutboxCoreDataWriter.swift */; };
 		A11E0000000000000000010C /* LifeBoardHealthHubView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E0000000000000000000C /* LifeBoardHealthHubView.swift */; };
 		A11E00000000000000000130 /* HealthSyncTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A11E00000000000000000030 /* HealthSyncTests.swift */; };
-		A13E00000000000000000001 /* LifeBoardKnowledgeCompletion.swift in Sources */ = {isa = PBXBuildFile; fileRef = A13E00000000000000000002 /* LifeBoardKnowledgeCompletion.swift */; };
 		A195295E32A95E537E16AF8A /* ResolveOccurrenceUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9EF3524C96CA56E66C86177 /* ResolveOccurrenceUseCase.swift */; };
 		A1B2C3D42F90000100AA1001 /* TaskEditorSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D62F90000100AA1001 /* TaskEditorSection.swift */; };
 		A1B2C3D52EAA11BB00CCDDEE /* LLMModelRegistryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */; };
@@ -733,7 +732,6 @@
 		C2F200000000000000000002 /* LifeBoardPhaseIIPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F100000000000000000002 /* LifeBoardPhaseIIPersistence.swift */; };
 		C2F200000000000000000003 /* LifeBoardHealthService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F100000000000000000003 /* LifeBoardHealthService.swift */; };
 		C2F200000000000000000004 /* LifeBoardTrackAndJournalViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F100000000000000000004 /* LifeBoardTrackAndJournalViews.swift */; };
-		C2F200000000000000000005 /* LifeBoardKnowledgeViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F100000000000000000005 /* LifeBoardKnowledgeViews.swift */; };
 		C2F200000000000000000006 /* LifeBoardJournalDerivedIndex.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F100000000000000000006 /* LifeBoardJournalDerivedIndex.swift */; };
 		C2F200000000000000000007 /* LifeBoardJournalReflectionServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2F100000000000000000007 /* LifeBoardJournalReflectionServices.swift */; };
 		C2F400000000000000000007 /* SwiftUI-Animations-NOTICE.txt in Resources */ = {isa = PBXBuildFile; fileRef = C2F500000000000000000007 /* SwiftUI-Animations-NOTICE.txt */; };
@@ -755,9 +753,7 @@
 		C5F5000000000000000000A2 /* JournalMoodCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000A1 /* JournalMoodCaptureView.swift */; };
 		C5F5000000000000000000A4 /* LifeBoardJournalSnapshotAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000A3 /* LifeBoardJournalSnapshotAdapter.swift */; };
 		C5F5000000000000000000A6 /* SemanticJournalDerivedIndexRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000A5 /* SemanticJournalDerivedIndexRepository.swift */; };
-		C5F5000000000000000000A8 /* JournalKnowledgeGraphStoreAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000A7 /* JournalKnowledgeGraphStoreAdapter.swift */; };
 		C5F5000000000000000000AA /* LifeBoardJournalEvidenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000A9 /* LifeBoardJournalEvidenceService.swift */; };
-		C5F5000000000000000000AC /* LifeBoardDocumentScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000AB /* LifeBoardDocumentScanner.swift */; };
 		C5F5000000000000000000AE /* LifeBoardSystemSurfaceSnapshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000AD /* LifeBoardSystemSurfaceSnapshots.swift */; };
 		C5F5000000000000000000B2 /* FastingTimerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000B1 /* FastingTimerStore.swift */; };
 		C6182C050AFE59B731DAD798 /* LifeBoardWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F9A8B91DCC93833939CAE3C6 /* LifeBoardWidgets.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -4279,6 +4275,7 @@
 				A40000000000000000000501 /* LifeBoardPersistence */,
 				A40000000000000000000601 /* LifeBoardCalendar */,
 				A40000000000000000000701 /* LifeBoardTranscription */,
+				A40000000000000000000801 /* KnowledgeFeature */,
 				75A328B82DFB606700F36C31 /* MLXLLM */,
 				75A328B12DFB604000F36C31 /* MLX */,
 				7529F6FC2DFDEFB3000CBE36 /* Lottie */,
@@ -5330,8 +5327,6 @@
 				C2F200000000000000000004 /* LifeBoardTrackAndJournalViews.swift in Sources */,
 				C2F200000000000000000006 /* LifeBoardJournalDerivedIndex.swift in Sources */,
 				C2F200000000000000000007 /* LifeBoardJournalReflectionServices.swift in Sources */,
-				C2F200000000000000000005 /* LifeBoardKnowledgeViews.swift in Sources */,
-				A13E00000000000000000001 /* LifeBoardKnowledgeCompletion.swift in Sources */,
 				BD8794DA9800CE9FE3355836 /* PlanningCoreModels.swift in Sources */,
 				C97158559B083DC4E73DD335 /* PlanningCorePersistence.swift in Sources */,
 				50A7B8B5DE36B32D1E81B375 /* PlanningCoreServices.swift in Sources */,
@@ -5367,9 +5362,7 @@
 				C5F5000000000000000000A2 /* JournalMoodCaptureView.swift in Sources */,
 				C5F5000000000000000000A4 /* LifeBoardJournalSnapshotAdapter.swift in Sources */,
 				C5F5000000000000000000A6 /* SemanticJournalDerivedIndexRepository.swift in Sources */,
-				C5F5000000000000000000A8 /* JournalKnowledgeGraphStoreAdapter.swift in Sources */,
 				C5F5000000000000000000AA /* LifeBoardJournalEvidenceService.swift in Sources */,
-				C5F5000000000000000000AC /* LifeBoardDocumentScanner.swift in Sources */,
 				C5F5000000000000000000AE /* LifeBoardSystemSurfaceSnapshots.swift in Sources */,
 				C5F5000000000000000000B2 /* FastingTimerStore.swift in Sources */,
 				7DCF1D96DA91EE468916580F /* HomeLifeOSProjectionStore.swift in Sources */,
@@ -6289,6 +6282,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A40000000000000000000200 /* XCLocalSwiftPackageReference "LifeBoardModules" */;
 			productName = LifeBoardTranscription;
+		};
+		A40000000000000000000801 /* KnowledgeFeature */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A40000000000000000000200 /* XCLocalSwiftPackageReference "LifeBoardModules" */;
+			productName = KnowledgeFeature;
 		};
 		7529F6FC2DFDEFB3000CBE36 /* Lottie */ = {
 			isa = XCSwiftPackageProductDependency;

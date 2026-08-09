@@ -4,3 +4,5 @@
 @_exported import LifeBoardCalendar
 @_exported import LifeBoardDomain
 @_exported import LifeBoardPersistence
+@_exported import LifeBoardTranscription
+@_exported import KnowledgeFeature

@@ -45,11 +45,11 @@ public final class SemanticJournalDerivedIndexRepository: JournalDerivedIndexRep
 
     /// The single ingest gate: entries that do not permit semantic indexing
     /// never become records.
-    static func indexableRecord(_ snapshot: JournalEntrySnapshot) -> IndexableEntry? {
+    static func indexableRecord(_ snapshot: JournalEntrySnapshot) -> SemanticMemoryKit.IndexableEntry? {
         guard snapshot.aiExclusion.permitsSemanticIndexing else { return nil }
         let text = snapshot.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return nil }
-        return IndexableEntry(
+        return SemanticMemoryKit.IndexableEntry(
             id: snapshot.id,
             date: snapshot.date,
             mood: snapshot.mood?.rawValue,

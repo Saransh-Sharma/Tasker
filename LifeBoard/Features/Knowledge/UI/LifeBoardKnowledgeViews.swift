@@ -47,11 +47,11 @@ final class KnowledgeStore {
     private var didSeedSearchIndex = false
     private var searchTask: Task<Void, Never>?
 
-    let repository: any PhaseIIRepository
+    let repository: any KnowledgeRepository
     let attachmentFiles: any KnowledgeAttachmentFileRepository
 
     init(
-        repository: any PhaseIIRepository,
+        repository: any KnowledgeRepository,
         initialFolderID: UUID? = nil,
         attachmentFiles: (any KnowledgeAttachmentFileRepository)? = nil
     ) {
@@ -711,7 +711,7 @@ final class KnowledgeStore {
     }
 }
 
-struct KnowledgeModuleView: View {
+public struct KnowledgeModuleView: View {
     @State private var store: KnowledgeStore
     @State private var editingNote: KnowledgeNoteValue?
     @State private var confirmsDelete: KnowledgeNoteValue?
@@ -734,8 +734,8 @@ struct KnowledgeModuleView: View {
     private let captureDraftID: UUID?
     private let initialText: String?
 
-    init(
-        repository: any PhaseIIRepository,
+    public init(
+        repository: any KnowledgeRepository,
         initialFolderID: UUID? = nil,
         initialNoteID: UUID? = nil,
         initialDestination: NotesLibraryDestination? = nil,
@@ -754,7 +754,7 @@ struct KnowledgeModuleView: View {
         self.initialText = initialText
     }
 
-    var body: some View {
+    public var body: some View {
         Group {
             if horizontalSizeClass == .regular {
                 NavigationSplitView {
@@ -1733,7 +1733,7 @@ private struct KnowledgeNoteEditor: View {
     let allNotes: [KnowledgeNoteValue]
     let tags: [KnowledgeTagValue]
     let links: [KnowledgeLinkValue]
-    let repository: any PhaseIIRepository
+    let repository: any KnowledgeRepository
     let attachmentFiles: any KnowledgeAttachmentFileRepository
     let onSave: (KnowledgeNoteValue) async -> Void
     let onCreateTag: (String) async -> KnowledgeTagValue?
@@ -1749,7 +1749,7 @@ private struct KnowledgeNoteEditor: View {
         allNotes: [KnowledgeNoteValue],
         tags: [KnowledgeTagValue],
         links: [KnowledgeLinkValue],
-        repository: any PhaseIIRepository,
+        repository: any KnowledgeRepository,
         attachmentFiles: any KnowledgeAttachmentFileRepository,
         onSave: @escaping (KnowledgeNoteValue) async -> Void,
         onCreateTag: @escaping (String) async -> KnowledgeTagValue?,

@@ -641,7 +641,7 @@ public final class NoteEditorSession {
     public var isReadingMode = false
     public let undoManager = UndoManager()
 
-    private let repository: any PhaseIIRepository
+    private let repository: any KnowledgeRepository
     private var baseline: KnowledgeNoteValue
     private var autosaveTask: Task<Void, Never>?
     private var checkpointTask: Task<Void, Never>?
@@ -650,7 +650,7 @@ public final class NoteEditorSession {
 
     public init(
         note: KnowledgeNoteValue,
-        repository: any PhaseIIRepository,
+        repository: any KnowledgeRepository,
         sceneID: String = UUID().uuidString
     ) {
         self.note = note
@@ -1150,7 +1150,7 @@ public actor DefaultKnowledgeSecureNoteService: KnowledgeSecureNoteService {
         links: [KnowledgeLinkValue],
         reason: String
     ) async throws -> KnowledgeSecureEnvelope {
-        guard await BiometricAppLock().authenticate(reason: reason) else { throw SecureNoteError.authenticationFailed }
+        guard await KnowledgeBiometricAppLock().authenticate(reason: reason) else { throw SecureNoteError.authenticationFailed }
         let key = SymmetricKey(size: .bits256)
         let identifier = note.id.uuidString
         try store(key, identifier: identifier)
@@ -1217,7 +1217,7 @@ public actor DefaultKnowledgeSecureNoteService: KnowledgeSecureNoteService {
         _ envelope: KnowledgeSecureEnvelope,
         reason: String
     ) async throws -> (KnowledgeNoteValue, [KnowledgeAttachmentValue], [KnowledgeLinkValue]) {
-        guard await BiometricAppLock().authenticate(reason: reason) else { throw SecureNoteError.authenticationFailed }
+        guard await KnowledgeBiometricAppLock().authenticate(reason: reason) else { throw SecureNoteError.authenticationFailed }
         return try decryptWithoutAuthentication(envelope)
     }
 
@@ -1563,11 +1563,11 @@ public protocol KnowledgeAttachmentPipeline: Sendable {
 }
 
 public actor LocalKnowledgeAttachmentPipeline: KnowledgeAttachmentPipeline {
-    private let repository: any PhaseIIRepository
+    private let repository: any KnowledgeRepository
     private let files: any KnowledgeAttachmentFileRepository
     private var states: [UUID: KnowledgeAttachmentProgress] = [:]
 
-    public init(repository: any PhaseIIRepository, files: any KnowledgeAttachmentFileRepository) {
+    public init(repository: any KnowledgeRepository, files: any KnowledgeAttachmentFileRepository) {
         self.repository = repository
         self.files = files
     }
