@@ -1,3 +1,5 @@
+import LifeBoardContracts
+import LifeBoardDomain
 import CoreData
 import Foundation
 
@@ -32,8 +34,6 @@ fileprivate enum SplitPersistentStore: CaseIterable {
         }
     }
 }
-
-private final class PersistentStoreBootstrapServiceBundleLocator {}
 
 enum RescueScheduleRepairService {
     struct Report: Equatable {
@@ -1360,7 +1360,7 @@ final class PersistentStoreBootstrapService: @unchecked Sendable {
     }
 
     func makeV3PersistentContainer() -> NSPersistentCloudKitContainer {
-        let container = NSPersistentCloudKitContainer(name: "TaskModelV3")
+        let container = makeContainerWithShippedModel()
         let cloudKitMode = currentCloudKitMirroringMode()
 
         let location = storeLocationService.resolvedV3StoreLocation()
@@ -1404,7 +1404,7 @@ final class PersistentStoreBootstrapService: @unchecked Sendable {
     }
 
     func makeV3LocalOnlyWriteClosedContainer() -> NSPersistentCloudKitContainer {
-        let container = NSPersistentCloudKitContainer(name: "TaskModelV3")
+        let container = makeContainerWithShippedModel()
 
         let location = storeLocationService.resolvedV3StoreLocation()
         let localURL = location.localStoreURL
@@ -1832,20 +1832,10 @@ final class PersistentStoreBootstrapService: @unchecked Sendable {
     }
 
     private func taskModelBundleURL() throws -> URL {
-        let bundles = [Bundle.main, Bundle(for: PersistentStoreBootstrapServiceBundleLocator.self)]
-        for bundle in bundles {
-            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") {
-                return url
-            }
+        guard let modelURL = LifeBoardPersistenceModel.modelURL else {
+            throw LifeBoardPersistenceModel.ModelError.resourceNotFound
         }
-
-        throw NSError(
-            domain: "LifeBoardPersistentStoreBootstrapService.Model",
-            code: 2,
-            userInfo: [
-                NSLocalizedDescriptionKey: "Unable to locate TaskModelV3.momd"
-            ]
-        )
+        return modelURL
     }
 
     private func compiledTaskModel(
@@ -1866,16 +1856,15 @@ final class PersistentStoreBootstrapService: @unchecked Sendable {
     }
 
     private func currentCompiledTaskModel(bundleURL: URL) throws -> NSManagedObjectModel {
-        guard let model = NSManagedObjectModel(contentsOf: bundleURL) else {
-            throw NSError(
-                domain: "LifeBoardPersistentStoreBootstrapService.Model",
-                code: 4,
-                userInfo: [
-                    NSLocalizedDescriptionKey: "Unable to load current compiled TaskModelV3 model"
-                ]
-            )
+        try LifeBoardPersistenceModel.makeModel()
+    }
+
+    private func makeContainerWithShippedModel() -> NSPersistentCloudKitContainer {
+        do {
+            return try LifeBoardPersistenceModel.makeCloudKitContainer()
+        } catch {
+            preconditionFailure("The shipped Core Data model is unavailable: \(error.localizedDescription)")
         }
-        return model
     }
 
     private func removeStoreArtifacts(at baseURL: URL) {

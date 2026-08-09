@@ -1,3 +1,5 @@
+import LifeBoardContracts
+import LifeBoardDomain
 //
 //  TaskDefinitionEntity+CoreDataClass.swift
 //  LifeBoard

@@ -25,13 +25,7 @@ final class CoreDataMigrationChainTests: XCTestCase {
     /// `_WellnessCore`), so alphabetical order is not chronological order and
     /// sorting by name would silently test the wrong chain.
     private static func modelVersionURLs() throws -> [URL] {
-        let bundle = Bundle(for: CoreDataMigrationChainTests.self)
-        let appBundle = Bundle(for: AppDelegate.self)
-        let momd = try XCTUnwrap(
-            bundle.url(forResource: "TaskModelV3", withExtension: "momd")
-                ?? appBundle.url(forResource: "TaskModelV3", withExtension: "momd"),
-            "TaskModelV3.momd is not in the test or app bundle"
-        )
+        let momd = try PersistenceTestModel.url()
         let contents = try FileManager.default.contentsOfDirectory(
             at: momd,
             includingPropertiesForKeys: nil
@@ -40,15 +34,7 @@ final class CoreDataMigrationChainTests: XCTestCase {
     }
 
     private static func currentModel() throws -> NSManagedObjectModel {
-        let bundle = Bundle(for: AppDelegate.self)
-        let momd = try XCTUnwrap(
-            bundle.url(forResource: "TaskModelV3", withExtension: "momd"),
-            "TaskModelV3.momd is not in the app bundle"
-        )
-        return try XCTUnwrap(
-            NSManagedObjectModel(contentsOf: momd),
-            "the momd did not load as a model"
-        )
+        try PersistenceTestModel.model()
     }
 
     // MARK: - Chain integrity
