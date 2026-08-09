@@ -9,10 +9,19 @@
 import SwiftUI
 import UIKit
 
-// MARK: - Animation Tokens
+// MARK: - LifeBoardAnimation Tokens
 
 @MainActor
 public enum LifeBoardAnimation {
+    /// Mirrors `V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled` storage.
+    ///
+    /// Same reason as `Theme.tokenCacheEnabled`: the flag service is an
+    /// app type and this package is linked by the widget and Watch targets too.
+    /// Key and default must stay identical to the app's accessor.
+    static var padHomeAnimationTrimEnabled: Bool {
+        UserDefaults.standard.object(forKey: "feature.ipad.perf.home_animation_trim_v3") as? Bool ?? true
+    }
+
     public static let celebrationDuration: TimeInterval = 0.54
     public static let press: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.09)
     public static let feedbackFast: Animation = .timingCurve(0.22, 1, 0.36, 1, duration: 0.14)
@@ -144,7 +153,7 @@ public struct EnhancedStaggeredAppearance: ViewModifier {
 
     public func body(content: Content) -> some View {
         if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion)
-            || (layoutClass.isPad && V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled) {
+            || (layoutClass.isPad && LifeBoardAnimation.padHomeAnimationTrimEnabled) {
             return AnyView(content)
         }
 
@@ -162,7 +171,7 @@ public struct EnhancedStaggeredAppearance: ViewModifier {
     }
 }
 
-// MARK: - Card Entrance Modifier
+// MARK: - LifeBoardCard Entrance Modifier
 
 /// Fade + 8pt rise entrance per the Sunrise Glass card-entrance spec, with a capped stagger.
 /// Entrance is keyed to `onAppear` only — callers embedding this inside a periodically
@@ -342,7 +351,7 @@ public struct ActiveGlow: ViewModifier {
     }
 }
 
-// MARK: - Card Press Effect Modifier
+// MARK: - LifeBoardCard Press Effect Modifier
 
 public struct CardPressEffect: ViewModifier {
     @State private var isPressed = false
@@ -370,11 +379,11 @@ public struct ScaleOnPress: ViewModifier {
     /// Executes body.
     public func body(content: Content) -> some View {
         content
-            .buttonStyle(LifeBoardScaleOnPressButtonStyle())
+            .buttonStyle(ScaleOnPressButtonStyle())
     }
 }
 
-private struct LifeBoardScaleOnPressButtonStyle: ButtonStyle {
+private struct ScaleOnPressButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     /// Executes makeBody.
@@ -473,7 +482,7 @@ public extension View {
     }
 
     func lifeboardSuccessPulse(isActive: Bool) -> some View {
-        modifier(LifeBoardSuccessPulse(isActive: isActive))
+        modifier(SuccessPulse(isActive: isActive))
     }
 }
 
@@ -505,7 +514,7 @@ public struct BellShake: ViewModifier {
     }
 }
 
-public struct LifeBoardSuccessPulse: ViewModifier {
+public struct SuccessPulse: ViewModifier {
     let isActive: Bool
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
@@ -597,7 +606,7 @@ public enum LifeBoardFeedback {
 /// A sine-wave liquid surface. Mask it to any shape and drive `level`
 /// (0 = empty, 1 = full); the surface ripples gently via `TimelineView`
 /// unless Reduce Motion or Low Power renders it as a still fill.
-public struct LifeBoardLiquidWaveShape: Shape {
+public struct LiquidWaveShape: Shape {
     public var phase: CGFloat
     public var level: CGFloat
     public let amplitude: CGFloat
@@ -638,7 +647,7 @@ public struct LifeBoardLiquidWaveShape: Shape {
 /// Progress rendered as liquid rising inside the masked container. Used by
 /// hydration and fasting surfaces; falls back to a static fill under Reduce
 /// Motion and Low Power Mode.
-public struct LifeBoardLiquidFill: View {
+public struct LiquidFill: View {
     private let level: Double
     private let tint: Color
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -660,9 +669,9 @@ public struct LifeBoardLiquidFill: View {
                 let time = context.date.timeIntervalSinceReferenceDate
                 let phase = CGFloat(time.truncatingRemainder(dividingBy: 4) / 4)
                 ZStack {
-                    LifeBoardLiquidWaveShape(phase: phase, level: level, amplitude: 2.6)
+                    LiquidWaveShape(phase: phase, level: level, amplitude: 2.6)
                         .fill(tint.opacity(0.4))
-                    LifeBoardLiquidWaveShape(phase: phase + 0.35, level: max(0, level - 0.015), amplitude: 3.4)
+                    LiquidWaveShape(phase: phase + 0.35, level: max(0, level - 0.015), amplitude: 3.4)
                         .fill(tint.opacity(0.85))
                 }
             }

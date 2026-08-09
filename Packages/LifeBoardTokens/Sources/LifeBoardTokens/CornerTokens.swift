@@ -1,6 +1,6 @@
 import UIKit
 
-public struct LifeBoardCornerTokens: LifeBoardTokenGroup, Sendable {
+public struct CornerTokens: TokenGroup, Sendable {
     public let r0: CGFloat
     public let r1: CGFloat
     public let r2: CGFloat
@@ -16,7 +16,7 @@ public struct LifeBoardCornerTokens: LifeBoardTokenGroup, Sendable {
     public let modal: CGFloat
 
     /// Executes value.
-    public func value(for token: LifeBoardCornerToken, height: CGFloat? = nil) -> CGFloat {
+    public func value(for token: CornerToken, height: CGFloat? = nil) -> CGFloat {
         switch token {
         case .r0: return r0
         case .r1: return r1
@@ -29,7 +29,7 @@ public struct LifeBoardCornerTokens: LifeBoardTokenGroup, Sendable {
         }
     }
 
-    public static let `default` = LifeBoardCornerTokens(
+    public static let `default` = CornerTokens(
         r0: 0,
         r1: 12,
         r2: 14,
@@ -43,7 +43,7 @@ public struct LifeBoardCornerTokens: LifeBoardTokenGroup, Sendable {
         modal: 28
     )
 
-    public static let padCompact = LifeBoardCornerTokens(
+    public static let padCompact = CornerTokens(
         r0: 0,
         r1: 12,
         r2: 14,
@@ -57,7 +57,7 @@ public struct LifeBoardCornerTokens: LifeBoardTokenGroup, Sendable {
         modal: 30
     )
 
-    public static let padRegular = LifeBoardCornerTokens(
+    public static let padRegular = CornerTokens(
         r0: 0,
         r1: 12,
         r2: 14,
@@ -71,7 +71,7 @@ public struct LifeBoardCornerTokens: LifeBoardTokenGroup, Sendable {
         modal: 32
     )
 
-    public static let padExpanded = LifeBoardCornerTokens(
+    public static let padExpanded = CornerTokens(
         r0: 0,
         r1: 12,
         r2: 16,
@@ -86,7 +86,7 @@ public struct LifeBoardCornerTokens: LifeBoardTokenGroup, Sendable {
     )
 
     /// Executes forLayout.
-    public static func forLayout(_ layoutClass: LifeBoardLayoutClass) -> LifeBoardCornerTokens {
+    public static func forLayout(_ layoutClass: LayoutClass) -> CornerTokens {
         switch layoutClass {
         case .phone:
             return `default`

@@ -1,7 +1,7 @@
 @preconcurrency import SwiftUI
 import UIKit
 
-public struct LifeBoardSwiftUIColorTokens {
+public struct SwiftUIColorTokens {
     public let bgCanvas: Color
     public let bgCanvasSecondary: Color
     public let bgElevated: Color
@@ -96,42 +96,42 @@ public struct LifeBoardSwiftUIColorTokens {
 }
 
 @MainActor
-public enum LifeBoardSwiftUITokens {
+public enum SwiftUITokens {
     private struct SwiftUIColorCacheKey: Hashable {
-        let layoutClass: LifeBoardLayoutClass
-        let traits: LifeBoardTokenTraitContext
+        let layoutClass: LayoutClass
+        let traits: TokenTraitContext
     }
 
-    private static var swiftUIColorCache: [SwiftUIColorCacheKey: LifeBoardSwiftUIColorTokens] = [:]
+    private static var swiftUIColorCache: [SwiftUIColorCacheKey: SwiftUIColorTokens] = [:]
 
-    public static var color: LifeBoardSwiftUIColorTokens {
+    public static var color: SwiftUIColorTokens {
         color(for: .phone, traits: .unspecified)
     }
 
     public static var spacing: LifeBoardSpacingTokens {
-        LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified).spacing
+        ThemeStore.shared.tokens(for: .phone, traits: .unspecified).spacing
     }
 
-    public static var corner: LifeBoardCornerTokens {
-        LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified).corner
+    public static var corner: CornerTokens {
+        ThemeStore.shared.tokens(for: .phone, traits: .unspecified).corner
     }
 
     public static var typography: LifeBoardTypographyTokens {
-        LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified).typography
+        ThemeStore.shared.tokens(for: .phone, traits: .unspecified).typography
     }
 
-    public static var elevation: LifeBoardElevationTokens {
-        LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified).elevation
+    public static var elevation: ElevationTokens {
+        ThemeStore.shared.tokens(for: .phone, traits: .unspecified).elevation
     }
 
-    public static func color(for layoutClass: LifeBoardLayoutClass) -> LifeBoardSwiftUIColorTokens {
+    public static func color(for layoutClass: LayoutClass) -> SwiftUIColorTokens {
         color(for: layoutClass, traits: .unspecified)
     }
 
     public static func color(
-        for layoutClass: LifeBoardLayoutClass,
-        traits: LifeBoardTokenTraitContext
-    ) -> LifeBoardSwiftUIColorTokens {
+        for layoutClass: LayoutClass,
+        traits: TokenTraitContext
+    ) -> SwiftUIColorTokens {
         let cacheKey = SwiftUIColorCacheKey(
             layoutClass: layoutClass,
             traits: traits
@@ -140,75 +140,98 @@ public enum LifeBoardSwiftUITokens {
             return cached
         }
 
-        let resolved = LifeBoardSwiftUIColorTokens(
-            LifeBoardThemeManager.tokens(for: layoutClass, traits: traits).color
+        let resolved = SwiftUIColorTokens(
+            ThemeStore.tokens(for: layoutClass, traits: traits).color
         )
         swiftUIColorCache[cacheKey] = resolved
         return resolved
     }
 
-    public static func spacing(for layoutClass: LifeBoardLayoutClass) -> LifeBoardSpacingTokens {
+    public static func spacing(for layoutClass: LayoutClass) -> LifeBoardSpacingTokens {
         spacing(for: layoutClass, traits: .unspecified)
     }
 
     public static func spacing(
-        for layoutClass: LifeBoardLayoutClass,
-        traits: LifeBoardTokenTraitContext
+        for layoutClass: LayoutClass,
+        traits: TokenTraitContext
     ) -> LifeBoardSpacingTokens {
-        LifeBoardThemeManager.tokens(for: layoutClass, traits: traits).spacing
+        ThemeStore.tokens(for: layoutClass, traits: traits).spacing
     }
 
-    public static func corner(for layoutClass: LifeBoardLayoutClass) -> LifeBoardCornerTokens {
+    public static func corner(for layoutClass: LayoutClass) -> CornerTokens {
         corner(for: layoutClass, traits: .unspecified)
     }
 
     public static func corner(
-        for layoutClass: LifeBoardLayoutClass,
-        traits: LifeBoardTokenTraitContext
-    ) -> LifeBoardCornerTokens {
-        LifeBoardThemeManager.tokens(for: layoutClass, traits: traits).corner
+        for layoutClass: LayoutClass,
+        traits: TokenTraitContext
+    ) -> CornerTokens {
+        ThemeStore.tokens(for: layoutClass, traits: traits).corner
     }
 
-    public static func typography(for layoutClass: LifeBoardLayoutClass) -> LifeBoardTypographyTokens {
+    public static func typography(for layoutClass: LayoutClass) -> LifeBoardTypographyTokens {
         typography(for: layoutClass, traits: .unspecified)
     }
 
     public static func typography(
-        for layoutClass: LifeBoardLayoutClass,
-        traits: LifeBoardTokenTraitContext
+        for layoutClass: LayoutClass,
+        traits: TokenTraitContext
     ) -> LifeBoardTypographyTokens {
-        LifeBoardThemeManager.tokens(for: layoutClass, traits: traits).typography
+        ThemeStore.tokens(for: layoutClass, traits: traits).typography
     }
 
-    public static func elevation(for layoutClass: LifeBoardLayoutClass) -> LifeBoardElevationTokens {
+    public static func elevation(for layoutClass: LayoutClass) -> ElevationTokens {
         elevation(for: layoutClass, traits: .unspecified)
     }
 
     public static func elevation(
-        for layoutClass: LifeBoardLayoutClass,
-        traits: LifeBoardTokenTraitContext
-    ) -> LifeBoardElevationTokens {
-        LifeBoardThemeManager.tokens(for: layoutClass, traits: traits).elevation
+        for layoutClass: LayoutClass,
+        traits: TokenTraitContext
+    ) -> ElevationTokens {
+        ThemeStore.tokens(for: layoutClass, traits: traits).elevation
     }
 }
 
-private struct LifeBoardLayoutClassKey: EnvironmentKey {
-    static let defaultValue: LifeBoardLayoutClass = .phone
+private struct LayoutClassKey: EnvironmentKey {
+    static let defaultValue: LayoutClass = .phone
 }
 
-private struct LifeBoardScrollOptimizedRenderingKey: EnvironmentKey {
+private struct ScrollOptimizedRenderingKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+/// Set by the root; `nil` until it is.
+private struct LifeBoardTokensKey: EnvironmentKey {
+    static let defaultValue: Tokens? = nil
+}
+
 public extension EnvironmentValues {
-    var lifeboardLayoutClass: LifeBoardLayoutClass {
-        get { self[LifeBoardLayoutClassKey.self] }
-        set { self[LifeBoardLayoutClassKey.self] = newValue }
+    var lifeboardLayoutClass: LayoutClass {
+        get { self[LayoutClassKey.self] }
+        set { self[LayoutClassKey.self] = newValue }
+    }
+
+    /// The resolved token set for the current layout class.
+    ///
+    /// Views used to spell this `tokens`,
+    /// which reached past the environment for a value the environment already
+    /// had the inputs for. Reading it here means a view is themed by where it
+    /// sits in the hierarchy rather than by a singleton, and a preview or test
+    /// can theme a subtree by setting one value.
+    ///
+    /// The fallback resolves exactly what the singleton call resolved, from the
+    /// same layout class, so a subtree with no provider behaves as before.
+    var lifeboardTokens: Tokens {
+        get {
+            if let provided = self[LifeBoardTokensKey.self] { return provided }
+            return MainActor.assumeIsolated { ThemeStore.tokens(for: lifeboardLayoutClass) }
+        }
+        set { self[LifeBoardTokensKey.self] = newValue }
     }
 
     var lifeboardScrollOptimizedRendering: Bool {
-        get { self[LifeBoardScrollOptimizedRenderingKey.self] }
-        set { self[LifeBoardScrollOptimizedRenderingKey.self] = newValue }
+        get { self[ScrollOptimizedRenderingKey.self] }
+        set { self[ScrollOptimizedRenderingKey.self] = newValue }
     }
 }
 
@@ -216,8 +239,8 @@ private func lifeboardTokenTraits(
     colorScheme: ColorScheme,
     dynamicTypeSize: DynamicTypeSize,
     colorSchemeContrast: ColorSchemeContrast
-) -> LifeBoardTokenTraitContext {
-    LifeBoardTokenTraitContext(
+) -> TokenTraitContext {
+    TokenTraitContext(
         colorScheme: colorScheme == .dark ? .dark : .light,
         contentSizeCategory: dynamicTypeSize.uiContentSizeCategory,
         accessibilityContrast: colorSchemeContrast.uiAccessibilityContrast
@@ -225,8 +248,8 @@ private func lifeboardTokenTraits(
 }
 
 private extension UITraitCollection {
-    var lifeboardTokenTraits: LifeBoardTokenTraitContext {
-        LifeBoardTokenTraitContext(
+    var lifeboardTokenTraits: TokenTraitContext {
+        TokenTraitContext(
             colorScheme: userInterfaceStyle,
             contentSizeCategory: preferredContentSizeCategory,
             accessibilityContrast: accessibilityContrast
@@ -236,15 +259,15 @@ private extension UITraitCollection {
 
 @MainActor
 public extension Color {
-    static var lifeboard: LifeBoardSwiftUIColorTokens {
-        LifeBoardSwiftUITokens.color
+    static var lifeboard: SwiftUIColorTokens {
+        SwiftUITokens.color
     }
 }
 
 public extension Color {
-    static func lifeboard(_ role: LifeBoardColorRole) -> Color {
+    static func lifeboard(_ role: ColorRole) -> Color {
         Color(uiColor: UIColor { traits in
-            LifeBoardThreadSafeTokenResolver.color(for: role, traits: traits.lifeboardTokenTraits)
+            ThreadSafeTokenResolver.color(for: role, traits: traits.lifeboardTokenTraits)
         })
     }
 
@@ -253,12 +276,12 @@ public extension Color {
     /// beneath it. Feature views no longer need opacity guesses for readable
     /// dock, sidebar, toolbar, card, sheet, or image copy.
     static func lifeboard(
-        _ role: LifeBoardLegibilityRole,
-        on surface: LifeBoardSurfaceContext,
+        _ role: LegibilityRole,
+        on surface: SurfaceContext,
         imageLuminance: CGFloat? = nil
     ) -> Color {
         Color(uiColor: UIColor { traits in
-            LifeBoardThreadSafeTokenResolver.color(
+            ThreadSafeTokenResolver.color(
                 for: role,
                 on: surface,
                 imageLuminance: imageLuminance,
@@ -268,7 +291,7 @@ public extension Color {
     }
 }
 
-public enum LifeBoardSystemGlassVariant: Sendable {
+public enum SystemGlassVariant: Sendable {
     case regular
     case clear
 }
@@ -276,8 +299,8 @@ public enum LifeBoardSystemGlassVariant: Sendable {
 /// The only feature-facing entry point for system Liquid Glass. It owns the
 /// comfort fallback and OS fallback so callers choose a semantic variant and
 /// shape without duplicating availability or accessibility policy.
-public struct LifeBoardSystemGlassModifier<GlassShape: Shape>: ViewModifier {
-    public let variant: LifeBoardSystemGlassVariant
+public struct SystemGlassModifier<GlassShape: Shape>: ViewModifier {
+    public let variant: SystemGlassVariant
     public let shape: GlassShape
     public let interactive: Bool
 
@@ -309,12 +332,12 @@ public struct LifeBoardSystemGlassModifier<GlassShape: Shape>: ViewModifier {
 
 public extension View {
     func lifeBoardSystemGlass<GlassShape: Shape>(
-        _ variant: LifeBoardSystemGlassVariant = .regular,
+        _ variant: SystemGlassVariant = .regular,
         in shape: GlassShape,
         interactive: Bool = false
     ) -> some View {
         modifier(
-            LifeBoardSystemGlassModifier(
+            SystemGlassModifier(
                 variant: variant,
                 shape: shape,
                 interactive: interactive
@@ -327,11 +350,11 @@ public extension View {
 public extension Font {
     /// Executes lifeboard.
     static func lifeboard(_ style: LifeBoardTextStyle) -> Font {
-        Font(LifeBoardSwiftUITokens.typography.font(for: style))
+        Font(SwiftUITokens.typography.font(for: style))
     }
 }
 
-private struct LifeBoardFontModifier: ViewModifier {
+private struct FontModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
@@ -353,7 +376,7 @@ private struct LifeBoardFontModifier: ViewModifier {
             traits.accessibilityContrast = colorSchemeContrast.uiAccessibilityContrast
         }
         let font = Font(
-            LifeBoardSwiftUITokens.typography(
+            SwiftUITokens.typography(
                 for: layoutClass,
                 traits: traits
             ).dynamicFont(for: style, compatibleWith: traitCollection)
@@ -372,16 +395,16 @@ private struct LifeBoardFontModifier: ViewModifier {
 @MainActor
 public extension View {
     func lifeboardFont(_ style: LifeBoardTextStyle) -> some View {
-        modifier(LifeBoardFontModifier(style: style))
+        modifier(FontModifier(style: style))
     }
 }
 
-private struct LifeBoardElevationModifier: ViewModifier {
+private struct ElevationModifier: ViewModifier {
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @Environment(\.lifeboardLayoutClass) private var layoutClass
-    let level: LifeBoardElevationLevel
+    let level: ElevationLevel
     let cornerRadius: CGFloat
     let includesBorder: Bool
 
@@ -393,7 +416,7 @@ private struct LifeBoardElevationModifier: ViewModifier {
             dynamicTypeSize: dynamicTypeSize,
             colorSchemeContrast: colorSchemeContrast
         )
-        let style = LifeBoardSwiftUITokens.elevation(for: layoutClass, traits: traits).style(for: level)
+        let style = SwiftUITokens.elevation(for: layoutClass, traits: traits).style(for: level)
         let trait = UITraitCollection(userInterfaceStyle: colorScheme == .dark ? .dark : .light)
         let shadowColor = Color(uiColor: style.shadowColor.resolvedColor(with: trait))
 
@@ -408,7 +431,7 @@ private struct LifeBoardElevationModifier: ViewModifier {
     }
 }
 
-private struct LifeBoardDenseSurfaceModifier: ViewModifier {
+private struct DenseSurfaceModifier: ViewModifier {
     let cornerRadius: CGFloat
     let fillColor: Color
     let strokeColor: Color
@@ -427,12 +450,12 @@ private struct LifeBoardDenseSurfaceModifier: ViewModifier {
     }
 }
 
-private struct LifeBoardPremiumSurfaceModifier: ViewModifier {
+private struct PremiumSurfaceModifier: ViewModifier {
     let cornerRadius: CGFloat
     let fillColor: Color
     let strokeColor: Color
     let accentColor: Color
-    let level: LifeBoardElevationLevel
+    let level: ElevationLevel
     let useNativeGlass: Bool
 
     @ViewBuilder
@@ -526,12 +549,13 @@ private struct LifeBoardPremiumSurfaceModifier: ViewModifier {
     }
 }
 
-private struct LifeBoardAnalyticsSurfaceModifier: ViewModifier {
+private struct AnalyticsSurfaceModifier: ViewModifier {
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
     let cornerRadius: CGFloat
     let fillColor: Color
     let strokeColor: Color
     let accentColor: Color
-    let level: LifeBoardElevationLevel
+    let level: ElevationLevel
 
     func body(content: Content) -> some View {
         let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
@@ -559,11 +583,11 @@ public extension View {
     /// Executes lifeboardElevation.
     @MainActor
     func lifeboardElevation(
-        _ level: LifeBoardElevationLevel,
+        _ level: ElevationLevel,
         cornerRadius: CGFloat = 0,
         includesBorder: Bool = true
     ) -> some View {
-        modifier(LifeBoardElevationModifier(level: level, cornerRadius: cornerRadius, includesBorder: includesBorder))
+        modifier(ElevationModifier(level: level, cornerRadius: cornerRadius, includesBorder: includesBorder))
     }
 
     @MainActor
@@ -576,7 +600,7 @@ public extension View {
         let resolvedFillColor = fillColor ?? Color.lifeboard.surfacePrimary
         let resolvedStrokeColor = strokeColor ?? Color.lifeboard.strokeHairline
         return modifier(
-            LifeBoardDenseSurfaceModifier(
+            DenseSurfaceModifier(
                 cornerRadius: cornerRadius,
                 fillColor: resolvedFillColor,
                 strokeColor: resolvedStrokeColor,
@@ -591,11 +615,11 @@ public extension View {
         fillColor: Color? = nil,
         strokeColor: Color? = nil,
         accentColor: Color? = nil,
-        level: LifeBoardElevationLevel = .e2,
+        level: ElevationLevel = .e2,
         useNativeGlass: Bool = true
     ) -> some View {
         modifier(
-            LifeBoardPremiumSurfaceModifier(
+            PremiumSurfaceModifier(
                 cornerRadius: cornerRadius,
                 fillColor: fillColor ?? Color.lifeboard.surfacePrimary,
                 strokeColor: strokeColor ?? Color.lifeboard.strokeHairline,
@@ -612,10 +636,10 @@ public extension View {
         fillColor: Color? = nil,
         strokeColor: Color? = nil,
         accentColor: Color? = nil,
-        level: LifeBoardElevationLevel = .e1
+        level: ElevationLevel = .e1
     ) -> some View {
         modifier(
-            LifeBoardAnalyticsSurfaceModifier(
+            AnalyticsSurfaceModifier(
                 cornerRadius: cornerRadius,
                 fillColor: fillColor ?? Color.lifeboard.surfacePrimary,
                 strokeColor: strokeColor ?? Color.lifeboard.strokeHairline,
@@ -629,11 +653,11 @@ public extension View {
     func lifeboardChromeSurface(
         cornerRadius: CGFloat,
         accentColor: Color? = nil,
-        level: LifeBoardElevationLevel = .e1,
+        level: ElevationLevel = .e1,
         useNativeGlass: Bool = true
     ) -> some View {
         modifier(
-            LifeBoardPremiumSurfaceModifier(
+            PremiumSurfaceModifier(
                 cornerRadius: cornerRadius,
                 fillColor: Color.lifeboard.surfaceSecondary,
                 strokeColor: Color.lifeboard.strokeHairline.opacity(0.78),
@@ -645,8 +669,19 @@ public extension View {
     }
 
     /// Executes lifeboardLayoutClass.
-    func lifeboardLayoutClass(_ layoutClass: LifeBoardLayoutClass) -> some View {
+    func lifeboardLayoutClass(_ layoutClass: LayoutClass) -> some View {
         environment(\.lifeboardLayoutClass, layoutClass)
+    }
+
+    /// Provides both the layout class and the token set resolved from it.
+    ///
+    /// Applied once at the root. Setting the tokens alongside the class is what
+    /// lets views stop calling `ThemeStore.shared` — and lets a preview theme a
+    /// subtree by overriding one value.
+    @MainActor
+    func lifeBoardTokenEnvironment(for layoutClass: LayoutClass) -> some View {
+        environment(\.lifeboardLayoutClass, layoutClass)
+            .environment(\.lifeboardTokens, ThemeStore.tokens(for: layoutClass))
     }
 
     func lifeboardScrollOptimizedRendering(_ enabled: Bool = true) -> some View {
@@ -659,7 +694,7 @@ public extension View {
         alignment: Alignment = .center
     ) -> some View {
         modifier(
-            LifeBoardReadableContentModifier(
+            ReadableContentModifier(
                 maxWidth: maxWidth,
                 alignment: alignment
             )
@@ -667,7 +702,7 @@ public extension View {
     }
 }
 
-private struct LifeBoardReadableContentModifier: ViewModifier {
+private struct ReadableContentModifier: ViewModifier {
     @Environment(\.lifeboardLayoutClass) private var layoutClass
 
     let maxWidth: CGFloat
@@ -693,11 +728,11 @@ public struct LifeBoardTextFieldStyle: TextFieldStyle {
 
     /// Executes _body.
     public func _body(configuration: TextField<_Label>) -> some View {
-        LifeBoardTextFieldBody(configuration: configuration, isFocused: isFocused)
+        TextFieldBody(configuration: configuration, isFocused: isFocused)
     }
 }
 
-private struct LifeBoardTextFieldBody<Label: View>: View {
+private struct TextFieldBody<Label: View>: View {
     nonisolated(unsafe) let configuration: TextField<Label>
     let isFocused: Bool
 
@@ -710,6 +745,7 @@ private struct LifeBoardTextFieldBody<Label: View>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @Environment(\.lifeboardLayoutClass) private var layoutClass
+    @Environment(\.lifeboardTokens) private var tokens
 
     var body: some View {
         let traits = lifeboardTokenTraits(
@@ -717,14 +753,14 @@ private struct LifeBoardTextFieldBody<Label: View>: View {
             dynamicTypeSize: dynamicTypeSize,
             colorSchemeContrast: colorSchemeContrast
         )
-        let tokens = LifeBoardThemeManager.shared.tokens(for: layoutClass, traits: traits)
+        let tokens = ThemeStore.shared.tokens(for: layoutClass, traits: traits)
 
         return configuration
             .font(.lifeboard(.body))
             .foregroundColor(Color(uiColor: tokens.color.textPrimary))
             .tint(Color(uiColor: tokens.color.actionPrimary))
             .padding(.horizontal, tokens.spacing.s12)
-            .frame(height: LifeBoardTextFieldTokens.singleLineHeight)
+            .frame(height: TextFieldTokens.singleLineHeight)
             .background(Color(uiColor: tokens.color.surfaceSecondary))
             .overlay(
                 RoundedRectangle(cornerRadius: tokens.corner.r2)
@@ -737,17 +773,17 @@ private struct LifeBoardTextFieldBody<Label: View>: View {
     }
 }
 
-public struct LifeBoardChip: View {
+public struct Chip: View {
     public let title: String
     public var isSelected: Bool
-    public var selectedStyle: LifeBoardChipSelectionStyle
+    public var selectedStyle: ChipSelectionStyle
     public var action: (() -> Void)?
 
     /// Initializes a new instance.
     public init(
         title: String,
         isSelected: Bool,
-        selectedStyle: LifeBoardChipSelectionStyle = .tinted,
+        selectedStyle: ChipSelectionStyle = .tinted,
         action: (() -> Void)? = nil
     ) {
         self.title = title
@@ -761,9 +797,9 @@ public struct LifeBoardChip: View {
             Text(title)
                 .font(.lifeboard(.callout))
                 .foregroundColor(textColor)
-                .padding(.horizontal, LifeBoardSwiftUITokens.spacing.s12)
-                .padding(.vertical, LifeBoardSwiftUITokens.spacing.s8)
-                .frame(minWidth: 44, minHeight: LifeBoardSettingsMetrics.chipMinHeight)
+                .padding(.horizontal, SwiftUITokens.spacing.s12)
+                .padding(.vertical, SwiftUITokens.spacing.s8)
+                .frame(minWidth: 44, minHeight: ControlMetrics.chipMinHeight)
                 .background(background)
                 .overlay(border)
                 .clipShape(Capsule())
@@ -808,6 +844,7 @@ public struct LifeBoardCard<Content: View>: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorSchemeContrast) private var colorSchemeContrast
     @Environment(\.lifeboardLayoutClass) private var layoutClass
+    @Environment(\.lifeboardTokens) private var tokens
 
     /// Initializes a new instance.
     public init(active: Bool = false, elevated: Bool = false, @ViewBuilder content: () -> Content) {
@@ -822,7 +859,7 @@ public struct LifeBoardCard<Content: View>: View {
             dynamicTypeSize: dynamicTypeSize,
             colorSchemeContrast: colorSchemeContrast
         )
-        let tokens = LifeBoardThemeManager.shared.tokens(for: layoutClass, traits: traits)
+        let tokens = ThemeStore.shared.tokens(for: layoutClass, traits: traits)
         return content
             .padding(tokens.spacing.cardPadding)
             .background(Color(uiColor: tokens.color.surfacePrimary))

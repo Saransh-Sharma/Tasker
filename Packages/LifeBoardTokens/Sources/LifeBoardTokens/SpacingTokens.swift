@@ -1,6 +1,6 @@
 import UIKit
 
-public struct LifeBoardSpacingTokens: LifeBoardTokenGroup, Sendable {
+public struct LifeBoardSpacingTokens: TokenGroup, Sendable {
     public let s2: CGFloat
     public let s4: CGFloat
     public let s8: CGFloat
@@ -22,7 +22,7 @@ public struct LifeBoardSpacingTokens: LifeBoardTokenGroup, Sendable {
     public let buttonHeight: CGFloat
 
     /// Executes value.
-    public func value(for token: LifeBoardSpacingToken) -> CGFloat {
+    public func value(for token: SpacingToken) -> CGFloat {
         token.rawValue
     }
 
@@ -107,7 +107,7 @@ public struct LifeBoardSpacingTokens: LifeBoardTokenGroup, Sendable {
     )
 
     /// Executes forLayout.
-    public static func forLayout(_ layoutClass: LifeBoardLayoutClass) -> LifeBoardSpacingTokens {
+    public static func forLayout(_ layoutClass: LayoutClass) -> LifeBoardSpacingTokens {
         switch layoutClass {
         case .phone:
             return `default`

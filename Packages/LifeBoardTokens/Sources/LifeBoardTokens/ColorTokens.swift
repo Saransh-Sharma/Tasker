@@ -1,6 +1,7 @@
+import LifeBoardContracts
 import UIKit
 
-public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
+public struct LifeBoardColorTokens: TokenGroup, @unchecked Sendable {
     public let bgCanvas: UIColor
     public let bgCanvasSecondary: UIColor
     public let bgElevated: UIColor
@@ -99,13 +100,13 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
     public var imageScrim: UIColor { overlayScrim }
 
     public func color(
-        for role: LifeBoardLegibilityRole,
-        on surface: LifeBoardSurfaceContext,
+        for role: LegibilityRole,
+        on surface: SurfaceContext,
         imageLuminance: CGFloat? = nil
     ) -> UIColor {
         if surface == .image || surface == .modalScrim {
             let usesDarkImageInk = surface == .image
-                && LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: imageLuminance ?? 0.5) == .darkContent
+                && ImageReadabilityPolicy.foregroundStyle(forLuminance: imageLuminance ?? 0.5) == .darkContent
             switch role {
             case .primary, .secondary, .metadata, .inverse, .tertiary, .onImage:
                 return usesDarkImageInk ? textPrimary : textInverse
@@ -141,7 +142,7 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
             return accentOnPrimary
         case .onImage:
             let luminance = imageLuminance ?? 0.5
-            return LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: luminance) == .darkContent
+            return ImageReadabilityPolicy.foregroundStyle(forLuminance: luminance) == .darkContent
                 ? textPrimary
                 : textInverse
         case .focusRing:
@@ -150,7 +151,7 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
     }
 
     /// Executes color.
-    public func color(for role: LifeBoardColorRole) -> UIColor {
+    public func color(for role: ColorRole) -> UIColor {
         switch role {
         case .bgCanvas: return bgCanvas
         case .bgCanvasSecondary: return bgCanvasSecondary
@@ -209,7 +210,7 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
     /// Executes make. The unified Life OS presentation resolves the warm
     /// paper/cocoa system. A stored disable override remains a data-preserving
     /// diagnostic rollback, but extensions never default to the retired palette.
-    public static func make(palette: LifeBoardBrandPalette) -> LifeBoardColorTokens {
+    public static func make(palette: BrandPalette) -> LifeBoardColorTokens {
         if unifiedPresentationEnabled {
             return makeWarmPaper()
         }
@@ -382,7 +383,7 @@ public struct LifeBoardColorTokens: LifeBoardTokenGroup, @unchecked Sendable {
         )
     }
 
-    private static func makeLegacySunrise(palette _: LifeBoardBrandPalette) -> LifeBoardColorTokens {
+    private static func makeLegacySunrise(palette _: BrandPalette) -> LifeBoardColorTokens {
         func adaptive(
             light: String,
             dark: String,

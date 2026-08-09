@@ -1,17 +1,17 @@
 //
-//  LifeBoardTheme+SwiftUI.swift
+//  Theme+SwiftUI.swift
 //  LifeBoard
 //
 //  SwiftUI namespace bridge for the token-based design system.
-//  Provides LifeBoardTheme.Colors / .Typography / .Spacing / .CornerRadius
+//  Provides Theme.Colors / .Typography / .Spacing / .CornerRadius
 //  so Presentation views can reference tokens with a clean API.
 //
 
 import SwiftUI
 
-// MARK: - LifeBoardTheme.Colors
+// MARK: - Theme.Colors
 
-extension LifeBoardTheme {
+extension Theme {
     @MainActor
     public enum Colors {
         // XP / Gamification
@@ -59,9 +59,9 @@ extension LifeBoardTheme {
     }
 }
 
-// MARK: - LifeBoardTheme.Typography
+// MARK: - Theme.Typography
 
-extension LifeBoardTheme {
+extension Theme {
     @MainActor
     public enum Typography {
         public static var heroDisplay: Font { .lifeboard(.heroDisplay) }
@@ -87,13 +87,13 @@ extension LifeBoardTheme {
     }
 }
 
-// MARK: - LifeBoardTheme.Spacing
+// MARK: - Theme.Spacing
 
-extension LifeBoardTheme {
+extension Theme {
     @MainActor
     public enum Spacing {
         private static var tokens: LifeBoardSpacingTokens {
-            LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified).spacing
+            ThemeStore.shared.tokens(for: .phone, traits: .unspecified).spacing
         }
 
         public static var xs: CGFloat { tokens.s4 }
@@ -111,19 +111,19 @@ extension LifeBoardTheme {
         /// Extra bottom padding for views behind a tab bar
         public static var tabBarHeight: CGFloat { 80 }
 
-        public static func forLayout(_ layoutClass: LifeBoardLayoutClass) -> LifeBoardSpacingTokens {
-            LifeBoardThemeManager.tokens(for: layoutClass).spacing
+        public static func forLayout(_ layoutClass: LayoutClass) -> LifeBoardSpacingTokens {
+            ThemeStore.tokens(for: layoutClass).spacing
         }
     }
 }
 
-// MARK: - LifeBoardTheme.CornerRadius
+// MARK: - Theme.CornerRadius
 
-extension LifeBoardTheme {
+extension Theme {
     @MainActor
     public enum CornerRadius {
-        private static var tokens: LifeBoardCornerTokens {
-            LifeBoardThemeManager.shared.tokens(for: .phone, traits: .unspecified).corner
+        private static var tokens: CornerTokens {
+            ThemeStore.shared.tokens(for: .phone, traits: .unspecified).corner
         }
 
         public static var sm: CGFloat { tokens.r1 }
@@ -134,8 +134,8 @@ extension LifeBoardTheme {
         public static var modal: CGFloat { tokens.modal }
         public static var pill: CGFloat { tokens.pill }
 
-        public static func forLayout(_ layoutClass: LifeBoardLayoutClass) -> LifeBoardCornerTokens {
-            LifeBoardThemeManager.tokens(for: layoutClass).corner
+        public static func forLayout(_ layoutClass: LayoutClass) -> CornerTokens {
+            ThemeStore.tokens(for: layoutClass).corner
         }
     }
 }

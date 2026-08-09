@@ -1,6 +1,6 @@
 import UIKit
 
-public enum LifeBoardLayoutClass: String, CaseIterable, Hashable, Sendable {
+public enum LayoutClass: String, CaseIterable, Hashable, Sendable {
     case phone
     case padCompact
     case padRegular
@@ -11,7 +11,7 @@ public enum LifeBoardLayoutClass: String, CaseIterable, Hashable, Sendable {
     }
 }
 
-public enum LifeBoardInterfacePlatform: String, Sendable {
+public enum InterfacePlatform: String, Sendable {
     case phone
     case pad
     case macCatalyst
@@ -25,7 +25,7 @@ public enum LifeBoardInterfacePlatform: String, Sendable {
         }
     }
 
-    public static func resolve(idiom: UIUserInterfaceIdiom) -> LifeBoardInterfacePlatform {
+    public static func resolve(idiom: UIUserInterfaceIdiom) -> InterfacePlatform {
         #if targetEnvironment(macCatalyst)
         if idiom != .phone {
             return .macCatalyst
@@ -43,11 +43,11 @@ public enum LifeBoardInterfacePlatform: String, Sendable {
     }
 }
 
-public struct LifeBoardLayoutMetrics: Sendable {
+public struct LayoutMetrics: Sendable {
     public let width: CGFloat
     public let height: CGFloat
     public let idiom: UIUserInterfaceIdiom
-    public let platform: LifeBoardInterfacePlatform
+    public let platform: InterfacePlatform
     public let horizontalSizeClass: UIUserInterfaceSizeClass?
     public let verticalSizeClass: UIUserInterfaceSizeClass?
     public let safeAreaInsets: UIEdgeInsets
@@ -57,7 +57,7 @@ public struct LifeBoardLayoutMetrics: Sendable {
         width: CGFloat,
         height: CGFloat,
         idiom: UIUserInterfaceIdiom,
-        platform: LifeBoardInterfacePlatform? = nil,
+        platform: InterfacePlatform? = nil,
         horizontalSizeClass: UIUserInterfaceSizeClass? = nil,
         verticalSizeClass: UIUserInterfaceSizeClass? = nil,
         safeAreaInsets: UIEdgeInsets = .zero
@@ -65,19 +65,19 @@ public struct LifeBoardLayoutMetrics: Sendable {
         self.width = width
         self.height = height
         self.idiom = idiom
-        self.platform = platform ?? LifeBoardInterfacePlatform.resolve(idiom: idiom)
+        self.platform = platform ?? InterfacePlatform.resolve(idiom: idiom)
         self.horizontalSizeClass = horizontalSizeClass
         self.verticalSizeClass = verticalSizeClass
         self.safeAreaInsets = safeAreaInsets
     }
 }
 
-public enum LifeBoardLayoutResolver {
+public enum LayoutResolver {
     public static let padCompactUpperBound: CGFloat = 700
     public static let padRegularUpperBound: CGFloat = 1024
 
     /// Executes classify.
-    public static func classify(metrics: LifeBoardLayoutMetrics) -> LifeBoardLayoutClass {
+    public static func classify(metrics: LayoutMetrics) -> LayoutClass {
         guard metrics.platform.usesExpandedLayout else { return .phone }
         if metrics.width < padCompactUpperBound {
             return .padCompact
@@ -90,13 +90,13 @@ public enum LifeBoardLayoutResolver {
 
     /// Executes classify.
     @MainActor
-    public static func classify(windowScene: UIWindowScene?) -> LifeBoardLayoutClass {
+    public static func classify(windowScene: UIWindowScene?) -> LayoutClass {
         guard let windowScene else { return .phone }
         let size = windowScene.effectiveGeometry.coordinateSpace.bounds.size
         let horizontalSizeClass = windowScene.traitCollection.horizontalSizeClass
         let verticalSizeClass = windowScene.traitCollection.verticalSizeClass
         let safeAreaInsets = windowScene.windows.first?.safeAreaInsets ?? .zero
-        let metrics = LifeBoardLayoutMetrics(
+        let metrics = LayoutMetrics(
             width: size.width,
             height: size.height,
             idiom: windowScene.traitCollection.userInterfaceIdiom,
@@ -109,12 +109,15 @@ public enum LifeBoardLayoutResolver {
 
     /// Executes classify.
     @MainActor
-    public static func classify(view: UIView) -> LifeBoardLayoutClass {
+    public static func classify(view: UIView) -> LayoutClass {
         classify(metrics: metrics(for: view))
     }
 
     @MainActor
-    static func metrics(for view: UIView) -> LifeBoardLayoutMetrics {
+    // Resolves the live scene geometry for a view. Internal while this type
+    // was compiled into each target; LifeBoardTests drives it directly, so it
+    // has to cross the module boundary now.
+    public static func metrics(for view: UIView) -> LayoutMetrics {
         let bounds = view.bounds
         let fallbackBounds = view.window?.windowScene?.effectiveGeometry.coordinateSpace.bounds ?? view.window?.bounds
         let resolvedWidth: CGFloat
@@ -128,7 +131,7 @@ public enum LifeBoardLayoutResolver {
             resolvedHeight = bounds.height
         }
 
-        return LifeBoardLayoutMetrics(
+        return LayoutMetrics(
             width: resolvedWidth,
             height: resolvedHeight,
             idiom: view.traitCollection.userInterfaceIdiom,
@@ -139,14 +142,14 @@ public enum LifeBoardLayoutResolver {
     }
 }
 
-public protocol LifeBoardTokenGroup {}
+public protocol TokenGroup {}
 
-public protocol LifeBoardTokenContainer {
+public protocol TokenContainer {
     var color: LifeBoardColorTokens { get }
     var typography: LifeBoardTypographyTokens { get }
     var spacing: LifeBoardSpacingTokens { get }
-    var elevation: LifeBoardElevationTokens { get }
-    var corner: LifeBoardCornerTokens { get }
+    var elevation: ElevationTokens { get }
+    var corner: CornerTokens { get }
 }
 
 public enum LifeBoardTextStyle: String, CaseIterable {
@@ -173,7 +176,7 @@ public enum LifeBoardTextStyle: String, CaseIterable {
     case buttonSmall
 }
 
-public enum LifeBoardColorRole: String, CaseIterable, Sendable {
+public enum ColorRole: String, CaseIterable, Sendable {
     case bgCanvas
     case bgCanvasSecondary
     case bgElevated
@@ -229,7 +232,7 @@ public enum LifeBoardColorRole: String, CaseIterable, Sendable {
 
 /// The semantic surface beneath content. Feature views describe their
 /// surface instead of guessing a foreground color from appearance alone.
-public enum LifeBoardSurfaceContext: String, CaseIterable, Sendable {
+public enum SurfaceContext: String, CaseIterable, Sendable {
     case canvas
     case hero
     case reading
@@ -254,7 +257,7 @@ public enum LifeBoardSurfaceContext: String, CaseIterable, Sendable {
 
     /// Opaque surface used for deterministic contrast validation and as the
     /// Reduce Transparency fallback for translucent chrome.
-    public var fallbackBackgroundRole: LifeBoardColorRole? {
+    public var fallbackBackgroundRole: ColorRole? {
         switch self {
         case .canvas:
             return .bgCanvas
@@ -274,7 +277,7 @@ public enum LifeBoardSurfaceContext: String, CaseIterable, Sendable {
     }
 }
 
-public enum LifeBoardLegibilityRole: String, CaseIterable, Sendable {
+public enum LegibilityRole: String, CaseIterable, Sendable {
     case primary
     case secondary
     case metadata
@@ -291,19 +294,19 @@ public enum LifeBoardLegibilityRole: String, CaseIterable, Sendable {
     case focusRing
 }
 
-public enum LifeBoardImageForegroundStyle: String, Sendable {
+public enum ImageForegroundStyle: String, Sendable {
     case darkContent
     case lightContent
 }
 
 /// Shared policy for copy placed over photography or decorative artwork.
 /// The sampled region, not the image as a whole, determines the foreground.
-public enum LifeBoardImageReadabilityPolicy {
+public enum ImageReadabilityPolicy {
     public static let darkContentThreshold: CGFloat = 0.56
     public static let strongScrimLowerBound: CGFloat = 0.30
     public static let strongScrimUpperBound: CGFloat = 0.72
 
-    public static func foregroundStyle(forLuminance luminance: CGFloat) -> LifeBoardImageForegroundStyle {
+    public static func foregroundStyle(forLuminance luminance: CGFloat) -> ImageForegroundStyle {
         luminance >= darkContentThreshold ? .darkContent : .lightContent
     }
 
@@ -318,12 +321,12 @@ public enum LifeBoardImageReadabilityPolicy {
     }
 }
 
-public struct LifeBoardLegibilityPair: Hashable, Sendable {
-    public let foreground: LifeBoardColorRole
-    public let background: LifeBoardColorRole
+public struct LegibilityPair: Hashable, Sendable {
+    public let foreground: ColorRole
+    public let background: ColorRole
     public let minimumContrast: CGFloat
 
-    public init(foreground: LifeBoardColorRole, background: LifeBoardColorRole, minimumContrast: CGFloat) {
+    public init(foreground: ColorRole, background: ColorRole, minimumContrast: CGFloat) {
         self.foreground = foreground
         self.background = background
         self.minimumContrast = minimumContrast
@@ -331,7 +334,7 @@ public struct LifeBoardLegibilityPair: Hashable, Sendable {
 
     /// Release-gated combinations used by reading, action, status, and glass
     /// surfaces. Decorative separators intentionally do not appear here.
-    public static let releaseGate: [LifeBoardLegibilityPair] = [
+    public static let releaseGate: [LegibilityPair] = [
         .init(foreground: .textPrimary, background: .bgCanvas, minimumContrast: 4.5),
         .init(foreground: .textPrimary, background: .surfacePrimary, minimumContrast: 4.5),
         .init(foreground: .textPrimary, background: .surfaceSecondary, minimumContrast: 4.5),
@@ -350,7 +353,7 @@ public struct LifeBoardLegibilityPair: Hashable, Sendable {
     ]
 }
 
-public enum LifeBoardSpacingToken: CGFloat, CaseIterable {
+public enum SpacingToken: CGFloat, CaseIterable {
     case s2 = 2
     case s4 = 4
     case s8 = 8
@@ -362,14 +365,14 @@ public enum LifeBoardSpacingToken: CGFloat, CaseIterable {
     case s40 = 40
 }
 
-public enum LifeBoardElevationLevel: String, CaseIterable {
+public enum ElevationLevel: String, CaseIterable {
     case e0
     case e1
     case e2
     case e3
 }
 
-public enum LifeBoardCornerToken: String, CaseIterable {
+public enum CornerToken: String, CaseIterable {
     case r0
     case r1
     case r2
@@ -399,36 +402,36 @@ public enum LifeBoardCornerToken: String, CaseIterable {
     }
 }
 
-public enum LifeBoardNavButtonContext: String, CaseIterable {
+public enum NavButtonContext: String, CaseIterable {
     case onGradient
     case onSurface
 }
 
-public enum LifeBoardNavButtonEmphasis: String, CaseIterable {
+public enum NavButtonEmphasis: String, CaseIterable {
     case normal
     case done
     case filled
 }
 
-public enum LifeBoardChipSelectionStyle: String, CaseIterable {
+public enum ChipSelectionStyle: String, CaseIterable {
     case tinted
     case filled
 }
 
-public struct LifeBoardTokens: LifeBoardTokenContainer {
+public struct Tokens: TokenContainer {
     public let color: LifeBoardColorTokens
     public let typography: LifeBoardTypographyTokens
     public let spacing: LifeBoardSpacingTokens
-    public let elevation: LifeBoardElevationTokens
-    public let corner: LifeBoardCornerTokens
+    public let elevation: ElevationTokens
+    public let corner: CornerTokens
 
     /// Initializes a new instance.
     public init(
         color: LifeBoardColorTokens,
         typography: LifeBoardTypographyTokens,
         spacing: LifeBoardSpacingTokens,
-        elevation: LifeBoardElevationTokens,
-        corner: LifeBoardCornerTokens
+        elevation: ElevationTokens,
+        corner: CornerTokens
     ) {
         self.color = color
         self.typography = typography

@@ -1,7 +1,7 @@
 import UIKit
 import Combine
 
-public struct LifeBoardTokenTraitContext: Hashable, Sendable {
+public struct TokenTraitContext: Hashable, Sendable {
     public let colorScheme: UIUserInterfaceStyle
     public let contentSizeCategory: UIContentSizeCategory
     public let accessibilityContrast: UIAccessibilityContrast
@@ -16,10 +16,10 @@ public struct LifeBoardTokenTraitContext: Hashable, Sendable {
         self.accessibilityContrast = accessibilityContrast
     }
 
-    public static let unspecified = LifeBoardTokenTraitContext()
+    public static let unspecified = TokenTraitContext()
 }
 
-public struct LifeBoardBrandPalette: Equatable, @unchecked Sendable {
+public struct BrandPalette: Equatable, @unchecked Sendable {
     public let brandEmerald: UIColor
     public let brandMagenta: UIColor
     public let brandMarigold: UIColor
@@ -45,7 +45,7 @@ public struct LifeBoardBrandPalette: Equatable, @unchecked Sendable {
     public let inkDark: UIColor
     public let parchmentLight: UIColor
 
-    public static let sunrise = LifeBoardBrandPalette(
+    public static let sunrise = BrandPalette(
         brandEmerald: UIColor(lifeboardHex: "#28B53F"),
         brandMagenta: UIColor(lifeboardHex: "#6842FF"),
         brandMarigold: UIColor(lifeboardHex: "#FFB300"),
@@ -73,7 +73,7 @@ public struct LifeBoardBrandPalette: Equatable, @unchecked Sendable {
     )
 
     @available(*, deprecated, message: "Use .sunrise. Sarvam is retained only for migration compatibility.")
-    public static let sarvam = LifeBoardBrandPalette(
+    public static let sarvam = BrandPalette(
         brandEmerald: UIColor(lifeboardHex: "#293A18"),
         brandMagenta: UIColor(lifeboardHex: "#B1205F"),
         brandMarigold: UIColor(lifeboardHex: "#FEBF2B"),
@@ -101,22 +101,22 @@ public struct LifeBoardBrandPalette: Equatable, @unchecked Sendable {
     )
 }
 
-public enum LifeBoardThreadSafeTokenResolver {
+public enum ThreadSafeTokenResolver {
     private static let sunriseColorTokens = LifeBoardColorTokens.make(palette: .sunrise)
 
     /// - Parameter traits: Reserved for future trait-aware token resolution; currently unused.
     public static func color(
-        for role: LifeBoardColorRole,
-        traits _: LifeBoardTokenTraitContext = .unspecified
+        for role: ColorRole,
+        traits _: TokenTraitContext = .unspecified
     ) -> UIColor {
         sunriseColorTokens.color(for: role)
     }
 
     public static func color(
-        for role: LifeBoardLegibilityRole,
-        on surface: LifeBoardSurfaceContext,
+        for role: LegibilityRole,
+        on surface: SurfaceContext,
         imageLuminance: CGFloat? = nil,
-        traits _: LifeBoardTokenTraitContext = .unspecified
+        traits _: TokenTraitContext = .unspecified
     ) -> UIColor {
         sunriseColorTokens.color(
             for: role,
@@ -126,7 +126,7 @@ public enum LifeBoardThreadSafeTokenResolver {
     }
 }
 
-public struct LifeBoardPatternTokens: Equatable {
+public struct PatternTokens: Equatable {
     public let gatewaySunriseTop: UIColor
     public let gatewaySunriseMid: UIColor
     public let gatewaySunriseBottom: UIColor
@@ -134,7 +134,7 @@ public struct LifeBoardPatternTokens: Equatable {
     public let forestInkBottom: UIColor
     public let patternTint: UIColor
 
-    init(palette: LifeBoardBrandPalette) {
+    init(palette: BrandPalette) {
         gatewaySunriseTop = palette.brandSandstone
         gatewaySunriseMid = palette.brandMarigold
         gatewaySunriseBottom = palette.brandMagenta
@@ -144,7 +144,7 @@ public struct LifeBoardPatternTokens: Equatable {
     }
 }
 
-public struct LifeBoardWidgetTokens: Equatable {
+public struct WidgetTokens: Equatable {
     public let background: UIColor
     public let backgroundElevated: UIColor
     public let accent: UIColor
@@ -153,7 +153,7 @@ public struct LifeBoardWidgetTokens: Equatable {
     public let textPrimary: UIColor
     public let textSecondary: UIColor
 
-    init(palette: LifeBoardBrandPalette) {
+    init(palette: BrandPalette) {
         background = UIColor { traits in
             traits.userInterfaceStyle == .dark ? palette.neutralDarkInk1 : palette.neutralIvory
         }
@@ -178,74 +178,86 @@ public struct LifeBoardWidgetTokens: Equatable {
 }
 
 @MainActor
-public struct LifeBoardTheme {
+public struct Theme {
     public let index: Int
-    public let palette: LifeBoardBrandPalette
-    public let patterns: LifeBoardPatternTokens
-    public let widgets: LifeBoardWidgetTokens
-    public let tokens: LifeBoardTokens
+    public let palette: BrandPalette
+    public let patterns: PatternTokens
+    public let widgets: WidgetTokens
+    public let tokens: Tokens
 
     public init(index: Int = 0) {
         // `index` is retained for backward compatibility, but the app now ships a single palette.
         self.index = index
         self.palette = .sunrise
-        self.patterns = LifeBoardPatternTokens(palette: palette)
-        self.widgets = LifeBoardWidgetTokens(palette: palette)
-        self.tokens = LifeBoardTokens(
+        self.patterns = PatternTokens(palette: palette)
+        self.widgets = WidgetTokens(palette: palette)
+        self.tokens = Tokens(
             color: LifeBoardColorTokens.make(palette: palette),
             typography: LifeBoardTypographyTokens.makeDefault(),
             spacing: LifeBoardSpacingTokens.default,
-            elevation: LifeBoardElevationTokens.default,
-            corner: LifeBoardCornerTokens.default
+            elevation: ElevationTokens.default,
+            corner: CornerTokens.default
         )
     }
 
-    public func tokens(for layoutClass: LifeBoardLayoutClass) -> LifeBoardTokens {
-        LifeBoardTokens(
+    public func tokens(for layoutClass: LayoutClass) -> Tokens {
+        Tokens(
             color: tokens.color,
             typography: LifeBoardTypographyTokens.make(for: layoutClass),
             spacing: LifeBoardSpacingTokens.forLayout(layoutClass),
-            elevation: LifeBoardElevationTokens.forLayout(layoutClass),
-            corner: LifeBoardCornerTokens.forLayout(layoutClass)
+            elevation: ElevationTokens.forLayout(layoutClass),
+            corner: CornerTokens.forLayout(layoutClass)
         )
     }
 }
 
 @MainActor
-public final class LifeBoardThemeManager: ObservableObject {
+public final class ThemeStore: ObservableObject {
     private struct TokenCacheKey: Hashable {
-        let layoutClass: LifeBoardLayoutClass
-        let traits: LifeBoardTokenTraitContext
+        let layoutClass: LayoutClass
+        let traits: TokenTraitContext
     }
 
-    public static let shared = LifeBoardThemeManager()
+    public static let shared = ThemeStore()
 
-    @Published public private(set) var currentTheme: LifeBoardTheme
-    private var tokenCache: [TokenCacheKey: LifeBoardTokens] = [:]
+    @Published public private(set) var currentTheme: Theme
+    private var tokenCache: [TokenCacheKey: Tokens] = [:]
 
-    public var publisher: AnyPublisher<LifeBoardTheme, Never> {
+    public var publisher: AnyPublisher<Theme, Never> {
         $currentTheme.eraseToAnyPublisher()
     }
 
     private init() {
-        currentTheme = LifeBoardTheme()
+        currentTheme = Theme()
     }
 
     public func reloadFromPersistence() {
-        currentTheme = LifeBoardTheme()
+        currentTheme = Theme()
         tokenCache.removeAll(keepingCapacity: false)
         LifeBoardTypographyTokens.resetCache()
     }
 
-    public func tokens(for layoutClass: LifeBoardLayoutClass) -> LifeBoardTokens {
+    public func tokens(for layoutClass: LayoutClass) -> Tokens {
         tokens(for: layoutClass, traits: .unspecified)
     }
 
+    /// Mirrors `V2FeatureFlags.iPadPerfThemeTokenCacheV2Enabled` storage.
+    ///
+    /// The flag service lives in the app and is not compiled into the widget or
+    /// Watch targets, which link this package too — the same reason
+    /// `ColorTokens` mirrors the unified-presentation flag rather than importing
+    /// it. Key and default are kept identical on purpose; changing either here
+    /// silently desynchronises the cache from the app's own switch.
+    private static var tokenCacheEnabled: Bool {
+        let key = "feature.ipad.perf.theme_token_cache_v2"
+        return UserDefaults.standard.object(forKey: key) as? Bool ?? true
+    }
+
     public func tokens(
-        for layoutClass: LifeBoardLayoutClass,
-        traits: LifeBoardTokenTraitContext
-    ) -> LifeBoardTokens {
-        guard V2FeatureFlags.iPadPerfThemeTokenCacheV2Enabled else {
+        for layoutClass: LayoutClass,
+        traits: TokenTraitContext
+    ) -> Tokens {
+        guard Self.tokenCacheEnabled else {
             return currentTheme.tokens(for: layoutClass)
         }
 
@@ -257,10 +269,10 @@ public final class LifeBoardThemeManager: ObservableObject {
         let resolved = currentTheme.tokens(for: layoutClass)
         tokenCache[cacheKey] = resolved
 #if DEBUG
-        logDebug(
-            event: "themeTokenResolve",
-            message: "Resolved brand tokens for layout + trait cluster",
-            fields: [
+        TokensDiagnostics.debugLog?(
+            "themeTokenResolve",
+            "Resolved brand tokens for layout + trait cluster",
+            [
                 "layout_class": layoutClass.rawValue,
                 "color_scheme": String(traits.colorScheme.rawValue),
                 "content_size_category": traits.contentSizeCategory.rawValue,
@@ -271,19 +283,19 @@ public final class LifeBoardThemeManager: ObservableObject {
         return resolved
     }
 
-    public static var tokens: LifeBoardTokens {
-        LifeBoardThemeManager.shared.currentTheme.tokens
+    public static var tokens: Tokens {
+        ThemeStore.shared.currentTheme.tokens
     }
 
-    public static func tokens(for layoutClass: LifeBoardLayoutClass) -> LifeBoardTokens {
-        LifeBoardThemeManager.shared.tokens(for: layoutClass)
+    public static func tokens(for layoutClass: LayoutClass) -> Tokens {
+        ThemeStore.shared.tokens(for: layoutClass)
     }
 
     public static func tokens(
-        for layoutClass: LifeBoardLayoutClass,
-        traits: LifeBoardTokenTraitContext
-    ) -> LifeBoardTokens {
-        LifeBoardThemeManager.shared.tokens(for: layoutClass, traits: traits)
+        for layoutClass: LayoutClass,
+        traits: TokenTraitContext
+    ) -> Tokens {
+        ThemeStore.shared.tokens(for: layoutClass, traits: traits)
     }
 }
 
@@ -317,4 +329,15 @@ public extension UIColor {
             return UIColor(lifeboardHex: lightHex)
         }
     }
+}
+
+/// Diagnostics hook for the token layer.
+///
+/// `Theme` used to call the app's `logDebug` directly. That is not
+/// reachable from a package the widget and Watch processes also link, so the
+/// call is routed through a closure the app installs at launch. Left unset the
+/// token layer is silent, which is the correct default for the extensions.
+public enum TokensDiagnostics {
+    /// `(event, message, fields)`. DEBUG-only at the call site.
+    public nonisolated(unsafe) static var debugLog: ((String, String, [String: String]) -> Void)?
 }

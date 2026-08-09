@@ -1,7 +1,7 @@
 import UIKit
 
 @MainActor
-public struct LifeBoardElevationStyle {
+public struct ElevationStyle {
     public let shadowOffsetY: CGFloat
     public let shadowBlur: CGFloat
     public let shadowOpacity: Float
@@ -12,11 +12,11 @@ public struct LifeBoardElevationStyle {
 }
 
 @MainActor
-public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
-    public let e0: LifeBoardElevationStyle
-    public let e1: LifeBoardElevationStyle
-    public let e2: LifeBoardElevationStyle
-    public let e3: LifeBoardElevationStyle
+public struct ElevationTokens: TokenGroup {
+    public let e0: ElevationStyle
+    public let e1: ElevationStyle
+    public let e2: ElevationStyle
+    public let e3: ElevationStyle
 
     private static let warmBorder = UIColor.lifeboardDynamic(lightHex: "#E2D3C2", darkHex: "#3A2E24")
     private static let warmBorderStrong = UIColor.lifeboardDynamic(lightHex: "#C9B9A6", darkHex: "#4A3B30")
@@ -31,7 +31,7 @@ public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
     }
 
     /// Executes style.
-    public func style(for level: LifeBoardElevationLevel) -> LifeBoardElevationStyle {
+    public func style(for level: ElevationLevel) -> ElevationStyle {
         switch level {
         case .e0: return e0
         case .e1: return e1
@@ -40,8 +40,8 @@ public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
         }
     }
 
-    public static let `default` = LifeBoardElevationTokens(
-        e0: LifeBoardElevationStyle(
+    public static let `default` = ElevationTokens(
+        e0: ElevationStyle(
             shadowOffsetY: 0,
             shadowBlur: 0,
             shadowOpacity: 0,
@@ -50,7 +50,7 @@ public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
             borderColor: .clear,
             blurStyle: .systemUltraThinMaterial
         ),
-        e1: LifeBoardElevationStyle(
+        e1: ElevationStyle(
             shadowOffsetY: 1,
             shadowBlur: 8,
             shadowOpacity: 0.06,
@@ -59,7 +59,7 @@ public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
             borderColor: warmBorder,
             blurStyle: .systemUltraThinMaterial
         ),
-        e2: LifeBoardElevationStyle(
+        e2: ElevationStyle(
             shadowOffsetY: 6,
             shadowBlur: 24,
             shadowOpacity: 0.08,
@@ -68,7 +68,7 @@ public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
             borderColor: warmBorder,
             blurStyle: .systemThinMaterial
         ),
-        e3: LifeBoardElevationStyle(
+        e3: ElevationStyle(
             shadowOffsetY: 10,
             shadowBlur: 34,
             shadowOpacity: 0.10,
@@ -79,7 +79,7 @@ public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
         )
     )
 
-    private static let padCompact: LifeBoardElevationTokens = scaled(
+    private static let padCompact: ElevationTokens = scaled(
         from: `default`,
         blurMultiplier: 1.08,
         offsetMultiplier: 1.05,
@@ -87,7 +87,7 @@ public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
         borderMultiplier: 1.0
     )
 
-    private static let padRegular: LifeBoardElevationTokens = scaled(
+    private static let padRegular: ElevationTokens = scaled(
         from: `default`,
         blurMultiplier: 1.18,
         offsetMultiplier: 1.12,
@@ -95,7 +95,7 @@ public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
         borderMultiplier: 1.0
     )
 
-    private static let padExpanded: LifeBoardElevationTokens = scaled(
+    private static let padExpanded: ElevationTokens = scaled(
         from: `default`,
         blurMultiplier: 1.26,
         offsetMultiplier: 1.2,
@@ -104,7 +104,7 @@ public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
     )
 
     /// Executes forLayout.
-    public static func forLayout(_ layoutClass: LifeBoardLayoutClass) -> LifeBoardElevationTokens {
+    public static func forLayout(_ layoutClass: LayoutClass) -> ElevationTokens {
         switch layoutClass {
         case .phone:
             return `default`
@@ -119,14 +119,14 @@ public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
 
     /// Executes scaled.
     private static func scaled(
-        from source: LifeBoardElevationTokens,
+        from source: ElevationTokens,
         blurMultiplier: CGFloat,
         offsetMultiplier: CGFloat,
         opacityMultiplier: Float,
         borderMultiplier: CGFloat
-    ) -> LifeBoardElevationTokens {
-        func apply(_ style: LifeBoardElevationStyle) -> LifeBoardElevationStyle {
-            LifeBoardElevationStyle(
+    ) -> ElevationTokens {
+        func apply(_ style: ElevationStyle) -> ElevationStyle {
+            ElevationStyle(
                 shadowOffsetY: style.shadowOffsetY * offsetMultiplier,
                 shadowBlur: style.shadowBlur * blurMultiplier,
                 shadowOpacity: min(1, style.shadowOpacity * opacityMultiplier),
@@ -137,7 +137,7 @@ public struct LifeBoardElevationTokens: LifeBoardTokenGroup {
             )
         }
 
-        return LifeBoardElevationTokens(
+        return ElevationTokens(
             e0: apply(source.e0),
             e1: apply(source.e1),
             e2: apply(source.e2),

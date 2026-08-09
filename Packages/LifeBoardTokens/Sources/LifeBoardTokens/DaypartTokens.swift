@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-public enum LifeBoardDaypartColorRole: String, CaseIterable, Sendable {
+public enum DaypartColorRole: String, CaseIterable, Sendable {
     case canvas
     case canvasSecondary
     case celestialPrimary
@@ -14,7 +14,7 @@ public enum LifeBoardDaypartColorRole: String, CaseIterable, Sendable {
     case foregroundSecondary
 }
 
-public struct LifeBoardDaypartPalette: Equatable, Sendable {
+public struct DaypartPalette: Equatable, Sendable {
     public let canvas: String
     public let canvasSecondary: String
     public let celestialPrimary: String
@@ -60,7 +60,7 @@ public struct LifeBoardDaypartPalette: Equatable, Sendable {
         self.isNocturnal = isNocturnal
     }
 
-    public func hex(for role: LifeBoardDaypartColorRole) -> String {
+    public func hex(for role: DaypartColorRole) -> String {
         switch role {
         case .canvas: return canvas
         case .canvasSecondary: return canvasSecondary
@@ -75,16 +75,16 @@ public struct LifeBoardDaypartPalette: Equatable, Sendable {
         }
     }
 
-    public func uiColor(for role: LifeBoardDaypartColorRole) -> UIColor {
+    public func uiColor(for role: DaypartColorRole) -> UIColor {
         UIColor(lifeboardHex: hex(for: role))
     }
 
-    public func color(for role: LifeBoardDaypartColorRole) -> Color {
+    public func color(for role: DaypartColorRole) -> Color {
         Color(uiColor(for: role))
     }
 }
 
-public enum LifeBoardDaypartTokens {
+public enum DaypartTokens {
     // MARK: Light appearance
     //
     // The four dayparts must be recognisably different screens. Morning and
@@ -95,7 +95,7 @@ public enum LifeBoardDaypartTokens {
     // moves into terracotta and dusty rose.
 
     /// Pale, fresh, high-key. The screen has not warmed up yet.
-    public static let morning = LifeBoardDaypartPalette(
+    public static let morning = DaypartPalette(
         canvas: "#FFF9E4",
         canvasSecondary: "#FDF4DC",
         celestialPrimary: "#F7D98E",
@@ -110,7 +110,7 @@ public enum LifeBoardDaypartTokens {
     )
 
     /// Deeper, more saturated gold — the day at full strength.
-    public static let afternoon = LifeBoardDaypartPalette(
+    public static let afternoon = DaypartPalette(
         canvas: "#FFF2C9",
         canvasSecondary: "#FAEBBE",
         celestialPrimary: "#F3C45F",
@@ -125,7 +125,7 @@ public enum LifeBoardDaypartTokens {
     )
 
     /// Terracotta and dusty rose as the light goes long.
-    public static let evening = LifeBoardDaypartPalette(
+    public static let evening = DaypartPalette(
         canvas: "#FBEBD6",
         canvasSecondary: "#F6E0C8",
         celestialPrimary: "#EFA95E",
@@ -139,7 +139,7 @@ public enum LifeBoardDaypartTokens {
         daypart: .evening
     )
 
-    public static let night = LifeBoardDaypartPalette(
+    public static let night = DaypartPalette(
         canvas: "#151B2D",
         canvasSecondary: "#24243B",
         celestialPrimary: "#F3E6C8",
@@ -161,7 +161,7 @@ public enum LifeBoardDaypartTokens {
     // that dark appearance requires while preserving each daypart's mood in
     // the celestial and layer roles.
 
-    public static let morningDark = LifeBoardDaypartPalette(
+    public static let morningDark = DaypartPalette(
         canvas: "#171D2B",
         canvasSecondary: "#1F2637",
         celestialPrimary: "#F2D9A0",
@@ -176,7 +176,7 @@ public enum LifeBoardDaypartTokens {
         isNocturnal: true
     )
 
-    public static let afternoonDark = LifeBoardDaypartPalette(
+    public static let afternoonDark = DaypartPalette(
         canvas: "#1A1E28",
         canvasSecondary: "#232833",
         celestialPrimary: "#F0CD87",
@@ -191,7 +191,7 @@ public enum LifeBoardDaypartTokens {
         isNocturnal: true
     )
 
-    public static let eveningDark = LifeBoardDaypartPalette(
+    public static let eveningDark = DaypartPalette(
         canvas: "#1E1926",
         canvasSecondary: "#2A2233",
         celestialPrimary: "#E8A063",
@@ -207,7 +207,7 @@ public enum LifeBoardDaypartTokens {
     )
 
     /// The ambient/art palette for a daypart in light appearance.
-    public static func palette(for daypart: ResolvedDaypart) -> LifeBoardDaypartPalette {
+    public static func palette(for daypart: ResolvedDaypart) -> DaypartPalette {
         switch daypart {
         case .morning: return morning
         case .afternoon: return afternoon
@@ -217,7 +217,7 @@ public enum LifeBoardDaypartTokens {
     }
 
     /// The ambient/art palette for a daypart in dark appearance.
-    public static func darkPalette(for daypart: ResolvedDaypart) -> LifeBoardDaypartPalette {
+    public static func darkPalette(for daypart: ResolvedDaypart) -> DaypartPalette {
         switch daypart {
         case .morning: return morningDark
         case .afternoon: return afternoonDark
@@ -231,10 +231,10 @@ public enum LifeBoardDaypartTokens {
     public static func appearancePalette(
         for daypart: ResolvedDaypart,
         colorScheme: ColorScheme
-    ) -> LifeBoardDaypartPalette {
+    ) -> DaypartPalette {
         if colorScheme == .dark { return darkPalette(for: daypart) }
         guard daypart == .night else { return palette(for: daypart) }
-        return LifeBoardDaypartPalette(
+        return DaypartPalette(
             canvas: "#FFF7D8",
             canvasSecondary: "#F5ECC9",
             celestialPrimary: night.celestialPrimary,
@@ -252,7 +252,7 @@ public enum LifeBoardDaypartTokens {
     public static func functionalPalette(
         for daypart: ResolvedDaypart,
         colorScheme: ColorScheme
-    ) -> LifeBoardDaypartPalette {
+    ) -> DaypartPalette {
         appearancePalette(for: daypart, colorScheme: colorScheme)
     }
 }
@@ -350,12 +350,12 @@ public extension LifeBoardColorTokens {
         )
     }
 
-    static func daypartPalette(for daypart: ResolvedDaypart) -> LifeBoardDaypartPalette {
-        LifeBoardDaypartTokens.palette(for: daypart)
+    static func daypartPalette(for daypart: ResolvedDaypart) -> DaypartPalette {
+        DaypartTokens.palette(for: daypart)
     }
 }
 
-public enum LifeBoardFoundationTypography {
+public enum Typography {
     /// Greetings and friendly emphasis use SF Rounded; body and data stay on
     /// SF Pro; metrics use monospaced digits at their call sites.
     public static func hero() -> Font { .system(.largeTitle, design: .rounded, weight: .semibold) }
@@ -366,7 +366,7 @@ public enum LifeBoardFoundationTypography {
     public static func metadata() -> Font { .caption2 }
 }
 
-public enum LifeBoardFoundationRadius {
+public enum Radius {
     public static let compact: CGFloat = 12
     public static let card: CGFloat = 16
     public static let largeCard: CGFloat = 22
@@ -383,7 +383,7 @@ public enum LifeBoardFoundationRadius {
 /// `TrackFoundationServices`. The values below are byte-for-byte what those call
 /// sites used, so this is a relocation and not a retint — nothing renders
 /// differently.
-public enum LifeBoardSceneHex {
+public enum SceneHex {
     /// Flat colours drawn only when a celestial phase's artwork asset is
     /// unavailable. Not a palette: never use these for content or chrome.
     public static let dawnFallback = "#F2D6B6"

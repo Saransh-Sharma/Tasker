@@ -1,6 +1,6 @@
 import UIKit
 
-public struct LifeBoardTypographyTokens: LifeBoardTokenGroup {
+public struct LifeBoardTypographyTokens: TokenGroup {
     private struct Spec {
         let textStyle: UIFont.TextStyle
         let pointSize: CGFloat
@@ -71,7 +71,7 @@ public struct LifeBoardTypographyTokens: LifeBoardTokenGroup {
     }
 
     /// Executes make.
-    public static func make(for layoutClass: LifeBoardLayoutClass) -> LifeBoardTypographyTokens {
+    public static func make(for layoutClass: LayoutClass) -> LifeBoardTypographyTokens {
         let scale = scaleFactor(for: layoutClass)
         return LifeBoardTypographyTokens(
             heroDisplay: font(for: spec(for: .heroDisplay, scale: scale), compatibleWith: nil),
@@ -154,7 +154,7 @@ public struct LifeBoardTypographyTokens: LifeBoardTokenGroup {
     }
 
     /// Executes scaleFactor.
-    private static func scaleFactor(for layoutClass: LifeBoardLayoutClass) -> CGFloat {
+    private static func scaleFactor(for layoutClass: LayoutClass) -> CGFloat {
         switch layoutClass {
         case .phone:
             return 1.0
