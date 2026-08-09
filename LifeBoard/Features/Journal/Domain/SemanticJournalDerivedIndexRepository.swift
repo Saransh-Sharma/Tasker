@@ -14,7 +14,7 @@
 //
 
 import Foundation
-import JournalFoundation
+import LifeBoardDomain
 import SemanticMemoryKit
 
 public final class SemanticJournalDerivedIndexRepository: JournalDerivedIndexRepository, @unchecked Sendable {

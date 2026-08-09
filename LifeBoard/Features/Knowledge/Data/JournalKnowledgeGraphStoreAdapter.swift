@@ -1,3 +1,8 @@
+import LifeBoardContracts
+import LifeBoardDomain
+import LifeBoardPersistence
+import LifeBoardTokens
+import LifeBoardUI
 //
 //  KnowledgeGraphStore.swift
 //  LifeBoard
@@ -10,11 +15,10 @@
 
 import CoreData
 import Foundation
-import JournalFoundation
-import KnowledgeGraphKit
+import LifeBoardDomain
 import NaturalLanguage
 
-public final class LifeBoardKnowledgeGraphStore: KnowledgeGraphStore, @unchecked Sendable {
+public final class JournalKnowledgeGraphStoreAdapter: KnowledgeGraphStore, @unchecked Sendable {
     public static let blobKey = "journal-knowledge-graph"
     public static let blobNamespace = "journal"
     static let schemaVersion = 1

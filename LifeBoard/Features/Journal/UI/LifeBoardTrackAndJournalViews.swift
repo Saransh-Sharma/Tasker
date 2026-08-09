@@ -1,18 +1,18 @@
 import AVFAudio
 import CoreSpotlight
 import Foundation
-import JournalFoundation
+import LifeBoardDomain
 import LocalAuthentication
 import JournalSecurityKit
 import Observation
 import PhotosUI
-import ReflectionKit
+import LifeBoardDomain
 import Speech
 import SwiftUI
-import TranscriptionKit
+import LifeBoardTranscription
 import UIKit
 import UniformTypeIdentifiers
-import WatchCaptureKit
+import LifeBoardContracts
 
 // MARK: - Track module
 
@@ -869,7 +869,7 @@ struct TrackRootView: View {
                     else { reviewsFastCompletion = true }
                 } label: {
                     Text(store.activeFast == nil ? "Start" : "End")
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                        .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(palette.color(for: .foreground))
@@ -1008,7 +1008,7 @@ struct TrackRootView: View {
                 onOpenHabitBoard()
             } label: {
                 Text("Open Habits")
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
             }
             .buttonStyle(.borderedProminent)
             .tint(palette.color(for: .foreground))
@@ -1077,7 +1077,7 @@ struct BehaviorNativeAreasView: View {
 
     var body: some View {
         ZStack {
-            Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+            Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea()
             ScrollView {
                 LazyVStack(spacing: dynamicTypeSize.isAccessibilitySize ? 24 : 20) {
                     VStack(alignment: .leading, spacing: 6) {
@@ -1087,7 +1087,7 @@ struct BehaviorNativeAreasView: View {
                             ? "Keep only what helps you notice something useful."
                             : "A calm place for schedules, decisions, and the history you chose to keep.")
                             .font(Typography.body())
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -1259,16 +1259,16 @@ struct BehaviorNativeAreasView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: "pills.fill")
-                                .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                                .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                                 .frame(width: 32, height: 32)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(medication.name).font(.headline)
                                 Text(medication.dosageText ?? "No dose label")
                                     .font(.caption)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                                 Text(medicationDefinitionSummary(medication))
                                     .font(.caption2)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
                             Menu {
@@ -1335,7 +1335,7 @@ struct BehaviorNativeAreasView: View {
                         } else {
                             Label("No decision waiting", systemImage: "checkmark.circle")
                                 .font(.caption.weight(.semibold))
-                                .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
+                                .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
                         }
                         if let exportURL = store.medicationExportURLs[medication.id] {
                             ShareLink(item: exportURL) {
@@ -1369,13 +1369,13 @@ struct BehaviorNativeAreasView: View {
                     Image(systemName: "sparkles.rectangle.stack")
                         .font(.title3)
                         .frame(width: 36, height: 36)
-                        .background(Color(LifeBoardColorTokens.foundationSurfaceSelected), in: Circle())
+                        .background(Color(SemanticColorTokens.foundationSurfaceSelected), in: Circle())
                     VStack(alignment: .leading, spacing: 2) {
                         Text("Start with a gentle template")
                             .font(.body.weight(.semibold))
                         Text("A useful starting point, fully yours to edit")
                             .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
                     Spacer()
                     Image(systemName: "chevron.right")
@@ -1398,13 +1398,13 @@ struct BehaviorNativeAreasView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 12) {
                             Image(systemName: trackerSymbol(tracker.kind))
-                                .foregroundStyle(Color(LifeBoardColorTokens.foundationFocusRing))
+                                .foregroundStyle(Color(SemanticColorTokens.foundationFocusRing))
                                 .frame(width: 32, height: 32)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(tracker.title).font(.headline)
                                 Text(trackerDefinitionSummary(tracker))
                                     .font(.caption)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             Spacer()
                             Menu {
@@ -1438,7 +1438,7 @@ struct BehaviorNativeAreasView: View {
                             loggingTracker = tracker
                         }
                         .buttonStyle(.borderedProminent)
-                        .tint(Color(LifeBoardColorTokens.inkPrimary))
+                        .tint(Color(SemanticColorTokens.inkPrimary))
                         .frame(minHeight: 44)
                         .accessibilityIdentifier("track.tracker.log.\(tracker.id.uuidString)")
                         if let exportURL = store.trackerExportURLs[tracker.id] {
@@ -1469,7 +1469,7 @@ struct BehaviorNativeAreasView: View {
                     .font(.title3.weight(.semibold))
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
             Button(actionTitle, systemImage: "plus", action: action)
@@ -1607,7 +1607,7 @@ private extension View {
             .lifeBoardClaySurface(.resting, cornerRadius: 20)
             .overlay {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                    .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
             }
     }
 
@@ -1617,7 +1617,7 @@ private extension View {
             .frame(maxWidth: .infinity, alignment: .leading)
             .overlay(alignment: .bottom) {
                 Rectangle()
-                    .fill(Color(LifeBoardColorTokens.foundationHairline))
+                    .fill(Color(SemanticColorTokens.foundationHairline))
                     .frame(height: 1)
             }
     }
@@ -1654,7 +1654,7 @@ private struct TrackerTemplatePicker: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+                Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea()
                 ScrollView {
                     LazyVStack(spacing: 12) {
                         VStack(alignment: .leading, spacing: 6) {
@@ -1662,7 +1662,7 @@ private struct TrackerTemplatePicker: View {
                                 .font(Typography.screenTitle())
                             Text("Pick a starting shape. You’ll review every detail before anything is created.")
                                 .font(Typography.body())
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.bottom, 8)
@@ -1677,7 +1677,7 @@ private struct TrackerTemplatePicker: View {
                                         .font(.title3.weight(.semibold))
                                         .frame(width: 42, height: 42)
                                         .background(
-                                            Color(LifeBoardColorTokens.foundationSurfaceSelected),
+                                            Color(SemanticColorTokens.foundationSurfaceSelected),
                                             in: Circle()
                                         )
                                     VStack(alignment: .leading, spacing: 5) {
@@ -1690,20 +1690,20 @@ private struct TrackerTemplatePicker: View {
                                                     .padding(.horizontal, 7)
                                                     .padding(.vertical, 3)
                                                     .background(
-                                                        Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                                                        Color(SemanticColorTokens.foundationSurfaceRecessed),
                                                         in: Capsule()
                                                     )
                                             }
                                         }
                                         Text(template.detail)
                                             .font(.subheadline)
-                                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                                             .fixedSize(horizontal: false, vertical: true)
                                     }
                                     Spacer(minLength: 4)
                                     Image(systemName: "chevron.right")
                                         .font(.caption.weight(.semibold))
-                                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                                         .padding(.top, 13)
                                 }
                                 .padding(16)
@@ -1839,7 +1839,7 @@ struct TrackerComposer: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+                Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: dynamicTypeSize.isAccessibilitySize ? 28 : 24) {
                         VStack(alignment: .leading, spacing: 6) {
@@ -1847,7 +1847,7 @@ struct TrackerComposer: View {
                                 .font(Typography.screenTitle())
                             Text("Give it one clear purpose. You can change the details whenever life changes.")
                                 .font(Typography.body())
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -1857,7 +1857,7 @@ struct TrackerComposer: View {
                         ) {
                             TextField("What do you want to notice?", text: $title)
                                 .focused($titleIsFocused)
-                                .textFieldStyle(LifeBoardTextFieldStyle(isFocused: titleIsFocused))
+                                .textFieldStyle(TokenTextFieldStyle(isFocused: titleIsFocused))
                                 .submitLabel(.next)
                                 .accessibilityIdentifier("track.tracker.name")
 
@@ -1875,7 +1875,7 @@ struct TrackerComposer: View {
                             .lifeboardClayPressBloom(
                                 center: .center,
                                 trigger: typeBloomTrigger,
-                                tint: Color(LifeBoardColorTokens.foundationApricotAccent)
+                                tint: Color(SemanticColorTokens.foundationApricotAccent)
                             )
 
                     if kind == .quantity || kind == .duration {
@@ -1891,7 +1891,7 @@ struct TrackerComposer: View {
                                         .multilineTextAlignment(.trailing)
                                 }
                                 Toggle("Keep entries within a range", isOn: $rangeEnabled)
-                                    .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                                    .tint(Color(SemanticColorTokens.foundationSageAccent))
                         if rangeEnabled {
                                     ViewThatFits {
                                         HStack(spacing: 10) { rangeField("Minimum", value: $rangeMinimum); rangeField("Maximum", value: $rangeMaximum) }
@@ -1907,10 +1907,10 @@ struct TrackerComposer: View {
                         )
                         .lineLimit(3...8)
                                 .padding(12)
-                                .background(Color(LifeBoardColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                                .background(Color(SemanticColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                         Text("Keep at least two choices. Their wording stays unchanged in history and exports.")
                             .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     }
 
                             labeledField("Show in summaries") {
@@ -1933,7 +1933,7 @@ struct TrackerComposer: View {
                                 }
                             }
                             Toggle("May appear on Home", isOn: $isHomeEligible)
-                                .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                                .tint(Color(SemanticColorTokens.foundationSageAccent))
                                 .frame(minHeight: 44)
                             privacyExplanation
                         }
@@ -1952,7 +1952,7 @@ struct TrackerComposer: View {
                             }
                             .scrollIndicators(.hidden)
                             Toggle("Give me a gentle reminder", isOn: $reminderEnabled)
-                                .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                                .tint(Color(SemanticColorTokens.foundationSageAccent))
                                 .frame(minHeight: 44)
                             if reminderEnabled {
                                 DatePicker("Reminder time", selection: $reminderTime, displayedComponents: .hourAndMinute)
@@ -2004,7 +2004,7 @@ struct TrackerComposer: View {
                 Text(heading).font(Typography.sectionTitle())
                 Text(detail)
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             content()
         }
@@ -2029,7 +2029,7 @@ struct TrackerComposer: View {
                 Text(trackerKindTitle(value))
                     .font(.subheadline.weight(selected ? .bold : .semibold))
             }
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             .padding(12)
             .frame(width: 112, height: 74, alignment: .leading)
             .lifeBoardClaySurface(selected ? .raised : .well, cornerRadius: 16)
@@ -2038,7 +2038,7 @@ struct TrackerComposer: View {
                     .stroke(
                         selected
                             ? Color.lifeboard(.borderStrong)
-                            : Color(LifeBoardColorTokens.foundationHairline),
+                            : Color(SemanticColorTokens.foundationHairline),
                         lineWidth: selected ? 1.5 : 1
                     )
             }
@@ -2062,7 +2062,7 @@ struct TrackerComposer: View {
                 .frame(maxWidth: .infinity, minHeight: 44)
                 .background(
                     selected
-                        ? Color(LifeBoardColorTokens.foundationSurfaceSelected)
+                        ? Color(SemanticColorTokens.foundationSurfaceSelected)
                         : Color.clear,
                     in: Capsule()
                 )
@@ -2083,7 +2083,7 @@ struct TrackerComposer: View {
         }
         Label(text, systemImage: privacyClass == .sensitive ? "lock.fill" : "hand.raised.fill")
             .font(.caption)
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             .fixedSize(horizontal: false, vertical: true)
     }
 
@@ -2100,8 +2100,8 @@ struct TrackerComposer: View {
                 .frame(width: 44, height: 44)
                 .background(
                     selected
-                        ? Color(LifeBoardColorTokens.foundationSurfaceSelected)
-                        : Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                        ? Color(SemanticColorTokens.foundationSurfaceSelected)
+                        : Color(SemanticColorTokens.foundationSurfaceRecessed),
                     in: Circle()
                 )
         }
@@ -2118,15 +2118,15 @@ struct TrackerComposer: View {
         }
         .padding(.horizontal, 12)
         .frame(minHeight: 48)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .background(Color(SemanticColorTokens.foundationSurfaceRecessed), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private func rangeField(_ label: String, value: Binding<Double>) -> some View {
         VStack(alignment: .leading, spacing: 5) {
-            Text(label).font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            Text(label).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             TextField(label, value: value, format: .number)
                 .keyboardType(.decimalPad)
-                .textFieldStyle(LifeBoardTextFieldStyle())
+                .textFieldStyle(TokenTextFieldStyle())
         }
     }
 
@@ -2313,7 +2313,7 @@ private struct TrackerValueCaptureView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+                Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea()
                 ScrollView {
                     VStack(spacing: dynamicTypeSize.isAccessibilitySize ? 28 : 22) {
                         VStack(spacing: 8) {
@@ -2321,7 +2321,7 @@ private struct TrackerValueCaptureView: View {
                                 .font(.title2.weight(.semibold))
                                 .frame(width: 52, height: 52)
                                 .background(
-                                    Color(LifeBoardColorTokens.foundationSurfaceSelected),
+                                    Color(SemanticColorTokens.foundationSurfaceSelected),
                                     in: Circle()
                                 )
                             Text(tracker.title)
@@ -2329,13 +2329,13 @@ private struct TrackerValueCaptureView: View {
                                 .multilineTextAlignment(.center)
                             Text("Record what is true right now.")
                                 .font(.subheadline)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
                         .frame(maxWidth: .infinity)
                         .lifeboardClayPressBloom(
                             center: .center,
                             trigger: saveBloomTrigger,
-                            tint: Color(LifeBoardColorTokens.foundationSageAccent)
+                            tint: Color(SemanticColorTokens.foundationSageAccent)
                         )
 
                         VStack(alignment: .leading, spacing: 14) {
@@ -2353,7 +2353,7 @@ private struct TrackerValueCaptureView: View {
                                     .lineLimit(2...5)
                                     .padding(12)
                                     .background(
-                                        Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                                        Color(SemanticColorTokens.foundationSurfaceRecessed),
                                         in: RoundedRectangle(cornerRadius: 14, style: .continuous)
                                     )
                             }
@@ -2366,7 +2366,7 @@ private struct TrackerValueCaptureView: View {
                                 systemImage: "slider.horizontal.below.rectangle"
                             )
                             .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         if tracker.effectivePrivacyClass != .standard {
@@ -2377,7 +2377,7 @@ private struct TrackerValueCaptureView: View {
                                 systemImage: "lock.fill"
                             )
                             .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                     }
@@ -2435,7 +2435,7 @@ private struct TrackerValueCaptureView: View {
                 .lineLimit(4...10)
                 .padding(14)
                 .background(
-                    Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                    Color(SemanticColorTokens.foundationSurfaceRecessed),
                     in: RoundedRectangle(cornerRadius: 14, style: .continuous)
                 )
         case .choice:
@@ -2452,7 +2452,7 @@ private struct TrackerValueCaptureView: View {
                 }
             } else {
                 Text("This tracker has no saved choices.")
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
         case .timestamp:
             DatePicker("When", selection: $timestampValue)
@@ -2508,12 +2508,12 @@ private struct TrackerValueCaptureView: View {
                 .accessibilityIdentifier("track.tracker.value.numeric")
             Text(unit)
                 .font(.caption.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
         .padding(.vertical, 18)
         .frame(maxWidth: .infinity)
         .background(
-            Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+            Color(SemanticColorTokens.foundationSurfaceRecessed),
             in: RoundedRectangle(cornerRadius: 16, style: .continuous)
         )
     }
@@ -2532,7 +2532,7 @@ private struct TrackerValueCaptureView: View {
                     .accessibilityIdentifier("track.tracker.value.numeric")
                 Text(unit)
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .frame(maxWidth: .infinity)
             stepButton("plus", enabled: true) { value.wrappedValue += step }
@@ -2563,14 +2563,14 @@ private struct TrackerValueCaptureView: View {
                 .contentTransition(.numericText())
                 .monospacedDigit()
             Slider(value: $numericValue, in: lower...upper, step: 1)
-                .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                .tint(Color(SemanticColorTokens.foundationSageAccent))
             HStack {
                 Text(lower.formatted())
                 Spacer()
                 Text(upper.formatted())
             }
             .font(.caption.monospacedDigit())
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
     }
 
@@ -2662,7 +2662,7 @@ private struct TrackerHistoryView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+                Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea()
                 if entries.isEmpty {
                     ContentUnavailableView {
                         Label("A clear page", systemImage: "chart.xyaxis.line")
@@ -2681,7 +2681,7 @@ private struct TrackerHistoryView: View {
                                 Spacer()
                                 Text("Tap any entry to correct it")
                                     .font(.caption)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                             .padding(.bottom, 8)
 
@@ -2724,7 +2724,7 @@ private struct TrackerHistoryView: View {
                                 }
                                 .overlay(alignment: .bottom) {
                                     Rectangle()
-                                        .fill(Color(LifeBoardColorTokens.foundationHairline))
+                                        .fill(Color(SemanticColorTokens.foundationHairline))
                                         .frame(height: 1)
                                 }
                             }
@@ -2766,23 +2766,23 @@ private struct TrackerHistoryView: View {
                         .contentTransition(.numericText())
                     Text(lastRecordedDescription)
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 Spacer()
                 Label(tracker.effectiveAggregation.displayName, systemImage: "function")
                     .font(.caption.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
 
             if let magnitudes = recentMagnitudes, magnitudes.isEmpty == false {
                 if magnitudes.count == 1, let entry = sortedEntries.first {
                     HStack(spacing: 10) {
                         Circle()
-                            .fill(Color(LifeBoardColorTokens.foundationSageAccent))
+                            .fill(Color(SemanticColorTokens.foundationSageAccent))
                             .frame(width: 9, height: 9)
                         Text("First value")
                             .font(.caption.weight(.semibold))
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         Spacer()
                         Text(value(entry))
                             .font(.body.weight(.semibold).monospacedDigit())
@@ -2790,7 +2790,7 @@ private struct TrackerHistoryView: View {
                     .padding(.horizontal, 14)
                     .frame(minHeight: 52)
                     .background(
-                        Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                        Color(SemanticColorTokens.foundationSurfaceRecessed),
                         in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                     )
                 } else {
@@ -2799,7 +2799,7 @@ private struct TrackerHistoryView: View {
                         HStack(alignment: .bottom, spacing: 6) {
                             ForEach(Array(magnitudes.enumerated()), id: \.offset) { _, magnitude in
                                 Capsule()
-                                    .fill(Color(LifeBoardColorTokens.foundationSageAccent))
+                                    .fill(Color(SemanticColorTokens.foundationSageAccent))
                                     .frame(
                                         maxWidth: .infinity,
                                         minHeight: 6,
@@ -2851,11 +2851,11 @@ private struct TrackerHistoryView: View {
         VStack(alignment: .leading, spacing: 3) {
             Text(value(entry))
                 .font(.body.weight(.semibold))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             if let note = entry.note, note.isEmpty == false {
                 Text(note)
                     .font(.caption)
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .lineLimit(2)
             }
         }
@@ -2864,7 +2864,7 @@ private struct TrackerHistoryView: View {
     private func historyTimestamp(_ entry: TrackerEntryValue) -> some View {
         Text(entry.timestamp.formatted(date: .abbreviated, time: .shortened))
             .font(.caption.monospacedDigit())
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
     }
 
     private func value(_ entry: TrackerEntryValue) -> String {
@@ -3148,7 +3148,7 @@ private struct MedicationWeekdayRail: View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Days")
                 .font(.lifeboard(.meta))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             HStack(spacing: 6) {
                 ForEach(1...7, id: \.self) { weekday in
                     let isOn = weekdays.contains(weekday)
@@ -3159,8 +3159,8 @@ private struct MedicationWeekdayRail: View {
                         Text(Calendar.current.veryShortStandaloneWeekdaySymbols[weekday - 1])
                             .font(.lifeboard(isOn ? .bodyStrong : .body))
                             .foregroundStyle(Color(isOn
-                                ? LifeBoardColorTokens.inkPrimary
-                                : LifeBoardColorTokens.inkSecondary))
+                                ? SemanticColorTokens.inkPrimary
+                                : SemanticColorTokens.inkSecondary))
                             .frame(maxWidth: .infinity, minHeight: 44)
                             .lifeBoardClaySurface(
                                 isOn ? .raised : .well,
@@ -3208,7 +3208,7 @@ private struct MedicationHistoryView: View {
                                 Button("Undo", systemImage: "arrow.uturn.backward") {
                                     Task { await onUndo(receipt) }
                                 }
-                                .tint(Color(LifeBoardColorTokens.foundationSageAccent))
+                                .tint(Color(SemanticColorTokens.foundationSageAccent))
                             }
                         }
                     }
@@ -3394,12 +3394,12 @@ struct FastingHistoryView: View {
                                     .font(.caption.weight(.semibold))
                                     .padding(.horizontal, 9)
                                     .padding(.vertical, 4)
-                                    .background(Color(LifeBoardColorTokens.foundationSurfaceSelected), in: Capsule())
+                                    .background(Color(SemanticColorTokens.foundationSurfaceSelected), in: Capsule())
                             }
                             HStack {
                                 Text(durationText(session))
                                     .font(.caption)
-                                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                                     .monospacedDigit()
                                 Spacer()
                                 Menu {
@@ -3418,7 +3418,7 @@ struct FastingHistoryView: View {
                                 .accessibilityLabel("Correct this session")
                             }
                             if let note = session.note, note.isEmpty == false {
-                                Text(note).font(.caption).foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                Text(note).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             }
                         }
                         .padding(.vertical, 4)
@@ -4808,11 +4808,11 @@ struct JournalModuleView: View {
 
     private var journalPrivacyGate: some View {
         ZStack {
-            Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea()
+            Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea()
             VStack(spacing: 18) {
                 Image(systemName: "lock.shield.fill")
                     .font(.system(size: 40, weight: .semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationApricotAccent))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                 Text("Journal locked")
                     .font(.title2.weight(.semibold))
                 Group {
@@ -4828,7 +4828,7 @@ struct JournalModuleView: View {
                     }
                 }
                 .font(.subheadline)
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 .multilineTextAlignment(.center)
                 if privacy.state != .authenticating {
                     Button("Unlock", systemImage: "faceid") {
@@ -4900,7 +4900,7 @@ struct JournalModuleView: View {
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
             Button { showsTextComposer = true } label: {
                 Text(store.draft == nil ? (store.today == nil ? "Start with a sentence" : "Add another thought") : "Continue your draft")
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
             }
                 .buttonStyle(.borderedProminent)
                 .tint(palette.color(for: .foreground))
@@ -5519,7 +5519,7 @@ private struct JournalPhotoEditor: View {
                 .buttonStyle(.lifeBoardChip)
             }
             .padding(20)
-            .background(Color(LifeBoardColorTokens.foundationCanvas).ignoresSafeArea())
+            .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
             .navigationTitle("Edit photo")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

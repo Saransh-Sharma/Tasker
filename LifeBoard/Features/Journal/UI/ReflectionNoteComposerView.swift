@@ -7,7 +7,7 @@ struct ReflectionNoteComposerView: View {
     @ObservedObject var viewModel: ReflectionNoteComposerViewModel
     let onSaved: ((ReflectionNote) -> Void)?
 
-    private var spacing: LifeBoardSpacingTokens { tokens.spacing }
+    private var spacing: SemanticSpacingTokens { tokens.spacing }
 
     init(
         viewModel: ReflectionNoteComposerViewModel,

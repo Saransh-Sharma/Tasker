@@ -20,7 +20,7 @@
 
 import Foundation
 import AssistantCoreKit
-import JournalFoundation
+import LifeBoardDomain
 import SemanticMemoryKit
 
 extension AssistantPersona {

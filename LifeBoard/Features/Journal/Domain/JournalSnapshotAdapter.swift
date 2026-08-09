@@ -8,7 +8,7 @@
 //
 
 import Foundation
-import JournalFoundation
+import LifeBoardDomain
 
 extension JournalBlockValue {
     var journalBlockSnapshot: JournalBlockSnapshot {

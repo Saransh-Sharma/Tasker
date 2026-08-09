@@ -9,7 +9,7 @@
 //
 
 import SwiftUI
-import JournalFoundation
+import LifeBoardDomain
 import MoodDialKit
 
 // MARK: - Mood mapping
@@ -91,14 +91,14 @@ extension DaypartPalette {
 // MARK: - Haptics adapter
 
 struct JournalHaptics: JournalHapticsProviding {
-    func selectionChanged() { Task { @MainActor in LifeBoardFeedback.selection() } }
-    func moodSelected() { Task { @MainActor in LifeBoardFeedback.light() } }
-    func buttonTap() { Task { @MainActor in LifeBoardFeedback.light() } }
-    func recordingStarted() { Task { @MainActor in LifeBoardFeedback.medium() } }
-    func recordingStopped() { Task { @MainActor in LifeBoardFeedback.light() } }
-    func entrySaved() { Task { @MainActor in LifeBoardFeedback.success() } }
-    func warning() { Task { @MainActor in LifeBoardFeedback.warning() } }
-    func error() { Task { @MainActor in LifeBoardFeedback.error() } }
+    func selectionChanged() { Task { @MainActor in HapticFeedback.selection() } }
+    func moodSelected() { Task { @MainActor in HapticFeedback.light() } }
+    func buttonTap() { Task { @MainActor in HapticFeedback.light() } }
+    func recordingStarted() { Task { @MainActor in HapticFeedback.medium() } }
+    func recordingStopped() { Task { @MainActor in HapticFeedback.light() } }
+    func entrySaved() { Task { @MainActor in HapticFeedback.success() } }
+    func warning() { Task { @MainActor in HapticFeedback.warning() } }
+    func error() { Task { @MainActor in HapticFeedback.error() } }
 }
 
 // MARK: - Capture view
@@ -174,7 +174,7 @@ struct JournalMoodCaptureView: View {
                 advance()
             }
             .font(.system(size: 16, weight: .bold, design: .rounded))
-            .foregroundStyle(Color(LifeBoardColorTokens.foundationOnCelestialAccent))
+            .foregroundStyle(Color(SemanticColorTokens.foundationOnCelestialAccent))
             .frame(minWidth: 84, minHeight: 44)
             .background(palette.color(for: .celestialCore), in: Capsule())
             .disabled(isSaving)
@@ -205,7 +205,7 @@ struct JournalMoodCaptureView: View {
         Task {
             await store.saveMood(value)
             await MainActor.run {
-                LifeBoardFeedback.success()
+                HapticFeedback.success()
                 dismiss()
             }
         }
@@ -242,7 +242,7 @@ struct JournalMoodCaptureView: View {
                     .tint(palette.color(for: .celestialCore))
                     .accessibilityValue(energyLabel)
                     .onChange(of: energy) {
-                        LifeBoardFeedback.selection()
+                        HapticFeedback.selection()
                     }
                 }
             }

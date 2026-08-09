@@ -1,6 +1,6 @@
 import Foundation
-import JournalFoundation
-import ReflectionKit
+import LifeBoardDomain
+import LifeBoardDomain
 
 // MARK: - Trackers and care
 
@@ -2396,7 +2396,7 @@ public extension PhaseIIRepository {
     func pruneKnowledgeRecovery(now: Date = Date()) async throws {}
 }
 
-public struct JournalHomeContextCandidateProvider: HomeContextCandidateProvider {
+public struct JournalHomeContextCandidateSource: HomeContextCandidateSource {
     public let providerID = "journal"
     private let repository: any PhaseIIRepository
 
@@ -2422,7 +2422,7 @@ public struct JournalHomeContextCandidateProvider: HomeContextCandidateProvider 
 
 /// Suggests the Weekly Reflection once the week is winding down and the week
 /// actually contains journal material to reflect on.
-public struct WeeklyReflectionHomeContextCandidateProvider: HomeContextCandidateProvider {
+public struct WeeklyReflectionHomeContextCandidateSource: HomeContextCandidateSource {
     public let providerID = "weekly-reflection"
     private let repository: any PhaseIIRepository
 
@@ -2457,7 +2457,7 @@ public struct WeeklyReflectionHomeContextCandidateProvider: HomeContextCandidate
 /// Resurfaces a journal day from exactly one year ago — a gentle memory, only
 /// when the user permits sensitive content on Home, and never with content in
 /// the candidate itself.
-public struct JournalMemoryHomeContextCandidateProvider: HomeContextCandidateProvider {
+public struct JournalMemoryHomeContextCandidateSource: HomeContextCandidateSource {
     public let providerID = "journal-memory"
     private let repository: any PhaseIIRepository
 
