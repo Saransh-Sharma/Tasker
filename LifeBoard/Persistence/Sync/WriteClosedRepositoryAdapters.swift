@@ -5,7 +5,7 @@ import Foundation
 struct SyncWriteGate: Sendable {
     private let modeProvider: @Sendable () -> PersistentSyncMode
 
-    init(modeProvider: @escaping @Sendable () -> PersistentSyncMode = { AppDelegate.persistentSyncModeSnapshot() }) {
+    init(modeProvider: @escaping @Sendable () -> PersistentSyncMode = { .fullSync }) {
         self.modeProvider = modeProvider
     }
 

@@ -1,5 +1,9 @@
 import Foundation
 
+public extension Notification.Name {
+    static let homeTaskMutation = Notification.Name("HomeTaskMutationEvent")
+}
+
 public struct HomeTaskMutationPayload: Equatable {
     public let reason: HomeTaskMutationEvent
     public let source: String

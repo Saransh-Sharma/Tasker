@@ -17,7 +17,7 @@
             <fetchIndexElement property='id' type='Binary' order='ascending'/>
         </fetchIndex>
     </entity>
-    <entity name='Project' representedClassName='ProjectEntity' codeGenerationType='category' syncable='YES'>
+    <entity name='Project' representedClassName='ProjectEntity' syncable='YES'>
         <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
         <attribute name='lifeAreaID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
         <attribute name='name' optional='YES' attributeType='String'/>
@@ -80,7 +80,7 @@
         <attribute name='createdAt' optional='YES' attributeType='Date' usesScalarValueType='NO'/>
         <relationship name='taskLinks' optional='YES' toMany='YES' deletionRule='Cascade' destinationEntity='TaskTagLink' inverseName='tagRef' inverseEntity='TaskTagLink'/>
     </entity>
-    <entity name='TaskDefinition' representedClassName='TaskDefinitionEntity' codeGenerationType='category' syncable='YES'>
+    <entity name='TaskDefinition' representedClassName='TaskDefinitionEntity' syncable='YES'>
         <attribute name='id' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
         <attribute name='taskID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>
         <attribute name='projectID' optional='YES' attributeType='UUID' usesScalarValueType='NO'/>

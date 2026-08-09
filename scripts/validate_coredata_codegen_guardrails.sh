@@ -7,9 +7,11 @@ cd "$ROOT_DIR"
 PROJECT_FILE="LifeBoard.xcodeproj/project.pbxproj"
 PACKAGE_MANIFEST="Package.swift"
 MANUAL_CLASSES="LifeBoard/Persistence/Entities/LegacyGeneratedManagedObjects.swift"
+TASK_PROPERTIES="LifeBoard/Persistence/Entities/TaskDefinitionEntity+CoreDataProperties.swift"
+PROJECT_PROPERTIES="LifeBoard/Persistence/Entities/ProjectEntity+CoreDataProperties.swift"
 CODEGEN_CHECK="scripts/convert_coredata_codegen_to_manual.rb"
 
-for required_file in "$PROJECT_FILE" "$PACKAGE_MANIFEST" "$MANUAL_CLASSES" "$CODEGEN_CHECK"; do
+for required_file in "$PROJECT_FILE" "$PACKAGE_MANIFEST" "$MANUAL_CLASSES" "$TASK_PROPERTIES" "$PROJECT_PROPERTIES" "$CODEGEN_CHECK"; do
   if [[ ! -f "$required_file" ]]; then
     echo "Missing Core Data guardrail input: $required_file"
     exit 1
@@ -31,9 +33,12 @@ for class_name in "${MANUAL_OBJC_NAMES[@]}"; do
   fi
 done
 
-if ! rg -n 'name: "LifeBoardPersistence"' "$PACKAGE_MANIFEST" >/dev/null ||
-   ! rg -n 'Entities/LegacyGeneratedManagedObjects.swift' "$PACKAGE_MANIFEST" >/dev/null; then
-  echo "Manual managed-object classes must compile in LifeBoardPersistence"
+if ! swift package dump-package | ruby -rjson -e '
+  package = JSON.parse(STDIN.read)
+  target = package.fetch("targets").find { |candidate| candidate.fetch("name") == "LifeBoardPersistence" }
+  exit 1 unless target && target.fetch("path") == "LifeBoard/Persistence" && target.fetch("exclude").empty?
+'; then
+  echo "LifeBoardPersistence must own the complete Persistence source tree"
   exit 1
 fi
 
@@ -47,20 +52,20 @@ if rg -n "/\\* TaskDefinitionEntity\\+CoreDataProperties.swift in Sources \\*/|/
   exit 1
 fi
 
-MODEL_FILES=(
-  "LifeBoard/Persistence/Resources/TaskModelV3.xcdatamodeld/TaskModelV3.xcdatamodel/contents"
-  "LifeBoard/TaskModelV2.xcdatamodeld/TaskModelV2V3.xcdatamodel/contents"
-  "LifeBoard/TaskModelV2.xcdatamodeld/TaskModelV2.xcdatamodel/contents"
-)
+MODEL_FILES=(LifeBoard/Persistence/Resources/TaskModelV3.xcdatamodeld/*.xcdatamodel/contents)
+if [[ "${#MODEL_FILES[@]}" -ne 23 ]]; then
+  echo "Expected 23 packaged TaskModelV3 versions, found ${#MODEL_FILES[@]}"
+  exit 1
+fi
 
 for model_file in "${MODEL_FILES[@]}"; do
-  if ! rg -n '<entity name="Project"[^>]*codeGenerationType="category"[^>]*>' "$model_file" >/dev/null; then
-    echo "Project entity must use codeGenerationType=category in $model_file"
+  if rg -n '<entity name=("Project"|'\''Project'\'')[^>]*codeGenerationType=' "$model_file" >/dev/null; then
+    echo "Project entity must use Manual/None code generation in $model_file"
     exit 1
   fi
 
-  if ! rg -n '<entity name="TaskDefinition"[^>]*codeGenerationType="category"[^>]*>' "$model_file" >/dev/null; then
-    echo "TaskDefinition entity must use codeGenerationType=category in $model_file"
+  if rg -n '<entity name=("TaskDefinition"|'\''TaskDefinition'\'')[^>]*codeGenerationType=' "$model_file" >/dev/null; then
+    echo "TaskDefinition entity must use Manual/None code generation in $model_file"
     exit 1
   fi
 done

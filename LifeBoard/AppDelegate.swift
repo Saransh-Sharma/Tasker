@@ -28,81 +28,14 @@ private final class ReminderReconcileCompletionGate: @unchecked Sendable {
     }
 }
 
-enum PersistentBootstrapState: Sendable {
-    case loading
-    case ready(NSPersistentCloudKitContainer)
-    case failed(String)
-}
-
 enum LaunchRootMode: Equatable, Sendable {
     case loading
     case home
     case bootstrapFailure(message: String)
 }
 
-enum PersistentSyncMode: Equatable, Sendable {
-    case fullSync
-    case writeClosed(reason: String)
-
-    var modeName: String {
-        switch self {
-        case .fullSync:
-            return "full_sync"
-        case .writeClosed:
-            return "write_closed"
-        }
-    }
-
-    var reason: String {
-        switch self {
-        case .fullSync:
-            return "healthy_split_store"
-        case .writeClosed(let reason):
-            return reason
-        }
-    }
-}
-
 private enum PersistentSyncModeStore {
     static let state = Mutex(PersistentSyncMode.fullSync)
-}
-
-struct PersistentStoreLoadReport {
-    let loadedConfigurations: Set<String>
-    let errors: [NSError]
-}
-
-enum CloudKitMirroringMode: Equatable {
-    case enabled
-    case disabled(reason: String)
-
-    var reason: String {
-        switch self {
-        case .enabled:
-            return "enabled"
-        case .disabled(let reason):
-            return reason
-        }
-    }
-}
-
-struct CloudKitRuntimeContext {
-    let environment: [String: String]
-    let arguments: [String]
-    let isSimulator: Bool
-
-    static func current(processInfo: ProcessInfo = .processInfo) -> Self {
-#if targetEnvironment(simulator)
-        let isSimulator = true
-#else
-        let isSimulator = false
-#endif
-        return Self(
-            environment: processInfo.environment,
-            arguments: processInfo.arguments,
-            isSimulator: isSimulator
-        )
-    }
 }
 
 extension Notification.Name {

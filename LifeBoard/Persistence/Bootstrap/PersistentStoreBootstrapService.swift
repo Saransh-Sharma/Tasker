@@ -35,6 +35,18 @@ fileprivate enum SplitPersistentStore: CaseIterable {
     }
 }
 
+private struct PersistedOverdueRescueSession: Decodable {
+    let referenceDate: Date
+    let undoStack: [PersistedOverdueRescueUndoRecord]
+}
+
+private struct PersistedOverdueRescueUndoRecord: Decodable {
+    let taskID: UUID
+    let source: String
+    let action: String
+    let fullSnapshot: AssistantTaskSnapshot
+}
+
 enum RescueScheduleRepairService {
     struct Report: Equatable {
         var scannedRuns = 0
@@ -131,11 +143,11 @@ enum RescueScheduleRepairService {
         }
 
         for (_, data) in rescueSessionEntries ?? Self.rescueSessionEntries(from: defaults) {
-            guard let session = try? JSONDecoder().decode(OverdueRescueSessionState.self, from: data) else {
+            guard let session = try? JSONDecoder().decode(PersistedOverdueRescueSession.self, from: data) else {
                 continue
             }
             for record in session.undoStack
-            where record.source == .bulk && record.action == .keepToday {
+            where record.source == "bulk" && record.action == "keepToday" {
                 report.scannedSessionRecords += 1
                 guard originalHadAllDayIntent(record.fullSnapshot, calendar: calendar),
                       let task = try fetchTask(id: record.taskID, in: context),

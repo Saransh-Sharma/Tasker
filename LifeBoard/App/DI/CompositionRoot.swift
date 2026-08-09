@@ -118,7 +118,7 @@ public final class CompositionRoot: @unchecked Sendable {
         self.cacheService = InMemoryCacheService()
         
         // Initialize repositories
-        let writeGate = SyncWriteGate()
+        let writeGate = SyncWriteGate(modeProvider: AppDelegate.persistentSyncModeSnapshot)
         let baseProjectRepository = CoreDataProjectRepository(container: container)
         let taskDefinitionRepository = CoreDataTaskDefinitionRepository(container: container)
         let taskReadModelRepository = CoreDataTaskReadModelRepository(container: container)

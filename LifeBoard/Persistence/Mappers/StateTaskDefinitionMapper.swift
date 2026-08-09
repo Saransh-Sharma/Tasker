@@ -12,8 +12,10 @@ public enum StateTaskDefinitionMapper {
         let details = entity.notes
         let priorityRaw = entity.priority > 0 ? entity.priority : TaskPriority.low.rawValue
         let taskTypeRaw = entity.taskType > 0 ? entity.taskType : TaskType.morning.rawValue
-        let createdAt = entity.createdAt ?? entity.dateAdded ?? Date()
-        let updatedAt = entity.updatedAt ?? createdAt
+        let createdAt = entity.createdAt.map { $0 as Date }
+            ?? entity.dateAdded.map { $0 as Date }
+            ?? Date()
+        let updatedAt = entity.updatedAt.map { $0 as Date } ?? createdAt
         let isComplete = entity.isComplete || entity.status?.lowercased() == "completed"
         let projectRef = entity.value(forKey: "projectRef") as? ProjectEntity
         let recurrenceRule: TaskRecurrenceRule? = {
@@ -57,15 +59,15 @@ public enum StateTaskDefinitionMapper {
             energy: TaskEnergy(rawValue: entity.energy ?? "") ?? .medium,
             category: TaskCategory(rawValue: entity.category ?? "") ?? .general,
             context: TaskContext(rawValue: entity.context ?? "") ?? .anywhere,
-            dueDate: entity.dueDate,
+            dueDate: entity.dueDate.map { $0 as Date },
             scheduledStartAt: scheduledStartAt,
             scheduledEndAt: scheduledEndAt,
             isAllDay: isAllDay,
             isComplete: isComplete,
-            dateAdded: entity.dateAdded ?? createdAt,
-            dateCompleted: entity.dateCompleted,
+            dateAdded: entity.dateAdded.map { $0 as Date } ?? createdAt,
+            dateCompleted: entity.dateCompleted.map { $0 as Date },
             isEveningTask: entity.isEveningTask || TaskType(rawValue: taskTypeRaw) == .evening,
-            alertReminderTime: entity.alertReminderTime,
+            alertReminderTime: entity.alertReminderTime.map { $0 as Date },
             tagIDs: [],
             dependencies: [],
             estimatedDuration: estimatedDuration,
@@ -102,15 +104,15 @@ public enum StateTaskDefinitionMapper {
         entity.energy = model.energy.rawValue
         entity.category = model.category.rawValue
         entity.context = model.context.rawValue
-        entity.dueDate = model.dueDate
+        entity.dueDate = model.dueDate.map { $0 as NSDate }
         entity.setValue(model.scheduledStartAt, forKey: "scheduledStartAt")
         entity.setValue(model.scheduledEndAt, forKey: "scheduledEndAt")
         entity.setValue(model.isAllDay, forKey: "isAllDay")
         entity.isComplete = model.isComplete
-        entity.dateAdded = model.dateAdded
-        entity.dateCompleted = model.dateCompleted
+        entity.dateAdded = model.dateAdded as NSDate
+        entity.dateCompleted = model.dateCompleted.map { $0 as NSDate }
         entity.isEveningTask = model.isEveningTask || model.type == .evening
-        entity.alertReminderTime = model.alertReminderTime
+        entity.alertReminderTime = model.alertReminderTime.map { $0 as NSDate }
         entity.estimatedDuration = model.estimatedDuration ?? 0
         entity.actualDuration = model.actualDuration ?? 0
         entity.repeatPatternData = model.repeatPattern.flatMap {
@@ -125,8 +127,8 @@ public enum StateTaskDefinitionMapper {
         entity.replanCount = Int32(max(0, model.replanCount))
         entity.source = entity.source ?? "user"
         entity.createdBy = entity.createdBy ?? "user"
-        entity.createdAt = model.createdAt
-        entity.updatedAt = model.updatedAt
+        entity.createdAt = model.createdAt as NSDate
+        entity.updatedAt = model.updatedAt as NSDate
         entity.version = max(entity.version, 1)
         return entity
     }
