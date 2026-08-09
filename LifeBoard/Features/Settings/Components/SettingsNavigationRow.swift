@@ -1,0 +1,680 @@
+import SwiftUI
+
+enum SettingsMetrics {
+    static let screenHorizontal: CGFloat = 20
+    static let sectionSpacing: CGFloat = 28
+    static let sectionHeaderToCardGap: CGFloat = 12
+    static let cardInnerPadding: CGFloat = 20
+    static let cardCornerRadius: CGFloat = 24
+    static let navigationRowMinHeight: CGFloat = 88
+    static let toggleRowMinHeight: CGFloat = 84
+    static let chipMinHeight: CGFloat = 44
+}
+
+enum SettingsTone {
+    case accent
+    case neutral
+    case success
+    case warning
+    case danger
+}
+
+enum SettingsRowType {
+    case navigation
+    case toggle
+    case toggleSummary
+}
+
+struct SettingsStatusDescriptor: Identifiable {
+    let id: String
+    let title: String
+    let value: String
+    let systemImage: String
+    var tone: SettingsTone = .neutral
+}
+
+struct SettingsInlineBadge {
+    let title: String
+    var tone: SettingsTone = .neutral
+}
+
+struct SettingsDestinationDescriptor {
+    let iconName: String
+    let title: String
+    let subtitle: String
+    var rowType: SettingsRowType = .navigation
+    var trailingStatus: String? = nil
+    var summaryText: String? = nil
+    var inlineBadge: SettingsInlineBadge? = nil
+    var tone: SettingsTone = .accent
+    var accessibilityIdentifier: String? = nil
+}
+
+struct SettingsCard<Content: View>: View {
+    var active: Bool = false
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        LifeBoardCard(active: active) {
+            content
+        }
+    }
+}
+
+struct SettingsSectionView<Content: View>: View {
+    let title: String
+    let subtitle: String
+    var topPadding: CGFloat = SettingsMetrics.sectionSpacing
+    var includeHorizontalPadding: Bool = true
+    @ViewBuilder let content: Content
+
+    @Environment(\.lifeboardTokens) private var tokens
+
+    private var spacing: LifeBoardSpacingTokens {
+        tokens.spacing
+    }
+
+    var body: some View {
+        VStack(spacing: 0) {
+            SettingsSectionHeader(
+                title: title,
+                subtitle: subtitle,
+                includeHorizontalPadding: includeHorizontalPadding
+            )
+            .padding(.top, topPadding)
+
+            content
+                .padding(.horizontal, includeHorizontalPadding ? spacing.screenHorizontal : 0)
+                .padding(.top, SettingsMetrics.sectionHeaderToCardGap)
+        }
+    }
+}
+
+struct SettingsHeroCard: View {
+    let eyebrow: String
+    let title: String
+    let subtitle: String
+    let statusItems: [SettingsStatusDescriptor]
+    var accessibilityIdentifier: String? = nil
+
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.lifeboardTokens) private var tokens
+
+    private var spacing: LifeBoardSpacingTokens {
+        tokens.spacing
+    }
+
+    private var cornerRadius: CGFloat {
+        SettingsMetrics.cardCornerRadius
+    }
+
+    private var maxHeroHeight: CGFloat? {
+        dynamicTypeSize.isAccessibilitySize ? nil : (layoutClass.isPad ? 228 : 220)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: spacing.s16) {
+            VStack(alignment: .leading, spacing: spacing.s8) {
+                Text(eyebrow)
+                    .lifeboardFont(.eyebrow)
+                    .foregroundStyle(heroInk)
+
+                Text(title)
+                    .lifeboardFont(.screenTitle)
+                    .foregroundStyle(heroInk)
+                    .lineLimit(2)
+
+                Text(subtitle)
+                    .lifeboardFont(.callout)
+                    .foregroundStyle(heroInk)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : (layoutClass.isPad ? 2 : 3))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            if statusItems.isEmpty == false {
+                if dynamicTypeSize.isAccessibilitySize {
+                    VStack(spacing: 10) {
+                        statusChips
+                    }
+                } else {
+                    HStack(spacing: 10) {
+                        statusChips
+                    }
+                }
+            }
+        }
+        .padding(.top, 24)
+        .padding(.horizontal, SettingsMetrics.screenHorizontal)
+        .padding(.bottom, 20)
+        .frame(maxWidth: .infinity, minHeight: 208, maxHeight: maxHeroHeight, alignment: .topLeading)
+        .background(heroBackground)
+        .overlay(
+            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                .stroke(heroInk.opacity(0.18), lineWidth: 1)
+        )
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .lifeboardElevation(.e2, cornerRadius: cornerRadius, includesBorder: false)
+        .applyOptionalAccessibilityIdentifier(accessibilityIdentifier)
+    }
+
+    @ViewBuilder
+    private var heroBackground: some View {
+        ZStack {
+            LinearGradient(
+                colors: [
+                    Color(LifeBoardColorTokens.foundationSettingsHeroStart),
+                    Color(LifeBoardColorTokens.foundationSettingsHeroMiddle),
+                    Color(LifeBoardColorTokens.foundationSettingsHeroEnd)
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            Color(LifeBoardColorTokens.foundationOnSettingsHero).opacity(0.025)
+        }
+    }
+
+    private var heroInk: Color {
+        Color(LifeBoardColorTokens.foundationOnSettingsHero)
+    }
+
+    @ViewBuilder
+    private var statusChips: some View {
+        ForEach(Array(statusItems.prefix(3))) { item in
+            SettingsStatusChip(descriptor: item)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .layoutPriority(1)
+        }
+    }
+}
+
+struct SettingsStatusChip: View {
+    let descriptor: SettingsStatusDescriptor
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 8) {
+            Image(systemName: descriptor.systemImage)
+                .font(.lifeboard(.caption2))
+                .foregroundStyle(iconColor)
+                .frame(width: 14, height: 14)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(descriptor.title)
+                    .lifeboardFont(.caption2)
+                    .foregroundStyle(heroInk)
+                    .lineLimit(2)
+
+                Text(descriptor.value)
+                    .lifeboardFont(.bodyStrong)
+                    .foregroundStyle(heroInk)
+                    .lineLimit(2)
+            }
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 9)
+        .frame(minHeight: SettingsMetrics.chipMinHeight, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.lifeboard(.surfacePrimary).opacity(0.34))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(heroInk.opacity(0.16), lineWidth: 1)
+        )
+    }
+
+    private var iconColor: Color {
+        heroInk
+    }
+
+    private var heroInk: Color {
+        Color(LifeBoardColorTokens.foundationOnSettingsHero)
+    }
+}
+
+struct SettingsFieldCard<Content: View>: View {
+    let title: String
+    let subtitle: String
+    var footer: String? = nil
+    var accessibilityIdentifier: String? = nil
+    @ViewBuilder let content: Content
+
+    @Environment(\.lifeboardLayoutClass) private var layoutClass
+    @Environment(\.lifeboardTokens) private var tokens
+
+    private var spacing: LifeBoardSpacingTokens {
+        tokens.spacing
+    }
+
+    init(
+        title: String,
+        subtitle: String,
+        footer: String? = nil,
+        accessibilityIdentifier: String? = nil,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.subtitle = subtitle
+        self.footer = footer
+        self.accessibilityIdentifier = accessibilityIdentifier
+        self.content = content()
+    }
+
+    var body: some View {
+        SettingsCard(active: true) {
+            VStack(alignment: .leading, spacing: SettingsMetrics.cardInnerPadding) {
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text(title)
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
+
+                    Text(subtitle)
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                content
+
+                if let footer, footer.isEmpty == false {
+                    Text(footer)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textTertiary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .applyOptionalAccessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+struct SettingsToggleRow: View {
+    let iconName: String
+    let title: String
+    let subtitle: String?
+    @Binding var isOn: Bool
+    var tone: SettingsTone = .accent
+    var summaryText: String? = nil
+    var accessibilityIdentifier: String? = nil
+
+    var body: some View {
+        HStack(alignment: .center, spacing: SwiftUITokens.spacing.s12) {
+            SettingsRowIcon(iconName: iconName, tone: tone)
+
+            VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s4) {
+                Text(title)
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
+
+                if let subtitle, subtitle.isEmpty == false {
+                    Text(subtitle)
+                        .font(.lifeboard(.caption1))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+
+            Spacer(minLength: SwiftUITokens.spacing.s12)
+
+            if let summaryText, summaryText.isEmpty == false {
+                Text(summaryText)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(1)
+            }
+
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+                .tint(Color.lifeboard(.accentPrimary))
+                .accessibilityLabel(Text(title))
+        }
+        .frame(maxWidth: .infinity, minHeight: SettingsMetrics.toggleRowMinHeight, alignment: .leading)
+        .applyOptionalAccessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+struct SettingsToggleSummaryRow<ExpandedContent: View>: View {
+    let descriptor: SettingsDestinationDescriptor
+    @Binding var isOn: Bool
+    @Binding var isExpanded: Bool
+    var accessibilityIdentifier: String? = nil
+    @ViewBuilder let expandedContent: ExpandedContent
+
+    init(
+        descriptor: SettingsDestinationDescriptor,
+        isOn: Binding<Bool>,
+        isExpanded: Binding<Bool>,
+        accessibilityIdentifier: String? = nil,
+        @ViewBuilder expandedContent: () -> ExpandedContent
+    ) {
+        self.descriptor = descriptor
+        self._isOn = isOn
+        self._isExpanded = isExpanded
+        self.accessibilityIdentifier = accessibilityIdentifier
+        self.expandedContent = expandedContent()
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(alignment: .center, spacing: SwiftUITokens.spacing.s12) {
+                Button {
+                    withAnimation(LifeBoardAnimation.heroReveal) {
+                        isExpanded.toggle()
+                    }
+                } label: {
+                    HStack(alignment: .center, spacing: SwiftUITokens.spacing.s12) {
+                        SettingsRowIcon(iconName: descriptor.iconName, tone: descriptor.tone)
+
+                        VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s4) {
+                            Text(descriptor.title)
+                                .font(.lifeboard(.bodyEmphasis))
+                                .foregroundStyle(Color.lifeboard(.textPrimary))
+
+                            Text(descriptor.subtitle)
+                                .font(.lifeboard(.caption1))
+                                .foregroundStyle(Color.lifeboard(.textSecondary))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+
+                        Spacer(minLength: SwiftUITokens.spacing.s12)
+
+                        HStack(spacing: SwiftUITokens.spacing.s8) {
+                            if let summaryText = descriptor.summaryText, summaryText.isEmpty == false {
+                                Text(summaryText)
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                                    .multilineTextAlignment(.trailing)
+                                    .lineLimit(1)
+                            }
+
+                            Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
+                                .font(.lifeboard(.caption2))
+                                .foregroundStyle(Color.lifeboard(.textQuaternary))
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+
+                Toggle("", isOn: $isOn)
+                    .labelsHidden()
+                    .tint(Color.lifeboard(.accentPrimary))
+                    .accessibilityLabel(Text(descriptor.title))
+            }
+            .frame(maxWidth: .infinity, minHeight: SettingsMetrics.toggleRowMinHeight, alignment: .leading)
+
+            if isExpanded {
+                Divider()
+                    .padding(.vertical, SwiftUITokens.spacing.s12)
+
+                expandedContent
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .animation(LifeBoardAnimation.heroReveal, value: isExpanded)
+        .applyOptionalAccessibilityIdentifier(accessibilityIdentifier ?? descriptor.accessibilityIdentifier)
+    }
+}
+
+struct SettingsChipSelector<Option: Hashable>: View {
+    let title: String
+    let options: [(value: Option, label: String)]
+    let selectedValue: Option
+    let onSelect: (Option) -> Void
+    var accessibilityIdentifier: String? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s12) {
+            Text(title)
+                .font(.lifeboard(.caption2))
+                .foregroundStyle(Color.lifeboard(.textTertiary))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: SwiftUITokens.spacing.s8) {
+                    ForEach(options, id: \.value) { option in
+                        Chip(
+                            title: option.label,
+                            isSelected: option.value == selectedValue,
+                            selectedStyle: .filled,
+                            action: {
+                                LifeBoardFeedback.selection()
+                                onSelect(option.value)
+                            }
+                        )
+                    }
+                }
+            }
+            .scrollBounceBehavior(.basedOnSize, axes: .horizontal)
+        }
+        .applyOptionalAccessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+struct SettingsInfoRow: View {
+    let iconName: String
+    let title: String
+    let subtitle: String
+    var value: String? = nil
+    var accessibilityIdentifier: String? = nil
+
+    var body: some View {
+        HStack(alignment: .top, spacing: SwiftUITokens.spacing.s12) {
+            SettingsRowIcon(iconName: iconName, tone: .neutral)
+
+            VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s4) {
+                Text(title)
+                    .font(.lifeboard(.bodyStrong))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
+                Text(subtitle)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Spacer(minLength: SwiftUITokens.spacing.s12)
+
+            if let value, value.isEmpty == false {
+                Text(value)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
+                    .multilineTextAlignment(.trailing)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .applyOptionalAccessibilityIdentifier(accessibilityIdentifier)
+    }
+}
+
+struct SettingsDangerZoneCard: View {
+    let title: String
+    let subtitle: String
+    let buttonTitle: String
+    var buttonRole: ButtonRole? = .destructive
+    var accessibilityIdentifier: String? = nil
+    let action: () -> Void
+
+    var body: some View {
+        SettingsCard {
+            VStack(alignment: .leading, spacing: SettingsMetrics.cardInnerPadding) {
+                HStack(alignment: .top, spacing: SwiftUITokens.spacing.s12) {
+                    SettingsRowIcon(iconName: "exclamationmark.triangle.fill", tone: .danger)
+
+                    VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s4) {
+                        Text(title)
+                            .font(.lifeboard(.headline))
+                            .foregroundStyle(Color.lifeboard(.textPrimary))
+
+                        Text(subtitle)
+                            .font(.lifeboard(.callout))
+                            .foregroundStyle(Color.lifeboard(.textSecondary))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+
+                Button(buttonTitle, role: buttonRole, action: action)
+                    .font(.lifeboard(.buttonSmall))
+                    .buttonStyle(.bordered)
+                    .tint(Color.lifeboard(.statusDanger))
+                    .applyOptionalAccessibilityIdentifier(accessibilityIdentifier)
+            }
+        }
+    }
+}
+
+struct SettingsRowIcon: View {
+    let iconName: String
+    let tone: SettingsTone
+
+    var body: some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(backgroundColor)
+                .frame(width: 40, height: 40)
+
+            Image(systemName: iconName)
+                .font(.lifeboard(.support))
+                .foregroundStyle(foregroundColor)
+        }
+    }
+
+    private var foregroundColor: Color {
+        switch tone {
+        case .accent:
+            return Color.lifeboard(.accentPrimary)
+        case .neutral:
+            return Color.lifeboard(.textSecondary)
+        case .success:
+            return Color.lifeboard(.statusSuccess)
+        case .warning:
+            return Color.lifeboard(.statusWarning)
+        case .danger:
+            return Color.lifeboard(.statusDanger)
+        }
+    }
+
+    private var backgroundColor: Color {
+        switch tone {
+        case .accent:
+            return Color.lifeboard(.accentWash)
+        case .neutral:
+            return Color.lifeboard(.surfaceSecondary)
+        case .success:
+            return Color.lifeboard(.statusSuccess).opacity(0.14)
+        case .warning:
+            return Color.lifeboard(.statusWarning).opacity(0.14)
+        case .danger:
+            return Color.lifeboard(.statusDanger).opacity(0.14)
+        }
+    }
+}
+
+struct SettingsNavigationRow: View {
+    let descriptor: SettingsDestinationDescriptor
+    var action: (() -> Void)? = nil
+
+    var body: some View {
+        Group {
+            if let action {
+                Button {
+                    LifeBoardFeedback.light()
+                    action()
+                } label: {
+                    rowContent
+                }
+                .buttonStyle(.plain)
+            } else {
+                rowContent
+            }
+        }
+        .applyOptionalAccessibilityIdentifier(descriptor.accessibilityIdentifier)
+    }
+
+    private var rowContent: some View {
+        HStack(alignment: .center, spacing: SwiftUITokens.spacing.s12) {
+            SettingsRowIcon(iconName: descriptor.iconName, tone: descriptor.tone)
+
+            VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s4) {
+                Text(descriptor.title)
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundColor(.lifeboard(.textPrimary))
+
+                Text(descriptor.subtitle)
+                    .font(.lifeboard(.caption1))
+                    .foregroundColor(.lifeboard(.textSecondary))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let inlineBadge = descriptor.inlineBadge {
+                    Text(inlineBadge.title)
+                        .font(.lifeboard(.caption2))
+                        .foregroundStyle(badgeForeground(for: inlineBadge.tone))
+                        .padding(.horizontal, SwiftUITokens.spacing.s8)
+                        .padding(.vertical, SwiftUITokens.spacing.s4)
+                        .background(badgeBackground(for: inlineBadge.tone))
+                        .clipShape(Capsule())
+                }
+            }
+
+            Spacer(minLength: SwiftUITokens.spacing.s12)
+
+            HStack(spacing: SwiftUITokens.spacing.s8) {
+                if let trailingStatus = descriptor.trailingStatus, trailingStatus.isEmpty == false {
+                    Text(trailingStatus)
+                        .font(.lifeboard(.caption1))
+                        .foregroundColor(.lifeboard(.textSecondary))
+                        .multilineTextAlignment(.trailing)
+                        .lineLimit(1)
+                }
+
+                Image(systemName: "chevron.right")
+                    .font(.lifeboard(.meta))
+                    .foregroundColor(.lifeboard(.textQuaternary))
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: SettingsMetrics.navigationRowMinHeight, alignment: .leading)
+        .contentShape(Rectangle())
+    }
+
+    private func badgeForeground(for tone: SettingsTone) -> Color {
+        switch tone {
+        case .accent:
+            return Color.lifeboard(.accentPrimary)
+        case .neutral:
+            return Color.lifeboard(.textSecondary)
+        case .success:
+            return Color.lifeboard(.statusSuccess)
+        case .warning:
+            return Color.lifeboard(.statusWarning)
+        case .danger:
+            return Color.lifeboard(.statusDanger)
+        }
+    }
+
+    private func badgeBackground(for tone: SettingsTone) -> Color {
+        switch tone {
+        case .accent:
+            return Color.lifeboard(.accentWash)
+        case .neutral:
+            return Color.lifeboard(.surfaceSecondary)
+        case .success:
+            return Color.lifeboard(.statusSuccess).opacity(0.14)
+        case .warning:
+            return Color.lifeboard(.statusWarning).opacity(0.14)
+        case .danger:
+            return Color.lifeboard(.statusDanger).opacity(0.14)
+        }
+    }
+}
+
+extension View {
+    @ViewBuilder
+    func applyOptionalAccessibilityIdentifier(_ identifier: String?) -> some View {
+        if let identifier, identifier.isEmpty == false {
+            accessibilityIdentifier(identifier)
+        } else {
+            self
+        }
+    }
+}
