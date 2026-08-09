@@ -14,7 +14,7 @@
 import Foundation
 import Observation
 #if canImport(TranscriptionKit)
-import TranscriptionKit
+import LifeBoardTranscription
 #endif
 #if canImport(AVFoundation)
 import AVFoundation
