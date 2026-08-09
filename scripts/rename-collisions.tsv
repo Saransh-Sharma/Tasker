@@ -1,24 +1,21 @@
-# Names that more than one type would collapse onto, or that something
-# already claims. Each needs a semantic answer, not a mechanical one:
-# these are two different palettes, three different chips. Excluded
-# from the manifest until that decision is made.
-# collapsed-name	claimants
-Anchor	SunriseAnchor (already declared)
-Animation	LifeBoardAnimation (already declared)
-AppShortcutsProvider	LifeBoardAppShortcutsProvider (already declared)
-Card	LifeBoardCard (already declared)
-ColorTokens	LBColorTokens, LifeBoardColorTokens
-Feedback	LifeBoardFeedback (already declared)
-FilterChip	LBFilterChip, LifeBoardFilterChip, SunriseFilterChip
-KnowledgeGraphStore	LifeBoardKnowledgeGraphStore (already declared)
-NormalizedPoint	LifeBoardNormalizedPoint (already declared)
-ProjectSection	LifeBoardProjectSection (already declared)
-Role	LBRole (already declared)
-RootHeader	FoundationRootHeader, LifeBoardRootHeader
-SpacingTokens	LBSpacingTokens, LifeBoardSpacingTokens
-TextField	LifeBoardTextField (already declared)
-TextFieldStyle	LifeBoardTextFieldStyle (already declared)
-TextStyle	LifeBoardTextStyle (already declared)
-TimelineTemporalState	LBTimelineTemporalState (already declared)
-TypographyTokens	LBTypographyTokens, LifeBoardTypographyTokens
-WidgetBundle	LifeBoardWidgetBundle (already declared)
+# Semantic resolutions for names that could not safely collapse mechanically.
+# collapsed-name	claimants	resolution
+Anchor	SunriseAnchor	HomeScrollAnchor
+Animation	LifeBoardAnimation	LifeBoardAnimation (singular token namespace retained)
+AppShortcutsProvider	LifeBoardAppShortcutsProvider	LifeBoardAppShortcutsProvider (Apple AppShortcutsProvider conformance)
+Card	LifeBoardCard	SurfaceCard
+ColorTokens	LBColorTokens, LifeBoardColorTokens	ClayColorTokens, SemanticColorTokens
+Feedback	LifeBoardFeedback	HapticFeedback
+FilterChip	LBFilterChip, LifeBoardFilterChip, SunriseFilterChip	ClayFilterChip, FilterChip, HomeFilterChipAction
+KnowledgeGraphStore	LifeBoardKnowledgeGraphStore	JournalKnowledgeGraphStoreAdapter
+NormalizedPoint	LifeBoardNormalizedPoint	UnitPoint2D
+ProjectSection	LifeBoardProjectSection	ProjectSectionDefinition
+Role	LBRole	ClayRole
+RootHeader	FoundationRootHeader, LifeBoardRootHeader	ScreenRootHeader, AppRootHeader
+SpacingTokens	LBSpacingTokens, LifeBoardSpacingTokens	ClayLayoutMetrics, SemanticSpacingTokens
+TextField	LifeBoardTextField	TokenTextField
+TextFieldStyle	LifeBoardTextFieldStyle	TokenTextFieldStyle
+TextStyle	LifeBoardTextStyle	TypographyStyle
+TimelineTemporalState	LBTimelineTemporalState	ClayTimelineTemporalState
+TypographyTokens	LBTypographyTokens, LifeBoardTypographyTokens	ClayTypography, SemanticTypographyTokens
+WidgetBundle	LifeBoardWidgetBundle	LifeBoardWidgetBundle (product entry point retained)

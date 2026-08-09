@@ -29,7 +29,10 @@ if File.file?(baseline_path)
 end
 
 directories = Hash.new { |hash, key| hash[key] = [] }
-Dir.glob(File.join(root, 'LifeBoard', '**', '*.swift')).sort.each do |file|
+source_files = Dir.glob(File.join(root, 'LifeBoard', '**', '*.swift')) +
+               Dir.glob(File.join(root, 'Packages', '*', '{Sources,Tests}', '**', '*.swift'))
+
+source_files.sort.each do |file|
   directories[file.delete_prefix("#{root}/").then { |path| File.dirname(path) }] <<
     File.foreach(file, encoding: SOURCE_ENCODING).count
 end

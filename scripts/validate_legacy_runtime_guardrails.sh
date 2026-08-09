@@ -1,8 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-cd "$ROOT_DIR"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lifeboard-paths.env
+source "$SCRIPT_DIR/lifeboard-paths.env"
+cd "$LIFEBOARD_ROOT_DIR"
+
+require_file() {
+  local file="$1"
+  if [[ ! -f "$file" ]]; then
+    echo "error: required runtime-guard input is missing: ${file#"$LIFEBOARD_ROOT_DIR"/}" >&2
+    exit 1
+  fi
+}
 
 LEGACY_BUILD_GRAPH_PATTERN="/\\* NAddTaskScreen.swift in Sources \\*/|/\\* DependencyContainer.swift in Sources \\*/|/\\* AddTaskLegacyStubs.swift in Sources \\*/"
 LEGACY_STORYBOARD_PATTERN='addTaskLegacy_unreachable|customClass="NAddTaskScreen"'
@@ -19,19 +29,25 @@ PROPOSAL_RUN_GUARD_FILES=(
 )
 
 RUNTIME_FILES=(
-  "LifeBoard/AppDelegate.swift"
-  "LifeBoard/SceneDelegate.swift"
-  "LifeBoard/App/DI/PresentationDependencyContainer.swift"
-  "LifeBoard/Persistence/Bootstrap/EnhancedDependencyContainer.swift"
-  "LifeBoard/UseCases/Coordinator/UseCaseCoordinator.swift"
+  "$LIFEBOARD_APP_DELEGATE"
+  "$LIFEBOARD_SCENE_DELEGATE"
+  "$LIFEBOARD_COMPOSITION_ROOT"
+  "$LIFEBOARD_COMPOSITION_ROOT_VIEW_MODELS"
+  "$LIFEBOARD_USE_CASE_COORDINATOR"
 )
 
-if rg -n "$LEGACY_BUILD_GRAPH_PATTERN" "LifeBoard.xcodeproj/project.pbxproj"; then
+require_file "$LIFEBOARD_PROJECT_FILE"
+require_file "$LIFEBOARD_MAIN_STORYBOARD"
+for runtime_file in "${RUNTIME_FILES[@]}"; do
+  require_file "$runtime_file"
+done
+
+if rg -n "$LEGACY_BUILD_GRAPH_PATTERN" "$LIFEBOARD_PROJECT_FILE"; then
   echo "Legacy add-task runtime files are still compiled in app target"
   exit 1
 fi
 
-if rg -n "$LEGACY_STORYBOARD_PATTERN" "LifeBoard/Storyboards/Base.lproj/Main.storyboard"; then
+if rg -n "$LEGACY_STORYBOARD_PATTERN" "$LIFEBOARD_MAIN_STORYBOARD"; then
   echo "Legacy storyboard route still present"
   exit 1
 fi
@@ -81,7 +97,7 @@ if rg -n "TaskModelV2" "${RUNTIME_FILES[@]}" --glob '*.swift' | rg -v "^LifeBoar
   exit 1
 fi
 
-if rg -n "TaskModelV2" "LifeBoard/AppDelegate.swift" | rg -v "TaskModelV2-(cloud|local)\\.sqlite(-wal|-shm)?"; then
+if rg -n "TaskModelV2" "$LIFEBOARD_APP_DELEGATE" | rg -v "TaskModelV2-(cloud|local)\\.sqlite(-wal|-shm)?"; then
   echo "TaskModelV2 reference detected in AppDelegate outside cleanup filename allowlist"
   exit 1
 fi

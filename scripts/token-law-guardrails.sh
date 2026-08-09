@@ -193,7 +193,7 @@ scan_added_lines \
 scan_added_lines \
   "Token Law: new code uses semantic colour roles, not the legacy vocabularies" \
   'LBColorTokens\.' \
-  'LifeBoard/LifeBoardDesign/Tokens/LBColorTokens.swift'
+  'LifeBoard/LifeBoardDesign/Tokens/ClayColorTokens.swift'
 
 if [[ $FAILED -eq 1 ]]; then
   echo ""

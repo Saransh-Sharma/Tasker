@@ -12,8 +12,7 @@
 # 2026-08-07 regenerated after the parallel -Onone split pass. File 'lines' grew for
 # ChatView / WeeklyPlanningWorkspaceView / LifeOSFoundationShell because extracting a
 # section into a sibling struct adds declarations; 'largest' is the column that matters
-# and it fell sharply. AdaptiveHome was reverted (work preserved in
-# docs/evidence/wip/adaptive-home-split.patch) so its numbers are unchanged.
+# and it fell sharply. The later structural wave landed the AdaptiveHome split.
 # 2026-08-07 +38 lines / +1 type / +3 largest: HealthDateRangeValidator and three
 # `validate(start:end:)` calls, fixing an intermittent SIGSEGV where a malformed date
 # bound reached HealthKit's predicate description and faulted in __dtoa. A crash fix,
@@ -60,7 +59,7 @@ LifeBoard/Features/Health/HealthSync/HealthKitGateway.swift	689	5	598
 LifeBoard/Features/Health/HealthSync/HealthSyncLedger.swift	582	7	430
 LifeBoard/Features/Health/HealthSync/HealthSyncModels.swift	515	24	80
 LifeBoard/Features/Health/UI/LifeBoardPhaseVIViews.swift	1897	28	366
-LifeBoard/Features/Inbox/UI/InboxView.swift	1366	6	647
+LifeBoard/Features/Plan/UI/Inbox/InboxView.swift	1366	6	647
 LifeBoard/Features/Journal/Data/LifeBoardPhaseIIPersistence.swift	1997	16	1395
 LifeBoard/Features/Journal/Domain/LifeBoardJournalDerivedIndex.swift	555	3	547
 LifeBoard/Features/Journal/Domain/LifeBoardPhaseIIModels.swift	2485	99	199
@@ -92,7 +91,7 @@ LifeBoard/Foundation/Navigation/FoundationShell.swift	7112	56	2120
 LifeBoard/Persistence/Repositories/DashboardLayoutRepository.swift	631	13	234
 LifeBoard/LifeBoardDesign/HomeScreen.swift	1823	11	1405
 LifeBoard/LifeBoardDesign/ScheduleScreen.swift	1288	2	1117
-LifeBoard/LifeBoardDesign/Tokens/LBColorTokens.swift	308	23	138
+LifeBoard/LifeBoardDesign/Tokens/ClayColorTokens.swift	308	23	138
 LifeBoard/App/DI/PresentationDependencyContainer.swift	531	5	413
 LifeBoard/Features/Home/UI/Modals/HomeDailySummaryModalView.swift	525	1	518
 LifeBoard/Features/Home/UI/Modals/OverdueRescue/OverdueRescueViewModelActions.swift	616	0	603
@@ -130,7 +129,7 @@ LifeBoard/Persistence/Repositories/CoreDataProjectRepository.swift	978	3	953
 LifeBoard/Persistence/Repositories/CoreDataTaskDefinitionRepository.swift	1482	9	840
 LifeBoard/Persistence/Repositories/CoreDataTaskReadModelRepository.swift	795	2	780
 LifeBoard/Persistence/Repositories/CoreDataWeeklyRepositories.swift	1332	16	261
-LifeBoard/Persistence/Services/CalendarIntegrationService.swift	946	10	734
+Packages/LifeBoardCalendar/Sources/LifeBoardCalendar/CalendarIntegrationService.swift	948	10	734
 LifeBoard/Persistence/Services/CoreSchedulingEngine.swift	728	4	612
 LifeBoard/Persistence/Sync/WriteClosedRepositoryAdapters.swift	887	22	105
 LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift	1640	1	1630
@@ -143,7 +142,7 @@ LifeBoard/UseCases/Home/HomeTimelineProjectionBuilder.swift	955	6	925
 LifeBoard/Features/Eva/Domain/AssistantActionPipelineUseCase.swift	933	5	917
 LifeBoard/Features/Projects/Domain/ManageProjectsUseCase.swift	728	7	588
 LifeBoard/Features/Sync/Domain/ReconcileExternalRemindersUseCase.swift	1151	6	1033
-LifeBoard/Features/Sync/Domain/ReminderMergeEngine.swift	437	5	435
+Packages/LifeBoardCalendar/Sources/LifeBoardCalendar/ReminderMergeService.swift	438	5	435
 LifeBoard/Features/Tasks/Domain/GetHomeFilteredTasksUseCase.swift	1865	34	627
 LifeBoard/Features/Tasks/Domain/GetTasksUseCase.swift	636	8	510
 LifeBoard/Features/Tasks/Domain/SortTasksUseCase.swift	593	10	482
@@ -171,3 +170,15 @@ LifeBoard/Features/Home/UI/HomeSearchViewModel.swift	778	8	757
 LifeBoard/Features/Settings/Components/SettingsNavigationRow.swift	680	18	98
 LifeBoard/Features/Settings/SettingsRootView.swift	1284	3	1232
 LifeBoard/Features/Settings/SettingsViewModel.swift	635	1	630
+Packages/LifeBoardContracts/Sources/LifeBoardContracts/WidgetSnapshot.swift	1147	39	167
+Packages/LifeBoardDomain/Sources/LifeBoardDomain/Interfaces_NotificationServiceProtocol.swift	738	18	146
+Packages/LifeBoardDomain/Sources/LifeBoardDomain/Interfaces_V2RepositoryProtocols.swift	482	24	83
+Packages/LifeBoardDomain/Sources/LifeBoardDomain/Models_CalendarIntegrationModels.swift	544	28	102
+Packages/LifeBoardDomain/Sources/LifeBoardDomain/Models_HabitTypes.swift	580	28	77
+Packages/LifeBoardDomain/Sources/LifeBoardDomain/Models_ScheduleTemplate.swift	211	13	40
+Packages/LifeBoardDomain/Sources/LifeBoardDomain/Models_Task.swift	997	13	247
+Packages/LifeBoardDomain/Sources/LifeBoardDomain/Models_TaskReadQueries.swift	315	16	40
+Packages/LifeBoardTokens/Sources/LifeBoardTokens/SemanticColorTokens.swift	529	1	503
+Packages/LifeBoardTokens/Sources/LifeBoardTokens/MotionAnimations.swift	680	17	100
+Packages/LifeBoardTokens/Sources/LifeBoardTokens/SwiftUI+TokenAdapters.swift	910	18	122
+Packages/LifeBoardTokens/Sources/LifeBoardTokens/Tokens.swift	442	20	69

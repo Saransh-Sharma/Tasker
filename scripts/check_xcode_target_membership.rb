@@ -1,212 +1,137 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# Validates the declared source membership graph instead of using filename
-# substring matches. The parser intentionally reads PBXBuildFile ->
-# PBXSourcesBuildPhase -> PBXNativeTarget edges, so duplicate basenames and
-# files assigned to the wrong target cannot produce a false pass.
+# Validates membership from the Swift compiler's generated `.SwiftFileList`
+# inputs. These files are emitted from Xcode's resolved build graph and remain
+# authoritative when a project uses filesystem-synchronized groups; no PBX
+# object or filename-comment parsing is involved.
 
+require 'pathname'
 require 'set'
 
-# The project file is UTF-8 and carries non-ASCII in group and file comments.
-# Ruby derives its default external encoding from the locale, and CI runs under
-# LC_CTYPE=C, which tags the read as US-ASCII and makes every subsequent regex
-# operation raise ArgumentError. See scripts/check_file_size_guardrails.rb.
-SOURCE_ENCODING = 'UTF-8'
+root = Pathname(ENV.fetch('LIFEBOARD_ROOT_DIR')).realpath
+derived_data = Pathname(ENV.fetch('LIFEBOARD_MEMBERSHIP_DERIVED_DATA')).expand_path
+allowlist_path = Pathname(ENV.fetch('LIFEBOARD_TARGET_MEMBERSHIP_ALLOWLIST'))
+exclusions_path = Pathname(ENV.fetch('LIFEBOARD_TARGET_MEMBERSHIP_EXCLUSIONS'))
 
-root = ENV.fetch('LIFEBOARD_ROOT_DIR')
-project = ENV.fetch('LIFEBOARD_PROJECT_FILE')
-allowlist_path = ENV.fetch('LIFEBOARD_TARGET_MEMBERSHIP_ALLOWLIST')
-exclusions_path = ENV.fetch('LIFEBOARD_TARGET_MEMBERSHIP_EXCLUSIONS')
+abort("error: missing compilation output: #{derived_data}") unless derived_data.directory?
 
-abort("error: missing project file: #{project}") unless File.file?(project)
+def read_list(path)
+  return Set.new unless path.file?
 
-pbx = File.read(project, encoding: SOURCE_ENCODING)
-objects = {}
-# Xcode normally uses hexadecimal object identifiers, but existing projects
-# may contain user-created alphanumeric identifiers. Treat the identifier as
-# opaque; the membership graph only needs referential consistency.
-pbx.scan(/^\t\t([A-Za-z0-9]+) \/\*.*?\*\/ = \{(.*?)\};$/m) do |identifier, body|
-  objects[identifier] = body
-end
-
-abort('error: could not parse project objects') if objects.empty?
-
-def scalar(body, key)
-  match = body.match(/\b#{Regexp.escape(key)} = ("[^"]*"|[^;]+);/)
-  return nil unless match
-
-  match[1]
-    .strip
-    .sub(/\s+\/\*.*\*\/\z/, '')
-    .sub(/^"/, '')
-    .sub(/"$/, '')
-end
-
-def references(body, key)
-  match = body.match(/\b#{Regexp.escape(key)} = \((.*?)\);/m)
-  return [] unless match
-
-  match[1].scan(/([A-Za-z0-9]+) \/\*/).flatten
-end
-
-records = objects.transform_values do |body|
-  {
-    isa: scalar(body, 'isa'),
-    path: scalar(body, 'path'),
-    source_tree: scalar(body, 'sourceTree'),
-    name: scalar(body, 'name'),
-    file_ref: scalar(body, 'fileRef'),
-    children: references(body, 'children'),
-    files: references(body, 'files'),
-    build_phases: references(body, 'buildPhases')
-  }
-end
-
-parents = {}
-records.each do |identifier, record|
-  next unless %w[PBXGroup PBXVariantGroup PBXFileSystemSynchronizedRootGroup].include?(record[:isa])
-
-  record[:children].each { |child| parents[child] = identifier }
-end
-
-resolve_path = lambda do |identifier, seen = Set.new|
-  return '' if identifier.nil? || seen.include?(identifier)
-
-  seen.add(identifier)
-  record = records.fetch(identifier)
-  component = record[:path].to_s
-  return component if record[:source_tree] == 'SOURCE_ROOT'
-
-  parent = resolve_path.call(parents[identifier], seen)
-  return parent if component.empty?
-  return component if parent.empty?
-
-  File.join(parent, component)
-end
-
-build_file_refs = records.each_with_object({}) do |(identifier, record), result|
-  result[identifier] = record[:file_ref] if record[:isa] == 'PBXBuildFile' && record[:file_ref]
-end
-
-source_phases = records.select { |_identifier, record| record[:isa] == 'PBXSourcesBuildPhase' }
-source_phase_targets = Hash.new { |hash, key| hash[key] = Set.new }
-
-records.each do |_identifier, record|
-  next unless record[:isa] == 'PBXNativeTarget'
-
-  target_name = record[:name] || record[:path]
-  record[:build_phases].each do |phase|
-    source_phase_targets[phase] << target_name if source_phases.key?(phase)
+  path.each_line(chomp: true).each_with_object(Set.new) do |line, values|
+    value = line.sub(/#.*/, '').strip
+    values << value unless value.empty?
   end
 end
 
+allowlisted = read_list(allowlist_path)
+excluded = read_list(exclusions_path)
 memberships = Hash.new { |hash, key| hash[key] = Set.new }
-source_phases.each do |phase_identifier, phase|
-  phase[:files].each do |build_file|
-    file_reference = build_file_refs[build_file]
-    next unless file_reference
+observed_targets = Set.new
+file_lists = Dir.glob(derived_data.join('Build', 'Intermediates.noindex', '**', '*.SwiftFileList')).sort
+abort("error: no compiler SwiftFileList inputs found below #{derived_data}") if file_lists.empty?
 
-    path = resolve_path.call(file_reference).sub(%r{\A\./}, '')
-    next unless path.end_with?('.swift')
+file_lists.each do |file_list|
+  target_build = Pathname(file_list).ascend.find { |path| path.basename.to_s.end_with?('.build') }
+  next unless target_build
 
-    source_phase_targets[phase_identifier].each { |target| memberships[path] << target }
+  target = Pathname(file_list).basename('.SwiftFileList').to_s
+  observed_targets << target
+  File.foreach(file_list, chomp: true) do |source|
+    source_path = Pathname(source).expand_path
+    next unless source_path.to_s.start_with?("#{root}/")
+    next unless source_path.extname == '.swift'
+
+    relative = source_path.relative_path_from(root).to_s
+    memberships[relative] << target
   end
 end
 
-allowlisted = if File.file?(allowlist_path)
-                File.readlines(allowlist_path, chomp: true, encoding: SOURCE_ENCODING).map do |line|
-                  value = line.sub(/#.*/, '').strip
-                  value unless value.empty?
-                end.compact.to_set
-              else
-                Set.new
-              end
-
-excluded = if File.file?(exclusions_path)
-             File.readlines(exclusions_path, chomp: true, encoding: SOURCE_ENCODING).map do |line|
-               value = line.sub(/#.*/, '').strip
-               value unless value.empty?
-             end.compact.to_set
-           else
-             Set.new
-           end
-
-primary_targets = {
-  'LifeBoard' => 'LifeBoard',
-  'LifeBoardTests' => 'LifeBoardTests',
-  'LifeBoardUITests' => 'LifeBoardUITests',
-  'LifeBoardWatch' => 'LifeBoardWatch',
-  'LifeBoardWatchWidgets' => 'LifeBoardWatchWidgets',
-  'LifeBoardWidgets' => 'LifeBoardWidgets'
-}.freeze
+required_targets = %w[
+  LifeBoard LifeBoardTests LifeBoardUITests LifeBoardWidgets LifeBoardShareExtension
+  LifeBoardWatch LifeBoardWatchWidgets
+]
+missing_target_builds = required_targets.reject { |target| observed_targets.include?(target) }
 
 source_roots = ENV.fetch('LIFEBOARD_SWIFT_SOURCE_ROOTS', '').split(File::PATH_SEPARATOR)
-source_roots = %w[LifeBoard LifeBoardTests LifeBoardUITests LifeBoardWatch LifeBoardWatchWidgets LifeBoardWidgets Shared] if source_roots.empty?
+source_roots = %w[LifeBoard LifeBoardTests LifeBoardUITests LifeBoardWatch LifeBoardWatchWidgets LifeBoardWidgets LifeBoardShareExtension Shared Packages] if source_roots.empty?
+
+expected_target = lambda do |relative|
+  case relative
+  when %r{\ALifeBoardTests/} then 'LifeBoardTests'
+  when %r{\ALifeBoardUITests/} then 'LifeBoardUITests'
+  when %r{\ALifeBoardWatchWidgets/} then 'LifeBoardWatchWidgets'
+  when %r{\ALifeBoardWatch/} then 'LifeBoardWatch'
+  when %r{\ALifeBoardWidgets/} then 'LifeBoardWidgets'
+  when %r{\ALifeBoardShareExtension/} then 'LifeBoardShareExtension'
+  when %r{\ALifeBoard/Persistence/Bootstrap/LifeBoardPersistenceModel\.swift\z} then 'LifeBoardPersistence'
+  when %r{\ALifeBoard/Persistence/Entities/(?:LegacyGeneratedManagedObjects|ProjectEntity\+CoreDataClass|TaskDefinitionEntity\+CoreDataClass)\.swift\z} then 'LifeBoardPersistence'
+  when %r{\ALifeBoard/} then 'LifeBoard'
+  when %r{\APackages/(?:LifeBoard/)?Sources/([^/]+)/} then Regexp.last_match(1)
+  when %r{\APackages/([^/]+)/Sources/([^/]+)/} then Regexp.last_match(2)
+  end
+end
 
 missing = []
 wrong_primary_target = []
 source_roots.each do |source_root|
-  absolute_root = File.join(root, source_root)
-  next unless Dir.exist?(absolute_root)
+  absolute_root = root.join(source_root)
+  next unless absolute_root.directory?
 
-  Dir.glob(File.join(absolute_root, '**', '*.swift')).sort.each do |file|
-    relative = file.delete_prefix("#{root}/")
+  Dir.glob(absolute_root.join('**', '*.swift')).sort.each do |file|
+    next if File.basename(file) == 'Package.swift'
+
+    relative = Pathname(file).relative_path_from(root).to_s
     targets = memberships[relative]
     if targets.empty?
       next if excluded.include?(relative)
+      next if allowlisted.include?(relative)
 
-      missing << relative unless allowlisted.include?(relative)
+      missing << relative
       next
     end
 
-    primary_target = primary_targets[source_root]
-    if primary_target && !targets.include?(primary_target)
-      wrong_primary_target << [relative, primary_target, targets.to_a.sort]
-    end
+    expected = expected_target.call(relative)
+    next unless expected
+    next if targets.include?(expected)
+
+    wrong_primary_target << [relative, expected, targets.to_a.sort]
   end
 end
 
-allowed_missing = allowlisted.select { |path| memberships[path].empty? && File.file?(File.join(root, path)) }.sort
-stale_allowlist = allowlisted.reject { |path| memberships[path].empty? }.sort
-unknown_allowlist = allowlisted.reject { |path| File.file?(File.join(root, path)) }.sort
-unknown_exclusions = excluded.reject { |path| File.file?(File.join(root, path)) }.sort
+stale_allowlist = allowlisted.select { |path| memberships.key?(path) && !memberships[path].empty? }.sort
+unknown_allowlist = allowlisted.reject { |path| root.join(path).file? }.sort
+unknown_exclusions = excluded.reject { |path| root.join(path).file? }.sort
 
-unless allowed_missing.empty?
-  puts 'Allowed Swift files without declared target membership:'
-  allowed_missing.each { |path| puts "  #{path}" }
+unless missing_target_builds.empty?
+  warn 'error: required targets did not emit compiler file lists:'
+  missing_target_builds.each { |target| warn "  #{target}" }
 end
-
-unless stale_allowlist.empty?
-  warn 'warning: allowlist entries now have declared target membership and should be removed:'
-  stale_allowlist.each { |path| warn "  #{path}" }
-end
-
-unless unknown_allowlist.empty?
-  warn 'warning: allowlist entries no longer exist and should be removed:'
-  unknown_allowlist.each { |path| warn "  #{path}" }
-end
-
-unless unknown_exclusions.empty?
-  warn 'warning: target-membership exclusions no longer exist and should be removed:'
-  unknown_exclusions.each { |path| warn "  #{path}" }
-end
-
 unless missing.empty?
-  warn 'error: Swift files have no declared target membership:'
+  warn 'error: Swift files have no compilation-derived target membership:'
   missing.each { |path| warn "  #{path}" }
 end
-
 unless wrong_primary_target.empty?
-  warn 'error: Swift files are declared only in an unexpected target:'
+  warn 'error: Swift files compile only in an unexpected target:'
   wrong_primary_target.each do |path, expected, actual|
     warn "  #{path} (expected #{expected}; actual #{actual.join(', ')})"
   end
 end
-
-if missing.empty? && wrong_primary_target.empty?
-  puts 'Declared Xcode target membership check passed.'
-  exit 0
+unless stale_allowlist.empty?
+  warn 'error: allowlist entries now compile and must be removed:'
+  stale_allowlist.each { |path| warn "  #{path}" }
+end
+unless unknown_allowlist.empty?
+  warn 'error: allowlist entries do not exist:'
+  unknown_allowlist.each { |path| warn "  #{path}" }
+end
+unless unknown_exclusions.empty?
+  warn 'error: target-membership exclusions do not exist:'
+  unknown_exclusions.each { |path| warn "  #{path}" }
 end
 
-exit 1
+failed = [missing_target_builds, missing, wrong_primary_target, stale_allowlist, unknown_allowlist, unknown_exclusions].any?(&:any?)
+exit 1 if failed
+
+puts "Compilation-derived target membership passed (#{memberships.length} sources, #{observed_targets.length} targets)."

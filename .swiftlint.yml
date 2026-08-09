@@ -1,5 +1,6 @@
 included:
   - LifeBoard
+  - Packages
 
 only_rules:
   - custom_rules
@@ -19,7 +20,7 @@ excluded:
 # names. Getting this wrong is silent: files outside the pattern are simply not
 # linted, the build stays green, and the debt count falls as if it had been paid.
 #
-# `DesignSystem/` and `LifeBoardDesign/` are deliberately absent: they are the
+# `DesignSystem/`, `LifeBoardTokens`, and `LifeBoardUI` are deliberately absent: they are the
 # layer that *defines* the vocabulary, so constructing a UIColor or naming a
 # system font there is the point, not a violation. The same applies to the two
 # token-definition files that live under `Foundation/Design`, which are excluded
@@ -31,7 +32,7 @@ custom_rules:
   token_law_uicolor_constructor:
     name: "Token Law UIColor"
     regex: "\\bUIColor\\s*\\("
-    included: "LifeBoard/(Foundation|Features|Shared|App|DesignSystem/Effects)/.*\\.swift"
+    included: "(?:LifeBoard/(?:Foundation|Features|Shared|App|DesignSystem/Effects)/.*|Packages/(?!LifeBoard(?:Tokens|UI)/).*/(?:Sources|Tests)/.*)\\.swift"
     excluded:
       - "LifeBoard/Foundation/Design/LifeBoardDaypartTokens.swift"
       - "LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift"
@@ -41,14 +42,14 @@ custom_rules:
   token_law_font_system:
     name: "Token Law UIFont"
     regex: "UIFont\\.systemFont|\\.font\\(\\.system\\("
-    included: "LifeBoard/(Foundation|Features|Shared|App|DesignSystem/Effects)/.*\\.swift"
+    included: "(?:LifeBoard/(?:Foundation|Features|Shared|App|DesignSystem/Effects)/.*|Packages/(?!LifeBoard(?:Tokens|UI)/).*/(?:Sources|Tests)/.*)\\.swift"
     message: "Use typography tokens (`UIFont.lifeboard` / `Font.lifeboard`) instead of system fonts in UI modules."
     severity: error
 
   token_law_shadow_usage:
     name: "Token Law Shadow"
     regex: "layer\\.shadow(Color|Opacity|Offset|Radius|Path)|\\.shadow\\("
-    included: "LifeBoard/(Foundation|Features|Shared|App|DesignSystem/Effects)/.*\\.swift"
+    included: "(?:LifeBoard/(?:Foundation|Features|Shared|App|DesignSystem/Effects)/.*|Packages/(?!LifeBoard(?:Tokens|UI)/).*/(?:Sources|Tests)/.*)\\.swift"
     excluded:
     message: "Use token elevation APIs (`applyLifeBoardElevation` / `.lifeboardElevation`) instead of ad-hoc shadows."
     severity: error
@@ -56,7 +57,7 @@ custom_rules:
   no_direct_print:
     name: "No Direct Print"
     regex: "\\b(?:Swift\\.)?print\\s*\\("
-    included: "LifeBoard/.*\\.swift"
+    included: "(?:LifeBoard|Packages)/.*\\.swift"
     excluded:
       - "LifeBoard/.*Tests?/.*\\.swift"
     message: "Use LoggingService (`logWarning/logError/logFatal` or structured `log(...event...)`) instead of print()."

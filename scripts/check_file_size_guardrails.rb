@@ -72,7 +72,10 @@ end
 violations = []
 observations = []
 
-Dir.glob(File.join(root, 'LifeBoard', '**', '*.swift')).sort.each do |file|
+source_files = Dir.glob(File.join(root, 'LifeBoard', '**', '*.swift')) +
+               Dir.glob(File.join(root, 'Packages', '*', '{Sources,Tests}', '**', '*.swift'))
+
+source_files.sort.each do |file|
   relative = file.delete_prefix("#{root}/")
   lines = File.readlines(file, encoding: SOURCE_ENCODING)
   counts = [

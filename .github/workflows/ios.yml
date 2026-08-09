@@ -39,10 +39,16 @@ jobs:
       - name: Enforce V3 fail-closed runtime guardrails
         run: |
           set -euo pipefail
+          source scripts/lifeboard-paths.env
+          for required_file in "$LIFEBOARD_APP_DELEGATE" "$LIFEBOARD_COMPOSITION_ROOT"; do
+            if [[ ! -f "$required_file" ]]; then
+              echo "Required V3 runtime input is missing: $required_file"
+              exit 1
+            fi
+          done
           rg -n "assertV3RuntimeReady|v3RuntimeReady|v3_runtime_not_ready" \
-            "LifeBoard/AppDelegate.swift" \
-            "LifeBoard/Presentation/DI/PresentationDependencyContainer.swift" \
-            "LifeBoard/State/DI/EnhancedDependencyContainer.swift"
+            "$LIFEBOARD_APP_DELEGATE" \
+            "$LIFEBOARD_COMPOSITION_ROOT"
 
       - name: Enforce token-law guardrails on changed UI lines
         env:
@@ -70,6 +76,27 @@ jobs:
 
       - name: Enforce localization-key snapshot
         run: bash scripts/check-localization-keys.sh
+
+      - name: Enforce persisted and route contract snapshots
+        run: bash scripts/check-frozen-contracts.sh
+
+      - name: Build every core package product independently
+        run: |
+          set -euo pipefail
+          derived_data="${RUNNER_TEMP}/lifeboard-core-products"
+          for configuration in Debug Release; do
+            for product in LifeBoardContracts LifeBoardTokens LifeBoardUI LifeBoardDomain LifeBoardPersistence LifeBoardCalendar; do
+              xcodebuild \
+                -scheme "$product" \
+                -configuration "$configuration" \
+                -destination 'generic/platform=iOS Simulator' \
+                -derivedDataPath "$derived_data" \
+                -skipPackageUpdates \
+                -disableAutomaticPackageResolution \
+                ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+                build
+            done
+          done
 
       - name: Install flowctl
         env:

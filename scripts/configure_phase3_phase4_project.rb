@@ -7,7 +7,7 @@ require 'rexml/formatters/pretty'
 require 'xcodeproj'
 
 ROOT = File.expand_path('..', __dir__)
-MODEL_ROOT = File.join(ROOT, 'LifeBoard', 'TaskModelV3.xcdatamodeld')
+MODEL_ROOT = File.join(ROOT, 'LifeBoard', 'Persistence', 'Resources', 'TaskModelV3.xcdatamodeld')
 SOURCE_MODEL = 'TaskModelV3_KnowledgeNotes.xcdatamodel'
 PLANNING_MODEL = 'TaskModelV3_PlanningCore.xcdatamodel'
 TRACK_MODEL = 'TaskModelV3_TrackFoundations.xcdatamodel'
