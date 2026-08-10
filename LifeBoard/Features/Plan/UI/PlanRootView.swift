@@ -199,6 +199,7 @@ struct PlanRootView: View {
                 .padding(.bottom, 36)
             }
             .refreshable { await store.load() }
+            .lifeBoardReportsComposerScroll()
         }
     }
 
@@ -342,22 +343,20 @@ struct PlanRootView: View {
 
 
 
+    /// One of six hand-rolled receipt bars in the app, now the shared one.
+    ///
+    /// What the local version got wrong and `ReceiptBar` fixes: it laid Undo and
+    /// Open out in a fixed `HStack`, so at accessibility text sizes the message
+    /// and both controls competed for one line. The shared bar stacks them.
     private func projectTemplateReceiptBar(
         _ receipt: ProjectTemplateCreationReceipt
     ) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: "folder.fill.badge.checkmark")
-                .foregroundStyle(Color.lifeboard(.statusSuccess))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Project created")
-                    .font(.subheadline.weight(.semibold))
-                Text(receipt.createdProject.name)
-                    .font(.caption)
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 8)
-            Button("Undo") {
+        ReceiptBar(
+            ActionReceiptPresentation(
+                message: "Project created",
+                detail: receipt.createdProject.name
+            ),
+            undo: {
                 Task {
                     do {
                         try await projectTemplateService.undo(receipt)
@@ -366,22 +365,14 @@ struct PlanRootView: View {
                         projectTemplateError = error.localizedDescription
                     }
                 }
-            }
-            .frame(minHeight: 44)
-            Button("Open") {
-                projectTemplateReceipt = nil
+            },
+            destination: .init(title: "Open") {
                 onOpenProject(receipt.createdProject.id)
-            }
-            .buttonStyle(.borderedProminent)
-            .frame(minHeight: 44)
-        }
+            },
+            onDismiss: { projectTemplateReceipt = nil }
+        )
         .padding(.horizontal, 16)
-        .padding(.vertical, 10)
-        .background(Color.lifeboard(.surfacePrimary).opacity(0.98))
-        .overlay(alignment: .top) {
-            Divider().opacity(0.35)
-        }
-        .accessibilityElement(children: .contain)
+        .padding(.bottom, 8)
         .accessibilityIdentifier("plan.projectTemplates.receipt")
     }
 

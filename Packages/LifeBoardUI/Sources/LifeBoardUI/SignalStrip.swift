@@ -70,12 +70,24 @@ public struct SignalStripItem: Identifiable, Equatable, Sendable {
 /// drift the way a code-review convention does.
 public struct SignalStrip: View {
     private let items: [SignalStripItem]
+    private let identifierPrefix: String
     private let onOpen: (SignalStripItem.ID) -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    public init(items: [SignalStripItem], onOpen: @escaping (SignalStripItem.ID) -> Void) {
+    /// - Parameter identifierPrefix: Accessibility identifiers are emitted as
+    ///   `"\(identifierPrefix).\(item.id)"`. It is a parameter because adopting
+    ///   this primitive must not rename a screen's existing identifiers — Home's
+    ///   UI tests query `home.signal.hydration` and `home.signal.fasting`
+    ///   directly, and the identifier, not the view type, is the contract they
+    ///   are written against.
+    public init(
+        items: [SignalStripItem],
+        identifierPrefix: String = "lifeboard.signal",
+        onOpen: @escaping (SignalStripItem.ID) -> Void
+    ) {
         self.items = Array(items.prefix(3))
+        self.identifierPrefix = identifierPrefix
         self.onOpen = onOpen
     }
 
@@ -91,13 +103,13 @@ public struct SignalStrip: View {
             // effectively unusable with VoiceOver's swipe order.
             VStack(spacing: 8) {
                 ForEach(items) { item in
-                    SignalTile(item: item, isWide: true, onOpen: { onOpen(item.id) })
+                    SignalTile(item: item, isWide: true, identifierPrefix: identifierPrefix, onOpen: { onOpen(item.id) })
                 }
             }
         } else {
             HStack(spacing: 10) {
                 ForEach(items) { item in
-                    SignalTile(item: item, isWide: false, onOpen: { onOpen(item.id) })
+                    SignalTile(item: item, isWide: false, identifierPrefix: identifierPrefix, onOpen: { onOpen(item.id) })
                 }
             }
         }
@@ -107,6 +119,7 @@ public struct SignalStrip: View {
 private struct SignalTile: View {
     let item: SignalStripItem
     let isWide: Bool
+    let identifierPrefix: String
     let onOpen: () -> Void
 
     var body: some View {
@@ -141,7 +154,7 @@ private struct SignalTile: View {
         .lifeBoardPressResponse(.card, haptic: nil)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(item.label), \(item.reading.accessibilityDescription)")
-        .accessibilityIdentifier("lifeboard.signal.\(item.id)")
+        .accessibilityIdentifier("\(identifierPrefix).\(item.id)")
     }
 }
 

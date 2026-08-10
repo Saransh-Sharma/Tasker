@@ -1345,7 +1345,7 @@ struct BehaviorNativeAreasView: View {
                             .font(.caption.weight(.semibold))
                         }
                     }
-                    .nativeBehaviorOpenRow()
+                    .nativeBehaviorOpenRow(isLast: store.medications.last?.id == medication.id)
                 }
             }
         }
@@ -1449,7 +1449,7 @@ struct BehaviorNativeAreasView: View {
                             .font(.caption.weight(.semibold))
                         }
                     }
-                    .nativeBehaviorOpenRow()
+                    .nativeBehaviorOpenRow(isLast: store.trackers.last?.id == tracker.id)
                     .privacySensitive(tracker.effectivePrivacyClass != .standard)
                 }
             }
@@ -1611,15 +1611,15 @@ private extension View {
             }
     }
 
-    func nativeBehaviorOpenRow() -> some View {
+    /// `isLast` suppresses the trailing hairline — without it every list ended
+    /// with a rule under its final row and above nothing, the defect
+    /// `OpenRowGroup` exists to prevent. Shares `OpenRowSeparator` so one
+    /// definition of that hairline exists.
+    func nativeBehaviorOpenRow(isLast: Bool = false) -> some View {
         padding(.horizontal, 4)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .overlay(alignment: .bottom) {
-                Rectangle()
-                    .fill(Color(SemanticColorTokens.foundationHairline))
-                    .frame(height: 1)
-            }
+            .overlay(alignment: .bottom) { OpenRowSeparator().opacity(isLast ? 0 : 1) }
     }
 }
 

@@ -32,8 +32,26 @@ public struct ActionReceiptPresentation: Identifiable, Equatable, Sendable {
 /// to get wrong quietly: Undo has to stay reachable for as long as reversal is
 /// actually supported, and it must never be the thing that auto-dismisses.
 public struct ReceiptBar: View {
+    /// "Go look at the thing that changed."
+    ///
+    /// Added after the first real adoption: Plan's project-template receipt
+    /// offers Undo *and* Open, and dropping Open to fit the primitive would have
+    /// been the primitive dictating the product. A receipt names what changed,
+    /// so letting the person go to it is squarely in scope — it is still one
+    /// action plus Undo, not a toolbar.
+    public struct Destination {
+        public let title: String
+        public let action: () -> Void
+
+        public init(title: String, action: @escaping () -> Void) {
+            self.title = title
+            self.action = action
+        }
+    }
+
     private let presentation: ActionReceiptPresentation
     private let undo: (() -> Void)?
+    private let destination: Destination?
     private let onDismiss: () -> Void
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -41,10 +59,12 @@ public struct ReceiptBar: View {
     public init(
         _ presentation: ActionReceiptPresentation,
         undo: (() -> Void)? = nil,
+        destination: Destination? = nil,
         onDismiss: @escaping () -> Void
     ) {
         self.presentation = presentation
         self.undo = undo
+        self.destination = destination
         self.onDismiss = onDismiss
     }
 
@@ -106,6 +126,17 @@ public struct ReceiptBar: View {
             .buttonStyle(.plain)
             .lifeBoardPressResponse(.control, haptic: nil)
             .accessibilityIdentifier("lifeboard.receipt.undo")
+        }
+
+        if let destination {
+            Button(destination.title) {
+                destination.action()
+                onDismiss()
+            }
+            .font(.subheadline.weight(.semibold))
+            .frame(minHeight: 44)
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("lifeboard.receipt.destination")
         }
 
         Button(action: onDismiss) {

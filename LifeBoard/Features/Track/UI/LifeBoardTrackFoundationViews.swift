@@ -128,6 +128,7 @@ struct TrackFoundationRootView: View {
                 .padding(.bottom, dynamicTypeSize.isAccessibilitySize ? 56 : 36)
             }
             .refreshable { await store.load() }
+            .lifeBoardReportsComposerScroll()
         }
         .background {
             GrainedCanvas()
