@@ -113,6 +113,36 @@ struct FocusSessionRouteView: View {
     let rescueRefreshGeneration: Int
     let onOpenOverdueRescue: (OverdueRescueLaunchContext) -> Void
     @State private var state: RouteLoadState<FocusSessionV2> = .loading
+    /// The surface's own store, built exactly as `PlanRootView` builds its own
+    /// (`PlanRootView.swift:63`). Focus is no longer a lens inside Plan, so it
+    /// cannot borrow Plan's — and a session surface that outlived its store
+    /// would show a live dial over stale transport controls.
+    @State private var focusStore: PlanStore
+
+    init(
+        sessionID: UUID?,
+        dependencies: PlanFeatureDependencies,
+        router: AppRouter,
+        rescueRefreshGeneration: Int,
+        onOpenOverdueRescue: @escaping (OverdueRescueLaunchContext) -> Void
+    ) {
+        self.sessionID = sessionID
+        self.dependencies = dependencies
+        self.router = router
+        self.rescueRefreshGeneration = rescueRefreshGeneration
+        self.onOpenOverdueRescue = onOpenOverdueRescue
+        let repository = dependencies.planningRepository
+        _focusStore = State(initialValue: PlanStore(
+            planningRepository: repository,
+            blockRepository: repository,
+            scenarioCoordinator: DefaultPlanningScenarioCoordinator(
+                planning: repository,
+                mutations: repository
+            ),
+            taskDefinitionRepository: dependencies.taskDefinitionRepository,
+            focusCommands: dependencies.focusCommands
+        ))
+    }
 
     private var repository: CoreDataPlanningRepository {
         dependencies.planningRepository
@@ -122,47 +152,79 @@ struct FocusSessionRouteView: View {
         Group {
             switch state {
             case .loading:
-                ProgressView("Opening focus session…")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            case let .loaded(session) where session.state == .running || session.state == .paused:
-                PlanRootView(
-                    dependencies: dependencies,
-                    initialLens: .day,
-                    rescueRefreshGeneration: rescueRefreshGeneration,
-                    onOpenFocus: { _ in },
-                    onAskEva: { router.select(.eva) },
-                    onOpenOverdueRescue: onOpenOverdueRescue,
-                    onOpenTask: { router.push(.taskDetail($0), in: .plan) },
-                    onOpenProject: { router.push(.project($0), in: .plan) }
+                focusUnavailable(
+                    state: .loading,
+                    title: "Opening focus session…",
+                    detail: "Fetching the session and its companion."
                 )
+            case let .loaded(session) where session.state == .running || session.state == .paused:
+                // Was `PlanRootView(initialLens: .day)` — the entire Plan Day
+                // surface, lens picker included, with the running session as one
+                // card inside it. `AppRoute.focusSession` already resolves to
+                // `ScreenMode.focused`, so the shell was already dropping its
+                // dock and composer for a screen that then showed everything
+                // anyway. `FocusSurface` is what that route was always meant to
+                // open.
+                FocusSurface(
+                    store: focusStore,
+                    session: session,
+                    onClose: { router.popToRoot(in: .plan) }
+                )
+                .task { await focusStore.load() }
                 .accessibilityIdentifier("focus.session.\(session.id.uuidString)")
             case let .loaded(session):
                 focusUnavailable(
+                    // A session that ran its course is a record, not a failure.
+                    state: .noRecord,
                     title: "Focus session ended",
                     detail: "This session ended \(session.endedAt?.formatted(date: .abbreviated, time: .shortened) ?? "earlier"). Its history remains available in Plan."
                 )
             case .missing:
                 focusUnavailable(
+                    state: .noRecord,
                     title: "Focus session not found",
                     detail: "It may have been removed on another device or the link may be out of date. No replacement session was opened."
                 )
             case let .failed(message):
-                focusUnavailable(title: "Focus could not be opened", detail: message)
+                // Distinct from the two above: this one is retryable, and the
+                // surface says so instead of looking like an empty state.
+                focusUnavailable(
+                    state: .recoverableError,
+                    title: "Focus could not be opened",
+                    detail: message
+                )
             }
         }
         .navigationTitle("Focus")
         .task(id: sessionID) { await load() }
     }
 
-    private func focusUnavailable(title: String, detail: String) -> some View {
-        ContentUnavailableView {
-            Label(title, systemImage: "timer")
-        } description: {
-            Text(detail)
-        } actions: {
-            Button("Open Plan") { router.popToRoot(in: .plan) }
-                .buttonStyle(.borderedProminent)
+    /// `StatusSurface` rather than `ContentUnavailableView`, and with the state
+    /// named rather than inferred.
+    ///
+    /// The three cases that reach this are genuinely different — a session that
+    /// ended normally, one that no longer exists, and one that failed to load —
+    /// and `ContentUnavailableView` rendered all three as the same grey timer
+    /// glyph. `DESIGN.md`: "Loading, genuinely empty, no record, denied… must
+    /// remain distinct."
+    private func focusUnavailable(
+        state: StatusSurface.State,
+        title: String,
+        detail: String
+    ) -> some View {
+        VStack {
+            StatusSurface(
+                state: state,
+                title: title,
+                message: detail,
+                actionTitle: "Open Plan",
+                action: { router.popToRoot(in: .plan) }
+            )
+            Spacer(minLength: 0)
         }
+        .padding(.horizontal, 20)
+        .padding(.top, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
     }
 
     private func load() async {
