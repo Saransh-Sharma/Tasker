@@ -6,7 +6,6 @@
 //
 
 import Foundation
-import CoreData
 import UIKit
 @preconcurrency import Combine
 
@@ -46,7 +45,8 @@ public final class CompositionRoot: @unchecked Sendable {
 
     // MARK: - Core Dependencies
 
-    public private(set) var persistentContainer: NSPersistentContainer!
+    public private(set) var persistenceConfigured = false
+    private var repositoryBundle: LifeBoardRepositoryBundle?
 
     // MARK: - Repositories (State Management Layer)
 
@@ -105,112 +105,43 @@ public final class CompositionRoot: @unchecked Sendable {
     
     // MARK: - Configuration
     
-    /// Configure the container with Core Data
+    /// Configure App composition from the Persistence-owned repository graph.
     @MainActor
-    func configure(with container: NSPersistentContainer) {
+    func configure(with repositories: LifeBoardRepositoryBundle) {
         logDebug("🔧 CompositionRoot: Starting configuration...")
 
-        self.persistentContainer = container
+        self.repositoryBundle = repositories
+        self.persistenceConfigured = false
         self.v3RuntimeReady = false
         self.v3RuntimeFailureReason = nil
         
-        // Initialize cache service
-        self.cacheService = InMemoryCacheService()
-        
-        // Initialize repositories
-        let writeGate = SyncWriteGate(modeProvider: AppDelegate.persistentSyncModeSnapshot)
-        let baseProjectRepository = CoreDataProjectRepository(container: container)
-        let taskDefinitionRepository = CoreDataTaskDefinitionRepository(container: container)
-        let taskReadModelRepository = CoreDataTaskReadModelRepository(container: container)
-        let taskTagLinkRepository = CoreDataTaskTagLinkRepository(container: container)
-        let taskDependencyRepository = CoreDataTaskDependencyRepository(container: container)
-        let baseLifeAreaRepository = CoreDataLifeAreaRepository(container: container)
-        let baseSectionRepository = CoreDataSectionRepository(container: container)
-        let baseTagRepository = CoreDataTagRepository(container: container)
-        let baseHabitRepository = CoreDataHabitRepository(container: container)
-        let baseHabitRuntimeReadRepository = CoreDataHabitRuntimeReadRepository(container: container)
-        let baseScheduleRepository = CoreDataScheduleRepository(container: container)
-        let baseOccurrenceRepository = CoreDataOccurrenceRepository(container: container)
-        let baseReminderRepository = CoreDataReminderRepository(container: container)
-        let baseWeeklyPlanRepository = CoreDataWeeklyPlanRepository(container: container)
-        let baseWeeklyOutcomeRepository = CoreDataWeeklyOutcomeRepository(container: container)
-        let baseWeeklyReviewRepository = CoreDataWeeklyReviewRepository(container: container)
-        let baseWeeklyReviewMutationRepository = CoreDataWeeklyReviewMutationRepository(container: container)
-        let baseWeeklyReviewDraftStore = UserDefaultsWeeklyReviewDraftStore()
-        let baseReflectionNoteRepository = CoreDataReflectionNoteRepository(container: container)
-        let baseGamificationRepository = CoreDataGamificationRepository(container: container)
-        let baseAssistantActionRepository = CoreDataAssistantActionRepository(container: container)
-        let baseExternalSyncRepository = CoreDataExternalSyncRepository(container: container)
-        let baseTombstoneRepository = CoreDataTombstoneRepository(container: container)
+        self.cacheService = repositories.cache
+        self.projectRepository = repositories.project
+        self.taskDefinitionRepository = repositories.taskDefinition
+        self.taskReadModelRepository = repositories.taskReadModel
+        self.taskTagLinkRepository = repositories.taskTagLink
+        self.taskDependencyRepository = repositories.taskDependency
+        self.lifeAreaRepository = repositories.lifeArea
+        self.sectionRepository = repositories.section
+        self.tagRepository = repositories.tag
+        self.habitRepository = repositories.habit
+        self.habitRuntimeReadRepository = repositories.habitRuntimeRead
+        self.scheduleRepository = repositories.schedule
+        self.occurrenceRepository = repositories.occurrence
+        self.reminderRepository = repositories.reminder
+        self.weeklyPlanRepository = repositories.weeklyPlan
+        self.weeklyOutcomeRepository = repositories.weeklyOutcome
+        self.weeklyReviewRepository = repositories.weeklyReview
+        self.weeklyReviewMutationRepository = repositories.weeklyReviewMutation
+        self.weeklyReviewDraftStore = repositories.weeklyReviewDraftStore
+        self.reflectionNoteRepository = repositories.reflectionNote
+        self.gamificationRepository = repositories.gamification
+        self.assistantActionRepository = repositories.assistantAction
+        self.externalSyncRepository = repositories.externalSync
+        self.tombstoneRepository = repositories.tombstone
+        self.schedulingEngine = repositories.schedulingEngine
 
-        self.projectRepository = WriteClosedProjectRepositoryAdapter(
-            base: baseProjectRepository,
-            gate: writeGate
-        )
-        self.taskDefinitionRepository = WriteClosedTaskDefinitionRepositoryAdapter(
-            base: taskDefinitionRepository,
-            gate: writeGate
-        )
-        self.taskReadModelRepository = taskReadModelRepository
-        self.taskTagLinkRepository = WriteClosedTaskTagLinkRepositoryAdapter(
-            base: taskTagLinkRepository,
-            gate: writeGate
-        )
-        self.taskDependencyRepository = WriteClosedTaskDependencyRepositoryAdapter(
-            base: taskDependencyRepository,
-            gate: writeGate
-        )
-        self.lifeAreaRepository = WriteClosedLifeAreaRepositoryAdapter(
-            base: baseLifeAreaRepository,
-            gate: writeGate
-        )
-        self.sectionRepository = WriteClosedSectionRepositoryAdapter(
-            base: baseSectionRepository,
-            gate: writeGate
-        )
-        self.tagRepository = WriteClosedTagRepositoryAdapter(
-            base: baseTagRepository,
-            gate: writeGate
-        )
-        self.habitRepository = WriteClosedHabitRepositoryAdapter(
-            base: baseHabitRepository,
-            gate: writeGate
-        )
-        self.habitRuntimeReadRepository = baseHabitRuntimeReadRepository
-        self.scheduleRepository = WriteClosedScheduleRepositoryAdapter(
-            base: baseScheduleRepository,
-            gate: writeGate
-        )
-        self.occurrenceRepository = WriteClosedOccurrenceRepositoryAdapter(
-            base: baseOccurrenceRepository,
-            gate: writeGate
-        )
-        self.reminderRepository = WriteClosedReminderRepositoryAdapter(
-            base: baseReminderRepository,
-            gate: writeGate
-        )
-        self.weeklyPlanRepository = WriteClosedWeeklyPlanRepositoryAdapter(
-            base: baseWeeklyPlanRepository,
-            gate: writeGate
-        )
-        self.weeklyOutcomeRepository = WriteClosedWeeklyOutcomeRepositoryAdapter(
-            base: baseWeeklyOutcomeRepository,
-            gate: writeGate
-        )
-        self.weeklyReviewRepository = WriteClosedWeeklyReviewRepositoryAdapter(
-            base: baseWeeklyReviewRepository,
-            gate: writeGate
-        )
-        self.weeklyReviewMutationRepository = WriteClosedWeeklyReviewMutationRepositoryAdapter(
-            base: baseWeeklyReviewMutationRepository,
-            gate: writeGate
-        )
-        self.weeklyReviewDraftStore = baseWeeklyReviewDraftStore
-        self.reflectionNoteRepository = WriteClosedReflectionNoteRepositoryAdapter(
-            base: baseReflectionNoteRepository,
-            gate: writeGate
-        )
-        LegacyDailyReflectionImporter(repository: baseReflectionNoteRepository).migrate { result in
+        LegacyDailyReflectionImporter(repository: repositories.reflectionNote).migrate { result in
             switch result {
             case .success(let report):
                 guard report.alreadyCompleted == false else { return }
@@ -226,28 +157,6 @@ public final class CompositionRoot: @unchecked Sendable {
                     fields: ["error": error.localizedDescription]
                 )
             }
-        }
-        self.gamificationRepository = WriteClosedGamificationRepositoryAdapter(
-            base: baseGamificationRepository,
-            gate: writeGate
-        )
-        self.assistantActionRepository = WriteClosedAssistantActionRepositoryAdapter(
-            base: baseAssistantActionRepository,
-            gate: writeGate
-        )
-        self.externalSyncRepository = WriteClosedExternalSyncRepositoryAdapter(
-            base: baseExternalSyncRepository,
-            gate: writeGate
-        )
-        self.tombstoneRepository = WriteClosedTombstoneRepositoryAdapter(
-            base: baseTombstoneRepository,
-            gate: writeGate
-        )
-        if let scheduleRepository, let occurrenceRepository {
-            self.schedulingEngine = CoreSchedulingService(
-                scheduleRepository: scheduleRepository,
-                occurrenceRepository: occurrenceRepository
-            )
         }
         self.notificationService = LocalNotificationService()
         self.remindersProvider = EventKitAppleRemindersRepository()
@@ -270,7 +179,11 @@ public final class CompositionRoot: @unchecked Sendable {
             self.calendarEventsProvider = EventKitCalendarEventsRepository()
         }
 
-        guard let lifeAreaRepository,
+        guard let taskDefinitionRepository,
+              let taskReadModelRepository,
+              let taskTagLinkRepository,
+              let taskDependencyRepository,
+              let lifeAreaRepository,
               let sectionRepository,
               let tagRepository,
               let habitRepository,
@@ -338,6 +251,7 @@ public final class CompositionRoot: @unchecked Sendable {
         performHabitRuntimeBootstrapRepairIfNeeded()
 
         evaluateV3RuntimeReadiness()
+        persistenceConfigured = v3RuntimeReady
 
         logDebug("✅ CompositionRoot: Configuration completed")
     }
@@ -451,21 +365,6 @@ public final class CompositionRoot: @unchecked Sendable {
     
     /// Create a project repository with caching
     func makeCachedProjectRepository() -> ProjectRepositoryProtocol {
-        return CachedProjectRepository(
-            repository: projectRepository,
-            cache: cacheService
-        )
+        repositoryBundle?.makeCachedProjectRepository() ?? projectRepository
     }
-}
-
-enum UITestCalendarMode: String {
-    case active
-    case allDayOnly
-    case permission
-    case writeOnly
-    case denied
-    case deniedAfterAttempt
-    case noCalendars
-    case empty
-    case error
 }

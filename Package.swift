@@ -10,7 +10,8 @@ let package = Package(
     name: "LifeBoardModules",
     platforms: [
         .iOS("26.0"),
-        .watchOS("26.0")
+        .watchOS("26.0"),
+        .macOS("14.0")
     ],
     products: [
         .library(name: "LifeBoardContracts", targets: ["LifeBoardContracts"]),
@@ -20,7 +21,8 @@ let package = Package(
         .library(name: "LifeBoardPersistence", targets: ["LifeBoardPersistence"]),
         .library(name: "LifeBoardCalendar", targets: ["LifeBoardCalendar"]),
         .library(name: "LifeBoardTranscription", targets: ["LifeBoardTranscription"]),
-        .library(name: "KnowledgeFeature", targets: ["KnowledgeFeature"])
+        .library(name: "KnowledgeFeature", targets: ["KnowledgeFeature"]),
+        .library(name: "JournalFeature", targets: ["JournalFeature"])
     ],
     targets: [
         .target(
@@ -50,7 +52,12 @@ let package = Package(
         ),
         .target(
             name: "LifeBoardCalendar",
-            dependencies: ["LifeBoardDomain"],
+            dependencies: [
+                "LifeBoardContracts",
+                "LifeBoardDomain",
+                "LifeBoardTokens",
+                "LifeBoardUI"
+            ],
             path: "Packages/LifeBoardCalendar/Sources/LifeBoardCalendar"
         ),
         .target(
@@ -68,6 +75,50 @@ let package = Package(
                 "LifeBoardUI"
             ],
             path: "LifeBoard/Features/Knowledge"
+        ),
+        .target(
+            name: "JournalFeature",
+            dependencies: [
+                "LifeBoardContracts",
+                "LifeBoardDomain",
+                "LifeBoardPersistence",
+                "LifeBoardTokens",
+                "LifeBoardUI",
+                "LifeBoardTranscription"
+            ],
+            path: "LifeBoard/Features/Journal",
+            exclude: [
+                "Data/LifeBoardPhaseIIPersistence.swift",
+                "Domain/JournalHomeConsentStore.swift",
+                "Domain/JournalSnapshotAdapter.swift",
+                "Domain/LifeBoardJournalDerivedIndex.swift",
+                "Domain/LifeBoardJournalReflectionServices.swift",
+                "Domain/LifeBoardPhaseIIModels.swift",
+                "UI/JournalMoodCaptureView.swift",
+                "UI/LifeBoardTrackAndJournalViews.swift",
+                "UI/ReflectionNoteComposerView.swift",
+                "UI/ViewModels/ReflectionNoteComposerViewModel.swift"
+            ],
+            sources: [
+                "Domain/AppLock.swift",
+                "Domain/EvidenceAnswer.swift",
+                "Domain/FoundationModelsEvidenceResponder.swift",
+                "Domain/HybridSearch.swift",
+                "Domain/JournalEvidenceService.swift",
+                "Domain/MemoryChunker.swift",
+                "Domain/SemanticIndexStore.swift",
+                "Domain/SemanticJournalDerivedIndexRepository.swift",
+                "Domain/SemanticMemoryIndexActor.swift",
+                "JournalFeatureFlags.swift",
+                "JournalRoute.swift",
+                "UI/MoodDial"
+            ],
+            resources: [.process("Resources")]
+        ),
+        .testTarget(
+            name: "LifeBoardContractsTests",
+            dependencies: ["LifeBoardContracts"],
+            path: "Packages/LifeBoardContracts/Tests/LifeBoardContractsTests"
         )
     ]
 )

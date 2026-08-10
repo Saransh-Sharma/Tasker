@@ -3,34 +3,34 @@ import LifeBoardDomain
 import Foundation
 import CoreData
 
-struct LifeAreaRepairReport {
-    let scanned: Int
-    let normalized: Int
-    let merged: Int
-    let deleted: Int
-    let duplicateGroups: Int
-    let repointedProjects: Int
-    let repointedTasks: Int
-    let repointedHabits: Int
-    let canonicalIDsByNormalizedName: [String: UUID]
+public struct LifeAreaRepairReport {
+    public let scanned: Int
+    public let normalized: Int
+    public let merged: Int
+    public let deleted: Int
+    public let duplicateGroups: Int
+    public let repointedProjects: Int
+    public let repointedTasks: Int
+    public let repointedHabits: Int
+    public let canonicalIDsByNormalizedName: [String: UUID]
 }
 
-enum LifeAreaIdentityRepair {
-    static let defaultLifeAreaName = "General"
+public enum LifeAreaIdentityRepair {
+    public static let defaultLifeAreaName = "General"
 
     /// Executes normalizedName.
-    static func normalizedName(_ name: String?) -> String {
+    public static func normalizedName(_ name: String?) -> String {
         let trimmed = (name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? defaultLifeAreaName : trimmed
     }
 
     /// Executes normalizedNameKey.
-    static func normalizedNameKey(_ name: String?) -> String {
+    public static func normalizedNameKey(_ name: String?) -> String {
         normalizedName(name).lowercased()
     }
 
     /// Executes repair.
-    static func repair(in context: NSManagedObjectContext) throws -> LifeAreaRepairReport {
+    public static func repair(in context: NSManagedObjectContext) throws -> LifeAreaRepairReport {
         let lifeAreas = try fetchObjects(entityName: "LifeArea", in: context)
         let projects = try fetchObjects(entityName: "Project", in: context)
         let tasks = try fetchObjects(entityName: "TaskDefinition", in: context)

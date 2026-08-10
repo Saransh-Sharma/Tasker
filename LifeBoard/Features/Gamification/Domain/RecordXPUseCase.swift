@@ -1,5 +1,47 @@
 import Foundation
 
+extension XPCelebrationPayload {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.awardedXP == rhs.awardedXP
+            && lhs.level == rhs.level
+            && lhs.didLevelUp == rhs.didLevelUp
+            && milestonesEqual(lhs.crossedMilestone, rhs.crossedMilestone)
+            && lhs.cooldownSeconds == rhs.cooldownSeconds
+            && lhs.occurredAt == rhs.occurredAt
+    }
+}
+
+extension XPEventResult {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.awardedXP == rhs.awardedXP
+            && lhs.totalXP == rhs.totalXP
+            && lhs.level == rhs.level
+            && lhs.previousLevel == rhs.previousLevel
+            && lhs.currentStreak == rhs.currentStreak
+            && lhs.didLevelUp == rhs.didLevelUp
+            && lhs.dailyXPSoFar == rhs.dailyXPSoFar
+            && lhs.unlockedAchievements == rhs.unlockedAchievements
+            && milestonesEqual(lhs.crossedMilestone, rhs.crossedMilestone)
+            && lhs.celebration == rhs.celebration
+    }
+}
+
+private func milestonesEqual(
+    _ lhs: XPCalculationService.Milestone?,
+    _ rhs: XPCalculationService.Milestone?
+) -> Bool {
+    switch (lhs, rhs) {
+    case (nil, nil):
+        true
+    case let (lhs?, rhs?):
+        lhs.xpThreshold == rhs.xpThreshold
+            && lhs.name == rhs.name
+            && lhs.sfSymbol == rhs.sfSymbol
+    default:
+        false
+    }
+}
+
 private final class RecordXPErrorRecorder: @unchecked Sendable {
     private let lock = NSLock()
     private var firstError: Error?

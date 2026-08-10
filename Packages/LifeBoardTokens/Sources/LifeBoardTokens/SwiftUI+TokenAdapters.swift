@@ -224,11 +224,11 @@ public extension EnvironmentValues {
     var lifeboardTokens: Tokens {
         get {
             if let provided = self[LifeBoardTokensKey.self] { return provided }
-            return MainActor.assumeIsolated { ThemeStore.tokens(for: lifeboardLayoutClass) }
+            let layoutClass = lifeboardLayoutClass
+            return MainActor.assumeIsolated { ThemeStore.tokens(for: layoutClass) }
         }
         set { self[LifeBoardTokensKey.self] = newValue }
     }
-
     var lifeboardScrollOptimizedRendering: Bool {
         get { self[ScrollOptimizedRenderingKey.self] }
         set { self[ScrollOptimizedRenderingKey.self] = newValue }

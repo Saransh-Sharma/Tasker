@@ -129,7 +129,7 @@ extension CompositionRoot {
 
     /// Configured means the one `configure(with:)` has run. There is no second
     /// flag to keep in step now that there is no second container.
-    private var isConfigured: Bool { persistentContainer != nil && useCaseCoordinator != nil }
+    private var isConfigured: Bool { persistenceConfigured && useCaseCoordinator != nil }
 
     private func resetCachedViewModelsForRuntimeReconfiguration() {
         guard isConfigured else { return }

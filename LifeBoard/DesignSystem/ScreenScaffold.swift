@@ -182,9 +182,11 @@ public struct AppRootHeader: View {
     }
 }
 
-private struct TransitionNamespaceKey: EnvironmentKey {
-    static let defaultValue: Namespace.ID? = nil
-}
+// `lifeBoardTransitionNamespace` and `lifeBoardTransitionSource` now live in
+// `LifeBoardUI/TransitionSource.swift` so shared primitives — `OpenRow` above
+// all — can declare themselves as a zoom source. The destination half stays
+// here, because it is applied once per route by the shell rather than by
+// content.
 
 private struct TransitionCoordinatorKey: EnvironmentKey {
     static let defaultValue: TransitionCoordinator? = nil
@@ -195,11 +197,6 @@ private struct ScreenScaffoldHostedKey: EnvironmentKey {
 }
 
 public extension EnvironmentValues {
-    var lifeBoardTransitionNamespace: Namespace.ID? {
-        get { self[TransitionNamespaceKey.self] }
-        set { self[TransitionNamespaceKey.self] = newValue }
-    }
-
     var lifeBoardTransitionCoordinator: TransitionCoordinator? {
         get { self[TransitionCoordinatorKey.self] }
         set { self[TransitionCoordinatorKey.self] = newValue }
@@ -265,20 +262,6 @@ private struct GlassIdentityModifier: ViewModifier {
     }
 }
 
-private struct TransitionSourceModifier: ViewModifier {
-    let id: String
-    @Environment(\.lifeBoardTransitionNamespace) private var namespace
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if let namespace {
-            content.matchedTransitionSource(id: id, in: namespace)
-        } else {
-            content
-        }
-    }
-}
-
 private struct ZoomDestinationModifier: ViewModifier {
     let sourceID: String
     @Environment(\.lifeBoardTransitionNamespace) private var namespace
@@ -303,10 +286,6 @@ public extension View {
     /// Apply after `lifeBoardSystemGlass` and inside a `GlassEffectContainer`.
     func lifeBoardGlassIdentity(_ role: GlassMorphRole?) -> some View {
         modifier(GlassIdentityModifier(role: role))
-    }
-
-    func lifeBoardTransitionSource(_ id: String) -> some View {
-        modifier(TransitionSourceModifier(id: id))
     }
 
     func lifeBoardZoomDestination(sourceID: String) -> some View {

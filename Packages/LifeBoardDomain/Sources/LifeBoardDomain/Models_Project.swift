@@ -277,7 +277,7 @@ public extension Project {
         case motivationCostOfNeglect
     }
 
-    public init(from decoder: Decoder) throws {
+    init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
         self.lifeAreaID = try container.decodeIfPresent(UUID.self, forKey: .lifeAreaID)

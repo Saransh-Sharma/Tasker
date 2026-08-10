@@ -16,12 +16,12 @@ public typealias TaskPriority = TaskPriorityConfig.Priority
 
 public extension TaskPriority {
     /// Canonical UI ordering for segmented controls and chips.
-    public static var uiOrder: [TaskPriority] {
+    static var uiOrder: [TaskPriority] {
         return [.none, .low, .high, .max]
     }
 
     /// Resolve a priority from a selected segment index using canonical ordering.
-    public static func fromSegmentIndex(_ index: Int, order: [TaskPriority] = TaskPriority.uiOrder) -> TaskPriority {
+    static func fromSegmentIndex(_ index: Int, order: [TaskPriority] = TaskPriority.uiOrder) -> TaskPriority {
         guard order.indices.contains(index) else {
             return .low
         }
@@ -29,7 +29,7 @@ public extension TaskPriority {
     }
 
     /// Resolve segment index for this priority using canonical ordering.
-    public func segmentIndex(order: [TaskPriority] = TaskPriority.uiOrder) -> Int {
+    func segmentIndex(order: [TaskPriority] = TaskPriority.uiOrder) -> Int {
         if let index = order.firstIndex(of: self) {
             return index
         }
@@ -38,22 +38,22 @@ public extension TaskPriority {
 
     /// Legacy property - use displayName instead
     @available(*, deprecated, message: "Use displayName instead")
-    public var scoreValue: Int {
+    var scoreValue: Int {
         return self.scorePoints
     }
     
     /// Check if this is a high priority (High or Max)
-    public var isHighPriority: Bool {
+    var isHighPriority: Bool {
         return self == .high || self == .max
     }
     
     /// Check if this is a medium priority (Low)
-    public var isMediumPriority: Bool {
+    var isMediumPriority: Bool {
         return self == .low
     }
     
     /// Check if this is a low priority (None)
-    public var isLowPriority: Bool {
+    var isLowPriority: Bool {
         return self == .none
     }
 }

@@ -826,16 +826,6 @@ public final class NoteEditorSession {
 
 // MARK: - Search index
 
-public struct KnowledgeSearchDocument: Hashable, Sendable {
-    public var noteID: UUID
-    public var title: String
-    public var body: String
-    public var tags: String
-    public var attachments: String
-    public var updatedAt: Date
-    public var isLocked: Bool
-}
-
 public struct KnowledgeSearchResult: Identifiable, Hashable, Sendable {
     public var id: UUID { noteID }
     public var noteID: UUID

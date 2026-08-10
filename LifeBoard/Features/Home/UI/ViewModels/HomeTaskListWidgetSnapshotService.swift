@@ -886,12 +886,12 @@ final class TaskListWidgetSnapshotService: @unchecked Sendable {
     func loadActiveSessionSurfaces(
         completion: @escaping @Sendable (ActiveSessionSurfaces) -> Void
     ) {
-        guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled,
-              let container = CompositionRoot.shared.persistentContainer else {
-            completion(.empty)
-            return
-        }
-        Task {
+        Task { @MainActor in
+            guard V2FeatureFlags.trackBehaviorFlagshipV1Enabled,
+                  let container = (UIApplication.shared.delegate as? AppDelegate)?.persistentContainer else {
+                completion(.empty)
+                return
+            }
             async let fastingValue: FastingSessionSurfaceSnapshot? = {
                 let repository = CoreDataLifeBoardPhaseIIRepository(container: container)
                 return try await repository.fetchFastingSessions(limit: 100)

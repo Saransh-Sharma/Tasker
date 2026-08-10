@@ -418,7 +418,7 @@ public enum ChipSelectionStyle: String, CaseIterable {
     case filled
 }
 
-public struct Tokens: TokenContainer {
+public struct Tokens: TokenContainer, @unchecked Sendable {
     public let color: SemanticColorTokens
     public let typography: SemanticTypographyTokens
     public let spacing: SemanticSpacingTokens

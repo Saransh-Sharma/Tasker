@@ -158,7 +158,7 @@ public protocol ProjectRepositoryProtocol: Sendable {
 }
 
 public extension ProjectRepositoryProtocol {
-    public func moveProjectToLifeArea(
+    func moveProjectToLifeArea(
         projectID: UUID,
         lifeAreaID: UUID,
         completion: @escaping @Sendable (Result<ProjectLifeAreaMoveResult, Error>) -> Void
@@ -166,7 +166,7 @@ public extension ProjectRepositoryProtocol {
         completion(.failure(ProjectRepositoryUnsupportedOperationError(operation: "moveProjectToLifeArea")))
     }
 
-    public func backfillProjectsWithoutLifeArea(
+    func backfillProjectsWithoutLifeArea(
         defaultLifeAreaID: UUID,
         completion: @escaping @Sendable (Result<ProjectLifeAreaBackfillResult, Error>) -> Void
     ) {

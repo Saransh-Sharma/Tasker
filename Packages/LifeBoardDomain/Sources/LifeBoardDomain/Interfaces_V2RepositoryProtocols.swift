@@ -156,7 +156,7 @@ public protocol OccurrenceRepositoryProtocol: Sendable {
 }
 
 public extension HabitRepositoryProtocol {
-    public func fetchByID(id: UUID, completion: @escaping @Sendable (Result<HabitDefinitionRecord?, Error>) -> Void) {
+    func fetchByID(id: UUID, completion: @escaping @Sendable (Result<HabitDefinitionRecord?, Error>) -> Void) {
         fetchAll { result in
             switch result {
             case .failure(let error):
@@ -169,7 +169,7 @@ public extension HabitRepositoryProtocol {
 }
 
 public extension OccurrenceRepositoryProtocol {
-    public func fetchByID(id: UUID, completion: @escaping @Sendable (Result<OccurrenceDefinition?, Error>) -> Void) {
+    func fetchByID(id: UUID, completion: @escaping @Sendable (Result<OccurrenceDefinition?, Error>) -> Void) {
         fetchInRange(start: .distantPast, end: .distantFuture) { result in
             switch result {
             case .failure(let error):
@@ -180,7 +180,7 @@ public extension OccurrenceRepositoryProtocol {
         }
     }
 
-    public func fetchLatestForHabit(
+    func fetchLatestForHabit(
         habitID: UUID,
         on date: Date,
         completion: @escaping @Sendable (Result<OccurrenceDefinition?, Error>) -> Void
@@ -227,7 +227,7 @@ public protocol ReminderRepositoryProtocol: Sendable {
 }
 
 public extension ReminderRepositoryProtocol {
-    public func fetchDeliveryResponseAggregate(
+    func fetchDeliveryResponseAggregate(
         from startDate: Date?,
         to endDate: Date?,
         completion: @escaping @Sendable (Result<ReminderDeliveryResponseAggregate, Error>) -> Void

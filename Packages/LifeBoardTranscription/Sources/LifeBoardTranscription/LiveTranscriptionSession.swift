@@ -6,13 +6,35 @@
 //
 
 #if os(iOS)
-import AVFoundation
+@preconcurrency import AVFoundation
 import Foundation
 import Speech
 
 public enum LiveTranscriptionEvent: Sendable, Equatable {
     case transcript(String)
     case failure(String)
+}
+
+private final class AudioConversionInput: @unchecked Sendable {
+    private let lock = NSLock()
+    private let buffer: AVAudioPCMBuffer
+    private var consumed = false
+
+    init(buffer: AVAudioPCMBuffer) {
+        self.buffer = buffer
+    }
+
+    func next(status: UnsafeMutablePointer<AVAudioConverterInputStatus>) -> AVAudioBuffer? {
+        lock.lock()
+        defer { lock.unlock() }
+        guard consumed == false else {
+            status.pointee = .noDataNow
+            return nil
+        }
+        consumed = true
+        status.pointee = .haveData
+        return buffer
+    }
 }
 
 @available(iOS 26.0, *)
@@ -279,16 +301,10 @@ public final class LiveTranscriptionSession: @unchecked Sendable {
             throw TranscriptionError.audioConversionFailed
         }
 
-        var consumed = false
+        let input = AudioConversionInput(buffer: buffer)
         var conversionError: NSError?
         let status = converter.convert(to: output, error: &conversionError) { _, inputStatus in
-            if consumed {
-                inputStatus.pointee = .noDataNow
-                return nil
-            }
-            consumed = true
-            inputStatus.pointee = .haveData
-            return buffer
+            input.next(status: inputStatus)
         }
         if let conversionError {
             throw conversionError

@@ -6,3 +6,4 @@
 @_exported import LifeBoardPersistence
 @_exported import LifeBoardTranscription
 @_exported import KnowledgeFeature
+@_exported import JournalFeature

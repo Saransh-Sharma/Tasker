@@ -402,14 +402,7 @@ public struct AtmosphereSlider: View {
     // MARK: Readout
 
     private var readout: some View {
-        (
-            Text(selection.title)
-                .font(.lifeboard(.bodyStrong))
-                .foregroundColor(Color(SemanticColorTokens.inkPrimary))
-                + Text(readoutSuffix)
-                .font(.lifeboard(.caption1))
-                .foregroundColor(Color(SemanticColorTokens.inkSecondary))
-        )
+        Text("\(Text(verbatim: selection.title).font(.lifeboard(.bodyStrong)).foregroundColor(Color(SemanticColorTokens.inkPrimary)))\(Text(verbatim: readoutSuffix).font(.lifeboard(.caption1)).foregroundColor(Color(SemanticColorTokens.inkSecondary)))")
         .lineLimit(2)
         .fixedSize(horizontal: false, vertical: true)
         .accessibilityHidden(true)

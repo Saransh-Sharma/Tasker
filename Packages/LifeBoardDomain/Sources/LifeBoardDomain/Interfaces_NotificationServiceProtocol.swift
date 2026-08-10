@@ -63,30 +63,30 @@ public protocol NotificationServiceProtocol {
 }
 
 public extension NotificationServiceProtocol {
-    public func schedule(request: LocalNotificationRequest) {
+    func schedule(request: LocalNotificationRequest) {
         _ = request
         fatalError("NotificationServiceProtocol.schedule(request:) must be implemented by concrete notification services.")
     }
 
-    public func cancel(ids: [String]) {
+    func cancel(ids: [String]) {
         _ = ids
         fatalError("NotificationServiceProtocol.cancel(ids:) must be implemented by concrete notification services.")
     }
 
-    public func pendingRequests(completion: @escaping @Sendable ([PendingNotificationRequest]) -> Void) {
+    func pendingRequests(completion: @escaping @Sendable ([PendingNotificationRequest]) -> Void) {
         _ = completion
         fatalError("NotificationServiceProtocol.pendingRequests(completion:) should be implemented for typed notification reconciliation.")
     }
 
-    public func registerCategories(_ categories: Set<UNNotificationCategory>) {
+    func registerCategories(_ categories: Set<UNNotificationCategory>) {
         _ = categories
     }
 
-    public func setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {
+    func setDelegate(_ delegate: UNUserNotificationCenterDelegate?) {
         _ = delegate
     }
 
-    public func fetchAuthorizationStatus(completion: @escaping @Sendable (NotificationAuthorizationStatus) -> Void) {
+    func fetchAuthorizationStatus(completion: @escaping @Sendable (NotificationAuthorizationStatus) -> Void) {
         checkAuthorizationStatus { authorized in
             completion(authorized ? .authorized : .denied)
         }

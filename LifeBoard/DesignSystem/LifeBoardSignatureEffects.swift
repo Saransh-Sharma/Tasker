@@ -228,7 +228,11 @@ public enum SignatureShaders {
         "LifeBoardDissolveAway",
         "LifeBoardTriageSettle",
         "LifeBoardTaskLandingCaustic",
-        "LifeBoardValueDrumWarp"
+        "LifeBoardValueDrumWarp",
+        // Lives in LifeBoardCTABezel.metal rather than the signature library,
+        // but it is loaded from the same default library and must be verified
+        // by the same warm-up — it was the one shader nothing checked for.
+        "LifeBoardLiquidMetalBezel"
     ]
 
     /// Whether custom shaders may run at all right now (flag + energy/thermal, not accessibility —
@@ -244,8 +248,15 @@ public enum SignatureShaders {
     /// Rendering begins only after every named function has been materialized.
     /// A missing/default-library failure therefore degrades to the caller's
     /// ordinary SwiftUI transition instead of attempting a broken shader.
+    ///
+    /// See `SignatureShaderComfortGate.swift` for why the comfort gate is folded
+    /// in here and not into `performancePermits`, and for what is deliberately
+    /// left to the individual modifiers.
     public static var isReadyForRendering: Bool {
-        guard performancePermits else { return false }
+        performancePermits && ShaderReadiness.comfortPermits && preloadDidFinish
+    }
+
+    static var preloadDidFinish: Bool {
         if case .ready = preloadState { return true }
         return false
     }
@@ -290,6 +301,7 @@ public enum SignatureShaders {
             case .unavailable(let reason):
                 preloadState = .unavailable(reason: reason)
             }
+            publishEngineReadiness()
             preloadTask = nil
         }
     }

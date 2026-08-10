@@ -121,7 +121,7 @@ public final class CoreDataHabitRepository: HabitRepositoryProtocol, @unchecked 
         }
     }
 
-    static func schemaValidationError(in model: NSManagedObjectModel) -> NSError? {
+    public static func schemaValidationError(in model: NSManagedObjectModel) -> NSError? {
         let requiredAttributes: Set<String> = [
             "id",
             "lifeAreaID",

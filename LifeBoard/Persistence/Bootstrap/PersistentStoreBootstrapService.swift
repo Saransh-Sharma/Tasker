@@ -47,14 +47,15 @@ private struct PersistedOverdueRescueUndoRecord: Decodable {
     let fullSnapshot: AssistantTaskSnapshot
 }
 
-enum RescueScheduleRepairService {
-    struct Report: Equatable {
-        var scannedRuns = 0
-        var scannedSessionRecords = 0
-        var repairedTasks = 0
-    }
+public enum RescueScheduleRepairService {
+    public struct Report: Equatable {
+        public var scannedRuns = 0
+        public var scannedSessionRecords = 0
+        public var repairedTasks = 0
 
-    static func repair(
+        public init() {}
+    }
+    public static func repair(
         container: NSPersistentContainer,
         defaults: UserDefaults = .standard,
         completion: (@Sendable (Report) -> Void)? = nil
@@ -262,38 +263,37 @@ enum RescueScheduleRepairService {
     }
 }
 
-struct PersistentStoreLocation: Equatable {
-    let canonicalDirectoryURL: URL
-    let legacyDirectoryURL: URL
+public struct PersistentStoreLocation: Equatable {
+    public let canonicalDirectoryURL: URL
+    public let legacyDirectoryURL: URL
 
-    var cloudStoreURL: URL {
+    public var cloudStoreURL: URL {
         canonicalDirectoryURL.appendingPathComponent(PersistentStoreLocationService.cloudStoreFileName)
     }
 
-    var localStoreURL: URL {
+    public var localStoreURL: URL {
         canonicalDirectoryURL.appendingPathComponent(PersistentStoreLocationService.localStoreFileName)
     }
 
-    var usesSharedAppGroupStore: Bool {
+    public var usesSharedAppGroupStore: Bool {
         canonicalDirectoryURL.standardizedFileURL != legacyDirectoryURL.standardizedFileURL
     }
 }
 
-struct PersistentStoreMigrationResult: Equatable {
-    let didMigrateLegacyStore: Bool
-    let detectedStoreConflict: Bool
-    let migratedFileNames: [String]
+public struct PersistentStoreMigrationResult: Equatable {
+    public let didMigrateLegacyStore: Bool
+    public let detectedStoreConflict: Bool
+    public let migratedFileNames: [String]
 }
-
-final class PersistentStoreLocationService {
-    static let cloudStoreFileName = "TaskModelV3-cloud.sqlite"
-    static let localStoreFileName = "TaskModelV3-local.sqlite"
+public final class PersistentStoreLocationService {
+    public static let cloudStoreFileName = "TaskModelV3-cloud.sqlite"
+    public static let localStoreFileName = "TaskModelV3-local.sqlite"
 
     private let fileManager: FileManager
     private let appGroupContainerURLProvider: () -> URL?
     private let legacyStoreDirectoryURLProvider: () -> URL
 
-    init(
+    public init(
         fileManager: FileManager = .default,
         appGroupContainerURLProvider: @escaping () -> URL? = { AppGroupConstants.containerURL },
         legacyStoreDirectoryURLProvider: @escaping () -> URL = { NSPersistentContainer.defaultDirectoryURL() }
@@ -303,7 +303,7 @@ final class PersistentStoreLocationService {
         self.legacyStoreDirectoryURLProvider = legacyStoreDirectoryURLProvider
     }
 
-    func resolvedV3StoreLocation() -> PersistentStoreLocation {
+    public func resolvedV3StoreLocation() -> PersistentStoreLocation {
         let legacyDirectoryURL = legacyStoreDirectoryURLProvider().standardizedFileURL
         let canonicalDirectoryURL = appGroupContainerURLProvider()?.standardizedFileURL ?? legacyDirectoryURL
         return PersistentStoreLocation(
@@ -312,7 +312,7 @@ final class PersistentStoreLocationService {
         )
     }
 
-    func prepareSharedStoreLocationForBootstrap() throws -> PersistentStoreMigrationResult {
+    public func prepareSharedStoreLocationForBootstrap() throws -> PersistentStoreMigrationResult {
         let location = resolvedV3StoreLocation()
         try fileManager.createDirectory(
             at: location.canonicalDirectoryURL,
@@ -322,7 +322,7 @@ final class PersistentStoreLocationService {
         return try migrateLegacySplitStoresIfNeeded(location: location)
     }
 
-    func allKnownCutoverStoreFileNames() -> [String] {
+    public func allKnownCutoverStoreFileNames() -> [String] {
         [
             "TaskModelV2-cloud.sqlite",
             "TaskModelV2-cloud.sqlite-wal",
@@ -337,7 +337,7 @@ final class PersistentStoreLocationService {
         ]
     }
 
-    func v3SplitStoreFileNames() -> [String] {
+    public func v3SplitStoreFileNames() -> [String] {
         [
             Self.cloudStoreFileName,
             "\(Self.cloudStoreFileName)-wal",
@@ -372,7 +372,7 @@ final class PersistentStoreLocationService {
         )
     }
 
-    func quarantineActiveV3StoreFiles(reason: String) throws -> URL? {
+    public func quarantineActiveV3StoreFiles(reason: String) throws -> URL? {
         let existingURLs = activeV3StoreURLs().filter { fileManager.fileExists(atPath: $0.path) }
         guard existingURLs.isEmpty == false else {
             return nil
@@ -443,7 +443,7 @@ final class PersistentStoreLocationService {
         return backupDirectory
     }
 
-    func clearActiveV3StoreFiles() {
+    public func clearActiveV3StoreFiles() {
         for fileURL in activeV3StoreURLs() where fileManager.fileExists(atPath: fileURL.path) {
             do {
                 try fileManager.removeItem(at: fileURL)
@@ -497,7 +497,7 @@ final class PersistentStoreLocationService {
         }
     }
 
-    func wipeKnownCutoverStoreFiles() {
+    public func wipeKnownCutoverStoreFiles() {
         for fileURL in allKnownCutoverStoreURLs() where fileManager.fileExists(atPath: fileURL.path) {
             do {
                 try fileManager.removeItem(at: fileURL)
@@ -606,7 +606,8 @@ final class PersistentStoreLocationService {
     }
 }
 
-struct PersistentRuntimeInitializer {
+public struct PersistentRuntimeInitializer {
+    public init() {}
     private enum HabitRuntimeMigration {
         static let fieldBackfillKey = "lifeboard.habit.runtime.field_backfill.v1"
         static let repairRequiredKey = "lifeboard.habit.runtime.repair_required.v1"
@@ -621,24 +622,24 @@ struct PersistentRuntimeInitializer {
         static let backfillKey = "lifeboard.life_area_color_palette_backfill.v1"
     }
 
-    static func shouldRunRepair(defaults: UserDefaults = .standard) -> Bool {
+    public static func shouldRunRepair(defaults: UserDefaults = .standard) -> Bool {
         defaults.bool(forKey: HabitRuntimeMigration.repairRequiredKey)
             && defaults.bool(forKey: HabitRuntimeMigration.repairCompletedKey) == false
     }
 
-    static func markRepairCompleted(defaults: UserDefaults = .standard) {
+    public static func markRepairCompleted(defaults: UserDefaults = .standard) {
         defaults.set(false, forKey: HabitRuntimeMigration.repairRequiredKey)
         defaults.set(true, forKey: HabitRuntimeMigration.repairCompletedKey)
     }
 
-    func initialize(container: NSPersistentCloudKitContainer) {
+    public func initialize(container: NSPersistentCloudKitContainer) {
         let context = container.viewContext
         context.performAndWait {
             self.performInitialization(in: context)
         }
     }
 
-    func initializeDeferred(
+    public func initializeDeferred(
         container: NSPersistentCloudKitContainer,
         completion: (@Sendable () -> Void)? = nil
     ) {
@@ -1329,13 +1330,12 @@ struct PersistentRuntimeInitializer {
     }
 }
 
-struct PersistentStoreBootstrapResult {
-    let state: PersistentBootstrapState
-    let syncMode: PersistentSyncMode
-    let syncModeSource: String
-    let shouldMarkStoreEpoch: Bool
+public struct PersistentStoreBootstrapResult {
+    public let state: PersistentBootstrapState
+    public let syncMode: PersistentSyncMode
+    public let syncModeSource: String
+    public let shouldMarkStoreEpoch: Bool
 }
-
 private struct StoreCompatibilityReport {
     let store: SplitPersistentStore
     let storeURL: URL
@@ -1345,8 +1345,8 @@ private struct StoreCompatibilityReport {
     let fileExists: Bool
 }
 
-final class PersistentStoreBootstrapService: @unchecked Sendable {
-    static let defaultCloudKitContainerIdentifier = "iCloud.TaskerCloudKitV3"
+public final class PersistentStoreBootstrapService: @unchecked Sendable {
+    public static let defaultCloudKitContainerIdentifier = "iCloud.TaskerCloudKitV3"
 
     private let expectedStoreConfigurations: Set<String>
     private let localOnlyConfiguration: Set<String>
@@ -1355,7 +1355,7 @@ final class PersistentStoreBootstrapService: @unchecked Sendable {
     let storeLocationService: PersistentStoreLocationService
     let cloudKitContainerIdentifier: String
 
-    init(
+    public init(
         expectedStoreConfigurations: Set<String> = ["CloudSync", "LocalOnly"],
         localOnlyConfiguration: Set<String> = ["LocalOnly"],
         storeLocationService: PersistentStoreLocationService = PersistentStoreLocationService(),
@@ -1371,7 +1371,7 @@ final class PersistentStoreBootstrapService: @unchecked Sendable {
         self.enableCloudKitContainerOptions = enableCloudKitContainerOptions
     }
 
-    func makeV3PersistentContainer() -> NSPersistentCloudKitContainer {
+    public func makeV3PersistentContainer() -> NSPersistentCloudKitContainer {
         let container = makeContainerWithShippedModel()
         let cloudKitMode = currentCloudKitMirroringMode()
 
@@ -1415,7 +1415,7 @@ final class PersistentStoreBootstrapService: @unchecked Sendable {
         return container
     }
 
-    func makeV3LocalOnlyWriteClosedContainer() -> NSPersistentCloudKitContainer {
+    public func makeV3LocalOnlyWriteClosedContainer() -> NSPersistentCloudKitContainer {
         let container = makeContainerWithShippedModel()
 
         let location = storeLocationService.resolvedV3StoreLocation()
@@ -1434,7 +1434,7 @@ final class PersistentStoreBootstrapService: @unchecked Sendable {
         return container
     }
 
-    func cloudKitMirroringMode(
+    public func cloudKitMirroringMode(
         context: CloudKitRuntimeContext = .current()
     ) -> CloudKitMirroringMode {
         if context.environment["XCTestConfigurationFilePath"] != nil ||
@@ -1459,7 +1459,7 @@ final class PersistentStoreBootstrapService: @unchecked Sendable {
         cloudKitMirroringMode(context: cloudKitRuntimeContextProvider())
     }
 
-    func bootstrapV3PersistentContainer() async -> PersistentStoreBootstrapResult {
+    public func bootstrapV3PersistentContainer() async -> PersistentStoreBootstrapResult {
         do {
             let migrationResult = try storeLocationService.prepareSharedStoreLocationForBootstrap()
             if migrationResult.didMigrateLegacyStore {
@@ -1989,7 +1989,7 @@ final class PersistentStoreBootstrapService: @unchecked Sendable {
         }
     }
 
-    static func validateRuntimeSchema(in model: NSManagedObjectModel) -> NSError? {
+    public static func validateRuntimeSchema(in model: NSManagedObjectModel) -> NSError? {
         if let habitSchemaError = CoreDataHabitRepository.schemaValidationError(in: model) {
             logError(
                 event: "persistent_store_habit_schema_invalid",

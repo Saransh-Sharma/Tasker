@@ -7,6 +7,29 @@
 
 import Foundation
 
+/// LifeBoard-owned, presentation-neutral projection of the calculation
+/// engine's milestone value. Keeping equality on this projection avoids
+/// retroactively conforming a type owned by another module.
+public struct InsightsMilestoneProjection: Equatable, Sendable {
+    public let xpThreshold: Int64
+    public let name: String
+    public let sfSymbol: String
+
+    public init(xpThreshold: Int64, name: String, sfSymbol: String) {
+        self.xpThreshold = xpThreshold
+        self.name = name
+        self.sfSymbol = sfSymbol
+    }
+
+    public init(_ milestone: XPCalculationService.Milestone) {
+        self.init(
+            xpThreshold: milestone.xpThreshold,
+            name: milestone.name,
+            sfSymbol: milestone.sfSymbol
+        )
+    }
+}
+
 /// Use case for generating productivity reports
 public final class GenerateProductivityReportUseCase: @unchecked Sendable {
     

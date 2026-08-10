@@ -26,15 +26,15 @@ struct SyncWriteGate: Sendable {
     }
 }
 
-struct SyncWriteClosedError: LocalizedError {
-    let operation: String
-    let reason: String
+public struct SyncWriteClosedError: LocalizedError {
+    public let operation: String
+    public let reason: String
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         "Sync unavailable, read-only mode. Recover from iCloud to resume editing."
     }
 
-    var failureReason: String? {
+    public var failureReason: String? {
         "Blocked write operation '\(operation)' because sync mode is write-closed (\(reason))."
     }
 }

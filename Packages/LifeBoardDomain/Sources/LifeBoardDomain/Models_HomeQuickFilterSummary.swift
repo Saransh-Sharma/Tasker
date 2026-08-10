@@ -44,7 +44,7 @@ public extension HomeQuickFilterSummary {
     ///   - filterState: The current filter state
     ///   - customDate: The selected custom date (if any)
     /// - Returns: A summary for display in the trigger button
-    public static func from(
+    static func from(
         scope: HomeListScope,
         filterState: HomeFilterState,
         customDate: Date

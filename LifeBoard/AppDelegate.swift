@@ -1468,7 +1468,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
         // enforced by a comment. One root means the order is the method body,
         // and there is no second copy to fall out of step.
         let root = CompositionRoot.shared
-        root.configure(with: persistentContainer)
+        let persistenceStack = LifeBoardPersistenceStack(container: persistentContainer)
+        root.configure(
+            with: persistenceStack.makeRepositoryBundle(
+                syncModeProvider: AppDelegate.persistentSyncModeSnapshot
+            )
+        )
 
         do {
             try root.assertV3RuntimeReady()

@@ -3,14 +3,6 @@ import Combine
 import CoreGraphics
 import UIKit
 
-extension XPCalculationService.Milestone: Equatable {
-    public static func == (lhs: XPCalculationService.Milestone, rhs: XPCalculationService.Milestone) -> Bool {
-        lhs.xpThreshold == rhs.xpThreshold
-            && lhs.name == rhs.name
-            && lhs.sfSymbol == rhs.sfSymbol
-    }
-}
-
 private struct InsightsTodayRefreshSnapshot: Sendable {
     var dailyXP: Int
     var level: Int
@@ -381,7 +373,7 @@ public struct InsightsSystemsState: Equatable, Sendable {
     public var bestReturnStreak: Int
     public var unlockedAchievements: Set<String>
     public var achievementProgress: [AchievementProgressState]
-    public var nextMilestone: XPCalculationService.Milestone?
+    public var nextMilestone: InsightsMilestoneProjection?
     public var milestoneProgress: CGFloat
     public var heroCard: InsightsNarrativeBlock
     public var heroSummary: String
@@ -402,7 +394,7 @@ public struct InsightsSystemsState: Equatable, Sendable {
         bestReturnStreak: Int = 0,
         unlockedAchievements: Set<String> = [],
         achievementProgress: [AchievementProgressState] = [],
-        nextMilestone: XPCalculationService.Milestone? = nil,
+        nextMilestone: InsightsMilestoneProjection? = nil,
         milestoneProgress: CGFloat = 0,
         heroCard: InsightsNarrativeBlock = InsightsNarrativeBlock(
             title: "System health",
@@ -503,7 +495,7 @@ public final class InsightsViewModel: ObservableObject {
     public var bestStreak: Int { systemsState.bestStreak }
     public var unlockedAchievements: Set<String> { systemsState.unlockedAchievements }
     public var achievementProgress: [AchievementProgressState] { systemsState.achievementProgress }
-    public var nextMilestone: XPCalculationService.Milestone? { systemsState.nextMilestone }
+    public var nextMilestone: InsightsMilestoneProjection? { systemsState.nextMilestone }
     public var milestoneProgress: CGFloat { systemsState.milestoneProgress }
 
     private let engine: GamificationService
@@ -928,7 +920,7 @@ public final class InsightsViewModel: ObservableObject {
         next.nextLevelXP = levelInfo.nextThreshold
 
         if let milestone = XPCalculationService.nextMilestone(for: mutation.totalXP) {
-            next.nextMilestone = milestone
+            next.nextMilestone = InsightsMilestoneProjection(milestone)
             let previousThreshold = XPCalculationService.milestones
                 .last(where: { $0.xpThreshold <= mutation.totalXP })?.xpThreshold ?? 0
             let range = milestone.xpThreshold - previousThreshold
@@ -1224,7 +1216,7 @@ public final class InsightsViewModel: ObservableObject {
                     $0.state.bestReturnStreak = profile.bestReturnStreak
 
                     if let milestone = XPCalculationService.nextMilestone(for: profile.xpTotal) {
-                        $0.state.nextMilestone = milestone
+                        $0.state.nextMilestone = InsightsMilestoneProjection(milestone)
                         let previousThreshold = XPCalculationService.milestones
                             .last(where: { $0.xpThreshold <= profile.xpTotal })?.xpThreshold ?? 0
                         let range = milestone.xpThreshold - previousThreshold

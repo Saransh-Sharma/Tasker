@@ -3,7 +3,7 @@ import SwiftUI
 import UIKit
 #endif
 
-public enum SettingsRoute: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
+public enum SettingsDetailRoute: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
     case planAndOrganize
     case calendarAndHealth
     case eva
@@ -19,7 +19,7 @@ public enum SettingsRoute: String, Codable, CaseIterable, Hashable, Identifiable
 
     public var id: String { rawValue }
 
-    static let categories: [SettingsRoute] = [
+    public static let categories: [SettingsDetailRoute] = [
         .planAndOrganize,
         .calendarAndHealth,
         .eva,
@@ -28,9 +28,9 @@ public enum SettingsRoute: String, Codable, CaseIterable, Hashable, Identifiable
         .dataAndHelp,
     ]
 
-    var isCategory: Bool { Self.categories.contains(self) }
+    public var isCategory: Bool { Self.categories.contains(self) }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .planAndOrganize: return "Plan & Organize"
         case .calendarAndHealth: return "Calendar & Health"
@@ -47,7 +47,7 @@ public enum SettingsRoute: String, Codable, CaseIterable, Hashable, Identifiable
         }
     }
 
-    var transitionID: String { "route.settings.\(rawValue)" }
+    public var transitionID: String { "route.settings.\(rawValue)" }
 }
 
 struct SettingsRootView: View {
@@ -59,15 +59,15 @@ struct SettingsRootView: View {
     }
 
     @ObservedObject var viewModel: SettingsViewModel
-    let destination: SettingsRoute?
+    let destination: SettingsDetailRoute?
     let presentationPreferences: PresentationPreferences?
-    let onNavigate: ((SettingsRoute) -> Void)?
+    let onNavigate: ((SettingsDetailRoute) -> Void)?
     @Environment(\.lifeboardTokens) private var tokens
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.lifeboardLayoutClass) private var layoutClass
     @State private var expandedNotificationRow: NotificationExpansion?
-    @State private var selectedPadCategory: SettingsRoute?
+    @State private var selectedPadCategory: SettingsDetailRoute?
     @State private var timelineAnchorDraft = TimelineAnchorDraft(preferences: WorkspacePreferences())
     @State private var healthStore = HealthCoordinator.shared.connectionStore
     @AppStorage("healthPrivacyLocalOnlyNoticeAcknowledged") private var didAcknowledgeHealthPrivacyNotice = false
@@ -80,9 +80,9 @@ struct SettingsRootView: View {
 
     init(
         viewModel: SettingsViewModel,
-        destination: SettingsRoute? = nil,
+        destination: SettingsDetailRoute? = nil,
         presentationPreferences: PresentationPreferences? = nil,
-        onNavigate: ((SettingsRoute) -> Void)? = nil
+        onNavigate: ((SettingsDetailRoute) -> Void)? = nil
     ) {
         self.viewModel = viewModel
         self.destination = destination
@@ -284,7 +284,7 @@ struct SettingsRootView: View {
     }
 
     @ViewBuilder
-    private func premiumDestination(_ route: SettingsRoute) -> some View {
+    private func premiumDestination(_ route: SettingsDetailRoute) -> some View {
         switch route {
         case .llm:
             LLMSettingsView(currentThread: .constant(nil))
@@ -320,7 +320,7 @@ struct SettingsRootView: View {
         }
     }
 
-    private func premiumCategoryScroll(_ route: SettingsRoute) -> some View {
+    private func premiumCategoryScroll(_ route: SettingsDetailRoute) -> some View {
         ScrollView {
             VStack(spacing: 0) {
                 SettingsCategoryHeading(route: route)
@@ -339,7 +339,7 @@ struct SettingsRootView: View {
     }
 
     @ViewBuilder
-    private func premiumCategoryContent(_ route: SettingsRoute) -> some View {
+    private func premiumCategoryContent(_ route: SettingsDetailRoute) -> some View {
         switch route {
         case .planAndOrganize:
             workspaceSection(baseIndex: 0)
@@ -377,7 +377,7 @@ struct SettingsRootView: View {
         }
     }
 
-    private func selectPadCategory(_ route: SettingsRoute) {
+    private func selectPadCategory(_ route: SettingsDetailRoute) {
         if route.isCategory {
             selectedPadCategory = route
             HapticFeedback.selection()
@@ -386,7 +386,7 @@ struct SettingsRootView: View {
         }
     }
 
-    private func navigate(_ route: SettingsRoute) {
+    private func navigate(_ route: SettingsDetailRoute) {
         if let onNavigate {
             onNavigate(route)
             return

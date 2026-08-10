@@ -221,7 +221,7 @@ public enum TaskRepeatPattern: Codable, Equatable, Hashable, Sendable {
 // MARK: - Extensions
 
 public extension TaskRepeatPattern.DaysOfWeek {
-    public var displayName: String {
+    var displayName: String {
         var days: [String] = []
         
         if contains(.sunday) { days.append("Sun") }
@@ -237,7 +237,7 @@ public extension TaskRepeatPattern.DaysOfWeek {
 }
 
 public extension TaskRepeatPattern.MonthlyPattern {
-    public var displayName: String {
+    var displayName: String {
         switch self {
         case .onDate(let day):
             return "on \(day)th"
@@ -250,7 +250,7 @@ public extension TaskRepeatPattern.MonthlyPattern {
 }
 
 public extension TaskRepeatPattern.YearlyPattern {
-    public var displayName: String {
+    var displayName: String {
         switch self {
         case .onDate(let month, let day):
             return "\(month.monthName) \(day)"

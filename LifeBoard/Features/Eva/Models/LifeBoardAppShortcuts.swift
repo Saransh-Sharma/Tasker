@@ -165,30 +165,16 @@ enum ShortcutDependencyResolver {
             }
         }
 
-        let writeGate = SyncWriteGate(modeProvider: { bootstrapResult.syncMode })
-        let projectRepository = WriteClosedProjectRepositoryAdapter(
-            base: CoreDataProjectRepository(container: container),
-            gate: writeGate
-        )
-        let taskDefinitionRepository = WriteClosedTaskDefinitionRepositoryAdapter(
-            base: CoreDataTaskDefinitionRepository(container: container),
-            gate: writeGate
-        )
-        let taskTagLinkRepository = WriteClosedTaskTagLinkRepositoryAdapter(
-            base: CoreDataTaskTagLinkRepository(container: container),
-            gate: writeGate
-        )
-        let taskDependencyRepository = WriteClosedTaskDependencyRepositoryAdapter(
-            base: CoreDataTaskDependencyRepository(container: container),
-            gate: writeGate
-        )
+        let syncMode = bootstrapResult.syncMode
+        let repositories = LifeBoardPersistenceStack(container: container)
+            .makeRepositoryBundle(syncModeProvider: { syncMode })
 
         return HeadlessLifeBoardShortcutCoordinator(
-            projectRepository: projectRepository,
+            projectRepository: repositories.project,
             createTaskDefinitionUseCase: CreateTaskDefinitionUseCase(
-                repository: taskDefinitionRepository,
-                taskTagLinkRepository: taskTagLinkRepository,
-                taskDependencyRepository: taskDependencyRepository
+                repository: repositories.taskDefinition,
+                taskTagLinkRepository: repositories.taskTagLink,
+                taskDependencyRepository: repositories.taskDependency
             ),
             persistentContainer: container
         )

@@ -45,7 +45,7 @@ public enum AppRoute: Codable, Hashable, Sendable {
     case insightEvidence(UUID?)
     case healthInsight(HealthInsightDomain)
     case settings
-    case settingsDetail(SettingsRoute)
+    case settingsDetail(SettingsDetailRoute)
     case tokenGallery
     case referenceDashboard
 

@@ -51,7 +51,7 @@ public protocol HabitRuntimeReadRepositoryProtocol: Sendable {
 }
 
 public extension HabitRuntimeReadRepositoryProtocol {
-    public func fetchAgendaHabit(
+    func fetchAgendaHabit(
         habitID: UUID,
         for date: Date,
         completion: @escaping @Sendable (Result<HabitOccurrenceSummary?, Error>) -> Void
@@ -65,7 +65,7 @@ public extension HabitRuntimeReadRepositoryProtocol {
         }
     }
 
-    public func fetchHabitLibrary(
+    func fetchHabitLibrary(
         habitIDs: [UUID]?,
         includeArchived: Bool,
         completion: @escaping @Sendable (Result<[HabitLibraryRow], Error>) -> Void
@@ -81,7 +81,7 @@ public extension HabitRuntimeReadRepositoryProtocol {
         }
     }
 
-    public func fetchHabitDetailSummary(
+    func fetchHabitDetailSummary(
         habitID: UUID,
         includeArchived: Bool,
         completion: @escaping @Sendable (Result<HabitLibraryRow?, Error>) -> Void

@@ -25,7 +25,7 @@ public protocol CalendarEventsRepositoryProtocol: Sendable {
 }
 
 public extension CalendarEventsRepositoryProtocol {
-    public func fetchEventSlices(
+    func fetchEventSlices(
         startDate: Date,
         endDate: Date,
         calendarIDs: Set<String>,

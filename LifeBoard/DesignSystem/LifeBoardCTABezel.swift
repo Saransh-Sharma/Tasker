@@ -552,7 +552,13 @@ private struct CTABezelOverlay: View {
         ZStack {
             shellStroke
 
-            if reduceTransparency == false {
+            // `isReadyForRendering` was missing here, so the bezel could attempt
+            // a Metal function before warm-up had confirmed the library loaded —
+            // and the function itself was absent from `functionNames`, so warm-up
+            // never verified it existed at all. Both are fixed together: adding
+            // the name makes preload all-or-nothing, which is only safe once the
+            // call site actually waits for that verdict.
+            if reduceTransparency == false, SignatureShaders.isReadyForRendering {
                 let shader = Shader(
                     function: ShaderFunction(library: .default, name: "LifeBoardLiquidMetalBezel"),
                     arguments: [

@@ -234,13 +234,23 @@ private struct ComposerSectionLabel: ViewModifier {
 
 import SwiftUI
 
+/// Paper tooth for package-side surfaces.
+///
+/// The readiness check is not optional politeness: this was the one shader call
+/// site in the app that reached for `ShaderFunction(library: .default, …)`
+/// without asking whether the Metal library had finished warming, so on a cold
+/// launch it could attempt a function that did not exist yet. `ShaderReadiness`
+/// lives in `LifeBoardTokens` precisely so this package can ask.
+///
+/// Grain is texture rather than motion, so it gates on contrast and transparency
+/// — not on Reduce Motion, which has no opinion about a static surface.
 private struct PackagePaperGrain: ViewModifier {
     let intensity: Double
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
 
     func body(content: Content) -> some View {
-        if reduceTransparency || contrast == .increased {
+        if reduceTransparency || contrast == .increased || ShaderReadiness.allowsShaderRendering == false {
             content
         } else {
             content.layerEffect(

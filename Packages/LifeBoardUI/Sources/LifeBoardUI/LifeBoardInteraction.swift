@@ -102,6 +102,122 @@ public enum Haptic {
     }
 }
 
+// MARK: - Press response
+
+/// How much an object yields under the finger, by what kind of object it is.
+///
+/// `DESIGN.md`: "Objects follow the finger, controls respond immediately."
+/// Scale is inversely proportional to size — a 44pt circular control needs a
+/// deeper press than a full-width card to read as the same physical give, which
+/// is why one shared constant never looked right everywhere and every screen
+/// ended up hand-tuning its own.
+public enum PressResponse: Sendable {
+    /// A full-width list row. The most common case, and the quietest.
+    case row
+    /// An independent raised object.
+    case card
+    /// A small icon button, chip, or pill.
+    case control
+    /// The one dominant decision on a screen.
+    case hero
+
+    var pressedScale: CGFloat {
+        switch self {
+        case .row: 0.985
+        case .card: 0.972
+        case .control: 0.93
+        case .hero: 0.978
+        }
+    }
+
+    /// A touch of tonal recession, so the response survives grayscale and
+    /// does not depend on the scale alone being perceptible.
+    var pressedOpacity: Double {
+        switch self {
+        case .row: 0.72
+        case .card: 0.86
+        case .control: 0.7
+        case .hero: 0.9
+        }
+    }
+
+    var anchor: UnitPoint {
+        // A row compressing toward its centre reads as the whole list shifting;
+        // anchoring to the leading edge keeps the title still under the finger.
+        self == .row ? .leading : .center
+    }
+}
+
+private struct PressResponseModifier: ViewModifier {
+    let response: PressResponse
+    let haptic: Haptic?
+    let isEnabled: Bool
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isPressed = false
+
+    private var policy: MotionPolicy {
+        MotionPolicy.resolve(
+            reduceMotion: reduceMotion,
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        )
+    }
+
+    func body(content: Content) -> some View {
+        let resolved = policy
+        // Reduce Motion keeps the tonal response and drops the geometry: the
+        // control must still confirm the touch, it just must not move.
+        let active = isPressed && isEnabled
+        let allowsScale = resolved.allowsSpatialMotion
+
+        content
+            .scaleEffect(
+                active && allowsScale ? response.pressedScale : 1,
+                anchor: response.anchor
+            )
+            .opacity(active ? response.pressedOpacity : 1)
+            .animation(InteractionMotion.cardLift(reduceMotion: reduceMotion), value: isPressed)
+            // A 0-distance drag reports press and release without ever claiming
+            // the gesture, so this composes with the row's own Button, with a
+            // NavigationLink, and with an enclosing ScrollView. A ButtonStyle
+            // would have forced every adopting call site to become a Button.
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in
+                        guard isEnabled, isPressed == false else { return }
+                        isPressed = true
+                        haptic?.play(policy: resolved)
+                    }
+                    .onEnded { _ in isPressed = false }
+            )
+            .onChange(of: isEnabled) { _, enabled in
+                if enabled == false { isPressed = false }
+            }
+    }
+}
+
+public extension View {
+    /// The shared press response. Apply to the outermost shape of the object
+    /// that should yield — the row, not its label.
+    ///
+    /// Pass `haptic: nil` where the press is only a prelude to a larger
+    /// confirmation, so the user does not feel two taps for one action.
+    func lifeBoardPressResponse(
+        _ response: PressResponse = .row,
+        haptic: Haptic? = .pick,
+        isEnabled: Bool = true
+    ) -> some View {
+        modifier(PressResponseModifier(
+            response: response,
+            haptic: haptic,
+            isEnabled: isEnabled
+        ))
+    }
+}
+
 // MARK: - Scroll-driven entrance
 
 /// Cards rise, focus and fade in as they enter the viewport.
@@ -200,11 +316,11 @@ private struct MagneticToggle: ViewModifier {
 
     /// Linear up to the detent, then log-compressed so the row cannot be
     /// dragged off the screen and the threshold stays physically legible.
+    /// A leftward drag is not an action here, so it gets heavy resistance
+    /// immediately rather than tracking the finger.
     private func rubberBanded(_ raw: CGFloat) -> CGFloat {
         guard raw > 0 else { return raw / 4 }
-        if raw <= threshold { return raw }
-        let excess = raw - threshold
-        return threshold + log10(1 + excess / 10) * 22
+        return RubberBand.offset(raw, limit: threshold, resistance: 0.5)
     }
 }
 

@@ -284,36 +284,14 @@ private struct ComposerCanvas: View {
     }
 }
 
-/// Warm paper with its tooth, as one named view.
-///
-/// Every surface that wants grain uses this rather than inlining the two-layer
-/// `ZStack` + `GeometryReader`. Inlining it four times was not just duplication:
-/// dropping the closure into an existing `body` pushed
-/// `KnowledgeNoteEditor` from under to over the 500 ms type-check
-/// budget this repo treats as a required split. A named `View` gets its own
-/// `body` call, its own stack frame, and costs the caller one identifier.
-public struct GrainedCanvas: View {
-    private let intensity: Double
-
-    public init(intensity: Double = 0.30) {
-        self.intensity = intensity
-    }
-
-    public var body: some View {
-        ZStack {
-            Color(SemanticColorTokens.foundationCanvas)
-            GeometryReader { proxy in
-                Rectangle()
-                    .fill(Color(SemanticColorTokens.foundationCanvas))
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .lifeboardPaperGrain(intensity: intensity)
-            }
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
-    }
-}
+// `GrainedCanvas` deliberately lives in `LifeBoardUI`, not here.
+//
+// There were two `public struct GrainedCanvas` — this one and the package's —
+// and which one a file got depended on its import order. `KnowledgeFeature`
+// cannot see the app target, so the package copy is the one that has to exist;
+// this copy was the removable half. The package version now consults
+// `ShaderReadiness`, so app call sites keep the same warm-up and comfort gating
+// they had here.
 
 private struct ComposerPrivacy: ViewModifier {
     let isSensitive: Bool

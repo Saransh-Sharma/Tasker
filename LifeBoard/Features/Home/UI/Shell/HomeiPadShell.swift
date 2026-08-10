@@ -709,7 +709,7 @@ struct HomeiPadSettingsContainer: View {
     let onOpenCalendarChooser: () -> Void
 
     @StateObject private var viewModel: SettingsViewModel
-    @State private var settingsPath: [SettingsRoute] = []
+    @State private var settingsPath: [SettingsDetailRoute] = []
     @State private var presentationPreferences = PresentationPreferences()
 
     init(
@@ -746,7 +746,7 @@ struct HomeiPadSettingsContainer: View {
                     viewModel.onRestartOnboarding = onRestartOnboarding
                     viewModel.onOpenCalendarChooser = onOpenCalendarChooser
                 }
-                .navigationDestination(for: SettingsRoute.self) { route in
+                .navigationDestination(for: SettingsDetailRoute.self) { route in
                     SettingsRootView(
                         viewModel: viewModel,
                         destination: route,
@@ -760,7 +760,7 @@ struct HomeiPadSettingsContainer: View {
         .accessibilityIdentifier("home.ipad.detail.settings")
     }
 
-    private func navigate(_ route: SettingsRoute) {
+    private func navigate(_ route: SettingsDetailRoute) {
         switch route {
         case .lifeManagement:
             onNavigateToLifeManagement()

@@ -13,7 +13,7 @@ struct SettingsSetupStatus: Equatable {
         let detail: String
         let systemImage: String
         let state: State
-        let route: SettingsRoute
+        let route: SettingsDetailRoute
     }
 
     let items: [Item]
@@ -125,7 +125,7 @@ enum SettingsSetupStatusResolver {
     }
 }
 
-extension SettingsRoute {
+extension SettingsDetailRoute {
     var summary: String {
         switch self {
         case .planAndOrganize: return "Week, timeline, and anchors"
@@ -186,7 +186,7 @@ struct SettingsHubHeading: View {
 
 struct SettingsSetupStatusCard: View {
     let status: SettingsSetupStatus
-    let onNavigate: (SettingsRoute) -> Void
+    let onNavigate: (SettingsDetailRoute) -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s12) {
@@ -265,18 +265,18 @@ struct SettingsSetupStatusCard: View {
 }
 
 struct SettingsCategoryGroup: View {
-    let selectedRoute: SettingsRoute?
-    let onNavigate: (SettingsRoute) -> Void
+    let selectedRoute: SettingsDetailRoute?
+    let onNavigate: (SettingsDetailRoute) -> Void
 
     var body: some View {
         VStack(spacing: 0) {
-            ForEach(Array(SettingsRoute.categories.enumerated()), id: \.element) { index, route in
+            ForEach(Array(SettingsDetailRoute.categories.enumerated()), id: \.element) { index, route in
                 SettingsCategoryButton(
                     route: route,
                     isSelected: route == selectedRoute,
                     onNavigate: onNavigate
                 )
-                if index < SettingsRoute.categories.count - 1 {
+                if index < SettingsDetailRoute.categories.count - 1 {
                     Divider()
                         .padding(.leading, 64)
                 }
@@ -295,9 +295,9 @@ struct SettingsCategoryGroup: View {
 }
 
 private struct SettingsCategoryButton: View {
-    let route: SettingsRoute
+    let route: SettingsDetailRoute
     let isSelected: Bool
-    let onNavigate: (SettingsRoute) -> Void
+    let onNavigate: (SettingsDetailRoute) -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bloomTrigger = 0
@@ -365,7 +365,7 @@ private struct SettingsCategoryPressStyle: ButtonStyle {
 }
 
 struct SettingsCategoryHeading: View {
-    let route: SettingsRoute
+    let route: SettingsDetailRoute
 
     var body: some View {
         HStack(alignment: .center, spacing: SwiftUITokens.spacing.s12) {

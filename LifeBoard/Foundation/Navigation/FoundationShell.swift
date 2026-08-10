@@ -237,6 +237,20 @@ public struct FoundationShell: View {
         .onChange(of: router.selectedDestination, initial: true) { _, destination in
             lifeThreadComposer.move(to: destination)
         }
+        // The comfort gate for Metal effects.
+        //
+        // `MotionPolicy.allowsCustomShaders` has encoded this rule since it was
+        // written and had no readers at all, so a person who chose Calm — or who
+        // entered a focus session — still got every shader. Publishing it here
+        // is what makes the setting mean something. `initial: true` matters:
+        // without it the gate stays at its permissive default until the first
+        // navigation, which is exactly the launch window a Calm user notices.
+        .onChange(of: comfortGateInput, initial: true) { _, input in
+            SignatureShaders.updateComfort(
+                profile: input.profile,
+                isFocusedPresentation: input.isFocused
+            )
+        }
         .onChange(of: scenePhase) { _, phase in
             // Interrupt live dictation when the app loses the foreground so
             // SpeechAnalyzer's audio engine doesn't keep recording into
@@ -324,6 +338,16 @@ public struct FoundationShell: View {
     private var activeScreenMode: ScreenMode {
         let router = runtime.router
         return router.path(for: router.selectedDestination).last?.screenMode ?? .detail
+    }
+
+    /// The two inputs to the shader comfort gate, as one `Equatable` value so a
+    /// single `onChange` covers both. Watching them separately would let a
+    /// change in one silently keep the other's stale verdict.
+    private var comfortGateInput: ComfortGateInput {
+        ComfortGateInput(
+            profile: runtime.preferences.comfortProfile,
+            isFocused: activeScreenMode == .focused
+        )
     }
 
     /// Eva owns its own composer, and focused/editor routes own their input
@@ -435,4 +459,12 @@ public struct FoundationShell: View {
         planRescueRefreshGeneration &+= 1
     }
 
+}
+
+/// Comfort profile plus focused-presentation state, paired so one `onChange`
+/// observes both. `DESIGN.md`: "Comfort profiles change expression, not
+/// capability" — Calm keeps every control and drops the Metal layer.
+struct ComfortGateInput: Equatable {
+    let profile: ComfortProfile
+    let isFocused: Bool
 }

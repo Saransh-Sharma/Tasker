@@ -198,7 +198,7 @@ public struct HabitDefinitionRecord: Codable, Equatable, Hashable, Sendable {
 }
 
 public extension HabitDefinitionRecord {
-    public var kind: HabitKind {
+    var kind: HabitKind {
         get {
             if let kindRaw, let resolved = HabitKind(rawValue: kindRaw) {
                 return resolved
@@ -210,7 +210,7 @@ public extension HabitDefinitionRecord {
         }
     }
 
-    public var trackingMode: HabitTrackingMode {
+    var trackingMode: HabitTrackingMode {
         get {
             if let trackingModeRaw, let resolved = HabitTrackingMode(rawValue: trackingModeRaw) {
                 return resolved
@@ -222,7 +222,7 @@ public extension HabitDefinitionRecord {
         }
     }
 
-    public var icon: HabitIconMetadata? {
+    var icon: HabitIconMetadata? {
         get {
             guard let iconSymbolName, let iconCategoryKey else { return nil }
             return HabitIconMetadata(symbolName: iconSymbolName, categoryKey: iconCategoryKey)
@@ -233,7 +233,7 @@ public extension HabitDefinitionRecord {
         }
     }
 
-    public var targetConfig: HabitTargetConfig? {
+    var targetConfig: HabitTargetConfig? {
         get {
             if let targetConfigData,
                let decoded = try? JSONDecoder().decode(HabitTargetConfig.self, from: targetConfigData) {
@@ -286,7 +286,7 @@ public extension HabitDefinitionRecord {
         }
     }
 
-    public var metricConfig: HabitMetricConfig? {
+    var metricConfig: HabitMetricConfig? {
         get {
             guard let metricConfigData else { return nil }
             return try? JSONDecoder().decode(HabitMetricConfig.self, from: metricConfigData)
@@ -300,17 +300,17 @@ public extension HabitDefinitionRecord {
         }
     }
 
-    public var successMask14: UInt16 {
+    var successMask14: UInt16 {
         get { UInt16(bitPattern: successMask14Raw) }
         set { successMask14Raw = Int16(bitPattern: newValue) }
     }
 
-    public var failureMask14: UInt16 {
+    var failureMask14: UInt16 {
         get { UInt16(bitPattern: failureMask14Raw) }
         set { failureMask14Raw = Int16(bitPattern: newValue) }
     }
 
-    public var isArchived: Bool {
+    var isArchived: Bool {
         archivedAt != nil
     }
 }

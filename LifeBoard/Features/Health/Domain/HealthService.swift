@@ -206,7 +206,7 @@ public final class HealthService: HealthReading, @unchecked Sendable {
         case .traditionalStrengthTraining, .functionalStrengthTraining: "Strength training"
         case .yoga: "Yoga"
         case .hiking: "Hiking"
-        case .dance: "Dance"
+        case let activity where activity.rawValue == 14: "Dance"
         default: "Workout"
         }
     }

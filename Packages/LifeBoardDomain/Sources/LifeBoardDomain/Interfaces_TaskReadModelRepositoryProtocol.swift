@@ -105,7 +105,7 @@ public protocol TaskReadModelRepositoryProtocol: Sendable {
 }
 
 public extension TaskReadModelRepositoryProtocol {
-    public func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func searchTasks(query: TaskRepositorySearchQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         let searchQuery = TaskSearchQuery(
             text: query.text,
             projectID: query.projectIDs.count == 1 ? query.projectIDs.first : nil,
@@ -160,7 +160,7 @@ public extension TaskReadModelRepositoryProtocol {
         }
     }
 
-    public func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
+    func fetchHomeProjection(query: HomeProjectionQuery, completion: @escaping @Sendable (Result<TaskDefinitionSliceResult, Error>) -> Void) {
         fetchTasks(
             query: TaskReadQuery(
                 projectID: query.state.selectedProjectIDs.count == 1 ? query.state.selectedProjectIDs.first : nil,
@@ -173,7 +173,7 @@ public extension TaskReadModelRepositoryProtocol {
         )
     }
 
-    public func fetchNeedsReplanCandidates(
+    func fetchNeedsReplanCandidates(
         query: NeedsReplanCandidateQuery,
         completion: @escaping @Sendable (Result<NeedsReplanCandidateProjection, Error>) -> Void
     ) {
@@ -226,7 +226,7 @@ public extension TaskReadModelRepositoryProtocol {
         }
     }
 
-    public func fetchHomeTimelineProjection(
+    func fetchHomeTimelineProjection(
         query: HomeTimelineTaskProjectionQuery,
         completion: @escaping @Sendable (Result<HomeTimelineTaskProjection, Error>) -> Void
     ) {
@@ -275,7 +275,7 @@ public extension TaskReadModelRepositoryProtocol {
         }
     }
 
-    public func fetchInsightsTodayProjection(
+    func fetchInsightsTodayProjection(
         referenceDate: Date,
         completion: @escaping @Sendable (Result<InsightsTodayTaskProjection, Error>) -> Void
     ) {
@@ -285,7 +285,7 @@ public extension TaskReadModelRepositoryProtocol {
         )
     }
 
-    public func fetchInsightsTodayProjection(
+    func fetchInsightsTodayProjection(
         query: InsightsTodayProjectionQuery,
         completion: @escaping @Sendable (Result<InsightsTodayTaskProjection, Error>) -> Void
     ) {
@@ -340,7 +340,7 @@ public extension TaskReadModelRepositoryProtocol {
         }
     }
 
-    public func fetchInsightsWeekProjection(
+    func fetchInsightsWeekProjection(
         referenceDate: Date,
         completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void
     ) {
@@ -350,7 +350,7 @@ public extension TaskReadModelRepositoryProtocol {
         )
     }
 
-    public func fetchInsightsWeekProjection(
+    func fetchInsightsWeekProjection(
         query: InsightsWeekProjectionQuery,
         completion: @escaping @Sendable (Result<InsightsWeekTaskProjection, Error>) -> Void
     ) {
@@ -421,7 +421,7 @@ public extension TaskReadModelRepositoryProtocol {
     }
 
 
-    public func fetchWeekChartProjection(
+    func fetchWeekChartProjection(
         referenceDate: Date,
         completion: @escaping @Sendable (Result<WeekChartProjection, Error>) -> Void
     ) {

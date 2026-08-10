@@ -25,7 +25,6 @@
 		F1B000000000000000000011 /* HomeBandLayoutPlanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A000000000000000000011 /* HomeBandLayoutPlanner.swift */; };
 		F1B000000000000000000012 /* TaskAgendaPresentationModelBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1A000000000000000000012 /* TaskAgendaPresentationModelBuilder.swift */; };
 		00E2B96FE676ECE56D1C1587 /* OnboardingSelectionSummaryCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F70E654847A2B4F0458F49F /* OnboardingSelectionSummaryCard.swift */; };
-		00E943E7872FB1B20D349D99 /* CoreDataOccurrenceRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9E54F6F587FF89056E429DF /* CoreDataOccurrenceRepository.swift */; };
 		014575655AA3DBD8B1BD4C5F /* LifeManagementProjectDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10E031C3127045DB0AF8ACF9 /* LifeManagementProjectDetailView.swift */; };
 		01D3E1ADABC2FB7D419F301E /* AppOnboardingSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1859F3D260EADFEA49FDBA98 /* AppOnboardingSummary.swift */; };
 		02548417398F2FC3E57621F1 /* HomeArchitectureProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D48163BE7D31AF707E99B7 /* HomeArchitectureProtocols.swift */; };
@@ -37,7 +36,6 @@
 		0512B30196300E86AE6ABE53 /* OnboardingFlowModel+CatalogPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 079A43F8E9012BEFEACB658C /* OnboardingFlowModel+CatalogPresentation.swift */; };
 		0512DBCE948D6692B0F1857F /* LifeBoardThemeManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DA1D87ADF956BED887FE0CC /* LifeBoardThemeManagerTests.swift */; };
 		07F9DF04416807600DA792AA /* OnboardingInputField.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0782589C1467EBE5827782EF /* OnboardingInputField.swift */; };
-		08CCE589CA3E83FE266289D1 /* CoreDataAssistantActionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6747A1FAF23571C7A3DA320 /* CoreDataAssistantActionRepository.swift */; };
 		094363D420BA00C23B9DC952 /* ResolveHabitOccurrenceUseCaseExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72FC1B3486FA846731E8FCE6 /* ResolveHabitOccurrenceUseCaseExtension.swift */; };
 		096DC7AAFD7B5580A3DABEC3 /* lifeManagementHabitStatusText.swift in Sources */ = {isa = PBXBuildFile; fileRef = D7E431C4A4980AE71FE5AB35 /* lifeManagementHabitStatusText.swift */; };
 		09CD9170481BB868874A059E /* OnboardingPromptFooterMaterialModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 102FF39D56775B7335081882 /* OnboardingPromptFooterMaterialModifier.swift */; };
@@ -52,7 +50,6 @@
 		0EC49C3CF56F9FF0863151BD /* HomeViewModelRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE2CDAC6D56F874D92E1DD4D /* HomeViewModelRoot.swift */; };
 		0EDFDE262FBEB052B1E2BDFE /* EvaChatSunriseBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2D47EF8C1159050CDCE28D6 /* EvaChatSunriseBackground.swift */; };
 		0F2D95B3C4177167351607FF /* SlashCommandPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93D25A779BBE1A1B798EFA4D /* SlashCommandPickerView.swift */; };
-		0F67D9989E8924F5B6E2B2EE /* CoreDataLifeAreaRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26D9ECAA7CAE990AACBF05E5 /* CoreDataLifeAreaRepository.swift */; };
 		0FF401A34059E3AECC2B14B1 /* OnboardingProjectDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98AB62BE5A27121F39C5F499 /* OnboardingProjectDraft.swift */; };
 		10BDA207EE601292AB9E1231 /* OnboardingTaskPreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4A401D3FB5682FC6804B6F /* OnboardingTaskPreviewCard.swift */; };
 		1189D09985E33267B5E56A34 /* NSLockExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3F0DB5144721E54F43222D3D /* NSLockExtension.swift */; };
@@ -65,8 +62,6 @@
 		144C7E3E26AF1D97BC310AFF /* ProjectListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76771B9AECD05123393780BE /* ProjectListRow.swift */; };
 		14CDB6B6887E83C9AF1E8412 /* OnboardingPromptBackground.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8F9A299A8C725C1852BB744 /* OnboardingPromptBackground.swift */; };
 		160F368EB1102A7D052D2220 /* HomeOverdueRescueLauncherState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83C12D0895BE1B134C2DEDF5 /* HomeOverdueRescueLauncherState.swift */; };
-		166AB064CD81E7EAF6579B7E /* CoreDataSectionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0E3799E6AD3B71C2BCAA18D /* CoreDataSectionRepository.swift */; };
-		1670AB6E54D82AC77EBC9B3D /* CoreDataScheduleRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = D6248E090BE231D70E41F08C /* CoreDataScheduleRepository.swift */; };
 		16E09E0E5A4633E33062DF74 /* HomeViewModel+DueTodayAgenda.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06C9F0E1B9A7D11A42BEFEB1 /* HomeViewModel+DueTodayAgenda.swift */; };
 		16FDAE94A8B5B7D16F330DF2 /* HomeHabitMutationRequest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E03A10085F34C95F49402B3 /* HomeHabitMutationRequest.swift */; };
 		170D294E77D3B8898DFD0D85 /* HomeViewModel+FocusPins.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66890102B461937BC39F7607 /* HomeViewModel+FocusPins.swift */; };
@@ -162,7 +157,6 @@
 		2F8630D073B32E4FB52F1DAE /* NextActionModule.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4FCA458CC709E59AA20BC5C8 /* NextActionModule.swift */; };
 		2F9410224630703F3E950DDD /* OnboardingStepVisualTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38BF65FECAAA9E50000FFA9E /* OnboardingStepVisualTheme.swift */; };
 		300E318A0AD9AB7F088C497E /* ManageTagsUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0643A03092D9D90FE7DC26D4 /* ManageTagsUseCase.swift */; };
-		30B49EE9EC93A901D247EA1F /* CoreSchedulingEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = F311D68194F7FDAA5BAD7ADA /* CoreSchedulingEngine.swift */; };
 		30CF71E853B4D59EBDBDA4AE /* ChatEmptyStateView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 509DC1C9038663BEFE00C96F /* ChatEmptyStateView.swift */; };
 		314809E17C3C294340F2DA1E /* LifeManagementAppearanceLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 43CB43D27ACFD36EEFFDD829 /* LifeManagementAppearanceLine.swift */; };
 		32004AA08DF5D7FE9587C767 /* HomeCanonicalHabitMutationLoadState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B64FFD6CD4BC91A0687E1B2 /* HomeCanonicalHabitMutationLoadState.swift */; };
@@ -170,7 +164,6 @@
 		328B171396378ED1B150C54A /* HomeHabitRowPlacementBucket.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3971F5A044B9EC46E27BEC2 /* HomeHabitRowPlacementBucket.swift */; };
 		32CEC1ABC506CDA117F1CB3B /* SunriseTaskListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E526F0CB3E9299C87861646E /* SunriseTaskListView.swift */; };
 		32FB0E5EB16490C5930975F4 /* OnboardingPermissionHeroIcon.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4E66ADE238E28DD2BC20A9C7 /* OnboardingPermissionHeroIcon.swift */; };
-		3367A12ABAB9C8FAB90843C2 /* CoreDataTombstoneRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 23A78189DAF93E5F5EA0C769 /* CoreDataTombstoneRepository.swift */; };
 		3447A60285674490A2726759 /* LifeManagementAreaComposerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 382D7A14C1F519D843A2365D /* LifeManagementAreaComposerView.swift */; };
 		3464C0D69143BB1C99FBFD7A /* SettingsSectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82ACA5EA351487686C155548 /* SettingsSectionHeader.swift */; };
 		3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */; };
@@ -188,7 +181,6 @@
 		3BFD0F4FDBF2CF845F1ED1BA /* EvaDayHabitMetadataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE2C41DCBFDB00CEEAF73CC0 /* EvaDayHabitMetadataView.swift */; };
 		3BFDC99E090DF4551C917CE6 /* AppOnboardingState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4AADEA1EA2E960494BF2F708 /* AppOnboardingState.swift */; };
 		3CA024512D42A38C712034E0 /* DeleteAreaSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = BED7C8A4030249843AED943D /* DeleteAreaSheet.swift */; };
-		3D26E03F6D3A9571E7204553 /* CoreDataExternalSyncRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08CEBA82D3CB1ACE79D0E158 /* CoreDataExternalSyncRepository.swift */; };
 		3DB15BBF268BC66ABA3862AD /* HomeTaskListWidgetSnapshotService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A7BCB477B2EA5D03B6F3FF0 /* HomeTaskListWidgetSnapshotService.swift */; };
 		3EA2500F6FA7AE834A238C3A /* ScheduleReminderUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7DD613471ECDE5AFB1BB199B /* ScheduleReminderUseCase.swift */; };
 		3F4C0EC2880374F5E1710E7F /* AddTaskDatePresetRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA9D6B0D45CD7BA946FCF6F3 /* AddTaskDatePresetRow.swift */; };
@@ -197,7 +189,6 @@
 		4074DB4C2171B0566E75ECBE /* LifeBoardAtmosphereRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 46AAACA6B4098F81A5F67D4E /* LifeBoardAtmosphereRenderer.swift */; };
 		40E1706994A23C948306E25F /* LifeManagementComposerPreviewCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8B34D157D734D31C764453F /* LifeManagementComposerPreviewCard.swift */; };
 		41C931CFD888EF92197B0D24 /* HomeHabitMutationFeedback.swift in Sources */ = {isa = PBXBuildFile; fileRef = A07E21E632557DE3A511B5C8 /* HomeHabitMutationFeedback.swift */; };
-		4204230B763861761BB75AF3 /* CoreDataTagRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FD8DED9951762C1A0ACCBDD /* CoreDataTagRepository.swift */; };
 		424A813126216FCDBB3BB9D3 /* HomeRenderInvalidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77DC1194E3FDC7C550953B31 /* HomeRenderInvalidation.swift */; };
 		429BC3BC461278EFC2DCE53B /* HomeViewModel+EvaFocus.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC8C891FA22F9B04EA07D70E /* HomeViewModel+EvaFocus.swift */; };
 		42BF53D74D00FCF839E5BB25 /* LifeBoardCaptureControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D2099A7314A109F91A5A0B3 /* LifeBoardCaptureControl.swift */; };
@@ -219,7 +210,6 @@
 		4B65F890786EE2C3F5A39C2C /* TimelineCompactRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C6A23DC0DB1740CCDF6D30F /* TimelineCompactRows.swift */; };
 		BA717443B276605274DB2E8D /* TimelineAgendaRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF492F7FFF57B8C8C95E9BC6 /* TimelineAgendaRows.swift */; };
 		4C116CACC08E51B35A4EA8B4 /* lifeManagementAreaPaletteOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6AA12D4A60EA9B1E6A316B7 /* lifeManagementAreaPaletteOptions.swift */; };
-		4C1518DF4ED5BA6F4E6D9C81 /* InMemoryCacheService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D1019B77D01322B031EC108 /* InMemoryCacheService.swift */; };
 		4C1BDC9E724542DA36739830 /* QuietHoursTimeBar.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7273F65E17455922134AB7A9 /* QuietHoursTimeBar.swift */; };
 		4C1EDC5A08CA68696B5EADD9 /* OnboardingFloatingNextButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = 076D0B0C6429D3BED7BCBF7A /* OnboardingFloatingNextButton.swift */; };
 		4E816E3A12F0DFB4283D9FCF /* EvaHomePromptChip.swift in Sources */ = {isa = PBXBuildFile; fileRef = 384185D0DBC900F3E3B48AF3 /* EvaHomePromptChip.swift */; };
@@ -275,13 +265,11 @@
 		67A73E4B61D4A82E1336EA51 /* HomeViewModel+ProjectionInvalidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA4596A02DBC4C81BD5D267F /* HomeViewModel+ProjectionInvalidation.swift */; };
 		6868D7DE1D836622DADA12CD /* HomeViewModel+TaskCreationDependencies.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41E91E7B08A3DB7F6092C4D4 /* HomeViewModel+TaskCreationDependencies.swift */; };
 		686BD3F9EE58F613BD29E6C8 /* ProjectSummaryRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB8C1BB0D0F72004D8CD5497 /* ProjectSummaryRow.swift */; };
-		68910C38BADF060D09F81CE3 /* V2CoreDataRepositorySupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 836DC307393EA1752081FFEE /* V2CoreDataRepositorySupport.swift */; };
 		689BD052F12F388961F9C63C /* HomeNotificationNameExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = C4A9726955E0A1C39832E736 /* HomeNotificationNameExtension.swift */; };
 		69170C2AAEAA052519F64E78 /* CalendarIntegrationServiceExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20F2D4962594CB52DC1918C /* CalendarIntegrationServiceExtension.swift */; };
 		6A4B1EB5E3E85FE74AD7AEDC /* AssistantCommandExecutor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8699B1ED0E60EAAE73AE2E3 /* AssistantCommandExecutor.swift */; };
 		6A791794B107ED921F62EF41 /* OnboardingFloatingNextAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED9726B0BA993B4BD3887748 /* OnboardingFloatingNextAction.swift */; };
 		6AD96644B6458794736BA46D /* MessageView+DayOverviewAndProposalActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 059D7229E32477D1B282E2A2 /* MessageView+DayOverviewAndProposalActions.swift */; };
-		6BFABA2E6D0DFA253AEC67A9 /* UserDefaultsSavedHomeViewRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A365503F0A1EC71D5D159FC0 /* UserDefaultsSavedHomeViewRepository.swift */; };
 		6C006BB3E9FD2F0002698C5D /* WeeklyPlanningWorkspace.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7068FE6EF42DB21BB959D209 /* WeeklyPlanningWorkspace.swift */; };
 		6C55EB9AB6FB62999A3A710D /* HomeViewModel+DailyAnalytics.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E88A3C9B5309D183423ACF8 /* HomeViewModel+DailyAnalytics.swift */; };
 		6CA88A6A8612FD806A55CEC5 /* HomeDataRevision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EA22869E8CBC680A061ABAC /* HomeDataRevision.swift */; };
@@ -422,7 +410,6 @@
 		B889078F85E494915DE0C2EB /* OverdueRescueSessionPersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C1CFFDD2EC4EFA50136E788 /* OverdueRescueSessionPersistence.swift */; };
 		82FB6DE938FB3650E891FC88 /* HomeDayNavigationDirection.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4090E95CAD9BC75484267914 /* HomeDayNavigationDirection.swift */; };
 		83CBA72051A1B8A5580FB888 /* OnboardingPrimaryGoal.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61B03639156A8E2D31701235 /* OnboardingPrimaryGoal.swift */; };
-		83EFBFC4977B6ABACDEA352B /* CoreDataTaskDefinitionRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = F4687654CCFC97DCFDA3E695 /* CoreDataTaskDefinitionRepository.swift */; };
 		8455171FE035DD36178C82A1 /* EvaDayTaskActionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D934D251750D7055D55AD060 /* EvaDayTaskActionsView.swift */; };
 		84F03ABBF9605F10AF9BB212 /* TimelinePhoneRenderModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A25F3E0B9D00FA850EE9E8A9 /* TimelinePhoneRenderModel.swift */; };
 		858A4B4BBFF2BD3553D36F21 /* AssistantActionPipelineUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98955AE7E300D2E682AE486B /* AssistantActionPipelineUseCase.swift */; };
@@ -431,13 +418,11 @@
 		85B8C1EE718877179BEF4F99 /* UniversalInputCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F46945F09E390576B10B74 /* UniversalInputCoordinator.swift */; };
 		85B8C1EE718877179BEF4F9A /* UniversalInputSemanticAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F46945F09E390576B10B75 /* UniversalInputSemanticAdapter.swift */; };
 		85B8C1EE718877179BEF4F9B /* UniversalDictationController.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5F46945F09E390576B10B76 /* UniversalDictationController.swift */; };
-		863B6B92EB0A96ED4BAB5BA6 /* CoreDataGamificationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1134D09887CAA3CD8F14E808 /* CoreDataGamificationRepository.swift */; };
 		8689D743382AFB9679125174 /* AppOnboardingJourneyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 030D7ED39864D654D71BF1CE /* AppOnboardingJourneyView.swift */; };
 		86A93997F7D4FD6F2D0E4D4F /* HomeTimelineCalendarSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2FC9E261B9D943C48C8EEC4 /* HomeTimelineCalendarSignature.swift */; };
 		86E61B5C7E8F8DDAD3BAC7C9 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCD0B9C7DEE094DB1B55D5BD /* SettingsViewModel.swift */; };
 		86E90FFDD209E7304B7D5BBE /* HomeOnboardingGuidanceBanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1D4A4EDAF6692D9D7819FF1 /* HomeOnboardingGuidanceBanner.swift */; };
 		876568AD4ACD09548D5F3199 /* LifeManagementComposerSectionCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7433F7F7707CF6A0DA1A58B2 /* LifeManagementComposerSectionCard.swift */; };
-		877BB428E2F289B2E71A9989 /* CoreDataHabitRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 44CFBD9F581CA1A255A49A85 /* CoreDataHabitRepository.swift */; };
 		8790268063CEA1C833D51C7A /* OnboardingStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD40BE88D4061AEA79953253 /* OnboardingStep.swift */; };
 		8792E823650E54CA4E14AA8E /* AppOnboardingPromptSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B526F1E51EB6600E103374A /* AppOnboardingPromptSheetView.swift */; };
 		87A099A8CE32334354449960 /* LifeManagementTreeInteractionMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = BF3952602FF1A9D756382492 /* LifeManagementTreeInteractionMode.swift */; };
@@ -452,13 +437,10 @@
 		D893E204390D3C570E0D353D /* TimelineCanvasRail.swift in Sources */ = {isa = PBXBuildFile; fileRef = C302D2E8EB53A6B1E6684001 /* TimelineCanvasRail.swift */; };
 		76DB16F550B17E74AE543E17 /* TimelineCanvasLayoutPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 525907A82E97F50E0FCC530C /* TimelineCanvasLayoutPlan.swift */; };
 		54B5D8EF60C48EB21D56B40E /* TimelineVisualTimeMapping.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE76A12181FF40C7E9757845 /* TimelineVisualTimeMapping.swift */; };
-		8CEB7AF8EA56D5550356778F /* CoreDataProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AD631E2A2245F830BA92FA5 /* CoreDataProjectRepository.swift */; };
-		8CF22C53A483ED3E88E74656 /* CoreDataTaskReadModelRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = A95FD785F6B6001D9106C2B8 /* CoreDataTaskReadModelRepository.swift */; };
 		8D5E3D97FB21E273894B0B4D /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C3D8D5167F9519588886C38B /* Foundation.framework */; };
 		8D7BDD59803F690867AC75C8 /* HomeViewModel+StateUtilities.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5495D17B3F94C89D74CD407E /* HomeViewModel+StateUtilities.swift */; };
 		8D8A8C8983C91CD1372CA1EB /* AppOnboardingAccessibilityID.swift in Sources */ = {isa = PBXBuildFile; fileRef = B515F171FB9C556BBCA40366 /* AppOnboardingAccessibilityID.swift */; };
 		8DC9908CB24A163442B463FB /* CompleteTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1265EFBF270FC894A5FCA278 /* CompleteTaskDefinitionUseCase.swift */; };
-		8E9F0A1B2C3D4E5F60718293 /* LifeBoardHexColor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E9F0A1B2C3D4E5F60718292 /* LifeBoardHexColor.swift */; };
 		8FE784A4B9FCFA802CE95542 /* logOnboardingError.swift in Sources */ = {isa = PBXBuildFile; fileRef = D3FE2E5497D838BF7ACBA002 /* logOnboardingError.swift */; };
 		9031116FF086B97F08AE6437 /* TrackFoundationServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 397C07871DD37C43B8DBB641 /* TrackFoundationServices.swift */; };
 		9092BD6AC3FACD1123284752 /* HomeViewModel+FocusSessions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82775C66CDC41F9E7034D949 /* HomeViewModel+FocusSessions.swift */; };
@@ -507,7 +489,6 @@
 		A1C2D3E4F5A60718293B4C5D /* AssistantPlannerServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C2D3E4F5A60718293B4C5C /* AssistantPlannerServiceTests.swift */; };
 		A1C2D3E4F5A60718293B4C5E /* AssistantEnvelopeValidatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1C2D3E4F5A60718293B4C5F /* AssistantEnvelopeValidatorTests.swift */; };
 		A1C3D4E5F6A7B8C9D0E1F2A3 /* KeyboardShortcutsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2D4E5F6A7B8C9D0E1F2A3B4 /* KeyboardShortcutsCard.swift */; };
-		A1D100022F90000100AA2001 /* LifeBoardPersistentStoreBootstrapService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D100042F90000100AA2001 /* LifeBoardPersistentStoreBootstrapService.swift */; };
 		A1F0D0B22F5A100100ABC001 /* AppOnboarding.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D0B12F5A100100ABC001 /* AppOnboarding.swift */; };
 		A1F0D0B52F5A100100ABC001 /* AppOnboardingTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D0B42F5A100100ABC001 /* AppOnboardingTests.swift */; };
 		A1F0D0B72F5A100100ABC001 /* OnboardingUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1F0D0B62F5A100100ABC001 /* OnboardingUITests.swift */; };
@@ -518,15 +499,6 @@
 		A20000000000000000000005 /* XPBadge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000005 /* XPBadge.swift */; };
 		A20000000000000000000007 /* CelebrationEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000007 /* CelebrationEffects.swift */; };
 		A2538173786D1C9268A5495A /* SettingsProfileHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DBF5FA356354C0F76959A4CF /* SettingsProfileHeaderView.swift */; };
-		A30000000000000000000002 /* JournalFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000001 /* JournalFoundation */; };
-		A30000000000000000000004 /* TranscriptionKit in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000003 /* TranscriptionKit */; };
-		A30000000000000000000006 /* MoodDialKit in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000005 /* MoodDialKit */; };
-		A30000000000000000000008 /* SemanticMemoryKit in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000007 /* SemanticMemoryKit */; };
-		A3000000000000000000000A /* KnowledgeGraphKit in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000009 /* KnowledgeGraphKit */; };
-		A3000000000000000000000C /* AssistantCoreKit in Frameworks */ = {isa = PBXBuildFile; productRef = A3000000000000000000000B /* AssistantCoreKit */; };
-		A3000000000000000000000E /* ReflectionKit in Frameworks */ = {isa = PBXBuildFile; productRef = A3000000000000000000000D /* ReflectionKit */; };
-		A30000000000000000000010 /* WatchCaptureKit in Frameworks */ = {isa = PBXBuildFile; productRef = A3000000000000000000000F /* WatchCaptureKit */; };
-		A30000000000000000000012 /* JournalSecurityKit in Frameworks */ = {isa = PBXBuildFile; productRef = A30000000000000000000011 /* JournalSecurityKit */; };
 		A31000000000000000000102 /* InboxCommitCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000101 /* InboxCommitCoordinator.swift */; };
 		A31000000000000000000104 /* InboxCommitCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000103 /* InboxCommitCoordinatorTests.swift */; };
 		A31000000000000000000106 /* CoreDataInboxTaskWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000105 /* CoreDataInboxTaskWriter.swift */; };
@@ -548,6 +520,7 @@
 		A31000000000000000000222 /* LifeBoardLensPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000221 /* LifeBoardLensPicker.swift */; };
 		A31000000000000000000511 /* LifeBoardComposerScaffold.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000510 /* LifeBoardComposerScaffold.swift */; };
 		A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000514 /* LifeBoardValueControls.swift */; };
+		A31000000000000000000517 /* SignatureShaderComfortGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000516 /* SignatureShaderComfortGate.swift */; };
 		A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000223 /* LifeBoardTokenBridge.swift */; };
 		A31000000000000000000226 /* TokenBridgeEquivalenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */; };
 		A31000000000000000000228 /* AccessibilityContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000227 /* AccessibilityContractTests.swift */; };
@@ -555,7 +528,6 @@
 		A31000000000000000000504 /* AtmosphereSliderGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000503 /* AtmosphereSliderGeometryTests.swift */; };
 		A3A6DF9571AB7FEB410EB861 /* SunriseAdvancedFilterSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 594ECD331C0135DA36357314 /* SunriseAdvancedFilterSheetView.swift */; };
 		A4C2E9F12B7D4C5581AA0002 /* HomeTaskMutationPayloadTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4C2E9F12B7D4C5581AA0004 /* HomeTaskMutationPayloadTests.swift */; };
-		A4E8C9D12F9A4C3600A1B2C3 /* LifeAreaIdentityRepair.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4E8C9D22F9A4C3600A1B2C3 /* LifeAreaIdentityRepair.swift */; };
 		A516ABAD2F7D26235B44C3A1 /* AppOnboardingCoordinator+Presentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = CDB9D4FD3A636968AEBF5DB7 /* AppOnboardingCoordinator+Presentation.swift */; };
 		A55000000000000000000002 /* AppStoreScreenshotUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A55000000000000000000001 /* AppStoreScreenshotUITests.swift */; };
 		A5857BBC75940D4FC8CFF13E /* EvaDayTaskHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B72A4F99B2064E4A639A6264 /* EvaDayTaskHeaderView.swift */; };
@@ -638,13 +610,6 @@
 		B045DF5013C77C68A76E8530 /* WeeklyPlanningWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 716DC2714917FA44C1379546 /* WeeklyPlanningWorkspaceView.swift */; };
 		B07988E6375D66CC8CDB8D47 /* EvaDaySunriseTaskRowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0B33EB5C978F76DF3A6A735C /* EvaDaySunriseTaskRowView.swift */; };
 		B07A5646DA7E6D9AC7739710 /* ManageLifeAreasUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = E06E18805C2401359A9B0F5B /* ManageLifeAreasUseCase.swift */; };
-		B10B1C2D3E4F506172839401 /* StateLifeAreaMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839401 /* StateLifeAreaMapper.swift */; };
-		B10B1C2D3E4F506172839402 /* StateSectionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839402 /* StateSectionMapper.swift */; };
-		B10B1C2D3E4F506172839403 /* StateTagMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839403 /* StateTagMapper.swift */; };
-		B10B1C2D3E4F506172839404 /* StateTombstoneMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839404 /* StateTombstoneMapper.swift */; };
-		B10B1C2D3E4F506172839405 /* StateHabitDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839405 /* StateHabitDefinitionMapper.swift */; };
-		B10B1C2D3E4F506172839407 /* StateTaskDefinitionMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839407 /* StateTaskDefinitionMapper.swift */; };
-		B10B1C2D3E4F506172839408 /* StateProjectMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10B1C2D3E4F506172839408 /* StateProjectMapper.swift */; };
 		B1A000000000000000000001 /* LifeBoardFilterComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000011 /* LifeBoardFilterComponents.swift */; };
 		B1A000000000000000000002 /* LifeBoardSearchChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000012 /* LifeBoardSearchChrome.swift */; };
 		B1A000000000000000000003 /* HomeChromeComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1A000000000000000000013 /* HomeChromeComponents.swift */; };
@@ -673,8 +638,6 @@
 		B2E10000000000000000020C /* HomeTimelineProjectionBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2E10000000000000000010C /* HomeTimelineProjectionBuilder.swift */; };
 		B3002EA7B07545C684BF2B16 /* HabitRepositoryProtocolExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = 93E4A4DA88B81666171B5808 /* HabitRepositoryProtocolExtension.swift */; };
 		B426403E6996E2CE8BE66FB6 /* CompositionRoot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 017ECAA6FA89C9A7825A3E8A /* CompositionRoot.swift */; };
-		4F7979522A1078FA62A46FE4 /* UITestCalendarEventsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E540C47D5D6F782BB0B9DB4 /* UITestCalendarEventsRepository.swift */; };
-		51DAE6495CA158321FAB5FA8 /* CachedProjectRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82AD0ABA0D485012F7B6E84D /* CachedProjectRepository.swift */; };
 		B430108C7AE1B927B9B1FB58 /* OnboardingEvaStatusCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E16263361281852BA8E5B7F /* OnboardingEvaStatusCard.swift */; };
 		B4CEBBDFFBF2F46920F5E835 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 0D4A50819BBF42D4BCC06A29 /* PrivacyInfo.xcprivacy */; };
 		B4D7E8213A4F5C6D7E8F9012 /* V3TestHarness.swift in Sources */ = {isa = PBXBuildFile; fileRef = B4D7E8213A4F5C6D7E8F9011 /* V3TestHarness.swift */; };
@@ -711,7 +674,6 @@
 		C0FFEE00000000000000CF01 /* lb_confetti.json in Resources */ = {isa = PBXBuildFile; fileRef = C0FFEE00000000000000CF02 /* lb_confetti.json */; };
 		C158FF33EA33FDAD9E137F25 /* OnboardingNetworkClass.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C4934047F3DBEA1EF645AC1 /* OnboardingNetworkClass.swift */; };
 		C1A100000000000000000103 /* HabitRuntimeUseCases.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000003 /* HabitRuntimeUseCases.swift */; };
-		C1A100000000000000000104 /* CoreDataHabitRuntimeReadRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A100000000000000000004 /* CoreDataHabitRuntimeReadRepository.swift */; };
 		C1A2B3C4D5E6F70011223344 /* LLMRuntimeCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223345 /* LLMRuntimeCoordinator.swift */; };
 		C1A2B3C4D5E6F70011223346 /* LLMProjectionTimeout.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223347 /* LLMProjectionTimeout.swift */; };
 		C1A2B3C4D5E6F70011223348 /* LLMRuntimeCoordinatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1A2B3C4D5E6F70011223349 /* LLMRuntimeCoordinatorTests.swift */; };
@@ -752,8 +714,6 @@
 		C5F044673340D4322E0821B9 /* HabitListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 903BFF6DB72A0D515603C771 /* HabitListRow.swift */; };
 		C5F5000000000000000000A2 /* JournalMoodCaptureView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000A1 /* JournalMoodCaptureView.swift */; };
 		C5F5000000000000000000A4 /* LifeBoardJournalSnapshotAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000A3 /* LifeBoardJournalSnapshotAdapter.swift */; };
-		C5F5000000000000000000A6 /* SemanticJournalDerivedIndexRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000A5 /* SemanticJournalDerivedIndexRepository.swift */; };
-		C5F5000000000000000000AA /* LifeBoardJournalEvidenceService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000A9 /* LifeBoardJournalEvidenceService.swift */; };
 		C5F5000000000000000000AE /* LifeBoardSystemSurfaceSnapshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000AD /* LifeBoardSystemSurfaceSnapshots.swift */; };
 		C5F5000000000000000000B2 /* FastingTimerStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5F5000000000000000000B1 /* FastingTimerStore.swift */; };
 		C6182C050AFE59B731DAD798 /* LifeBoardWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = F9A8B91DCC93833939CAE3C6 /* LifeBoardWidgets.appex */; platformFilter = ios; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -778,9 +738,6 @@
 		C8A4F1023D6E4B7A91C2D304 /* HabitBoardUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8A4F1023D6E4B7A91C2D303 /* HabitBoardUITests.swift */; };
 		C97158559B083DC4E73DD335 /* PlanningCorePersistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = AFD9965E6C4E172D7429387C /* PlanningCorePersistence.swift */; };
 		C97CA61FED91A0C2BE4E3AB1 /* HomeDerivedTaskRowsCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = FB92AF0F70C629B9BB0501F5 /* HomeDerivedTaskRowsCache.swift */; };
-		C9F2A10C3D4E5F60718293AA /* WriteClosedRepositoryAdapters.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9F2A10C3D4E5F60718293AA /* WriteClosedRepositoryAdapters.swift */; };
-		CA1A10000000000000000006 /* EventKitCalendarChooserSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A20000000000000000006 /* EventKitCalendarChooserSheet.swift */; };
-		CA1A10000000000000000007 /* EventKitEventDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A20000000000000000007 /* EventKitEventDetailView.swift */; };
 		CA1A10000000000000000009 /* CalendarComputationUseCasesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A20000000000000000009 /* CalendarComputationUseCasesTests.swift */; };
 		CA1A1000000000000000000A /* CalendarIntegrationServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A2000000000000000000A /* CalendarIntegrationServiceTests.swift */; };
 		CA1A1000000000000000000B /* HomeCalendarIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA1A2000000000000000000B /* HomeCalendarIntegrationTests.swift */; };
@@ -812,7 +769,6 @@
 		D38314D027D0FAD3E8DBD55A /* AppOnboardingCoordinator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D9D661B4914CE34AEA2DD30 /* AppOnboardingCoordinator.swift */; };
 		D3C6DDF5B5DD2F340FA340D2 /* LifeBoardEvidenceContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 172D92943BF0E56EE1B9069E /* LifeBoardEvidenceContractTests.swift */; };
 		D4E0D80A4976DADBFEC9F159 /* onboardingLogLine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12B9F0A506329D6FA33A3932 /* onboardingLogLine.swift */; };
-		D4F200000000000000000107 /* CoreDataWeeklyRepositories.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000107 /* CoreDataWeeklyRepositories.swift */; };
 		D4F200000000000000000108 /* WeeklyOperatingUseCases.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000108 /* WeeklyOperatingUseCases.swift */; };
 		D4F200000000000000000109 /* WeeklyPlannerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F100000000000000000109 /* WeeklyPlannerViewModel.swift */; };
 		D4F20000000000000000010A /* WeeklyReviewViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4F10000000000000000010A /* WeeklyReviewViewModel.swift */; };
@@ -969,14 +925,11 @@
 		EC45E6BBD381E86DD65D5EDF /* HomeTimelineReplanCandidateSignature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ABDFA484783D44FCE389CA8 /* HomeTimelineReplanCandidateSignature.swift */; };
 		EC5ACC28AB5F41548442B064 /* InsightsInterpretationEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E37B40A095A4A51A8411D6B /* InsightsInterpretationEngine.swift */; };
 		ED97E21547C8335D58370530 /* TypingIndicator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38AE057025E85DF89448752B /* TypingIndicator.swift */; };
-		EE0D1E9027D0CB3E2CF1FE04 /* DashboardLayoutRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9607F4898D2AB18D995135CE /* DashboardLayoutRepository.swift */; };
 		EE3E0D5AF58CB2AD95219EB6 /* CreateTaskDefinitionUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC4ABAA08D90818447AA6D03 /* CreateTaskDefinitionUseCase.swift */; };
 		EE9035C0B9F8F991433E9826 /* lifeManagementNormalizedHex.swift in Sources */ = {isa = PBXBuildFile; fileRef = D07E18D71C702586CD89133E /* lifeManagementNormalizedHex.swift */; };
 		EF1769B605BF09BDBF28186D /* AddTaskDurationPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 316921199F513341A93BD753 /* AddTaskDurationPicker.swift */; };
 		F008F091A6B8DB39893BDF07 /* EvaDayTaskActionButtonView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3528CDE2C353B77B8CC4EB35 /* EvaDayTaskActionButtonView.swift */; };
 		F00D00000000000000001002 /* TaskDetailPresentationContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00D00000000000000001001 /* TaskDetailPresentationContracts.swift */; };
-		F00D00000000000000001006 /* CalendarSchedulePresentationContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00D00000000000000001005 /* CalendarSchedulePresentationContracts.swift */; };
-		F00D00000000000000001008 /* CalendarTimelinePresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00D00000000000000001007 /* CalendarTimelinePresentation.swift */; };
 		F00D8D326BF77E4E42597083 /* HabitSummaryRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7AE36332DC107A6F5A9A4AF2 /* HabitSummaryRow.swift */; };
 		F0A100000000000000000101 /* SeededFeaturePages.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000102 /* SeededFeaturePages.swift */; };
 		F0A100000000000000000201 /* OverdueRescueSeededUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F0A100000000000000000202 /* OverdueRescueSeededUITests.swift */; };
@@ -1010,13 +963,11 @@
 		F5A100032F6A200100ABC001 /* LifeBoardAppShortcutsTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5A100022F6A200100ABC001 /* LifeBoardAppShortcutsTests.swift */; };
 		F5B000000000000000000001 /* WatchJournalCaptureStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5B000000000000000000011 /* WatchJournalCaptureStore.swift */; };
 		F5B000000000000000000002 /* WatchAudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5B000000000000000000012 /* WatchAudioRecorder.swift */; };
-		F5B000000000000000000003 /* WatchCaptureKit in Frameworks */ = {isa = PBXBuildFile; productRef = A3000000000000000000000F /* WatchCaptureKit */; };
 		F5BD3FA4315CD2E0D8E33730 /* EvaChiefOfStaffGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC8C39098BF0A10AE6CC5EE3 /* EvaChiefOfStaffGuideView.swift */; };
 		F5C55F69B9C3BEDDF1C2FD8F /* LifeManagementColorSwatchButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = E54A7695DD06B755561CDB3D /* LifeManagementColorSwatchButton.swift */; };
 		F6A1B2C3D4E5F60718293B57 /* HomeChromeSnapshotPresentationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6A1B2C3D4E5F60718293A57 /* HomeChromeSnapshotPresentationTests.swift */; };
 		F6BF00E2BC75CA6D7EA0D449 /* TimelineItemCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = F37CC3576F638C63EB2D1943 /* TimelineItemCards.swift */; };
 		67F234D59DDA03EC0595B870 /* TimelineGroupCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7D715EE48085861D536F4F22 /* TimelineGroupCards.swift */; };
-		F7F1A376574BECAD5FD6A5E3 /* CoreDataReminderRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = 10EE348FF84C5F729A416848 /* CoreDataReminderRepository.swift */; };
 		F825BC32A2F154EF1E81504E /* StarterWorkspaceCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98E3FDAB970DF9A475E91D5F /* StarterWorkspaceCatalog.swift */; };
 		F85EBA97A802F4DC015E332F /* HabitArchiveRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E17B1D7658A53B43A03A2DB /* HabitArchiveRow.swift */; };
 		F8C1A0019AB24E01A11C0001 /* TaskIconSupport.swift in Sources */ = {isa = PBXBuildFile; fileRef = F8C1A0019AB24E01A11C1001 /* TaskIconSupport.swift */; };
@@ -1115,7 +1066,6 @@
 		F1A000000000000000000011 /* HomeBandLayoutPlanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeBandLayoutPlanner.swift; path = LifeBoard/Features/Home/UI/Models/HomeBandLayoutPlanner.swift; sourceTree = SOURCE_ROOT; };
 		F1A000000000000000000012 /* TaskAgendaPresentationModelBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = TaskAgendaPresentationModelBuilder.swift; path = LifeBoard/Features/Home/UI/Models/TaskAgendaPresentationModelBuilder.swift; sourceTree = SOURCE_ROOT; };
 		017ECAA6FA89C9A7825A3E8A /* CompositionRoot.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CompositionRoot.swift; path = LifeBoard/App/DI/CompositionRoot.swift; sourceTree = SOURCE_ROOT; };
-		9E540C47D5D6F782BB0B9DB4 /* UITestCalendarEventsRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = UITestCalendarEventsRepository.swift; path = Features/Calendar/Data/UITestCalendarEventsRepository.swift; sourceTree = "<group>"; };
 		82AD0ABA0D485012F7B6E84D /* CachedProjectRepository.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = CachedProjectRepository.swift; path = Persistence/Repositories/CachedProjectRepository.swift; sourceTree = "<group>"; };
 		01EE7EB5F53129BCEE1A8679 /* TimelineDayState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TimelineDayState.swift; path = LifeBoard/Features/Home/UI/Timeline/Surface/TimelineDayState.swift; sourceTree = SOURCE_ROOT; };
 		030D7ED39864D654D71BF1CE /* AppOnboardingJourneyView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Views/AppOnboardingJourneyView.swift; sourceTree = SOURCE_ROOT; };
@@ -1537,7 +1487,6 @@
 		8B64FFD6CD4BC91A0687E1B2 /* HomeCanonicalHabitMutationLoadState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeCanonicalHabitMutationLoadState.swift; path = LifeBoard/Features/Home/UI/ViewModels/HomeCanonicalHabitMutationLoadState.swift; sourceTree = SOURCE_ROOT; };
 		8CB5F00E7099AA872CD49634 /* OnboardingAccessibilityMarkerView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Views/OnboardingAccessibilityMarkerView.swift; sourceTree = SOURCE_ROOT; };
 		8E16263361281852BA8E5B7F /* OnboardingEvaStatusCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Components/OnboardingEvaStatusCard.swift; sourceTree = SOURCE_ROOT; };
-		8E9F0A1B2C3D4E5F60718292 /* LifeBoardHexColor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = LifeBoardHexColor.swift; path = LifeBoard/Utils/HexColor.swift; sourceTree = SOURCE_ROOT; };
 		8F0354062DD8AECC3D1B17C4 /* lifeManagementResolvedHex.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/lifeManagementResolvedHex.swift; sourceTree = SOURCE_ROOT; };
 		8F4F0CDFF4458CFC2FFBA4A5 /* DailySummaryLoadState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DailySummaryLoadState.swift; path = LifeBoard/Features/Home/UI/ViewModels/DailySummaryLoadState.swift; sourceTree = SOURCE_ROOT; };
 		8FC11A075C9E37AF0A3A64C8 /* HomeViewModel+InitialLoading.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+InitialLoading.swift"; path = "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+InitialLoading.swift"; sourceTree = SOURCE_ROOT; };
@@ -1646,6 +1595,7 @@
 		A31000000000000000000221 /* LifeBoardLensPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardLensPicker.swift; path = LifeBoard/DesignSystem/LensPicker.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000510 /* LifeBoardComposerScaffold.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardComposerScaffold.swift; path = LifeBoard/DesignSystem/ComposerScaffold.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000514 /* LifeBoardValueControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardValueControls.swift; sourceTree = "<group>"; };
+		A31000000000000000000516 /* SignatureShaderComfortGate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SignatureShaderComfortGate.swift; path = LifeBoard/DesignSystem/SignatureShaderComfortGate.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000223 /* LifeBoardTokenBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTokenBridge.swift; path = LifeBoard/DesignSystem/TokenBridge.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenBridgeEquivalenceTests.swift; sourceTree = "<group>"; };
 		A31000000000000000000227 /* AccessibilityContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContractTests.swift; sourceTree = "<group>"; };
@@ -1911,8 +1861,6 @@
 		CA1A20000000000000000003 /* CalendarComputationUseCases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Packages/LifeBoardCalendar/Sources/LifeBoardCalendar/CalendarComputationUseCases.swift; sourceTree = SOURCE_ROOT; };
 		CA1A20000000000000000004 /* EventKitCalendarEventsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EventKitCalendarEventsRepository.swift; path = Packages/LifeBoardCalendar/Sources/LifeBoardCalendar/EventKitCalendarEventsRepository.swift; sourceTree = SOURCE_ROOT; };
 		CA1A20000000000000000005 /* CalendarIntegrationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CalendarIntegrationService.swift; path = Packages/LifeBoardCalendar/Sources/LifeBoardCalendar/CalendarIntegrationService.swift; sourceTree = SOURCE_ROOT; };
-		CA1A20000000000000000006 /* EventKitCalendarChooserSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EventKitCalendarChooserSheet.swift; path = LifeBoard/Features/Calendar/UI/EventKitCalendarChooserSheet.swift; sourceTree = SOURCE_ROOT; };
-		CA1A20000000000000000007 /* EventKitEventDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = EventKitEventDetailView.swift; path = LifeBoard/Features/Calendar/UI/EventKitEventDetailView.swift; sourceTree = SOURCE_ROOT; };
 		CA1A20000000000000000009 /* CalendarComputationUseCasesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarComputationUseCasesTests.swift; sourceTree = "<group>"; };
 		CA1A2000000000000000000A /* CalendarIntegrationServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarIntegrationServiceTests.swift; sourceTree = "<group>"; };
 		CA1A2000000000000000000B /* HomeCalendarIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeCalendarIntegrationTests.swift; sourceTree = "<group>"; };
@@ -2088,8 +2036,6 @@
 		EED5CBC96B81618B5D5B1C6D /* LifeManagementComposerMetricTile.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/LifeManagementComposerMetricTile.swift; sourceTree = SOURCE_ROOT; };
 		EFD0A8DA9F2060C50BF6DA52 /* EvaChiefOfStaffGuideSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Eva/Views/Chat/Chrome/EvaChiefOfStaffGuideSection.swift; sourceTree = SOURCE_ROOT; };
 		F00D00000000000000001001 /* TaskDetailPresentationContracts.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TaskDetailPresentationContracts.swift; path = LifeBoard/Features/Tasks/UI/TaskDetailPresentationContracts.swift; sourceTree = SOURCE_ROOT; };
-		F00D00000000000000001005 /* CalendarSchedulePresentationContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CalendarSchedulePresentationContracts.swift; path = LifeBoard/Features/Calendar/UI/CalendarSchedulePresentationContracts.swift; sourceTree = SOURCE_ROOT; };
-		F00D00000000000000001007 /* CalendarTimelinePresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = CalendarTimelinePresentation.swift; path = LifeBoard/Features/Calendar/UI/CalendarTimelinePresentation.swift; sourceTree = SOURCE_ROOT; };
 		F067D7763D4A025CC75BAB13 /* LifeBoardFoundationGallery.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardFoundationGallery.swift; path = Foundation/Design/LifeBoardFoundationGallery.swift; sourceTree = "<group>"; };
 		F0A100000000000000000102 /* SeededFeaturePages.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeededFeaturePages.swift; sourceTree = "<group>"; };
 		F0A100000000000000000202 /* OverdueRescueSeededUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OverdueRescueSeededUITests.swift; sourceTree = "<group>"; };
@@ -2168,7 +2114,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				8D5E3D97FB21E273894B0B4D /* Foundation.framework in Frameworks */,
-				F5B000000000000000000003 /* WatchCaptureKit in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2185,15 +2130,6 @@
 				75A328BB2DFB606700F36C31 /* MLXLMCommon in Frameworks */,
 				75A328C12DFB606700F36C31 /* Hub in Frameworks */,
 				75A328C22DFB606700F36C31 /* Tokenizers in Frameworks */,
-				A30000000000000000000002 /* JournalFoundation in Frameworks */,
-				A30000000000000000000004 /* TranscriptionKit in Frameworks */,
-				A30000000000000000000006 /* MoodDialKit in Frameworks */,
-				A30000000000000000000008 /* SemanticMemoryKit in Frameworks */,
-				A3000000000000000000000A /* KnowledgeGraphKit in Frameworks */,
-				A3000000000000000000000C /* AssistantCoreKit in Frameworks */,
-				A3000000000000000000000E /* ReflectionKit in Frameworks */,
-				A30000000000000000000010 /* WatchCaptureKit in Frameworks */,
-				A30000000000000000000012 /* JournalSecurityKit in Frameworks */,
 				B578F682B59B5EE5ADB3FB30 /* AppIntents.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -3015,7 +2951,6 @@
 			isa = PBXGroup;
 			children = (
 				7551DA08248832BE005CF826 /* ToDoTimeUtils.swift */,
-				8E9F0A1B2C3D4E5F60718292 /* LifeBoardHexColor.swift */,
 				75DFF2D32DF22FC300EB8850 /* DateUtils.swift */,
 				B7C8D9E0F1A2233445566778 /* OverdueAgeFormatter.swift */,
 				75DFF2D42DF22FC300EB8850 /* LoggingService.swift */,
@@ -3034,10 +2969,6 @@
 				A10B1C2D3E4F506172839405 /* StateHabitDefinitionMapper.swift */,
 				A10B1C2D3E4F506172839407 /* StateTaskDefinitionMapper.swift */,
 				A10B1C2D3E4F506172839408 /* StateProjectMapper.swift */,
-				CA1A20000000000000000006 /* EventKitCalendarChooserSheet.swift */,
-				CA1A20000000000000000007 /* EventKitEventDetailView.swift */,
-				F00D00000000000000001005 /* CalendarSchedulePresentationContracts.swift */,
-				F00D00000000000000001007 /* CalendarTimelinePresentation.swift */,
 				CA1A20000000000000000004 /* EventKitCalendarEventsRepository.swift */,
 				CA1A20000000000000000005 /* CalendarIntegrationService.swift */,
 				CA1A20000000000000000003 /* CalendarComputationUseCases.swift */,
@@ -3521,6 +3452,7 @@
 				A31000000000000000000514 /* LifeBoardValueControls.swift */,
 				A31000000000000000000501 /* LifeBoardAtmosphereSlider.swift */,
 				A31000000000000000000223 /* LifeBoardTokenBridge.swift */,
+				A31000000000000000000516 /* SignatureShaderComfortGate.swift */,
 				C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */,
 				DA4C5F6B7E8D9201F3A4B5C6 /* LifeBoardCelestialDaypartIndicator.swift */,
 				1E1D1160B798444BA70D195D /* LifeBoardCardPrimitives.swift */,
@@ -3987,7 +3919,6 @@
 			isa = PBXGroup;
 			children = (
 				017ECAA6FA89C9A7825A3E8A /* CompositionRoot.swift */,
-				9E540C47D5D6F782BB0B9DB4 /* UITestCalendarEventsRepository.swift */,
 				82AD0ABA0D485012F7B6E84D /* CachedProjectRepository.swift */,
 				A1D100042F90000100AA2001 /* LifeBoardPersistentStoreBootstrapService.swift */,
 			);
@@ -4276,6 +4207,7 @@
 				A40000000000000000000601 /* LifeBoardCalendar */,
 				A40000000000000000000701 /* LifeBoardTranscription */,
 				A40000000000000000000801 /* KnowledgeFeature */,
+				A40000000000000000000901 /* JournalFeature */,
 				75A328B82DFB606700F36C31 /* MLXLLM */,
 				75A328B12DFB604000F36C31 /* MLX */,
 				7529F6FC2DFDEFB3000CBE36 /* Lottie */,
@@ -4284,15 +4216,6 @@
 				75A328BA2DFB606700F36C31 /* MLXLMCommon */,
 				75A328BF2DFB606700F36C31 /* Hub */,
 				75A328C02DFB606700F36C31 /* Tokenizers */,
-				A30000000000000000000001 /* JournalFoundation */,
-				A30000000000000000000003 /* TranscriptionKit */,
-				A30000000000000000000005 /* MoodDialKit */,
-				A30000000000000000000007 /* SemanticMemoryKit */,
-				A30000000000000000000009 /* KnowledgeGraphKit */,
-				A3000000000000000000000B /* AssistantCoreKit */,
-				A3000000000000000000000D /* ReflectionKit */,
-				A3000000000000000000000F /* WatchCaptureKit */,
-				A30000000000000000000011 /* JournalSecurityKit */,
 			);
 			productName = LifeBoard;
 			productReference = 753EFC9A2445A24500A739E3 /* LifeBoard.app */;
@@ -4374,7 +4297,6 @@
 			name = LifeBoardWatch;
 			packageProductDependencies = (
 				A40000000000000000000103 /* LifeBoardContracts */,
-				A3000000000000000000000F /* WatchCaptureKit */,
 			);
 			productName = LifeBoardWatch;
 			productReference = E4B4D0D6C85806F24EEF40AD /* LifeBoardWatch.app */;
@@ -4423,7 +4345,6 @@
 			mainGroup = 753EFC912445A24500A739E3;
 			packageReferences = (
 				A40000000000000000000200 /* XCLocalSwiftPackageReference "LifeBoardModules" */,
-				A30000000000000000000000 /* XCLocalSwiftPackageReference "JournalKit" */,
 				75A328B02DFB603F00F36C31 /* XCRemoteSwiftPackageReference "mlx-swift" */,
 				75A328B72DFB606700F36C31 /* XCRemoteSwiftPackageReference "mlx-swift-lm" */,
 				75A328BE2DFB606700F36C31 /* XCRemoteSwiftPackageReference "swift-transformers" */,
@@ -4637,7 +4558,6 @@
 				75DFF2D72DF22FC300EB8850 /* LoggingService.swift in Sources */,
 				75DFF2D82DF22FC300EB8850 /* DateUtils.swift in Sources */,
 				B7C8D9E0F1A2233445566779 /* OverdueAgeFormatter.swift in Sources */,
-				8E9F0A1B2C3D4E5F60718293 /* LifeBoardHexColor.swift in Sources */,
 				7529F6F82DFDE9F0000CBE36 /* View+IfModifier.swift in Sources */,
 				75C7B8212454DABC00C61668 /* SettingsPageViewController.swift in Sources */,
 				0BF080CECE0D47F110E23C11 /* SettingsRootView.swift in Sources */,
@@ -4774,13 +4694,7 @@
 				753EFCA02445A24500A739E3 /* SceneDelegate.swift in Sources */,
 				A8F1D2025E9C44A100112233 /* DeviceOrientationPolicyResolver.swift in Sources */,
 				B1A1C1D1E1F1020304050612 /* BootstrapFailureViewController.swift in Sources */,
-				4C1518DF4ED5BA6F4E6D9C81 /* InMemoryCacheService.swift in Sources */,
-				8CEB7AF8EA56D5550356778F /* CoreDataProjectRepository.swift in Sources */,
 				B426403E6996E2CE8BE66FB6 /* CompositionRoot.swift in Sources */,
-				4F7979522A1078FA62A46FE4 /* UITestCalendarEventsRepository.swift in Sources */,
-				51DAE6495CA158321FAB5FA8 /* CachedProjectRepository.swift in Sources */,
-				A1D100022F90000100AA2001 /* LifeBoardPersistentStoreBootstrapService.swift in Sources */,
-				C9F2A10C3D4E5F60718293AA /* WriteClosedRepositoryAdapters.swift in Sources */,
 				B8E100012F70000100A0A001 /* LifeBoardCTABezel.swift in Sources */,
 				C5E24F11E95F5281AFA4E8DD /* UIKit+TokenAdapters.swift in Sources */,
 				B8E100032F70000100A0A001 /* LifeBoardCTABezel.metal in Sources */,
@@ -4812,7 +4726,6 @@
 				C1B100000000000000000106 /* HabitBoardViews.swift in Sources */,
 				C1B100000000000000000104 /* HabitBoardViewModel.swift in Sources */,
 				C1B100000000000000000102 /* HabitBoardPresentationBuilder.swift in Sources */,
-				6BFABA2E6D0DFA253AEC67A9 /* UserDefaultsSavedHomeViewRepository.swift in Sources */,
 				A3A6DF9571AB7FEB410EB861 /* SunriseAdvancedFilterSheetView.swift in Sources */,
 				1B77769B1FFEBB2FA951419F /* AddTaskMetadataRow.swift in Sources */,
 				3AB385B89C00477CF14637A3 /* AddTaskPriorityPicker.swift in Sources */,
@@ -4833,10 +4746,6 @@
 				A11D5A110000000000000013 /* SunriseDaySwipeWaveShape.swift in Sources */,
 				A11D5A110000000000000014 /* SunriseDaySwipeOverlay.swift in Sources */,
 				D4F400000000000000000201 /* SunriseTimelineSurface.swift in Sources */,
-				CA1A10000000000000000006 /* EventKitCalendarChooserSheet.swift in Sources */,
-				CA1A10000000000000000007 /* EventKitEventDetailView.swift in Sources */,
-				F00D00000000000000001006 /* CalendarSchedulePresentationContracts.swift in Sources */,
-				F00D00000000000000001008 /* CalendarTimelinePresentation.swift in Sources */,
 				D2A100000000000000000004 /* SunriseQuietTrackingComposerView.swift in Sources */,
 				F2A1B2C3D4E5F60718293B50 /* HomeBottomBarItem.swift in Sources */,
 				F2A1B2C3D4E5F60718293B51 /* HomeBottomBarState.swift in Sources */,
@@ -4880,30 +4789,6 @@
 				18C32A093ADC765E90DBA71D /* AddTaskTagMultiSelect.swift in Sources */,
 				70260539B2410072EEE5DF2C /* AddTaskTaskPicker.swift in Sources */,
 				AB5F19766B9E8B7A003B9B1E /* LifeBoardSnackbar.swift in Sources */,
-				B10B1C2D3E4F506172839401 /* StateLifeAreaMapper.swift in Sources */,
-				B10B1C2D3E4F506172839402 /* StateSectionMapper.swift in Sources */,
-				B10B1C2D3E4F506172839403 /* StateTagMapper.swift in Sources */,
-				B10B1C2D3E4F506172839404 /* StateTombstoneMapper.swift in Sources */,
-				B10B1C2D3E4F506172839405 /* StateHabitDefinitionMapper.swift in Sources */,
-				B10B1C2D3E4F506172839407 /* StateTaskDefinitionMapper.swift in Sources */,
-				B10B1C2D3E4F506172839408 /* StateProjectMapper.swift in Sources */,
-				68910C38BADF060D09F81CE3 /* V2CoreDataRepositorySupport.swift in Sources */,
-				A4E8C9D12F9A4C3600A1B2C3 /* LifeAreaIdentityRepair.swift in Sources */,
-				0F67D9989E8924F5B6E2B2EE /* CoreDataLifeAreaRepository.swift in Sources */,
-				166AB064CD81E7EAF6579B7E /* CoreDataSectionRepository.swift in Sources */,
-				4204230B763861761BB75AF3 /* CoreDataTagRepository.swift in Sources */,
-				83EFBFC4977B6ABACDEA352B /* CoreDataTaskDefinitionRepository.swift in Sources */,
-				877BB428E2F289B2E71A9989 /* CoreDataHabitRepository.swift in Sources */,
-				C1A100000000000000000104 /* CoreDataHabitRuntimeReadRepository.swift in Sources */,
-				1670AB6E54D82AC77EBC9B3D /* CoreDataScheduleRepository.swift in Sources */,
-				00E943E7872FB1B20D349D99 /* CoreDataOccurrenceRepository.swift in Sources */,
-				F7F1A376574BECAD5FD6A5E3 /* CoreDataReminderRepository.swift in Sources */,
-				863B6B92EB0A96ED4BAB5BA6 /* CoreDataGamificationRepository.swift in Sources */,
-				08CCE589CA3E83FE266289D1 /* CoreDataAssistantActionRepository.swift in Sources */,
-				3D26E03F6D3A9571E7204553 /* CoreDataExternalSyncRepository.swift in Sources */,
-				3367A12ABAB9C8FAB90843C2 /* CoreDataTombstoneRepository.swift in Sources */,
-				D4F200000000000000000107 /* CoreDataWeeklyRepositories.swift in Sources */,
-				30B49EE9EC93A901D247EA1F /* CoreSchedulingEngine.swift in Sources */,
 				B07A5646DA7E6D9AC7739710 /* ManageLifeAreasUseCase.swift in Sources */,
 				599BA3DB81762830929CF142 /* ManageSectionsUseCase.swift in Sources */,
 				300E318A0AD9AB7F088C497E /* ManageTagsUseCase.swift in Sources */,
@@ -4930,7 +4815,6 @@
 				7F1B2C3D4E5F60718293A4B5 /* GamificationRemoteKillSwitchService.swift in Sources */,
 				7F1B2C3D4E5F60718293A4B7 /* LiquidMetalCTARemoteConfigService.swift in Sources */,
 				6A4B1EB5E3E85FE74AD7AEDC /* AssistantCommandExecutor.swift in Sources */,
-				8CF22C53A483ED3E88E74656 /* CoreDataTaskReadModelRepository.swift in Sources */,
 				C4B2E3D5F6A7081D /* BadgeDetailSheet.swift in Sources */,
 				36235D01BFCF2D2001A39CCE /* FocusSessionUseCase.swift in Sources */,
 				3A549BEBEF3902410F96971A /* SunriseFocusTimerView.swift in Sources */,
@@ -5320,7 +5204,6 @@
 				2F253B89141AAD16EF6E930D /* FoundationDisplayPanel.swift in Sources */,
 				4074DB4C2171B0566E75ECBE /* LifeBoardAtmosphereRenderer.swift in Sources */,
 				D6890E391458213A124FD9A4 /* LifeBoardFoundationGallery.swift in Sources */,
-				EE0D1E9027D0CB3E2CF1FE04 /* DashboardLayoutRepository.swift in Sources */,
 				C2F200000000000000000001 /* LifeBoardPhaseIIModels.swift in Sources */,
 				C2F200000000000000000002 /* LifeBoardPhaseIIPersistence.swift in Sources */,
 				C2F200000000000000000003 /* LifeBoardHealthService.swift in Sources */,
@@ -5361,8 +5244,6 @@
 				34E0D9F8EDF53BEAF2AF07D9 /* TrackFoundationStore.swift in Sources */,
 				C5F5000000000000000000A2 /* JournalMoodCaptureView.swift in Sources */,
 				C5F5000000000000000000A4 /* LifeBoardJournalSnapshotAdapter.swift in Sources */,
-				C5F5000000000000000000A6 /* SemanticJournalDerivedIndexRepository.swift in Sources */,
-				C5F5000000000000000000AA /* LifeBoardJournalEvidenceService.swift in Sources */,
 				C5F5000000000000000000AE /* LifeBoardSystemSurfaceSnapshots.swift in Sources */,
 				C5F5000000000000000000B2 /* FastingTimerStore.swift in Sources */,
 				7DCF1D96DA91EE468916580F /* HomeLifeOSProjectionStore.swift in Sources */,
@@ -5378,6 +5259,7 @@
 				A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */,
 				A31000000000000000000502 /* LifeBoardAtmosphereSlider.swift in Sources */,
 				A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */,
+				A31000000000000000000517 /* SignatureShaderComfortGate.swift in Sources */,
 				CDCE7BDD9D5A5F2FA1356E35 /* LifeBoardCompletionControl.swift in Sources */,
 				CF3B4E5A6D7C8190E2F3A4B5 /* LifeBoardCelestialDaypartIndicator.swift in Sources */,
 				385234A92C6E4423B97234BB /* LifeBoardCardPrimitives.swift in Sources */,
@@ -6173,10 +6055,6 @@
 			isa = XCLocalSwiftPackageReference;
 			relativePath = .;
 		};
-		A30000000000000000000000 /* XCLocalSwiftPackageReference "JournalKit" */ = {
-			isa = XCLocalSwiftPackageReference;
-			relativePath = ../OffRecord/Packages/JournalKit;
-		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCRemoteSwiftPackageReference section */
@@ -6288,6 +6166,11 @@
 			package = A40000000000000000000200 /* XCLocalSwiftPackageReference "LifeBoardModules" */;
 			productName = KnowledgeFeature;
 		};
+		A40000000000000000000901 /* JournalFeature */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A40000000000000000000200 /* XCLocalSwiftPackageReference "LifeBoardModules" */;
+			productName = JournalFeature;
+		};
 		7529F6FC2DFDEFB3000CBE36 /* Lottie */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 7529F6FB2DFDEFB3000CBE36 /* XCRemoteSwiftPackageReference "lottie-ios" */;
@@ -6327,42 +6210,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */;
 			productName = MarkdownUI;
-		};
-		A30000000000000000000001 /* JournalFoundation */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = JournalFoundation;
-		};
-		A30000000000000000000003 /* TranscriptionKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = TranscriptionKit;
-		};
-		A30000000000000000000005 /* MoodDialKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MoodDialKit;
-		};
-		A30000000000000000000007 /* SemanticMemoryKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = SemanticMemoryKit;
-		};
-		A30000000000000000000009 /* KnowledgeGraphKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = KnowledgeGraphKit;
-		};
-		A3000000000000000000000B /* AssistantCoreKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = AssistantCoreKit;
-		};
-		A3000000000000000000000D /* ReflectionKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = ReflectionKit;
-		};
-		A3000000000000000000000F /* WatchCaptureKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = WatchCaptureKit;
-		};
-		A30000000000000000000011 /* JournalSecurityKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = JournalSecurityKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 

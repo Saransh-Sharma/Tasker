@@ -851,7 +851,7 @@ public final class CoreDataGamificationRepository: AtomicGamificationRecordingRe
         }
     }
 
-    static func schemaValidationError(in model: NSManagedObjectModel) -> NSError? {
+    public static func schemaValidationError(in model: NSManagedObjectModel) -> NSError? {
         let requiredSchema: [String: Set<String>] = [
             "GamificationProfile": [
                 "id", "xpTotal", "level", "currentStreak", "bestStreak", "lastActiveDate", "updatedAt",

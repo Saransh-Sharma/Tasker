@@ -229,7 +229,10 @@ public enum HealthWorkoutActivityMapper {
         case "swim", "swimming": .swimming
         case "hike", "hiking": .hiking
         case "yoga": .yoga
-        case "dance": .dance
+        // Raw value 14 is the legacy HealthKit `dance` case. Constructing it
+        // by raw value preserves reads/writes for existing records without
+        // referencing the deprecated spelling.
+        case "dance": HKWorkoutActivityType(rawValue: 14) ?? .other
         case "strength", "strength training": .traditionalStrengthTraining
         default: .other
         }
@@ -243,7 +246,7 @@ public enum HealthWorkoutActivityMapper {
         case .swimming: "Swimming"
         case .hiking: "Hiking"
         case .yoga: "Yoga"
-        case .dance: "Dance"
+        case let activity where activity.rawValue == 14: "Dance"
         case .traditionalStrengthTraining, .functionalStrengthTraining: "Strength training"
         default: "Other"
         }

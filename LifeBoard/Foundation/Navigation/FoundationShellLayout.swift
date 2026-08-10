@@ -163,7 +163,10 @@ extension FoundationShell {
                             withAnimation(MotionProfile.selection.animation(reduceMotion: reduceMotion)) {
                                 router.activateRoot(destination)
                             }
-                            HapticFeedback.selection()
+                            // Intent-named rather than engine-named: this is a
+                            // selection moving, and `Haptic` is the layer that
+                            // honours `MotionPolicy.allowsHaptics`.
+                            Haptic.pick.play()
                         } label: {
                             VStack(spacing: 3) {
                                 Image(systemName: destination.systemImage)

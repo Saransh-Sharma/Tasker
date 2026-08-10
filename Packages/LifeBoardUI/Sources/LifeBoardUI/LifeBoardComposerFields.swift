@@ -660,7 +660,7 @@ public struct ReorderableRows<Item: Identifiable & Equatable, RowContent: View>:
                     draggingID = nil
                     dragTranslation = 0
                 }
-                guard let current = items.firstIndex(of: item) else { return }
+                guard items.contains(item) else { return }
                 let displacement = Int((dragTranslation / rowPitch).rounded())
                 guard displacement != 0 else {
                     Haptic.settle.play()

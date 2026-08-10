@@ -133,7 +133,7 @@ class SettingsPageViewController: UIViewController, CompositionRootAware {
 
     private func makeSettingsRoot(
         viewModel: SettingsViewModel,
-        destination: SettingsRoute? = nil
+        destination: SettingsDetailRoute? = nil
     ) -> AnyView {
         AnyView(
             SettingsRootView(
@@ -154,7 +154,7 @@ class SettingsPageViewController: UIViewController, CompositionRootAware {
 
     // MARK: - Navigation
 
-    private func navigate(to route: SettingsRoute) {
+    private func navigate(to route: SettingsDetailRoute) {
         switch route {
         case .lifeManagement:
             navigateToLifeManagement()

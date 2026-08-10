@@ -1,8 +1,8 @@
 import SwiftUI
 import UIKit
 
-enum HexColor {
-    static func normalized(_ value: String?) -> String? {
+public enum HexColor {
+    public static func normalized(_ value: String?) -> String? {
         guard let value else { return nil }
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.isEmpty == false else { return nil }
@@ -21,7 +21,7 @@ enum HexColor {
         return "#\(normalized)"
     }
 
-    static func color(_ value: String?, fallback: Color) -> Color {
+    public static func color(_ value: String?, fallback: Color) -> Color {
         guard let normalized = Self.normalized(value) else { return fallback }
         return Color(uiColor: UIColor(lifeboardHex: normalized))
     }

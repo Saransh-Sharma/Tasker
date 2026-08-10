@@ -36,7 +36,7 @@ struct SettingsRouteView: View {
 }
 
 struct SettingsDetailRouteView: View {
-    let route: SettingsRoute
+    let route: SettingsDetailRoute
     let router: AppRouter
 
     @Environment(PresentationPreferences.self) private var preferences

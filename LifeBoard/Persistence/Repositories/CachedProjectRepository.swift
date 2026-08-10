@@ -1,8 +1,6 @@
 import LifeBoardContracts
 import LifeBoardDomain
 import Foundation
-import CoreData
-import UIKit
 
 // A caching decorator over `ProjectRepositoryProtocol`. Split out of the
 // dependency container, which only ever constructed it.
