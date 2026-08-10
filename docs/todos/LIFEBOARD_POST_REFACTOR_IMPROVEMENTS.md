@@ -1,36 +1,28 @@
 # LifeBoard Post-Refactor Improvements
 
-These items are intentionally non-blocking for the structural refactor. They must not be mixed into move/extraction work when doing so could alter behavior, persistence, accessibility, localization, deep links, defaults, or visual appearance.
+This ledger contains only work that remains after the 2026-08-09 remediation checkpoint. It is deliberately separated into structural acceptance blockers and release/design follow-ups; an unchecked structural item is not being represented as complete elsewhere.
 
-## Priority 0 — incomplete structural acceptance
+## Priority 0 — structural acceptance blockers
 
-- [ ] Extract the approved 21 feature products, in dependency order and with Home last; move each feature's sources, resources, and tests together and require independent Debug/Release builds.
-- [ ] Introduce each routed target's public `<Feature>Route`, `<Feature>Dependencies`, and `@MainActor <Feature>RouteFactory`; keep `AppRoute` mapping and cross-feature orchestration in the App tier.
-- [ ] Finish `LifeBoardPersistence` extraction. Cache, integrity, mappers, repositories, services, sync, and the bootstrap service are still excluded from the package target.
-- [ ] Migrate the 81 remaining `@testable import LifeBoard` files into owning package tests where possible; retain genuinely cross-module cases as app integration tests.
-- [ ] Install the watchOS 26.5 runtime and prove compilation-derived membership for the Watch app and Watch widgets.
-- [ ] Only after all membership targets pass, upgrade project object version 60 to 77 and adopt filesystem-synchronized groups with explicit target exclusions.
-- [ ] Run the complete route matrix and seeded compact-iPhone/iPad UI/screenshot suite in light/dark, Dynamic Type, reduced motion, and reduced transparency configurations.
-- [ ] Complete paired-Watch, signed-device, App Group, CloudKit-disabled/account, and existing-store compatibility validation on suitable hardware.
+- [ ] Finish the `JournalFeature` boundary. Its currently excluded Journal models, adapters, reflection services, and App-coupled views must move to Domain/Persistence/Journal or receive closure-based dependencies before the app stops compiling them.
+- [ ] Extract the remaining 19 feature products in the mandated order: Track, Plan, Weekly, DailyLoop, Tasks, Habits, Health, Nutrition, Wellness, Eva, Settings, Onboarding, Capture, Gamification, Sync, Insights, Focus, Projects, and Home. Move resources and tests with each target and require independent Debug/Release builds.
+- [ ] Introduce the remaining public route/dependency/factory boundaries and one App-owned exhaustive `AppRouteFactory`. Knowledge and Journal have package route seams; Settings has the raw-value-safe rename and an App-compiled seam, but the full route matrix is not yet compiler-owned.
+- [ ] Finish adopting the existing `LifeBoardPersistenceStack`, `LifeBoardRepositoryFactory`, and typed repository bundle. CompositionRoot and the headless App Intents path now use the package-owned factory, and no Persistence source is duplicated into the App target; AppDelegate, SceneDelegate, health runtime, onboarding, and feature Data adapters must still move away from direct containers.
+- [ ] Remove the remaining production `CoreData` imports outside Persistence and feature `Data` directories. CompositionRoot is clean; current violations include AppDelegate, Eva App Shortcuts, GamificationEngine, and HealthSync files that have not yet crossed their final Data boundary.
+- [ ] Remove every remaining feature reference to `AppRouter` and `CompositionRoot` through injected actions or Domain protocols. Onboarding, Home, Weekly, Journal, Settings, and Eva still contain transitional App-tier coupling.
+- [ ] Add the non-product `LifeBoardTestingSupport` target and migrate package-owned tests. Preserve the 81-file ownership ledger and all 2,203 discovered hosted tests; keep only genuine App integration/hosting tests importing `LifeBoard`.
+- [ ] Add the pinned compiler-index Release reachability job and its machine-readable retained-root classifications. No production source may be deleted until this proof exists.
+- [ ] Run the complete route/capture/deep-link factory matrix and seeded compact-iPhone/iPad screenshot suite for light, dark, accessibility Dynamic Type, reduced motion, reduced transparency, and the combined profile.
+- [ ] Only after every feature and all seven Xcode target families have compiler-derived membership proof, upgrade `objectVersion` 60 to 77 and adopt filesystem-synchronized groups with explicit exclusions. The watchOS 26.5 runtime is installed and Watch/Watch-widget Debug builds now work, but feature extraction is still a hard prerequisite.
 
-## Priority 1 — correctness and maintainability debt
+## Priority 1 — quality acceptance
 
-- [ ] Reduce the 349-item SwiftLint baseline monotonically, prioritizing correctness and concurrency rules before style-only findings.
-- [ ] Resolve compiler warnings, including the Insights retroactive `Equatable` conformance and deprecated SwiftUI `Text + Text` composition.
-- [ ] Add performance budgets and timing evidence for the largest independently compiled feature targets.
-- [ ] Add a repeatable Release reachability job with retained roots and machine-readable production-unreferenced, test-only, and flag-shadowed reports.
+- [ ] Reduce the existing 349-item SwiftLint baseline to zero without changing visual output or frozen behavior.
+- [ ] Add clean/incremental median-of-three performance baselines for every final product and enforce the 120% plus five-second regression rule.
+- [ ] Remove the remaining Xcode/project diagnostics and make every acceptance build warning-free. Production and hosted-test source compilation is currently warning-free; the Watch scheme's deprecated manual-order setting was corrected during remediation.
+- [ ] Replace platform-only simulator skips with matching macOS host jobs and keep the skip allowlist explicit. The two current hosted skips are macOS-only process/performance harness checks.
 
-## Priority 2 — design-system convergence
+## Deliberate release and design follow-ups
 
-- [ ] Evaluate semantic consolidation of the existing color vocabularies as a product/design project with visual regression approval.
-- [ ] Evaluate spacing and typography vocabulary consolidation after screenshots establish an intentional visual baseline.
-- [ ] Reduce app-owned compatibility shims only after every consumer imports its owning product directly.
-- [ ] Audit package-owned resource loading for caching, memory pressure, and localization fallback behavior.
-
-## Priority 3 — quality and polish
-
-- [ ] Expand compact-phone and iPad screenshot coverage beyond route roots to critical empty, loading, error, and destructive states.
-- [ ] Add more VoiceOver traversal and Switch Control UI tests after the frozen identifier migration is stable.
-- [ ] Profile Dynamic Type, reduced motion, and reduced transparency paths on physical devices.
-- [ ] Ratchet directory shrapnel and top-level-type limits downward after module ownership settles.
-- [ ] Profile incremental and clean build times and tune target boundaries where compile fan-out is disproportionate.
+- [ ] Complete signed-device, paired-Watch, App Group, CloudKit account/disabled-mode, physical accessibility, and real existing-store validation on suitable hardware/accounts.
+- [ ] Consolidate semantic color, spacing, and typography vocabularies only as a separately approved visual-design project with snapshot review. Exact-value compatibility tokens introduced by remediation must remain behavior-neutral until then.

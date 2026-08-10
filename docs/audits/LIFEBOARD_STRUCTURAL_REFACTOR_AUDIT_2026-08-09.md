@@ -304,3 +304,64 @@ substantive engineering work. Watch membership and the conditional PBX object
 version/filesystem-group conversion are also unresolved until the matching
 runtime is installed. Those items prevent a full acceptance verdict and are
 prioritized in `docs/todos/LIFEBOARD_POST_REFACTOR_IMPROVEMENTS.md`.
+
+## Remediation checkpoint — 2026-08-10
+
+This checkpoint supersedes the preceding "final working tree" snapshot wherever the two conflict. The pre-fix findings and their historical evidence above remain unchanged.
+
+### Implemented in this checkpoint
+
+- The root manifest now exposes nine products: Contracts, Tokens, UI, Domain, Persistence, Calendar, Transcription, KnowledgeFeature, and JournalFeature. Persistence compiles its complete `LifeBoard/Persistence` tree and package-owned model resource; Calendar compiles the remaining EventKit repository/test adapter and chooser, detail, schedule, and timeline presentation code.
+- The external JournalKit/OffRecord package and Xcode product references are gone. LifeBoard owns the Watch wire values and golden fixtures, Journal/Knowledge contracts, transcription implementation, persistence codecs, and the extracted Journal/Knowledge implementations it currently consumes. The fail-closed boundary gate rejects forbidden dependency names, parent-directory local dependencies, and absolute local dependencies outside the repository.
+- Knowledge is compiler-owned by `KnowledgeFeature`. Journal has a real, independently compiling product and owns its route, evidence/search services, feature flags, mood-dial sources, assets, and resources, but its excluded App-coupled source set means the feature extraction is not complete.
+- The duplicate Knowledge attachment/bookmark implementation still compiled by the App through `LifeBoardPhaseIIPersistence.swift` was removed. `KnowledgeSearchDocument` gained the public initializer required across the package boundary and was split into its own Domain file to keep the file-size ratchet green.
+- The byte-identical, uncompiled `LifeBoard/Features/Journal/Domain/TextSignals.swift` duplicate was deleted; the retained implementation is `Packages/LifeBoardDomain/Sources/LifeBoardDomain/TextSignals.swift`. Evidence: `cmp` returned equality, the deleted path appeared in no compiler `.SwiftFileList`, all call sites resolve through LifeBoardDomain, and package/app builds pass.
+- The raw-value settings enum is now `SettingsDetailRoute`; all raw and encoded values are frozen. A new `SettingsRoute` exposes `.root` and `.detail(SettingsDetailRoute)` without changing `AppRoute` literals or deep links.
+- The Insights external-type retroactive conformance was replaced by `InsightsMilestoneProjection`. Deprecated SwiftUI `Text + Text` composition was replaced with equivalent verbatim interpolation. Health's historical dance raw value remains 14. Production and hosted-test Swift compiler warnings are now zero.
+- The accessibility gate now compares unique identifier expressions. HEAD and the pre-change refactor tree both contain the same 753-expression set; the previous count of 828 counted duplicate occurrences and was not a valid frozen-set cardinality.
+- The compiler-membership checker now derives SwiftPM source ownership from `swift package dump-package`, resolves symlinked package inputs to repository paths, builds the package test scheme, and consumes compiler `.SwiftFileList` files for all App, test, extension, Watch, and package targets. Hard-coded transitional Knowledge/Journal/Persistence ownership was removed.
+- A follow-up compiler-list comparison exposed 32 Persistence and two Journal sources that were still compiled by both their SwiftPM owner and `LifeBoard`; the earlier gate proved that the expected owner existed but did not reject the second owner. All 34 duplicate App memberships were removed. The gate now fails whenever any SwiftPM-owned source also compiles in a non-owning target.
+- `LifeBoardPersistenceStack`, `LifeBoardRepositoryFactory`, and the typed `LifeBoardRepositoryBundle` now own concrete repository construction and write-closed decoration. `CompositionRoot` no longer imports Core Data or constructs Persistence implementations, and the headless App Shortcuts path consumes the same factory. Store bootstrap, repair, mapping, repository, cache, scheduling, and adapter sources now compile only in `LifeBoardPersistence`; AppDelegate and several feature Data/runtime paths still pass containers and therefore remain migration work.
+- The watchOS 26.5 runtime is installed. `LifeBoardWatch` and its `LifeBoardWatchWidgets` dependency build successfully; both emit compiler file lists at object version 60. The two Watch schemes now use dependency-order-compatible parallel build actions instead of Xcode's deprecated manual order.
+
+No production source was deleted based on reference counts or a speculative reachability result. Mood-dial shrapnel files were content-preserving consolidations, Calendar files were ownership moves, and the sole unreachable duplicate deletion is the byte-identical `TextSignals.swift` itemized above.
+
+### Verification evidence
+
+| Check | Result | Retained evidence |
+|---|---|---|
+| App + hosted test compilation | Pass after package-only Persistence adoption; signed `build-for-testing`, zero source warnings | `/tmp/lifeboard-persistence-build-for-testing.log` |
+| Complete hosted execution | Pass after package-only Persistence adoption: 2,203 executed, 4 aggregate skips, 0 failures; the skips are the two documented macOS-only capability tests counted at nested suite levels | `/tmp/lifeboard-persistence-ownership-full.xcresult` and `/tmp/lifeboard-persistence-ownership-full.log` |
+| Signed Keychain focus | 4 tests, 0 failures | `/tmp/lifeboard-keychain-signed-final-2.xcresult` |
+| Contracts golden fixtures | 4 tests, 0 failures | `/tmp/lifeboard-package-tests-final.log` |
+| Watch + Watch widgets Debug | Pass on watchOS 26.5 | `/tmp/lifeboard-watch-membership-final.log` |
+| Compiler-derived ownership | Pass: 1,178 sources across 44 emitted targets; package/App duplicate ownership is fatal | `scripts/check-xcode-target-membership.sh --derived-data /tmp/lifeboard-app-calendar-debug` |
+| Localization | Pass: exact 904 keys/translations | `scripts/check-localization-keys.sh` |
+| Accessibility | Pass: exact 753 unique expressions | `scripts/check-accessibility-identifiers.sh` |
+| Frozen contracts | Pass: storage 568, coding/raw 250, Core Data 3,953, App Group files 8, deep links 18, AppRoute literals 68 | `scripts/check-frozen-contracts.sh` |
+| Structural gates | Pass: file-size, shrapnel, syntax-aware boundaries (1,032 files / 29 modules), no-print, Core Data codegen (23 versions), runtime/test guards, plist, and clean diff | repository scripts plus `plutil` and `git diff --check` |
+| SwiftLint | Ratchet pass, not acceptance: 349 findings remain | `scripts/check-swiftlint-baseline.sh` |
+
+The earlier unsigned full-suite failure was environmental evidence, not a waived test: Security returned `errSecMissingEntitlement` (-34018), and the migration correctly refused to erase the legacy value after secure persistence failed. The subsequent complete signed run passed all 2,203 hosted tests with zero failures. Four aggregate skips represent two explicitly documented tests whose harnesses require a macOS host (`ProcessExecutionTests` and `V2PerformanceGateTests`). This establishes the current remediation checkpoint; the full suite must still be rerun after the remaining architecture waves because those source-ownership changes have not yet occurred.
+
+### Architecture compliance — current truthful state
+
+| Requirement | Status | Evidence / blocker |
+|---|---|---|
+| One in-repo manifest and acyclic declared graph | Pass for declared products | Root `Package.swift`; package build graph is acyclic. |
+| Seven required core/support products | Pass | All seven products exist; Persistence, Calendar, and Transcription compile. |
+| 21 complete feature products | **Fail / open** | Knowledge is extracted; Journal is partial; the other 19 products do not yet exist. |
+| No feature-to-feature/App imports | **Open** | Compiler-enforced for extracted source sets only; remaining App-compiled features still have transitional coupling. |
+| Route/dependency/factory matrix | **Open** | Knowledge/Journal seams and Settings rename exist; the exhaustive public factory matrix and AppRouteFactory do not. |
+| Persistence stack/repository bundle adopted by App | **Partial / open** | Stack, factory, and typed bundle exist; CompositionRoot and headless App Shortcuts use them. AppDelegate/SceneDelegate, health runtime, onboarding, and feature Data adapters still pass Core Data containers directly. |
+| Core Data imports restricted to Persistence/feature Data | **Fail / open** | CompositionRoot is clean. AppDelegate, Eva App Shortcuts, GamificationEngine, and HealthSync transitional files remain violations. |
+| Test ownership migration | **Open** | Hosted coverage is retained, but the 81-file final ownership migration and LifeBoardTestingSupport target are absent. |
+| Compiler-derived Xcode/package membership | Pass at object version 60 | 1,178 sources / 44 targets, including Watch and package tests, with no SwiftPM source duplicated into a non-owning target. |
+| Object version 77 and synchronized groups | Correctly deferred | Feature extraction and final exact membership comparison remain prerequisites; project stays at 60. |
+| Release reachability deletion proof | **Open** | No pinned index-based classification artifact exists; no speculative deletion was made. |
+| Zero warnings / zero SwiftLint | Partial | Source compiler warnings are zero; SwiftLint remains 349. |
+| Full UI/screenshot/performance matrix | **Open** | Required profiles, route smoke coverage, and median-of-three budgets have not been completed. |
+
+### Checkpoint verdict
+
+The support-target, OffRecord-removal, Calendar, Knowledge, compiler-membership, warning, and frozen-contract remediation is real and verified. The requested end-state is still **not complete**: 19 feature products plus the remaining Journal boundary, App-owned route orchestration, Core Data isolation/adoption, package test ownership, Release reachability, UI matrices, performance budgets, SwiftLint zero, and the conditional project-format migration remain acceptance blockers. They are retained as explicit work—not relabeled as non-blocking—in the post-refactor ledger.
