@@ -492,6 +492,16 @@ struct SettingsLookAndFeelView: View {
                     .stroke(Color.lifeboard(.borderSubtle), lineWidth: 1)
             }
 
+            SettingsCard {
+                SettingsToggleRow(
+                    iconName: "figure.walk.motion",
+                    title: "Full motion",
+                    subtitle: "Keep LifeBoard's motion on even when iOS Reduce Motion is turned on.",
+                    isOn: $preferences.fullMotionEnabled,
+                    accessibilityIdentifier: "settings.appearance.fullMotion.toggle"
+                )
+            }
+
             settingsPickerCard(
                 title: "Motion",
                 subtitle: comfortSubtitle,

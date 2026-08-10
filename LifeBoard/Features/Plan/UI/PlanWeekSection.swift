@@ -34,7 +34,7 @@ struct PlanWeekSection: View {
                 } else {
                     let columns = [GridItem(.adaptive(minimum: 220), spacing: 12)]
                     LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(snapshot.days) { day in dayCard(day) }
+                        ForEach(snapshot.days) { day in dayCard(day).lifeBoardScrollEntrance() }
                     }
                     .accessibilityIdentifier("plan.week.compactList")
                 }
@@ -48,7 +48,7 @@ struct PlanWeekSection: View {
                 let weekTasks = snapshot.days.flatMap { store.plannedTasks(on: $0.day) }
                 if !weekTasks.isEmpty {
                     PlanSectionHeader("Redistribute work", systemImage: "arrow.left.arrow.right")
-                    ForEach(weekTasks) { task in taskRow(task) }
+                    ForEach(weekTasks) { task in taskRow(task).lifeBoardScrollEntrance() }
                 }
             }
         }

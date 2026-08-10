@@ -237,6 +237,7 @@ private struct WeeklyReviewRealityStep: View {
                             }
                             .padding(14)
                             .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
+                            .lifeBoardScrollEntrance(intensity: 0.55)
                         }
                     }
                 }
@@ -281,6 +282,7 @@ private struct WeeklyReviewOutcomesStep: View {
                             displayIndex: index + 1,
                             onSelect: { onSelectStatus($0, snapshot.id) }
                         )
+                        .lifeBoardScrollEntrance()
                     }
                 }
             }
@@ -317,6 +319,7 @@ private struct WeeklyReviewCleanupStep: View {
                             selectedDisposition: taskDecisions[task.id] ?? .carry,
                             onSelect: { onSelectDisposition($0, task.id) }
                         )
+                        .lifeBoardScrollEntrance()
                     }
                 }
             }
@@ -454,6 +457,7 @@ private struct WeeklyReviewNotesStep: View {
                         }
                         .padding(14)
                         .lifeboardDenseSurface(cornerRadius: 18, fillColor: Color.lifeboard.surfaceSecondary.opacity(0.84))
+                        .lifeBoardScrollEntrance(intensity: 0.55)
                     }
                 }
             }

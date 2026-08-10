@@ -76,6 +76,7 @@ struct InsightsExperienceSection: View {
                             .foregroundStyle(.secondary)
                             .monospacedDigit()
                     }
+                    .lifeBoardScrollEntrance(intensity: 0.5)
                     .font(.subheadline)
                     .frame(minHeight: 48)
                     .overlay(alignment: .bottom) {

@@ -98,7 +98,7 @@ final class OnboardingFeedbackController {
         return false
         #else
         return MotionPolicy.resolve(
-            reduceMotion: UIAccessibility.isReduceMotionEnabled,
+            reduceMotion: MotionOverride.effectiveReduceMotion,
             reduceTransparency: UIAccessibility.isReduceTransparencyEnabled,
             sceneIsActive: UIApplication.shared.applicationState != .background
         ).allowsHaptics

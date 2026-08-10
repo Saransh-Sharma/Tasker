@@ -387,17 +387,17 @@ public enum V2FeatureFlags {
         }
     }
 
-    /// The bounded signature Metal effects (daypartBloom, evaInkReveal, journalMediaReveal,
-    /// fastingEmberRing). Enabled
-    /// by default; callers still gate on Reduce Motion / Low Power / thermal / GPU support.
+    /// All 22 bounded signature Metal effects. Enabled by default; callers still
+    /// gate on Reduce Motion / Low Power / thermal / GPU support.
     public static var signatureShadersEnabled: Bool {
         if launchArguments.contains("-LIFEBOARD_ENABLE_SIGNATURE_SHADERS") { return true }
         if launchArguments.contains("-LIFEBOARD_DISABLE_SIGNATURE_SHADERS") { return false }
         return remoteDecorativeCTAEffectsAllowed
     }
 
+    /// "Button flourishes". On by default: the bezel is the only shader that animates at rest.
     public static var userDecorativeCTAEffectsEnabled: Bool {
-        get { defaults.object(forKey: decorativeCTAEffectsUserKey) as? Bool ?? false }
+        get { defaults.object(forKey: decorativeCTAEffectsUserKey) as? Bool ?? true }
         set { defaults.set(newValue, forKey: decorativeCTAEffectsUserKey) }
     }
 
@@ -616,7 +616,7 @@ public enum V2FeatureFlags {
     }
 
     public static var iPadPerfHomeAnimationTrimV3Enabled: Bool {
-        get { defaults.object(forKey: "feature.ipad.perf.home_animation_trim_v3") as? Bool ?? true }
+        get { defaults.object(forKey: "feature.ipad.perf.home_animation_trim_v3") as? Bool ?? false }
         set { defaults.set(newValue, forKey: "feature.ipad.perf.home_animation_trim_v3") }
     }
 

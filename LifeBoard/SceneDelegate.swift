@@ -1126,7 +1126,7 @@ private final class LaunchHostController: UIViewController {
     private func completeSplashOverAttachedHome() {
         guard let splashHostController else { return }
 
-        if UIAccessibility.isReduceMotionEnabled {
+        if MotionOverride.effectiveReduceMotion {
             fadeSplashOverAttachedHome(duration: 0.12, delay: 0)
             return
         }

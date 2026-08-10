@@ -53,6 +53,7 @@ struct PlanBacklogSection: View {
                                 pendingFocusSetup: $pendingFocusSetup,
                                 onOpenTask: onOpenTask
                             )
+                            .lifeBoardScrollEntrance()
                         }
                     }
                 }

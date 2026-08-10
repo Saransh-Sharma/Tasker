@@ -96,11 +96,11 @@ struct PlanDaySection: View {
                 if snapshot.plannedTasks.isEmpty {
                     PlanOpenDayRescueCard(store: store, onOpenOverdueRescue: onOpenOverdueRescue)
                 } else {
-                    ForEach(snapshot.plannedTasks) { taskCard($0, planned: true) }
+                    ForEach(snapshot.plannedTasks) { taskCard($0, planned: true).lifeBoardScrollEntrance() }
                 }
 
                 PlanSectionHeader("Unscheduled", systemImage: "tray")
-                ForEach(snapshot.unscheduledTasks.prefix(8)) { taskCard($0, planned: false) }
+                ForEach(snapshot.unscheduledTasks.prefix(8)) { taskCard($0, planned: false).lifeBoardScrollEntrance() }
             }
         }
     }

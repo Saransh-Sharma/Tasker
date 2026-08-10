@@ -207,6 +207,7 @@ struct HabitLibraryView: View {
                     }
                     .buttonStyle(.plain)
                     .scaleOnPress()
+                    .lifeBoardScrollEntrance()
                 }
             }
         }
