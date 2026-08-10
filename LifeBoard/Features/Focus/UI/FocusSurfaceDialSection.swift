@@ -44,6 +44,11 @@ struct FocusSurfaceDialSection: View {
         }
         .frame(maxWidth: 300)
         .frame(maxWidth: .infinity)
+        // A running session should read as running even between ticks. Only
+        // while actually running: a paused dial that keeps breathing would be
+        // saying the opposite of what the state is. DESIGN.md's Focus dial
+        // contract permits exactly this, bounded by the ambient budget.
+        .lifeBoardAmbientBreath(role: .activeMetric, intensity: session.state == .paused ? 0 : 1)
         .lifeboardCompletionBurst(trigger: completionTrigger)
         .accessibilityIdentifier("focus.surface.dial")
     }

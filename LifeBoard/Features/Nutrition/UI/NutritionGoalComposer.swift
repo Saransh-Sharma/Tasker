@@ -67,8 +67,13 @@ struct NutritionGoalComposer: View {
                 Text("\(Int(value.wrappedValue)) \(unit)")
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .monospacedDigit()
+                    // The number rolls to its new value instead of snapping, so
+                    // holding the stepper reads as a dial rather than a redraw.
+                    .contentTransition(.numericText(value: value.wrappedValue))
+                    .lifeBoardMotion(.localState, value: value.wrappedValue)
             }
         }
+        .sensoryFeedback(.selection, trigger: value.wrappedValue)
         .accessibilityIdentifier("nutrition.goal.\(title.lowercased())")
     }
 
