@@ -8,8 +8,14 @@
 //
 
 import Foundation
+import LifeBoardDomain
 import NaturalLanguage
 import os
+
+private let journalSemanticMemoryLogger = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "LifeBoard.JournalFeature",
+    category: "SemanticMemory"
+)
 
 public actor SemanticMemoryIndexActor {
     private var chunks: [MemoryChunk] = []
@@ -66,7 +72,7 @@ public actor SemanticMemoryIndexActor {
         }
 
         let provider = await selectedProvider(sampleText: records.first?.text ?? "")
-        semanticMemoryLogger.notice(
+        journalSemanticMemoryLogger.notice(
             "Rebuilding semantic memory records=\(records.count, privacy: .public) provider=\(String(describing: type(of: provider)), privacy: .public)"
         )
         var builtChunks: [MemoryChunk] = []
@@ -152,7 +158,7 @@ public actor SemanticMemoryIndexActor {
         })
         let lexicalHits = HybridMemorySearchService.lexicalHits(query: trimmed, chunks: chunks, textByChunkID: textByChunkID, rankedChunkIDs: lexicalIDs)
         let results = HybridMemorySearchService.search(query: trimmed, chunks: chunks, queryVector: embedded.vector, lexicalHits: lexicalHits, limit: limit)
-        semanticMemoryLogger.notice(
+        journalSemanticMemoryLogger.notice(
             "Search queryLength=\(trimmed.count, privacy: .public) chunks=\(self.chunks.count, privacy: .public) lexicalIDs=\(lexicalIDs.count, privacy: .public) lexicalHits=\(lexicalHits.count, privacy: .public) results=\(results.count, privacy: .public) provider=\(embedded.metadata.modelID, privacy: .public)"
         )
 
@@ -181,10 +187,10 @@ public actor SemanticMemoryIndexActor {
         guard !sampleText.isEmpty else { return fallbackProvider }
         do {
             _ = try await preferredProvider.embedding(for: sampleText, language: NLLanguageRecognizer.dominantLanguage(for: sampleText))
-            semanticMemoryLogger.notice("Selected sentence embedding provider for semantic memory.")
+            journalSemanticMemoryLogger.notice("Selected sentence embedding provider for semantic memory.")
             return preferredProvider
         } catch {
-            semanticMemoryLogger.error("Sentence embedding provider unavailable; using lexical fallback. error=\(error.localizedDescription, privacy: .public)")
+            journalSemanticMemoryLogger.error("Sentence embedding provider unavailable; using lexical fallback. error=\(error.localizedDescription, privacy: .public)")
             return fallbackProvider
         }
     }

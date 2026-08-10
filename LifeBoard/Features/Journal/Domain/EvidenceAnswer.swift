@@ -9,7 +9,6 @@
 
 import Foundation
 import LifeBoardDomain
-import SemanticMemoryKit
 
 public struct EvidenceBackedAnswer: Identifiable, Equatable, Sendable {
     public let id = UUID()
@@ -46,7 +45,7 @@ public protocol EvidenceResponding: Sendable {
     func respond(
         question: String,
         evidence: [EvidenceReference],
-        persona: AssistantPersona,
+        persona: LifeBoardDomain.AssistantPersona,
         fallback: EvidenceBackedAnswer
     ) async throws -> EvidenceBackedAnswer?
 }
@@ -58,7 +57,7 @@ public enum DeterministicEvidenceAnswerBuilder {
     public static func answer(
         question: String,
         evidence: [EvidenceReference],
-        persona: AssistantPersona
+        persona: LifeBoardDomain.AssistantPersona
     ) -> EvidenceBackedAnswer {
         guard !evidence.isEmpty else {
             return EvidenceBackedAnswer(

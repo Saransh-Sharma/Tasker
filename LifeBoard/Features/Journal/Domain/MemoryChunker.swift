@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import LifeBoardDomain
 import NaturalLanguage
 
 public struct MemoryChunkDraft: Equatable, Sendable {

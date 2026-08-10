@@ -175,6 +175,16 @@ public enum Mood: String, CaseIterable, Identifiable, Sendable, Codable {
     }
 }
 
+public enum MoodDialPersistence {
+    public static func openingMood(for savedMood: Mood) -> Mood {
+        Mood.dialMoods.contains(savedMood) ? savedMood : .none
+    }
+
+    public static func shouldSave(originalMood: Mood, draftMood: Mood) -> Bool {
+        originalMood != draftMood
+    }
+}
+
 extension Mood {
     /// The bundle carrying the mood artwork; use with `Image(_:bundle:)`.
     public static var assetBundle: Bundle { .module }

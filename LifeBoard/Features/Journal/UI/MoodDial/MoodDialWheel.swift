@@ -209,7 +209,7 @@ public enum MoodDialWheelGeometryCache {
     }
 
     private static let lock = NSLock()
-    private static var cache: [Key: MoodDialWheelGeometry] = [:]
+    nonisolated(unsafe) private static var cache: [Key: MoodDialWheelGeometry] = [:]
 
     public static func geometry(for metrics: MoodDialWheelMetrics) -> MoodDialWheelGeometry {
         let key = Key(metrics: metrics)

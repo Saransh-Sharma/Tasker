@@ -3,7 +3,7 @@ import CoreSpotlight
 import Foundation
 import LifeBoardDomain
 import LocalAuthentication
-import JournalSecurityKit
+import LifeBoardPersistence
 import Observation
 import PhotosUI
 import LifeBoardDomain

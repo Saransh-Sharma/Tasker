@@ -19,9 +19,7 @@
 //
 
 import Foundation
-import AssistantCoreKit
 import LifeBoardDomain
-import SemanticMemoryKit
 
 extension AssistantPersona {
     /// Eva, LifeBoard's chief of staff.
@@ -76,7 +74,7 @@ struct JournalEvidenceService {
         }
 
         let evidence = permitted.map { reference in
-            SemanticMemoryKit.EvidenceReference(
+            LifeBoardDomain.EvidenceReference(
                 id: reference.id,
                 entryID: reference.entryID,
                 date: reference.date,
@@ -107,7 +105,7 @@ struct JournalEvidenceService {
         )
 
         #if canImport(FoundationModels)
-        if V2FeatureFlags.evaFoundationModelsResponderEnabled, #available(iOS 26.0, macOS 26.0, *) {
+        if JournalFeatureFlags.evaFoundationModelsResponderEnabled, #available(iOS 26.0, macOS 26.0, *) {
             if let modelAnswer = try? await FoundationModelsEvidenceResponder().respond(
                 question: question,
                 evidence: evidence,
@@ -121,7 +119,7 @@ struct JournalEvidenceService {
         return fallback
     }
 
-    private static func matchReason(_ reason: JournalEvidenceReference.MatchReason) -> SemanticMemoryKit.EvidenceReference.MatchReason {
+    private static func matchReason(_ reason: JournalEvidenceReference.MatchReason) -> LifeBoardDomain.EvidenceReference.MatchReason {
         switch reason {
         case .exact: return .exact
         case .meaning: return .meaning

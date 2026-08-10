@@ -15,7 +15,6 @@
 
 import Foundation
 import LifeBoardDomain
-import SemanticMemoryKit
 
 public final class SemanticJournalDerivedIndexRepository: JournalDerivedIndexRepository, @unchecked Sendable {
 
@@ -45,11 +44,11 @@ public final class SemanticJournalDerivedIndexRepository: JournalDerivedIndexRep
 
     /// The single ingest gate: entries that do not permit semantic indexing
     /// never become records.
-    static func indexableRecord(_ snapshot: JournalEntrySnapshot) -> SemanticMemoryKit.IndexableEntry? {
+    static func indexableRecord(_ snapshot: JournalEntrySnapshot) -> IndexableEntry? {
         guard snapshot.aiExclusion.permitsSemanticIndexing else { return nil }
         let text = snapshot.text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty else { return nil }
-        return SemanticMemoryKit.IndexableEntry(
+        return IndexableEntry(
             id: snapshot.id,
             date: snapshot.date,
             mood: snapshot.mood?.rawValue,
@@ -105,7 +104,7 @@ public final class SemanticJournalDerivedIndexRepository: JournalDerivedIndexRep
 
     // MARK: Mapping
 
-    private static func journalReference(_ evidence: SemanticMemoryKit.EvidenceReference) -> JournalEvidenceReference {
+    private static func journalReference(_ evidence: LifeBoardDomain.EvidenceReference) -> JournalEvidenceReference {
         let reason: JournalEvidenceReference.MatchReason
         switch evidence.matchReason {
         case .exact: reason = .exact

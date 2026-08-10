@@ -10,7 +10,7 @@
 
 import SwiftUI
 import LifeBoardDomain
-import MoodDialKit
+import JournalFeature
 
 // MARK: - Mood mapping
 

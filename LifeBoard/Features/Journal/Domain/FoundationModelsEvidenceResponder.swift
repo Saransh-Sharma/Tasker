@@ -8,7 +8,6 @@
 
 import Foundation
 import LifeBoardDomain
-import SemanticMemoryKit
 
 #if canImport(FoundationModels)
 import FoundationModels
@@ -42,7 +41,7 @@ public struct FoundationModelsEvidenceResponder: EvidenceResponding {
     public func respond(
         question: String,
         evidence: [EvidenceReference],
-        persona: AssistantPersona,
+        persona: LifeBoardDomain.AssistantPersona,
         fallback: EvidenceBackedAnswer
     ) async throws -> EvidenceBackedAnswer? {
         let model = SystemLanguageModel.default

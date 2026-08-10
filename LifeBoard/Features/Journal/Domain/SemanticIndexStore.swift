@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import LifeBoardDomain
 import SQLite3
 import os
 

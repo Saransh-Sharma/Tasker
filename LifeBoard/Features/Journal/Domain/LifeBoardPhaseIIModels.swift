@@ -804,38 +804,41 @@ public struct JournalInsightSnapshot: Equatable, Sendable {
 
 
 public extension JournalEntrySnapshot {
-    public init(day: JournalDayValue) {
-    id = day.id
-    date = day.day
-    title = day.summary
-    text = day.displayText
-    mood = day.latestMood
-    energy = day.blocks.reversed().compactMap(\.energy).first
-    isStarred = day.isStarred
-    let transcriptionByMediaID: [UUID: String] = Dictionary(
-    uniqueKeysWithValues: day.blocks.compactMap { block in
-    guard block.kind == .audio,
-    let mediaID = block.mediaID,
-    let text = block.text?.trimmingCharacters(in: .whitespacesAndNewlines),
-    text.isEmpty == false else { return nil }
-    return (mediaID, text)
-    }
-    )
-    attachments = day.media.map { media in
-    let transcription = transcriptionByMediaID[media.id]
-    return JournalMediaAttachment(
-    id: media.id,
-    kind: media.kind,
-    localRelativePath: media.relativePath,
-    duration: media.duration,
-    transcription: transcription,
-    processingState: media.kind == .audio && transcription != nil ? .transcriptionComplete : .ready,
-    syncPolicy: media.syncPolicy,
-    createdAt: media.createdAt
-    )
-    }
-    updatedAt = day.updatedAt
-    aiExclusion = day.aiExclusion
+    init(day: JournalDayValue) {
+        let transcriptionByMediaID: [UUID: String] = Dictionary(
+            uniqueKeysWithValues: day.blocks.compactMap { block in
+                guard block.kind == .audio,
+                      let mediaID = block.mediaID,
+                      let text = block.text?.trimmingCharacters(in: .whitespacesAndNewlines),
+                      text.isEmpty == false else { return nil }
+                return (mediaID, text)
+            }
+        )
+        let attachments = day.media.map { media in
+            let transcription = transcriptionByMediaID[media.id]
+            return JournalMediaAttachment(
+                id: media.id,
+                kind: media.kind,
+                localRelativePath: media.relativePath,
+                duration: media.duration,
+                transcription: transcription,
+                processingState: media.kind == .audio && transcription != nil ? .transcriptionComplete : .ready,
+                syncPolicy: media.syncPolicy,
+                createdAt: media.createdAt
+            )
+        }
+        self.init(
+            id: day.id,
+            date: day.day,
+            title: day.summary,
+            text: day.displayText,
+            mood: day.latestMood,
+            energy: day.blocks.reversed().compactMap(\.energy).first,
+            isStarred: day.isStarred,
+            attachments: attachments,
+            updatedAt: day.updatedAt,
+            aiExclusion: day.aiExclusion
+        )
     }
 }
 // MARK: Journal public contracts
@@ -922,7 +925,7 @@ public enum WeeklyReflectionService {
             .sorted { $0.date < $1.date }
         let nonempty = included.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         let sharedSnapshots = nonempty.map {
-            ReflectionKit.WeeklyReflectionEntrySnapshot(
+            WeeklyReflectionEntrySnapshot(
                 id: $0.id,
                 date: $0.date,
                 updatedAt: $0.updatedAt,

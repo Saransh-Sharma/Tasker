@@ -1,4 +1,5 @@
 import SwiftUI
+import LifeBoardUI
 
 public struct MoodDialHeader: View {
     let canSave: Bool
@@ -20,7 +21,7 @@ public struct MoodDialHeader: View {
                     .foregroundStyle(theme.accent)
                     .frame(width: 96, height: 52)
                     .background(theme.accentContrast, in: Capsule())
-                    .shadow(color: Color.black.opacity(0.045), radius: 8, y: 3)
+                    .lifeboardCompatibilityShadow(color: Color.black.opacity(0.045), radius: 8, y: 3)
                     .accessibilityIdentifier("moodDial.cancel")
 
                 Spacer()
@@ -30,7 +31,7 @@ public struct MoodDialHeader: View {
                     .foregroundStyle(theme.accentContrast)
                     .frame(width: 100, height: 52)
                     .background(theme.accent.opacity(canSave ? 1 : 0.62), in: Capsule())
-                    .shadow(color: Color.black.opacity(0.045), radius: 8, y: 3)
+                    .lifeboardCompatibilityShadow(color: Color.black.opacity(0.045), radius: 8, y: 3)
                     .accessibilityHint(canSave ? "Saves the selected mood." : "Closes without changing the mood.")
                     .accessibilityIdentifier("moodDial.done")
             }
@@ -102,7 +103,7 @@ public struct MoodDialSelectedMoodView: View {
                 .contentTransition(.opacity)
 
             Image(systemName: "chevron.compact.down")
-                .font(.system(size: 40 * layoutScale, weight: .heavy))
+                .lifeboardCompatibilitySystemFont(size: 40 * layoutScale, weight: .heavy)
                 .foregroundStyle(theme.textTertiary.opacity(0.70))
                 .offset(y: reduceMotion ? 0 : (chevronPulse ? 5 : 0))
                 .animation(
