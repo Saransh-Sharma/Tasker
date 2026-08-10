@@ -57,10 +57,10 @@ final class KnowledgeStore {
     ) {
         self.repository = repository
         self.attachmentFiles = attachmentFiles ?? ProtectedKnowledgeAttachmentFiles()
-        searchIndex = V2FeatureFlags.knowledgeNotesSearchIndexV2Enabled
+        searchIndex = KnowledgeFeatureFlags.searchIndexEnabled
             ? try? LocalKnowledgeSearchIndex()
             : nil
-        secureNotes = V2FeatureFlags.knowledgeNotesSecurityV1Enabled
+        secureNotes = KnowledgeFeatureFlags.securityEnabled
             ? DefaultKnowledgeSecureNoteService()
             : nil
         selectedFolderID = initialFolderID
@@ -725,7 +725,6 @@ public struct KnowledgeModuleView: View {
     @State private var selectedNoteIDs: Set<UUID> = []
     @State private var pinnedDropTargetID: UUID?
     @Namespace private var noteTransition
-    @Environment(PresentationPreferences.self) private var preferences
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     private let initialNoteID: UUID?
@@ -733,6 +732,7 @@ public struct KnowledgeModuleView: View {
     private let startsWithNewNote: Bool
     private let captureDraftID: UUID?
     private let initialText: String?
+    private let resolveDaypart: @Sendable () -> ResolvedDaypart
 
     public init(
         repository: any KnowledgeRepository,
@@ -741,7 +741,15 @@ public struct KnowledgeModuleView: View {
         initialDestination: NotesLibraryDestination? = nil,
         startsWithNewNote: Bool = false,
         captureDraftID: UUID? = nil,
-        initialText: String? = nil
+        initialText: String? = nil,
+        resolveDaypart: @escaping @Sendable () -> ResolvedDaypart = {
+            switch Calendar.current.component(.hour, from: Date()) {
+            case 5..<12: .morning
+            case 12..<17: .afternoon
+            case 17..<21: .evening
+            default: .night
+            }
+        }
     ) {
         _store = State(initialValue: KnowledgeStore(
             repository: repository,
@@ -752,6 +760,7 @@ public struct KnowledgeModuleView: View {
         self.startsWithNewNote = startsWithNewNote
         self.captureDraftID = captureDraftID
         self.initialText = initialText
+        self.resolveDaypart = resolveDaypart
     }
 
     public var body: some View {
@@ -854,7 +863,7 @@ public struct KnowledgeModuleView: View {
     }
 
     private var notesWorkspace: some View {
-        let palette = DaypartTokens.palette(for: preferences.resolvedDaypart())
+        let palette = DaypartTokens.palette(for: resolveDaypart())
         return VStack(spacing: 0) {
             notesHeader(palette: palette)
             if store.selectedCollection == .connections {
@@ -1539,7 +1548,7 @@ public struct KnowledgeModuleView: View {
                 updated.updatedAt = Date()
                 Task { await store.save(updated) }
             }
-            if note.resolvedLockPolicy == .unlocked, V2FeatureFlags.knowledgeNotesSecurityV1Enabled {
+            if note.resolvedLockPolicy == .unlocked, KnowledgeFeatureFlags.securityEnabled {
                 Button("Lock note", systemImage: "lock") { Task { await store.lock(note) } }
             }
             Button("Duplicate", systemImage: "plus.square.on.square") { Task { await store.duplicate(note) } }
@@ -1787,7 +1796,7 @@ private struct KnowledgeNoteEditor: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     tagRail
-                    if V2FeatureFlags.knowledgeNotesTextKitEditorV2Enabled {
+                    if KnowledgeFeatureFlags.textKitEditorEnabled {
                         UnifiedNoteEditor(
                             note: $draft,
                             selection: $richSelection,
@@ -1873,7 +1882,7 @@ private struct KnowledgeNoteEditor: View {
                         }
                         Button("Attach a file", systemImage: "paperclip") { showsFileImporter = true }
                         Button("Version history", systemImage: "clock.arrow.circlepath") { showsHistory = true }
-                        if V2FeatureFlags.knowledgeNotesEVAV1Enabled {
+                        if KnowledgeFeatureFlags.evaEnabled {
                             Menu("Ask EVA", systemImage: "sparkles") {
                                 ForEach(NoteAIAction.allCases, id: \.self) { action in
                                     Button(aiActionTitle(action), systemImage: aiActionSymbol(action)) {
@@ -2032,7 +2041,7 @@ private struct KnowledgeNoteEditor: View {
 
     private var editorCommandBar: some View {
         GlassEffectContainer(spacing: 8) {
-            if V2FeatureFlags.knowledgeNotesTextKitEditorV2Enabled, !richEditorIsFocused, !titleIsFocused {
+            if KnowledgeFeatureFlags.textKitEditorEnabled, !richEditorIsFocused, !titleIsFocused {
                 Button {
                     richEditorIsFocused = true
                 } label: {
@@ -2072,7 +2081,7 @@ private struct KnowledgeNoteEditor: View {
                 commandButton("Photo or file", symbol: "paperclip") { showsFileImporter = true }
                 commandButton("Link note", symbol: "link") { showsLinkPicker = true }
                 Spacer(minLength: 0)
-                if V2FeatureFlags.knowledgeNotesTextKitEditorV2Enabled {
+                if KnowledgeFeatureFlags.textKitEditorEnabled {
                     commandButton("Bold", symbol: "bold") { performEditorCommand(.bold) }
                     commandButton("Italic", symbol: "italic") { performEditorCommand(.italic) }
                     commandButton("Highlight", symbol: "highlighter") { performEditorCommand(.highlight) }
@@ -2479,7 +2488,7 @@ private struct KnowledgeNoteEditor: View {
     }
 
     private func addBlock(_ kind: KnowledgeBlockKind) {
-        if V2FeatureFlags.knowledgeNotesTextKitEditorV2Enabled {
+        if KnowledgeFeatureFlags.textKitEditorEnabled {
             performEditorCommand(.insertBlock(kind))
         } else {
             draft.blocks.append(.init(noteID: draft.id, kind: kind, ordinal: draft.blocks.count))
@@ -2487,7 +2496,7 @@ private struct KnowledgeNoteEditor: View {
     }
 
     private func performEditorCommand(_ command: KnowledgeEditorCommand) {
-        if V2FeatureFlags.knowledgeNotesTextKitEditorV2Enabled {
+        if KnowledgeFeatureFlags.textKitEditorEnabled {
             richEditorCommand = .init(command: command)
             richEditorIsFocused = true
         } else if case let .block(kind) = command {
