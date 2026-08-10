@@ -23,6 +23,15 @@ import LifeBoardTokens
 /// Reduce Motion tint fade if `startDate` was set, and `startDate` is only set
 /// when `isReadyForRendering` was true. A global reduce-motion gate would delete
 /// that fallback rather than degrade to it.
+///
+/// **Focused presentations are also not gated here**, and that is a correction
+/// rather than an omission. Gating them turned every shader in the app off
+/// whenever a `.focused` route was on screen, and the `.focused` routes are
+/// Focus Session, Day Open and Close the Day — the last of which is the app's
+/// heaviest shader consumer, so its five effects had never once rendered. A
+/// focused surface owes the user quiet *ambience*; it does not owe them the
+/// absence of a completion burst at the moment they close their day. Ambient
+/// suppression is `MotionPolicy.allowsIdleMotion`'s job and already works.
 extension SignatureShaders {
     /// Mirrors this target's verdict into `LifeBoardTokens` so `LifeBoardUI` —
     /// which cannot import the app target — can gate its own effects on the same
@@ -32,16 +41,12 @@ extension SignatureShaders {
         ShaderReadiness.publishEngineReady(performancePermits && preloadDidFinish)
     }
 
-    /// Called by the shell when the comfort profile or the active presentation
-    /// changes.
+    /// Called by the shell when the comfort profile changes.
     ///
-    /// `MotionPolicy.allowsCustomShaders` has encoded exactly this rule since it
-    /// was written and had **zero** production readers, so a person who chose
-    /// Calm still got every shader, and so did every focus session.
-    public static func updateComfort(profile: ComfortProfile, isFocusedPresentation: Bool) {
-        ShaderReadiness.publishComfort(
-            profile: profile,
-            isFocusedPresentation: isFocusedPresentation
-        )
+    /// `MotionPolicy.allowsCustomShaders` has encoded the Calm rule since it was
+    /// written and had **zero** production readers, so a person who chose Calm
+    /// still got every shader.
+    public static func updateComfort(profile: ComfortProfile) {
+        ShaderReadiness.publishComfort(profile: profile)
     }
 }

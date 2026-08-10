@@ -42,17 +42,12 @@
 # it declared no identifiers, which is part of why it was the one file safe to
 # delete without running the UI suite.
 #
-# 2026-08-10, SignalStrip adoption on Home: 775 -> 774.
-#   removed: "home.signal.\(slot.id)", "lifeboard.signal.\(item.id)"
-#   added:   "\(identifierPrefix).\(item.id)"
-#
-# READ THIS BEFORE TRUSTING THE SNAPSHOT FOR HOME'S SIGNALS. The runtime
-# identifiers are unchanged — Home passes `identifierPrefix: "home.signal"`, so
-# it still emits `home.signal.hydration` etc., and `LifeBoardUITests` queries
-# those directly. But the checker records *expression text*, and the prefix is
-# now a parameter, so it can no longer see that `home.signal.*` is produced here.
-# That is a real reduction in what this gate covers for this screen: the UI tests
-# at LifeBoardUITests.swift:528/544 are now the only thing pinning those
-# identifiers. Keep them.
-count=774
-sha256=085a5dd4b9203f7d0b6969a0b01795a44ec0ecd5c04023760de9291b4fc3a962
+# 2026-08-10, signal rings restored: 774 -> 775. `"home.signal.\(slot.id)"` is
+# back as a literal in `HomeSignalRow.ring(_:)`, so this gate covers Home's
+# signal identifiers again — briefly it did not, because the SignalStrip
+# adoption emitted them through an `identifierPrefix` parameter the checker
+# cannot resolve. `"\(identifierPrefix).\(item.id)"` remains in the set:
+# `SignalStrip` is kept in LifeBoardUI for future use, just no longer adopted
+# on Home.
+count=775
+sha256=b95063fd3b382f27b346b7337a7449e2349282727009c671e325e48154bf4a85

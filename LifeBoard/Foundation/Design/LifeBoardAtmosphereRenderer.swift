@@ -26,7 +26,7 @@ public struct AmbientRenderingPolicy: Equatable, Sendable {
             effectiveTier = requestedTier
         }
 
-        let maximumParallax: CGFloat
+        var maximumParallax: CGFloat
         let transitionDuration: TimeInterval
         let allowsIdleMotion: Bool
         switch comfortProfile {
@@ -35,13 +35,26 @@ public struct AmbientRenderingPolicy: Equatable, Sendable {
             transitionDuration = 0.18
             allowsIdleMotion = false
         case .balanced:
-            maximumParallax = constrained ? 0 : 4
+            maximumParallax = constrained ? 0 : 18
             transitionDuration = 0.24
             allowsIdleMotion = constrained == false
         case .playful:
-            maximumParallax = constrained ? 0 : 8
+            maximumParallax = constrained ? 0 : 30
             transitionDuration = 0.28
             allowsIdleMotion = constrained == false
+        }
+
+        // The rendering tier is what finally decides how much depth the scene
+        // has. Before this, `effectiveTier` was computed and then read by
+        // nothing at all, so the user-facing "Visual detail" control — Still /
+        // Atmosphere / Depth — changed precisely nothing.
+        switch effectiveTier {
+        case .static:
+            maximumParallax = 0
+        case .ambient2D:
+            break
+        case .enhanced3D:
+            maximumParallax *= 1.8
         }
 
         return AmbientRenderingPolicy(
@@ -238,48 +251,6 @@ public final class AtmosphereClock {
     }
 }
 
-public enum AtmospherePlacement: String, CaseIterable, Hashable, Sendable {
-    case home, plan, track, insights, eva, onboarding, focusedPresentation
-
-    public static func root(_ destination: Destination) -> Self {
-        switch destination {
-        case .home: .home
-        case .plan: .plan
-        case .track: .track
-        case .insights: .insights
-        case .eva: .eva
-        }
-    }
-
-    var suppressesAmbientDetail: Bool {
-        self == .onboarding || self == .focusedPresentation
-    }
-
-    /// How far down the celestial should sit, as a fraction of screen height
-    /// added to the descriptor's anchor.
-    ///
-    /// Home draws its own header on the open canvas, so the celestial can sit
-    /// high in the trailing corner. Every other root has a navigation bar
-    /// there, and a full-strength sun behind a toolbar makes its controls
-    /// unreadable. Those placements push the celestial below the bar.
-    var celestialAnchorOffset: Double {
-        switch self {
-        case .home, .onboarding, .focusedPresentation: return 0
-        case .plan, .track, .insights, .eva: return 0.14
-        }
-    }
-
-    /// Non-home roots are working surfaces; the celestial is atmosphere there,
-    /// not the subject.
-    var celestialScaleMultiplier: Double {
-        switch self {
-        case .home: return 0.76
-        case .onboarding, .focusedPresentation: return 1
-        case .plan, .track, .insights, .eva: return 0.78
-        }
-    }
-}
-
 private struct AtmosphereSnapshotKey: EnvironmentKey {
     static let defaultValue = AtmosphereSnapshot.resolve()
 }
@@ -357,13 +328,18 @@ public struct AdaptiveAtmosphere: View {
     public let comfortProfile: ComfortProfile
     public let showsCelestial: Bool
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    // Internal rather than private: the motion budget lives in
+    // `AdaptiveAtmosphereMotion.swift` so this view type stays under the
+    // file-size ratchet's per-type ceiling, and an extension in another file
+    // cannot see `private` members.
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) var reduceTransparency
     @Environment(\.colorSchemeContrast) private var accessibilityContrast
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.scenePhase) var scenePhase
+    @Environment(\.lifeBoardComposerScrollObserver) var scrollObserver
     @State private var transitionTrigger = 0
-    @State private var powerRevision = 0
+    @State var powerRevision = 0
 
     public init(
         snapshot: AtmosphereSnapshot,
@@ -398,9 +374,12 @@ public struct AdaptiveAtmosphere: View {
                         .clipped()
                 }
 
+                // The scene and the celestial travel in opposite directions as
+                // the content scrolls, so the backdrop separates into planes
+                // instead of reading as one flat picture behind a list.
                 scenicPlane(descriptor: descriptor, layout: layout)
                     .frame(width: layout.width, height: proxy.size.height)
-                    .position(x: layout.midX, y: proxy.size.height / 2)
+                    .position(x: layout.midX, y: proxy.size.height / 2 - parallaxOffset * 0.35)
 
                 if descriptor.compactStarCount > 0, placement.suppressesAmbientDetail == false {
                     starField(descriptor: descriptor, layout: layout, size: proxy.size)
@@ -539,14 +518,22 @@ public struct AdaptiveAtmosphere: View {
         size: CGSize
     ) -> some View {
         let policy = motionPolicy
-        let paused = policy.allowsIdleMotion == false || placement.suppressesAmbientDetail || scenePhase != .active
-        TimelineView(.animation(minimumInterval: 1 / 12, paused: paused)) { context in
+        // Gated on `allowsIdleDrift`, not `suppressesAmbientDetail`: a detail
+        // screen should be quieter than Home, not frozen.
+        let paused = policy.allowsIdleMotion == false
+            || placement.allowsIdleDrift == false
+            || scenePhase != .active
+        // 30fps rather than 12: at 12fps a slow drift reads as a stutter rather
+        // than as movement, which is worse than being still. The periods below
+        // are deliberately not whole multiples of one another, so the path
+        // never visibly repeats even though each component is a simple sine.
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: paused)) { context in
             let phase = paused ? 0 : context.date.timeIntervalSinceReferenceDate
-            let amplitude = celestialAmplitude
-            let driftX = CGFloat(sin(phase / 10.8)) * amplitude
-            let driftY = CGFloat(cos(phase / 12.0)) * amplitude * 0.66
-            let rotation = Double(sin(phase / 11.6)) * (comfortProfile == .playful ? 0.15 : 0.10)
-            let breath = 1 + CGFloat(sin(phase / 9.8)) * (comfortProfile == .playful ? 0.004 : 0.003)
+            let amplitude = celestialAmplitude * placement.idleDriftScale
+            let driftX = CGFloat(sin(phase / 4.5)) * amplitude
+            let driftY = CGFloat(cos(phase / 6.7)) * amplitude * 0.66
+            let rotation = Double(sin(phase / 5.9)) * (comfortProfile == .playful ? 1.6 : 0.9)
+            let breath = 1 + CGFloat(sin(phase / 3.8)) * (comfortProfile == .playful ? 0.02 : 0.015)
             // The floor used to be 220pt, which overrode every `celestialScale`
             // below ~0.56 on a compact width and forced a sun large enough to
             // sit behind the greeting. Lowering it lets the descriptor's scale
@@ -562,7 +549,9 @@ public struct AdaptiveAtmosphere: View {
                 .scaleEffect(breath)
                 .position(
                     x: layout.minX + layout.width * descriptor.celestialAnchorX + driftX,
-                    y: size.height * (descriptor.celestialAnchorY + placement.celestialAnchorOffset) + driftY
+                    y: size.height * (descriptor.celestialAnchorY + placement.celestialAnchorOffset)
+                        + driftY
+                        + parallaxOffset
                 )
                 .id(descriptor.celestialAsset)
                 .transition(.opacity.combined(with: .scale(scale: 0.992)))
@@ -578,15 +567,18 @@ public struct AdaptiveAtmosphere: View {
         let count = size.width >= 700 ? descriptor.regularStarCount : descriptor.compactStarCount
         let visibleCount = reduceTransparency ? max(4, count / 2) : count
         let paused = policy.allowsIdleMotion == false || scenePhase != .active
-        return TimelineView(.animation(minimumInterval: 1 / 12, paused: paused)) { context in
+        return TimelineView(.animation(minimumInterval: 1 / 30, paused: paused)) { context in
             let time = paused ? 0 : context.date.timeIntervalSinceReferenceDate
             Canvas(rendersAsynchronously: true) { graphics, canvasSize in
                 for index in 0..<visibleCount {
                     let x = layout.minX + pseudoRandom(index * 41 + 7) * layout.width
                     let y = 18 + pseudoRandom(index * 67 + 19) * canvasSize.height * 0.40
                     let base = 0.8 + pseudoRandom(index * 23 + 3) * 1.4
-                    let cycle = 5 + pseudoRandom(index * 13 + 2) * 5
-                    let wave = paused ? 0.72 : 0.55 + 0.30 * sin((time / cycle + Double(index)) * .pi * 2)
+                    // Shorter, more varied cycles and a deeper swing: the old
+                    // ±0.30 around 0.55 over a 5–10s period was a barely
+                    // perceptible shimmer on a field of 1pt dots.
+                    let cycle = 2.2 + pseudoRandom(index * 13 + 2) * 3.4
+                    let wave = paused ? 0.72 : 0.52 + 0.46 * sin((time / cycle + Double(index)) * .pi * 2)
                     let opacity = reduceTransparency ? max(0.58, wave) : wave
                     let rect = CGRect(x: x, y: y, width: base, height: base)
                     let color = index.isMultiple(of: 3)
@@ -596,31 +588,6 @@ public struct AdaptiveAtmosphere: View {
                 }
             }
         }
-    }
-
-    private var motionPolicy: MotionPolicy {
-        _ = powerRevision
-        return MotionPolicy.resolve(
-            reduceMotion: reduceMotion || VisualAppearanceFixture.active?.usesReducedMotion == true,
-            reduceTransparency: reduceTransparency || VisualAppearanceFixture.active?.usesReducedTransparency == true,
-            sceneIsActive: scenePhase == .active,
-            comfortProfile: comfortProfile,
-            isFocusedPresentation: placement.suppressesAmbientDetail
-        )
-    }
-
-    private var celestialAmplitude: CGFloat {
-        guard motionPolicy.allowsIdleMotion, requestedTier != .static else { return 0 }
-        return switch comfortProfile {
-        case .calm: 0
-        case .balanced: 3
-        case .playful: 4
-        }
-    }
-
-    private func pseudoRandom(_ seed: Int) -> Double {
-        let value = sin(Double(seed) * 12.9898) * 43_758.5453
-        return value - floor(value)
     }
 }
 
@@ -1225,7 +1192,12 @@ public extension DaypartPalette {
 public struct MetricRing: View {
     public enum RingState: Equatable, Sendable {
         case loading
+        /// Authorized, but nothing recorded yet. Tapping can add a value.
         case setupRequired
+        /// Never authorized, so there is nothing to show and nothing to add.
+        /// Distinct from `setupRequired`: the way forward is a permission, not
+        /// an entry.
+        case permissionRequired
         case unavailable
         case stale(progress: Double, centerText: String)
         case zero(centerText: String)
@@ -1258,7 +1230,7 @@ public struct MetricRing: View {
 
     private var progress: Double {
         switch state {
-        case .loading, .setupRequired, .unavailable, .zero: 0
+        case .loading, .setupRequired, .permissionRequired, .unavailable, .zero: 0
         case .stale(let progress, _), .value(let progress, _): min(1, max(0, progress))
         case .complete: 1
         }
@@ -1266,7 +1238,7 @@ public struct MetricRing: View {
 
     private var centerText: String? {
         switch state {
-        case .loading, .setupRequired, .unavailable: nil
+        case .loading, .setupRequired, .permissionRequired, .unavailable: nil
         case .stale(_, let text), .zero(let text), .value(_, let text), .complete(let text): text
         }
     }
@@ -1341,7 +1313,7 @@ public struct MetricRing: View {
 
     private var usesDashedTrack: Bool {
         switch state {
-        case .setupRequired, .unavailable, .stale: true
+        case .setupRequired, .permissionRequired, .unavailable, .stale: true
         default: false
         }
     }
@@ -1350,7 +1322,7 @@ public struct MetricRing: View {
     /// communicating state and has to carry full non-text contrast.
     private var trackIsTheSignal: Bool {
         switch state {
-        case .setupRequired, .unavailable: true
+        case .setupRequired, .permissionRequired, .unavailable: true
         default: false
         }
     }
@@ -1358,13 +1330,16 @@ public struct MetricRing: View {
     private var permitsProgressLayer: Bool {
         switch state {
         case .stale, .value, .complete: true
-        case .loading, .setupRequired, .unavailable, .zero: false
+        case .loading, .setupRequired, .permissionRequired, .unavailable, .zero: false
         }
     }
 
     private var statusSymbol: String? {
         switch state {
         case .setupRequired: "plus"
+        // Not "plus": a "+" promises that tapping adds a value, which is
+        // exactly what a declined permission cannot do.
+        case .permissionRequired: "hand.raised"
         case .unavailable: "slash"
         default: nil
         }
@@ -1374,6 +1349,7 @@ public struct MetricRing: View {
         switch state {
         case .loading: "Loading"
         case .setupRequired: "Set up"
+        case .permissionRequired: "Not shared"
         case .unavailable: "Unavailable"
         case .stale(let progress, let text): "\(text), out of date, \(Int((min(1, max(0, progress)) * 100).rounded())) percent"
         case .zero(let text): "\(text), no progress recorded"

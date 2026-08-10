@@ -1969,8 +1969,17 @@ private enum HomeSectionCopy {
         switch slot.availability {
         case .loading:
             return .loading
-        case .setupRequired, .permissionRequired:
+        case .setupRequired:
             return .setupRequired
+        case .permissionRequired:
+            // These two were one case, and the collapse discarded a distinction
+            // the domain had just made: `homeAvailability` above separates
+            // "HealthKit was never authorized" (.permissionRequired) from
+            // "authorized, nothing recorded yet" (.setupRequired). Both drew the
+            // same dashed "+", so a declined permission read as unfinished
+            // setup — and the "+" implied tapping would let you add a value,
+            // which it cannot.
+            return .permissionRequired
         case .unavailable:
             return .unavailable
         case .stale:
@@ -2810,76 +2819,56 @@ private struct HomeSignalRow: View {
     @Binding var fastingStateChangeTrigger: Int
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
-    /// Health facts through the shared `SignalStrip`; fasting keeps its own
-    /// widget beside them.
-    ///
-    /// The three health rings used to render as identical dashed circles whether
-    /// the state was "nothing recorded", "access denied", or "unavailable" —
-    /// `MetricRing` collapsed all three into one empty shape. `SignalReading`
-    /// makes the distinction a type, so it now survives to screen and VoiceOver.
-    /// Fasting stays separate: it is a live timer whose active state becomes
-    /// unreachable if dropped (see `signalSlots`), so the strip carries three —
-    /// satisfying DESIGN.md's cap — and the timer sits alongside.
     var body: some View {
         let slots = signalSlots
-        let healthItems = slots.filter { $0.id != "fasting" }.map(Self.stripItem)
-        let strip = SignalStrip(items: healthItems, identifierPrefix: "home.signal") { id in
-            if id == "hydration" { captureRouter.request(kind: .hydration, source: .shell) }
-            else { router.select(.track) }
-        }
-
-        Group {
-            if dynamicTypeSize.isAccessibilitySize {
-                VStack(spacing: 12) {
-                    strip
-                    fastingSignal
-                }
-            } else {
-                HStack(spacing: 8) {
-                    strip
-                    fastingSignal
-                }
-                .frame(maxWidth: .infinity)
+        if dynamicTypeSize.isAccessibilitySize {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(slots) { slot in ring(slot) }
             }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home.signalRow")
+        } else {
+            HStack(spacing: 8) {
+                ForEach(slots) { slot in ring(slot) }
+            }
+            .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home.signalRow")
         }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.signalRow")
     }
 
-    private var fastingSignal: some View {
-        HomeFastingSignal(
-            lifeOSStore: lifeOSStore,
-            router: router,
-            hasPhaseIIRepository: hasPhaseIIRepository,
-            palette: palette,
-            reduceMotion: reduceMotion,
-            showsFastEndReceipt: $showsFastEndReceipt,
-            showsFastingError: $showsFastingError,
-            fastingStateChangeTrigger: $fastingStateChangeTrigger
-        )
-    }
-
-    /// Each `HomeSignalState` becomes the reading that is actually true, rather
-    /// than all of them becoming "empty".
-    static func stripItem(_ slot: HomeSignalSlot) -> SignalStripItem {
-        let reading: SignalReading = switch slot.availability {
-        case .available:
-            // An available slot with no value has been asked and has nothing
-            // recorded — which is not zero, and not a failure.
-            slot.valueText.map { SignalReading.value($0) } ?? .noRecord
-        case .loading: .loading
-        case .setupRequired: .noRecord
-        case .permissionRequired: .denied
-        case .stale: .stale(slot.valueText ?? "—", age: "earlier")
-        case .unavailable: .unavailable
+    @ViewBuilder
+    private func ring(_ slot: HomeSignalSlot) -> some View {
+        if slot.id == "fasting" {
+            HomeFastingSignal(
+                lifeOSStore: lifeOSStore,
+                router: router,
+                hasPhaseIIRepository: hasPhaseIIRepository,
+                palette: palette,
+                reduceMotion: reduceMotion,
+                showsFastEndReceipt: $showsFastEndReceipt,
+                showsFastingError: $showsFastingError,
+                fastingStateChangeTrigger: $fastingStateChangeTrigger
+            )
+        } else {
+            Button {
+                if slot.id == "hydration" { captureRouter.request(kind: .hydration, source: .shell) }
+                else { router.select(.track) }
+            } label: {
+                MetricRing(
+                    label: slot.title,
+                    state: HomeSectionCopy.ringState(for: slot),
+                    diameter: 58,
+                    palette: palette,
+                    liquidTint: HomeSectionCopy.liquidTint(for: slot, palette: palette)
+                )
+                .frame(maxWidth: .infinity, minHeight: 100)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(slot.title), \(slot.valueText ?? HomeSectionCopy.accessibilityAvailability(slot.availability))")
+            .accessibilityIdentifier("home.signal.\(slot.id)")
         }
-        return SignalStripItem(
-            id: slot.id,
-            label: slot.title,
-            systemImage: slot.systemImage,
-            reading: reading,
-            timeframe: "today"
-        )
     }
 
     private var signalSlots: [HomeSignalSlot] {

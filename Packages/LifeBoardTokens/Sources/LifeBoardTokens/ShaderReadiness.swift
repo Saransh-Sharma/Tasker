@@ -9,8 +9,8 @@ import Foundation
 ///      every stitchable function on launch; nothing may render before that
 ///      completes, or a missing function degrades into a broken surface rather
 ///      than into the caller's ordinary transition.
-///   2. **Comfort allows it.** `MotionPolicy.allowsCustomShaders` already folds
-///      in the Calm comfort profile and focused presentations — and had **zero
+///   2. **Comfort allows it.** The Calm comfort profile drops the Metal layer.
+///      `MotionPolicy.allowsCustomShaders` encoded that rule but had **zero
 ///      production readers**, so Calm suppressed nothing at all.
 ///
 /// `LifeBoardUI` cannot import the app target, which is why the paper-grain
@@ -46,10 +46,20 @@ public enum ShaderReadiness {
 
     /// `DESIGN.md`: "Comfort profiles change expression, not capability."
     /// Calm keeps every control and every outcome; it drops the Metal layer.
-    public static func publishComfort(
-        profile: ComfortProfile,
-        isFocusedPresentation: Bool
-    ) {
-        comfortPermits = profile != .calm && isFocusedPresentation == false
+    ///
+    /// Focused presentations are deliberately **not** gated here. They used to be,
+    /// which meant every shader in the app went dark whenever a `.focused` route
+    /// was on screen — and the routes mapped to `.focused` are Focus Session,
+    /// Day Open and Close the Day. Close the Day is the heaviest shader consumer
+    /// in the product (paper grain, dissolve away, completion burst, first light,
+    /// chart reveal sweep), so none of its five effects had ever rendered.
+    ///
+    /// What a focused presentation actually owes is *quiet ambience*, not the
+    /// absence of commitment effects — a completion burst is the whole point of
+    /// closing the day. That suppression lives in `MotionPolicy.allowsIdleMotion`,
+    /// which already drives the celestial and star field through
+    /// `AtmospherePlacement.suppressesAmbientDetail`.
+    public static func publishComfort(profile: ComfortProfile) {
+        comfortPermits = profile != .calm
     }
 }

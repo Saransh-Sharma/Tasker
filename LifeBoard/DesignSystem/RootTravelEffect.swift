@@ -28,7 +28,7 @@ private struct RootTravelModifier: ViewModifier {
     @Environment(\.scenePhase) private var scenePhase
 
     private var usesFallback: Bool {
-        reduceMotion
+        MotionOverride.resolve(reduceMotion)
             || reduceTransparency
             || scenePhase != .active
             || SignatureShaders.isReadyForRendering == false

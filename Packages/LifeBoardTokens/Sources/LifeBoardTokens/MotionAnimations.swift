@@ -13,13 +13,13 @@ import UIKit
 
 @MainActor
 public enum LifeBoardAnimation {
-    /// Mirrors `V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled` storage.
-    ///
-    /// Same reason as `Theme.tokenCacheEnabled`: the flag service is an
-    /// app type and this package is linked by the widget and Watch targets too.
-    /// Key and default must stay identical to the app's accessor.
+    /// Mirrors `V2FeatureFlags.iPadPerfHomeAnimationTrimV3Enabled` storage: the
+    /// flag service is an app type and this package is linked by the widget and
+    /// Watch targets too. Key and default must stay identical to the app's.
+    /// Now defaults **off** — the trim removed iPad Home's only entrance motion.
+    /// If scroll regresses, lower `entranceStaggerCap` rather than re-enabling.
     static var padHomeAnimationTrimEnabled: Bool {
-        UserDefaults.standard.object(forKey: "feature.ipad.perf.home_animation_trim_v3") as? Bool ?? true
+        UserDefaults.standard.object(forKey: "feature.ipad.perf.home_animation_trim_v3") as? Bool ?? false
     }
 
     public static let celebrationDuration: TimeInterval = 0.54
@@ -105,7 +105,7 @@ public enum LifeBoardAnimation {
     }
 
     public static func animationsDisabled(reduceMotion: Bool) -> Bool {
-        reduceMotion || areProcessAnimationsDisabled
+        MotionOverride.resolve(reduceMotion) || areProcessAnimationsDisabled
     }
 
     public static func pressScale(isPressed: Bool, animationsDisabled: Bool) -> CGFloat {

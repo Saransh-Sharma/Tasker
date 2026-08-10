@@ -23,9 +23,13 @@ public struct MotionPolicy: Equatable, Sendable {
         sceneIsActive: Bool,
         supportsCustomShaders: Bool = true,
         isCatalyst: Bool = ProcessInfo.processInfo.isMacCatalystApp,
-        comfortProfile: ComfortProfile = .balanced,
+        comfortProfile: ComfortProfile = .playful,
         isFocusedPresentation: Bool = false
     ) -> MotionPolicy {
+        // The "Full motion" override is applied here rather than injected into
+        // the environment, because `\.accessibilityReduceMotion` is get-only.
+        // See `MotionOverride`.
+        let reduceMotion = MotionOverride.resolve(reduceMotion)
         let thermallyConstrained = thermalState == .serious || thermalState == .critical
         let energyConstrained = lowPowerMode || thermallyConstrained
         let allowsSpatialMotion = sceneIsActive && reduceMotion == false && energyConstrained == false

@@ -14,12 +14,13 @@
 # whose largest declaration went 436 -> under 400 by moving `host(router:)` and
 # two inline sections out.
 #
-# 2026-08-10, SignalStrip adoption: Gallery 5014 -> 5028 lines, and one FEWER
-# top-level type (61 -> 60). The per-slot `ring(_:)` renderer was deleted in
-# favour of the shared `SignalStrip`, which is the direction this ratchet wants;
-# the line count rose because the state mapping that renderer was missing —
-# no-record vs denied vs unavailable, previously all drawn as one empty ring —
-# has to be written down somewhere. `largest` is unchanged at 1101.
+# 2026-08-10, signal rings restored: Gallery 5028 -> 5017 (ratcheted DOWN; the
+# SignalStrip adoption was reverted at the user's request and `ring(_:)` came
+# back smaller than the strip plumbing it replaced). AtmosphereRenderer
+# 1387 -> 1393 for `MetricRing.RingState.permissionRequired`, a new case that
+# separates "HealthKit was never authorized" from "authorized, nothing recorded
+# yet" — the mapping used to collapse both into a dashed "+", which promised
+# that tapping would let you add a value a permission gate cannot accept.
 #
 # 'largest' is the metric that predicts the -Onone launch crash: Debug inlines a
 # computed 'some View' property into its caller's frame, so it is the size of the
@@ -100,8 +101,8 @@ LifeBoard/Features/Track/UI/TrackFoundationStore.swift	1266	7	1137
 LifeBoard/Features/Weekly/Domain/WeeklyPlanningWorkspace.swift	867	29	90
 LifeBoard/Features/Weekly/UI/WeeklyPlanningWorkspaceView.swift	2642	28	749
 LifeBoard/Features/Wellness/Domain/WellnessCoreModels.swift	887	26	187
-LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift	1387	29	273
-LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift	5028	60	1101
+LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift	1393	29	273
+LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift	5017	60	1101
 LifeBoard/Foundation/LifeOSFoundationContracts.swift	3095	133	209
 LifeBoard/Foundation/Navigation/AppRouter.swift	835	10	477
 LifeBoard/Foundation/Navigation/FoundationShell.swift	7112	56	2120

@@ -15,45 +15,45 @@ import LifeBoardTokens
 public enum InteractionMotion {
     /// A card arriving into the viewport.
     public static func cardEntrance(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.86)
+        MotionOverride.resolve(reduceMotion) ? nil : .spring(response: 0.42, dampingFraction: 0.86)
     }
 
     /// A surface lifting under the finger, or settling back down.
     public static func cardLift(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.28, dampingFraction: 0.82)
+        MotionOverride.resolve(reduceMotion) ? .linear(duration: 0.12) : .spring(response: 0.28, dampingFraction: 0.82)
     }
 
     /// A metric ring moving to a new value. Slower than a state change so the
     /// eye can follow the arc rather than just noticing it jumped.
     public static func ringSettle(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : .spring(response: 0.55, dampingFraction: 0.9)
+        MotionOverride.resolve(reduceMotion) ? nil : .spring(response: 0.55, dampingFraction: 0.9)
     }
 
     /// A sheet or overlay rising into place.
     public static func sheetRise(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? .linear(duration: 0.14) : .spring(response: 0.46, dampingFraction: 0.88)
+        MotionOverride.resolve(reduceMotion) ? .linear(duration: 0.14) : .spring(response: 0.46, dampingFraction: 0.88)
     }
 
     /// A commitment being completed. The one place a little overshoot is
     /// earned, because the user just finished something.
     public static func completion(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? .linear(duration: 0.16) : .spring(response: 0.36, dampingFraction: 0.62)
+        MotionOverride.resolve(reduceMotion) ? .linear(duration: 0.16) : .spring(response: 0.36, dampingFraction: 0.62)
     }
 
     /// The whole screen changing daypart. Long and unhurried — this is
     /// atmosphere, not feedback.
     public static func dayShift(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? .linear(duration: 0.2) : .easeInOut(duration: 0.85)
+        MotionOverride.resolve(reduceMotion) ? .linear(duration: 0.2) : .easeInOut(duration: 0.85)
     }
 
     /// A horizontal rail settling after a flick.
     public static func railScroll(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? nil : .spring(response: 0.34, dampingFraction: 0.9)
+        MotionOverride.resolve(reduceMotion) ? nil : .spring(response: 0.34, dampingFraction: 0.9)
     }
 
     /// A drag being released back to rest after not crossing its threshold.
     public static func dragRelease(reduceMotion: Bool) -> Animation? {
-        reduceMotion ? .linear(duration: 0.12) : .spring(response: 0.32, dampingFraction: 0.74)
+        MotionOverride.resolve(reduceMotion) ? .linear(duration: 0.12) : .spring(response: 0.32, dampingFraction: 0.74)
     }
 }
 
@@ -254,6 +254,96 @@ public extension View {
     /// so dense rails can use a lighter touch than full-width cards.
     func lifeBoardScrollEntrance(intensity: CGFloat = 1) -> some View {
         modifier(ScrollEntrance(intensity: intensity))
+    }
+}
+
+// MARK: - Ambient life
+
+/// What a surface is, for the purpose of ambient motion. The role picks the
+/// envelope; callers do not get to invent their own.
+public enum AmbientRole: Sendable {
+    /// The dominant object on a screen. The slowest and largest envelope.
+    case heroSurface
+    /// A metric that is currently being recorded or streamed.
+    case activeMetric
+    /// A small badge or dot standing for something happening right now.
+    case liveIndicator
+
+    var period: Double {
+        switch self {
+        case .heroSurface: 5.2
+        case .activeMetric: 3.4
+        case .liveIndicator: 2.1
+        }
+    }
+
+    /// Scale swing, as a fraction. Capped well inside the DESIGN.md 2% budget.
+    var scaleSwing: CGFloat {
+        switch self {
+        case .heroSurface: 0.006
+        case .activeMetric: 0.011
+        case .liveIndicator: 0.018
+        }
+    }
+
+    var opacitySwing: Double {
+        switch self {
+        case .heroSurface: 0.03
+        case .activeMetric: 0.06
+        case .liveIndicator: 0.12
+        }
+    }
+}
+
+/// Bounded, always-on life for a surface that should not read as frozen.
+///
+/// This is the ambient tier described in DESIGN.md. It deliberately uses a
+/// repeating `.animation` rather than a `TimelineView`: the budget allows only
+/// one ambient timeline per screen, and that one belongs to the atmosphere.
+/// A repeating spring costs nothing per frame when the value is not changing
+/// and stops cleanly the moment the policy withdraws it.
+private struct AmbientBreath: ViewModifier {
+    let role: AmbientRole
+    let intensity: CGFloat
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isBreathing = false
+
+    private var policy: MotionPolicy {
+        MotionPolicy.resolve(
+            reduceMotion: reduceMotion,
+            reduceTransparency: false,
+            sceneIsActive: scenePhase == .active
+        )
+    }
+
+    func body(content: Content) -> some View {
+        // `allowsIdleMotion` already folds in Reduce Motion, Low Power, thermal
+        // pressure, scene phase and the Calm comfort profile, so ambient motion
+        // inherits every withdrawal rule without restating any of them.
+        if policy.allowsIdleMotion == false || intensity <= 0.001 {
+            content
+        } else {
+            content
+                .scaleEffect(isBreathing ? 1 + role.scaleSwing * intensity : 1 - role.scaleSwing * intensity)
+                .opacity(isBreathing ? 1 : 1 - role.opacitySwing * Double(intensity))
+                .animation(
+                    .easeInOut(duration: role.period).repeatForever(autoreverses: true),
+                    value: isBreathing
+                )
+                .onAppear { isBreathing = true }
+                .onDisappear { isBreathing = false }
+        }
+    }
+}
+
+public extension View {
+    /// Gives a surface bounded ambient life so it does not read as a still
+    /// image. See the ambient motion budget in DESIGN.md — one ambient timeline
+    /// per screen, and never behind body text.
+    func lifeBoardAmbientBreath(role: AmbientRole, intensity: CGFloat = 1) -> some View {
+        modifier(AmbientBreath(role: role, intensity: intensity))
     }
 }
 

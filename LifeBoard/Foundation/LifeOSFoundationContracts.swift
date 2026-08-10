@@ -2070,6 +2070,7 @@ public enum FoundationPreferenceKey {
     public static let daypartSelection = "foundation.presentation.daypart_selection"
     public static let daypartOverride = "foundation.presentation.daypart_override"
     public static let renderingTier = "foundation.presentation.rendering_tier"
+    public static let fullMotion = "foundation.presentation.full_motion"
     public static let restorationState = "foundation.navigation.restoration_state"
 }
 
@@ -2086,6 +2087,14 @@ public final class PresentationPreferences {
 
     public var renderingTier: AmbientRenderingTier {
         didSet { defaults.set(renderingTier.rawValue, forKey: FoundationPreferenceKey.renderingTier) }
+    }
+
+    /// Overrides the system Reduce Motion setting for this app only. On by
+    /// default: LifeBoard's motion *is* the product, and the shell publishes
+    /// this into both `\.accessibilityReduceMotion` and `MotionOverride`, so
+    /// turning it off restores the full accessibility path everywhere at once.
+    public var fullMotionEnabled: Bool {
+        didSet { defaults.set(fullMotionEnabled, forKey: FoundationPreferenceKey.fullMotion) }
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -2118,11 +2127,16 @@ public final class PresentationPreferences {
         }
         let resolvedSelection = controller.resolvedSelection(at: currentDate, calendar: currentCalendar)
         overrideController = controller
+        // Playful rather than Balanced: the stronger springs, elasticity and
+        // 8pt parallax already existed as tokens and were simply never the
+        // default, so the premium motion the design system pays for was only
+        // ever seen by someone who went looking for the setting.
         comfortProfile = resolvedDefaults.string(forKey: FoundationPreferenceKey.comfortProfile)
-            .flatMap(ComfortProfile.init(rawValue:)) ?? .balanced
+            .flatMap(ComfortProfile.init(rawValue:)) ?? .playful
         daypartSelection = resolvedSelection
         renderingTier = resolvedDefaults.string(forKey: FoundationPreferenceKey.renderingTier)
             .flatMap(AmbientRenderingTier.init(rawValue:)) ?? .ambient2D
+        fullMotionEnabled = resolvedDefaults.object(forKey: FoundationPreferenceKey.fullMotion) as? Bool ?? true
     }
 
     public func resolvedDaypart(at date: Date = Date(), calendar: Calendar = .current) -> ResolvedDaypart {

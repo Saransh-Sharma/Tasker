@@ -459,7 +459,7 @@ Inbox, Rescue, and replanning decisions may use one front card on a stable deck 
 
 ### Focus dial
 
-The dial presents settled progress around a dominant time or activity label. Active, paused, and completed states use text, shape, and color together. Scrubbing or direct manipulation uses magnetic alignment and threshold feedback. The dial does not run an ambient shader and becomes a static progress presentation under Reduce Motion.
+The dial presents settled progress around a dominant time or activity label. Active, paused, and completed states use text, shape, and color together. Scrubbing or direct manipulation uses magnetic alignment and threshold feedback. While a session is running the dial carries ambient motion within the budget above, so an active session reads as alive rather than frozen; it settles to a static progress presentation when paused, when completed, and whenever the ambient budget withdraws.
 
 ### Charts and evidence
 
@@ -486,7 +486,26 @@ Loading, genuinely empty, no record, denied, locked, offline, stale or partial, 
 
 Use the motion grammar **source → travel → settle**. Source establishes origin, travel preserves spatial continuity, and settle confirms the new state. Direct manipulation follows the finger without perceptible delay. Persistence precedes success motion and haptics.
 
-Concentrate rich motion at five boundaries: capture, navigation, commitment, replanning, and reflection. Ordinary scrolling, reading, and repeated row actions stay quiet. Most microinteractions complete within 120–280 milliseconds; spatial transitions complete within 280–500 milliseconds; signature moments remain below roughly 800 milliseconds and never block the next action.
+Concentrate rich motion at five boundaries: capture, navigation, commitment, replanning, and reflection. Most microinteractions complete within 120–280 milliseconds; spatial transitions complete within 280–500 milliseconds; signature moments remain below roughly 800 milliseconds and never block the next action.
+
+Scrolling is not a quiet moment. Content entering the viewport rises, focuses, and settles; repeated row actions stay restrained but never silent. A surface the person is reading may carry ambient life, and the atmosphere behind every screen is always in motion.
+
+#### Two tiers of motion
+
+Motion in LifeBoard belongs to one of two tiers, and the tier decides the rules:
+
+- **Boundary motion** is one-shot. It is triggered by an event, it plays once, and it returns to a settled state. Every signature effect below is boundary motion unless named otherwise.
+- **Ambient motion** is continuous. It has no settled state — it has a bounded envelope, and it exists so the product feels alive rather than paused.
+
+Ambient motion is a privilege with a budget, and the budget is normative:
+
+- At most **one** ambient timeline per screen. Ambient surfaces share it; they do not each start their own.
+- **30 frames per second or fewer.**
+- Amplitude **at or below 2%** of the affected element's dimension, and never enough to shift a reading position or a touch target.
+- Never behind body text, charts, evidence, or sensitive content. Ambient motion belongs to atmosphere, hero surfaces, and live indicators.
+- Always paused when the scene is inactive, under Low Power Mode, or under thermal pressure — and absent entirely under the Calm comfort profile or the Still rendering tier.
+
+Ambient motion that cannot state its envelope is not ambient motion; it is a distraction, and it does not ship.
 
 Comfort profiles change expression, not capability:
 
@@ -509,9 +528,12 @@ Use the existing signature-effect vocabulary only:
 - `healthSyncPulse`, `vitalOrbWarp`, and `fastingEmberRing` only for corresponding recorded state changes.
 - `liquidGlassRefract` for approved dock, lens, and composer transitions.
 - `valueDrumWarp` only while a value tape is under the finger; identity at the centre detent and at rest.
-- `paperGrain` as the only static effect.
+- `paperGrain` as a static texture; it never animates.
+- `ambientDrift` and `ambientBreath` as the ambient tier, subject to the budget above.
 
-Effects mount behind text, charts, evidence, and sensitive content. Every animated effect returns to a settled state. Reduce Motion, Reduce Transparency, Low Power Mode, thermal pressure, inactive scenes, unsupported platforms, or shader failure replaces effects with short semantic crossfades or immediate state changes without removing content or delaying input.
+Effects mount behind text, charts, evidence, and sensitive content. Every **boundary** effect returns to a settled state; **ambient** effects instead stay within their stated envelope and come to rest whenever the budget withdraws them. Reduce Transparency, Low Power Mode, thermal pressure, inactive scenes, unsupported platforms, or shader failure replaces effects with short semantic crossfades or immediate state changes without removing content or delaying input.
+
+Reduce Motion is honoured the same way, with one deliberate exception: LifeBoard offers a **Full motion** setting that overrides the system preference for this app alone. It is on by default, because motion is central to what this product is. Turning it off restores the complete Reduce Motion path everywhere at once. Energy and thermal limits are never overridable — they are not comfort preferences.
 
 ### Accessibility and input
 
@@ -530,7 +552,7 @@ Haptics confirm commit, selection, lift, threshold, settle, decline, and failure
 - **Do** distinguish zero, no record, stale, denied, unavailable, locked, offline, and failure; **don't** collapse them into a generic empty state.
 - **Do** begin success feedback after persistence; **don't** simulate success with a delay or dismiss recoverable work.
 - **Do** pair gestures with buttons, keyboard, and VoiceOver alternatives; **don't** make discovery or completion depend on gesture knowledge.
-- **Do** use signature motion at meaningful boundaries; **don't** run ambient loops, distort readable content, or animate every state change.
+- **Do** use signature motion at meaningful boundaries, and bounded ambient motion within its stated budget; **don't** run an ambient loop you cannot bound, distort readable content, or animate every state change.
 - **Do** honor comfort and accessibility settings without changing capability; **don't** make reduced effects feel like a degraded product.
 - **Do** use SF Symbols or curated brand assets; **don't** use emoji as interface icons.
 - **Do** preserve privacy in notifications, widgets, previews, and diagnostics; **don't** reveal Journal, health, audio, media, or assistant context outside its authorized surface.

@@ -41,7 +41,10 @@ public struct AsyncActionControl<Receipt: Equatable & Sendable>: View {
             .padding(.horizontal, 12)
         }
         .buttonStyle(.bordered)
-        .animation(reduceMotion ? nil : .spring(response: 0.32, dampingFraction: 0.84), value: label)
+        .animation(
+            MotionOverride.resolve(reduceMotion) ? nil : .spring(response: 0.32, dampingFraction: 0.84),
+            value: label
+        )
         .accessibilityValue(accessibilityValue)
     }
 
@@ -104,7 +107,7 @@ public struct JournalWorkIndicator: View {
     public var body: some View {
         Group {
             if isActive {
-                if reduceMotion || scenePhase != .active {
+                if MotionOverride.resolve(reduceMotion) || scenePhase != .active {
                     staticPages(turn: progress ?? 0.5)
                 } else {
                     TimelineView(.animation(minimumInterval: 1 / 24)) { context in
@@ -159,7 +162,7 @@ private struct ConfirmationRippleModifier: ViewModifier {
             .clipped()
             .onChange(of: trigger) { _, _ in
                 let policy = MotionPolicy.resolve(
-                    reduceMotion: reduceMotion,
+                    reduceMotion: MotionOverride.resolve(reduceMotion),
                     reduceTransparency: reduceTransparency,
                     sceneIsActive: scenePhase == .active
                 )
@@ -230,6 +233,7 @@ public enum SignatureShaders {
         "LifeBoardTaskLandingCaustic",
         "LifeBoardValueDrumWarp",
         "LifeBoardRootTravelShear",
+        "LifeBoardAmbientDrift",
         // Lives in LifeBoardCTABezel.metal rather than the signature library,
         // but it is loaded from the same default library and must be verified
         // by the same warm-up — it was the one shader nothing checked for.
@@ -868,7 +872,7 @@ private struct TriageSettleModifierEnvironment: ViewModifier {
         content.modifier(TriageSettleModifier(
             trigger: trigger,
             direction: direction,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -955,7 +959,7 @@ private struct TaskLandingCausticModifierEnvironment: ViewModifier {
             trigger: trigger,
             center: center,
             tint: tint,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1031,7 +1035,7 @@ private struct ChartRevealSweepModifierEnvironment: ViewModifier {
     func body(content: Content) -> some View {
         content.modifier(ChartRevealSweepModifier(
             progress: progress,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             sceneIsActive: scenePhase == .active
         ))
     }
@@ -1082,7 +1086,7 @@ private struct LiquidGlassRefractModifierEnvironment: ViewModifier {
             center: center,
             radius: radius,
             strength: strength,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1136,7 +1140,7 @@ private struct CardMorphWarpModifierEnvironment: ViewModifier {
         content.modifier(CardMorphWarpModifier(
             origin: origin,
             trigger: trigger,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1234,6 +1238,74 @@ struct PaperGrainModifier: ViewModifier {
     }
 }
 
+// MARK: - ambientDrift
+
+/// The ambient tier's public surface, kept in its own extension because the
+/// boundary-effect extension above is at the file-size ratchet's per-type cap.
+public extension View {
+    /// Continuous, bounded luminance drift for a hero surface — the ambient
+    /// tier. Unlike every other signature effect this one never settles; it
+    /// runs until the motion policy withdraws it. One per screen.
+    @MainActor
+    func lifeboardAmbientDrift(intensity: Double = 1) -> some View {
+        modifier(AmbientDriftModifierEnvironment(intensity: intensity))
+    }
+}
+
+/// The ambient tier's shader. The only effect in this file driven by wall time
+/// rather than a one-shot trigger, so it is the only one that owns a
+/// `TimelineView` — hence the DESIGN.md budget of one per screen.
+private struct AmbientDriftModifierEnvironment: ViewModifier {
+    let intensity: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.scenePhase) private var scenePhase
+    func body(content: Content) -> some View {
+        content.modifier(AmbientDriftModifier(
+            intensity: intensity,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
+            reduceTransparency: reduceTransparency,
+            sceneIsActive: scenePhase == .active
+        ))
+    }
+}
+
+private struct AmbientDriftModifier: ViewModifier {
+    let intensity: Double
+    let reduceMotion: Bool
+    let reduceTransparency: Bool
+    let sceneIsActive: Bool
+
+    private var usesFallback: Bool {
+        reduceMotion || reduceTransparency || sceneIsActive == false
+            || SignatureShaders.isReadyForRendering == false
+    }
+
+    func body(content: Content) -> some View {
+        if usesFallback || intensity <= 0.001 {
+            content
+        } else {
+            TimelineView(.animation(minimumInterval: 1 / 30, paused: sceneIsActive == false)) { context in
+                let time = Float(
+                    context.date.timeIntervalSinceReferenceDate
+                        .truncatingRemainder(dividingBy: 86_837)
+                )
+                content.layerEffect(
+                    Shader(
+                        function: ShaderFunction(library: .default, name: "LifeBoardAmbientDrift"),
+                        arguments: [
+                            .float2(1, 1),
+                            .float(time),
+                            .float(Float(max(0, min(1, intensity))))
+                        ]
+                    ),
+                    maxSampleOffset: .zero
+                )
+            }
+        }
+    }
+}
+
 // MARK: - dissolveAway
 
 private struct DissolveAwayModifierEnvironment: ViewModifier {
@@ -1245,7 +1317,7 @@ private struct DissolveAwayModifierEnvironment: ViewModifier {
         content.modifier(DissolveAwayModifier(
             progress: progress,
             tint: tint,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             sceneIsActive: scenePhase == .active
         ))
     }
@@ -1296,7 +1368,7 @@ private struct DaypartBloomModifierEnvironment: ViewModifier {
     func body(content: Content) -> some View {
         content.modifier(DaypartBloomModifier(
             center: center, trigger: trigger, tint: tint,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1315,7 +1387,7 @@ private struct EvaInkRevealModifierEnvironment: ViewModifier {
             progress: progress,
             newContentFraction: newContentFraction,
             tint: tint,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1330,7 +1402,7 @@ private struct JournalMediaRevealModifierEnvironment: ViewModifier {
     func body(content: Content) -> some View {
         content.modifier(JournalMediaRevealModifier(
             progress: progress,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1345,7 +1417,7 @@ private struct MemoryDevelopRevealModifierEnvironment: ViewModifier {
     func body(content: Content) -> some View {
         content.modifier(MemoryDevelopRevealModifier(
             progress: progress,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1363,7 +1435,7 @@ private struct FastingEmberRingModifierEnvironment: ViewModifier {
         content.modifier(FastingEmberRingModifier(
             progress: progress,
             tint: tint,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1379,7 +1451,7 @@ private struct HealthSyncPulseModifierEnvironment: ViewModifier {
     func body(content: Content) -> some View {
         content.modifier(HealthSyncPulseModifier(
             trigger: trigger,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1395,7 +1467,7 @@ private struct VitalOrbWarpModifierEnvironment: ViewModifier {
     func body(content: Content) -> some View {
         content.modifier(VitalOrbWarpModifier(
             trigger: trigger,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1596,7 +1668,7 @@ private struct ClayPressBloomModifierEnvironment: ViewModifier {
     func body(content: Content) -> some View {
         content.modifier(ClayPressBloomModifier(
             center: center, trigger: trigger, tint: tint,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1612,7 +1684,7 @@ private struct DaypartCrossDissolveModifierEnvironment: ViewModifier {
     func body(content: Content) -> some View {
         content.modifier(DaypartCrossDissolveModifier(
             trigger: trigger, daypart: daypart,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1628,7 +1700,7 @@ private struct CompletionBurstModifierEnvironment: ViewModifier {
     func body(content: Content) -> some View {
         content.modifier(CompletionBurstModifier(
             center: center, trigger: trigger,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1645,7 +1717,7 @@ private struct ContextLensModifierEnvironment: ViewModifier {
         content.modifier(ContextLensModifier(
             center: center,
             trigger: trigger,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))
@@ -1688,7 +1760,7 @@ private struct FirstLightModifierEnvironment: ViewModifier {
         content.modifier(FirstLightModifier(
             trigger: trigger,
             tint: tint,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             sceneIsActive: scenePhase == .active
         ))
     }
@@ -1767,7 +1839,7 @@ private struct ValueDrumWarpModifierEnvironment: ViewModifier {
         content.modifier(ValueDrumWarpModifier(
             grip: grip,
             center: center,
-            reduceMotion: reduceMotion,
+            reduceMotion: MotionOverride.resolve(reduceMotion),
             reduceTransparency: reduceTransparency,
             sceneIsActive: scenePhase == .active
         ))

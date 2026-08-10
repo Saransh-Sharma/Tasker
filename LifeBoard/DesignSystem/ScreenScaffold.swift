@@ -313,7 +313,7 @@ public struct ScreenScaffold<Content: View>: View {
 
     public init(
         mode: ScreenMode,
-        placement: AtmospherePlacement = .focusedPresentation,
+        placement: AtmospherePlacement = .secondary,
         bottomClearance: CGFloat = 0,
         readableWidth: CGFloat? = nil,
         @ViewBuilder content: () -> Content
@@ -345,6 +345,11 @@ public struct ScreenScaffold<Content: View>: View {
     private var canvas: some View {
         ZStack {
             if scaffoldIsHosted == false, atmosphereIsHosted == false {
+                // Only a genuinely immersive mode (`focused`, `critical`) gets a
+                // still scene. Ordinary detail, editor and utility screens keep
+                // the drifting atmosphere at reduced amplitude — freezing them
+                // was a large part of why the app read as static everywhere
+                // outside the five roots.
                 AdaptiveAtmosphere(
                     snapshot: atmosphereSnapshot,
                     placement: mode.suppressesAmbientDetail ? .focusedPresentation : placement,

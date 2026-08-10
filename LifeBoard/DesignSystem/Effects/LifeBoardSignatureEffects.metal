@@ -534,6 +534,45 @@ namespace LifeBoardSignature {
     return half4(clamp(currentColor.rgb + shift, half3(0.0), half3(1.0)), currentColor.a);
 }
 
+// ambientDrift: the ambient tier. Unlike every other kernel in this file this
+// one has no settled state and no `progress` — it is driven by wall time and
+// runs continuously while its host surface is on screen.
+//
+// It is bound by the DESIGN.md ambient budget: the luminance swing is a couple
+// of percent, the spatial frequency is very low, and there is no hue shift, so
+// text composited above it never changes contrast enough to matter. Two
+// incommensurate periods keep the field from visibly looping.
+//
+// `intensity` scales the whole effect (caller passes 0 to settle it out).
+[[ stitchable ]] half4 LifeBoardAmbientDrift(
+    float2 position,
+    half4 currentColor,
+    float2 size,
+    float time,
+    float intensity
+) {
+    if (size.x <= 0.0 || intensity <= 0.001 || currentColor.a <= 0.001) {
+        return currentColor;
+    }
+
+    float2 uv = position / max(size, float2(1.0));
+
+    // Two slow, low-frequency waves crossing at an angle. Periods 7.3s and
+    // 11.9s share no small common multiple, so the pattern does not repeat on
+    // any timescale a person will sit and watch.
+    float waveA = sin((uv.x * 1.7 + uv.y * 0.9) * M_PI_F + time / 7.3 * M_PI_F * 2.0);
+    float waveB = cos((uv.x * -0.8 + uv.y * 1.4) * M_PI_F + time / 11.9 * M_PI_F * 2.0);
+    float field = (waveA * 0.6 + waveB * 0.4);
+
+    // Hold the effect off the extremes of the tonal range: blown highlights and
+    // crushed shadows are where a 2% shift becomes visible banding.
+    float luma = dot(float3(currentColor.rgb), float3(0.2126, 0.7152, 0.0722));
+    float weight = smoothstep(0.06, 0.30, luma) * (1.0 - smoothstep(0.86, 0.99, luma));
+
+    half shift = half(field * intensity * weight * 0.022);
+    return half4(clamp(currentColor.rgb + shift, half3(0.0), half3(1.0)), currentColor.a);
+}
+
 // dissolveAway: a finished row leaving. Pixels erode along a noise threshold
 // from the trailing edge, which reads as the item being absorbed rather than
 // simply fading. One-shot; the caller removes the view when progress reaches 1.

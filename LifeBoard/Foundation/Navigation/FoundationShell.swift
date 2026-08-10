@@ -252,16 +252,20 @@ public struct FoundationShell: View {
         // The comfort gate for Metal effects.
         //
         // `MotionPolicy.allowsCustomShaders` has encoded this rule since it was
-        // written and had no readers at all, so a person who chose Calm — or who
-        // entered a focus session — still got every shader. Publishing it here
-        // is what makes the setting mean something. `initial: true` matters:
-        // without it the gate stays at its permissive default until the first
-        // navigation, which is exactly the launch window a Calm user notices.
-        .onChange(of: comfortGateInput, initial: true) { _, input in
-            SignatureShaders.updateComfort(
-                profile: input.profile,
-                isFocusedPresentation: input.isFocused
-            )
+        // written and had no readers at all, so a person who chose Calm still
+        // got every shader. Publishing it here is what makes the setting mean
+        // something. `initial: true` matters: without it the gate stays at its
+        // permissive default until the first navigation, which is exactly the
+        // launch window a Calm user notices.
+        //
+        // The active screen mode is deliberately not an input. Feeding
+        // `.focused` in here took every shader in the app down for the duration
+        // of Focus Session, Day Open and Close the Day — see
+        // `SignatureShaderComfortGate`. Focused surfaces quiet their *ambience*
+        // through `AtmospherePlacement.suppressesAmbientDetail`, not their
+        // commitment effects.
+        .onChange(of: runtime.preferences.comfortProfile, initial: true) { _, profile in
+            SignatureShaders.updateComfort(profile: profile)
         }
         .onChange(of: scenePhase) { _, phase in
             // Interrupt live dictation when the app loses the foreground so
@@ -279,6 +283,14 @@ public struct FoundationShell: View {
                 )
             }
         }
+        // "Full motion". `\.accessibilityReduceMotion` is a get-only key path,
+        // so this cannot be injected into the environment; `MotionOverride`
+        // applies the rule inside the motion policy instead and every token
+        // entry point defers to it. `initial: true` matters for the same reason
+        // as the comfort gate: without it the launch window uses the default.
+        .onChange(of: fullMotionIsEnabled, initial: true) { _, isEnabled in
+            MotionOverride.fullMotionEnabled = isEnabled
+        }
         .preferredColorScheme(visualAppearanceFixture?.preferredColorScheme)
         .contrast(visualAppearanceFixture?.usesHighContrast == true ? 1.16 : 1)
         .saturation(visualAppearanceFixture?.usesGrayscale == true ? 0 : 1)
@@ -286,6 +298,16 @@ public struct FoundationShell: View {
         // the observable preferences at the outermost level so sheets and
         // navigation destinations receive the same environment as root views.
         .environment(runtime.preferences)
+    }
+
+    /// Whether the Full motion override is live.
+    ///
+    /// The screenshot fixture stays authoritative: `-LIFEBOARD_VISUAL_APPEARANCE=reduced-motion`
+    /// exists precisely to capture the reduced-motion appearance, so a user
+    /// preference must not be able to overrule it during a capture run.
+    private var fullMotionIsEnabled: Bool {
+        if visualAppearanceFixture?.usesReducedMotion == true { return false }
+        return runtime.preferences.fullMotionEnabled
     }
 
     /// Accessibility text needs the full content width even on regular-width
@@ -350,16 +372,6 @@ public struct FoundationShell: View {
     private var activeScreenMode: ScreenMode {
         let router = runtime.router
         return router.path(for: router.selectedDestination).last?.screenMode ?? .detail
-    }
-
-    /// The two inputs to the shader comfort gate, as one `Equatable` value so a
-    /// single `onChange` covers both. Watching them separately would let a
-    /// change in one silently keep the other's stale verdict.
-    private var comfortGateInput: ComfortGateInput {
-        ComfortGateInput(
-            profile: runtime.preferences.comfortProfile,
-            isFocused: activeScreenMode == .focused
-        )
     }
 
     /// Eva owns its own composer, and focused/editor routes own their input
@@ -471,12 +483,4 @@ public struct FoundationShell: View {
         planRescueRefreshGeneration &+= 1
     }
 
-}
-
-/// Comfort profile plus focused-presentation state, paired so one `onChange`
-/// observes both. `DESIGN.md`: "Comfort profiles change expression, not
-/// capability" — Calm keeps every control and drops the Metal layer.
-struct ComfortGateInput: Equatable {
-    let profile: ComfortProfile
-    let isFocused: Bool
 }

@@ -293,8 +293,12 @@ final class LifeOSFoundationContractTests: XCTestCase {
         }
         let registered = Set(SignatureShaders.functionNames)
 
-        // 22 since LifeBoardRootTravelShear and LifeBoardLiquidMetalBezel joined
-        // the registry (2026-08-10).
+        // 23 since LifeBoardAmbientDrift joined the registry (2026-08-11) as the
+        // first ambient-tier kernel — see DESIGN.md "Two tiers of motion". It is
+        // the only entry here with no settled state; the ambient budget, not a
+        // one-shot envelope, is what bounds it.
+        // Previously 22, when LifeBoardRootTravelShear and
+        // LifeBoardLiquidMetalBezel joined (2026-08-10).
         // This number, the registry, the [[stitchable]] declarations and
         // DESIGN.md's approved list are one atomic contract — warmUp() is
         // all-or-nothing, so a mismatch disables *every* signature effect at
@@ -302,7 +306,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         //
         // This constant was already stale once before, at 18 while the registry
         // carried 19, so treat a change here as a decision rather than a fixup.
-        XCTAssertEqual(registered.count, 22)
+        XCTAssertEqual(registered.count, 23)
         XCTAssertEqual(declared, registered)
     }
 
@@ -1526,11 +1530,44 @@ final class LifeOSFoundationContractTests: XCTestCase {
             lowPowerMode: false,
             thermalState: .nominal
         )
-        XCTAssertEqual(balanced.maximumParallax, 4)
+        // 18 rather than the original 4. The old value was set when nothing read
+        // `maximumParallax` at all, so it was never calibrated against a real
+        // scene; 4pt of travel across a full scroll is not perceivable.
+        XCTAssertEqual(balanced.maximumParallax, 18)
         XCTAssertTrue(balanced.allowsIdleMotion)
+
+        // The rendering tier now governs depth — "Visual detail" changed nothing
+        // before this, because `effectiveTier` had no readers either.
+        let depth = AmbientRenderingPolicy.resolve(
+            requestedTier: .enhanced3D,
+            comfortProfile: .balanced,
+            reduceMotion: false,
+            lowPowerMode: false,
+            thermalState: .nominal
+        )
+        XCTAssertEqual(depth.effectiveTier, .enhanced3D)
+        XCTAssertGreaterThan(depth.maximumParallax, balanced.maximumParallax)
+
+        let still = AmbientRenderingPolicy.resolve(
+            requestedTier: .static,
+            comfortProfile: .playful,
+            reduceMotion: false,
+            lowPowerMode: false,
+            thermalState: .nominal
+        )
+        XCTAssertEqual(still.maximumParallax, 0, "Still must mean still, whatever the comfort profile")
+        XCTAssertFalse(still.allowsIdleMotion)
     }
 
     func testSharedMotionPolicyDisablesPremiumEffectsUnderEveryConstraint() {
+        // This test asserts the *accessibility* contract, so it pins the Full
+        // motion override off. With the override on — the shipped default —
+        // Reduce Motion is deliberately cleared; that path is covered by
+        // `testFullMotionOverrideClearsReduceMotionAcrossThePolicyLayer`.
+        let originalOverride = MotionOverride.fullMotionEnabled
+        defer { MotionOverride.fullMotionEnabled = originalOverride }
+        MotionOverride.fullMotionEnabled = false
+
         let nominal = MotionPolicy.resolve(
             reduceMotion: false,
             reduceTransparency: false,
@@ -1587,6 +1624,165 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertFalse(focused.allowsCustomShaders)
         XCTAssertTrue(focused.isFocusedPresentation)
     }
+
+    /// `ShaderReadiness` is the gate every Metal effect actually consults, and it
+    /// had no coverage at all — which is how a focused presentation came to
+    /// silently disable every shader in the app.
+    @MainActor
+    func testShaderReadinessGatesOnCalmOnlyAndRequiresEngineReadiness() {
+        let originalComfort = ShaderReadiness.comfortPermits
+        let originalEngine = ShaderReadiness.engineReady
+        defer {
+            ShaderReadiness.publishComfort(profile: originalComfort ? .balanced : .calm)
+            ShaderReadiness.publishEngineReady(originalEngine)
+        }
+
+        // Calm is the one profile that drops the Metal layer.
+        ShaderReadiness.publishComfort(profile: .calm)
+        XCTAssertFalse(ShaderReadiness.comfortPermits)
+        for permissive in [ComfortProfile.balanced, .playful] {
+            ShaderReadiness.publishComfort(profile: permissive)
+            XCTAssertTrue(
+                ShaderReadiness.comfortPermits,
+                "\(permissive) must keep shaders available"
+            )
+        }
+
+        // Both facts are required: comfort alone never authorizes rendering,
+        // because the Metal library may not have finished warming up.
+        ShaderReadiness.publishEngineReady(false)
+        XCTAssertFalse(ShaderReadiness.allowsShaderRendering)
+        ShaderReadiness.publishEngineReady(true)
+        XCTAssertTrue(ShaderReadiness.allowsShaderRendering)
+        ShaderReadiness.publishComfort(profile: .calm)
+        XCTAssertFalse(ShaderReadiness.allowsShaderRendering)
+    }
+
+    /// Regression guard for the defect this phase fixed: Focus Session, Day Open
+    /// and Close the Day are `.focused` routes, and gating the shader engine on
+    /// focused presentation meant Close the Day's five signature effects had
+    /// never rendered. Ambient quiet on those routes is `MotionPolicy`'s job.
+    @MainActor
+    func testFocusedPresentationDoesNotDisableShadersButStillStopsIdleMotion() {
+        let originalComfort = ShaderReadiness.comfortPermits
+        defer { ShaderReadiness.publishComfort(profile: originalComfort ? .balanced : .calm) }
+
+        ShaderReadiness.publishComfort(profile: .balanced)
+        XCTAssertTrue(
+            ShaderReadiness.comfortPermits,
+            "A focused route must not take the whole Metal layer down"
+        )
+
+        let focused = MotionPolicy.resolve(
+            reduceMotion: false,
+            reduceTransparency: false,
+            lowPowerMode: false,
+            thermalState: .nominal,
+            sceneIsActive: true,
+            comfortProfile: .balanced,
+            isFocusedPresentation: true
+        )
+        XCTAssertFalse(focused.allowsIdleMotion, "Ambient drift still quiets on focused routes")
+    }
+
+    /// "Full motion" is applied inside the motion policy rather than injected
+    /// into `\.accessibilityReduceMotion`, which SwiftUI exposes get-only. These
+    /// assertions are what make that indirection trustworthy.
+    func testFullMotionOverrideClearsReduceMotionAcrossThePolicyLayer() {
+        let original = MotionOverride.fullMotionEnabled
+        defer { MotionOverride.fullMotionEnabled = original }
+
+        MotionOverride.fullMotionEnabled = true
+        XCTAssertFalse(MotionOverride.resolve(true), "Full motion must clear a system Reduce Motion")
+        XCTAssertFalse(MotionOverride.resolve(false))
+
+        // With the override on, a Reduce Motion user still gets spatial motion,
+        // full transition duration and the shader layer.
+        let overridden = MotionPolicy.resolve(
+            reduceMotion: true,
+            reduceTransparency: false,
+            lowPowerMode: false,
+            thermalState: .nominal,
+            sceneIsActive: true
+        )
+        XCTAssertTrue(overridden.allowsSpatialMotion)
+        XCTAssertTrue(overridden.allowsCustomShaders)
+        XCTAssertEqual(overridden.transitionDuration, 0.28)
+
+        // Off, the accessibility path is intact and unchanged.
+        MotionOverride.fullMotionEnabled = false
+        XCTAssertTrue(MotionOverride.resolve(true))
+        let respected = MotionPolicy.resolve(
+            reduceMotion: true,
+            reduceTransparency: false,
+            lowPowerMode: false,
+            thermalState: .nominal,
+            sceneIsActive: true
+        )
+        XCTAssertFalse(respected.allowsSpatialMotion)
+        XCTAssertFalse(respected.allowsCustomShaders)
+        XCTAssertEqual(respected.transitionDuration, 0)
+    }
+
+    /// Energy and heat are not comfort preferences. The override must not be a
+    /// way to keep shaders running on a hot or nearly-flat device.
+    func testFullMotionOverrideDoesNotDefeatLowPowerOrThermalGates() {
+        let original = MotionOverride.fullMotionEnabled
+        defer { MotionOverride.fullMotionEnabled = original }
+        MotionOverride.fullMotionEnabled = true
+
+        for constrained in [
+            MotionPolicy.resolve(
+                reduceMotion: true, reduceTransparency: false, lowPowerMode: true,
+                thermalState: .nominal, sceneIsActive: true
+            ),
+            MotionPolicy.resolve(
+                reduceMotion: true, reduceTransparency: false, lowPowerMode: false,
+                thermalState: .critical, sceneIsActive: true
+            )
+        ] {
+            XCTAssertFalse(constrained.allowsCustomShaders)
+            XCTAssertFalse(constrained.allowsIdleMotion)
+        }
+    }
+
+    /// The UI suite depends on `-UI_TESTING` suppressing motion. The override
+    /// must never reach the process flags.
+    @MainActor
+    func testFullMotionOverrideNeverDefeatsProcessAnimationFlags() {
+        let original = MotionOverride.fullMotionEnabled
+        defer { MotionOverride.fullMotionEnabled = original }
+        MotionOverride.fullMotionEnabled = true
+
+        if LifeBoardAnimation.areProcessAnimationsDisabled {
+            XCTAssertTrue(LifeBoardAnimation.animationsDisabled(reduceMotion: false))
+            XCTAssertNil(MotionProfile.press.animation(reduceMotion: false))
+        } else {
+            // Outside a UI-testing process the override is what decides.
+            XCTAssertFalse(LifeBoardAnimation.animationsDisabled(reduceMotion: true))
+            XCTAssertNotNil(MotionProfile.press.animation(reduceMotion: true))
+        }
+    }
+
+    /// Playful is the shipped default so the premium motion tokens are what a
+    /// new install actually sees.
+    @MainActor
+    func testPresentationPreferencesDefaultToPlayfulWithFullMotionEnabled() throws {
+        let suite = "LifeBoardMotionDefaults-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let preferences = PresentationPreferences(defaults: defaults)
+        XCTAssertEqual(preferences.comfortProfile, .playful)
+        XCTAssertTrue(preferences.fullMotionEnabled)
+        XCTAssertEqual(preferences.renderingTier, .ambient2D)
+
+        // And an explicit choice still wins over the default.
+        preferences.fullMotionEnabled = false
+        let reloaded = PresentationPreferences(defaults: defaults)
+        XCTAssertFalse(reloaded.fullMotionEnabled)
+    }
+
 
     @MainActor
     func testTransitionCoordinatorClaimsSemanticEffectsOnlyOnceUntilReset() {
