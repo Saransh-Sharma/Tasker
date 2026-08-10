@@ -265,30 +265,43 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let projectRoot = URL(fileURLWithPath: #filePath)
             .deletingLastPathComponent()
             .deletingLastPathComponent()
-        let metalURL = projectRoot
-            .appendingPathComponent("LifeBoard/DesignSystem/Effects/LifeBoardSignatureEffects.metal")
-        let source = try String(contentsOf: metalURL, encoding: .utf8)
+        // Both files, not just the signature library.
+        //
+        // `warmUp()` materializes from `device.makeDefaultLibrary(bundle:)`,
+        // which contains every compiled `.metal` in the target — so the registry's
+        // real scope is "every stitchable function the app can load", not "every
+        // function in one file". Scanning only the signature file is what let
+        // `LifeBoardLiquidMetalBezel` ship for so long as the one shader warm-up
+        // never verified: its call site could reach a function that was never
+        // checked to exist.
+        let metalURLs = [
+            "LifeBoard/DesignSystem/Effects/LifeBoardSignatureEffects.metal",
+            "LifeBoard/DesignSystem/Effects/LifeBoardCTABezel.metal"
+        ].map { projectRoot.appendingPathComponent($0) }
+
         let expression = try NSRegularExpression(
             pattern: #"\[\[\s*stitchable\s*\]\]\s+\w+\s+(LifeBoard\w+)\s*\("#
         )
-        let sourceRange = NSRange(source.startIndex..<source.endIndex, in: source)
-        let declaredNames: [String] = expression.matches(in: source, range: sourceRange).compactMap { match in
-            guard let range = Range(match.range(at: 1), in: source) else { return nil }
-            return String(source[range])
+        var declared: Set<String> = []
+        for metalURL in metalURLs {
+            let source = try String(contentsOf: metalURL, encoding: .utf8)
+            let sourceRange = NSRange(source.startIndex..<source.endIndex, in: source)
+            for match in expression.matches(in: source, range: sourceRange) {
+                guard let range = Range(match.range(at: 1), in: source) else { continue }
+                declared.insert(String(source[range]))
+            }
         }
-        let declared = Set(declaredNames)
         let registered = Set(SignatureShaders.functionNames)
 
-        // 20 since LifeBoardValueDrumWarp (2026-08-05). This number, the
-        // registry, the [[stitchable]] declarations and DESIGN.md's approved
-        // list are one atomic contract — warmUp() is all-or-nothing, so a
-        // mismatch disables *every* signature effect at runtime with nothing
-        // logged at the UI layer.
+        // 21 since LifeBoardLiquidMetalBezel joined the registry (2026-08-10).
+        // This number, the registry, the [[stitchable]] declarations and
+        // DESIGN.md's approved list are one atomic contract — warmUp() is
+        // all-or-nothing, so a mismatch disables *every* signature effect at
+        // runtime with nothing logged at the UI layer.
         //
-        // This constant was already stale before the drum landed: it still said
-        // 18 while the registry and the .metal had carried 19 since
-        // LifeBoardFirstLight, so this assertion was failing on a clean tree.
-        XCTAssertEqual(registered.count, 20)
+        // This constant was already stale once before, at 18 while the registry
+        // carried 19, so treat a change here as a decision rather than a fixup.
+        XCTAssertEqual(registered.count, 21)
         XCTAssertEqual(declared, registered)
     }
 
