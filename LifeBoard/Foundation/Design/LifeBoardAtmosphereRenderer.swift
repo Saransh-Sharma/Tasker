@@ -1077,14 +1077,6 @@ public struct StatusSurface: View {
 
 /// The general reading/content surface. Depth geometry lives in
 /// `LifeBoardClaySurface`; this only pins the ink and the card radius.
-public struct PaperCardModifier: ViewModifier {
-    public func body(content: Content) -> some View {
-        content
-            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-            .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
-    }
-}
-
 public struct GlassSurfaceModifier: ViewModifier {
     public let cornerRadius: CGFloat
     public let interactive: Bool
@@ -1107,10 +1099,6 @@ public struct GlassSurfaceModifier: ViewModifier {
 }
 
 public extension View {
-    func lifeBoardPaperCard() -> some View {
-        modifier(PaperCardModifier())
-    }
-
     func lifeBoardGlassSurface(cornerRadius: CGFloat = Radius.largeCard, interactive: Bool = false) -> some View {
         modifier(GlassSurfaceModifier(cornerRadius: cornerRadius, interactive: interactive))
     }
