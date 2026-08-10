@@ -60,6 +60,11 @@ private struct HomeHabitRowInteractiveButton<Label: View>: View {
     let feedback: Feedback?
     @ViewBuilder let label: () -> Label
 
+    /// Checking a habit off is the most repeated positive action in the app and
+    /// it had haptics but nothing to look at. The bloom is the visual half of
+    /// the same confirmation.
+    @State private var pressTrigger = 0
+
     init(
         action: @escaping () -> Void,
         feedback: Feedback? = nil,
@@ -73,12 +78,14 @@ private struct HomeHabitRowInteractiveButton<Label: View>: View {
     var body: some View {
         Button {
             feedback?.play()
+            pressTrigger &+= 1
             action()
         } label: {
             label()
         }
         .buttonStyle(.plain)
         .contentShape(Rectangle())
+        .lifeboardClayPressBloom(trigger: pressTrigger)
     }
 }
 
