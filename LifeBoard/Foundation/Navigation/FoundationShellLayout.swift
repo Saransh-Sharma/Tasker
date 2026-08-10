@@ -66,6 +66,16 @@ extension FoundationShell {
                                     distance: reduceMotion ? 0 : RootTransition.slideDistance
                                 )
                             )
+                            // Only the arriving root shears, and only until it
+                            // settles. Applying it to the departing root too
+                            // would double the distortion at the crossover.
+                            .lifeboardRootTravel(
+                                origin: RootTransition.originUnitX(for: previousRoot),
+                                direction: isCurrent
+                                    ? RootTransition.direction(from: previousRoot, to: destination)
+                                    : 0,
+                                progress: isCurrent ? rootTravelProgress : 1
+                            )
                             .opacity(isCurrent ? 1 : 0)
                             .zIndex(isCurrent ? 1 : 0)
                             // A root that is not on screen must not take taps or
@@ -84,6 +94,16 @@ extension FoundationShell {
                     previous: previous,
                     selected: destination
                 )
+                guard previous != destination else { return }
+                previousRoot = previous
+                // Driven to 1 by an animation rather than a TimelineView: the
+                // shear is a one-shot settle, and DESIGN.md requires the root
+                // transition to settle *before* secondary content animates, so
+                // it must be bounded by the same curve the slide uses.
+                rootTravelProgress = 0
+                withAnimation(MotionProfile.route.animation(reduceMotion: reduceMotion)) {
+                    rootTravelProgress = 1
+                }
             }
             .toolbarBackground(.hidden, for: .navigationBar)
             .background(Color.clear)
@@ -110,7 +130,8 @@ extension FoundationShell {
                                     showsComposerAudioCapture: $showsComposerAudioCapture,
                                     showsDocumentScanner: $showsDocumentScanner,
                                     lifeBoardActionReceipt: $lifeBoardActionReceipt,
-                                    lifeThreadComposerIsFocused: $lifeThreadComposerIsFocused
+                                    lifeThreadComposerIsFocused: $lifeThreadComposerIsFocused,
+                                    scrollObserver: composerScrollObserver
                                 )
                             }
                             compactNavigationChrome(
@@ -147,6 +168,9 @@ extension FoundationShell {
             }
         }
         .background(Color.clear.ignoresSafeArea())
+        // Compact width only. At regular width the composer anchors to the
+        // detail column with room to spare, so there is nothing to compress.
+        .environment(\.lifeBoardComposerScrollObserver, composerScrollObserver)
     }
 
     /// Horizontal centre of a dock slot in unit space, so the refraction lens
@@ -282,6 +306,17 @@ extension FoundationShell {
         }
     }
 
+}
+
+/// The regular-width shell, split from the compact one above.
+///
+/// Two extensions rather than one, because the file-size gate measures the
+/// largest *top-level declaration* — that number is the `-Onone` stack-overflow
+/// predictor, since Debug inlines computed `some View` properties into their
+/// caller's frame. One extension holding both shells crossed 400 lines when the
+/// root-travel shear landed. The compact/expanded seam is where it was always
+/// going to divide: the two share no state and no layout.
+extension FoundationShell {
     func expandedShell(
         router: AppRouter,
         atmosphereSnapshot: AtmosphereSnapshot

@@ -229,6 +229,7 @@ public enum SignatureShaders {
         "LifeBoardTriageSettle",
         "LifeBoardTaskLandingCaustic",
         "LifeBoardValueDrumWarp",
+        "LifeBoardRootTravelShear",
         // Lives in LifeBoardCTABezel.metal rather than the signature library,
         // but it is loaded from the same default library and must be verified
         // by the same warm-up — it was the one shader nothing checked for.

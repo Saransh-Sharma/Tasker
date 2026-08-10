@@ -969,18 +969,40 @@ public struct VisualFixtureSurface: View {
 public struct StatusSurface: View {
     public enum State: Equatable, Sendable {
         case loading
+        /// Nothing here yet, and that is a fine place to be — a successful
+        /// empty. Offers one next step.
         case empty
+        /// Nothing has been *recorded*. Distinct from `empty` (which is about a
+        /// collection) and from a zero (which is a measurement). DESIGN.md:
+        /// "Never infer completion, health, wellbeing, or urgency from missing
+        /// evidence", and "unknown data is not zero".
+        case noRecord
         case stale
         case offline
         case denied
+        /// Not supported on this device, OS version, or region. Nothing the
+        /// person can do, so this state never offers a retry.
+        case unavailable
         case recoverableError
         case locked
         case destructiveConfirmation
     }
 
+    /// How much room the surface takes.
+    ///
+    /// `.compact` exists so a state can replace a *row* rather than a screen.
+    /// The 42 raw `ContentUnavailableView` call sites in the app are mostly
+    /// inline: a full-height empty state inside a list section is why screens
+    /// reached for their own one-off instead of this type.
+    public enum Density: Equatable, Sendable {
+        case standard
+        case compact
+    }
+
     private let state: State
     private let title: String
     private let message: String
+    private let density: Density
     private let actionTitle: String?
     private let action: (() -> Void)?
 
@@ -988,42 +1010,57 @@ public struct StatusSurface: View {
         state: State,
         title: String,
         message: String,
+        density: Density = .standard,
         actionTitle: String? = nil,
         action: (() -> Void)? = nil
     ) {
         self.state = state
         self.title = title
         self.message = message
+        self.density = density
         self.actionTitle = actionTitle
         self.action = action
     }
 
     public var body: some View {
-        PaperSection {
-            HStack(alignment: .top, spacing: 12) {
-                statusIcon
-                    .frame(width: 28, height: 28)
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(title)
-                        .font(.headline)
-                    Text(message)
-                        .font(.subheadline)
-                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if let actionTitle, let action {
-                        Button(actionTitle, action: action)
-                            .buttonStyle(.bordered)
-                            .controlSize(.regular)
-                            .padding(.top, 4)
-                    }
-                }
-                Spacer(minLength: 0)
+        Group {
+            if density == .compact {
+                // No PaperSection: a compact state sits inside a section that
+                // already has its own surface, and nesting one card inside
+                // another is exactly what DESIGN.md's "don't nest cards" rule
+                // is about.
+                inner
+            } else {
+                PaperSection { inner }
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("lifeboard.status.\(accessibilityIdentifierSuffix)")
+    }
+
+    private var inner: some View {
+        HStack(alignment: .top, spacing: density == .compact ? 10 : 12) {
+            statusIcon
+                .frame(width: density == .compact ? 20 : 28, height: density == .compact ? 20 : 28)
+
+            VStack(alignment: .leading, spacing: density == .compact ? 2 : 5) {
+                Text(title)
+                    .font(density == .compact ? .subheadline.weight(.medium) : .headline)
+                Text(message)
+                    .font(density == .compact ? .caption : .subheadline)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let actionTitle, let action {
+                    Button(actionTitle, action: action)
+                        .buttonStyle(.bordered)
+                        .controlSize(density == .compact ? .small : .regular)
+                        .padding(.top, density == .compact ? 2 : 4)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, density == .compact ? 6 : 0)
     }
 
     @ViewBuilder
@@ -1041,9 +1078,14 @@ public struct StatusSurface: View {
         switch state {
         case .loading: "hourglass"
         case .empty: "sparkles"
+        // Deliberately not "sparkles". An empty collection is an invitation;
+        // an absent recording is simply a gap, and dressing it up as a
+        // celebration is how an interface implies a measurement it never took.
+        case .noRecord: "minus.circle"
         case .stale: "clock.arrow.circlepath"
         case .offline: "wifi.slash"
         case .denied: "hand.raised"
+        case .unavailable: "circle.slash"
         case .recoverableError: "arrow.clockwise.circle"
         case .locked: "lock"
         case .destructiveConfirmation: "exclamationmark.triangle"
@@ -1054,7 +1096,9 @@ public struct StatusSurface: View {
         switch state {
         case .recoverableError, .destructiveConfirmation:
             Color.lifeboard(.statusWarning)
-        case .denied, .locked:
+        case .denied, .locked, .noRecord, .unavailable:
+            // Quiet ink, never a status colour. These are absences, and
+            // colouring an absence reads as a problem the person has to fix.
             Color.lifeboard(.textSecondary)
         default:
             Color.lifeboard(.accentPrimary)
@@ -1065,9 +1109,11 @@ public struct StatusSurface: View {
         switch state {
         case .loading: "loading"
         case .empty: "empty"
+        case .noRecord: "noRecord"
         case .stale: "stale"
         case .offline: "offline"
         case .denied: "denied"
+        case .unavailable: "unavailable"
         case .recoverableError: "error"
         case .locked: "locked"
         case .destructiveConfirmation: "confirmation"

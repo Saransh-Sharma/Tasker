@@ -30,12 +30,59 @@ struct LifeThreadComposerHost: View {
     @Binding var showsDocumentScanner: Bool
     @Binding var lifeBoardActionReceipt: ActionReceipt?
     @FocusState.Binding var lifeThreadComposerIsFocused: Bool
+    /// Nil where the host is mounted without a reporting scroll view (regular
+    /// width, and any root that has not opted in). Absent an observer the
+    /// composer simply never compresses, which is the correct default.
+    var scrollObserver: ComposerScrollObserver? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityVoiceOverEnabled) private var voiceOverEnabled
+    @Namespace private var composerMorph
+    @State private var presentation: ComposerPresentation = .capsule
+    @State private var contextLensTrigger = 0
 
     var body: some View {
         host(router: router)
     }
 
+
+
+    /// One ordered capture tray. Kinds with a working capture host each get a
+    /// visible control — `habit`, `trackerEntry` and `timeBlock` previously had
+    /// hosts wired with no way to reach them.
+}
+
+/// The compression decision, in its own extension.
+///
+/// Separated from the struct above for the file-size gate's `largest` metric —
+/// the `-Onone` stack predictor. `LifeThreadComposerHost` assembles nine
+/// conditional sections in one body and was already the largest declaration in
+/// the file; the orb branch pushed it past the ceiling.
+extension LifeThreadComposerHost {
+    /// Recomputed from observable state rather than stored. Storing it would let
+    /// the never-collapse rules go stale in the window between a scroll event
+    /// and a composer state change — which is precisely when a draft would be
+    /// lost.
+    var resolvedPresentation: ComposerPresentation {
+        guard let scrollObserver else { return .capsule }
+        return ComposerCompressionPolicy.presentation(
+            ComposerCompressionInput(
+                contentOffset: scrollObserver.contentOffset,
+                isTrackingDownward: scrollObserver.isTrackingDownward,
+                composerState: composer.state,
+                hasDraft: composer.hasDraft,
+                hasPreview: composer.preview != nil,
+                hasReceipt: lifeBoardActionReceipt != nil,
+                isKeyboardFocused: lifeThreadComposerIsFocused,
+                voiceOverEnabled: voiceOverEnabled
+            ),
+            current: presentation
+        )
+    }
+
+    /// The composer's whole surface. It lives in the extension rather than
+    /// the struct for the same reason `resolvedPresentation` does: this one
+    /// function is ~380 lines of conditional sections, and the file-size gate's
+    /// `largest` metric is the `-Onone` stack-overflow predictor.
     @ViewBuilder
     private func host(router: AppRouter) -> some View {
         @Bindable var composer = composer
@@ -72,104 +119,27 @@ struct LifeThreadComposerHost: View {
             }
 
             if let clarification = composer.clarification {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text(clarification.question)
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                        Spacer()
-                        Button {
-                            composer.dismissClarification()
-                        } label: {
-                            Image(systemName: "xmark.circle.fill")
-                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                                .frame(width: 44, height: 44)
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityLabel("Dismiss clarification")
+                ComposerClarificationRow(
+                    clarification: clarification,
+                    onDismiss: { composer.dismissClarification() },
+                    onChoose: { option in
+                        composer.dismissClarification()
+                        handleLifeThreadResolution(option.resolution, router: router)
                     }
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(clarification.options) { option in
-                                Button {
-                                    composer.dismissClarification()
-                                    handleLifeThreadResolution(option.resolution, router: router)
-                                } label: {
-                                    HStack(spacing: 6) {
-                                        Image(systemName: option.systemImage)
-                                        Text(option.label)
-                                    }
-                                    .font(.subheadline.weight(.medium))
-                                    .padding(.horizontal, 12)
-                                    .frame(minHeight: 44)
-                                    .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: Capsule())
-                                    .overlay {
-                                        Capsule()
-                                            .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
-                                    }
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                    }
-                }
-                .padding(12)
-                .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
+                )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
             if let interpretation = composer.interpretation {
-                HStack(spacing: 8) {
-                    Button {
-                        let res = interpretation.resolution
+                ComposerInterpretationRow(
+                    interpretation: interpretation,
+                    onAccept: {
+                        let resolution = interpretation.resolution
                         composer.dismissInterpretation()
-                        handleLifeThreadResolution(res, router: router)
-                    } label: {
-                        HStack(spacing: 6) {
-                            Image(systemName: interpretation.systemImage)
-                                .foregroundColor(Color.lifeboard(.accentPrimary))
-                            Text(interpretation.label)
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-
-                            ForEach(interpretation.chips) { chip in
-                                Text(chip.label)
-                                    .font(.caption2.weight(.medium))
-                                    .padding(.horizontal, 6)
-                                    .padding(.vertical, 3)
-                                    .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: Capsule())
-                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                            }
-                            Spacer()
-                            Image(systemName: "arrow.right.circle.fill")
-                                .foregroundStyle(Color.lifeboard(.accentPrimary))
-                        }
-                        .padding(.horizontal, 12)
-                        .frame(minHeight: 44)
-                        .background(Color.lifeboard(.surfaceSecondary), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-                        .overlay {
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
-                        }
-                    }
-                    .buttonStyle(.plain)
-
-                    Button {
-                        composer.dismissInterpretation()
-                    } label: {
-                        Image(systemName: "xmark")
-                            .font(.system(size: 11, weight: .semibold))
-                            .foregroundColor(Color(SemanticColorTokens.inkSecondary))
-                            .frame(width: 26, height: 26)
-                            .background(Color.lifeboard(.surfaceSecondary), in: Circle())
-                            .frame(width: 44, height: 44)
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Dismiss interpretation")
-                }
-                .padding(.horizontal, 4)
+                        handleLifeThreadResolution(resolution, router: router)
+                    },
+                    onDismiss: { composer.dismissInterpretation() }
+                )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
             }
 
@@ -246,6 +216,15 @@ struct LifeThreadComposerHost: View {
                 .accessibilityIdentifier("lifeThread.composer.recovery")
             }
 
+            if presentation == .orb {
+                ComposerCaptureOrb(morphNamespace: composerMorph) {
+                    // Tap always restores, whatever the scroll position —
+                    // DESIGN.md: "it must restore at the top or on tap."
+                    presentation = .capsule
+                    composer.focus()
+                    lifeThreadComposerIsFocused = true
+                }
+            } else {
             HStack(spacing: 8) {
                 Button {
                     withAnimation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
@@ -388,11 +367,24 @@ struct LifeThreadComposerHost: View {
                     .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
             }
             .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.16), radius: 12, y: 6)
+            // Shares its identity with the orb, so the two are one surface
+            // changing shape rather than two views crossfading. Both sit inside
+            // the shell's single GlassEffectContainer, which is what lets the
+            // shrinking capsule genuinely refract into the dock beneath it.
+            .matchedGeometryEffect(id: "foundation.composer.capsule", in: composerMorph)
+            .lifeBoardGlassIdentity(.capture)
+            }
         }
         .animation(reduceMotion ? nil : .spring(response: 0.38, dampingFraction: 0.88), value: composer.state)
+        .lifeBoardMotion(.controlMorph, value: presentation)
+        .lifeboardContextLens(trigger: contextLensTrigger)
+        .onChange(of: resolvedPresentation) { previous, next in
+            guard previous != next else { return }
+            presentation = next
+            // `contextLens` is named in DESIGN.md for exactly this: "capture or
+            // composer mode handoff". It had one call site before this.
+            contextLensTrigger &+= 1
+            Haptic.settle.play()
+        }
     }
-
-    /// One ordered capture tray. Kinds with a working capture host each get a
-    /// visible control — `habit`, `trackerEntry` and `timeBlock` previously had
-    /// hosts wired with no way to reach them.
 }

@@ -37,6 +37,14 @@ public struct FoundationShell: View {
     /// intentionally evicted when inactive because its chat/runtime hierarchy
     /// is substantially heavier and owns visibility-scoped work.
     @State var visitedRoots: Set<Destination> = []
+    /// Drives the composer's capsule↔orb compression. Owned here because the
+    /// composer is drawn once at shell level over five root scroll views it has
+    /// no reference to; see `ComposerScrollReporter`.
+    @State var composerScrollObserver = ComposerScrollObserver()
+    /// Where the eye left from, and how far the arriving root has settled.
+    /// Both feed `lifeboardRootTravel`; see `RootTransition`.
+    @State var previousRoot: Destination?
+    @State var rootTravelProgress: Double = 1
     @State private var compactCaptureTargetFrames: [CaptureKind: CGRect] = [:]
     @State var compactCaptureRippleTrigger = 0
     @State var planRescueRefreshGeneration = 0
@@ -236,6 +244,10 @@ public struct FoundationShell: View {
         }
         .onChange(of: router.selectedDestination, initial: true) { _, destination in
             lifeThreadComposer.move(to: destination)
+            // Each root keeps its own scroll position, so carrying the previous
+            // root's offset across would land the composer already compressed
+            // over a screen sitting at its top.
+            composerScrollObserver.reset()
         }
         // The comfort gate for Metal effects.
         //

@@ -245,7 +245,6 @@
 		5D45628FA820FA3BEB7A97D3 /* ChatScaffoldView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B36F56E947D18C0D1D111E0C /* ChatScaffoldView.swift */; };
 		5E49A6FCA0C096CB2B6EA054 /* StreakResilienceWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9BBE8CE1B13AA2877F4BBCAE /* StreakResilienceWidget.swift */; };
 		5E62A1F6764E8C4158AE395D /* OnboardingEligibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF4E3B7EAAC54AE18553A302 /* OnboardingEligibility.swift */; };
-		5E7A20000000000000000001 /* SunriseInsightsHeaderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5E7A20000000000000000002 /* SunriseInsightsHeaderView.swift */; };
 		5EA366582815849801B3F3F2 /* HomeViewModel+AnalyticsRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB72F108D49DD4AE2B58A99 /* HomeViewModel+AnalyticsRefresh.swift */; };
 		5F78F8516534FE34D60A090F /* LifeBoardWatchWidgets.appex in Embed App Extensions */ = {isa = PBXBuildFile; fileRef = 7FA441E9098F3D735062B78C /* LifeBoardWatchWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		60077665EB3D3BDC56741ED6 /* HomeViewModel+TaskDetailMetadata.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9FBA211F8998587F17C8785 /* HomeViewModel+TaskDetailMetadata.swift */; };
@@ -521,6 +520,18 @@
 		A31000000000000000000511 /* LifeBoardComposerScaffold.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000510 /* LifeBoardComposerScaffold.swift */; };
 		A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000514 /* LifeBoardValueControls.swift */; };
 		A31000000000000000000517 /* SignatureShaderComfortGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000516 /* SignatureShaderComfortGate.swift */; };
+		A31000000000000000000519 /* DecisionSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000518 /* DecisionSurface.swift */; };
+		A3100000000000000000051B /* RootTravelEffect.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000051A /* RootTravelEffect.swift */; };
+		A3100000000000000000051D /* FocusSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000051C /* FocusSurface.swift */; };
+		A3100000000000000000051F /* FocusSurfaceCommitmentSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000051E /* FocusSurfaceCommitmentSection.swift */; };
+		A31000000000000000000521 /* FocusSurfaceDialSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000520 /* FocusSurfaceDialSection.swift */; };
+		A31000000000000000000523 /* FocusSurfaceTransportSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000522 /* FocusSurfaceTransportSection.swift */; };
+		A31000000000000000000525 /* FocusInterruptionControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000524 /* FocusInterruptionControl.swift */; };
+		A31000000000000000000527 /* FocusSurfaceCloseSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000526 /* FocusSurfaceCloseSection.swift */; };
+		A31000000000000000000529 /* ComposerCompressionPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000528 /* ComposerCompressionPolicy.swift */; };
+		A3100000000000000000052B /* ComposerScrollReporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000052A /* ComposerScrollReporter.swift */; };
+		A3100000000000000000052D /* ComposerCaptureOrb.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000052C /* ComposerCaptureOrb.swift */; };
+		A3100000000000000000052F /* ComposerAuxiliaryRows.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000052E /* ComposerAuxiliaryRows.swift */; };
 		A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000223 /* LifeBoardTokenBridge.swift */; };
 		A31000000000000000000226 /* TokenBridgeEquivalenceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */; };
 		A31000000000000000000228 /* AccessibilityContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000227 /* AccessibilityContractTests.swift */; };
@@ -840,6 +851,9 @@
 		E0A10000000000000000000D /* EvaActivationComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000010D /* EvaActivationComponents.swift */; };
 		E0A10000000000000000020B /* MascotSprites in Resources */ = {isa = PBXBuildFile; fileRef = E0A10000000000000000020A /* MascotSprites */; };
 		E0A100000000000000000301 /* EvaActivationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000302 /* EvaActivationTests.swift */; };
+		E0A100000000000000000504 /* ComposerCompressionPolicyTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000503 /* ComposerCompressionPolicyTests.swift */; };
+		E0A100000000000000000506 /* RubberBandTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000505 /* RubberBandTests.swift */; };
+		E0A100000000000000000508 /* FocusClockTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000507 /* FocusClockTests.swift */; };
 		E0A100000000000000000401 /* SettingsViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000402 /* SettingsViewModelTests.swift */; };
 		E0A100000000000000000501 /* EvaHomeIntelligenceUseCasesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0A100000000000000000502 /* EvaHomeIntelligenceUseCasesTests.swift */; };
 		E19F74D16FD5238F2C77D32A /* TimelineTimeBlock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60A322E21AF97D46F076D5C8 /* TimelineTimeBlock.swift */; };
@@ -1304,7 +1318,6 @@
 		5DA1D87ADF956BED887FE0CC /* LifeBoardThemeManagerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardThemeManagerTests.swift; sourceTree = "<group>"; };
 		5DEE0B3DA1576389071E8CEA /* LifeManagementAreaIconPicker.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/LifeManagementAreaIconPicker.swift; sourceTree = SOURCE_ROOT; };
 		5E5E75330E627DA9E1626E6A /* HomeViewModel+ViewState.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+ViewState.swift"; path = "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+ViewState.swift"; sourceTree = SOURCE_ROOT; };
-		5E7A20000000000000000002 /* SunriseInsightsHeaderView.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SunriseInsightsHeaderView.swift; path = LifeBoard/Features/Insights/UI/InsightsHeaderView.swift; sourceTree = SOURCE_ROOT; };
 		5F09F509547AC4BD86E3CC9A /* LifeManagementView+DetailsComposerAndOverlays.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = "LifeBoard/Features/Settings/LifeManagement/LifeManagementView+DetailsComposerAndOverlays.swift"; sourceTree = SOURCE_ROOT; };
 		5F2067B7B6ACA2A4A2DA6279 /* OnboardingFilterChip.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Components/OnboardingFilterChip.swift; sourceTree = SOURCE_ROOT; };
 		607D98C13538414095C75E7B /* AddTaskMetadataRow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AddTaskMetadataRow.swift; path = LifeBoard/Features/Tasks/UI/AddTaskMetadataRow.swift; sourceTree = SOURCE_ROOT; };
@@ -1596,6 +1609,18 @@
 		A31000000000000000000510 /* LifeBoardComposerScaffold.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardComposerScaffold.swift; path = LifeBoard/DesignSystem/ComposerScaffold.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000514 /* LifeBoardValueControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardValueControls.swift; sourceTree = "<group>"; };
 		A31000000000000000000516 /* SignatureShaderComfortGate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SignatureShaderComfortGate.swift; path = LifeBoard/DesignSystem/SignatureShaderComfortGate.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000518 /* DecisionSurface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DecisionSurface.swift; path = LifeBoard/DesignSystem/DecisionSurface.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000051A /* RootTravelEffect.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootTravelEffect.swift; path = LifeBoard/DesignSystem/RootTravelEffect.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000051C /* FocusSurface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FocusSurface.swift; path = LifeBoard/Features/Focus/UI/FocusSurface.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000051E /* FocusSurfaceCommitmentSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FocusSurfaceCommitmentSection.swift; path = LifeBoard/Features/Focus/UI/FocusSurfaceCommitmentSection.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000520 /* FocusSurfaceDialSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FocusSurfaceDialSection.swift; path = LifeBoard/Features/Focus/UI/FocusSurfaceDialSection.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000522 /* FocusSurfaceTransportSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FocusSurfaceTransportSection.swift; path = LifeBoard/Features/Focus/UI/FocusSurfaceTransportSection.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000524 /* FocusInterruptionControl.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FocusInterruptionControl.swift; path = LifeBoard/Features/Focus/UI/FocusInterruptionControl.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000526 /* FocusSurfaceCloseSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FocusSurfaceCloseSection.swift; path = LifeBoard/Features/Focus/UI/FocusSurfaceCloseSection.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000528 /* ComposerCompressionPolicy.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerCompressionPolicy.swift; path = LifeBoard/Foundation/Navigation/ComposerCompressionPolicy.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000052A /* ComposerScrollReporter.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerScrollReporter.swift; path = LifeBoard/Foundation/Navigation/ComposerScrollReporter.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000052C /* ComposerCaptureOrb.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerCaptureOrb.swift; path = LifeBoard/Foundation/Navigation/ComposerCaptureOrb.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000052E /* ComposerAuxiliaryRows.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ComposerAuxiliaryRows.swift; path = LifeBoard/Foundation/Navigation/ComposerAuxiliaryRows.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000223 /* LifeBoardTokenBridge.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LifeBoardTokenBridge.swift; path = LifeBoard/DesignSystem/TokenBridge.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000225 /* TokenBridgeEquivalenceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TokenBridgeEquivalenceTests.swift; sourceTree = "<group>"; };
 		A31000000000000000000227 /* AccessibilityContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityContractTests.swift; sourceTree = "<group>"; };
@@ -1949,6 +1974,9 @@
 		E0A10000000000000000010D /* EvaActivationComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationComponents.swift; sourceTree = "<group>"; };
 		E0A10000000000000000020A /* MascotSprites */ = {isa = PBXFileReference; lastKnownFileType = folder; path = MascotSprites; sourceTree = "<group>"; };
 		E0A100000000000000000302 /* EvaActivationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaActivationTests.swift; sourceTree = "<group>"; };
+		E0A100000000000000000503 /* ComposerCompressionPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ComposerCompressionPolicyTests.swift; sourceTree = "<group>"; };
+		E0A100000000000000000505 /* RubberBandTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RubberBandTests.swift; sourceTree = "<group>"; };
+		E0A100000000000000000507 /* FocusClockTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusClockTests.swift; sourceTree = "<group>"; };
 		E0A100000000000000000402 /* SettingsViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsViewModelTests.swift; sourceTree = "<group>"; };
 		E0A100000000000000000502 /* EvaHomeIntelligenceUseCasesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EvaHomeIntelligenceUseCasesTests.swift; sourceTree = "<group>"; };
 		E150AE4B6341CE9C52EA4AF0 /* ResolvedLifeAreaSelection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/ResolvedLifeAreaSelection.swift; sourceTree = SOURCE_ROOT; };
@@ -2302,7 +2330,6 @@
 		4BDE4D4721AB3214B6F9804E /* Insights */ = {
 			isa = PBXGroup;
 			children = (
-				5E7A20000000000000000002 /* SunriseInsightsHeaderView.swift */,
 			);
 			path = Insights;
 			sourceTree = "<group>";
@@ -2778,6 +2805,9 @@
 				E0A100000000000000000502 /* EvaHomeIntelligenceUseCasesTests.swift */,
 				C7A200000000000000000004 /* ChatCancellationPolicyTests.swift */,
 				E0A100000000000000000402 /* SettingsViewModelTests.swift */,
+				E0A100000000000000000507 /* FocusClockTests.swift */,
+				E0A100000000000000000505 /* RubberBandTests.swift */,
+				E0A100000000000000000503 /* ComposerCompressionPolicyTests.swift */,
 				B8F9A0B1C2D3E4F506172838 /* LLMPersonalMemoryStoreTests.swift */,
 				A1B2C3D42EAA11BB00CCDDEE /* LLMModelRegistryTests.swift */,
 				A6E1D42A2F3C120100B1C2D3 /* TaskSemanticRetrievalServiceTests.swift */,
@@ -3452,6 +3482,18 @@
 				A31000000000000000000514 /* LifeBoardValueControls.swift */,
 				A31000000000000000000501 /* LifeBoardAtmosphereSlider.swift */,
 				A31000000000000000000223 /* LifeBoardTokenBridge.swift */,
+				A3100000000000000000052E /* ComposerAuxiliaryRows.swift */,
+				A3100000000000000000052C /* ComposerCaptureOrb.swift */,
+				A3100000000000000000052A /* ComposerScrollReporter.swift */,
+				A31000000000000000000528 /* ComposerCompressionPolicy.swift */,
+				A31000000000000000000526 /* FocusSurfaceCloseSection.swift */,
+				A31000000000000000000524 /* FocusInterruptionControl.swift */,
+				A31000000000000000000522 /* FocusSurfaceTransportSection.swift */,
+				A31000000000000000000520 /* FocusSurfaceDialSection.swift */,
+				A3100000000000000000051E /* FocusSurfaceCommitmentSection.swift */,
+				A3100000000000000000051C /* FocusSurface.swift */,
+				A3100000000000000000051A /* RootTravelEffect.swift */,
+				A31000000000000000000518 /* DecisionSurface.swift */,
 				A31000000000000000000516 /* SignatureShaderComfortGate.swift */,
 				C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */,
 				DA4C5F6B7E8D9201F3A4B5C6 /* LifeBoardCelestialDaypartIndicator.swift */,
@@ -4825,7 +4867,6 @@
 				D4F20000000000000000010A /* WeeklyReviewViewModel.swift in Sources */,
 				FFCF1FC469B2AE9FC88CF3D1 /* InsightsViewModel.swift in Sources */,
 				D9A0B1C2D3E4F506172839AD /* InsightsModuleVisibilityPlanner.swift in Sources */,
-				5E7A20000000000000000001 /* SunriseInsightsHeaderView.swift in Sources */,
 				D4F20000000000000000010B /* HomeWeeklySummaryCard.swift in Sources */,
 				D4F20000000000000000010C /* SunriseWeeklyPlannerView.swift in Sources */,
 				D4F20000000000000000010D /* SunriseWeeklyReviewView.swift in Sources */,
@@ -5259,6 +5300,18 @@
 				A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */,
 				A31000000000000000000502 /* LifeBoardAtmosphereSlider.swift in Sources */,
 				A31000000000000000000224 /* LifeBoardTokenBridge.swift in Sources */,
+				A3100000000000000000052F /* ComposerAuxiliaryRows.swift in Sources */,
+				A3100000000000000000052D /* ComposerCaptureOrb.swift in Sources */,
+				A3100000000000000000052B /* ComposerScrollReporter.swift in Sources */,
+				A31000000000000000000529 /* ComposerCompressionPolicy.swift in Sources */,
+				A31000000000000000000527 /* FocusSurfaceCloseSection.swift in Sources */,
+				A31000000000000000000525 /* FocusInterruptionControl.swift in Sources */,
+				A31000000000000000000523 /* FocusSurfaceTransportSection.swift in Sources */,
+				A31000000000000000000521 /* FocusSurfaceDialSection.swift in Sources */,
+				A3100000000000000000051F /* FocusSurfaceCommitmentSection.swift in Sources */,
+				A3100000000000000000051D /* FocusSurface.swift in Sources */,
+				A3100000000000000000051B /* RootTravelEffect.swift in Sources */,
+				A31000000000000000000519 /* DecisionSurface.swift in Sources */,
 				A31000000000000000000517 /* SignatureShaderComfortGate.swift in Sources */,
 				CDCE7BDD9D5A5F2FA1356E35 /* LifeBoardCompletionControl.swift in Sources */,
 				CF3B4E5A6D7C8190E2F3A4B5 /* LifeBoardCelestialDaypartIndicator.swift in Sources */,
@@ -5353,6 +5406,9 @@
 				E0A100000000000000000301 /* EvaActivationTests.swift in Sources */,
 				E0A100000000000000000501 /* EvaHomeIntelligenceUseCasesTests.swift in Sources */,
 				E0A100000000000000000401 /* SettingsViewModelTests.swift in Sources */,
+				E0A100000000000000000508 /* FocusClockTests.swift in Sources */,
+				E0A100000000000000000506 /* RubberBandTests.swift in Sources */,
+				E0A100000000000000000504 /* ComposerCompressionPolicyTests.swift in Sources */,
 				B8E100052F70000100A0A001 /* LifeBoardCTABezelResolverTests.swift in Sources */,
 				B8F9A0B1C2D3E4F506172839 /* LLMPersonalMemoryStoreTests.swift in Sources */,
 				B4D7E8213A4F5C6D7E8F9012 /* V3TestHarness.swift in Sources */,

@@ -34,6 +34,33 @@ enum RootTransition {
               let to = order.firstIndex(of: selected) else { return 0 }
         return from < to ? -distance : distance
     }
+
+    /// Which way the arriving root is travelling: -1 leftward, +1 rightward.
+    ///
+    /// Feeds `lifeboardRootTravel`'s shear, so it must agree in sign with
+    /// `offset` above — a shear that leans against the slide reads as the
+    /// surface fighting itself rather than flexing with the motion.
+    static func direction(from previous: Destination?, to selected: Destination) -> Double {
+        guard let previous, previous != selected else { return 0 }
+        let order = Destination.allCases
+        guard let from = order.firstIndex(of: previous),
+              let to = order.firstIndex(of: selected) else { return 0 }
+        return from < to ? 1 : -1
+    }
+
+    /// The departing slot's x-centre in unit space, so the shear falls off from
+    /// where the finger actually was.
+    ///
+    /// The dock lays five equal slots edge to edge, so slot `i` is centred at
+    /// `(i + 0.5) / 5`. This mirrors `dockSelectionCenter` in the shell layout,
+    /// which computes the same figure for the glass refraction lens.
+    static func originUnitX(for destination: Destination?) -> Double {
+        let order = Destination.allCases
+        guard let destination, let index = order.firstIndex(of: destination), order.isEmpty == false else {
+            return 0.5
+        }
+        return (Double(index) + 0.5) / Double(order.count)
+    }
 }
 
 /// Which roots exist in the compact shell's stack, and which survive a change.

@@ -668,3 +668,55 @@ namespace LifeBoardSignature {
     float2 delta = clamp(warped - position, float2(-10.0), float2(10.0));
     return position + delta;
 }
+
+// rootTravelShear: the arriving root settling into place after a dock change.
+//
+// The most-repeated transition in the app, and the only one in DESIGN.md's
+// motion grammar with no effect of its own — the shell moved the arriving root
+// with a plain offset + opacity, so "travel" carried no spatial information at
+// all beyond direction.
+//
+// A directional shear whose magnitude falls off with distance from the departing
+// dock slot, so the side of the screen you launched from lags fractionally
+// behind the side you are heading toward. That asymmetry is the whole idea: it
+// says *where the content came from*, which a uniform slide cannot.
+//
+// `origin` is the departing slot's x-centre in unit space, `direction` is -1 or
+// +1, `progress` runs 0 -> 1 and the effect is identity at 1. Bounded to a few
+// points; this must never be legible as distortion on text.
+[[ stitchable ]] float2 LifeBoardRootTravelShear(
+    float2 position,
+    float2 size,
+    float origin,
+    float direction,
+    float progress
+) {
+    if (size.x <= 0.0 || size.y <= 0.0 || progress >= 0.999) {
+        return position;
+    }
+
+    float u = position.x / size.x;
+    float v = position.y / size.y;
+
+    // Ease out: most of the shear is spent in the first third of the travel, so
+    // the surface reads as settling rather than as arriving bent.
+    float remaining = 1.0 - progress;
+    float eased = remaining * remaining;
+
+    // Falloff from the origin slot. Content near where the finger was moves
+    // least; the far edge leads.
+    float distanceFromOrigin = clamp(abs(u - origin), 0.0, 1.0);
+    float lead = smoothstep(0.0, 1.0, distanceFromOrigin);
+
+    // Vertical component only. A horizontal shear on a horizontally travelling
+    // surface just reads as extra velocity; shearing across the direction of
+    // travel is what makes the motion legible as one sheet flexing.
+    float shear = direction * lead * eased * 9.0;
+
+    // Slight vertical falloff so the top and bottom edges — where the header and
+    // dock sit — stay closer to true than the middle of the reading field.
+    float verticalWeight = 1.0 - 0.35 * abs(v - 0.5) * 2.0;
+
+    float2 delta = float2(0.0, shear * verticalWeight);
+    return position + clamp(delta, float2(-12.0), float2(12.0));
+}
