@@ -8,6 +8,8 @@
 
 require 'pathname'
 require 'set'
+require 'json'
+require 'open3'
 
 root = Pathname(ENV.fetch('LIFEBOARD_ROOT_DIR')).realpath
 derived_data = Pathname(ENV.fetch('LIFEBOARD_MEMBERSHIP_DERIVED_DATA')).expand_path
@@ -40,6 +42,7 @@ file_lists.each do |file_list|
   observed_targets << target
   File.foreach(file_list, chomp: true) do |source|
     source_path = Pathname(source).expand_path
+    source_path = source_path.realpath if source_path.file?
     next unless source_path.to_s.start_with?("#{root}/")
     next unless source_path.extname == '.swift'
 
@@ -54,10 +57,59 @@ required_targets = %w[
 ]
 missing_target_builds = required_targets.reject { |target| observed_targets.include?(target) }
 
+package_json, package_error, package_status = Open3.capture3(
+  'swift', 'package', 'dump-package',
+  chdir: root.to_s
+)
+unless package_status.success?
+  abort("error: swift package dump-package failed:\n#{package_error}")
+end
+
+package_owners = Hash.new { |hash, key| hash[key] = Set.new }
+JSON.parse(package_json).fetch('targets').each do |target|
+  target_path = root.join(target.fetch('path'))
+  next unless target_path.directory?
+
+  excluded = target.fetch('exclude', []).flat_map do |entry|
+    path = target_path.join(entry)
+    path.directory? ? Dir.glob(path.join('**', '*.swift')) : [path.to_s]
+  end.map { |path| Pathname(path).expand_path.to_s }.to_set
+
+  declared_sources = target['sources']
+  sources = if declared_sources
+              declared_sources.flat_map do |entry|
+                path = target_path.join(entry)
+                path.directory? ? Dir.glob(path.join('**', '*.swift')) : [path.to_s]
+              end
+            else
+              Dir.glob(target_path.join('**', '*.swift'))
+            end
+
+  sources.each do |source|
+    source_path = Pathname(source).expand_path
+    next unless source_path.file? && source_path.extname == '.swift'
+    next if excluded.include?(source_path.to_s)
+
+    relative = source_path.relative_path_from(root).to_s
+    package_owners[relative] << target.fetch('name')
+  end
+end
+
+ambiguous_package_owners = package_owners.select { |_path, owners| owners.length > 1 }
+duplicate_package_memberships = package_owners.each_with_object({}) do |(path, owners), duplicates|
+  next unless owners.length == 1
+
+  unexpected = memberships[path] - owners
+  duplicates[path] = [owners.first, unexpected.to_a.sort] unless unexpected.empty?
+end
+
 source_roots = ENV.fetch('LIFEBOARD_SWIFT_SOURCE_ROOTS', '').split(File::PATH_SEPARATOR)
 source_roots = %w[LifeBoard LifeBoardTests LifeBoardUITests LifeBoardWatch LifeBoardWatchWidgets LifeBoardWidgets LifeBoardShareExtension Shared Packages] if source_roots.empty?
 
 expected_target = lambda do |relative|
+  package_targets = package_owners[relative]
+  return package_targets.first if package_targets.length == 1
+
   case relative
   when %r{\ALifeBoardTests/} then 'LifeBoardTests'
   when %r{\ALifeBoardUITests/} then 'LifeBoardUITests'
@@ -65,11 +117,7 @@ expected_target = lambda do |relative|
   when %r{\ALifeBoardWatch/} then 'LifeBoardWatch'
   when %r{\ALifeBoardWidgets/} then 'LifeBoardWidgets'
   when %r{\ALifeBoardShareExtension/} then 'LifeBoardShareExtension'
-  when %r{\ALifeBoard/Persistence/Bootstrap/LifeBoardPersistenceModel\.swift\z} then 'LifeBoardPersistence'
-  when %r{\ALifeBoard/Persistence/Entities/(?:LegacyGeneratedManagedObjects|ProjectEntity\+CoreDataClass|TaskDefinitionEntity\+CoreDataClass)\.swift\z} then 'LifeBoardPersistence'
   when %r{\ALifeBoard/} then 'LifeBoard'
-  when %r{\APackages/(?:LifeBoard/)?Sources/([^/]+)/} then Regexp.last_match(1)
-  when %r{\APackages/([^/]+)/Sources/([^/]+)/} then Regexp.last_match(2)
   end
 end
 
@@ -108,6 +156,18 @@ unless missing_target_builds.empty?
   warn 'error: required targets did not emit compiler file lists:'
   missing_target_builds.each { |target| warn "  #{target}" }
 end
+unless ambiguous_package_owners.empty?
+  warn 'error: SwiftPM manifest assigns a source to more than one target:'
+  ambiguous_package_owners.sort.each do |path, owners|
+    warn "  #{path} (#{owners.to_a.sort.join(', ')})"
+  end
+end
+unless duplicate_package_memberships.empty?
+  warn 'error: SwiftPM-owned sources also compile in non-owning targets:'
+  duplicate_package_memberships.sort.each do |path, (owner, unexpected)|
+    warn "  #{path} (owner #{owner}; also #{unexpected.join(', ')})"
+  end
+end
 unless missing.empty?
   warn 'error: Swift files have no compilation-derived target membership:'
   missing.each { |path| warn "  #{path}" }
@@ -131,7 +191,16 @@ unless unknown_exclusions.empty?
   unknown_exclusions.each { |path| warn "  #{path}" }
 end
 
-failed = [missing_target_builds, missing, wrong_primary_target, stale_allowlist, unknown_allowlist, unknown_exclusions].any?(&:any?)
+failed = [
+  missing_target_builds,
+  ambiguous_package_owners,
+  duplicate_package_memberships,
+  missing,
+  wrong_primary_target,
+  stale_allowlist,
+  unknown_allowlist,
+  unknown_exclusions
+].any?(&:any?)
 exit 1 if failed
 
 puts "Compilation-derived target membership passed (#{memberships.length} sources, #{observed_targets.length} targets)."

@@ -6,6 +6,7 @@
 # validated against the declared internal-target adjacency graph.
 
 require 'open3'
+require 'json'
 require 'pathname'
 require 'set'
 
@@ -27,6 +28,86 @@ adjacency_path.each_line(chomp: true) do |line|
 end
 
 internal_modules = adjacency.keys.to_set
+
+# Treat the Swift package manifest and Xcode package references as required,
+# fail-closed architecture inputs. Source-import checks alone cannot prove
+# that Xcode did not retain an undeclared package or an out-of-repository path.
+manifest_path = root.join('Package.swift')
+project_path = root.join('LifeBoard.xcodeproj', 'project.pbxproj')
+abort("error: missing root Package.swift: #{manifest_path}") unless manifest_path.file?
+abort("error: missing Xcode project: #{project_path}") unless project_path.file?
+
+dump_stdout, dump_stderr, dump_status = Open3.capture3('swift', 'package', 'dump-package', chdir: root.to_s)
+abort("error: swift package dump-package failed:\n#{dump_stderr}") unless dump_status.success?
+begin
+  package_dump = JSON.parse(dump_stdout)
+rescue JSON::ParserError => error
+  abort("error: invalid swift package dump-package output: #{error.message}")
+end
+
+package_dump.fetch('dependencies', []).each do |dependency|
+  file_system = dependency['fileSystem']
+  next unless file_system
+
+  dependency_path = Pathname(file_system.fetch('path'))
+  dependency_path = root.join(dependency_path) unless dependency_path.absolute?
+  abort("error: missing local package dependency: #{dependency_path}") unless dependency_path.exist?
+  resolved = dependency_path.realpath.to_s
+  unless resolved == root.to_s || resolved.start_with?("#{root}/")
+    abort("error: package dependency escapes repository: #{resolved}")
+  end
+end
+
+project_text = project_path.read
+project_text.scan(/\bXCLocalSwiftPackageReference\b;(?<body>.*?)\n\s*};/m).each do |match|
+  body = match.first
+  relative_match = body.match(/relativePath\s*=\s*(?<path>[^;]+);/)
+  abort('error: local Xcode package reference has no relativePath') unless relative_match
+  raw_path = relative_match[:path].strip.delete_prefix('"').delete_suffix('"')
+  dependency_path = Pathname(raw_path)
+  dependency_path = root.join(dependency_path) unless dependency_path.absolute?
+  abort("error: missing local Xcode package dependency: #{dependency_path}") unless dependency_path.exist?
+  resolved = dependency_path.realpath.to_s
+  unless resolved == root.to_s || resolved.start_with?("#{root}/")
+    abort("error: Xcode package dependency escapes repository: #{resolved}")
+  end
+end
+
+if manifest_path.read.match?(/\b(?:JournalKit|OffRecord)\b/) ||
+   project_text.match?(/\b(?:JournalKit|OffRecord)\b/)
+  abort('error: forbidden JournalKit/OffRecord package dependency detected')
+end
+
+declared_targets = package_dump.fetch('targets')
+                               .reject { |target| target['type'] == 'test' }
+                               .to_h { |target| [target.fetch('name'), target] }
+declared_targets.each do |name, target|
+  abort("error: no adjacency declaration for package target #{name}") unless adjacency.key?(name)
+  dependencies = target.fetch('dependencies', []).map do |dependency|
+    dependency.dig('byName', 0) || dependency.dig('target', 0)
+  end.compact.select { |dependency| declared_targets.key?(dependency) }.to_set
+  expected = adjacency.fetch(name).intersection(declared_targets.keys.to_set)
+  next if dependencies == expected
+
+  abort("error: package adjacency mismatch for #{name}: manifest=#{dependencies.to_a.sort.join(',')} graph=#{expected.to_a.sort.join(',')}")
+end
+
+visiting = Set.new
+visited = Set.new
+visit = lambda do |name|
+  abort("error: cyclic package dependency graph at #{name}") if visiting.include?(name)
+  return if visited.include?(name)
+
+  visiting << name
+  target = declared_targets.fetch(name)
+  target.fetch('dependencies', []).map { |dependency| dependency.dig('byName', 0) || dependency.dig('target', 0) }.compact
+        .select { |dependency| declared_targets.key?(dependency) }
+        .each { |dependency| visit.call(dependency) }
+  visiting.delete(name)
+  visited << name
+end
+declared_targets.each_key { |name| visit.call(name) }
+
 exceptions = Set.new
 if exceptions_path.file?
   exceptions_path.each_line(chomp: true) do |line|

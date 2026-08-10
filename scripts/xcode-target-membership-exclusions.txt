@@ -1,6 +1,3 @@
-# Legacy hand-written declarations intentionally excluded from target sources.
-# The Core Data model versions use category code generation; compiling these
-# declarations would duplicate generated accessors. The code-generation test
-# and model guardrail own this exception.
-LifeBoard/Persistence/Entities/ProjectEntity+CoreDataProperties.swift
-LifeBoard/Persistence/Entities/TaskDefinitionEntity+CoreDataProperties.swift
+# No exclusions are currently permitted. The package-owned Core Data model uses
+# Manual/None code generation, so its public hand-written properties compile in
+# LifeBoardPersistence and are validated like every other source.

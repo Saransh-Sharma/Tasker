@@ -65,7 +65,7 @@ sources = Dir.glob(File.join(root, 'LifeBoard', '**', '*.swift')) +
 
 expressions = sources.flat_map do |file|
   invocation_arguments(File.read(file, encoding: SOURCE_ENCODING))
-end.sort
+end.sort.uniq
 
 payload = expressions.join("\n") + "\n"
 digest = Digest::SHA256.hexdigest(payload)
