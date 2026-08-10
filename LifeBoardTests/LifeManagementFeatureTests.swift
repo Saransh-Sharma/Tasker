@@ -1,6 +1,7 @@
 import XCTest
 import CoreData
 @testable import LifeBoard
+@testable import LifeBoardPersistence
 
 @MainActor
 final class ManageLifeAreasUseCaseTests: XCTestCase {

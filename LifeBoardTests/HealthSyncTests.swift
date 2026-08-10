@@ -1,5 +1,5 @@
 import HealthKit
-import CoreData
+@preconcurrency import CoreData
 import XCTest
 @testable import LifeBoard
 
@@ -24,21 +24,21 @@ final class HealthSyncTests: XCTestCase {
     func testOneLocalRecordKeepsSeveralCorrespondenceRoles() async throws {
         let ledger = InMemoryHealthSyncLedger()
         let localID = UUID()
-        try await ledger.record(.init(
+        await ledger.record(.init(
             localID: localID,
             metric: .workout,
             role: "primary",
             hkUUID: UUID(),
             origin: .lifeBoard
         ))
-        try await ledger.record(.init(
+        await ledger.record(.init(
             localID: localID,
             metric: .workout,
             role: "energy",
             hkUUID: UUID(),
             origin: .lifeBoard
         ))
-        try await ledger.record(.init(
+        await ledger.record(.init(
             localID: localID,
             metric: .workout,
             role: "distance",
@@ -46,16 +46,16 @@ final class HealthSyncTests: XCTestCase {
             origin: .lifeBoard
         ))
 
-        let values = try await ledger.correspondences(localID: localID, metric: .workout)
+        let values = await ledger.correspondences(localID: localID, metric: .workout)
         XCTAssertEqual(Set(values.map(\.role)), ["primary", "energy", "distance"])
     }
 
     func testSyncVersionsAreMonotonicPerMetricRole() async throws {
         let ledger = InMemoryHealthSyncLedger()
         let id = UUID()
-        let first = try await ledger.nextSyncVersion(localID: id, metric: .water, role: "primary")
-        let second = try await ledger.nextSyncVersion(localID: id, metric: .water, role: "primary")
-        let otherRole = try await ledger.nextSyncVersion(localID: id, metric: .water, role: "secondary")
+        let first = await ledger.nextSyncVersion(localID: id, metric: .water, role: "primary")
+        let second = await ledger.nextSyncVersion(localID: id, metric: .water, role: "primary")
+        let otherRole = await ledger.nextSyncVersion(localID: id, metric: .water, role: "secondary")
         XCTAssertEqual(first, 1)
         XCTAssertEqual(second, 2)
         XCTAssertEqual(otherRole, 1)
@@ -174,12 +174,12 @@ final class HealthSyncTests: XCTestCase {
             _ = try await engine.refresh(metrics: [.water])
             XCTFail("Expected projection failure")
         } catch {}
-        let failedAnchor = try await ledger.anchorData(for: .water)
+        let failedAnchor = await ledger.anchorData(for: .water)
         XCTAssertNil(failedAnchor)
 
         await projections.setFailureEnabled(false)
         _ = try await engine.refresh(metrics: [.water])
-        let committedAnchor = try await ledger.anchorData(for: .water)
+        let committedAnchor = await ledger.anchorData(for: .water)
         XCTAssertEqual(committedAnchor, Data([7]))
     }
 
@@ -206,11 +206,11 @@ final class HealthSyncTests: XCTestCase {
         let ledger = InMemoryHealthSyncLedger()
         let start = Date(timeIntervalSinceReferenceDate: 10_000)
         let next = start.addingTimeInterval(86_400)
-        try await ledger.saveAggregate(.init(metric: .steps, value: 1_000, start: start, end: next))
-        try await ledger.saveAggregate(.init(metric: .steps, value: 2_000, start: next, end: next.addingTimeInterval(86_400)))
-        try await ledger.saveAggregate(.init(metric: .water, value: 500, start: start, end: next))
+        await ledger.saveAggregate(.init(metric: .steps, value: 1_000, start: start, end: next))
+        await ledger.saveAggregate(.init(metric: .steps, value: 2_000, start: next, end: next.addingTimeInterval(86_400)))
+        await ledger.saveAggregate(.init(metric: .water, value: 500, start: start, end: next))
 
-        let values = try await ledger.cachedAggregates(
+        let values = await ledger.cachedAggregates(
             metric: .steps,
             from: start,
             to: next.addingTimeInterval(1)
@@ -337,7 +337,7 @@ final class HealthSyncTests: XCTestCase {
         let projections = HealthProjectionFake()
         let healthID = UUID()
         let localID = UUID()
-        try await ledger.record(.init(
+        await ledger.record(.init(
             localID: localID,
             metric: .water,
             hkUUID: healthID,
@@ -355,11 +355,11 @@ final class HealthSyncTests: XCTestCase {
             featureFlags: { (true, false) }
         )
         _ = try await engine.refresh(metrics: [.water])
-        let suppressed = try await ledger.correspondence(hkUUID: healthID)?.isRecreationSuppressed
+        let suppressed = await ledger.correspondence(hkUUID: healthID)?.isRecreationSuppressed
         XCTAssertEqual(suppressed, true)
 
         try await engine.localRecordWasEdited(localID: localID, metric: .water)
-        let recreatedAfterEdit = try await ledger.correspondence(hkUUID: healthID)?.isRecreationSuppressed
+        let recreatedAfterEdit = await ledger.correspondence(hkUUID: healthID)?.isRecreationSuppressed
         XCTAssertEqual(recreatedAfterEdit, false)
     }
 
@@ -367,9 +367,9 @@ final class HealthSyncTests: XCTestCase {
         let gateway = HealthGatewayFake()
         gateway.authorization = .denied
         let ledger = InMemoryHealthSyncLedger()
-        try await ledger.writePreference(domain: .hydration, enabled: true, optedInAt: Date())
+        await ledger.writePreference(domain: .hydration, enabled: true, optedInAt: Date())
         let operation = makeWaterOperation()
-        try await ledger.save(operation)
+        await ledger.save(operation)
         let engine = HealthSyncService(
             gateway: gateway,
             ledger: ledger,
@@ -379,7 +379,7 @@ final class HealthSyncTests: XCTestCase {
 
         try await engine.processOutbox()
 
-        let queued = try await ledger.pendingOperations(now: .distantFuture, limit: 10)
+        let queued = await ledger.pendingOperations(now: .distantFuture, limit: 10)
         XCTAssertEqual(queued.first?.id, operation.id)
         XCTAssertEqual(queued.first?.state, .pausedPermission)
         XCTAssertEqual(queued.first?.lastErrorCode, "write_denied")
@@ -389,9 +389,9 @@ final class HealthSyncTests: XCTestCase {
         let gateway = HealthGatewayFake()
         gateway.saveError = HealthKitGatewayError.unavailable
         let ledger = InMemoryHealthSyncLedger()
-        try await ledger.writePreference(domain: .hydration, enabled: true, optedInAt: Date())
+        await ledger.writePreference(domain: .hydration, enabled: true, optedInAt: Date())
         let operation = makeWaterOperation()
-        try await ledger.save(operation)
+        await ledger.save(operation)
         let engine = HealthSyncService(
             gateway: gateway,
             ledger: ledger,
@@ -401,7 +401,7 @@ final class HealthSyncTests: XCTestCase {
 
         try await engine.processOutbox()
 
-        let queued = try await ledger.pendingOperations(now: .distantFuture, limit: 10)
+        let queued = await ledger.pendingOperations(now: .distantFuture, limit: 10)
         XCTAssertEqual(queued.first?.id, operation.id)
         XCTAssertEqual(queued.first?.state, .retryScheduled)
         XCTAssertEqual(queued.first?.attemptCount, 1)

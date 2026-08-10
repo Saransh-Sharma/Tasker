@@ -1,7 +1,7 @@
-import CoreData
+@preconcurrency import CoreData
 import LifeBoardDomain
-import KnowledgeGraphKit
-import LifeBoardDomain
+import JournalFeature
+import KnowledgeFeature
 import UIKit
 import XCTest
 @testable import LifeBoard
@@ -2634,10 +2634,10 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testNamespacedOffRecordMoodAssetsAreAvailableToJournal() {
-        for mood in JournalMood.allCases {
-            XCTAssertNotNil(UIImage(named: mood.largeAssetName), "Missing large artwork for \(mood.title)")
-            XCTAssertNotNil(UIImage(named: mood.faceAssetName), "Missing dial face for \(mood.title)")
-            XCTAssertNotNil(UIImage(named: mood.glowAssetName), "Missing glow artwork for \(mood.title)")
+        for mood in Mood.allCases {
+            XCTAssertNotNil(UIImage(named: mood.largeMoodAssetName, in: Mood.assetBundle, with: nil), "Missing large artwork for \(mood.displayName)")
+            XCTAssertNotNil(UIImage(named: mood.dialFaceAssetName, in: Mood.assetBundle, with: nil), "Missing dial face for \(mood.displayName)")
+            XCTAssertNotNil(UIImage(named: mood.moodGlowAssetName, in: Mood.assetBundle, with: nil), "Missing glow artwork for \(mood.displayName)")
         }
     }
 
@@ -4969,14 +4969,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let other = try FoodItem(name: "Apple sauce", macrosPer100Grams: macros, servings: [serving])
         let repository = InMemoryNutritionRepository(foods: [other, favorite])
 
-        let searchIDs = try await repository.foods(query: "apple").map(\.id)
+        let searchIDs = await repository.foods(query: "apple").map(\.id)
         XCTAssertEqual(searchIDs, [favorite.id, other.id])
         let entry = try NutritionLogEntry(food: other, mealSlot: .snack, quantity: 1, serving: serving)
-        try await repository.save(entry)
-        let recentIDs = try await repository.recentFoods(limit: 1).map(\.id)
+        await repository.save(entry)
+        let recentIDs = await repository.recentFoods(limit: 1).map(\.id)
         XCTAssertEqual(recentIDs, [other.id])
         try await repository.deleteLog(id: entry.id)
-        let logs = try await repository.logs(from: nil, to: nil)
+        let logs = await repository.logs(from: nil, to: nil)
         XCTAssertTrue(logs.isEmpty)
     }
 
@@ -5002,14 +5002,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
             loggedAt: original.loggedAt.addingTimeInterval(60),
             note: "Shared bowl"
         )
-        let correctedLogs = try await repository.logs(from: nil, to: nil)
+        let correctedLogs = await repository.logs(from: nil, to: nil)
         let corrected = try XCTUnwrap(correctedLogs.first)
         XCTAssertEqual(corrected.resolvedMacrosSnapshot.calories, original.resolvedMacrosSnapshot.calories * 2)
         XCTAssertEqual(corrected.provenance, .barcodeLocal)
         XCTAssertEqual(corrected.sourceReference, "01234567")
 
         try await service.undo(receipt)
-        let restoredLogs = try await repository.logs(from: nil, to: nil)
+        let restoredLogs = await repository.logs(from: nil, to: nil)
         let restored = try XCTUnwrap(restoredLogs.first)
         XCTAssertEqual(restored, original)
     }
@@ -5474,17 +5474,17 @@ final class LifeOSFoundationContractTests: XCTestCase {
         )
         let sourceContext = NSManagedObjectContext(concurrencyType: .privateQueueConcurrencyType)
         sourceContext.persistentStoreCoordinator = sourceCoordinator
-        var domainFixtures: [DomainMigrationFixture] = []
-        try sourceContext.performAndWait {
+        let domainFixtures = try sourceContext.performAndWait {
             let area = NSEntityDescription.insertNewObject(forEntityName: "LifeArea", into: sourceContext)
             area.setValue(fixtureID, forKey: "id")
             area.setValue(fixtureName, forKey: "name")
-            domainFixtures = seedDomainMigrationFixtures(
+            let fixtures = Self.seedDomainMigrationFixtures(
                 sourceModel: sourceModel,
                 context: sourceContext,
                 modelName: sourceModelName
             )
             try sourceContext.save()
+            return fixtures
         }
         try sourceCoordinator.remove(sourceStore)
 
@@ -5535,14 +5535,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
         )
     }
 
-    private struct DomainMigrationFixture {
+    private struct DomainMigrationFixture: @unchecked Sendable {
         var entityName: String
         var id: UUID
         var attributes: [String: NSObject]
         var relationshipIDs: [String: UUID] = [:]
     }
 
-    private func seedDomainMigrationFixtures(
+    private static func seedDomainMigrationFixtures(
         sourceModel: NSManagedObjectModel,
         context: NSManagedObjectContext,
         modelName: String
@@ -5605,13 +5605,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
             fixtures.append(fixture)
         }
         if let trackerID,
-           var (entry, fixture) = insert("TrackerEntry", values: [
+           let (entry, initialFixture) = insert("TrackerEntry", values: [
                "trackerID": trackerID as NSUUID,
                "timestamp": NSDate(timeIntervalSince1970: 1_721_430_000),
                "numericValue": NSNumber(value: 0),
                "booleanValue": NSNumber(value: false),
                "note": "Explicit zero remains data" as NSString
            ]) {
+            var fixture = initialFixture
             if let trackerObject,
                entry.entity.relationshipsByName["tracker"] != nil {
                 entry.setValue(trackerObject, forKey: "tracker")
@@ -5633,12 +5634,13 @@ final class LifeOSFoundationContractTests: XCTestCase {
             fixtures.append(fixture)
         }
         if let medicationID,
-           var (schedule, fixture) = insert("MedicationSchedule", values: [
+           let (schedule, initialFixture) = insert("MedicationSchedule", values: [
                "medicationID": medicationID as NSUUID,
                "windowStartMinutes": NSNumber(value: 480),
                "windowEndMinutes": NSNumber(value: 540),
                "reminderEnabled": NSNumber(value: true)
            ]) {
+            var fixture = initialFixture
             if let medicationObject,
                schedule.entity.relationshipsByName["medication"] != nil {
                 schedule.setValue(medicationObject, forKey: "medication")
@@ -5647,12 +5649,13 @@ final class LifeOSFoundationContractTests: XCTestCase {
             fixtures.append(fixture)
         }
         if let medicationID,
-           var (event, fixture) = insert("MedicationEvent", values: [
+           let (event, initialFixture) = insert("MedicationEvent", values: [
                "medicationID": medicationID as NSUUID,
                "scheduledAt": NSDate(timeIntervalSince1970: 1_721_430_000),
                "statusRaw": "unresolved" as NSString,
                "note": "Silence was not inferred" as NSString
            ]) {
+            var fixture = initialFixture
             if let medicationObject,
                event.entity.relationshipsByName["medication"] != nil {
                 event.setValue(medicationObject, forKey: "medication")

@@ -13,6 +13,7 @@ import SwiftUI
 import UserNotifications
 import MLXLMCommon
 @testable import LifeBoard
+@testable import LifeBoardPersistence
 
 final class FocusNowHeroImageResolverTests: XCTestCase {
     func testPreferredImagesMapToAllSixHeroAssets() {

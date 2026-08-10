@@ -1,4 +1,4 @@
-import CoreData
+@preconcurrency import CoreData
 import XCTest
 @testable import LifeBoard
 

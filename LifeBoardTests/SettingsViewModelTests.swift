@@ -331,10 +331,10 @@ final class SettingsViewModelTests: XCTestCase {
     }
 
     func testSettingsCategoryRoutesRoundTripThroughNavigationPersistence() throws {
-        let data = try JSONEncoder().encode(SettingsRoute.categories)
-        let decoded = try JSONDecoder().decode([SettingsRoute].self, from: data)
+        let data = try JSONEncoder().encode(SettingsDetailRoute.categories)
+        let decoded = try JSONDecoder().decode([SettingsDetailRoute].self, from: data)
 
-        XCTAssertEqual(decoded, SettingsRoute.categories)
+        XCTAssertEqual(decoded, SettingsDetailRoute.categories)
         XCTAssertEqual(decoded.count, 6)
     }
 
