@@ -1,6 +1,7 @@
 import Combine
 import Observation
 import SwiftUI
+import LifeBoardDomain
 import UIKit
 
 struct AdaptiveTimelineItem: Equatable, Identifiable, Sendable {
@@ -427,16 +428,7 @@ final class HomeContextPreferenceStore {
     }
 }
 
-public enum JournalMood: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
-    case none, angry, sad, anxious, tired, calm, grateful, happy, excited
-
-    public var id: String { rawValue }
-    public var title: String { rawValue.capitalized }
-
-    public static let dialOrder: [JournalMood] = [
-        .angry, .sad, .anxious, .tired, .none, .calm, .grateful, .happy, .excited
-    ]
-
+extension JournalMood {
     var supportiveCopy: String {
         switch self {
         case .none: return "Nothing to force."
