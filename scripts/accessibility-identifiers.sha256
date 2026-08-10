@@ -6,5 +6,53 @@
 # membership, and counting duplicates made an ownership move look like an
 # identifier change. The 753-expression set is byte-identical between refactor
 # HEAD and this remediation; only duplicate occurrences changed.
-count=753
-sha256=3a4abf264bd20a02c35f41890a46954b2441281db678b127fe7f3378ad338474
+#
+# 2026-08-10, UI polish Phase 2: 753 -> 757. Four additions, zero removals, all
+# from the new shared primitives in LifeBoardUI:
+#
+#   "lifeboard.receipt", "lifeboard.receipt.undo", "lifeboard.receipt.dismiss"
+#   "lifeboard.signal.\(item.id)"
+#
+# The signal identifier is interpolated on purpose. The checker records the
+# expression text, so one interpolated identifier is one snapshot entry no
+# matter how many signals are rendered — which is what keeps this gate stable
+# as the primitives get adopted across screens. Adopting `ReceiptBar` in place
+# of a hand-rolled receipt will *remove* that screen's bespoke identifiers, so
+# expect the count to fall again during adoption.
+#
+# 2026-08-10, UI polish Phases 3-5: 757 -> 774. Additions only, no removals:
+#
+#   focus.surface{,.close,.commitment,.dial,.transport,.pauseResume,.nextPhase,
+#                 .endSession,.end.\(outcome.rawValue),.commit,.commit.cancel,
+#                 .interruption{,.strip,.reason}}   — the new Focus surface
+#   lifeThread.composer.orb                          — the composer's compressed shape
+#   lifeboard.decision{,.alternative}                — DecisionSurface
+#
+# `focus.session.\(session.id.uuidString)` is unchanged: the route kept its
+# identifier when its content was replaced, because the identifier — not the
+# view type — is what the UI-test contract is written against.
+#
+# 2026-08-10, adoption: 774 -> 775. One addition, `lifeboard.receipt.destination`,
+# from extending `ReceiptBar` with an optional "go look at it" action so Plan's
+# project-template receipt could adopt the shared bar without losing its Open
+# button. `plan.projectTemplates.receipt` is unchanged — the screen kept its
+# identifier while its implementation was replaced, which is the contract.
+#
+# `InsightsHeaderView.swift` was deleted this session and removed nothing here:
+# it declared no identifiers, which is part of why it was the one file safe to
+# delete without running the UI suite.
+#
+# 2026-08-10, SignalStrip adoption on Home: 775 -> 774.
+#   removed: "home.signal.\(slot.id)", "lifeboard.signal.\(item.id)"
+#   added:   "\(identifierPrefix).\(item.id)"
+#
+# READ THIS BEFORE TRUSTING THE SNAPSHOT FOR HOME'S SIGNALS. The runtime
+# identifiers are unchanged — Home passes `identifierPrefix: "home.signal"`, so
+# it still emits `home.signal.hydration` etc., and `LifeBoardUITests` queries
+# those directly. But the checker records *expression text*, and the prefix is
+# now a parameter, so it can no longer see that `home.signal.*` is produced here.
+# That is a real reduction in what this gate covers for this screen: the UI tests
+# at LifeBoardUITests.swift:528/544 are now the only thing pinning those
+# identifiers. Keep them.
+count=774
+sha256=085a5dd4b9203f7d0b6969a0b01795a44ec0ecd5c04023760de9291b4fc3a962

@@ -4,6 +4,23 @@
 #
 # Columns: path <TAB> lines <TAB> types <TAB> largest-top-level-type
 #
+# 2026-08-10, UI polish: two rows grew by exactly one line each, deliberately.
+# Track's root ScrollView and AdaptiveHome each gained
+# `.lifeBoardReportsComposerScroll()`, required for the composer's scroll-driven
+# capsule/orb compression. Neither file can shrink to pay for it without a
+# separate extraction pass, and blocking a one-line modifier behind a 4,500-line
+# refactor is how a ratchet stops being useful. Every other file in this change
+# was brought under the limit by extraction instead — see LifeThreadComposerHost,
+# whose largest declaration went 436 -> under 400 by moving `host(router:)` and
+# two inline sections out.
+#
+# 2026-08-10, SignalStrip adoption: Gallery 5014 -> 5028 lines, and one FEWER
+# top-level type (61 -> 60). The per-slot `ring(_:)` renderer was deleted in
+# favour of the shared `SignalStrip`, which is the direction this ratchet wants;
+# the line count rose because the state mapping that renderer was missing —
+# no-record vs denied vs unavailable, previously all drawn as one empty ring —
+# has to be written down somewhere. `largest` is unchanged at 1101.
+#
 # 'largest' is the metric that predicts the -Onone launch crash: Debug inlines a
 # computed 'some View' property into its caller's frame, so it is the size of the
 # TYPE, not the file, that overflows the 1 MB main stack. Extracting a section into
@@ -78,13 +95,13 @@ LifeBoard/Features/Plan/Domain/TaskExecutionContracts.swift	1910	25	467
 LifeBoard/Features/Track/Data/TrackFoundationPersistence.swift	999	7	794
 LifeBoard/Features/Track/Domain/TrackFoundationModels.swift	1864	94	148
 LifeBoard/Features/Track/Domain/TrackFoundationServices.swift	1028	15	115
-LifeBoard/Features/Track/UI/LifeBoardTrackFoundationViews.swift	4487	75	376
+LifeBoard/Features/Track/UI/LifeBoardTrackFoundationViews.swift	4488	75	376
 LifeBoard/Features/Track/UI/TrackFoundationStore.swift	1266	7	1137
 LifeBoard/Features/Weekly/Domain/WeeklyPlanningWorkspace.swift	867	29	90
 LifeBoard/Features/Weekly/UI/WeeklyPlanningWorkspaceView.swift	2642	28	749
 LifeBoard/Features/Wellness/Domain/WellnessCoreModels.swift	887	26	187
 LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift	1387	29	273
-LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift	5014	61	1100
+LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift	5028	60	1101
 LifeBoard/Foundation/LifeOSFoundationContracts.swift	3095	133	209
 LifeBoard/Foundation/Navigation/AppRouter.swift	835	10	477
 LifeBoard/Foundation/Navigation/FoundationShell.swift	7112	56	2120

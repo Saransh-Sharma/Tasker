@@ -13,6 +13,11 @@
 #             to every consumer directory, which brought Foundation/ (76),
 #             Presentation/ (55) and Onboarding/ (17) under the law for the first
 #             time. Foundation/ alone is ~81k lines and had never been linted.
-token_law_font_system	273
+# 2026-08-10  273 -> 272 (token_law_font_system). The Focus surface's dial
+#             clock was written as .font(.system(size: 46, ...)) and replaced
+#             with Typography.hero(); a fixed point size is the one thing that
+#             cannot respond to Dynamic Type, and it was the largest number on
+#             the screen.
+token_law_font_system	272
 token_law_shadow_usage	43
 token_law_uicolor_constructor	33

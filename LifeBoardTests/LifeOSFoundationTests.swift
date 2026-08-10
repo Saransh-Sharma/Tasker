@@ -293,7 +293,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
         }
         let registered = Set(SignatureShaders.functionNames)
 
-        // 21 since LifeBoardLiquidMetalBezel joined the registry (2026-08-10).
+        // 22 since LifeBoardRootTravelShear and LifeBoardLiquidMetalBezel joined
+        // the registry (2026-08-10).
         // This number, the registry, the [[stitchable]] declarations and
         // DESIGN.md's approved list are one atomic contract — warmUp() is
         // all-or-nothing, so a mismatch disables *every* signature effect at
@@ -301,7 +302,7 @@ final class LifeOSFoundationContractTests: XCTestCase {
         //
         // This constant was already stale once before, at 18 while the registry
         // carried 19, so treat a change here as a decision rather than a fixup.
-        XCTAssertEqual(registered.count, 21)
+        XCTAssertEqual(registered.count, 22)
         XCTAssertEqual(declared, registered)
     }
 
