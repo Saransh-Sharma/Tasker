@@ -1,41 +1,44 @@
 import SwiftUI
+import LifeBoardDomain
+import LifeBoardTokens
+import LifeBoardUI
 
-enum CalendarTimelineDensity: Equatable {
+public enum CalendarTimelineDensity: Equatable {
     case compact
     case expanded
 }
 
-struct CalendarTimelineLayoutPlan: Equatable {
-    struct PositionedEvent: Equatable, Identifiable {
-        let event: CalendarEventSnapshot
-        let lane: Int
-        let laneCount: Int
-        let columnSpan: Int
-        let startMinute: Int
-        let endMinute: Int
+public struct CalendarTimelineLayoutPlan: Equatable {
+    public struct PositionedEvent: Equatable, Identifiable {
+        public let event: CalendarEventSnapshot
+        public let lane: Int
+        public let laneCount: Int
+        public let columnSpan: Int
+        public let startMinute: Int
+        public let endMinute: Int
 
-        var id: String { event.id }
+        public var id: String { event.id }
     }
 
-    let startMinute: Int
-    let endMinute: Int
-    let positionedEvents: [PositionedEvent]
+    public let startMinute: Int
+    public let endMinute: Int
+    public let positionedEvents: [PositionedEvent]
 
-    var startHour: Int { startMinute / 60 }
+    public var startHour: Int { startMinute / 60 }
 
-    var endHour: Int {
+    public var endHour: Int {
         let inclusiveEndMinute = max(startMinute, endMinute - 1)
         return max(startHour, inclusiveEndMinute / 60)
     }
 
-    var hourMarkers: [Int] {
+    public var hourMarkers: [Int] {
         Array(startHour...endHour)
     }
 }
 
-enum CalendarTimelinePlanner {
-    static let defaultWorkdayStartHour = 8
-    static let defaultWorkdayEndHour = 18
+public enum CalendarTimelinePlanner {
+    public static let defaultWorkdayStartHour = 8
+    public static let defaultWorkdayEndHour = 18
     private static let compactWindowDurationMinutes = 135
 
     private struct ClippedEvent {
@@ -44,7 +47,7 @@ enum CalendarTimelinePlanner {
         let endMinute: Int
     }
 
-    static func makePlan(
+    public static func makePlan(
         for events: [CalendarEventSnapshot],
         on date: Date,
         anchorDate: Date = Date(),
@@ -59,7 +62,7 @@ enum CalendarTimelinePlanner {
         )
     }
 
-    static func makePlan(
+    public static func makePlan(
         for events: [CalendarEventSnapshot],
         on date: Date,
         density: CalendarTimelineDensity,
@@ -147,7 +150,7 @@ enum CalendarTimelinePlanner {
         )
     }
 
-    static func initialExpandedHour(
+    public static func initialExpandedHour(
         for events: [CalendarEventSnapshot],
         on date: Date,
         anchorDate: Date = Date(),
@@ -339,19 +342,19 @@ enum CalendarTimelinePlanner {
     }
 }
 
-typealias HomeDayTimelineLayoutPlanner = CalendarTimelinePlanner
+public typealias HomeDayTimelineLayoutPlanner = CalendarTimelinePlanner
 
-enum CalendarTimelineVisibleWindowPolicy: Equatable {
+public enum CalendarTimelineVisibleWindowPolicy: Equatable {
     case fixed(anchorDate: Date)
 
-    var anchorDate: Date {
+    public var anchorDate: Date {
         switch self {
         case .fixed(let anchorDate):
             return anchorDate
         }
     }
 
-    static func fixedToCurrentMinute(_ date: Date = Date()) -> CalendarTimelineVisibleWindowPolicy {
+    public static func fixedToCurrentMinute(_ date: Date = Date()) -> CalendarTimelineVisibleWindowPolicy {
         let minuteStamp = floor(date.timeIntervalSinceReferenceDate / 60.0) * 60.0
         return .fixed(anchorDate: Date(timeIntervalSinceReferenceDate: minuteStamp))
     }
@@ -405,13 +408,15 @@ struct CalendarTimelinePlanCacheKey: Equatable {
     }
 }
 
-struct CalendarTimelinePlanCache {
+public struct CalendarTimelinePlanCache {
     private var cachedKey: CalendarTimelinePlanCacheKey?
     private var cachedPlan: CalendarTimelineLayoutPlan?
-    private(set) var buildCount = 0
-    private(set) var cacheHitCount = 0
+    public private(set) var buildCount = 0
+    public private(set) var cacheHitCount = 0
 
-    mutating func plan(
+    public init() {}
+
+    public mutating func plan(
         for events: [CalendarEventSnapshot],
         on date: Date,
         density: CalendarTimelineDensity,
@@ -445,7 +450,7 @@ struct CalendarTimelinePlanCache {
     }
 }
 
-struct CalendarTimelineView: View {
+public struct CalendarTimelineView: View {
     let date: Date
     let events: [CalendarEventSnapshot]
     let density: CalendarTimelineDensity
@@ -460,7 +465,7 @@ struct CalendarTimelineView: View {
     @State private var layoutPlanCache = CalendarTimelinePlanCache()
     @State private var layoutPlan: CalendarTimelineLayoutPlan?
 
-    init(
+    public init(
         date: Date,
         events: [CalendarEventSnapshot],
         density: CalendarTimelineDensity = .compact,
@@ -484,7 +489,7 @@ struct CalendarTimelineView: View {
         self.onSelectEvent = onSelectEvent
     }
 
-    var body: some View {
+    public var body: some View {
         TimelineView(.periodic(from: .now, by: 60)) { timeline in
             content(anchorDate: timeline.date)
                 .task(id: CalendarTimelinePlanCacheKey(

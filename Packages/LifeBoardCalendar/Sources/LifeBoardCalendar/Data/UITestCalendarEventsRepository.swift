@@ -1,16 +1,28 @@
 import Foundation
 import Combine
-import CoreData
+import LifeBoardDomain
+
+public enum UITestCalendarMode: String, Sendable {
+    case active
+    case allDayOnly
+    case permission
+    case writeOnly
+    case denied
+    case deniedAfterAttempt
+    case noCalendars
+    case empty
+    case error
+}
 
 // The scripted calendar used by UI tests. It lived inside the dependency
 // container purely because that is where it was first needed; it is a
 // calendar provider, not composition.
-final class UITestCalendarEventsRepository: CalendarEventsRepositoryProtocol, @unchecked Sendable {
+public final class UITestCalendarEventsRepository: CalendarEventsRepositoryProtocol, @unchecked Sendable {
     private let mode: UITestCalendarMode
     private let storeChangedSubject = PassthroughSubject<Void, Never>()
     private var authStatus: CalendarAuthorizationStatus
 
-    init(mode: UITestCalendarMode) {
+    public init(mode: UITestCalendarMode) {
         self.mode = mode
         switch mode {
         case .permission:
@@ -24,11 +36,11 @@ final class UITestCalendarEventsRepository: CalendarEventsRepositoryProtocol, @u
         }
     }
 
-    func authorizationStatus() -> CalendarAuthorizationStatus {
+    public func authorizationStatus() -> CalendarAuthorizationStatus {
         authStatus
     }
 
-    func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
+    public func requestAccess(completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
         switch mode {
         case .denied, .deniedAfterAttempt:
             completion(.success(false))
@@ -38,9 +50,9 @@ final class UITestCalendarEventsRepository: CalendarEventsRepositoryProtocol, @u
         }
     }
 
-    func resetStoreStateAfterPermissionChange() {}
+    public func resetStoreStateAfterPermissionChange() {}
 
-    func fetchCalendars(completion: @escaping @Sendable (Result<[CalendarSourceSnapshot], Error>) -> Void) {
+    public func fetchCalendars(completion: @escaping @Sendable (Result<[CalendarSourceSnapshot], Error>) -> Void) {
         switch mode {
         case .error:
             completion(.failure(NSError(
@@ -70,7 +82,7 @@ final class UITestCalendarEventsRepository: CalendarEventsRepositoryProtocol, @u
         }
     }
 
-    func fetchEvents(
+    public func fetchEvents(
         startDate: Date,
         endDate: Date,
         calendarIDs: Set<String>,
@@ -88,7 +100,7 @@ final class UITestCalendarEventsRepository: CalendarEventsRepositoryProtocol, @u
         case .active:
             let calendar = Calendar.current
             let screenshotSeed = ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_SEED_APP_STORE_SCREENSHOTS")
-            let now = screenshotSeed ? AppStoreScreenshotTestConfiguration.referenceDate : Date()
+            let now = screenshotSeed ? screenshotReferenceDate : Date()
             let dayStart = calendar.startOfDay(for: now)
             let morningStart = calendar.date(byAdding: .hour, value: 9, to: dayStart) ?? now
             let latestVisibleStart = calendar.date(byAdding: .hour, value: 17, to: dayStart) ?? morningStart
@@ -176,7 +188,15 @@ final class UITestCalendarEventsRepository: CalendarEventsRepositoryProtocol, @u
         }
     }
 
-    func storeChangedPublisher() -> AnyPublisher<Void, Never> {
+    public func storeChangedPublisher() -> AnyPublisher<Void, Never> {
         storeChangedSubject.eraseToAnyPublisher()
+    }
+
+    private var screenshotReferenceDate: Date {
+        guard let value = ProcessInfo.processInfo.environment["LIFEBOARD_SCREENSHOT_FIXED_NOW"],
+              let date = ISO8601DateFormatter().date(from: value) else {
+            return Date()
+        }
+        return date
     }
 }

@@ -1,12 +1,14 @@
 import Foundation
+import LifeBoardContracts
+import LifeBoardDomain
 
-enum CalendarScheduleTab: String, CaseIterable, Identifiable {
+public enum CalendarScheduleTab: String, CaseIterable, Identifiable {
     case today
     case week
 
-    var id: String { rawValue }
+    public var id: String { rawValue }
 
-    var title: String {
+    public var title: String {
         switch self {
         case .today:
             return String(localized: "Today")
@@ -16,11 +18,11 @@ enum CalendarScheduleTab: String, CaseIterable, Identifiable {
     }
 }
 
-enum CalendarScheduleSheet: Identifiable, Equatable {
+public enum CalendarScheduleSheet: Identifiable, Equatable {
     case chooser
     case event(id: String)
 
-    var id: String {
+    public var id: String {
         switch self {
         case .chooser:
             return "chooser"
@@ -30,54 +32,58 @@ enum CalendarScheduleSheet: Identifiable, Equatable {
     }
 }
 
-struct CalendarSchedulePresentationState: Equatable {
-    var activeSheet: CalendarScheduleSheet? = nil
+public struct CalendarSchedulePresentationState: Equatable {
+    public var activeSheet: CalendarScheduleSheet?
 
-    mutating func presentChooser() {
+    public init(activeSheet: CalendarScheduleSheet? = nil) {
+        self.activeSheet = activeSheet
+    }
+
+    public mutating func presentChooser() {
         activeSheet = .chooser
     }
 
-    mutating func cancelChooser() {
+    public mutating func cancelChooser() {
         if activeSheet == .chooser {
             activeSheet = nil
         }
     }
 
-    mutating func commitChooser() {
+    public mutating func commitChooser() {
         if activeSheet == .chooser {
             activeSheet = nil
         }
     }
 
-    mutating func selectEvent(id: String) {
+    public mutating func selectEvent(id: String) {
         activeSheet = .event(id: id)
     }
 
-    mutating func dismissEventDetail() {
+    public mutating func dismissEventDetail() {
         if case .event = activeSheet {
             activeSheet = nil
         }
     }
 }
 
-enum CalendarSchedulePresentationMode {
+public enum CalendarSchedulePresentationMode {
     case modal
     case embedded
 }
 
-struct CalendarSchedulePresentation: Equatable {
-    let selectedDate: Date
-    let selectedWeekDate: Date
-    let weekStartsOn: Weekday
-    let weekDefaultSelectedDate: Date
-    let currentWeekStart: Date
-    let weekRangeLabel: String
-    let todayEvents: [CalendarEventSnapshot]
-    let weekAgenda: [CalendarDayAgenda]
-    let weekDates: [Date]
-    let selectedWeekEvents: [CalendarEventSnapshot]
+public struct CalendarSchedulePresentation: Equatable {
+    public let selectedDate: Date
+    public let selectedWeekDate: Date
+    public let weekStartsOn: Weekday
+    public let weekDefaultSelectedDate: Date
+    public let currentWeekStart: Date
+    public let weekRangeLabel: String
+    public let todayEvents: [CalendarEventSnapshot]
+    public let weekAgenda: [CalendarDayAgenda]
+    public let weekDates: [Date]
+    public let selectedWeekEvents: [CalendarEventSnapshot]
 
-    var weekEventCount: Int {
+    public var weekEventCount: Int {
         weekAgenda.reduce(into: 0) { result, day in
             result += day.events.count
         }
@@ -142,13 +148,15 @@ private struct CalendarSchedulePresentationCacheKey: Equatable {
     }
 }
 
-struct CalendarSchedulePresentationCache {
+public struct CalendarSchedulePresentationCache {
     private var cachedKey: CalendarSchedulePresentationCacheKey?
     private var cachedPresentation: CalendarSchedulePresentation?
-    private(set) var buildCount = 0
-    private(set) var cacheHitCount = 0
+    public private(set) var buildCount = 0
+    public private(set) var cacheHitCount = 0
 
-    mutating func presentation(
+    public init() {}
+
+    public mutating func presentation(
         snapshot: CalendarSnapshot,
         selectedDate: Date,
         selectedWeekDate: Date,
@@ -180,8 +188,8 @@ struct CalendarSchedulePresentationCache {
     }
 }
 
-enum CalendarSchedulePresentationBuilder {
-    static func empty(
+public enum CalendarSchedulePresentationBuilder {
+    public static func empty(
         selectedDate: Date,
         selectedWeekDate: Date,
         weekStartsOn: Weekday,
@@ -196,7 +204,7 @@ enum CalendarSchedulePresentationBuilder {
         )
     }
 
-    static func build(
+    public static func build(
         snapshot: CalendarSnapshot,
         selectedDate: Date,
         selectedWeekDate: Date,
@@ -255,7 +263,7 @@ enum CalendarSchedulePresentationBuilder {
             }
     }
 
-    static func defaultSelectedWeekDate(
+    public static func defaultSelectedWeekDate(
         selectedDate: Date,
         weekStartsOn: Weekday,
         calendar: Calendar = .current

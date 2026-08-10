@@ -1,4 +1,6 @@
- import SwiftUI
+import SwiftUI
+import LifeBoardTokens
+import LifeBoardUI
 
 #if canImport(EventKitUI)
 import UIKit
@@ -6,13 +8,25 @@ import EventKit
 import EventKitUI
 
 @MainActor
-struct EventKitEventDetailView: UIViewControllerRepresentable {
-    let eventID: String
-    let onDismiss: () -> Void
-    var showsCloseButton = true
-    var onHideFromTimeline: (() -> Void)? = nil
+public struct EventKitEventDetailView: UIViewControllerRepresentable {
+    public let eventID: String
+    public let onDismiss: () -> Void
+    public var showsCloseButton: Bool
+    public var onHideFromTimeline: (() -> Void)?
 
-    func makeCoordinator() -> Coordinator {
+    public init(
+        eventID: String,
+        onDismiss: @escaping () -> Void,
+        showsCloseButton: Bool = true,
+        onHideFromTimeline: (() -> Void)? = nil
+    ) {
+        self.eventID = eventID
+        self.onDismiss = onDismiss
+        self.showsCloseButton = showsCloseButton
+        self.onHideFromTimeline = onHideFromTimeline
+    }
+
+    public func makeCoordinator() -> Coordinator {
         Coordinator(
             eventID: eventID,
             onDismiss: onDismiss,
@@ -21,11 +35,11 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
         )
     }
 
-    func makeUIViewController(context: Context) -> UINavigationController {
+    public func makeUIViewController(context: Context) -> UINavigationController {
         context.coordinator.makeController()
     }
 
-    func updateUIViewController(_ uiViewController: UINavigationController, context: Context) {
+    public func updateUIViewController(_ uiViewController: UINavigationController, context: Context) {
         context.coordinator.update(
             eventID: eventID,
             showsCloseButton: showsCloseButton,
@@ -34,7 +48,7 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
     }
 
     @MainActor
-    final class Coordinator: NSObject, @preconcurrency EKEventViewDelegate {
+    public final class Coordinator: NSObject, @preconcurrency EKEventViewDelegate {
         private let store = EKEventStore()
         private let onDismiss: () -> Void
         private var showsCloseButton: Bool
@@ -157,20 +171,32 @@ struct EventKitEventDetailView: UIViewControllerRepresentable {
             onHideFromTimeline?()
         }
 
-        func eventViewController(_ controller: EKEventViewController, didCompleteWith action: EKEventViewAction) {
+        public func eventViewController(_ controller: EKEventViewController, didCompleteWith action: EKEventViewAction) {
             _ = action
             onDismiss()
         }
     }
 }
 #else
-struct EventKitEventDetailView: View {
-    let eventID: String
-    let onDismiss: () -> Void
-    var showsCloseButton = true
-    var onHideFromTimeline: (() -> Void)? = nil
+public struct EventKitEventDetailView: View {
+    public let eventID: String
+    public let onDismiss: () -> Void
+    public var showsCloseButton: Bool
+    public var onHideFromTimeline: (() -> Void)?
 
-    var body: some View {
+    public init(
+        eventID: String,
+        onDismiss: @escaping () -> Void,
+        showsCloseButton: Bool = true,
+        onHideFromTimeline: (() -> Void)? = nil
+    ) {
+        self.eventID = eventID
+        self.onDismiss = onDismiss
+        self.showsCloseButton = showsCloseButton
+        self.onHideFromTimeline = onHideFromTimeline
+    }
+
+    public var body: some View {
         VStack(spacing: 16) {
             Text(String(localized: "Event unavailable on this platform."))
                 .font(.lifeboard(.body))

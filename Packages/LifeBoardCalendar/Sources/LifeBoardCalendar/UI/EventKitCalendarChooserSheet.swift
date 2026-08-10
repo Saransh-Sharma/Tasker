@@ -1,6 +1,9 @@
- import SwiftUI
+import SwiftUI
+import LifeBoardDomain
+import LifeBoardTokens
+import LifeBoardUI
 
-struct EventKitCalendarChooserSheet: View {
+public struct EventKitCalendarChooserSheet: View {
     @ObservedObject var service: CalendarIntegrationService
     let initialSelectedCalendarIDs: [String]
     let onCancel: () -> Void
@@ -11,7 +14,7 @@ struct EventKitCalendarChooserSheet: View {
 
     @State private var selectedCalendarIDs: Set<String>
 
-    init(
+    public init(
         service: CalendarIntegrationService,
         initialSelectedCalendarIDs: [String],
         onCancel: @escaping () -> Void,
@@ -37,7 +40,7 @@ struct EventKitCalendarChooserSheet: View {
             && service.snapshot.availableCalendars.isEmpty
     }
 
-    var body: some View {
+    public var body: some View {
         NavigationStack {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: spacing.s16) {
@@ -175,14 +178,24 @@ struct EventKitCalendarChooserSheet: View {
     }
 }
 
-struct EventKitCalendarChooserContainerView: View {
+public struct EventKitCalendarChooserContainerView: View {
     @ObservedObject var service: CalendarIntegrationService
     let initialSelectedCalendarIDs: [String]
     let onCommit: ([String]) -> Void
 
     @Environment(\.dismiss) private var dismiss
 
-    var body: some View {
+    public init(
+        service: CalendarIntegrationService,
+        initialSelectedCalendarIDs: [String],
+        onCommit: @escaping ([String]) -> Void
+    ) {
+        self.service = service
+        self.initialSelectedCalendarIDs = initialSelectedCalendarIDs
+        self.onCommit = onCommit
+    }
+
+    public var body: some View {
         EventKitCalendarChooserSheet(
             service: service,
             initialSelectedCalendarIDs: initialSelectedCalendarIDs,
