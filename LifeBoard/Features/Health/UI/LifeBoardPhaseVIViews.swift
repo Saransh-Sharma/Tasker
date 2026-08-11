@@ -209,6 +209,16 @@ struct NutritionInitialFocusPresentationState: Equatable {
     }
 }
 
+/// Today's nourishment, as the screen's one hero.
+///
+/// A `View` struct rather than a computed property on `NutritionView`: the same
+/// `-Onone` stack budget that governs the Track tree applies here, and this file
+/// is the second-largest view tree in the app.
+///
+/// The target is deliberately optional and deliberately quiet. `DESIGN.md`
+/// forbids inferring wellbeing from a recorded number, so when a target exists
+/// this reports distance from it as a fact and never as a grade, and when none
+/// exists the energy figure stands alone rather than inventing a denominator.
 struct NutritionView: View {
     @State private var store: NutritionTimelineStore
     @State private var showsComposer = false
@@ -244,7 +254,9 @@ struct NutritionView: View {
             timelineContent
                 .padding(20)
         }
-        .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
+        // Paper grain, like every sibling feature root. Nutrition was the only
+        // one of the three still on a flat canvas fill.
+        .background { GrainedCanvas() }
         .navigationTitle("Nutrition")
         .toolbar { nutritionToolbar }
         .task {
@@ -421,6 +433,19 @@ struct NutritionView: View {
     private var timelineContent: some View {
         LazyVStack(alignment: .leading, spacing: 18) {
             timelineHeader
+            NutritionTodayHero(
+                calories: store.summary.calories,
+                targetCalories: store.goals.first?.targetMacros.calories,
+                isPartial: store.summary.isPartial,
+                source: store.summary.source,
+                onLogMeal: {
+                    scannedFood = nil
+                    scannedProvenance = .manual
+                    scannedSourceReference = nil
+                    voiceFoodName = nil
+                    showsComposer = true
+                }
+            )
             nutritionHealthStatus
             if let deleted = store.recentlyDeleted {
                 undoBanner(deleted)
@@ -482,11 +507,19 @@ struct NutritionView: View {
         }
         .padding(.horizontal, 14)
         .frame(minHeight: 48)
-        .lifeBoardClaySurface(.well, cornerRadius: 15, fill: Color(SemanticColorTokens.foundationSurfaceSelected))
+        .lifeBoardClaySurface(.well, fill: Color(SemanticColorTokens.foundationSurfaceSelected))
     }
 
+    /// The macros supporting the hero's energy figure.
+    ///
+    /// Energy itself moved into the hero, and the provenance line moved with it.
+    /// Both used to appear twice on this screen — `DESIGN.md` calls duplicated
+    /// counts and repeated headings out by name, and a person reading two
+    /// identical "Totals from Apple Health" lines has to check whether they mean
+    /// different things.
     private var macroSummary: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
+            SectionHeader("Macros")
             ViewThatFits(in: .horizontal) {
                 HStack(spacing: 8) { macroCells }
                 LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
@@ -494,28 +527,25 @@ struct NutritionView: View {
                 }
                 VStack(spacing: 8) { macroCells }
             }
-            HStack(spacing: 6) {
-                Image(systemName: store.summary.source == .appleHealth ? "heart.fill" : "square.and.pencil")
-                Text(store.summary.source == .appleHealth ? "Totals from Apple Health" : "Totals from LifeBoard meals")
-                if store.summary.isPartial { Text("· Some nutrients unavailable") }
-            }
-            .font(.caption)
-            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            .accessibilityElement(children: .combine)
         }
         .accessibilityElement(children: .contain)
     }
 
     @ViewBuilder
     private var macroCells: some View {
-        macro("Energy", value: nutritionValue(store.summary.calories, unit: "kcal"))
-        macro("Protein", value: nutritionValue(store.summary.proteinGrams, unit: "g"))
-        macro("Carbs", value: nutritionValue(store.summary.carbohydrateGrams, unit: "g"))
-        macro("Fat", value: nutritionValue(store.summary.fatGrams, unit: "g"))
+        macro("Protein", value: store.summary.proteinGrams, unit: "g")
+        macro("Carbs", value: store.summary.carbohydrateGrams, unit: "g")
+        macro("Fat", value: store.summary.fatGrams, unit: "g")
     }
 
-    private func nutritionValue(_ value: Double?, unit: String) -> String {
-        value.map { "\(Int($0.rounded())) \(unit)" } ?? "—"
+    /// An absent macro is `noRecord`, not an em dash and not zero. The dash read
+    /// as a value in exactly the way `0` does — "Fat —" and "Fat 0 g" were
+    /// indistinguishable to anyone scanning the row.
+    private func macroReading(_ value: Double?, unit: String) -> MetricReading {
+        guard let value else { return .noRecord }
+        return value == 0
+            ? .explicitZero(unit: unit)
+            : .recorded(value: Int(value.rounded()).formatted(), unit: unit)
     }
 
     @ViewBuilder
@@ -598,18 +628,19 @@ struct NutritionView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .lifeBoardClaySurface(.resting, cornerRadius: 18)
+        .lifeBoardClaySurface(.resting)
         .accessibilityElement(children: .contain)
     }
 
-    private func macro(_ title: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            Text(title).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            Text(value).font(.subheadline.monospacedDigit().weight(.semibold))
-        }
-        .frame(maxWidth: .infinity, minHeight: 62, alignment: .leading)
-        .padding(10)
-        .lifeBoardClaySurface(.well, cornerRadius: 15, fill: Color(SemanticColorTokens.foundationSurfaceSelected))
+    private func macro(_ title: String, value: Double?, unit: String) -> some View {
+        MetricHero(
+            label: title,
+            reading: macroReading(value, unit: unit),
+            accessibilityID: "nutrition.macro.\(title.lowercased())"
+        )
+        .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+        .padding(12)
+        .lifeBoardClaySurface(.well, fill: Color(SemanticColorTokens.foundationSurfaceSelected))
     }
 
     /// Honest trailing-week report: recorded energy per day, no goals or
@@ -638,7 +669,7 @@ struct NutritionView: View {
                 .padding(14)
                 // The clay surface already draws the hairline; the previous
                 // explicit stroke doubled it.
-                .lifeBoardClaySurface(.raised, cornerRadius: 18)
+                .lifeBoardClaySurface(.raised)
                 .accessibilityLabel("Energy logged per day over the past week")
                 .accessibilityValue(report.map { "\($0.day.formatted(.dateTime.weekday(.abbreviated))): \(Int($0.calories.rounded())) kilocalories" }.joined(separator: ", "))
             }
@@ -1112,6 +1143,16 @@ private enum WellnessSection: String, CaseIterable, Identifiable {
     }
 }
 
+/// Today's state for whichever wellness area is showing, as the screen's hero.
+///
+/// This replaces two hand-rolled cards — `summaryCard` and `todayCard` — that
+/// had drifted into rendering the most important object on the screen as a
+/// `.well`, the *recessed* depth reserved for fields and progress tracks. The
+/// screen's answer to "what is my body doing" was the only thing on it carved
+/// into the page rather than lifted off it.
+///
+/// All four areas share this now, so Body, Workouts, Sleep and Movement no
+/// longer each describe "today" in a slightly different shape.
 struct WellnessView: View {
     @State private var store: WellnessHistoryStore
     @State private var healthStore = HealthCoordinator.shared.connectionStore
@@ -1337,189 +1378,6 @@ struct WellnessView: View {
         }
     }
 
-    private var bodyMetricsSection: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            LensPicker(
-                "Body metric",
-                selection: $kind,
-                values: enabledMetrics,
-                identifierPrefix: "wellness.metric",
-                title: \.title,
-                identifier: \.rawValue
-            )
-            todayCard
-            if store.samples.isEmpty {
-                emptyState(title: "No \(kind.title.lowercased()) entries", symbol: "waveform.path.ecg")
-            } else {
-                wellnessChart
-            }
-            sourceConflictsSection
-            VStack(alignment: .leading, spacing: 10) {
-                Text("History").font(Typography.sectionTitle())
-                if filteredSamples.isEmpty, searchText.isEmpty == false {
-                    Text("No entries match “\(searchText)”. History is unchanged.")
-                        .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary)).padding(.vertical, 8)
-                }
-                ForEach(filteredSamples) { sample in
-                    WellnessHistoryRow(
-                        timestamp: sample.observedAt,
-                        value: display(sample),
-                        provenance: sourceLabel(sample.source),
-                        isImported: sample.source.permitsManualCorrection == false,
-                        note: sample.note,
-                        edit: sample.source.permitsManualCorrection ? { beginEdit(sample) } : nil,
-                        delete: sample.source.permitsManualCorrection ? { Task { await store.delete(sample, kind: kind) } } : nil
-                    )
-                }
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("\(kind.title) history table")
-        }
-    }
-
-    private var workoutsSection: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            if let latest = filteredWorkouts.first {
-                summaryCard(
-                    title: latest.activityKind,
-                    value: Self.durationLabel(latest.duration),
-                    detail: "\(sourceLabel(latest.source)) · \(latest.startedAt.formatted(date: .abbreviated, time: .shortened))"
-                )
-            } else {
-                emptyState(title: "No workouts recorded", symbol: "figure.run")
-            }
-            if store.workouts.isEmpty == false {
-                Text("\(Self.durationLabel(trailingSevenDayWorkoutDuration)) across \(trailingSevenDayWorkoutCount) workout\(trailingSevenDayWorkoutCount == 1 ? "" : "s") in the last 7 days")
-                    .font(.subheadline)
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                    .accessibilityLabel("Trailing seven days, \(Self.durationLabel(trailingSevenDayWorkoutDuration)) across \(trailingSevenDayWorkoutCount) workouts")
-            }
-            if store.workouts.count > 1 {
-                TrendChart(
-                    points: store.workouts
-                        .prefix(30)
-                        .map { HomeSeriesPoint(date: $0.startedAt, value: max(0, $0.duration / 60)) }
-                        .sorted { $0.date < $1.date },
-                    tint: Color(SemanticColorTokens.foundationApricotAccent),
-                    unit: "minutes"
-                )
-                .frame(height: 120)
-            }
-            Text("History").font(Typography.sectionTitle())
-            ForEach(filteredWorkouts) { workout in
-                WellnessHistoryRow(
-                    timestamp: workout.startedAt,
-                    value: "\(workout.activityKind) · \(Self.durationLabel(workout.duration))",
-                    provenance: sourceLabel(workout.source),
-                    isImported: workout.source.permitsManualCorrection == false,
-                    note: workout.note,
-                    edit: workout.source.permitsManualCorrection ? { beginEdit(workout) } : nil,
-                    delete: workout.source.permitsManualCorrection ? { Task { await store.delete(kind: .workout, id: workout.id, selectedKind: kind) } } : nil
-                )
-            }
-        }
-    }
-
-    private var sleepSection: some View {
-        let nights = filteredSleepNights
-        return VStack(alignment: .leading, spacing: 16) {
-            if let latest = nights.first {
-                summaryCard(
-                    title: "Latest sleep",
-                    value: Self.durationLabel(latest.totalDuration),
-                    detail: sleepNightDetail(latest)
-                )
-            } else {
-                emptyState(title: "No sleep notes recorded", symbol: "bed.double")
-            }
-            if nights.isEmpty == false {
-                let recent = Array(nights.prefix(7))
-                let average = recent.reduce(0) { $0 + $1.totalDuration } / Double(recent.count)
-                let rated = recent.flatMap(\.samples).compactMap(\.quality)
-                Text(
-                    rated.isEmpty
-                        ? "Recent average: \(Self.durationLabel(average)). No quality ratings recorded."
-                        : "Recent average: \(Self.durationLabel(average)). Quality was recorded for \(rated.count) night\(rated.count == 1 ? "" : "s")."
-                )
-                .font(.subheadline)
-                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            }
-            if nights.count > 1 {
-                TrendChart(
-                    points: nights
-                        .prefix(30)
-                        .map { HomeSeriesPoint(date: $0.night, value: max(0, $0.totalDuration / 3_600)) }
-                        .sorted { $0.date < $1.date },
-                    tint: Color(SemanticColorTokens.foundationSageAccent),
-                    unit: "hours"
-                )
-                .frame(height: 120)
-            }
-            Text("Nightly history").font(Typography.sectionTitle())
-            ForEach(nights) { night in
-                let editable = night.samples.count == 1
-                    ? night.samples.first(where: { $0.source.permitsManualCorrection })
-                    : nil
-                WellnessHistoryRow(
-                    timestamp: night.startedAt,
-                    value: Self.durationLabel(night.totalDuration),
-                    provenance: sleepNightSources(night),
-                    isImported: editable == nil,
-                    note: sleepNightNote(night),
-                    edit: editable.map { value in { beginEdit(value) } },
-                    delete: editable.map { value in
-                        { Task { await store.delete(kind: .sleep, id: value.id, selectedKind: kind) } }
-                    }
-                )
-            }
-        }
-    }
-
-    private var movementSection: some View {
-        let summary = movementSummary
-        let stepPoints = movementStepPoints
-        return VStack(alignment: .leading, spacing: 16) {
-            if summary.steps != nil || summary.distanceMeters != nil || summary.activeEnergyKilocalories != nil {
-                summaryCard(
-                    title: "Today",
-                    value: summary.steps.map { "\($0.formatted()) steps" }
-                        ?? summary.distanceMeters.map { String(format: "%.1f km", $0 / 1_000) }
-                        ?? "Movement recorded",
-                    detail: movementSummaryDetail(summary)
-                )
-            } else {
-                emptyState(title: "No movement recorded", symbol: "figure.walk")
-            }
-            if stepPoints.count > 1 {
-                TrendChart(points: stepPoints, tint: Color(SemanticColorTokens.foundationSageAccent), unit: "steps")
-                    .frame(height: 120)
-            }
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Custom records").font(Typography.sectionTitle())
-                Text("Custom LifeBoard records stay separate from Apple Health totals.")
-                    .font(.caption)
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                if filteredMovements.isEmpty {
-                    Text("No custom movement records")
-                        .font(.subheadline)
-                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                } else {
-                    ForEach(filteredMovements) { movement in
-                        WellnessHistoryRow(
-                            timestamp: movement.startedAt,
-                            value: movement.steps.map { "\($0.formatted()) steps" } ?? "Movement",
-                            provenance: sourceLabel(movement.source),
-                            isImported: movement.source.permitsManualCorrection == false,
-                            note: movementDetail(movement),
-                            edit: movement.source.permitsManualCorrection ? { beginEdit(movement) } : nil,
-                            delete: movement.source.permitsManualCorrection ? { Task { await store.delete(kind: .movement, id: movement.id, selectedKind: kind) } } : nil
-                        )
-                    }
-                }
-            }
-        }
-    }
-
     private static func durationLabel(_ interval: TimeInterval) -> String {
         let minutes = max(0, Int(interval / 60))
         return minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
@@ -1630,17 +1488,6 @@ struct WellnessView: View {
         }
     }
 
-    private func summaryCard(title: String, value: String, detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            Text(value).font(.system(.title2, design: .rounded, weight: .semibold)).monospacedDigit()
-            Text(detail).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .lifeBoardClaySurface(.well, cornerRadius: 22, fill: Color(SemanticColorTokens.foundationSurfaceSelected))
-    }
-
     private func statusNotice(
         title: String,
         detail: String,
@@ -1662,7 +1509,7 @@ struct WellnessView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .lifeBoardClaySurface(.resting, cornerRadius: 18)
+        .lifeBoardClaySurface(.resting)
         .accessibilityElement(children: .contain)
     }
 
@@ -1704,37 +1551,40 @@ struct WellnessView: View {
 
     /// Today-first: the day's state and one obvious capture action lead the
     /// screen; history and analysis follow.
+    ///
+    /// Note the reading, not the presentation, carries the distinction between
+    /// "logged today", "last known from an earlier day" and "nothing at all".
+    /// The previous version collapsed the last two into one grey subheadline, so
+    /// a stale value and an empty record looked the same.
     private var todayCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text("Today").font(.caption.weight(.semibold)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            if let sample = todaySamples.first {
-                Text(display(sample)).font(.system(.largeTitle, design: .rounded, weight: .semibold)).monospacedDigit()
-                Text("Logged \(sample.observedAt.formatted(date: .omitted, time: .shortened))")
-                    .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            } else {
-                Text(store.samples.first.map { "Last: \(display($0)) · \($0.observedAt.formatted(date: .abbreviated, time: .omitted))" } ?? "Nothing logged yet")
-                    .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            }
-            // `.borderedProminent` with a `.tint` is unsafe inside these roots:
-            // an ambient `foregroundStyle` propagates into the label and defeats
-            // the system's automatic contrasting colour. `.lifeBoardPrimary`
-            // pins the on-accent role explicitly, which is the only arrangement
-            // that survives it.
-            Button {
-                beginAdd()
-            } label: {
-                Label(
-                    todaySamples.isEmpty ? "Log today’s \(kind.title.lowercased())" : "Add another value",
-                    systemImage: "plus.circle.fill"
-                )
-            }
-            .buttonStyle(.lifeBoardPrimary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .lifeBoardClaySurface(.well, cornerRadius: 22, fill: Color(SemanticColorTokens.foundationSurfaceSelected))
-        .accessibilityElement(children: .contain)
+        WellnessHero(
+            label: "Today",
+            reading: bodyMetricReading,
+            provenance: nil,
+            timeframe: bodyMetricTimeframe,
+            actionTitle: todaySamples.isEmpty ? "Log today’s \(kind.title.lowercased())" : "Add another value",
+            action: beginAdd
+        )
         .accessibilityLabel("Today, \(kind.title)")
+    }
+
+    private var bodyMetricReading: MetricReading {
+        if let sample = todaySamples.first {
+            return .recorded(value: display(sample), unit: nil)
+        }
+        if let last = store.samples.first {
+            return .stale(
+                value: display(last),
+                unit: nil,
+                age: last.observedAt.formatted(date: .abbreviated, time: .omitted)
+            )
+        }
+        return .noRecord
+    }
+
+    private var bodyMetricTimeframe: String? {
+        guard let sample = todaySamples.first else { return nil }
+        return "Logged \(sample.observedAt.formatted(date: .omitted, time: .shortened))"
     }
 
     private var wellnessChart: some View {
@@ -1762,8 +1612,11 @@ struct WellnessView: View {
         // there.
         .lifeboardChartRevealSweep(progress: chartRevealProgress)
         .padding(16)
-        .lifeBoardClaySurface(.raised, cornerRadius: 20)
-        .overlay { RoundedRectangle(cornerRadius: 20).stroke(Color(SemanticColorTokens.foundationHairline)) }
+        // `ClaySurfaceModifier` already strokes the hairline. The explicit
+        // overlay that used to sit here drew a second one on the same boundary
+        // at double weight — the identical bug was fixed for the nutrition
+        // chart and missed on this one.
+        .lifeBoardClaySurface(.raised)
         .accessibilityLabel("\(kind.title) trend chart")
         .accessibilityValue(store.samples.isEmpty ? "No data" : "\(store.samples.count) entries. Latest \(display(store.samples[0])).")
     }
@@ -1844,195 +1697,6 @@ struct WellnessView: View {
 /// together. Manual entries get no chip — the absence is the signal, and a chip
 /// reading "Manual" on every hand-typed row is noise.
 
-private struct WellnessMetricOrderRow: View {
-    let kind: BodyMetricKind
-    @Binding var unit: WellnessDisplayUnit
-    let hide: () -> Void
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Text(kind.title)
-                .font(.lifeboard(.body))
-                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-            Spacer(minLength: 8)
-            Menu {
-                Picker(kind.title, selection: $unit) {
-                    ForEach(WellnessDisplayPreferences.units(for: kind), id: \.self) { option in
-                        Text(option.symbol).tag(option)
-                    }
-                }
-                .pickerStyle(.inline)
-                .labelsHidden()
-            } label: {
-                Text(unit.symbol)
-                    .font(.lifeboard(.meta))
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                    .padding(.horizontal, 10)
-                    .frame(minHeight: 32)
-                    .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
-            }
-            .accessibilityLabel(Text("\(kind.title) unit"))
-            Button(action: hide) {
-                Image(systemName: "eye.slash")
-                    .font(.lifeboard(.support))
-                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
-                    .frame(width: 34, height: 34)
-                    .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(Text("Hide \(kind.title)"))
-        }
-    }
-}
-
-private struct WellnessHistoryRow: View {
-    let timestamp: Date
-    let value: String
-    let provenance: String
-    let isImported: Bool
-    let note: String?
-    let edit: (() -> Void)?
-    let delete: (() -> Void)?
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-
-    var body: some View {
-        HStack(alignment: .center, spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(timestamp.formatted(date: .abbreviated, time: .shortened))
-                    .font(.lifeboard(.body))
-                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                HStack(spacing: 6) {
-                    if isImported {
-                        Text(provenance)
-                            .font(.lifeboard(.caption2))
-                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 3)
-                            .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
-                    }
-                    if let note {
-                        Text(note)
-                            .font(.lifeboard(.caption2))
-                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                            .lineLimit(2)
-                    }
-                }
-            }
-            Spacer(minLength: 8)
-            Text(value)
-                .font(.lifeboard(.bodyStrong))
-                .monospacedDigit()
-                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-            if edit != nil || delete != nil {
-                Menu {
-                    if let edit {
-                        Button("Edit", systemImage: "pencil", action: edit)
-                    }
-                    if let delete {
-                        Button("Delete", systemImage: "trash", role: .destructive, action: delete)
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .font(.lifeboard(.support))
-                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
-                        .frame(width: 44, height: 44)
-                        .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
-                }
-                .accessibilityLabel(Text("Actions for \(value) on \(timestamp.formatted(date: .abbreviated, time: .shortened))"))
-            }
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 12)
-        .frame(minHeight: 56)
-        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
-        .lifeBoardScrollEntrance(intensity: 0.55)
-        .accessibilityElement(children: .contain)
-    }
-}
-
-private struct WellnessCustomizationView: View {
-    @Environment(\.dismiss) private var dismiss
-    @State private var draft: WellnessDisplayPreferences
-    let save: (WellnessDisplayPreferences) -> Void
-
-    init(
-        preferences: WellnessDisplayPreferences,
-        save: @escaping (WellnessDisplayPreferences) -> Void
-    ) {
-        _draft = State(initialValue: preferences)
-        self.save = save
-    }
-
-    var body: some View {
-        ComposerScaffold(
-            title: "Customize Wellness",
-            subtitle: "Which metrics appear, in which order.",
-            confirmTitle: "Save",
-            isConfirmEnabled: draft.enabledMetrics.isEmpty == false,
-            titleDisplayMode: .inline,
-            identifier: "wellness.customize",
-            onConfirm: { save(draft); dismiss() }
-        ) {
-            ComposerSection(
-                "Body dashboard",
-                detail: "Drag to reorder, or use the Move up and Move down actions.",
-                footer: "Enabled metrics keep their order. Source readings and history are never deleted when a metric is hidden."
-            ) {
-                // `ReorderableRows` rather than `List` + `EditButton`.
-                // Dropping edit mode would have removed the only Switch Control
-                // path to reordering, so the per-row Move actions the component
-                // requires are what make this substitution legitimate.
-                ReorderableRows(
-                    items: $draft.enabledMetrics,
-                    rowIdentifier: { "wellness.customize.\($0.rawValue)" },
-                    accessibilityLabel: \.title
-                ) { kind in
-                    WellnessMetricOrderRow(
-                        kind: kind,
-                        unit: unitBinding(for: kind),
-                        hide: { draft.enabledMetrics.removeAll { $0 == kind } }
-                    )
-                }
-            }
-            if hiddenMetrics.isEmpty == false {
-                ComposerSection("Hidden metrics") {
-                    ForEach(hiddenMetrics, id: \.self) { kind in
-                        Button {
-                            draft.enabledMetrics.append(kind)
-                        } label: {
-                            Label("Show \(kind.title)", systemImage: "plus.circle")
-                        }
-                        .buttonStyle(.lifeBoardChip)
-                    }
-                }
-            }
-        }
-    }
-
-    private func unitBinding(for kind: BodyMetricKind) -> Binding<WellnessDisplayUnit> {
-        Binding(
-            get: { draft.preferredUnit(for: kind) },
-            set: { draft.preferredUnits[kind] = $0 }
-        )
-    }
-
-    private func displayOrder(for kind: BodyMetricKind) -> Int {
-        (draft.enabledMetrics.firstIndex(of: kind) ?? BodyMetricKind.allCases.firstIndex(of: kind) ?? 0) + 1
-    }
-
-    private var hiddenMetrics: [BodyMetricKind] {
-        BodyMetricKind.allCases.filter { !draft.enabledMetrics.contains($0) }
-    }
-}
-
-/// Logging one body measurement.
-///
-/// Was a bare `.decimalPad` field beside a `Stepper("Adjust")` that moved weight
-/// one kilogram per tap — the least tactile control in an app whose whole
-/// premise is tactility. The tape is the right instrument for this: almost every
-/// entry is a small move from the last reading, which is a scrub, not a typing
-/// task. The keyboard stays one tap away on the readout for the times it isn't.
 private struct WellnessMetricCapture: View {
     let kind: BodyMetricKind
     let existing: BodyMetricSample?
@@ -2408,3 +2072,247 @@ private struct CaptureErrorSection: View {
 }
 
 private extension Comparable { func clamped(to range: ClosedRange<Self>) -> Self { min(max(self, range.lowerBound), range.upperBound) } }
+
+
+// MARK: - Wellness areas
+
+/// The four recorded areas, lifted out of `WellnessView`'s declaration.
+///
+/// Same file, so these still reach the view's `private` state. The move is for
+/// the `-Onone` stack budget the file-size ratchet tracks as `largest`: Debug
+/// inlines computed `some View` properties into their caller's frame, so it is
+/// the size of the *type* that overflows the main stack, not the size of the
+/// file.
+extension WellnessView {
+    private var bodyMetricsSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            LensPicker(
+                "Body metric",
+                selection: $kind,
+                values: enabledMetrics,
+                identifierPrefix: "wellness.metric",
+                title: \.title,
+                identifier: \.rawValue
+            )
+            todayCard
+            if store.samples.isEmpty {
+                emptyState(title: "No \(kind.title.lowercased()) entries", symbol: "waveform.path.ecg")
+            } else {
+                wellnessChart
+            }
+            sourceConflictsSection
+            VStack(alignment: .leading, spacing: 10) {
+                Text("History").font(Typography.sectionTitle())
+                if filteredSamples.isEmpty, searchText.isEmpty == false {
+                    Text("No entries match “\(searchText)”. History is unchanged.")
+                        .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary)).padding(.vertical, 8)
+                }
+                ForEach(filteredSamples) { sample in
+                    WellnessHistoryRow(
+                        timestamp: sample.observedAt,
+                        value: display(sample),
+                        provenance: sourceLabel(sample.source),
+                        isImported: sample.source.permitsManualCorrection == false,
+                        note: sample.note,
+                        edit: sample.source.permitsManualCorrection ? { beginEdit(sample) } : nil,
+                        delete: sample.source.permitsManualCorrection ? { Task { await store.delete(sample, kind: kind) } } : nil
+                    )
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("\(kind.title) history table")
+        }
+    }
+
+    private var workoutsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let latest = filteredWorkouts.first {
+                WellnessHero(
+                    label: latest.activityKind,
+                    reading: .recorded(value: Self.durationLabel(latest.duration), unit: nil),
+                    provenance: sourceLabel(latest.source),
+                    timeframe: latest.startedAt.formatted(date: .abbreviated, time: .shortened),
+                    actionTitle: section.addTitle,
+                    action: beginAdd
+                )
+            } else {
+                emptyState(title: "No workouts recorded", symbol: "figure.run")
+            }
+            if store.workouts.isEmpty == false {
+                // The trailing-week rollup is two facts, so it reads as two
+                // metrics rather than as one sentence a person has to parse.
+                HStack(spacing: 8) {
+                    MetricHeroWell(MetricHero(
+                        label: "Last 7 days",
+                        reading: .recorded(value: Self.durationLabel(trailingSevenDayWorkoutDuration), unit: nil),
+                        accessibilityID: "wellness.workouts.week.duration"
+                    ))
+                    MetricHeroWell(MetricHero(
+                        label: "Sessions",
+                        reading: trailingSevenDayWorkoutCount == 0
+                            ? .explicitZero(unit: nil)
+                            : .recorded(value: trailingSevenDayWorkoutCount.formatted(), unit: nil),
+                        accessibilityID: "wellness.workouts.week.count"
+                    ))
+                }
+            }
+            if store.workouts.count > 1 {
+                TrendChart(
+                    points: store.workouts
+                        .prefix(30)
+                        .map { HomeSeriesPoint(date: $0.startedAt, value: max(0, $0.duration / 60)) }
+                        .sorted { $0.date < $1.date },
+                    tint: Color(SemanticColorTokens.foundationApricotAccent),
+                    unit: "minutes"
+                )
+                .frame(height: 120)
+            }
+            Text("History").font(Typography.sectionTitle())
+            ForEach(filteredWorkouts) { workout in
+                WellnessHistoryRow(
+                    timestamp: workout.startedAt,
+                    value: "\(workout.activityKind) · \(Self.durationLabel(workout.duration))",
+                    provenance: sourceLabel(workout.source),
+                    isImported: workout.source.permitsManualCorrection == false,
+                    note: workout.note,
+                    edit: workout.source.permitsManualCorrection ? { beginEdit(workout) } : nil,
+                    delete: workout.source.permitsManualCorrection ? { Task { await store.delete(kind: .workout, id: workout.id, selectedKind: kind) } } : nil
+                )
+            }
+        }
+    }
+
+    private var sleepSection: some View {
+        let nights = filteredSleepNights
+        return VStack(alignment: .leading, spacing: 16) {
+            if let latest = nights.first {
+                WellnessHero(
+                    label: "Last night",
+                    reading: .recorded(value: Self.durationLabel(latest.totalDuration), unit: nil),
+                    provenance: sleepNightDetail(latest),
+                    timeframe: nil,
+                    actionTitle: section.addTitle,
+                    action: beginAdd
+                )
+            } else {
+                emptyState(title: "No sleep notes recorded", symbol: "bed.double")
+            }
+            if nights.isEmpty == false {
+                let recent = Array(nights.prefix(7))
+                let average = recent.reduce(0) { $0 + $1.totalDuration } / Double(recent.count)
+                let rated = recent.flatMap(\.samples).compactMap(\.quality)
+                HStack(spacing: 8) {
+                    MetricHeroWell(MetricHero(
+                        label: "Recent average",
+                        reading: .recorded(value: Self.durationLabel(average), unit: nil),
+                        timeframe: "Last \(recent.count) night\(recent.count == 1 ? "" : "s")",
+                        accessibilityID: "wellness.sleep.average"
+                    ))
+                    // Quality is genuinely absent on most nights. Reporting the
+                    // count of *rated* nights keeps that visible instead of
+                    // averaging over nights that were never rated at all.
+                    MetricHeroWell(MetricHero(
+                        label: "Quality rated",
+                        reading: rated.isEmpty
+                            ? .noRecord
+                            : .recorded(value: rated.count.formatted(), unit: rated.count == 1 ? "night" : "nights"),
+                        accessibilityID: "wellness.sleep.quality"
+                    ))
+                }
+            }
+            if nights.count > 1 {
+                TrendChart(
+                    points: nights
+                        .prefix(30)
+                        .map { HomeSeriesPoint(date: $0.night, value: max(0, $0.totalDuration / 3_600)) }
+                        .sorted { $0.date < $1.date },
+                    tint: Color(SemanticColorTokens.foundationSageAccent),
+                    unit: "hours"
+                )
+                .frame(height: 120)
+            }
+            Text("Nightly history").font(Typography.sectionTitle())
+            ForEach(nights) { night in
+                let editable = night.samples.count == 1
+                    ? night.samples.first(where: { $0.source.permitsManualCorrection })
+                    : nil
+                WellnessHistoryRow(
+                    timestamp: night.startedAt,
+                    value: Self.durationLabel(night.totalDuration),
+                    provenance: sleepNightSources(night),
+                    isImported: editable == nil,
+                    note: sleepNightNote(night),
+                    edit: editable.map { value in { beginEdit(value) } },
+                    delete: editable.map { value in
+                        { Task { await store.delete(kind: .sleep, id: value.id, selectedKind: kind) } }
+                    }
+                )
+            }
+        }
+    }
+
+    private var movementSection: some View {
+        let summary = movementSummary
+        let stepPoints = movementStepPoints
+        return VStack(alignment: .leading, spacing: 16) {
+            if summary.steps != nil || summary.distanceMeters != nil || summary.activeEnergyKilocalories != nil {
+                WellnessHero(
+                    label: "Today",
+                    reading: movementReading(summary),
+                    provenance: movementSummaryDetail(summary),
+                    timeframe: nil,
+                    actionTitle: section.addTitle,
+                    action: beginAdd
+                )
+            } else {
+                emptyState(title: "No movement recorded", symbol: "figure.walk")
+            }
+            if stepPoints.count > 1 {
+                TrendChart(points: stepPoints, tint: Color(SemanticColorTokens.foundationSageAccent), unit: "steps")
+                    .frame(height: 120)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Custom records").font(Typography.sectionTitle())
+                Text("Custom LifeBoard records stay separate from Apple Health totals.")
+                    .font(.caption)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                if filteredMovements.isEmpty {
+                    Text("No custom movement records")
+                        .font(.subheadline)
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                } else {
+                    ForEach(filteredMovements) { movement in
+                        WellnessHistoryRow(
+                            timestamp: movement.startedAt,
+                            value: movement.steps.map { "\($0.formatted()) steps" } ?? "Movement",
+                            provenance: sourceLabel(movement.source),
+                            isImported: movement.source.permitsManualCorrection == false,
+                            note: movementDetail(movement),
+                            edit: movement.source.permitsManualCorrection ? { beginEdit(movement) } : nil,
+                            delete: movement.source.permitsManualCorrection ? { Task { await store.delete(kind: .movement, id: movement.id, selectedKind: kind) } } : nil
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    /// Steps lead, distance is the fallback, and "recorded" is the last resort.
+    ///
+    /// Kept as an explicit ladder rather than a `??` chain so the unit travels
+    /// with the value it belongs to — the previous version formatted the value
+    /// and dropped the unit into the same string, which is what made the numeral
+    /// impossible to set at metric scale.
+    private func movementReading(_ summary: MovementSummaryProjection) -> MetricReading {
+        if let steps = summary.steps {
+            return steps == 0
+                ? .explicitZero(unit: "steps")
+                : .recorded(value: steps.formatted(), unit: "steps")
+        }
+        if let distance = summary.distanceMeters {
+            return .recorded(value: String(format: "%.1f", distance / 1_000), unit: "km")
+        }
+        return .recorded(value: "Recorded", unit: nil)
+    }
+
+}
