@@ -1634,7 +1634,7 @@ private struct HabitGridCard: View, Equatable {
             GlassCard(cornerRadius: RadiusTokens.largeCard) {
                 VStack(spacing: ClayLayoutMetrics.md) {
                     HStack {
-                        SectionHeader(title: "Habits", systemImage: "chart.bar")
+                        SunriseSectionHeader(title: "Habits", systemImage: "chart.bar")
                         Spacer()
                         Button("View All Habits", action: onOpenHabitBoard)
                             .font(ClayTypography.meta)

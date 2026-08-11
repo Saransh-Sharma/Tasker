@@ -402,7 +402,7 @@ struct ScheduleScreen: View {
         } else if isInitialLoadingStateVisible {
             GlassCard(cornerRadius: RadiusTokens.largeCard, fill: ClayColorTokens.glassStrong.opacity(0.82)) {
                 VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
-                    SectionHeader(title: "Loading schedule", systemImage: "calendar.badge.clock")
+                    SunriseSectionHeader(title: "Loading schedule", systemImage: "calendar.badge.clock")
                     LoadingSkeleton(lineCount: 4)
                 }
                 .padding(ClayLayoutMetrics.lg)
@@ -609,7 +609,7 @@ struct ScheduleScreen: View {
         GlassCard(cornerRadius: RadiusTokens.largeCard, fill: ClayColorTokens.glassStrong.opacity(0.84)) {
             VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
                 HStack(alignment: .firstTextBaseline) {
-                    SectionHeader(title: "Timeline", systemImage: "clock")
+                    SunriseSectionHeader(title: "Timeline", systemImage: "clock")
                     Spacer(minLength: 0)
                     Text(CalendarPresentation.scheduleDateText(for: date))
                         .font(ClayTypography.meta)

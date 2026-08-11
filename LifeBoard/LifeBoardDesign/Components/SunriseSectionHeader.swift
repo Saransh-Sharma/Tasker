@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct SectionHeader: View {
+struct SunriseSectionHeader: View {
     let title: String
     var systemImage: String?
     var trailingText: String?
