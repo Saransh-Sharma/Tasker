@@ -27,7 +27,7 @@ struct LifeManagementComposerSectionCard<Content: View>: View {
         VStack(alignment: .leading, spacing: spacing.s12) {
             HStack(alignment: .top, spacing: spacing.s8) {
                 Image(systemName: iconSystemName)
-                    .font(.system(size: 16, weight: .semibold))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(Color.lifeboard.accentPrimary)
                     .frame(width: 24, height: 24)
 

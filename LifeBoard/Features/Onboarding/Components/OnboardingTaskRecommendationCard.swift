@@ -181,7 +181,7 @@ struct OnboardingTaskRecommendationCard: View {
         switch state {
         case .created:
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 18, weight: .semibold))
+                .lifeboardFont(.title2)
                 .foregroundStyle(OnboardingTheme.accent)
         case .creating:
             OnboardingInlineBadge(title: "Saving", accent: OnboardingTheme.accent)

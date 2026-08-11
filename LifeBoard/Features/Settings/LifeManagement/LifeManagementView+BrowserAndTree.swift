@@ -142,7 +142,7 @@ extension LifeManagementView {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 HStack(alignment: .top, spacing: spacing.s8) {
                     Image(systemName: "square.grid.2x2.fill")
-                        .font(.system(size: 16, weight: .semibold))
+                        .lifeboardFont(.headline)
                         .foregroundStyle(Color.lifeboard(.accentPrimary))
                         .frame(width: 22, height: 22)
                         .accessibilityHidden(true)
@@ -192,7 +192,7 @@ extension LifeManagementView {
                         Spacer()
                         if section.kind == .archived {
                             Image(systemName: viewModel.isSectionExpanded(section.kind) ? "chevron.down" : "chevron.right")
-                                .font(.system(size: 13, weight: .semibold))
+                                .lifeboardFont(.meta)
                                 .foregroundStyle(Color.lifeboard(.textTertiary))
                         }
                     }
@@ -228,7 +228,7 @@ extension LifeManagementView {
                             }
                         } label: {
                             Image(systemName: viewModel.isNodeExpanded(node.selection) ? "chevron.down" : "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .lifeboardFont(.eyebrow)
                                 .foregroundStyle(Color.lifeboard(.textTertiary))
                                 .frame(width: 24, height: 24)
                         }

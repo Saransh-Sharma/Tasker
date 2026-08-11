@@ -13,7 +13,7 @@ struct OnboardingPromptValueCard: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Image(systemName: "sparkles")
-                .font(.system(size: 18, weight: .semibold))
+                .lifeboardFont(.title2)
                 .foregroundStyle(OnboardingPromptTheme.accent)
                 .frame(width: 42, height: 42)
                 .background(OnboardingPromptTheme.assistantSoft, in: Circle())

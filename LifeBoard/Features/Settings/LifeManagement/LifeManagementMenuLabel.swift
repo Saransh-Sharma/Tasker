@@ -8,7 +8,7 @@ struct LifeManagementMenuLabel: View {
     var body: some View {
         Label(title, systemImage: systemImage)
             .labelStyle(.iconOnly)
-            .font(.system(size: 18, weight: .semibold))
+            .lifeboardFont(.title2)
             .foregroundStyle(Color.lifeboard(.textSecondary))
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())

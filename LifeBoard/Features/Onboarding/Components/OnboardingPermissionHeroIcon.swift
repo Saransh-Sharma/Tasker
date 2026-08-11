@@ -26,7 +26,7 @@ struct OnboardingPermissionHeroIcon: View {
                 .frame(width: 150, height: 150)
 
             Image(systemName: systemName)
-                .font(.system(size: 76, weight: .semibold))
+                .lifeboardFont(.heroDisplay)
                 .symbolRenderingMode(.palette)
                 .foregroundStyle(primaryColor, secondaryColor)
                 .symbolEffect(.pulse.byLayer, options: .repeat(.periodic(delay: 1.5)), isActive: isAnimating && reduceMotion == false)

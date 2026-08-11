@@ -69,7 +69,7 @@ struct OnboardingSelectableCard: View {
 
                         if isSelected {
                             Image(systemName: "checkmark")
-                                .font(.system(size: 11, weight: .bold))
+                                .lifeboardFont(.eyebrow)
                                 .foregroundStyle(OnboardingTheme.accentOnPrimary)
                         }
                     }

@@ -11,7 +11,7 @@ struct AccentIconBadge: View {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(color.opacity(0.14))
             Image(systemName: symbolName)
-                .font(.system(size: 16, weight: .semibold))
+                .lifeboardFont(.headline)
                 .foregroundStyle(color)
         }
         .frame(width: 44, height: 44)

@@ -29,7 +29,7 @@ struct AreaListRow: View {
             Spacer(minLength: 0)
 
             Image(systemName: "chevron.right")
-                .font(.system(size: 13, weight: .semibold))
+                .lifeboardFont(.meta)
                 .foregroundStyle(Color.lifeboard(.textTertiary))
         }
         .frame(maxWidth: .infinity, alignment: .leading)

@@ -15,7 +15,7 @@ struct OnboardingPromptChecklistCard: View {
             ForEach(Array(items.enumerated()), id: \.offset) { index, item in
                 HStack(alignment: .top, spacing: 12) {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 14, weight: .bold))
+                        .lifeboardFont(.buttonSmall)
                         .foregroundStyle(OnboardingPromptTheme.accent)
                         .frame(width: 30, height: 30)
                         .background(

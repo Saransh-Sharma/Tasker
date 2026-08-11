@@ -16,7 +16,7 @@ struct OnboardingChecklistRow: View {
         Button(action: onTap) {
             HStack(spacing: 14) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : symbolName)
-                    .font(.system(size: 18, weight: .semibold))
+                    .lifeboardFont(.title2)
                     .foregroundStyle(isSelected ? OnboardingTheme.marigold : OnboardingTheme.textSecondary)
                 Text(title)
                     .lifeboardFont(.body)

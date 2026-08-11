@@ -21,7 +21,7 @@ struct LifeManagementIconTile: View {
                     .frame(height: 46)
                     .overlay {
                         Image(systemName: systemImage)
-                            .font(.system(size: 18, weight: .semibold))
+                            .lifeboardFont(.title2)
                             .foregroundStyle(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary)
                     }
 

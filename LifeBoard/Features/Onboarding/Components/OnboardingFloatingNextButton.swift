@@ -33,7 +33,7 @@ struct OnboardingFloatingNextButton: View {
                             .tint(theme.nextForeground)
                     } else {
                         Image(systemName: action.systemImage)
-                            .font(.system(size: 21, weight: .bold))
+                            .lifeboardFont(.sectionTitle)
                             .foregroundStyle(action.disabled ? OnboardingTheme.textSecondary : theme.nextForeground)
                     }
                 }

@@ -34,7 +34,7 @@ struct LifeManagementComposerPreviewCard: View {
                                 .symbolEffect(.bounce, value: previewSignature)
                         }
                     }
-                    .font(.system(size: 24, weight: .semibold))
+                    .lifeboardFont(.title1)
                     .foregroundStyle(Color.lifeboard(.textInverse))
                 }
                 .accessibilityHidden(true)

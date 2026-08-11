@@ -15,7 +15,7 @@ struct KeyboardShortcutsCard: View {
                 ForEach(shortcuts, id: \.key) { shortcut in
                     HStack(spacing: SwiftUITokens.spacing.s12) {
                         Text(shortcut.key)
-                            .font(.system(.caption, design: .monospaced))
+                            .lifeboardFont(.monoMeta)
                             .fontWeight(.semibold)
                             .foregroundColor(Color.lifeboard.textPrimary)
                             .padding(.horizontal, 8)

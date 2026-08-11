@@ -17,7 +17,7 @@ struct OnboardingDownloadStatusPill: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: state.phase == .downloading ? "arrow.down.circle.fill" : "clock.badge.checkmark")
-                .font(.system(size: 14, weight: .semibold))
+                .lifeboardFont(.buttonSmall)
                 .foregroundStyle(OnboardingTheme.marigold)
                 .accessibilityHidden(true)
 

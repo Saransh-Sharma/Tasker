@@ -192,7 +192,7 @@ struct SettingsSetupStatusCard: View {
         VStack(alignment: .leading, spacing: SwiftUITokens.spacing.s12) {
             HStack(alignment: .top, spacing: SwiftUITokens.spacing.s12) {
                 Image(systemName: status.items.allSatisfy { $0.state == .healthy } ? "checkmark.circle.fill" : "heart.fill")
-                    .font(.system(size: 18, weight: .semibold))
+                    .lifeboardFont(.title2)
                     .foregroundStyle(Color.lifeboard(.accentPrimary))
                     .frame(width: 36, height: 36)
                     .background(Color.lifeboard(.accentWash), in: Circle())
@@ -215,7 +215,7 @@ struct SettingsSetupStatusCard: View {
                 } label: {
                     HStack(spacing: SwiftUITokens.spacing.s12) {
                         Image(systemName: item.systemImage)
-                            .font(.system(size: 14, weight: .semibold))
+                            .lifeboardFont(.buttonSmall)
                             .foregroundStyle(foreground(for: item.state))
                             .frame(width: 28, height: 28)
                             .background(background(for: item.state), in: Circle())
@@ -317,7 +317,7 @@ private struct SettingsCategoryButton: View {
         } label: {
             HStack(spacing: SwiftUITokens.spacing.s12) {
                 Image(systemName: route.systemImage)
-                    .font(.system(size: 16, weight: .semibold))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(route.tint)
                     .frame(width: 38, height: 38)
                     .background(route.tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -370,7 +370,7 @@ struct SettingsCategoryHeading: View {
     var body: some View {
         HStack(alignment: .center, spacing: SwiftUITokens.spacing.s12) {
             Image(systemName: route.systemImage)
-                .font(.system(size: 18, weight: .semibold))
+                .lifeboardFont(.title2)
                 .foregroundStyle(route.tint)
                 .frame(width: 44, height: 44)
                 .background(route.tint.opacity(0.13), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -395,7 +395,7 @@ struct SettingsPadWelcome: View {
     var body: some View {
         VStack(spacing: SwiftUITokens.spacing.s12) {
             Image(systemName: "slider.horizontal.3")
-                .font(.system(size: 28, weight: .medium))
+                .lifeboardFont(.display)
                 .foregroundStyle(Color.lifeboard(.accentPrimary))
                 .frame(width: 64, height: 64)
                 .background(Color.lifeboard(.accentWash), in: RoundedRectangle(cornerRadius: 20, style: .continuous))

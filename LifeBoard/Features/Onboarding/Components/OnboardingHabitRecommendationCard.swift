@@ -19,7 +19,7 @@ struct OnboardingHabitRecommendationCard: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: template.icon.symbolName)
-                    .font(.system(size: 16, weight: .semibold))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(iconAccent)
                     .frame(width: 32, height: 32)
                     .background(iconAccent.opacity(0.12), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
@@ -223,7 +223,7 @@ struct OnboardingHabitRecommendationCard: View {
         switch state {
         case .created:
             Image(systemName: "checkmark.circle.fill")
-                .font(.system(size: 18, weight: .semibold))
+                .lifeboardFont(.title2)
                 .foregroundStyle(OnboardingTheme.accent)
         case .creating:
             OnboardingInlineBadge(title: "Saving", accent: OnboardingTheme.accent)
