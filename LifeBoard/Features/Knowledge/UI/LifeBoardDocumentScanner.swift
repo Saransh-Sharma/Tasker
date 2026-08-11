@@ -151,7 +151,7 @@ public struct ScanReviewView: View {
         NavigationStack {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Review what LifeBoard read")
-                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .lifeboardFont(.metric)
                 Text("Nothing has been saved. Fix any words before placing this in your composer.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

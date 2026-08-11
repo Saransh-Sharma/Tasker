@@ -6,7 +6,8 @@
 //  Sits on the backdrop, revealed when sunrise is pulled down.
 //
 
- import SwiftUI
+ import LifeBoardTokens
+import SwiftUI
 
 // MARK: - Calendar Helpers
 
@@ -193,7 +194,7 @@ struct WeeklyCalendarStripView: View {
     private func calendarNavButton(systemImage: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: systemImage)
-                .font(.system(size: 12, weight: .semibold))
+                .lifeboardFont(.eyebrow)
                 .foregroundStyle(Color.lifeboard.textSecondary)
                 .frame(width: 30, height: 30)
                 .background(Color.lifeboard.surfaceSecondary, in: Circle())
@@ -303,7 +304,7 @@ struct WeeklyCalendarStripView: View {
             HapticFeedback.selection()
         } label: {
             Image(systemName: "chevron.down")
-                .font(.system(size: 10, weight: .bold))
+                .lifeboardFont(.eyebrow)
                 .foregroundColor(Color.lifeboard.textTertiary)
                 .rotationEffect(.degrees(isExpanded ? 180 : 0))
                 .frame(width: 32, height: 16)

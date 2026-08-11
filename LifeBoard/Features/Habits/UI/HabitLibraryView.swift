@@ -370,7 +370,7 @@ private struct HabitLibraryCard: View {
                         .frame(width: 42, height: 42)
 
                     Image(systemName: row.icon?.symbolName ?? "circle.dashed")
-                        .font(.system(size: 18, weight: .semibold))
+                        .lifeboardFont(.title2)
                         .foregroundColor(accentColor)
                 }
 
@@ -505,7 +505,7 @@ private struct HabitEmptyStateCard: View {
                     .controlSize(.regular)
             } else {
                 Image(systemName: systemImage)
-                    .font(.system(size: 28, weight: .semibold))
+                    .lifeboardFont(.display)
                     .foregroundColor(Color.lifeboard.textSecondary)
             }
 

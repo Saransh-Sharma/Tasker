@@ -756,7 +756,7 @@ private struct WeeklyTaskPlannerRow: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
-                        .font(.system(size: 18, weight: .semibold))
+                        .lifeboardFont(.title2)
                         .foregroundStyle(Color.lifeboard.textSecondary)
                 }
                 .accessibilityLabel("Move \(task.title)")

@@ -999,7 +999,7 @@ struct TrackRootView: View {
 
     private func habitsBridge(palette: DaypartPalette) -> some View {
         VStack(spacing: 18) {
-            Image(systemName: "repeat.circle.fill").font(.system(size: 44))
+            Image(systemName: "repeat.circle.fill").lifeboardFont(.heroDisplay)
             Text("Habits remain connected").font(.title2.weight(.semibold))
             Text("Open the existing habit board while its projections continue feeding Adaptive Home.")
                 .multilineTextAlignment(.center)
@@ -4811,7 +4811,7 @@ struct JournalModuleView: View {
             Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea()
             VStack(spacing: 18) {
                 Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 40, weight: .semibold))
+                    .lifeboardFont(.heroDisplay)
                     .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
                 Text("Journal locked")
                     .font(.title2.weight(.semibold))
@@ -6220,7 +6220,7 @@ struct JournalAudioCapture: View {
         NavigationStack {
             VStack(spacing: 24) {
                 Image(systemName: recorder.isRecording ? "waveform.circle.fill" : "mic.circle.fill")
-                    .font(.system(size: 76))
+                    .lifeboardFont(.heroDisplay)
                     .symbolEffect(.pulse, isActive: recorder.isRecording)
                     .accessibilityHidden(true)
                 Text(recorder.isRecording ? Self.duration(recorder.duration) : capturedURL == nil ? "Ready when you are" : "Recording ready")

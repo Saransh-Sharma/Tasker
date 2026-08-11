@@ -1,4 +1,5 @@
- import SwiftUI
+ import LifeBoardTokens
+import SwiftUI
 
 struct QuietTrackingComposerView: View {
     let snapshot: QuietTrackingComposerSnapshot
@@ -79,7 +80,7 @@ struct QuietTrackingComposerView: View {
                         .frame(width: 48, height: 48)
 
                     Image(systemName: selectedEntry?.iconSymbolName ?? "heart.text.square.fill")
-                        .font(.system(size: 20, weight: .semibold))
+                        .lifeboardFont(.sectionTitle)
                         .foregroundStyle(Color.lifeboard.accentSecondary)
                 }
 
@@ -264,7 +265,7 @@ struct QuietTrackingComposerView: View {
             VStack(alignment: .leading, spacing: spacing.s8) {
                 HStack(spacing: spacing.s4) {
                     Image(systemName: outcome == candidate ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 16, weight: .semibold))
+                        .lifeboardFont(.headline)
                         .foregroundStyle(outcome == candidate ? Color.lifeboard.accentPrimary : Color.lifeboard.strokeHairline)
                     Text(title)
                         .font(.lifeboard(.callout).weight(.semibold))
@@ -365,7 +366,7 @@ private struct QuietTrackingHabitPickerRow: View, Equatable {
                         .frame(width: 34, height: 34)
 
                     Image(systemName: entry.iconSymbolName)
-                        .font(.system(size: 14, weight: .semibold))
+                        .lifeboardFont(.buttonSmall)
                         .foregroundStyle(Color.lifeboard.accentSecondary)
                 }
 
@@ -389,7 +390,7 @@ private struct QuietTrackingHabitPickerRow: View, Equatable {
                 }
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 17, weight: .semibold))
+                    .lifeboardFont(.title2)
                     .foregroundStyle(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.strokeHairline)
             }
             .padding(spacing.s12)
@@ -436,7 +437,7 @@ private struct QuietTrackingSectionCard<Content: View>: View {
                         .frame(width: 32, height: 32)
 
                     Image(systemName: iconSystemName)
-                        .font(.system(size: 13, weight: .semibold))
+                        .lifeboardFont(.meta)
                         .foregroundStyle(Color.lifeboard.accentSecondary)
                 }
 

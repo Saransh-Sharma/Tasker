@@ -1010,7 +1010,7 @@ private struct HabitInlineError: View {
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
             Image(systemName: "exclamationmark.triangle.fill")
-                .font(.system(size: 15, weight: .semibold))
+                .lifeboardFont(.headline)
                 .foregroundStyle(Color.lifeboard.statusWarning)
             Text(message)
                 .font(.lifeboard(.callout))

@@ -136,7 +136,7 @@ struct ComposerOptionGrid<ID: Hashable>: View {
             HStack(alignment: .firstTextBaseline, spacing: spacing.s8) {
                 if let icon, icon.isEmpty == false {
                     Image(systemName: icon)
-                        .font(.system(size: 12, weight: .semibold))
+                        .lifeboardFont(.eyebrow)
                         .foregroundStyle(
                             isSelected
                                 ? (hasAccent ? accentColor : Color.lifeboard.accentPrimary)
@@ -153,7 +153,7 @@ struct ComposerOptionGrid<ID: Hashable>: View {
 
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 12, weight: .bold))
+                        .lifeboardFont(.eyebrow)
                         .foregroundStyle(hasAccent ? accentColor : Color.lifeboard.accentPrimary)
                         .accessibilityHidden(true)
                 }
@@ -219,7 +219,7 @@ struct ComposerDisclosureRow: View {
                 Spacer(minLength: 0)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .lifeboardFont(.meta)
                     .foregroundStyle(Color.lifeboard.textTertiary)
                     .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     .padding(.top, 2)

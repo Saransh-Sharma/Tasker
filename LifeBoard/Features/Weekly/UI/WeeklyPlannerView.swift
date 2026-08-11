@@ -341,7 +341,7 @@ private struct WeeklyPlannerHabitChip: View {
         Button(action: onToggle) {
             HStack(spacing: 8) {
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 16, weight: .semibold))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.textTertiary)
 
                 VStack(alignment: .leading, spacing: 2) {
@@ -513,7 +513,7 @@ private struct WeeklyPlannerOutcomesStep: View {
                         onRemoveOutcome(draft.wrappedValue.id)
                     } label: {
                         Image(systemName: "minus.circle")
-                            .font(.system(size: 18, weight: .semibold))
+                            .lifeboardFont(.title2)
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.lifeboard.statusWarning)
@@ -957,7 +957,7 @@ private struct WeeklyPlannerTriageCard: View {
         } label: {
             VStack(spacing: 6) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 16, weight: .semibold))
+                    .lifeboardFont(.headline)
                 Text(title)
                     .font(.lifeboard(.caption1).weight(.semibold))
                     .lineLimit(1)

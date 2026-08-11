@@ -30,12 +30,12 @@ public struct BadgeDetailSheet: View {
                     .frame(width: 96, height: 96)
 
                 Image(systemName: achievement.sfSymbol)
-                    .font(.system(size: 40))
+                    .lifeboardFont(.heroDisplay)
                     .foregroundColor(Color.lifeboard.accentPrimary)
             }
 
             Text(achievement.name)
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .lifeboardFont(.title1)
                 .foregroundColor(Color.lifeboard.textPrimary)
 
             Text(achievement.description)
@@ -69,7 +69,7 @@ public struct BadgeDetailSheet: View {
             if let date = unlockDate ?? progressState?.unlockDate {
                 HStack(spacing: spacing.s4) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14))
+                        .lifeboardFont(.callout)
                         .foregroundColor(Color.lifeboard.statusSuccess)
 
                     Text("Unlocked \(date, style: .date)")

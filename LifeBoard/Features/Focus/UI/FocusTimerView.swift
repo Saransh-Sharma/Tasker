@@ -42,7 +42,7 @@ public struct FocusTimerView: View {
                 Spacer()
                 Button("Close", systemImage: "xmark", action: onCancel)
                     .labelStyle(.iconOnly)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(ClayColorTokens.navyMuted)
                     .frame(width: 44, height: 44)
                     .background(ClayColorTokens.glassStrong, in: Circle())

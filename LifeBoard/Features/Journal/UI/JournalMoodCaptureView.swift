@@ -162,7 +162,7 @@ struct JournalMoodCaptureView: View {
     private func header(palette: DaypartPalette) -> some View {
         HStack {
             Button("Cancel") { dismiss() }
-                .font(.system(size: 16, weight: .semibold, design: .rounded))
+                .lifeboardFont(.headline)
                 .foregroundStyle(palette.color(for: .foreground))
                 .frame(minWidth: 76, minHeight: 44)
                 .background(.regularMaterial, in: Capsule())
@@ -173,7 +173,7 @@ struct JournalMoodCaptureView: View {
             Button(stage == .mood ? "Next" : (isSaving ? "Saving…" : "Save")) {
                 advance()
             }
-            .font(.system(size: 16, weight: .bold, design: .rounded))
+            .lifeboardFont(.headline)
             .foregroundStyle(Color(SemanticColorTokens.foundationOnCelestialAccent))
             .frame(minWidth: 84, minHeight: 44)
             .background(palette.color(for: .celestialCore), in: Capsule())
@@ -223,13 +223,13 @@ struct JournalMoodCaptureView: View {
                 .accessibilityHidden(true)
 
             Text(includesEnergy ? energyLabel : "Energy is optional")
-                .font(.system(.title2, design: .rounded, weight: .semibold))
+                .lifeboardFont(.metric)
                 .foregroundStyle(palette.color(for: .foreground))
                 .contentTransition(.opacity)
 
             VStack(spacing: 18) {
                 Toggle("Add an energy signal", isOn: $includesEnergy.animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.85)))
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
+                    .lifeboardFont(.headline)
 
                 if includesEnergy {
                     Slider(value: $energy, in: 1...5, step: 1) {

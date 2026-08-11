@@ -43,15 +43,15 @@ public struct XPCelebrationView: View {
                 // Main XP badge
                 HStack(spacing: 4) {
                     Image(systemName: "star.fill")
-                        .font(.system(size: 16, weight: .medium))
+                        .lifeboardFont(.bodyEmphasis)
                         .foregroundColor(.lifeboard(.textInverse))
 
                     Text("+\(xpValue)")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .lifeboardFont(.sectionTitle)
                         .foregroundColor(.lifeboard(.textInverse))
 
                     Text("XP")
-                        .font(.system(size: 14, weight: .semibold))
+                        .lifeboardFont(.buttonSmall)
                         .foregroundColor(.lifeboard(.textInverse).opacity(0.9))
                 }
                 .padding(.horizontal, 16)
@@ -185,7 +185,7 @@ public struct StreakCelebrationView: View {
 
                 VStack(spacing: 4) {
                     Image(systemName: "flame.fill")
-                        .font(.system(size: 32, weight: .medium))
+                        .lifeboardFont(.heroDisplay)
                         .foregroundColor(.lifeboard(.statusWarning))
                         .scaleEffect(flameScale)
                         .opacity(flameOpacity)

@@ -10,7 +10,7 @@ struct PlanningSummaryRow: View {
     var body: some View {
         HStack(alignment: .top, spacing: ClayLayoutMetrics.sm) {
             Image(systemName: systemImage)
-                .font(.system(size: 13, weight: .semibold))
+                .lifeboardFont(.meta)
                 .foregroundStyle(ClayColorTokens.navyMuted)
                 .frame(width: 18, height: 22)
                 .accessibilityHidden(true)

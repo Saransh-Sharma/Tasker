@@ -185,7 +185,7 @@ public struct KnowledgeModuleView: View {
             HStack(alignment: .center, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text(collectionTitle)
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .lifeboardFont(.heroDisplay)
                         .foregroundStyle(palette.color(for: .foreground))
                     Text(collectionSubtitle)
                         .font(.subheadline)
@@ -213,7 +213,7 @@ public struct KnowledgeModuleView: View {
                     }
                 } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .semibold))
+                        .lifeboardFont(.title2)
                         .frame(width: 46, height: 46)
                 }
                 .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
@@ -605,10 +605,10 @@ public struct KnowledgeModuleView: View {
     private var notesEmptyState: some View {
         VStack(spacing: 13) {
             Image(systemName: store.selectedCollection == .trash ? "trash" : "note.text.badge.plus")
-                .font(.system(size: 34, weight: .light))
+                .lifeboardFont(.heroDisplay)
                 .foregroundStyle(.tint)
             Text(emptyTitle)
-                .font(.system(.title3, design: .rounded, weight: .semibold))
+                .lifeboardFont(.sectionTitle)
             Text(emptyMessage)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
@@ -873,7 +873,7 @@ private extension KnowledgeModuleView {
                     }
                 }
                 Text(note.displayTitle)
-                    .font(.system(.headline, design: .rounded, weight: .semibold))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(palette.color(for: .foreground))
                     .lineLimit(2)
                 Text(note.plainText.isEmpty ? "A quiet page, ready when you are." : note.plainText)
@@ -1094,7 +1094,7 @@ private struct KnowledgeNoteEditor: View {
             ScrollView {
                 LazyVStack(alignment: .leading, spacing: 14) {
                     TextField("Note title", text: $draft.title)
-                        .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                        .lifeboardFont(.heroDisplay)
                         .textFieldStyle(.plain)
                         .focused($titleIsFocused)
                         .accessibilityLabel("Note title")
@@ -2182,12 +2182,12 @@ private struct LockedKnowledgeNoteEditor: View {
                     .fill(Color.orange.opacity(0.12))
                     .frame(width: 88, height: 88)
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 34, weight: .semibold))
+                    .lifeboardFont(.heroDisplay)
                     .foregroundStyle(.orange)
                     .symbolEffect(.breathe, options: .nonRepeating)
             }
             Text("A private page")
-                .font(.system(.title, design: .rounded, weight: .bold))
+                .lifeboardFont(.screenTitle)
             Text("Authenticate to read or edit this note. Its title, text, links, and attachments stay out of search and previews.")
                 .font(.body)
                 .foregroundStyle(.secondary)
@@ -2221,7 +2221,7 @@ private struct LockedKnowledgeNoteEditor: View {
                         scheduleSave()
                     }
                 ))
-                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .lifeboardFont(.heroDisplay)
                 .textFieldStyle(.plain)
                 .accessibilityLabel("Note title")
 

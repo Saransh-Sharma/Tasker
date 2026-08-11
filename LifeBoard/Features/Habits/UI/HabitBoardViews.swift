@@ -333,7 +333,7 @@ struct HabitHomeSectionCard: View {
                     Button { onOpenBoard() } label: {
                         Label("Board", systemImage: "square.grid.3x3")
                             .labelStyle(.iconOnly)
-                            .font(.system(size: 14, weight: .semibold))
+                            .lifeboardFont(.buttonSmall)
                     }
                         .foregroundStyle(Color.lifeboard.textPrimary)
                         .frame(width: 44, height: 44)
@@ -382,7 +382,7 @@ struct HabitHomeSectionCard: View {
                     } label: {
                         HStack(spacing: spacing.s8) {
                             Image(systemName: "plus.circle.fill")
-                                .font(.system(size: 18, weight: .semibold))
+                                .lifeboardFont(.title2)
                                 .symbolRenderingMode(.hierarchical)
                                 .foregroundStyle(Color.lifeboard.accentPrimary)
 
@@ -393,7 +393,7 @@ struct HabitHomeSectionCard: View {
                             Spacer(minLength: spacing.s8)
 
                             Image(systemName: "chevron.right")
-                                .font(.system(size: 12, weight: .semibold))
+                                .lifeboardFont(.eyebrow)
                                 .foregroundStyle(Color.lifeboard.textTertiary)
                         }
                         .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
@@ -683,7 +683,7 @@ struct HabitBoardScreen: View {
     private var boardEmptyState: some View {
         VStack(spacing: spacing.s12) {
             Image(systemName: "sun.max.fill")
-                .font(.system(size: 28, weight: .semibold, design: .rounded))
+                .lifeboardFont(.display)
                 .foregroundStyle(ClayColorTokens.role(.routine).deep)
                 .frame(width: 64, height: 64)
                 .background(ClayColorTokens.role(.routine).softSurface, in: Circle())
@@ -726,7 +726,7 @@ struct HabitBoardScreen: View {
             }
         } label: {
             Image(systemName: systemName)
-                .font(.system(size: 13, weight: .semibold))
+                .lifeboardFont(.meta)
                 .foregroundStyle(Color.lifeboard.textPrimary)
                 .frame(width: 44, height: 44)
                 .background(Color.lifeboard.surfacePrimary.opacity(0.98))
@@ -853,7 +853,7 @@ private struct HabitBoardPinnedRowView: View {
         Button(action: onSelect) {
             HStack(alignment: .center, spacing: layoutMetrics.iconToTextSpacing) {
                 Image(systemName: row.iconSymbolName)
-                    .font(.system(size: 14, weight: .semibold))
+                    .lifeboardFont(.buttonSmall)
                     .foregroundStyle(HabitEverydayPalette.familyPreview(row.colorFamily))
                     .frame(width: layoutMetrics.iconSlotWidth, height: layoutMetrics.rowHeight, alignment: .center)
 
