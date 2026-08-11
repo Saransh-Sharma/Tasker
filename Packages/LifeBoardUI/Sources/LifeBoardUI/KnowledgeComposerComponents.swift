@@ -267,7 +267,11 @@ private struct PackagePaperGrain: ViewModifier {
     }
 }
 
-private extension View {
+public extension View {
+    /// Package-side paper grain. Public because the feature packages
+    /// (`KnowledgeFeature`, and anything else compiled outside the app target)
+    /// physically cannot import `LifeBoard/DesignSystem`, which is why those
+    /// surfaces had no signature effects at all rather than by choice.
     func lifeBoardPackagePaperGrain(intensity: Double) -> some View {
         modifier(PackagePaperGrain(intensity: intensity))
     }
