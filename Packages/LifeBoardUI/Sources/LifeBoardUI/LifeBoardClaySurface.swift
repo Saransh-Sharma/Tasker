@@ -104,6 +104,7 @@ public struct ClaySurfaceModifier: ViewModifier {
         content
             .background(claySurface)
             .overlay(hairline)
+            .modifier(SpecularRimModifier(depth: depth, cornerRadius: cornerRadius))
             .modifier(ClayDropShadow(depth: depth, isPressed: isPressed))
     }
 
