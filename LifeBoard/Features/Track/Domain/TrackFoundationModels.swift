@@ -1797,7 +1797,8 @@ public struct GoalHomeContextCandidateSource: HomeContextCandidateSource {
                 sensitivity: .privateStandard,
                 priority: days == 0 ? 620 : 340 + (thresholdDays - days),
                 relevantFrom: context.date,
-                relevantUntil: target.addingTimeInterval(24 * 60 * 60)
+                relevantUntil: target.addingTimeInterval(24 * 60 * 60),
+                route: .goal(goal.id)
             )
         }
         .sorted {
@@ -1856,7 +1857,8 @@ public struct RoutineHomeContextCandidateSource: HomeContextCandidateSource {
                 sensitivity: .privateStandard,
                 priority: 400,
                 relevantFrom: context.date,
-                relevantUntil: calendar.date(byAdding: .hour, value: 6, to: context.date)
+                relevantUntil: calendar.date(byAdding: .hour, value: 6, to: context.date),
+                route: .routine(routine.id)
             )
         }
         .sorted { $0.id < $1.id }
