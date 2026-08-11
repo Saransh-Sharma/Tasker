@@ -562,7 +562,7 @@ struct JournalMoodDialSheet: View {
                 .frame(width: min(proxy.size.width * 0.62, 280), height: min(proxy.size.width * 0.48, 220))
 
                 Text(draftMood.title)
-                    .font(.system(.title, design: .rounded, weight: .semibold))
+                    .lifeboardFont(.screenTitle)
                 Text(draftMood.supportiveCopy)
                     .font(.body)
                     .foregroundStyle(palette.color(for: .foregroundSecondary))
@@ -583,7 +583,7 @@ struct JournalMoodDialSheet: View {
                 .frame(width: 140, height: 140)
                 .accessibilityHidden(true)
             Text(includesEnergy ? energyLabel : "Energy is optional")
-                .font(.system(.title2, design: .rounded, weight: .semibold))
+                .lifeboardFont(.metric)
             Toggle("Add an energy signal", isOn: $includesEnergy)
                 .font(.headline)
                 .padding(16)
@@ -1888,7 +1888,7 @@ struct AdaptiveHome: View {
 /// `@MainActor` is required rather than decorative: several of these read
 /// `@Observable @MainActor` stores.
 @MainActor
-private enum HomeSectionCopy {
+enum HomeSectionCopy {
     static func symbol(for kind: DashboardWidgetKind, store: AdaptiveHomeStore) -> String {
         store.registry.descriptor(for: kind)?.systemImage ?? "square.grid.2x2"
     }
@@ -2155,7 +2155,7 @@ private struct HomeSectionHeading: View {
     }
 }
 
-private struct HomeWidgetTitle: View {
+struct HomeWidgetTitle: View {
     let title: String
     let symbol: String
     let palette: DaypartPalette
@@ -2169,14 +2169,14 @@ private struct HomeWidgetTitle: View {
     var body: some View {
         HStack(spacing: 9) {
             Image(systemName: symbol).foregroundStyle(palette.color(for: .foregroundSecondary))
-            Text(title).font(.system(.headline, design: .rounded, weight: .semibold))
+            Text(title).lifeboardFont(.headline)
             Spacer()
         }
         .accessibilityElement(children: .combine)
     }
 }
 
-private struct HomeEmptyStateRow: View {
+struct HomeEmptyStateRow: View {
     let text: String
     let symbol: String
     let palette: DaypartPalette
@@ -2208,7 +2208,7 @@ private struct HomeSnapshotMetric: View {
     var body: some View {
         Button(action: action) {
             VStack(spacing: 7) {
-                Image(systemName: symbol).font(.system(size: 18, weight: .semibold))
+                Image(systemName: symbol).lifeboardFont(.title2)
                 Text(value).font(.caption2.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
                 Text(label).font(.caption2).foregroundStyle(palette.color(for: .foregroundSecondary))
             }
@@ -2234,7 +2234,7 @@ private struct HomeCaptureTile: View {
             UIImpactFeedbackGenerator(style: .soft).impactOccurred()
         } label: {
             VStack(spacing: 6) {
-                Image(systemName: symbol).font(.system(size: 18, weight: .semibold))
+                Image(systemName: symbol).lifeboardFont(.title2)
                 Text(title).font(.caption.weight(.medium)).lineLimit(1)
             }
             .frame(maxWidth: .infinity, minHeight: 62)
@@ -2307,12 +2307,12 @@ private struct HomeContextCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 10) {
                 Image(systemName: HomeSectionCopy.symbol(for: candidate.widgetKind, store: store))
-                    .font(.system(size: 17, weight: .semibold))
+                    .lifeboardFont(.title2)
                     .frame(width: 34, height: 34)
                     .background(palette.color(for: .canvasSecondary), in: Circle())
                 VStack(alignment: .leading, spacing: 3) {
                     Text(candidate.title)
-                        .font(.system(.headline, design: .rounded, weight: .semibold))
+                        .lifeboardFont(.headline)
                         .lineLimit(2)
                     Text(candidate.reason.message)
                         .font(.caption)
@@ -2410,7 +2410,7 @@ private struct HomeContextReasonSheet: View {
                 Image(systemName: "sparkles")
                     .font(.title2)
                 Text("Why this is here")
-                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .lifeboardFont(.metric)
                 Spacer()
             }
             Text(candidate.reason.message)
@@ -2453,7 +2453,7 @@ private struct HomeTodayStorySection: View {
                     } label: {
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: item.symbol)
-                                .font(.system(size: 15, weight: .semibold))
+                                .lifeboardFont(.headline)
                                 .frame(width: 30, height: 30)
                                 .background(palette.color(for: .canvasSecondary), in: Circle())
                             VStack(alignment: .leading, spacing: 3) {
@@ -2559,7 +2559,7 @@ private struct HomeLifeThreadComposer: View {
                 }
             } label: {
                 Image(systemName: "plus")
-                    .font(.system(size: 17, weight: .semibold))
+                    .lifeboardFont(.title2)
                     .frame(width: 44, height: 44)
             }
             .accessibilityLabel("Capture something")
@@ -2577,7 +2577,7 @@ private struct HomeLifeThreadComposer: View {
                 Image(systemName: composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                       ? "waveform"
                       : "arrow.up")
-                    .font(.system(size: 16, weight: .bold))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
                     .frame(width: 44, height: 44)
                     .background(Color(SemanticColorTokens.inkPrimary), in: Circle())
@@ -3006,13 +3006,13 @@ private struct HomeFastingSignal: View {
                         }
                         VStack(spacing: 0) {
                             Text(HomeSectionCopy.compactHours(elapsed))
-                                .font(.system(size: 12, weight: .bold, design: .rounded))
+                                .lifeboardFont(.eyebrow)
                                 .monospacedDigit()
                                 .lineLimit(1)
                                 .minimumScaleFactor(0.68)
                                 .contentTransition(.numericText())
                             Text(activeFast != nil ? "fast" : (mealAnchor == nil ? "open" : "since meal"))
-                                .font(.system(size: 8, weight: .semibold, design: .rounded))
+                                .lifeboardFont(.eyebrow)
                                 .foregroundStyle(palette.color(for: .foregroundSecondary))
                         }
                     }
@@ -3022,7 +3022,7 @@ private struct HomeFastingSignal: View {
                         .font(.caption2.weight(.medium))
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
                     Text(isAvailable ? (activeFast == nil ? (mealAnchor == nil ? "Start" : "Start from meal") : "End") : "Unavailable")
-                        .font(.system(size: 9, weight: .semibold, design: .rounded))
+                        .lifeboardFont(.eyebrow)
                         .lineLimit(1)
                         .minimumScaleFactor(0.68)
                         .foregroundStyle(
@@ -3384,6 +3384,11 @@ private struct HomeArchetypeWidget: View {
     let dashboardDensity: DashboardDensity
     let onOpenWidget: (DashboardWidgetKind) -> Void
 
+    /// Counts opens so the card warps as its destination arrives — the
+    /// `source` of source → travel → settle. Without it a whole screen
+    /// replaces a motionless card, which reads as a cut.
+    @State private var openTrigger = 0
+
     var body: some View {
         let descriptor = store.registry.descriptor(for: kind)
         let resolution = lifeOSStore.cardResolution(kind: kind, size: preset)
@@ -3404,6 +3409,7 @@ private struct HomeArchetypeWidget: View {
                 .applying(dashboardDensity)
                 .queueLimit,
             onAction: { action in
+                openTrigger += 1
                 if let target {
                     router.openLeaf(target.route, in: .track)
                 } else if let destination = action.destination {
@@ -3413,6 +3419,7 @@ private struct HomeArchetypeWidget: View {
                 }
             },
             onOpen: {
+                openTrigger += 1
                 if let target {
                     router.openLeaf(target.route, in: .track)
                 } else {
@@ -3420,7 +3427,10 @@ private struct HomeArchetypeWidget: View {
                 }
             }
         )
-        .lifeBoardRaisedClayCard(palette: palette)
+        // The hero radius: a Home card is the closed form of the hero it
+        // opens into, and the shared silhouette is the continuity.
+        .lifeBoardRaisedClayCard(palette: palette, cornerRadius: Radius.hero)
+        .lifeboardCardMorphWarp(origin: .center, trigger: openTrigger)
         .accessibilityHint("Opens the source")
     }
 
@@ -3469,7 +3479,7 @@ private struct HomeGlanceWidget: View {
         } label: {
             HStack(spacing: 11) {
                 Image(systemName: descriptor?.systemImage ?? "square.grid.2x2")
-                    .font(.system(size: 18, weight: .semibold))
+                    .lifeboardFont(.title2)
                     .foregroundStyle(palette.color(for: .foregroundSecondary))
                     .frame(width: 30, height: 44)
                 VStack(alignment: .leading, spacing: 3) {
@@ -3478,7 +3488,7 @@ private struct HomeGlanceWidget: View {
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
                         .lineLimit(1)
                     Text(HomeSectionCopy.widgetSummary(kind, size: .compact, lifeOSStore: lifeOSStore))
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .lifeboardFont(.support)
                         .foregroundStyle(palette.color(for: .foreground))
                         .lineLimit(2)
                 }
@@ -3510,7 +3520,7 @@ private struct HomeFocusNowWidget: View {
         let expanded = hero?.priority == .activeFocus || hero?.priority == .safetySensitiveCare || hero?.priority == .recovery
         HStack(spacing: 12) {
             Image(systemName: lowEnergy ? "leaf.fill" : HomeSectionCopy.heroSymbol(for: hero?.priority))
-                .font(.system(size: 18, weight: .semibold))
+                .lifeboardFont(.title2)
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
                 .frame(width: 28, height: 44)
 
@@ -3519,7 +3529,7 @@ private struct HomeFocusNowWidget: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(palette.color(for: .foregroundSecondary))
                 Text(primary ?? (lowEnergy ? "Drink some water and take one quiet minute." : "Choose one useful next step"))
-                    .font(.system(.headline, design: .rounded, weight: .semibold))
+                    .lifeboardFont(.headline)
                     .lineLimit(expanded ? 2 : 1)
                 if expanded, let reason = hero?.detail ?? lifeOSStore.focusResult?.reasons.first?.text {
                     Text(reason)
@@ -3765,7 +3775,7 @@ private struct HomeTasksWidget: View {
             Image(systemName: "checklist")
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
             Text(HomeSectionCopy.taskWidgetTitle(lifeOSStore))
-                .font(.system(.headline, design: .rounded, weight: .semibold))
+                .lifeboardFont(.headline)
                 .lineLimit(1)
             Spacer(minLength: 0)
         }
@@ -4171,87 +4181,6 @@ private struct HomeProgressWidget: View {
                 .lineLimit(2)
                 .fixedSize(horizontal: false, vertical: true)
         }
-    }
-}
-
-private struct HomeFastingWidget: View {
-    let lifeOSStore: HomeLifeOSProjectionStore
-    let palette: DaypartPalette
-    let onOpen: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Button(action: onOpen) {
-                VStack(alignment: .leading, spacing: 14) {
-                    HomeWidgetTitle("Active fast", symbol: "timer", palette: palette)
-                        .accessibilityIdentifier("home.widget.fasting")
-                    if let fast = lifeOSStore.activeFast {
-                        TimelineView(.periodic(from: .now, by: 1)) { context in
-                            let elapsed = fast.elapsed(at: context.date)
-                            let progress = fast.targetDuration.map { $0 > 0 ? min(1, elapsed / $0) : 0.25 } ?? 0.25
-                            HStack(spacing: 18) {
-                                ZStack {
-                                    Circle()
-                                        .stroke(palette.color(for: .canvasSecondary), lineWidth: 8)
-                                    Circle()
-                                        .trim(from: 0, to: max(0.025, progress))
-                                        .stroke(
-                                            palette.color(for: .celestialCore),
-                                            style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                                        )
-                                        .rotationEffect(.degrees(-90))
-                                        .lifeboardFastingEmberRing(
-                                            progress: progress,
-                                            tint: palette.color(for: .celestialCore)
-                                        )
-                                }
-                                .frame(width: 86, height: 86)
-                                .accessibilityHidden(true)
-
-                                VStack(alignment: .leading, spacing: 5) {
-                                    Text(HomeSectionCopy.duration(elapsed))
-                                        .font(.system(.title2, design: .rounded, weight: .bold).monospacedDigit())
-                                    Text(fast.targetDuration.map {
-                                        elapsed >= $0
-                                            ? "Planned duration reached"
-                                            : "\(HomeSectionCopy.duration($0 - elapsed)) until your planned finish"
-                                    } ?? "End whenever it feels right")
-                                        .font(.caption)
-                                        .foregroundStyle(palette.color(for: .foregroundSecondary))
-                                        .fixedSize(horizontal: false, vertical: true)
-                                }
-                            }
-                            .accessibilityElement(children: .combine)
-                            .accessibilityLabel("Active fast")
-                            .accessibilityValue("\(HomeSectionCopy.duration(elapsed)) elapsed")
-                        }
-                    } else {
-                        HomeEmptyStateRow("No fast is active", symbol: "checkmark.circle", palette: palette)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-
-            if lifeOSStore.activeFast != nil {
-                HStack(spacing: 10) {
-                    Button("End fast") {
-                        Task { await lifeOSStore.endActiveFast() }
-                    }
-                    .buttonStyle(PrimaryActionStyle(fill: palette.color(for: .foreground)))
-                    Button("View details", action: onOpen)
-                        .buttonStyle(.bordered)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-            } else {
-                Button("Start a fast", action: onOpen)
-                    .font(.subheadline.weight(.semibold))
-                    .frame(minHeight: 44)
-            }
-        }
-        .padding(16)
-        .lifeBoardRaisedClayCard(palette: palette)
     }
 }
 
@@ -4819,9 +4748,9 @@ public struct ReferenceDashboard: View {
                 } label: {
                     HStack(spacing: 6) {
                         Text("Smart")
-                            .font(.system(size: 22, weight: .semibold))
+                            .lifeboardFont(.title1)
                         Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
+                            .lifeboardFont(.eyebrow)
                     }
                     .foregroundStyle(palette.color(for: .foreground))
                 }
@@ -4831,7 +4760,7 @@ public struct ReferenceDashboard: View {
 
                 Button {} label: {
                     Image(systemName: "square.grid.2x2")
-                        .font(.system(size: 20, weight: .medium))
+                        .lifeboardFont(.sectionTitle)
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
@@ -5036,7 +4965,7 @@ private struct ReferenceMetricRing: View {
             .rotationEffect(.degrees(90))
             .overlay {
                 Text(value)
-                    .font(.system(size: 11, weight: .semibold))
+                    .lifeboardFont(.eyebrow)
                     .foregroundStyle(palette.color(for: .foreground))
             }
             .frame(width: 60, height: 60)
@@ -5057,7 +4986,7 @@ private struct ReferenceSectionHeader: View {
             Text(title)
                 .font(Typography.sectionTitle())
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .lifeboardFont(.buttonSmall)
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
             Spacer()
             if showsAdd {
@@ -5078,7 +5007,7 @@ private struct ReferenceMedicationCard: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
-                .font(.system(size: 22, weight: .medium))
+                .lifeboardFont(.title1)
                 .foregroundStyle(palette.color(for: .layerOne))
                 .frame(width: 34)
             VStack(alignment: .leading, spacing: 3) {
@@ -5125,7 +5054,7 @@ private struct ReferenceHabitCard: View {
     var body: some View {
         VStack(spacing: 9) {
             Image(systemName: symbol)
-                .font(.system(size: 22, weight: .medium))
+                .lifeboardFont(.title1)
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
             Text(title)
                 .font(.caption.weight(.medium))

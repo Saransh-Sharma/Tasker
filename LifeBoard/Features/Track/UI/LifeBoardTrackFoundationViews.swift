@@ -231,7 +231,7 @@ struct TrackFoundationRootView: View {
             // A running fast is time-sensitive, so it earns a place in Today.
             // When nothing is running it stays in Body rather than adding a
             // permanent empty module to the day.
-            if activeFast != nil { fastingModule }
+            if activeFast != nil { fastingModule(isHero: true) }
             TrackTodayRoutinesSection(store: store)
             TrackCareSnapshotSection(
                 store: store,
@@ -252,7 +252,7 @@ struct TrackFoundationRootView: View {
                 onOpenHabitBoard: onOpenHabitBoard,
                 onOpenHealth: onOpenHealth
             )
-            if activeFast == nil { fastingModule }
+            if activeFast == nil { fastingModule(isHero: false) }
             TrackMindCareSection(
                 store: store,
                 showsMood: $showsMood,
@@ -292,14 +292,20 @@ struct TrackFoundationRootView: View {
         }
     }
 
-    private var fastingModule: TrackFastingSection {
+    /// - Parameter isHero: whether this lens has nominated fasting as its one
+    ///   hero. Only Today does, and only while a fast is actually running: in
+    ///   Areas the module is a resting entry point among several peers, and
+    ///   giving it glass there would make an idle timer the loudest thing on a
+    ///   screen about routines, goals and body care.
+    private func fastingModule(isHero: Bool) -> TrackFastingSection {
         TrackFastingSection(
             fastingTimerStore: fastingTimerStore,
             sessions: fastingSessions,
             fastingError: $fastingError,
             showsFastingComposer: $showsFastingComposer,
             showsFastingHistory: $showsFastingHistory,
-            reloadFasting: { await reloadFasting() }
+            reloadFasting: { await reloadFasting() },
+            isHero: isHero
         )
     }
 }
@@ -308,34 +314,6 @@ struct TrackFoundationRootView: View {
 //
 // These are the pieces more than one module draws. They are structs for the
 // same stack-budget reason as the modules themselves — see `categoryContent`.
-
-private struct TrackSectionHeader<Trailing: View>: View {
-    private let title: String
-    private let symbol: String
-    private let trailing: () -> Trailing
-
-    init(_ title: String, symbol: String, @ViewBuilder trailing: @escaping () -> Trailing) {
-        self.title = title
-        self.symbol = symbol
-        self.trailing = trailing
-    }
-
-    var body: some View {
-        HStack {
-            Label(title, systemImage: symbol).font(Typography.sectionTitle())
-            Spacer()
-            trailing()
-        }
-        .padding(.top, 6)
-        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-    }
-}
-
-extension TrackSectionHeader where Trailing == EmptyView {
-    init(_ title: String, symbol: String) {
-        self.init(title, symbol: symbol) { EmptyView() }
-    }
-}
 
 private struct TrackEmptyStateRow: View {
     private let title: String
@@ -351,7 +329,7 @@ private struct TrackEmptyStateRow: View {
     var body: some View {
         HStack(spacing: 14) {
             Image(systemName: symbol).font(.title2).foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.headline)
                 Text(detail).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
@@ -379,7 +357,7 @@ private struct TrackModuleRow: View {
     private var rowBody: some View {
         HStack(spacing: 14) {
             Image(systemName: symbol).font(.title3).frame(width: 28).foregroundStyle(Color(SemanticColorTokens.foundationFocusRing))
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.headline)
                 Text(detail).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
@@ -451,7 +429,7 @@ private struct TrackHistoryRow: View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
                 .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(title).font(.body.weight(.medium))
                 Text(detail)
                     .font(.caption)
@@ -460,7 +438,7 @@ private struct TrackHistoryRow: View {
             }
             Spacer()
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, 8)
         .accessibilityElement(children: .combine)
     }
 }
@@ -519,7 +497,7 @@ private struct TrackHydrationHistoryRow: View {
         let amount = HydrationMeasurementService.milliliters(log.amount, unit: log.unit)
         HStack(spacing: 12) {
             Image(systemName: "drop.fill").foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("\(Int(amount)) ml").font(.body.weight(.medium))
                 Text(log.timestamp.formatted(date: .omitted, time: .shortened) + (log.correctedAt == nil ? "" : " · corrected"))
                     .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -536,7 +514,7 @@ private struct TrackHydrationHistoryRow: View {
                 Button("Delete entry", systemImage: "trash", role: .destructive) { Task { await store.deleteHydration(log) } }
             } label: { Image(systemName: "ellipsis.circle") }
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, 8)
         .accessibilityIdentifier("track.hydration.history.\(log.id.uuidString)")
     }
 }
@@ -550,7 +528,7 @@ private struct TrackSleepHistoryRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "moon.zzz").foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text("\(record.bedtime.formatted(date: .abbreviated, time: .shortened))–\(record.wakeTime.formatted(date: .omitted, time: .shortened))")
                     .font(.body.weight(.medium))
                 Text(record.perceivedRest.map { "Rest \($0)/5 · \(record.interruptionCount) interruptions" } ?? "\(record.interruptionCount) interruptions")
@@ -575,7 +553,7 @@ private struct TrackSleepHistoryRow: View {
             }
             .accessibilityLabel("Actions for sleep context")
         }
-        .padding(.vertical, 7)
+        .padding(.vertical, 8)
         .privacySensitive()
     }
 }
@@ -586,6 +564,28 @@ private struct TrackQuickLogButton: View {
     let symbol: String
     let identifier: String
     let action: () -> Void
+
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    /// Opaque under Reduce Transparency, with the same geometry. Glass is the
+    /// enhancement; the capture affordance is not.
+    @ViewBuilder
+    private var quickLogSurface: some View {
+        if reduceTransparency {
+            RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                .fill(Color.lifeboard(.bgElevated))
+                .overlay(
+                    RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                        .stroke(Color.lifeboard(.strokeStrong), lineWidth: 1)
+                )
+        } else {
+            Color.clear.lifeBoardSystemGlass(
+                .regular,
+                in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous),
+                interactive: true
+            )
+        }
+    }
 
     var body: some View {
         Button {
@@ -609,12 +609,17 @@ private struct TrackQuickLogButton: View {
                         .lineLimit(1)
                 }
             }
-            .padding(.horizontal, 13)
-            .frame(minHeight: 54)
-            .lifeBoardClaySurface(.well, cornerRadius: 16)
-            .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+            .padding(.horizontal, 12)
+            .frame(minHeight: 56)
+            // Glass, because a quick-log button is a control rather than
+            // content — it captures rather than reports. `DESIGN.md` reserves
+            // the control layer for exactly this, and it is what separates the
+            // strip from the recorded cards below it.
+            .background { quickLogSurface }
+            .contentShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
         }
         .buttonStyle(.plain)
+        .lifeBoardPressResponse(.control, haptic: nil)
         .accessibilityIdentifier(identifier)
     }
 }
@@ -649,8 +654,9 @@ private struct TrackHabitQualitySummary: View {
         }
         .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
         .padding(12)
-        .lifeBoardClaySurface(.raised, cornerRadius: 16)
-        .overlay { RoundedRectangle(cornerRadius: 16).stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1) }
+        // `ClaySurfaceModifier` strokes the hairline itself. The overlay that
+        // used to follow this line drew a second one on the same boundary.
+        .lifeBoardClaySurface(.raised)
     }
 }
 
@@ -670,7 +676,7 @@ private struct TrackMoodTrendView: View {
         case let .ready(summary):
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .firstTextBaseline) {
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("30-day rhythm").font(.headline)
                         Text(TrackSectionCopy.moodTrendDescription(summary))
                             .font(.caption)
@@ -696,7 +702,7 @@ private struct TrackMoodTrendView: View {
 // the same date-window or label logic being pasted into each section struct.
 
 @MainActor
-private enum TrackSectionCopy {
+enum TrackSectionCopy {
     static func careGridColumns(_ dynamicTypeSize: DynamicTypeSize) -> [GridItem] {
         if dynamicTypeSize.isAccessibilitySize {
             return [GridItem(.flexible(), spacing: 12)]
@@ -830,18 +836,46 @@ private func trackOfferHealthConnect() async {
 
 // MARK: - Track modules
 
+/// The greeting, with the day's position beside it.
+///
+/// Track is where a person records what their day was actually like, so which
+/// part of the day it is now is load-bearing context rather than decoration.
+/// `CelestialDaypartIndicator` answers it with the same sun and moon artwork the
+/// scenic backdrop uses — `CelestialDawn` through `CelestialNight` — riding an
+/// arc at the height the real clock has reached.
+///
+/// The scenic celestial behind the header is deliberately anchored away from the
+/// reading column so it never sits behind the greeting, which means the backdrop
+/// alone cannot answer "how much of the day is left". This can, at a glance, and
+/// it carries a VoiceOver description the backdrop does not.
 private struct TrackHeaderSection: View {
     @Environment(PresentationPreferences.self) private var preferences
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let palette = DaypartTokens.palette(for: preferences.resolvedDaypart())
-        VStack(alignment: .leading, spacing: 6) {
-            Text(TrackSectionCopy.daypartTitle(preferences))
-                .font(Typography.screenTitle())
-                .foregroundStyle(palette.color(for: .foreground))
-            Text("What would feel useful to record?")
-                .font(Typography.body())
-                .foregroundStyle(palette.color(for: .foregroundSecondary))
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 12))
+            : AnyLayout(HStackLayout(alignment: .top, spacing: 16))
+
+        layout {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(TrackSectionCopy.daypartTitle(preferences))
+                    .font(Typography.screenTitle())
+                    .foregroundStyle(palette.color(for: .foreground))
+                Text("What would feel useful to record?")
+                    .font(Typography.body())
+                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            // Below the greeting at accessibility sizes rather than shrunk
+            // beside it: `DESIGN.md` forbids shrinking to preserve a one-line
+            // layout, and an arc this small stops being readable before the
+            // text does.
+            CelestialDaypartIndicator()
+                .frame(width: dynamicTypeSize.isAccessibilitySize ? 132 : 96, height: 52)
+                .accessibilityIdentifier("track.header.daypart")
         }
         .padding(.top, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -926,8 +960,8 @@ private struct TrackQuickLogStrip: View {
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
             }
-            .padding(.horizontal, 13)
-            .frame(minHeight: 54)
+            .padding(.horizontal, 12)
+            .frame(minHeight: 56)
             .lifeBoardClaySurface(.well, cornerRadius: 16)
             .contentShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         }
@@ -947,7 +981,7 @@ private struct TrackDueAndUnresolvedSection: View {
             // `LazyVStack(spacing: 16)`. Now that it is one child, the spacing
             // has to be restated here to look the same.
             VStack(spacing: 16) {
-                TrackSectionHeader("Needs a decision", symbol: "exclamationmark.circle")
+                SectionHeader("Needs a decision", symbol: "exclamationmark.circle")
                 ForEach(store.snapshot.unresolvedMedicationEvents) { event in
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
@@ -1045,361 +1079,12 @@ private struct TrackHealthSummarySection: View {
 
 /// Fasting as a first-class Track module. Leads with the running timer
 /// when there is one, because that is the only state that is time-sensitive.
-private struct TrackFastingSection: View {
-    let fastingTimerStore: FastingTimerStore
-    let sessions: [FastingSessionValue]
-    @Binding var fastingError: String?
-    @Binding var showsFastingComposer: Bool
-    @Binding var showsFastingHistory: Bool
-    let reloadFasting: () async -> Void
-
-    private var activeFast: FastingSessionValue? {
-        sessions.first { $0.endedAt == nil }
-    }
-
-    var body: some View {
-        VStack(spacing: 12) {
-            TrackSectionHeader("Fasting", symbol: "timer")
-
-            VStack(alignment: .leading, spacing: 12) {
-                if let activeFast {
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        let elapsed = max(0, activeFast.elapsed(at: context.date))
-                        HStack(spacing: 14) {
-                            let fraction = activeFast.targetDuration.map { target in
-                                target > 0 ? min(1, elapsed / target) : 0
-                            } ?? 0
-                            ProgressRing(
-                                fraction: fraction,
-                                tint: Color(SemanticColorTokens.foundationSunAccent),
-                                trackTint: Color(SemanticColorTokens.foundationSurfaceRecessed),
-                                lineWidth: 7
-                            )
-                            .frame(width: 56, height: 56)
-                            .lifeboardFastingEmberRing(
-                                progress: fraction,
-                                tint: Color(SemanticColorTokens.foundationSunAccent)
-                            )
-
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(TrackSectionCopy.fastingClock(elapsed))
-                                    .font(Typography.sectionTitle().weight(.bold))
-                                    .monospacedDigit()
-                                Text(
-                                    activeFast.targetDuration
-                                        .map { "Target \(Int($0 / 3_600))h" } ?? "No target set"
-                                )
-                                .font(.caption)
-                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                            }
-                            Spacer(minLength: 0)
-                        }
-                    }
-
-                    HStack(spacing: 10) {
-                        Button("Finish") {
-                            Task {
-                                _ = try? await fastingTimerStore.finish()
-                                await reloadFasting()
-                            }
-                        }
-                        .buttonStyle(.lifeBoardPrimary)
-                        Button("Cancel fast") {
-                            Task {
-                                _ = try? await fastingTimerStore.cancel()
-                                await reloadFasting()
-                            }
-                        }
-                        .buttonStyle(.lifeBoardChip)
-                    }
-                    .frame(minHeight: 44)
-                } else {
-                    Text("No fast is running.")
-                        .font(.subheadline)
-                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                    Button("Start a fast") { showsFastingComposer = true }
-                        .buttonStyle(.lifeBoardPrimary)
-                }
-
-                if let fastingError {
-                    Text(fastingError)
-                        .font(.caption)
-                        .foregroundStyle(Color(SemanticColorTokens.foundationDanger))
-                }
-
-                if sessions.contains(where: { $0.endedAt != nil }) {
-                    Divider()
-                    Button {
-                        showsFastingHistory = true
-                    } label: {
-                        HStack {
-                            Text("Fasting history")
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.caption.weight(.semibold))
-                        }
-                        .frame(minHeight: 44)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .lifeBoardClaySurface(.raised, cornerRadius: 20)
-            .accessibilityIdentifier("track.fasting")
-        }
-    }
-}
-
-/// Focused fasting destination used by Home and URL deep links. The Track root
-/// keeps its compact module, while this surface owns the complete lifecycle and
-/// history so a card never has to drop the person on a generic overview.
-struct FastingDestinationView: View {
-    private let store: FastingTimerStore
-    @State private var sessions: [FastingSessionValue] = []
-    @State private var showsComposer = false
-    @State private var confirmsCancellation = false
-    @State private var errorMessage: String?
-    @State private var finishedUndoSession: FastingSessionValue?
-    @State private var correctionReceipts: [UUID: FastingSessionMutationReceipt] = [:]
-
-    init(repository: any FastingSessionRepository) {
-        store = FastingTimerStore(repository: repository)
-    }
-
-    private var activeFast: FastingSessionValue? {
-        sessions.first { $0.endedAt == nil }
-    }
-
-    private var finishedSessions: [FastingSessionValue] {
-        sessions.filter { $0.endedAt != nil }.sorted { $0.startedAt > $1.startedAt }
-    }
-
-    var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 18) {
-                statusSection
-                historySection
-            }
-            .padding(20)
-        }
-        .background { GrainedCanvas() }
-        .navigationTitle("Fasting")
-        .navigationBarTitleDisplayMode(.inline)
-        .task { await reload() }
-        .refreshable { await reload() }
-        .sheet(isPresented: $showsComposer) {
-            FastingComposer { target, reminders in
-                Task {
-                    do {
-                        _ = try await store.start(targetDuration: target, reminderOffsets: reminders)
-                        await reload()
-                    } catch {
-                        errorMessage = error.localizedDescription
-                    }
-                }
-            }
-        }
-        .confirmationDialog("Cancel this fast?", isPresented: $confirmsCancellation) {
-            Button("Cancel fast", role: .destructive) { Task { await cancel() } }
-            Button("Keep fasting", role: .cancel) {}
-        } message: {
-            Text("The session remains in history as cancelled.")
-        }
-        .alert("Fasting needs attention", isPresented: Binding(
-            get: { errorMessage != nil },
-            set: { if !$0 { errorMessage = nil } }
-        )) { Button("OK", role: .cancel) {} } message: { Text(errorMessage ?? "") }
-    }
-
-    private var statusSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Current session").font(Typography.sectionTitle())
-            if let activeFast {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let elapsed = max(0, activeFast.elapsed(at: context.date))
-                    let progress = activeFast.targetDuration.map { $0 > 0 ? min(1, elapsed / $0) : 0 } ?? 0
-                    HStack(spacing: 16) {
-                        ProgressRing(
-                            fraction: progress,
-                            tint: Color(SemanticColorTokens.foundationSunAccent),
-                            trackTint: Color(SemanticColorTokens.foundationSurfaceRecessed),
-                            lineWidth: 8
-                        )
-                        .frame(width: 76, height: 76)
-                        .lifeboardFastingEmberRing(progress: progress, tint: Color(SemanticColorTokens.foundationSunAccent))
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(TrackSectionCopy.fastingClock(elapsed))
-                                .font(.system(.title2, design: .rounded, weight: .bold))
-                                .monospacedDigit()
-                            Text(activeFast.targetDuration.map { "Your target: \(Int($0 / 3_600)) hours" } ?? "No target set")
-                                .font(.caption)
-                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                        }
-                        Spacer(minLength: 0)
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Active fast")
-                    .accessibilityValue("\(TrackSectionCopy.fastingClock(elapsed)) elapsed")
-                }
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 10) { finishButton; cancelButton }
-                    VStack(alignment: .leading, spacing: 10) { finishButton; cancelButton }
-                }
-            } else {
-                ContentUnavailableView(
-                    "No fast is running",
-                    systemImage: "timer",
-                    description: Text("Start a neutral timer with an optional target you choose.")
-                )
-                Button("Start a fast") { showsComposer = true }
-                    .buttonStyle(.lifeBoardPrimary)
-                    .accessibilityIdentifier("fasting.start")
-            }
-        }
-        .padding(18)
-        .lifeBoardClaySurface(.raised, cornerRadius: 22)
-    }
-
-    private var finishButton: some View {
-        Button("Finish fast") { Task { await finish() } }
-            .buttonStyle(.lifeBoardPrimary)
-            .accessibilityIdentifier("fasting.finish")
-    }
-
-    private var cancelButton: some View {
-        Button("Cancel fast", role: .destructive) { confirmsCancellation = true }
-            .buttonStyle(.lifeBoardChip)
-            .accessibilityIdentifier("fasting.cancel")
-    }
-
-    @ViewBuilder
-    private var historySection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("History").font(Typography.sectionTitle())
-                Spacer()
-                if finishedUndoSession != nil {
-                    Button("Undo finish") { Task { await undoFinish() } }
-                        .font(.subheadline.weight(.semibold))
-                        .frame(minHeight: 44)
-                }
-            }
-            if finishedSessions.isEmpty {
-                Text("Finished and cancelled sessions will appear here.")
-                    .font(.subheadline)
-                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-            } else {
-                ForEach(finishedSessions) { session in
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(session.startedAt.formatted(date: .abbreviated, time: .shortened))
-                                .font(.body.weight(.medium))
-                            Text("\(durationText(session)) · \(completionTitle(session.completionKind))")
-                                .font(.caption)
-                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                            if let note = session.note { Text(note).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary)) }
-                        }
-                        Spacer(minLength: 8)
-                        Menu {
-                            Button("Start 15 minutes earlier") { Task { await correct(session, startDelta: -900, endDelta: 0) } }
-                            Button("Start 15 minutes later") { Task { await correct(session, startDelta: 900, endDelta: 0) } }
-                            Button("End 15 minutes earlier") { Task { await correct(session, startDelta: 0, endDelta: -900) } }
-                            Button("End 15 minutes later") { Task { await correct(session, startDelta: 0, endDelta: 900) } }
-                            if correctionReceipts[session.id] != nil {
-                                Button("Undo last correction", systemImage: "arrow.uturn.backward") { Task { await undoCorrection(for: session.id) } }
-                            }
-                        } label: {
-                            Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
-                        }
-                        .accessibilityLabel("Correct fasting session")
-                    }
-                    .padding(14)
-                    .lifeBoardClaySurface(.resting, cornerRadius: 18)
-                    .accessibilityElement(children: .contain)
-                }
-            }
-        }
-    }
-
-    private func reload() async {
-        do {
-            sessions = try await store.sessions(limit: 60)
-            errorMessage = nil
-        } catch { errorMessage = error.localizedDescription }
-    }
-
-    private func finish() async {
-        do {
-            finishedUndoSession = activeFast
-            _ = try await store.finish()
-            await reload()
-        } catch { errorMessage = error.localizedDescription }
-    }
-
-    private func cancel() async {
-        do {
-            _ = try await store.cancel()
-            finishedUndoSession = nil
-            await reload()
-        } catch { errorMessage = error.localizedDescription }
-    }
-
-    private func undoFinish() async {
-        guard let session = finishedUndoSession else { return }
-        do {
-            _ = try await store.correct(
-                sessionID: session.id,
-                startedAt: session.startedAt,
-                endedAt: nil,
-                targetDuration: session.targetDuration,
-                note: session.note
-            )
-            finishedUndoSession = nil
-            await reload()
-        } catch { errorMessage = error.localizedDescription }
-    }
-
-    private func correct(_ session: FastingSessionValue, startDelta: TimeInterval, endDelta: TimeInterval) async {
-        guard let endedAt = session.endedAt else { return }
-        do {
-            let receipt = try await store.correctWithReceipt(
-                sessionID: session.id,
-                startedAt: session.startedAt.addingTimeInterval(startDelta),
-                endedAt: endedAt.addingTimeInterval(endDelta),
-                targetDuration: session.targetDuration,
-                note: session.note
-            )
-            correctionReceipts[session.id] = receipt
-            await reload()
-        } catch { errorMessage = error.localizedDescription }
-    }
-
-    private func undoCorrection(for sessionID: UUID) async {
-        guard let receipt = correctionReceipts[sessionID] else { return }
-        do {
-            try await store.undo(receipt)
-            correctionReceipts[sessionID] = nil
-            await reload()
-        } catch { errorMessage = error.localizedDescription }
-    }
-
-    private func durationText(_ session: FastingSessionValue) -> String {
-        let minutes = max(0, Int(session.elapsed() / 60))
-        return minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
-    }
-
-    private func completionTitle(_ kind: FastingCompletionKind?) -> String {
-        switch kind {
-        case .planned: "Completed"
-        case .early: "Ended early"
-        case .cancelled: "Cancelled"
-        case .corrected: "Corrected"
-        case nil: "Recorded"
-        }
-    }
-}
-
+/// Hero glass when this lens nominated fasting, raised clay otherwise.
+///
+/// A `ViewModifier` rather than an `if` around the whole card body: branching on
+/// the material inside the view would give SwiftUI two structurally different
+/// subtrees, and the running timer's `TimelineView` would be torn down and
+/// rebuilt — restarting the ember ring — every time the nomination changed.
 private struct TrackTodayRoutinesSection: View {
     let store: TrackFoundationStore
 
@@ -1407,14 +1092,14 @@ private struct TrackTodayRoutinesSection: View {
         if store.snapshot.dueRoutines.isEmpty == false {
             // See `TrackDueAndUnresolvedSection` on why this is 16.
             VStack(spacing: 16) {
-                TrackSectionHeader("Useful today", symbol: "sun.max")
+                SectionHeader("Useful today", symbol: "sun.max")
                 ForEach(store.snapshot.dueRoutines) { routine in
                     Button { Task { await store.startRoutine(routine) } } label: {
                         HStack(spacing: 14) {
                             Image(systemName: "play.circle.fill")
                                 .font(.title2)
                                 .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
-                            VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(routine.title).font(.headline)
                                 Text("\(routine.steps.count) calm steps")
                                     .font(.caption)
@@ -1444,7 +1129,7 @@ private struct TrackCareSnapshotSection: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            TrackSectionHeader("Care snapshot", symbol: "heart.text.square")
+            SectionHeader("Care snapshot", symbol: "heart.text.square")
             TrackHydrationTile(store: store, showsHydrationTarget: $showsHydrationTarget)
             LazyVGrid(columns: TrackSectionCopy.careGridColumns(dynamicTypeSize), spacing: 12) {
                 TrackCareTile(title: "Mood + energy", value: TrackSectionCopy.latestMood(store), symbol: "face.smiling") {
@@ -1481,7 +1166,7 @@ private struct TrackBodyCareSection: View {
         let hydrationHistory = TrackSectionCopy.hydrationHistory(store, days: careHistoryDays)
         let sleepHistory = TrackSectionCopy.sleepHistory(store, days: careHistoryDays)
         VStack(spacing: 12) {
-            TrackSectionHeader("Body", symbol: "heart.text.square")
+            SectionHeader("Body", symbol: "heart.text.square")
             TrackHydrationTile(store: store, showsHydrationTarget: $showsHydrationTarget)
             LazyVGrid(columns: TrackSectionCopy.careGridColumns(dynamicTypeSize), spacing: 12) {
                 TrackBehaviorAreaLink(
@@ -1507,11 +1192,11 @@ private struct TrackBodyCareSection: View {
                 )
             }
             if !hydrationHistory.isEmpty {
-                TrackSectionHeader("Hydration history", symbol: "drop")
+                SectionHeader("Hydration history", symbol: "drop")
                 ForEach(hydrationHistory) { TrackHydrationHistoryRow(store: store, log: $0) }
             }
             if !sleepHistory.isEmpty {
-                TrackSectionHeader("Recent sleep context", symbol: "moon.zzz")
+                SectionHeader("Recent sleep context", symbol: "moon.zzz")
                 ForEach(sleepHistory) { record in
                     TrackSleepHistoryRow(
                         store: store,
@@ -1538,18 +1223,18 @@ private struct TrackMindCareSection: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            TrackSectionHeader("Mind", symbol: "brain.head.profile")
+            SectionHeader("Mind", symbol: "brain.head.profile")
             TrackCareTile(title: "Mood + energy", value: TrackSectionCopy.latestMood(store), symbol: "face.smiling") {
                 editingMood = nil
                 showsMood = true
             }
             TrackMoodTrendView(store: store)
             if !store.checkIns.isEmpty {
-                TrackSectionHeader("Recent check-ins", symbol: "clock.arrow.circlepath")
+                SectionHeader("Recent check-ins", symbol: "clock.arrow.circlepath")
                 ForEach(Array(store.checkIns.prefix(8)), id: \.id) { checkIn in
                     HStack(spacing: 12) {
                         Image(systemName: "face.smiling").foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
-                        VStack(alignment: .leading, spacing: 3) {
+                        VStack(alignment: .leading, spacing: 4) {
                             Text(checkIn.mood.title).font(.body.weight(.medium))
                             Text(TrackSectionCopy.moodCheckInDetail(checkIn))
                                 .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -1594,7 +1279,7 @@ private struct TrackRoutinesAndHabitsSection: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            TrackSectionHeader("Current daypart", symbol: TrackSectionCopy.daypartSymbol(preferences), trailing: {
+            SectionHeader("Current daypart", symbol: TrackSectionCopy.daypartSymbol(preferences), trailing: {
                 Button { editingRoutine = nil; showsRoutineComposer = true } label: { Image(systemName: "plus") }
                     .accessibilityLabel("Create routine")
             })
@@ -1606,7 +1291,7 @@ private struct TrackRoutinesAndHabitsSection: View {
                     Button { Task { await store.startRoutine(routine) } } label: {
                         HStack(spacing: 14) {
                             Image(systemName: "play.circle.fill").font(.title2).foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
-                            VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(routine.title).font(.headline)
                                 Text("\(routine.steps.count) calm steps · version \(routine.version)")
                                     .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -1656,7 +1341,7 @@ private struct TrackRoutinesAndHabitsSection: View {
                 HStack(spacing: 12) {
                     Image(systemName: "shield.lefthalf.filled")
                         .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text("Resilience settings").font(.headline)
                         Text("Choose intentional off days, recovery, and how streaks are framed.")
                             .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -1687,7 +1372,7 @@ private struct TrackGoalsSection: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            TrackSectionHeader("Goals and progress", symbol: "target", trailing: {
+            SectionHeader("Goals and progress", symbol: "target", trailing: {
                 Button { editingGoal = nil; showsGoal = true } label: { Image(systemName: "plus") }.accessibilityLabel("Add goal")
             })
             if store.definitions.isEmpty {
@@ -1697,7 +1382,7 @@ private struct TrackGoalsSection: View {
                     let progress = store.snapshot.goals.first(where: { $0.goalID == goal.id })
                     VStack(alignment: .leading, spacing: 10) {
                         HStack {
-                            VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(goal.title).font(.headline)
                                 Text("\(goal.effectiveIntent.rawValue.capitalized) · \(goal.effectiveStatus.rawValue.capitalized)")
                                     .font(.caption)
@@ -1774,13 +1459,13 @@ private struct TrackModulesSection: View {
 
     var body: some View {
         VStack(spacing: 12) {
-            TrackSectionHeader("Explore and reflect", symbol: "square.grid.2x2")
+            SectionHeader("Explore and reflect", symbol: "square.grid.2x2")
             Button { showsStarterPacks = true } label: { TrackModuleRow("Starter packs", detail: "Preview before creating anything", symbol: "shippingbox") }
                 .buttonStyle(.plain)
             ForEach(store.starterPackInstallations.filter { $0.removedAt == nil }) { installation in
                 HStack(spacing: 12) {
                     Image(systemName: "shippingbox.fill").foregroundStyle(Color(SemanticColorTokens.foundationFocusRing))
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(TrackSectionCopy.starterPackTitle(installation.pack)).font(.headline)
                         Text("Installed · history stays if removed")
                             .font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -1860,11 +1545,11 @@ private struct TrackHistorySection: View {
                 )
             } else {
                 if hydrationHistory.isEmpty == false {
-                    TrackSectionHeader("Hydration", symbol: "drop")
+                    SectionHeader("Hydration", symbol: "drop")
                     ForEach(hydrationHistory) { TrackHydrationHistoryRow(store: store, log: $0) }
                 }
                 if sleepHistory.isEmpty == false {
-                    TrackSectionHeader("Sleep context", symbol: "moon.zzz")
+                    SectionHeader("Sleep context", symbol: "moon.zzz")
                     ForEach(sleepHistory) { record in
                         TrackSleepHistoryRow(
                             store: store,
@@ -1875,12 +1560,12 @@ private struct TrackHistorySection: View {
                     }
                 }
                 if store.checkIns.isEmpty == false {
-                    TrackSectionHeader("Mind check-ins", symbol: "face.smiling")
+                    SectionHeader("Mind check-ins", symbol: "face.smiling")
                     ForEach(Array(store.checkIns.prefix(12)), id: \.id) { checkIn in
                         HStack(spacing: 12) {
                             Image(systemName: "face.smiling")
                                 .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
-                            VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(checkIn.mood.title).font(.body.weight(.medium))
                                 Text(TrackSectionCopy.moodCheckInDetail(checkIn))
                                     .font(.caption)
@@ -1888,14 +1573,14 @@ private struct TrackHistorySection: View {
                             }
                             Spacer()
                         }
-                        .padding(.vertical, 7)
+                        .padding(.vertical, 8)
                     }
                 }
                 // History used to stop at hydration, sleep and mood, which
                 // made it read as a care log rather than a record of the
                 // whole tracked life.
                 if fastingHistory.isEmpty == false {
-                    TrackSectionHeader("Fasting", symbol: "timer")
+                    SectionHeader("Fasting", symbol: "timer")
                     ForEach(fastingHistory) { session in
                         TrackHistoryRow(
                             symbol: "timer",
@@ -1905,7 +1590,7 @@ private struct TrackHistorySection: View {
                     }
                 }
                 if routineHistory.isEmpty == false {
-                    TrackSectionHeader("Routines", symbol: "repeat")
+                    SectionHeader("Routines", symbol: "repeat")
                     ForEach(routineHistory) { run in
                         TrackHistoryRow(
                             symbol: "repeat",
@@ -1915,7 +1600,7 @@ private struct TrackHistorySection: View {
                     }
                 }
                 if store.snapshot.goals.isEmpty == false {
-                    TrackSectionHeader("Goals", symbol: "target")
+                    SectionHeader("Goals", symbol: "target")
                     ForEach(store.snapshot.goals, id: \.goalID) { goal in
                         TrackHistoryRow(
                             symbol: "target",
@@ -2102,7 +1787,7 @@ private struct TrackDestructiveDialogs: ViewModifier {
                     }
                     .padding(.horizontal, 16)
                     .padding(.vertical, 8)
-                    .background(.regularMaterial, in: Capsule())
+                    .lifeBoardClaySurface(.floating, cornerRadius: Radius.pill)
                     .padding(.horizontal, 20)
                     .accessibilityElement(children: .contain)
                 }
@@ -2267,7 +1952,7 @@ struct GoalsDestinationView: View {
                     .frame(minHeight: 44)
                 }
                 .padding(.horizontal, 16)
-                .background(.regularMaterial, in: Capsule())
+                .lifeBoardClaySurface(.floating, cornerRadius: Radius.pill)
                 .padding(.horizontal, 20)
             }
         }
@@ -3016,7 +2701,7 @@ private struct HydrationSelectionOrb: View {
                 .inset(by: 7)
                 .stroke(Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.42), lineWidth: 1)
 
-            VStack(spacing: 3) {
+            VStack(spacing: 4) {
                 Image(systemName: "drop.fill")
                     .font(.body.weight(.semibold))
                 Text("\(Int(amount))")
@@ -3045,7 +2730,7 @@ private struct HydrationSelectionOrb: View {
             guard transitions?.claimOneShot(key) == true else { return }
             targetCrossedTrigger &+= 1
         }
-        .lifeBoardClaySurface(.raised, cornerRadius: 87)
+        .lifeBoardClaySurface(.raised, cornerRadius: Radius.pill)
         .scaleEffect(reduceMotion ? 1 : 1.0)
         .lifeBoardMotion(.controlMorph, value: level)
         .lifeboardClayPressBloom(
@@ -3465,7 +3150,7 @@ private struct HabitResilienceLibrary: View {
                                     NavigationLink {
                                         HabitGroupEditor(group: group, nextOrdinal: group.ordinal, save: saveGroup)
                                     } label: {
-                                        VStack(alignment: .leading, spacing: 3) {
+                                        VStack(alignment: .leading, spacing: 4) {
                                             Text(group.title)
                                             Text(group.planningContext.rawValue.capitalized)
                                                 .font(.caption)
@@ -3946,7 +3631,7 @@ private struct HabitResilienceEditor: View {
         let receipt = recoveryReceipts.first(where: { $0.day == occurrence.day })
         let isRecovered = receipt != nil && occurrence.resolution == .completed
         HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: 4) {
                 Text(exceptionTitle(occurrence.day))
                     .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 Text(historyStatus(occurrence, recovered: isRecovered))
