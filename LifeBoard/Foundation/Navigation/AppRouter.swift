@@ -1,6 +1,17 @@
 import Foundation
 import Observation
 
+public enum RoutineCollectionFocus: Codable, Hashable, Sendable {
+    case daypart(ResolvedDaypart)
+    case library
+}
+
+public enum LifeMomentsFocus: Codable, Hashable, Sendable {
+    case overview
+    case moment(UUID)
+    case add
+}
+
 public enum AppRoute: Codable, Hashable, Sendable {
     case taskDetail(UUID)
     case habitBoard
@@ -10,8 +21,11 @@ public enum AppRoute: Codable, Hashable, Sendable {
     case careLibrary
     case health
     case project(UUID)
+    case routines(RoutineCollectionFocus)
     case routine(UUID)
+    case goals
     case goal(UUID)
+    case lifeMoments(LifeMomentsFocus)
     case journalDay(UUID)
     case journalSearch
     case weeklyReflection(Date)
@@ -300,6 +314,18 @@ public struct DeferredProtectedRoute: Equatable, Sendable {
     }
 }
 
+public struct PendingRouteRequest: Equatable, Sendable {
+    public let id: UUID
+    public let destination: Destination
+    public let route: AppRoute
+
+    public init(id: UUID = UUID(), destination: Destination, route: AppRoute) {
+        self.id = id
+        self.destination = destination
+        self.route = route
+    }
+}
+
 @MainActor
 @Observable
 public final class AppRouter {
@@ -327,6 +353,7 @@ public final class AppRouter {
     }
     public var activeAlert: AppAlertState?
     public private(set) var deferredProtectedRoute: DeferredProtectedRoute?
+    public private(set) var pendingRouteRequest: PendingRouteRequest?
     public private(set) var isJournalAccessUnlocked: Bool
 
     public let captureRouter: CaptureRouter
@@ -351,6 +378,7 @@ public final class AppRouter {
         paths = [:]
         dashboardMode = .smart
         deferredProtectedRoute = nil
+        pendingRouteRequest = nil
         isJournalAccessUnlocked = false
         restore()
         // Debug/snapshot affordance: force the initial root so screenshot
@@ -394,7 +422,24 @@ public final class AppRouter {
     }
 
     public func setPath(_ path: [AppRoute], for destination: Destination) {
+        if let pendingRouteRequest,
+           pendingRouteRequest.destination == destination,
+           path != [pendingRouteRequest.route] {
+            // A newly selected NavigationStack can write its previously empty
+            // path back before the requested leaf mounts. Until that leaf
+            // acknowledges its appearance, only the expected path is valid.
+            return
+        }
         paths[destination] = path
+    }
+
+    /// Called by the mounted destination, completing a cross-root transaction.
+    /// After acknowledgement, normal interactive Back writes are accepted.
+    public func acknowledgeRouteAppearance(_ route: AppRoute, in destination: Destination) {
+        guard let pendingRouteRequest,
+              pendingRouteRequest.destination == destination,
+              pendingRouteRequest.route == route else { return }
+        self.pendingRouteRequest = nil
     }
 
     public func push(_ route: AppRoute, in destination: Destination? = nil) {
@@ -440,17 +485,20 @@ public final class AppRouter {
         _ route: AppRoute,
         in destination: Destination
     ) -> _Concurrency.Task<Void, Never> {
-        if selectedDestination != destination { select(destination) }
-        return Task { @MainActor [weak self] in
-            await Task.yield()
-            guard let self, self.selectedDestination == destination else { return }
-            self.paths[destination] = [route]
-        }
+        openLeaf(route, in: destination)
+        return Task { @MainActor in }
     }
 
-    /// Synchronous boundary equivalent used by URL handling, where callers
-    /// expect the route to be resolved before `handle(url:)` returns.
-    private func replacePath(with route: AppRoute, in destination: Destination) {
+    /// Starts an acknowledged, deterministic deep-link transaction. State is
+    /// synchronous for URL handling and tests; the pending request exists only
+    /// to reject a stale NavigationStack write-back during root switching.
+    public func openLeaf(_ route: AppRoute, in destination: Destination) {
+        if selectedDestination == destination,
+           paths[destination] == [route],
+           pendingRouteRequest?.route == route {
+            return
+        }
+        pendingRouteRequest = PendingRouteRequest(destination: destination, route: route)
         selectedDestination = destination
         paths[destination] = [route]
     }
@@ -513,17 +561,21 @@ public final class AppRouter {
     }
 
     public func popToRoot(in destination: Destination? = nil) {
-        paths[destination ?? selectedDestination] = []
+        let target = destination ?? selectedDestination
+        if pendingRouteRequest?.destination == target { pendingRouteRequest = nil }
+        paths[target] = []
     }
 
     public func pop(in destination: Destination? = nil) {
         let target = destination ?? selectedDestination
+        if pendingRouteRequest?.destination == target { pendingRouteRequest = nil }
         guard var path = paths[target], path.isEmpty == false else { return }
         path.removeLast()
         paths[target] = path
     }
 
     public func restoreFallbackToHome(message: String? = nil) {
+        pendingRouteRequest = nil
         selectedDestination = .home
         paths = [:]
         if let message {
@@ -629,7 +681,7 @@ public final class AppRouter {
                 restoreFallbackToHome(message: "That wellness destination is unavailable. Opened Home instead.")
                 return true
             }
-            replacePath(with: .wellness(focus), in: .track)
+            openLeaf(.wellness(focus), in: .track)
         case "nutrition":
             let focus: NutritionHomeCardFocus?
             switch segments.first?.lowercased() {
@@ -642,9 +694,9 @@ public final class AppRouter {
                 restoreFallbackToHome(message: "That nutrition destination is unavailable. Opened Home instead.")
                 return true
             }
-            replacePath(with: .nutrition(focus), in: .track)
+            openLeaf(.nutrition(focus), in: .track)
         case "fasting":
-            replacePath(with: .fasting, in: .track)
+            openLeaf(.fasting, in: .track)
         case "note":
             guard let rawID = segments.first, let id = UUID(uuidString: rawID) else {
                 select(.track)
@@ -682,18 +734,35 @@ public final class AppRouter {
                 return true
             }
             push(.project(id), in: .plan)
+        case "routines":
+            let focus = url.queryValue(named: "daypart")
+                .flatMap(ResolvedDaypart.init(rawValue:))
+                .map(RoutineCollectionFocus.daypart)
+                ?? .library
+            openLeaf(.routines(focus), in: .track)
         case "routine":
             guard let rawID = segments.first, let id = UUID(uuidString: rawID) else {
-                select(.track)
+                openLeaf(.routines(.library), in: .track)
                 return true
             }
-            push(.routine(id), in: .track)
+            openLeaf(.routine(id), in: .track)
+        case "goals":
+            openLeaf(.goals, in: .track)
         case "goal":
             guard let rawID = segments.first, let id = UUID(uuidString: rawID) else {
-                select(.track)
+                openLeaf(.goals, in: .track)
                 return true
             }
-            push(.goal(id), in: .track)
+            openLeaf(.goal(id), in: .track)
+        case "moments":
+            let focus: LifeMomentsFocus = segments.first?.lowercased() == "add" ? .add : .overview
+            openLeaf(.lifeMoments(focus), in: .track)
+        case "moment":
+            guard let rawID = segments.first, let id = UUID(uuidString: rawID) else {
+                openLeaf(.lifeMoments(.overview), in: .track)
+                return true
+            }
+            openLeaf(.lifeMoments(.moment(id)), in: .track)
         case "settings":
             push(.settings, in: selectedDestination)
         case "quickadd":

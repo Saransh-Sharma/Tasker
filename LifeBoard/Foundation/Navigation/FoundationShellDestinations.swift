@@ -72,7 +72,10 @@ extension FoundationShell {
                         }
                         .lifeBoardZoomDestination(sourceID: transitionID)
                         .toolbar(.visible, for: .navigationBar)
-                        .onAppear { routeTransitionTrigger &+= 1 }
+                        .onAppear {
+                            routeTransitionTrigger &+= 1
+                            router.acknowledgeRouteAppearance(route, in: destination)
+                        }
                     } else {
                         ZStack {
                             activeAtmosphere(for: destination, snapshot: atmosphereSnapshot)
@@ -81,6 +84,9 @@ extension FoundationShell {
                             }
                         }
                         .toolbar(.visible, for: .navigationBar)
+                        .onAppear {
+                            router.acknowledgeRouteAppearance(route, in: destination)
+                        }
                     }
                 }
         }
