@@ -114,16 +114,15 @@ extension MessageView {
     @ViewBuilder
     var assistantBody: some View {
         if let payload = renderModel.cardPayload {
+            // Proposals, command results and receipts are bounded objects, and
+            // `DESIGN.md` gives them clay — not glass. Glass belongs to the
+            // control layer, and an assistant message is content no matter how
+            // structured it is. This was a premium glass-style surface, which
+            // put a translucent pane behind text the person has to read and act
+            // on before approving a change.
             assistantCardView(payload: payload)
                 .padding(Theme.Spacing.lg)
-                .lifeboardPremiumSurface(
-                    cornerRadius: 24,
-                    fillColor: EvaChatSunriseGlass.glassFill,
-                    strokeColor: EvaChatSunriseGlass.assistantBorder.opacity(0.72),
-                    accentColor: EvaChatSunriseGlass.primary,
-                    level: .e2,
-                    useNativeGlass: false
-                )
+                .lifeBoardClaySurface(.raised)
                 .frame(maxWidth: messageMaxWidth, alignment: .leading)
                 .padding(.trailing, oppositeSideInset)
         } else {
@@ -179,11 +178,19 @@ extension MessageView {
         }
     }
 
+    /// `DESIGN.md`: "user messages use quiet clay".
+    ///
+    /// Was a saturated two-stop gradient with a white inner stroke and its own
+    /// hand-rolled drop shadow — the loudest object in the transcript, competing
+    /// with the assistant's answer for attention on a screen whose whole purpose
+    /// is reading that answer. Clay `.resting` puts it a plane above the canvas
+    /// and no further, and the hairline, rim and shadow all come from the depth
+    /// scale rather than from three literals here.
     var userBody: some View {
         Markdown(renderModel.displayContent)
             .textSelection(.enabled)
             .markdownTextStyle {
-                ForegroundColor(Color.lifeboard(.accentOnPrimary))
+                ForegroundColor(Color.lifeboard(.textPrimary))
             }
         #if os(iOS) || os(visionOS)
             .padding(.horizontal, Theme.Spacing.lg)
@@ -192,23 +199,7 @@ extension MessageView {
             .padding(.horizontal, 10)
             .padding(.vertical, 8)
         #endif
-            .background(
-                LinearGradient(
-                    colors: [EvaChatSunriseGlass.primary, EvaChatSunriseGlass.primaryDeep],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                )
-            )
-        #if os(iOS) || os(visionOS)
-            .clipShape(RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous))
-        #elseif os(macOS)
-            .clipShape(RoundedRectangle(cornerRadius: 16))
-        #endif
-            .overlay(
-                RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
-                    .stroke(ClayColorTokens.whiteStroke.opacity(0.32), lineWidth: 1)
-            )
-            .shadow(color: EvaChatSunriseGlass.primary.opacity(0.16), radius: 12, x: 0, y: 6)
+            .lifeBoardClaySurface(.resting, fill: Color.lifeboard(.surfaceSecondary))
             .frame(maxWidth: messageMaxWidth, alignment: .trailing)
             .padding(.leading, oppositeSideInset)
     }

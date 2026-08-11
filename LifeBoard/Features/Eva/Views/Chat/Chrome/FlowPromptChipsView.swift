@@ -17,7 +17,7 @@ struct FlowPromptChipsView: View {
                 } label: {
                     HStack(spacing: Theme.Spacing.xs) {
                         Image(systemName: promptIcon(for: prompt))
-                            .font(.system(size: 12, weight: .semibold))
+                            .lifeboardFont(.eyebrow)
                             .frame(width: 20, height: 20)
                         Text(prompt.title)
                             .font(ClayTypography.chip)
@@ -30,14 +30,11 @@ struct FlowPromptChipsView: View {
                     .frame(minHeight: 44)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background {
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(.regularMaterial)
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .fill(ClayColorTokens.glassStrong.opacity(0.68))
-                    }
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 22, style: .continuous)
-                            .stroke(ClayColorTokens.role(.assistant).border.opacity(0.82), lineWidth: 1)
+                        Color.clear.lifeBoardSystemGlass(
+                            .regular,
+                            in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous),
+                            interactive: true
+                        )
                     }
                 }
                 .buttonStyle(.plain)

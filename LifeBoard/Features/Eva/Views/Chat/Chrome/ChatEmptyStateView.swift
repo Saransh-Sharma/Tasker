@@ -75,7 +75,7 @@ struct ChatEmptyStateView: View {
                                 .stroke(EvaChatSunriseGlass.assistantBorder.opacity(0.78), lineWidth: 1)
                         )
                     Image(systemName: "bubble.left.and.text.bubble.right")
-                        .font(.system(size: 32, weight: .light))
+                        .lifeboardFont(.heroDisplay)
                         .foregroundStyle(EvaChatSunriseGlass.primary)
                         .symbolEffect(
                             .wiggle.byLayer,
@@ -161,7 +161,7 @@ struct ChatEmptyStateView: View {
         Button(action: onOpenEvaGuide) {
             HStack(spacing: 7) {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 13, weight: .semibold))
+                    .lifeboardFont(.meta)
                 Text("Guide")
                     .font(.lifeboard(.caption1))
                     .fontWeight(.semibold)
@@ -170,16 +170,8 @@ struct ChatEmptyStateView: View {
             .padding(.horizontal, Theme.Spacing.md)
             .frame(minHeight: 44)
             .background {
-                Capsule()
-                    .fill(.regularMaterial)
-                Capsule()
-                    .fill(EvaChatSunriseGlass.assistantSurface.opacity(0.54))
+                Color.clear.lifeBoardSystemGlass(.regular, in: Capsule(style: .continuous), interactive: true)
             }
-            .overlay {
-                Capsule()
-                    .stroke(EvaChatSunriseGlass.assistantBorder.opacity(0.78), lineWidth: 1)
-            }
-            .shadow(color: EvaChatSunriseGlass.navy.opacity(0.08), radius: 12, x: 0, y: 6)
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(identity.displayName) help")
