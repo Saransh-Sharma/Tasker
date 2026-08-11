@@ -2,15 +2,19 @@
 
 > **Classification: Canonical implementation status and release-evidence ledger.**
 
-**Last reconciled:** 2026-08-03
-**Branch:** `lifeOS`
-**Phase 8 base:** `dd1ba7cc`; the release audit and closure are checkpointed by
-the commit containing this ledger.
+**Audience:** Product, design, engineering, QA, privacy, and release teams
+**Capability status:** Current source-state reconciliation plus dated historical execution evidence
+**Source authority:** Current workspace and observed command results only
+**Last verified:** 2026-08-11
+
+**Documentation/source reconciliation:** 2026-08-11, including uncommitted workspace changes
+**Latest full automated snapshot in this ledger:** 2026-08-03 at `dd1ba7cc`
 
 This document is the status authority for the LifeBoard Unified Completion
 Program. `DESIGN.md` remains the sole iOS visual and interaction authority; the
-product handbook defines product behavior; historical handoffs and audits retain
-their point-in-time evidence but do not override this ledger.
+product handbook defines current product behavior. Removed handoffs/audits no
+longer act as inbound authorities; retained evidence fixtures remain dated
+provenance only.
 
 ## Completion summary
 
@@ -26,6 +30,17 @@ their point-in-time evidence but do not override this ledger.
 | 7 — Adaptive/system surfaces | Complete in code | Regular-width iPad and Catalyst root navigation, keyboard access, redacted/versioned system envelopes, routing/dedup/offline contracts, and Remote Eva consent boundaries implemented. |
 | 8 — Release/documentation | Complete for available code gates | Automated suites, serialized build matrix, guardrails, state contract, documentation, rollback rules, and evidence classification reconciled. Signed-device-only observations remain in the separate table below. |
 
+## Current working-tree verification — 2026-08-11
+
+The following was observed against the current workspace, including uncommitted product and documentation changes:
+
+- `bash scripts/check-documentation-current.sh`: passed for 41 living documents, including metadata, local links/headings, deleted paths, retired symbols/packages/flags, canonical authority links, all required public interface discriminators, and every current `promotedDefaults` key.
+- `git diff --check`: passed after documentation whitespace normalization.
+- Baseline-aware `LifeBoardTests` on the iOS 26.5 “LifeBoard Test iPhone” simulator: **2,250 tests executed, 4 environment skips, 0 failures**; the explicit legacy-failure baseline matched and the Debug app/test dependency build succeeded.
+- Passed repository checks: directory shrapnel, module boundaries, direct print logging, Phase 1 foundation, premium UI, Core Data codegen for 23 model versions, legacy runtime, and legacy test guardrails.
+- Current non-documentation working-tree changes do not yet satisfy the accessibility-identifier snapshot, file-size ratchet, frozen router contract snapshot, localization snapshot, or SwiftLint baseline. Those failures were observed and were not silently ratcheted by this documentation task.
+- Two target-membership attempts were inconclusive because each isolated dependency checkout remained in the `mlx-swift` recursive submodule update without reaching compilation; both were stopped after bounded waits.
+
 ## Atomic checkpoints
 
 | Commit | Program boundary |
@@ -38,10 +53,11 @@ their point-in-time evidence but do not override this ledger.
 | `dd1ba7cc` | Closed Beyond Notes continuity and adaptive/system surfaces |
 | Current ledger commit | Completed the release-default repair, documentation closure, and deep implementation audit |
 
-## Final automated evidence
+## Latest historical automated evidence (2026-08-03)
 
 The following results were taken serially against the Phase 8 release candidate
-built on `dd1ba7cc`:
+built on `dd1ba7cc`. They are not automatically fresh evidence for the current
+uncommitted workspace:
 
 - Full baseline-aware suite: **2,071 tests executed, 3 environment skips, 0 failures**.
 - Focused empty-state navigation UI journey: **1 test executed, 0 failures**.
@@ -137,5 +153,5 @@ not misclassified as a code failure.
 2. [LifeBoard Product Handbook](../product/README.md) — normative product and interaction contract.
 3. This status ledger — current implementation and evidence status.
 4. [Unified Implementation Guide](./LIFEBOARD_UNIFIED_IMPLEMENTATION_GUIDE.md) — source-grounded feature architecture, persistence, rollback, and extension guidance.
-5. [Daily Loop architecture handoff](./DAILY_LOOP_HANDOFF.md) and [experience handoff](./DAILY_LOOP_EXPERIENCE_HANDOFF.md) — feature-specific engineering context.
-6. Audits, old TODO ledgers, and imported handoffs — explicitly historical point-in-time evidence.
+5. [Manual Test Playbook](./manual-testing.md) — complete user journeys and device-only gates.
+6. Retained evidence fixtures and snapshots — explicitly dated point-in-time provenance.

@@ -3,6 +3,11 @@
 > **Classification: Canonical engineering and product handoff for the completed
 > LifeBoard Unified Completion Program.**
 
+**Audience:** Engineering, product, QA, and release teams
+**Capability status:** Current architecture with dated completion evidence
+**Source authority:** Current runtime/persistence plus the completion ledger
+**Last verified:** 2026-08-11
+
 **Last reconciled:** 2026-08-03
 **Implementation checkpoint:** `12539b21`
 **Status authority:** [LifeBoard Unified Completion Status](./LIFEBOARD_UNIFIED_COMPLETION_STATUS.md)
@@ -37,7 +42,7 @@ required to compute it.
 
 ```mermaid
 flowchart TD
-    Shell["LifeOSFoundationShell"] --> Home["Home projections and Daily Loop"]
+    Shell["FoundationShell"] --> Home["Home projections and Daily Loop"]
     Shell --> Plan["PlanStore and planning scenarios"]
     Shell --> Track["TrackFoundationStore and domain repositories"]
     Shell --> Insights["Evidence and interpretation lenses"]
@@ -87,7 +92,7 @@ These rules apply to every feature in this guide:
 ### 4.1 State and persistence
 
 The Daily Loop does not have a separate Core Data entity or streak counter.
-[`DayLoopLedger.swift`](../../LifeBoard/Foundation/PhaseIII/DayLoopLedger.swift)
+[`DayLoopLedger.swift`](../../LifeBoard/Features/DailyLoop/Data/DayLoopLedger.swift)
 interprets applied and undone planning receipts whose stable source prefixes are:
 
 - `planning.scenario.dayClose.<day stamp>`
@@ -97,7 +102,7 @@ Closing and opening therefore inherit the same transactional apply and Undo
 semantics as other planning scenarios. An undone receipt stops contributing to
 the loop automatically.
 
-[`DayCloseStore.swift`](../../LifeBoard/Foundation/PhaseIII/DayCloseStore.swift)
+[`DayCloseStore.swift`](../../LifeBoard/Features/DailyLoop/Data/DayCloseStore.swift)
 owns the close/open screen state. It keeps the acted-on day separate from the
 retrospective day so a morning can describe yesterday while committing work to
 today. This avoids presenting today's tasks as if they were last night's
@@ -142,7 +147,7 @@ empty ritual as 0% progress.
 
 ### 4.4 Morning open
 
-[`DayOpenScenarioBuilder.swift`](../../LifeBoard/Foundation/PhaseIII/DayOpenScenarioBuilder.swift)
+[`DayOpenScenarioBuilder.swift`](../../LifeBoard/Features/DailyLoop/Domain/DayOpenScenarioBuilder.swift)
 creates a deterministic proposal with the prior anchor first, then carried work.
 The proposal starts selected so the primary action confirms rather than composes.
 Changing the selection sets `openProposalWasEdited`.
@@ -195,7 +200,7 @@ the day suppresses it; there is no later follow-up notification.
 
 ### 5.1 Launch ownership
 
-[`OverdueRescueLaunchCoordinator`](../../LifeBoard/Presentation/Home/Modals/OverdueRescue/OverdueRescueViewModel.swift)
+[`OverdueRescueLaunchCoordinator`](../../LifeBoard/Features/Home/UI/Modals/OverdueRescue/OverdueRescueViewModel.swift)
 is the app-level owner of launcher state, plan, normal and Day Rescue task maps,
 reference date, presentation context, and last batch run identity. Home supplies
 services but does not own the modal lifecycle.
@@ -206,7 +211,7 @@ session scope; it does not silently widen into all overdue work.
 
 ### 5.2 Apply boundary
 
-[`RescueBatchApplier`](../../LifeBoard/Presentation/ViewModels/Home/HomeViewModel+EvaRescueActions.swift)
+[`RescueBatchApplier`](../../LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+EvaRescueActions.swift)
 performs the mutation sequence:
 
 1. Resolve every referenced task from the canonical repository.
@@ -333,7 +338,7 @@ producer writes capture
 ## 9. System surfaces
 
 System surfaces consume only
-[`LifeBoardSystemSnapshotEnvelope`](../../Shared/LifeBoardSystemSurfaceSnapshotContract.swift).
+[`LifeBoardSystemSnapshotEnvelope`](../../Packages/LifeBoardContracts/Sources/LifeBoardContracts/LifeBoardSystemSurfaceSnapshotContract.swift).
 Extensions never open canonical stores.
 
 The envelope is versioned, domain-tagged, deterministically deduplicated, and
@@ -357,7 +362,7 @@ surfaces.
 
 ## 10. Remote Eva privacy boundary
 
-[`RemoteEvaContextPolicy`](../../LifeBoard/LLM/Models/RemoteEvaContextPolicy.swift)
+[`RemoteEvaContextPolicy`](../../LifeBoard/Features/Eva/Models/RemoteEvaContextPolicy.swift)
 is deny-by-default and schema-versioned. Remote use requires:
 
 1. a non-empty account policy;

@@ -2,6 +2,11 @@
 
 > **Classification: Canonical manual-test reference.** Use with the [product handbook](../product/README.md), [UI/UX guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md), and active [Unified Completion Status](./LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 
+> Audience: Product, design, engineering, accessibility, privacy, and QA
+> Capability status: Current workspace scenario inventory; results require a dated run
+> Source authority: Current feature catalog and runtime routes
+> Last verified: 2026-08-11
+
 Use this playbook while product/design and engineering test the implementation together.
 
 ## Start state
@@ -11,6 +16,14 @@ Use this playbook while product/design and engineering test the implementation t
 3. Confirm the dock reads Home, Plan, Track, Insights, and Eva.
 4. Confirm Home remains canonical without a legacy-host comparison path; the
    obsolete `-LIFEBOARD_DISABLE_ADAPTIVE_HOME_V2` argument no longer exists.
+
+## End-to-end scenario: build a life structure
+
+- Complete every onboarding stage and interrupt/relaunch after each stage to verify resumability.
+- Select all seven starter areas, then repeat with a minimal selection. Verify Work & Career, Life Admin, Health & Self, Relationships, Learning & Growth, Creativity & Fun, and Money are editable canonical areas.
+- Exercise friction profile, guide/persona, day shape, modules, first task, contextual permissions, and starter-pack review.
+- In Life Management, create a nested project, sections, and tags; move it between areas; archive and restore/Undo where supported; inspect delete consequences.
+- Follow `area → project/goal → task/habit/routine → day/week → evidence/review` and verify every link opens the same stable record.
 
 ## Adaptive Home smoke test
 
@@ -50,6 +63,21 @@ Use this playbook while product/design and engineering test the implementation t
 - Open Week, inspect seven load cards, select a day, then use Backlog to inspect Inbox/This Week/Next Week/Later/Someday/Waiting/Paused groups.
 - Test sparse, realistic, and overloaded data at accessibility text sizes; verify the agenda remains readable without compressed timeline geometry.
 
+## This Week and overdue recovery
+
+- Enter the This Week workspace from both week and overdue routes; verify the compatibility weekly-planner route does not open an obsolete wizard.
+- Populate Overdue, Inbox, and Anytime lanes. Place work into Today, the next two concrete days, and Later This Week.
+- Compare capacity bars with fixed meetings; add an intention; search/filter/select; bulk distribute; dismiss/reopen and confirm immediate persistence.
+- Undo the distribution from its receipt. Force a partial batch failure and verify applied/unapplied identities remain visible and retry does not duplicate success.
+- Recover an overloaded week by completing, clarifying, moving, unscheduling, and deleting reviewed work.
+
+## Focus execution and recovery
+
+- Start scoped and unscoped sessions with multiple durations; pause, resume, record interruptions, finish with each supported outcome, and add a reflection.
+- Force quit during every phase and verify startup repair selects the same canonical session.
+- Exercise notification, Live Activity, deep-link, and history continuation; verify missing permission or stale activity does not create a second session.
+- Confirm rewards/history are idempotent and Undo/correction behavior matches the visible receipt.
+
 ## Track Foundations
 
 - Log hydration through +250/+500 and Universal Capture; confirm target-missing state is honest and units remain canonical.
@@ -58,6 +86,23 @@ Use this playbook while product/design and engineering test the implementation t
 - Preview every starter pack, deselect items, confirm, and verify only selected supported records are created.
 - Start a routine, exercise choice branching, interrupt/relaunch, continue, and abandon; verify history is not rewritten after routine edits.
 - Add a goal and confirm unlinked or incomplete sources do not fabricate progress.
+
+## Habits, goals, routines, and care depth
+
+- Create binary, quantity, and count habits with schedule, target, reminders, pause, archive, and delete paths.
+- Log through Today, Quiet Tracking, Board, detail calendar, widget, and Watch projection; correct a prior occurrence and exercise resilience recovery.
+- Create typed goal samples and link tasks, habits, routines, and trackers; check milestones, trajectory, revision, completion, and archive.
+- Run ordered and branching routine definitions containing task, habit, check-in, timer, instruction, and choice steps; verify linked mutations happen once and partial completion/history remain interpretable after definition edits.
+- Log/correct generic trackers, hydration, mood/energy, and medication/care with source identity and explicit zero.
+
+## Health, nutrition, fasting, and Life Moments
+
+- For activity, energy, hydration, nutrition, body, workouts, sleep, and fasting, exercise not-requested, granted, denied/restricted, no-data, stale, partial, protected-data, and background/foreground refresh states.
+- Confirm activity/energy/sleep/fasting are read-only; verify supported hydration/nutrition/body/workout write-back, source precedence, deduplication, outbox retry, and manual fallback.
+- Search the food library, convert servings, create recipe/template, log a meal, edit its source food, and verify the logged macro snapshot remains immutable.
+- Exercise explicit remote barcode lookup, offline local search, unknown/duplicate resolution, reports/recent meals/goals, deletion, and Undo.
+- Start/finish early/cancel/keep-running a fast; test reminders, history correction, duplicate-active repair, and Apple Health boundaries.
+- Create each Life Moment/countdown type across timezone and recurrence boundaries; search/archive, opt into Home/widget, and verify privacy-safe projection/export semantics.
 
 ## Journal
 
@@ -76,6 +121,20 @@ Use this playbook while product/design and engineering test the implementation t
 - Add tags, pin/favorite, connect two notes, inspect backlinks, then disconnect.
 - Search and filter, attach a supported file, and verify oversized/failed files surface an error.
 - Open graph, pan/zoom/search/filter/open, and verify it limits the default viewport to relevant nodes.
+
+## Insights, gamification, and EVA
+
+- Open every insight lens/report, switch timeframe, inspect evidence, and verify insufficient data, textual chart equivalents, non-causal language, and non-clinical health wording.
+- Trigger XP, levels, badges/achievements, habit streak relationships, Focus rewards, widgets, and celebrations twice through retry/reprojection; verify idempotency and reduced-motion/quiet policies.
+- Activate EVA with each supported model path and persona; test download/unavailable/offline states, chats/threads, chips, slash commands, attachments, day overview, semantic retrieval, memory controls, streaming, Stop, Continue, and Retry.
+- Ask EVA to propose task, habit, and plan changes. Inspect diffs; use Apply, Edit, and Not Now; force partial application; verify receipts and Undo.
+- Revoke each remote context category and confirm subsequent requests fail closed without affecting widgets, Watch, notifications, Spotlight, or lock-screen content.
+
+## System continuity
+
+- Exercise every App Intent/shortcut, widget family and interactive action, Capture Control, Focus/Fasting/Routine Live Activity, notification action, Spotlight result, typed deep link, and share-extension payload.
+- Capture task/note/journal/audio on Watch while the phone is unavailable; verify outbox identity, retry, acknowledgment, and no duplicate import.
+- Verify task/habit controls never act on a substituted record when their stable identity is missing or stale.
 
 ## Data and recovery
 

@@ -2,6 +2,11 @@
 
 **Classification:** Canonical feature contract
 
+**Audience:** Users, support, product, design, engineering, safety/privacy review, and QA
+**Capability status:** Current workspace; model availability varies
+**Source authority:** Insight services, EVA runtime/coordinator, canonical proposal pipeline
+**Last verified:** 2026-08-11
+
 **Roots:** Insights and EVA
 **Related:** [Journal and Reflection](./JOURNAL_NOTES_AND_REFLECTION.md), [Local EVA architecture](../architecture/LOCAL_LLM_EVA_ARCHITECTURE.md)
 
@@ -96,7 +101,7 @@ Context is a bounded projection of authorized tasks, plans, calendar reality, ha
 
 ## Implementation and evidence
 
-Primary anchors include `ReflectionKit`, Insights presentation, local LLM runtime/coordinator, run-scoped response delivery, context projection, assistant proposal/diff validators, canonical action pipeline, conversation views, and persistent composer.
+Primary anchors include local reflection/Insights services, Insights presentation, local LLM runtime/coordinator, run-scoped response delivery, context projection, assistant proposal/diff validators, canonical action pipeline, conversation views, and persistent composer.
 
 Primary controls include `evaFoundationModelsResponderEnabled`, `assistantApplyEnabled`, `assistantUndoEnabled`, `assistantCopilotEnabled`, `assistantSemanticRetrievalEnabled`, `assistantFastModeEnabled`, and `assistantBreakdownEnabled`. Disabling an optional assistant capability must leave deterministic evidence, drafts, conversations, and ordinary app workflows usable.
 

@@ -1,7 +1,11 @@
 # Universal Input and Speech
 
-**Classification:** Canonical product and engineering contract  
-**Surfaces:** Persistent Life Thread composer and Eva structured composer  
+**Classification:** Canonical product and engineering contract
+**Audience:** Users, support, product, design, engineering, and QA
+**Capability status:** Current workspace; model and speech availability vary
+**Source authority:** Universal Input adapters, capture router, and LifeBoardTranscription
+**Last verified:** 2026-08-11
+**Surfaces:** Persistent Life Thread composer and Eva structured composer
 **Related:** [Adaptive Home](./HOME.md), [Insights and Eva](./INSIGHTS_AND_EVA.md), [Product UI/UX Guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md)
 
 ## Product promise
@@ -58,7 +62,7 @@ Confidence behavior:
 
 ## SpeechAnalyzer architecture
 
-Both saved Journal audio transcription and live composer dictation use Apple’s iOS 26 SpeechAnalyzer stack through the shared `TranscriptionKit` package.
+Both saved Journal audio transcription and live composer dictation use Apple’s iOS 26 SpeechAnalyzer stack through the local `LifeBoardTranscription` package.
 
 - Saved files route through `SpeechAnalyzerEngine`, preferring `SpeechTranscriber` and using `DictationTranscriber` only as a locale-coverage fallback. Both run as modules inside `SpeechAnalyzer`.
 - Live microphone input uses `LiveTranscriptionSession`, `AVAudioEngine`, `SpeechAnalyzer.bestAvailableAudioFormat`, and `SpeechAnalyzer` streaming.
@@ -66,7 +70,7 @@ Both saved Journal audio transcription and live composer dictation use Apple’s
 - Required model assets are installed through the shared asset manager. Unsupported locale, denied microphone, asset-install failure, and transient analyzer failure are distinct recovery states.
 - Audio and inference remain on device. Dictation stops when its surface disappears or the app leaves the foreground.
 
-`TranscriptionKit` currently publishes a cumulative transcript string rather than the analyzer’s finalized range. LifeBoard therefore treats the whole live transcript as provisional and commits the latest cumulative value on stop. This is intentionally loss-safe: a revised partial may change while listening, but stopping cannot erase the visible transcript. Exposing finalized/volatile ranges from the package remains a quality improvement, not a correctness dependency.
+`LifeBoardTranscription` publishes a cumulative transcript string rather than the analyzer’s finalized range. LifeBoard therefore treats the whole live transcript as provisional and commits the latest cumulative value on stop. This is intentionally loss-safe: a revised partial may change while listening, but stopping cannot erase the visible transcript. Exposing finalized/volatile ranges from the package remains a quality improvement, not a correctness dependency.
 
 ## Rollout and fallback
 

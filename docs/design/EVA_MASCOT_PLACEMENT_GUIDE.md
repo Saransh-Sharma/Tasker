@@ -2,6 +2,11 @@
 
 > **Classification: Canonical design reference.** This guide supplements [DESIGN.md](../../DESIGN.md) and the [Product UI/UX Guide](./LIFEBOARD_PRODUCT_UI_UX_GUIDE.md); it does not define product completion.
 
+> Audience: Product, design, engineering, and QA
+> Capability status: Current selected-persona presentation
+> Source authority: Mascot assets, persona selection, and placement code
+> Last verified: 2026-08-11
+
 LifeBoard's visual Chief of Staff is a selectable mascot persona. Eva remains the default, but users can choose a different assistant identity during onboarding or from Settings. The selected mascot communicates product state: present, planning, thinking, reviewing, suggesting, warning, celebrating, helping, or encouraging rest. Mascots should make the app feel guided and humane without becoming a decorative sticker layer.
 
 This guide owns mascot placement philosophy, persona catalog, asset contracts, and visual-state mapping. LLM routing, planner guards, model behavior, and assistant privacy posture are documented separately in `../architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`.

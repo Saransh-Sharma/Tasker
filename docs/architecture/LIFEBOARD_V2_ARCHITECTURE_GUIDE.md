@@ -1,22 +1,26 @@
 # LifeBoard iOS — Current Architecture
 
-> **Status:** Canonical description of the architecture in the working tree as
-> audited on 2026-08-09. It describes implemented boundaries, not the intended
-> end state. Product behavior remains documented in
-> [the product handbook](../product/README.md).
+> Classification: Canonical architecture reference
+> Audience: Engineering, architecture, QA, and release teams
+> Capability status: Current working tree; transitional boundaries are explicit
+> Source authority: Root Package.swift, Xcode targets, runtime composition, persistence model
+> Last verified: 2026-08-11
 
 **iOS 26.0+ | Swift 6 | TaskDefinition-first runtime**
 
 LifeBoard is V2-only for task-domain and runtime flows. The application still
 contains most feature implementation and orchestration in the `LifeBoard`
-Xcode target. Package extraction is complete only for the six products declared
-in the repository-root `Package.swift`.
+Xcode target. Package extraction currently exposes nine products declared in
+the repository-root `Package.swift`.
 
 ## Implemented module graph
 
 ```text
 LifeBoard app / extensions / hosted tests
-├── LifeBoardCalendar ───────────────→ LifeBoardDomain
+├── JournalFeature ─────────────────→ Persistence, UI, Domain, Transcription
+├── KnowledgeFeature ───────────────→ Persistence, UI, Domain
+├── LifeBoardTranscription ─────────→ LifeBoardContracts
+├── LifeBoardCalendar ───────────────→ UI, Tokens, Domain, Contracts
 ├── LifeBoardPersistence ────────────→ LifeBoardDomain, LifeBoardContracts
 ├── LifeBoardUI ─────────────────────→ LifeBoardTokens, LifeBoardContracts
 ├── LifeBoardTokens ─────────────────→ LifeBoardContracts
@@ -24,8 +28,8 @@ LifeBoard app / extensions / hosted tests
 └── LifeBoardContracts
 ```
 
-All six products are declared by one in-repository manifest. They build
-independently in Debug and Release. The dependency graph is acyclic.
+All nine products are declared by one in-repository manifest. The manifest is
+the package-product authority and the dependency graph is acyclic.
 
 `LifeBoardPersistence` currently owns the shipped model resource, the explicit
 model/container API, and the managed-object classes needed to load that model.
@@ -34,9 +38,12 @@ implementation directories remain app-owned and are explicitly excluded from
 the package target. This is a transitional boundary, not a completed
 persistence extraction.
 
-`LifeBoardCalendar` owns the shared EventKit repositories and calendar
-computation/merge support. Calendar is support infrastructure, not a feature
-module.
+`LifeBoardCalendar` owns shared EventKit repositories and calendar
+computation/merge support. `LifeBoardTranscription` owns shared SpeechAnalyzer
+contracts/runtime. `KnowledgeFeature` and `JournalFeature` are the first
+feature-level package products; their manifest source/exclusion lists define
+the exact extracted boundary rather than implying the entire app feature tree
+has moved.
 
 ## Feature ownership
 
@@ -57,10 +64,9 @@ Consequences of that transitional state:
 - the remaining tests that use `@testable import LifeBoard` are app integration
   tests, not package-specific unit tests.
 
-The intended extraction order and remaining work are tracked in
-`docs/todos/LIFEBOARD_POST_REFACTOR_IMPROVEMENTS.md`. Empty facade targets do not
-count as extraction; a feature becomes complete only after all of its sources,
-resources, tests, and route boundary compile independently.
+Empty facade targets do not count as extraction; a feature boundary is claimed
+only for the sources and resources actually declared in `Package.swift` and
+verified by package/app builds.
 
 ## Layer responsibilities
 
@@ -72,6 +78,9 @@ resources, tests, and route boundary compile independently.
 | `LifeBoardDomain` | shared domain models and protocols | Contracts only |
 | `LifeBoardPersistence` | packaged model and model-loading API | Contracts and Domain only |
 | `LifeBoardCalendar` | shared EventKit/calendar adapters | Domain only |
+| `LifeBoardTranscription` | shared SpeechAnalyzer runtime and contracts | Contracts only |
+| `KnowledgeFeature` | extracted Knowledge feature sources/resources | Contracts, Domain, Persistence, Tokens, UI |
+| `JournalFeature` | extracted Journal route/security/search/mood sources | Contracts, Domain, Persistence, Tokens, UI, Transcription |
 | `LifeBoard/Features` | feature code, presently app-compiled | no new feature-to-feature/App coupling |
 | `LifeBoard/App` and `Foundation/Navigation` | composition and App routing | may compose all lower layers |
 

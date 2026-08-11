@@ -76,14 +76,15 @@ LifeBoard/Features/Eva/Views/Shared/EvaMediaView.swift	844	22	106
 LifeBoard/Features/Health/HealthSync/HealthKitGateway.swift	689	5	598
 LifeBoard/Features/Health/HealthSync/HealthSyncLedger.swift	582	7	430
 LifeBoard/Features/Health/HealthSync/HealthSyncModels.swift	515	24	80
-LifeBoard/Features/Health/UI/LifeBoardPhaseVIViews.swift	1897	28	366
+LifeBoard/Features/Health/UI/LifeBoardPhaseVIViews.swift	1558	19	366
 LifeBoard/Features/Plan/UI/Inbox/InboxView.swift	1366	6	647
 LifeBoard/Features/Journal/Data/LifeBoardPhaseIIPersistence.swift	1997	16	1395
 LifeBoard/Features/Journal/Domain/LifeBoardJournalDerivedIndex.swift	555	3	547
 LifeBoard/Features/Journal/Domain/LifeBoardPhaseIIModels.swift	2485	99	199
 LifeBoard/Features/Journal/UI/LifeBoardTrackAndJournalViews.swift	6448	51	1117
 LifeBoard/Features/Knowledge/UI/LifeBoardKnowledgeCompletion.swift	1629	31	304
-LifeBoard/Features/Knowledge/UI/LifeBoardKnowledgeViews.swift	3736	20	959
+LifeBoard/Features/Knowledge/UI/LifeBoardKnowledgeViews.swift	3043	17	949
+LifeBoard/Features/Knowledge/UI/KnowledgeStore.swift	712	3	698
 LifeBoard/Features/Nutrition/Data/NutritionLifeMomentsPersistence.swift	596	2	505
 LifeBoard/Features/Nutrition/Domain/NutritionModels.swift	1110	34	164
 LifeBoard/Features/Onboarding/Models/StarterWorkspaceCatalog.swift	1996	1	1988
@@ -99,7 +100,7 @@ LifeBoard/Features/Track/Domain/TrackFoundationServices.swift	1028	15	115
 LifeBoard/Features/Track/UI/LifeBoardTrackFoundationViews.swift	4488	75	376
 LifeBoard/Features/Track/UI/TrackFoundationStore.swift	1266	7	1137
 LifeBoard/Features/Weekly/Domain/WeeklyPlanningWorkspace.swift	867	29	90
-LifeBoard/Features/Weekly/UI/WeeklyPlanningWorkspaceView.swift	2642	28	749
+LifeBoard/Features/Weekly/UI/WeeklyPlanningWorkspaceView.swift	2397	27	512
 LifeBoard/Features/Wellness/Domain/WellnessCoreModels.swift	887	26	187
 LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift	1393	29	273
 LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift	5017	60	1101

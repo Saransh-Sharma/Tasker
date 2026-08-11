@@ -1,6 +1,10 @@
 # Calendar + Timeline
 
-> **Classification: Canonical feature package.** The [product handbook](../product/README.md) owns cross-feature journeys; this package owns detailed Calendar/Timeline product, runtime, risk, and roadmap contracts.
+> Classification: Canonical feature package
+> Audience: Users, support, product, design, engineering, and QA
+> Capability status: Current workspace
+> Source authority: EventKit integration, Calendar package, Plan/Home projections
+> Last verified: 2026-08-11
 
 LifeBoard's calendar layer is read-only schedule context that improves execution without turning LifeBoard into a full calendar app.
 
@@ -19,8 +23,15 @@ Eva may read the same projected day context as a Chief of Staff layer. That lets
 
 - [Product feature](./product-feature.md)
 - [Data model and runtime](./data-model-and-runtime.md)
-- [Risk register](./risk-register.md)
-- [Roadmap](./roadmap.md)
+- Current risks, failure states, and evidence gates are consolidated below.
+
+## Current limitations and evidence gates
+
+- EventKit is read-only; LifeBoard can move only LifeBoard-owned tasks, planning metadata, and internal time blocks.
+- Permission denied/restricted, stale refresh, selected-calendar changes, timezone/DST boundaries, all-day events, overlapping events, and protected-data transitions must remain distinct.
+- Background refresh is opportunistic. Home and Plan label freshness and provide a foreground recovery path.
+- Simulator/source evidence cannot close signed-device EventKit delivery, account/calendar churn, performance, or full assistive-technology review.
+- A future full calendar editor is not part of current scope; any direction belongs in the Future LifeOS Blueprint.
 
 ## Implementation Truth
 

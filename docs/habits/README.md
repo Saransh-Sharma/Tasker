@@ -1,6 +1,10 @@
 # Habit System
 
-> **Classification: Canonical feature package.** The [product handbook](../product/README.md) owns cross-feature journeys; this package owns detailed Habit product, runtime, risk, and roadmap contracts.
+> Classification: Canonical feature package
+> Audience: Users, support, product, design, engineering, and QA
+> Capability status: Current workspace
+> Source authority: Habit definitions/schedules/occurrences, Board/library/detail surfaces
+> Last verified: 2026-08-11
 
 LifeBoard treats habits as first-class recurring behaviors, separate from finite tasks but visible in the same execution system.
 
@@ -10,8 +14,16 @@ The habit experience is built around visual streaks, calm recovery after misses,
 
 - [Product feature overview](./product-feature.md)
 - [Data model and runtime contract](./data-model-and-runtime.md)
-- [Risk register](./risk-register.md)
-- [Roadmap](./roadmap.md)
+- Current risks, limitations, and evidence gates are consolidated below.
+
+## Current limitations and evidence gates
+
+- Schedule/timezone/DST changes must not duplicate or erase occurrences.
+- Binary, quantity, and count targets require different completion/correction semantics; an explicit zero remains data.
+- Recovery applies to the intended occurrence and reward effects are idempotent. Pause/archive preserve history; deletion explains loss.
+- Notification denial must not block in-app logging. Widget/Watch actions validate stable identity and reconcile stale projections.
+- Full notification delivery, paired-Watch retry, timezone travel, haptics, and assistive-technology behavior still require appropriate device evidence when not freshly observed.
+- Social challenges, shared habits, and prescriptive health programs are not current scope.
 
 ## Core Principles
 

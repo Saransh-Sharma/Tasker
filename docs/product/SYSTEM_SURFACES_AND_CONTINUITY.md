@@ -1,6 +1,10 @@
 # System Surfaces and Continuity
 
 **Classification:** Canonical feature contract
+**Audience:** Users, support, product, design, engineering, privacy, and QA
+**Capability status:** Current workspace; surface availability varies by platform/entitlement
+**Source authority:** Widget/Watch/extension targets, intents, projection contracts, and deep-link router
+**Last verified:** 2026-08-11
 **Surfaces:** Widgets, Live Activities, App Intents, Spotlight, notifications, deep links, Watch, Watch widgets, and Catalyst
 
 ## Promise and user jobs

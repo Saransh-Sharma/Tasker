@@ -2,6 +2,11 @@
 
 **Classification:** Canonical feature contract
 
+**Audience:** Users, support, product, design, engineering, privacy, and QA
+**Capability status:** Current workspace; media availability varies by permission/device
+**Source authority:** Local Journal/Knowledge features and packages, protection policy, and attachment stores
+**Last verified:** 2026-08-11
+
 **Primary entry points:** Home, Universal Capture, Insights, EVA, Spotlight, and typed routes
 **Privacy:** `privateSensitive` for Journal content/media and derived semantic data
 
@@ -90,7 +95,7 @@ Weekly and proactive reflection is built from deterministic eligibility and evid
 
 ## Implementation and evidence
 
-Primary anchors include the shared `JournalKit` products, LifeBoard Journal/Knowledge views, derived pipeline actor, protected route service, Journal security policy, Watch import/outbox contracts, Spotlight indexer, and reflection integration.
+Primary anchors include the local Journal feature, `LifeBoardKnowledgeFeature`, `LifeBoardTranscription`, LifeBoard Journal/Knowledge views, derived pipeline actor, protected route service, Journal security policy, Watch import/outbox contracts, Spotlight indexer, and reflection integration.
 
 Primary flags are `journalV1Enabled`, `journalParityV1Enabled`, and `knowledgeNotesV1Enabled`. Flag rollback must preserve protected entries, attachment files, semantic derivatives, note identity, and migration state.
 
