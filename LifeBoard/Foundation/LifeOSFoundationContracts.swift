@@ -487,6 +487,14 @@ public struct HomeContextCandidate: Codable, Hashable, Identifiable, Sendable {
     /// the thing it opens.
     public var actionTitle: String {
         switch route {
+        case .goal: "View goal"
+        case .goals: "View goals"
+        case .routine: "View routine"
+        case .routines: "View routines"
+        case .lifeMoments(.moment): "View moment"
+        case .lifeMoments(.add): "Add moment"
+        case .lifeMoments(.overview): "View moments"
+        case .nutrition(.logMeal): "Log meal"
         case .weeklyPlanningWorkspace(.overdue): "Plan the overdue work"
         case .weeklyPlanningWorkspace(.week): "Shape this week"
         case .backlog: "Open the backlog"
@@ -2509,6 +2517,26 @@ public struct HomeCardSnapshot: Codable, Hashable, Sendable {
     }
 }
 
+/// In-app presentation metadata paired with a card snapshot.
+///
+/// This deliberately is not Codable: entity identifiers used for navigation
+/// must not leak into app-group widget envelopes or other system surfaces.
+public struct HomeCardResolution: Sendable {
+    public var snapshot: HomeCardSnapshot
+    public var primaryRoute: AppRoute?
+    public var primaryActionTitle: String
+
+    public init(
+        snapshot: HomeCardSnapshot,
+        primaryRoute: AppRoute? = nil,
+        primaryActionTitle: String = "Open"
+    ) {
+        self.snapshot = snapshot
+        self.primaryRoute = primaryRoute
+        self.primaryActionTitle = primaryActionTitle
+    }
+}
+
 /// Domain-owned providers keep Home out of canonical databases. In-app cards,
 /// widgets, and previews may consume the same snapshot while retaining separate
 /// rendering lifecycles.
@@ -2523,6 +2551,7 @@ public protocol HomeCardSource: Sendable {
         at date: Date
     ) async -> HomeCardSnapshot
     func snapshot(context: HomeCardSnapshotContext) async -> HomeCardSnapshot
+    func resolution(context: HomeCardSnapshotContext) async -> HomeCardResolution
 }
 
 public extension HomeCardSource {
@@ -2556,6 +2585,14 @@ public extension HomeCardSource {
             result.actions = inlineActions
         }
         return result
+    }
+
+    func resolution(context: HomeCardSnapshotContext) async -> HomeCardResolution {
+        let resolvedSnapshot = await snapshot(context: context)
+        return HomeCardResolution(
+            snapshot: resolvedSnapshot,
+            primaryActionTitle: resolvedSnapshot.actions.first?.title ?? "Open"
+        )
     }
 }
 
@@ -2618,6 +2655,21 @@ public actor HomeCardProviderRegistry {
         let interval = PerformanceOperation.homeCardSnapshot.begin()
         defer { PerformanceOperation.homeCardSnapshot.end(interval) }
         return await provider.snapshot(context: context)
+    }
+
+    public func resolution(
+        for kind: DashboardWidgetKind,
+        context: HomeCardSnapshotContext
+    ) async throws -> HomeCardResolution {
+        guard let provider = providers[kind] else {
+            throw HomeCardProviderRegistryError.providerNotFound(kind)
+        }
+        guard provider.definition.supportedSizes.contains(context.semanticSize) else {
+            throw HomeCardProviderRegistryError.unsupportedSize(kind, context.semanticSize)
+        }
+        let interval = PerformanceOperation.homeCardSnapshot.begin()
+        defer { PerformanceOperation.homeCardSnapshot.end(interval) }
+        return await provider.resolution(context: context)
     }
 }
 
