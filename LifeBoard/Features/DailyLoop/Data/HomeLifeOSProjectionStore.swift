@@ -122,6 +122,9 @@ final class HomeLifeOSProjectionStore {
     /// Provider-resolved card snapshots keyed by "kind|size". Home widget
     /// bodies read these instead of reaching into domain snapshots directly.
     private(set) var cardSnapshots: [String: HomeCardSnapshot] = [:]
+    /// App-only navigation metadata. Kept separate from Codable snapshots so
+    /// record identifiers never cross into widgets or other system surfaces.
+    private(set) var cardResolutions: [String: HomeCardResolution] = [:]
     private var cardProviderRegistry: HomeCardProviderRegistry?
     private var journalInvalidationTask: Task<Void, Never>?
 
@@ -311,6 +314,10 @@ final class HomeLifeOSProjectionStore {
         cardSnapshots[Self.cardSnapshotKey(kind, size)]
     }
 
+    func cardResolution(kind: DashboardWidgetKind, size: HomeCardSize) -> HomeCardResolution? {
+        cardResolutions[Self.cardSnapshotKey(kind, size)]
+    }
+
     /// Resolves display-ready snapshots for the requested kind/size pairs
     /// through the domain provider registry. Home calls this after `load()`
     /// and at meaningful refresh boundaries; card bodies never read canonical
@@ -331,16 +338,20 @@ final class HomeLifeOSProjectionStore {
         var permitted: Set<DataSensitivity> = [.privateStandard, .shareEligible]
         if permitsSensitive { permitted.insert(.privateSensitive) }
         var resolved: [String: HomeCardSnapshot] = [:]
+        var inAppResolutions: [String: HomeCardResolution] = [:]
         for request in requests {
             let context = HomeCardSnapshotContext(
                 date: date,
                 semanticSize: request.size,
                 permittedSensitivities: permitted
             )
-            guard let snapshot = try? await registry.snapshot(for: request.kind, context: context) else { continue }
-            resolved[Self.cardSnapshotKey(request.kind, request.size)] = snapshot
+            guard let resolution = try? await registry.resolution(for: request.kind, context: context) else { continue }
+            let key = Self.cardSnapshotKey(request.kind, request.size)
+            resolved[key] = resolution.snapshot
+            inAppResolutions[key] = resolution
         }
         cardSnapshots = resolved
+        cardResolutions = inAppResolutions
     }
 
     func quickAddHydration(_ milliliters: Double) async {
@@ -441,6 +452,9 @@ final class HomeLifeOSProjectionStore {
                 destination: destination,
                 snapshotBuilder: { [self] size, date in
                     homeCardSnapshot(kind: kind, size: size, date: date)
+                },
+                routeBuilder: { [self] in
+                    homeCardPrimaryRoute(kind: kind)
                 }
             )
         }
@@ -721,6 +735,14 @@ final class HomeLifeOSProjectionStore {
         }
     }
 
+    private func homeCardPrimaryRoute(kind: DashboardWidgetKind) -> AppRoute? {
+        guard kind == .goals,
+              let ranked = trackSnapshot?.goals.max(by: {
+                  Self.goalFraction($0) < Self.goalFraction($1)
+              }) else { return nil }
+        return .goal(ranked.goalID)
+    }
+
     /// What the user still has not set up, in the order worth offering it.
     ///
     /// Onboarding deliberately does not ask for everything; this is where the
@@ -945,16 +967,19 @@ private struct ProjectionHomeCardSource: HomeCardSource {
     let primaryDestination: Destination
     let privacyClassification: DataSensitivity
     private let snapshotBuilder: @MainActor @Sendable (HomeCardSize, Date) -> HomeCardSnapshot
+    private let routeBuilder: @MainActor @Sendable () -> AppRoute?
 
     init(
         definition: HomeCardDefinition,
         destination: Destination,
-        snapshotBuilder: @escaping @MainActor @Sendable (HomeCardSize, Date) -> HomeCardSnapshot
+        snapshotBuilder: @escaping @MainActor @Sendable (HomeCardSize, Date) -> HomeCardSnapshot,
+        routeBuilder: @escaping @MainActor @Sendable () -> AppRoute? = { nil }
     ) {
         self.definition = definition
         primaryDestination = destination
         privacyClassification = definition.sensitivity
         self.snapshotBuilder = snapshotBuilder
+        self.routeBuilder = routeBuilder
     }
 
     func snapshot(
@@ -963,5 +988,21 @@ private struct ProjectionHomeCardSource: HomeCardSource {
         at date: Date
     ) async -> HomeCardSnapshot {
         await snapshotBuilder(size, date)
+    }
+
+    func resolution(context: HomeCardSnapshotContext) async -> HomeCardResolution {
+        let resolvedSnapshot = await snapshot(context: context)
+        let route = await routeBuilder()
+        let actionTitle: String
+        if definition.kind == .goals {
+            actionTitle = route == nil ? "View goals" : "View goal"
+        } else {
+            actionTitle = resolvedSnapshot.actions.first?.title ?? "Open"
+        }
+        return HomeCardResolution(
+            snapshot: resolvedSnapshot,
+            primaryRoute: route,
+            primaryActionTitle: actionTitle
+        )
     }
 }
