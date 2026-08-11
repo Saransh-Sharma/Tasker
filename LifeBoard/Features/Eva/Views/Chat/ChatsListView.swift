@@ -40,7 +40,7 @@ struct ChatsListView: View {
                                         .frame(width: 40, height: 40)
                                         .overlay(Circle().stroke(EvaChatSunriseGlass.assistantBorder.opacity(0.78), lineWidth: 1))
                                     Image(systemName: "bubble.left.fill")
-                                        .font(.system(size: 16))
+                                        .lifeboardFont(.body)
                                         .foregroundStyle(EvaChatSunriseGlass.primary)
                                 }
 
@@ -169,7 +169,7 @@ struct ChatsListView: View {
                     .frame(width: 80, height: 80)
                     .overlay(Circle().stroke(EvaChatSunriseGlass.assistantBorder.opacity(0.78), lineWidth: 1))
                 Image(systemName: "message")
-                    .font(.system(size: 32, weight: .medium))
+                    .lifeboardFont(.heroDisplay)
                     .foregroundStyle(EvaChatSunriseGlass.primary)
             }
 

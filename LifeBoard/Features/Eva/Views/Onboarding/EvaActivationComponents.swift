@@ -228,7 +228,7 @@ struct EvaGoalChip: View {
 
             Button(action: onRemove) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
+                    .lifeboardFont(.eyebrow)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .frame(width: 22, height: 22)
                     .background(Circle().fill(Color.lifeboard(.surfacePrimary)))

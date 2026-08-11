@@ -18,7 +18,7 @@ struct DeviceNotSupportedView: View {
                     .fill(Color.lifeboard(.statusDanger).opacity(0.12))
                     .frame(width: 96, height: 96)
                 Image(systemName: "iphone.slash")
-                    .font(.system(size: 36, weight: .semibold))
+                    .lifeboardFont(.heroDisplay)
                     .foregroundStyle(Color.lifeboard(.statusDanger))
             }
 

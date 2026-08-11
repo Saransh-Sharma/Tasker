@@ -206,7 +206,7 @@ struct ModelsSettingsView: View {
                             }
                         } label: {
                             Image(systemName: "ellipsis.circle")
-                                .font(.system(size: 17, weight: .semibold))
+                                .lifeboardFont(.title2)
                                 .foregroundStyle(Color.lifeboard(.textSecondary))
                                 .frame(width: 44, height: 44)
                         }

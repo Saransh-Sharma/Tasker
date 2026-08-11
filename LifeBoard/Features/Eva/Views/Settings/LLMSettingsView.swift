@@ -383,7 +383,7 @@ struct LLMPersonalMemorySettingsView: View {
                                 deleteEntry(for: section, entryID: entry.id)
                             } label: {
                                 Image(systemName: "minus.circle")
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .lifeboardFont(.headline)
                                     .frame(width: 28, height: 28)
                             }
                             .buttonStyle(.plain)

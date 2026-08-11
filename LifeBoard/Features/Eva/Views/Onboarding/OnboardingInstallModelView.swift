@@ -122,7 +122,7 @@ struct OnboardingInstallModelView: View {
                             .fill(Color.lifeboard(.accentWash))
                             .frame(width: 80, height: 80)
                         Image(systemName: "brain.head.profile")
-                            .font(.system(size: 34, weight: .medium))
+                            .lifeboardFont(.heroDisplay)
                             .foregroundStyle(Color.lifeboard(.accentPrimary))
                     }
 

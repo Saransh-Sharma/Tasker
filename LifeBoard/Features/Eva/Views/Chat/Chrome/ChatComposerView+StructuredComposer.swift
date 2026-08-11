@@ -177,7 +177,7 @@ extension ChatComposerView {
     ) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 20, weight: .semibold))
+                .lifeboardFont(.sectionTitle)
                 .foregroundStyle(Color.lifeboard(.link, on: .dockChrome))
                 .frame(width: 44, height: 44)
                 .contentShape(Rectangle())
@@ -192,7 +192,7 @@ extension ChatComposerView {
             structuredDeferredFeedback = "\(label) is coming later."
         } label: {
             Image(systemName: systemName)
-                .font(.system(size: 22, weight: .semibold))
+                .lifeboardFont(.title1)
                 .foregroundStyle(Color.lifeboard(.link, on: .dockChrome))
                 .frame(width: 36, height: 44)
                 .padding(.bottom, 4)

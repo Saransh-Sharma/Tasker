@@ -935,7 +935,7 @@ private struct ChatUnavailableSheet: View {
                     ) {
                         VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
                             Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 28, weight: .semibold))
+                                .lifeboardFont(.display)
                                 .foregroundColor(Color.lifeboard.statusWarning)
                                 .accessibilityHidden(true)
 
@@ -1092,7 +1092,7 @@ struct LLMStoreUnavailableView: View {
     var body: some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 24, weight: .semibold))
+                .lifeboardFont(.title1)
                 .foregroundColor(.lifeboard(.statusWarning))
             Text("Assistant storage unavailable")
                 .font(.headline)

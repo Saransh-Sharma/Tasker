@@ -143,7 +143,7 @@ private struct EvaModeCard: View {
                     Spacer(minLength: Theme.Spacing.sm)
 
                     Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                        .font(.system(size: 30, weight: .semibold))
+                        .lifeboardFont(.display)
                         .foregroundStyle(isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.textTertiary))
                 }
 

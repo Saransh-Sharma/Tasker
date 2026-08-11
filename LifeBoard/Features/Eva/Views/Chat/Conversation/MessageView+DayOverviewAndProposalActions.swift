@@ -167,7 +167,7 @@ extension MessageView {
                                 toggleEvaSelection(card)
                             } label: {
                                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                                    .font(.system(size: 24, weight: .semibold))
+                                    .lifeboardFont(.title1)
                                     .foregroundStyle(isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.accentMuted))
                             }
                             .buttonStyle(.plain)
@@ -200,7 +200,7 @@ extension MessageView {
             RoundedRectangle(cornerRadius: Theme.CornerRadius.lg, style: .continuous)
                 .stroke(borderColor, lineWidth: borderWidth)
         )
-        .shadow(color: isSelected ? Color.lifeboard(.accentPrimary).opacity(0.18) : .clear, radius: isSelected ? 8 : 0, x: 0, y: isSelected ? 3 : 0)
+        .lifeboardElevation(isSelected ? .e1 : .e0, cornerRadius: Theme.CornerRadius.lg)
         .accessibilityValue(isSelected ? "Selected" : "Not selected")
     }
 

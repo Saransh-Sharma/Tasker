@@ -494,7 +494,7 @@ private struct MascotPersonaChoiceContent: View {
                 Spacer(minLength: 0)
 
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.system(size: 18, weight: .semibold))
+                    .lifeboardFont(.title2)
                     .foregroundStyle(isSelected ? Color.lifeboard(.accentPrimary) : Color.lifeboard(.textTertiary))
             }
 
@@ -825,7 +825,7 @@ struct EvaInstallStatusView: View {
 
             if isComplete {
                 Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: 50, weight: .semibold))
+                    .lifeboardFont(.heroDisplay)
                     .foregroundStyle(Color.lifeboard(.statusSuccess))
             } else {
                 ZStack {

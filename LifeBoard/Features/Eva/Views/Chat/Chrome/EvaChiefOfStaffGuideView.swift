@@ -97,7 +97,7 @@ struct EvaChiefOfStaffGuideView: View {
         }
         .overlay(alignment: .topTrailing) {
             Image(systemName: "sparkles")
-                .font(.system(size: 18, weight: .semibold))
+                .lifeboardFont(.title2)
                 .foregroundStyle(Color.lifeboard(.link, on: .card))
                 .padding(Theme.Spacing.lg)
                 .accessibilityHidden(true)
@@ -122,7 +122,7 @@ struct EvaChiefOfStaffGuideView: View {
                 .frame(width: 40, height: 40)
         }
         .frame(width: 52, height: 52)
-        .shadow(color: ClayColorTokens.elevationShadow.opacity(0.14), radius: 12, x: 0, y: 6)
+        .lifeboardElevation(.e2, cornerRadius: Radius.pill)
         .accessibilityHidden(true)
     }
 
@@ -169,7 +169,7 @@ struct EvaChiefOfStaffGuideView: View {
 
     func sectionIconWell(_ icon: String, style: RoleStyle) -> some View {
         Image(systemName: icon)
-            .font(.system(size: 18, weight: .semibold))
+            .lifeboardFont(.title2)
             .foregroundStyle(style.base)
             .frame(width: 44, height: 44)
             .background(style.softSurface.opacity(0.92), in: RoundedRectangle(cornerRadius: RadiusTokens.iconWell, style: .continuous))

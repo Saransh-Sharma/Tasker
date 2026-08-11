@@ -608,7 +608,7 @@ private struct EvaInstallHeroTile: View {
 
                     if isComplete {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 44, weight: .semibold))
+                            .lifeboardFont(.heroDisplay)
                             .foregroundStyle(Color.lifeboard(.statusSuccess))
                     } else {
                         EvaLoopingLottieContainer(size: 72)

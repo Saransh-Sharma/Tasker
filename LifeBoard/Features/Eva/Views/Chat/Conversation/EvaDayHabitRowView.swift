@@ -88,7 +88,7 @@ struct EvaDayHabitRowView: View {
                     ZStack {
                         accentColor.opacity(0.14)
                         Image(systemName: card.iconSymbolName ?? "circle.dashed")
-                            .font(.system(size: 17, weight: .semibold))
+                            .lifeboardFont(.title2)
                             .foregroundStyle(accentColor)
                             .symbolRenderingMode(.hierarchical)
                     }

@@ -20,7 +20,7 @@ private struct EvaFeatureRow: View {
                     .fill(Color.lifeboard(.accentWash))
                     .frame(width: 44, height: 44)
                 Image(systemName: icon)
-                    .font(.system(size: 18, weight: .medium))
+                    .lifeboardFont(.body)
                     .foregroundColor(Color.lifeboard(.accentPrimary))
             }
 
@@ -67,7 +67,7 @@ struct OnboardingView: View {
                             .fill(Color.lifeboard(.accentMuted))
                             .frame(width: 72, height: 72)
                         Image(systemName: "bubble.left.and.text.bubble.right")
-                            .font(.system(size: 32, weight: .medium))
+                            .lifeboardFont(.heroDisplay)
                             .foregroundColor(Color.lifeboard(.accentPrimary))
                             .symbolEffect(.wiggle.byLayer, options: .repeat(.continuous))
                     }

@@ -68,7 +68,7 @@ struct ChatHeaderView: View {
                     )
 
                 Image(systemName: "plus.message")
-                    .font(.system(size: 15, weight: .semibold))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(Color.lifeboard(.accentPrimary))
                     .frame(width: 44, height: 44)
                     .lifeboardChromeSurface(
@@ -93,7 +93,7 @@ struct ChatHeaderView: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 15, weight: .semibold))
+                .lifeboardFont(.headline)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .frame(width: 44, height: 44)
                 .lifeboardChromeSurface(
