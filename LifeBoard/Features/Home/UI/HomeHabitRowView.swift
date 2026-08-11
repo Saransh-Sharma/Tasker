@@ -272,6 +272,12 @@ struct HomeHabitRowView: View {
                 }
             }
             .hoverEffect(.highlight)
+            // Pairs with the `lifeBoardZoomDestination` the shell already
+            // applies to every route carrying a `spatialTransitionID`. The
+            // destination half for `.habitDetail` was wired all along; nothing
+            // ever declared itself as the source, so the push fell back to a
+            // plain slide.
+            .lifeBoardTransitionSource("route.habit.\(row.habitID.uuidString)")
     }
 
     private var rowBase: some View {
