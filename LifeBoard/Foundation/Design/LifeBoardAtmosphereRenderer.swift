@@ -1036,7 +1036,7 @@ public struct StatusSurface: View {
             ProgressView().controlSize(.small)
         } else {
             Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .semibold))
+                .lifeboardFont(.title2)
                 .foregroundStyle(iconColor)
         }
     }
@@ -1286,7 +1286,7 @@ public struct MetricRing: View {
                         .padding(.horizontal, 7)
                 } else if let statusSymbol {
                     Image(systemName: statusSymbol)
-                        .font(.system(size: 13, weight: .semibold))
+                        .lifeboardFont(.meta)
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
                 }
             }

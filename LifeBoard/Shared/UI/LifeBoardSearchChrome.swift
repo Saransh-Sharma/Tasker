@@ -50,7 +50,7 @@ struct SearchHeaderView: View {
     var body: some View {
         HStack(spacing: spacing.s8) {
             Image(systemName: "magnifyingglass")
-                .font(.system(size: 22, weight: .semibold))
+                .lifeboardFont(.title1)
                 .foregroundStyle(Color.lifeboard.textSecondary)
 
             TextField(placeholder, text: $query)
@@ -69,7 +69,7 @@ struct SearchHeaderView: View {
 
             if isCommandMode {
                 Image(systemName: "sparkles")
-                    .font(.system(size: 16, weight: .semibold))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(ClayColorTokens.violetDeep)
                     .accessibilityHidden(true)
             }
@@ -77,7 +77,7 @@ struct SearchHeaderView: View {
             if !query.isEmpty {
                 Button(action: onClear) {
                     Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 16))
+                        .lifeboardFont(.body)
                         .foregroundStyle(Color.lifeboard.textTertiary)
                 }
                 .buttonStyle(.plain)

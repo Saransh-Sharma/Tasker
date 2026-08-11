@@ -133,7 +133,7 @@ struct DetailDisclosureCard<Content: View>: View {
             Button(action: action) {
                 HStack(alignment: .top, spacing: spacing.s12) {
                     Image(systemName: systemImage)
-                        .font(.system(size: 15, weight: .semibold))
+                        .lifeboardFont(.headline)
                         .foregroundStyle(isExpanded ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary)
                         .frame(width: 34, height: 34)
                         .background(isExpanded ? Color.lifeboard.accentWash : Color.lifeboard.surfacePrimary.opacity(0.78), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
@@ -153,7 +153,7 @@ struct DetailDisclosureCard<Content: View>: View {
                     Spacer(minLength: 0)
 
                     Image(systemName: "chevron.down")
-                        .font(.system(size: 12, weight: .semibold))
+                        .lifeboardFont(.eyebrow)
                         .foregroundStyle(isExpanded ? Color.lifeboard.accentPrimary : Color.lifeboard.textTertiary)
                         .frame(width: 32, height: 32)
                         .background(Color.lifeboard.surfacePrimary.opacity(0.7), in: Circle())

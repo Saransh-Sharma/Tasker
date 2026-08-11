@@ -41,7 +41,7 @@ struct HomeCardPlacementSheet: View {
                             .font(.caption.weight(.semibold))
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         Text("Add \(descriptor.title) to Home")
-                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                            .lifeboardFont(.heroDisplay)
                         Text("Choose how much this card should reveal. You can resize or move it any time.")
                             .font(.body)
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -183,7 +183,7 @@ struct ComposerPreviewCard: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 Image(systemName: preview.destination.systemImage)
-                    .font(.system(size: 15, weight: .semibold))
+                    .lifeboardFont(.headline)
                     .frame(width: 32, height: 32)
                     .background(Color(SemanticColorTokens.foundationSunAccent).opacity(0.2), in: Circle())
                 VStack(alignment: .leading, spacing: 2) {

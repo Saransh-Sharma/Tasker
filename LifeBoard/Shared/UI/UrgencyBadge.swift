@@ -6,7 +6,8 @@
 //  Sunrise role styling for rescue, due soon, and today.
 //
 
- import SwiftUI
+ import LifeBoardTokens
+import SwiftUI
 
 // MARK: - Urgency Level
 
@@ -71,7 +72,7 @@ public struct UrgencyBadge: View {
         HStack(spacing: 3) {
             if !isCompact {
                 Image(systemName: icon)
-                    .font(.system(size: 9, weight: .medium))
+                    .lifeboardFont(.caption2)
             }
             Text(text)
                 .font(.lifeboard(.caption2))

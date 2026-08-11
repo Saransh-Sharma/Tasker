@@ -60,7 +60,7 @@ struct FilterChip: View {
         HStack(spacing: spacing.s8) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 11, weight: .semibold))
+                    .lifeboardFont(.eyebrow)
             }
 
             Text(title)
@@ -169,13 +169,13 @@ struct FilterRow: View {
     private var rowLabel: some View {
         HStack(spacing: spacing.s12) {
             Image(systemName: selectionIcon)
-                .font(.system(size: 18))
+                .lifeboardFont(.body)
                 .foregroundStyle(isSelected ? rowAccent : Color.lifeboard.textTertiary)
                 .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isSelected)
 
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 16))
+                    .lifeboardFont(.body)
                     .foregroundStyle(Color.lifeboard.textSecondary)
             }
 
@@ -209,7 +209,7 @@ struct FilterRow: View {
 
             if systemImage != nil {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .medium))
+                    .lifeboardFont(.caption2)
                     .foregroundStyle(Color.lifeboard.textTertiary)
             }
         }

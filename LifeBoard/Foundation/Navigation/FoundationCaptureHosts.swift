@@ -22,7 +22,7 @@ struct CaptureSheet: View {
                 onClose()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 15, weight: .bold))
+                    .lifeboardFont(.headline)
                     .frame(width: 44, height: 44)
                     .background(.regularMaterial, in: Circle())
             }

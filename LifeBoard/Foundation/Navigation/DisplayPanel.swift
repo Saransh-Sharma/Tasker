@@ -116,7 +116,7 @@ struct DisplayPanel: View {
         } label: {
             HStack(spacing: 8) {
                 Image(systemName: candidate.systemImage)
-                    .font(.system(size: 15, weight: .semibold))
+                    .lifeboardFont(.headline)
                 Text(candidate.title)
                     // Weight carries selection alongside the fill, so the state
                     // survives Differentiate Without Colour.

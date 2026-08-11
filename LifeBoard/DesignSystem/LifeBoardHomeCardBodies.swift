@@ -69,7 +69,7 @@ public struct HomeCardBody: View {
     private var header: some View {
         HStack(spacing: 7) {
             Image(systemName: symbol)
-                .font(.system(size: preset == .compact ? 12 : 14, weight: .semibold))
+                .lifeboardFont(preset == .compact ? .caption2 : .eyebrow)
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
             Text(snapshot?.title ?? title)
                 .lifeboardFont(.caption1)
