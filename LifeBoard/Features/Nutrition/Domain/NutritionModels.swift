@@ -1027,10 +1027,99 @@ public actor NutritionScanDeduplicator {
     }
 }
 
-public enum NutritionHomeCardFocus: Sendable {
+public enum NutritionHomeCardFocus: Codable, Hashable, Sendable {
     case dailySummary
     case recentMeal
     case logMeal
+}
+
+public enum NutritionSummarySource: String, Codable, Hashable, Sendable {
+    case appleHealth
+    case lifeBoard
+}
+
+public struct NutritionSummaryProjection: Equatable, Sendable {
+    public var calories: Double?
+    public var proteinGrams: Double?
+    public var carbohydrateGrams: Double?
+    public var fatGrams: Double?
+    public var source: NutritionSummarySource
+    public var updatedAt: Date?
+    public var isPartial: Bool
+
+    public init(
+        calories: Double?,
+        proteinGrams: Double?,
+        carbohydrateGrams: Double?,
+        fatGrams: Double?,
+        source: NutritionSummarySource,
+        updatedAt: Date?,
+        isPartial: Bool = false
+    ) {
+        self.calories = calories
+        self.proteinGrams = proteinGrams
+        self.carbohydrateGrams = carbohydrateGrams
+        self.fatGrams = fatGrams
+        self.source = source
+        self.updatedAt = updatedAt
+        self.isPartial = isPartial
+    }
+}
+
+/// Selects one complete source for the headline nutrition summary. LifeBoard
+/// values are never added to Apple Health aggregates because successful meal
+/// writeback is already included in HealthKit's totals.
+public enum HealthFirstNutritionSummaryResolver {
+    public static func resolve(
+        health snapshot: HealthMetricsSnapshot?,
+        local: NutritionMacros,
+        localUpdatedAt: Date? = nil
+    ) -> NutritionSummaryProjection {
+        guard let snapshot,
+              healthCanLead(snapshot.statuses[.nutrition]),
+              snapshot.aggregates.keys.contains(where: { $0.domain == .nutrition }) else {
+            let hasLocalRecord = localUpdatedAt != nil
+            return NutritionSummaryProjection(
+                calories: hasLocalRecord ? local.calories : nil,
+                proteinGrams: hasLocalRecord ? local.proteinGrams : nil,
+                carbohydrateGrams: hasLocalRecord ? local.carbohydrateGrams : nil,
+                fatGrams: hasLocalRecord ? local.fatGrams : nil,
+                source: .lifeBoard,
+                updatedAt: localUpdatedAt
+            )
+        }
+
+        let values = snapshot.aggregates
+        return NutritionSummaryProjection(
+            calories: values[.dietaryEnergy]?.value,
+            proteinGrams: values[.dietaryProtein]?.value,
+            carbohydrateGrams: values[.dietaryCarbohydrates]?.value,
+            fatGrams: values[.dietaryFat]?.value,
+            source: .appleHealth,
+            updatedAt: values
+                .filter { $0.key.domain == .nutrition }
+                .map(\.value.end)
+                .max(),
+            isPartial: isPartial(snapshot.statuses[.nutrition])
+        )
+    }
+
+    private static func healthCanLead(_ status: HealthDomainStatus?) -> Bool {
+        guard let status else { return false }
+        return switch status.signal {
+        case .recorded, .explicitZero, .partial, .stale, .offline,
+             .unavailable, .protectedDataLocked, .writeDenied:
+            true
+        case .loading, .setupRequired, .noRecord:
+            false
+        }
+    }
+
+    private static func isPartial(_ status: HealthDomainStatus?) -> Bool {
+        guard let status else { return false }
+        if case .partial = status.signal { return true }
+        return false
+    }
 }
 
 public struct NutritionHomeCardSource: HomeCardSource {
@@ -1039,11 +1128,18 @@ public struct NutritionHomeCardSource: HomeCardSource {
     public let privacyClassification = DataSensitivity.privateSensitive
     private let repository: any NutritionRepository
     private let focus: NutritionHomeCardFocus
+    private let healthMetrics: (any HealthMetricsReading)?
 
-    public init(definition: HomeCardDefinition, focus: NutritionHomeCardFocus, repository: any NutritionRepository) {
+    public init(
+        definition: HomeCardDefinition,
+        focus: NutritionHomeCardFocus,
+        repository: any NutritionRepository,
+        healthMetrics: (any HealthMetricsReading)? = nil
+    ) {
         self.definition = definition
         self.focus = focus
         self.repository = repository
+        self.healthMetrics = healthMetrics
     }
 
     public func snapshot(configuration: HomeCardConfiguration, size: HomeCardSize, at date: Date) async -> HomeCardSnapshot {
@@ -1066,11 +1162,25 @@ public struct NutritionHomeCardSource: HomeCardSource {
                 calendar.timeZone = .autoupdatingCurrent
                 let entries = try await repository.logs(from: calendar.startOfDay(for: date), to: calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: date)))
                 let total = entries.reduce(NutritionMacros.zero) { $0.adding($1.resolvedMacrosSnapshot) }
-                let detail: String? = switch size {
+                let healthSnapshot = await healthMetrics?.currentSnapshot(now: date)
+                let summary = HealthFirstNutritionSummaryResolver.resolve(
+                    health: healthSnapshot,
+                    local: total,
+                    localUpdatedAt: entries.map(\.updatedAt).max()
+                )
+                let baseDetail: String? = switch size {
                 case .compact: nil
-                case .standard, .wide: "P \(Int(total.proteinGrams.rounded()))g · C \(Int(total.carbohydrateGrams.rounded()))g · F \(Int(total.fatGrams.rounded()))g"
-                case .tall, .expanded: "\(entries.count) logged items. This is a factual summary, not a score or recommendation."
+                case .standard, .wide: Self.macroDetail(summary)
+                case .tall, .expanded: summary.source == .appleHealth
+                    ? "Apple Health totals. \(entries.count) named LifeBoard item\(entries.count == 1 ? "" : "s") are listed separately."
+                    : "\(entries.count) logged items. This is a factual summary, not a score or recommendation."
                 }
+                let detail = summary.source == .appleHealth
+                    ? Self.appendingHealthStatus(
+                        to: baseDetail,
+                        status: healthSnapshot?.statuses[.nutrition]
+                    )
+                    : baseDetail
                 // A hero numeral for the day's energy, with the last week's
                 // daily totals behind it. Factual, never a target or a score.
                 let weekStart = calendar.date(byAdding: .day, value: -6, to: calendar.startOfDay(for: date))
@@ -1080,25 +1190,72 @@ public struct NutritionHomeCardSource: HomeCardSource {
                     let day = calendar.startOfDay(for: entry.loggedAt)
                     byDay[day, default: 0] += entry.resolvedMacrosSnapshot.calories
                 }
-                let history = byDay
-                    .map { HomeSeriesPoint(date: $0.key, value: $0.value) }
-                    .sorted { $0.date < $1.date }
+                let history: [HomeSeriesPoint]
+                if summary.source == .appleHealth, let healthMetrics {
+                    let healthHistory = await healthMetrics.cachedHistory(
+                        domain: .nutrition,
+                        range: .sevenDays,
+                        now: date
+                    )
+                    history = (healthHistory[.dietaryEnergy] ?? []).map {
+                        HomeSeriesPoint(date: $0.start, value: $0.value)
+                    }
+                } else {
+                    history = byDay
+                        .map { HomeSeriesPoint(date: $0.key, value: $0.value) }
+                        .sorted { $0.date < $1.date }
+                }
 
                 var energyPayload = HomeCardPayload.none
-                if entries.isEmpty == false {
+                if let calories = summary.calories {
                     energyPayload = .metric(
                         HomeMetricValue(
-                            amount: total.calories.rounded(),
+                            amount: calories.rounded(),
                             unit: "kcal",
                             history: history
                         )
                     )
                 }
-                return .init(availability: entries.isEmpty ? .empty : .ready, title: definition.title, value: entries.isEmpty ? nil : "\(Int(total.calories.rounded())) kcal", detail: entries.isEmpty ? "Log only when it is useful to you." : detail, payload: energyPayload, actions: inlineActions, updatedAt: entries.map(\.updatedAt).max() ?? date)
+                let hasSummary = summary.calories != nil
+                    || summary.proteinGrams != nil
+                    || summary.carbohydrateGrams != nil
+                    || summary.fatGrams != nil
+                return .init(
+                    availability: hasSummary ? .ready : .empty,
+                    title: definition.title,
+                    value: summary.calories.map { "\(Int($0.rounded())) kcal" },
+                    detail: hasSummary ? detail : "Log only when it is useful to you.",
+                    payload: energyPayload,
+                    actions: inlineActions,
+                    updatedAt: summary.updatedAt ?? date
+                )
             }
         } catch {
             return .init(availability: .degraded, title: definition.title, detail: "Nutrition is unavailable right now. Your Home layout is unchanged.", updatedAt: date)
         }
+    }
+
+    private static func macroDetail(_ summary: NutritionSummaryProjection) -> String {
+        func value(_ amount: Double?, unit: String) -> String {
+            amount.map { "\(Int($0.rounded()))\(unit)" } ?? "—"
+        }
+        return "P \(value(summary.proteinGrams, unit: "g")) · C \(value(summary.carbohydrateGrams, unit: "g")) · F \(value(summary.fatGrams, unit: "g"))"
+    }
+
+    private static func appendingHealthStatus(
+        to detail: String?,
+        status: HealthDomainStatus?
+    ) -> String? {
+        guard let status else { return detail }
+        let suffix: String? = switch status.signal {
+        case .stale: "May be out of date; refreshes automatically."
+        case .partial, .offline: "Some values are unavailable; refreshes automatically."
+        case .protectedDataLocked: "Unlock the device to refresh."
+        case .unavailable: "Showing the last available Apple Health data."
+        case .writeDenied: "Apple Health write access is off."
+        case .loading, .setupRequired, .noRecord, .explicitZero, .recorded: nil
+        }
+        return [detail, suffix].compactMap { $0 }.joined(separator: " ").nutritionTrimmed
     }
 }
 
