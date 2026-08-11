@@ -882,7 +882,8 @@ struct AdaptiveHome: View {
             goalSampleProvider: goalSampleProvider,
             wellnessRepository: wellnessRepository,
             nutritionRepository: nutritionRepository,
-            lifeMomentRepository: lifeMomentRepository
+            lifeMomentRepository: lifeMomentRepository,
+            healthMetrics: HealthCoordinator.shared.metricsReader
         ))
     }
 
@@ -1805,6 +1806,10 @@ struct AdaptiveHome: View {
     }
 
     private func openWidget(_ kind: DashboardWidgetKind) {
+        if let route = HomeWidgetRouteResolver.route(for: kind) {
+            router.navigateReplacingPath(route, in: .track)
+            return
+        }
         switch kind {
         case .focusNow, .tasks:
             router.select(.plan)
@@ -1819,7 +1824,7 @@ struct AdaptiveHome: View {
         case .progressReflection:
             router.select(.insights)
         case .fasting:
-            router.select(.track)
+            router.navigateReplacingPath(.fasting, in: .track)
         default:
             break
         }
@@ -3229,8 +3234,8 @@ private struct HomeDashboardWidget: View {
                     case .fasting:
                         HomeFastingWidget(
                             lifeOSStore: lifeOSStore,
-                            router: router,
-                            palette: palette
+                            palette: palette,
+                            onOpen: { onOpenWidget(.fasting) }
                         )
                     default:
                         // Was `EmptyView()`. Eleven registered kinds — goals,
@@ -3377,31 +3382,28 @@ private struct HomeArchetypeWidget: View {
 
     var body: some View {
         let descriptor = store.registry.descriptor(for: kind)
-        Button {
-            onOpenWidget(kind)
-        } label: {
-            HomeCardBody(
-                snapshot: lifeOSStore.cardSnapshot(kind: kind, size: preset),
-                archetype: descriptor?.archetype ?? .queue,
-                preset: preset,
-                palette: palette,
-                title: descriptor?.title ?? "LifeBoard",
-                symbol: HomeSectionCopy.symbol(for: kind, store: store),
-                queueLimit: modePolicy
-                    .sectionBudget(for: router.dashboardMode)
-                    .applying(dashboardDensity)
-                    .queueLimit,
-                onAction: { action in
-                    if let destination = action.destination {
-                        router.select(destination)
-                    } else {
-                        onOpenWidget(kind)
-                    }
-                },
-                onOpen: { onOpenWidget(kind) }
-            )
-        }
-        .buttonStyle(.plain)
+        HomeCardBody(
+            snapshot: lifeOSStore.cardSnapshot(kind: kind, size: preset),
+            archetype: descriptor?.archetype ?? .queue,
+            preset: preset,
+            palette: palette,
+            title: descriptor?.title ?? "LifeBoard",
+            symbol: HomeSectionCopy.symbol(for: kind, store: store),
+            queueLimit: modePolicy
+                .sectionBudget(for: router.dashboardMode)
+                .applying(dashboardDensity)
+                .queueLimit,
+            onAction: { action in
+                if HomeWidgetRouteResolver.route(for: kind) != nil {
+                    onOpenWidget(kind)
+                } else if let destination = action.destination {
+                    router.select(destination)
+                } else {
+                    onOpenWidget(kind)
+                }
+            },
+            onOpen: { onOpenWidget(kind) }
+        )
         .lifeBoardRaisedClayCard(palette: palette)
         .accessibilityHint("Opens the source")
     }
@@ -4116,71 +4118,100 @@ private struct HomeProgressWidget: View {
 
 private struct HomeFastingWidget: View {
     let lifeOSStore: HomeLifeOSProjectionStore
-    let router: AppRouter
     let palette: DaypartPalette
+    let onOpen: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            HomeWidgetTitle("Active fast", symbol: "timer", palette: palette)
-                .accessibilityIdentifier("home.widget.fasting")
-            if let fast = lifeOSStore.activeFast {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let elapsed = fast.elapsed(at: context.date)
-                    let progress = fast.targetDuration.map { $0 > 0 ? min(1, elapsed / $0) : 0.25 } ?? 0.25
-                    HStack(spacing: 18) {
-                        ZStack {
-                            Circle()
-                                .stroke(palette.color(for: .canvasSecondary), lineWidth: 8)
-                            Circle()
-                                .trim(from: 0, to: max(0.025, progress))
-                                .stroke(
-                                    palette.color(for: .celestialCore),
-                                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                                )
-                                .rotationEffect(.degrees(-90))
-                                .lifeboardFastingEmberRing(
-                                    progress: progress,
-                                    tint: palette.color(for: .celestialCore)
-                                )
-                        }
-                        .frame(width: 86, height: 86)
-                        .accessibilityHidden(true)
+            Button(action: onOpen) {
+                VStack(alignment: .leading, spacing: 14) {
+                    HomeWidgetTitle("Active fast", symbol: "timer", palette: palette)
+                        .accessibilityIdentifier("home.widget.fasting")
+                    if let fast = lifeOSStore.activeFast {
+                        TimelineView(.periodic(from: .now, by: 1)) { context in
+                            let elapsed = fast.elapsed(at: context.date)
+                            let progress = fast.targetDuration.map { $0 > 0 ? min(1, elapsed / $0) : 0.25 } ?? 0.25
+                            HStack(spacing: 18) {
+                                ZStack {
+                                    Circle()
+                                        .stroke(palette.color(for: .canvasSecondary), lineWidth: 8)
+                                    Circle()
+                                        .trim(from: 0, to: max(0.025, progress))
+                                        .stroke(
+                                            palette.color(for: .celestialCore),
+                                            style: StrokeStyle(lineWidth: 8, lineCap: .round)
+                                        )
+                                        .rotationEffect(.degrees(-90))
+                                        .lifeboardFastingEmberRing(
+                                            progress: progress,
+                                            tint: palette.color(for: .celestialCore)
+                                        )
+                                }
+                                .frame(width: 86, height: 86)
+                                .accessibilityHidden(true)
 
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(HomeSectionCopy.duration(elapsed))
-                                .font(.system(.title2, design: .rounded, weight: .bold).monospacedDigit())
-                            Text(fast.targetDuration.map {
-                                elapsed >= $0
-                                    ? "Planned duration reached"
-                                    : "\(HomeSectionCopy.duration($0 - elapsed)) until your planned finish"
-                            } ?? "End whenever it feels right")
-                                .font(.caption)
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                                .fixedSize(horizontal: false, vertical: true)
+                                VStack(alignment: .leading, spacing: 5) {
+                                    Text(HomeSectionCopy.duration(elapsed))
+                                        .font(.system(.title2, design: .rounded, weight: .bold).monospacedDigit())
+                                    Text(fast.targetDuration.map {
+                                        elapsed >= $0
+                                            ? "Planned duration reached"
+                                            : "\(HomeSectionCopy.duration($0 - elapsed)) until your planned finish"
+                                    } ?? "End whenever it feels right")
+                                        .font(.caption)
+                                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                                        .fixedSize(horizontal: false, vertical: true)
+                                }
+                            }
+                            .accessibilityElement(children: .combine)
+                            .accessibilityLabel("Active fast")
+                            .accessibilityValue("\(HomeSectionCopy.duration(elapsed)) elapsed")
                         }
+                    } else {
+                        HomeEmptyStateRow("No fast is active", symbol: "checkmark.circle", palette: palette)
                     }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Active fast")
-                    .accessibilityValue("\(HomeSectionCopy.duration(elapsed)) elapsed")
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            if lifeOSStore.activeFast != nil {
                 HStack(spacing: 10) {
                     Button("End fast") {
                         Task { await lifeOSStore.endActiveFast() }
                     }
                     .buttonStyle(PrimaryActionStyle(fill: palette.color(for: .foreground)))
-                    Button("Open Track") { router.select(.track) }
+                    Button("View details", action: onOpen)
                         .buttonStyle(.bordered)
                         .frame(maxWidth: .infinity, minHeight: 44)
                 }
             } else {
-                HomeEmptyStateRow("No fast is active", symbol: "checkmark.circle", palette: palette)
-                Button("Set up in Track") { router.select(.track) }
+                Button("Start a fast", action: onOpen)
                     .font(.subheadline.weight(.semibold))
                     .frame(minHeight: 44)
             }
         }
         .padding(16)
         .lifeBoardRaisedClayCard(palette: palette)
+    }
+}
+
+/// The product-owned mapping from a Home card to the typed leaf that owns its
+/// review and capture experience. Kept pure so route coverage cannot regress
+/// behind SwiftUI interaction tests alone.
+enum HomeWidgetRouteResolver {
+    static func route(for kind: DashboardWidgetKind) -> AppRoute? {
+        switch kind {
+        case .bodyMetric: .wellness(.bodyMetric(.bodyMass))
+        case .workout: .wellness(.workouts)
+        case .sleep: .wellness(.sleep)
+        case .movement: .wellness(.movement)
+        case .nutritionSummary: .nutrition(.dailySummary)
+        case .logMeal: .nutrition(.logMeal)
+        case .fasting: .fasting
+        default: nil
+        }
     }
 }
 
