@@ -107,7 +107,7 @@ struct RecurringTaskDeleteConfirmationView: View {
         } label: {
             HStack(spacing: ClayLayoutMetrics.sm) {
                 Image(systemName: systemImage)
-                    .font(.system(size: 18, weight: .semibold))
+                    .lifeboardFont(.title2)
                     .frame(width: 28, height: 28)
 
                 Text(title)

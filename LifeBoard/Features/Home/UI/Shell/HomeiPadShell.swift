@@ -637,7 +637,7 @@ struct SunriseiPadSplitShellView: View {
         } else {
             VStack(spacing: spacing.s16) {
                 Image(systemName: "rectangle.righthalf.inset.filled")
-                    .font(.system(size: 48, weight: .thin))
+                    .lifeboardFont(.heroDisplay)
                     .foregroundStyle(Color.lifeboard.accentMuted)
                 Text("No task selected")
                     .lifeboardFont(.title3)

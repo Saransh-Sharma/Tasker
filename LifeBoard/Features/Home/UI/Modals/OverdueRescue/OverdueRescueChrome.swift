@@ -550,7 +550,7 @@ struct OverdueRescueErrorView: View {
         VStack(spacing: 18) {
             Spacer()
             Image(systemName: "exclamationmark.triangle")
-                .font(.system(size: 54, weight: .semibold))
+                .lifeboardFont(.heroDisplay)
                 .foregroundStyle(Color.lifeboard.statusWarning)
             Text("Rescue paused")
                 .font(.lifeboard(.title2))

@@ -189,7 +189,7 @@ struct AdvancedFilterSheetView: View {
                                     onDeleteSavedView(saved.id)
                                 } label: {
                                     Image(systemName: "trash")
-                                        .font(.system(size: 15, weight: .semibold))
+                                        .lifeboardFont(.headline)
                                         .foregroundStyle(Color.lifeboard.statusDanger)
                                         .frame(width: 36, height: 36)
                                         .lifeboardChromeSurface(

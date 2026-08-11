@@ -100,7 +100,7 @@ struct HomeMomentumSummaryCard: View {
     private var streakIndicator: some View {
         HStack(spacing: 4) {
             Image(systemName: "leaf.fill")
-                .font(.system(size: 12, weight: .medium))
+                .lifeboardFont(.caption2)
                 .foregroundStyle(Color.lifeboard.accentSecondary)
                 .symbolEffect(
                     .pulse,

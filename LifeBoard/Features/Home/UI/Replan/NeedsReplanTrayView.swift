@@ -18,7 +18,7 @@ struct NeedsReplanTrayView: View {
         Button(action: onTap) {
             HStack(alignment: .center, spacing: 12) {
                 Image(systemName: "arrow.triangle.2.circlepath")
-                    .font(.system(size: 15, weight: .semibold, design: .rounded))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(Color.lifeboard.accentPrimary)
                     .frame(width: 36, height: 36)
                     .background(Color.lifeboard.accentWash.opacity(0.72), in: Circle())

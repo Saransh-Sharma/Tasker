@@ -90,7 +90,7 @@ struct HomeEvaChatTopChromeView: View {
     ) -> some View {
         Button(action: action) {
             Image(systemName: systemName)
-                .font(.system(size: 15, weight: .semibold))
+                .lifeboardFont(.headline)
                 .foregroundStyle(EvaChatSunriseGlass.navyMuted)
                 .frame(width: 44, height: 44)
                 .lifeboardPremiumSurface(

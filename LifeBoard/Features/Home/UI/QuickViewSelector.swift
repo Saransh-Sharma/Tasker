@@ -6,7 +6,8 @@
 //  Compact design for seamless nav bar integration.
 //
 
- import SwiftUI
+ import LifeBoardTokens
+import SwiftUI
 
 // MARK: - Quick View Selector
 
@@ -101,7 +102,7 @@ public struct QuickViewSelector: View {
                         .frame(width: 28, height: 28)
 
                     Image(systemName: iconName(for: selectedQuickView))
-                        .font(.system(size: 13, weight: .semibold))
+                        .lifeboardFont(.meta)
                         .foregroundStyle(selectionTint)
                 }
 
@@ -130,7 +131,7 @@ public struct QuickViewSelector: View {
                 }
 
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .bold))
+                    .lifeboardFont(.eyebrow)
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .rotationEffect(.degrees(2))
             }
@@ -214,9 +215,9 @@ public struct CompactNavSelector: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: iconName(for: selectedQuickView))
-                    .font(.system(size: 14, weight: .medium))
+                    .lifeboardFont(.callout)
                 Image(systemName: "chevron.down")
-                    .font(.system(size: 8, weight: .semibold))
+                    .lifeboardFont(.eyebrow)
             }
             .foregroundStyle(Color.lifeboard.textPrimary)
             .frame(width: 38, height: 38)

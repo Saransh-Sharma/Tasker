@@ -372,13 +372,13 @@ struct TimelineFlockRowView: View {
         HStack(alignment: .center, spacing: 8) {
             if row.isSummary {
                 Image(systemName: "ellipsis.circle")
-                    .font(.system(size: 15, weight: .semibold))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .frame(width: 24, height: 24)
                     .accessibilityHidden(true)
             } else {
                 Image(systemName: item?.systemImageName ?? "calendar")
-                    .font(.system(size: 14, weight: .semibold))
+                    .lifeboardFont(.buttonSmall)
                     .foregroundStyle(palette.icon)
                     .frame(width: 24, height: 24)
                     .background(palette.fill.opacity(0.9), in: Circle())
@@ -489,7 +489,7 @@ struct TimelineShelfItemCard: View {
                     .frame(width: 54, height: 54)
                     .overlay {
                         Image(systemName: item.systemImageName)
-                            .font(.system(size: 20, weight: .semibold))
+                            .lifeboardFont(.sectionTitle)
                             .foregroundStyle(palette.icon)
                             .accessibilityHidden(true)
                     }
@@ -584,7 +584,7 @@ struct TimelineUtilityRow: View {
 
     func utilityGlyph(_ systemName: String) -> some View {
         Image(systemName: systemName)
-            .font(.system(size: 11, weight: .semibold))
+            .lifeboardFont(.eyebrow)
             .foregroundStyle(TimelineVisualTokens.utilityText)
             .frame(width: 16, height: 16)
             .accessibilityHidden(true)

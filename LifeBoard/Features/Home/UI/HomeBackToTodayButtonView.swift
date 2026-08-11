@@ -13,7 +13,7 @@ struct HomeBackToTodayButtonView: View {
         } label: {
             HStack(spacing: spacing.s4) {
                 Image(systemName: "chevron.left")
-                    .font(.system(size: 12, weight: .semibold))
+                    .lifeboardFont(.eyebrow)
 
                 Text("Today")
                     .font(.lifeboard(.caption1).weight(.medium))

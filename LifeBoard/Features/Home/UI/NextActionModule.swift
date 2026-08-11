@@ -5,7 +5,8 @@
 //  Ultra-compact contextual guidance row.
 //
 
- import SwiftUI
+ import LifeBoardTokens
+import SwiftUI
 
 struct NextActionModule: View {
     @Environment(\.lifeboardTokens) private var tokens
@@ -42,7 +43,7 @@ struct NextActionModule: View {
     private func actionRow(icon: String, title: String, showChevron: Bool = false) -> some View {
         HStack(spacing: spacing.s8) {
             Image(systemName: icon)
-                .font(.system(size: 16, weight: .medium))
+                .lifeboardFont(.bodyEmphasis)
                 .foregroundColor(Color.lifeboard.accentPrimary)
 
             Text(title)
@@ -53,7 +54,7 @@ struct NextActionModule: View {
 
             if showChevron {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 10, weight: .semibold))
+                    .lifeboardFont(.eyebrow)
                     .foregroundColor(Color.lifeboard.textQuaternary)
             }
         }

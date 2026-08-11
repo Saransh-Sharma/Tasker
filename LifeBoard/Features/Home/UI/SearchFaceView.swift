@@ -273,7 +273,7 @@ private struct CommandSearchSuggestionRow: View {
         Button(action: action) {
             HStack(spacing: ClayLayoutMetrics.sm) {
                 Image(systemName: suggestion.symbol)
-                    .font(.system(size: 17, weight: .semibold))
+                    .lifeboardFont(.title2)
                     .foregroundStyle(ClayColorTokens.violetDeep)
                     .frame(width: 42, height: 42)
                     .background(ClayColorTokens.violetSoft, in: Circle())
@@ -291,7 +291,7 @@ private struct CommandSearchSuggestionRow: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .lifeboardFont(.eyebrow)
                     .foregroundStyle(ClayColorTokens.textTertiary)
             }
             .padding(ClayLayoutMetrics.md)
@@ -318,7 +318,7 @@ private struct CommandSearchAskEvaRow: View {
         Button(action: onAsk) {
             HStack(spacing: ClayLayoutMetrics.sm) {
                 Image(systemName: isSlashCommand ? "terminal" : "sparkles")
-                    .font(.system(size: 18, weight: .semibold))
+                    .lifeboardFont(.title2)
                     .foregroundStyle(ClayColorTokens.violetDeep)
                     .frame(width: 44, height: 44)
                     .background(ClayColorTokens.violetSoft, in: Circle())
@@ -335,7 +335,7 @@ private struct CommandSearchAskEvaRow: View {
 
                 Spacer()
                 Image(systemName: "arrow.up.right")
-                    .font(.system(size: 13, weight: .semibold))
+                    .lifeboardFont(.meta)
                     .foregroundStyle(ClayColorTokens.textTertiary)
             }
             .padding(ClayLayoutMetrics.md)
@@ -409,7 +409,7 @@ struct HomeSearchCommandResultHeader: View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: ClayLayoutMetrics.xs) {
                 Image(systemName: result.command.symbol)
-                    .font(.system(size: 14, weight: .semibold))
+                    .lifeboardFont(.buttonSmall)
                     .foregroundStyle(ClayColorTokens.violetDeep)
                     .accessibilityHidden(true)
 
@@ -442,7 +442,7 @@ struct HomeSearchHabitResultRow: View {
         Button(action: onOpen) {
             HStack(spacing: ClayLayoutMetrics.sm) {
                 Image(systemName: row.iconSymbolName)
-                    .font(.system(size: 17, weight: .semibold))
+                    .lifeboardFont(.title2)
                     .foregroundStyle(ClayColorTokens.violetDeep)
                     .frame(width: 40, height: 40)
                     .background(ClayColorTokens.violetSoft, in: Circle())
@@ -462,7 +462,7 @@ struct HomeSearchHabitResultRow: View {
                 Spacer(minLength: 0)
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 12, weight: .semibold))
+                    .lifeboardFont(.eyebrow)
                     .foregroundStyle(ClayColorTokens.textTertiary)
                     .accessibilityHidden(true)
             }

@@ -172,7 +172,7 @@ public struct HomeQuickFilterDropdown: View {
                 dismissWithAnimation()
             } label: {
                 Image(systemName: "xmark")
-                    .font(.system(size: 14, weight: .bold))
+                    .lifeboardFont(.buttonSmall)
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .frame(width: 34, height: 34)
                     .lifeboardChromeSurface(
@@ -313,7 +313,7 @@ public struct HomeQuickFilterDropdown: View {
                             provideHapticFeedback()
                         } label: {
                             Image(systemName: "trash")
-                                .font(.system(size: 16))
+                                .lifeboardFont(.body)
                                 .foregroundColor(Color.lifeboard.statusDanger)
                         }
                     }
@@ -357,7 +357,7 @@ public struct HomeQuickFilterDropdown: View {
         } label: {
             HStack(spacing: spacing.s8) {
                 Image(systemName: "line.3.horizontal.decrease.circle")
-                    .font(.system(size: 14, weight: .semibold))
+                    .lifeboardFont(.buttonSmall)
                 Text("Reset all filters")
                     .font(.lifeboard(.bodyEmphasis))
             }

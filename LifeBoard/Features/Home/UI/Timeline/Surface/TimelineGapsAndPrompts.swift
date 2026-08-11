@@ -76,7 +76,7 @@ struct TimelineLongGapIndicator: View {
 
     var body: some View {
         Text(text)
-            .font(.system(size: 12, weight: .medium, design: .rounded))
+            .lifeboardFont(.caption2)
             .foregroundStyle(TimelineVisualTokens.utilityText.opacity(0.75))
             .lineLimit(1)
             .minimumScaleFactor(0.82)
@@ -95,7 +95,7 @@ struct TimelinePlacementDock: View {
     var body: some View {
         HStack(spacing: 10) {
             Image(systemName: "line.3.horizontal")
-                .font(.system(size: 13, weight: .bold))
+                .lifeboardFont(.meta)
                 .foregroundStyle(Color.lifeboard.textSecondary)
                 .accessibilityHidden(true)
             Text(candidate.title)
@@ -165,7 +165,7 @@ struct TimelinePlacementPrompt: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .top, spacing: 12) {
                 Image(systemName: "hand.draw.fill")
-                    .font(.system(size: 17, weight: .semibold))
+                    .lifeboardFont(.title2)
                     .foregroundStyle(Color.lifeboard.accentPrimary)
                     .frame(width: 34, height: 34)
                     .background(Color.lifeboard.accentWash, in: Circle())
@@ -296,7 +296,7 @@ struct TimelinePlanningShelf: View {
                 } label: {
                     HStack(spacing: 12) {
                         Image(systemName: isAllDayTargeted ? "calendar.badge.checkmark" : "calendar.badge.plus")
-                            .font(.system(size: 16, weight: .semibold))
+                            .lifeboardFont(.headline)
                             .foregroundStyle(Color.lifeboard.accentPrimary)
                             .frame(width: 34, height: 34)
                             .background(Color.lifeboard.accentWash, in: Circle())

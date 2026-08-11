@@ -102,7 +102,7 @@ extension DailyTimelineCanvas {
             if placementCandidate != nil {
                 HStack(spacing: 8) {
                     Image(systemName: isCanvasDropTargeted ? "clock.badge.checkmark.fill" : "clock.badge")
-                        .font(.system(size: 13, weight: .semibold))
+                        .lifeboardFont(.meta)
                     Text(isCanvasDropTargeted ? "Release to schedule" : "Drop on a time")
                         .font(.lifeboard(.caption1).weight(.semibold))
                 }
@@ -315,7 +315,7 @@ extension DailyTimelineCanvas {
         currentY: CGFloat?
     ) -> some View {
         Text(text)
-            .font(.system(size: 13, weight: row.isCurrentRailEmphasis ? .semibold : .medium, design: .rounded))
+            .lifeboardFont(.meta)
             .monospacedDigit()
             .foregroundStyle(row.isCurrentRailEmphasis ? Color.lifeboard.textPrimary : TimelineVisualTokens.metaText)
             .lineLimit(1)

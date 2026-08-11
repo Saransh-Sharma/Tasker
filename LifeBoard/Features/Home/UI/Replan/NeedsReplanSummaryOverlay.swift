@@ -21,7 +21,7 @@ struct NeedsReplanSummaryOverlay: View {
             VStack(alignment: .leading, spacing: spacing.s16) {
                 HStack(alignment: .top, spacing: spacing.s12) {
                     Image(systemName: state.skippedCount > 0 ? "clock.badge.exclamationmark.fill" : "checkmark.seal.fill")
-                        .font(.system(size: 24, weight: .semibold))
+                        .lifeboardFont(.title1)
                         .foregroundStyle(state.skippedCount > 0 ? Color.lifeboard.statusWarning : Color.lifeboard.statusSuccess)
                         .frame(width: 48, height: 48)
                         .background(Color.lifeboard.accentWash.opacity(0.9), in: Circle())

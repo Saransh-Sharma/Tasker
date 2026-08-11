@@ -174,7 +174,7 @@ struct CompactHeaderChrome: View {
 
                 HStack(spacing: spacing.s4) {
                     Image(systemName: "leaf.fill")
-                        .font(.system(size: 11, weight: .semibold))
+                        .lifeboardFont(.eyebrow)
                         .foregroundStyle(Color.lifeboard.accentSecondary)
                         .accessibilityHidden(true)
 
@@ -203,7 +203,7 @@ struct CompactHeaderChrome: View {
     private var layeredDateLabel: some View {
         ZStack {
             Text(presentation.backgroundDateText ?? "")
-                .font(.system(size: 80, weight: .heavy, design: .rounded))
+                .lifeboardFont(.heroDisplay)
                 .tracking(-0.4)
                 .foregroundStyle(watermarkDateColor)
                 .lineLimit(1)
@@ -211,7 +211,7 @@ struct CompactHeaderChrome: View {
                 .offset(y: -5)
 
             Text(presentation.foregroundRelativeLabel ?? "")
-                .font(.system(size: 19, weight: .bold))
+                .lifeboardFont(.sectionTitle)
                 .tracking(2.8)
                 .foregroundStyle(foregroundDateColor)
                 .lineLimit(1)
@@ -394,7 +394,7 @@ struct CompactHeaderChrome: View {
     private var settingsButton: some View {
         Button("Settings", systemImage: "gearshape", action: onOpenSettings)
             .labelStyle(.iconOnly)
-            .font(.system(size: 15, weight: .semibold))
+            .lifeboardFont(.headline)
             .foregroundStyle(Color.lifeboard.statusWarning)
             .frame(width: 36, height: 36)
             .buttonStyle(.plain)

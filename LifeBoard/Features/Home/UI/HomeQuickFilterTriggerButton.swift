@@ -5,7 +5,8 @@
 //  Header trigger button for the quick filter dropdown.
 //
 
- import SwiftUI
+ import LifeBoardTokens
+import SwiftUI
 
 /// Button that appears in the Home header to trigger the filter dropdown.
 /// Shows summary of current filter state and indicates when filters are active.
@@ -67,7 +68,7 @@ public struct HomeQuickFilterTriggerButton: View {
 
                 // Filter indicator
                 Image(systemName: "line.3.horizontal.decrease")
-                    .font(.system(size: 12, weight: .medium))
+                    .lifeboardFont(.caption2)
                     .foregroundColor(Color.lifeboard.textSecondary)
             }
             .padding(.horizontal, spacing.s12)

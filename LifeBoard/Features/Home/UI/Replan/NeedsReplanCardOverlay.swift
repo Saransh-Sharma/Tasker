@@ -96,7 +96,7 @@ private struct ReplanHotZoneTarget: View {
     private var zoneContent: some View {
         VStack(spacing: 5) {
             Image(systemName: zone.systemImage)
-                .font(.system(size: 18, weight: .semibold))
+                .lifeboardFont(.title2)
                 .scaleEffect(isTargeted && reduceMotion == false ? 1.08 : 1)
             Text(zone.title)
                 .font(.lifeboard(.caption1).weight(.semibold))
@@ -318,7 +318,7 @@ struct NeedsReplanCardOverlay: View {
     private func dragPreview(for candidate: HomeReplanCandidate) -> some View {
         HStack(spacing: 10) {
             Image(systemName: "line.3.horizontal")
-                .font(.system(size: 13, weight: .bold))
+                .lifeboardFont(.meta)
                 .foregroundStyle(Color.lifeboard.textSecondary)
             Text(candidate.task.title)
                 .font(.lifeboard(.headline))

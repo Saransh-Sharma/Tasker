@@ -170,7 +170,7 @@ struct OverdueRescueSwipeHint: View {
     var body: some View {
         HStack(spacing: 8) {
             Image(systemName: icon)
-                .font(.system(size: 19, weight: .medium))
+                .lifeboardFont(.sectionTitle)
             Text(text)
         }
         .font(.lifeboard(.caption1))
@@ -241,7 +241,7 @@ struct OverdueRescueRevealPanel: View {
                 if reveal != .none {
                     VStack(spacing: 12) {
                         Image(systemName: icon)
-                            .font(.system(size: 54, weight: .semibold))
+                            .lifeboardFont(.heroDisplay)
                             .frame(width: 60, height: 60)
                         Text(title)
                             .font(.lifeboard(.screenTitle))

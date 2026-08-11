@@ -21,7 +21,7 @@ struct TimelineNormalItemCard: View {
 
                     HStack(alignment: .center, spacing: 10) {
                         Image(systemName: item.systemImageName)
-                            .font(.system(size: 16, weight: .semibold))
+                            .lifeboardFont(.headline)
                             .foregroundStyle(palette.icon)
                             .frame(width: 28, height: 28)
                             .background(palette.fill.opacity(0.92), in: Circle())
@@ -150,7 +150,7 @@ struct TimelineMeetingBlockRow: View {
                     .frame(width: isNested ? 34 : 38, height: isNested ? 34 : 38)
                     .overlay {
                         Image(systemName: iconName)
-                            .font(.system(size: isNested ? 14 : 15, weight: .semibold))
+                            .lifeboardFont(isNested ? .buttonSmall : .headline)
                             .foregroundStyle(palette.icon)
                             .accessibilityHidden(true)
                     }
@@ -300,7 +300,7 @@ struct TimelineTaskMarkerRow: View {
                         HStack(alignment: .firstTextBaseline, spacing: 6) {
                             if isEmphasized {
                                 Image(systemName: item.taskPriority == .max ? "exclamationmark.triangle.fill" : "flag.fill")
-                                    .font(.system(size: 11, weight: .bold))
+                                    .lifeboardFont(.eyebrow)
                                     .foregroundStyle(palette.icon)
                                     .accessibilityHidden(true)
                             }

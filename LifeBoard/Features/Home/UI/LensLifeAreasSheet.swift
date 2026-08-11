@@ -178,7 +178,7 @@ struct LensLifeAreasSheet: View {
                     .fill(Color(lifeboardHex: accentHex))
                     .frame(width: 12, height: 12)
                 Image(systemName: area.icon ?? "square.grid.2x2")
-                    .font(.system(size: 15, weight: .semibold))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(Color.lifeboard.textSecondary)
                     .frame(width: 22)
                 Text(area.name)
@@ -187,7 +187,7 @@ struct LensLifeAreasSheet: View {
                     .lineLimit(1)
                 Spacer(minLength: ClayLayoutMetrics.sm)
                 Image(systemName: isPinned ? "pin.fill" : "pin")
-                    .font(.system(size: 15, weight: .semibold))
+                    .lifeboardFont(.headline)
                     .foregroundStyle(isPinned ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary.opacity(0.5))
             }
             .contentShape(Rectangle())

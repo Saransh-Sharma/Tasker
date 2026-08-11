@@ -30,7 +30,7 @@ struct NeedsReplanLauncherSheet: View {
             VStack(alignment: .leading, spacing: spacing.s12) {
                 HStack(alignment: .top, spacing: spacing.s12) {
                     Image(systemName: summary.count == 0 ? "checkmark.seal.fill" : "sunrise.fill")
-                        .font(.system(size: 22, weight: .semibold))
+                        .lifeboardFont(.title1)
                         .foregroundStyle(summary.count == 0 ? Color.lifeboard.statusSuccess : Color.lifeboard.statusWarning)
                         .frame(width: 46, height: 46)
                         .background(Color.lifeboard.accentWash.opacity(0.9), in: Circle())
@@ -114,7 +114,7 @@ struct NeedsReplanLauncherSheet: View {
     private func launcherRow(_ title: String, systemImage: String) -> some View {
         HStack(spacing: spacing.s12) {
             Image(systemName: systemImage)
-                .font(.system(size: 14, weight: .semibold))
+                .lifeboardFont(.buttonSmall)
                 .foregroundStyle(Color.lifeboard.accentPrimary)
                 .frame(width: 26, height: 26)
                 .background(Color.lifeboard.accentWash, in: Circle())

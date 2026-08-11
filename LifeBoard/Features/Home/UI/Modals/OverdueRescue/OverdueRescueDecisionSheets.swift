@@ -468,7 +468,7 @@ struct OverdueRescuePauseView: View {
                 } label: {
                     HStack(spacing: 20) {
                         Image(systemName: "lifepreserver")
-                            .font(.system(size: 36, weight: .semibold))
+                            .lifeboardFont(.heroDisplay)
                             .foregroundStyle(Color.lifeboard.statusWarning)
                             .frame(width: 72, height: 72)
                             .background(Circle().fill(OverdueRescuePalette.glassFill))
@@ -526,7 +526,7 @@ struct OverdueRescueDeleteOverlay: View {
             VStack(spacing: 20) {
                 VStack(spacing: 12) {
                     Image(systemName: "trash")
-                        .font(.system(size: 30, weight: .semibold))
+                        .lifeboardFont(.display)
                         .foregroundStyle(OverdueRescuePalette.deleteForeground)
                         .frame(width: 64, height: 64)
                         .background(Circle().fill(OverdueRescuePalette.deleteFill))

@@ -137,7 +137,7 @@ struct TimelineEndAddMarker: View {
     var body: some View {
         Button(action: action) {
             Image(systemName: "plus")
-                .font(.system(size: 19, weight: .medium, design: .rounded))
+                .lifeboardFont(.sectionTitle)
                 .foregroundStyle(TimelineVisualTokens.utilityText.opacity(0.55))
                 .frame(width: TimelineCanvasLayoutPlan.endMarkerHitArea, height: TimelineCanvasLayoutPlan.endMarkerHitArea)
                 .contentShape(Rectangle())
@@ -177,7 +177,7 @@ struct TimelineCompletionRing: View {
 
     var ringBody: some View {
         Image(systemName: isCompleted ? "checkmark.square.fill" : "square")
-            .font(.system(size: 26, weight: .semibold))
+            .lifeboardFont(.title1)
             .foregroundStyle(color)
             .symbolRenderingMode(.hierarchical)
         .frame(width: 44, height: 44)

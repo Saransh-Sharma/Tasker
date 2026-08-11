@@ -163,7 +163,7 @@ private struct TimelineAnchorRitualHero: View {
             HStack {
                 Button(action: close) {
                     Image(systemName: "xmark")
-                        .font(.system(size: 25, weight: .medium))
+                        .lifeboardFont(.title1)
                         .foregroundStyle(ClayColorTokens.navy)
                         .frame(width: 60, height: 60)
                         .background(.regularMaterial, in: Circle())
@@ -489,12 +489,12 @@ private struct TimelineAnchorCardAccent: View {
     var body: some View {
         ZStack {
             Image(systemName: "leaf.fill")
-                .font(.system(size: 36, weight: .regular))
+                .lifeboardFont(.heroDisplay)
                 .foregroundStyle(theme.accent.opacity(0.28))
                 .rotationEffect(.degrees(-18))
                 .offset(x: 7, y: 8)
             Image(systemName: "sparkle")
-                .font(.system(size: 11, weight: .semibold))
+                .lifeboardFont(.eyebrow)
                 .foregroundStyle(theme.accent.opacity(0.48))
                 .offset(x: -12, y: -12)
         }

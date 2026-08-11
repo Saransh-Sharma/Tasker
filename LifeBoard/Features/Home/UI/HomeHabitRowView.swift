@@ -309,7 +309,7 @@ struct HomeHabitRowView: View {
             accentColor.opacity(0.14)
 
             Image(systemName: row.iconSymbolName)
-                .font(.system(size: usesExpandedTitle ? 20 : 18, weight: .semibold))
+                .lifeboardFont(usesExpandedTitle ? .sectionTitle : .title2)
                 .foregroundStyle(accentColor)
                 .symbolRenderingMode(.hierarchical)
         }

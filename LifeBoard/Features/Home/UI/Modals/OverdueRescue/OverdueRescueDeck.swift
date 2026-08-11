@@ -167,7 +167,7 @@ struct OverdueRescueDeckView: View {
                     close()
                 }
                 .labelStyle(.iconOnly)
-                .font(.system(size: 24, weight: .semibold))
+                .lifeboardFont(.title1)
                 .foregroundStyle(OverdueRescuePalette.ink)
                 .frame(width: OverdueRescueVisualSpec.topButtonSize, height: OverdueRescueVisualSpec.topButtonSize)
                 .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
@@ -192,7 +192,7 @@ struct OverdueRescueDeckView: View {
                     }
                 } label: {
                     Image(systemName: "ellipsis")
-                        .font(.system(size: 24, weight: .semibold))
+                        .lifeboardFont(.title1)
                         .foregroundStyle(OverdueRescuePalette.ink)
                         .frame(width: OverdueRescueVisualSpec.topButtonSize, height: OverdueRescueVisualSpec.topButtonSize)
                         .lifeBoardSystemGlass(.regular, in: Circle(), interactive: true)
