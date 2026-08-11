@@ -194,11 +194,54 @@ extension FoundationShell {
             } else {
                 PlanRollbackRouteView(router: runtime.router)
             }
+        case .routines(let focus):
+            if V2FeatureFlags.trackBehaviorFlagshipV1Enabled {
+                RoutinesDestinationView(
+                    repository: trackFoundationRepository,
+                    phaseIIRepository: phaseIIRepository,
+                    linkedMutationApplier: routineLinkedMutationApplier,
+                    sourcePickerRepository: ComposedTypedSourcePickerRepository(
+                        planningProjection: planningRepository,
+                        trackFoundation: trackFoundationRepository,
+                        phaseII: phaseIIRepository,
+                        habitRuntime: habitRuntimeReadRepository
+                    ),
+                    router: runtime.router,
+                    focus: .collection(focus)
+                )
+            } else {
+                BehaviorAreaRouteView(repository: phaseIIRepository)
+            }
         case .routine(let id):
             if V2FeatureFlags.trackBehaviorFlagshipV1Enabled {
-                RoutineRouteView(
-                    id: id,
+                RoutinesDestinationView(
                     repository: trackFoundationRepository,
+                    phaseIIRepository: phaseIIRepository,
+                    linkedMutationApplier: routineLinkedMutationApplier,
+                    sourcePickerRepository: ComposedTypedSourcePickerRepository(
+                        planningProjection: planningRepository,
+                        trackFoundation: trackFoundationRepository,
+                        phaseII: phaseIIRepository,
+                        habitRuntime: habitRuntimeReadRepository
+                    ),
+                    router: runtime.router,
+                    focus: .routine(id)
+                )
+            } else {
+                BehaviorAreaRouteView(repository: phaseIIRepository)
+            }
+        case .goals:
+            if V2FeatureFlags.trackBehaviorFlagshipV1Enabled {
+                GoalsDestinationView(
+                    repository: trackFoundationRepository,
+                    phaseIIRepository: phaseIIRepository,
+                    goalSampleProvider: goalSampleProvider,
+                    sourcePickerRepository: ComposedTypedSourcePickerRepository(
+                        planningProjection: planningRepository,
+                        trackFoundation: trackFoundationRepository,
+                        phaseII: phaseIIRepository,
+                        habitRuntime: habitRuntimeReadRepository
+                    ),
                     router: runtime.router
                 )
             } else {
@@ -221,6 +264,8 @@ extension FoundationShell {
             } else {
                 BehaviorAreaRouteView(repository: phaseIIRepository)
             }
+        case .lifeMoments(let focus):
+            LifeMomentsView(repository: lifeMomentRepository, initialFocus: focus)
         case .journalDay(let id):
             JournalDayRouteView(id: id, repository: phaseIIRepository)
         case .journalSearch:
