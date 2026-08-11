@@ -44,6 +44,8 @@ struct OverdueRescueDeckView: View {
     @State var commitOffset: CGSize = .zero
     @State var viewportSize: CGSize = CGSize(width: 390, height: 844)
     @State private var snapCandidate: OverdueRescueDecisionAction?
+    @State private var triageSettleTrigger = 0
+    @State private var triageSettleDirection = 1.0
     @Environment(\.accessibilityReduceMotion) var reduceMotion
     @Environment(\.accessibilityVoiceOverEnabled) var voiceOverEnabled
     @Environment(\.dynamicTypeSize) var dynamicTypeSize
@@ -65,6 +67,21 @@ struct OverdueRescueDeckView: View {
             proxy.size
         } action: { newSize in
             viewportSize = newSize
+        }
+        // Inbox has had `triageSettle` beneath its deck since it shipped; this
+        // deck is the same interaction and never got it. DESIGN.md names Inbox,
+        // Rescue and repair decks together for exactly this effect.
+        //
+        // Behind the cards on its own plane, matching `InboxView`: the effect
+        // must never distort the card's own text or controls.
+        .background {
+            Rectangle()
+                .fill(Color.clear)
+                .lifeboardTriageSettle(
+                    trigger: triageSettleTrigger,
+                    direction: triageSettleDirection
+                )
+                .allowsHitTesting(false)
         }
     }
 
@@ -264,6 +281,10 @@ struct OverdueRescueDeckView: View {
     }
 
     func commitDrag(_ action: OverdueRescueDecisionAction, metrics: OverdueRescueDeckLayoutMetrics) {
+        // Direction carries the meaning of the decision into the settle, so the
+        // deck reads as having gone somewhere rather than just re-rendered.
+        triageSettleDirection = action == .keepToday ? 1 : -1
+        triageSettleTrigger &+= 1
         withAnimation(reduceMotion ? .linear(duration: 0.01) : LifeBoardAnimation.panelOut) {
             switch action {
             case .keepToday:
