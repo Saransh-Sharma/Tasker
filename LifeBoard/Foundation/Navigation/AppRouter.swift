@@ -320,9 +320,7 @@ public struct PendingRouteRequest: Equatable, Sendable {
     public let route: AppRoute
 
     public init(id: UUID = UUID(), destination: Destination, route: AppRoute) {
-        self.id = id
-        self.destination = destination
-        self.route = route
+        (self.id, self.destination, self.route) = (id, destination, route)
     }
 }
 
@@ -363,6 +361,7 @@ public final class AppRouter {
     @ObservationIgnored private let decoder = JSONDecoder()
     @ObservationIgnored private var isRestoring = true
     @ObservationIgnored private weak var preferences: PresentationPreferences?
+    @ObservationIgnored private var mountedDestinations: Set<Destination> = []
 
     public init(
         defaults: UserDefaults? = nil,
@@ -425,21 +424,20 @@ public final class AppRouter {
         if let pendingRouteRequest,
            pendingRouteRequest.destination == destination,
            path != [pendingRouteRequest.route] {
-            // A newly selected NavigationStack can write its previously empty
-            // path back before the requested leaf mounts. Until that leaf
-            // acknowledges its appearance, only the expected path is valid.
             return
         }
         paths[destination] = path
     }
 
-    /// Called by the mounted destination, completing a cross-root transaction.
-    /// After acknowledgement, normal interactive Back writes are accepted.
     public func acknowledgeRouteAppearance(_ route: AppRoute, in destination: Destination) {
         guard let pendingRouteRequest,
               pendingRouteRequest.destination == destination,
               pendingRouteRequest.route == route else { return }
         self.pendingRouteRequest = nil
+    }
+
+    public func navigationRootDidMount(_ destination: Destination) {
+        mountedDestinations.insert(destination)
     }
 
     public func push(_ route: AppRoute, in destination: Destination? = nil) {
@@ -489,13 +487,15 @@ public final class AppRouter {
         return Task { @MainActor in }
     }
 
-    /// Starts an acknowledged, deterministic deep-link transaction. State is
-    /// synchronous for URL handling and tests; the pending request exists only
-    /// to reject a stale NavigationStack write-back during root switching.
     public func openLeaf(_ route: AppRoute, in destination: Destination) {
-        if selectedDestination == destination,
-           paths[destination] == [route],
+        if paths[destination] == [route], mountedDestinations.contains(destination) {
+            pendingRouteRequest = nil
+            selectedDestination = destination
+            return
+        }
+        if pendingRouteRequest?.destination == destination,
            pendingRouteRequest?.route == route {
+            selectedDestination = destination
             return
         }
         pendingRouteRequest = PendingRouteRequest(destination: destination, route: route)

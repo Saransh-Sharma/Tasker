@@ -2395,6 +2395,14 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
         router.setPath([], for: .track)
         XCTAssertTrue(router.path(for: .track).isEmpty, "Back works after acknowledgement")
+
+        router.openLeaf(.goals, in: .track)
+        router.navigationRootDidMount(.track)
+        router.acknowledgeRouteAppearance(.goals, in: .track)
+        router.openLeaf(.goals, in: .track)
+        XCTAssertNil(router.pendingRouteRequest, "An already-mounted identical leaf is idempotent")
+        router.setPath([], for: .track)
+        XCTAssertTrue(router.path(for: .track).isEmpty)
     }
 
     func testJournalPrivacyPolicyDefaultsPrivateAndRecoversMalformedStorage() throws {

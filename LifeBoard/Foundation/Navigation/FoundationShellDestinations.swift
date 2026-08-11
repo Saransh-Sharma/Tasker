@@ -92,6 +92,9 @@ extension FoundationShell {
         }
         .toolbarBackground(.hidden, for: .navigationBar)
         .background(Color.clear)
+        .onAppear {
+            router.navigationRootDidMount(destination)
+        }
     }
 
     @ViewBuilder
