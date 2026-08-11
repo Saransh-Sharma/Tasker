@@ -18,6 +18,19 @@
 #             with Typography.hero(); a fixed point size is the one thing that
 #             cannot respond to Dynamic Type, and it was the largest number on
 #             the screen.
-token_law_font_system	272
-token_law_shadow_usage	43
+# 2026-08-11  272 -> 27 (token_law_font_system) in the claymorphic liquid glass
+#             pass. Every fixed point size that mapped onto the Dynamic Type
+#             scale was migrated to `Font.lifeboard(_:)` / `.lifeboardFont(_:)`
+#             by size and weight. The 27 that remain are *container-relative*:
+#             `size: iconSize`, `size: size * 0.42`, `proxy.size.width >= 56 ?
+#             22 : 20`. Those size a glyph against a measured box, so pinning
+#             them to a style would break the layout they are measured against
+#             — they need per-site design decisions, not a mechanical rewrite.
+# 2026-08-11  43 -> 39 (token_law_shadow_usage). The four in Eva's chat surface
+#             moved to `.lifeboardElevation`. The remaining 39 each need a
+#             corner radius the call site knows and a grep does not, and
+#             `lifeboardElevation` draws a border by default, so a mechanical
+#             pass would add 39 strokes that were never there.
+token_law_font_system	27
+token_law_shadow_usage	39
 token_law_uicolor_constructor	33

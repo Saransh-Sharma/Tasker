@@ -203,6 +203,7 @@
 		48756A3EF4DA7E57686EA3BF /* OnboardingEvaPreparationState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 40541FE4F6750C143582AC0D /* OnboardingEvaPreparationState.swift */; };
 		48B55AA334E364D314DCE8CB /* ChatComposerView+StructuredComposer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C7A6D85F245E9F672238D9E0 /* ChatComposerView+StructuredComposer.swift */; };
 		4987E47C4FB2B55409BA424F /* SpacingElevationCornerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */; };
+		A31000000000000000000547 /* HeroSurfaceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000546 /* HeroSurfaceTests.swift */; };
 		49BE8D232D0B830AC1D787AA /* HomeHabitMutationSectionPatch.swift in Sources */ = {isa = PBXBuildFile; fileRef = 677222149F21BD5C04EE2EC2 /* HomeHabitMutationSectionPatch.swift */; };
 		49E7E5624BF18A470B23059C /* ChatTimeIntervalExtension.swift in Sources */ = {isa = PBXBuildFile; fileRef = EC5308F1488478AD34963168 /* ChatTimeIntervalExtension.swift */; };
 		4A52BB8E16EAECC2A970E287 /* OnboardingOutcome.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6396B895E176C6D9B55C30EC /* OnboardingOutcome.swift */; };
@@ -521,6 +522,13 @@
 		A31000000000000000000515 /* LifeBoardValueControls.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000514 /* LifeBoardValueControls.swift */; };
 		A31000000000000000000517 /* SignatureShaderComfortGate.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000516 /* SignatureShaderComfortGate.swift */; };
 		A31000000000000000000519 /* DecisionSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000518 /* DecisionSurface.swift */; };
+		A31000000000000000000545 /* HomeFastingWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000544 /* HomeFastingWidget.swift */; };
+		A31000000000000000000543 /* TrackFastingViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000542 /* TrackFastingViews.swift */; };
+		A31000000000000000000541 /* WellnessPresentationComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000540 /* WellnessPresentationComponents.swift */; };
+		A31000000000000000000539 /* HeroSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A31000000000000000000538 /* HeroSurface.swift */; };
+		A3100000000000000000053B /* MetricHero.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000053A /* MetricHero.swift */; };
+		A3100000000000000000053D /* SectionHeader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000053C /* SectionHeader.swift */; };
+		A3100000000000000000053F /* LiveStatePill.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000053E /* LiveStatePill.swift */; };
 		A3100000000000000000051B /* RootTravelEffect.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000051A /* RootTravelEffect.swift */; };
 		A3100000000000000000051D /* FocusSurface.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000051C /* FocusSurface.swift */; };
 		A3100000000000000000051F /* FocusSurfaceCommitmentSection.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3100000000000000000051E /* FocusSurfaceCommitmentSection.swift */; };
@@ -1466,6 +1474,7 @@
 		78CBCB775F9593EF36C11AB8 /* AppOnboardingBackground.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Views/AppOnboardingBackground.swift; sourceTree = SOURCE_ROOT; };
 		78DF4503F0438173C6DC91B8 /* OnboardingPressScaleButtonStyle.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Components/OnboardingPressScaleButtonStyle.swift; sourceTree = SOURCE_ROOT; };
 		7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = SpacingElevationCornerTests.swift; sourceTree = "<group>"; };
+		A31000000000000000000546 /* HeroSurfaceTests.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = HeroSurfaceTests.swift; sourceTree = "<group>"; };
 		7AE36332DC107A6F5A9A4AF2 /* HabitSummaryRow.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/HabitSummaryRow.swift; sourceTree = SOURCE_ROOT; };
 		7B2B9CCE514C217DC9C76773 /* WatchWidgetSnapshotSync.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WatchWidgetSnapshotSync.swift; path = LifeBoard/Features/Sync/Data/WatchWidgetSnapshotSync.swift; sourceTree = SOURCE_ROOT; };
 		7B3C9A7D2F2B0F1A00D4C112 /* FocusNowSimplificationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusNowSimplificationTests.swift; sourceTree = "<group>"; };
@@ -1614,6 +1623,13 @@
 		A31000000000000000000514 /* LifeBoardValueControls.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoardValueControls.swift; sourceTree = "<group>"; };
 		A31000000000000000000516 /* SignatureShaderComfortGate.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SignatureShaderComfortGate.swift; path = LifeBoard/DesignSystem/SignatureShaderComfortGate.swift; sourceTree = SOURCE_ROOT; };
 		A31000000000000000000518 /* DecisionSurface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = DecisionSurface.swift; path = LifeBoard/DesignSystem/DecisionSurface.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000544 /* HomeFastingWidget.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HomeFastingWidget.swift; path = LifeBoard/Foundation/Design/HomeFastingWidget.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000542 /* TrackFastingViews.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackFastingViews.swift; path = LifeBoard/Features/Track/UI/TrackFastingViews.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000540 /* WellnessPresentationComponents.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = WellnessPresentationComponents.swift; path = LifeBoard/Features/Health/UI/WellnessPresentationComponents.swift; sourceTree = SOURCE_ROOT; };
+		A31000000000000000000538 /* HeroSurface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = HeroSurface.swift; path = LifeBoard/DesignSystem/HeroSurface.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000053A /* MetricHero.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = MetricHero.swift; path = LifeBoard/DesignSystem/MetricHero.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000053C /* SectionHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = SectionHeader.swift; path = LifeBoard/DesignSystem/SectionHeader.swift; sourceTree = SOURCE_ROOT; };
+		A3100000000000000000053E /* LiveStatePill.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LiveStatePill.swift; path = LifeBoard/DesignSystem/LiveStatePill.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000051A /* RootTravelEffect.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = RootTravelEffect.swift; path = LifeBoard/DesignSystem/RootTravelEffect.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000051C /* FocusSurface.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FocusSurface.swift; path = LifeBoard/Features/Focus/UI/FocusSurface.swift; sourceTree = SOURCE_ROOT; };
 		A3100000000000000000051E /* FocusSurfaceCommitmentSection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = FocusSurfaceCommitmentSection.swift; path = LifeBoard/Features/Focus/UI/FocusSurfaceCommitmentSection.swift; sourceTree = SOURCE_ROOT; };
@@ -2014,7 +2030,7 @@
 		E5000000000000000000001E /* LBMeetingFlockCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LBMeetingFlockCard.swift; path = LifeBoard/LifeBoardDesign/Components/MeetingFlockCard.swift; sourceTree = SOURCE_ROOT; };
 		E50000000000000000000020 /* LBPermissionCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LBPermissionCard.swift; path = LifeBoard/LifeBoardDesign/Components/PermissionCard.swift; sourceTree = SOURCE_ROOT; };
 		E50000000000000000000022 /* LBPrimaryButton.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LBPrimaryButton.swift; path = LifeBoard/LifeBoardDesign/Components/PrimaryButton.swift; sourceTree = SOURCE_ROOT; };
-		E50000000000000000000024 /* LBSectionHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LBSectionHeader.swift; path = LifeBoard/LifeBoardDesign/Components/SectionHeader.swift; sourceTree = SOURCE_ROOT; };
+		E50000000000000000000024 /* LBSectionHeader.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LBSectionHeader.swift; path = LifeBoard/LifeBoardDesign/Components/SunriseSectionHeader.swift; sourceTree = SOURCE_ROOT; };
 		E50000000000000000000026 /* LBTimelineCard.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LBTimelineCard.swift; path = LifeBoard/LifeBoardDesign/Components/TimelineCard.swift; sourceTree = SOURCE_ROOT; };
 		E50000000000000000000028 /* LBTimelineItem.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LBTimelineItem.swift; path = LifeBoard/LifeBoardDesign/Components/TimelineItem.swift; sourceTree = SOURCE_ROOT; };
 		E5000000000000000000002A /* LBTimelineSpine.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = LBTimelineSpine.swift; path = LifeBoard/LifeBoardDesign/Components/TimelineSpine.swift; sourceTree = SOURCE_ROOT; };
@@ -2421,6 +2437,7 @@
 				A31000000000000000000503 /* AtmosphereSliderGeometryTests.swift */,
 				32CFD17024C4F8FF10386CE1 /* TypographyTokenTests.swift */,
 				7ADDF7126AA32EF840CE257C /* SpacingElevationCornerTests.swift */,
+				A31000000000000000000546 /* HeroSurfaceTests.swift */,
 				A8F1D2065E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift */,
 			);
 			path = DesignSystem;
@@ -3506,6 +3523,13 @@
 				A3100000000000000000051C /* FocusSurface.swift */,
 				A3100000000000000000051A /* RootTravelEffect.swift */,
 				A31000000000000000000518 /* DecisionSurface.swift */,
+				A31000000000000000000544 /* HomeFastingWidget.swift */,
+				A31000000000000000000542 /* TrackFastingViews.swift */,
+				A31000000000000000000540 /* WellnessPresentationComponents.swift */,
+				A31000000000000000000538 /* HeroSurface.swift */,
+				A3100000000000000000053A /* MetricHero.swift */,
+				A3100000000000000000053C /* SectionHeader.swift */,
+				A3100000000000000000053E /* LiveStatePill.swift */,
 				A31000000000000000000516 /* SignatureShaderComfortGate.swift */,
 				C21530774331B9377F3F20F1 /* LifeBoardCompletionControl.swift */,
 				DA4C5F6B7E8D9201F3A4B5C6 /* LifeBoardCelestialDaypartIndicator.swift */,
@@ -5328,6 +5352,13 @@
 				A3100000000000000000051D /* FocusSurface.swift in Sources */,
 				A3100000000000000000051B /* RootTravelEffect.swift in Sources */,
 				A31000000000000000000519 /* DecisionSurface.swift in Sources */,
+				A31000000000000000000545 /* HomeFastingWidget.swift in Sources */,
+				A31000000000000000000543 /* TrackFastingViews.swift in Sources */,
+				A31000000000000000000541 /* WellnessPresentationComponents.swift in Sources */,
+				A31000000000000000000539 /* HeroSurface.swift in Sources */,
+				A3100000000000000000053B /* MetricHero.swift in Sources */,
+				A3100000000000000000053D /* SectionHeader.swift in Sources */,
+				A3100000000000000000053F /* LiveStatePill.swift in Sources */,
 				A31000000000000000000517 /* SignatureShaderComfortGate.swift in Sources */,
 				CDCE7BDD9D5A5F2FA1356E35 /* LifeBoardCompletionControl.swift in Sources */,
 				CF3B4E5A6D7C8190E2F3A4B5 /* LifeBoardCelestialDaypartIndicator.swift in Sources */,
@@ -5387,6 +5418,7 @@
 				A31000000000000000000504 /* AtmosphereSliderGeometryTests.swift in Sources */,
 				3494FE9BF173433EE0791F1B /* TypographyTokenTests.swift in Sources */,
 				4987E47C4FB2B55409BA424F /* SpacingElevationCornerTests.swift in Sources */,
+				A31000000000000000000547 /* HeroSurfaceTests.swift in Sources */,
 				A8F1D2035E9C44A100112233 /* DeviceOrientationPolicyResolverTests.swift in Sources */,
 				600B7F6D47A6091946016C7A /* GetHomeFilteredTasksUseCaseTests.swift in Sources */,
 				D4F200000000000000000122 /* HomeAIActionCoordinatorTests.swift in Sources */,
