@@ -2138,6 +2138,541 @@ private struct TrackDestructiveDialogs: ViewModifier {
     }
 }
 
+// MARK: - Typed Track destinations
+
+/// A focused goals library used by Home and external deep links. Goal detail
+/// remains ID-based so restoration always resolves the current repository copy.
+struct GoalsDestinationView: View {
+    @State private var store: TrackFoundationStore
+    private let sourcePickerRepository: any TypedSourcePickerRepository
+    private let router: AppRouter
+    @State private var showsComposer = false
+    @State private var editingGoal: GoalDefinition?
+    @State private var linkingGoal: GoalDefinition?
+    @State private var pendingDeletion: GoalDefinition?
+    @State private var undoReceipt: GoalTransitionReceipt?
+
+    init(
+        repository: CoreDataTrackFoundationRepository,
+        phaseIIRepository: any PhaseIIRepository,
+        goalSampleProvider: (any GoalSampleRepository)?,
+        sourcePickerRepository: any TypedSourcePickerRepository,
+        router: AppRouter
+    ) {
+        _store = State(initialValue: TrackFoundationStore(
+            repository: repository,
+            phaseIIRepository: phaseIIRepository,
+            goalSampleProvider: goalSampleProvider
+        ))
+        self.sourcePickerRepository = sourcePickerRepository
+        self.router = router
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Goals and progress")
+                            .font(Typography.screenTitle())
+                        Text("Progress comes from the sources you choose to link.")
+                            .font(.subheadline)
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    }
+                    Spacer(minLength: 8)
+                    Button("Add goal", systemImage: "plus") {
+                        editingGoal = nil
+                        showsComposer = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .frame(minHeight: 44)
+                    .accessibilityIdentifier("goals.add")
+                }
+
+                if store.isLoading, store.definitions.isEmpty {
+                    ProgressView("Loading goals")
+                        .frame(maxWidth: .infinity, minHeight: 160)
+                } else if let error = store.errorMessage, store.definitions.isEmpty {
+                    ContentUnavailableView(
+                        "Goals are unavailable",
+                        systemImage: "exclamationmark.triangle",
+                        description: Text(error)
+                    )
+                    Button("Try again") { Task { await store.load() } }
+                        .buttonStyle(.borderedProminent)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                } else if store.definitions.isEmpty {
+                    ContentUnavailableView(
+                        "No goals yet",
+                        systemImage: "target",
+                        description: Text("Add a goal when it helps organize action.")
+                    )
+                    Button("Add goal") {
+                        editingGoal = nil
+                        showsComposer = true
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity, minHeight: 48)
+                } else {
+                    ForEach(groupedGoals, id: \.status) { group in
+                        Text(group.status.rawValue.capitalized)
+                            .font(Typography.sectionTitle())
+                        ForEach(group.goals) { goal in
+                            goalRow(goal)
+                        }
+                    }
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 80)
+        }
+        .background { GrainedCanvas() }
+        .navigationTitle("Goals")
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await store.load() }
+        .sheet(isPresented: $showsComposer, onDismiss: { editingGoal = nil }) {
+            GoalComposer(existing: editingGoal) { draft in
+                await store.saveGoal(existing: editingGoal, draft: draft)
+                return store.errorMessage == nil
+            }
+        }
+        .sheet(item: $linkingGoal) { goal in
+            GoalLinkComposer(goal: goal, sourcePickerRepository: sourcePickerRepository) { source, sourceID in
+                Task { await store.saveGoalLink(goalID: goal.id, source: source, sourceID: sourceID) }
+            }
+        }
+        .confirmationDialog(
+            "Delete this goal?",
+            isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Delete goal", role: .destructive) {
+                guard let goal = pendingDeletion else { return }
+                pendingDeletion = nil
+                Task { await store.deleteGoal(goal) }
+            }
+            Button("Cancel", role: .cancel) { pendingDeletion = nil }
+        } message: {
+            Text("The goal and its progress links are removed. Linked source records are unchanged.")
+        }
+        .safeAreaInset(edge: .bottom) {
+            if let undoReceipt {
+                HStack {
+                    Text("Goal updated.")
+                    Spacer()
+                    Button("Undo") {
+                        self.undoReceipt = nil
+                        Task { await store.undoGoalTransition(undoReceipt) }
+                    }
+                    .frame(minHeight: 44)
+                }
+                .padding(.horizontal, 16)
+                .background(.regularMaterial, in: Capsule())
+                .padding(.horizontal, 20)
+            }
+        }
+    }
+
+    private var groupedGoals: [(status: GoalStatus, goals: [GoalDefinition])] {
+        GoalStatus.allCases.compactMap { status in
+            let goals = store.definitions
+                .filter { $0.effectiveStatus == status }
+                .sorted { $0.updatedAt > $1.updatedAt }
+            return goals.isEmpty ? nil : (status, goals)
+        }
+    }
+
+    private func goalRow(_ goal: GoalDefinition) -> some View {
+        let progress = store.snapshot.goals.first(where: { $0.goalID == goal.id })
+        return HStack(spacing: 10) {
+            Button {
+                router.push(.goal(goal.id), in: .track)
+            } label: {
+                VStack(alignment: .leading, spacing: 7) {
+                    HStack {
+                        Text(goal.title).font(.headline)
+                        Spacer()
+                        Text(TrackSectionCopy.progressLabel(progress))
+                            .font(.caption.weight(.semibold))
+                    }
+                    if let fraction = progress?.progressFraction {
+                        ProgressView(value: fraction)
+                            .tint(Color(SemanticColorTokens.foundationFocusRing))
+                    }
+                    Text(progress?.nextUsefulAction ?? "Link a source to measure progress.")
+                        .font(.caption)
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                        .multilineTextAlignment(.leading)
+                }
+                .frame(maxWidth: .infinity, minHeight: 64, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(goal.title), \(TrackSectionCopy.progressLabel(progress))")
+
+            Menu {
+                Button("Link progress source", systemImage: "link.badge.plus") { linkingGoal = goal }
+                Button("Edit goal", systemImage: "pencil") {
+                    editingGoal = goal
+                    showsComposer = true
+                }
+                goalTransitionActions(goal)
+                Button("Delete goal", systemImage: "trash", role: .destructive) { pendingDeletion = goal }
+            } label: {
+                Image(systemName: "ellipsis.circle").frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Actions for \(goal.title)")
+        }
+        .padding(14)
+        .lifeBoardClaySurface(.raised, cornerRadius: Radius.largeCard)
+        .accessibilityIdentifier("goals.goal.\(goal.id.uuidString)")
+    }
+
+    @ViewBuilder
+    private func goalTransitionActions(_ goal: GoalDefinition) -> some View {
+        switch goal.effectiveStatus {
+        case .active, .revised:
+            Button("Pause goal", systemImage: "pause.circle") { transition(goal, to: .paused) }
+            Button("Complete goal", systemImage: "checkmark.circle") { transition(goal, to: .completed) }
+        case .paused:
+            Button("Resume goal", systemImage: "play.circle") { transition(goal, to: .active) }
+        case .completed, .archived:
+            Button("Reactivate goal", systemImage: "arrow.uturn.backward.circle") { transition(goal, to: .active) }
+        }
+        if goal.effectiveStatus != .archived {
+            Button("Archive goal", systemImage: "archivebox") { transition(goal, to: .archived) }
+        }
+    }
+
+    private func transition(_ goal: GoalDefinition, to status: GoalStatus) {
+        Task { undoReceipt = await store.transitionGoal(goal, to: status, reason: "Changed by user") }
+    }
+}
+
+enum RoutineDestinationFocus: Hashable {
+    case collection(RoutineCollectionFocus)
+    case routine(UUID)
+}
+
+struct RoutinesDestinationView: View {
+    @State private var store: TrackFoundationStore
+    private let focus: RoutineDestinationFocus
+    private let sourcePickerRepository: any TypedSourcePickerRepository
+    private let router: AppRouter
+    @State private var showsComposer = false
+    @State private var editingRoutine: RoutineDefinition?
+    @State private var pendingDeletion: RoutineDefinition?
+    @State private var showsRunner = false
+
+    init(
+        repository: CoreDataTrackFoundationRepository,
+        phaseIIRepository: any PhaseIIRepository,
+        linkedMutationApplier: (any RoutineLinkedMutationApplying)?,
+        sourcePickerRepository: any TypedSourcePickerRepository,
+        router: AppRouter,
+        focus: RoutineDestinationFocus
+    ) {
+        _store = State(initialValue: TrackFoundationStore(
+            repository: repository,
+            phaseIIRepository: phaseIIRepository,
+            linkedMutationApplier: linkedMutationApplier
+        ))
+        self.sourcePickerRepository = sourcePickerRepository
+        self.router = router
+        self.focus = focus
+    }
+
+    var body: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: 16) {
+                if store.isLoading, store.routines.isEmpty {
+                    ProgressView("Loading routines")
+                        .frame(maxWidth: .infinity, minHeight: 180)
+                } else if let error = store.errorMessage, store.routines.isEmpty {
+                    ContentUnavailableView(
+                        "Routines are unavailable",
+                        systemImage: "exclamationmark.triangle",
+                        description: Text(error)
+                    )
+                    Button("Try again") { Task { await store.load() } }
+                        .buttonStyle(.borderedProminent)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                } else {
+                    destinationContent
+                }
+            }
+            .padding(.horizontal, 20)
+            .padding(.bottom, 80)
+        }
+        .background { GrainedCanvas() }
+        .navigationTitle(navigationTitle)
+        .navigationBarTitleDisplayMode(.inline)
+        .task { await store.load() }
+        .sheet(isPresented: $showsComposer, onDismiss: { editingRoutine = nil }) {
+            RoutineComposer(
+                existing: editingRoutine,
+                schedule: editingRoutine.flatMap { routine in
+                    store.routineSchedules.first(where: { $0.routineID == routine.id })
+                },
+                sourcePickerRepository: sourcePickerRepository
+            ) { title, steps, weekdays, daypart in
+                await store.saveRoutine(
+                    existing: editingRoutine,
+                    title: title,
+                    steps: steps,
+                    weekdays: weekdays,
+                    daypart: daypart
+                )
+                return store.errorMessage == nil
+            }
+        }
+        .fullScreenCover(isPresented: $showsRunner) {
+            if let run = store.activeRoutineRun {
+                RoutineRunner(
+                    run: run,
+                    advance: { response, skip in Task { await store.advanceRoutine(response: response, skip: skip) } },
+                    pause: { Task { await store.pauseRoutine() } },
+                    resume: { Task { await store.resumeRoutine() } },
+                    abandon: { Task { await store.abandonRoutine() } }
+                )
+                .interactiveDismissDisabled()
+            }
+        }
+        .confirmationDialog(
+            "Delete this routine?",
+            isPresented: Binding(get: { pendingDeletion != nil }, set: { if !$0 { pendingDeletion = nil } }),
+            titleVisibility: .visible
+        ) {
+            Button("Delete routine", role: .destructive) {
+                guard let routine = pendingDeletion else { return }
+                pendingDeletion = nil
+                Task {
+                    await store.deleteRoutine(routine)
+                    if case .routine = focus, store.errorMessage == nil { router.pop(in: .track) }
+                }
+            }
+            Button("Cancel", role: .cancel) { pendingDeletion = nil }
+        } message: {
+            Text("The definition and schedule are removed. Existing run history remains available.")
+        }
+        .alert("Routines need attention", isPresented: Binding(
+            get: { store.errorMessage != nil && store.routines.isEmpty == false },
+            set: { if !$0 { store.errorMessage = nil } }
+        )) {
+            Button("OK", role: .cancel) { store.errorMessage = nil }
+        } message: {
+            Text(store.errorMessage ?? "")
+        }
+    }
+
+    @ViewBuilder
+    private var destinationContent: some View {
+        switch focus {
+        case .collection:
+            collectionContent
+        case .routine(let id):
+            if let routine = store.routines.first(where: { $0.id == id }) {
+                routineDetail(routine)
+            } else {
+                ContentUnavailableView(
+                    "Routine unavailable",
+                    systemImage: "archivebox",
+                    description: Text("It may have been archived or removed.")
+                )
+                Button("View all routines") {
+                    router.openLeaf(.routines(.library), in: .track)
+                }
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity, minHeight: 44)
+            }
+        }
+    }
+
+    private var collectionContent: some View {
+        Group {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 5) {
+                    Text(collectionHeading).font(Typography.screenTitle())
+                    Text("Review the steps first, then start when it fits.")
+                        .font(.subheadline)
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                }
+                Spacer(minLength: 8)
+                Button("Add routine", systemImage: "plus") {
+                    editingRoutine = nil
+                    showsComposer = true
+                }
+                .buttonStyle(.borderedProminent)
+                .frame(minHeight: 44)
+            }
+
+            if let run = store.activeRoutineRun {
+                Button {
+                    showsRunner = true
+                } label: {
+                    Label("Continue \(run.versionSnapshot.title)", systemImage: "play.circle.fill")
+                        .frame(maxWidth: .infinity, minHeight: 48)
+                }
+                .buttonStyle(.borderedProminent)
+                .accessibilityIdentifier("routines.continueActive")
+            }
+
+            if displayedRoutines.isEmpty {
+                ContentUnavailableView(
+                    "No routines here",
+                    systemImage: "figure.mind.and.body",
+                    description: Text("Add a routine or review the complete library.")
+                )
+                if case .collection(.daypart) = focus {
+                    Button("View all routines") { router.openLeaf(.routines(.library), in: .track) }
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                }
+            } else {
+                ForEach(displayedRoutines) { routine in routineRow(routine) }
+            }
+        }
+    }
+
+    private func routineDetail(_ routine: RoutineDefinition) -> some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(routine.title).font(Typography.screenTitle())
+            if let schedule = store.routineSchedules.first(where: { $0.routineID == routine.id }) {
+                Text(scheduleDescription(schedule))
+                    .font(.subheadline)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            }
+
+            Button {
+                primaryRoutineAction(routine)
+            } label: {
+                Label(primaryRoutineActionTitle(routine), systemImage: "play.fill")
+                    .frame(maxWidth: .infinity, minHeight: 48)
+            }
+            .buttonStyle(.borderedProminent)
+            .accessibilityIdentifier("routine.primaryAction")
+
+            HStack(spacing: 10) {
+                Button("Edit routine", systemImage: "pencil") {
+                    editingRoutine = routine
+                    showsComposer = true
+                }
+                .buttonStyle(.bordered)
+                .frame(maxWidth: .infinity, minHeight: 44)
+                Menu {
+                    Button("Archive routine", systemImage: "archivebox") {
+                        Task { await store.archiveRoutine(routine) }
+                    }
+                    Button("Delete routine", systemImage: "trash", role: .destructive) {
+                        pendingDeletion = routine
+                    }
+                } label: {
+                    Label("More", systemImage: "ellipsis.circle").frame(minHeight: 44)
+                }
+            }
+
+            Text("Steps").font(Typography.sectionTitle())
+            ForEach(routine.steps.sorted(by: { $0.ordinal < $1.ordinal })) { step in
+                HStack(alignment: .top, spacing: 12) {
+                    Image(systemName: "circle")
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(step.title).font(.body)
+                        if let duration = step.duration {
+                            Text("About \(max(1, Int(duration / 60))) minutes")
+                                .font(.caption)
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                        }
+                    }
+                }
+                .frame(minHeight: 44)
+            }
+
+            Text("Run history").font(Typography.sectionTitle())
+            let history = store.routineRuns
+                .filter { $0.routineID == routine.id }
+                .sorted { $0.startedAt > $1.startedAt }
+            if history.isEmpty {
+                Text("No runs recorded yet.")
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            } else {
+                ForEach(history.prefix(30)) { run in
+                    LabeledContent(
+                        run.startedAt.formatted(date: .abbreviated, time: .shortened),
+                        value: run.status.rawValue.capitalized
+                    )
+                    .frame(minHeight: 44)
+                }
+            }
+        }
+    }
+
+    private func routineRow(_ routine: RoutineDefinition) -> some View {
+        HStack(spacing: 10) {
+            Button {
+                router.push(.routine(routine.id), in: .track)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(routine.title).font(.headline)
+                    Text("\(routine.steps.count) steps")
+                        .font(.caption)
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                }
+                .frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            Image(systemName: "chevron.right")
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+        }
+        .padding(14)
+        .lifeBoardClaySurface(.raised, cornerRadius: Radius.largeCard)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(routine.title), \(routine.steps.count) steps")
+    }
+
+    private var displayedRoutines: [RoutineDefinition] {
+        let active = store.routines.filter { $0.isArchived == false }
+        guard case .collection(.daypart(let daypart)) = focus else {
+            return active.sorted { $0.updatedAt > $1.updatedAt }
+        }
+        let matchingIDs = Set(store.routineSchedules.filter {
+            $0.isEnabled && ($0.daypart == nil || $0.daypart == daypart)
+        }.map(\.routineID))
+        return active.filter { matchingIDs.contains($0.id) }.sorted { $0.updatedAt > $1.updatedAt }
+    }
+
+    private var collectionHeading: String {
+        guard case .collection(.daypart(let daypart)) = focus else { return "Routines" }
+        return "\(daypart.rawValue.capitalized) routines"
+    }
+
+    private var navigationTitle: String {
+        if case .routine = focus { return "Routine" }
+        return "Routines"
+    }
+
+    private func primaryRoutineActionTitle(_ routine: RoutineDefinition) -> String {
+        guard let active = store.activeRoutineRun else { return "Start routine" }
+        return active.routineID == routine.id ? "Continue routine" : "Continue \(active.versionSnapshot.title)"
+    }
+
+    private func primaryRoutineAction(_ routine: RoutineDefinition) {
+        if store.activeRoutineRun != nil {
+            showsRunner = true
+        } else {
+            Task {
+                await store.startRoutine(routine)
+                if store.activeRoutineRun != nil { showsRunner = true }
+            }
+        }
+    }
+
+    private func scheduleDescription(_ schedule: RoutineSchedule) -> String {
+        let daypart = schedule.daypart?.rawValue.capitalized ?? "Any daypart"
+        return "\(daypart) · \(schedule.weekdays.count) days each week"
+    }
+}
+
 struct TrackUniversalCaptureView: View {
     let kind: CaptureKind
     @State private var store: TrackFoundationStore
@@ -4234,7 +4769,7 @@ private struct SleepNotesSection: View {
     }
 }
 
-private struct GoalComposer: View {
+struct GoalComposer: View {
     let existing: GoalDefinition?
     let save: (GoalDraft) async -> Bool
     @Environment(\.dismiss) private var dismiss
@@ -4521,7 +5056,7 @@ private enum GoalComposerCopy {
     }
 }
 
-private struct GoalLinkComposer: View {
+struct GoalLinkComposer: View {
     let goal: GoalDefinition
     let sourcePickerRepository: any TypedSourcePickerRepository
     let save: (GoalLinkSource, UUID) -> Void

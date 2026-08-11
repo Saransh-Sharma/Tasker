@@ -10,6 +10,7 @@ final class TrackFoundationStore {
         hydrationAmountMilliliters: nil, hydrationTargetMilliliters: nil, generatedAt: .distantPast
     )
     private(set) var definitions: [GoalDefinition] = []
+    private(set) var goalLinks: [GoalLink] = []
     private(set) var routines: [RoutineDefinition] = []
     private(set) var routineSchedules: [RoutineSchedule] = []
     private(set) var routineRuns: [RoutineRun] = []
@@ -114,6 +115,7 @@ final class TrackFoundationStore {
                 goalsValue, linksValue, routinesValue, schedulesValue, runsValue, policiesValue, groupsValue, installationsValue,
                 hydrationValue, targetValue, sleepValue, medicationsValue, medicationSchedulesValue, medicationEventsValue, checkInsValue
             )
+            goalLinks = links
             (trackers, trackerEntries, journalDays, hydrationHistoryResult) = try await (
                 trackersValue, trackerEntriesValue, journalDaysValue, hydrationHistoryValue
             )
