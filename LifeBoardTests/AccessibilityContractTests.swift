@@ -90,12 +90,35 @@ final class AccessibilityContractTests: XCTestCase {
     /// returns a literal animation, would silently animate for someone who
     /// asked the system not to.
     func testEveryMotionProfileRespectsReduceMotion() {
+        // The accessibility contract is what this asserts, so it pins the Full
+        // motion override off. With the override on — the shipped default —
+        // clearing Reduce Motion is the entire point of the setting, and that
+        // path is covered by the motion-override tests in LifeOSFoundationTests.
+        let originalOverride = MotionOverride.fullMotionEnabled
+        defer { MotionOverride.fullMotionEnabled = originalOverride }
+        MotionOverride.fullMotionEnabled = false
+
         for profile in MotionProfile.allCases {
             XCTAssertNil(
                 profile.animation(reduceMotion: true),
                 "\(profile) still animates under Reduce Motion"
             )
         }
+    }
+
+    /// The override must be a real switch in both directions, not a one-way door.
+    func testFullMotionOverrideRestoresAnimationUnderReduceMotion() {
+        let originalOverride = MotionOverride.fullMotionEnabled
+        defer { MotionOverride.fullMotionEnabled = originalOverride }
+        MotionOverride.fullMotionEnabled = true
+
+        let animated = MotionProfile.allCases.filter {
+            $0.animation(reduceMotion: true) != nil
+        }
+        XCTAssertFalse(
+            animated.isEmpty,
+            "Full motion is on, so Reduce Motion must not suppress every profile"
+        )
     }
 
     func testMotionProfilesDoAnimateWhenReduceMotionIsOff() {

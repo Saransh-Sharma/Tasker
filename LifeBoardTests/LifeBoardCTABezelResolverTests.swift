@@ -78,12 +78,24 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
         )
     }
 
-    func testDecorativeButtonEffectsDefaultToDisabled() {
+    /// Renamed from `…DefaultToDisabled`: the default is now **on**.
+    /// `LifeBoardLiquidMetalBezel` is the only shader in the app that animates
+    /// at rest, and shipping it off meant it never ran for anyone who did not
+    /// go looking for the setting. The remote kill-switch is unchanged.
+    func testDecorativeButtonEffectsDefaultToEnabled() {
         UserDefaults.standard.removeObject(forKey: userDecorativeCTAEffectsKey)
         UserDefaults.standard.removeObject(forKey: remoteDecorativeCTAEffectsKey)
 
-        XCTAssertFalse(V2FeatureFlags.userDecorativeCTAEffectsEnabled)
+        XCTAssertTrue(V2FeatureFlags.userDecorativeCTAEffectsEnabled)
         XCTAssertTrue(V2FeatureFlags.remoteDecorativeCTAEffectsAllowed)
+        XCTAssertTrue(V2FeatureFlags.liquidMetalCTAEnabled)
+    }
+
+    /// The remote flag must still be able to kill it regardless of the default.
+    func testRemoteKillSwitchStillDisablesDecorativeEffectsAtDefault() {
+        UserDefaults.standard.removeObject(forKey: userDecorativeCTAEffectsKey)
+        V2FeatureFlags.remoteDecorativeCTAEffectsAllowed = false
+
         XCTAssertFalse(V2FeatureFlags.liquidMetalCTAEnabled)
     }
 
