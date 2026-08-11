@@ -11,6 +11,7 @@ public final class HealthCoordinator {
     public let observers: HealthObserverCoordinator
     public let coordinator: HealthSyncCoordinator
     public let connectionStore: HealthConnectionStore
+    public let metricsReader: any HealthMetricsReading
 
     /// Owns the "should we offer to connect right now?" decision and the single
     /// in-flight priming prompt, so any health feature can invite a not-yet-
@@ -45,6 +46,10 @@ public final class HealthCoordinator {
             coordinator: coordinator
         )
         connectionStore = store
+        metricsReader = LiveHealthMetricsReader(
+            coordinator: coordinator,
+            connectionStore: store
+        )
         jitCoordinator = HealthJustInTimeCoordinator(connectionStore: store)
     }
 
@@ -127,6 +132,53 @@ public final class HealthCoordinator {
             pendingOutboxMetrics.removeAll()
             _ = await coordinator.sync(.outbox(metrics))
         }
+    }
+}
+
+/// Production implementation of the read-only summary boundary. It deliberately
+/// delegates refresh scheduling to `HealthConnectionStore`, preserving the
+/// coordinator's foreground throttle and observer coalescing.
+public final class LiveHealthMetricsReader: HealthMetricsReading, @unchecked Sendable {
+    private let coordinator: HealthSyncCoordinator
+    private let connectionStore: HealthConnectionStore
+    private let invalidationHub: HealthSyncInvalidationService
+
+    public init(
+        coordinator: HealthSyncCoordinator,
+        connectionStore: HealthConnectionStore,
+        invalidationHub: HealthSyncInvalidationService = .shared
+    ) {
+        self.coordinator = coordinator
+        self.connectionStore = connectionStore
+        self.invalidationHub = invalidationHub
+    }
+
+    public func currentSnapshot(now: Date = Date()) async -> HealthMetricsSnapshot {
+        async let aggregates = coordinator.cachedCurrentAggregates(now: now)
+        async let lastSync = coordinator.lastSuccessfulSync()
+        let statuses = await MainActor.run { connectionStore.statuses }
+        let (resolvedAggregates, resolvedLastSync) = await (aggregates, lastSync)
+        return HealthMetricsSnapshot(
+            aggregates: resolvedAggregates,
+            statuses: statuses,
+            lastSuccessfulSync: resolvedLastSync
+        )
+    }
+
+    public func cachedHistory(
+        domain: HealthInsightDomain,
+        range: HealthHistoryRange,
+        now: Date = Date()
+    ) async -> [HealthMetric: [HealthAggregateValue]] {
+        await coordinator.cachedHistory(domain: domain, range: range, now: now)
+    }
+
+    public func requestAutomaticRefresh() async {
+        await connectionStore.syncIfNeededOnForeground()
+    }
+
+    public func updates() async -> AsyncStream<HealthSyncEvent> {
+        await invalidationHub.updates()
     }
 }
 

@@ -215,6 +215,39 @@ public struct HealthAggregateValue: Codable, Hashable, Sendable, Identifiable {
     }
 }
 
+/// A consistent, read-only view of the Health cache used by Home cards and
+/// Track destinations. Consumers never query HealthKit directly and therefore
+/// share the same automatic-sync, stale-data, and privacy behavior.
+public struct HealthMetricsSnapshot: Equatable, Sendable {
+    public var aggregates: [HealthMetric: HealthAggregateValue]
+    public var statuses: [HealthDomain: HealthDomainStatus]
+    public var lastSuccessfulSync: Date?
+
+    public init(
+        aggregates: [HealthMetric: HealthAggregateValue] = [:],
+        statuses: [HealthDomain: HealthDomainStatus] = [:],
+        lastSuccessfulSync: Date? = nil
+    ) {
+        self.aggregates = aggregates
+        self.statuses = statuses
+        self.lastSuccessfulSync = lastSuccessfulSync
+    }
+}
+
+/// Injectable Health summary boundary. The live implementation reads the
+/// local aggregate cache and asks the existing throttled coordinator to refresh;
+/// deterministic fakes can provide the same contract without HealthKit.
+public protocol HealthMetricsReading: Sendable {
+    func currentSnapshot(now: Date) async -> HealthMetricsSnapshot
+    func cachedHistory(
+        domain: HealthInsightDomain,
+        range: HealthHistoryRange,
+        now: Date
+    ) async -> [HealthMetric: [HealthAggregateValue]]
+    func requestAutomaticRefresh() async
+    func updates() async -> AsyncStream<HealthSyncEvent>
+}
+
 public enum HealthGoalCelebrationGate {
     /// Returns true only for the first threshold crossing for a metric on a
     /// local calendar day. The stored marker contains no health value.
