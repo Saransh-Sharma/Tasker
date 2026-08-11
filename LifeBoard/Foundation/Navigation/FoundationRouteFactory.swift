@@ -100,6 +100,22 @@ extension FoundationShell {
                     onOpenHealth: { runtime.router.push(.health, in: .track) }
                 )
             }
+        case .wellness(let focus):
+            WellnessView(
+                repository: wellnessRepository,
+                healthMetrics: HealthCoordinator.shared.metricsReader,
+                initialFocus: focus
+            )
+        case .nutrition(let focus):
+            NutritionView(
+                repository: nutritionRepository,
+                healthMetrics: HealthCoordinator.shared.metricsReader,
+                initialFocus: focus
+            )
+        case .fasting:
+            FastingDestinationView(
+                repository: FastingRepositoryAdapter(repository: phaseIIRepository)
+            )
         case .insightEvidence(let evidenceID):
             InsightsDestination(
                 repository: trackFoundationRepository,

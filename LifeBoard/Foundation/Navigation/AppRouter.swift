@@ -42,6 +42,9 @@ public enum AppRoute: Codable, Hashable, Sendable {
     // pops the destination it was actually opened from, which is the only
     // behaviour the second case ever added.
     case trackHistory
+    case wellness(WellnessHomeCardFocus)
+    case nutrition(NutritionHomeCardFocus)
+    case fasting
     case insightEvidence(UUID?)
     case healthInsight(HealthInsightDomain)
     case settings
@@ -426,6 +429,32 @@ public final class AppRouter {
         }
     }
 
+    /// Opens a typed leaf as a deterministic cross-root deep link.
+    ///
+    /// Unlike `navigate`, this replaces any stale path owned by the target
+    /// root. A Home health card therefore always lands on exactly one useful
+    /// screen, and Back returns to Track rather than walking through whatever
+    /// the person last viewed there.
+    @discardableResult
+    public func navigateReplacingPath(
+        _ route: AppRoute,
+        in destination: Destination
+    ) -> _Concurrency.Task<Void, Never> {
+        if selectedDestination != destination { select(destination) }
+        return Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self, self.selectedDestination == destination else { return }
+            self.paths[destination] = [route]
+        }
+    }
+
+    /// Synchronous boundary equivalent used by URL handling, where callers
+    /// expect the route to be resolved before `handle(url:)` returns.
+    private func replacePath(with route: AppRoute, in destination: Destination) {
+        selectedDestination = destination
+        paths[destination] = [route]
+    }
+
     private func append(_ route: AppRoute, in target: Destination) {
         var path = paths[target] ?? []
         guard path.last != route else { return }
@@ -578,6 +607,44 @@ public final class AppRouter {
             push(.trackerDetail(id), in: .track)
         case "care":
             push(.careLibrary, in: .track)
+        case "wellness":
+            let focus: WellnessHomeCardFocus?
+            switch segments.first?.lowercased() {
+            case "body", "body-metric", "bodymetric":
+                if let rawMetric = url.queryValue(named: "metric") {
+                    focus = BodyMetricKind(rawValue: rawMetric).map(WellnessHomeCardFocus.bodyMetric)
+                } else {
+                    focus = .bodyMetric(.bodyMass)
+                }
+            case "workout", "workouts":
+                focus = .workouts
+            case "sleep":
+                focus = .sleep
+            case "movement":
+                focus = .movement
+            default:
+                focus = nil
+            }
+            guard let focus else {
+                restoreFallbackToHome(message: "That wellness destination is unavailable. Opened Home instead.")
+                return true
+            }
+            replacePath(with: .wellness(focus), in: .track)
+        case "nutrition":
+            let focus: NutritionHomeCardFocus?
+            switch segments.first?.lowercased() {
+            case nil, "summary": focus = .dailySummary
+            case "log", "log-meal", "logmeal": focus = .logMeal
+            case "recent", "recent-meal", "recentmeal": focus = .recentMeal
+            default: focus = nil
+            }
+            guard let focus else {
+                restoreFallbackToHome(message: "That nutrition destination is unavailable. Opened Home instead.")
+                return true
+            }
+            replacePath(with: .nutrition(focus), in: .track)
+        case "fasting":
+            replacePath(with: .fasting, in: .track)
         case "note":
             guard let rawID = segments.first, let id = UUID(uuidString: rawID) else {
                 select(.track)
