@@ -130,6 +130,11 @@ struct GoalRouteView: View {
     let router: AppRouter
     @State private var state: RouteLoadState<Snapshot> = .loading
     @State private var repairingLink: GoalLink?
+    @State private var loadedGoal: GoalDefinition?
+    @State private var showsEditor = false
+    @State private var showsLinker = false
+    @State private var confirmsDeletion = false
+    @State private var actionError: String?
 
     var body: some View {
         EntityRouteScaffold(title: "Goal", systemImage: "target", state: state) { snapshot in
@@ -139,6 +144,31 @@ struct GoalRouteView: View {
                 LabeledContent("Type", value: goal.type.rawValue.capitalized)
                 LabeledContent("Target", value: goal.targetValue.map { "\($0.formatted()) \(goal.unitLabel ?? "")" } ?? "Completion")
                 LabeledContent("Target date", value: goal.targetDate?.formatted(date: .abbreviated, time: .omitted) ?? "Flexible")
+
+                Button(
+                    snapshot.links.isEmpty ? "Link progress source" : "Link another source",
+                    systemImage: "link.badge.plus"
+                ) {
+                    showsLinker = true
+                }
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .accessibilityIdentifier("goal.primaryAction")
+
+                HStack(spacing: 10) {
+                    Button("Edit goal", systemImage: "pencil") { showsEditor = true }
+                        .buttonStyle(.bordered)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                    Menu {
+                        goalStatusActions(goal)
+                        Button("Delete goal", systemImage: "trash", role: .destructive) {
+                            confirmsDeletion = true
+                        }
+                    } label: {
+                        Label("More", systemImage: "ellipsis.circle")
+                            .frame(minHeight: 44)
+                    }
+                }
 
                 if let progress = snapshot.current {
                     Divider()
@@ -198,8 +228,6 @@ struct GoalRouteView: View {
                         .accessibilityElement(children: .combine)
                     }
                 }
-                Button("Open in Track", systemImage: "chart.bar.fill") { router.select(.track) }
-                    .buttonStyle(.borderedProminent).tint(Color(SemanticColorTokens.inkPrimary))
             }
         }
         .task(id: id) { await load() }
@@ -212,6 +240,42 @@ struct GoalRouteView: View {
                 Task { await repair(link, with: source) }
             }
         }
+        .sheet(isPresented: $showsEditor) {
+            if let loadedGoal {
+                GoalComposer(existing: loadedGoal) { draft in
+                    await save(goal: loadedGoal, draft: draft)
+                }
+            }
+        }
+        .sheet(isPresented: $showsLinker) {
+            if let loadedGoal {
+                GoalLinkComposer(goal: loadedGoal, sourcePickerRepository: sourceRepository) { source, sourceID in
+                    Task {
+                        do {
+                            try await repository?.saveGoalLink(.init(goalID: loadedGoal.id, source: source, sourceID: sourceID))
+                            SystemSurfaceRefresher.requestRefreshSoon()
+                            await load()
+                        } catch {
+                            actionError = error.localizedDescription
+                        }
+                    }
+                }
+            }
+        }
+        .confirmationDialog("Delete this goal?", isPresented: $confirmsDeletion, titleVisibility: .visible) {
+            Button("Delete goal", role: .destructive) { deleteGoal() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("The goal and its progress links are removed. Linked source records are unchanged.")
+        }
+        .alert("Goal needs attention", isPresented: Binding(
+            get: { actionError != nil },
+            set: { if !$0 { actionError = nil } }
+        )) {
+            Button("OK", role: .cancel) { actionError = nil }
+        } message: {
+            Text(actionError ?? "")
+        }
     }
 
     private func load() async {
@@ -221,6 +285,7 @@ struct GoalRouteView: View {
             async let links = repository.fetchGoalLinks(goalID: id)
             let (definitions, resolvedLinks) = try await (goals, links)
             guard let goal = definitions.first(where: { $0.id == id }) else { state = .missing; return }
+            loadedGoal = goal
 
             var candidates: [TypedSourceKind: [TypedSourcePickerItem]] = [:]
             for kind in Set(resolvedLinks.map { sourceKind($0.source) }) {
@@ -289,6 +354,62 @@ struct GoalRouteView: View {
         case .habit: .habit
         case .routine: .routine
         case .trackerMeasure: .trackerMeasure
+        }
+    }
+
+    @ViewBuilder
+    private func goalStatusActions(_ goal: GoalDefinition) -> some View {
+        switch goal.effectiveStatus {
+        case .active, .revised:
+            Button("Pause goal", systemImage: "pause.circle") { transition(goal, to: .paused) }
+            Button("Complete goal", systemImage: "checkmark.circle") { transition(goal, to: .completed) }
+        case .paused:
+            Button("Resume goal", systemImage: "play.circle") { transition(goal, to: .active) }
+        case .completed, .archived:
+            Button("Reactivate goal", systemImage: "arrow.uturn.backward.circle") { transition(goal, to: .active) }
+        }
+        if goal.effectiveStatus != .archived {
+            Button("Archive goal", systemImage: "archivebox") { transition(goal, to: .archived) }
+        }
+    }
+
+    private func save(goal: GoalDefinition, draft: GoalDraft) async -> Bool {
+        guard let repository else { return false }
+        do {
+            _ = try await GoalLifecycleService(repository: repository).save(draft: draft, existing: goal)
+            SystemSurfaceRefresher.requestRefreshSoon()
+            await load()
+            return true
+        } catch {
+            actionError = error.localizedDescription
+            return false
+        }
+    }
+
+    private func transition(_ goal: GoalDefinition, to status: GoalStatus) {
+        guard let repository else { return }
+        Task {
+            do {
+                _ = try await GoalLifecycleService(repository: repository)
+                    .transition(goal, to: status, reason: "Changed by user")
+                SystemSurfaceRefresher.requestRefreshSoon()
+                await load()
+            } catch {
+                actionError = error.localizedDescription
+            }
+        }
+    }
+
+    private func deleteGoal() {
+        guard let repository else { return }
+        Task {
+            do {
+                try await repository.deleteGoal(id: id)
+                SystemSurfaceRefresher.requestRefreshSoon()
+                router.pop(in: .track)
+            } catch {
+                actionError = error.localizedDescription
+            }
         }
     }
 }
