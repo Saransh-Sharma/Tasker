@@ -38,7 +38,7 @@ struct TaskSectionHeaderRow: View {
                         .frame(width: 4, height: 4)
 
                     Image(systemName: iconSystemName)
-                        .font(.system(size: 14, weight: .semibold))
+                        .lifeboardFont(.buttonSmall)
                         .foregroundColor(accentColor)
                         .frame(width: 20, alignment: .center)
 
@@ -59,7 +59,7 @@ struct TaskSectionHeaderRow: View {
                     Spacer()
 
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .lifeboardFont(.eyebrow)
                         .foregroundColor(Color.lifeboard.textQuaternary)
                         .rotationEffect(.degrees(isExpanded ? 90 : 0))
                         .scaleEffect(isExpanded ? 1.0 : 0.9)
@@ -344,7 +344,7 @@ struct TaskSectionView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .lifeboardFont(.eyebrow)
                     .foregroundColor(Color.lifeboard.textQuaternary)
                     .rotationEffect(.degrees(isCompletedCollapsed ? 0 : 90))
                     .animation(LifeBoardAnimation.stateChange, value: isCompletedCollapsed)
@@ -760,7 +760,7 @@ struct HomeListSectionView: View {
                 Spacer()
 
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11, weight: .semibold))
+                    .lifeboardFont(.eyebrow)
                     .foregroundColor(Color.lifeboard.textQuaternary)
                     .rotationEffect(.degrees(isResolvedCollapsed ? 0 : 90))
                     .animation(LifeBoardAnimation.stateChange, value: isResolvedCollapsed)

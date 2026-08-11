@@ -696,7 +696,7 @@ struct TaskRowView: View, Equatable {
 
                     if isSunriseSearchCard {
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 17, weight: .semibold))
+                            .lifeboardFont(.title2)
                             .foregroundStyle(Color.lifeboard.textQuaternary)
                             .accessibilityHidden(true)
                     }

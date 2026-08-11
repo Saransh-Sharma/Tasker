@@ -421,7 +421,7 @@ private struct TaskTimelinePreview: View {
             HStack(alignment: .top, spacing: ClayLayoutMetrics.sm) {
                 VStack(spacing: 6) {
                     Text(scheduledStartAt.map(Self.hourText(for:)) ?? "--")
-                        .font(.system(size: 15, weight: .semibold, design: .monospaced))
+                        .lifeboardFont(.headline)
                         .foregroundStyle(ClayColorTokens.navyMuted)
                         .frame(width: 58, alignment: .trailing)
                     Circle()

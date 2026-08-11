@@ -36,7 +36,7 @@ struct AddTaskTaskPicker: View {
             // Search field
             HStack(spacing: spacing.s8) {
                 Image(systemName: "magnifyingglass")
-                    .font(.system(size: 12))
+                    .lifeboardFont(.caption2)
                     .foregroundColor(Color.lifeboard.textTertiary)
 
                 TextField("Search tasks...", text: $searchText)
@@ -54,7 +54,7 @@ struct AddTaskTaskPicker: View {
             if let selectedTaskID, let task = tasks.first(where: { $0.id == selectedTaskID }) {
                 HStack(spacing: spacing.s8) {
                     Image(systemName: "checkmark.circle.fill")
-                        .font(.system(size: 14))
+                        .lifeboardFont(.callout)
                         .foregroundColor(Color.lifeboard.accentPrimary)
                     Text(task.title)
                         .font(.lifeboard(.callout))
@@ -99,7 +99,7 @@ struct AddTaskTaskPicker: View {
                                 Spacer()
                                 if selectedTaskID == task.id {
                                     Image(systemName: "checkmark")
-                                        .font(.system(size: 12, weight: .medium))
+                                        .lifeboardFont(.caption2)
                                         .foregroundColor(Color.lifeboard.accentPrimary)
                                 }
                             }

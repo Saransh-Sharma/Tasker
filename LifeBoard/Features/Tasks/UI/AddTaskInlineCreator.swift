@@ -61,7 +61,7 @@ struct AddTaskInlineCreator: View {
                 onCancel()
             } label: {
                 Image(systemName: "xmark.circle.fill")
-                    .font(.system(size: 20, weight: .medium))
+                    .lifeboardFont(.sectionTitle)
                     .foregroundColor(Color.lifeboard.textTertiary)
             }
             .buttonStyle(.plain)

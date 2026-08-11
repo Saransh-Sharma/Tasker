@@ -228,7 +228,7 @@ struct TaskDetailScreen: View {
                     dismiss()
                 }
                 .labelStyle(.iconOnly)
-                .font(.system(size: 14, weight: .semibold))
+                .lifeboardFont(.buttonSmall)
                 .foregroundStyle(Color.lifeboard.textPrimary)
                 .frame(width: 44, height: 44)
                 .lifeboardChromeSurface(cornerRadius: Theme.CornerRadius.pill, accentColor: Color.lifeboard.accentSecondary)
@@ -444,7 +444,7 @@ struct TaskDetailScreen: View {
 
                     Button("Add step", systemImage: "plus.circle.fill", action: addStep)
                         .labelStyle(.iconOnly)
-                        .font(.system(size: 20, weight: .semibold))
+                        .lifeboardFont(.sectionTitle)
                         .foregroundStyle(Color.lifeboard.accentPrimary)
                         .disabled(newStepTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         .accessibilityLabel("Add step")
@@ -605,7 +605,7 @@ struct TaskDetailScreen: View {
         let style = taskFitStyle(for: viewModel.taskFitHint.classification)
         return HStack(alignment: .top, spacing: spacing.s8) {
             Image(systemName: style.symbol)
-                .font(.system(size: 14, weight: .semibold))
+                .lifeboardFont(.buttonSmall)
                 .foregroundStyle(style.tint)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 6) {

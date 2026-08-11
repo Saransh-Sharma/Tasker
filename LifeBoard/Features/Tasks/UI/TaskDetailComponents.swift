@@ -185,7 +185,7 @@ struct StatusPill: View {
         HStack(spacing: 5) {
             if let systemImage {
                 Image(systemName: systemImage)
-                    .font(.system(size: 10, weight: .semibold))
+                    .lifeboardFont(.eyebrow)
             }
             Text(text)
                 .lineLimit(1)
@@ -325,7 +325,7 @@ struct DetailRow<Trailing: View>: View {
         Button(action: { action?() }) {
             HStack(spacing: Theme.Spacing.md) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .lifeboardFont(.bodyEmphasis)
                     .foregroundColor(resolvedIconColor)
                     .frame(width: 24, alignment: .center)
 
@@ -339,7 +339,7 @@ struct DetailRow<Trailing: View>: View {
 
                 if action != nil {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .lifeboardFont(.eyebrow)
                         .foregroundColor(Color.lifeboard.textTertiary)
                 }
             }
@@ -373,7 +373,7 @@ extension DetailRow where Trailing == Text {
         return Button(action: { action?() }) {
             HStack(spacing: Theme.Spacing.md) {
                 Image(systemName: icon)
-                    .font(.system(size: 16, weight: .medium))
+                    .lifeboardFont(.bodyEmphasis)
                     .foregroundColor(resolvedIconColor)
                     .frame(width: 24, alignment: .center)
 
@@ -389,7 +389,7 @@ extension DetailRow where Trailing == Text {
 
                 if action != nil {
                     Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
+                        .lifeboardFont(.eyebrow)
                         .foregroundColor(Color.lifeboard.textTertiary)
                 }
             }
@@ -435,7 +435,7 @@ struct InfoPill: View {
     var body: some View {
         HStack(spacing: 4) {
             Image(systemName: icon)
-                .font(.system(size: 11, weight: .medium))
+                .lifeboardFont(.caption2)
             Text(text)
                 .font(.lifeboard(.caption1))
         }

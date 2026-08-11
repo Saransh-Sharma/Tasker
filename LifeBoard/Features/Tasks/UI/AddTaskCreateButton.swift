@@ -37,11 +37,11 @@ struct AddTaskCreateButton: View {
                             .scaleEffect(0.8)
                     } else if successFlash {
                         Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 16, weight: .medium))
+                            .lifeboardFont(.bodyEmphasis)
                             .transition(.scale.combined(with: .opacity))
                     } else {
                         Image(systemName: "plus.circle.fill")
-                            .font(.system(size: 16, weight: .medium))
+                            .lifeboardFont(.bodyEmphasis)
                     }
 
                     Text(isLoading ? "Adding…" : successFlash ? "Added" : buttonTitle)

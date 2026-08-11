@@ -39,7 +39,7 @@ struct AddTaskTagMultiSelect: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "plus")
-                                .font(.system(size: 10, weight: .medium))
+                                .lifeboardFont(.caption2)
                             Text("Add")
                                 .font(.lifeboard(.caption1))
                         }
@@ -123,13 +123,13 @@ struct AddTaskTagMultiSelect: View {
             HStack(spacing: 4) {
                 if let icon = tag.icon {
                     Image(systemName: icon)
-                        .font(.system(size: 10))
+                        .lifeboardFont(.caption2)
                 }
                 Text(tag.name)
                     .font(.lifeboard(.caption1))
                 if isSelected {
                     Image(systemName: "checkmark")
-                        .font(.system(size: 8, weight: .bold))
+                        .lifeboardFont(.eyebrow)
                 }
             }
             .foregroundColor(isSelected ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary)

@@ -57,7 +57,7 @@ struct TaskEditorSectionCard<Content: View>: View {
                             .frame(width: 32, height: 32)
 
                         Image(systemName: systemImage)
-                            .font(.system(size: 14, weight: .semibold))
+                            .lifeboardFont(.buttonSmall)
                             .foregroundStyle(isExpanded ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary)
                     }
 
@@ -82,7 +82,7 @@ struct TaskEditorSectionCard<Content: View>: View {
                             .frame(width: 28, height: 28)
 
                         Image(systemName: "chevron.right")
-                            .font(.system(size: 12, weight: .semibold))
+                            .lifeboardFont(.eyebrow)
                             .foregroundStyle(isExpanded ? Color.lifeboard.accentPrimary : Color.lifeboard.textTertiary)
                             .rotationEffect(.degrees(isExpanded ? 90 : 0))
                     }

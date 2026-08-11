@@ -51,7 +51,7 @@ struct AddTaskTitleField: View {
                 if let iconSystemName, let onIconTap {
                     Button("Change task icon", systemImage: iconSystemName, action: onIconTap)
                         .labelStyle(.iconOnly)
-                        .font(.system(size: 18, weight: .semibold))
+                        .lifeboardFont(.title2)
                         .foregroundStyle(isFocused ? Color.lifeboard.accentPrimary : Color.lifeboard.textSecondary)
                         .frame(width: 28, height: 28)
                         .contentShape(Rectangle())

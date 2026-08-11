@@ -987,7 +987,7 @@ struct TaskListView: View {
                         }
                     } label: {
                         Image(systemName: isExpanded ? "chevron.up" : "chevron.down")
-                            .font(.system(size: 13, weight: .semibold))
+                            .lifeboardFont(.meta)
                             .foregroundStyle(Color.lifeboard.textSecondary)
                             .frame(width: 32, height: 32)
                             .contentShape(Rectangle())

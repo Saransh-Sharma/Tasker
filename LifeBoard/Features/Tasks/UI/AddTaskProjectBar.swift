@@ -33,7 +33,7 @@ struct AddTaskProjectBar: View {
                     } label: {
                         HStack(spacing: 4) {
                             Image(systemName: "plus")
-                                .font(.system(size: 12, weight: .medium))
+                                .lifeboardFont(.caption2)
                             Text("Add Project")
                                 .font(.lifeboard(.caption1))
                         }

@@ -47,7 +47,7 @@ struct AddTaskXPPreview: View {
 
             HStack(spacing: 4) {
                 Image(systemName: "star.fill")
-                    .font(.system(size: 12, weight: .medium))
+                    .lifeboardFont(.caption2)
                     .foregroundColor(isHighValue ? Color.lifeboard.accentSecondary : Color.lifeboard.textTertiary)
 
                 Text(preview.shortLabel)
