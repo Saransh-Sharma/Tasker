@@ -11,8 +11,8 @@
 # Existing small-file concentrations. Do not add shards or reduce the average
 # LOC until an intentional feature-boundary consolidation removes the entry.
 LifeBoard/Domain/Interfaces	23	110.826087
-LifeBoard/Features/Eva/Views/Chat/Chrome	15	129.066667
-LifeBoard/Features/Eva/Views/Chat/Conversation	24	101.500000
+LifeBoard/Features/Eva/Views/Chat/Chrome	15	128.333333
+LifeBoard/Features/Eva/Views/Chat/Conversation	24	101.416667
 LifeBoard/LifeBoardDesign/Components	24	97.750000
 LifeBoard/Features/Onboarding/Components	26	62.423077
 LifeBoard/Features/Onboarding/Models	71	66.577465
