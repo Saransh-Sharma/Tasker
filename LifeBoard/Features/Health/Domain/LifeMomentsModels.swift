@@ -233,6 +233,14 @@ public struct LifeMomentHomeCardSource: HomeCardSource {
             updatedAt: moment.updatedAt
         )
     }
+
+    public func resolution(context: HomeCardSnapshotContext) async -> HomeCardResolution {
+        HomeCardResolution(
+            snapshot: await snapshot(context: context),
+            primaryRoute: .lifeMoments(.moment(momentID)),
+            primaryActionTitle: "View moment"
+        )
+    }
 }
 
 public struct LifeMomentContextCandidateSource: HomeContextCandidateSource {
@@ -260,11 +268,12 @@ public struct LifeMomentContextCandidateSource: HomeContextCandidateSource {
                 widgetKind: .lifeMoment,
                 title: moment.title,
                 reason: .init(message: reason, signal: "lifeMomentThreshold"),
-                destination: .insights,
+                destination: .track,
                 sensitivity: moment.sensitivity,
                 priority: days == 0 ? 650 : 350 + (thresholdDays - days),
                 relevantFrom: context.date,
-                relevantUntil: occurrence.addingTimeInterval(24 * 60 * 60)
+                relevantUntil: occurrence.addingTimeInterval(24 * 60 * 60),
+                route: .lifeMoments(.moment(moment.id))
             )
         }
         .sorted {
@@ -299,6 +308,39 @@ public struct LifeMomentsOverviewHomeCardSource: HomeCardSource {
         // the recurrence expansion stays the single source of "when".
         let target = Calendar.current.date(byAdding: .day, value: moment.1, to: date) ?? moment.0.eventDate
         return .init(availability: .ready, title: moment.0.title, value: value, detail: size == .compact ? nil : moment.0.eventDate.formatted(date: .abbreviated, time: .omitted), payload: .countdown(target: target, label: moment.0.title), actions: inlineActions, updatedAt: moment.0.updatedAt)
+    }
+
+    public func resolution(context: HomeCardSnapshotContext) async -> HomeCardResolution {
+        let resolvedSnapshot = await snapshot(context: context)
+        guard let moments = try? await repository.moments(includeArchived: false) else {
+            return HomeCardResolution(
+                snapshot: resolvedSnapshot,
+                primaryRoute: .lifeMoments(.overview),
+                primaryActionTitle: "View moments"
+            )
+        }
+        let displayed = moments
+            .filter(\.permitsHomeDisplay)
+            .compactMap { moment -> (LifeMoment, Int)? in
+                moment.calendarDaysUntilNextOccurrence(from: context.date).map { (moment, $0) }
+            }
+            .sorted {
+                if $0.1 != $1.1 { return $0.1 < $1.1 }
+                return $0.0.id.uuidString < $1.0.id.uuidString
+            }
+            .first?.0
+        if let displayed {
+            return HomeCardResolution(
+                snapshot: resolvedSnapshot,
+                primaryRoute: .lifeMoments(.moment(displayed.id)),
+                primaryActionTitle: "View moment"
+            )
+        }
+        return HomeCardResolution(
+            snapshot: resolvedSnapshot,
+            primaryRoute: moments.isEmpty ? .lifeMoments(.add) : .lifeMoments(.overview),
+            primaryActionTitle: moments.isEmpty ? "Add moment" : "View moments"
+        )
     }
 }
 
