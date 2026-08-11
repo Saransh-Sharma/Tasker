@@ -32,6 +32,7 @@ struct WeeklyPlanningWorkspaceView: View {
     var onClose: (() -> Void)?
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.lifeBoardAtmosphereSnapshot) private var atmosphereSnapshot
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
@@ -45,6 +46,7 @@ struct WeeklyPlanningWorkspaceView: View {
     @State private var showsSoftDays = false
     @State private var receipt: WorkspaceReceipt?
     @State private var receiptDismissal: Task<Void, Never>?
+    @State private var dayChangeTrigger = 0
     @State private var pulsedDay: PlanningDay?
     @State private var pulseDismissal: Task<Void, Never>?
     @State private var pendingBankruptcy = false
@@ -130,6 +132,13 @@ struct WeeklyPlanningWorkspaceView: View {
             }
         }
         .overlay(alignment: .bottom) { receiptToast }
+        // Moving between days is the workspace's main navigation act and it had
+        // no transition of its own; the board simply swapped contents.
+        .lifeboardDaypartCrossDissolve(
+            trigger: dayChangeTrigger,
+            daypart: atmosphereSnapshot.semanticDaypart
+        )
+        .onChange(of: store.selectedDay) { _, _ in dayChangeTrigger &+= 1 }
         .sheet(isPresented: $showsBriefing) { briefingSheet }
         .sheet(isPresented: $showsCompletion) { completionSheet }
         .sheet(item: $calendarHandoff) { handoff in
@@ -377,6 +386,164 @@ struct WeeklyPlanningWorkspaceView: View {
     // MARK: Actions
 
     /// Changes the day through the store rather than assigning `selectedDay`.
+    private func pulse(_ day: PlanningDay) {
+        pulsedDay = day
+        Haptic.settle.play()
+        pulseDismissal?.cancel()
+        pulseDismissal = Task {
+            try? await Task.sleep(nanoseconds: 320_000_000)
+            guard Task.isCancelled == false else { return }
+            pulsedDay = nil
+        }
+    }
+
+    /// Shows a receipt, replacing any receipt already on screen.
+    ///
+    /// The dismissal used to compare the message *text* after sleeping, so two
+    /// identical consecutive receipts — place a task, undo, place it again —
+    /// meant the first timer tore down the second toast almost as soon as it
+    /// appeared, taking Undo with it. Identity and a cancellable handle, not
+    /// value equality.
+    private func show(
+        _ message: String,
+        undoToken: WeeklyWorkspaceUndoToken? = .planMutation
+    ) {
+        receiptDismissal?.cancel()
+        receipt = WorkspaceReceipt(message: message, undoToken: undoToken)
+        let id = receipt?.id
+        receiptDismissal = Task {
+            try? await Task.sleep(nanoseconds: 5_000_000_000)
+            guard Task.isCancelled == false, receipt?.id == id else { return }
+            receipt = nil
+        }
+    }
+
+    private func undo(_ token: WeeklyWorkspaceUndoToken) async {
+        switch token {
+        case .planMutation:
+            await store.undoLastMutation()
+        case .meeting(let decisionReceipt):
+            decisions.restore(decisionReceipt)
+            if let previous = decisionReceipt.previousIntent {
+                meetingOverrides[decisionReceipt.occurrenceKey] = previous
+            } else {
+                meetingOverrides.removeValue(forKey: decisionReceipt.occurrenceKey)
+            }
+        }
+        receiptDismissal?.cancel()
+        receipt = nil
+        Haptic.pick.play()
+    }
+
+    private func finishPlanning() {
+        motionEvent = .weekCommitted
+        completionTrigger &+= 1
+        Haptic.commit.play()
+        Task { @MainActor in
+            if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false {
+                try? await Task.sleep(for: .milliseconds(620))
+            }
+            showsCompletion = false
+            onClose?()
+        }
+    }
+
+    private func settleShelf(travel: CGFloat) {
+        shelfDragOffset = 0
+        let current = shelfDetent.rawValue
+        let nextRaw: Int
+        if travel > 56 {
+            nextRaw = min(WeeklyWorkspaceShelfDetent.expanded.rawValue, current + 1)
+        } else if travel < -56 {
+            nextRaw = max(WeeklyWorkspaceShelfDetent.compact.rawValue, current - 1)
+        } else {
+            nextRaw = current
+        }
+        guard let next = WeeklyWorkspaceShelfDetent(rawValue: nextRaw) else { return }
+        withAnimation(reduceMotion ? nil : LifeBoardAnimation.directManipulation) {
+            shelfDetent = next
+        }
+        motionEvent = .shelfChanged(next)
+        Haptic.pick.play()
+    }
+
+    private func updateDropHover(day: PlanningDay, isTargeted: Bool) {
+        dropHoverTask?.cancel()
+        guard isTargeted, day != store.selectedDay else { return }
+        dropHoverTask = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(450))
+            guard Task.isCancelled == false else { return }
+            select(day)
+        }
+    }
+
+    // MARK: Derived state
+
+    private func workspacePlannedTasks(on day: PlanningDay) -> [PlanningTaskSummary] {
+        WeeklyWorkspaceSectionCopy.plannedTasks(store: store, pendingPlacements: pendingPlacements, on: day)
+    }
+
+    private func skippedCommitmentIDs(on day: PlanningDay) -> Set<String> {
+        WeeklyWorkspaceSectionCopy.skippedCommitmentIDs(store: store, overrides: meetingOverrides, on: day)
+    }
+
+    private var allDays: [PlanningDay] { WeeklyWorkspaceSectionCopy.allDays(store: store) }
+
+    private var placeableDays: [PlanningDay] { WeeklyWorkspaceSectionCopy.placeableDays(store: store) }
+
+    private var spreadDays: [WeeklySpreadDay] {
+        placeableDays.map { day in
+            let usable = store.usableMinutes(on: day, skippingCommitmentIDs: skippedCommitmentIDs(on: day))
+            return WeeklySpreadDay(
+                day: day,
+                remainingMinutes: usable > 0
+                    ? WeeklyWorkspaceLoad.remainingMinutes(
+                        plannedMinutes: store.plannedMinutes(on: day),
+                        usableMinutes: usable
+                    )
+                    : nil,
+                placedCount: workspacePlannedTasks(on: day).count
+            )
+        }
+    }
+
+    private var briefing: WeeklyOverdueBriefing { store.overdueBriefing() }
+
+    /// What the week looks like now, said once at the end.
+    private var ritualSummary: String {
+        let days = placeableDays
+        let placed = days.reduce(0) { $0 + workspacePlannedTasks(on: $1).count }
+        let free = days.reduce(0) { total, day in
+            let usable = store.usableMinutes(on: day, skippingCommitmentIDs: skippedCommitmentIDs(on: day))
+            return total + WeeklyWorkspaceLoad.remainingMinutes(
+                plannedMinutes: store.plannedMinutes(on: day),
+                usableMinutes: usable
+            )
+        }
+        let meetingsReleased = allDays.reduce(0) { count, day in
+            count + meetings(on: day).filter { $0.intent == .skipping }.count
+        }
+        return WeeklyWorkspaceCopy.closingSummary(
+            placed: placed,
+            tasksReleased: sessionSummary.tasksReleased,
+            meetingsReleased: meetingsReleased,
+            freeMinutes: free
+        )
+    }
+
+    // MARK: Formatting
+
+    private var weekStart: Date { WeeklyWorkspaceSectionCopy.weekStart(store: store) }
+
+    private func shortDayName(_ day: PlanningDay) -> String {
+        WeeklyWorkspaceSectionCopy.shortDayName(store: store, day)
+    }
+}
+
+// The workspace's mutation surface, in an extension so the view type itself
+// stays under the file-size ratchet's per-type ceiling. Same file, so the
+// private state above remains visible.
+private extension WeeklyPlanningWorkspaceView {
     ///
     /// Assigning it directly left `daySnapshot` pointing at whichever day was
     /// last *loaded*, so everything derived from it — free windows, and
@@ -623,158 +790,6 @@ struct WeeklyPlanningWorkspaceView: View {
         pulse(lastDay)
     }
 
-    private func pulse(_ day: PlanningDay) {
-        pulsedDay = day
-        Haptic.settle.play()
-        pulseDismissal?.cancel()
-        pulseDismissal = Task {
-            try? await Task.sleep(nanoseconds: 320_000_000)
-            guard Task.isCancelled == false else { return }
-            pulsedDay = nil
-        }
-    }
-
-    /// Shows a receipt, replacing any receipt already on screen.
-    ///
-    /// The dismissal used to compare the message *text* after sleeping, so two
-    /// identical consecutive receipts — place a task, undo, place it again —
-    /// meant the first timer tore down the second toast almost as soon as it
-    /// appeared, taking Undo with it. Identity and a cancellable handle, not
-    /// value equality.
-    private func show(
-        _ message: String,
-        undoToken: WeeklyWorkspaceUndoToken? = .planMutation
-    ) {
-        receiptDismissal?.cancel()
-        receipt = WorkspaceReceipt(message: message, undoToken: undoToken)
-        let id = receipt?.id
-        receiptDismissal = Task {
-            try? await Task.sleep(nanoseconds: 5_000_000_000)
-            guard Task.isCancelled == false, receipt?.id == id else { return }
-            receipt = nil
-        }
-    }
-
-    private func undo(_ token: WeeklyWorkspaceUndoToken) async {
-        switch token {
-        case .planMutation:
-            await store.undoLastMutation()
-        case .meeting(let decisionReceipt):
-            decisions.restore(decisionReceipt)
-            if let previous = decisionReceipt.previousIntent {
-                meetingOverrides[decisionReceipt.occurrenceKey] = previous
-            } else {
-                meetingOverrides.removeValue(forKey: decisionReceipt.occurrenceKey)
-            }
-        }
-        receiptDismissal?.cancel()
-        receipt = nil
-        Haptic.pick.play()
-    }
-
-    private func finishPlanning() {
-        motionEvent = .weekCommitted
-        completionTrigger &+= 1
-        Haptic.commit.play()
-        Task { @MainActor in
-            if LifeBoardAnimation.animationsDisabled(reduceMotion: reduceMotion) == false {
-                try? await Task.sleep(for: .milliseconds(620))
-            }
-            showsCompletion = false
-            onClose?()
-        }
-    }
-
-    private func settleShelf(travel: CGFloat) {
-        shelfDragOffset = 0
-        let current = shelfDetent.rawValue
-        let nextRaw: Int
-        if travel > 56 {
-            nextRaw = min(WeeklyWorkspaceShelfDetent.expanded.rawValue, current + 1)
-        } else if travel < -56 {
-            nextRaw = max(WeeklyWorkspaceShelfDetent.compact.rawValue, current - 1)
-        } else {
-            nextRaw = current
-        }
-        guard let next = WeeklyWorkspaceShelfDetent(rawValue: nextRaw) else { return }
-        withAnimation(reduceMotion ? nil : LifeBoardAnimation.directManipulation) {
-            shelfDetent = next
-        }
-        motionEvent = .shelfChanged(next)
-        Haptic.pick.play()
-    }
-
-    private func updateDropHover(day: PlanningDay, isTargeted: Bool) {
-        dropHoverTask?.cancel()
-        guard isTargeted, day != store.selectedDay else { return }
-        dropHoverTask = Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(450))
-            guard Task.isCancelled == false else { return }
-            select(day)
-        }
-    }
-
-    // MARK: Derived state
-
-    private func workspacePlannedTasks(on day: PlanningDay) -> [PlanningTaskSummary] {
-        WeeklyWorkspaceSectionCopy.plannedTasks(store: store, pendingPlacements: pendingPlacements, on: day)
-    }
-
-    private func skippedCommitmentIDs(on day: PlanningDay) -> Set<String> {
-        WeeklyWorkspaceSectionCopy.skippedCommitmentIDs(store: store, overrides: meetingOverrides, on: day)
-    }
-
-    private var allDays: [PlanningDay] { WeeklyWorkspaceSectionCopy.allDays(store: store) }
-
-    private var placeableDays: [PlanningDay] { WeeklyWorkspaceSectionCopy.placeableDays(store: store) }
-
-    private var spreadDays: [WeeklySpreadDay] {
-        placeableDays.map { day in
-            let usable = store.usableMinutes(on: day, skippingCommitmentIDs: skippedCommitmentIDs(on: day))
-            return WeeklySpreadDay(
-                day: day,
-                remainingMinutes: usable > 0
-                    ? WeeklyWorkspaceLoad.remainingMinutes(
-                        plannedMinutes: store.plannedMinutes(on: day),
-                        usableMinutes: usable
-                    )
-                    : nil,
-                placedCount: workspacePlannedTasks(on: day).count
-            )
-        }
-    }
-
-    private var briefing: WeeklyOverdueBriefing { store.overdueBriefing() }
-
-    /// What the week looks like now, said once at the end.
-    private var ritualSummary: String {
-        let days = placeableDays
-        let placed = days.reduce(0) { $0 + workspacePlannedTasks(on: $1).count }
-        let free = days.reduce(0) { total, day in
-            let usable = store.usableMinutes(on: day, skippingCommitmentIDs: skippedCommitmentIDs(on: day))
-            return total + WeeklyWorkspaceLoad.remainingMinutes(
-                plannedMinutes: store.plannedMinutes(on: day),
-                usableMinutes: usable
-            )
-        }
-        let meetingsReleased = allDays.reduce(0) { count, day in
-            count + meetings(on: day).filter { $0.intent == .skipping }.count
-        }
-        return WeeklyWorkspaceCopy.closingSummary(
-            placed: placed,
-            tasksReleased: sessionSummary.tasksReleased,
-            meetingsReleased: meetingsReleased,
-            freeMinutes: free
-        )
-    }
-
-    // MARK: Formatting
-
-    private var weekStart: Date { WeeklyWorkspaceSectionCopy.weekStart(store: store) }
-
-    private func shortDayName(_ day: PlanningDay) -> String {
-        WeeklyWorkspaceSectionCopy.shortDayName(store: store, day)
-    }
 }
 
 /// The week's direction and outcomes, as a section rather than two wizard steps.
@@ -895,7 +910,7 @@ private struct WeeklyIntentionSection: View {
 // MARK: - Shared values
 
 /// A day's load, as both the ribbon chip and the wide column need it.
-private struct WeeklyWorkspaceDayMetrics {
+struct WeeklyWorkspaceDayMetrics {
     let placedCount: Int
     let plannedMinutes: Int
     let usableMinutes: Int
@@ -919,278 +934,10 @@ private struct WeeklyWorkspaceDayMetrics {
     }
 }
 
-private struct WeeklyWorkspaceDayMeeting {
+struct WeeklyWorkspaceDayMeeting {
     let commitment: CalendarCommitment
     let intent: WeeklyMeetingIntent
     let occurrenceKey: String
-}
-
-/// Every derivation the workspace's sections share.
-///
-/// `@MainActor` because all of it reads `PlanStore`, which is a `@MainActor`
-/// `@Observable`. Static rather than computed properties on the view so that a
-/// section struct can answer the same question the root used to.
-@MainActor
-private enum WeeklyWorkspaceSectionCopy {
-    // MARK: Meetings
-
-    static func meetings(
-        store: PlanStore,
-        overrides: [String: WeeklyMeetingIntent],
-        on day: PlanningDay
-    ) -> [WeeklyWorkspaceDayMeeting] {
-        store.commitments(on: day).compactMap { commitment in
-            let key = commitment.occurrenceKey(
-                calendar: store.workspaceCalendar,
-                timeZone: store.workspaceCalendar.timeZone
-            )
-            guard let intent = WeeklyMeetingPolicy.resolvedIntent(
-                participation: commitment.participation ?? .unknown,
-                state: commitment.eventState ?? .unspecified,
-                isBusy: commitment.isBusy,
-                override: overrides[key]
-            ) else { return nil }
-            return WeeklyWorkspaceDayMeeting(commitment: commitment, intent: intent, occurrenceKey: key)
-        }
-    }
-
-    /// Meetings on a day the user has chosen to skip.
-    ///
-    /// Identified rather than summed: the store removes them from the capacity
-    /// *calculation*, so the time handed back is exactly the time that was
-    /// charged. Summing raw durations credited meetings that fell outside
-    /// working hours, double-credited overlaps, and gave an overnight event's
-    /// whole length back to both days it touched.
-    static func skippedCommitmentIDs(
-        store: PlanStore,
-        overrides: [String: WeeklyMeetingIntent],
-        on day: PlanningDay
-    ) -> Set<String> {
-        var result: Set<String> = []
-        for commitment in store.commitments(on: day) {
-            let key = commitment.occurrenceKey(
-                calendar: store.workspaceCalendar,
-                timeZone: store.workspaceCalendar.timeZone
-            )
-            if overrides[key] == .skipping { result.insert(commitment.id) }
-        }
-        return result
-    }
-
-    // MARK: Load and placement
-
-    static func metrics(
-        store: PlanStore,
-        overrides: [String: WeeklyMeetingIntent],
-        pendingPlacements: [UUID: PlanningDay],
-        for day: PlanningDay
-    ) -> WeeklyWorkspaceDayMetrics {
-        let availability = store.workspaceAvailability(
-            on: day,
-            skippingCommitmentIDs: skippedCommitmentIDs(store: store, overrides: overrides, on: day)
-        )
-        let tasks = plannedTasks(store: store, pendingPlacements: pendingPlacements, on: day)
-        let planned = tasks.reduce(0) { total, task in
-            guard let estimate = task.estimatedDuration, estimate > 0 else {
-                return total + WeeklyWorkspaceLoad.assumedTaskMinutes
-            }
-            return total + Int(estimate / 60)
-        }
-        return WeeklyWorkspaceDayMetrics(
-            placedCount: tasks.count,
-            plannedMinutes: planned,
-            usableMinutes: availability.usableMinutes,
-            isToday: day == store.todayPlanningDay()
-        )
-    }
-
-    static func selectedDayAvailability(
-        store: PlanStore,
-        overrides: [String: WeeklyMeetingIntent]
-    ) -> WeeklyWorkspaceAvailability {
-        store.workspaceAvailability(
-            on: store.selectedDay,
-            skippingCommitmentIDs: skippedCommitmentIDs(store: store, overrides: overrides, on: store.selectedDay)
-        )
-    }
-
-    static func plannedTasks(
-        store: PlanStore,
-        pendingPlacements: [UUID: PlanningDay],
-        on day: PlanningDay
-    ) -> [PlanningTaskSummary] {
-        let movingAway = Set(pendingPlacements.compactMap { id, destination in
-            destination == day ? nil : id
-        })
-        var result = store.orderedPlannedTasks(on: day).filter { movingAway.contains($0.id) == false }
-        let existing = Set(result.map(\.id))
-        let arriving = pendingPlacements.compactMap { id, destination -> PlanningTaskSummary? in
-            guard destination == day, existing.contains(id) == false, var task = store.task(for: id) else {
-                return nil
-            }
-            task.metadata.planningDay = day
-            return task
-        }
-        result.append(contentsOf: arriving.sorted { $0.title < $1.title })
-        return result
-    }
-
-    // MARK: Days
-
-    static func allDays(store: PlanStore) -> [PlanningDay] {
-        store.weekDays(containing: store.selectedDay)
-    }
-
-    static func visibleDays(store: PlanStore, showsSoftDays: Bool) -> [PlanningDay] {
-        let days = allDays(store: store)
-        guard showsSoftDays == false else { return days }
-        let today = store.todayPlanningDay()
-        let past = WeeklyPlanningHorizon.pastDays(in: days, today: today)
-        let concrete = WeeklyPlanningHorizon.concreteDays(in: days, today: today)
-        return past + concrete
-    }
-
-    static func softDays(store: PlanStore) -> [PlanningDay] {
-        WeeklyPlanningHorizon.softDays(in: allDays(store: store), today: store.todayPlanningDay())
-    }
-
-    static func placeableDays(store: PlanStore) -> [PlanningDay] {
-        let today = store.todayPlanningDay()
-        return allDays(store: store).filter { WeeklyPlanningHorizon.canReceivePlacement($0, today: today) }
-    }
-
-    // MARK: Tray
-
-    static func trayTasks(
-        store: PlanStore,
-        lane: WeeklyWorkspaceLane,
-        search: String,
-        pendingPlacements: [UUID: PlanningDay]
-    ) -> [PlanningTaskSummary] {
-        let query = search.trimmingCharacters(in: .whitespacesAndNewlines)
-        return store.workspaceTasks(in: lane)
-            .filter { pendingPlacements[$0.id] == nil }
-            .filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) }
-    }
-
-    static func trayTitle(store: PlanStore, _ value: WeeklyWorkspaceLane) -> String {
-        let count = store.workspaceTasks(in: value).count
-        return count > 0 ? "\(value.title) \(count)" : value.title
-    }
-
-    static func emptyTrayMessage(_ lane: WeeklyWorkspaceLane) -> String {
-        switch lane {
-        case .overdue: "Nothing is overdue. "
-        case .inbox: "The inbox is clear."
-        case .anytime: "Everything open already has a day."
-        }
-    }
-
-    static func meetingDecisionLabel(_ intent: WeeklyMeetingIntent) -> String {
-        switch intent {
-        case .attending: "In my week"
-        case .skipping: "Skip this week"
-        case .undecided: "Decide"
-        }
-    }
-
-    static func meetingDecisionSymbol(_ intent: WeeklyMeetingIntent) -> String {
-        switch intent {
-        case .attending: "checkmark.circle"
-        case .skipping: "minus.circle"
-        case .undecided: "circle.dashed"
-        }
-    }
-
-    static func weekStart(store: PlanStore) -> Date {
-        store.selectedDay.startDate(calendar: store.workspaceCalendar).map {
-            store.workspaceCalendar.dateInterval(of: .weekOfYear, for: $0)?.start ?? $0
-        } ?? Date()
-    }
-
-    static func headerSubtitle(store: PlanStore) -> String {
-        let toPlace = store.workspaceTasks(in: .anytime).count
-        let briefing = store.overdueBriefing()
-        var parts: [String] = []
-        parts.append(toPlace == 1 ? "1 waiting for a home" : "\(toPlace) waiting for a home")
-        if briefing.count > 0 {
-            parts.append(briefing.count == 1 ? "1 carried forward" : "\(briefing.count) carried forward")
-        }
-        return parts.joined(separator: " · ")
-    }
-
-    // MARK: Formatting
-
-    static func weekRangeLabel(store: PlanStore) -> String {
-        let days = allDays(store: store)
-        guard let first = days.first?.startDate(calendar: store.workspaceCalendar),
-              let last = days.last?.startDate(calendar: store.workspaceCalendar) else {
-            return WeeklyWorkspaceCopy.title
-        }
-        let formatter = DateFormatter()
-        formatter.calendar = store.workspaceCalendar
-        formatter.dateFormat = "d MMM"
-        let start = formatter.string(from: first)
-        let end = formatter.string(from: last)
-        return "\(start) – \(end)"
-    }
-
-    static func weekdayInitial(store: PlanStore, _ day: PlanningDay) -> String {
-        guard let date = day.startDate(calendar: store.workspaceCalendar) else { return "" }
-        let index = store.workspaceCalendar.component(.weekday, from: date) - 1
-        let symbols = store.workspaceCalendar.veryShortStandaloneWeekdaySymbols
-        return symbols.indices.contains(index) ? symbols[index] : ""
-    }
-
-    static func shortDayName(store: PlanStore, _ day: PlanningDay) -> String {
-        if day == store.todayPlanningDay() { return "Today" }
-        guard let date = day.startDate(calendar: store.workspaceCalendar) else { return "that day" }
-        let formatter = DateFormatter()
-        formatter.calendar = store.workspaceCalendar
-        formatter.dateFormat = "EEEE"
-        return formatter.string(from: date)
-    }
-
-    static func longDayLabel(store: PlanStore, _ day: PlanningDay) -> String {
-        guard let date = day.startDate(calendar: store.workspaceCalendar) else { return "" }
-        let formatter = DateFormatter()
-        formatter.calendar = store.workspaceCalendar
-        formatter.dateFormat = "EEEE d"
-        let base = formatter.string(from: date)
-        return day == store.todayPlanningDay() ? "\(base) · Today" : base
-    }
-
-    static func timeLabel(store: PlanStore, _ commitment: CalendarCommitment) -> String {
-        guard commitment.isAllDay == false else { return "All day" }
-        let formatter = DateFormatter()
-        formatter.calendar = store.workspaceCalendar
-        formatter.timeStyle = .short
-        formatter.dateStyle = .none
-        return formatter.string(from: commitment.startAt)
-    }
-
-    static func waitingLabel(
-        store: PlanStore,
-        lane: WeeklyWorkspaceLane,
-        _ task: PlanningTaskSummary
-    ) -> String? {
-        guard lane == .overdue, let date = store.workspaceOverdueDate(task) else { return nil }
-        let days = store.workspaceCalendar.dateComponents(
-            [.day],
-            from: store.workspaceCalendar.startOfDay(for: date),
-            to: store.workspaceCalendar.startOfDay(for: Date())
-        ).day ?? 0
-        guard days > 0 else { return nil }
-        return days == 1 ? "Waiting since yesterday" : "Waiting \(days) days"
-    }
-
-    static func dayAccessibilityLabel(
-        store: PlanStore,
-        _ day: PlanningDay,
-        metrics: WeeklyWorkspaceDayMetrics
-    ) -> String {
-        "\(longDayLabel(store: store, day)). \(metrics.summary)"
-    }
 }
 
 // MARK: - Shared chrome
@@ -1234,6 +981,14 @@ private struct WeeklyWorkspaceLoadBar: View {
                             geometry.size.width,
                             geometry.size.width * metrics.drawnFraction
                         )
+                    )
+                    // The bar grows to its new load rather than jumping, and an
+                    // over-capacity day keeps a slow pulse so it reads as a live
+                    // warning instead of a coloured rectangle.
+                    .lifeBoardMotion(.localState, value: metrics.drawnFraction)
+                    .lifeBoardAmbientBreath(
+                        role: .liveIndicator,
+                        intensity: metrics.isOverCapacity ? 1 : 0
                     )
             }
         }
