@@ -362,6 +362,15 @@ public enum Typography {
     public static func screenTitle() -> Font { .system(.title, design: .rounded, weight: .semibold) }
     public static func sectionTitle() -> Font { .system(.title2, design: .rounded, weight: .semibold) }
     public static func body() -> Font { .body }
+    /// - Warning: Despite the name this is **caption-sized supporting text**,
+    ///   not the metric numeral. The numeral token is `TypographyStyle.metric`
+    ///   (24 pt bold rounded, scaling to 32), reached through
+    ///   `Font.lifeboard(.metric)` or `.lifeboardFont(.metric)`.
+    ///
+    ///   The two have been confusable since this shim was written, and reaching
+    ///   for the wrong one shrinks a screen's largest number to a caption. Kept
+    ///   at its current value because ~11 call sites depend on the small size;
+    ///   prefer the canonical vocabulary in new code.
     public static func metric() -> Font { .caption.weight(.medium) }
     public static func metadata() -> Font { .caption2 }
 }
@@ -370,6 +379,11 @@ public enum Radius {
     public static let compact: CGFloat = 12
     public static let card: CGFloat = 16
     public static let largeCard: CGFloat = 22
+    /// The hero silhouette, shared by the card that represents a surface, the
+    /// hero it becomes when opened, and the opaque fallback that replaces it
+    /// under reduced transparency. `DESIGN.md`: at this size radius is not a
+    /// decorative choice, it is the continuity across the transition.
+    public static let hero: CGFloat = 24
     public static let modal: CGFloat = 28
     public static let pill: CGFloat = 999
 }

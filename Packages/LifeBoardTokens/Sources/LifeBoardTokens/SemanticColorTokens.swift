@@ -504,26 +504,3 @@ public struct SemanticColorTokens: TokenGroup, @unchecked Sendable {
         )
     }
 }
-
-// MARK: - Clay depth tokens
-
-/// The two inner layers that make a surface read as clay rather than as a
-/// rectangle with a drop shadow. Consumed by `LifeBoardClaySurface` and by the
-/// premium-surface highlight in `SwiftUI+TokenAdapters`, which previously
-/// hardcoded `.white.opacity(0.34)`.
-public extension SemanticColorTokens {
-    /// The lit inner rim. Warm white on paper; a restrained lift in the dark
-    /// composition, where a bright rim would read as a hard plastic edge.
-    static let clayHighlight = UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(lifeboardHex: "#B9C6F0", alpha: 0.16)
-            : UIColor(lifeboardHex: "#FFFFFF", alpha: 0.9)
-    }
-
-    /// The inner contact shade that gives clay its thickness.
-    static let clayInnerShade = UIColor { traits in
-        traits.userInterfaceStyle == .dark
-            ? UIColor(lifeboardHex: "#05070F", alpha: 0.5)
-            : UIColor(lifeboardHex: "#6B5130", alpha: 0.13)
-    }
-}
