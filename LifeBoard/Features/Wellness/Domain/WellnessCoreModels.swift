@@ -5,6 +5,15 @@ public enum WellnessCaptureSource: String, Codable, CaseIterable, Hashable, Send
     case healthKit
     case watch
     case imported
+
+    /// Only records authored in LifeBoard can be corrected from Wellness.
+    /// Imported identities belong to their source and remain provenance-safe.
+    public var permitsManualCorrection: Bool {
+        switch self {
+        case .manual: true
+        case .healthKit, .watch, .imported: false
+        }
+    }
 }
 
 public enum WellnessDisplayUnit: String, Codable, CaseIterable, Hashable, Sendable {
@@ -684,11 +693,91 @@ public struct WellnessNormalizedEventProjector: Sendable {
     }
 }
 
-public enum WellnessHomeCardFocus: Hashable, Sendable {
+public enum WellnessHomeCardFocus: Codable, Hashable, Sendable {
     case bodyMetric(BodyMetricKind)
     case workouts
     case sleep
     case movement
+}
+
+public enum MovementSummarySource: String, Codable, Hashable, Sendable {
+    case appleHealth
+    case lifeBoard
+}
+
+public struct MovementSummaryProjection: Equatable, Sendable {
+    public var steps: Int?
+    public var distanceMeters: Double?
+    public var activeEnergyKilocalories: Double?
+    public var source: MovementSummarySource
+    public var updatedAt: Date?
+
+    public init(
+        steps: Int?,
+        distanceMeters: Double?,
+        activeEnergyKilocalories: Double?,
+        source: MovementSummarySource,
+        updatedAt: Date?
+    ) {
+        self.steps = steps
+        self.distanceMeters = distanceMeters
+        self.activeEnergyKilocalories = activeEnergyKilocalories
+        self.source = source
+        self.updatedAt = updatedAt
+    }
+}
+
+/// Apple Health owns the daily activity total when it has a usable cached
+/// value. Manual movement remains a separate custom record and is used only as
+/// a fallback; it is never added to the Health total.
+public enum HealthFirstMovementSummaryResolver {
+    public static func resolve(
+        health snapshot: HealthMetricsSnapshot?,
+        manual records: [MovementContextRecord],
+        now: Date = Date(),
+        calendar: Calendar = .autoupdatingCurrent
+    ) -> MovementSummaryProjection {
+        if let snapshot,
+           healthCanLead(snapshot.statuses[.activity]) || healthCanLead(snapshot.statuses[.energy]),
+           [.steps, .walkingRunningDistance, .activeEnergy].contains(where: { snapshot.aggregates[$0] != nil }) {
+            let aggregates = snapshot.aggregates
+            return MovementSummaryProjection(
+                steps: aggregates[.steps].map { Int($0.value.rounded()) },
+                distanceMeters: aggregates[.walkingRunningDistance]?.value,
+                activeEnergyKilocalories: aggregates[.activeEnergy]?.value,
+                source: .appleHealth,
+                updatedAt: [.steps, .walkingRunningDistance, .activeEnergy]
+                    .compactMap { aggregates[$0]?.end }
+                    .max()
+            )
+        }
+
+        let today = records.filter {
+            $0.source.permitsManualCorrection
+                && calendar.isDate($0.startedAt, inSameDayAs: now)
+        }
+        let steps = today.compactMap(\.steps)
+        let distance = today.compactMap(\.distanceMeters)
+        let energy = today.compactMap(\.activeEnergyKilocalories)
+        return MovementSummaryProjection(
+            steps: steps.isEmpty ? nil : steps.reduce(0, +),
+            distanceMeters: distance.isEmpty ? nil : distance.reduce(0, +),
+            activeEnergyKilocalories: energy.isEmpty ? nil : energy.reduce(0, +),
+            source: .lifeBoard,
+            updatedAt: today.map(\.updatedAt).max()
+        )
+    }
+
+    private static func healthCanLead(_ status: HealthDomainStatus?) -> Bool {
+        guard let status else { return false }
+        return switch status.signal {
+        case .recorded, .explicitZero, .partial, .stale, .offline,
+             .unavailable, .protectedDataLocked, .writeDenied:
+            true
+        case .loading, .setupRequired, .noRecord:
+            false
+        }
+    }
 }
 
 public struct WellnessHomeCardSource: HomeCardSource {
@@ -698,15 +787,18 @@ public struct WellnessHomeCardSource: HomeCardSource {
 
     private let repository: any WellnessRepository
     private let focus: WellnessHomeCardFocus
+    private let healthMetrics: (any HealthMetricsReading)?
 
     public init(
         definition: HomeCardDefinition,
         focus: WellnessHomeCardFocus,
-        repository: any WellnessRepository
+        repository: any WellnessRepository,
+        healthMetrics: (any HealthMetricsReading)? = nil
     ) {
         self.definition = definition
         self.focus = focus
         self.repository = repository
+        self.healthMetrics = healthMetrics
     }
 
     public func snapshot(
@@ -719,7 +811,11 @@ public struct WellnessHomeCardSource: HomeCardSource {
             case .bodyMetric(let kind):
                 let samples = try await repository.bodyMetricSamples(kind: kind)
                 guard let sample = samples.first else {
-                    return empty(date, "Log a value when it is useful to you.")
+                    let snapshot = await healthMetrics?.currentSnapshot(now: date)
+                    return empty(date, Self.emptyHealthDetail(
+                        status: snapshot?.statuses[.body],
+                        fallback: "Log a value when it is useful to you."
+                    ))
                 }
                 let value = try sample.value(in: sample.displayUnit)
                 // Oldest-first so the chart reads left to right; bounded so a
@@ -735,8 +831,12 @@ public struct WellnessHomeCardSource: HomeCardSource {
                     value: Self.formatted(value, unit: sample.displayUnit),
                     detail: densityDetail(
                         size: size,
-                        compact: "Updated \(sample.observedAt.formatted(date: .abbreviated, time: .omitted))",
-                        story: "A private measurement you chose to keep on Home. Open Track to review or correct it."
+                        compact: sample.source.permitsManualCorrection
+                            ? "LifeBoard · \(sample.observedAt.formatted(date: .abbreviated, time: .omitted))"
+                            : "Apple Health · \(sample.observedAt.formatted(date: .abbreviated, time: .omitted))",
+                        story: sample.source.permitsManualCorrection
+                            ? "A LifeBoard measurement you can review or correct in Track."
+                            : "An imported Apple Health measurement. Imported records are read-only in LifeBoard."
                     ),
                     date: sample.updatedAt,
                     payload: series.count > 1 ? .series(series) : .none
@@ -744,7 +844,11 @@ public struct WellnessHomeCardSource: HomeCardSource {
             case .workouts:
                 let workouts = try await repository.workoutRecords()
                 guard let workout = workouts.first else {
-                    return empty(date, "Add a workout manually or connect Health.")
+                    let snapshot = await healthMetrics?.currentSnapshot(now: date)
+                    return empty(date, Self.emptyHealthDetail(
+                        status: snapshot?.statuses[.workouts],
+                        fallback: "Add a workout manually or connect Apple Health."
+                    ))
                 }
                 let minutes = max(0, workout.duration / 60)
                 return ready(
@@ -752,7 +856,7 @@ public struct WellnessHomeCardSource: HomeCardSource {
                     detail: densityDetail(
                         size: size,
                         compact: Self.duration(workout.duration),
-                        story: "\(Self.duration(workout.duration)) on \(workout.startedAt.formatted(date: .abbreviated, time: .omitted))."
+                        story: "\(Self.duration(workout.duration)) on \(workout.startedAt.formatted(date: .abbreviated, time: .omitted)) · \(workout.source.permitsManualCorrection ? "LifeBoard" : "Apple Health")."
                     ),
                     date: workout.updatedAt,
                     payload: .metric(
@@ -768,39 +872,67 @@ public struct WellnessHomeCardSource: HomeCardSource {
                 )
             case .sleep:
                 let notes = try await repository.sleepNotes()
-                guard let sleep = notes.first else {
-                    return empty(date, "Add a sleep note when reflection would help.")
+                let nights = HealthSleepPresentation.nightlySummaries(notes: notes)
+                guard let night = nights.first else {
+                    let snapshot = await healthMetrics?.currentSnapshot(now: date)
+                    return empty(date, Self.emptyHealthDetail(
+                        status: snapshot?.statuses[.sleep],
+                        fallback: "Add a sleep note when reflection would help."
+                    ))
                 }
-                let series = notes
+                let series = nights
                     .prefix(30)
-                    .map { HomeSeriesPoint(date: $0.startedAt, value: max(0, $0.duration / 3_600)) }
+                    .map { HomeSeriesPoint(date: $0.night, value: max(0, $0.totalDuration / 3_600)) }
                     .sorted { $0.date < $1.date }
+                let quality = night.samples.compactMap(\.quality).first
+                let containsHealth = night.samples.contains { $0.source.permitsManualCorrection == false }
                 return ready(
-                    value: Self.duration(sleep.duration),
+                    value: Self.duration(night.totalDuration),
                     detail: densityDetail(
                         size: size,
-                        compact: sleep.quality.map { "Quality \($0)/5" } ?? "No rating needed",
-                        story: "Your note stays descriptive and is never treated as a diagnosis."
+                        compact: quality.map { "Quality \($0)/5" }
+                            ?? (containsHealth ? "Apple Health" : "No rating needed"),
+                        story: containsHealth
+                            ? "Nightly total consolidated from Apple Health intervals. LifeBoard notes remain separate."
+                            : "Your note stays descriptive and is never treated as a diagnosis."
                     ),
-                    date: sleep.updatedAt,
+                    date: night.samples.map(\.updatedAt).max() ?? night.endedAt,
                     payload: series.count > 1 ? .series(series) : .none
                 )
             case .movement:
                 let records = try await repository.movementRecords()
-                guard let movement = records.first else {
-                    return empty(date, "Movement appears here when available.")
+                let healthSnapshot = await healthMetrics?.currentSnapshot(now: date)
+                let summary = HealthFirstMovementSummaryResolver.resolve(
+                    health: healthSnapshot,
+                    manual: records,
+                    now: date
+                )
+                guard summary.steps != nil
+                        || summary.distanceMeters != nil
+                        || summary.activeEnergyKilocalories != nil else {
+                    return empty(date, Self.emptyHealthDetail(
+                        status: healthSnapshot?.statuses[.activity],
+                        fallback: "Movement appears here when available."
+                    ))
                 }
-                var stepHistory: [HomeSeriesPoint] = []
-                for record in records.prefix(30) {
-                    guard let steps = record.steps else { continue }
-                    stepHistory.append(
-                        HomeSeriesPoint(date: record.startedAt, value: Double(steps))
+                let stepHistory: [HomeSeriesPoint]
+                if summary.source == .appleHealth, let healthMetrics {
+                    let history = await healthMetrics.cachedHistory(
+                        domain: .activity,
+                        range: .thirtyDays,
+                        now: date
                     )
+                    stepHistory = (history[.steps] ?? []).map {
+                        HomeSeriesPoint(date: $0.start, value: $0.value)
+                    }
+                } else {
+                    stepHistory = records.prefix(30).compactMap { record in
+                        record.steps.map { HomeSeriesPoint(date: record.startedAt, value: Double($0)) }
+                    }.sorted { $0.date < $1.date }
                 }
-                stepHistory.sort { $0.date < $1.date }
 
                 var movementPayload = HomeCardPayload.none
-                if let steps = movement.steps {
+                if let steps = summary.steps {
                     movementPayload = .metric(
                         HomeMetricValue(
                             amount: Double(steps),
@@ -811,13 +943,28 @@ public struct WellnessHomeCardSource: HomeCardSource {
                 }
 
                 return ready(
-                    value: movement.steps.map { "\($0) steps" } ?? "Movement",
+                    value: summary.steps.map { "\($0.formatted()) steps" }
+                        ?? summary.distanceMeters.map { String(format: "%.1f km", $0 / 1_000) }
+                        ?? "Movement",
                     detail: densityDetail(
                         size: size,
-                        compact: movement.distanceMeters.map { String(format: "%.1f km", $0 / 1_000) } ?? "Latest context",
-                        story: "A factual summary from \(movement.source.rawValue); open Track for accessible history."
+                        compact: [
+                            summary.source == .appleHealth ? "Apple Health" : "LifeBoard",
+                            summary.distanceMeters.map { String(format: "%.1f km", $0 / 1_000) },
+                            summary.source == .appleHealth
+                                ? Self.healthStatusSuffix(healthSnapshot?.statuses[.activity])
+                                : nil
+                        ].compactMap { $0 }.joined(separator: " · "),
+                        story: [
+                            summary.source == .appleHealth
+                                ? "Today’s Apple Health total. Custom LifeBoard records stay separate."
+                                : "Today’s custom LifeBoard movement. Connect Apple Health for device totals.",
+                            summary.source == .appleHealth
+                                ? Self.healthStatusSuffix(healthSnapshot?.statuses[.activity])
+                                : nil
+                        ].compactMap { $0 }.joined(separator: " ")
                     ),
-                    date: movement.updatedAt,
+                    date: summary.updatedAt ?? date,
                     payload: movementPayload
                 )
             }
@@ -869,6 +1016,37 @@ public struct WellnessHomeCardSource: HomeCardSource {
     private static func formatted(_ value: Double, unit: WellnessDisplayUnit) -> String {
         let decimals = value.rounded() == value ? 0 : 1
         return String(format: "%.*f %@", decimals, value, unit.symbol)
+    }
+
+    private static func emptyHealthDetail(
+        status: HealthDomainStatus?,
+        fallback: String
+    ) -> String {
+        guard let status else { return fallback }
+        switch status.signal {
+        case .setupRequired:
+            return "Connect Apple Health to import available records, or add one in LifeBoard."
+        case .loading:
+            return "Apple Health is refreshing automatically. You can still add a LifeBoard record."
+        case .stale, .partial, .offline, .protectedDataLocked:
+            return "No cached record is available yet. Apple Health will refresh automatically."
+        case .unavailable:
+            return "Apple Health is unavailable. You can still add a LifeBoard record."
+        case .writeDenied, .noRecord, .explicitZero, .recorded:
+            return fallback
+        }
+    }
+
+    private static func healthStatusSuffix(_ status: HealthDomainStatus?) -> String? {
+        guard let status else { return nil }
+        return switch status.signal {
+        case .stale: "May be out of date; refreshes automatically."
+        case .partial, .offline: "Some values are unavailable; refreshes automatically."
+        case .protectedDataLocked: "Unlock the device to refresh."
+        case .unavailable: "Showing the last available Apple Health data."
+        case .writeDenied: "Apple Health write access is off."
+        case .loading, .setupRequired, .noRecord, .explicitZero, .recorded: nil
+        }
     }
 
     private static func duration(_ interval: TimeInterval) -> String {
