@@ -121,7 +121,7 @@ struct InsightsDestination: View {
 
                     if let planningEvidenceError {
                         Label("Planning history is temporarily unavailable: \(planningEvidenceError)", systemImage: "exclamationmark.triangle")
-                            .font(.subheadline)
+                            .lifeboardFont(.support)
                             .foregroundStyle(.secondary)
                     }
 

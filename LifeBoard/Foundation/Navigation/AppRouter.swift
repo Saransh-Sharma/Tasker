@@ -405,9 +405,7 @@ public final class AppRouter {
         selectedDestination = destination
     }
 
-    /// Activates a primary destination using platform tab/sidebar semantics.
-    /// Switching destinations preserves each navigation stack; selecting the
-    /// already-active destination again returns that stack to its root.
+    /// Activates a root, popping it when it is already selected.
     public func activateRoot(_ destination: Destination) {
         if selectedDestination == destination {
             popToRoot(in: destination)

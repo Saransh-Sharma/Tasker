@@ -11,9 +11,9 @@ struct InsightsHealthSection: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Body rhythm")
-                        .font(.title2.weight(.semibold))
+                        .lifeboardFont(.title1)
                     Text(interpretation)
-                        .font(.subheadline)
+                        .lifeboardFont(.support)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 }
                 Spacer()
@@ -26,7 +26,7 @@ struct InsightsHealthSection: View {
                 Text(HealthAuthorizationPromptState.hasRequested
                     ? "No current Health records are available yet."
                     : "Connect Apple Health in Track to bring movement and body context here.")
-                    .font(.body)
+                    .lifeboardFont(.body)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             } else {
                 Button {
@@ -34,10 +34,10 @@ struct InsightsHealthSection: View {
                 } label: {
                     HStack(alignment: .firstTextBaseline) {
                         Text(metricText(.steps))
-                            .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                            .lifeboardFont(.heroDisplay)
                             .monospacedDigit()
                         Text("steps today")
-                            .font(.subheadline)
+                            .lifeboardFont(.support)
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         Spacer()
                         Image(systemName: "chevron.right")
@@ -55,7 +55,7 @@ struct InsightsHealthSection: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeBoardClaySurface(.raised, cornerRadius: 22)
+        .lifeBoardClaySurface(.raised)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("insights.healthOverview")
     }
@@ -66,15 +66,15 @@ struct InsightsHealthSection: View {
         } label: {
             VStack(alignment: .leading, spacing: 3) {
                 Text(metricText(metric))
-                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .lifeboardFont(.headline)
                     .monospacedDigit()
                 Text(label)
-                    .font(.caption)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             .padding(12)
             .frame(maxWidth: .infinity, minHeight: 68, alignment: .leading)
-            .lifeBoardClaySurface(.well, cornerRadius: 14)
+            .lifeBoardClaySurface(.well)
         }
         .buttonStyle(.plain)
     }

@@ -113,7 +113,7 @@ struct ScreenRootHeader: View {
                         } label: {
                             VStack(spacing: 5) {
                                 Image(systemName: kind.systemImage)
-                                    .font(.system(size: 16, weight: .semibold))
+                                    .lifeboardFont(.headline)
                                 Text(trayTitle(kind))
                                     .font(.caption2.weight(.semibold))
                                     .lineLimit(1)

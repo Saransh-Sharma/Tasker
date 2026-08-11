@@ -4,19 +4,24 @@ import LifeBoardTranscription
 import UIKit
 import VisionKit
 
+/// One reflection figure in the review grid.
+///
+/// Was the only tile on the screen that was not clay — a translucent
+/// `RoundedRectangle` at a radius nothing else used, which made a grid of
+/// identical facts render in two different materials.
 struct InsightMetric: View {
     let value: String
     let label: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(value).font(.title2.weight(.bold)).monospacedDigit()
-            Text(label).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-        }
+        MetricHeroWell(
+            MetricHero(
+                label: label,
+                reading: .recorded(value: value, unit: nil),
+                accessibilityID: "insights.metric"
+            )
+        )
         .frame(maxWidth: .infinity, minHeight: 76, alignment: .leading)
-        .padding(13)
-        .background(Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.86), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .accessibilityElement(children: .combine)
     }
 }
 
@@ -31,18 +36,18 @@ struct EvidenceRow: View {
                 .frame(width: 28, height: 28)
             VStack(alignment: .leading, spacing: 4) {
                 Text(event.kind.replacingOccurrences(of: "_", with: " ").capitalized)
-                    .font(.headline)
+                    .lifeboardFont(.headline)
                 Text(event.provenance)
-                    .font(.caption)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(.secondary)
                 Text(event.occurredAt.formatted(date: .abbreviated, time: .shortened))
-                    .font(.caption2)
+                    .lifeboardFont(.caption2)
                     .foregroundStyle(.secondary)
                 if event.evidence.isEmpty == false {
                     HStack(spacing: 6) {
                         ForEach(event.evidence, id: \.self) { evidence in
                             Button(evidence.display) { onOpenEvidence(evidence) }
-                                .font(.caption2.weight(.semibold))
+                                .lifeboardFont(.eyebrow)
                                 .buttonStyle(.bordered)
                                 .controlSize(.small)
                         }
@@ -52,7 +57,7 @@ struct EvidenceRow: View {
             Spacer(minLength: 8)
             if let value = event.numericValue { Text(value.formatted()).font(.headline.monospacedDigit()) }
         }
-        .padding(.vertical, 11)
+        .padding(.vertical, 12)
         .overlay(alignment: .bottom) { Divider().opacity(0.55) }
         .accessibilityElement(children: .contain)
     }

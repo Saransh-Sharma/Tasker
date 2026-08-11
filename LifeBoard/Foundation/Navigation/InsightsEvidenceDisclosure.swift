@@ -14,7 +14,7 @@ struct InsightsEvidenceDisclosure: View {
         ScrollViewReader { proxy in
             VStack(alignment: .leading, spacing: 12) {
                 Text(completenessDescription)
-                    .font(.caption)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(.secondary)
                 ForEach(events) { event in
                     EvidenceRow(event: event) { evidence in open(evidence) }
@@ -40,9 +40,9 @@ struct InsightsEvidenceDisclosure: View {
         }
         } label: {
             Label("Evidence", systemImage: "checkmark.shield")
-                .font(.headline)
+                .lifeboardFont(.headline)
         }
         .padding(16)
-        .lifeBoardClaySurface(.resting, cornerRadius: 20)
+        .lifeBoardClaySurface(.resting)
         .accessibilityIdentifier("insights.evidence")    }
 }

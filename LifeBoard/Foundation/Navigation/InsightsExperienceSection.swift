@@ -49,24 +49,24 @@ struct InsightsExperienceSection: View {
         } else {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Experience, if it helps")
-                    .font(.caption.weight(.semibold))
+                    .lifeboardFont(.eyebrow)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 Text("\(aggregates.reduce(0) { $0 + $1.totalXP }) XP")
                     .font(Typography.screenTitle().weight(.bold))
                     .monospacedDigit()
                 Text("An optional view of the existing local ledger—not a score for your day.")
-                    .font(.body)
+                    .lifeboardFont(.body)
                     .foregroundStyle(.secondary)
             }
             .padding(20)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .lifeBoardClaySurface(.raised, cornerRadius: 24)
+            .lifeBoardClaySurface(.raised)
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("insights.experience.summary")
 
             VStack(alignment: .leading, spacing: 0) {
                 Text("Last seven days")
-                    .font(.headline)
+                    .lifeboardFont(.headline)
                     .padding(.bottom, 6)
                 ForEach(aggregates.sorted { $0.dateKey > $1.dateKey }, id: \.id) { aggregate in
                     HStack {
@@ -77,7 +77,7 @@ struct InsightsExperienceSection: View {
                             .monospacedDigit()
                     }
                     .lifeBoardScrollEntrance(intensity: 0.5)
-                    .font(.subheadline)
+                    .lifeboardFont(.support)
                     .frame(minHeight: 48)
                     .overlay(alignment: .bottom) {
                         Rectangle()

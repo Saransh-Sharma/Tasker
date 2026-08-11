@@ -11,9 +11,9 @@ struct InsightsReviewSection: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Label("Reflection, not a report card", systemImage: "calendar.badge.clock")
-                .font(.title3.weight(.semibold))
+                .lifeboardFont(.sectionTitle)
             Text(reviewSummary)
-                .font(.body)
+                .lifeboardFont(.body)
                 .foregroundStyle(.secondary)
             if let report = dayLoopEvidenceReport {
                 LazyVGrid(
@@ -32,7 +32,7 @@ struct InsightsReviewSection: View {
                     )
                 }
                 Text("Proposal evidence is local and non-authoritative. Missing sidecars stay unknown; undone receipts stop counting.")
-                    .font(.caption)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(.secondary)
             }
             Button("Open weekly review") {
@@ -41,7 +41,7 @@ struct InsightsReviewSection: View {
             .buttonStyle(.bordered)
         }
         .padding(18)
-        .lifeBoardClaySurface(.raised, cornerRadius: 22)
+        .lifeBoardClaySurface(.raised)
     }
 
     private var loopReview: DayLoopReview {

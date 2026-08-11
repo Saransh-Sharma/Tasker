@@ -15,7 +15,6 @@ struct HealthInsightDetailView: View {
     @State private var sleepNotes: [SleepNote] = []
     @State private var isLoading = false
     @State private var errorCode: String?
-    @State private var chartReveal = 0.0
     @State private var loadedRange: HealthHistoryRange?
 
     private var primaryMetric: HealthMetric? {
@@ -68,11 +67,13 @@ struct HealthInsightDetailView: View {
                         tint: Color(SemanticColorTokens.foundationSageAccent),
                         unit: chartUnit
                     )
+                    // `TrendChart` runs its own reveal sweep internally. The
+                    // second one that used to sit here composited over the
+                    // first, so this chart alone swept at double strength.
                     chart
                         .frame(height: 170)
-                        .lifeboardChartRevealSweep(progress: chartReveal)
                     Text(chart.textEquivalent)
-                        .font(.footnote)
+                        .lifeboardFont(.meta)
                         .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 } else {
                     ContentUnavailableView(
@@ -87,7 +88,7 @@ struct HealthInsightDetailView: View {
             .frame(maxWidth: 680)
             .padding(20)
         }
-        .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
+        .background { GrainedCanvas() }
         .navigationTitle(domain.title)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: range) { await load() }
@@ -103,19 +104,19 @@ struct HealthInsightDetailView: View {
     private var interpretation: some View {
         VStack(alignment: .leading, spacing: 10) {
             Label(interpretationTitle, systemImage: domain.symbolName)
-                .font(.title2.weight(.semibold))
+                .lifeboardFont(.title1)
             Text(interpretationDetail)
-                .font(.body)
+                .lifeboardFont(.body)
                 .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             if let errorCode {
                 Label("Some history could not be refreshed. Cached evidence remains below. (\(errorCode))", systemImage: "exclamationmark.triangle")
-                    .font(.caption)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeBoardClaySurface(.raised, cornerRadius: 22)
+        .lifeBoardClaySurface(.raised)
     }
 
     private var interpretationTitle: String {
@@ -132,8 +133,7 @@ struct HealthInsightDetailView: View {
 
     private var evidence: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Evidence")
-                .font(.title3.weight(.semibold))
+            SectionHeader("Evidence")
                 .padding(.bottom, 8)
             ForEach(dailyEvidence.prefix(240)) { value in
                 evidenceRow(
@@ -187,7 +187,7 @@ struct HealthInsightDetailView: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.body.weight(.medium))
                 Text("\(source) · \(date.formatted(date: .abbreviated, time: .shortened))")
-                    .font(.caption)
+                    .lifeboardFont(.caption1)
                     .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             Spacer()
@@ -220,8 +220,6 @@ struct HealthInsightDetailView: View {
             errorCode = "local_history"
         }
         isLoading = false
-        chartReveal = 0
-        withAnimation(.easeOut(duration: 0.42)) { chartReveal = 1 }
     }
 
     private var chartUnit: String {

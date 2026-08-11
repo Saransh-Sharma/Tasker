@@ -235,7 +235,7 @@ extension LifeThreadComposerHost {
                     // The plus rotates into the close glyph rather than
                     // swapping, so the control reads as one object opening.
                     Image(systemName: "plus")
-                        .font(.system(size: 17, weight: .semibold))
+                        .lifeboardFont(.title2)
                         .rotationEffect(.degrees(composer.state == .tools ? 45 : 0))
                         .frame(width: 44, height: 44)
                         // Without an explicit shape the hit region collapses to
@@ -312,7 +312,7 @@ extension LifeThreadComposerHost {
                     } label: {
                         Label("Cancel", systemImage: "xmark.circle.fill")
                             .labelStyle(.iconOnly)
-                            .font(.system(size: 16, weight: .semibold))
+                            .lifeboardFont(.headline)
                             .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                             .frame(width: 44, height: 44)
                             .background(Color.lifeboard(.surfaceSecondary), in: Circle())
@@ -327,7 +327,7 @@ extension LifeThreadComposerHost {
                     } label: {
                         Label("Done", systemImage: "stop.fill")
                             .labelStyle(.iconOnly)
-                            .font(.system(size: 16, weight: .bold))
+                            .lifeboardFont(.headline)
                             .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
                             .frame(width: 44, height: 44)
                             .background(Color(SemanticColorTokens.inkPrimary), in: Circle())
@@ -345,7 +345,7 @@ extension LifeThreadComposerHost {
                         }
                     } label: {
                         Image(systemName: composer.hasDraft ? "arrow.up" : "waveform")
-                            .font(.system(size: 16, weight: .bold))
+                            .lifeboardFont(.headline)
                             .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
                             .frame(width: 44, height: 44)
                             .background(Color(SemanticColorTokens.inkPrimary), in: Circle())

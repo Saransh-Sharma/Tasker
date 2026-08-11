@@ -10,8 +10,7 @@ struct InsightsTrendsSection: View {
     var body: some View {
         let resolved = interpretation
         VStack(alignment: .leading, spacing: 14) {
-            Text("Recorded shape")
-                .font(.title2.weight(.semibold))
+            SectionHeader("Recorded shape")
 
             // A real chart, with its prose equivalent always visible —
             // this lens used to be a list of per-domain row counts, which
@@ -24,19 +23,18 @@ struct InsightsTrendsSection: View {
                 )
                 chart.frame(height: 150)
                 Text(chart.textEquivalent)
-                    .font(.footnote)
+                    .lifeboardFont(.meta)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             } else {
                 Text("One day of history so far. A trend needs a few more.")
-                    .font(.subheadline)
+                    .lifeboardFont(.support)
                     .foregroundStyle(.secondary)
             }
 
             Divider()
 
-            Text("By area")
-                .font(.headline)
+            SectionHeader("By area", count: sourceCounts.count)
             ForEach(sourceCounts, id: \.domain) { item in
                 HStack {
                     Text(item.domain.capitalized)
@@ -51,5 +49,5 @@ struct InsightsTrendsSection: View {
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeBoardClaySurface(.raised, cornerRadius: 22)    }
+        .lifeBoardClaySurface(.raised)    }
 }
