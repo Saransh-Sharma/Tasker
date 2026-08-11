@@ -9,13 +9,50 @@ final class NutritionTimelineStore {
     private(set) var weekEntries: [NutritionLogEntry] = []
     private(set) var goals: [NutritionGoal] = []
     private(set) var recentlyDeleted: NutritionLogEntry?
+    private(set) var healthSnapshot: HealthMetricsSnapshot?
+    private(set) var healthHistory: [HealthMetric: [HealthAggregateValue]] = [:]
+    private(set) var isUpdatingAppleHealth = false
     var errorMessage: String?
     let repository: any NutritionRepository
+    let healthMetrics: (any HealthMetricsReading)?
     private let barcodeReviewService: NutritionBarcodeReviewService
 
-    init(repository: any NutritionRepository) {
+    init(
+        repository: any NutritionRepository,
+        healthMetrics: (any HealthMetricsReading)? = nil
+    ) {
         self.repository = repository
+        self.healthMetrics = healthMetrics
         barcodeReviewService = NutritionBarcodeReviewService(repository: repository)
+    }
+
+    func prepareHealth(now: Date = Date()) async {
+        guard let healthMetrics else { return }
+        await healthMetrics.requestAutomaticRefresh()
+        await loadHealth(now: now)
+    }
+
+    func loadHealth(now: Date = Date()) async {
+        guard let healthMetrics else { return }
+        async let snapshot = healthMetrics.currentSnapshot(now: now)
+        async let history = healthMetrics.cachedHistory(
+            domain: .nutrition,
+            range: .sevenDays,
+            now: now
+        )
+        let values = await (snapshot, history)
+        healthSnapshot = values.0
+        healthHistory = values.1
+    }
+
+    func healthUpdates() async -> AsyncStream<HealthSyncEvent>? {
+        await healthMetrics?.updates()
+    }
+
+    func applyHealthUpdate(_ event: HealthSyncEvent) async {
+        guard event.metrics.contains(where: { $0.domain == .nutrition }) else { return }
+        await loadHealth(now: event.completedAt)
+        isUpdatingAppleHealth = false
     }
 
     func load() async {
@@ -66,6 +103,7 @@ final class NutritionTimelineStore {
                 provenance: provenance,
                 sourceReference: sourceReference
             ))
+            isUpdatingAppleHealth = healthSnapshot?.statuses[.nutrition]?.writeEnabled == true
             await load()
             SystemSurfaceRefresher.requestRefreshSoon()
         } catch { errorMessage = "That meal could not be saved. Review the serving and try again." }
@@ -107,6 +145,13 @@ final class NutritionTimelineStore {
 
     /// Per-day energy totals over the trailing week for the report chart.
     var weeklyReport: [DailyEnergy] {
+        if summary.source == .appleHealth,
+           let values = healthHistory[.dietaryEnergy],
+           values.isEmpty == false {
+            return values
+                .map { DailyEnergy(day: $0.start, calories: $0.value) }
+                .sorted { $0.day < $1.day }
+        }
         let calendar = Calendar.current
         let todayStart = calendar.startOfDay(for: Date())
         let grouped = Dictionary(grouping: weekEntries) { calendar.startOfDay(for: $0.loggedAt) }
@@ -144,11 +189,30 @@ final class NutritionTimelineStore {
     }
 
     var total: NutritionMacros { entries.reduce(.zero) { $0.adding($1.resolvedMacrosSnapshot) } }
+
+    var summary: NutritionSummaryProjection {
+        HealthFirstNutritionSummaryResolver.resolve(
+            health: healthSnapshot,
+            local: total,
+            localUpdatedAt: entries.map(\.updatedAt).max()
+        )
+    }
+}
+
+struct NutritionInitialFocusPresentationState: Equatable {
+    private(set) var didApply = false
+
+    mutating func consume(_ focus: NutritionHomeCardFocus) -> Bool {
+        guard didApply == false else { return false }
+        didApply = true
+        return focus == .logMeal
+    }
 }
 
 struct NutritionView: View {
     @State private var store: NutritionTimelineStore
     @State private var showsComposer = false
+    @State private var initialFocusPresentation = NutritionInitialFocusPresentationState()
     @State private var pendingDeletion: NutritionLogEntry?
     @State private var scannedFood: FoodItem?
     @State private var scannedProvenance: NutritionLogProvenance = .manual
@@ -159,10 +223,20 @@ struct NutritionView: View {
     @State private var showsVoiceCapture = false
     @State private var voiceFoodName: String?
     @State private var showsGoalComposer = false
+    @State private var healthEducationDomain: HealthDomain?
+    private let initialFocus: NutritionHomeCardFocus
     private let scanDeduplicator = NutritionScanDeduplicator()
 
-    init(repository: any NutritionRepository) {
-        _store = State(initialValue: NutritionTimelineStore(repository: repository))
+    init(
+        repository: any NutritionRepository,
+        healthMetrics: any HealthMetricsReading = HealthCoordinator.shared.metricsReader,
+        initialFocus: NutritionHomeCardFocus = .dailySummary
+    ) {
+        _store = State(initialValue: NutritionTimelineStore(
+            repository: repository,
+            healthMetrics: healthMetrics
+        ))
+        self.initialFocus = initialFocus
     }
 
     var body: some View {
@@ -173,8 +247,30 @@ struct NutritionView: View {
         .background(Color(SemanticColorTokens.foundationCanvas).ignoresSafeArea())
         .navigationTitle("Nutrition")
         .toolbar { nutritionToolbar }
-        .task { await store.load() }
-        .refreshable { await store.load() }
+        .task {
+            async let localLoad: Void = store.load()
+            async let healthLoad: Void = store.prepareHealth()
+            _ = await (localLoad, healthLoad)
+            if initialFocusPresentation.consume(initialFocus) {
+                scannedFood = nil
+                scannedProvenance = .manual
+                scannedSourceReference = nil
+                voiceFoodName = nil
+                showsComposer = true
+            }
+        }
+        .task {
+            guard let updates = await store.healthUpdates() else { return }
+            for await event in updates {
+                guard Task.isCancelled == false else { return }
+                await store.applyHealthUpdate(event)
+            }
+        }
+        .refreshable {
+            async let localLoad: Void = store.load()
+            async let healthLoad: Void = store.loadHealth()
+            _ = await (localLoad, healthLoad)
+        }
         .sheet(isPresented: $showsComposer) {
             NutritionLogComposer(
                 prefilledFood: scannedFood,
@@ -204,6 +300,19 @@ struct NutritionView: View {
             NutritionGoalComposer(existing: store.goals.first) { macros in
                 Task { await store.saveGoal(macros) }
             }
+        }
+        .sheet(item: $healthEducationDomain) { domain in
+            HealthConnectPromptSheet(
+                leadDomain: domain,
+                onConnect: { domains in
+                    healthEducationDomain = nil
+                    Task {
+                        await HealthCoordinator.shared.connectionStore.connect(domains: domains)
+                        await store.prepareHealth()
+                    }
+                },
+                onDecline: { healthEducationDomain = nil }
+            )
         }
         .fullScreenCover(isPresented: $showsBarcodeScanner) {
             barcodeScannerCover
@@ -312,6 +421,7 @@ struct NutritionView: View {
     private var timelineContent: some View {
         LazyVStack(alignment: .leading, spacing: 18) {
             timelineHeader
+            nutritionHealthStatus
             if let deleted = store.recentlyDeleted {
                 undoBanner(deleted)
             }
@@ -376,12 +486,119 @@ struct NutritionView: View {
     }
 
     private var macroSummary: some View {
-        HStack(spacing: 8) {
-            macro("Energy", value: "\(Int(store.total.calories.rounded())) kcal")
-            macro("Protein", value: "\(Int(store.total.proteinGrams.rounded())) g")
-            macro("Carbs", value: "\(Int(store.total.carbohydrateGrams.rounded())) g")
-            macro("Fat", value: "\(Int(store.total.fatGrams.rounded())) g")
+        VStack(alignment: .leading, spacing: 10) {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 8) { macroCells }
+                LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                    macroCells
+                }
+                VStack(spacing: 8) { macroCells }
+            }
+            HStack(spacing: 6) {
+                Image(systemName: store.summary.source == .appleHealth ? "heart.fill" : "square.and.pencil")
+                Text(store.summary.source == .appleHealth ? "Totals from Apple Health" : "Totals from LifeBoard meals")
+                if store.summary.isPartial { Text("· Some nutrients unavailable") }
+            }
+            .font(.caption)
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            .accessibilityElement(children: .combine)
         }
+        .accessibilityElement(children: .contain)
+    }
+
+    @ViewBuilder
+    private var macroCells: some View {
+        macro("Energy", value: nutritionValue(store.summary.calories, unit: "kcal"))
+        macro("Protein", value: nutritionValue(store.summary.proteinGrams, unit: "g"))
+        macro("Carbs", value: nutritionValue(store.summary.carbohydrateGrams, unit: "g"))
+        macro("Fat", value: nutritionValue(store.summary.fatGrams, unit: "g"))
+    }
+
+    private func nutritionValue(_ value: Double?, unit: String) -> String {
+        value.map { "\(Int($0.rounded())) \(unit)" } ?? "—"
+    }
+
+    @ViewBuilder
+    private var nutritionHealthStatus: some View {
+        if store.isUpdatingAppleHealth {
+            healthStatusCard(
+                title: "Updating Apple Health",
+                detail: "Your meal is saved in LifeBoard. Supported nutrients will update automatically.",
+                symbol: "arrow.triangle.2.circlepath"
+            )
+        } else if let status = store.healthSnapshot?.statuses[.nutrition] {
+            switch status.signal {
+            case .setupRequired:
+                healthStatusCard(
+                    title: "Connect Apple Health",
+                    detail: "Use Apple Health totals for calories and macros while named meals stay private in LifeBoard.",
+                    symbol: "heart.text.clipboard",
+                    actionTitle: "Connect Health",
+                    action: { healthEducationDomain = .nutrition }
+                )
+            case .writeDenied:
+                healthStatusCard(
+                    title: "Meals stay in LifeBoard",
+                    detail: "Writing nutrition to Apple Health is off. Existing Health totals still refresh automatically when available.",
+                    symbol: "hand.raised"
+                )
+            case .stale, .partial, .offline:
+                healthStatusCard(
+                    title: "Showing the latest available Health totals",
+                    detail: "LifeBoard refreshes automatically in the foreground and when Apple Health reports changes.",
+                    symbol: "clock.arrow.circlepath"
+                )
+            case .unavailable:
+                healthStatusCard(
+                    title: "Apple Health is unavailable",
+                    detail: "Named meals and local totals remain available in LifeBoard.",
+                    symbol: "heart.slash"
+                )
+            case .protectedDataLocked:
+                healthStatusCard(
+                    title: "Health data is locked",
+                    detail: "Unlock this device and LifeBoard will refresh automatically.",
+                    symbol: "lock"
+                )
+            case .noRecord:
+                healthStatusCard(
+                    title: "No Apple Health nutrition totals yet",
+                    detail: "LifeBoard meals remain below. Health totals appear automatically when available.",
+                    symbol: "fork.knife"
+                )
+            case .loading:
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Updating Apple Health automatically…").font(.subheadline)
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            case .explicitZero, .recorded:
+                EmptyView()
+            }
+        }
+    }
+
+    private func healthStatusCard(
+        title: String,
+        detail: String,
+        symbol: String,
+        actionTitle: String? = nil,
+        action: (() -> Void)? = nil
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: symbol).font(.subheadline.weight(.semibold))
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .font(.subheadline.weight(.semibold))
+                    .frame(minHeight: 44)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .lifeBoardClaySurface(.resting, cornerRadius: 18)
         .accessibilityElement(children: .contain)
     }
 
@@ -401,6 +618,9 @@ struct NutritionView: View {
         let report = store.weeklyReport
         return VStack(alignment: .leading, spacing: 10) {
             Text("Past 7 days").font(Typography.sectionTitle())
+            Text(store.summary.source == .appleHealth ? "Daily energy totals from Apple Health" : "Energy from named LifeBoard meals")
+                .font(.caption)
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             if report.allSatisfy({ $0.calories == 0 }) {
                 Text("Logged meals will build this picture over the week.")
                     .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
@@ -615,6 +835,7 @@ private struct NutritionLogComposer: View {
     @State private var quantity = 1.0
     @State private var slot: NutritionMealSlot = .snack
     @State private var errorMessage: String?
+    @State private var revealTrigger = 0
 
     init(
         prefilledFood: FoodItem? = nil,
@@ -662,6 +883,12 @@ private struct NutritionLogComposer: View {
             NutritionServingSection(servingGrams: $servingGrams, quantity: $quantity)
             NutritionErrorSection(message: errorMessage)
         }
+        // The composer arrives as a mode handoff, not a plain sheet — the same
+        // lens the capture composer uses. It inherited ComposerScaffold's CTA
+        // bezel and first light and added nothing of its own.
+        .lifeboardContextLens(trigger: revealTrigger)
+        .onAppear { revealTrigger &+= 1 }
+        .lifeBoardMotion(.contentInsertion, value: errorMessage)
     }
 
     private func save() {
@@ -795,11 +1022,9 @@ private struct NutritionErrorSection: View {
 @MainActor @Observable
 final class WellnessHistoryStore {
     private(set) var samples: [BodyMetricSample] = []
-    /// Workouts and sleep have always existed in the model and were never
-    /// rendered, while this module's own row promised "weight, sleep,
-    /// workouts, and trends".
     private(set) var workouts: [WorkoutRecord] = []
     private(set) var sleepNotes: [SleepNote] = []
+    private(set) var movements: [MovementContextRecord] = []
     private(set) var state: WellnessDataState = .notRequested
     private(set) var conflicts: [WellnessSourceConflict] = []
     private(set) var preferences: WellnessDisplayPreferences
@@ -817,12 +1042,18 @@ final class WellnessHistoryStore {
     func load(kind: BodyMetricKind) async {
         state = .loading
         do {
-            samples = try await repository.bodyMetricSamples(kind: kind)
-            workouts = try await repository.workoutRecords()
-            sleepNotes = try await repository.sleepNotes()
+            async let sampleValues = repository.bodyMetricSamples(kind: kind)
+            async let workoutValues = repository.workoutRecords()
+            async let sleepValues = repository.sleepNotes()
+            async let movementValues = repository.movementRecords()
+            let values = try await (sampleValues, workoutValues, sleepValues, movementValues)
+            samples = values.0
+            workouts = values.1
+            sleepNotes = values.2
+            movements = values.3
             conflicts = WellnessSourceConflictDetector().conflicts(in: samples)
             errorMessage = nil
-            state = samples.isEmpty && workouts.isEmpty && sleepNotes.isEmpty
+            state = samples.isEmpty && workouts.isEmpty && sleepNotes.isEmpty && movements.isEmpty
                 ? .noSamples
                 : .fresh(lastSyncAt: Date())
         } catch {
@@ -832,6 +1063,10 @@ final class WellnessHistoryStore {
     }
     func save(_ sample: BodyMetricSample, kind: BodyMetricKind) async { do { try await repository.save(sample); await load(kind: kind); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = "That measurement could not be saved." } }
     func delete(_ sample: BodyMetricSample, kind: BodyMetricKind) async { do { try await repository.delete(kind: .bodyMetric, id: sample.id); await load(kind: kind); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = "That measurement could not be removed." } }
+    func save(_ value: WorkoutRecord, kind: BodyMetricKind) async { do { try await repository.save(value); await load(kind: kind); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = "That workout could not be saved." } }
+    func save(_ value: SleepNote, kind: BodyMetricKind) async { do { try await repository.save(value); await load(kind: kind); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = "That sleep note could not be saved." } }
+    func save(_ value: MovementContextRecord, kind: BodyMetricKind) async { do { try await repository.save(value); await load(kind: kind); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = "That movement record could not be saved." } }
+    func delete(kind recordKind: WellnessRecordKind, id: UUID, selectedKind: BodyMetricKind) async { do { try await repository.delete(kind: recordKind, id: id); await load(kind: selectedKind); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = "That wellness record could not be removed." } }
 
     func savePreferences(_ value: WellnessDisplayPreferences) {
         var normalized = value
@@ -847,21 +1082,72 @@ final class WellnessHistoryStore {
     }
 }
 
+private enum WellnessSection: String, CaseIterable, Identifiable {
+    case body, workouts, sleep, movement
+
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .body: "Body"
+        case .workouts: "Workouts"
+        case .sleep: "Sleep"
+        case .movement: "Movement"
+        }
+    }
+    var addTitle: String {
+        switch self {
+        case .body: "Add value"
+        case .workouts: "Add workout"
+        case .sleep: "Add sleep note"
+        case .movement: "Add movement"
+        }
+    }
+    var healthDomain: HealthDomain {
+        switch self {
+        case .body: .body
+        case .workouts: .workouts
+        case .sleep: .sleep
+        case .movement: .activity
+        }
+    }
+}
+
 struct WellnessView: View {
     @State private var store: WellnessHistoryStore
+    @State private var healthStore = HealthCoordinator.shared.connectionStore
+    @State private var healthSnapshot: HealthMetricsSnapshot?
+    @State private var movementHealthHistory: [HealthMetric: [HealthAggregateValue]] = [:]
+    @State private var section: WellnessSection
     @State private var kind: BodyMetricKind = .bodyMass
     @State private var showsCapture = false
     @State private var showsCustomization = false
     @State private var searchText = ""
     @State private var chartRevealProgress: Double = 1
+    @State private var editingBodyMetric: BodyMetricSample?
+    @State private var editingWorkout: WorkoutRecord?
+    @State private var editingSleep: SleepNote?
+    @State private var editingMovement: MovementContextRecord?
+    @State private var educationDomain: HealthDomain?
+    private let healthMetrics: any HealthMetricsReading
     init(
         repository: any WellnessRepository,
-        preferenceStore: any WellnessPreferenceStore = UserDefaultsWellnessPreferenceStore()
+        healthMetrics: any HealthMetricsReading = HealthCoordinator.shared.metricsReader,
+        preferenceStore: any WellnessPreferenceStore = UserDefaultsWellnessPreferenceStore(),
+        initialFocus: WellnessHomeCardFocus = .bodyMetric(.bodyMass)
     ) {
         _store = State(initialValue: WellnessHistoryStore(
             repository: repository,
             preferenceStore: preferenceStore
         ))
+        self.healthMetrics = healthMetrics
+        switch initialFocus {
+        case .bodyMetric(let metric):
+            _section = State(initialValue: .body)
+            _kind = State(initialValue: metric)
+        case .workouts: _section = State(initialValue: .workouts)
+        case .sleep: _section = State(initialValue: .sleep)
+        case .movement: _section = State(initialValue: .movement)
+        }
     }
 
     private var todaySamples: [BodyMetricSample] {
@@ -880,99 +1166,70 @@ struct WellnessView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                // The system segmented control is 32pt tall — a touch-target
-                // violation on every row it appeared in — and truncates to "…"
-                // rather than reflowing. The house lens picker exists for
-                // exactly this substitution.
                 LensPicker(
-                    "Wellness metric",
-                    selection: $kind,
-                    values: enabledMetrics,
-                    identifierPrefix: "wellness.metric",
+                    "Wellness area",
+                    selection: $section,
+                    values: WellnessSection.allCases,
+                    identifierPrefix: "wellness.section",
                     title: \.title,
                     identifier: \.rawValue
                 )
-                todayCard
-                if case let .failed(message) = store.state {
-                    ContentUnavailableView(
-                        "Wellness is unavailable",
-                        systemImage: "exclamationmark.triangle",
-                        description: Text(message)
-                    )
-                } else if store.state == .loading {
-                    ProgressView("Loading wellness history")
-                        .frame(maxWidth: .infinity, minHeight: 140)
-                } else if store.samples.isEmpty {
-                    ContentUnavailableView(
-                        "No \(kind.title.lowercased()) entries",
-                        systemImage: "waveform.path.ecg",
-                        description: Text(V2FeatureFlags.healthIntegrationsV1Enabled
-                            ? "Add a manual value, or allow Health access in Settings to bring in readings."
-                            : "Add a manual value. Health import is currently off, so nothing arrives automatically.")
-                    )
-                } else {
-                    wellnessChart
-                }
-                sourceConflictsSection
-                VStack(alignment: .leading, spacing: 10) {
-                    Text("History").font(Typography.sectionTitle())
-                    if filteredSamples.isEmpty, searchText.isEmpty == false {
-                        Text("No entries match “\(searchText)”. History is unchanged.")
-                            .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary)).padding(.vertical, 8)
-                    }
-                    ForEach(filteredSamples) { sample in
-                        WellnessHistoryRow(
-                            timestamp: sample.observedAt,
-                            value: display(sample),
-                            provenance: sourceLabel(sample.source),
-                            isImported: sample.source != .manual,
-                            note: sample.note
-                        ) {
-                            Task { await store.delete(sample, kind: kind) }
-                        }
-                    }
-                }.accessibilityElement(children: .contain).accessibilityLabel("\(kind.title) history table")
-
-                workoutsSection
-                sleepSection
+                focusedContent
             }.padding(20)
         }
         .background {
             GrainedCanvas()
         }
-        .navigationTitle("Wellness")
-        .searchable(text: $searchText, prompt: "Search values or dates")
+        .navigationTitle(section.title)
+        .searchable(text: $searchText, prompt: "Search \(section.title.lowercased())")
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                Button("Customize", systemImage: "slider.horizontal.3") { showsCustomization = true }
-                Button("Add value", systemImage: "plus") { showsCapture = true }
+                if section == .body {
+                    Button("Customize", systemImage: "slider.horizontal.3") { showsCustomization = true }
+                }
+                Button(section.addTitle, systemImage: "plus") { beginAdd() }
             }
         }
-        .task(id: kind) {
+        .task(id: "\(section.rawValue)-\(kind.rawValue)") {
+            await loadHealthMetrics(requestRefresh: true)
             await store.load(kind: kind)
-            // Replay the sweep for the newly selected metric's data.
             chartRevealProgress = 0
             withAnimation(.easeOut(duration: 0.62)) { chartRevealProgress = 1 }
         }
         .task {
-            let updates = await HealthSyncInvalidationService.shared.updates()
+            let updates = await healthMetrics.updates()
             for await event in updates {
                 guard Task.isCancelled == false,
-                      event.metrics.contains(where: { [.body, .workouts, .sleep].contains($0.domain) }) else {
+                      event.metrics.contains(where: { [.body, .workouts, .sleep, .activity, .energy].contains($0.domain) }) else {
                     continue
                 }
-                await store.load(kind: kind)
+                async let localLoad: Void = store.load(kind: kind)
+                async let healthLoad: Void = loadHealthMetrics(
+                    now: event.completedAt,
+                    requestRefresh: false
+                )
+                _ = await (localLoad, healthLoad)
             }
         }
-        // Seed the tape with the most recent reading. Almost every entry is a
-        // small move from the last one, so starting at a generic default made
-        // the person scrub past their own history to get back to where they are.
-        .sheet(isPresented: $showsCapture) {
-            WellnessMetricCapture(kind: kind, lastValue: store.samples.first.map(displayValue)) { value in
-                Task {
-                    await store.save(value, kind: kind)
-                    await HealthCoordinator.shared.jitCoordinator.offerConnectAfterReward(leadDomain: .body, trigger: "wellness_body_metric")
+        .sheet(isPresented: $showsCapture, onDismiss: clearEditingState) {
+            switch section {
+            case .body:
+                WellnessMetricCapture(
+                    kind: kind,
+                    existing: editingBodyMetric,
+                    lastValue: store.samples.first.map(displayValue)
+                ) { value in
+                    Task {
+                        await store.save(value, kind: kind)
+                        await HealthCoordinator.shared.jitCoordinator.offerConnectAfterReward(leadDomain: .body, trigger: "wellness_body_metric")
+                    }
                 }
+            case .workouts:
+                WorkoutCaptureView(existing: editingWorkout) { value in Task { await store.save(value, kind: kind) } }
+            case .sleep:
+                SleepNoteCaptureView(existing: editingSleep) { value in Task { await store.save(value, kind: kind) } }
+            case .movement:
+                MovementCaptureView(existing: editingMovement) { value in Task { await store.save(value, kind: kind) } }
             }
         }
         .sheet(isPresented: $showsCustomization) {
@@ -983,14 +1240,161 @@ struct WellnessView: View {
                 }
             }
         }
+        .sheet(item: $educationDomain) { domain in
+            HealthConnectPromptSheet(
+                leadDomain: domain,
+                onConnect: { domains in
+                    educationDomain = nil
+                    Task {
+                        await healthStore.connect(domains: domains)
+                        await loadHealthMetrics(requestRefresh: true)
+                        await store.load(kind: kind)
+                    }
+                },
+                onDecline: { educationDomain = nil }
+            )
+        }
+        .alert("Wellness needs attention", isPresented: Binding(
+            get: { store.errorMessage != nil },
+            set: { if !$0 { store.errorMessage = nil } }
+        )) { Button("OK", role: .cancel) {} } message: { Text(store.errorMessage ?? "") }
     }
 
-    /// `WorkoutRecord` has existed in the model with no UI at all.
     @ViewBuilder
-    private var workoutsSection: some View {
-        if store.workouts.isEmpty == false {
+    private var focusedContent: some View {
+        if case let .failed(message) = store.state {
+            ContentUnavailableView("Wellness is unavailable", systemImage: "exclamationmark.triangle", description: Text(message))
+        } else if store.state == .loading {
+            ProgressView("Loading \(section.title.lowercased())")
+                .frame(maxWidth: .infinity, minHeight: 160)
+        } else {
+            VStack(alignment: .leading, spacing: 16) {
+                healthStatusNotice
+                switch section {
+                case .body: bodyMetricsSection
+                case .workouts: workoutsSection
+                case .sleep: sleepSection
+                case .movement: movementSection
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var healthStatusNotice: some View {
+        if V2FeatureFlags.healthIntegrationsV1Enabled,
+           let status = healthSnapshot?.statuses[section.healthDomain] {
+            switch status.signal {
+            case .setupRequired:
+                statusNotice(
+                    title: "Apple Health is not connected",
+                    detail: "Manual records stay available. Connect only if you want to import available \(section.title.lowercased()) data.",
+                    symbol: "heart.text.clipboard",
+                    actionTitle: "Connect Health",
+                    action: { educationDomain = section.healthDomain }
+                )
+            case .writeDenied:
+                statusNotice(
+                    title: "Writing to Apple Health is off",
+                    detail: "Local logging still works. Apple keeps read choices private, so LifeBoard does not label missing read data as denied.",
+                    symbol: "hand.raised"
+                )
+            case .unavailable:
+                statusNotice(
+                    title: "Apple Health is unavailable",
+                    detail: "Saved LifeBoard records remain available and manual capture still works.",
+                    symbol: "heart.slash"
+                )
+            case .stale:
+                statusNotice(
+                    title: "Apple Health data may be out of date",
+                    detail: "The history below shows the last available records. LifeBoard refreshes automatically.",
+                    symbol: "arrow.clockwise"
+                )
+            case .offline, .partial:
+                statusNotice(
+                    title: "Some Apple Health data is unavailable",
+                    detail: "The history below shows the last available records. LifeBoard will refresh automatically.",
+                    symbol: "arrow.clockwise"
+                )
+            case .protectedDataLocked:
+                statusNotice(
+                    title: "Health data is locked",
+                    detail: "Unlock this device to refresh Apple Health. Saved LifeBoard records remain visible.",
+                    symbol: "lock"
+                )
+            case .loading:
+                HStack(spacing: 10) {
+                    ProgressView()
+                    Text("Refreshing Apple Health…")
+                        .font(.subheadline)
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .accessibilityElement(children: .combine)
+            case .noRecord, .explicitZero, .recorded:
+                EmptyView()
+            }
+        }
+    }
+
+    private var bodyMetricsSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            LensPicker(
+                "Body metric",
+                selection: $kind,
+                values: enabledMetrics,
+                identifierPrefix: "wellness.metric",
+                title: \.title,
+                identifier: \.rawValue
+            )
+            todayCard
+            if store.samples.isEmpty {
+                emptyState(title: "No \(kind.title.lowercased()) entries", symbol: "waveform.path.ecg")
+            } else {
+                wellnessChart
+            }
+            sourceConflictsSection
             VStack(alignment: .leading, spacing: 10) {
-                Text("Workouts").font(Typography.sectionTitle())
+                Text("History").font(Typography.sectionTitle())
+                if filteredSamples.isEmpty, searchText.isEmpty == false {
+                    Text("No entries match “\(searchText)”. History is unchanged.")
+                        .font(.subheadline).foregroundStyle(Color(SemanticColorTokens.inkSecondary)).padding(.vertical, 8)
+                }
+                ForEach(filteredSamples) { sample in
+                    WellnessHistoryRow(
+                        timestamp: sample.observedAt,
+                        value: display(sample),
+                        provenance: sourceLabel(sample.source),
+                        isImported: sample.source.permitsManualCorrection == false,
+                        note: sample.note,
+                        edit: sample.source.permitsManualCorrection ? { beginEdit(sample) } : nil,
+                        delete: sample.source.permitsManualCorrection ? { Task { await store.delete(sample, kind: kind) } } : nil
+                    )
+                }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityLabel("\(kind.title) history table")
+        }
+    }
+
+    private var workoutsSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            if let latest = filteredWorkouts.first {
+                summaryCard(
+                    title: latest.activityKind,
+                    value: Self.durationLabel(latest.duration),
+                    detail: "\(sourceLabel(latest.source)) · \(latest.startedAt.formatted(date: .abbreviated, time: .shortened))"
+                )
+            } else {
+                emptyState(title: "No workouts recorded", symbol: "figure.run")
+            }
+            if store.workouts.isEmpty == false {
+                Text("\(Self.durationLabel(trailingSevenDayWorkoutDuration)) across \(trailingSevenDayWorkoutCount) workout\(trailingSevenDayWorkoutCount == 1 ? "" : "s") in the last 7 days")
+                    .font(.subheadline)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    .accessibilityLabel("Trailing seven days, \(Self.durationLabel(trailingSevenDayWorkoutDuration)) across \(trailingSevenDayWorkoutCount) workouts")
+            }
+            if store.workouts.count > 1 {
                 TrendChart(
                     points: store.workouts
                         .prefix(30)
@@ -1000,39 +1404,47 @@ struct WellnessView: View {
                     unit: "minutes"
                 )
                 .frame(height: 120)
-
-                ForEach(store.workouts.prefix(12)) { workout in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(workout.activityKind).font(.body.weight(.medium))
-                            Text(workout.startedAt.formatted(date: .abbreviated, time: .shortened))
-                                .font(.caption2)
-                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                            if let note = workout.note {
-                                Text(note).font(.caption2).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                            }
-                        }
-                        Spacer()
-                        Text(Self.durationLabel(workout.duration)).monospacedDigit()
-                    }
-                    .frame(minHeight: 44)
-                    .padding(.vertical, 8)
-                    .overlay(alignment: .bottom) { Divider() }
-                }
             }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Workout history")
+            Text("History").font(Typography.sectionTitle())
+            ForEach(filteredWorkouts) { workout in
+                WellnessHistoryRow(
+                    timestamp: workout.startedAt,
+                    value: "\(workout.activityKind) · \(Self.durationLabel(workout.duration))",
+                    provenance: sourceLabel(workout.source),
+                    isImported: workout.source.permitsManualCorrection == false,
+                    note: workout.note,
+                    edit: workout.source.permitsManualCorrection ? { beginEdit(workout) } : nil,
+                    delete: workout.source.permitsManualCorrection ? { Task { await store.delete(kind: .workout, id: workout.id, selectedKind: kind) } } : nil
+                )
+            }
         }
     }
 
-    /// Sleep notes were captured in Track's Body area and had no home here,
-    /// even though this module's own description promised them.
-    @ViewBuilder
     private var sleepSection: some View {
-        let nights = HealthSleepPresentation.nightlySummaries(notes: store.sleepNotes)
-        if nights.isEmpty == false {
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Sleep").font(Typography.sectionTitle())
+        let nights = filteredSleepNights
+        return VStack(alignment: .leading, spacing: 16) {
+            if let latest = nights.first {
+                summaryCard(
+                    title: "Latest sleep",
+                    value: Self.durationLabel(latest.totalDuration),
+                    detail: sleepNightDetail(latest)
+                )
+            } else {
+                emptyState(title: "No sleep notes recorded", symbol: "bed.double")
+            }
+            if nights.isEmpty == false {
+                let recent = Array(nights.prefix(7))
+                let average = recent.reduce(0) { $0 + $1.totalDuration } / Double(recent.count)
+                let rated = recent.flatMap(\.samples).compactMap(\.quality)
+                Text(
+                    rated.isEmpty
+                        ? "Recent average: \(Self.durationLabel(average)). No quality ratings recorded."
+                        : "Recent average: \(Self.durationLabel(average)). Quality was recorded for \(rated.count) night\(rated.count == 1 ? "" : "s")."
+                )
+                .font(.subheadline)
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            }
+            if nights.count > 1 {
                 TrendChart(
                     points: nights
                         .prefix(30)
@@ -1042,36 +1454,69 @@ struct WellnessView: View {
                     unit: "hours"
                 )
                 .frame(height: 120)
-
-                ForEach(nights.prefix(12)) { night in
-                    HStack {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(Self.durationLabel(night.totalDuration)).font(.body.weight(.medium))
-                            Text(night.startedAt.formatted(date: .abbreviated, time: .shortened))
-                                .font(.caption2)
-                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                            if night.samples.count > 1 {
-                                Text("\(night.samples.count) Apple Health sleep stages")
-                                    .font(.caption2)
-                                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                            } else if let annotation = night.samples.first?.note {
-                                Text(annotation).font(.caption2).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                            }
-                        }
-                        Spacer()
-                        if let quality = night.samples.compactMap(\.quality).first {
-                            Text("Quality \(quality)/5")
-                                .font(.caption)
-                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                        }
+            }
+            Text("Nightly history").font(Typography.sectionTitle())
+            ForEach(nights) { night in
+                let editable = night.samples.count == 1
+                    ? night.samples.first(where: { $0.source.permitsManualCorrection })
+                    : nil
+                WellnessHistoryRow(
+                    timestamp: night.startedAt,
+                    value: Self.durationLabel(night.totalDuration),
+                    provenance: sleepNightSources(night),
+                    isImported: editable == nil,
+                    note: sleepNightNote(night),
+                    edit: editable.map { value in { beginEdit(value) } },
+                    delete: editable.map { value in
+                        { Task { await store.delete(kind: .sleep, id: value.id, selectedKind: kind) } }
                     }
-                    .frame(minHeight: 44)
-                    .padding(.vertical, 8)
-                    .overlay(alignment: .bottom) { Divider() }
+                )
+            }
+        }
+    }
+
+    private var movementSection: some View {
+        let summary = movementSummary
+        let stepPoints = movementStepPoints
+        return VStack(alignment: .leading, spacing: 16) {
+            if summary.steps != nil || summary.distanceMeters != nil || summary.activeEnergyKilocalories != nil {
+                summaryCard(
+                    title: "Today",
+                    value: summary.steps.map { "\($0.formatted()) steps" }
+                        ?? summary.distanceMeters.map { String(format: "%.1f km", $0 / 1_000) }
+                        ?? "Movement recorded",
+                    detail: movementSummaryDetail(summary)
+                )
+            } else {
+                emptyState(title: "No movement recorded", symbol: "figure.walk")
+            }
+            if stepPoints.count > 1 {
+                TrendChart(points: stepPoints, tint: Color(SemanticColorTokens.foundationSageAccent), unit: "steps")
+                    .frame(height: 120)
+            }
+            VStack(alignment: .leading, spacing: 8) {
+                Text("Custom records").font(Typography.sectionTitle())
+                Text("Custom LifeBoard records stay separate from Apple Health totals.")
+                    .font(.caption)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                if filteredMovements.isEmpty {
+                    Text("No custom movement records")
+                        .font(.subheadline)
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                } else {
+                    ForEach(filteredMovements) { movement in
+                        WellnessHistoryRow(
+                            timestamp: movement.startedAt,
+                            value: movement.steps.map { "\($0.formatted()) steps" } ?? "Movement",
+                            provenance: sourceLabel(movement.source),
+                            isImported: movement.source.permitsManualCorrection == false,
+                            note: movementDetail(movement),
+                            edit: movement.source.permitsManualCorrection ? { beginEdit(movement) } : nil,
+                            delete: movement.source.permitsManualCorrection ? { Task { await store.delete(kind: .movement, id: movement.id, selectedKind: kind) } } : nil
+                        )
+                    }
                 }
             }
-            .accessibilityElement(children: .contain)
-            .accessibilityLabel("Sleep history")
         }
     }
 
@@ -1079,6 +1524,183 @@ struct WellnessView: View {
         let minutes = max(0, Int(interval / 60))
         return minutes >= 60 ? "\(minutes / 60)h \(minutes % 60)m" : "\(minutes)m"
     }
+
+    private var trailingSevenDayWorkouts: [WorkoutRecord] {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -7, to: Date()) ?? .distantPast
+        return store.workouts.filter { $0.startedAt >= cutoff }
+    }
+
+    private var trailingSevenDayWorkoutDuration: TimeInterval {
+        trailingSevenDayWorkouts.reduce(0) { $0 + $1.duration }
+    }
+
+    private var trailingSevenDayWorkoutCount: Int { trailingSevenDayWorkouts.count }
+
+    private var movementSummary: MovementSummaryProjection {
+        HealthFirstMovementSummaryResolver.resolve(
+            health: healthSnapshot,
+            manual: store.movements
+        )
+    }
+
+    private var movementStepPoints: [HomeSeriesPoint] {
+        if movementSummary.source == .appleHealth,
+           let values = movementHealthHistory[.steps],
+           values.isEmpty == false {
+            return values.map { HomeSeriesPoint(date: $0.start, value: $0.value) }
+        }
+        return store.movements.compactMap { value in
+            value.steps.map { HomeSeriesPoint(date: value.startedAt, value: Double($0)) }
+        }.sorted { $0.date < $1.date }
+    }
+
+    private func movementSummaryDetail(_ summary: MovementSummaryProjection) -> String {
+        var parts: [String] = []
+        if let distance = summary.distanceMeters { parts.append(String(format: "%.1f km", distance / 1_000)) }
+        if let energy = summary.activeEnergyKilocalories { parts.append("\(Int(energy.rounded())) active kcal") }
+        parts.append(summary.source == .appleHealth ? "Apple Health" : "LifeBoard custom")
+        return parts.isEmpty ? "No distance or active energy recorded" : parts.joined(separator: " · ")
+    }
+
+    private var filteredWorkouts: [WorkoutRecord] {
+        filter(store.workouts) { "\($0.activityKind) \($0.note ?? "") \($0.startedAt.formatted())" }
+    }
+
+    private var filteredSleepNights: [HealthSleepPresentation.NightSummary] {
+        let nights = HealthSleepPresentation.nightlySummaries(notes: store.sleepNotes)
+        return filter(nights) { night in
+            let notes = night.samples.compactMap(\.note).joined(separator: " ")
+            return "\(notes) \(sleepNightSources(night)) \(night.startedAt.formatted())"
+        }
+    }
+
+    private var filteredMovements: [MovementContextRecord] {
+        filter(store.movements) { "\($0.steps ?? 0) \($0.distanceMeters ?? 0) \($0.startedAt.formatted())" }
+    }
+
+    private func filter<T>(_ values: [T], text: (T) -> String) -> [T] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard query.isEmpty == false else { return values }
+        return values.filter { text($0).lowercased().contains(query) }
+    }
+
+    private func movementDetail(_ value: MovementContextRecord) -> String {
+        var parts: [String] = []
+        if let distance = value.distanceMeters { parts.append(String(format: "%.1f km", distance / 1_000)) }
+        if let energy = value.activeEnergyKilocalories { parts.append("\(Int(energy.rounded())) active kcal") }
+        parts.append(sourceLabel(value.source))
+        return parts.joined(separator: " · ")
+    }
+
+    private func sleepNightSources(_ night: HealthSleepPresentation.NightSummary) -> String {
+        Set(night.samples.map { sourceLabel($0.source) }).sorted().joined(separator: ", ")
+    }
+
+    private func sleepNightDetail(_ night: HealthSleepPresentation.NightSummary) -> String {
+        let quality = night.samples.compactMap(\.quality).first.map { "Quality \($0)/5" }
+        return [quality, sleepNightSources(night)].compactMap { $0 }.joined(separator: " · ")
+    }
+
+    private func sleepNightNote(_ night: HealthSleepPresentation.NightSummary) -> String? {
+        let notes = night.samples.compactMap(\.note).filter { $0.isEmpty == false }
+        if notes.isEmpty == false { return notes.joined(separator: " · ") }
+        return night.samples.compactMap(\.quality).first.map { "Quality \($0)/5" }
+    }
+
+    private func loadHealthMetrics(
+        now: Date = Date(),
+        requestRefresh: Bool
+    ) async {
+        if requestRefresh { await healthMetrics.requestAutomaticRefresh() }
+        async let snapshot = healthMetrics.currentSnapshot(now: now)
+        async let activity = healthMetrics.cachedHistory(
+            domain: .activity,
+            range: .thirtyDays,
+            now: now
+        )
+        async let energy = healthMetrics.cachedHistory(
+            domain: .energy,
+            range: .thirtyDays,
+            now: now
+        )
+        let values = await (snapshot, activity, energy)
+        healthSnapshot = values.0
+        movementHealthHistory = values.1.merging(values.2) { existing, incoming in
+            incoming.isEmpty ? existing : incoming
+        }
+    }
+
+    private func summaryCard(title: String, value: String, detail: String) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title).font(.caption.weight(.semibold)).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            Text(value).font(.system(.title2, design: .rounded, weight: .semibold)).monospacedDigit()
+            Text(detail).font(.caption).foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .lifeBoardClaySurface(.well, cornerRadius: 22, fill: Color(SemanticColorTokens.foundationSurfaceSelected))
+    }
+
+    private func statusNotice(
+        title: String,
+        detail: String,
+        symbol: String,
+        actionTitle: String? = nil,
+        action: (() -> Void)? = nil
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(title, systemImage: symbol)
+                .font(.subheadline.weight(.semibold))
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            if let actionTitle, let action {
+                Button(actionTitle, action: action)
+                    .font(.subheadline.weight(.semibold))
+                    .frame(minHeight: 44)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(14)
+        .lifeBoardClaySurface(.resting, cornerRadius: 18)
+        .accessibilityElement(children: .contain)
+    }
+
+    private func emptyState(title: String, symbol: String) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            ContentUnavailableView(title, systemImage: symbol, description: Text("Add a private manual record, or connect Apple Health to bring in available data."))
+            HStack(spacing: 10) {
+                Button(section.addTitle) { beginAdd() }.buttonStyle(.lifeBoardPrimary)
+                if shouldOfferHealthConnection {
+                    Button("Connect Health") { educationDomain = section.healthDomain }.buttonStyle(.lifeBoardChip)
+                }
+            }
+        }
+    }
+
+    private var shouldOfferHealthConnection: Bool {
+        guard V2FeatureFlags.healthIntegrationsV1Enabled,
+              let status = healthSnapshot?.statuses[section.healthDomain] else { return false }
+        if case .neverRequested = status.readRequestState { return true }
+        return false
+    }
+
+    private func beginAdd() {
+        clearEditingState()
+        showsCapture = true
+    }
+
+    private func clearEditingState() {
+        editingBodyMetric = nil
+        editingWorkout = nil
+        editingSleep = nil
+        editingMovement = nil
+    }
+
+    private func beginEdit(_ value: BodyMetricSample) { editingBodyMetric = value; showsCapture = true }
+    private func beginEdit(_ value: WorkoutRecord) { editingWorkout = value; showsCapture = true }
+    private func beginEdit(_ value: SleepNote) { editingSleep = value; showsCapture = true }
+    private func beginEdit(_ value: MovementContextRecord) { editingMovement = value; showsCapture = true }
 
     /// Today-first: the day's state and one obvious capture action lead the
     /// screen; history and analysis follow.
@@ -1099,7 +1721,7 @@ struct WellnessView: View {
             // pins the on-accent role explicitly, which is the only arrangement
             // that survives it.
             Button {
-                showsCapture = true
+                beginAdd()
             } label: {
                 Label(
                     todaySamples.isEmpty ? "Log today’s \(kind.title.lowercased())" : "Add another value",
@@ -1269,7 +1891,8 @@ private struct WellnessHistoryRow: View {
     let provenance: String
     let isImported: Bool
     let note: String?
-    let delete: () -> Void
+    let edit: (() -> Void)?
+    let delete: (() -> Void)?
 
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -1301,16 +1924,23 @@ private struct WellnessHistoryRow: View {
                 .font(.lifeboard(.bodyStrong))
                 .monospacedDigit()
                 .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-            Menu {
-                Button("Delete", systemImage: "trash", role: .destructive, action: delete)
-            } label: {
-                Image(systemName: "ellipsis")
-                    .font(.lifeboard(.support))
-                    .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
-                    .frame(width: 34, height: 34)
-                    .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
+            if edit != nil || delete != nil {
+                Menu {
+                    if let edit {
+                        Button("Edit", systemImage: "pencil", action: edit)
+                    }
+                    if let delete {
+                        Button("Delete", systemImage: "trash", role: .destructive, action: delete)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .font(.lifeboard(.support))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
+                        .frame(width: 44, height: 44)
+                        .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
+                }
+                .accessibilityLabel(Text("Actions for \(value) on \(timestamp.formatted(date: .abbreviated, time: .shortened))"))
             }
-            .accessibilityLabel(Text("Actions for \(value) on \(timestamp.formatted(date: .abbreviated, time: .shortened))"))
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
@@ -1405,6 +2035,7 @@ private struct WellnessCustomizationView: View {
 /// task. The keyboard stays one tap away on the readout for the times it isn't.
 private struct WellnessMetricCapture: View {
     let kind: BodyMetricKind
+    let existing: BodyMetricSample?
     let onSave: (BodyMetricSample) -> Void
     @Environment(\.dismiss) private var dismiss
     @State private var value: Double
@@ -1412,12 +2043,22 @@ private struct WellnessMetricCapture: View {
     @State private var pending: BodyMetricSample?
     @State private var reviewMessage: String?
     @State private var successTrigger = 0
+    @State private var revealTrigger = 0
 
-    init(kind: BodyMetricKind, lastValue: Double? = nil, onSave: @escaping (BodyMetricSample) -> Void) {
+    init(
+        kind: BodyMetricKind,
+        existing: BodyMetricSample? = nil,
+        lastValue: Double? = nil,
+        onSave: @escaping (BodyMetricSample) -> Void
+    ) {
         self.kind = kind
+        self.existing = existing
         self.onSave = onSave
-        _unit = State(initialValue: kind.canonicalUnit)
-        _value = State(initialValue: lastValue ?? Self.tape(for: kind, unit: kind.canonicalUnit).start)
+        let initialUnit = existing?.displayUnit ?? kind.canonicalUnit
+        _unit = State(initialValue: initialUnit)
+        _value = State(initialValue: existing.flatMap { try? $0.value(in: initialUnit) }
+            ?? lastValue
+            ?? Self.tape(for: kind, unit: initialUnit).start)
     }
 
     var body: some View {
@@ -1444,6 +2085,12 @@ private struct WellnessMetricCapture: View {
         }
         .lifeboardCompletionBurst(trigger: successTrigger)
         .lifeboardHealthSyncPulse(trigger: successTrigger)
+        // A vital under the finger warps as it moves; the review line settles in
+        // rather than appearing. Both were available and neither was used here.
+        .lifeboardVitalOrbWarp(trigger: successTrigger)
+        .lifeboardContextLens(trigger: revealTrigger)
+        .onAppear { revealTrigger &+= 1 }
+        .lifeBoardMotion(.contentInsertion, value: reviewMessage)
     }
 
     private var units: [WellnessDisplayUnit] {
@@ -1479,7 +2126,19 @@ private struct WellnessMetricCapture: View {
     }
 
     private func prepare() {
-        guard let sample = try? BodyMetricSample(kind: kind, value: value, unit: unit) else { return }
+        guard let sample = try? BodyMetricSample(
+            id: existing?.id ?? UUID(),
+            kind: kind,
+            value: value,
+            unit: unit,
+            observedAt: existing?.observedAt ?? Date(),
+            capturedTimeZone: existing?.capturedTimeZone ?? .autoupdatingCurrent,
+            source: existing?.source ?? .manual,
+            sourceIdentifier: existing?.sourceIdentifier,
+            note: existing?.note,
+            createdAt: existing?.createdAt ?? Date(),
+            updatedAt: Date()
+        ) else { return }
         switch WellnessOutlierPolicy().review(kind: kind, normalizedValue: sample.normalizedValue) {
         case .accepted:
             onSave(sample)
@@ -1541,357 +2200,211 @@ private struct WellnessCaptureReviewSection: View {
     }
 }
 
-private extension Comparable { func clamped(to range: ClosedRange<Self>) -> Self { min(max(self, range.lowerBound), range.upperBound) } }
-
-@MainActor @Observable
-final class LifeMomentsStore {
-    private(set) var moments: [LifeMoment] = []
-    var errorMessage: String?
-    let repository: any LifeMomentRepository
-    init(repository: any LifeMomentRepository) { self.repository = repository }
-    func load() async { do { moments = try await repository.moments(includeArchived: false); errorMessage = nil } catch { errorMessage = "Moments are unavailable right now." } }
-    func save(_ value: LifeMoment) async { do { try await repository.save(value); await load(); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = error.localizedDescription } }
-    func archive(_ value: LifeMoment) async { do { try await repository.archive(id: value.id, at: Date()); await load(); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = error.localizedDescription } }
-    func delete(_ value: LifeMoment) async { do { try await repository.delete(id: value.id); await load(); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = error.localizedDescription } }
-}
-
-struct LifeMomentsView: View {
-    @State private var store: LifeMomentsStore
-    @State private var showsComposer = false
-    @State private var editing: LifeMoment?
-    @State private var searchText = ""
-    init(repository: any LifeMomentRepository) { _store = State(initialValue: LifeMomentsStore(repository: repository)) }
-
-    private var filteredMoments: [LifeMoment] {
-        let query = searchText.trimmingCharacters(in: .whitespaces).lowercased()
-        guard query.isEmpty == false else { return store.moments }
-        return store.moments.filter {
-            $0.title.lowercased().contains(query) || ($0.note?.lowercased().contains(query) ?? false)
-        }
-    }
-
-    /// Explicit, user-triggered JSON export. Nothing leaves the device unless
-    /// the user picks a share destination themselves.
-    private var exportPayload: String {
-        struct Export: Codable {
-            let title: String; let kind: String; let eventDate: Date
-            let recurrence: String; let note: String?
-        }
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-        encoder.dateEncodingStrategy = .iso8601
-        let values = store.moments.map { moment in
-            let recurrence: String = switch moment.recurrenceRule {
-            case .none: "never"
-            case .weekly: "weekly"
-            case .monthly: "monthly"
-            case .yearly: "yearly"
-            case .everyDays(let days): "every \(days) days"
-            }
-            return Export(title: moment.title, kind: moment.kind.rawValue, eventDate: moment.eventDate,
-                          recurrence: recurrence, note: moment.note)
-        }
-        return (try? encoder.encode(values)).flatMap { String(data: $0, encoding: .utf8) } ?? "[]"
-    }
-
-    var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 12) {
-                if store.moments.isEmpty {
-                    ContentUnavailableView(
-                        "Keep a meaningful date close",
-                        systemImage: "sparkles",
-                        description: Text("Countdowns and anniversaries stay private unless you allow Home display.")
-                    )
-                    .padding(.top, 40)
-                } else {
-                    Text("Meaningful moments")
-                        .font(Typography.sectionTitle())
-                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                        .padding(.horizontal, 4)
-                }
-                ForEach(filteredMoments) { moment in
-                    LifeMomentCard(moment: moment) {
-                        editing = moment
-                        showsComposer = true
-                    } archive: {
-                        Task { await store.archive(moment) }
-                    } delete: {
-                        Task { await store.delete(moment) }
-                    }
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.top, 8)
-            .padding(.bottom, 132)
-        }
-        .background {
-            GrainedCanvas()
-        }
-        .navigationTitle("Life Moments")
-        .searchable(text: $searchText, prompt: "Search moments")
-        .toolbar {
-            ToolbarItemGroup(placement: .primaryAction) {
-                if store.moments.isEmpty == false {
-                    ShareLink(item: exportPayload, preview: SharePreview("Life Moments export")) {
-                        Label("Export", systemImage: "square.and.arrow.up")
-                    }
-                }
-                Button("Add moment", systemImage: "plus") { editing = nil; showsComposer = true }
-            }
-        }
-        .task { await store.load() }
-        .sheet(isPresented: $showsComposer) { LifeMomentComposer(existing: editing) { value in Task { await store.save(value) } } }
-    }
-}
-
-/// One meaningful date, as an object rather than a table row.
-///
-/// The list used `List` + `swipeActions`, which put archive and delete behind a
-/// gesture with no visible equivalent. On clay the row becomes a card and the
-/// two actions move into a menu, so they are reachable by pointer, keyboard and
-/// VoiceOver as well as by knowing to swipe.
-private struct LifeMomentCard: View {
-    let moment: LifeMoment
-    let open: () -> Void
-    let archive: () -> Void
-    let delete: () -> Void
-
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
-    @Environment(\.lifeBoardTransitionCoordinator) private var transitions
-    @State private var developProgress: Double = 1
-    @State private var dissolveProgress: Double = 0
-
-    private var countdown: (label: String, isPast: Bool) {
-        guard let days = moment.calendarDaysUntilNextOccurrence(from: Date()) else {
-            return ("Past", true)
-        }
-        return (days == 0 ? "Today" : "\(days)d", false)
-    }
-
-    var body: some View {
-        Button(action: open) {
-            HStack(alignment: .center, spacing: 14) {
-                Image(systemName: moment.kind == .countdown ? "hourglass" : "calendar.badge.heart")
-                    .font(.lifeboard(.title3))
-                    .foregroundStyle(Color(SemanticColorTokens.foundationApricotAccent))
-                    .frame(width: 34, height: 34)
-                    .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
-                    .accessibilityHidden(true)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(moment.title)
-                        .font(.lifeboard(.bodyStrong))
-                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                        .multilineTextAlignment(.leading)
-                    Text(moment.eventDate.formatted(date: .abbreviated, time: .omitted))
-                        .font(.lifeboard(.meta))
-                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
-                }
-                Spacer(minLength: 8)
-
-                if dynamicTypeSize.isAccessibilitySize == false {
-                    countdownBadge
-                }
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 14)
-            .frame(minHeight: 64)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.lifeBoardClay(.raised, cornerRadius: Radius.largeCard))
-        // A Life Moment is literally a memory, which is what DESIGN.md reserves
-        // `memoryDevelopReveal` for. Claimed once per card per window session so
-        // it develops when the card first arrives and never again on scroll —
-        // repeated rows stay quiet.
-        .lifeboardMemoryDevelopReveal(progress: developProgress)
-        // The dissolve runs only after the repository delete resolves. A card
-        // that erodes ahead of a failing write is a lie about the data.
-        .lifeboardDissolveAway(
-            progress: dissolveProgress,
-            tint: Color(SemanticColorTokens.foundationApricotAccent)
-        )
-        .lifeBoardScrollEntrance(intensity: 0.7)
-        .task {
-            guard transitions?.claimOneShot("lifeMoment.develop.\(moment.id)") == true else { return }
-            developProgress = 0
-            withAnimation(.easeOut(duration: 0.7)) { developProgress = 1 }
-        }
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(Text("\(moment.title), \(moment.eventDate.formatted(date: .abbreviated, time: .omitted)), \(countdown.label)"))
-        .accessibilityAction(named: Text("Archive"), archive)
-        .accessibilityAction(named: Text("Delete"), performDelete)
-        .contextMenu {
-            Button("Archive", systemImage: "archivebox", action: archive)
-            Button("Delete", systemImage: "trash", role: .destructive, action: performDelete)
-        }
-    }
-
-    /// Persist first, then dissolve. The caller's `delete` closure owns the
-    /// repository write; the erosion is only the receipt of it.
-    private func performDelete() {
-        delete()
-        withAnimation(.easeIn(duration: 0.42)) { dissolveProgress = 1 }
-    }
-
-    private var countdownBadge: some View {
-        Text(countdown.label)
-            .font(.lifeboard(.bodyStrong))
-            .monospacedDigit()
-            .foregroundStyle(
-                Color(countdown.isPast
-                    ? SemanticColorTokens.inkTertiary
-                    : SemanticColorTokens.inkPrimary)
-            )
-            .lineLimit(1)
-            .padding(.horizontal, 12)
-            .frame(minHeight: 34)
-            .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
-            .accessibilityHidden(true)
-    }
-}
-
-private struct LifeMomentComposer: View {
-    let existing: LifeMoment?
-    let onSave: (LifeMoment) -> Void
+private struct WorkoutCaptureView: View {
+    let existing: WorkoutRecord?
+    let onSave: (WorkoutRecord) -> Void
     @Environment(\.dismiss) private var dismiss
-    @State private var title: String
-    @State private var date: Date
-    @State private var kind: LifeMomentKind
-    @State private var recurrence: LifeMomentRecurrenceRule
+    @State private var activity: String
+    @State private var startedAt: Date
+    @State private var endedAt: Date
+    @State private var distanceKilometers: Double
+    @State private var energyKilocalories: Double
     @State private var note: String
-    @State private var homeDisplay: Bool
-    @State private var successTrigger = 0
-    init(existing: LifeMoment?, onSave: @escaping (LifeMoment) -> Void) {
-        self.existing = existing; self.onSave = onSave
-        _title = State(initialValue: existing?.title ?? ""); _date = State(initialValue: existing?.eventDate ?? Date())
-        _kind = State(initialValue: existing?.kind ?? .countdown); _recurrence = State(initialValue: existing?.recurrenceRule ?? .none)
-        _note = State(initialValue: existing?.note ?? ""); _homeDisplay = State(initialValue: existing?.permitsHomeDisplay ?? false)
+    @State private var errorMessage: String?
+
+    init(existing: WorkoutRecord?, onSave: @escaping (WorkoutRecord) -> Void) {
+        self.existing = existing
+        self.onSave = onSave
+        let now = Date()
+        _activity = State(initialValue: existing?.activityKind ?? "")
+        _startedAt = State(initialValue: existing?.startedAt ?? now.addingTimeInterval(-3_600))
+        _endedAt = State(initialValue: existing?.endedAt ?? now)
+        _distanceKilometers = State(initialValue: (existing?.distanceMeters ?? 0) / 1_000)
+        _energyKilocalories = State(initialValue: existing?.energyKilocalories ?? 0)
+        _note = State(initialValue: existing?.note ?? "")
     }
+
     var body: some View {
         ComposerScaffold(
-            title: existing == nil ? "New Moment" : "Edit Moment",
-            subtitle: "A date worth keeping close.",
+            title: existing == nil ? "Add Workout" : "Edit Workout",
+            subtitle: "A factual record of what you did.",
             confirmTitle: "Save",
-            isConfirmEnabled: title.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false,
-            identifier: "lifeMoment.composer",
+            isConfirmEnabled: activity.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false && endedAt >= startedAt,
+            identifier: "wellness.workout.capture",
             onConfirm: save
         ) {
-            MomentDetailSection(title: $title, date: $date, kind: $kind)
-            MomentRepeatSection(recurrence: $recurrence)
-            MomentPrivacySection(homeDisplay: $homeDisplay)
-            MomentNoteSection(note: $note)
+            ComposerSection("Workout") {
+                ComposerField("Activity", prompt: "Walk, run, strength…", text: $activity, identifier: "wellness.workout.activity")
+                DateCapsuleRow("Started", selection: $startedAt, identifier: "wellness.workout.started")
+                DateCapsuleRow("Ended", selection: $endedAt, minimum: startedAt, identifier: "wellness.workout.ended")
+                ComposerNumberField("Distance", value: $distanceKilometers, unit: "km", identifier: "wellness.workout.distance")
+                ComposerNumberField("Active energy", value: $energyKilocalories, unit: "kcal", identifier: "wellness.workout.energy")
+                ComposerField("Note", prompt: "Optional context", text: $note, shape: .prose(lineLimit: 2...5), identifier: "wellness.workout.note")
+            }
+            CaptureErrorSection(message: errorMessage)
         }
-        .lifeboardCompletionBurst(trigger: successTrigger)
     }
 
     private func save() {
-        guard let value = try? LifeMoment(
-            id: existing?.id ?? UUID(),
-            title: title,
-            kind: kind,
-            eventDate: date,
-            recurrenceRule: recurrence,
-            note: note,
-            sensitivity: existing?.sensitivity ?? .privateStandard,
-            permitsHomeDisplay: homeDisplay,
-            createdAt: existing?.createdAt ?? Date(),
-            updatedAt: Date()
-        ) else { return }
-        onSave(value)
-        successTrigger &+= 1
-        dismiss()
+        do {
+            let value = try WorkoutRecord(
+                id: existing?.id ?? UUID(),
+                activityKind: activity,
+                startedAt: startedAt,
+                endedAt: endedAt,
+                energyKilocalories: energyKilocalories > 0 ? energyKilocalories : nil,
+                distanceMeters: distanceKilometers > 0 ? distanceKilometers * 1_000 : nil,
+                source: .manual,
+                note: note,
+                createdAt: existing?.createdAt ?? Date(),
+                updatedAt: Date()
+            )
+            onSave(value)
+            dismiss()
+        } catch { errorMessage = error.localizedDescription }
     }
 }
 
-private struct MomentDetailSection: View {
-    @Binding var title: String
-    @Binding var date: Date
-    @Binding var kind: LifeMomentKind
+private struct SleepNoteCaptureView: View {
+    let existing: SleepNote?
+    let onSave: (SleepNote) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var startedAt: Date
+    @State private var endedAt: Date
+    @State private var quality: Int
+    @State private var note: String
+    @State private var errorMessage: String?
+
+    init(existing: SleepNote?, onSave: @escaping (SleepNote) -> Void) {
+        self.existing = existing
+        self.onSave = onSave
+        let now = Date()
+        _startedAt = State(initialValue: existing?.startedAt ?? now.addingTimeInterval(-8 * 3_600))
+        _endedAt = State(initialValue: existing?.endedAt ?? now)
+        _quality = State(initialValue: existing?.quality ?? 0)
+        _note = State(initialValue: existing?.note ?? "")
+    }
 
     var body: some View {
-        ComposerSection("Moment") {
-            ComposerField(
-                "Title",
-                prompt: "Anniversary, first day, the trip…",
-                text: $title,
-                showsLabel: false,
-                identifier: "lifeMoment.title"
-            )
-            DateCapsuleRow("Date", selection: $date)
-            OptionRail(
-                "Kind",
-                selection: $kind,
-                values: LifeMomentKind.allCases,
-                identifierPrefix: "lifeMoment.kind",
-                title: Self.kindTitle,
-                systemImage: { $0 == .countdown ? "hourglass" : "calendar.badge.heart" }
-            )
-        }
-    }
-
-    /// The raw value is a camel-cased identifier; `.capitalized` alone turned it
-    /// into "Recurringmeaningfulevent" on screen.
-    private static func kindTitle(_ kind: LifeMomentKind) -> String {
-        kind == .countdown ? "Countdown" : "Recurring event"
-    }
-}
-
-private struct MomentRepeatSection: View {
-    @Binding var recurrence: LifeMomentRecurrenceRule
-
-    private static let options: [LifeMomentRecurrenceRule] = [.none, .weekly, .monthly, .yearly]
-
-    var body: some View {
-        ComposerSection("Repeat") {
-            OptionRail(
-                "Recurrence",
-                selection: $recurrence,
-                values: Self.options,
-                identifierPrefix: "lifeMoment.recurrence",
-                title: Self.title,
-                showsLabel: false
-            )
-        }
-    }
-
-    private static func title(_ rule: LifeMomentRecurrenceRule) -> String {
-        switch rule {
-        case .weekly: "Weekly"
-        case .monthly: "Monthly"
-        case .yearly: "Yearly"
-        default: "Never"
-        }
-    }
-}
-
-private struct MomentPrivacySection: View {
-    @Binding var homeDisplay: Bool
-
-    var body: some View {
-        ComposerSection(
-            "Privacy",
-            footer: "The title and date stay off Home, widgets, and suggestions until enabled."
+        ComposerScaffold(
+            title: existing == nil ? "Add Sleep Note" : "Edit Sleep Note",
+            subtitle: "Describe the night without turning it into a score.",
+            confirmTitle: "Save",
+            isConfirmEnabled: endedAt >= startedAt,
+            identifier: "wellness.sleep.capture",
+            onConfirm: save
         ) {
-            Toggle("Allow date on Home", isOn: $homeDisplay)
-                .toggleStyle(.lifeBoardClay)
-                .accessibilityIdentifier("lifeMoment.homeDisplay")
+            ComposerSection("Sleep") {
+                DateCapsuleRow("Sleep time", selection: $startedAt, identifier: "wellness.sleep.started")
+                DateCapsuleRow("Wake time", selection: $endedAt, minimum: startedAt, identifier: "wellness.sleep.ended")
+                OptionRail(
+                    "Quality",
+                    selection: $quality,
+                    values: Array(0...5),
+                    identifierPrefix: "wellness.sleep.quality",
+                    title: { $0 == 0 ? "Not rated" : "\($0)" }
+                )
+                ComposerField("Note", prompt: "Optional context", text: $note, shape: .prose(lineLimit: 2...6), identifier: "wellness.sleep.note")
+            }
+            CaptureErrorSection(message: errorMessage)
         }
+    }
+
+    private func save() {
+        do {
+            let value = try SleepNote(
+                id: existing?.id ?? UUID(),
+                startedAt: startedAt,
+                endedAt: endedAt,
+                quality: quality == 0 ? nil : quality,
+                note: note,
+                source: .manual,
+                capturedTimeZone: existing.flatMap { TimeZone(identifier: $0.capturedTimeZoneIdentifier) } ?? .autoupdatingCurrent,
+                createdAt: existing?.createdAt ?? Date(),
+                updatedAt: Date()
+            )
+            onSave(value)
+            dismiss()
+        } catch { errorMessage = error.localizedDescription }
     }
 }
 
-private struct MomentNoteSection: View {
-    @Binding var note: String
+private struct MovementCaptureView: View {
+    let existing: MovementContextRecord?
+    let onSave: (MovementContextRecord) -> Void
+    @Environment(\.dismiss) private var dismiss
+    @State private var startedAt: Date
+    @State private var endedAt: Date
+    @State private var steps: Double
+    @State private var distanceKilometers: Double
+    @State private var energyKilocalories: Double
+    @State private var errorMessage: String?
+
+    init(existing: MovementContextRecord?, onSave: @escaping (MovementContextRecord) -> Void) {
+        self.existing = existing
+        self.onSave = onSave
+        let now = Date()
+        _startedAt = State(initialValue: existing?.startedAt ?? Calendar.current.startOfDay(for: now))
+        _endedAt = State(initialValue: existing?.endedAt ?? now)
+        _steps = State(initialValue: Double(existing?.steps ?? 0))
+        _distanceKilometers = State(initialValue: (existing?.distanceMeters ?? 0) / 1_000)
+        _energyKilocalories = State(initialValue: existing?.activeEnergyKilocalories ?? 0)
+    }
+
+    private var hasMeasurement: Bool { steps > 0 || distanceKilometers > 0 || energyKilocalories > 0 }
 
     var body: some View {
-        ComposerSection("Note") {
-            ComposerField(
-                "Optional note",
-                prompt: "Why this one matters…",
-                text: $note,
-                shape: .prose(lineLimit: 2...6),
-                showsLabel: false
+        ComposerScaffold(
+            title: existing == nil ? "Add Movement" : "Edit Movement",
+            subtitle: "Record only the values you know.",
+            confirmTitle: "Save",
+            isConfirmEnabled: hasMeasurement && endedAt >= startedAt,
+            identifier: "wellness.movement.capture",
+            onConfirm: save
+        ) {
+            ComposerSection("Interval") {
+                DateCapsuleRow("Started", selection: $startedAt, identifier: "wellness.movement.started")
+                DateCapsuleRow("Ended", selection: $endedAt, minimum: startedAt, identifier: "wellness.movement.ended")
+            }
+            ComposerSection("Measurements", footer: "Enter at least one value. Zero or unknown fields are not saved.") {
+                ComposerNumberField("Steps", value: $steps, format: .number.precision(.fractionLength(0)), unit: "steps", identifier: "wellness.movement.steps")
+                ComposerNumberField("Distance", value: $distanceKilometers, unit: "km", identifier: "wellness.movement.distance")
+                ComposerNumberField("Active energy", value: $energyKilocalories, unit: "kcal", identifier: "wellness.movement.energy")
+            }
+            CaptureErrorSection(message: errorMessage)
+        }
+    }
+
+    private func save() {
+        do {
+            let value = try MovementContextRecord(
+                id: existing?.id ?? UUID(),
+                startedAt: startedAt,
+                endedAt: endedAt,
+                steps: steps > 0 ? Int(steps.rounded()) : nil,
+                distanceMeters: distanceKilometers > 0 ? distanceKilometers * 1_000 : nil,
+                activeEnergyKilocalories: energyKilocalories > 0 ? energyKilocalories : nil,
+                source: .manual,
+                createdAt: existing?.createdAt ?? Date(),
+                updatedAt: Date()
             )
+            onSave(value)
+            dismiss()
+        } catch { errorMessage = error.localizedDescription }
+    }
+}
+
+private struct CaptureErrorSection: View {
+    let message: String?
+
+    var body: some View {
+        if let message {
+            ComposerSection {
+                Label(message, systemImage: "exclamationmark.circle")
+                    .foregroundStyle(Color(SemanticColorTokens.foundationDanger))
+            }
         }
     }
 }
+
+private extension Comparable { func clamped(to range: ClosedRange<Self>) -> Self { min(max(self, range.lowerBound), range.upperBound) } }
