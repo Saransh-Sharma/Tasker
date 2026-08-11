@@ -140,7 +140,7 @@ struct ProjectManagementView: View {
                         }
                     }
                 }
-                .tag(entry.project.id)
+                .tag(entry.project.id).lifeBoardScrollEntrance(intensity: 0.55)
             }
             .onDelete(perform: deleteProjects)
         }

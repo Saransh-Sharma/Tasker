@@ -95,6 +95,7 @@ struct ProjectSelectionSheet: View {
                             toggleProjectPin(project.id)
                         }
                     )
+                    .lifeBoardScrollEntrance(intensity: 0.55)
                 }
             }
             .listStyle(.insetGrouped)
