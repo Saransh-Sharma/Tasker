@@ -5,10 +5,20 @@ import SwiftUI
 @MainActor @Observable
 final class LifeMomentsStore {
     private(set) var moments: [LifeMoment] = []
+    private(set) var isLoading = false
     var errorMessage: String?
     let repository: any LifeMomentRepository
     init(repository: any LifeMomentRepository) { self.repository = repository }
-    func load() async { do { moments = try await repository.moments(includeArchived: false); errorMessage = nil } catch { errorMessage = "Moments are unavailable right now." } }
+    func load() async {
+        isLoading = true
+        defer { isLoading = false }
+        do {
+            moments = try await repository.moments(includeArchived: false)
+            errorMessage = nil
+        } catch {
+            errorMessage = "Moments are unavailable right now."
+        }
+    }
     func save(_ value: LifeMoment) async { do { try await repository.save(value); await load(); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = error.localizedDescription } }
     func archive(_ value: LifeMoment) async { do { try await repository.archive(id: value.id, at: Date()); await load(); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = error.localizedDescription } }
     func delete(_ value: LifeMoment) async { do { try await repository.delete(id: value.id); await load(); SystemSurfaceRefresher.requestRefreshSoon() } catch { errorMessage = error.localizedDescription } }
@@ -16,10 +26,19 @@ final class LifeMomentsStore {
 
 struct LifeMomentsView: View {
     @State private var store: LifeMomentsStore
+    @State private var focus: LifeMomentsFocus
     @State private var showsComposer = false
     @State private var editing: LifeMoment?
     @State private var searchText = ""
-    init(repository: any LifeMomentRepository) { _store = State(initialValue: LifeMomentsStore(repository: repository)) }
+    @State private var didApplyInitialFocus = false
+
+    init(
+        repository: any LifeMomentRepository,
+        initialFocus: LifeMomentsFocus = .overview
+    ) {
+        _store = State(initialValue: LifeMomentsStore(repository: repository))
+        _focus = State(initialValue: initialFocus)
+    }
 
     private var filteredMoments: [LifeMoment] {
         let query = searchText.trimmingCharacters(in: .whitespaces).lowercased()
@@ -56,28 +75,46 @@ struct LifeMomentsView: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 12) {
-                if store.moments.isEmpty {
+                if store.isLoading, store.moments.isEmpty {
+                    ProgressView("Loading moments")
+                        .frame(maxWidth: .infinity, minHeight: 180)
+                } else if let error = store.errorMessage, store.moments.isEmpty {
+                    ContentUnavailableView(
+                        "Moments are unavailable",
+                        systemImage: "exclamationmark.triangle",
+                        description: Text(error)
+                    )
+                    Button("Try again") { Task { await store.load() } }
+                        .buttonStyle(.borderedProminent)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                } else if case .moment(let id) = focus,
+                          let moment = store.moments.first(where: { $0.id == id }) {
+                    LifeMomentFocusedDetail(moment: moment) {
+                        editing = moment
+                        showsComposer = true
+                    }
+                    momentsList(omitting: id)
+                } else if case .moment = focus {
+                    ContentUnavailableView(
+                        "Moment unavailable",
+                        systemImage: "archivebox",
+                        description: Text("It may have been archived or removed.")
+                    )
+                    Button("View all moments") { focus = .overview }
+                        .buttonStyle(.borderedProminent)
+                        .frame(maxWidth: .infinity, minHeight: 44)
+                } else if store.moments.isEmpty {
                     ContentUnavailableView(
                         "Keep a meaningful date close",
                         systemImage: "sparkles",
                         description: Text("Countdowns and anniversaries stay private unless you allow Home display.")
                     )
                     .padding(.top, 40)
+                    Button("Add moment") { editing = nil; showsComposer = true }
+                        .buttonStyle(.borderedProminent)
+                        .frame(maxWidth: .infinity, minHeight: 48)
                 } else {
-                    Text("Meaningful moments")
-                        .font(Typography.sectionTitle())
-                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
-                        .padding(.horizontal, 4)
-                }
-                ForEach(filteredMoments) { moment in
-                    LifeMomentCard(moment: moment) {
-                        editing = moment
-                        showsComposer = true
-                    } archive: {
-                        Task { await store.archive(moment) }
-                    } delete: {
-                        Task { await store.delete(moment) }
-                    }
+                    momentsList(omitting: nil)
                 }
             }
             .padding(.horizontal, 20)
@@ -99,8 +136,79 @@ struct LifeMomentsView: View {
                 Button("Add moment", systemImage: "plus") { editing = nil; showsComposer = true }
             }
         }
-        .task { await store.load() }
+        .task {
+            await store.load()
+            guard didApplyInitialFocus == false else { return }
+            didApplyInitialFocus = true
+            if focus == .add {
+                editing = nil
+                showsComposer = true
+            }
+        }
         .sheet(isPresented: $showsComposer) { LifeMomentComposer(existing: editing) { value in Task { await store.save(value) } } }
+    }
+
+    @ViewBuilder
+    private func momentsList(omitting omittedID: UUID?) -> some View {
+        Text("Meaningful moments")
+            .font(Typography.sectionTitle())
+            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+            .padding(.horizontal, 4)
+        ForEach(filteredMoments.filter { $0.id != omittedID }) { moment in
+            LifeMomentCard(moment: moment) {
+                focus = .moment(moment.id)
+            } archive: {
+                Task { await store.archive(moment) }
+            } delete: {
+                Task { await store.delete(moment) }
+            }
+        }
+    }
+}
+
+private struct LifeMomentFocusedDetail: View {
+    let moment: LifeMoment
+    let edit: () -> Void
+
+    private var countdown: String {
+        guard let days = moment.calendarDaysUntilNextOccurrence(from: Date()) else { return "Past" }
+        if days == 0 { return "Today" }
+        if days == 1 { return "Tomorrow" }
+        return "\(days) days away"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(countdown)
+                .font(Typography.screenTitle())
+            Text(moment.title)
+                .font(Typography.sectionTitle())
+            LabeledContent("Date", value: moment.eventDate.formatted(date: .long, time: .omitted))
+            LabeledContent("Repeats", value: recurrenceTitle)
+            LabeledContent("Home", value: moment.permitsHomeDisplay ? "Allowed" : "Hidden")
+            if let note = moment.note, note.isEmpty == false {
+                Text(note)
+                    .font(.body)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            }
+            Button("Edit moment", systemImage: "pencil", action: edit)
+                .buttonStyle(.borderedProminent)
+                .frame(maxWidth: .infinity, minHeight: 48)
+                .accessibilityIdentifier("lifeMoment.edit")
+        }
+        .padding(20)
+        .lifeBoardClaySurface(.raised, cornerRadius: Radius.largeCard)
+        .accessibilityElement(children: .contain)
+    }
+
+    private var recurrenceTitle: String {
+        switch moment.recurrenceRule {
+        case .none: "Never"
+        case .weekly: "Weekly"
+        case .monthly: "Monthly"
+        case .yearly: "Yearly"
+        case .everyDays(let days): "Every \(days) days"
+        }
     }
 }
 
@@ -120,6 +228,7 @@ private struct LifeMomentCard: View {
     @Environment(\.lifeBoardTransitionCoordinator) private var transitions
     @State private var developProgress: Double = 1
     @State private var dissolveProgress: Double = 0
+    @State private var confirmsDelete = false
 
     private var countdown: (label: String, isPast: Bool) {
         guard let days = moment.calendarDaysUntilNextOccurrence(from: Date()) else {
@@ -184,13 +293,25 @@ private struct LifeMomentCard: View {
             Button("Archive", systemImage: "archivebox", action: archive)
             Button("Delete", systemImage: "trash", role: .destructive, action: performDelete)
         }
+        .confirmationDialog(
+            "Delete this moment?",
+            isPresented: $confirmsDelete,
+            titleVisibility: .visible
+        ) {
+            Button("Delete moment", role: .destructive) {
+                delete()
+                withAnimation(.easeIn(duration: 0.42)) { dissolveProgress = 1 }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This removes the moment from LifeBoard.")
+        }
     }
 
     /// Persist first, then dissolve. The caller's `delete` closure owns the
     /// repository write; the erosion is only the receipt of it.
     private func performDelete() {
-        delete()
-        withAnimation(.easeIn(duration: 0.42)) { dissolveProgress = 1 }
+        confirmsDelete = true
     }
 
     private var countdownBadge: some View {
