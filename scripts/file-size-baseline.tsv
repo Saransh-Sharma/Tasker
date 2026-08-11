@@ -44,14 +44,24 @@
 # `@Environment(\.lifeboardTokens)` instead — one line added, one singleton
 # reference removed. Type sizes are unchanged except where the property
 # sits inside the largest type.
+# 2026-08-11, health-first summaries: the read-only Health metrics boundary,
+# Nutrition/Wellness resolvers, the Fasting destination, and wellness/nutrition/
+# fasting deep links grew nine rows. LifeBoardPhaseVIViews was measured mid-
+# extraction (1558) and landed at 2410 once the WellnessView/NutritionView
+# health wiring was committed, so its row is a correction, not growth.
+# 2026-08-11, cross-root route transactions: routines/goals/moments destination
+# views, the acknowledged-leaf navigation protocol, and resolved Home card
+# routes grew five more rows (projection store, track store, track views,
+# gallery, models). Largest-type columns are unchanged; the growth is additive
+# declaration count from the new destination and composer types.
 LifeBoard/AppDelegate.swift	2056	15	1666
 LifeBoard/DesignSystem/ComposerScaffold.swift	623	13	106
-LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift	665	1	655
+LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift	672	1	662
 LifeBoard/DesignSystem/ScreenScaffold.swift	423	14	97
 LifeBoard/DesignSystem/LifeBoardSignatureEffects.swift	1946	52	145
 LifeBoard/DesignSystem/LifeBoardValueControls.swift	804	8	178
 LifeBoard/Features/DailyLoop/Data/DayCloseStore.swift	618	3	572
-LifeBoard/Features/DailyLoop/Data/HomeLifeOSProjectionStore.swift	941	4	827
+LifeBoard/Features/DailyLoop/Data/HomeLifeOSProjectionStore.swift	1008	4	875
 LifeBoard/Features/DailyLoop/UI/LifeBoardDayCloseViews.swift	948	5	705
 LifeBoard/Features/Eva/ChatHostViewController.swift	1374	10	885
 LifeBoard/Features/Eva/Models/AISuggestionService.swift	572	11	549
@@ -75,8 +85,8 @@ LifeBoard/Features/Eva/Views/Onboarding/EvaActivationComponents.swift	546	14	82
 LifeBoard/Features/Eva/Views/Shared/EvaMediaView.swift	844	22	106
 LifeBoard/Features/Health/HealthSync/HealthKitGateway.swift	689	5	598
 LifeBoard/Features/Health/HealthSync/HealthSyncLedger.swift	582	7	430
-LifeBoard/Features/Health/HealthSync/HealthSyncModels.swift	515	24	80
-LifeBoard/Features/Health/UI/LifeBoardPhaseVIViews.swift	1558	19	366
+LifeBoard/Features/Health/HealthSync/HealthSyncModels.swift	548	26	80
+LifeBoard/Features/Health/UI/LifeBoardPhaseVIViews.swift	2410	25	723
 LifeBoard/Features/Plan/UI/Inbox/InboxView.swift	1366	6	647
 LifeBoard/Features/Journal/Data/LifeBoardPhaseIIPersistence.swift	1997	16	1395
 LifeBoard/Features/Journal/Domain/LifeBoardJournalDerivedIndex.swift	555	3	547
@@ -86,7 +96,7 @@ LifeBoard/Features/Knowledge/UI/LifeBoardKnowledgeCompletion.swift	1629	31	304
 LifeBoard/Features/Knowledge/UI/LifeBoardKnowledgeViews.swift	3043	17	949
 LifeBoard/Features/Knowledge/UI/KnowledgeStore.swift	712	3	698
 LifeBoard/Features/Nutrition/Data/NutritionLifeMomentsPersistence.swift	596	2	505
-LifeBoard/Features/Nutrition/Domain/NutritionModels.swift	1110	34	164
+LifeBoard/Features/Nutrition/Domain/NutritionModels.swift	1267	37	164
 LifeBoard/Features/Onboarding/Models/StarterWorkspaceCatalog.swift	1996	1	1988
 LifeBoard/Features/Plan/Data/PlanningCorePersistence.swift	1085	7	819
 LifeBoard/Features/Plan/Domain/PlanStore+WeeklyWorkspace.swift	447	0	437
@@ -95,17 +105,17 @@ LifeBoard/Features/Plan/Domain/PlanningCoreModels.swift	1396	75	118
 LifeBoard/Features/Plan/Domain/PlanningCoreServices.swift	957	15	218
 LifeBoard/Features/Plan/Domain/TaskExecutionContracts.swift	1910	25	467
 LifeBoard/Features/Track/Data/TrackFoundationPersistence.swift	999	7	794
-LifeBoard/Features/Track/Domain/TrackFoundationModels.swift	1864	94	148
+LifeBoard/Features/Track/Domain/TrackFoundationModels.swift	1866	94	148
 LifeBoard/Features/Track/Domain/TrackFoundationServices.swift	1028	15	115
-LifeBoard/Features/Track/UI/LifeBoardTrackFoundationViews.swift	4488	75	376
-LifeBoard/Features/Track/UI/TrackFoundationStore.swift	1266	7	1137
+LifeBoard/Features/Track/UI/LifeBoardTrackFoundationViews.swift	5272	79	376
+LifeBoard/Features/Track/UI/TrackFoundationStore.swift	1268	7	1139
 LifeBoard/Features/Weekly/Domain/WeeklyPlanningWorkspace.swift	867	29	90
 LifeBoard/Features/Weekly/UI/WeeklyPlanningWorkspaceView.swift	2397	27	512
-LifeBoard/Features/Wellness/Domain/WellnessCoreModels.swift	887	26	187
+LifeBoard/Features/Wellness/Domain/WellnessCoreModels.swift	1065	29	276
 LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift	1393	29	273
-LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift	5017	60	1101
+LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift	5140	62	1106
 LifeBoard/Foundation/LifeOSFoundationContracts.swift	3095	133	209
-LifeBoard/Foundation/Navigation/AppRouter.swift	835	10	477
+LifeBoard/Foundation/Navigation/AppRouter.swift	971	13	584
 LifeBoard/Foundation/Navigation/FoundationShell.swift	7112	56	2120
 LifeBoard/Persistence/Repositories/DashboardLayoutRepository.swift	631	13	234
 LifeBoard/LifeBoardDesign/HomeScreen.swift	1823	11	1405
