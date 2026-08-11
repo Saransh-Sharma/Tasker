@@ -133,6 +133,7 @@ final class HomeLifeOSProjectionStore {
     private let wellnessRepository: (any WellnessRepository)?
     private let nutritionRepository: (any NutritionRepository)?
     private let lifeMomentRepository: (any LifeMomentRepository)?
+    private let healthMetrics: (any HealthMetricsReading)?
 
     init(
         planningRepository: CoreDataPlanningRepository?,
@@ -142,6 +143,7 @@ final class HomeLifeOSProjectionStore {
         wellnessRepository: (any WellnessRepository)? = nil,
         nutritionRepository: (any NutritionRepository)? = nil,
         lifeMomentRepository: (any LifeMomentRepository)? = nil,
+        healthMetrics: (any HealthMetricsReading)? = nil,
         rankingService: any FocusRankingService = DeterministicFocusRankingService(),
         taskAgendaDate: Date = Date()
     ) {
@@ -171,6 +173,7 @@ final class HomeLifeOSProjectionStore {
         self.wellnessRepository = wellnessRepository
         self.nutritionRepository = nutritionRepository
         self.lifeMomentRepository = lifeMomentRepository
+        self.healthMetrics = healthMetrics
         self.rankingService = rankingService
     }
 
@@ -243,16 +246,25 @@ final class HomeLifeOSProjectionStore {
             activeFast = nil
             latestEndedFast = nil
         }
+        let now = Date()
+        let localMealAt: Date?
         if let nutritionRepository {
-            let now = Date()
             let oneDayAgo = now.addingTimeInterval(-HomeFastingAnchorPolicy.recentMealWindow)
-            recentMealAt = try? await nutritionRepository
+            localMealAt = try? await nutritionRepository
                 .logs(from: oneDayAgo, to: now.addingTimeInterval(1))
                 .first?
                 .loggedAt
         } else {
-            recentMealAt = nil
+            localMealAt = nil
         }
+        let externalMealAt = await healthMetrics?
+            .currentSnapshot(now: now)
+            .aggregates[.dietaryEnergy]?
+            .lastSampleAt
+        recentMealAt = HealthFastingSuggestion.latestStart(
+            localMealAt: localMealAt,
+            externalDietaryEnergyAt: externalMealAt
+        )
         activeFocusSession = planStore?.activeFocusSession
         rebuildTaskAgenda()
         rebuildDrift()
@@ -437,7 +449,14 @@ final class HomeLifeOSProjectionStore {
                 (.bodyMetric, .bodyMetric(.bodyMass)), (.workout, .workouts), (.sleep, .sleep), (.movement, .movement)
             ]
             providers += focuses.compactMap { kind, focus in
-                registry.descriptor(for: kind).map { WellnessHomeCardSource(definition: $0, focus: focus, repository: wellnessRepository) }
+                registry.descriptor(for: kind).map {
+                    WellnessHomeCardSource(
+                        definition: $0,
+                        focus: focus,
+                        repository: wellnessRepository,
+                        healthMetrics: healthMetrics
+                    )
+                }
             }
         }
         if let nutritionRepository {
@@ -445,7 +464,14 @@ final class HomeLifeOSProjectionStore {
                 (.nutritionSummary, .dailySummary), (.recentMeal, .recentMeal), (.logMeal, .logMeal)
             ]
             providers += focuses.compactMap { kind, focus in
-                registry.descriptor(for: kind).map { NutritionHomeCardSource(definition: $0, focus: focus, repository: nutritionRepository) }
+                registry.descriptor(for: kind).map {
+                    NutritionHomeCardSource(
+                        definition: $0,
+                        focus: focus,
+                        repository: nutritionRepository,
+                        healthMetrics: healthMetrics
+                    )
+                }
             }
         }
         if let lifeMomentRepository, let definition = registry.descriptor(for: .lifeMoment) {
