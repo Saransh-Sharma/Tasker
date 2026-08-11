@@ -2035,6 +2035,9 @@ final class LifeOSFoundationContractTests: XCTestCase {
 
     func testActionableHomeHealthWidgetsResolveToExactTypedLeaves() {
         let expected: [(DashboardWidgetKind, AppRoute)] = [
+            (.goals, .goals),
+            (.routines, .routines(.library)),
+            (.lifeMoment, .lifeMoments(.overview)),
             (.sleep, .wellness(.sleep)),
             (.movement, .wellness(.movement)),
             (.workout, .wellness(.workouts)),
@@ -2052,6 +2055,45 @@ final class LifeOSFoundationContractTests: XCTestCase {
             )
         }
         XCTAssertNil(HomeWidgetRouteResolver.route(for: .tasks))
+    }
+
+    func testRemainingHomeWidgetsResolveEntityAndDaypartTargets() {
+        let goalID = UUID()
+        let momentID = UUID()
+        let snapshot = HomeCardSnapshot(availability: .ready, title: "Card")
+
+        let goal = HomeWidgetRouteResolver.target(
+            for: .goals,
+            resolution: .init(
+                snapshot: snapshot,
+                primaryRoute: .goal(goalID),
+                primaryActionTitle: "View goal"
+            ),
+            daypart: .morning
+        )
+        XCTAssertEqual(goal, .init(route: .goal(goalID), actionTitle: "View goal"))
+
+        let moment = HomeWidgetRouteResolver.target(
+            for: .lifeMoment,
+            resolution: .init(
+                snapshot: snapshot,
+                primaryRoute: .lifeMoments(.moment(momentID)),
+                primaryActionTitle: "View moment"
+            ),
+            daypart: .night
+        )
+        XCTAssertEqual(moment, .init(route: .lifeMoments(.moment(momentID)), actionTitle: "View moment"))
+
+        for daypart in ResolvedDaypart.allCases {
+            XCTAssertEqual(
+                HomeWidgetRouteResolver.target(for: .routines, resolution: nil, daypart: daypart)?.route,
+                .routines(.daypart(daypart))
+            )
+        }
+        XCTAssertEqual(
+            HomeWidgetRouteResolver.target(for: .logMeal, resolution: nil, daypart: .afternoon)?.route,
+            .nutrition(.logMeal)
+        )
     }
 
     func testNutritionInitialFocusPresentsLogMealExactlyOncePerDestinationVisit() {
@@ -2328,6 +2370,33 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertTrue(router.path(for: .track).isEmpty)
     }
 
+    @MainActor
+    func testPendingLeafRejectsStaleStackWriteUntilDestinationAppears() throws {
+        let suite = "LifeOSFoundationTests.PendingLeaf.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let router = AppRouter(defaults: defaults)
+
+        router.openLeaf(.nutrition(.logMeal), in: .track)
+        XCTAssertEqual(router.path(for: .track), [.nutrition(.logMeal)])
+        XCTAssertNotNil(router.pendingRouteRequest)
+
+        router.setPath([], for: .track)
+        XCTAssertEqual(
+            router.path(for: .track),
+            [.nutrition(.logMeal)],
+            "The newly selected Track stack must not erase the requested leaf"
+        )
+
+        router.openLeaf(.goals, in: .track)
+        XCTAssertEqual(router.path(for: .track), [.goals], "The latest request wins")
+        router.acknowledgeRouteAppearance(.goals, in: .track)
+        XCTAssertNil(router.pendingRouteRequest)
+
+        router.setPath([], for: .track)
+        XCTAssertTrue(router.path(for: .track).isEmpty, "Back works after acknowledgement")
+    }
+
     func testJournalPrivacyPolicyDefaultsPrivateAndRecoversMalformedStorage() throws {
         let suite = "LifeOSFoundationTests.JournalPrivacy.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -2432,6 +2501,43 @@ final class LifeOSFoundationContractTests: XCTestCase {
             XCTAssertEqual(router.selectedDestination, .track)
             XCTAssertEqual(router.path(for: .track), [expectedRoute])
         }
+    }
+
+    @MainActor
+    func testGoalRoutineAndMomentDeepLinksResolveToExactTrackLeaves() throws {
+        let suite = "LifeOSFoundationRemainingDeepLinkTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let router = AppRouter(defaults: defaults)
+        let goalID = UUID()
+        let routineID = UUID()
+        let momentID = UUID()
+        let links: [(String, AppRoute)] = [
+            ("lifeboard://goals", .goals),
+            ("lifeboard://goal/\(goalID.uuidString)", .goal(goalID)),
+            ("lifeboard://routines", .routines(.library)),
+            ("lifeboard://routines?daypart=morning", .routines(.daypart(.morning))),
+            ("lifeboard://routines?daypart=afternoon", .routines(.daypart(.afternoon))),
+            ("lifeboard://routines?daypart=evening", .routines(.daypart(.evening))),
+            ("lifeboard://routines?daypart=night", .routines(.daypart(.night))),
+            ("lifeboard://routine/\(routineID.uuidString)", .routine(routineID)),
+            ("lifeboard://moments", .lifeMoments(.overview)),
+            ("lifeboard://moments/add", .lifeMoments(.add)),
+            ("lifeboard://moment/\(momentID.uuidString)", .lifeMoments(.moment(momentID)))
+        ]
+
+        for (rawURL, expectedRoute) in links {
+            XCTAssertTrue(router.handle(url: try XCTUnwrap(URL(string: rawURL))))
+            XCTAssertEqual(router.selectedDestination, .track)
+            XCTAssertEqual(router.path(for: .track), [expectedRoute])
+        }
+
+        XCTAssertTrue(router.handle(url: try XCTUnwrap(URL(string: "lifeboard://goal/not-a-uuid"))))
+        XCTAssertEqual(router.path(for: .track), [.goals])
+        XCTAssertTrue(router.handle(url: try XCTUnwrap(URL(string: "lifeboard://routine/not-a-uuid"))))
+        XCTAssertEqual(router.path(for: .track), [.routines(.library)])
+        XCTAssertTrue(router.handle(url: try XCTUnwrap(URL(string: "lifeboard://moment/not-a-uuid"))))
+        XCTAssertEqual(router.path(for: .track), [.lifeMoments(.overview)])
     }
 
     @MainActor
@@ -2560,7 +2666,9 @@ final class LifeOSFoundationContractTests: XCTestCase {
         let id = UUID()
         let routes: [AppRoute] = [
             .taskDetail(id), .habitBoard, .habitLibrary, .habitDetail(id), .trackerDetail(id), .careLibrary,
-            .project(id), .routine(id), .goal(id), .journalDay(id), .journalSearch,
+            .project(id), .routines(.library), .routines(.daypart(.night)), .routine(id),
+            .goals, .goal(id), .lifeMoments(.overview), .lifeMoments(.moment(id)), .lifeMoments(.add),
+            .journalDay(id), .journalSearch,
             .weeklyReflection(Date(timeIntervalSince1970: 1_789_344_000)),
             .notesLibrary(.library(.init(collection: .recent, searchText: "idea"))), .note(id),
             .knowledgeFolder(id), .planDay, .planWeek, .backlog, .focusSession(id),
