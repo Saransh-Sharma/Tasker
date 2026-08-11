@@ -1807,7 +1807,7 @@ struct AdaptiveHome: View {
 
     private func openWidget(_ kind: DashboardWidgetKind) {
         if let route = HomeWidgetRouteResolver.route(for: kind) {
-            router.navigateReplacingPath(route, in: .track)
+            router.openLeaf(route, in: .track)
             return
         }
         switch kind {
@@ -3179,8 +3179,10 @@ private struct HomeDashboardWidget: View {
                 if preset == .compact {
                     HomeGlanceWidget(
                         kind: kind,
+                        daypart: daypart,
                         store: store,
                         lifeOSStore: lifeOSStore,
+                        router: router,
                         palette: palette,
                         onOpenWidget: onOpenWidget
                     )
@@ -3272,6 +3274,7 @@ private struct HomeDashboardWidget: View {
         HomeArchetypeWidget(
             kind: kind,
             preset: preset,
+            daypart: daypart,
             palette: palette,
             store: store,
             lifeOSStore: lifeOSStore,
@@ -3372,6 +3375,7 @@ private struct HomeDashboardWidget: View {
 private struct HomeArchetypeWidget: View {
     let kind: DashboardWidgetKind
     let preset: WidgetSizePreset
+    let daypart: ResolvedDaypart
     let palette: DaypartPalette
     let store: AdaptiveHomeStore
     let lifeOSStore: HomeLifeOSProjectionStore
@@ -3382,8 +3386,14 @@ private struct HomeArchetypeWidget: View {
 
     var body: some View {
         let descriptor = store.registry.descriptor(for: kind)
+        let resolution = lifeOSStore.cardResolution(kind: kind, size: preset)
+        let target = HomeWidgetRouteResolver.target(
+            for: kind,
+            resolution: resolution,
+            daypart: daypart
+        )
         HomeCardBody(
-            snapshot: lifeOSStore.cardSnapshot(kind: kind, size: preset),
+            snapshot: relabeledSnapshot(resolution?.snapshot ?? lifeOSStore.cardSnapshot(kind: kind, size: preset), target: target),
             archetype: descriptor?.archetype ?? .queue,
             preset: preset,
             palette: palette,
@@ -3394,32 +3404,68 @@ private struct HomeArchetypeWidget: View {
                 .applying(dashboardDensity)
                 .queueLimit,
             onAction: { action in
-                if HomeWidgetRouteResolver.route(for: kind) != nil {
-                    onOpenWidget(kind)
+                if let target {
+                    router.openLeaf(target.route, in: .track)
                 } else if let destination = action.destination {
                     router.select(destination)
                 } else {
                     onOpenWidget(kind)
                 }
             },
-            onOpen: { onOpenWidget(kind) }
+            onOpen: {
+                if let target {
+                    router.openLeaf(target.route, in: .track)
+                } else {
+                    onOpenWidget(kind)
+                }
+            }
         )
         .lifeBoardRaisedClayCard(palette: palette)
         .accessibilityHint("Opens the source")
+    }
+
+    private func relabeledSnapshot(
+        _ snapshot: HomeCardSnapshot?,
+        target: HomeWidgetOpenTarget?
+    ) -> HomeCardSnapshot? {
+        guard var snapshot, let target, snapshot.actions.isEmpty == false else { return snapshot }
+        snapshot.actions = snapshot.actions.enumerated().map { index, action in
+            guard index == 0 else { return action }
+            return HomeCardActionDescriptor(
+                id: action.id,
+                title: target.actionTitle,
+                systemImage: action.systemImage,
+                role: action.role,
+                destination: action.destination,
+                requiresMutationPreview: action.requiresMutationPreview
+            )
+        }
+        return snapshot
     }
 }
 
 private struct HomeGlanceWidget: View {
     let kind: DashboardWidgetKind
+    let daypart: ResolvedDaypart
     let store: AdaptiveHomeStore
     let lifeOSStore: HomeLifeOSProjectionStore
+    let router: AppRouter
     let palette: DaypartPalette
     let onOpenWidget: (DashboardWidgetKind) -> Void
 
     var body: some View {
         let descriptor = store.registry.descriptor(for: kind)
+        let target = HomeWidgetRouteResolver.target(
+            for: kind,
+            resolution: lifeOSStore.cardResolution(kind: kind, size: .compact),
+            daypart: daypart
+        )
         Button {
-            onOpenWidget(kind)
+            if let target {
+                router.openLeaf(target.route, in: .track)
+            } else {
+                onOpenWidget(kind)
+            }
         } label: {
             HStack(spacing: 11) {
                 Image(systemName: descriptor?.systemImage ?? "square.grid.2x2")
@@ -3822,8 +3868,16 @@ private struct HomeRoutinesWidget: View {
         let dueRoutines = lifeOSStore.trackSnapshot?.dueRoutines ?? []
         let habitTitles = projectionAdapter.snapshot.recoveryHabits + projectionAdapter.snapshot.currentHabits
         VStack(alignment: .leading, spacing: 12) {
-            HomeWidgetTitle("\(daypart.rawValue.capitalized) routines", symbol: "repeat", palette: palette)
-                .accessibilityIdentifier("home.widget.routines")
+            Button {
+                openDaypart()
+            } label: {
+                HomeWidgetTitle("\(daypart.rawValue.capitalized) routines", symbol: "repeat", palette: palette)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("View \(daypart.rawValue) routines")
+            .accessibilityIdentifier("home.widget.routines")
             if hasTrackFoundationRepository == false {
                 HomeEmptyStateRow("Routines are unavailable right now", symbol: "exclamationmark.triangle", palette: palette)
             } else if lifeOSStore.isLoading, lifeOSStore.trackSnapshot == nil {
@@ -3833,7 +3887,7 @@ private struct HomeRoutinesWidget: View {
             } else {
                 ForEach(dueRoutines.prefix(router.dashboardMode == .lowEnergy ? 1 : 3)) { routine in
                     Button {
-                        router.navigate(.routine(routine.id), in: .home)
+                        router.openLeaf(.routine(routine.id), in: .track)
                     } label: {
                         HStack(spacing: 11) {
                             Image(systemName: "figure.mind.and.body")
@@ -3869,13 +3923,17 @@ private struct HomeRoutinesWidget: View {
                     .accessibilityIdentifier("home.routines.openHabitBoard")
                 }
             }
-            Button("Open routines") { router.select(.track) }
+            Button("View \(daypart.rawValue) routines") { openDaypart() }
                 .font(.subheadline.weight(.semibold))
                 .frame(minHeight: 44)
                 .accessibilityIdentifier("home.routines.open")
         }
         .padding(16)
         .lifeBoardRaisedClayCard(palette: palette)
+    }
+
+    private func openDaypart() {
+        router.openLeaf(.routines(.daypart(daypart)), in: .track)
     }
 }
 
@@ -4200,9 +4258,43 @@ private struct HomeFastingWidget: View {
 /// The product-owned mapping from a Home card to the typed leaf that owns its
 /// review and capture experience. Kept pure so route coverage cannot regress
 /// behind SwiftUI interaction tests alone.
+struct HomeWidgetOpenTarget: Equatable {
+    let route: AppRoute
+    let actionTitle: String
+}
+
 enum HomeWidgetRouteResolver {
+    static func target(
+        for kind: DashboardWidgetKind,
+        resolution: HomeCardResolution?,
+        daypart: ResolvedDaypart
+    ) -> HomeWidgetOpenTarget? {
+        if let route = resolution?.primaryRoute {
+            return HomeWidgetOpenTarget(
+                route: route,
+                actionTitle: resolution?.primaryActionTitle ?? "Open"
+            )
+        }
+        switch kind {
+        case .goals: return .init(route: .goals, actionTitle: "View goals")
+        case .routines: return .init(route: .routines(.daypart(daypart)), actionTitle: "View routines")
+        case .lifeMoment: return .init(route: .lifeMoments(.overview), actionTitle: "View moments")
+        case .logMeal: return .init(route: .nutrition(.logMeal), actionTitle: "Log meal")
+        case .nutritionSummary: return .init(route: .nutrition(.dailySummary), actionTitle: "View nutrition")
+        case .bodyMetric: return .init(route: .wellness(.bodyMetric(.bodyMass)), actionTitle: "View body metrics")
+        case .workout: return .init(route: .wellness(.workouts), actionTitle: "View workouts")
+        case .sleep: return .init(route: .wellness(.sleep), actionTitle: "View sleep")
+        case .movement: return .init(route: .wellness(.movement), actionTitle: "View movement")
+        case .fasting: return .init(route: .fasting, actionTitle: "View fasting")
+        default: return nil
+        }
+    }
+
     static func route(for kind: DashboardWidgetKind) -> AppRoute? {
         switch kind {
+        case .goals: .goals
+        case .routines: .routines(.library)
+        case .lifeMoment: .lifeMoments(.overview)
         case .bodyMetric: .wellness(.bodyMetric(.bodyMass))
         case .workout: .wellness(.workouts)
         case .sleep: .wellness(.sleep)
