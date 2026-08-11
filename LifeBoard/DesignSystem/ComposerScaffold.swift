@@ -347,7 +347,7 @@ public struct ComposerSection<Content: View>: View {
         detail: String? = nil,
         footer: String? = nil,
         depth: ClayDepth = .resting,
-        cornerRadius: CGFloat = 20,
+        cornerRadius: CGFloat? = nil,
         spacing: CGFloat = 12,
         @ViewBuilder content: () -> Content
     ) {
@@ -355,7 +355,10 @@ public struct ComposerSection<Content: View>: View {
         self.detail = detail
         self.footer = footer
         self.depth = depth
-        self.cornerRadius = cornerRadius
+        // Defaults to the depth's own radius rather than a hardcoded 20, which
+        // silently overrode the clay scale for all 51 composer sections in the
+        // app — none of which had ever asked for a different corner.
+        self.cornerRadius = cornerRadius ?? depth.cornerRadius
         self.spacing = spacing
         self.content = content()
     }
