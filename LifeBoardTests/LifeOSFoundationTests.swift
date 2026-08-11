@@ -17,6 +17,44 @@ private struct StubNutritionRemoteLookup: NutritionRemoteFoodLookingUp {
     }
 }
 
+private actor StubHealthMetricsReader: HealthMetricsReading {
+    private var snapshot: HealthMetricsSnapshot
+    private var histories: [HealthInsightDomain: [HealthMetric: [HealthAggregateValue]]]
+    private var automaticRefreshRequests = 0
+
+    init(
+        snapshot: HealthMetricsSnapshot = .init(),
+        histories: [HealthInsightDomain: [HealthMetric: [HealthAggregateValue]]] = [:]
+    ) {
+        self.snapshot = snapshot
+        self.histories = histories
+    }
+
+    func currentSnapshot(now: Date) -> HealthMetricsSnapshot { snapshot }
+
+    func cachedHistory(
+        domain: HealthInsightDomain,
+        range: HealthHistoryRange,
+        now: Date
+    ) -> [HealthMetric: [HealthAggregateValue]] {
+        histories[domain] ?? [:]
+    }
+
+    func requestAutomaticRefresh() {
+        automaticRefreshRequests += 1
+    }
+
+    func updates() -> AsyncStream<HealthSyncEvent> {
+        AsyncStream { $0.finish() }
+    }
+
+    func replaceSnapshot(_ value: HealthMetricsSnapshot) {
+        snapshot = value
+    }
+
+    func refreshRequestCount() -> Int { automaticRefreshRequests }
+}
+
 final class HomeFastingAnchorPolicyTests: XCTestCase {
     func testRecentMealWithinOneDayAnchorsAutomaticStart() async throws {
         let now = Date(timeIntervalSince1970: 2_000_000)
@@ -1995,6 +2033,301 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(router.path(for: .home), [.weeklyReflection(Date(timeIntervalSince1970: 0))])
     }
 
+    func testActionableHomeHealthWidgetsResolveToExactTypedLeaves() {
+        let expected: [(DashboardWidgetKind, AppRoute)] = [
+            (.sleep, .wellness(.sleep)),
+            (.movement, .wellness(.movement)),
+            (.workout, .wellness(.workouts)),
+            (.bodyMetric, .wellness(.bodyMetric(.bodyMass))),
+            (.logMeal, .nutrition(.logMeal)),
+            (.fasting, .fasting),
+            (.nutritionSummary, .nutrition(.dailySummary))
+        ]
+
+        for (widget, route) in expected {
+            XCTAssertEqual(
+                HomeWidgetRouteResolver.route(for: widget),
+                route,
+                "\(widget.rawValue) must open its actionable leaf"
+            )
+        }
+        XCTAssertNil(HomeWidgetRouteResolver.route(for: .tasks))
+    }
+
+    func testNutritionInitialFocusPresentsLogMealExactlyOncePerDestinationVisit() {
+        var logPresentation = NutritionInitialFocusPresentationState()
+        XCTAssertTrue(logPresentation.consume(.logMeal))
+        XCTAssertFalse(logPresentation.consume(.logMeal), "Dismissal or save must not reopen the composer")
+
+        var summaryPresentation = NutritionInitialFocusPresentationState()
+        XCTAssertFalse(summaryPresentation.consume(.dailySummary))
+        XCTAssertFalse(summaryPresentation.consume(.logMeal), "A mounted summary destination must not change focus later")
+
+        var restoredVisit = NutritionInitialFocusPresentationState()
+        XCTAssertTrue(restoredVisit.consume(.logMeal), "Restoring a fresh Log Meal route presents its composer once")
+    }
+
+    func testNutritionSummaryUsesAppleHealthWithoutDoubleCountingLocalMeals() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let local = try NutritionMacros(
+            calories: 500,
+            proteinGrams: 20,
+            carbohydrateGrams: 60,
+            fatGrams: 18
+        )
+        let status = HealthDomainStatus(
+            domain: .nutrition,
+            readRequestState: .receivingData,
+            signal: .recorded,
+            lastSuccessfulSync: now
+        )
+        let health = HealthMetricsSnapshot(
+            aggregates: [
+                .dietaryEnergy: HealthAggregateValue(metric: .dietaryEnergy, value: 300, start: now, end: now),
+                .dietaryProtein: HealthAggregateValue(metric: .dietaryProtein, value: 12, start: now, end: now)
+            ],
+            statuses: [.nutrition: status],
+            lastSuccessfulSync: now
+        )
+
+        let summary = HealthFirstNutritionSummaryResolver.resolve(
+            health: health,
+            local: local,
+            localUpdatedAt: now
+        )
+
+        XCTAssertEqual(summary.source, .appleHealth)
+        XCTAssertEqual(summary.calories, 300, "Local calories must not be added to Apple Health totals")
+        XCTAssertEqual(summary.proteinGrams, 12)
+        XCTAssertNil(summary.carbohydrateGrams, "Partial Health results stay partial instead of borrowing local fields")
+    }
+
+    func testNutritionSummaryFallsBackLocallyOnlyWhenHealthHasNoAggregate() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let local = try NutritionMacros(
+            calories: 500,
+            proteinGrams: 20,
+            carbohydrateGrams: 60,
+            fatGrams: 18
+        )
+        let noRecord = HealthMetricsSnapshot(
+            statuses: [.nutrition: HealthDomainStatus(
+                domain: .nutrition,
+                readRequestState: .requestCompleted,
+                signal: .noRecord
+            )]
+        )
+
+        let summary = HealthFirstNutritionSummaryResolver.resolve(
+            health: noRecord,
+            local: local,
+            localUpdatedAt: now
+        )
+
+        XCTAssertEqual(summary.source, .lifeBoard)
+        XCTAssertEqual(summary.calories, 500)
+        XCTAssertEqual(summary.proteinGrams, 20)
+    }
+
+    func testHealthFirstSummaryPreservesExplicitZeroPartialAndStaleCache() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let local = try NutritionMacros(
+            calories: 500,
+            proteinGrams: 20,
+            carbohydrateGrams: 60,
+            fatGrams: 18
+        )
+        let explicitZero = HealthMetricsSnapshot(
+            aggregates: [
+                .dietaryEnergy: HealthAggregateValue(metric: .dietaryEnergy, value: 0, start: now, end: now)
+            ],
+            statuses: [.nutrition: HealthDomainStatus(
+                domain: .nutrition,
+                readRequestState: .receivingData,
+                signal: .explicitZero
+            )]
+        )
+        let zeroSummary = HealthFirstNutritionSummaryResolver.resolve(
+            health: explicitZero,
+            local: local,
+            localUpdatedAt: now
+        )
+        XCTAssertEqual(zeroSummary.source, .appleHealth)
+        XCTAssertEqual(zeroSummary.calories, 0)
+
+        let partial = HealthMetricsSnapshot(
+            aggregates: [
+                .dietaryProtein: HealthAggregateValue(metric: .dietaryProtein, value: 12, start: now, end: now)
+            ],
+            statuses: [.nutrition: HealthDomainStatus(
+                domain: .nutrition,
+                readRequestState: .receivingData,
+                signal: .partial
+            )]
+        )
+        let partialSummary = HealthFirstNutritionSummaryResolver.resolve(
+            health: partial,
+            local: local,
+            localUpdatedAt: now
+        )
+        XCTAssertTrue(partialSummary.isPartial)
+        XCTAssertEqual(partialSummary.proteinGrams, 12)
+        XCTAssertNil(partialSummary.calories)
+
+        let staleMovement = HealthMetricsSnapshot(
+            aggregates: [
+                .steps: HealthAggregateValue(metric: .steps, value: 1_234, start: now, end: now)
+            ],
+            statuses: [.activity: HealthDomainStatus(
+                domain: .activity,
+                readRequestState: .receivingData,
+                signal: .stale
+            )]
+        )
+        let movement = HealthFirstMovementSummaryResolver.resolve(
+            health: staleMovement,
+            manual: [],
+            now: now
+        )
+        XCTAssertEqual(movement.source, .appleHealth)
+        XCTAssertEqual(movement.steps, 1_234)
+    }
+
+    func testMovementSummaryKeepsCustomRecordsSeparateFromAppleHealthTotals() throws {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let manual = try MovementContextRecord(
+            startedAt: now.addingTimeInterval(-600),
+            endedAt: now,
+            steps: 1_000,
+            distanceMeters: 700,
+            activeEnergyKilocalories: 45,
+            source: .manual,
+            createdAt: now,
+            updatedAt: now
+        )
+        let status = HealthDomainStatus(
+            domain: .activity,
+            readRequestState: .receivingData,
+            signal: .recorded,
+            lastSuccessfulSync: now
+        )
+        let health = HealthMetricsSnapshot(
+            aggregates: [
+                .steps: HealthAggregateValue(metric: .steps, value: 6_000, start: now, end: now),
+                .walkingRunningDistance: HealthAggregateValue(
+                    metric: .walkingRunningDistance,
+                    value: 4_200,
+                    start: now,
+                    end: now
+                )
+            ],
+            statuses: [.activity: status],
+            lastSuccessfulSync: now
+        )
+
+        let summary = HealthFirstMovementSummaryResolver.resolve(
+            health: health,
+            manual: [manual],
+            now: now
+        )
+
+        XCTAssertEqual(summary.source, .appleHealth)
+        XCTAssertEqual(summary.steps, 6_000, "Custom steps must not be added to Apple Health totals")
+        XCTAssertEqual(summary.distanceMeters, 4_200)
+        XCTAssertNil(summary.activeEnergyKilocalories)
+    }
+
+    @MainActor
+    func testNutritionDestinationRequestsAutomaticHealthRefreshOnAppearance() async {
+        let now = Date(timeIntervalSince1970: 2_000_000)
+        let reader = StubHealthMetricsReader(snapshot: HealthMetricsSnapshot(
+            aggregates: [
+                .dietaryEnergy: HealthAggregateValue(metric: .dietaryEnergy, value: 275, start: now, end: now)
+            ],
+            statuses: [.nutrition: HealthDomainStatus(
+                domain: .nutrition,
+                readRequestState: .receivingData,
+                signal: .recorded,
+                lastSuccessfulSync: now
+            )]
+        ))
+        let store = NutritionTimelineStore(
+            repository: InMemoryNutritionRepository(),
+            healthMetrics: reader
+        )
+
+        await store.prepareHealth(now: now)
+
+        let refreshRequestCount = await reader.refreshRequestCount()
+        XCTAssertEqual(refreshRequestCount, 1)
+        XCTAssertEqual(store.summary.source, .appleHealth)
+        XCTAssertEqual(store.summary.calories, 275)
+    }
+
+    @MainActor
+    func testNamedMealStaysPendingUntilAppleHealthInvalidatesNutrition() async throws {
+        let now = Date()
+        let reader = StubHealthMetricsReader(snapshot: HealthMetricsSnapshot(
+            statuses: [.nutrition: HealthDomainStatus(
+                domain: .nutrition,
+                readRequestState: .receivingData,
+                writeAuthorizations: [.dietaryEnergy: .authorized],
+                writeEnabled: true,
+                signal: .noRecord
+            )]
+        ))
+        let repository = InMemoryNutritionRepository()
+        let store = NutritionTimelineStore(repository: repository, healthMetrics: reader)
+        let macros = try NutritionMacros(
+            calories: 420,
+            proteinGrams: 18,
+            carbohydrateGrams: 55,
+            fatGrams: 14
+        )
+        let serving = try FoodServingDefinition(name: "serving", grams: 100)
+        let food = try FoodItem(name: "Dinner", macrosPer100Grams: macros, servings: [serving])
+
+        await store.prepareHealth(now: now)
+        await store.log(
+            food: food,
+            serving: serving,
+            quantity: 1,
+            slot: .dinner,
+            provenance: .manual,
+            sourceReference: nil
+        )
+
+        XCTAssertTrue(store.isUpdatingAppleHealth)
+        await store.applyHealthUpdate(HealthSyncEvent(
+            trigger: .outbox([.dietaryEnergy]),
+            metrics: [.dietaryEnergy],
+            completedAt: now,
+            isPartial: false
+        ))
+        XCTAssertFalse(store.isUpdatingAppleHealth)
+        XCTAssertEqual(store.entries.count, 1, "The named meal remains local after writeback confirmation")
+    }
+
+    @MainActor
+    func testHealthWidgetNavigationReplacesStaleTrackPathAndBackReturnsToRoot() async throws {
+        let suite = "LifeOSFoundationTests.HealthWidgetPathReplacement.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let router = AppRouter(defaults: defaults)
+
+        router.push(.journalSearch, in: .track)
+        router.push(.careLibrary, in: .track)
+        XCTAssertEqual(router.path(for: .track), [.journalSearch, .careLibrary])
+
+        let transition = router.navigateReplacingPath(.wellness(.sleep), in: .track)
+        await transition.value
+
+        XCTAssertEqual(router.selectedDestination, .track)
+        XCTAssertEqual(router.path(for: .track), [.wellness(.sleep)])
+        router.pop(in: .track)
+        XCTAssertTrue(router.path(for: .track).isEmpty)
+    }
+
     func testJournalPrivacyPolicyDefaultsPrivateAndRecoversMalformedStorage() throws {
         let suite = "LifeOSFoundationTests.JournalPrivacy.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
@@ -2074,6 +2407,51 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(router.selectedDestination, .plan)
         XCTAssertEqual(router.path(for: .plan), [.weeklyReview])
         XCTAssertFalse(router.handle(url: URL(string: "https://example.com")!))
+    }
+
+    @MainActor
+    func testActionableHealthDeepLinksResolveToExactTrackLeaves() throws {
+        let suite = "LifeOSFoundationHealthDeepLinkTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let router = AppRouter(defaults: defaults)
+        let links: [(String, AppRoute)] = [
+            ("lifeboard://wellness/body", .wellness(.bodyMetric(.bodyMass))),
+            ("lifeboard://wellness/body?metric=bodyFatPercentage", .wellness(.bodyMetric(.bodyFatPercentage))),
+            ("lifeboard://wellness/workouts", .wellness(.workouts)),
+            ("lifeboard://wellness/sleep", .wellness(.sleep)),
+            ("lifeboard://wellness/movement", .wellness(.movement)),
+            ("lifeboard://nutrition/summary", .nutrition(.dailySummary)),
+            ("lifeboard://nutrition/log", .nutrition(.logMeal)),
+            ("lifeboard://fasting", .fasting)
+        ]
+
+        for (rawURL, expectedRoute) in links {
+            router.push(.journalSearch, in: .track)
+            XCTAssertTrue(router.handle(url: try XCTUnwrap(URL(string: rawURL))))
+            XCTAssertEqual(router.selectedDestination, .track)
+            XCTAssertEqual(router.path(for: .track), [expectedRoute])
+        }
+    }
+
+    @MainActor
+    func testMalformedActionableHealthDeepLinkFallsBackSafely() throws {
+        let suite = "LifeOSFoundationMalformedHealthDeepLinkTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let router = AppRouter(defaults: defaults)
+        router.push(.wellness(.sleep), in: .track)
+
+        XCTAssertTrue(router.handle(url: try XCTUnwrap(URL(string: "lifeboard://wellness/not-a-focus"))))
+        XCTAssertEqual(router.selectedDestination, .home)
+        XCTAssertTrue(router.paths.values.allSatisfy(\.isEmpty))
+        XCTAssertEqual(router.activeAlert?.title, "Opened Home")
+
+        router.activeAlert = nil
+        XCTAssertTrue(router.handle(url: try XCTUnwrap(URL(string: "lifeboard://wellness/body?metric=not-a-metric"))))
+        XCTAssertEqual(router.selectedDestination, .home)
+        XCTAssertTrue(router.paths.values.allSatisfy(\.isEmpty))
+        XCTAssertEqual(router.activeAlert?.title, "Opened Home")
     }
 
     @MainActor
@@ -2187,6 +2565,8 @@ final class LifeOSFoundationContractTests: XCTestCase {
             .notesLibrary(.library(.init(collection: .recent, searchText: "idea"))), .note(id),
             .knowledgeFolder(id), .planDay, .planWeek, .backlog, .focusSession(id),
             .focusSession(nil), .weeklyPlanner, .weeklyReview, .settings, .tokenGallery,
+            .wellness(.bodyMetric(.bodyMass)), .wellness(.workouts), .wellness(.sleep),
+            .wellness(.movement), .nutrition(.dailySummary), .nutrition(.logMeal), .fasting,
             .referenceDashboard
         ]
 
@@ -4721,6 +5101,91 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertNil(glance.detail)
     }
 
+    func testMovementHomeCardUsesSameHealthFirstTotalAsDestination() async throws {
+        let now = Date()
+        let manual = try MovementContextRecord(
+            startedAt: now.addingTimeInterval(-300),
+            endedAt: now,
+            steps: 1_000,
+            source: .manual
+        )
+        let repository = InMemoryWellnessRepository(movements: [manual])
+        let reader = StubHealthMetricsReader(snapshot: HealthMetricsSnapshot(
+            aggregates: [
+                .steps: HealthAggregateValue(metric: .steps, value: 6_000, start: now, end: now)
+            ],
+            statuses: [.activity: HealthDomainStatus(
+                domain: .activity,
+                readRequestState: .receivingData,
+                signal: .recorded,
+                lastSuccessfulSync: now
+            )]
+        ))
+        let definition = try XCTUnwrap(DefaultDashboardWidgetRegistry.shared.descriptor(for: .movement))
+        let provider = WellnessHomeCardSource(
+            definition: definition,
+            focus: .movement,
+            repository: repository,
+            healthMetrics: reader
+        )
+
+        let snapshot = await provider.snapshot(context: .init(
+            date: now,
+            semanticSize: .wide,
+            permittedSensitivities: Set(DataSensitivity.allCases)
+        ))
+
+        XCTAssertEqual(snapshot.value, "6,000 steps")
+        XCTAssertTrue(snapshot.detail?.contains("Apple Health") == true)
+    }
+
+    func testNutritionHomeCardDoesNotAddNamedMealsToHealthTotal() async throws {
+        let now = Date()
+        let macros = try NutritionMacros(
+            calories: 500,
+            proteinGrams: 20,
+            carbohydrateGrams: 60,
+            fatGrams: 18
+        )
+        let serving = try FoodServingDefinition(name: "serving", grams: 100)
+        let food = try FoodItem(name: "Lunch", macrosPer100Grams: macros, servings: [serving])
+        let entry = try NutritionLogEntry(
+            food: food,
+            mealSlot: .lunch,
+            quantity: 1,
+            serving: serving,
+            loggedAt: now
+        )
+        let repository = InMemoryNutritionRepository(foods: [food], logs: [entry])
+        let reader = StubHealthMetricsReader(snapshot: HealthMetricsSnapshot(
+            aggregates: [
+                .dietaryEnergy: HealthAggregateValue(metric: .dietaryEnergy, value: 300, start: now, end: now)
+            ],
+            statuses: [.nutrition: HealthDomainStatus(
+                domain: .nutrition,
+                readRequestState: .receivingData,
+                signal: .recorded,
+                lastSuccessfulSync: now
+            )]
+        ))
+        let definition = try XCTUnwrap(DefaultDashboardWidgetRegistry.shared.descriptor(for: .nutritionSummary))
+        let provider = NutritionHomeCardSource(
+            definition: definition,
+            focus: .dailySummary,
+            repository: repository,
+            healthMetrics: reader
+        )
+
+        let snapshot = await provider.snapshot(context: .init(
+            date: now,
+            semanticSize: .tall,
+            permittedSensitivities: Set(DataSensitivity.allCases)
+        ))
+
+        XCTAssertEqual(snapshot.value, "300 kcal")
+        XCTAssertTrue(snapshot.detail?.contains("1 named LifeBoard item") == true)
+    }
+
     func testBodyMetricNormalizedEventIsSensitiveAndUsesCaptureDay() throws {
         let kolkata = try XCTUnwrap(TimeZone(identifier: "Asia/Kolkata"))
         let observed = Date(timeIntervalSince1970: 1711911600) // 2024-04-01 locally, 2024-03-31 UTC.
@@ -4745,6 +5210,13 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertTrue(message.contains("Confirm"))
         XCTAssertFalse(message.lowercased().contains("danger"))
         XCTAssertFalse(message.lowercased().contains("unhealthy"))
+    }
+
+    func testOnlyManualWellnessRecordsPermitCorrection() {
+        XCTAssertTrue(WellnessCaptureSource.manual.permitsManualCorrection)
+        XCTAssertFalse(WellnessCaptureSource.healthKit.permitsManualCorrection)
+        XCTAssertFalse(WellnessCaptureSource.watch.permitsManualCorrection)
+        XCTAssertFalse(WellnessCaptureSource.imported.permitsManualCorrection)
     }
 
     func testWellnessPreferencesPersistOrderingUnitsAndConflictChoices() throws {
