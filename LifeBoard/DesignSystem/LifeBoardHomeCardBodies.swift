@@ -45,14 +45,21 @@ public struct HomeCardBody: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: preset == .compact ? 6 : 10) {
-            header
-            content
-            Spacer(minLength: 0)
+            Button(action: onOpen) {
+                VStack(alignment: .leading, spacing: preset == .compact ? 6 : 10) {
+                    header
+                    content
+                    Spacer(minLength: 0)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityHint("Opens details")
             actionRow
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(preset == .compact ? 12 : 16)
-        .contentShape(Rectangle())
         .accessibilityElement(children: .contain)
     }
 
