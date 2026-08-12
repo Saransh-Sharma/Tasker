@@ -129,7 +129,7 @@ public struct ComposerScaffold<Content: View, Commit: View>: View {
 
     private var scroll: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 if let subtitle {
                     Text(subtitle)
                         .font(.lifeboard(.support))
@@ -237,7 +237,7 @@ public struct ComposerPage<Content: View, Commit: View>: View {
 
     public var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 if let subtitle {
                     Text(subtitle)
                         .font(.lifeboard(.support))
