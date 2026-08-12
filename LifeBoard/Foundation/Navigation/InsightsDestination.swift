@@ -155,6 +155,11 @@ struct InsightsDestination: View {
                 .padding(.top, 8)
                 .padding(.bottom, 48)
             }
+            // Insights was the one root that never reported its offset, so the
+            // shared observer sat at whatever the last root left behind — reset
+            // to zero on every switch. The celestial's parallax was pinned
+            // still here while the other three roots moved.
+            .lifeBoardReportsComposerScroll()
         }
         .background(Color.clear.ignoresSafeArea())
         .navigationTitle("Insights")
