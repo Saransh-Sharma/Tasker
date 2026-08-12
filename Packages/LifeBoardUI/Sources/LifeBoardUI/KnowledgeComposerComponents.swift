@@ -1,5 +1,6 @@
 import LifeBoardTokens
 import SwiftUI
+import UIKit
 
 // MARK: - Pushed page
 
@@ -34,7 +35,7 @@ public struct ComposerPage<Content: View, Commit: View>: View {
 
     public var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 if let subtitle {
                     Text(subtitle)
                         .font(.lifeboard(.support))
@@ -60,21 +61,11 @@ public struct ComposerPage<Content: View, Commit: View>: View {
 
 /// The composer's paper.
 ///
-/// Grain sits **behind** content and never over it. Applying a `layerEffect` to
-/// a whole scrolling composer asks Metal to flatten every control, label and
-/// field into one oversized render surface; keeping it in the background is both
-/// cheaper and makes it structurally impossible for the shader to soften type.
-/// The workspace redesign learned this the expensive way and left the note at
-/// `WeeklyPlanningWorkspaceView.swift:104`.
-///
-/// The two layers are not redundant. `.lifeboardPaperGrain` is a `layerEffect`,
-/// and a `layerEffect` applied to a bare `Color` rasterizes to nothing: this
-/// composer rendered as the sheet's plain elevated fill (#FFFDF7) instead of
-/// warm paper (#FFF7D8) until the pixels were sampled and compared. So the flat
-/// canvas is painted unconditionally underneath, and the grain rides a
-/// `Rectangle` that a `GeometryReader` has given a concrete size — which is the
-/// thing the effect can actually rasterize. If the shader is unavailable the
-/// texture simply never arrives and the paper is still paper.
+/// Grain sits **behind** content and never over it. It is a cached, deterministic
+/// tile rather than a full-screen Metal `layerEffect`: the live effect joined the
+/// keyboard's safe-area relayout and could keep a composer TextField in an
+/// unbounded SwiftUI layout pass. The tile preserves the paper tooth without a
+/// geometry reader, an offscreen render surface, or per-frame shader work.
 private struct ComposerCanvas: View {
     var body: some View {
         GrainedCanvas(intensity: 0.42)
@@ -83,12 +74,9 @@ private struct ComposerCanvas: View {
 
 /// Warm paper with its tooth, as one named view.
 ///
-/// Every surface that wants grain uses this rather than inlining the two-layer
-/// `ZStack` + `GeometryReader`. Inlining it four times was not just duplication:
-/// dropping the closure into an existing `body` pushed
-/// `KnowledgeNoteEditor` from under to over the 500 ms type-check
-/// budget this repo treats as a required split. A named `View` gets its own
-/// `body` call, its own stack frame, and costs the caller one identifier.
+/// Every surface that wants grain uses this named view rather than rebuilding a
+/// texture or introducing its own geometry reader. The tile is generated once
+/// per process and repeated by UIKit's pattern-color renderer.
 public struct GrainedCanvas: View {
     private let intensity: Double
 
@@ -97,18 +85,11 @@ public struct GrainedCanvas: View {
     }
 
     public var body: some View {
-        ZStack {
-            Color(SemanticColorTokens.foundationCanvas)
-            GeometryReader { proxy in
-                Rectangle()
-                    .fill(Color(SemanticColorTokens.foundationCanvas))
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .lifeBoardPackagePaperGrain(intensity: intensity)
-            }
-        }
-        .ignoresSafeArea()
-        .allowsHitTesting(false)
-        .accessibilityHidden(true)
+        Color(SemanticColorTokens.foundationCanvas)
+            .lifeBoardPackagePaperGrain(intensity: intensity)
+            .ignoresSafeArea()
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
     }
 }
 
@@ -236,34 +217,104 @@ import SwiftUI
 
 /// Paper tooth for package-side surfaces.
 ///
-/// The readiness check is not optional politeness: this was the one shader call
-/// site in the app that reached for `ShaderFunction(library: .default, …)`
-/// without asking whether the Metal library had finished warming, so on a cold
-/// launch it could attempt a function that did not exist yet. `ShaderReadiness`
-/// lives in `LifeBoardTokens` precisely so this package can ask.
-///
 /// Grain is texture rather than motion, so it gates on contrast and transparency
-/// — not on Reduce Motion, which has no opinion about a static surface.
+/// — not on Reduce Motion, which has no opinion about a static surface. The
+/// shared readiness verdict remains part of the contract so Calm, Low Power,
+/// thermal pressure, and the signature-effects feature flag keep their existing
+/// behavior even though this particular effect no longer needs Metal.
 private struct PackagePaperGrain: ViewModifier {
     let intensity: Double
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
     @Environment(\.colorSchemeContrast) private var contrast
 
     func body(content: Content) -> some View {
-        if reduceTransparency || contrast == .increased || ShaderReadiness.allowsShaderRendering == false {
+        let appearanceFixture = VisualAppearanceFixture.active
+        if reduceTransparency
+            || appearanceFixture?.usesReducedTransparency == true
+            || contrast == .increased
+            || appearanceFixture?.usesHighContrast == true
+            || ShaderReadiness.allowsShaderRendering == false {
             content
         } else {
-            content.layerEffect(
-                Shader(
-                    function: ShaderFunction(library: .default, name: "LifeBoardPaperGrain"),
-                    arguments: [
-                        .float2(1, 1),
-                        .float(Float(max(0, min(1, intensity))))
-                    ]
-                ),
-                maxSampleOffset: .zero
-            )
+            content.overlay {
+                PackagePaperGrainTile(intensity: intensity)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
         }
+    }
+}
+
+private struct PackagePaperGrainTile: UIViewRepresentable {
+    let intensity: Double
+
+    func makeUIView(context: Context) -> PaperGrainTileView {
+        PaperGrainTileView()
+    }
+
+    func updateUIView(_ view: PaperGrainTileView, context: Context) {
+        view.update(intensity: intensity)
+    }
+}
+
+private final class PaperGrainTileView: UIView {
+    private static let tileSize = CGSize(width: 128, height: 128)
+    private static let seed: UInt64 = 0xD1CE_BA5E_1234_5678
+    private static let tileImage = makeTileImage()
+    private var appliedOpacity = -1.0
+
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = Self.tileImage.map { UIColor(patternImage: $0) } ?? .clear
+        isOpaque = false
+        isUserInteractionEnabled = false
+        isAccessibilityElement = false
+        accessibilityElementsHidden = true
+        layer.compositingFilter = "softLightBlendMode"
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
+
+    func update(intensity: Double) {
+        let opacity = max(0, min(1, intensity)) * 0.10
+        guard abs(opacity - appliedOpacity) > 0.0001 else { return }
+        appliedOpacity = opacity
+        alpha = opacity
+        isHidden = opacity <= 0.0001 || Self.tileImage == nil
+    }
+
+    private static func makeTileImage() -> UIImage? {
+        let width = Int(tileSize.width)
+        let height = Int(tileSize.height)
+        var pixels = [UInt8](repeating: 0, count: width * height)
+        var randomState = seed
+
+        for index in pixels.indices {
+            randomState = (2862933555777941757 &* randomState) &+ 3037000493
+            pixels[index] = UInt8((randomState >> 24) & 0xFF)
+        }
+
+        guard let provider = CGDataProvider(data: Data(pixels) as CFData),
+              let image = CGImage(
+                width: width,
+                height: height,
+                bitsPerComponent: 8,
+                bitsPerPixel: 8,
+                bytesPerRow: width,
+                space: CGColorSpaceCreateDeviceGray(),
+                bitmapInfo: CGBitmapInfo(rawValue: 0),
+                provider: provider,
+                decode: nil,
+                shouldInterpolate: false,
+                intent: .defaultIntent
+              ) else {
+            return nil
+        }
+
+        return UIImage(cgImage: image)
     }
 }
 
