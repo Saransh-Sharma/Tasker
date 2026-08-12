@@ -13,10 +13,9 @@ import LifeBoardTokens
 /// it. It is also simply correct — dictation, autocorrect, the caret, the
 /// selection handles and the keyboard are all free only if the field is real.
 ///
-/// Focus lifts the surface from `.well` to `.resting` and adds a focus ring. The
-/// *surface* animates; the text never does. Animating the content of a field
-/// someone is actively typing into is the fastest way to make a premium control
-/// feel unstable.
+/// Focus adds a ring without replacing the clay surface. Keeping the field's
+/// modifier tree and shadow geometry stable prevents keyboard presentation from
+/// turning one focus change into a full composer relayout.
 public struct ComposerField: View {
     public enum Shape: Equatable, Sendable {
         /// One line, submits on return.
@@ -73,21 +72,19 @@ public struct ComposerField: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 12)
                 .frame(minHeight: 44, alignment: .topLeading)
-                .lifeBoardClaySurface(
-                    isFocused ? .resting : .well,
-                    cornerRadius: Radius.compact + 2
-                )
+                .lifeBoardClaySurface(.well, cornerRadius: Radius.compact + 2)
                 .overlay {
                     RoundedRectangle(
                         cornerRadius: Radius.compact + 2,
                         style: .continuous
                     )
                     .stroke(
-                        Color.lifeboard(.actionFocus).opacity(isFocused ? 1 : 0),
+                        Color.lifeboard(.actionFocus),
                         lineWidth: 2
                     )
+                    .opacity(isFocused ? 1 : 0)
+                    .lifeBoardMotion(.controlMorph, value: isFocused)
                 }
-                .lifeBoardMotion(.controlMorph, value: isFocused)
                 .modifier(FieldIdentity(identifier: identifier))
                 .accessibilityLabel(Text(label))
         }
@@ -181,11 +178,13 @@ public struct ComposerNumberField: View {
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .lifeBoardClaySurface(
-                isFocused ? .resting : .well,
-                cornerRadius: Radius.compact
-            )
-            .lifeBoardMotion(.controlMorph, value: isFocused)
+            .lifeBoardClaySurface(.well, cornerRadius: Radius.compact)
+            .overlay {
+                RoundedRectangle(cornerRadius: Radius.compact, style: .continuous)
+                    .stroke(Color.lifeboard(.actionFocus), lineWidth: 2)
+                    .opacity(isFocused ? 1 : 0)
+                    .lifeBoardMotion(.controlMorph, value: isFocused)
+            }
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
