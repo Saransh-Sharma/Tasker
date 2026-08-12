@@ -1260,7 +1260,7 @@ struct ChatContainerView: View {
     var promptFocusRequestID: UInt64 = 0
     var onActivationChatEvent: ((EvaActivationChatEvent) -> Void)? = nil
     var onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)? = nil
-    var onPromptFocusChange: ((Bool) -> Void)? = nil
+    var onComposerFocusChange: ((Bool) -> Void)? = nil
     var onOpenTaskDetail: (TaskDefinition) -> Void
     var onOpenHabitDetail: ((UUID) -> Void)? = nil
     var onPerformDayTaskAction: EvaDayTaskActionHandler? = nil
@@ -1303,7 +1303,7 @@ struct ChatContainerView: View {
                             ? LLMDataController.degradedModeReason ?? "unknown"
                             : nil,
                         onNavigationChromeChange: onNavigationChromeChange,
-                        onPromptFocusChange: onPromptFocusChange
+                        onComposerFocusChange: onComposerFocusChange
                     )
                 }
                 .navigationSplitViewStyle(.balanced)
@@ -1325,7 +1325,7 @@ struct ChatContainerView: View {
                         ? LLMDataController.degradedModeReason ?? "unknown"
                         : nil,
                     onNavigationChromeChange: onNavigationChromeChange,
-                    onPromptFocusChange: onPromptFocusChange
+                    onComposerFocusChange: onComposerFocusChange
                 )
             }
         }

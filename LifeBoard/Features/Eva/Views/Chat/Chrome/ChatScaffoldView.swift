@@ -1,5 +1,16 @@
 import SwiftUI
 
+private struct EvaComposerBottomClearanceKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 0
+}
+
+extension EnvironmentValues {
+    var evaComposerBottomClearance: CGFloat {
+        get { self[EvaComposerBottomClearanceKey.self] }
+        set { self[EvaComposerBottomClearanceKey.self] = newValue }
+    }
+}
+
 struct ChatScaffoldView: View {
 
 
@@ -8,6 +19,8 @@ struct ChatScaffoldView: View {
     @Environment(LLMEvaluator.self) var llm
 
     @Environment(\.lifeboardLayoutClass) var layoutClass
+
+    @Environment(\.evaComposerBottomClearance) var composerBottomClearance
 
     @State var showEvaGuide = false
 
@@ -101,33 +114,38 @@ struct ChatScaffoldView: View {
         ZStack {
             EvaChatSunriseBackground(isStreaming: isGenerationInFlight || liveOutput.shouldRender)
 
+            if transcriptSnapshot.threadID != nil {
+                ConversationView(
+                    snapshot: transcriptSnapshot,
+                    liveOutput: liveOutput,
+                    onOpenTaskFromCard: { task in
+                        onOpenTaskDetail?(task)
+                    },
+                    onOpenHabitFromCard: onOpenHabitDetail,
+                    onPerformDayTaskAction: onPerformDayTaskAction,
+                    onPerformDayHabitAction: onPerformDayHabitAction
+                )
+            } else {
+                ChatEmptyStateView(
+                    identity: assistantIdentity.snapshot,
+                    presentationMode: presentationMode,
+                    starterPrompts: starterPrompts,
+                    commandSuggestions: commandSuggestions,
+                    onSelectStarterPrompt: onSelectStarterPrompt,
+                    onSelectSuggestion: onSelectSuggestion,
+                    onOpenEvaGuide: {
+                        appManager.playHaptic()
+                        showEvaGuide = true
+                    }
+                )
+            }
+        }
+        // Empty-state content can be taller than the device at accessibility
+        // sizes. Keep that intrinsic height from enlarging the scaffold itself;
+        // the composer inset must be anchored to the offered viewport.
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
             VStack(spacing: 0) {
-                if transcriptSnapshot.threadID != nil {
-                    ConversationView(
-                        snapshot: transcriptSnapshot,
-                        liveOutput: liveOutput,
-                        onOpenTaskFromCard: { task in
-                            onOpenTaskDetail?(task)
-                        },
-                        onOpenHabitFromCard: onOpenHabitDetail,
-                        onPerformDayTaskAction: onPerformDayTaskAction,
-                        onPerformDayHabitAction: onPerformDayHabitAction
-                    )
-                } else {
-                    ChatEmptyStateView(
-                        identity: assistantIdentity.snapshot,
-                        presentationMode: presentationMode,
-                        starterPrompts: starterPrompts,
-                        commandSuggestions: commandSuggestions,
-                        onSelectStarterPrompt: onSelectStarterPrompt,
-                        onSelectSuggestion: onSelectSuggestion,
-                        onOpenEvaGuide: {
-                            appManager.playHaptic()
-                            showEvaGuide = true
-                        }
-                    )
-                }
-
                 VStack(spacing: Theme.Spacing.xs) {
                     if let storageDegradedReason {
                         ChatStorageDegradedBanner(reason: storageDegradedReason)
@@ -162,101 +180,118 @@ struct ChatScaffoldView: View {
                     }
                 }
                 .padding(.horizontal, Theme.Spacing.lg)
-                .padding(.bottom, Theme.Spacing.md)
                 .padding(.top, isActivationPresentation ? Theme.Spacing.xs : Theme.Spacing.sm)
-                .background(.clear)
+
+                Color.clear
+                    .frame(height: Theme.Spacing.md)
+                    // Padding is compressible. An explicit ideal-size spacer
+                    // keeps local composer spacing intact at Dynamic Type sizes
+                    // where its controls consume the remaining proposal.
+                    .fixedSize(horizontal: false, vertical: true)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
             }
+            .background(.clear)
+            // Foundation's dock is an overlay outside Eva's nested navigation
+            // stack. Its measured clearance reserves transcript space at the
+            // destination boundary; this offset places the inset composer in
+            // that same visible region without relying on keyboard estimates.
+            .offset(
+                y: composerBottomClearance > 0
+                    ? -(composerBottomClearance + Theme.Spacing.md)
+                    : 0
+            )
         }
-            .background(EvaChatSunriseGlass.canvasMid)
-                .onAppear {
-                    publishNavigationChromeState()
-                }
-                .onChange(of: currentThread?.id) {
-                    publishNavigationChromeState()
-                }
-                .onChange(of: chatTitle) {
-                    publishNavigationChromeState()
-                }
-                .onChange(of: showsHistoryAction) {
-                    publishNavigationChromeState()
-                }
-                .onChange(of: presentationMode) {
-                    publishNavigationChromeState()
-                }
-                .onChange(of: assistantIdentity.snapshot) {
-                    publishNavigationChromeState()
-                }
-                .sheet(isPresented: showSettings) {
-                    NavigationStack {
-                        LLMSettingsView(currentThread: $currentThread, showsCloseButton: true)
-                            .environment(llm)
-                        #if os(visionOS)
-                            .toolbar {
-                                ToolbarItem(placement: .topBarLeading) {
-                                    Button(action: { showSettings.wrappedValue.toggle() }) {
-                                        Image(systemName: "xmark")
-                                    }
-                                }
-                            }
-                        #endif
-                    }
-                    #if os(iOS)
-                    .presentationBackground(EvaChatSunriseGlass.canvasMid)
-                    .presentationCornerRadius(Theme.CornerRadius.xl)
-                    .presentationDragIndicator(.visible)
-                    .presentationDetents(layoutClass == .phone ? [.large] : [.large])
-                    #elseif os(macOS)
+        .background(EvaChatSunriseGlass.canvasMid)
+        .onAppear {
+            publishNavigationChromeState()
+        }
+        .onChange(of: currentThread?.id) {
+            publishNavigationChromeState()
+        }
+        .onChange(of: chatTitle) {
+            publishNavigationChromeState()
+        }
+        .onChange(of: showsHistoryAction) {
+            publishNavigationChromeState()
+        }
+        .onChange(of: presentationMode) {
+            publishNavigationChromeState()
+        }
+        .onChange(of: assistantIdentity.snapshot) {
+            publishNavigationChromeState()
+        }
+        .sheet(isPresented: showSettings) {
+            NavigationStack {
+                LLMSettingsView(currentThread: $currentThread, showsCloseButton: true)
+                    .environment(llm)
+                #if os(visionOS)
                     .toolbar {
-                        ToolbarItem(placement: .destructiveAction) {
+                        ToolbarItem(placement: .topBarLeading) {
                             Button(action: { showSettings.wrappedValue.toggle() }) {
-                                Text("close")
+                                Image(systemName: "xmark")
                             }
                         }
                     }
-                    #endif
-                }
-                .sheet(isPresented: showSlashPicker) {
-                    SlashCommandPickerView(
-                        query: slashPickerQuery,
-                        recentCommands: recentCommands,
-                        popularCommands: popularCommands,
-                        allCommands: allCommands,
-                        onSelect: onSelectSuggestion
-                    )
-                    .presentationBackground(EvaChatSunriseGlass.canvasMid)
-                    .presentationDragIndicator(.visible)
-                    .presentationDetents(layoutClass == .phone ? [.medium, .large] : [.large])
-                }
-                .sheet(isPresented: $showEvaGuide) {
-                    EvaChiefOfStaffGuideView { prompt in
-                        onSelectStarterPrompt(prompt)
+                #endif
+            }
+            #if os(iOS)
+            .presentationBackground(EvaChatSunriseGlass.canvasMid)
+            .presentationCornerRadius(Theme.CornerRadius.xl)
+            .presentationDragIndicator(.visible)
+            .presentationDetents(layoutClass == .phone ? [.large] : [.large])
+            #elseif os(macOS)
+            .toolbar {
+                ToolbarItem(placement: .destructiveAction) {
+                    Button(action: { showSettings.wrappedValue.toggle() }) {
+                        Text("close")
                     }
-                    #if os(iOS)
-                    .presentationBackground(EvaChatSunriseGlass.canvasMid)
-                    .presentationCornerRadius(Theme.CornerRadius.xl)
-                    .presentationDragIndicator(.visible)
-                    .presentationDetents([.large])
-                    #endif
                 }
-                .alert("Clear this chat?", isPresented: showClearConfirmation) {
-                    Button("Cancel", role: .cancel) {}
-                    Button("Clear", role: .destructive) {
-                        onClearCurrentThread()
-                    }
-                } message: {
-                    Text("This deletes all messages in the current thread.")
+            }
+            #endif
+        }
+        .sheet(isPresented: showSlashPicker) {
+            SlashCommandPickerView(
+                query: slashPickerQuery,
+                recentCommands: recentCommands,
+                popularCommands: popularCommands,
+                allCommands: allCommands,
+                onSelect: onSelectSuggestion
+            )
+            .presentationBackground(EvaChatSunriseGlass.canvasMid)
+            .presentationDragIndicator(.visible)
+            .presentationDetents(layoutClass == .phone ? [.medium, .large] : [.large])
+        }
+        .sheet(isPresented: $showEvaGuide) {
+            EvaChiefOfStaffGuideView { prompt in
+                onSelectStarterPrompt(prompt)
+            }
+            #if os(iOS)
+            .presentationBackground(EvaChatSunriseGlass.canvasMid)
+            .presentationCornerRadius(Theme.CornerRadius.xl)
+            .presentationDragIndicator(.visible)
+            .presentationDetents([.large])
+            #endif
+        }
+        .alert("Clear this chat?", isPresented: showClearConfirmation) {
+            Button("Cancel", role: .cancel) {}
+            Button("Clear", role: .destructive) {
+                onClearCurrentThread()
+            }
+        } message: {
+            Text("This deletes all messages in the current thread.")
+        }
+        .toolbar {
+            #if os(macOS)
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: {
+                    appManager.playHaptic()
+                    showSettings.wrappedValue.toggle()
+                }) {
+                    Label("settings", systemImage: "gear")
                 }
-                .toolbar {
-                    #if os(macOS)
-                    ToolbarItem(placement: .primaryAction) {
-                        Button(action: {
-                            appManager.playHaptic()
-                            showSettings.wrappedValue.toggle()
-                        }) {
-                            Label("settings", systemImage: "gear")
-                        }
-                    }
-                    #endif
-                }
+            }
+            #endif
+        }
     }
 }

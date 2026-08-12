@@ -39,51 +39,8 @@ extension ChatComposerView {
             }
 
             HStack(alignment: .bottom, spacing: Theme.Spacing.xs) {
-                TextField("Tell me your plans...", text: $prompt, axis: .vertical)
-                    .focused($isPromptFocused)
-                    .textFieldStyle(.plain)
-                    .lifeboardFont(.body)
-                    .foregroundStyle(Color.lifeboard(.textPrimary))
-                    .tint(Color.lifeboard(.accentPrimary))
-                    .padding(.horizontal, Theme.Spacing.md)
-                    .padding(.vertical, Theme.Spacing.sm)
-                    .frame(minHeight: 52)
-                    .disabled(isStructuredDictationActive)
-                    .onSubmit(onSubmitPrompt)
-
-                if isStructuredDictationActive {
-                    structuredDictationButton(
-                        systemName: "xmark",
-                        label: "Cancel dictation",
-                        action: cancelStructuredDictation
-                    )
-                    structuredDictationButton(
-                        systemName: "stop.fill",
-                        label: "Stop dictation",
-                        action: stopStructuredDictation
-                    )
-                } else if V2FeatureFlags.universalInputDictationEnabled {
-                    structuredDictationButton(
-                        systemName: "mic.fill",
-                        label: "Start dictation",
-                        action: startStructuredDictation
-                    )
-                } else if V2FeatureFlags.evaVoiceDeferred {
-                    structuredDeferredIcon(systemName: "mic.fill", label: "Voice planning")
-                }
-                if V2FeatureFlags.evaScanDeferred && isStructuredDictationActive == false {
-                    structuredDeferredIcon(systemName: "viewfinder", label: "Scan planning")
-                }
-
-                if isStructuredDictationActive == false {
-                    if isGenerationInFlight {
-                        stopButton
-                            .padding(.leading, 0)
-                    } else {
-                        generateButton
-                            .padding(.leading, 0)
-                    }
-                }
+                structuredPromptField
+                structuredComposerActions
             }
 
             if let structuredDeferredFeedback {
@@ -104,7 +61,6 @@ extension ChatComposerView {
                 )
         }
         .animation(reduceMotion ? nil : LifeBoardAnimation.feedbackFast, value: isPromptFocused)
-        .accessibilityIdentifier("eva.structured.composer")
         .contentShape(Rectangle())
         .onTapGesture {
             isPromptFocused = true
@@ -138,6 +94,60 @@ extension ChatComposerView {
         .onDisappear {
             guard isStructuredDictationActive else { return }
             Task { await dictationController.cancel() }
+        }
+    }
+
+    private var structuredPromptField: some View {
+        TextField("Tell me your plans...", text: $prompt, axis: .vertical)
+            .focused($isPromptFocused)
+            .accessibilityIdentifier("eva.structured.composer")
+            .textFieldStyle(.plain)
+            .lifeboardFont(.body)
+            .foregroundStyle(Color.lifeboard(.textPrimary))
+            .tint(Color.lifeboard(.accentPrimary))
+            .padding(.horizontal, Theme.Spacing.md)
+            .padding(.vertical, Theme.Spacing.sm)
+            .frame(minHeight: 52)
+            .lineLimit(1...4)
+            .disabled(isStructuredDictationActive)
+            .onSubmit(onSubmitPrompt)
+    }
+
+    @ViewBuilder
+    private var structuredComposerActions: some View {
+        if isStructuredDictationActive {
+            structuredDictationButton(
+                systemName: "xmark",
+                label: "Cancel dictation",
+                action: cancelStructuredDictation
+            )
+            structuredDictationButton(
+                systemName: "stop.fill",
+                label: "Stop dictation",
+                action: stopStructuredDictation
+            )
+        } else if V2FeatureFlags.universalInputDictationEnabled {
+            structuredDictationButton(
+                systemName: "mic.fill",
+                label: "Start dictation",
+                action: startStructuredDictation
+            )
+        } else if V2FeatureFlags.evaVoiceDeferred {
+            structuredDeferredIcon(systemName: "mic.fill", label: "Voice planning")
+        }
+
+        if V2FeatureFlags.evaScanDeferred && isStructuredDictationActive == false {
+            structuredDeferredIcon(systemName: "viewfinder", label: "Scan planning")
+        }
+
+        if isStructuredDictationActive == false {
+            if isGenerationInFlight {
+                stopButton
+                    .padding(.leading, 0)
+            } else {
+                generateButton
+                    .padding(.leading, 0)
+            }
         }
     }
 

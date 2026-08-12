@@ -5,6 +5,8 @@ import UIKit
 import VisionKit
 
 struct EvaDestination: View {
+    @Environment(\.evaComposerBottomClearance) private var composerBottomClearance
+
     @StateObject private var appManager: AppManager
     @StateObject private var activationCoordinator: EvaActivationCoordinator
     @State private var evidenceStore: TrackFoundationStore
@@ -13,6 +15,7 @@ struct EvaDestination: View {
     private let planningRepository: CoreDataPlanningRepository?
     private let evidenceDefaults: UserDefaults
     let router: AppRouter
+    let onComposerFocusChange: ((Bool) -> Void)?
 
     init(
         repository: CoreDataTrackFoundationRepository,
@@ -20,7 +23,8 @@ struct EvaDestination: View {
         planningRepository: CoreDataPlanningRepository?,
         habitProjectionService: (any TrackHabitProjectionService)?,
         goalSampleProvider: (any GoalSampleRepository)?,
-        router: AppRouter
+        router: AppRouter,
+        onComposerFocusChange: ((Bool) -> Void)? = nil
     ) {
         let manager = AppManager()
         let defaults = UserDefaults(suiteName: AppGroupConstants.suiteName) ?? .standard
@@ -36,6 +40,7 @@ struct EvaDestination: View {
         self.planningRepository = planningRepository
         self.evidenceDefaults = defaults
         self.router = router
+        self.onComposerFocusChange = onComposerFocusChange
     }
 
     var body: some View {
@@ -48,6 +53,7 @@ struct EvaDestination: View {
                 EvaActivationRootView(
                     coordinator: activationCoordinator,
                     onDismiss: { router.select(.home) },
+                    onComposerFocusChange: onComposerFocusChange,
                     onOpenTaskDetail: { router.push(.taskDetail($0.id), in: .eva) },
                     onOpenHabitDetail: { router.push(.habitDetail($0), in: .eva) }
                 )
@@ -90,6 +96,14 @@ struct EvaDestination: View {
             }
         }
         .refreshable { await loadAuthorizedEvidence() }
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            if composerBottomClearance > 0 {
+                Color.clear
+                    .frame(height: composerBottomClearance + Theme.Spacing.xs)
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+        }
         .onChange(of: sharingPolicy) { _, policy in
             do {
                 try EvaEvidenceSharingPolicyPersistence.save(policy, to: evidenceDefaults)

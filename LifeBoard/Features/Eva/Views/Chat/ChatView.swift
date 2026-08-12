@@ -582,7 +582,7 @@ struct ChatView: View {
     var promptFocusRequestID: UInt64 = 0
     var storageDegradedReason: String? = nil
     var onNavigationChromeChange: ((EvaChatNavigationChromeState) -> Void)? = nil
-    var onPromptFocusChange: ((Bool) -> Void)? = nil
+    var onComposerFocusChange: ((Bool) -> Void)? = nil
 
     @State var thinkingTime: TimeInterval?
 
@@ -644,6 +644,10 @@ struct ChatView: View {
 
     var isPromptEmpty: Bool {
         prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
+
+    private var isComposerFocused: Bool {
+        isPromptFocused || isProjectFieldFocused
     }
 
     var canSubmit: Bool {
@@ -824,6 +828,9 @@ struct ChatView: View {
         .onChange(of: isPromptFocused) { _, focused in
             handlePromptFocusChanged(focused)
         }
+        .onChange(of: isComposerFocused, initial: true) { _, focused in
+            onComposerFocusChange?(focused)
+        }
         .onChange(of: promptFocusRequestID) { _, _ in
             handlePromptFocusRequestIfNeeded()
         }
@@ -958,7 +965,7 @@ extension ChatView {
 
     @MainActor
     private func handleChatViewDisappear() {
-        onPromptFocusChange?(false)
+        onComposerFocusChange?(false)
         activationFocusTask?.cancel()
         activationFocusTask = nil
         projectLookupTask?.cancel()
@@ -1011,7 +1018,6 @@ extension ChatView {
 
     @MainActor
     private func handlePromptFocusChanged(_ focused: Bool) {
-        onPromptFocusChange?(focused)
         if focused {
             guard generationTask == nil else { return }
             LLMRuntimeCoordinator.shared.acquireSession(reason: "chat_prompt_focus")
