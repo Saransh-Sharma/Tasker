@@ -4,6 +4,18 @@ import LifeBoardTranscription
 import UIKit
 import VisionKit
 
+struct FoundationCompactChromeVisibilityPolicy {
+    static func isVisible(
+        destination: Destination,
+        isPhoneInterface: Bool,
+        isEvaComposerFocused: Bool,
+        showsGlobalChrome: Bool
+    ) -> Bool {
+        guard showsGlobalChrome else { return false }
+        return destination != .eva || isPhoneInterface == false || isEvaComposerFocused == false
+    }
+}
+
 public struct FoundationShell: View {
     let homeViewModel: HomeViewModel
     let runtime: FoundationCoordinator
@@ -32,6 +44,7 @@ public struct FoundationShell: View {
     @Environment(\.scenePhase) private var scenePhase
     @State var compactCaptureState = CaptureOrbPresentationState()
     @State var measuredChromeHeight: CGFloat = 132
+    @State var isEvaComposerFocused = false
     /// Roots that have been opened at least once. Dashboard roots stay built so
     /// their scroll position and navigation depth survive a root change. Eva is
     /// intentionally evicted when inactive because its chat/runtime hierarchy
@@ -244,6 +257,9 @@ public struct FoundationShell: View {
         }
         .onChange(of: router.selectedDestination, initial: true) { _, destination in
             lifeThreadComposer.move(to: destination)
+            if destination != .eva {
+                updateEvaComposerFocus(false)
+            }
             // Each root keeps its own scroll position, so carrying the previous
             // root's offset across would land the composer already compressed
             // over a screen sitting at its top.
@@ -393,8 +409,37 @@ public struct FoundationShell: View {
         destination != .home || homeIsCustomizing == false
     }
 
+    func showsCompactChrome(for destination: Destination) -> Bool {
+        FoundationCompactChromeVisibilityPolicy.isVisible(
+            destination: destination,
+            isPhoneInterface: usesPhoneChromeBehavior,
+            isEvaComposerFocused: isEvaComposerFocused,
+            showsGlobalChrome: showsGlobalChrome(for: destination)
+        )
+    }
+
+    private var usesPhoneChromeBehavior: Bool {
+        UIDevice.current.userInterfaceIdiom == .phone
+    }
+
     func reservedChromeHeight(for destination: Destination) -> CGFloat {
-        showsGlobalChrome(for: destination) ? measuredChromeHeight : 0
+        showsCompactChrome(for: destination) ? measuredChromeHeight : 0
+    }
+
+    func evaComposerBottomClearance(for destination: Destination) -> CGFloat {
+        guard destination == .eva else { return 0 }
+        return reservedChromeHeight(for: destination)
+    }
+
+    func reservedDestinationChromeHeight(for destination: Destination) -> CGFloat {
+        evaComposerBottomClearance(for: destination) > 0 ? 0 : reservedChromeHeight(for: destination)
+    }
+
+    func updateEvaComposerFocus(_ focused: Bool) {
+        guard isEvaComposerFocused != focused else { return }
+        withAnimation(MotionProfile.controlMorph.animation(reduceMotion: reduceMotion)) {
+            isEvaComposerFocused = focused
+        }
     }
 
     private func updateCompactCaptureDrag(at location: CGPoint) {

@@ -3,6 +3,39 @@ import XCTest
 
 @MainActor
 final class HomeBottomBarStateTests: XCTestCase {
+    func testFoundationCompactChromeVisibilityTracksOnlyPhoneEvaComposerFocus() {
+        XCTAssertTrue(FoundationCompactChromeVisibilityPolicy.isVisible(
+            destination: .eva,
+            isPhoneInterface: true,
+            isEvaComposerFocused: false,
+            showsGlobalChrome: true
+        ))
+        XCTAssertFalse(FoundationCompactChromeVisibilityPolicy.isVisible(
+            destination: .eva,
+            isPhoneInterface: true,
+            isEvaComposerFocused: true,
+            showsGlobalChrome: true
+        ))
+        XCTAssertTrue(FoundationCompactChromeVisibilityPolicy.isVisible(
+            destination: .plan,
+            isPhoneInterface: true,
+            isEvaComposerFocused: true,
+            showsGlobalChrome: true
+        ))
+        XCTAssertTrue(FoundationCompactChromeVisibilityPolicy.isVisible(
+            destination: .eva,
+            isPhoneInterface: false,
+            isEvaComposerFocused: true,
+            showsGlobalChrome: true
+        ))
+        XCTAssertFalse(FoundationCompactChromeVisibilityPolicy.isVisible(
+            destination: .home,
+            isPhoneInterface: true,
+            isEvaComposerFocused: false,
+            showsGlobalChrome: false
+        ))
+    }
+
     func testFloatingChromeNeverRequiresAnOpaqueFooterBand() {
         XCTAssertFalse(HomeBottomBarVisibilityPolicy.usesOpaqueHostBackground)
         XCTAssertLessThanOrEqual(HomeBottomBarVisibilityPolicy.chromeBackdropMaximumOpacity, 0.2)

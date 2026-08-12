@@ -288,7 +288,8 @@ extension FoundationShell {
                 planningRepository: planningRepository,
                 habitProjectionService: CanonicalTrackHabitProjectionService(repository: habitRuntimeReadRepository),
                 goalSampleProvider: goalSampleProvider,
-                router: router
+                router: router,
+                onComposerFocusChange: updateEvaComposerFocus
             ))
         }
         return AnyView(EmptyView())

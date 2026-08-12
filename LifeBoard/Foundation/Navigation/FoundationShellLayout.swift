@@ -16,12 +16,11 @@ extension FoundationShell {
         atmosphereSnapshot: AtmosphereSnapshot
     ) -> some View {
         @Bindable var router = router
-        // The floating chrome draws as a bottom overlay, and each root reserves
-        // its measured height as a clear bottom inset. This is the measured
-        // content clearance the plan calls for: every root's final row clears
-        // the dock and composer, with no blank footer band and no content
-        // resting under the translucent composer. (A TabView's own
-        // safeAreaInset does not propagate into per-tab scroll views.)
+        // The floating chrome draws as a bottom overlay. Dashboard roots reserve
+        // its measured height here; Eva receives the same measurement through
+        // the environment so its nested composer inset can own the final
+        // placement. (A TabView's own safeAreaInset does not propagate into
+        // per-tab scroll views.)
         return GeometryReader { geometry in
             // A plain stack rather than a TabView.
             //
@@ -56,8 +55,12 @@ extension FoundationShell {
                     ) {
                         let isCurrent = router.selectedDestination == destination
                         destinationNavigation(destination, router: router, atmosphereSnapshot: atmosphereSnapshot)
+                            .environment(
+                                \.evaComposerBottomClearance,
+                                evaComposerBottomClearance(for: destination)
+                            )
                             .safeAreaInset(edge: .bottom, spacing: 0) {
-                                Color.clear.frame(height: reservedChromeHeight(for: destination))
+                                Color.clear.frame(height: reservedDestinationChromeHeight(for: destination))
                             }
                             .offset(
                                 x: RootTransition.offset(
@@ -111,7 +114,7 @@ extension FoundationShell {
                 // Composer and dock share one GlassEffectContainer so the two
                 // chrome layers refract and morph as a single surface rather
                 // than two stacked panes.
-                if showsGlobalChrome(for: router.selectedDestination) {
+                if showsCompactChrome(for: router.selectedDestination) {
                     GlassEffectContainer(spacing: 10) {
                         VStack(spacing: 10) {
                             if showsFloatingComposer(for: router.selectedDestination) {
@@ -164,6 +167,7 @@ extension FoundationShell {
                     }
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("LifeBoardCompactChrome")
+                    .transition(.move(edge: .bottom).combined(with: .opacity))
                 }
             }
         }
