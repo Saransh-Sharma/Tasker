@@ -130,9 +130,12 @@ struct TrackFoundationRootView: View {
             .refreshable { await store.load() }
             .lifeBoardReportsComposerScroll()
         }
-        .background {
-            GrainedCanvas()
-        }
+        // No opaque canvas here. `GrainedCanvas` fills with `foundationCanvas`
+        // and ignores the safe area, and the shell's atmosphere is a sibling
+        // layer *behind* this root — so painting it full-bleed hid the daypart
+        // scene and its celestial on Track alone. Home does not paint one
+        // either: its grain rides on `ScenicBackdrop`, which is `Color.clear`
+        // whenever the atmosphere is hosted.
         .navigationTitle("Track")
         .navigationBarTitleDisplayMode(.inline)
         .task { await store.load() }
