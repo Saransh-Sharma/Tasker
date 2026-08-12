@@ -23,6 +23,9 @@ jobs:
           set -euo pipefail
           brew install ripgrep
 
+      - name: Validate App Intent descriptions
+        run: bash scripts/validate_app_intent_descriptions.sh
+
       - name: Enforce legacy DI/runtime guardrails
         run: |
           set -euo pipefail

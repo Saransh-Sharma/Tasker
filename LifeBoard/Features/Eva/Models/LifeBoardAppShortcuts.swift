@@ -545,7 +545,7 @@ struct SearchNotesIntent: AppIntent {
 @available(iOS 16.0, macOS 13.0, *)
 struct LogWaterIntent: AppIntent {
     static let title: LocalizedStringResource = "Log Water"
-    static let description = IntentDescription("Logs water locally in LifeBoard. Apple Health sync continues separately when enabled.")
+    static let description = IntentDescription("Logs water locally in LifeBoard. Connected health data syncs separately when enabled.")
     static let openAppWhenRun = false
 
     @Parameter(title: "Milliliters")
@@ -566,7 +566,7 @@ struct LogWaterIntent: AppIntent {
 @available(iOS 16.0, macOS 13.0, *)
 struct LogWeightIntent: AppIntent {
     static let title: LocalizedStringResource = "Log Weight"
-    static let description = IntentDescription("Logs weight locally in LifeBoard. Apple Health sync continues separately when enabled.")
+    static let description = IntentDescription("Logs weight locally in LifeBoard. Connected health data syncs separately when enabled.")
     static let openAppWhenRun = false
 
     @Parameter(title: "Kilograms")
