@@ -64,6 +64,7 @@ final class UITestWorkspaceSeeder {
 @MainActor
 final class HomeLaunchHarnessService {
     private static var hasConsumedUITestRoute = false
+    private static var hasConsumedUITestDeepLink = false
     private static var hasConsumedUITestOpenSettings = false
 
     func consumeUITestInjectedRouteIfNeeded(routeHandler: (NotificationRoute) -> Void) {
@@ -75,6 +76,16 @@ final class HomeLaunchHarnessService {
         Self.hasConsumedUITestRoute = true
         let route = NotificationRoute.from(payload: payload, fallbackTaskID: nil)
         routeHandler(route)
+    }
+
+    func consumeUITestInjectedDeepLinkIfNeeded(deepLinkHandler: (URL) -> Void) {
+        guard Self.hasConsumedUITestDeepLink == false else { return }
+        guard let payload = Self.firstRoutePayload(prefixes: ["-LIFEBOARD_TEST_DEEP_LINK:"]),
+              let url = URL(string: payload) else {
+            return
+        }
+        Self.hasConsumedUITestDeepLink = true
+        deepLinkHandler(url)
     }
 
     private static func firstRoutePayload(prefixes: [String]) -> String? {
@@ -226,6 +237,9 @@ final class LaunchCoordinator {
             homeViewModel.loadTasksForSelectedDate()
             service.consumeUITestInjectedRouteIfNeeded { [router] route in
                 router.handle(notificationRoute: route)
+            }
+            service.consumeUITestInjectedDeepLinkIfNeeded { [router] url in
+                _ = router.handle(url: url)
             }
             service.consumeUITestOpenSettingsIfNeeded(
                 canOpenSettings: { true },
