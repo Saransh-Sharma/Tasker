@@ -54,6 +54,11 @@
 # routes grew five more rows (projection store, track store, track views,
 # gallery, models). Largest-type columns are unchanged; the growth is additive
 # declaration count from the new destination and composer types.
+# 2026-08-11, eva composer clearance: bridged composer focus state added six
+# lines to ChatView and moved the chat's prompt field into the structured
+# composer (+10 lines to its single top-level declaration). Type sizes are
+# unchanged in the file that matters (ChatView's largest type held at 424;
+# the +6 lines are outside it).
 LifeBoard/AppDelegate.swift	2056	15	1666
 LifeBoard/DesignSystem/ComposerScaffold.swift	623	13	106
 LifeBoard/DesignSystem/LifeBoardHomeCardBodies.swift	672	1	662
@@ -77,8 +82,8 @@ LifeBoard/Features/Eva/Models/LLMRuntimeCoordinator.swift	873	11	761
 LifeBoard/Features/Eva/Models/LifeBoardAppShortcuts.swift	793	25	70
 LifeBoard/Features/Eva/Models/Models.swift	1018	21	295
 LifeBoard/Features/Eva/Models/SlashCommandExecutionService.swift	479	6	427
-LifeBoard/Features/Eva/Views/Chat/ChatView.swift	2545	10	424
-LifeBoard/Features/Eva/Views/Chat/Chrome/ChatComposerView+StructuredComposer.swift	496	0	494
+LifeBoard/Features/Eva/Views/Chat/ChatView.swift	2551	10	424
+LifeBoard/Features/Eva/Views/Chat/Chrome/ChatComposerView+StructuredComposer.swift	506	0	504
 LifeBoard/Features/Eva/Views/Chat/Conversation/MessageView+DayOverviewAndProposalActions.swift	409	0	402
 LifeBoard/Features/Eva/Views/Chat/Conversation/MessageView+EvaProposalAndDayOverview.swift	430	0	423
 LifeBoard/Features/Eva/Views/Onboarding/EvaActivationComponents.swift	546	14	82
