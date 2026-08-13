@@ -5904,7 +5904,7 @@
 				CODE_SIGN_ENTITLEMENTS = LifeBoard.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = LifeBoard/LifeBoardCatalyst.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = LifeBoard/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LifeBoard;
@@ -5938,7 +5938,7 @@
 				CODE_SIGN_ENTITLEMENTS = LifeBoard.entitlements;
 				"CODE_SIGN_ENTITLEMENTS[sdk=macosx*]" = LifeBoard/LifeBoardCatalyst.entitlements;
 				CODE_SIGN_STYLE = Automatic;
-				CURRENT_PROJECT_VERSION = 3;
+				CURRENT_PROJECT_VERSION = 4;
 				DEVELOPMENT_TEAM = CJ43UNM3AR;
 				INFOPLIST_FILE = LifeBoard/Info.plist;
 				INFOPLIST_KEY_CFBundleDisplayName = LifeBoard;
@@ -6222,6 +6222,8 @@
 				kind = upToNextMajorVersion;
 				minimumVersion = 1.3.0;
 			};
+			traits = (
+			);
 		};
 		75F89FB02DFC62C3009EDD8F /* XCRemoteSwiftPackageReference "swift-markdown-ui" */ = {
 			isa = XCRemoteSwiftPackageReference;
