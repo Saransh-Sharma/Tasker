@@ -25,7 +25,7 @@ final class AppStoreScreenshotUITests: BaseUITest {
     }
 
     override var shouldSkipOnboarding: Bool {
-        name.contains("testCaptureReadmeLifeOSTour")
+        isMarketingCaptureTest
     }
     override var additionalLaunchArguments: [String] {
         [XCUIApplication.LaunchArgumentKey.testExpandedAppStoreOnboarding.rawValue]
@@ -45,30 +45,19 @@ final class AppStoreScreenshotUITests: BaseUITest {
     }
 
     func testCaptureReadmeLifeOSTour() throws {
-        try relaunchSeededWorkspace(
-            evaCompleted: true,
-            appearance: "Light",
-            accessibilityCategory: "UICTContentSizeCategoryL",
-            seedTimeout: 120
-        )
-        XCTAssertTrue(waitForRealisticHomeContent(timeout: 18))
-        assertNoFixtureCopyIsVisible()
-        saveScreenshot("01-home-command-center")
+        try captureMarketingPlanningScenes()
+    }
 
-        try captureReadmeRoot(
-            "plan",
-            readyIdentifier: "plan.header",
-            screenshotName: "02-plan-intention-into-time"
-        )
-        try captureReadmeTrackScreen()
-        try captureReadmeRoot(
-            "insights",
-            readyIdentifier: "foundation.insights",
-            screenshotName: "04-insights-patterns"
-        )
-        try captureReadmeEvaThread()
+    func testCaptureMarketingTrackScenes() throws {
+        try captureMarketingTrackScenes()
+    }
 
-        try captureReadmeRecoveryScreen()
+    func testCaptureMarketingReflectionScenes() throws {
+        try captureMarketingReflectionScenes()
+    }
+
+    func testCaptureMarketingIPadWeek() throws {
+        try captureWeeklyWorkspaceScene(screenshotName: "18-plan-week-ipad")
     }
 
     func testScreenshotSeedCompletesWithoutTerminatingTheApp() throws {
@@ -383,6 +372,258 @@ final class AppStoreScreenshotUITests: BaseUITest {
         saveScreenshot(screenshotName)
     }
 
+    private var isMarketingCaptureTest: Bool {
+        name.contains("testCaptureReadmeLifeOSTour") || name.contains("testCaptureMarketing")
+    }
+
+    private func captureMarketingPlanningScenes() throws {
+        try relaunchMarketingScene()
+        XCTAssertTrue(waitForRealisticHomeContent(timeout: 18))
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("01-home-command-center")
+
+        try captureUniversalCaptureReview()
+        try captureDeepLinkedScene(
+            "lifeboard://day",
+            readyIdentifier: "plan.day.canvas",
+            requiredText: nil,
+            screenshotName: "03-plan-day-capacity"
+        )
+        try captureWeeklyWorkspaceScene(screenshotName: "04-plan-week-workspace")
+        try captureActiveFocusScene()
+    }
+
+    private func captureMarketingTrackScenes() throws {
+        try captureMarketingHabitBoardScene()
+        try captureTrackOverviewScene()
+        try captureGoalsAndRoutinesScene()
+        try captureDeepLinkedScene(
+            "lifeboard://wellness/movement",
+            readyIdentifier: "wellness.workspace",
+            requiredText: "6,842",
+            screenshotName: "09-track-wellness"
+        )
+        try captureDeepLinkedScene(
+            "lifeboard://nutrition",
+            readyIdentifier: "nutrition.timeline",
+            requiredText: "Greek yogurt, berries and almonds",
+            screenshotName: "10-track-nutrition"
+        )
+        try captureDeepLinkedScene(
+            "lifeboard://fasting",
+            readyIdentifier: "fasting.workspace",
+            requiredText: "Your target: 14 hours",
+            screenshotName: "11-track-fasting"
+        )
+        try captureDeepLinkedScene(
+            "lifeboard://moments",
+            readyIdentifier: "lifeMoments.workspace",
+            requiredText: "Weekend with Maya",
+            screenshotName: "12-track-life-moment"
+        )
+    }
+
+    private func captureMarketingReflectionScenes() throws {
+        try captureDeepLinkedScene(
+            "lifeboard://journal",
+            readyIdentifier: "journal.workspace",
+            requiredText: "The pricing decision became clear",
+            screenshotName: "13-journal-day"
+        )
+        try captureDeepLinkedScene(
+            "lifeboard://notes",
+            readyIdentifier: "notes.workspace",
+            requiredText: "Pricing decision notes",
+            screenshotName: "14-knowledge-notes"
+        )
+        try captureMarketingInsightsScene()
+        try captureMarketingEvaScene()
+        try captureMarketingRecoveryScene()
+    }
+
+    private func captureUniversalCaptureReview() throws {
+        try relaunchMarketingScene()
+        let composer = app.textFields["home.lifeThread.composer"]
+        try require(composer, timeout: 10, message: "Universal Capture was unavailable on Home")
+        try tap(composer)
+        composer.typeText("Send the launch handoff to Maya tomorrow at 3pm for 30 min #work @studio")
+        let send = app.buttons["lifeThread.composer.send"]
+        try require(send, timeout: 8, message: "Universal Capture did not expose Interpret input")
+        try tap(send)
+        try require(
+            app.descendants(matching: .any)["addTask.view"],
+            timeout: 12,
+            message: "Universal Capture did not open its populated task review"
+        )
+        let title = app.textFields["addTask.titleField"]
+        try require(title, timeout: 8, message: "The parsed Universal Capture title was missing")
+        XCTAssertTrue((title.value as? String)?.localizedCaseInsensitiveContains("launch handoff") == true)
+        dismissKeyboardIfNeeded()
+        XCTAssertEqual(app.keyboards.count, 0, "Universal Capture review must not include a visible keyboard")
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("02-universal-capture-review")
+    }
+
+    private func captureActiveFocusScene() throws {
+        try relaunchMarketingScene(
+            deepLink: "lifeboard://focus",
+            seedActiveFocus: true
+        )
+        try require(
+            app.descendants(matching: .any)["focus.surface"],
+            timeout: 15,
+            message: "The active Focus surface did not open"
+        )
+        XCTAssertEqual(app.keyboards.count, 0, "The active Focus capture must not include a keyboard")
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("05-focus-active-session")
+    }
+
+    private func captureWeeklyWorkspaceScene(screenshotName: String) throws {
+        try captureDeepLinkedScene(
+            "lifeboard://week",
+            readyIdentifier: "plan.week.operatingLayer",
+            requiredText: nil,
+            screenshotName: screenshotName
+        )
+    }
+
+    private func captureTrackOverviewScene() throws {
+        try relaunchMarketingScene()
+        let trackRoot = app.buttons["foundation.destination.track"]
+        try require(trackRoot, timeout: 8, message: "Track was unavailable")
+        try tap(trackRoot)
+        try require(app.descendants(matching: .any)["track.header"], timeout: 12, message: "Track did not load")
+        let areas = app.buttons["track.lens.areas"]
+        try require(areas, timeout: 8, message: "Track did not expose Areas")
+        try tap(areas)
+        let hydration = app.descendants(matching: .any)["track.hydration"]
+        try require(hydration, timeout: 8, message: "The populated hydration area was not loaded")
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("07-track-overview")
+    }
+
+    private func captureMarketingHabitBoardScene() throws {
+        try relaunchMarketingScene()
+        let trackRoot = app.buttons["foundation.destination.track"]
+        try require(trackRoot, timeout: 8, message: "Track was unavailable for Habit Board capture")
+        try tap(trackRoot)
+        try require(app.descendants(matching: .any)["track.header"], timeout: 12, message: "Track did not load")
+        let areas = app.buttons["track.lens.areas"]
+        try require(areas, timeout: 8, message: "Track did not expose Areas")
+        try tap(areas)
+        let openBoard = app.buttons["track.habits"]
+        scrollUntilVisible(openBoard, maxSwipes: 8)
+        try requireVisible(openBoard, timeout: 8, message: "Track did not expose the populated Habit Board")
+        try tap(openBoard)
+        try require(
+            app.descendants(matching: .any)[AccessibilityIdentifiers.HabitBoard.view],
+            timeout: 15,
+            message: "The Habit Board did not open"
+        )
+        try require(
+            app.descendants(matching: .any)["habitBoard.row.A6000000-0000-0000-0000-000000000002"],
+            timeout: 12,
+            message: "The realistic Protein with breakfast habit history did not load"
+        )
+        XCTAssertEqual(app.keyboards.count, 0, "The Habit Board capture must not include a keyboard")
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("06-track-habit-board")
+    }
+
+    private func captureGoalsAndRoutinesScene() throws {
+        try relaunchMarketingScene()
+        let trackRoot = app.buttons["foundation.destination.track"]
+        try require(trackRoot, timeout: 8, message: "Track was unavailable for goals and routines")
+        try tap(trackRoot)
+        let areas = app.buttons["track.lens.areas"]
+        try require(areas, timeout: 12, message: "Track did not expose Areas")
+        try tap(areas)
+        let goal = app.descendants(matching: .any)
+            .matching(identifier: "track.goal.A7200000-0000-0000-0000-000000000001")
+            .firstMatch
+        scrollUntilVisible(goal, maxSwipes: 10)
+        try requireVisible(goal, timeout: 8, message: "The seeded launch goal was not visible")
+        XCTAssertTrue(app.staticTexts["Launch the partner experience calmly"].exists)
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("08-track-goals-routines")
+    }
+
+    private func captureMarketingInsightsScene() throws {
+        try relaunchMarketingScene(deepLink: "lifeboard://insights")
+        try require(app.descendants(matching: .any)["foundation.insights"], timeout: 12, message: "Insights did not load")
+        let trends = app.buttons["insights.lens.trends"]
+        try require(trends, timeout: 8, message: "Insights did not expose Trends")
+        try tap(trends)
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("15-insights-evidence")
+    }
+
+    private func captureMarketingEvaScene() throws {
+        try relaunchMarketingScene(deepLink: "lifeboard://eva")
+        try require(app.descendants(matching: .any)["foundation.eva"], timeout: 12, message: "EVA did not load")
+        guard waitForEvaChat(timeout: 10) else { throw captureFailure("EVA did not reach its populated proposal state") }
+        try require(
+            app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", "cleanest plan")).firstMatch,
+            timeout: 10,
+            message: "The reviewable EVA proposal was not visible"
+        )
+        XCTAssertEqual(app.keyboards.count, 0, "The EVA proposal capture must not include a keyboard")
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("16-eva-proposal-review")
+    }
+
+    private func captureMarketingRecoveryScene() throws {
+        try relaunchMarketingScene(seedRescue: true)
+        let rescueSheet = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.rescueSheet]
+        let passportCard = app.descendants(matching: .any)[
+            AccessibilityIdentifiers.Home.rescueCard("A5000000-0000-0000-0000-000000000101")
+        ]
+        try require(rescueSheet, timeout: 15, message: "Overdue Rescue did not open")
+        try require(passportCard, timeout: 8, message: "The realistic passport recovery card did not appear")
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("17-recovery-overdue-rescue")
+    }
+
+    private func captureDeepLinkedScene(
+        _ deepLink: String,
+        readyIdentifier: String,
+        requiredText: String?,
+        screenshotName: String
+    ) throws {
+        try relaunchMarketingScene(deepLink: deepLink)
+        try require(
+            app.descendants(matching: .any)[readyIdentifier],
+            timeout: 20,
+            message: "The scene \(screenshotName) did not reach \(readyIdentifier)"
+        )
+        if let requiredText {
+            let text = app.staticTexts.matching(NSPredicate(format: "label CONTAINS[c] %@", requiredText)).firstMatch
+            try require(text, timeout: 12, message: "The scene \(screenshotName) did not show \(requiredText)")
+        }
+        XCTAssertEqual(app.keyboards.count, 0, "The scene \(screenshotName) must not include a keyboard")
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot(screenshotName)
+    }
+
+    private func relaunchMarketingScene(
+        seedRescue: Bool = false,
+        postSeedRoute: String? = nil,
+        deepLink: String? = nil,
+        seedActiveFocus: Bool = false
+    ) throws {
+        try relaunchSeededWorkspace(
+            evaCompleted: true,
+            seedRescue: seedRescue,
+            postSeedRoute: postSeedRoute,
+            deepLink: deepLink,
+            additionalLaunchArguments: seedActiveFocus ? ["-LIFEBOARD_TEST_MARKETING_ACTIVE_FOCUS"] : [],
+            appearance: "Light",
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            seedTimeout: 120
+        )
+    }
+
     private func captureReadmeTrackScreen() throws {
         let trackRoot = app.buttons["foundation.destination.track"]
         try require(trackRoot, timeout: 8, message: "The Track root was not available for README capture")
@@ -425,6 +666,24 @@ final class AppStoreScreenshotUITests: BaseUITest {
             timeout: 8,
             message: "Track did not resume after the Habit Board capture"
         )
+    }
+
+    private func captureReadmeInsightsScreen() throws {
+        let insightsRoot = app.buttons["foundation.destination.insights"]
+        try require(insightsRoot, timeout: 8, message: "The Insights root was not available for README capture")
+        try tap(insightsRoot)
+        try require(
+            app.descendants(matching: .any)["foundation.insights"],
+            timeout: 12,
+            message: "Insights did not reach its stable README capture state"
+        )
+
+        let trends = app.buttons["insights.lens.trends"]
+        try require(trends, timeout: 8, message: "Insights did not expose its seven-day Trends lens")
+        try tap(trends)
+        XCTAssertTrue(trends.isSelected, "The Trends lens did not become selected")
+        assertNoFixtureCopyIsVisible()
+        saveScreenshot("04-insights-patterns")
     }
 
     private func captureReadmeEvaThread() throws {
@@ -485,6 +744,8 @@ final class AppStoreScreenshotUITests: BaseUITest {
         evaCompleted: Bool,
         seedRescue: Bool = false,
         postSeedRoute: String? = nil,
+        deepLink: String? = nil,
+        additionalLaunchArguments: [String] = [],
         appearance: String? = nil,
         accessibilityCategory: String? = nil,
         seedTimeout: TimeInterval = 45
@@ -504,19 +765,23 @@ final class AppStoreScreenshotUITests: BaseUITest {
         if evaCompleted {
             relaunched.launchArguments.append(XCUIApplication.LaunchArgumentKey.testEvaActivationCompleted.rawValue)
         }
-        if name.contains("testCaptureReadmeLifeOSTour") {
+        if isMarketingCaptureTest {
             relaunched.launchArguments.append("-LIFEBOARD_TEST_README_LIFE_OS_TOUR")
         }
         if seedRescue {
             relaunched.launchArguments.append(XCUIApplication.LaunchArgumentKey.testSeedOverdueRescueSuite.rawValue)
             relaunched.launchArguments.append(XCUIApplication.LaunchArgumentKey.enableDebugLogging.rawValue)
-            if name.contains("testCaptureReadmeLifeOSTour") {
+            if isMarketingCaptureTest {
                 relaunched.launchArguments.append("-LIFEBOARD_TEST_README_RECOVERY_CAPTURE")
             }
         }
         if let postSeedRoute {
             relaunched.launchArguments.append("-LIFEBOARD_TEST_POST_SEED_ROUTE:\(postSeedRoute)")
         }
+        if let deepLink {
+            relaunched.launchArguments.append("-LIFEBOARD_TEST_DEEP_LINK:\(deepLink)")
+        }
+        relaunched.launchArguments.append(contentsOf: additionalLaunchArguments)
         if let appearance {
             relaunched.launchArguments.append(contentsOf: ["-AppleInterfaceStyle", appearance])
         }
@@ -536,7 +801,7 @@ final class AppStoreScreenshotUITests: BaseUITest {
         waitForAppLaunch()
         let ready = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.screenshotSeedReady]
         let failed = app.descendants(matching: .any)[AccessibilityIdentifiers.Home.screenshotSeedFailed]
-        let requiresCompleteSeed = name.contains("testCaptureReadmeLifeOSTour")
+        let requiresCompleteSeed = isMarketingCaptureTest
         let deadline = Date().addingTimeInterval(seedTimeout)
         while Date() < deadline,
               ready.exists == false,
@@ -720,8 +985,19 @@ final class AppStoreScreenshotUITests: BaseUITest {
     private func dismissKeyboardIfNeeded() {
         if app.keyboards.buttons["Done"].exists {
             app.keyboards.buttons["Done"].tap()
+        } else if app.keyboards.buttons["Hide keyboard"].exists {
+            app.keyboards.buttons["Hide keyboard"].tap()
         } else if app.keyboards.count > 0 {
-            app.typeText("\n")
+            app.keyboards.firstMatch.swipeDown()
+        }
+        let deadline = Date().addingTimeInterval(2)
+        while Date() < deadline, app.keyboards.count > 0 {
+            if app.keyboards.buttons["Hide keyboard"].exists {
+                app.keyboards.buttons["Hide keyboard"].tap()
+            } else {
+                app.keyboards.firstMatch.swipeDown()
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.2))
         }
     }
 

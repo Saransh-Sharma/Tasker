@@ -227,6 +227,10 @@ public struct AddTaskSheetView: View {
         if viewModel.scheduledStartAt == nil {
             viewModel.restoreDefaultSchedule()
         }
+        if ProcessInfo.processInfo.arguments.contains("-LIFEBOARD_TEST_README_LIFE_OS_TOUR") {
+            titleFieldFocused = false
+            return
+        }
         guard layoutClass == .phone, didAutoFocusTitleField == false else { return }
         didAutoFocusTitleField = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {

@@ -4456,6 +4456,7 @@ struct JournalModuleView: View {
             case .insights: insights(palette: palette)
             }
         }
+        .accessibilityIdentifier("journal.workspace")
         .overlay {
             if privacy.state != .unlocked { journalPrivacyGate }
         }

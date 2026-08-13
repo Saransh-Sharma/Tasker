@@ -254,6 +254,7 @@ struct NutritionView: View {
             timelineContent
                 .padding(20)
         }
+        .accessibilityIdentifier("nutrition.timeline")
         // Paper grain, like every sibling feature root. Nutrition was the only
         // one of the three still on a flat canvas fill.
         .background { GrainedCanvas() }
@@ -1218,6 +1219,7 @@ struct WellnessView: View {
                 focusedContent
             }.padding(20)
         }
+        .accessibilityIdentifier("wellness.workspace")
         .background {
             GrainedCanvas()
         }

@@ -606,6 +606,7 @@
 		AAB000000000000000000011 /* HomeDailySummaryModalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000010 /* HomeDailySummaryModalView.swift */; };
 		AAB000000000000000000013 /* SunriseRecurringTaskDeleteConfirmationView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000012 /* SunriseRecurringTaskDeleteConfirmationView.swift */; };
 		AAB000000000000000000015 /* LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000014 /* LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift */; };
+		AAC000000000000000000002 /* LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAC000000000000000000001 /* LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift */; };
 		AAB000000000000000000019 /* NeedsReplanTrayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB000000000000000000018 /* NeedsReplanTrayView.swift */; };
 		AAB00000000000000000001B /* NeedsReplanLauncherSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB00000000000000000001A /* NeedsReplanLauncherSheet.swift */; };
 		AAB00000000000000000001D /* NeedsReplanCardOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAB00000000000000000001C /* NeedsReplanCardOverlay.swift */; };
@@ -1702,6 +1703,7 @@
 		AAB000000000000000000010 /* HomeDailySummaryModalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = HomeDailySummaryModalView.swift; path = LifeBoard/Features/Home/UI/Modals/HomeDailySummaryModalView.swift; sourceTree = SOURCE_ROOT; };
 		AAB000000000000000000012 /* SunriseRecurringTaskDeleteConfirmationView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = SunriseRecurringTaskDeleteConfirmationView.swift; path = LifeBoard/Features/Home/UI/Modals/RecurringTaskDeleteConfirmationView.swift; sourceTree = SOURCE_ROOT; };
 		AAB000000000000000000014 /* LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift; sourceTree = SOURCE_ROOT; };
+		AAC000000000000000000001 /* LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift; sourceTree = SOURCE_ROOT; };
 		AAB000000000000000000018 /* NeedsReplanTrayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NeedsReplanTrayView.swift; path = LifeBoard/Features/Home/UI/Replan/NeedsReplanTrayView.swift; sourceTree = SOURCE_ROOT; };
 		AAB00000000000000000001A /* NeedsReplanLauncherSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NeedsReplanLauncherSheet.swift; path = LifeBoard/Features/Home/UI/Replan/NeedsReplanLauncherSheet.swift; sourceTree = SOURCE_ROOT; };
 		AAB00000000000000000001C /* NeedsReplanCardOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = NeedsReplanCardOverlay.swift; path = LifeBoard/Features/Home/UI/Replan/NeedsReplanCardOverlay.swift; sourceTree = SOURCE_ROOT; };
@@ -3952,6 +3954,7 @@
 			isa = PBXGroup;
 			children = (
 				AAB000000000000000000014 /* LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift */,
+				AAC000000000000000000001 /* LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift */,
 			);
 			path = TestingSupport;
 			sourceTree = "<group>";
@@ -4691,6 +4694,7 @@
 				AAB000000000000000000011 /* HomeDailySummaryModalView.swift in Sources */,
 				AAB000000000000000000013 /* SunriseRecurringTaskDeleteConfirmationView.swift in Sources */,
 				AAB000000000000000000015 /* LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift in Sources */,
+				AAC000000000000000000002 /* LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift in Sources */,
 				AAB000000000000000000019 /* NeedsReplanTrayView.swift in Sources */,
 				AAB00000000000000000001B /* NeedsReplanLauncherSheet.swift in Sources */,
 				AAB00000000000000000001D /* NeedsReplanCardOverlay.swift in Sources */,

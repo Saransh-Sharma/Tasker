@@ -612,6 +612,7 @@ public final class AppRouter {
             push(.backlog, in: .plan)
         case "focus":
             let sessionID = segments.first.flatMap(UUID.init(uuidString:))
+            select(.plan)
             push(.focusSession(sessionID), in: .plan)
         case "habits":
             switch segments.first?.lowercased() {

@@ -991,6 +991,10 @@ final class HomeUITestWorkspaceSeeder {
                         dateCompleted: calendar.date(bySettingHour: 8, minute: 42, second: 0, of: today)
                     )
                 )
+                try await MarketingScreenshotScenarioSeeder.seedPlanningStage(
+                    referenceDate: now,
+                    plannedTaskIDs: [partnerBriefID, pricingNotesID, handoffID]
+                )
 
                 let habits = [
                     CreateHabitRequest(

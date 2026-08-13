@@ -121,6 +121,7 @@ struct LifeMomentsView: View {
             .padding(.top, 8)
             .padding(.bottom, 132)
         }
+        .accessibilityIdentifier("lifeMoments.workspace")
         .background {
             GrainedCanvas()
         }

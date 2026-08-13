@@ -176,6 +176,7 @@ struct FastingDestinationView: View {
             }
             .padding(20)
         }
+        .accessibilityIdentifier("fasting.workspace")
         .background { GrainedCanvas() }
         .navigationTitle("Fasting")
         .navigationBarTitleDisplayMode(.inline)
