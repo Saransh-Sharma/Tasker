@@ -96,7 +96,7 @@ LifeBoard/Features/Plan/UI/Inbox/InboxView.swift	1366	6	647
 LifeBoard/Features/Journal/Data/LifeBoardPhaseIIPersistence.swift	1997	16	1395
 LifeBoard/Features/Journal/Domain/LifeBoardJournalDerivedIndex.swift	555	3	547
 LifeBoard/Features/Journal/Domain/LifeBoardPhaseIIModels.swift	2485	99	199
-LifeBoard/Features/Journal/UI/LifeBoardTrackAndJournalViews.swift	6448	51	1117
+LifeBoard/Features/Journal/UI/LifeBoardTrackAndJournalViews.swift	6449	51	1118
 LifeBoard/Features/Knowledge/UI/LifeBoardKnowledgeCompletion.swift	1629	31	304
 LifeBoard/Features/Knowledge/UI/LifeBoardKnowledgeViews.swift	3043	17	949
 LifeBoard/Features/Knowledge/UI/KnowledgeStore.swift	712	3	698
@@ -120,7 +120,7 @@ LifeBoard/Features/Wellness/Domain/WellnessCoreModels.swift	1065	29	276
 LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift	1393	29	273
 LifeBoard/Foundation/Design/LifeBoardFoundationGallery.swift	5140	62	1106
 LifeBoard/Foundation/LifeOSFoundationContracts.swift	3095	133	209
-LifeBoard/Foundation/Navigation/AppRouter.swift	971	13	584
+LifeBoard/Foundation/Navigation/AppRouter.swift	970	13	585
 LifeBoard/Foundation/Navigation/FoundationShell.swift	7112	56	2120
 LifeBoard/Persistence/Repositories/DashboardLayoutRepository.swift	631	13	234
 LifeBoard/LifeBoardDesign/HomeScreen.swift	1823	11	1405
@@ -166,7 +166,8 @@ LifeBoard/Persistence/Repositories/CoreDataWeeklyRepositories.swift	1334	16	261
 Packages/LifeBoardCalendar/Sources/LifeBoardCalendar/CalendarIntegrationService.swift	948	10	734
 LifeBoard/Persistence/Services/CoreSchedulingEngine.swift	730	4	612
 LifeBoard/Persistence/Sync/WriteClosedRepositoryAdapters.swift	889	22	105
-LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift	1640	1	1630
+LifeBoard/TestingSupport/HomeUITestWorkspaceSeeder.swift	1644	1	1634
+LifeBoard/TestingSupport/MarketingScreenshotScenarioSeeder.swift	523	1	513
 LifeBoard/Features/Insights/Domain/CalculateAnalyticsUseCase.swift	1277	14	878
 LifeBoard/UseCases/Coordinator/LifeManagementDestructiveFlowCoordinator.swift	451	8	406
 LifeBoard/UseCases/Coordinator/UseCaseCoordinator.swift	862	13	694
@@ -193,7 +194,7 @@ LifeBoard/Utils/LoggingService.swift	850	9	329
 LifeBoard/Features/Habits/UI/HabitBoardViews.swift	2251	43	389
 LifeBoard/Features/Home/UI/HomeQuickFilterDropdown.swift	448	3	404
 LifeBoard/Features/Habits/UI/AddHabitSheetView.swift	1110	10	451
-LifeBoard/Features/Tasks/UI/AddTaskSheetView.swift	854	11	309
+LifeBoard/Features/Tasks/UI/AddTaskSheetView.swift	858	11	313
 LifeBoard/Features/Home/UI/CompactHeaderChrome.swift	439	1	437
 LifeBoard/Features/Eva/UI/SunriseEvaSheets.swift	1856	25	307
 LifeBoard/Features/Focus/UI/FocusZone.swift	586	13	248
