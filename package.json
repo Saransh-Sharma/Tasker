@@ -5,7 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && vite build && node scripts/generate-marketing-routes.mjs",
+    "check:marketing": "node scripts/check-marketing-site.mjs",
+    "screenshots:marketing": "bash scripts/generate_readme_screenshots.sh && node scripts/generate_marketing_screenshots.mjs",
     "lint": "eslint .",
     "preview": "vite preview"
   },
