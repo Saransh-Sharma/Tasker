@@ -4,7 +4,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const pagesBase = '/Tasker/';
 const requiredRoutes = ['features', 'features/home', 'features/plan', 'features/track', 'features/journal', 'features/insights', 'features/eva', 'features/everywhere', 'privacy', 'terms', 'support'];
+const webIcons = [
+  { file: 'lifeboard-app-icon-32.png', width: 32, height: 32 },
+  { file: 'lifeboard-app-icon-180.png', width: 180, height: 180 },
+  { file: 'lifeboard-icon-512.png', width: 512, height: 512 },
+];
 const requiredFeatureIds = ['life.home.orientation', 'life.plan.day', 'life.track.habits', 'life.journal', 'life.insights', 'life.eva', 'life.continuity.surfaces'];
 const requiredScreenshotIds = [
   'home-command-center', 'universal-capture-review', 'plan-day-capacity', 'plan-week-workspace',
@@ -19,14 +25,50 @@ const capabilityMatrix = await readFile(join(root, 'docs/product/PUBLIC_CAPABILI
 const screenshotRoot = join(root, 'src/assets/marketing-screens');
 const manifest = JSON.parse(await readFile(join(screenshotRoot, 'manifest.json'), 'utf8'));
 
-for (const route of requiredRoutes) {
-  const file = join(root, 'dist', route, 'index.html');
+const generatedPages = [
+  { route: '/', file: join(root, 'dist', 'index.html') },
+  ...requiredRoutes.map((route) => ({ route: `/${route}/`, file: join(root, 'dist', route, 'index.html') })),
+  { route: '/404.html', file: join(root, 'dist', '404.html') },
+];
+
+for (const { route, file } of generatedPages) {
   await access(file);
   const html = await readFile(file, 'utf8');
   if (!/<title>[^<]+<\/title>/.test(html) || !/name="description" content="[^"]+"/.test(html)) {
     throw new Error(`Missing metadata in ${route}`);
   }
+  if (/(?:src|href)="\/LifeBoard\/(?:assets\/|[^"]*(?:icon|favicon))/i.test(html)) {
+    throw new Error(`Legacy /LifeBoard/ deployment asset path in ${route}`);
+  }
+  if (!html.includes(`src="${pagesBase}assets/`)) throw new Error(`Missing ${pagesBase} JavaScript asset path in ${route}`);
+  if (!html.includes(`href="${pagesBase}assets/`)) throw new Error(`Missing ${pagesBase} stylesheet asset path in ${route}`);
+  if (/href="\.\/[^"]*icon/i.test(html)) throw new Error(`Route-relative icon path in ${route}`);
+  if (!html.includes(`href="${pagesBase}lifeboard-app-icon-32.png"`)) throw new Error(`Missing app favicon path in ${route}`);
+  if (!html.includes(`href="${pagesBase}lifeboard-app-icon-180.png"`)) throw new Error(`Missing app touch-icon path in ${route}`);
 }
+
+function pngDimensions(content, file) {
+  const signature = '89504e470d0a1a0a';
+  if (content.length < 24 || content.subarray(0, 8).toString('hex') !== signature || content.subarray(12, 16).toString('ascii') !== 'IHDR') {
+    throw new Error(`Invalid PNG icon: ${file}`);
+  }
+  return { width: content.readUInt32BE(16), height: content.readUInt32BE(20) };
+}
+
+for (const icon of webIcons) {
+  for (const directory of ['public', 'dist']) {
+    const file = join(root, directory, icon.file);
+    const content = await readFile(file);
+    const dimensions = pngDimensions(content, file);
+    if (dimensions.width !== icon.width || dimensions.height !== icon.height) {
+      throw new Error(`${directory}/${icon.file} must be ${icon.width}x${icon.height}, found ${dimensions.width}x${dimensions.height}`);
+    }
+  }
+}
+
+const appIcon180 = await readFile(join(root, 'LifeBoard/Assets.xcassets/AppIcon.appiconset/Icon@3x.png'));
+const webIcon180 = await readFile(join(root, 'public/lifeboard-app-icon-180.png'));
+if (!appIcon180.equals(webIcon180)) throw new Error('The 180px web icon does not match the app icon');
 
 for (const id of requiredFeatureIds) {
   if (!marketing.includes(`publicId: '${id}'`)) throw new Error(`Missing public feature: ${id}`);
@@ -68,4 +110,4 @@ for (const item of manifest.screenshots) {
   }
 }
 
-console.log(`Marketing checks passed: ${requiredRoutes.length + 1} routes, ${requiredFeatureIds.length} feature pillars, ${manifest.screenshots.length} approved captures with responsive variants.`);
+console.log(`Marketing checks passed: ${generatedPages.length} pages, ${webIcons.length} app-icon assets, ${requiredFeatureIds.length} feature pillars, ${manifest.screenshots.length} approved captures with responsive variants.`);
