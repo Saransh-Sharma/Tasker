@@ -4,7 +4,7 @@
 > Audience: Users balancing multiple areas or projects
 > Capability status: Current workspace
 > Source authority: [Plan and Focus](../product/PLAN_AND_FOCUS.md) and current This Week workspace
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 ## Use the current This Week workspace
 

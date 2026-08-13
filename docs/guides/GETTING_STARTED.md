@@ -4,7 +4,7 @@
 > Audience: New and restructuring users
 > Capability status: Current workspace
 > Source authority: [Onboarding](../product/ONBOARDING_SETTINGS_AND_RECOVERY.md) and [Feature Catalog](../product/FEATURE_CATALOG.md)
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 ## Build the minimum useful system
 

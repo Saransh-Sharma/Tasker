@@ -5,7 +5,7 @@
 **Audience:** Users, support, product, design, engineering, and QA
 **Capability status:** Current workspace
 **Source authority:** Home routes, projections, card registry, canonical domain repositories
-**Last verified:** 2026-08-11
+**Last verified:** 2026-08-13
 
 **Root:** Home
 **Related:** [Calendar + Timeline](../calendar/README.md), [Plan and Focus](./PLAN_AND_FOCUS.md), [Product UI/UX Guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md)

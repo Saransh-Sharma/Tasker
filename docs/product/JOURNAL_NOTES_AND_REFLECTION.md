@@ -5,7 +5,7 @@
 **Audience:** Users, support, product, design, engineering, privacy, and QA
 **Capability status:** Current workspace; media availability varies by permission/device
 **Source authority:** Local Journal/Knowledge features and packages, protection policy, and attachment stores
-**Last verified:** 2026-08-11
+**Last verified:** 2026-08-13
 
 **Primary entry points:** Home, Universal Capture, Insights, EVA, Spotlight, and typed routes
 **Privacy:** `privateSensitive` for Journal content/media and derived semantic data

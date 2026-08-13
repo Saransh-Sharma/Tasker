@@ -4,7 +4,7 @@
 **Audience:** Product, design, engineering, QA, support, privacy, and release teams
 **Capability status:** Current product requirements; future requirements are isolated in the [LifeOS blueprint](docs/product/LIFEOS_FUTURE_BLUEPRINT.md)
 **Source authority:** Current workspace, [product handbook](docs/product/README.md), and [completion status](docs/life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md)
-**Last verified:** 2026-08-11
+**Last verified:** 2026-08-13
 
 ## Vision
 
@@ -18,6 +18,11 @@ or employee-monitoring system. It is a local-first planning and life-management
 product with explicit boundaries around consequential actions.
 
 ## Product promise
+
+The concise public promise is **“One place to run the life you actually have.”**
+It expresses the same contract as the requirements below: continuity across life
+domains, realistic capacity, recovery, reflection, and user-controlled adaptation.
+All external descriptions are gated by the [Public Capability Matrix](docs/product/PUBLIC_CAPABILITY_MATRIX.md).
 
 LifeBoard must help a person:
 

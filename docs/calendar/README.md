@@ -4,7 +4,7 @@
 > Audience: Users, support, product, design, engineering, and QA
 > Capability status: Current workspace
 > Source authority: EventKit integration, Calendar package, Plan/Home projections
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 LifeBoard's calendar layer is read-only schedule context that improves execution without turning LifeBoard into a full calendar app.
 

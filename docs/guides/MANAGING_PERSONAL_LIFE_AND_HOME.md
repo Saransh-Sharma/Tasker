@@ -4,7 +4,7 @@
 > Audience: Users managing household and personal responsibilities
 > Capability status: Current workspace; dedicated household administration is future
 > Source authority: [Feature Catalog](../product/FEATURE_CATALOG.md)
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 ## Build a practical personal system
 

@@ -5,7 +5,7 @@
 > Audience: Users, support, product, design, engineering, and QA
 > Capability status: Current workspace
 > Source authority: Habit Board/library/detail and canonical occurrence semantics
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 LifeBoard Habit Streaks turn repeat behaviors into a calm visual system that helps users stay consistent without forcing perfection.
 

@@ -4,7 +4,7 @@
 **Audience:** Users, support, product, design, engineering, and QA
 **Capability status:** Current workspace
 **Source authority:** Onboarding flow/state, Settings routes/stores, bootstrap/recovery services
-**Last verified:** 2026-08-11
+**Last verified:** 2026-08-13
 **Primary routes:** First launch, EVA activation, Settings, Life Management, permission prompts, and bootstrap recovery
 
 ## Promise and user jobs

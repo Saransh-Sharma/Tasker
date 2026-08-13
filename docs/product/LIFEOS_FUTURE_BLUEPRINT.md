@@ -4,7 +4,7 @@
 > Audience: Product, design, engineering, research, security, and leadership
 > Capability status: FUTURE — UNIMPLEMENTED unless an item explicitly says partial
 > Source authority: Product direction; never overrides the current Feature Catalog
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 > **Important:** Nothing in this document should be described to users as available. Current behavior is defined only by the [Feature Catalog](./FEATURE_CATALOG.md). A future item may reuse current tasks, goals, notes, or trackers, but the workflow described here remains unimplemented until its acceptance criteria are verified and its status is moved into the catalog.
 

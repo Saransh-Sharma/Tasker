@@ -4,7 +4,7 @@
 > Audience: Engineering, architecture, QA, and release teams
 > Capability status: Current working tree; transitional boundaries are explicit
 > Source authority: Root Package.swift, Xcode targets, runtime composition, persistence model
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 **iOS 26.0+ | Swift 6 | TaskDefinition-first runtime**
 

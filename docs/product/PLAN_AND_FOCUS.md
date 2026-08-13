@@ -5,7 +5,7 @@
 **Audience:** Users, support, product, design, engineering, and QA
 **Capability status:** Current workspace
 **Source authority:** Plan routes/views, planning repositories, calendar projection, Focus session store
-**Last verified:** 2026-08-11
+**Last verified:** 2026-08-13
 
 **Root:** Plan
 **Related:** [Adaptive Home](./HOME.md), [Calendar + Timeline](../calendar/README.md), [Insights and EVA](./INSIGHTS_AND_EVA.md)

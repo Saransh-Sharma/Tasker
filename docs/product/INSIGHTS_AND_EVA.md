@@ -5,7 +5,7 @@
 **Audience:** Users, support, product, design, engineering, safety/privacy review, and QA
 **Capability status:** Current workspace; model availability varies
 **Source authority:** Insight services, EVA runtime/coordinator, canonical proposal pipeline
-**Last verified:** 2026-08-11
+**Last verified:** 2026-08-13
 
 **Roots:** Insights and EVA
 **Related:** [Journal and Reflection](./JOURNAL_NOTES_AND_REFLECTION.md), [Local EVA architecture](../architecture/LOCAL_LLM_EVA_ARCHITECTURE.md)

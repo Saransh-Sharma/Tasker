@@ -5,9 +5,9 @@
 **Audience:** Product, design, engineering, QA, privacy, and release teams
 **Capability status:** Current source-state reconciliation plus dated historical execution evidence
 **Source authority:** Current workspace and observed command results only
-**Last verified:** 2026-08-11
+**Last verified:** 2026-08-13
 
-**Documentation/source reconciliation:** 2026-08-11, including uncommitted workspace changes
+**Documentation/source reconciliation:** 2026-08-13, including uncommitted workspace changes
 **Latest full automated snapshot in this ledger:** 2026-08-03 at `dd1ba7cc`
 
 This document is the status authority for the LifeBoard Unified Completion
@@ -30,7 +30,24 @@ provenance only.
 | 7 — Adaptive/system surfaces | Complete in code | Regular-width iPad and Catalyst root navigation, keyboard access, redacted/versioned system envelopes, routing/dedup/offline contracts, and Remote Eva consent boundaries implemented. |
 | 8 — Release/documentation | Complete for available code gates | Automated suites, serialized build matrix, guardrails, state contract, documentation, rollback rules, and evidence classification reconciled. Signed-device-only observations remain in the separate table below. |
 
-## Current working-tree verification — 2026-08-11
+## Public documentation and marketing evidence — 2026-08-13
+
+- The living documentation set contains 43 validated authorities, including the
+  public capability matrix and marketing-site guide.
+- The static marketing build exposes the homepage, feature hub, seven deep
+  feature chapters, privacy, terms, support, and a fallback document under the
+  `/LifeBoard/` base. Each published route receives route-specific static metadata.
+- Current marketing verification passes for seven public pillars and six
+  approved populated captures, each with 480-, 760-, and full-width WebP files,
+  file budgets, byte counts, and SHA-256 checksums.
+- The screenshot scene authority defines 18 stable targets. The six currently
+  approved scenes are genuine seeded simulator captures used by the website and
+  README; uncaptured scenes remain prose-supported rather than simulated.
+- Website build, marketing claims/assets, lint, documentation links/metadata,
+  and whitespace checks are repository gates. Browser/device Lighthouse and the
+  full 18-scene capture expansion remain explicit manual/release evidence gates.
+
+## Historical working-tree verification — 2026-08-11
 
 The following was observed against the current workspace, including uncommitted product and documentation changes:
 

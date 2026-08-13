@@ -4,7 +4,7 @@
 > Audience: Design, engineering, accessibility, performance, and QA
 > Capability status: Current workspace
 > Source authority: Metal shader registry, wrappers, and design tests
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 Where each Metal effect in the sanctioned vocabulary actually fires, and the rule
 that keeps it from becoming decoration.

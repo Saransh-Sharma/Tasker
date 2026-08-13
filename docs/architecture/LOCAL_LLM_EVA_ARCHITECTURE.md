@@ -5,7 +5,7 @@
 > Audience: Engineering, product, privacy/safety, and QA
 > Capability status: Current workspace; runtime/model availability varies
 > Source authority: EVA coordinator/runtime, context policy, proposal validators, and action pipeline
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 EVA is LifeBoard's local-first assistant layer for chat, day review, Chief of Staff planning, and planner-assisted task changes. The runtime uses local Foundation Models or installed MLX where available, deterministic fallbacks, schema-validated planner output, bounded context projection, and the canonical task/action pipeline. Any enabled remote path requires account opt-in plus category-specific context grants and never expands external-surface disclosure.
 

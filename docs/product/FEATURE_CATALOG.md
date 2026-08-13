@@ -4,13 +4,18 @@
 > Audience: Users, support, product, design, engineering, and QA
 > Capability status: Current workspace; limitations are called out per entry
 > Source authority: Runtime routes, models, repositories, feature flags, targets, and system extensions
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
-This catalog accounts for the current user-visible product. “Current” means represented in this workspace; it does not by itself mean released or freshly exercised on a device. The [future blueprint](./LIFEOS_FUTURE_BLUEPRINT.md) is intentionally excluded.
+This catalog accounts for the current user-visible product. “Current” means represented in this workspace; it does not by itself mean freshly exercised on a device. The [future blueprint](./LIFEOS_FUTURE_BLUEPRINT.md) is intentionally excluded. Public language, platform qualifiers, and screenshot use are separately gated by the [Public Capability Matrix](./PUBLIC_CAPABILITY_MATRIX.md).
 
 ## Reading an entry
 
 Each feature names its outcome, entry points, authority, actions and recovery, integrations, privacy, states, accessibility/platform behavior, and known constraints. All features inherit the shared state and trust contract in the [handbook](./README.md).
+
+Stable public identifiers live in the capability matrix so product chapters can
+remain exhaustive while public surfaces stay precise. A website chapter must
+link back to the corresponding catalog anchor and must not promote a future or
+device-unverified behavior into an unqualified promise.
 
 ## 1. Life structure and onboarding
 

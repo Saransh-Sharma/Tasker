@@ -6,7 +6,7 @@
 **Audience:** Engineering, product, QA, and release teams
 **Capability status:** Current architecture with dated completion evidence
 **Source authority:** Current runtime/persistence plus the completion ledger
-**Last verified:** 2026-08-11
+**Last verified:** 2026-08-13
 
 **Last reconciled:** 2026-08-03
 **Implementation checkpoint:** `12539b21`

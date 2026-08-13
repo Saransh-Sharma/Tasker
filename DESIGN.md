@@ -6,7 +6,7 @@ classification: "Canonical visual and interaction contract"
 audience: "Product, design, engineering, and QA"
 capability_status: "Current workspace design authority"
 source_authority: "Swift semantic tokens and current design-system implementation"
-last_verified: "2026-08-11"
+last_verified: "2026-08-13"
 colors:
   primary: "#2B2118"
   primary-pressed: "#4A3A2A"

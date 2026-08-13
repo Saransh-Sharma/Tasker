@@ -3,12 +3,12 @@
 **Classification:** Current product overview
 **Audience:** Users, product, design, engineering, QA, and support
 **Capability status:** Current workspace; individual features may still require device or release validation
-**Source authority:** [Product handbook](docs/product/README.md) and [completion status](docs/life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md)
-**Last verified:** 2026-08-11
+**Source authority:** [Product handbook](docs/product/README.md), [public capability matrix](docs/product/PUBLIC_CAPABILITY_MATRIX.md), and [completion status](docs/life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md)
+**Last verified:** 2026-08-13
 
-> Life is not a list. Run it like a system.
+> One place to run the life you actually have.
 
-LifeBoard is a local-first LifeOS for organizing the responsibilities, routines,
+LifeBoard is a private, recovery-aware Life OS for organizing the responsibilities, routines,
 health signals, knowledge, and decisions that make up a real life. It helps a
 person decide what matters now, place work into time, act with less friction,
 recover when the plan breaks, and learn from evidence without turning life into
@@ -21,6 +21,16 @@ LifeBoard runs one operating loop:
 The app is built for iPhone and iPad, includes Mac Catalyst, widgets, Live
 Activities, App Intents and Shortcuts, Spotlight and notification routes, a
 share extension, and a Watch companion with complications and durable capture.
+
+## See the Life OS in action
+
+| Orient and act | Plan around reality |
+|---|---|
+| ![A populated LifeBoard Home showing a partner launch task, calendar commitments, habits, and a calm daily timeline](screenshots/readme/01-home-command-center.webp) | ![LifeBoard Plan showing a realistic day with work, personal commitments, and available capacity](screenshots/readme/03-plan-day-capacity.webp) |
+| **Track the systems that sustain you** | **Learn from evidence** |
+| ![LifeBoard Track showing populated habits and wellbeing records with honest mixed history](screenshots/readme/06-track-habit-board.webp) | ![LifeBoard Insights showing evidence-led patterns from a populated personal history](screenshots/readme/15-insights-evidence.webp) |
+| **Ask EVA, then review** | **Recover when plans change** |
+| ![EVA showing a populated conversation and reviewable planning assistance](screenshots/readme/16-eva-proposal-review.webp) | ![LifeBoard recovery flow showing realistic overdue work ready to replan](screenshots/readme/17-recovery-overdue-rescue.webp) |
 
 ## The five roots
 
@@ -151,7 +161,9 @@ Watch, notification, Spotlight, or lock-screen disclosure.
 
 - [LifeBoard LifeOS Product Handbook](docs/product/README.md)
 - [Current Feature Catalog](docs/product/FEATURE_CATALOG.md)
+- [Public Capability Matrix](docs/product/PUBLIC_CAPABILITY_MATRIX.md)
 - [User Operating Guides](docs/guides/README.md)
+- [Marketing Site Guide](docs/design/MARKETING_SITE_GUIDE.md)
 - [Future LifeOS Blueprint](docs/product/LIFEOS_FUTURE_BLUEPRINT.md)
 - [Product Requirements](PRODUCT_REQUIREMENTS_DOCUMENT.md)
 - [Current Architecture](docs/architecture/LIFEBOARD_V2_ARCHITECTURE_GUIDE.md)
@@ -188,6 +200,7 @@ For the React marketing site:
 npm install
 npm run dev
 npm run build
+npm run check:marketing
 ```
 
 ## Repository map

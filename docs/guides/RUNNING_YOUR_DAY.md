@@ -4,7 +4,7 @@
 > Audience: All LifeBoard users
 > Capability status: Current workspace
 > Source authority: [Home](../product/HOME.md), [Plan and Focus](../product/PLAN_AND_FOCUS.md), and Daily Loop runtime
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 The Daily Loop has five stages: Commit, Act, Repair, Close, and Rest. Moving backward to Repair is normal; it is not a broken streak.
 

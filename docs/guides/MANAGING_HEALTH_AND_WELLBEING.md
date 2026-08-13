@@ -4,7 +4,7 @@
 > Audience: Users tracking personal wellness and care evidence
 > Capability status: Current workspace; non-clinical
 > Source authority: [Track and Wellness](../product/TRACK_AND_WELLNESS.md), Health runtime, and [Feature Catalog](../product/FEATURE_CATALOG.md)
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 LifeBoard organizes personal evidence; it does not diagnose, prescribe, interpret urgent symptoms, or replace a clinician. Contact appropriate professional or emergency services when needed.
 

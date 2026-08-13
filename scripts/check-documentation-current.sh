@@ -21,6 +21,8 @@ end
 living << root.join("docs", "README.md")
 living.uniq!
 
+errors << "expected 43 living documents, found #{living.length}" unless living.length == 43
+
 metadata = ["Classification", "Audience", "Capability status", "Source authority", "Last verified"]
 living.each do |path|
   unless path.file?
@@ -132,14 +134,26 @@ else
 end
 
 authority_requirements = {
-  "README.md" => %w[docs/product/FEATURE_CATALOG.md docs/guides/README.md docs/product/LIFEOS_FUTURE_BLUEPRINT.md],
-  "docs/README.md" => %w[product/FEATURE_CATALOG.md guides/README.md product/LIFEOS_FUTURE_BLUEPRINT.md],
-  "docs/product/README.md" => %w[FEATURE_CATALOG.md ../guides/README.md LIFEOS_FUTURE_BLUEPRINT.md]
+  "README.md" => %w[docs/product/FEATURE_CATALOG.md docs/product/PUBLIC_CAPABILITY_MATRIX.md docs/design/MARKETING_SITE_GUIDE.md docs/guides/README.md docs/product/LIFEOS_FUTURE_BLUEPRINT.md],
+  "docs/README.md" => %w[product/FEATURE_CATALOG.md product/PUBLIC_CAPABILITY_MATRIX.md design/MARKETING_SITE_GUIDE.md guides/README.md product/LIFEOS_FUTURE_BLUEPRINT.md],
+  "docs/product/README.md" => %w[FEATURE_CATALOG.md PUBLIC_CAPABILITY_MATRIX.md ../design/MARKETING_SITE_GUIDE.md ../guides/README.md LIFEOS_FUTURE_BLUEPRINT.md]
 }
 authority_requirements.each do |relative, links|
   text = root.join(relative).read
   links.each { |link| errors << "#{relative} is missing canonical authority link '#{link}'" unless text.include?(link) }
 end
+
+matrix = root.join("docs/product/PUBLIC_CAPABILITY_MATRIX.md").read
+%w[life.home.orientation life.structure life.capture life.plan.day life.plan.focus life.plan.recovery life.track.habits life.track.goals-routines life.health life.journal life.knowledge life.insights life.eva life.continuity.icloud life.continuity.surfaces].each do |feature_id|
+  errors << "public capability matrix is missing '#{feature_id}'" unless matrix.include?(feature_id)
+end
+
+marketing_source = root.join("src/content/marketing.ts").read
+app_source = root.join("src/App.tsx").read
+errors << "marketing source is missing canonical App Store URL" unless marketing_source.include?("https://apps.apple.com/app/id1574046107")
+errors << "marketing source is missing canonical support email" unless marketing_source.include?("support@lifeboard.app")
+errors << "marketing site does not use the public promise" unless app_source.include?("One place to run the life you actually have.")
+errors << "marketing site does not present Life OS positioning" unless app_source.include?("Your private Life OS")
 
 if errors.any?
   warn "Documentation guardrail failed (#{errors.length} issue#{errors.length == 1 ? "" : "s"}):"

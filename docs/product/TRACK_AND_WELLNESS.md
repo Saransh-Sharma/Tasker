@@ -5,7 +5,7 @@
 **Audience:** Users, support, product, design, engineering, health-privacy review, and QA
 **Capability status:** Current workspace; connected data varies by permission/device
 **Source authority:** Track domain repositories, Health runtime, and domain feature routes
-**Last verified:** 2026-08-11
+**Last verified:** 2026-08-13
 
 **Root:** Track
 **Related:** [Habit package](../habits/README.md), [Adaptive Home](./HOME.md), [System surfaces](./SYSTEM_SURFACES_AND_CONTINUITY.md)

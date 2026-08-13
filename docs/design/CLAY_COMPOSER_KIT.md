@@ -4,7 +4,7 @@
 > Audience: Product, design, engineering, and QA
 > Capability status: Current workspace
 > Source authority: LifeBoard design-system composer components and tests
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 The data-entry layer of the LifeBoard design system. Lives in
 `LifeBoard/DesignSystem/`, alongside `LifeBoardClaySurface` and the signature

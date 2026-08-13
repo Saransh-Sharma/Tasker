@@ -5,7 +5,7 @@
 > Audience: Product, design, engineering, and QA
 > Capability status: Current selected-persona presentation
 > Source authority: Mascot assets, persona selection, and placement code
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 LifeBoard's visual Chief of Staff is a selectable mascot persona. Eva remains the default, but users can choose a different assistant identity during onboarding or from Settings. The selected mascot communicates product state: present, planning, thinking, reviewing, suggesting, warning, celebrating, helping, or encouraging rest. Mascots should make the app feel guided and humane without becoming a decorative sticker layer.
 

@@ -4,7 +4,7 @@
 > Audience: All users, support, privacy, security, and QA
 > Capability status: Current workspace; backup/export gaps are not disguised
 > Source authority: [System Surfaces](../product/SYSTEM_SURFACES_AND_CONTINUITY.md), persistence/runtime configuration, and [Feature Catalog](../product/FEATURE_CATALOG.md)
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 ## Know where authority lives
 

@@ -4,7 +4,7 @@
 > Audience: Users whose plans changed, accumulated, or became unhelpful
 > Capability status: Current workspace
 > Source authority: Daily Loop, [Plan and Focus](../product/PLAN_AND_FOCUS.md), [Journal and Reflection](../product/JOURNAL_NOTES_AND_REFLECTION.md)
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 Recovery is a normal stage of LifeBoard’s operating loop. The goal is an honest next plan, not preserving an obsolete one.
 

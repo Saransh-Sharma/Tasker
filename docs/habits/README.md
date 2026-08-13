@@ -4,7 +4,7 @@
 > Audience: Users, support, product, design, engineering, and QA
 > Capability status: Current workspace
 > Source authority: Habit definitions/schedules/occurrences, Board/library/detail surfaces
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 LifeBoard treats habits as first-class recurring behaviors, separate from finite tasks but visible in the same execution system.
 

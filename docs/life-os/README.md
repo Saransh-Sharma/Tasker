@@ -4,7 +4,7 @@
 > Audience: Product, design, engineering, QA, privacy, and release teams
 > Capability status: Current workspace with dated evidence boundaries
 > Source authority: Current runtime/persistence and the completion ledger
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 This package explains how the current LifeOS source fits together and what has actually been verified. User behavior belongs in the [Product Handbook](../product/README.md), day-to-day operation in the [User Manual](../guides/README.md), and unimplemented direction in the [Future Blueprint](../product/LIFEOS_FUTURE_BLUEPRINT.md).
 

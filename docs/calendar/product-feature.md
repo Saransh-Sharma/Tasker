@@ -5,7 +5,7 @@
 > Audience: Users, support, product, design, engineering, and QA
 > Capability status: Current workspace
 > Source authority: Calendar/Timeline UI and projection contracts
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 LifeBoard uses calendar data as execution context, not as a competing calendar product.
 

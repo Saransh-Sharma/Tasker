@@ -5,7 +5,7 @@
 **Audience:** Product, design, engineering, accessibility, and QA
 **Capability status:** Current workspace
 **Source authority:** DESIGN.md, Swift tokens/components, and current product chapters
-**Last verified:** 2026-08-11
+**Last verified:** 2026-08-13
 
 **Normative tokens:** [DESIGN.md](../../DESIGN.md)
 

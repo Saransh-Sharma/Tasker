@@ -4,7 +4,7 @@
 > Audience: Individual professionals, creators, and project owners
 > Capability status: Current workspace; team collaboration is future
 > Source authority: [Feature Catalog](../product/FEATURE_CATALOG.md) and [Plan and Focus](../product/PLAN_AND_FOCUS.md)
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 ## Model work at useful levels
 

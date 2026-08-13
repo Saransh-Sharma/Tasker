@@ -4,9 +4,9 @@
 > Audience: LifeBoard users, onboarding, support, and QA
 > Capability status: Current workspace
 > Source authority: [Feature Catalog](../product/FEATURE_CATALOG.md) and current runtime behavior
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
-LifeBoard works best as a light operating practice, not a database you must perfect. Start with the smallest loop that makes tomorrow easier, then add structure only when it removes recurring friction.
+LifeBoard works best as a light operating practice, not a database you must perfect. It is one place to run the life you actually have: start with the smallest loop that makes tomorrow easier, then add structure only when it removes recurring friction.
 
 ## Guides
 
@@ -30,9 +30,9 @@ LifeBoard works best as a light operating practice, not a database you must perf
 - **Review weekly:** use evidence to change the system, not judge yourself.
 - **Restructure seasonally:** update areas, projects, goals, habits, cards, and reminders when responsibilities change.
 
-The complete user journey is:
+The canonical Life OS journey is:
 
-`capture → clarify → organize → place → act/track → recover → reflect → adapt`
+`orient → capture → organize → plan → focus or track → recover → reflect → adapt`
 
 ## Safety boundaries
 

@@ -4,7 +4,7 @@
 **Audience:** Users, support, product, design, engineering, and QA
 **Capability status:** Current workspace; model and speech availability vary
 **Source authority:** Universal Input adapters, capture router, and LifeBoardTranscription
-**Last verified:** 2026-08-11
+**Last verified:** 2026-08-13
 **Surfaces:** Persistent Life Thread composer and Eva structured composer
 **Related:** [Adaptive Home](./HOME.md), [Insights and Eva](./INSIGHTS_AND_EVA.md), [Product UI/UX Guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md)
 

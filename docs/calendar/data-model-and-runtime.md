@@ -5,7 +5,7 @@
 > Audience: Engineering, product, and QA
 > Capability status: Current workspace
 > Source authority: Calendar package and EventKit integration runtime
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 This document describes the implementation-facing contract for calendar sync and the schedule context it produces.
 

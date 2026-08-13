@@ -4,7 +4,7 @@
 > Audience: Users balancing life beyond tasks and work
 > Capability status: Current general-purpose tools; dedicated modules noted as future
 > Source authority: [Feature Catalog](../product/FEATURE_CATALOG.md)
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 ## Relationships
 

@@ -5,7 +5,7 @@
 > Audience: Product, design, engineering, accessibility, privacy, and QA
 > Capability status: Current workspace scenario inventory; results require a dated run
 > Source authority: Current feature catalog and runtime routes
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 Use this playbook while product/design and engineering test the implementation together.
 
@@ -16,6 +16,24 @@ Use this playbook while product/design and engineering test the implementation t
 3. Confirm the dock reads Home, Plan, Track, Insights, and Eva.
 4. Confirm Home remains canonical without a legacy-host comparison path; the
    obsolete `-LIFEBOARD_DISABLE_ADAPTIVE_HOME_V2` argument no longer exists.
+
+## Public site and seeded marketing evidence
+
+- Run `npm run build`, `npm run check:marketing`, `npm run lint`, and the
+  documentation checker. Confirm all clean routes have unique static metadata,
+  the App Store destination and support address are canonical, and every public
+  pillar maps to the capability matrix.
+- Run `npm run screenshots:marketing` only from the configured simulator. Confirm
+  the fixed clock, UTC timezone, locale, light appearance, text size, status bar,
+  independent reset, seed completion, and accessibility-identifier navigation.
+- Inspect every approved image for believable populated content. Reject visible
+  “Test,” “Seed,” “Demo,” placeholder copy, real contact data, keyboards, debug
+  probes, permission alerts, loading overlays, and errors.
+- Validate 480-, 760-, and full-width variants, manifest checksums, and size
+  budgets. A failed capture or build must leave the last approved set intact.
+- At 320, 390, 768, 1024, and 1440 CSS pixels and 200% zoom, check navigation,
+  focus, keyboard order, 44-pixel targets, reduced motion, screenshot legibility,
+  horizontal overflow, and direct-route refresh.
 
 ## End-to-end scenario: build a life structure
 

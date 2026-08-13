@@ -4,7 +4,7 @@
 > Audience: Users, support, product, design, engineering, and QA
 > Capability status: Current workspace, with future work isolated in the blueprint
 > Source authority: Runtime code, persistence models, routes, public Swift APIs, and observed verification
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 This handbook explains what LifeBoard currently does, how to use it as a personal operating system, and where to find evidence about implementation status. It does not treat a design aspiration as shipped behavior.
 
@@ -12,6 +12,7 @@ This handbook explains what LifeBoard currently does, how to use it as a persona
 
 - New to LifeBoard: start with [Getting Started](../guides/GETTING_STARTED.md), then [Running Your Day](../guides/RUNNING_YOUR_DAY.md).
 - Looking up a capability: use the [Feature Catalog](./FEATURE_CATALOG.md).
+- Publishing a claim: verify it in the [Public Capability Matrix](./PUBLIC_CAPABILITY_MATRIX.md).
 - Designing a complete operating practice: use the [User Guides](../guides/README.md).
 - Evaluating current scope: read the [Product Requirements Document](../../PRODUCT_REQUIREMENTS_DOCUMENT.md) and [completion status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).
 - Considering product direction: read the clearly unimplemented [Future LifeOS Blueprint](./LIFEOS_FUTURE_BLUEPRINT.md).
@@ -29,7 +30,7 @@ This handbook explains what LifeBoard currently does, how to use it as a persona
 | Setup, permissions, settings, and repair | [Onboarding and Settings](./ONBOARDING_SETTINGS_AND_RECOVERY.md) | [Privacy and devices](../guides/PRIVACY_DATA_DEVICES_AND_INTEGRATIONS.md) |
 | Widgets, Siri, Watch, and continuity | [System Surfaces](./SYSTEM_SURFACES_AND_CONTINUITY.md) | [Privacy and devices](../guides/PRIVACY_DATA_DEVICES_AND_INTEGRATIONS.md) |
 
-Specialist references remain for the [calendar/timeline](../calendar/README.md), [habit runtime](../habits/README.md), [architecture](../architecture/LIFEBOARD_V2_ARCHITECTURE_GUIDE.md), and [visual system](../../DESIGN.md).
+Specialist references remain for the [calendar/timeline](../calendar/README.md), [habit runtime](../habits/README.md), [architecture](../architecture/LIFEBOARD_V2_ARCHITECTURE_GUIDE.md), [visual system](../../DESIGN.md), and [marketing-site expression](../design/MARKETING_SITE_GUIDE.md).
 
 ## The LifeOS model
 

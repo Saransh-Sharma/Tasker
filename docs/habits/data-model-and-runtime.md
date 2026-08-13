@@ -5,7 +5,7 @@
 > Audience: Engineering, product, and QA
 > Capability status: Current workspace
 > Source authority: Habit models, occurrence resolver, stores, and projections
-> Last verified: 2026-08-11
+> Last verified: 2026-08-13
 
 This document describes the habit lifecycle, streak semantics, and runtime projection rules that LifeBoard uses for Habit Streaks.
 
