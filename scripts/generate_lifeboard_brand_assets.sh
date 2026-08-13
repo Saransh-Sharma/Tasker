@@ -8,6 +8,7 @@ SOURCE_SVG="${REPO_ROOT}/LifeBoard_Icon Abstract_Face.svg"
 ICON_SET_MAIN="${REPO_ROOT}/LifeBoard/Assets.xcassets/AppIcon.appiconset"
 ICON_SET_WHITE="${REPO_ROOT}/LifeBoard/Assets.xcassets/AppIcon_WHITE.appiconset"
 IN_APP_LOGO_SET="${REPO_ROOT}/LifeBoard/Assets.xcassets/LifeBoardLogo.imageset"
+WEB_ICON_DIR="${REPO_ROOT}/public"
 
 if [[ ! -f "${SOURCE_SVG}" ]]; then
   echo "Missing source SVG: ${SOURCE_SVG}" >&2
@@ -108,4 +109,8 @@ resize_png 64 "${IN_APP_LOGO_SET}/LifeBoardLogo@1x.png"
 resize_png 128 "${IN_APP_LOGO_SET}/LifeBoardLogo@2x.png"
 resize_png 192 "${IN_APP_LOGO_SET}/LifeBoardLogo@3x.png"
 
-echo "Generated app icon assets and in-app logo from ${SOURCE_SVG}"
+resize_png 32 "${WEB_ICON_DIR}/lifeboard-app-icon-32.png"
+resize_png 180 "${WEB_ICON_DIR}/lifeboard-app-icon-180.png"
+resize_png 512 "${WEB_ICON_DIR}/lifeboard-icon-512.png"
+
+echo "Generated app icon, in-app logo, and web icon assets from ${SOURCE_SVG}"
