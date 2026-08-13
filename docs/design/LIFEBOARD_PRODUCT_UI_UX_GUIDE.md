@@ -2,12 +2,14 @@
 
 **Classification:** Canonical behavioral design reference
 
+**Audience:** Product, design, engineering, accessibility, and QA
+**Capability status:** Current workspace
+**Source authority:** DESIGN.md, Swift tokens/components, and current product chapters
+**Last verified:** 2026-08-13
+
 **Normative tokens:** [DESIGN.md](../../DESIGN.md)
 
 **Feature behavior:** [Product handbook](../product/README.md)
-
-**Phase 1/2 implementation record:**
-[UI/UX overhaul handoff](../todos/LIFEBOARD_UI_UX_OVERHAUL_HANDOFF.md)
 
 **Broader release status:** [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md)
 

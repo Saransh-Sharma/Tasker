@@ -1,996 +1,435 @@
-# LifeBoard iOS - Product Requirements Document
+# LifeBoard LifeOS Product Requirements
 
-**Version:** 5.0
-**Last Updated:** July 23, 2026
-**Platform:** iOS, iPadOS, watchOS companion surfaces, and Mac Catalyst
-**Status:** Active Product Direction
 **Classification:** Canonical product requirements
+**Audience:** Product, design, engineering, QA, support, privacy, and release teams
+**Capability status:** Current product requirements; future requirements are isolated in the [LifeOS blueprint](docs/product/LIFEOS_FUTURE_BLUEPRINT.md)
+**Source authority:** Current workspace, [product handbook](docs/product/README.md), and [completion status](docs/life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md)
+**Last verified:** 2026-08-13
 
-**Canonical feature detail:** [LifeBoard 5.0 Product Handbook](docs/product/README.md)
+## Vision
 
-**Active completion status:** [LifeBoard 5.0 Remaining Completion Ledger](docs/todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md)
-**Visual contract:** [DESIGN.md](DESIGN.md)
+LifeBoard is a personal operating system for the work, care, routines,
+knowledge, and decisions that make up a life. It helps people translate what
+they care about into a realistic day, act without losing context, recover after
+interruption, and learn from their own evidence without shame or opaque scoring.
 
-## Vision And Positioning
+LifeBoard is not a clinical treatment, financial adviser, autonomous scheduler,
+or employee-monitoring system. It is a local-first planning and life-management
+product with explicit boundaries around consequential actions.
 
-LifeBoard is a todo and life-management product for people who struggle with consistency, attention switching, and execution friction. The product promise is practical and specific: help users choose what matters now, start quickly, recover after interruption, and sustain momentum without shame loops.
+## Product promise
 
-LifeBoard is not positioned as a clinical treatment product. It is a productivity system that supports ADHD-relevant day-to-day execution needs with respectful, non-judgmental UX.
+The concise public promise is **“One place to run the life you actually have.”**
+It expresses the same contract as the requirements below: continuity across life
+domains, realistic capacity, recovery, reflection, and user-controlled adaptation.
+All external descriptions are gated by the [Public Capability Matrix](docs/product/PUBLIC_CAPABILITY_MATRIX.md).
 
-## Product Promise And Mental Loop
+LifeBoard must help a person:
 
-LifeBoard is designed around a repeating operating loop:
-1. Orient on Home.
-2. Capture or choose.
-3. Plan and sequence.
-4. Focus or track.
-5. Recover interruptions.
-6. Reflect.
-7. Adapt.
+1. understand what matters now;
+2. capture new input before it disappears;
+3. organize responsibilities by the part of life they serve;
+4. place flexible work around fixed reality and available capacity;
+5. focus, track, and record without unnecessary setup;
+6. recover when plans, energy, or circumstances change;
+7. reflect from evidence rather than memory alone;
+8. adapt the system deliberately and reversibly.
 
-Product intent by stage:
-- Orient: establish time, capacity, fixed commitments, current focus, and honest signal state.
-- Capture or choose: make input fast while keeping one bounded decision visible.
-- Plan: place flexible work around fixed reality without creating a second task source.
-- Focus or track: reduce activation cost and keep evidence correction possible.
-- Recover: preserve context, drafts, receipts, and return paths after interruption or plan failure.
-- Reflect: connect observations to evidence and reinforce recovery rather than perfection.
-- Adapt: let the user change plans, layouts, routines, and suggestions with transparent control.
+The mental loop is:
 
-## Target Users And Jobs-To-Be-Done
+`orient → capture → organize → plan → focus or track → recover → reflect → adapt`
 
-### Primary Segment: Adults Managing High Context Load
-- Users balancing work, life admin, habits, and personal projects.
-- Users who repeatedly lose momentum when contexts change.
+## Target users and jobs
 
-Primary jobs-to-be-done:
-- "Help me decide what to do first without overthinking."
-- "Help me restart quickly after I drop off."
-- "Help me keep my commitments visible without feeling overwhelmed."
+### People carrying high context load
 
-### Secondary Segment: Students And Early-Career Builders
-- Users with variable schedules and frequent deadline clustering.
+- “Show me what deserves attention without making me reconcile five apps.”
+- “Keep work, home, health, and personal responsibilities separate but connected.”
+- “Help me return to the right context after an interruption.”
 
-Primary jobs-to-be-done:
-- "Help me break down and sequence school/work tasks."
-- "Help me avoid deadline panic from invisible backlog growth."
-
-### Tertiary Segment: Habit-Oriented Self-Improvers
-- Users focused on repeat behaviors and consistency loops.
-
-Primary jobs-to-be-done:
-- "Help me maintain streak continuity without perfection pressure."
-- "Help me recover quickly from missed days."
+### People with executive-function friction
 
-### Fourth Segment: Low-Energy Or Burnout-Prone Users
-- Users with fluctuating energy and elevated decision fatigue.
-- Users who avoid planning tools when backlog pressure feels high.
-
-Primary jobs-to-be-done:
-- "Show me one doable next step."
-- "Help me reset after a miss without guilt."
-
-## ADHD Design Framework
-
-### 1. Reduce Cognitive Load
-Product intent:
-- Limit simultaneous decisions.
-- Favor clear defaults over setup burden.
-- Keep prioritization visible and lightweight.
-
-Success indicators:
-- Lower abandonment during planning.
-- Higher ratio of started tasks vs created tasks.
-
-### 2. Minimize Activation Friction
-Product intent:
-- Make task capture and task-start near-immediate.
-- Reduce taps/time between intent and execution.
-
-Success indicators:
-- Faster time-to-first-task per session.
-- Higher same-session completion rate.
-
-### 3. Preserve Momentum After Interruption
-Product intent:
-- Support return-to-context after distraction or delay.
-- Keep state legible so users can resume without rebuilding context.
-
-Success indicators:
-- Increased re-engagement after inactivity.
-- Reduced carry-over of stale overdue tasks.
-
-### 4. Reward Meaningful Progress
-Product intent:
-- Reinforce value-driven completion, not only quantity.
-- Encourage consistency while avoiding shame loops.
-
-Success indicators:
-- Increased completion of high-priority tasks.
-- Higher streak resilience after misses.
-
-### 5. Prevent Overwhelm Through Scoped Focus
-Product intent:
-- Narrow visible work to actionable slices.
-- Support quick filtering by context, energy, and time.
-
-Success indicators:
-- Lower backlog anxiety feedback.
-- Higher daily focus-list completion.
-
-## Why This Design Direction
-
-LifeBoard intentionally adopts patterns that reduce day-level overwhelm and increase execution probability:
-- Daily focus scoping and gentle reset behavior.
-- Date- and attention-based task surfacing.
-- Lightning capture with optional deeper clarification.
-- Strong filtering and smart views as backlog scales.
-- Assistant behavior that proposes first and mutates only with explicit confirmation plus bounded undo.
-
-## Core Experience Pillars
-
-### Pillar A: Capture And Clarify
-- Fast task capture with minimal required fields.
-- Optional structure when users have bandwidth (project, section, tag, notes, steps).
-
-### Pillar B: Focus And Sequence
-- Home views that scope attention to now and near-term windows.
-- Practical filtering for context, energy, priority, and due windows.
-
-### Pillar C: Plan Across Life Areas
-- Organize work by life areas and projects to reduce undifferentiated backlog stress.
-- Preserve clear inbox/default flow when categorization is deferred.
-
-### Pillar D: Execute Reliably
-- Ensure reminders and scheduling support execution instead of noise.
-- Provide recoverable behavior when tasks shift, recur, or get deferred.
-
-### Pillar E: Reflect And Reinforce
-- Show progress trends and completion quality over time.
-- Use reinforcement patterns that support recovery rather than perfection pressure.
-
-### Pillar F: Assist Intentionally
-- Support optional assistant-mediated planning actions.
-- Keep confirmation and reversibility as core trust mechanics.
-- Make Eva useful as a Chief of Staff: summarize the day, identify pressure, recommend sequence, suggest recovery moves, and keep the user's next action clear.
-- Treat chat as the lowest-friction planning interface for users who do not want to configure a planning screen.
-- Treat the selected Chief of Staff mascot as a functional assistant state marker: identity, planning, thinking, review, suggestion, risk, completion, rest, or discovery.
-- Let users choose the visible assistant persona while preserving the same trust boundaries, confirmation requirements, and undo expectations.
-- Keep mascot animation aligned with assistant trust boundaries; it can clarify state or reduce friction, but must not imply automatic mutation or replace confirmation copy.
-
-## Non-Goals For This PRD Cycle
-
-- No clinical or diagnostic positioning.
-- No engagement-at-all-costs notification strategy.
-- No automation path that bypasses explicit user control for impactful changes.
-- No social habit sharing or public streak leaderboards in this PRD cycle.
-- No punitive streak-insurance mechanics or shame-based loss-aversion loops.
-- No passive sensor-based lapse detection or automatic relapse inference.
-- No roadmap commitments outside the Apple platform surfaces named by this document.
-
-## Current Product Constraints (LifeBoard 5.0)
-
-- The app uses the V3 task runtime and additive Life OS model versions; protected Journal, Wellness, Nutrition, and Life Moments stores must not be reset or recreated.
-- Home, Plan, Track, Insights, and EVA are the five persistent roots. Journal, Notes, Focus, Settings, and entity details are typed leaves.
-- External calendar events remain read-only. LifeBoard mutates only its own tasks, planning metadata, and domain records.
-- Assistant proposals never bypass review, authorization, canonical mutation, receipt, and supported Undo boundaries.
-- Journal and health-derived content is private-sensitive; widgets, notifications, Spotlight, Watch, and diagnostics receive explicit redacted projections only.
-- Simulator evidence cannot close signed-device performance, haptics, thermal, Health, camera/microphone, App Group, iCloud/account, or paired-Watch gates.
-- The previous presentation remains a one-release rollback path behind typed feature flags; it is not the active visual authority.
-
-## LifeBoard 5.0 Product Architecture
-
-### Five-root model
-
-- **Home:** daily orientation, Focus Now, signals, timeline, recovery, and cross-domain summaries.
-- **Plan:** Day, Week, Backlog, Focus, capacity, repair, Weekly Planner, and Weekly Review.
-- **Track:** habits, routines, goals, care, Wellness, Nutrition, Fasting, and Life Moments.
-- **Insights:** evidence-backed trends, reflection, saved insights, and explainable patterns.
-- **EVA:** local conversation, context, proposal review, Apply/Edit/Not Now, receipts, and Undo.
-
-Each root owns an independent typed navigation stack. Cross-root routes select the destination before appending the stable leaf. Reselecting the active root returns to its root. A missing identity produces an explanatory state and never substitutes another record.
-
-### Shared interaction model
-
-- Universal Capture arbitrates requests from shell, widgets, intents, Spotlight, share/deep-link entry, and Watch handoff.
-- Populated, empty, loading, stale, denied, offline, locked, error, explicit zero, and destructive states have distinct semantics.
-- Canonical mutations produce explicit success/failure and a receipt where supported.
-- Drafts, selected dates, filters, root stacks, scoped rescue sessions, and settled assistant output survive interruption when recoverable.
-- Significant assistant changes use preview/diff, Apply, Edit, Not Now, result, and Undo.
-- External surfaces consume versioned redacted envelopes rather than app persistence.
-
-### Responsive model
-
-- Compact iPhone uses floating five-root chrome with measured dock/composer clearance.
-- Accessibility sizes use content-first single-column layouts and visible non-gesture actions.
-- Regular/wide iPad uses split navigation, adaptive 8/12-column Home, and seven-day Week.
-- Catalyst uses adaptive columns, keyboard commands, pointer states, native menus, and resizable windows.
-- Watch/widgets provide bounded, glanceable, privacy-safe projections and canonical actions only.
-
-## Success Metrics
-
-### Activation Metrics
-- First-task capture rate: percentage of new users who create at least one task within 10 minutes of first app open.
-- Time-to-first-capture: median seconds from first launch to first created task.
-- Time-to-first-completion: median hours from first task creation to first completion.
-
-### Decide/Start Metrics
-- Daily focus selection rate: percentage of active days with at least one started task from Home/Focus.
-- Start-to-complete conversion: percentage of started tasks completed within 24 hours.
-- Same-session create-to-complete conversion: percentage of sessions where a task is both created and completed.
-
-### Recovery Metrics
-- Return-to-context utilization: percentage of sessions where resume actions are used after interruption.
-- Post-interruption completion rate: completion probability for tasks in progress before an inactivity gap greater than 30 minutes.
-
-### Habit Activation Metrics
-- First-habit creation rate: percentage of new users who create at least one habit within their first 7 days.
-- Time-to-first-habit-check-in: median time from first habit creation to first logged habit outcome.
-
-### Habit Consistency Metrics
-- 7-day active-habit adherence: percentage of scheduled habit opportunities resolved as success for active habits.
-- 14-day habit retention: percentage of users who still have at least one active habit receiving outcomes after 14 days.
-
-### Habit Recovery Metrics
-- Next-scheduled-day recovery rate: percentage of misses or lapses followed by a success on the next scheduled opportunity.
-- 72-hour recovery rate: percentage of broken habits that receive a successful restart within 72 hours.
-- Never-miss-twice rate: percentage of first misses not followed by another miss on the next scheduled opportunity.
-
-### Habit System Health Metrics
-- Consecutive skip rate: percentage of habits with two or more scheduled skips in a row.
-- Overcommitment signal: relationship between number of newly created habits and subsequent adherence collapse.
-
-### Backlog Health Metrics
-- Overdue carry-over ratio: overdue tasks at day end divided by overdue tasks at day start.
-- Stale backlog size: count of open tasks untouched for 14+ days per active user.
-
-### Reminder Response Quality
-- Reminder acknowledgment rate: reminders that receive complete/snooze/reschedule/open responses.
-- Reminder action conversion rate: reminders that lead to complete or reschedule within 15 minutes.
-- Dismiss-without-action rate: reminders dismissed without any state change.
-
-### Assistant Trust Metrics
-- Proposal acceptance rate: confirmed runs divided by proposed runs.
-- Undo frequency: undos divided by applied runs.
-- Apply failure rate: failed applies divided by confirmed applies.
-- Day overview usefulness: percentage of day overview sessions followed by a task start, completion, reschedule, habit outcome, or explicit planning action.
-- Clarification rate: percentage of assistant turns that ask for missing context instead of guessing.
-- Silent-drop rate: percentage of assistant turns with no persisted response, explicit cancellation, or explicit failure state; target is zero.
-
-### Timeline And Schedule Metrics
-- Calendar connection rate: percentage of active users who grant readable calendar access after seeing the pre-permission explanation.
-- Selected-calendar completion rate: percentage of calendar-connected users who keep at least one calendar selected.
-- Schedule glance utilization: percentage of active days where the user views next-meeting, free-until, busy-block, or timeline schedule context.
-- Task-fit utilization: percentage of scheduled or estimated-duration task detail sessions where the user sees and acts after a fit hint.
-- Timeline action conversion: percentage of timeline sessions followed by start, complete, defer, open detail, create task, or ask Eva action.
-- Overloaded-window repair rate: percentage of dense or conflicting schedule windows followed by a user-confirmed reschedule, defer, shrink, or focus-protection action.
-
-### Accessibility Quality Metrics
-- Dynamic Type compliance rate: percentage of audited screens with no meaning-losing truncation at largest accessibility sizes.
-- VoiceOver critical-flow success rate: percentage of critical flows completable using VoiceOver only.
-
-## Metric Interpretation Guardrails
-
-- Favor sustained movement over short spikes.
-- Review metric movement alongside user-reported overwhelm, friction, and honest logging behavior.
-- Treat reminder and assistant metrics as quality metrics first and volume metrics second.
-- Do not optimize for longer streaks at the expense of truthful habit outcomes.
-- Do not optimize notification volume if it increases avoidance or reduces trust.
-- Treat skips and lapse visibility as truth-preserving behaviors, not churn to be hidden.
-- Do not ship growth tactics that improve short-term activity while degrading trust.
-
-## Detailed Product Requirements
-
-### Home And Focus
-Purpose:
-- Resolve "what should I do now" with minimal decision overhead.
-- Make the Home timeline a single-glanceable day command center that combines tasks, fixed commitments, routines, busy blocks, free gaps, and EVA guidance into one readable flow.
-- Give Eva and the user the same shared picture of the day, so chat guidance, timeline guidance, and Home actions do not contradict each other.
-
-Product direction:
-- The Home timeline is LifeBoard's primary planning surface for the current day. It should help the user understand the shape of the day without mentally stitching together a calendar, task list, habit routine, and planner.
-- The timeline is not a dense calendar clone. It is optimized for orientation, prioritization, and action, not raw schedule completeness.
-- The user should be able to answer in about two seconds: what is happening now, what is coming next, which windows are busy, where usable free time exists, what needs attention, and what can safely be ignored or deferred.
-- The timeline should feel structured but not rigid. It should surface what is necessary, compress what is secondary, and guide the user toward the next useful action.
-- The timeline should make the day feel manageable even when the source data is not tidy: overlapping meetings, overdue tasks, broken habits, all-day events, sparse days, and last-minute changes must degrade into readable states.
-
-Requirements:
-- Focus screen contains a bounded "Now" area with at most 3 tasks.
-- Quick View chips include at least Today, Next, Overdue, Quick Wins, Deep Work, Waiting, and Someday.
-- List rows show only the most decision-relevant metadata (due, priority, steps, project indicator).
-- Complete action supports immediate undo feedback.
-- Resume banner is shown when last active context is present after interruption.
-- Done timeline is collapsed by default and expandable for progress reflection.
-- Fixed calendar meetings render as anchored, time-bound commitments.
-- Tasks render as lighter, flexible, actionable items that remain easy to complete, move, or defer.
-- Routines such as morning and evening rituals provide rhythm and emotional structure without becoming heavy UI.
-- Overlapping busy windows group into readable flocks so overload is visible without forcing the user to parse stacked calendar cards.
-- Long free gaps compress into clearly labeled opportunity windows instead of becoming dead space.
-- Sparse or empty days guide the user toward planning, task creation, or EVA-assisted scheduling instead of feeling abandoned.
-- The current moment is obvious without overpowering the rest of the timeline.
-- Timeline actions prioritize execution: start, complete, open, defer, reschedule, break down, ask Eva, and create task.
-- Calendar events expose read-only detail and context actions, not edit actions.
-- Task cards in the timeline must remain obviously actionable and must not visually look as immutable as calendar meetings.
-- Completed work remains accessible as progress context, but it should not compete with current and next work.
-- Timeline empty, sparse, dense, offline, and permission-degraded states must be explicit and useful.
-- Eva timeline prompts appear only where they reduce friction: overloaded windows, ambiguous free gaps, overdue pileups, broken routines, recovery moments, and end-of-day review.
-
-### Calendar Schedule And Timeline Context
-Purpose:
-- Use schedule reality to improve execution without turning LifeBoard into a calendar client.
-- Let the user select which calendars matter to LifeBoard and keep that selection local.
-- Provide read-only day, week, and month schedule context that informs Home, task detail, timeline, and Eva.
-
-Product direction:
-- Calendar schedule context is an input to LifeBoard, not a second source of task truth.
-- The schedule layer should answer practical questions: what is next, when am I free, where is the day crowded, whether a task fits, and what open windows can be used.
-- The schedule feature should preserve user trust by clearly separating LifeBoard task mutations from external calendar event data.
-- Day schedule surfaces should support execution decisions. Week and month schedule surfaces should support orientation and planning, not deep calendar management.
-
-Requirements:
-- Calendar onboarding includes a plain-language pre-permission explanation before the system prompt.
-- Authorization states distinguish not determined, authorized, denied, restricted, write-only, no calendars selected, empty range, and all-day-only days.
-- Users can choose local calendars that contribute to LifeBoard context.
-- Selected calendar identifiers are persisted locally, normalized before storage, and reconciled when calendars disappear.
-- Declined, canceled, all-day, and selected-source filtering rules are applied consistently across Home, timeline, task-fit hints, and schedule surfaces.
-- Home surfaces next meeting, in-progress meeting, free-until, and busy-block context without requiring a full schedule screen.
-- Task detail surfaces fit, tight fit, conflict, or unknown hints when a task has enough timing or duration context.
-- Day schedule view shows fixed commitments, busy windows, and usable gaps in a read-only form.
-- Week schedule view helps the user notice overloaded days, open planning windows, and deadline clusters.
-- Month schedule view stays high-level and should not become a dense event browser.
-- Schedule refresh runs when Home loads, selected day changes, calendar preference changes, EventKit changes, or the user requests refresh.
-- Stale schedule context must preserve the last usable snapshot while showing refresh state or failure state.
-- Calendar-derived context can influence Eva's explanation and proposals, but Eva must not create, edit, or delete external calendar events in this PRD cycle.
-- Any assistant suggestion involving calendar conflicts must mutate only LifeBoard-owned tasks or planning metadata unless a future explicit calendar-write feature is approved.
-- Calendar schedule copy must avoid implying LifeBoard owns external events.
-
-### Timeline Intelligence And Chief Of Staff Guidance
-Purpose:
-- Let the timeline and Eva work together as a practical day-management layer.
-- Help the user repair the plan when reality changes instead of making them manually replan from scratch.
-
-Requirements:
-- Timeline context projection for Eva includes the selected day, current time, overdue tasks, today tasks, focus candidates, due habits, recovery habits, fixed calendar commitments, busy blocks, free gaps, and degraded-context receipts where available.
-- Eva can summarize the day in terms of load, constraints, urgency, open windows, and next best action.
-- Eva can suggest sequence, focus window use, deferral, task breakdown, reminder adjustment, habit recovery, and end-of-day cleanup.
-- Eva guidance in the timeline must be sparse, dismissible, and tied to a concrete user action.
-- Eva must ask a clarifying question or return a conservative answer when required schedule or task context is missing.
-- Eva must identify when a recommendation is based on partial context, such as no calendar access, no selected calendars, or context timeout.
-- Eva must not represent generated advice as certainty when it is inference from incomplete task metadata.
-- Dense or conflicting windows should prefer repair suggestions such as defer a flexible task, shrink a task, protect a focus block, or choose a quick win.
-- Free gaps should prefer constructive options such as start a task that fits, batch errands, recover a habit, plan the next block, or leave the gap intentionally open.
-- Eva's timeline guidance should never pressure the user to fill every free gap.
-
-### Add Task (Lightning + Clarify)
-Purpose:
-- Keep capture friction low while preserving optional depth.
-
-Requirements:
-- Lightning capture requires only title.
-- Date presets include Today, Tomorrow, This Week, and Someday.
-- Add flow supports fast creation without forcing categorization.
-- Clarify mode supports notes, steps, schedule, tags, dependencies, recurrence, and hierarchy fields when available.
-- Empty optional fields must never block save.
-
-### Habits
-Purpose:
-- Support recurring behavior loops that help users build consistency, visualize patterns, notice risk early, and recover quickly after misses.
-- Make habit health legible at a glance without forcing users into a separate planning mode.
-- Preserve a shame-free experience where misses are visible, honest, and recoverable.
-
-Requirements:
-- Habits are first-class recurring behaviors and are distinct from finite tasks.
-- Every habit requires a `LifeArea`; `Project` is optional supporting context.
-- Habits support two kinds:
-  - positive habits to build
-  - negative habits to reduce or quit
-- Negative habits support two tracking modes:
-  - `dailyCheckIn`
-  - `lapseOnly`
-- Positive habits always behave as `dailyCheckIn` habits even if older/invalid stored data exists.
-- Supported cadence in this PRD cycle includes every day, weekdays only, weekends only, and custom weekday selection.
-- Positive habits support `Done` and `Skip`.
-- Negative `dailyCheckIn` habits support `Stayed Clean` and `Lapsed`.
-- Negative `lapseOnly` habits do not create standard due rows by default and instead support manual lapse logging from detail or quick actions, while abstinent days are preserved automatically by maintenance or runtime projection logic.
-- Home includes a mixed Due Today section that can contain both tasks and due/tracking habits without removing existing task sections.
-- List rows show only the most decision-relevant metadata. For task rows this includes due, priority, steps, and project indicator. For habit rows this includes icon, ownership line, state badge, separate risk badge, streak chip, and compact recent-history strip.
-- Habit rows must keep primary actions one tap away:
-  - positive: `Done`, `Skip`
-  - negative `dailyCheckIn`: `Stayed Clean`, `Lapsed`
-  - negative `lapseOnly`: `Log Lapse`
-- Stable `lapseOnly` habits should default into a quiet tracking summary instead of dominating the prime agenda.
-- Recently resolved habit rows may remain visible in subdued form for the current session or day to reinforce progress and allow quick correction.
-- Habit detail and library flows support create, edit, pause, unpause, archive, icon selection, notes, history visibility, and recent-history correction.
-- Edit surfaces must allow cadence and reminder-window management, not only descriptive metadata changes.
-- Streaks, history, and risk indicators must help recovery framing rather than punish misses.
-- Paused habits preserve history but are excluded from active Home, analytics, daily brief, Eva, and LLM signal projections until unpaused.
-- Archived habits are soft-archived only, hidden from default active surfaces while preserving full history.
-- Habit analytics remain separate from task productivity metrics and are merged only in presentation where needed.
-- Habit AI and assistant surfaces consume habit signals and metadata directly; they must not route habits through fake tasks.
-- Empty, loading, and error states must remain explicit on habit surfaces.
-- Habit controls must meet accessibility expectations for labels, touch targets, readable status narration, and non-gesture alternatives.
-
-#### Habit Streak Contract
-Purpose:
-- Define how streaks, skips, and misses behave so that UI, analytics, assistant outputs, and roadmap work share the same mental model.
-
-Requirements:
-- `currentStreak` is the count of consecutive scheduled success days up to the most recent relevant day.
-- `bestStreak` is the longest historical run of scheduled success days.
-- `Skip` and `notScheduled` days are bridge days: they preserve continuity without adding a success.
-- `Missed` and `Lapsed` days break streaks.
-- `TodayPending` does not help or hurt streaks until the day resolves.
-- Risk state may be surfaced as `stable`, `atRisk`, or `broken`.
-- Risk answers how fragile this habit is right now and never replaces actual due-state.
-- Visual and copy treatment must make recovery legible without using hostile or moralizing language.
-
-#### Habit Board And Visual Streaks
-Purpose:
-- Make consistency visible in under two seconds.
-- Give users a satisfying pattern-recognition surface while still fitting LifeBoard's task and life-area model.
-
-Requirements:
-- LifeBoard must include a dedicated Habit Board reachable from habit library, habit detail, insights or systems, and contextual links from Home.
-- The board shows one row per active habit and one cell per calendar day.
-- Minimum supported windows:
-  - compact Home strip: last 14 days
-  - default board: rolling 28-day board with 7 visible columns at a time
-  - detail and insights summaries: last 7, 30, and 365 day counts plus current and best streak
-- Success cells deepen in intensity as streak depth grows.
-- `Skip` and `notScheduled` days render as bridge cells that preserve continuity without falsely claiming success.
-- `Missed` and `Lapsed` days interrupt the chain clearly, without punitive styling.
-- `TodayPending` is visually distinct from both success and failure.
-- Future cells are muted.
-- Negative habits visualize abstinence or clean streaks as progress.
-- The board supports sort by title, current streak, risk, `LifeArea`, and most in need of attention.
-- The board supports grouping by none, `LifeArea`, `Project`, and habit kind.
-- The board includes a top aggregate day strip showing how many active habits were successful, bridged or skipped, or broken per day.
-- Quick actions must support tap to resolve today's cell when appropriate and a secondary action to inspect or correct history.
-- The board must remain beautiful and motivating without pressuring users to hide misses.
-- Every board row and cell must expose accessible narration including habit name, date, state, and streak context.
-
-#### Habit Library And Detail
-Purpose:
-- Make habits manageable as systems, not just checkboxes.
-
-Requirements:
-- The habit library is the canonical browse and management surface for all habits.
-- Library supports search by title, `LifeArea`, `Project`, notes, and visible metadata.
-- Library supports filters for active, paused, archived, positive, negative, stable, at-risk, and broken habits.
-- Library sorts by title, current streak, risk, last activity, and recently created.
-- Habit detail is read-first and edit-second.
-- Read mode contains hero summary, state, risk, current streak, best streak, ownership, notes or context, history surface, and recovery cues.
-- Detail supports manual lapse logging for `lapseOnly` habits, pause or unpause, archive, and recent history correction.
-- Editing must never silently destroy history.
-- Cadence changes rebuild unresolved future schedule state while preserving past outcomes.
-- Re-activating a paused habit must not synthesize false misses for paused dates.
-- Detail should help the user understand why a streak broke and what the smallest next step is.
-
-#### Habit Use Cases
-1. Positive daily habit with a travel skip
-   - User tracks a small daily action.
-   - They complete four days, skip one travel day, then complete the next day.
-   - The board shows four deepening success cells, one bridge or skip cell, then a resumed success cell.
-   - Streak continuity is preserved, but the skip does not count as an extra success.
-
-2. Weekday-only positive habit
-   - User tracks a weekday habit.
-   - Saturday and Sunday render as bridge or not-scheduled cells, not misses.
-   - Monday continues the streak if completed.
-
-3. Negative daily check-in habit
-   - User tracks a behavior they want to reduce.
-   - Clean days deepen the streak.
-   - One lapse breaks the streak, marks the row as recovery-focused, and prompts restart framing on the next due day.
-   - The lapse remains visible historically without punitive language.
-
-4. Negative lapse-only habit
-   - User tracks a habit in lapse-only mode.
-   - Stable clean days do not require noisy daily check-ins.
-   - The habit lives in quiet tracking until the user logs a lapse.
-   - Logging a lapse creates a same-day broken state and moves the habit into recovery priority.
-
-5. Overcommitted user starts too many habits
-   - User creates several new habits in one week.
-   - Insights detects low adherence and the product suggests reducing scope: pause some habits, shrink one, and keep the core habits.
-   - The system supports simplification instead of demanding more discipline.
-
-6. Paused habit
-   - User pauses a habit during a busy period.
-   - The habit disappears from active Home, default board views, and insight rollups.
-   - On unpause, old history remains intact and no false misses are inserted for paused dates.
-
-7. History correction
-   - User accidentally logs the wrong outcome yesterday.
-   - From detail, they correct the outcome.
-   - Streaks, board visuals, and analytics update consistently, and the system preserves explicit correction provenance where supported.
-
-### Tasks Browse And Search
-Purpose:
-- Make large backlogs navigable and retrievable.
-
-Requirements:
-- Browse surface includes system lists and project-oriented views.
-- Smart Views includes non-editable defaults and an advanced creation path for saved filters.
-- Search is as-you-type, grouped for relevance, and resilient to empty or emoji-only queries.
-- Task detail supports fast mutation actions (complete, schedule, add step, more actions).
-- Any drag-like interaction has a non-drag alternative.
-
-### Assistant (Ask, Plan, Apply, Undo)
-Purpose:
-- Increase planning and execution quality while preserving user trust.
-- Give the user a conversational Chief of Staff that can translate task, habit, and schedule context into a clear day plan.
-- Let users manage the day from chat when screens feel too heavy.
-
-Requirements:
-- Ask mode is read-only and clearly labeled as non-mutating.
-- Chat is a first-class assistant surface, not only a text box for task creation.
-- Chat supports natural-language day management prompts such as "What should I do next?", "How does my day look?", "Can I fit this before my meeting?", "What should I move?", "Help me recover the afternoon", and "Plan the rest of my day."
-- Day-review prompts such as `what are my tasks today`, `what's on my plate`, `show my open tasks`, `how is my day`, `what tasks and habits do I have today`, and close natural-language variants route to a dedicated chief-of-staff day overview response.
-- The day overview response shape is: short markdown brief first, then card sections with tasks and habits rendered differently.
-- Task day cards must emphasize project, due state, priority, and execution actions.
-- Habit day cards must emphasize cadence, streak, risk, and habit-specific outcome actions.
-- Day overview sections should prefer this order when populated: overdue tasks, today tasks, focus candidates, due habits, recovery habits, quiet tracking.
-- Timeline-aware day overview may include schedule context sections for current block, next meeting, busy windows, free gaps, conflicts, and planning opportunities where the runtime can provide that context.
-- Schedule-aware assistant copy must distinguish observed calendar facts from inferred planning advice.
-- Ask and Plan surfaces may summarize due habits, current streaks, recently broken habits, at-risk habits, and suggested recovery actions.
-- Ask and Plan surfaces may summarize next meeting, free-until state, overloaded windows, flexible tasks that can move, and tasks that fit a discovered gap.
-- Plan mode outputs proposal cards with rationale.
-- Plan mode may suggest a sequence without producing mutations when the user asks for guidance only.
-- Plan mode may produce proposal cards for LifeBoard-owned changes such as rescheduling a task, moving a reminder, splitting a task, changing priority, deferring a focus candidate, or adding a planning task.
-- Plan mode may suggest shrinking a habit, moving a reminder window, pausing an overloaded habit, or converting a difficult daily habit into a smaller or weekday-only version.
-- Plan mode may recommend calendar-aware changes to LifeBoard tasks, but it must not mutate external calendar events.
-- Apply mode requires propose -> confirm -> apply sequence.
-- Day overview quick actions are explicit user actions, not assistant auto-apply behavior.
-- Day overview task quick actions support `Done`, `Tomorrow`, and `Open`; habit quick actions support `Done` / `Skip` / `Stayed Clean` / `Lapsed` / `Log Lapse` according to habit type and tracking mode.
-- Habit outcomes (`Done`, `Skip`, `Stayed Clean`, `Lapsed`) are never auto-logged by the assistant.
-- Diff preview is mandatory before apply.
-- Undo is visible and bounded by pipeline constraints.
-- Destructive operations require stronger confirmation copy and styling.
-- Large-batch, recurrence-affecting, overdue-cleanup, and calendar-conflict repair proposals require extra clarity before apply.
-- Assistant responses must always end in a visible terminal state: persisted answer, persisted proposal, explicit clarification, explicit failure, or explicit cancellation.
-- Context receipts are required for degraded or partial day-management answers so the user understands what Eva did and did not know.
-- Chat history may persist assistant messages and proposal cards, but transient quick-action state should not mutate the transcript after render.
-- Assistant history clearing remains available from settings.
-- Eva mascot visuals clarify assistant state without implying automatic action.
-- Eva state ownership is stable: `Thinking` means processing, `Clipboard` means review, `Idea` means suggestion, `Celebration` means confirmed success, and `Worried` means true risk only.
-- Mascot visuals must not replace confirmation, undo, permission, privacy, or destructive-action copy.
-
-### Plan, Backlog, Focus, And Recovery
-Purpose:
-- Turn intent into a realistic sequence around fixed commitments.
-- Keep Day, Week, Backlog, Focus, Weekly Planner, Weekly Review, and recovery in one planning system.
-
-Requirements:
-- Day leads with date, capacity, now/next work, fixed schedule context, flexible planned work, and repair.
-- Week exposes distribution across seven days; regular-width iPad provides seven stable day destinations.
-- Backlog remains a projection of canonical tasks and supports scheduling, edit, confirmed delete, receipt, and Undo.
-- Focus resolves an exact stable session identity and distinguishes active, ended, missing, stale, and repository failure.
-- External calendar events remain read-only and visually distinct from LifeBoard work.
-- Direct manipulation has visible, keyboard, and VoiceOver alternatives.
-- Overdue Rescue is scoped by account, workspace, anchor date, and launch purpose.
-- A Plan-launched rescue action names and updates the selected planning day rather than assuming today.
-- Repair and bulk proposals expose rationale, affected items, preview/diff, Apply/Edit/Not Now, result, and Undo.
-- Concurrent mutations freeze only affected controls and preserve drafts/selections on failure.
-
-### Track, Wellness, Nutrition, Fasting, And Life Moments
-Purpose:
-- Make evidence capture useful, correctable, and non-judgmental across routines, care, and wellness.
-
-Requirements:
-- Track leads with Today actions before history, charts, or management.
-- Values retain source, unit/meaning, captured time/timezone, stable identity, and correction provenance where supported.
-- Manual recording remains usable when optional permissions or connected sources are unavailable.
-- Connected-health projections never overwrite manual records and clearly identify their source.
-- Charts include timeframe/source and a table or text equivalent.
-- Nutrition is local-first; barcode, voice, and recognition flows stop at an editable review before save.
-- Nutrition history uses immutable macro snapshots so later library edits do not rewrite past meals.
-- Fasting enforces one serialized active lifecycle and distinguishes finish, cancel, early completion, correction, and keep running.
-- Life Moments use captured-timezone recurrence, stable identity, explicit Home consent, search, archive, and export.
-- Care and wellness copy describes recorded state and never diagnoses or moralizes.
-- Delete identifies dependent records/projections and exposes in-place Undo where supported.
-
-### Journal, Notes, Knowledge, And Reflection
-Purpose:
-- Preserve private lived context and make reflection traceable to the user’s evidence.
-
-Requirements:
-- Journal supports text, audio, transcription, document recognition, and media through reviewable capture states.
-- Audio remains durable and authoritative if transcription is delayed or fails.
-- Cancellation before review/save commits no recognized document or media draft.
-- Unavailable attachments preserve their place and expose restore guidance or explicit removal.
-- Journal routes authenticate before content mounts and use content-free app-switcher, Spotlight, notification, widget, Watch, and diagnostic projections.
-- Deletion propagates through semantic indexes, graphs, reflections, and caches while retaining required tombstones.
-- Notes and Knowledge retain stable identity and do not silently ingest protected Journal content.
-- Reflections distinguish evidence from interpretation and support Save, Snooze, Dismiss, and Follow Up.
-- Model or index degradation does not block reading or local capture.
-
-### Onboarding, Settings, And Recovery
-Purpose:
-- Reach one useful completed loop quickly and give users continuing control over privacy, integrations, and structure.
-
-Requirements:
-- Onboarding progresses from promise to life context, first task, focus demonstration, optional EVA setup, permissions, and shell entry.
-- Optional setup can be skipped without disabling the non-dependent app.
-- Progress and recoverable drafts persist across interruption.
-- Permission explanations state value, data use, fallback behavior, and where to change the decision.
-- Settings groups appearance, focus, notifications, integrations, life management, privacy, data, accessibility, and support coherently.
-- Destructive life-management actions explain affected items, retained history, move/archive alternatives, and reversibility.
-- Bootstrap/migration recovery preserves canonical stores and never performs an implicit destructive reset.
-
-### System Surfaces And Continuity
-Purpose:
-- Extend safe glanceability and capture without exposing private stores or creating parallel mutation paths.
-
-Requirements:
-- Widgets, Watch, intents, Spotlight, notifications, and Live Activities use versioned redacted projections and stable identities.
-- External targets do not open the main app database directly.
-- Stale, missing, locked, incompatible, offline, and deleted-target states have privacy-safe fallbacks.
-- Intent and notification mutations are idempotent and use canonical handlers.
-- Watch capture uses a durable protected outbox, retains audio until receipt, deduplicates import, and exposes retry/quarantine recovery.
-- Deep links select the correct root before appending the leaf and never substitute another record.
-
-### Insights And Analytics
-Purpose:
-- Support reflection that leads to action without guilt.
-
-Requirements:
-- Insights is split into three tabs with distinct intent:
-  - `Today` for operational momentum and immediate decision support.
-  - `Week` for reflective pattern analysis.
-  - `Systems` for long-term system health and progression.
-- `Today` includes:
-  - A hero or momentum board showing completed vs scheduled work, daily XP, streak-safe framing, and top XP source.
-  - Goal + pace analysis showing progress to daily cap, morning/evening split, and high-priority clears.
-  - Due pressure analysis showing due-today open work, overdue pressure, stale overdue pressure, blocked tasks, and long tasks.
-  - Focus pulse analysis showing focus minutes, session count, average session length, and target-hit rate.
-  - Completion mix analysis showing priority, task-type, energy, and context distribution from completed work.
-  - Recovery loop analysis showing recover/reschedule, decomposition, and reflection signals with a plain-language takeaway.
-- `Week` includes:
-  - A weekly momentum hero with XP total, goal-hit framing, and summary metrics.
-  - A completions-vs-XP weekly bar surface.
-  - A weekday pattern strip showing intensity and consistency by day.
-  - A project leaderboard based on weekly completion score totals.
-  - Priority and task-type mix summaries for completed work.
-  - Summary cards covering best day, average day, goal-hit days, and carry-over pressure.
-- `Systems` includes:
-  - Level and milestone progression framing.
-  - Streak resilience metrics emphasizing return behavior, not all-or-nothing streak loss.
-  - Achievement velocity metrics.
-  - Reminder response quality based on delivery status, acknowledgements, and snoozes.
-  - Focus ritual health metrics.
-  - Recovery loop health metrics across recover/reschedule, decomposition, and reflection behavior.
-- Habit analytics remain separate from task productivity metrics and merge with task analytics only in presentation where useful.
-- `Today` includes a habit momentum module showing due habits, completed or clean habits today, skipped habits today, lapsed or broken habits today, and at-risk habits needing rescue.
-- `Week` includes habit adherence by weekday, skip distribution, lapse clusters, next-scheduled-day recovery rate, and `LifeArea` distribution of adherence.
-- `Systems` includes habit stability distribution (`stable`, `atRisk`, `broken`), current and best streak leaderboards, comeback behavior after misses, quiet-tracking health for `lapseOnly` habits, and habit load health.
-- Insights reuses the existing task, gamification, reminder, focus-session, and analytics models; no schema change is required for richer analysis.
-- Copy is action-first and shame-free, with explicit no-data states instead of blank or thin dashboards.
-- Reduced-motion fallback is required for transitions and animated module reveals.
-- Weekly reflection prompts remain optional and non-blocking.
-
-### Settings
-Purpose:
-- Keep controls explicit for execution behavior, assistant behavior, and accessibility.
-
-Requirements:
-- Notifications and reminder controls are user-configurable for both tasks and habits.
-- Habit reminder windows remain configurable per habit.
-- Gentle recovery nudges after a miss or lapse are configurable and optional.
-- `lapseOnly` habits default to quieter notification behavior than `dailyCheckIn` habits.
-- Notification batching should reduce overwhelm by grouping habit nudges by time window or `LifeArea` where useful.
-- Focus options expose start ritual and timer preferences.
-- Weekly habit reflection prompts remain optional and non-blocking.
-- Assistant controls include model/privacy posture and history clearing.
-- Accessibility controls support larger spacing, reduced motion, and visibility accommodations where supported, including lower-intensity board rendering that preserves meaning.
-- Privacy controls clearly disclose data sharing posture.
-
-## Core Interaction Flows
-
-### Home Loop Flow
-
-```mermaid
-flowchart TD
-  A[Open app] --> B[Home or Focus loads]
-  B --> C{Resume banner available}
-  C -->|Yes| D[Continue last focus]
-  C -->|No| E[Pick quick view]
-  D --> F[Start ritual]
-  E --> G[Select task]
-  G --> F
-  F --> H[Work session or optional timer]
-  H --> I{Complete}
-  I -->|Yes| J[Show completion feedback and done timeline]
-  I -->|No| K[Snooze, reschedule, or break down]
-  J --> L[Reflect cues]
-  K --> B
-  L --> B
-```
-
-### Calendar Schedule -> Timeline -> Eva Flow
-
-```mermaid
-flowchart TD
-  A[Home loads selected day] --> B[Fetch selected calendar context]
-  B --> C{Readable calendar access}
-  C -->|Yes| D[Project events into next meeting, busy blocks, free gaps, and fit context]
-  C -->|No| E[Show degraded schedule state]
-  D --> F[Merge schedule context with tasks, habits, routines, and completed work]
-  E --> F
-  F --> G[Render Home timeline and schedule glances]
-  G --> H{User asks Eva or taps guidance}
-  H -->|Ask| I[Read-only chief-of-staff brief]
-  H -->|Plan| J[Optional proposal cards for LifeBoard-owned changes]
-  I --> K[User starts, completes, defers, or opens detail]
-  J --> L[Confirm and apply through action pipeline]
-  K --> G
-  L --> G
-```
-
-### Add Task Two-Speed Flow
-
-```mermaid
-flowchart TD
-  A[Tap add] --> B[Lightning capture]
-  B --> C[Enter title]
-  C --> D{Need more detail}
-  D -->|No| E[Create task]
-  D -->|Yes| F[Clarify fields]
-  F --> E
-  E --> G{Add and start enabled}
-  G -->|Yes| H[Start ritual]
-  G -->|No| I[Return to previous screen]
-```
-
-### Habit Check-In And Recovery Flow
-
-```mermaid
-flowchart TD
-  A[Open Home, Habit Board, or Habit Detail] --> B{Habit kind and mode}
-  B -->|Positive| C[Choose Done or Skip]
-  B -->|Negative dailyCheckIn| D[Choose Stayed Clean or Lapsed]
-  B -->|Negative lapseOnly| E[Log Lapse or leave clean tracking untouched]
-  C --> F[Resolve today]
-  D --> F
-  E --> F
-  F --> G[Recompute streak, risk, and history]
-  G --> H{Outcome broke streak}
-  H -->|No| I[Show reinforcing streak and recent-history update]
-  H -->|Yes| J[Show recovery framing and next-step suggestion]
-  I --> K[Return to Home, Board, Detail, or Insights]
-  J --> K
-```
-
-### Assistant Propose -> Confirm -> Apply -> Undo
-
-```mermaid
-sequenceDiagram
-  participant UI as Assistant UI
-  participant CTX as Context Projection
-  participant PIPE as Assistant Pipeline
-
-  UI->>CTX: Build least-privilege context
-  UI->>PIPE: Propose run
-  PIPE-->>UI: Proposal stored
-
-  UI->>UI: Show diff preview
-  UI->>PIPE: Confirm run
-  PIPE-->>UI: Run confirmed
-
-  UI->>PIPE: Apply confirmed run
-  PIPE-->>UI: Applied with undo availability
-
-  UI->>PIPE: Undo run (optional, within window)
-  PIPE-->>UI: Undo completed or window expired
-```
-
-## Implementation Alignment (Non-Contractual)
-
-This table maps product surfaces to existing runtime usecases for implementation orientation. It is not an API contract.
-
-| Product surface | Primary read usecases | Primary mutation usecases |
-| --- | --- | --- |
-| Home and Focus | `GetHomeFilteredTasksUseCase`, `GetTasksUseCase` | `CompleteTaskDefinitionUseCase`, `RescheduleTaskDefinitionUseCase`, `UpdateTaskDefinitionUseCase` |
-| Calendar schedule | `CalendarIntegrationService`, `CalendarEventsProviderProtocol`, calendar computation use cases | none |
-| Timeline day command center | `HomeCalendarSnapshot`, `TimelinePhoneRenderModel`, `TimelineFlockModel`, task and habit Home projections | task and habit use cases only through explicit user action or assistant pipeline |
-| Add Task | `GetTasksUseCase` (supporting reads as needed) | `CreateTaskDefinitionUseCase` |
-| Habits | `BuildHabitHomeProjectionUseCase`, `GetHabitLibraryUseCase`, `GetHabitHistoryUseCase`, `CalculateAnalyticsUseCase` | `CreateHabitUseCase`, `UpdateHabitUseCase`, `PauseHabitUseCase`, `ArchiveHabitUseCase`, `ResolveHabitOccurrenceUseCase`, `SyncHabitScheduleUseCase`, `RecomputeHabitStreaksUseCase` |
-| Tasks Browse and Search | `GetTasksUseCase` | `UpdateTaskDefinitionUseCase`, `DeleteTaskDefinitionUseCase`, `CompleteTaskDefinitionUseCase`, `RescheduleTaskDefinitionUseCase` |
-| Assistant Ask and Plan | `GetTasksUseCase`, habit projections, calendar schedule context, timeline context receipts | none for Ask; proposal creation only for Plan |
-| Assistant Apply and Undo | `GetTasksUseCase` (diff context) | `AssistantActionPipelineUseCase` |
-| Insights and Analytics | `CalculateAnalyticsUseCase`, `GenerateProductivityReportUseCase` | none |
-
-## Accessibility, Performance, Privacy And Security Requirements
+- “Make starting smaller than avoiding.”
+- “Reduce the number of decisions visible at once.”
+- “Help me recover from a missed day without punishment.”
+
+### Builders, students, and project-oriented users
+
+- “Turn outcomes into projects, tasks, time, and focused sessions.”
+- “Make deadlines, capacity, blockers, and follow-ups visible.”
+- “Let notes and decisions remain connected to the work.”
+
+### People managing health and care routines
+
+- “Let me record and correct useful signals without implying a diagnosis.”
+- “Combine manual evidence with authorized Apple Health context.”
+- “Keep missing data, zero, permission denial, and sync failure distinct.”
+
+### People with changing energy or burnout risk
+
+- “Give me a Low Energy mode and a Minimum Viable Day.”
+- “Let the day close without turning unfinished work into guilt.”
+- “Protect rest and open time instead of filling every gap.”
+
+## Experience principles
+
+### Context before commands
+
+Home must establish day, capacity, fixed commitments, active sessions, and the
+small number of signals that change the next decision.
+
+### Capacity before ambition
+
+Planning must distinguish due date, intended planning day, fixed calendar time,
+internal time blocks, estimates, working hours, and open capacity. Moving work
+to a day must never silently rewrite its true deadline.
+
+### Recovery is part of the system
+
+Overdue Rescue, Day Repair, Minimum Viable Day, cancellation recovery, durable
+drafts, and Undo are primary product paths—not exceptional error handling.
+
+### Evidence before judgment
+
+Insights must disclose source, timeframe, freshness, and limitations. The app
+must not imply causation, diagnosis, adherence, or moral value from incomplete
+records.
+
+### Proposals before consequential actions
+
+EVA may answer, clarify, or prepare a proposal. Meaningful mutations require an
+explicit Apply boundary, current-state validation, a result, and Undo when the
+operation is reversible.
+
+### One canonical system
+
+Home cards, widgets, Watch, Spotlight, notifications, EVA, and integrations are
+projections and entry points. They do not become parallel task, habit, journal,
+health, or planning stores.
+
+## Product architecture
+
+### Five persistent roots
+
+| Root | Responsibility | Required retained context |
+|---|---|---|
+| Home | Orientation, current focus, timeline, signals, Daily Loop, recovery | Selected day, scroll position, card layout, active sheet intent |
+| Plan | Inbox, Day, Week, Backlog, capacity, Focus, review | Selected lens/day, filters, navigation stack, active session |
+| Track | Today, life areas, history, habits, routines, goals, care, wellness | Selected lens/domain, drafts, filters, navigation stack |
+| Insights | Overview, trends, review, experience, evidence | Selected lens/timeframe and evidence destination |
+| EVA | Conversation, day overview, proposals, model/runtime state | Thread, draft, run identity, context grants, proposal state |
+
+Each root owns an independent typed navigation stack. Root switching preserves
+visited product roots; EVA may be reconstructed when inactive to release
+visibility-scoped model work.
+
+### Life organization model
+
+LifeBoard organizes finite and recurring work through:
+
+`life area → project or goal → task, habit, or routine → placement → evidence`
+
+Life areas are user-controlled. The starter catalog includes Work & Career,
+Life Admin, Health & Self, Relationships, Learning & Growth, Creativity & Fun,
+and Money. Templates are starting points, not a fixed taxonomy.
+
+### State vocabulary
+
+| State | Requirement |
+|---|---|
+| Populated | Put the current decision before secondary detail |
+| Empty | Confirm the query succeeded and offer one relevant next step |
+| Loading | Preserve expected geometry and keep unrelated navigation usable |
+| Stale | Show freshness and a refresh/retry path |
+| Partial | Show available evidence and name what is missing |
+| Denied | Explain the lost capability without blocking local alternatives |
+| Locked | Reveal no protected content or derived preview |
+| Offline | Preserve local work and identify what will retry |
+| Error | Localize failure, preserve input, and provide recovery |
+| Destructive | Confirm exact scope and restoration/Undo behavior |
+
+An explicit zero is a recorded value. It must not render as missing.
+
+## Current product requirements
+
+### Onboarding and Life Management
+
+- Onboarding must progress through Welcome, Intent, Life Areas, Guide, Day
+  Shape, Modules, First Win, Permissions, and Success.
+- Progress and recoverable choices must survive interruption.
+- Starter content must be installed through canonical repositories and avoid
+  duplicate creation on retry.
+- Users must be able to create, edit, move, archive, and delete life areas and
+  projects later through Life Management.
+- Destructive life-structure changes must explain affected projects, tasks,
+  habits, and retained history before confirmation.
+- Optional EVA setup and permissions must never block the ordinary app.
+
+### Home and Daily Loop
+
+- Home must answer “what matters now?” through one dominant Focus Now decision,
+  a bounded set of honest signals, work/care context, and the shape of the day.
+- Smart, Work, Personal, and Low Energy modes change inclusion and density
+  without creating separate persisted dashboards.
+- Home must support task and habit action, routines, care, capacity, timeline,
+  journal/reflection, Life Snapshot, quick capture, and user-selected cards.
+- Layout editing is transactional. Cancel restores the prior layout; commit
+  persists one ordered placement set; unknown cards survive migration.
+- Smart Slots must respect persistent Hide Today, Suggest Less, Never, and Keep
+  feedback and must not displace required orientation content.
+- The Daily Loop stages are Commit, Act, Repair, Close, and Rest. Applied
+  receipts, not presentation-only preferences, determine whether a day was
+  opened or closed.
+- Day Close reconciles unfinished work, captures an optional reflection line,
+  and identifies tomorrow’s first action as one receipt-backed act.
+- Rest asks for nothing further.
+
+### Universal Input and Capture
+
+- Universal Capture supports task, habit, journal, note, tracker entry, mood and
+  energy, hydration, medication event, routine run, and time block.
+- Typed and dictated input use one arbitration pipeline: commands, task parser,
+  deterministic language patterns, bounded semantic classifier, then EVA.
+- Semantic output maps only to allow-listed native actions and cannot execute
+  arbitrary routes or code.
+- Classification does not save. A native editor or explicit confirmation is the
+  commit boundary.
+- Drafts must survive clarification, permission failure, recoverable
+  presentation changes, and background interruption where supported.
+- Speech and inference stay on-device on the current local path.
+
+### Tasks, Inbox, and Projects
+
+- Tasks support title, notes, priority, energy, category/context, estimate,
+  project, life area, section, tags, due date, planned day, scheduled time,
+  recurrence, reminders, subtasks, dependencies, completion, and history.
+- Creation is fast by default; secondary planning detail remains available
+  without overwhelming the initial capture.
+- Inbox triage commits each accepted result through canonical task/planning
+  mutations and preserves unresolved drafts.
+- Project detail provides list and board modes over the same canonical tasks.
+- Projects support hierarchy, sections, templates, statistics, move, archive,
+  and confirmed deletion.
+- Completion, reschedule, edit, and delete failures must preserve the affected
+  task identity and current user input.
+
+### Plan, Week, Focus, and recovery
+
+- Plan owns Inbox, Day, Week, and Backlog lenses.
+- Day supports Timeline and Agenda presentations, time-of-day grouping, working
+  hours, fixed calendar commitments, internal time blocks, unplaced work,
+  capacity, conflict repair, and Focus setup.
+- Backlog supports search plus context, readiness, energy, duration, and project
+  filters, multi-selection, scheduling, Focus, archive/delete, and Undo.
+- The current This Week workspace replaces the retired four-step wizard.
+  Persisted legacy routes must restore into the workspace.
+- Week and overdue entry modes use Overdue, Inbox, and Anytime source lanes.
+  Near days are concrete; later days remain a softer horizon until expanded.
+- Each accepted day placement writes planning metadata immediately, preserves
+  due dates, clears incompatible unscheduled disposition, and produces a receipt.
+- Capacity must have a non-color textual equivalent and distinguish no working
+  hours from empty capacity.
+- Focus supports exact-task and unscoped sessions, duration setup, pause/resume,
+  phase advance, interruption reason, outcomes, reflection, startup repair,
+  notifications, deep links, and Live Activity state.
+- Overdue Rescue supports Keep, Move, Edit, and Delete through both gestures and
+  visible accessible controls. Failure does not advance the deck.
+
+### Habits, goals, routines, trackers, and care
+
+- Habits support schedule/cadence, target semantics, reminders, Board and detail
+  history, completion/count/quantity outcomes, corrections, pause, archive,
+  recovery, and resilient streak presentation.
+- Recovery must target the intended missed occurrence and must not duplicate
+  rewards or completion.
+- Quiet Tracking provides a low-friction multi-habit recording surface.
+- Goals use typed samples and may link to projects, tasks, habits, routines, or
+  tracker measures. Missing samples are not zero.
+- Routines use versioned definitions and immutable run snapshots. Steps may be
+  task, habit, check-in, timer, instruction, or choice, including validated
+  branches. Linked mutations execute at most once.
+- Trackers, hydration, mood/energy, and medication events record time, source,
+  unit or meaning, and correction state.
+- Starter packs install coherent goal/habit/routine/reminder groups
+  idempotently and report partial or unavailable outcomes honestly.
+
+### Health, wellness, nutrition, fasting, and Life Moments
+
+- Health domains are Activity, Energy, Hydration, Nutrition, Body, Workouts,
+  Sleep, and Fasting context.
+- Activity, energy, sleep, and fasting are read-only/local-canonical. Hydration,
+  nutrition, body measurements, and user-authored workouts support write-back
+  when the separate write gate and Health authorization permit it.
+- Manual records remain usable without Health authorization.
+- Sync must preserve source identity, timezone, anchors, deduplication, outbox
+  retry, correction, protected-data state, and per-domain freshness.
+- Nutrition supports bundled/user foods, serving conversion, recipes, meal
+  templates, meal timeline, immutable macro snapshots, goals, recents, reports,
+  local barcode lookup, explicitly requested remote lookup, duplicate review,
+  deletion, and Undo.
+- Fasting has one serialized active lifecycle with start, finish, cancel,
+  keep-running, target, reminders, early-completion meaning, correction, and
+  deterministic duplicate-active repair.
+- Life Moments support countdown, anniversary, milestone, and recurring
+  meaningful-event types; captured timezone; recurrence; search; archive; Home
+  consent; and redacted external projections.
+
+### Journal, Notes, Knowledge, and reflection
+
+- Journal supports day-based text, mood/energy, audio, on-device transcription,
+  document scanning, file/photo attachment, review before save, search,
+  semantic evidence, weekly reflection, and durable attachment recovery.
+- Protected Journal routes authenticate before mounting content. App-switcher,
+  widgets, Spotlight, notifications, Watch, logs, and diagnostics must not reveal
+  protected text or media.
+- Notes and Knowledge support spaces, folders, tags, smart collections, sort,
+  pin/favorite, templates, TextKit editing, block/note links, attachments,
+  scanning/import, indexed search, secure notes, biometric unlock, trash,
+  restoration, permanent deletion, batch actions, and EVA assistance.
+- Canonical deletion must invalidate derived indexes and prevent late re-ingest.
+
+### Insights, gamification, and EVA
+
+- Insights owns Overview, Trends, Review, and Experience lenses and must expose
+  timeframe, source, freshness, and supporting evidence.
+- Charts require a textual or tabular equivalent. Insufficient evidence must be
+  stated rather than filled with a generated claim.
+- Gamification uses idempotent XP events, levels, achievements, and bounded
+  celebrations. It must reinforce meaningful progress without punishing missed
+  days or encouraging unsafe health behavior.
+- EVA supports activation/model setup, personas, chats, threads, prompt chips,
+  slash commands, context attachments, day overviews, task/habit quick actions,
+  semantic retrieval, personal memory controls, truthful working states,
+  streaming, Stop, Continue, Retry, proposal diffs, Apply/Edit/Not Now, results,
+  receipts, and Undo.
+- A turn ends in persisted text, persisted proposal, explicit cancellation, or
+  explicit failure/drop. Stale output must not appear in a later run.
+- External calendar content remains read-only. EVA may propose changes only to
+  LifeBoard-owned state.
+
+### Settings and Apple-platform continuity
+
+- Settings groups Plan & Organize, Calendar & Health, EVA, Reminders, Look &
+  Feel, Data & Help, Life Management, model/chat controls, Recovery, and notices.
+- System surfaces consume versioned redacted projections or invoke canonical App
+  Intents; they never open app persistence directly.
+- Supported surfaces include task/timeline/calendar/domain widgets, capture
+  control, habit resilience, Focus seed, Focus/Fasting/Routine Live Activities,
+  Siri/App Shortcuts, Spotlight, notifications, deep links, share extension,
+  Watch capture, and Watch timeline/meeting/habit complications.
+- Duplicate delivery is idempotent. Missing, stale, locked, incompatible, and
+  offline projection states fail safely.
+
+## Accessibility, performance, privacy, and safety
 
 ### Accessibility
-- Every interactive element has clear accessible labeling and traits.
-- Completion, undo, and apply state changes are announced appropriately.
-- Touch targets follow mobile guidance and are not undersized for core controls.
-- Drag-only interactions must have non-drag alternatives.
-- Dynamic Type must preserve meaning and actionability at accessibility sizes.
-- Text and status indicators maintain readable contrast.
-- Decorative Eva mascot images are hidden from VoiceOver.
-- Interactive Eva entry and help controls expose concrete labels such as "Ask Eva", "Eva help", or "Open Eva".
 
-### Performance Targets
-- Cold start to Home visible: under 1.5 seconds on a representative mid-tier device.
-- Home first paint from local store: under 300 milliseconds after load trigger.
-- Search keystroke to first results: under 150 milliseconds for first 20 results with debounce.
-- Assistant apply shows immediate progress feedback; extended operations expose explicit in-progress and failure states.
+- All icon-only controls use meaningful labels and at least 44-point targets.
+- VoiceOver order follows title/state, primary action, supporting evidence, then
+  secondary controls.
+- Gestures, drag/drop, charts, color, and motion always have non-gesture,
+  non-color, static, and textual equivalents.
+- Dynamic Type preserves primary actions and meaning before decoration.
+- Reduce Motion, Reduce Transparency, Increase Contrast, Differentiate Without
+  Color, keyboard, pointer, Voice Control, and Switch Control are product modes.
 
-### Privacy And Security
-- Privacy policy is reachable in app settings and describes collection, retention, deletion, and sharing.
-- Data collection follows minimization principles.
-- Assistant modes clearly distinguish on-device and external provider behavior when applicable.
-- External inference paths require explicit opt-in and clear disclosure.
-- Users can clear assistant history.
+### Performance
 
-## Risks And Ethics
+- Home and the persistent composer must avoid waking every retained feature at
+  launch.
+- Root changes preserve context without rebuilding heavy visited roots; EVA may
+  release visibility-scoped model work.
+- Large lists use bounded projections, lazy presentation, and stable identity.
+- Model prewarm, atmospheric rendering, signature effects, and background sync
+  obey energy, thermal, scene, and accessibility policy.
 
-### Non-Clinical Framing
-- Product language must avoid medical claims.
-- Product must not imply diagnosis or treatment.
+### Privacy and safety
 
-### Anti-Manipulation Guardrails
-- Reward mechanics should support recovery from misses.
-- Product loops must avoid punishment framing for temporary disengagement.
+- `privateSensitive`: Journal and media, health/biometric values, protected
+  reflections, embeddings/semantic chunks, secure-note payloads, and auth state.
+- `privateStandard`: tasks, plans, projects, habits, routines, goals, notes, and
+  ordinary tracker records.
+- External projections are explicit allow-lists with schema, freshness,
+  sensitivity, and authorization.
+- Health language remains non-clinical; financial direction remains
+  non-advisory; shared-data design remains consent-first.
+- Logs contain typed operations, counts, timing, and non-content identifiers—not
+  private text or measurements.
 
-### Privacy And Trust Expectations
-- Users should clearly understand where data is stored and synced.
-- Assistant interactions preserve user control with explicit confirmation for impactful actions.
+## Success measures
 
-### Notification Responsibility
-- Reminder volume and cadence should avoid overload.
-- Reminder UX should optimize for helpfulness rather than interruption maximization.
+### Activation and system setup
 
-## QA Acceptance Criteria
+- completion and resumption rate by onboarding step;
+- time to first canonical task and habit;
+- percentage of activated users with at least one life area and useful day shape;
+- permission acceptance measured without repeated prompting pressure.
 
-### Home And Focus
-- Home renders a bounded Now area (maximum 3 tasks) without extra user action.
-- Complete moves the task to done timeline and exposes immediate undo behavior.
-- Quick View changes produce consistent counts and task slices across refresh paths.
-- Timeline renders fixed commitments, flexible tasks, routines, busy flocks, free gaps, and completed work with distinct semantics.
-- Dense overlapping windows remain readable on the smallest supported iPhone width.
-- Sparse days present planning, create-task, or Eva-assisted options instead of blank empty space.
-- Timeline guidance from Eva is sparse, dismissible, and tied to concrete action.
+### Daily operation
 
-### Calendar Schedule And Timeline Context
-- Calendar pre-permission copy appears before the system authorization request.
-- Denied, restricted, write-only, no-calendar-selected, empty-range, and all-day-only states render distinct recovery or empty-state copy.
-- Calendar selection persists locally and is reconciled when a selected calendar disappears.
-- Declined, canceled, all-day, and selected-calendar filters produce consistent output across Home, task detail, schedule views, and timeline.
-- Next-meeting, in-progress-meeting, free-until, busy-block, and task-fit hints update after EventKit store changes and selected-day changes.
-- Day, week, and month schedule surfaces stay read-only and do not expose external calendar mutation controls.
-- Task-fit hints return fit, tight, conflict, or unknown without crashing when duration, schedule, or calendar context is incomplete.
-- Timeline and Eva use the same schedule-context receipt for the selected day so user-facing guidance does not contradict the visible timeline.
+- time from launch to first meaningful action;
+- percentage of active days with a deliberate Focus Now choice;
+- capture-to-reviewed-commit rate by capture kind;
+- day-open, repair, and day-close use without measuring Rest as failure.
 
-### Add Task
-- Lightning capture requires title only.
-- Date preset selection is applied correctly.
-- Clarify fields are optional and non-blocking.
-- Added steps are reflected in subsequent task surfaces.
+### Planning and recovery
 
-### Habits
-- Habit creation requires a title and `LifeArea`, while `Project` remains optional.
-- Positive, negative `dailyCheckIn`, and negative `lapseOnly` habits all save and render with the correct action semantics.
-- Current streak and best streak remain correct across scheduled success, skips, not-scheduled bridge days, missed days, lapsed days, and paused periods.
-- Home history strips, the Habit Board, detail, and insights agree on day state and streak values for the same habit and date.
-- Weekday-only habits render weekend bridge cells instead of missed cells.
-- Editing a habit supports title, kind, tracking mode, cadence, reminder window, ownership, icon, and notes without data loss.
-- Recent history correction recomputes streaks, board visuals, and analytics consistently.
-- Paused habits disappear from active agenda and signal-driven surfaces until unpaused.
-- Archived habits remain discoverable in management flows but are absent from default active flows.
-- `lapseOnly` habits correctly repair abstinent history after extended inactivity and preserve streak correctness.
-- Stable `lapseOnly` habits appear in quiet tracking rather than the primary action queue.
-- Reminder windows reject invalid same-day ranges and never produce inverted due times in runtime projections.
-- Home habit rows and Habit Board cells expose readable state, streak, and history cues with accessible controls and labels.
-- Habit analytics remain separate from task completion analytics and refresh after same-day habit mutations.
-- Reduced-motion settings preserve board meaning without relying on animation alone.
+- planned work that fits known capacity;
+- backlog items placed, clarified, deferred, or deliberately released;
+- overdue/rescue sessions ending in an explicit decision;
+- successful receipt-backed Undo and recovery after mutation failure.
 
-### Tasks Browse And Search
-- Search returns results within target latency for typical datasets.
-- Clearing query restores default browse state.
-- Empty and emoji-only queries do not crash.
-- Core row actions remain available without drag gestures.
+### Systems and health
 
-### Assistant
-- Ask mode produces no task mutations.
-- Day-review prompts produce a read-only brief plus differentiated task and habit cards instead of proposal cards.
-- Schedule-aware day-review prompts can include current block, next meeting, free gaps, conflicts, and overloaded windows when context exists.
-- Chief-of-staff chat prompts produce either read-only guidance, a clarification, or proposal cards depending on user intent.
-- Day overview cards expose direct first-party quick actions and detail-sheet entry points without bypassing assistant trust boundaries.
-- Plan mode returns either proposals or explicit no-suggestion states.
-- Calendar-aware Plan mode may propose LifeBoard-owned task changes but never external calendar edits.
-- Apply mode enforces diff preview and explicit confirmation before mutation.
-- Undo behavior is shown only while available; expired states are explicit.
-- Every assistant turn reaches a visible terminal state: answer, proposal, clarification, failure, or cancellation.
-- Partial-context answers include visible context receipts or degraded-state explanation.
+- habit/routine restart after a miss or interruption;
+- corrections completed without duplicate evidence;
+- Health sync freshness and outbox recovery by domain;
+- manual recording retained after permission denial or integration failure.
 
-### Plan, Track, Journal, Onboarding, And Continuity
-- Day, Week, and Backlog preserve stable identity, capacity meaning, and non-drag alternatives.
-- Plan-launched Overdue Rescue uses the selected day consistently in copy, mutation, session restoration, and accessibility actions.
-- Track distinguishes recorded zero, missing, setup required, denied, stale, and error.
-- Nutrition/Wellness corrections retain history semantics; Fasting prevents duplicate active sessions.
-- Journal lock and app-switcher protection reveal no content-derived preview.
-- Document/audio/media failure preserves durable user work and offers recovery.
-- Onboarding resumes at the correct step and never makes optional model/permission setup block the core app.
-- Widget/Watch/Spotlight/notification projections remain redacted and route to exact typed destinations.
-- Dynamic Type, VoiceOver, Reduce Motion, Reduce Transparency, Increase Contrast, and keyboard paths preserve primary actions and recovery.
+### Trust and assistance
 
-### Insights
-- New users see explicit no-data states on all three tabs:
-  - `Today` explains that mix and momentum unlock after the first meaningful completion.
-  - `Week` explains that leaderboard and mix modules unlock once the week has enough completed work.
-  - `Systems` explains that reminder and focus health appear once reminders or sessions exist.
-- Insights never regresses to a thin XP-only dashboard; all three tabs render multi-widget analysis surfaces.
-- `Today` stays decision-oriented, `Week` stays reflective, and `Systems` stays long-term/systemic.
-- Existing tab accessibility identifiers remain stable for `Today`, `Week`, and `Systems`.
-- Weekly reflection inputs are optional and never block navigation.
-- Motion honors reduced-motion accessibility settings without removing information density.
+- clarification versus false-action rate for Universal Input;
+- EVA proposal acceptance, edit, Not Now, failure, and Undo rates;
+- percentage of insight claims opened to evidence;
+- cancellation/retry success and absence of stale response delivery.
 
-### Accessibility And Privacy
-- Critical flows are completable with VoiceOver.
-- Essential controls remain operable at accessibility sizes.
-- Privacy policy is reachable from settings.
-- External assistant disclosure and consent behavior are enforced when external inference is enabled.
+Metrics are local and privacy-preserving by default. They must not optimize for
+compulsive engagement, health pressure, or unnecessary notification volume.
 
-## Product Roadmap Themes
+## Release and evidence policy
 
-### Near-Term
-- Make the Home timeline the default day command center by tightening dense, sparse, degraded, and current-time states.
-- Make calendar schedule context consistently available across Home, task detail, timeline, and schedule glances.
-- Expand Eva day overview and chat prompts so users can ask for a realistic plan without learning planner UI.
-- Ship a richer Habit Board with visual streak depth, bridge-day semantics, and recovery-oriented history correction.
-- Expand smart view creation and saved filter ergonomics.
-- Add transparent and user-controlled Focus suggestions.
-- Improve task breakdown templates and decomposition assists.
+- **Implemented in source** means a current route/model/workflow exists.
+- **Verified by automated evidence** means the named current test/build passed.
+- **Device validation required** means source exists but signed hardware,
+  accounts, permissions, delivery, performance, or visual observation is open.
+- **Blueprint** means not current product behavior.
 
-### Mid-Term
-- Expand the calendar + timeline package's schedule-context behavior without turning LifeBoard into a calendar-first app.
-- Add schedule-aware Eva repair flows for overloaded windows, free-gap planning, focus protection, and interrupted-day recovery.
-- Deepen habit-task linkage where useful while keeping habits analytically distinct from tasks.
-- Add more flexible count-based or frequency-based habits once the visual streak contract is stable.
-- Improve on-device assistant planning quality.
+The [completion status](docs/life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md) is
+the sole current evidence ledger. Exact counts and build claims must appear only
+there and only with a dated command result.
 
-### Long-Term
-- Expand read-only schedule context carefully where it improves execution, while preserving task-first chronology.
-- Evaluate explicitly permissioned calendar-write workflows only after read-only schedule context, assistant trust, and LifeBoard-owned mutation flows are stable.
-- Broader platform strategy beyond the current Apple platform family.
+## Current non-goals
 
-## Technical References
+- autonomous mutation without review;
+- editing or RSVPing to external calendar events;
+- diagnosis, treatment, adherence inference, or emergency medical use;
+- bank/account aggregation or financial advice in the current product;
+- full collaborative household/team planning in the current product;
+- interpreting missing evidence as failure;
+- filling every free window or rewarding volume at the expense of meaning.
 
-Technical implementation details are intentionally kept out of this PRD. Use the architecture docs:
-- `docs/README.md`
-- `docs/product/README.md`
-- `docs/design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md`
-- `docs/habits/README.md`
-- `docs/calendar/README.md`
-- `docs/habits/product-feature.md`
-- `docs/habits/data-model-and-runtime.md`
-- `docs/habits/risk-register.md`
-- `docs/habits/roadmap.md`
-- `docs/calendar/product-feature.md`
-- `docs/calendar/data-model-and-runtime.md`
-- `docs/calendar/risk-register.md`
-- `docs/calendar/roadmap.md`
-- `docs/design/EVA_MASCOT_PLACEMENT_GUIDE.md`
-- `docs/architecture/LOCAL_LLM_EVA_ARCHITECTURE.md`
-- `docs/architecture/LIFEBOARD_V2_ARCHITECTURE_GUIDE.md`
-- `docs/todos/LIFEBOARD_5_REMAINING_EXECUTION_LEDGER.md` (active LifeBoard 5.0 completion status)
-- `docs/audits/LIFEBOARD_5_IMPLEMENTATION_AND_DESIGN_AUDIT_2026-07-23.md` (implementation evidence and release gates)
-- `DESIGN.md` (canonical visual contract)
-- `docs/audits/HABITS_IOS_UX_AUDIT_2026-04-17.md`
+The complete future direction for long-horizon planning, work coordination,
+home administration, care, relationships, money, learning, creativity,
+collaboration, data ownership, and EVA evolution is maintained separately in
+the [Future LifeOS Blueprint](docs/product/LIFEOS_FUTURE_BLUEPRINT.md).
 
-## Document History
+## Acceptance
 
-- **v5.0 (July 23, 2026):** Reframed the product around the seven-stage LifeBoard loop and five-root information architecture. Added Plan/Focus/recovery, Track/Wellness/Nutrition/Fasting/Life Moments, Journal/Knowledge/reflection, onboarding/recovery, system-surface, responsive, privacy, and shared interaction contracts linked to the canonical feature handbook.
-- **v4.8 (May 3, 2026):** Deepened the timeline, calendar schedule, Eva, LLM, chat, and Chief of Staff requirements. Added schedule-aware assistant metrics, timeline intelligence requirements, calendar schedule acceptance criteria, and clearer boundaries around read-only calendar context versus LifeBoard-owned mutations.
-- **v4.7 (April 29, 2026):** Updated the canonical calendar + timeline docs for the iPhone glanceability model, including title-first timeline cards, stacked overlap flocks, readable visual positioning, current-time treatment, and dense timeline risks.
-- **v4.6 (April 25, 2026):** Added the canonical calendar + timeline docs package and linked the read-only schedule-context roadmap into the product reference set.
-- **v4.5 (April 25, 2026):** Expanded the habits contract with a LifeBoard-native streak model, dedicated Habit Board semantics, recovery-first behavior, a canonical habits docs package, and updated roadmap coverage for remaining UX gaps.
-- **v4.4 (March 22, 2026):** Added dedicated habits requirements summary and linked the new habits product, runtime, risk, and roadmap documentation package.
-- **v4.3 (March 11, 2026):** Updated Insights requirements to match the redesigned Today, Week, and Systems analytics surfaces, including richer widgets, empty-state behavior, and system-health framing.
-- **v4.2 (February 19, 2026):** Consolidated deep-research inputs into a detailed product-only PRD, added mental loop model, detailed screen requirements, implementation alignment table, interaction flows, explicit non-functional requirements, QA acceptance criteria, and horizon-based roadmap framing.
-- **v4.1 (February 19, 2026):** Added product constraints for V3 runtime cutover, non-goals, metric interpretation guardrails, and updated technical reference index.
-- **v4.0 (February 18, 2026):** Product-only PRD with explicit ADHD framework, metrics model, ethics section, and architecture-doc handoff.
-- **v3.0 (January 13, 2026):** Prior mixed product/technical PRD.
+The product documentation and implementation are aligned when a reader can:
+
+1. map every reachable feature to an owning root and canonical data path;
+2. distinguish current, partially verified, device-gated, and blueprint behavior;
+3. complete the key user journeys in the [operating guides](docs/guides/README.md);
+4. understand privacy, permission, recovery, destructive, and Undo behavior
+   before relying on a feature;
+5. verify each current claim through source, tests, or a named evidence gap.

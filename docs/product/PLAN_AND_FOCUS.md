@@ -2,6 +2,11 @@
 
 **Classification:** Canonical feature contract
 
+**Audience:** Users, support, product, design, engineering, and QA
+**Capability status:** Current workspace
+**Source authority:** Plan routes/views, planning repositories, calendar projection, Focus session store
+**Last verified:** 2026-08-13
+
 **Root:** Plan
 **Related:** [Adaptive Home](./HOME.md), [Calendar + Timeline](../calendar/README.md), [Insights and EVA](./INSIGHTS_AND_EVA.md)
 
@@ -90,8 +95,8 @@ When launched for a selected planning day, Rescue uses that day as its decision 
 
 ## Implementation and evidence
 
-Primary anchors include `LifeBoardPlanViews`, planning repositories/models, canonical mutation coordinator, `LifeBoardAppRouter`, Focus activity/deep-link coordinators, and the shared receipt/Undo presentation.
+Primary anchors include the split Plan root, Day, Week, Backlog, and This Week view files; planning repositories/models; the canonical mutation coordinator; `AppRouter`; Focus activity/deep-link coordinators; and the shared receipt/Undo presentation.
 
-Primary flags are `planningCoreV1Enabled`, `planDestinationV1Enabled`, `focusExecutionV2Enabled`, and `evaPlanRepairV1Enabled`. Flag rollback hides staged surfaces without discarding planning metadata, focus history, or receipts.
+Primary retained controls include `planningCoreV1Enabled`, `focusExecutionV2Enabled`, and current Daily Loop/trust-closure flag families. Flag rollback hides staged surfaces without discarding planning metadata, Focus history, or receipts.
 
 Recorded evidence covers deterministic ranking/repair, overlap-safe capacity, route identity, Day capture, seven-day iPad Week, Backlog deletion/Undo/relaunch, and focused interaction policies. Interaction-freeze closure, all shared-element relationships, signed-device Live Activity behavior, and full degraded-state evidence remain active gates.

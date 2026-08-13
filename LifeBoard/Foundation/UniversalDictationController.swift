@@ -13,14 +13,14 @@
 
 import Foundation
 import Observation
-#if canImport(TranscriptionKit)
-import TranscriptionKit
+#if canImport(LifeBoardTranscription)
+import LifeBoardTranscription
 #endif
 #if canImport(AVFoundation)
 import AVFoundation
 #endif
 
-#if canImport(TranscriptionKit)
+#if canImport(LifeBoardTranscription)
 /// Provider seam around `LiveTranscriptionSession` so app-facing code is
 /// isolated from the concrete package type.
 @MainActor
@@ -209,7 +209,7 @@ public final class UniversalDictationController {
     }
 
     private func beginSession(generation startGeneration: UInt) async {
-        #if canImport(TranscriptionKit)
+        #if canImport(LifeBoardTranscription)
         do {
             try await requestMicrophoneAuthorization()
         } catch {
@@ -297,7 +297,7 @@ public final class UniversalDictationController {
     }
 
     private func handle(_ event: LiveTranscriptionEvent) {
-        #if canImport(TranscriptionKit)
+        #if canImport(LifeBoardTranscription)
         switch event {
         case .transcript(let text):
             consumeCumulativeTranscript(text)
@@ -391,11 +391,11 @@ public final class UniversalDictationController {
     }
 
     /// Type-erased box so we can store the boxed session behind
-    /// `#if canImport(TranscriptionKit)` without exposing the package
+    /// `#if canImport(LifeBoardTranscription)` without exposing the package
     /// to non-iOS-26 callers.
     @MainActor
     private final class AnyBoxedSession {
-        #if canImport(TranscriptionKit)
+        #if canImport(LifeBoardTranscription)
         let real: LiveTranscriptionSessionProviding
         init(real: LiveTranscriptionSessionProviding) { self.real = real }
         var events: AsyncStream<LiveTranscriptionEvent> { real.events }

@@ -1,7 +1,12 @@
 ---
-version: "1.0"
+version: "1.1"
 name: "LifeBoard Warm Intelligence"
 description: "Target design contract for a calm, personal, premium life operating system on iPhone and iPad."
+classification: "Canonical visual and interaction contract"
+audience: "Product, design, engineering, and QA"
+capability_status: "Current workspace design authority"
+source_authority: "Swift semantic tokens and current design-system implementation"
+last_verified: "2026-08-13"
 colors:
   primary: "#2B2118"
   primary-pressed: "#4A3A2A"
@@ -28,6 +33,10 @@ colors:
   chart-primary: "#536348"
   chart-secondary: "#975237"
   image-scrim: "rgba(43, 33, 24, 0.24)"
+  hero-scrim: "rgba(255, 253, 247, 0.52)"
+  hero-scrim-dark: "rgba(21, 26, 42, 0.58)"
+  specular-rim: "rgba(255, 253, 247, 0.60)"
+  specular-rim-dark: "rgba(248, 238, 220, 0.22)"
   dark-canvas: "#151A2A"
   dark-canvas-muted: "#111624"
   dark-surface: "#20263B"
@@ -93,6 +102,7 @@ rounded:
   field: 14px
   row: 16px
   card: 20px
+  hero: 24px
   modal: 28px
   dock: 30px
   pill: 999px
@@ -156,6 +166,38 @@ components:
     typography: "{typography.body-strong}"
     rounded: "{rounded.card}"
     padding: "{spacing.xl}"
+  hero-surface:
+    backgroundColor: "{colors.hero-scrim}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.body-strong}"
+    rounded: "{rounded.hero}"
+    padding: "{spacing.xl}"
+  hero-surface-fallback:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.text-primary}"
+    rounded: "{rounded.hero}"
+    padding: "{spacing.xl}"
+  specular-rim:
+    backgroundColor: "{colors.specular-rim}"
+    textColor: "{colors.text-primary}"
+    size: "{spacing.xxs}"
+  metric-hero:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.metric}"
+    rounded: "{rounded.card}"
+    padding: "{spacing.md}"
+  section-header:
+    backgroundColor: "{colors.canvas}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.section-title}"
+    height: "{spacing.touch-target}"
+  live-state-pill:
+    backgroundColor: "{colors.surface-raised}"
+    textColor: "{colors.text-primary}"
+    typography: "{typography.metadata}"
+    rounded: "{rounded.pill}"
+    height: "{spacing.touch-target}"
   recessed-well:
     backgroundColor: "{colors.surface-recessed}"
     textColor: "{colors.text-primary}"
@@ -338,6 +380,8 @@ The palette is warm paper and cocoa ink by day, warm indigo and parchment by nig
 - **Assistant violet** belongs only to Eva identity, Eva affordances, and structured assistant context.
 - **Success, warning, error, and info** describe recorded state. Never infer completion, health, wellbeing, or urgency from missing evidence.
 - **Selected** is paired with shape, label, or selection semantics. Color alone must never communicate selection.
+- **Hero scrim** is the adaptive veil between the scenic atmosphere and a hero surface's content. It is sized by the contrast it must achieve, not by taste, and it strengthens rather than disappears as the scene brightens.
+- **Specular rim** is the lit edge of raised and floating clay. It is a material property, not an accent, and it never carries meaning or state.
 
 Daypart color may softly influence the canvas and scenic background. It must not recolor semantic status, reduce text contrast, move controls, or change information hierarchy. Scenic art must preserve a quiet reading field; text over imagery requires the shared scrim and must remain readable across the image's full luminance range.
 
@@ -400,16 +444,40 @@ Use the 4/8/12/16/20/24/32/40-point rhythm. Maintain at least 44 by 44 points fo
 
 ## Elevation & Depth
 
-Depth communicates interaction and ownership, not decoration. Use four visual planes:
+Depth communicates interaction and ownership, not decoration. Use five visual planes:
 
-1. **Open canvas:** no shadow; atmosphere and ordinary reading live here.
+1. **Open canvas:** no shadow; atmosphere, prose, and ordinary reading live here.
 2. **Recessed well:** tonal inset with a fine semantic boundary; use for fields, progress tracks, and embedded controls.
-3. **Raised clay:** one shallow warm shadow and hairline; use for the hero, a draggable object, proposal, or receipt.
-4. **Floating chrome:** Regular Liquid Glass for navigation, capture, compact menus, and approved toolbar controls.
+3. **Raised clay:** one shallow warm shadow, a hairline, and a specular rim; use for rows, supporting cards, charts, draggable objects, proposals, and receipts. This is the default material for content.
+4. **Hero glass:** Regular Liquid Glass over the scenic atmosphere, for the single dominant object on a screen.
+5. **Floating chrome:** Regular Liquid Glass for navigation, capture, lens rails, compact menus, and approved toolbar controls.
 
-Use Liquid Glass only on the navigation and control layer. Related glass controls must read as one surface and morph between stable silhouettes. Use Regular Glass by default. Do not use Clear Glass in the target system. Under Reduce Transparency, replace glass with an opaque semantic surface and a stronger border without changing layout.
+Clay is the material of content and glass is the material of decision and control. The two are not interchangeable, and a screen that reaches for glass a second time has stopped having a hero.
 
-Never place glass on ordinary rows, prose, charts, Journal entries, or assistant messages. Never stack glass on glass. Avoid glossy highlights, hard black shadows, deep floating stacks, blur as hierarchy, and card-on-card nesting. Scrolling may simplify nonessential shadows while preserving tonal and boundary hierarchy.
+### The hero rule
+
+Exactly one object per screen may be hero glass. It is the object the screen exists to present: the Now decision, today's recorded state, the one interpretation, the invitation to begin. Everything else on that screen is clay.
+
+Four constraints make the privilege safe, and all four are normative:
+
+- **One per screen.** The claim is exclusive and belongs to the composition, not to the component. A hero nested inside another hero renders as floating clay, and that much must be enforced mechanically rather than by convention. Choosing between two candidate heroes *side by side* is the screen's decision, made explicitly where the screen is assembled — a section must never award itself prominence without knowing what sits next to it.
+- **Contrast floor.** Hero glass composites a scrim beneath its content until body text reaches 4.5:1 and the metric numeral reaches 3:1 against the *scrimmed composite*, measured across the scene's full luminance range — not against the palette the scene is nominally using.
+- **One silhouette, two materials.** The glass presentation and its opaque fallback share geometry, corner radius, padding, and reading order. Swapping materials must never reflow, resize, or reorder anything.
+- **Never over evidence.** A hero may hold a title, one line of context, a metric numeral, a ring or truthful status, and one primary action with at most one quiet alternative. It may not contain a chart, a table, an evidence list, body prose, or an assistant message. A hero that has grown a second metric has become a dashboard and must return to clay.
+
+Reduce Transparency, Increase Contrast, Low Power Mode, thermal pressure, an inactive scene, or unavailable shaders all resolve hero glass to floating clay with a strengthened hairline. Glass is an enhancement; the decision it carries is not.
+
+### Glass discipline
+
+Use Regular Glass by default. Do not use Clear Glass in the target system. Related glass controls must read as one surface and morph between stable silhouettes. Under Reduce Transparency, replace glass with an opaque semantic surface and a stronger border without changing layout.
+
+Never place glass on ordinary rows, prose, charts, Journal entries, or assistant messages. Never stack glass on glass — hero glass sits on the scene, never on other glass, which is precisely what makes one-per-screen load-bearing. Avoid glossy highlights, hard black shadows, deep floating stacks, blur as hierarchy, and card-on-card nesting. Scrolling may simplify nonessential shadows while preserving tonal and boundary hierarchy.
+
+### Specular rim
+
+Raised and floating clay carry a thin light edge along the lit side, angled to the current daypart. It is what makes clay read as a soft solid catching light rather than a flat tinted rectangle, and it is the quiet half of "claymorphic liquid glass" — the half that appears on every card rather than once per screen.
+
+The rim is a static gradient stroke. It does not animate, does not consume the ambient motion budget, and does not survive Increase Contrast, where the semantic hairline takes over and boundary clarity outranks material character.
 
 ## Shapes
 
@@ -418,12 +486,15 @@ Use continuous corners with a small, purposeful vocabulary:
 - **14 points:** fields and recessed wells.
 - **16 points:** interactive rows and compact content controls.
 - **20 points:** raised decisions, proposals, and receipts.
+- **24 points:** the hero surface and its opaque fallback.
 - **28 points:** sheets and modal presentations.
 - **30 points:** dock and composer clusters.
 - **Pill:** primary actions, filters, selected lenses, and status capsules.
 - **Circle:** single-purpose icon controls, capture orb, progress dial, and compact marks.
 
 Shape communicates behavior. Pills imply compact actions or selection, circles imply one direct action, and cards imply an independent object. Do not mix arbitrary corner radii within one component family. During shared-element or glass transitions, source and destination must maintain a coherent silhouette without clipping text or controls.
+
+The 24-point hero radius is shared by three things that must read as one object across a transition: the card that represents the surface elsewhere, the hero it becomes when opened, and the opaque fallback that replaces it under reduced transparency. Radius is not a decorative choice at this size — it is the continuity.
 
 ## Components
 
@@ -432,6 +503,30 @@ The components below are target design-language contracts. Implementations may u
 ### Decision surface
 
 The decision surface is the single dominant object on a screen. It contains one short title, one line of useful context, one primary action, and at most one quiet alternative. It may show progress or a truthful status, but never a dashboard of metrics. On iPad it grows through spacing and composition, not oversized type or empty card area.
+
+### Hero surface
+
+The hero surface is the decision surface rendered in glass over the scenic atmosphere, and it is the only content in the product permitted that material. Its content budget is the decision surface's budget, unchanged: title, one line of context, one metric or truthful status, one primary action, at most one quiet alternative.
+
+It owns the exclusive per-screen claim, the contrast floor, and the opaque fallback described in Elevation & Depth. A screen with no obvious single dominant object does not get a hero — it gets clay throughout, which is a legitimate and common outcome. History, evidence, settings, and browsing surfaces have no hero.
+
+When a hero is reached from a card elsewhere in the product, the card and the hero share a silhouette and the transition preserves it, so the object appears to open rather than to be replaced.
+
+### Metric hero
+
+One recorded value presented at reading scale: label, value, unit, and provenance, with an optional trend and timeframe. It is the single component for every "what is this number right now" moment, whether it sits in a card, a hero, a supporting row, or a grid.
+
+Recorded, explicit zero, no record, stale, denied, and unavailable are six different states with six different presentations. A metric hero must never render an absent value as zero, and must never imply freshness it cannot support. Provenance travels with the value, because a number without a source is not evidence.
+
+### Section header
+
+A title, an optional count, and at most one trailing action. It marks a meaningful change in content, never a label above every group. One type size and one spacing across the entire product; a section header that has been individually restyled is a defect.
+
+### Live-state pill
+
+A compact glass capsule reporting genuinely live state — a running fast, a session in progress, a sync in flight. It carries the corresponding recorded-state signature effect only while that state is actually running, and becomes static the moment it stops.
+
+A live-state pill must never be used for state that is merely recent, merely selected, or merely important. If it is animating, something is happening right now.
 
 ### Open row
 
@@ -459,11 +554,15 @@ Inbox, Rescue, and replanning decisions may use one front card on a stable deck 
 
 ### Focus dial
 
-The dial presents settled progress around a dominant time or activity label. Active, paused, and completed states use text, shape, and color together. Scrubbing or direct manipulation uses magnetic alignment and threshold feedback. The dial does not run an ambient shader and becomes a static progress presentation under Reduce Motion.
+The dial presents settled progress around a dominant time or activity label. Active, paused, and completed states use text, shape, and color together. Scrubbing or direct manipulation uses magnetic alignment and threshold feedback. While a session is running the dial carries ambient motion within the budget above, so an active session reads as alive rather than frozen; it settles to a static progress presentation when paused, when completed, and whenever the ambient budget withdraws.
 
 ### Charts and evidence
 
 Lead with one plain-language interpretation and one useful action. Charts are secondary evidence with labeled axes, timeframe, source, and a prose or table equivalent. Unknown data is not zero. Do not imply causation, health quality, or moral value through color, trend direction, or celebratory copy.
+
+Charts and evidence are always clay and never glass, and never appear inside a hero. Translucency behind a data mark makes the mark's value depend on what happens to be behind it, which is exactly the property evidence must not have. The interpretation may be the hero; the chart that supports it sits below in raised clay.
+
+A chart draws its reveal once, when valid data first appears or its range changes. Empty, denied, and unavailable states never sweep, because a reveal animation implies data arrived.
 
 ### State surfaces
 
@@ -475,10 +574,11 @@ Loading, genuinely empty, no record, denied, locked, offline, stale or partial, 
 - **Home:** greeting and date, one Now decision, up to three signals, open Today rows, concise Day Ahead, and lower-priority modules disclosed only when relevant.
 - **Plan:** compact date and capacity context around the dominant time canvas; tasks move into open windows through direct manipulation and accessible move controls.
 - **Focus:** one commitment, tactile dial, clear pause/resume/finish actions, minimal chrome, and a persisted completion receipt.
-- **Track:** a compact quick-log strip first, then Areas and History. Immediate reversible logs use lighter feedback than consequential commits.
+- **Track:** a greeting carrying an explicit daypart reading, then a compact quick-log strip on the control layer, then one hero for the active lens, then Areas and History in clay. Immediate reversible logs use lighter feedback than consequential commits. The daypart reading uses the celestial art already in the product — sun through the daylight phases, moon at night, positioned by how far the day has actually travelled — so two glances an hour apart differ.
 - **Journal:** open writing and reading, calm line length, media that settles into the entry after commit, and derived context kept secondary.
-- **Insights:** one interpretation and one action before charts; evidence and provenance expand on request.
-- **Eva:** assistant prose stays open on the canvas, user messages use quiet clay, and only proposals, command results, receipts, and Undo receive bounded surfaces.
+- **Insights:** the interpretation is the hero — one claim, one recommended action, one completeness statement. Charts, tallies, and evidence follow in clay; provenance expands on request.
+- **Eva:** assistant prose stays open on the canvas and never receives glass or a card. User messages use quiet clay. Glass belongs to the composer, the privacy bar, and — when there is no transcript yet — the invitation to begin, which is the empty screen's hero. Proposals, command results, receipts, and Undo receive bounded clay surfaces.
+- **Recorded health surfaces** — sleep, movement, workouts, body metrics, meals, fasting, and nutrition — share one contract across three appearances. As a card elsewhere in the product: raised clay, one value, one unit, one provenance line. As a destination: one hero holding today's state and the capture action, then supporting clay, then the chart, then history rows. As a capture sheet: the clay composer kit with a glass commit bar. The three share a silhouette so opening one reads as the same object growing, and every value on all three carries its source.
 - **Inbox and Rescue:** a directional deck with visible alternatives, honest empty/failure states, and one receipt for each committed batch.
 - **Daily Loop:** a focused opening decision, current-day action, blame-free repair, and an evening close with one restrained completion moment.
 
@@ -486,7 +586,26 @@ Loading, genuinely empty, no record, denied, locked, offline, stale or partial, 
 
 Use the motion grammar **source → travel → settle**. Source establishes origin, travel preserves spatial continuity, and settle confirms the new state. Direct manipulation follows the finger without perceptible delay. Persistence precedes success motion and haptics.
 
-Concentrate rich motion at five boundaries: capture, navigation, commitment, replanning, and reflection. Ordinary scrolling, reading, and repeated row actions stay quiet. Most microinteractions complete within 120–280 milliseconds; spatial transitions complete within 280–500 milliseconds; signature moments remain below roughly 800 milliseconds and never block the next action.
+Concentrate rich motion at five boundaries: capture, navigation, commitment, replanning, and reflection. Most microinteractions complete within 120–280 milliseconds; spatial transitions complete within 280–500 milliseconds; signature moments remain below roughly 800 milliseconds and never block the next action.
+
+Scrolling is not a quiet moment. Content entering the viewport rises, focuses, and settles; repeated row actions stay restrained but never silent. A surface the person is reading may carry ambient life, and the atmosphere behind every screen is always in motion.
+
+#### Two tiers of motion
+
+Motion in LifeBoard belongs to one of two tiers, and the tier decides the rules:
+
+- **Boundary motion** is one-shot. It is triggered by an event, it plays once, and it returns to a settled state. Every signature effect below is boundary motion unless named otherwise.
+- **Ambient motion** is continuous. It has no settled state — it has a bounded envelope, and it exists so the product feels alive rather than paused.
+
+Ambient motion is a privilege with a budget, and the budget is normative:
+
+- At most **one** ambient timeline per screen. Ambient surfaces share it; they do not each start their own.
+- **30 frames per second or fewer.**
+- Amplitude **at or below 2%** of the affected element's dimension, and never enough to shift a reading position or a touch target.
+- Never behind body text, charts, evidence, or sensitive content. Ambient motion belongs to atmosphere, hero surfaces, and live indicators.
+- Always paused when the scene is inactive, under Low Power Mode, or under thermal pressure — and absent entirely under the Calm comfort profile or the Still rendering tier.
+
+Ambient motion that cannot state its envelope is not ambient motion; it is a distraction, and it does not ship.
 
 Comfort profiles change expression, not capability:
 
@@ -507,11 +626,15 @@ Use the existing signature-effect vocabulary only:
 - `journalMediaReveal` and `memoryDevelopReveal` for committed media and memories.
 - `daypartBloom` and `daypartCrossDissolve` at semantic atmosphere changes.
 - `healthSyncPulse`, `vitalOrbWarp`, and `fastingEmberRing` only for corresponding recorded state changes.
-- `liquidGlassRefract` for approved dock, lens, and composer transitions.
+- `liquidGlassRefract` for approved dock, lens, composer, and hero-surface transitions.
+- `heroGlassSettle` once, when a hero surface arrives or commits; never on scroll, and never while its content is still loading.
 - `valueDrumWarp` only while a value tape is under the finger; identity at the centre detent and at rest.
-- `paperGrain` as the only static effect.
+- `paperGrain` as a static texture; it never animates.
+- `ambientDrift` and `ambientBreath` as the ambient tier, subject to the budget above.
 
-Effects mount behind text, charts, evidence, and sensitive content. Every animated effect returns to a settled state. Reduce Motion, Reduce Transparency, Low Power Mode, thermal pressure, inactive scenes, unsupported platforms, or shader failure replaces effects with short semantic crossfades or immediate state changes without removing content or delaying input.
+Effects mount behind text, charts, evidence, and sensitive content. Every **boundary** effect returns to a settled state; **ambient** effects instead stay within their stated envelope and come to rest whenever the budget withdraws them. Reduce Transparency, Low Power Mode, thermal pressure, inactive scenes, unsupported platforms, or shader failure replaces effects with short semantic crossfades or immediate state changes without removing content or delaying input.
+
+Reduce Motion is honoured the same way, with one deliberate exception: LifeBoard offers a **Full motion** setting that overrides the system preference for this app alone. It is on by default, because motion is central to what this product is. Turning it off restores the complete Reduce Motion path everywhere at once. Energy and thermal limits are never overridable — they are not comfort preferences.
 
 ### Accessibility and input
 
@@ -524,13 +647,16 @@ Haptics confirm commit, selection, lift, threshold, settle, decline, and failure
 - **Do** present one dominant decision; **don't** make unrelated modules compete at equal weight.
 - **Do** use open canvas, rows, and negative space; **don't** wrap every section in a card.
 - **Do** reserve raised clay for independent objects; **don't** nest cards or build glossy stacks.
-- **Do** use Regular Liquid Glass for navigation and control chrome; **don't** use glass for content or stack glass surfaces.
+- **Do** use Regular Liquid Glass for navigation and control chrome; **don't** stack glass surfaces or use glass for ordinary content.
+- **Do** give a screen exactly one hero and let everything else be clay; **don't** let a hero accumulate a second metric until it becomes a dashboard.
+- **Do** put glass on the decision and the controls; **don't** put it behind a chart, a table, an evidence list, prose, or an assistant message.
+- **Do** keep the hero's glass and its opaque fallback identical in geometry and reading order; **don't** let a comfort or accessibility setting reflow the screen.
 - **Do** use semantic colors and Dynamic Type; **don't** hardcode appearance, use light font weights, or shrink text to preserve a layout.
 - **Do** keep copy personal, plain, and specific; **don't** expose internal terminology or narrate obvious interface state.
 - **Do** distinguish zero, no record, stale, denied, unavailable, locked, offline, and failure; **don't** collapse them into a generic empty state.
 - **Do** begin success feedback after persistence; **don't** simulate success with a delay or dismiss recoverable work.
 - **Do** pair gestures with buttons, keyboard, and VoiceOver alternatives; **don't** make discovery or completion depend on gesture knowledge.
-- **Do** use signature motion at meaningful boundaries; **don't** run ambient loops, distort readable content, or animate every state change.
+- **Do** use signature motion at meaningful boundaries, and bounded ambient motion within its stated budget; **don't** run an ambient loop you cannot bound, distort readable content, or animate every state change.
 - **Do** honor comfort and accessibility settings without changing capability; **don't** make reduced effects feel like a degraded product.
 - **Do** use SF Symbols or curated brand assets; **don't** use emoji as interface icons.
 - **Do** preserve privacy in notifications, widgets, previews, and diagnostics; **don't** reveal Journal, health, audio, media, or assistant context outside its authorized surface.

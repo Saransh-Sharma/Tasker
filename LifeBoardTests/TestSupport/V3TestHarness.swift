@@ -1,3 +1,4 @@
+import CoreData
 import Foundation
 @testable import LifeBoard
 
@@ -31,6 +32,22 @@ final class LockedTestState<Value>: @unchecked Sendable {
     }
 }
 
+/// Resolves the versioned model through the persistence package resource
+/// boundary. Tests must not assume package resources are copied into either
+/// the host application bundle or the XCTest bundle.
+enum PersistenceTestModel {
+    static func url() throws -> URL {
+        guard let url = LifeBoardPersistenceModel.modelURL else {
+            throw LifeBoardPersistenceModel.ModelError.resourceNotFound
+        }
+        return url
+    }
+
+    static func model() throws -> NSManagedObjectModel {
+        try LifeBoardPersistenceModel.makeModel()
+    }
+}
+
 // Shared V3-focused test harness utilities for building coordinators/mocks without
 // relying on legacy task shim protocols.
 enum V3TestHarness {
@@ -46,8 +63,8 @@ enum V3TestHarness {
         scheduleEngine: SchedulingEngineProtocol = NoopSchedulingEngine(),
         occurrenceRepository: OccurrenceRepositoryProtocol = NoopOccurrenceRepository(),
         gamificationRepository: GamificationRepositoryProtocol = NoopGamificationRepository(),
-        calendarEventsProvider: CalendarEventsProviderProtocol? = nil,
-        workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared,
+        calendarEventsProvider: CalendarEventsRepositoryProtocol? = nil,
+        workspacePreferencesStore: WorkspacePreferencesStore = .shared,
         cacheService: CacheServiceProtocol? = nil,
         notificationService: NotificationServiceProtocol? = nil
     ) -> UseCaseCoordinator {
@@ -347,9 +364,9 @@ private final class NoopLifeAreaRepository: LifeAreaRepositoryProtocol {
 }
 
 private final class NoopSectionRepository: SectionRepositoryProtocol {
-    func fetchSections(projectID: UUID, completion: @escaping @Sendable (Result<[LifeBoardProjectSection], Error>) -> Void) { completion(.success([])) }
-    func create(_ section: LifeBoardProjectSection, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) { completion(.success(section)) }
-    func update(_ section: LifeBoardProjectSection, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) { completion(.success(section)) }
+    func fetchSections(projectID: UUID, completion: @escaping @Sendable (Result<[ProjectSectionDefinition], Error>) -> Void) { completion(.success([])) }
+    func create(_ section: ProjectSectionDefinition, completion: @escaping @Sendable (Result<ProjectSectionDefinition, Error>) -> Void) { completion(.success(section)) }
+    func update(_ section: ProjectSectionDefinition, completion: @escaping @Sendable (Result<ProjectSectionDefinition, Error>) -> Void) { completion(.success(section)) }
     func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 

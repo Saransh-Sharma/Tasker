@@ -6,7 +6,7 @@ import UIKit
 /// Proves the legacy colour accessors and their canonical roles resolve to the
 /// same colour, so migrating a call site is a rename rather than a redesign.
 ///
-/// Without this, "replace `LifeBoardColorTokens.inkPrimary` with
+/// Without this, "replace `SemanticColorTokens.inkPrimary` with
 /// `Color.lifeboard(.textPrimary)`" is a leap of faith across 81 files. With it,
 /// any divergence surfaces here as a concrete pair of hex values that somebody
 /// decides about deliberately.
@@ -32,7 +32,7 @@ final class TokenBridgeEquivalenceTests: XCTestCase {
             (.dark, .high, "dark+contrast")
         ]
 
-        for entry in LifeBoardTokenBridge.assertableEntries {
+        for entry in TokenBridge.assertableEntries {
             guard let role = entry.role else { continue }
             for (style, contrast, label) in appearances {
                 let legacy = resolvedColor(Color(entry.resolve()), style: style, contrast: contrast)
@@ -58,7 +58,7 @@ final class TokenBridgeEquivalenceTests: XCTestCase {
     /// fails and tells you to promote it to an assertable rename rather than
     /// leaving a stale "these differ" note that nobody rereads.
     func testRecordedDivergencesAreStillReal() {
-        for entry in LifeBoardTokenBridge.divergentEntries {
+        for entry in TokenBridge.divergentEntries {
             guard let role = entry.role else { continue }
             let appearances: [(UIUserInterfaceStyle, UIAccessibilityContrast)] = [
                 (.light, .normal), (.dark, .normal), (.light, .high), (.dark, .high)
@@ -81,12 +81,12 @@ final class TokenBridgeEquivalenceTests: XCTestCase {
         // A static in neither list is a token nobody has decided about, which is
         // how a fourth vocabulary starts.
         XCTAssertEqual(
-            LifeBoardTokenBridge.mappedCount + LifeBoardTokenBridge.unmappedCount,
-            LifeBoardTokenBridge.foundationEntries.count
+            TokenBridge.mappedCount + TokenBridge.unmappedCount,
+            TokenBridge.foundationEntries.count
         )
-        XCTAssertGreaterThan(LifeBoardTokenBridge.mappedCount, 0)
+        XCTAssertGreaterThan(TokenBridge.mappedCount, 0)
         XCTAssertEqual(
-            LifeBoardTokenBridge.divergentEntries.count, 9,
+            TokenBridge.divergentEntries.count, 9,
             """
             Measured 2026-08-03: of 13 statics with a role, 4 resolve identically after \
             the hairline and focus accessibility defects were corrected. A change here \

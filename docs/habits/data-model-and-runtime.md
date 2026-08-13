@@ -2,6 +2,11 @@
 
 > **Classification: Canonical runtime reference.** The [Habit package](./README.md) owns this feature's detailed contracts; the [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md) owns completion status.
 
+> Audience: Engineering, product, and QA
+> Capability status: Current workspace
+> Source authority: Habit models, occurrence resolver, stores, and projections
+> Last verified: 2026-08-13
+
 This document describes the habit lifecycle, streak semantics, and runtime projection rules that LifeBoard uses for Habit Streaks.
 
 ## Core Concepts

@@ -1,4 +1,4 @@
-import CoreData
+@preconcurrency import CoreData
 import XCTest
 @testable import LifeBoard
 
@@ -613,7 +613,7 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         let day13 = PlanningDay(year: 2026, month: 7, day: 13, timeZoneIdentifier: calendar.timeZone.identifier)
         let day14 = PlanningDay(year: 2026, month: 7, day: 14, timeZoneIdentifier: calendar.timeZone.identifier)
         let policy = HabitResiliencePolicy(habitID: habitID, offDays: [day13])
-        let snapshot = DefaultHabitGradeEngine().evaluate(
+        let snapshot = DefaultHabitGradeService().evaluate(
             habitID: habitID,
             occurrences: [
                 .init(habitID: habitID, day: day12, resolution: .recovered),
@@ -646,7 +646,7 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
             ]
         )
 
-        let snapshot = DefaultHabitGradeEngine().evaluate(
+        let snapshot = DefaultHabitGradeService().evaluate(
             habitID: habitID,
             occurrences: [
                 .init(habitID: habitID, day: completedDay, resolution: .completed),
@@ -746,7 +746,7 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
             PlanningDay(year: 2026, month: 7, day: value, timeZoneIdentifier: calendar.timeZone.identifier)
         }
         let vacation = HabitVacationRange(startDay: day(11), endDay: day(11), label: "Rest")
-        let snapshot = DefaultHabitGradeEngine().evaluate(
+        let snapshot = DefaultHabitGradeService().evaluate(
             habitID: habitID,
             occurrences: [
                 .init(habitID: habitID, day: day(8), resolution: .completed),
@@ -1476,7 +1476,7 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
             task.setValue(Date(), forKey: "updatedAt")
             try context.save()
         }
-        let goalSamples = try await CoreDataGoalSampleProvider(container: container).samples(for: [goalLink], asOf: Date())
+        let goalSamples = try await CoreDataGoalSampleRepository(container: container).samples(for: [goalLink], asOf: Date())
         XCTAssertEqual(goalSamples.first?.isComplete, true)
         goal.title = "Ship LifeBoard"
         goal.status = .paused
@@ -1633,7 +1633,7 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: root) }
         let repository = LocalTrackCorrectionReceiptRepository(rootURL: root)
         let appliedAt = Date(timeIntervalSinceReferenceDate: 800_000_100)
-        let previous = LifeBoardTrackerEntryValue(
+        let previous = TrackerEntryValue(
             id: UUID(), trackerID: UUID(), timestamp: appliedAt.addingTimeInterval(-60), numericValue: 3
         )
         var corrected = previous
@@ -1660,8 +1660,8 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
     func testNormalizedEventCarriesCorrectionReceiptAndReversalMetadata() throws {
         let sourceID = UUID()
         let appliedAt = Date(timeIntervalSinceReferenceDate: 800_000_200)
-        let previous = LifeBoardMoodEnergyCheckInValue(id: sourceID, mood: .tired, energy: 2, createdAt: appliedAt)
-        let corrected = LifeBoardMoodEnergyCheckInValue(id: sourceID, mood: .happy, energy: 4, createdAt: appliedAt)
+        let previous = MoodEnergyCheckInValue(id: sourceID, mood: .tired, energy: 2, createdAt: appliedAt)
+        let corrected = MoodEnergyCheckInValue(id: sourceID, mood: .happy, energy: 4, createdAt: appliedAt)
         var receipt = try TrackCorrectionReceipt.deterministic(
             previous: .mood(previous), corrected: .mood(corrected), appliedAt: appliedAt
         )
@@ -1702,15 +1702,15 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
     func testFocusLiveActivityContractStaysSmallAndCommandsAreIdempotent() throws {
         let sessionID = UUID()
         let commandID = UUID()
-        let url = LifeBoardFocusActivityLink.url(sessionID: sessionID, command: "pause", token: commandID)
+        let url = FocusActivityLink.url(sessionID: sessionID, command: "pause", token: commandID)
         let command = try XCTUnwrap(FocusLiveActivityDeepLink.command(from: url))
 
         XCTAssertEqual(command.id, commandID)
         XCTAssertEqual(command.sessionID, sessionID)
         if case .pause = command.kind {} else { XCTFail("Expected pause command") }
 
-        let attributes = LifeBoardFocusActivityAttributes(sessionID: sessionID, title: String(repeating: "Long focus title ", count: 20))
-        let state = LifeBoardFocusActivityAttributes.ContentState(
+        let attributes = FocusActivityAttributes(sessionID: sessionID, title: String(repeating: "Long focus title ", count: 20))
+        let state = FocusActivityAttributes.ContentState(
             phase: "running",
             remainingDuration: 1_500,
             expectedEndAt: Date().addingTimeInterval(1_500),
@@ -1724,7 +1724,7 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
     func testFastingLiveActivityContractUsesCanonicalSessionAndExplicitCommands() throws {
         let sessionID = UUID()
         let commandID = UUID()
-        let finishURL = LifeBoardFastingActivityLink.url(
+        let finishURL = FastingActivityLink.url(
             sessionID: sessionID,
             command: "finish",
             token: commandID
@@ -1734,17 +1734,17 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertEqual(command.id, commandID)
         XCTAssertEqual(command.sessionID, sessionID)
         XCTAssertEqual(command.action, .finish)
-        XCTAssertNil(FastingLiveActivityDeepLink.command(from: LifeBoardFastingActivityLink.url(
+        XCTAssertNil(FastingLiveActivityDeepLink.command(from: FastingActivityLink.url(
             sessionID: sessionID,
             command: "infer-finished",
             token: commandID
         )))
 
-        let attributes = LifeBoardFastingActivityAttributes(
+        let attributes = FastingActivityAttributes(
             sessionID: sessionID,
             title: String(repeating: "Personal fasting target ", count: 10)
         )
-        let state = LifeBoardFastingActivityAttributes.ContentState(
+        let state = FastingActivityAttributes.ContentState(
             phase: "active",
             startedAt: Date(timeIntervalSince1970: 100),
             targetEndAt: Date(timeIntervalSince1970: 200),
@@ -1761,7 +1761,7 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         let runID = UUID()
         let routineID = UUID()
         let commandID = UUID()
-        let pauseURL = LifeBoardRoutineActivityLink.url(
+        let pauseURL = RoutineActivityLink.url(
             runID: runID,
             command: "pause",
             token: commandID
@@ -1771,18 +1771,18 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertEqual(command.id, commandID)
         XCTAssertEqual(command.runID, runID)
         XCTAssertEqual(command.action, .pause)
-        XCTAssertNil(RoutineLiveActivityDeepLink.command(from: LifeBoardRoutineActivityLink.url(
+        XCTAssertNil(RoutineLiveActivityDeepLink.command(from: RoutineActivityLink.url(
             runID: runID,
             command: "advance",
             token: commandID
         )))
 
-        let attributes = LifeBoardRoutineActivityAttributes(
+        let attributes = RoutineActivityAttributes(
             runID: runID,
             routineID: routineID,
             title: String(repeating: "Morning care routine ", count: 10)
         )
-        let state = LifeBoardRoutineActivityAttributes.ContentState(
+        let state = RoutineActivityAttributes.ContentState(
             status: "running",
             stepTitle: String(repeating: "Prepare the next gentle step ", count: 10),
             completedStepCount: 2,
@@ -1798,10 +1798,7 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
     #endif
 
     private func modelBundleURL() throws -> URL {
-        for bundle in [Bundle.main, Bundle(for: Self.self)] {
-            if let url = bundle.url(forResource: "TaskModelV3", withExtension: "momd") { return url }
-        }
-        throw NSError(domain: "LifeBoardPlanningTrackFoundationTests", code: 1)
+        try PersistenceTestModel.url()
     }
 
     private func makeTrackFoundationContainer() async throws -> NSPersistentContainer {

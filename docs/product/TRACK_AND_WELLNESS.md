@@ -2,6 +2,11 @@
 
 **Classification:** Canonical feature contract
 
+**Audience:** Users, support, product, design, engineering, health-privacy review, and QA
+**Capability status:** Current workspace; connected data varies by permission/device
+**Source authority:** Track domain repositories, Health runtime, and domain feature routes
+**Last verified:** 2026-08-13
+
 **Root:** Track
 **Related:** [Habit package](../habits/README.md), [Adaptive Home](./HOME.md), [System surfaces](./SYSTEM_SURFACES_AND_CONTINUITY.md)
 
@@ -100,6 +105,6 @@ Life Moments record important dates or events with captured timezone, recurrence
 
 Primary anchors include Phase II Track/Journal views, Phase IV Track Foundation views/models, Phase VI Wellness/Nutrition/Life Moments models and persistence, Home provider registries, and system-surface projection contracts.
 
-Primary flags are `trackFoundationsV2Enabled`, `habitResilienceV2Enabled`, `goalsRoutinesV1Enabled`, `careModulesV2Enabled`, `starterPacksV1Enabled`, `trackersV1Enabled`, `wellnessCoreV1Enabled`, `healthIntegrationsV1Enabled`, `nutritionV1Enabled`, `fastingV2Enabled`, and `lifeMomentsV1Enabled`. Turning a domain off removes its staged surfaces and projections without deleting records.
+Primary retained controls include `trackFoundationsV2Enabled`, `goalsRoutinesV1Enabled`, `careModulesV2Enabled`, `trackersV1Enabled`, `wellnessCoreV1Enabled`, `healthIntegrationsV1Enabled`, `nutritionV1Enabled`, `fastingV2Enabled`, and `lifeMomentsV1Enabled`, plus current Health-writeback and flagship Track families. Turning a domain off removes its staged surfaces and projections without deleting records.
 
 Recorded evidence covers canonical occurrence/recovery, typed samples, routine idempotency, tracker CRUD/history, Wellness repository paths, fasting serialization, Nutrition conversion/snapshots, Life Moments recurrence, and redacted projections. Signed-device connected-health, notification, export/restore, and full cross-module visual matrices remain release gates.

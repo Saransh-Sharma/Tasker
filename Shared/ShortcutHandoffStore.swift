@@ -1,4 +1,5 @@
 import Foundation
+import LifeBoardContracts
 
 extension Notification.Name {
     static let lifeboardEvaChatLaunchRequestDidChange = Notification.Name("LifeBoardEvaChatLaunchRequestDidChange")

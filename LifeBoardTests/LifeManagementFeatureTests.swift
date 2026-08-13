@@ -1,6 +1,7 @@
 import XCTest
 import CoreData
 @testable import LifeBoard
+@testable import LifeBoardPersistence
 
 @MainActor
 final class ManageLifeAreasUseCaseTests: XCTestCase {
@@ -696,7 +697,7 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
             try? context.save()
         }
 
-        LifeBoardPersistentRuntimeInitializer().initialize(container: container)
+        PersistentRuntimeInitializer().initialize(container: container)
 
         context.performAndWait {
             let missingColor = Self.fetchLifeAreaColor(in: context, id: missingID)
@@ -724,7 +725,7 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
             try? context.save()
         }
 
-        let initializer = LifeBoardPersistentRuntimeInitializer()
+        let initializer = PersistentRuntimeInitializer()
         initializer.initialize(container: container)
 
         context.performAndWait {
@@ -756,7 +757,7 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
             try? context.save()
         }
 
-        LifeBoardPersistentRuntimeInitializer().initialize(container: container)
+        PersistentRuntimeInitializer().initialize(container: container)
 
         context.performAndWait {
             let request = NSFetchRequest<NSManagedObject>(entityName: "HabitDefinition")
@@ -768,9 +769,8 @@ final class LifeBoardPersistentRuntimeInitializerLifeAreaColorBackfillTests: XCT
     }
 
     private func makeInMemoryCloudKitContainer() throws -> NSPersistentCloudKitContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
-              model.entitiesByName["LifeArea"] != nil,
+        let model = try PersistenceTestModel.model()
+        guard model.entitiesByName["LifeArea"] != nil,
               model.entitiesByName["HabitDefinition"] != nil else {
             throw NSError(
                 domain: "LifeManagementFeatureTests",
@@ -2539,9 +2539,9 @@ private func makeLifeManagementViewModel(dependencies: CoordinatorDependencies) 
 }
 
 private final class NoOpSectionRepositoryStub: SectionRepositoryProtocol {
-    func fetchSections(projectID: UUID, completion: @escaping @Sendable (Result<[LifeBoardProjectSection], Error>) -> Void) { completion(.success([])) }
-    func create(_ section: LifeBoardProjectSection, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) { completion(.success(section)) }
-    func update(_ section: LifeBoardProjectSection, completion: @escaping @Sendable (Result<LifeBoardProjectSection, Error>) -> Void) { completion(.success(section)) }
+    func fetchSections(projectID: UUID, completion: @escaping @Sendable (Result<[ProjectSectionDefinition], Error>) -> Void) { completion(.success([])) }
+    func create(_ section: ProjectSectionDefinition, completion: @escaping @Sendable (Result<ProjectSectionDefinition, Error>) -> Void) { completion(.success(section)) }
+    func update(_ section: ProjectSectionDefinition, completion: @escaping @Sendable (Result<ProjectSectionDefinition, Error>) -> Void) { completion(.success(section)) }
     func delete(id: UUID, completion: @escaping @Sendable (Result<Void, Error>) -> Void) { completion(.success(())) }
 }
 
@@ -2668,9 +2668,8 @@ private final class NoOpExternalSyncRepositoryStub: ExternalSyncRepositoryProtoc
 
 private extension CoreDataProjectRepositoryLifeAreaMutationTests {
     static func makeInMemoryContainer() throws -> NSPersistentContainer {
-        let bundles = [Bundle.main, Bundle(for: Self.self)]
-        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
-              model.entitiesByName["TaskDefinition"] != nil else {
+        let model = try PersistenceTestModel.model()
+        guard model.entitiesByName["TaskDefinition"] != nil else {
             throw NSError(
                 domain: "LifeManagementFeatureTests",
                 code: 1,

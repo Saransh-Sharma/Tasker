@@ -1,6 +1,7 @@
 import XCTest
 import Combine
 @testable import LifeBoard
+@testable import LifeBoardCalendar
 #if canImport(EventKit)
 import EventKit
 #endif
@@ -36,8 +37,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             event(id: "e1", calendarID: "work", start: CalendarTestClock.date(hour: 10), end: CalendarTestClock.date(hour: 11))
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work"]))
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(selectedCalendarIDs: ["work"]))
 
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
 
@@ -71,7 +72,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         provider.authorizationStatusAfterAccess = .denied
         provider.requestAccessResult = .success(false)
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let store = WorkspacePreferencesStore(defaults: defaults)
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
 
         let expectation = expectation(description: "Denied completion")
@@ -88,7 +89,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
 
     func testAccessActionPolicyMatchesAuthorizationState() {
         let provider = CalendarEventsProviderStub()
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let store = WorkspacePreferencesStore(defaults: defaults)
         let attemptStore = CalendarAccessAttemptStoreStub()
         let service = CalendarIntegrationService(
             provider: provider,
@@ -124,22 +125,22 @@ final class CalendarIntegrationServiceTests: XCTestCase {
     }
 
     func testEventTitleSanitizerUsesFallbackForNilAndBlankTitles() {
-        XCTAssertEqual(EventKitCalendarEventsProvider.sanitizedTitle(nil), "Untitled Event")
-        XCTAssertEqual(EventKitCalendarEventsProvider.sanitizedTitle(""), "Untitled Event")
-        XCTAssertEqual(EventKitCalendarEventsProvider.sanitizedTitle("   "), "Untitled Event")
-        XCTAssertEqual(EventKitCalendarEventsProvider.sanitizedTitle(" Focus Block "), "Focus Block")
+        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle(nil), "Untitled Event")
+        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle(""), "Untitled Event")
+        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle("   "), "Untitled Event")
+        XCTAssertEqual(EventKitCalendarEventsRepository.sanitizedTitle(" Focus Block "), "Focus Block")
     }
 
     func testWorkspacePreferencesDefaultCanceledSettingIsFalse() {
-        XCTAssertFalse(LifeBoardWorkspacePreferences().includeCanceledCalendarEvents)
+        XCTAssertFalse(WorkspacePreferences().includeCanceledCalendarEvents)
     }
 
     func testWorkspacePreferencesDefaultTimelineCalendarSettingIsTrue() {
-        XCTAssertTrue(LifeBoardWorkspacePreferences().showCalendarEventsInTimeline)
+        XCTAssertTrue(WorkspacePreferences().showCalendarEventsInTimeline)
     }
 
     func testWorkspacePreferencesDefaultTimelineAnchorTimes() {
-        let preferences = LifeBoardWorkspacePreferences()
+        let preferences = WorkspacePreferences()
         XCTAssertEqual(preferences.timelineRiseAndShineHour, 8)
         XCTAssertEqual(preferences.timelineRiseAndShineMinute, 0)
         XCTAssertEqual(preferences.timelineWindDownHour, 22)
@@ -157,7 +158,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         }
         """.data(using: .utf8)!
 
-        let decoded = try JSONDecoder().decode(LifeBoardWorkspacePreferences.self, from: legacyJSON)
+        let decoded = try JSONDecoder().decode(WorkspacePreferences.self, from: legacyJSON)
 
         XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
         XCTAssertTrue(decoded.includeDeclinedCalendarEvents)
@@ -176,7 +177,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         }
         """.data(using: .utf8)!
 
-        let decoded = try JSONDecoder().decode(LifeBoardWorkspacePreferences.self, from: legacyJSON)
+        let decoded = try JSONDecoder().decode(WorkspacePreferences.self, from: legacyJSON)
 
         XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
         XCTAssertTrue(decoded.showCalendarEventsInTimeline)
@@ -195,7 +196,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         }
         """.data(using: .utf8)!
 
-        let decoded = try JSONDecoder().decode(LifeBoardWorkspacePreferences.self, from: json)
+        let decoded = try JSONDecoder().decode(WorkspacePreferences.self, from: json)
 
         XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
         XCTAssertFalse(decoded.showCalendarEventsInTimeline)
@@ -214,7 +215,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         }
         """.data(using: .utf8)!
 
-        let decoded = try JSONDecoder().decode(LifeBoardWorkspacePreferences.self, from: legacyJSON)
+        let decoded = try JSONDecoder().decode(WorkspacePreferences.self, from: legacyJSON)
 
         XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
         XCTAssertEqual(decoded.timelineRiseAndShineHour, 8)
@@ -233,7 +234,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         }
         """.data(using: .utf8)!
 
-        let decoded = try JSONDecoder().decode(LifeBoardWorkspacePreferences.self, from: legacyJSON)
+        let decoded = try JSONDecoder().decode(WorkspacePreferences.self, from: legacyJSON)
 
         XCTAssertEqual(decoded.selectedCalendarIDs, ["work"])
         XCTAssertTrue(decoded.includeAllDayInAgenda)
@@ -241,8 +242,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
     }
 
     func testWorkspacePreferencesStoreCanonicalizesSelectedCalendarIDs() {
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(
             selectedCalendarIDs: ["work", "personal", "work", "archive"]
         ))
 
@@ -250,8 +251,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
     }
 
     func testWorkspacePreferencesStorePersistsTimelineCalendarSetting() {
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             showCalendarEventsInTimeline: true
         ))
@@ -262,8 +263,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
     }
 
     func testWorkspacePreferencesStorePersistsTimelineAnchorTimes() {
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             timelineRiseAndShineHour: 6,
             timelineRiseAndShineMinute: 30,
@@ -280,13 +281,13 @@ final class CalendarIntegrationServiceTests: XCTestCase {
     }
 
     func testWorkspacePreferencesStoreSkipsNoopSaveAndDoesNotEmitDidChange() {
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        let baseline = LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work"])
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        let baseline = WorkspacePreferences(selectedCalendarIDs: ["work"])
         store.save(baseline)
 
         let notificationCount = LockedTestState(0)
         let observer = NotificationCenter.default.addObserver(
-            forName: LifeBoardWorkspacePreferencesStore.didChangeNotification,
+            forName: WorkspacePreferencesStore.didChangeNotification,
             object: nil,
             queue: .main
         ) { _ in
@@ -294,7 +295,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         }
         defer { NotificationCenter.default.removeObserver(observer) }
 
-        store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work", "work"]))
+        store.save(WorkspacePreferences(selectedCalendarIDs: ["work", "work"]))
         waitForMainQueue(seconds: 0.05)
 
         XCTAssertEqual(notificationCount.read(), 0)
@@ -303,9 +304,9 @@ final class CalendarIntegrationServiceTests: XCTestCase {
 
 #if canImport(EventKit)
     func testEventStatusMapperMapsCanceledStatusSeparatelyFromParticipationStatus() {
-        XCTAssertEqual(EventKitCalendarEventsProvider.eventStatus(for: .canceled), .canceled)
-        XCTAssertEqual(EventKitCalendarEventsProvider.eventStatus(for: .confirmed), .unknown)
-        XCTAssertEqual(EventKitCalendarEventsProvider.eventStatus(for: .tentative), .unknown)
+        XCTAssertEqual(EventKitCalendarEventsRepository.eventStatus(for: .canceled), .canceled)
+        XCTAssertEqual(EventKitCalendarEventsRepository.eventStatus(for: .confirmed), .unknown)
+        XCTAssertEqual(EventKitCalendarEventsRepository.eventStatus(for: .tentative), .unknown)
     }
 #endif
 
@@ -324,8 +325,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             event(id: "p1", calendarID: "personal", start: CalendarTestClock.date(hour: 15), end: CalendarTestClock.date(hour: 16))
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: true,
             includeCanceledCalendarEvents: true,
@@ -394,8 +395,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             event(id: "w1", calendarID: "work", start: todayDate(hour: 9), end: todayDate(hour: 10))
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(
             selectedCalendarIDs: [],
             includeDeclinedCalendarEvents: true,
             includeAllDayInAgenda: true,
@@ -425,8 +426,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             event(id: "w1", calendarID: "work", start: todayDate(hour: 9), end: todayDate(hour: 10))
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["stale", "work"]))
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(selectedCalendarIDs: ["stale", "work"]))
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
 
         service.refreshContext(referenceDate: todayDate(hour: 8), reason: "prune_stale_selection")
@@ -446,8 +447,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             event(id: "w1", calendarID: "work", start: todayDate(hour: 9), end: todayDate(hour: 10))
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["stale"]))
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(selectedCalendarIDs: ["stale"]))
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
 
         service.refreshContext(referenceDate: todayDate(hour: 8), reason: "fully_prune_selection")
@@ -475,8 +476,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             )
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeAllDayInAgenda: false,
@@ -536,8 +537,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             )
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: true,
             includeCanceledCalendarEvents: false
@@ -565,8 +566,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             )
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: true
@@ -607,8 +608,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             )
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeDeclinedCalendarEvents: false,
             includeCanceledCalendarEvents: true
@@ -635,8 +636,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             )
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(
             selectedCalendarIDs: ["work"],
             includeCanceledCalendarEvents: false
         ))
@@ -664,8 +665,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             event(id: "w1", calendarID: "work", start: todayDate(hour: 9), end: todayDate(hour: 10))
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work"]))
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(selectedCalendarIDs: ["work"]))
         let attemptStore = CalendarAccessAttemptStoreStub()
         let service = CalendarIntegrationService(
             provider: provider,
@@ -712,7 +713,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .denied
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let store = WorkspacePreferencesStore(defaults: defaults)
         let attemptStore = CalendarAccessAttemptStoreStub()
         let service = CalendarIntegrationService(
             provider: provider,
@@ -738,7 +739,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         let provider = CalendarEventsProviderStub()
         provider.authorizationStatusValue = .denied
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let store = WorkspacePreferencesStore(defaults: defaults)
         let attemptStore = CalendarAccessAttemptStoreStub()
         attemptStore.recordFullAccessAttempt(CalendarAccessAttemptRecord(
             source: "test",
@@ -776,7 +777,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             userInfo: [NSLocalizedDescriptionKey: "Full access denied by test"]
         ))
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let store = WorkspacePreferencesStore(defaults: defaults)
         let attemptStore = CalendarAccessAttemptStoreStub()
         let service = CalendarIntegrationService(
             provider: provider,
@@ -807,7 +808,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             userInfo: [NSLocalizedDescriptionKey: "XPC error communicating with calaccessd: Unknown error"]
         ))
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let store = WorkspacePreferencesStore(defaults: defaults)
         let attemptStore = CalendarAccessAttemptStoreStub()
         let service = CalendarIntegrationService(
             provider: provider,
@@ -838,8 +839,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             event(id: "Private Standup", calendarID: "work", start: todayDate(hour: 9), end: todayDate(hour: 10))
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work"]))
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(selectedCalendarIDs: ["work"]))
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
         let diagnosticsRecorded = expectation(description: "Calendar load diagnostics recorded")
         diagnosticsRecorded.assertForOverFulfill = false
@@ -879,8 +880,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             event(id: "w1", calendarID: "work", start: todayDate(hour: 9), end: todayDate(hour: 10))
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work"]))
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(selectedCalendarIDs: ["work"]))
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
 
         service.refreshContext(referenceDate: todayDate(hour: 8), reason: "selected_calendar_noop_baseline")
@@ -903,8 +904,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             event(id: "initial_day", calendarID: "work", start: todayDate(hour: 9), end: todayDate(hour: 10))
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work"]))
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(selectedCalendarIDs: ["work"]))
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
 
         service.refreshContext(referenceDate: todayDate(hour: 8), reason: "projection_cache_initial")
@@ -953,8 +954,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             )
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work"]))
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(selectedCalendarIDs: ["work"]))
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
 
         service.refreshContext(referenceDate: now, reason: "next_meeting_timed_only")
@@ -968,8 +969,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         provider.authorizationStatusValue = .authorized
         provider.calendars = [calendar(id: "work", title: "Work")]
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work"]))
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(selectedCalendarIDs: ["work"]))
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
 
         service.refreshContext(referenceDate: todayDate(hour: 8), reason: "race_old")
@@ -1003,8 +1004,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         provider.calendarsResult = .success([calendar(id: "work", title: "Work")])
         provider.eventsResult = .success([])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(
             weekStartsOn: .sunday,
             selectedCalendarIDs: ["work"]
         ))
@@ -1014,7 +1015,7 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         service.refreshContext(referenceDate: referenceDate, reason: "range_semantics")
         waitForMainQueue(seconds: 0.2)
 
-        let expectedStart = XPCalculationEngine.startOfWeek(for: referenceDate, startingOn: .sunday)
+        let expectedStart = XPCalculationService.startOfWeek(for: referenceDate, startingOn: .sunday)
         let calendar = Calendar.current
         let expectedWeekEnd = calendar.date(byAdding: .day, value: 7, to: expectedStart) ?? expectedStart
         let expectedTodayForwardEnd = calendar.date(
@@ -1037,8 +1038,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
             event(id: "ongoing", calendarID: "work", start: todayDate(hour: 9, minute: 45), end: todayDate(hour: 10, minute: 45))
         ])
 
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(selectedCalendarIDs: ["work"]))
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(selectedCalendarIDs: ["work"]))
         let service = CalendarIntegrationService(provider: provider, workspacePreferencesStore: store)
 
         service.refreshContext(referenceDate: now, reason: "free_until_ongoing")
@@ -1048,8 +1049,8 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         XCTAssertNil(service.snapshot.freeUntil)
     }
 
-    private func calendar(id: String, title: String) -> LifeBoardCalendarSourceSnapshot {
-        LifeBoardCalendarSourceSnapshot(
+    private func calendar(id: String, title: String) -> CalendarSourceSnapshot {
+        CalendarSourceSnapshot(
             id: id,
             title: title,
             sourceTitle: "iCloud",
@@ -1064,10 +1065,10 @@ final class CalendarIntegrationServiceTests: XCTestCase {
         start: Date,
         end: Date,
         isAllDay: Bool = false,
-        eventStatus: LifeBoardCalendarEventStatus = .unknown,
-        participationStatus: LifeBoardCalendarEventParticipationStatus = .accepted
-    ) -> LifeBoardCalendarEventSnapshot {
-        LifeBoardCalendarEventSnapshot(
+        eventStatus: CalendarEventStatus = .unknown,
+        participationStatus: CalendarEventParticipationStatus = .accepted
+    ) -> CalendarEventSnapshot {
+        CalendarEventSnapshot(
             id: id,
             calendarID: calendarID,
             calendarTitle: calendarID.capitalized,
@@ -1089,17 +1090,17 @@ final class CalendarIntegrationServiceTests: XCTestCase {
     }
 }
 
-private final class CalendarEventsProviderRaceStub: CalendarEventsProviderProtocol, @unchecked Sendable {
-    var authorizationStatusValue: LifeBoardCalendarAuthorizationStatus = .authorized
-    var calendars: [LifeBoardCalendarSourceSnapshot] = []
-    private var calendarCompletions: [(Result<[LifeBoardCalendarSourceSnapshot], Error>) -> Void] = []
-    private var eventCompletions: [(Result<[LifeBoardCalendarEventSnapshot], Error>) -> Void] = []
+private final class CalendarEventsProviderRaceStub: CalendarEventsRepositoryProtocol, @unchecked Sendable {
+    var authorizationStatusValue: CalendarAuthorizationStatus = .authorized
+    var calendars: [CalendarSourceSnapshot] = []
+    private var calendarCompletions: [(Result<[CalendarSourceSnapshot], Error>) -> Void] = []
+    private var eventCompletions: [(Result<[CalendarEventSnapshot], Error>) -> Void] = []
     private let storeChangedSubject = PassthroughSubject<Void, Never>()
 
     var pendingCalendarRequestCount: Int { calendarCompletions.count }
     var pendingEventRequestCount: Int { eventCompletions.count }
 
-    func authorizationStatus() -> LifeBoardCalendarAuthorizationStatus {
+    func authorizationStatus() -> CalendarAuthorizationStatus {
         authorizationStatusValue
     }
 
@@ -1109,7 +1110,7 @@ private final class CalendarEventsProviderRaceStub: CalendarEventsProviderProtoc
 
     func resetStoreStateAfterPermissionChange() {}
 
-    func fetchCalendars(completion: @escaping @Sendable (Result<[LifeBoardCalendarSourceSnapshot], Error>) -> Void) {
+    func fetchCalendars(completion: @escaping @Sendable (Result<[CalendarSourceSnapshot], Error>) -> Void) {
         calendarCompletions.append(completion)
     }
 
@@ -1117,7 +1118,7 @@ private final class CalendarEventsProviderRaceStub: CalendarEventsProviderProtoc
         startDate: Date,
         endDate: Date,
         calendarIDs: Set<String>,
-        completion: @escaping @Sendable (Result<[LifeBoardCalendarEventSnapshot], Error>) -> Void
+        completion: @escaping @Sendable (Result<[CalendarEventSnapshot], Error>) -> Void
     ) {
         _ = startDate
         _ = endDate
@@ -1134,7 +1135,7 @@ private final class CalendarEventsProviderRaceStub: CalendarEventsProviderProtoc
         completion(.success(calendars))
     }
 
-    func completeEventRequest(at index: Int, events: [LifeBoardCalendarEventSnapshot]) {
+    func completeEventRequest(at index: Int, events: [CalendarEventSnapshot]) {
         let completion = eventCompletions.remove(at: index)
         completion(.success(events))
     }

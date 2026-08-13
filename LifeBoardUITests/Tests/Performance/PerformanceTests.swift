@@ -151,6 +151,165 @@ class PerformanceTests: BaseUITest {
         }
     }
 
+    func testGoalComposerInteractionPerformance() throws {
+        relaunchGoalComposerPerformanceWorkspace()
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: composerInteractionMetrics(), options: options) {
+            let addGoal = app.buttons["goals.add"]
+            XCTAssertTrue(addGoal.waitForExistence(timeout: 2), "Goals should expose the add action")
+            tapElement(addGoal)
+
+            let composer = app.descendants(matching: .any)["track.goal.composer"]
+            XCTAssertTrue(composer.waitForExistence(timeout: 2), "Goal composer should present promptly")
+
+            let title = app.textFields["track.goal.title"]
+            XCTAssertTrue(title.waitForExistence(timeout: 2), "Goal title should be available")
+            let focusStarted = Date()
+            tapElement(title)
+            XCTAssertTrue(
+                app.keyboards.firstMatch.waitForExistence(timeout: 2),
+                "Goal title should become interactive without entering a layout loop"
+            )
+            XCTAssertLessThanOrEqual(
+                Date().timeIntervalSince(focusStarted),
+                2,
+                "Goal title focus and keyboard presentation should settle within two seconds"
+            )
+
+            title.typeText("Composer performance")
+            XCTAssertEqual(title.value as? String, "Composer performance")
+
+            let countType = app.buttons["track.goal.type.count"]
+            XCTAssertTrue(countType.waitForExistence(timeout: 2))
+            tapElement(countType)
+            composer.swipeUp()
+            let target = app.textFields["track.goal.target"]
+            XCTAssertTrue(
+                target.waitForExistence(timeout: 2),
+                "Changing goal type should lazily reveal the target controls"
+            )
+            tapElement(target)
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 2))
+            let keyboardDone = app.buttons["Done"].firstMatch
+            XCTAssertTrue(keyboardDone.waitForExistence(timeout: 2))
+            tapElement(keyboardDone)
+            XCTAssertTrue(
+                waitForElementToDisappear(app.keyboards.firstMatch, timeout: 2),
+                "The numeric keyboard should dismiss from its native toolbar"
+            )
+
+            dismissComposer(identifier: "track.goal.composer")
+        }
+    }
+
+    func testHydrationComposerInteractionPerformance() throws {
+        relaunchHydrationComposerPerformanceWorkspace()
+
+        let options = XCTMeasureOptions()
+        options.iterationCount = 3
+        measure(metrics: composerInteractionMetrics(), options: options) {
+            let hydration = app.buttons["home.signal.hydration"]
+            XCTAssertTrue(hydration.waitForExistence(timeout: 2), "Home should expose hydration logging")
+            tapElement(hydration)
+
+            let composer = app.descendants(matching: .any)["track.hydration.composer"]
+            XCTAssertTrue(composer.waitForExistence(timeout: 2), "Hydration composer should present promptly")
+
+            let bottle = app.buttons["Bottle, 500 mL"]
+            XCTAssertTrue(bottle.waitForExistence(timeout: 2))
+            tapElement(bottle)
+            XCTAssertTrue(app.buttons["Add 500 mL"].waitForExistence(timeout: 2))
+            composer.swipeUp()
+
+            dismissComposer(identifier: "track.hydration.composer")
+        }
+    }
+
+    func testGoalComposerComfortAndDynamicTypeMatrix() throws {
+        let configurations: [(name: String, appearance: String?, contentSize: String)] = [
+            ("High Contrast", "high-contrast-light", "UICTContentSizeCategoryL"),
+            ("Reduce Transparency", "reduced-transparency", "UICTContentSizeCategoryL"),
+            ("Reduce Motion", "reduced-motion", "UICTContentSizeCategoryL"),
+            ("Accessibility XXXL", nil, "UICTContentSizeCategoryAccessibilityXXXL")
+        ]
+
+        for configuration in configurations {
+            XCTContext.runActivity(named: configuration.name) { _ in
+                relaunchGoalComposerPerformanceWorkspace(
+                    appearance: configuration.appearance,
+                    contentSize: configuration.contentSize
+                )
+
+                let addGoal = app.buttons["goals.add"]
+                XCTAssertTrue(addGoal.waitForExistence(timeout: 2))
+                tapElement(addGoal)
+
+                let composer = app.descendants(matching: .any)["track.goal.composer"]
+                XCTAssertTrue(composer.waitForExistence(timeout: 2))
+
+                let title = app.textFields["track.goal.title"]
+                XCTAssertTrue(title.waitForExistence(timeout: 2))
+                tapElement(title)
+                XCTAssertTrue(
+                    app.keyboards.firstMatch.waitForExistence(timeout: 2),
+                    "\(configuration.name) should preserve native field focus"
+                )
+                title.typeText("Accessible goal")
+                XCTAssertEqual(title.value as? String, "Accessible goal")
+
+                let countType = app.buttons["track.goal.type.count"]
+                XCTAssertTrue(countType.waitForExistence(timeout: 2))
+                tapElement(countType)
+                composer.swipeUp()
+                XCTAssertTrue(
+                    app.descendants(matching: .any)["track.goal.target"].waitForExistence(timeout: 2),
+                    "\(configuration.name) should keep offscreen target controls reachable"
+                )
+
+                dismissComposer(identifier: "track.goal.composer")
+            }
+        }
+    }
+
+    func testSharedTrackComposerPrimitiveCoverage() throws {
+        relaunchTrackComposerPerformanceWorkspace()
+
+        let mood = app.buttons["track.quick.mood"]
+        XCTAssertTrue(mood.waitForExistence(timeout: 8))
+        tapElement(mood)
+        let moodComposer = app.descendants(matching: .any)["track.mood.composer"]
+        XCTAssertTrue(moodComposer.waitForExistence(timeout: 2))
+        let happy = app.buttons["track.mood.choice.happy"]
+        XCTAssertTrue(happy.waitForExistence(timeout: 2))
+        tapElement(happy)
+        XCTAssertTrue(happy.isSelected, "Mood selection should retain its native selected trait")
+        moodComposer.swipeUp()
+        XCTAssertTrue(app.buttons["track.mood.commit"].exists)
+        dismissComposer(identifier: "track.mood.composer")
+
+        let areas = app.buttons["track.lens.areas"]
+        XCTAssertTrue(areas.waitForExistence(timeout: 2))
+        tapElement(areas)
+        let resilience = app.buttons["track.habits.resilience"]
+        tapElement(resilience)
+        XCTAssertTrue(app.navigationBars["Habit resilience"].waitForExistence(timeout: 8))
+        let createGroup = app.buttons["Create group"]
+        XCTAssertTrue(createGroup.waitForExistence(timeout: 8))
+        tapElement(createGroup)
+
+        let groupComposer = app.descendants(matching: .any)["track.habitGroup.composer"]
+        XCTAssertTrue(groupComposer.waitForExistence(timeout: 2))
+        let groupName = app.textFields["track.habitGroup.name"]
+        XCTAssertTrue(groupName.waitForExistence(timeout: 2))
+        tapElement(groupName)
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 2))
+        groupName.typeText("Morning focus")
+        XCTAssertEqual(groupName.value as? String, "Morning focus")
+        dismissComposer(identifier: "track.habitGroup.composer")
+    }
+
     private func measureSeededHomeScrollHitches(scopeAccessibilityID: String) throws {
         guard #available(iOS 19.0, *) else {
             throw XCTSkip("XCTHitchMetric requires iOS 19.0 or later.")
@@ -321,6 +480,124 @@ class PerformanceTests: BaseUITest {
         XCTAssertTrue(ensurePerformanceAppReady(), "Habit performance workspace should be ready before measurement starts")
     }
 
+    private func relaunchGoalComposerPerformanceWorkspace(
+        appearance: String? = nil,
+        contentSize: String = "UICTContentSizeCategoryL"
+    ) {
+        app.terminate()
+        app = composerPerformanceApplication(
+            deepLink: "lifeboard://goals",
+            appearance: appearance,
+            contentSize: contentSize
+        )
+        app.launch()
+        waitForAppLaunch()
+        homePage = HomePage(app: app)
+        XCTAssertTrue(
+            app.buttons["goals.add"].waitForExistence(timeout: 12),
+            "Goals should be ready before composer measurement starts"
+        )
+    }
+
+    private func relaunchHydrationComposerPerformanceWorkspace() {
+        app.terminate()
+        app = composerPerformanceApplication()
+        app.launch()
+        waitForAppLaunch()
+        homePage = HomePage(app: app)
+        XCTAssertTrue(ensurePerformanceAppReady(), "Home should be ready before hydration measurement starts")
+        XCTAssertTrue(
+            app.buttons["home.signal.hydration"].waitForExistence(timeout: 8),
+            "Hydration signal should be ready before composer measurement starts"
+        )
+    }
+
+    private func relaunchTrackComposerPerformanceWorkspace() {
+        app.terminate()
+        app = composerPerformanceApplication()
+        app.launchArguments.append(XCUIApplication.LaunchArgumentKey.testSeedHabitBoardWorkspace.rawValue)
+        app.launch()
+        waitForAppLaunch()
+        homePage = HomePage(app: app)
+        XCTAssertTrue(ensurePerformanceAppReady())
+
+        let track = app.buttons["foundation.destination.track"]
+        XCTAssertTrue(track.waitForExistence(timeout: 8))
+        tapElement(track)
+        XCTAssertTrue(app.descendants(matching: .any)["track.header"].waitForExistence(timeout: 8))
+    }
+
+    private func composerPerformanceApplication(
+        deepLink: String? = nil,
+        appearance: String? = nil,
+        contentSize: String = "UICTContentSizeCategoryL"
+    ) -> XCUIApplication {
+        let application = XCUIApplication()
+        application.launchArguments = [
+            XCUIApplication.LaunchArgumentKey.resetAppState.rawValue,
+            XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
+            XCUIApplication.LaunchArgumentKey.skipOnboarding.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableCloudSync.rawValue,
+            XCUIApplication.LaunchArgumentKey.enableSignatureShaders.rawValue,
+            XCUIApplication.LaunchArgumentKey.testSeedFullTimelineWorkspace.rawValue,
+            XCUIApplication.LaunchArgumentKey.testEvaActivationCompleted.rawValue,
+            "-LIFEBOARD_ENABLE_LIFE_OS_FOUNDATION",
+            "-LIFEBOARD_ENABLE_LIFE_OS_UNIFIED_PRESENTATION_V2",
+            "-LIFEBOARD_ENABLE_PREMIUM_IA_V5",
+            "-LIFEBOARD_ENABLE_TRACK_FOUNDATIONS_V2"
+        ]
+        application.launchArguments.append(contentsOf: [
+            "-UIPreferredContentSizeCategoryName",
+            contentSize
+        ])
+        if let appearance {
+            application.launchArguments.append("-LIFEBOARD_VISUAL_APPEARANCE=\(appearance)")
+        }
+        if let deepLink {
+            application.launchArguments.append(
+                "\(XCUIApplication.LaunchArgumentKey.testDeepLink.rawValue):\(deepLink)"
+            )
+        }
+        application.launchEnvironment[XCUIApplication.LaunchEnvironmentKey.performanceTest.rawValue] = "1"
+        return application
+    }
+
+    private func composerInteractionMetrics() -> [XCTMetric] {
+        var metrics: [XCTMetric] = [
+            XCTClockMetric(),
+            XCTMemoryMetric(application: app)
+        ]
+        if #available(iOS 19.0, *) {
+            metrics.append(XCTHitchMetric(application: app))
+        }
+        return metrics
+    }
+
+    private func dismissComposer(identifier: String) {
+        let composer = app.descendants(matching: .any)[identifier]
+        if composer.exists {
+            let cancel = app.navigationBars.buttons["Cancel"].firstMatch
+            let close = app.navigationBars.buttons["Close"].firstMatch
+            if cancel.exists {
+                tapElement(cancel)
+            } else if close.exists {
+                tapElement(close)
+            } else {
+                let dragHandle = composer.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.5, dy: 0.02)
+                )
+                let screenBottom = app.coordinate(
+                    withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)
+                )
+                dragHandle.press(forDuration: 0.1, thenDragTo: screenBottom)
+            }
+        }
+        XCTAssertTrue(
+            waitForElementToDisappear(composer, timeout: 2),
+            "Composer should dismiss promptly"
+        )
+    }
+
     private func firstHomeHabitRow(file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
         let rowQuery = app.otherElements.matching(NSPredicate(format: "identifier MATCHES %@", #"^home\.habitRow\.[A-Za-z0-9-]+$"#))
         let firstRow = rowQuery.firstMatch
@@ -484,7 +761,7 @@ class PerformanceTests: BaseUITest {
         takeScreenshot(named: "performance_project_filter")
     }
 
-    // MARK: - Test 74: Animation Performance
+    // MARK: - Test 74: LifeBoardAnimation Performance
 
     func testAnimationPerformance() throws {
         // GIVEN: Tasks exist with animations
@@ -714,7 +991,6 @@ class PerformanceTests: BaseUITest {
             "-LIFEBOARD_ENABLE_LIFE_OS_FOUNDATION",
             "-LIFEBOARD_ENABLE_LIFE_OS_UNIFIED_PRESENTATION_V2",
             "-LIFEBOARD_ENABLE_PREMIUM_IA_V5",
-            "-LIFEBOARD_ENABLE_PLAN_DESTINATION_V1",
             "-LIFEBOARD_ENABLE_TRACK_FOUNDATIONS_V2"
         ]
         if evaActivationCompleted {

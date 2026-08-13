@@ -34,7 +34,7 @@ public struct InsightsInterpretation: Equatable, Sendable {
     public var supportsClaim: Bool { density == .full }
 }
 
-public struct InsightsInterpretationEngine: Sendable {
+public struct InsightsInterpretationService: Sendable {
     /// Below this many recorded days nothing is claimed. Three days is the
     /// same floor the weekly reflection uses before it will call anything a
     /// pattern.

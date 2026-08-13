@@ -62,6 +62,92 @@ class LifeBoardUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Capture Task"].waitForExistence(timeout: 2))
     }
 
+    func testFoundationEvaComposerClearsDockAndKeyboard() {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            evaActivationCompleted: true
+        )
+        defer { app.terminate() }
+
+        assertFoundationDestination("eva", rootIdentifier: "foundation.eva", in: app)
+        let (composer, chrome) = assertFoundationEvaRestingLayout(in: app)
+        composer.tap()
+
+        let keyboard = app.keyboards.firstMatch
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5), "Eva composer should receive the tap instead of the dock.")
+        XCTAssertTrue(waitForElementToDisappear(chrome, timeout: 5), "The phone dock should withdraw while Eva is editing.")
+        XCTAssertTrue(composer.isHittable)
+        XCTAssertLessThanOrEqual(
+            evaComposerInteractiveFrame(in: app, composer: composer).maxY,
+            keyboard.frame.minY + 1,
+            "The entire composer must remain above the keyboard."
+        )
+
+        composer.typeText("Plan my focus block")
+        let send = app.buttons["chat.send_button"]
+        XCTAssertTrue(send.waitForExistence(timeout: 3))
+        send.tap()
+        XCTAssertTrue(waitForElementToDisappear(keyboard, timeout: 5))
+        XCTAssertTrue(chrome.waitForExistence(timeout: 5), "The dock should return when composer focus ends.")
+        assertRequiredEvaDockSpacing(composer: composer, chrome: chrome, in: app)
+    }
+
+    func testFoundationEvaComposerClearsDockAtLargestAccessibilitySize() {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryAccessibilityXXXL",
+            evaActivationCompleted: true
+        )
+        defer { app.terminate() }
+
+        assertFoundationDestination("eva", rootIdentifier: "foundation.eva", in: app)
+        attachScreenshot(named: "Eva composer above dock — accessibility XXXL")
+        _ = assertFoundationEvaRestingLayout(in: app)
+    }
+
+    func testFoundationEvaComposerClearsDockInCompactHeight() throws {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            evaActivationCompleted: true
+        )
+        defer { app.terminate() }
+
+        let window = app.windows.firstMatch
+        guard window.frame.height < 800 else {
+            throw XCTSkip("Run this regression on a compact-height phone simulator such as iPhone SE.")
+        }
+        assertFoundationDestination("eva", rootIdentifier: "foundation.eva", in: app)
+        _ = assertFoundationEvaRestingLayout(in: app)
+    }
+
+    func testFoundationEvaPopulatedConversationRemainsReachableAboveDock() {
+        let app = launchFoundationApp(
+            accessibilityCategory: "UICTContentSizeCategoryL",
+            evaActivationCompleted: true
+        )
+        defer { app.terminate() }
+
+        assertFoundationDestination("eva", rootIdentifier: "foundation.eva", in: app)
+        let (composer, _) = assertFoundationEvaRestingLayout(in: app)
+        composer.tap()
+        composer.typeText("Keep this transcript reachable")
+        let send = app.buttons["chat.send_button"]
+        XCTAssertTrue(send.waitForExistence(timeout: 3))
+        send.tap()
+
+        let message = app.staticTexts["Keep this transcript reachable"]
+        XCTAssertTrue(message.waitForExistence(timeout: 10), "The populated transcript should expose its newest message.")
+        XCTAssertLessThanOrEqual(
+            message.frame.maxY,
+            evaComposerInteractiveFrame(in: app, composer: composer).minY + 1,
+            "The newest transcript message should remain reachable above the inset composer."
+        )
+        let stop = app.buttons["chat.stop_button"]
+        if stop.waitForExistence(timeout: 3) {
+            XCTAssertTrue(stop.isHittable, "Streaming controls should remain reachable in the inset composer.")
+            stop.tap()
+        }
+    }
+
     func testInsightsEmptyStatesOfferCanonicalNextActions() {
         let app = launchFoundationApp(accessibilityCategory: "UICTContentSizeCategoryL")
         defer { app.terminate() }
@@ -997,7 +1083,7 @@ class LifeBoardUITests: XCTestCase {
 
         /// Normalised x of this stop's lane centre. Auto owns a wider leading
         /// lane than the dayparts, so these are not evenly spaced — see
-        /// `LifeBoardAtmosphereSliderGeometry`, which owns the real arithmetic.
+        /// `AtmosphereSliderGeometry`, which owns the real arithmetic.
         var normalizedX: CGFloat {
             switch self {
             case .automatic: 0.07
@@ -1212,13 +1298,10 @@ class LifeBoardUITests: XCTestCase {
             "-LIFEBOARD_ENABLE_JOURNAL_V1",
             "-LIFEBOARD_ENABLE_KNOWLEDGE_NOTES_V1",
             "-LIFEBOARD_ENABLE_PLANNING_CORE_V1",
-            "-LIFEBOARD_ENABLE_PLAN_DESTINATION_V1",
             "-LIFEBOARD_ENABLE_FOCUS_EXECUTION_V2",
             "-LIFEBOARD_ENABLE_TRACK_FOUNDATIONS_V2",
-            "-LIFEBOARD_ENABLE_HABIT_RESILIENCE_V2",
             "-LIFEBOARD_ENABLE_GOALS_ROUTINES_V1",
             "-LIFEBOARD_ENABLE_CARE_MODULES_V2",
-            "-LIFEBOARD_ENABLE_STARTER_PACKS_V1",
             "-LIFEBOARD_ENABLE_LIFE_OS_UNIFIED_PRESENTATION_V2",
             "-UIPreferredContentSizeCategoryName",
             accessibilityCategory
@@ -1244,6 +1327,75 @@ class LifeBoardUITests: XCTestCase {
         attachment.name = name
         attachment.lifetime = .keepAlways
         add(attachment)
+    }
+
+    @discardableResult
+    private func assertFoundationEvaRestingLayout(
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) -> (composer: XCUIElement, chrome: XCUIElement) {
+        let composer = app.descendants(matching: .any)["eva.structured.composer"]
+        let chrome = app.descendants(matching: .any)["LifeBoardCompactChrome"]
+        XCTAssertTrue(composer.waitForExistence(timeout: 12), file: file, line: line)
+        XCTAssertTrue(chrome.waitForExistence(timeout: 8), file: file, line: line)
+        assertRequiredEvaDockSpacing(composer: composer, chrome: chrome, in: app, file: file, line: line)
+        XCTAssertTrue(
+            composer.isHittable,
+            "Eva composer must be tappable at rest. composer=\(composer.frame), dock=\(chrome.frame)",
+            file: file,
+            line: line
+        )
+        return (composer, chrome)
+    }
+
+    private func assertRequiredEvaDockSpacing(
+        composer: XCUIElement,
+        chrome: XCUIElement,
+        in app: XCUIApplication,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        let requiredSpacing: CGFloat = 12
+        let interactiveFrame = evaComposerInteractiveFrame(in: app, composer: composer)
+        let frameSummary = evaComposerInteractiveControls(in: app, composer: composer)
+            .map { "\($0.identifier)=\($0.frame)" }
+            .joined(separator: ", ")
+        XCTAssertLessThanOrEqual(
+            interactiveFrame.maxY + requiredSpacing,
+            chrome.frame.minY + 1,
+            "Every interactive part of Eva's composer must clear the dock by at least the md spacing token. \(frameSummary)",
+            file: file,
+            line: line
+        )
+    }
+
+    private func evaComposerInteractiveFrame(
+        in app: XCUIApplication,
+        composer: XCUIElement
+    ) -> CGRect {
+        let controls = evaComposerInteractiveControls(in: app, composer: composer)
+
+        return controls.dropFirst().reduce(composer.frame) { frame, control in
+            frame.union(control.frame)
+        }
+    }
+
+    private func evaComposerInteractiveControls(
+        in app: XCUIApplication,
+        composer: XCUIElement
+    ) -> [XCUIElement] {
+        [
+            composer,
+            app.textFields["chat.command_argument_field"],
+            app.buttons["eva.structured.dictation.xmark"],
+            app.buttons["eva.structured.dictation.stop.fill"],
+            app.buttons["eva.structured.dictation.mic.fill"],
+            app.buttons["eva.structured.deferred.mic.fill"],
+            app.buttons["eva.structured.deferred.viewfinder"],
+            app.buttons["chat.send_button"],
+            app.buttons["chat.stop_button"]
+        ].filter(\.exists)
     }
 
     private func saveVisualEvidenceScreenshot(named name: String, platform: String = "ipad") throws {

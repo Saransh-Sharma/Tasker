@@ -1,0 +1,53 @@
+# Production accessibilityIdentifier expression snapshot. Intentional changes
+# require updating this file in the same reviewed change.
+#
+# 2026-08-10, Wave 1: snapshot the exact expression set rather than a multiset.
+# Package extraction can temporarily leave a source copy outside compiler
+# membership, and counting duplicates made an ownership move look like an
+# identifier change. The 753-expression set is byte-identical between refactor
+# HEAD and this remediation; only duplicate occurrences changed.
+#
+# 2026-08-10, UI polish Phase 2: 753 -> 757. Four additions, zero removals, all
+# from the new shared primitives in LifeBoardUI:
+#
+#   "lifeboard.receipt", "lifeboard.receipt.undo", "lifeboard.receipt.dismiss"
+#   "lifeboard.signal.\(item.id)"
+#
+# The signal identifier is interpolated on purpose. The checker records the
+# expression text, so one interpolated identifier is one snapshot entry no
+# matter how many signals are rendered — which is what keeps this gate stable
+# as the primitives get adopted across screens. Adopting `ReceiptBar` in place
+# of a hand-rolled receipt will *remove* that screen's bespoke identifiers, so
+# expect the count to fall again during adoption.
+#
+# 2026-08-10, UI polish Phases 3-5: 757 -> 774. Additions only, no removals:
+#
+#   focus.surface{,.close,.commitment,.dial,.transport,.pauseResume,.nextPhase,
+#                 .endSession,.end.\(outcome.rawValue),.commit,.commit.cancel,
+#                 .interruption{,.strip,.reason}}   — the new Focus surface
+#   lifeThread.composer.orb                          — the composer's compressed shape
+#   lifeboard.decision{,.alternative}                — DecisionSurface
+#
+# `focus.session.\(session.id.uuidString)` is unchanged: the route kept its
+# identifier when its content was replaced, because the identifier — not the
+# view type — is what the UI-test contract is written against.
+#
+# 2026-08-10, adoption: 774 -> 775. One addition, `lifeboard.receipt.destination`,
+# from extending `ReceiptBar` with an optional "go look at it" action so Plan's
+# project-template receipt could adopt the shared bar without losing its Open
+# button. `plan.projectTemplates.receipt` is unchanged — the screen kept its
+# identifier while its implementation was replaced, which is the contract.
+#
+# `InsightsHeaderView.swift` was deleted this session and removed nothing here:
+# it declared no identifiers, which is part of why it was the one file safe to
+# delete without running the UI suite.
+#
+# 2026-08-10, signal rings restored: 774 -> 775. `"home.signal.\(slot.id)"` is
+# back as a literal in `HomeSignalRow.ring(_:)`, so this gate covers Home's
+# signal identifiers again — briefly it did not, because the SignalStrip
+# adoption emitted them through an `identifierPrefix` parameter the checker
+# cannot resolve. `"\(identifierPrefix).\(item.id)"` remains in the set:
+# `SignalStrip` is kept in LifeBoardUI for future use, just no longer adopted
+# on Home.
+count=775
+sha256=b95063fd3b382f27b346b7337a7449e2349282727009c671e325e48154bf4a85

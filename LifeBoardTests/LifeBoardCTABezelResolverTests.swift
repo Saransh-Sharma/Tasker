@@ -12,7 +12,7 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
     }
 
     func testOnboardingHighlightMovesPastCreatedTemplate() {
-        let highlighted = LifeBoardCTABezelResolver.highlightedOnboardingTemplateID(
+        let highlighted = CTABezelResolver.highlightedOnboardingTemplateID(
             primarySuggestionIDs: ["first", "second", "third"],
             taskTemplateStates: [
                 "first": .created(UUID()),
@@ -25,7 +25,7 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
     }
 
     func testOnboardingHighlightReturnsNilWhenAllPrimarySuggestionsAreCreated() {
-        let highlighted = LifeBoardCTABezelResolver.highlightedOnboardingTemplateID(
+        let highlighted = CTABezelResolver.highlightedOnboardingTemplateID(
             primarySuggestionIDs: ["first", "second"],
             taskTemplateStates: [
                 "first": .created(UUID()),
@@ -69,21 +69,33 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
         )
 
         XCTAssertEqual(
-            LifeBoardCTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: morning),
+            CTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: morning),
             "home.dailySummary.cta.startToday"
         )
         XCTAssertEqual(
-            LifeBoardCTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: nightly),
+            CTABezelResolver.dailySummaryPrimaryCTAIdentifier(for: nightly),
             "home.dailySummary.cta.planTomorrow"
         )
     }
 
-    func testDecorativeButtonEffectsDefaultToDisabled() {
+    /// Renamed from `…DefaultToDisabled`: the default is now **on**.
+    /// `LifeBoardLiquidMetalBezel` is the only shader in the app that animates
+    /// at rest, and shipping it off meant it never ran for anyone who did not
+    /// go looking for the setting. The remote kill-switch is unchanged.
+    func testDecorativeButtonEffectsDefaultToEnabled() {
         UserDefaults.standard.removeObject(forKey: userDecorativeCTAEffectsKey)
         UserDefaults.standard.removeObject(forKey: remoteDecorativeCTAEffectsKey)
 
-        XCTAssertFalse(V2FeatureFlags.userDecorativeCTAEffectsEnabled)
+        XCTAssertTrue(V2FeatureFlags.userDecorativeCTAEffectsEnabled)
         XCTAssertTrue(V2FeatureFlags.remoteDecorativeCTAEffectsAllowed)
+        XCTAssertTrue(V2FeatureFlags.liquidMetalCTAEnabled)
+    }
+
+    /// The remote flag must still be able to kill it regardless of the default.
+    func testRemoteKillSwitchStillDisablesDecorativeEffectsAtDefault() {
+        UserDefaults.standard.removeObject(forKey: userDecorativeCTAEffectsKey)
+        V2FeatureFlags.remoteDecorativeCTAEffectsAllowed = false
+
         XCTAssertFalse(V2FeatureFlags.liquidMetalCTAEnabled)
     }
 
@@ -109,9 +121,9 @@ final class LifeBoardCTABezelResolverTests: XCTestCase {
     }
 
     func testHomeBackdropNoiseOpacityMappingTracksPercentage() {
-        XCTAssertEqual(LifeBoardBackdropNoise.opacity(for: -12), 0, accuracy: 0.0001)
-        XCTAssertEqual(LifeBoardBackdropNoise.opacity(for: 20), 0.02, accuracy: 0.0001)
-        XCTAssertEqual(LifeBoardBackdropNoise.opacity(for: 100), 0.10, accuracy: 0.0001)
-        XCTAssertEqual(LifeBoardBackdropNoise.opacity(for: 180), 0.10, accuracy: 0.0001)
+        XCTAssertEqual(BackdropNoise.opacity(for: -12), 0, accuracy: 0.0001)
+        XCTAssertEqual(BackdropNoise.opacity(for: 20), 0.02, accuracy: 0.0001)
+        XCTAssertEqual(BackdropNoise.opacity(for: 100), 0.10, accuracy: 0.0001)
+        XCTAssertEqual(BackdropNoise.opacity(for: 180), 0.10, accuracy: 0.0001)
     }
 }

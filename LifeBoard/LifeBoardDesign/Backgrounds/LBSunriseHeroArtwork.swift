@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct LBSunriseHeroArtwork: View {
+struct HeroArtwork: View {
     struct Model: Equatable {
         let selectedDate: Date
         let asset: TimeOfDayHeaderAsset
@@ -16,7 +16,7 @@ struct LBSunriseHeroArtwork: View {
             if isAtmosphereHosted {
                 Color.clear
             } else {
-                LifeBoardAdaptiveAtmosphere(
+                AdaptiveAtmosphere(
                     snapshot: .resolve(at: Date()),
                     placement: .home,
                     requestedTier: .ambient2D,

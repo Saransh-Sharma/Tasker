@@ -1,0 +1,41 @@
+import SwiftUI
+
+struct HomeBackToTodayButtonView: View {
+    @Environment(\.lifeboardTokens) private var tokens
+    let action: () -> Void
+
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+
+    var body: some View {
+        Button {
+            HapticFeedback.selection()
+            action()
+        } label: {
+            HStack(spacing: spacing.s4) {
+                Image(systemName: "chevron.left")
+                    .lifeboardFont(.eyebrow)
+
+                Text("Today")
+                    .font(.lifeboard(.caption1).weight(.medium))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.9)
+            }
+            .foregroundStyle(Color.lifeboard.textSecondary)
+            .padding(.horizontal, spacing.s12)
+            .frame(minHeight: 44)
+            .background(
+                Capsule(style: .continuous)
+                    .fill(Color.lifeboard.surfaceSecondary.opacity(0.92))
+            )
+            .overlay(
+                Capsule(style: .continuous)
+                    .stroke(Color.lifeboard.strokeHairline.opacity(0.8), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .accessibilityLabel("Back to Today")
+        .accessibilityHint("Returns to the default Today view")
+        .accessibilityIdentifier("home.backToToday.button")
+    }
+}

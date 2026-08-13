@@ -1,0 +1,21 @@
+# Semantic resolutions for names that could not safely collapse mechanically.
+# collapsed-name	claimants	resolution
+Anchor	SunriseAnchor	HomeScrollAnchor
+Animation	LifeBoardAnimation	LifeBoardAnimation (singular token namespace retained)
+AppShortcutsProvider	LifeBoardAppShortcutsProvider	LifeBoardAppShortcutsProvider (Apple AppShortcutsProvider conformance)
+Card	LifeBoardCard	SurfaceCard
+ColorTokens	LBColorTokens, LifeBoardColorTokens	ClayColorTokens, SemanticColorTokens
+Feedback	LifeBoardFeedback	HapticFeedback
+FilterChip	LBFilterChip, LifeBoardFilterChip, SunriseFilterChip	ClayFilterChip, FilterChip, HomeFilterChipAction
+KnowledgeGraphStore	LifeBoardKnowledgeGraphStore	JournalKnowledgeGraphStoreAdapter
+NormalizedPoint	LifeBoardNormalizedPoint	UnitPoint2D
+ProjectSection	LifeBoardProjectSection	ProjectSectionDefinition
+Role	LBRole	ClayRole
+RootHeader	FoundationRootHeader, LifeBoardRootHeader	ScreenRootHeader, AppRootHeader
+SpacingTokens	LBSpacingTokens, LifeBoardSpacingTokens	ClayLayoutMetrics, SemanticSpacingTokens
+TextField	LifeBoardTextField	TokenTextField
+TextFieldStyle	LifeBoardTextFieldStyle	TokenTextFieldStyle
+TextStyle	LifeBoardTextStyle	TypographyStyle
+TimelineTemporalState	LBTimelineTemporalState	ClayTimelineTemporalState
+TypographyTokens	LBTypographyTokens, LifeBoardTypographyTokens	ClayTypography, SemanticTypographyTokens
+WidgetBundle	LifeBoardWidgetBundle	LifeBoardWidgetBundle (product entry point retained)

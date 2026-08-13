@@ -3,13 +3,13 @@ import Foundation
 import XCTest
 @testable import LifeBoard
 
-final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
+final class CalendarEventsProviderStub: CalendarEventsRepositoryProtocol {
     private struct State {
-        var authorizationStatusValue: LifeBoardCalendarAuthorizationStatus = .authorized
-        var authorizationStatusAfterAccess: LifeBoardCalendarAuthorizationStatus?
+        var authorizationStatusValue: CalendarAuthorizationStatus = .authorized
+        var authorizationStatusAfterAccess: CalendarAuthorizationStatus?
         var requestAccessResult: Result<Bool, Error> = .success(true)
-        var calendarsResult: Result<[LifeBoardCalendarSourceSnapshot], Error> = .success([])
-        var eventsResult: Result<[LifeBoardCalendarEventSnapshot], Error> = .success([])
+        var calendarsResult: Result<[CalendarSourceSnapshot], Error> = .success([])
+        var eventsResult: Result<[CalendarEventSnapshot], Error> = .success([])
         var fetchCalendarsCallCount = 0
         var fetchEventsCallCount = 0
         var resetStoreCallCount = 0
@@ -21,12 +21,12 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
 
     private let state = LockedTestState(State())
 
-    var authorizationStatusValue: LifeBoardCalendarAuthorizationStatus {
+    var authorizationStatusValue: CalendarAuthorizationStatus {
         get { state.read().authorizationStatusValue }
         set { state.withValue { $0.authorizationStatusValue = newValue } }
     }
 
-    var authorizationStatusAfterAccess: LifeBoardCalendarAuthorizationStatus? {
+    var authorizationStatusAfterAccess: CalendarAuthorizationStatus? {
         get { state.read().authorizationStatusAfterAccess }
         set { state.withValue { $0.authorizationStatusAfterAccess = newValue } }
     }
@@ -36,12 +36,12 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
         set { state.withValue { $0.requestAccessResult = newValue } }
     }
 
-    var calendarsResult: Result<[LifeBoardCalendarSourceSnapshot], Error> {
+    var calendarsResult: Result<[CalendarSourceSnapshot], Error> {
         get { state.read().calendarsResult }
         set { state.withValue { $0.calendarsResult = newValue } }
     }
 
-    var eventsResult: Result<[LifeBoardCalendarEventSnapshot], Error> {
+    var eventsResult: Result<[CalendarEventSnapshot], Error> {
         get { state.read().eventsResult }
         set { state.withValue { $0.eventsResult = newValue } }
     }
@@ -58,7 +58,7 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
 
     init() {}
 
-    func authorizationStatus() -> LifeBoardCalendarAuthorizationStatus {
+    func authorizationStatus() -> CalendarAuthorizationStatus {
         state.read().authorizationStatusValue
     }
 
@@ -77,8 +77,8 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
         state.withValue { $0.resetStoreCallCount += 1 }
     }
 
-    func fetchCalendars(completion: @escaping @Sendable (Result<[LifeBoardCalendarSourceSnapshot], Error>) -> Void) {
-        let result = state.withValue { state -> Result<[LifeBoardCalendarSourceSnapshot], Error> in
+    func fetchCalendars(completion: @escaping @Sendable (Result<[CalendarSourceSnapshot], Error>) -> Void) {
+        let result = state.withValue { state -> Result<[CalendarSourceSnapshot], Error> in
             state.fetchCalendarsCallCount += 1
             return state.calendarsResult
         }
@@ -89,9 +89,9 @@ final class CalendarEventsProviderStub: CalendarEventsProviderProtocol {
         startDate: Date,
         endDate: Date,
         calendarIDs: Set<String>,
-        completion: @escaping @Sendable (Result<[LifeBoardCalendarEventSnapshot], Error>) -> Void
+        completion: @escaping @Sendable (Result<[CalendarEventSnapshot], Error>) -> Void
     ) {
-        let result = state.withValue { state -> Result<[LifeBoardCalendarEventSnapshot], Error> in
+        let result = state.withValue { state -> Result<[CalendarEventSnapshot], Error> in
             state.fetchEventsCallCount += 1
             state.lastRequestedStartDate = startDate
             state.lastRequestedEndDate = endDate

@@ -15,9 +15,9 @@ struct TimelineRoutineAnchorVisualStyle: Equatable {
     var borderColor: Color {
         switch variant {
         case .morning:
-            return LBColorTokens.adaptive(light: "#F2C077", dark: "#8B6131", darkHighContrast: "#DDA65E")
+            return ClayColorTokens.adaptive(light: "#F2C077", dark: "#8B6131", darkHighContrast: "#DDA65E")
         case .evening:
-            return LBColorTokens.adaptive(light: "#D7C4FF", dark: "#6D5B9C", darkHighContrast: "#AA98E0")
+            return ClayColorTokens.adaptive(light: "#D7C4FF", dark: "#6D5B9C", darkHighContrast: "#AA98E0")
         }
     }
 

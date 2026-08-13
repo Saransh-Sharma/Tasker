@@ -23,6 +23,9 @@ jobs:
           set -euo pipefail
           brew install ripgrep
 
+      - name: Validate App Intent descriptions
+        run: bash scripts/validate_app_intent_descriptions.sh
+
       - name: Enforce legacy DI/runtime guardrails
         run: |
           set -euo pipefail
@@ -39,15 +42,64 @@ jobs:
       - name: Enforce V3 fail-closed runtime guardrails
         run: |
           set -euo pipefail
+          source scripts/lifeboard-paths.env
+          for required_file in "$LIFEBOARD_APP_DELEGATE" "$LIFEBOARD_COMPOSITION_ROOT"; do
+            if [[ ! -f "$required_file" ]]; then
+              echo "Required V3 runtime input is missing: $required_file"
+              exit 1
+            fi
+          done
           rg -n "assertV3RuntimeReady|v3RuntimeReady|v3_runtime_not_ready" \
-            "LifeBoard/AppDelegate.swift" \
-            "LifeBoard/Presentation/DI/PresentationDependencyContainer.swift" \
-            "LifeBoard/State/DI/EnhancedDependencyContainer.swift"
+            "$LIFEBOARD_APP_DELEGATE" \
+            "$LIFEBOARD_COMPOSITION_ROOT"
 
       - name: Enforce token-law guardrails on changed UI lines
         env:
           TOKEN_LAW_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
         run: bash scripts/token-law-guardrails.sh
+
+      # Structural-refactor gates. These hold the invariants that file moves,
+      # splits and renames are most likely to break silently: target membership,
+      # layer boundaries, file size in both directions, and the accessibility
+      # and localization contracts that UI tests and translations bind to.
+      - name: Enforce Xcode target membership
+        run: bash scripts/check-xcode-target-membership.sh
+
+      - name: Enforce module boundaries
+        run: bash scripts/check-module-boundaries.sh
+
+      - name: Enforce file-size ratchets
+        run: bash scripts/check-file-size-guardrails.sh
+
+      - name: Enforce directory shrapnel ratchet
+        run: bash scripts/check-directory-shrapnel.sh
+
+      - name: Enforce accessibility-identifier snapshot
+        run: bash scripts/check-accessibility-identifiers.sh
+
+      - name: Enforce localization-key snapshot
+        run: bash scripts/check-localization-keys.sh
+
+      - name: Enforce persisted and route contract snapshots
+        run: bash scripts/check-frozen-contracts.sh
+
+      - name: Build every core package product independently
+        run: |
+          set -euo pipefail
+          derived_data="${RUNNER_TEMP}/lifeboard-core-products"
+          for configuration in Debug Release; do
+            for product in LifeBoardContracts LifeBoardTokens LifeBoardUI LifeBoardDomain LifeBoardPersistence LifeBoardCalendar; do
+              xcodebuild \
+                -scheme "$product" \
+                -configuration "$configuration" \
+                -destination 'generic/platform=iOS Simulator' \
+                -derivedDataPath "$derived_data" \
+                -skipPackageUpdates \
+                -disableAutomaticPackageResolution \
+                ARCHS=arm64 ONLY_ACTIVE_ARCH=YES \
+                build
+            done
+          done
 
       - name: Install flowctl
         env:

@@ -1,5 +1,6 @@
 included:
   - LifeBoard
+  - Packages
 
 only_rules:
   - custom_rules
@@ -11,34 +12,52 @@ excluded:
   - LifeBoard.xcodeproj
   - LifeBoard.xcworkspace
 
+# Token-law scope.
+#
+# The rules below govern token *consumers*. `View/`, `Views/`,
+# `ViewControllers/` and `Presentation/` no longer exist — every file they held
+# now lives under `Features/`, `Shared/` or `App/`, which is what this regex
+# names. Getting this wrong is silent: files outside the pattern are simply not
+# linted, the build stays green, and the debt count falls as if it had been paid.
+#
+# `DesignSystem/`, `LifeBoardTokens`, and `LifeBoardUI` are deliberately absent: they are the
+# layer that *defines* the vocabulary, so constructing a UIColor or naming a
+# system font there is the point, not a violation. The same applies to the two
+# token-definition files that live under `Foundation/Design`, which are excluded
+# per rule below.
+#
+# Existing debt is held by scripts/check-swiftlint-baseline.sh, which ratchets
+# the per-rule counts downward. A bare `swiftlint --strict` fails on that debt.
 custom_rules:
   token_law_uicolor_constructor:
     name: "Token Law UIColor"
     regex: "\\bUIColor\\s*\\("
-    included: "LifeBoard/(View|Views|ViewControllers|Presentation/Views|LLM/Views)/.*\\.swift"
+    included: "(?:LifeBoard/(?:Foundation|Features|Shared|App|DesignSystem/Effects)/.*|Packages/(?!LifeBoard(?:Tokens|UI)/).*/(?:Sources|Tests)/.*)\\.swift"
+    excluded:
+      - "LifeBoard/Foundation/Design/LifeBoardDaypartTokens.swift"
+      - "LifeBoard/Foundation/Design/LifeBoardAtmosphereRenderer.swift"
     message: "Use token colors (`UIColor.lifeboard.*` / `Color.lifeboard`) instead of raw UIColor constructors in UI modules."
     severity: error
 
   token_law_font_system:
     name: "Token Law UIFont"
     regex: "UIFont\\.systemFont|\\.font\\(\\.system\\("
-    included: "LifeBoard/(View|Views|ViewControllers|Presentation/Views|LLM/Views)/.*\\.swift"
+    included: "(?:LifeBoard/(?:Foundation|Features|Shared|App|DesignSystem/Effects)/.*|Packages/(?!LifeBoard(?:Tokens|UI)/).*/(?:Sources|Tests)/.*)\\.swift"
     message: "Use typography tokens (`UIFont.lifeboard` / `Font.lifeboard`) instead of system fonts in UI modules."
     severity: error
 
   token_law_shadow_usage:
     name: "Token Law Shadow"
     regex: "layer\\.shadow(Color|Opacity|Offset|Radius|Path)|\\.shadow\\("
-    included: "LifeBoard/(View|Views|ViewControllers|Presentation/Views|LLM/Views)/.*\\.swift"
+    included: "(?:LifeBoard/(?:Foundation|Features|Shared|App|DesignSystem/Effects)/.*|Packages/(?!LifeBoard(?:Tokens|UI)/).*/(?:Sources|Tests)/.*)\\.swift"
     excluded:
-      - "LifeBoard/View/LiquidGlass/LGBaseView.swift"
     message: "Use token elevation APIs (`applyLifeBoardElevation` / `.lifeboardElevation`) instead of ad-hoc shadows."
     severity: error
 
   no_direct_print:
     name: "No Direct Print"
     regex: "\\b(?:Swift\\.)?print\\s*\\("
-    included: "LifeBoard/.*\\.swift"
+    included: "(?:LifeBoard|Packages)/.*\\.swift"
     excluded:
       - "LifeBoard/.*Tests?/.*\\.swift"
     message: "Use LoggingService (`logWarning/logError/logFatal` or structured `log(...event...)`) instead of print()."

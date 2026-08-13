@@ -2,6 +2,11 @@
 
 > **Classification: Canonical feature reference.** The [LifeBoard product handbook](../product/README.md) owns cross-feature journeys; this document owns Habit detail.
 
+> Audience: Users, support, product, design, engineering, and QA
+> Capability status: Current workspace
+> Source authority: Habit Board/library/detail and canonical occurrence semantics
+> Last verified: 2026-08-13
+
 LifeBoard Habit Streaks turn repeat behaviors into a calm visual system that helps users stay consistent without forcing perfection.
 
 ## Product Philosophy

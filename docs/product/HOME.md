@@ -2,6 +2,11 @@
 
 **Classification:** Canonical feature contract
 
+**Audience:** Users, support, product, design, engineering, and QA
+**Capability status:** Current workspace
+**Source authority:** Home routes, projections, card registry, canonical domain repositories
+**Last verified:** 2026-08-13
+
 **Root:** Home
 **Related:** [Calendar + Timeline](../calendar/README.md), [Plan and Focus](./PLAN_AND_FOCUS.md), [Product UI/UX Guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md)
 
@@ -132,7 +137,7 @@ Day Rescue launches, empty/failure/stale-task states, and receipt-preserving Und
 
 ## Implementation and evidence
 
-Primary anchors include `LifeOSFoundationShell`, `LifeBoardAppRouter`, Home provider/placement registries, `HomeRenderState`, the timeline presentation system, and Overdue Rescue views/view models. Evidence includes packing/restoration contracts, root-state fixtures, appearance captures, typed route journeys, and focused accessibility UI tests.
+Primary anchors include `FoundationShell`, `AppRouter`, Home provider/placement registries, `HomeRenderState`, `HomeLifeOSProjectionStore`, the timeline presentation system, and Overdue Rescue views/view models. Evidence includes packing/restoration contracts, root-state fixtures, appearance captures, typed route journeys, and focused accessibility UI tests.
 
 Primary retained flags include `lifeOSFoundationV1Enabled`,
 `lifeOSUnifiedPresentationV2Enabled`, and `dashboardCustomizationV2Enabled`.
@@ -140,8 +145,6 @@ They default on in Debug and Release and remain disable-only, data-preserving
 rollback paths. Adaptive Home is canonical and has no fallback or feature flag.
 
 Provider composition, Smart Slot schedule/freeze, continuous packing,
-restoration, native navigation, and Rescue are implemented. The final automated
-checkpoint is 2,071 tests with 3 environment skips and zero failures, five
-available build paths, and all eight guardrails. Signed-device performance and
-hardware delivery observations remain external release evidence; see the
+restoration, native navigation, and Rescue are represented in the current
+workspace. Automated and signed-device evidence is recorded only in the
 [Unified Completion Status](../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md).

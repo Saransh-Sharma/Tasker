@@ -2,7 +2,12 @@
 
 > **Classification: Canonical architecture reference.** Product and interaction behavior is defined in [Insights and EVA](../product/INSIGHTS_AND_EVA.md); this document owns runtime flow, trust boundaries, risks, tests, and operations.
 
-EVA is LifeBoard's local assistant layer for chat, day review, Chief of Staff planning, and planner-assisted task changes. The runtime is designed around local MLX inference, deterministic guardrails, schema-validated planner output, bounded context projection, and the existing V2 task action pipeline.
+> Audience: Engineering, product, privacy/safety, and QA
+> Capability status: Current workspace; runtime/model availability varies
+> Source authority: EVA coordinator/runtime, context policy, proposal validators, and action pipeline
+> Last verified: 2026-08-13
+
+EVA is LifeBoard's local-first assistant layer for chat, day review, Chief of Staff planning, and planner-assisted task changes. The runtime uses local Foundation Models or installed MLX where available, deterministic fallbacks, schema-validated planner output, bounded context projection, and the canonical task/action pipeline. Any enabled remote path requires account opt-in plus category-specific context grants and never expands external-surface disclosure.
 
 User-visible assistant identity is separate from the EVA architecture name. Eva remains the default Chief of Staff persona, but the app can render the assistant as the user's selected mascot persona while keeping internal EVA route, planner, telemetry, and persistence names where they are implementation details.
 

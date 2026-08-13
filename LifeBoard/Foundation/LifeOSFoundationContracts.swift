@@ -1,34 +1,7 @@
 import Foundation
+import LifeBoardDomain
 import Observation
 import UIKit
-
-public enum LifeBoardDestination: String, Codable, CaseIterable, Hashable, Sendable {
-    case home
-    case plan
-    case track
-    case insights
-    case eva
-
-    public var title: String {
-        switch self {
-        case .home: return "Home"
-        case .plan: return "Plan"
-        case .track: return "Track"
-        case .insights: return "Insights"
-        case .eva: return "Eva"
-        }
-    }
-
-    public var systemImage: String {
-        switch self {
-        case .home: return "house"
-        case .plan: return "calendar"
-        case .track: return "chart.bar.fill"
-        case .insights: return "sparkles"
-        case .eva: return "bubble.left.and.bubble.right"
-        }
-    }
-}
 
 /// The three intentionally small ways of looking at recorded life data.
 public enum TrackLens: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
@@ -39,7 +12,6 @@ public enum TrackLens: String, Codable, CaseIterable, Hashable, Identifiable, Se
     public var id: String { rawValue }
     public var title: String { rawValue.capitalized }
 }
-
 /// Insight is organized by the question a person is asking, not by database scope.
 public enum InsightsLens: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
     case overview
@@ -52,7 +24,7 @@ public enum InsightsLens: String, Codable, CaseIterable, Hashable, Identifiable,
 }
 
 /// Presentation-neutral lifecycle shared by async controls and proposal cards.
-public enum LifeBoardInteractionPhase: String, Codable, CaseIterable, Hashable, Sendable {
+public enum InteractionPhase: String, Codable, CaseIterable, Hashable, Sendable {
     case idle
     case pressed
     case running
@@ -62,7 +34,7 @@ public enum LifeBoardInteractionPhase: String, Codable, CaseIterable, Hashable, 
 }
 
 /// A stable, serializable point used to hand capture motion between screen coordinates.
-public struct LifeBoardNormalizedPoint: Codable, Hashable, Sendable {
+public struct UnitPoint2D: Codable, Hashable, Sendable {
     public let x: Double
     public let y: Double
 
@@ -73,13 +45,13 @@ public struct LifeBoardNormalizedPoint: Codable, Hashable, Sendable {
 }
 
 public struct CapturePresentationContext: Codable, Hashable, Sendable {
-    public let sourceRoot: LifeBoardDestination
-    public let sourcePoint: LifeBoardNormalizedPoint?
+    public let sourceRoot: Destination
+    public let sourcePoint: UnitPoint2D?
     public let preferredCaptureKind: CaptureKind?
 
     public init(
-        sourceRoot: LifeBoardDestination,
-        sourcePoint: LifeBoardNormalizedPoint? = nil,
+        sourceRoot: Destination,
+        sourcePoint: UnitPoint2D? = nil,
         preferredCaptureKind: CaptureKind? = nil
     ) {
         self.sourceRoot = sourceRoot
@@ -90,13 +62,13 @@ public struct CapturePresentationContext: Codable, Hashable, Sendable {
 
 /// The smallest authorized context that may cross from a product surface into Eva.
 public struct EvaEntryContext: Codable, Hashable, Sendable {
-    public let origin: LifeBoardDestination
+    public let origin: Destination
     public let evidenceReferences: [UUID]
     public let requestedAssistance: String
     public let createdAt: Date
 
     public init(
-        origin: LifeBoardDestination,
+        origin: Destination,
         evidenceReferences: [UUID] = [],
         requestedAssistance: String,
         createdAt: Date = Date()
@@ -109,7 +81,7 @@ public struct EvaEntryContext: Codable, Hashable, Sendable {
 }
 
 /// The centrally governed signature-effect allowlist.
-public enum LifeBoardSignatureEffect: String, Codable, CaseIterable, Hashable, Sendable {
+public enum SignatureEffect: String, Codable, CaseIterable, Hashable, Sendable {
     case daypartBloom
     case evaInkReveal
     case journalMediaReveal
@@ -163,64 +135,6 @@ public enum DaypartSelection: String, Codable, CaseIterable, Hashable, Sendable 
     }
 }
 
-public enum ResolvedDaypart: String, Codable, CaseIterable, Hashable, Sendable {
-    case morning
-    case afternoon
-    case evening
-    case night
-
-    public var greeting: String {
-        switch self {
-        case .morning: return "Good morning!"
-        case .afternoon: return "Good afternoon!"
-        case .evening: return "Good evening!"
-        case .night: return "Good night!"
-        }
-    }
-}
-
-public enum LifeBoardComfortProfile: String, Codable, CaseIterable, Hashable, Sendable {
-    case calm
-    case balanced
-    case playful
-
-    public var title: String { rawValue.capitalized }
-}
-
-public enum DashboardMode: String, Codable, CaseIterable, Hashable, Sendable {
-    case smart
-    case work
-    case personal
-    case lowEnergy
-
-    public var title: String {
-        switch self {
-        case .smart: return "Smart"
-        case .work: return "Work"
-        case .personal: return "Personal"
-        case .lowEnergy: return "Low Energy"
-        }
-    }
-
-    public var systemImage: String {
-        switch self {
-        case .smart: return "sparkles"
-        case .work: return "briefcase"
-        case .personal: return "person.crop.circle"
-        // A leaf, not a moon — night is already the daypart's symbol.
-        case .lowEnergy: return "leaf"
-        }
-    }
-
-    public var summary: String {
-        switch self {
-        case .smart: return "Everything, ordered by what needs you."
-        case .work: return "Work commitments only. Personal care stays private."
-        case .personal: return "Life outside work."
-        case .lowEnergy: return "Less on screen. Care and rest first."
-        }
-    }
-}
 
 /// Visual information density is orthogonal to Home's content mode.
 ///
@@ -232,7 +146,7 @@ public enum DashboardDensity: String, Codable, CaseIterable, Hashable, Identifia
     case rich
 
     /// `Identifiable` for the same reason `InsightsLens` is: it feeds
-    /// `LifeBoardLensPicker`, which is generic over identifiable values.
+    /// `LensPicker`, which is generic over identifiable values.
     public var id: String { rawValue }
     public var title: String { rawValue.capitalized }
 }
@@ -343,129 +257,6 @@ public struct DeterministicDashboardModePolicy: DashboardModePolicy {
     }
 }
 
-public enum WidgetSizePreset: String, CaseIterable, Hashable, Sendable {
-    case compact
-    case standard
-    case wide
-    case tall
-    case expanded
-
-    public static func persistedValue(rawValue: String) -> WidgetSizePreset? {
-        if rawValue == "hero" { return .tall }
-        if rawValue == "glance" { return .compact }
-        if rawValue == "story" { return .tall }
-        return WidgetSizePreset(rawValue: rawValue)
-    }
-
-    public var title: String {
-        switch self {
-        case .compact: return "Glance"
-        case .standard: return "Compact"
-        case .wide: return "Wide"
-        case .tall: return "Story"
-        case .expanded: return "Expanded"
-        }
-    }
-
-    public var canonicalGridSpan: HomeGridSpan {
-        switch self {
-        case .compact: return .init(columns: 2, rows: 1)
-        case .standard: return .init(columns: 2, rows: 2)
-        case .wide: return .init(columns: 4, rows: 2)
-        case .tall: return .init(columns: 4, rows: 3)
-        case .expanded: return .init(columns: 4, rows: 4)
-        }
-    }
-
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let rawValue = try container.decode(String.self)
-        guard let value = Self.persistedValue(rawValue: rawValue) else {
-            throw DecodingError.dataCorruptedError(
-                in: container,
-                debugDescription: "Unsupported widget size preset: \(rawValue)"
-            )
-        }
-        self = value
-    }
-
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(rawValue)
-    }
-}
-
-extension WidgetSizePreset: Codable {}
-
-public struct HomeGridSpan: Codable, Hashable, Sendable {
-    public let columns: Int
-    public let rows: Int
-
-    public init(columns: Int, rows: Int) {
-        self.columns = max(1, columns)
-        self.rows = max(1, rows)
-    }
-}
-
-public struct HomeGridPosition: Codable, Hashable, Sendable {
-    public var column: Int
-    public var row: Int
-
-    public init(column: Int, row: Int) {
-        self.column = max(0, column)
-        self.row = max(0, row)
-    }
-}
-
-public enum HomeCardOwnership: String, Codable, CaseIterable, Hashable, Sendable {
-    case pinned
-    case smart
-    case suggested
-    case system
-
-    public var accessibilityDescription: String {
-        switch self {
-        case .pinned: return "Pinned by you"
-        case .smart: return "Adaptive smart slot"
-        case .suggested: return "Suggested for now"
-        case .system: return "Active system state"
-        }
-    }
-}
-
-public enum HomeSmartSlotSchedule: String, Codable, CaseIterable, Hashable, Sendable {
-    case morning
-    case workday
-    case evening
-    case weekend
-    case always
-
-    public var title: String {
-        switch self {
-        case .morning: return "Morning"
-        case .workday: return "Workday"
-        case .evening: return "Evening"
-        case .weekend: return "Weekend"
-        case .always: return "Always adaptive"
-        }
-    }
-}
-
-public struct HomeSmartSlotConfiguration: Codable, Hashable, Sendable {
-    public var allowedDestinations: Set<LifeBoardDestination>
-    public var schedule: HomeSmartSlotSchedule
-    public var frozenWidgetKind: String?
-
-    public init(
-        allowedDestinations: Set<LifeBoardDestination> = Set(LifeBoardDestination.allCases),
-        schedule: HomeSmartSlotSchedule = .always,
-        frozenWidgetKind: String? = nil
-    ) {
-        self.allowedDestinations = allowedDestinations
-        self.schedule = schedule
-        self.frozenWidgetKind = frozenWidgetKind
-    }
-}
 
 public struct HomeContextReason: Codable, Hashable, Sendable {
     public let message: String
@@ -639,7 +430,7 @@ public struct HomeContextCandidate: Codable, Hashable, Identifiable, Sendable {
     public let widgetKind: DashboardWidgetKind
     public let title: String
     public let reason: HomeContextReason
-    public let destination: LifeBoardDestination
+    public let destination: Destination
     public let sensitivity: DataSensitivity
     public let priority: Int
     public let relevantFrom: Date
@@ -662,7 +453,7 @@ public struct HomeContextCandidate: Codable, Hashable, Identifiable, Sendable {
         widgetKind: DashboardWidgetKind,
         title: String,
         reason: HomeContextReason,
-        destination: LifeBoardDestination,
+        destination: Destination,
         sensitivity: DataSensitivity = .privateStandard,
         priority: Int,
         relevantFrom: Date = Date(),
@@ -696,6 +487,14 @@ public struct HomeContextCandidate: Codable, Hashable, Identifiable, Sendable {
     /// the thing it opens.
     public var actionTitle: String {
         switch route {
+        case .goal: "View goal"
+        case .goals: "View goals"
+        case .routine: "View routine"
+        case .routines: "View routines"
+        case .lifeMoments(.moment): "View moment"
+        case .lifeMoments(.add): "Add moment"
+        case .lifeMoments(.overview): "View moments"
+        case .nutrition(.logMeal): "Log meal"
         case .weeklyPlanningWorkspace(.overdue): "Plan the overdue work"
         case .weeklyPlanningWorkspace(.week): "Shape this week"
         case .backlog: "Open the backlog"
@@ -746,19 +545,19 @@ public struct HomeContextCandidateContext: Hashable, Sendable {
 /// Domain modules own candidate creation. Home only merges display-ready
 /// candidates, preventing the adaptive canvas from reaching into canonical
 /// repositories or learning domain-specific eligibility rules.
-public protocol HomeContextCandidateProvider: Sendable {
+public protocol HomeContextCandidateSource: Sendable {
     var providerID: String { get }
     func candidates(context: HomeContextCandidateContext) async -> [HomeContextCandidate]
 }
 
 public actor HomeContextCandidateProviderRegistry {
-    private var providers: [String: any HomeContextCandidateProvider] = [:]
+    private var providers: [String: any HomeContextCandidateSource] = [:]
 
-    public init(providers: [any HomeContextCandidateProvider] = []) {
+    public init(providers: [any HomeContextCandidateSource] = []) {
         self.providers = Dictionary(uniqueKeysWithValues: providers.map { ($0.providerID, $0) })
     }
 
-    public func register(_ provider: any HomeContextCandidateProvider) {
+    public func register(_ provider: any HomeContextCandidateSource) {
         providers[provider.providerID] = provider
     }
 
@@ -809,7 +608,7 @@ public struct HomeContextSelection: Codable, Hashable, Sendable {
 /// Callers freeze it while scrolling, editing, touching a card, or serving
 /// VoiceOver focus so visible suggestions never change under the user.
 @MainActor
-public final class HomeContextEngine {
+public final class HomeContextService {
     private let policy: any HomeContextPolicy
     private let minimumDisplayDuration: TimeInterval
     private let repetitionCooldown: TimeInterval
@@ -853,8 +652,8 @@ public final class HomeContextEngine {
             && now.timeIntervalSince(current.evaluatedAt) >= minimumDisplayDuration) else {
             return current
         }
-        let interval = LifeOSPerformanceOperation.homeContextEvaluation.begin()
-        defer { LifeOSPerformanceOperation.homeContextEvaluation.end(interval) }
+        let interval = PerformanceOperation.homeContextEvaluation.begin()
+        defer { PerformanceOperation.homeContextEvaluation.end(interval) }
         let currentlyVisible = Set(current.candidates.map(\.id))
         let stableCandidates = candidates.filter { candidate in
             guard candidate.isUserStartedActiveState == false,
@@ -962,7 +761,7 @@ public struct LifeThreadArtifact: Codable, Hashable, Identifiable, Sendable {
     public var title: String?
     public var body: String
     public var sourceReference: String?
-    public var destination: LifeBoardDestination?
+    public var destination: Destination?
     public var sensitivity: DataSensitivity
 
     public init(
@@ -971,7 +770,7 @@ public struct LifeThreadArtifact: Codable, Hashable, Identifiable, Sendable {
         title: String? = nil,
         body: String,
         sourceReference: String? = nil,
-        destination: LifeBoardDestination? = nil,
+        destination: Destination? = nil,
         sensitivity: DataSensitivity = .privateStandard
     ) {
         self.id = id
@@ -1020,7 +819,7 @@ public enum LifeThreadComposerRecovery: String, Codable, Hashable, Sendable {
     case retry
 }
 
-public enum LifeBoardInteractionOrigin: String, Codable, CaseIterable, Hashable, Sendable {
+public enum InteractionOrigin: String, Codable, CaseIterable, Hashable, Sendable {
     case directTap
     case gesture
     case conversation
@@ -1032,41 +831,21 @@ public enum LifeBoardInteractionOrigin: String, Codable, CaseIterable, Hashable,
     case accessibility
 }
 
-public enum LifeBoardMotionProfile: String, Codable, CaseIterable, Hashable, Sendable {
-    case press
-    case selection
-    case localState
-    case contentInsertion
-    case controlMorph
-    case directManipulation
-    case micro
-    case cardReflow
-    case route
-    case celebration
-    /// A card landing in or returning to a stack.
-    case deckSettle
-    /// A progress thread advancing one notch.
-    case threadAdvance
-    /// The morning commit landing.
-    case firstLight
-    case ambient
-}
-
-public struct LifeBoardTransactionPreview: Codable, Hashable, Identifiable, Sendable {
+public struct TransactionPreview: Codable, Hashable, Identifiable, Sendable {
     public let id: UUID
-    public let destination: LifeBoardDestination
+    public let destination: Destination
     public let summary: String
     public let changes: [String]
     public let warnings: [String]
-    public let origin: LifeBoardInteractionOrigin
+    public let origin: InteractionOrigin
 
     public init(
         id: UUID = UUID(),
-        destination: LifeBoardDestination,
+        destination: Destination,
         summary: String,
         changes: [String],
         warnings: [String] = [],
-        origin: LifeBoardInteractionOrigin
+        origin: InteractionOrigin
     ) {
         self.id = id
         self.destination = destination
@@ -1077,7 +856,7 @@ public struct LifeBoardTransactionPreview: Codable, Hashable, Identifiable, Send
     }
 }
 
-public struct LifeBoardActionReceipt: Codable, Hashable, Identifiable, Sendable {
+public struct ActionReceipt: Codable, Hashable, Identifiable, Sendable {
     public let id: UUID
     public let transactionID: UUID
     public let message: String
@@ -1107,7 +886,7 @@ public struct LifeThreadProjectionSource: Hashable, Sendable {
     public let title: String?
     public let body: String
     public let sourceReference: String
-    public let destination: LifeBoardDestination?
+    public let destination: Destination?
     public let sensitivity: DataSensitivity
 
     public init(
@@ -1118,7 +897,7 @@ public struct LifeThreadProjectionSource: Hashable, Sendable {
         title: String? = nil,
         body: String,
         sourceReference: String,
-        destination: LifeBoardDestination? = nil,
+        destination: Destination? = nil,
         sensitivity: DataSensitivity = .privateStandard
     ) {
         self.projectionID = projectionID
@@ -1175,8 +954,8 @@ public struct LifeThreadProjectionService: Sendable {
 public struct LifeThreadIntentInput: Hashable, Sendable {
     public let text: String
     public let attachments: [String]
-    public let destination: LifeBoardDestination
-    public let origin: LifeBoardInteractionOrigin
+    public let destination: Destination
+    public let origin: InteractionOrigin
     /// Whether the text arrived via keyboard or live dictation.
     public let inputSource: InputSource
     /// The day the user is looking at (may differ from today on Plan/Track).
@@ -1202,8 +981,8 @@ public struct LifeThreadIntentInput: Hashable, Sendable {
     public init(
         text: String,
         attachments: [String] = [],
-        destination: LifeBoardDestination,
-        origin: LifeBoardInteractionOrigin = .conversation,
+        destination: Destination,
+        origin: InteractionOrigin = .conversation,
         inputSource: InputSource = .typed,
         selectedDate: Date? = nil,
         daypart: ResolvedDaypart? = nil,
@@ -1230,9 +1009,9 @@ public struct LifeThreadIntentInput: Hashable, Sendable {
 
 public struct LifeThreadAnswerRequest: Hashable, Sendable {
     public let prompt: String
-    public let destination: LifeBoardDestination
+    public let destination: Destination
 
-    public init(prompt: String, destination: LifeBoardDestination) {
+    public init(prompt: String, destination: Destination) {
         self.prompt = prompt
         self.destination = destination
     }
@@ -1243,7 +1022,7 @@ public struct LifeThreadCaptureDraft: Hashable, Sendable {
     public let kind: CaptureKind
     public let text: String
     public let attachments: [String]
-    public let destination: LifeBoardDestination
+    public let destination: Destination
     /// Structured seed carrying the raw text, optional parsed proposals, and
     /// input source so editors can prefill and present correctable chips.
     public let seed: CaptureSeed?
@@ -1253,7 +1032,7 @@ public struct LifeThreadCaptureDraft: Hashable, Sendable {
         kind: CaptureKind,
         text: String,
         attachments: [String] = [],
-        destination: LifeBoardDestination,
+        destination: Destination,
         seed: CaptureSeed? = nil
     ) {
         self.id = id
@@ -1287,7 +1066,7 @@ public struct CaptureSeed: Codable, Hashable, Sendable {
 }
 
 public struct LifeThreadNavigationRequest: Hashable, Sendable {
-    public let destination: LifeBoardDestination
+    public let destination: Destination
     public let sourceReference: String?
     /// Optional route to push within the destination's navigation stack.
     public let route: AppRoute?
@@ -1295,7 +1074,7 @@ public struct LifeThreadNavigationRequest: Hashable, Sendable {
     public let routeLabel: String?
 
     public init(
-        destination: LifeBoardDestination,
+        destination: Destination,
         sourceReference: String? = nil,
         route: AppRoute? = nil,
         routeLabel: String? = nil
@@ -1310,7 +1089,7 @@ public struct LifeThreadNavigationRequest: Hashable, Sendable {
 public enum LifeThreadIntentResolution: Hashable, Sendable {
     case answer(LifeThreadAnswerRequest)
     case captureDraft(LifeThreadCaptureDraft)
-    case transactionPreview(LifeBoardTransactionPreview)
+    case transactionPreview(TransactionPreview)
     case navigation(LifeThreadNavigationRequest)
     /// The input is ambiguous — present concrete choices to the user.
     case clarification(ClarificationRequest)
@@ -1391,7 +1170,7 @@ public protocol LifeThreadIntentAdapter: Sendable {
 /// `.transactionPreview` outcome, keeping the public four-outcome contract
 /// while guaranteeing that an enabled Apply button has real work behind it.
 public protocol LifeThreadMutationIntentAdapter: Sendable {
-    func resolveMutation(_ input: LifeThreadIntentInput) async -> LifeBoardMutationCommand?
+    func resolveMutation(_ input: LifeThreadIntentInput) async -> MutationCommand?
 }
 
 /// Domain adapters recognize captures, mutations, and navigation. Unrecognized
@@ -1399,12 +1178,12 @@ public protocol LifeThreadMutationIntentAdapter: Sendable {
 public actor LifeThreadIntentResolver {
     private let adapters: [any LifeThreadIntentAdapter]
     private let mutationAdapters: [any LifeThreadMutationIntentAdapter]
-    private let mutationCoordinator: LifeBoardMutationCoordinator
+    private let mutationCoordinator: MutationCoordinator
 
     public init(
         adapters: [any LifeThreadIntentAdapter] = [],
         mutationAdapters: [any LifeThreadMutationIntentAdapter] = [],
-        mutationCoordinator: LifeBoardMutationCoordinator = .init()
+        mutationCoordinator: MutationCoordinator = .init()
     ) {
         self.adapters = adapters
         self.mutationAdapters = mutationAdapters
@@ -1412,8 +1191,8 @@ public actor LifeThreadIntentResolver {
     }
 
     public func resolve(_ input: LifeThreadIntentInput) async -> LifeThreadIntentResolution {
-        let interval = LifeOSPerformanceOperation.composerResolution.begin()
-        defer { LifeOSPerformanceOperation.composerResolution.end(interval) }
+        let interval = PerformanceOperation.composerResolution.begin()
+        defer { PerformanceOperation.composerResolution.end(interval) }
         for adapter in mutationAdapters {
             if let command = await adapter.resolveMutation(input) {
                 return .transactionPreview(await mutationCoordinator.prepare(command))
@@ -1426,13 +1205,13 @@ public actor LifeThreadIntentResolver {
     }
 }
 
-public struct LifeBoardMutationCommand: Sendable {
-    public let preview: LifeBoardTransactionPreview
+public struct MutationCommand: Sendable {
+    public let preview: TransactionPreview
     fileprivate let applyOperation: @Sendable () async throws -> String
     fileprivate let undoOperation: @Sendable () async throws -> Void
 
     public init(
-        preview: LifeBoardTransactionPreview,
+        preview: TransactionPreview,
         apply: @escaping @Sendable () async throws -> String,
         undo: @escaping @Sendable () async throws -> Void
     ) {
@@ -1442,23 +1221,23 @@ public struct LifeBoardMutationCommand: Sendable {
     }
 }
 
-public enum LifeBoardMutationCoordinatorError: Error, Equatable, Sendable {
+public enum MutationCoordinatorError: Error, Equatable, Sendable {
     case previewNotPrepared(UUID)
     case receiptNotUndoable(UUID)
 }
 
-public actor LifeBoardActionReceiptStore {
-    private var receipts: [UUID: LifeBoardActionReceipt] = [:]
+public actor ActionReceiptStore {
+    private var receipts: [UUID: ActionReceipt] = [:]
 
     public init() {}
 
-    public func save(_ receipt: LifeBoardActionReceipt) {
+    public func save(_ receipt: ActionReceipt) {
         receipts[receipt.id] = receipt
     }
 
-    public func receipt(id: UUID) -> LifeBoardActionReceipt? { receipts[id] }
+    public func receipt(id: UUID) -> ActionReceipt? { receipts[id] }
 
-    public func recent(limit: Int = 20) -> [LifeBoardActionReceipt] {
+    public func recent(limit: Int = 20) -> [ActionReceipt] {
         receipts.values
             .sorted { $0.committedAt > $1.committedAt }
             .prefix(max(0, limit))
@@ -1473,17 +1252,17 @@ public actor LifeBoardActionReceiptStore {
 /// The canonical preview/apply/undo gateway for direct and conversational
 /// actions. Prepared commands are process-local; canonical domain stores remain
 /// responsible for durable records and idempotency.
-public actor LifeBoardMutationCoordinator {
-    private let receiptStore: LifeBoardActionReceiptStore
-    private var prepared: [UUID: LifeBoardMutationCommand] = [:]
-    private var applied: [UUID: LifeBoardMutationCommand] = [:]
+public actor MutationCoordinator {
+    private let receiptStore: ActionReceiptStore
+    private var prepared: [UUID: MutationCommand] = [:]
+    private var applied: [UUID: MutationCommand] = [:]
 
-    public init(receiptStore: LifeBoardActionReceiptStore = .init()) {
+    public init(receiptStore: ActionReceiptStore = .init()) {
         self.receiptStore = receiptStore
     }
 
     @discardableResult
-    public func prepare(_ command: LifeBoardMutationCommand) -> LifeBoardTransactionPreview {
+    public func prepare(_ command: MutationCommand) -> TransactionPreview {
         prepared[command.preview.id] = command
         return command.preview
     }
@@ -1496,12 +1275,12 @@ public actor LifeBoardMutationCoordinator {
         prepared[previewID] != nil
     }
 
-    public func apply(previewID: UUID, at date: Date = Date()) async throws -> LifeBoardActionReceipt {
+    public func apply(previewID: UUID, at date: Date = Date()) async throws -> ActionReceipt {
         guard let command = prepared.removeValue(forKey: previewID) else {
-            throw LifeBoardMutationCoordinatorError.previewNotPrepared(previewID)
+            throw MutationCoordinatorError.previewNotPrepared(previewID)
         }
         let message = try await command.applyOperation()
-        let receipt = LifeBoardActionReceipt(
+        let receipt = ActionReceipt(
             transactionID: previewID,
             message: message,
             committedAt: date,
@@ -1516,7 +1295,7 @@ public actor LifeBoardMutationCoordinator {
         guard let command = applied.removeValue(forKey: receiptID),
               let receipt = await receiptStore.receipt(id: receiptID),
               receipt.canUndo else {
-            throw LifeBoardMutationCoordinatorError.receiptNotUndoable(receiptID)
+            throw MutationCoordinatorError.receiptNotUndoable(receiptID)
         }
         do {
             try await command.undoOperation()
@@ -1544,11 +1323,11 @@ public struct LifeThreadAttachmentDraft: Hashable, Identifiable, Sendable {
 @Observable
 public final class LifeThreadComposerCoordinator {
     public private(set) var state: LifeThreadComposerState = .resting
-    public private(set) var destination: LifeBoardDestination
+    public private(set) var destination: Destination
     public var draftText = ""
     public private(set) var attachments: [LifeThreadAttachmentDraft] = []
     public private(set) var workingLabel: String?
-    public private(set) var preview: LifeBoardTransactionPreview?
+    public private(set) var preview: TransactionPreview?
     public private(set) var recovery: LifeThreadComposerRecovery?
     public private(set) var recoveryMessage: String?
     /// Structured understanding of the user's input, shown as a chip row
@@ -1561,7 +1340,7 @@ public final class LifeThreadComposerCoordinator {
     /// intent resolver can use input source as a classification signal.
     public private(set) var lastInputSource: LifeThreadIntentInput.InputSource = .typed
 
-    public init(destination: LifeBoardDestination = .home) {
+    public init(destination: Destination = .home) {
         self.destination = destination
     }
 
@@ -1570,7 +1349,7 @@ public final class LifeThreadComposerCoordinator {
             || attachments.isEmpty == false
     }
 
-    public func move(to destination: LifeBoardDestination) {
+    public func move(to destination: Destination) {
         self.destination = destination
     }
 
@@ -1612,7 +1391,7 @@ public final class LifeThreadComposerCoordinator {
         state = hasDraft ? .focused : .resting
     }
 
-    public func review(_ preview: LifeBoardTransactionPreview) {
+    public func review(_ preview: TransactionPreview) {
         self.preview = preview
         workingLabel = nil
         state = .review
@@ -1992,12 +1771,6 @@ public enum CaptureKind: String, Codable, CaseIterable, Hashable, Sendable {
     }
 }
 
-public enum DataSensitivity: String, Codable, CaseIterable, Hashable, Sendable {
-    case privateSensitive
-    case privateStandard
-    case shareEligible
-}
-
 public enum AdaptiveHeroPriority: Int, Codable, CaseIterable, Hashable, Sendable {
     case generalFocus = 100
     case recovery = 200
@@ -2133,7 +1906,7 @@ private extension CGRect {
 
 public struct EvaProactiveCard: Codable, Equatable, Identifiable, Sendable {
     public let id: UUID
-    public var destination: LifeBoardDestination
+    public var destination: Destination
     public var localDay: PlanningDay
     public var title: String
     public var reason: String
@@ -2145,7 +1918,7 @@ public struct EvaProactiveCard: Codable, Equatable, Identifiable, Sendable {
 
     public init(
         id: UUID = UUID(),
-        destination: LifeBoardDestination,
+        destination: Destination,
         localDay: PlanningDay,
         title: String,
         reason: String,
@@ -2200,7 +1973,7 @@ public enum AmbientRenderingTier: String, Codable, CaseIterable, Hashable, Senda
     }
 }
 
-public enum LifeBoardDaypartResolver {
+public enum DaypartResolver {
     public static func resolve(
         selection: DaypartSelection,
         at date: Date = Date(),
@@ -2277,7 +2050,7 @@ public struct DaypartOverrideController: Sendable {
         activeOverride = DaypartOverride(
             daypart: daypart,
             activatedAt: date,
-            expiresAt: LifeBoardDaypartResolver.nextAutomaticBoundary(after: date, calendar: calendar),
+            expiresAt: DaypartResolver.nextAutomaticBoundary(after: date, calendar: calendar),
             timeZoneIdentifier: calendar.timeZone.identifier
         )
     }
@@ -2292,7 +2065,7 @@ public struct DaypartOverrideController: Sendable {
             self.activeOverride = DaypartOverride(
                 daypart: activeOverride.daypart,
                 activatedAt: activeOverride.activatedAt,
-                expiresAt: LifeBoardDaypartResolver.nextAutomaticBoundary(after: date, calendar: calendar),
+                expiresAt: DaypartResolver.nextAutomaticBoundary(after: date, calendar: calendar),
                 timeZoneIdentifier: calendar.timeZone.identifier
             )
         }
@@ -2300,19 +2073,20 @@ public struct DaypartOverrideController: Sendable {
     }
 }
 
-public enum LifeBoardFoundationPreferenceKey {
+public enum FoundationPreferenceKey {
     public static let comfortProfile = "foundation.presentation.comfort_profile"
     public static let daypartSelection = "foundation.presentation.daypart_selection"
     public static let daypartOverride = "foundation.presentation.daypart_override"
     public static let renderingTier = "foundation.presentation.rendering_tier"
+    public static let fullMotion = "foundation.presentation.full_motion"
     public static let restorationState = "foundation.navigation.restoration_state"
 }
 
 @MainActor
 @Observable
-public final class LifeBoardPresentationPreferences {
-    public var comfortProfile: LifeBoardComfortProfile {
-        didSet { defaults.set(comfortProfile.rawValue, forKey: LifeBoardFoundationPreferenceKey.comfortProfile) }
+public final class PresentationPreferences {
+    public var comfortProfile: ComfortProfile {
+        didSet { defaults.set(comfortProfile.rawValue, forKey: FoundationPreferenceKey.comfortProfile) }
     }
 
     public var daypartSelection: DaypartSelection {
@@ -2320,7 +2094,15 @@ public final class LifeBoardPresentationPreferences {
     }
 
     public var renderingTier: AmbientRenderingTier {
-        didSet { defaults.set(renderingTier.rawValue, forKey: LifeBoardFoundationPreferenceKey.renderingTier) }
+        didSet { defaults.set(renderingTier.rawValue, forKey: FoundationPreferenceKey.renderingTier) }
+    }
+
+    /// Overrides the system Reduce Motion setting for this app only. On by
+    /// default: LifeBoard's motion *is* the product, and the shell publishes
+    /// this into both `\.accessibilityReduceMotion` and `MotionOverride`, so
+    /// turning it off restores the full accessibility path everywhere at once.
+    public var fullMotionEnabled: Bool {
+        didSet { defaults.set(fullMotionEnabled, forKey: FoundationPreferenceKey.fullMotion) }
     }
 
     @ObservationIgnored private let defaults: UserDefaults
@@ -2339,9 +2121,9 @@ public final class LifeBoardPresentationPreferences {
         self.defaults = resolvedDefaults
         nowProvider = now
         calendarProvider = calendar
-        let storedOverride = resolvedDefaults.data(forKey: LifeBoardFoundationPreferenceKey.daypartOverride)
+        let storedOverride = resolvedDefaults.data(forKey: FoundationPreferenceKey.daypartOverride)
             .flatMap { try? JSONDecoder().decode(DaypartOverride.self, from: $0) }
-        let legacySelection = resolvedDefaults.string(forKey: LifeBoardFoundationPreferenceKey.daypartSelection)
+        let legacySelection = resolvedDefaults.string(forKey: FoundationPreferenceKey.daypartSelection)
             .flatMap(DaypartSelection.init(rawValue:)) ?? .automatic
         var controller = DaypartOverrideController(activeOverride: storedOverride)
         let currentDate = now()
@@ -2353,16 +2135,21 @@ public final class LifeBoardPresentationPreferences {
         }
         let resolvedSelection = controller.resolvedSelection(at: currentDate, calendar: currentCalendar)
         overrideController = controller
-        comfortProfile = resolvedDefaults.string(forKey: LifeBoardFoundationPreferenceKey.comfortProfile)
-            .flatMap(LifeBoardComfortProfile.init(rawValue:)) ?? .balanced
+        // Playful rather than Balanced: the stronger springs, elasticity and
+        // 8pt parallax already existed as tokens and were simply never the
+        // default, so the premium motion the design system pays for was only
+        // ever seen by someone who went looking for the setting.
+        comfortProfile = resolvedDefaults.string(forKey: FoundationPreferenceKey.comfortProfile)
+            .flatMap(ComfortProfile.init(rawValue:)) ?? .playful
         daypartSelection = resolvedSelection
-        renderingTier = resolvedDefaults.string(forKey: LifeBoardFoundationPreferenceKey.renderingTier)
+        renderingTier = resolvedDefaults.string(forKey: FoundationPreferenceKey.renderingTier)
             .flatMap(AmbientRenderingTier.init(rawValue:)) ?? .ambient2D
+        fullMotionEnabled = resolvedDefaults.object(forKey: FoundationPreferenceKey.fullMotion) as? Bool ?? true
     }
 
     public func resolvedDaypart(at date: Date = Date(), calendar: Calendar = .current) -> ResolvedDaypart {
         let selection = resolvedDaypartSelection(at: date, calendar: calendar)
-        return LifeBoardDaypartResolver.resolve(selection: selection, at: date, calendar: calendar)
+        return DaypartResolver.resolve(selection: selection, at: date, calendar: calendar)
     }
 
     public var activeDaypartOverride: DaypartOverride? {
@@ -2375,7 +2162,7 @@ public final class LifeBoardPresentationPreferences {
 
     private func persistDaypartSelection() {
         overrideController.select(daypartSelection, at: nowProvider(), calendar: calendarProvider())
-        defaults.set(daypartSelection.rawValue, forKey: LifeBoardFoundationPreferenceKey.daypartSelection)
+        defaults.set(daypartSelection.rawValue, forKey: FoundationPreferenceKey.daypartSelection)
         persistOverride()
     }
 
@@ -2392,34 +2179,34 @@ public final class LifeBoardPresentationPreferences {
     private func persistOverride() {
         guard let activeOverride = overrideController.activeOverride,
               let data = try? JSONEncoder().encode(activeOverride) else {
-            defaults.removeObject(forKey: LifeBoardFoundationPreferenceKey.daypartOverride)
+            defaults.removeObject(forKey: FoundationPreferenceKey.daypartOverride)
             return
         }
-        defaults.set(data, forKey: LifeBoardFoundationPreferenceKey.daypartOverride)
+        defaults.set(data, forKey: FoundationPreferenceKey.daypartOverride)
     }
 }
 
-public struct LifeBoardThemeContext {
+public struct ThemeContext {
     public let daypart: ResolvedDaypart
     public let selection: DaypartSelection
-    public let comfortProfile: LifeBoardComfortProfile
+    public let comfortProfile: ComfortProfile
     public let renderingTier: AmbientRenderingTier
     public let colorScheme: UIUserInterfaceStyle
     public let accessibilityContrast: UIAccessibilityContrast
     public let reduceMotion: Bool
     public let reduceTransparency: Bool
-    public let layoutClass: LifeBoardLayoutClass
+    public let layoutClass: LayoutClass
 
     public init(
         daypart: ResolvedDaypart,
         selection: DaypartSelection,
-        comfortProfile: LifeBoardComfortProfile,
+        comfortProfile: ComfortProfile,
         renderingTier: AmbientRenderingTier,
         colorScheme: UIUserInterfaceStyle,
         accessibilityContrast: UIAccessibilityContrast,
         reduceMotion: Bool,
         reduceTransparency: Bool,
-        layoutClass: LifeBoardLayoutClass
+        layoutClass: LayoutClass
     ) {
         self.daypart = daypart
         self.selection = selection
@@ -2433,23 +2220,14 @@ public struct LifeBoardThemeContext {
     }
 }
 
-public enum LifeOSFoundationSchema {
-    public static let dashboardLayoutVersion = 5
-    public static let goalContractVersion = 1
-    public static let routineContractVersion = 1
-    public static let trackerContractVersion = 1
-    public static let journalContractVersion = 1
-    public static let collaborationContractVersion = 1
-    public static let wellnessContractVersion = 1
-}
 
-public protocol LifeOSVersionedDomainContract: Codable, Hashable, Sendable {
+public protocol VersionedDomainContract: Codable, Hashable, Sendable {
     static var schemaVersion: Int { get }
     var id: UUID { get }
     var sensitivity: DataSensitivity { get }
 }
 
-public struct LifeOSDomainContract: LifeOSVersionedDomainContract {
+public struct DomainContract: VersionedDomainContract {
     public static let schemaVersion = 1
     public let id: UUID
     public let kind: String
@@ -2461,138 +2239,6 @@ public struct LifeOSDomainContract: LifeOSVersionedDomainContract {
         self.kind = kind
         self.sensitivity = sensitivity
         self.payloadVersion = payloadVersion
-    }
-}
-
-public struct DashboardWidgetKind: RawRepresentable, Codable, Hashable, Sendable {
-    public let rawValue: String
-
-    public init(rawValue: String) {
-        self.rawValue = rawValue
-    }
-
-    /// Carries whatever setup the user deferred — permissions they skipped,
-    /// targets they have not set — and removes itself once there is nothing
-    /// left to offer. Onboarding cannot ask for everything, so the long tail
-    /// lives here rather than in a longer wizard.
-    public static let setupChecklist = Self(rawValue: "setupChecklist")
-    public static let focusNow = Self(rawValue: "focusNow")
-    public static let lifeSnapshot = Self(rawValue: "lifeSnapshot")
-    public static let care = Self(rawValue: "care")
-    public static let tasks = Self(rawValue: "tasks")
-    public static let routines = Self(rawValue: "routines")
-    public static let scheduleCapacity = Self(rawValue: "scheduleCapacity")
-    public static let quickCapture = Self(rawValue: "quickCapture")
-    public static let compactTimeline = Self(rawValue: "compactTimeline")
-    public static let journal = Self(rawValue: "journal")
-    public static let progressReflection = Self(rawValue: "progressReflection")
-    public static let fasting = Self(rawValue: "fasting")
-    public static let goals = Self(rawValue: "goals")
-    public static let evaConversation = Self(rawValue: "evaConversation")
-    public static let bodyMetric = Self(rawValue: "bodyMetric")
-    public static let workout = Self(rawValue: "workout")
-    public static let sleep = Self(rawValue: "sleep")
-    public static let movement = Self(rawValue: "movement")
-    public static let lifeMoment = Self(rawValue: "lifeMoment")
-    public static let nutritionSummary = Self(rawValue: "nutritionSummary")
-    public static let recentMeal = Self(rawValue: "recentMeal")
-    public static let logMeal = Self(rawValue: "logMeal")
-}
-
-public enum WidgetGalleryCategory: String, Codable, CaseIterable, Sendable {
-    case orient, act, plan, wellbeing, reflect, progress
-}
-
-public enum WidgetMultiplicity: String, Codable, Sendable {
-    case singleton
-    case multipleInstances
-}
-
-/// How a card presents itself. One archetype is one reusable body that must
-/// render at *every* supported size — this is what removes the old
-/// `EmptyView()` fallthrough, where eleven kinds drew nothing at wide and tall
-/// (and therefore nothing at all at accessibility text sizes, which force wide).
-public enum HomeCardArchetype: String, Codable, CaseIterable, Hashable, Sendable {
-    /// Hero numeral, unit and change. Sparkline or chart as it grows.
-    case metric
-    /// Circular progress against a target.
-    case ring
-    /// A series over time: sparkline → chart → chart plus table.
-    case trend
-    /// Rows of work with state and a primary action.
-    case queue
-    /// Recent-performance dots or heat grid.
-    case streak
-    /// One claim, its rationale and one action. Home's hero.
-    case decision
-    /// A compressed view of the day's shape.
-    case spine
-    /// A remembered moment: mood, media or excerpt.
-    case moment
-    /// Time remaining until a dated thing.
-    case countdown
-    /// A capture affordance rather than a readout.
-    case action
-}
-
-/// Which anchored Home section a card belongs to. Previously this lived as
-/// three hardcoded string sets inside the Home view plus a fourth copy in the
-/// layout repository, so registering a new kind silently dropped it into
-/// "Your space" and the two anchored copies could disagree.
-public enum HomeSectionRole: String, Codable, CaseIterable, Hashable, Sendable {
-    /// Rendered by a fixed Home section, never as a free-floating placement.
-    case anchored
-    /// Today's committed work.
-    case today
-    /// Recurring care, routines and wellbeing.
-    case keepSteady
-    /// Reflection and closing the day.
-    case closeLoop
-    /// Whatever the user chose to pin.
-    case userSpace
-
-    public var title: String {
-        switch self {
-        case .anchored: "Now"
-        case .today: "Today"
-        case .keepSteady: "Keep steady"
-        case .closeLoop: "Close the loop"
-        case .userSpace: "Your space"
-        }
-    }
-}
-
-public struct DashboardWidgetDescriptor: Codable, Hashable, Sendable {
-    public let kind: DashboardWidgetKind
-    public let title: String
-    public let category: WidgetGalleryCategory
-    public let supportedSizes: Set<WidgetSizePreset>
-    public let multiplicity: WidgetMultiplicity
-    public let sensitivity: DataSensitivity
-    public let archetype: HomeCardArchetype
-    public let sectionRole: HomeSectionRole
-    public let configurationVersion: Int
-
-    public init(
-        kind: DashboardWidgetKind,
-        title: String,
-        category: WidgetGalleryCategory,
-        supportedSizes: Set<WidgetSizePreset>,
-        multiplicity: WidgetMultiplicity,
-        sensitivity: DataSensitivity,
-        archetype: HomeCardArchetype = .queue,
-        sectionRole: HomeSectionRole = .userSpace,
-        configurationVersion: Int = 1
-    ) {
-        self.kind = kind
-        self.title = title
-        self.category = category
-        self.supportedSizes = supportedSizes
-        self.multiplicity = multiplicity
-        self.sensitivity = sensitivity
-        self.archetype = archetype
-        self.sectionRole = sectionRole
-        self.configurationVersion = configurationVersion
     }
 }
 
@@ -2662,7 +2308,7 @@ public struct HomeCardActionDescriptor: Codable, Hashable, Identifiable, Sendabl
     public let title: String
     public let systemImage: String
     public let role: HomeCardActionRole
-    public let destination: LifeBoardDestination?
+    public let destination: Destination?
     public let requiresMutationPreview: Bool
 
     public init(
@@ -2670,7 +2316,7 @@ public struct HomeCardActionDescriptor: Codable, Hashable, Identifiable, Sendabl
         title: String,
         systemImage: String,
         role: HomeCardActionRole = .secondary,
-        destination: LifeBoardDestination? = nil,
+        destination: Destination? = nil,
         requiresMutationPreview: Bool = false
     ) {
         self.id = id
@@ -2871,12 +2517,32 @@ public struct HomeCardSnapshot: Codable, Hashable, Sendable {
     }
 }
 
+/// In-app presentation metadata paired with a card snapshot.
+///
+/// This deliberately is not Codable: entity identifiers used for navigation
+/// must not leak into app-group widget envelopes or other system surfaces.
+public struct HomeCardResolution: Sendable {
+    public var snapshot: HomeCardSnapshot
+    public var primaryRoute: AppRoute?
+    public var primaryActionTitle: String
+
+    public init(
+        snapshot: HomeCardSnapshot,
+        primaryRoute: AppRoute? = nil,
+        primaryActionTitle: String = "Open"
+    ) {
+        self.snapshot = snapshot
+        self.primaryRoute = primaryRoute
+        self.primaryActionTitle = primaryActionTitle
+    }
+}
+
 /// Domain-owned providers keep Home out of canonical databases. In-app cards,
 /// widgets, and previews may consume the same snapshot while retaining separate
 /// rendering lifecycles.
-public protocol HomeCardProvider: Sendable {
+public protocol HomeCardSource: Sendable {
     var definition: HomeCardDefinition { get }
-    var primaryDestination: LifeBoardDestination { get }
+    var primaryDestination: Destination { get }
     var privacyClassification: DataSensitivity { get }
     var inlineActions: [HomeCardActionDescriptor] { get }
     func snapshot(
@@ -2885,9 +2551,10 @@ public protocol HomeCardProvider: Sendable {
         at date: Date
     ) async -> HomeCardSnapshot
     func snapshot(context: HomeCardSnapshotContext) async -> HomeCardSnapshot
+    func resolution(context: HomeCardSnapshotContext) async -> HomeCardResolution
 }
 
-public extension HomeCardProvider {
+public extension HomeCardSource {
     var inlineActions: [HomeCardActionDescriptor] {
         [
             .init(
@@ -2919,6 +2586,14 @@ public extension HomeCardProvider {
         }
         return result
     }
+
+    func resolution(context: HomeCardSnapshotContext) async -> HomeCardResolution {
+        let resolvedSnapshot = await snapshot(context: context)
+        return HomeCardResolution(
+            snapshot: resolvedSnapshot,
+            primaryActionTitle: resolvedSnapshot.actions.first?.title ?? "Open"
+        )
+    }
 }
 
 public enum HomeCardProviderRegistryError: Error, Equatable, Sendable {
@@ -2930,9 +2605,9 @@ public enum HomeCardProviderRegistryError: Error, Equatable, Sendable {
 /// A stable provider lookup boundary. Home asks this actor for display-ready
 /// snapshots and never reaches into a domain repository itself.
 public actor HomeCardProviderRegistry {
-    private var providers: [DashboardWidgetKind: any HomeCardProvider] = [:]
+    private var providers: [DashboardWidgetKind: any HomeCardSource] = [:]
 
-    public init(providers: [any HomeCardProvider] = []) throws {
+    public init(providers: [any HomeCardSource] = []) throws {
         for provider in providers {
             let kind = provider.definition.kind
             guard self.providers[kind] == nil else {
@@ -2942,7 +2617,7 @@ public actor HomeCardProviderRegistry {
         }
     }
 
-    public func register(_ provider: any HomeCardProvider) throws {
+    public func register(_ provider: any HomeCardSource) throws {
         let kind = provider.definition.kind
         guard providers[kind] == nil else {
             throw HomeCardProviderRegistryError.duplicateProvider(kind)
@@ -2963,7 +2638,7 @@ public actor HomeCardProviderRegistry {
             }
     }
 
-    public func provider(for kind: DashboardWidgetKind) -> (any HomeCardProvider)? {
+    public func provider(for kind: DashboardWidgetKind) -> (any HomeCardSource)? {
         providers[kind]
     }
 
@@ -2977,60 +2652,27 @@ public actor HomeCardProviderRegistry {
         guard provider.definition.supportedSizes.contains(context.semanticSize) else {
             throw HomeCardProviderRegistryError.unsupportedSize(kind, context.semanticSize)
         }
-        let interval = LifeOSPerformanceOperation.homeCardSnapshot.begin()
-        defer { LifeOSPerformanceOperation.homeCardSnapshot.end(interval) }
+        let interval = PerformanceOperation.homeCardSnapshot.begin()
+        defer { PerformanceOperation.homeCardSnapshot.end(interval) }
         return await provider.snapshot(context: context)
     }
-}
 
-public protocol DashboardWidgetRegistry: Sendable {
-    func descriptor(for kind: DashboardWidgetKind) -> DashboardWidgetDescriptor?
-    func availableDescriptors() -> [DashboardWidgetDescriptor]
-}
-
-public struct DefaultDashboardWidgetRegistry: DashboardWidgetRegistry {
-    public static let shared = DefaultDashboardWidgetRegistry()
-
-    private let descriptors: [DashboardWidgetDescriptor]
-
-    public init() {
-        let allSizes = Set(WidgetSizePreset.allCases)
-        descriptors = [
-            .init(kind: .setupChecklist, title: "Finish setup", category: .orient, supportedSizes: [.standard, .wide], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .ring, sectionRole: .userSpace),
-            .init(kind: .focusNow, title: "Focus Now", category: .act, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .decision, sectionRole: .anchored),
-            .init(kind: .lifeSnapshot, title: "Life Snapshot", category: .orient, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .anchored),
-            .init(kind: .care, title: "Care", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .queue, sectionRole: .keepSteady),
-            // Today's committed work belongs above wellbeing, not last on the
-            // board. It has its own anchored section now.
-            .init(kind: .tasks, title: "Today’s Tasks", category: .act, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .queue, sectionRole: .today),
-            .init(kind: .routines, title: "Routines", category: .wellbeing, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .queue, sectionRole: .keepSteady),
-            .init(kind: .scheduleCapacity, title: "Schedule & Capacity", category: .plan, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .spine, sectionRole: .anchored),
-            .init(kind: .quickCapture, title: "Quick Capture", category: .act, supportedSizes: [.compact, .standard, .wide], multiplicity: .singleton, sensitivity: .privateStandard, archetype: .action, sectionRole: .anchored),
-            .init(kind: .compactTimeline, title: "Day Shape", category: .plan, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .spine, sectionRole: .anchored),
-            .init(kind: .journal, title: "Journal", category: .reflect, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .moment, sectionRole: .closeLoop),
-            .init(kind: .progressReflection, title: "Progress & Reflection", category: .reflect, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateSensitive, archetype: .trend, sectionRole: .closeLoop),
-            .init(kind: .fasting, title: "Active Fast", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .ring, sectionRole: .keepSteady),
-            .init(kind: .goals, title: "Goal Progress", category: .progress, supportedSizes: [.standard, .wide, .tall, .expanded], multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .ring, sectionRole: .keepSteady),
-            .init(kind: .evaConversation, title: "Saved Eva Insight", category: .reflect, supportedSizes: [.standard, .wide, .tall], multiplicity: .multipleInstances, sensitivity: .privateSensitive, archetype: .moment, sectionRole: .closeLoop),
-            .init(kind: .bodyMetric, title: "Body Metric", category: .wellbeing, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateSensitive, archetype: .trend, sectionRole: .keepSteady),
-            .init(kind: .workout, title: "Recent Workout", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .keepSteady),
-            .init(kind: .sleep, title: "Sleep Note", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .trend, sectionRole: .keepSteady),
-            .init(kind: .movement, title: "Movement", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .keepSteady),
-            .init(kind: .lifeMoment, title: "Life Moment", category: .reflect, supportedSizes: allSizes, multiplicity: .multipleInstances, sensitivity: .privateStandard, archetype: .countdown, sectionRole: .closeLoop),
-            .init(kind: .nutritionSummary, title: "Nutrition Summary", category: .wellbeing, supportedSizes: allSizes, multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .metric, sectionRole: .keepSteady),
-            .init(kind: .recentMeal, title: "Recent Meal", category: .wellbeing, supportedSizes: [.compact, .standard, .wide, .tall], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .moment, sectionRole: .keepSteady),
-            .init(kind: .logMeal, title: "Log Meal", category: .act, supportedSizes: [.compact, .standard, .wide], multiplicity: .singleton, sensitivity: .privateSensitive, archetype: .action, sectionRole: .keepSteady)
-        ]
-    }
-
-    public func descriptor(for kind: DashboardWidgetKind) -> DashboardWidgetDescriptor? {
-        descriptors.first { $0.kind == kind }
-    }
-
-    public func availableDescriptors() -> [DashboardWidgetDescriptor] {
-        descriptors
+    public func resolution(
+        for kind: DashboardWidgetKind,
+        context: HomeCardSnapshotContext
+    ) async throws -> HomeCardResolution {
+        guard let provider = providers[kind] else {
+            throw HomeCardProviderRegistryError.providerNotFound(kind)
+        }
+        guard provider.definition.supportedSizes.contains(context.semanticSize) else {
+            throw HomeCardProviderRegistryError.unsupportedSize(kind, context.semanticSize)
+        }
+        let interval = PerformanceOperation.homeCardSnapshot.begin()
+        defer { PerformanceOperation.homeCardSnapshot.end(interval) }
+        return await provider.resolution(context: context)
     }
 }
+
 
 public enum SmartPromotionKind: String, Codable, Sendable {
     case safetySensitiveCare

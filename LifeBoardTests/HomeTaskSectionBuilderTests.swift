@@ -966,14 +966,14 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
     }
 
     func testHomeSurfaceSectionHeadersUseSectionAccentHexSource() throws {
-        let source = try loadWorkspaceFile("LifeBoard/View/SunriseTaskSectionView.swift")
+        let source = try loadWorkspaceFile("LifeBoard/Features/Tasks/UI/TaskSectionView.swift")
 
         XCTAssertTrue(source.contains("guard let accentHex = section.accentHex"))
-        XCTAssertTrue(source.contains("LifeBoardHexColor.color(accentHex, fallback: Color.lifeboard.accentPrimary)"))
+        XCTAssertTrue(source.contains("HexColor.color(accentHex, fallback: Color.lifeboard.accentPrimary)"))
     }
 
     func testHomeSurfacePlainSectionRowsUseCanonicalRowTintResolver() throws {
-        let source = try loadWorkspaceFile("LifeBoard/View/SunriseTaskSectionView.swift")
+        let source = try loadWorkspaceFile("LifeBoard/Features/Tasks/UI/TaskSectionView.swift")
 
         XCTAssertTrue(source.contains("if section.showsHeader, let sectionAccentHex = section.accentHex"))
         XCTAssertTrue(source.contains("HomeTaskTintResolver.rowAccentHex("))
@@ -985,13 +985,13 @@ final class HomeTaskSectionBuilderTests: XCTestCase {
         let users = try filesContaining("HomeTaskTintResolver.rowAccentHex(")
 
         XCTAssertTrue(
-            users.contains { $0.contains("SunriseTaskListView") || $0.contains("SunriseTaskSectionView") },
+            users.contains { $0.contains("TaskListView") || $0.contains("TaskSectionView") },
             "The task list must tint through the shared resolver. Found: \(users)"
         )
     }
 
     func testTaskListSectionIDsAvoidRuntimeRandomizedSources() throws {
-        let source = try loadWorkspaceFile("LifeBoard/View/SunriseTaskListView.swift")
+        let source = try loadWorkspaceFile("LifeBoard/Features/Tasks/UI/TaskListView.swift")
 
         XCTAssertFalse(source.contains("value.hashValue"))
         XCTAssertFalse(source.contains("id: UUID(),\n                name:"))

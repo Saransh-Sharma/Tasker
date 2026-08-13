@@ -13,8 +13,8 @@ final class LifeBoardEvidenceContractTests: XCTestCase {
         XCTAssertTrue(destinations.contains(.track))
     }
 
-    func testSensitiveDomainsStayOffInsights() {
-        for domain in ["mood", "sleep", "medication", "care"] {
+    func testRestrictedSensitiveDomainsStayOffInsights() {
+        for domain in ["mood", "medication", "care"] {
             let destinations = policy.allowedDestinations(domain: domain, sensitivity: .privateSensitive)
             XCTAssertFalse(destinations.contains(.insights), "\(domain) should not reach Insights by default")
         }
@@ -115,7 +115,7 @@ final class LifeBoardEvidenceContractTests: XCTestCase {
         XCTAssertEqual(TypedSourceKind.allCases.count, 5)
     }
 
-    private func event(domain: String, sensitivity: DataSensitivity, destinations: Set<LifeBoardDestination>) -> NormalizedLifeEvent {
+    private func event(domain: String, sensitivity: DataSensitivity, destinations: Set<Destination>) -> NormalizedLifeEvent {
         let day = PlanningDay(date: Date(timeIntervalSince1970: 1_762_041_600), timeZone: TimeZone(identifier: "UTC")!)
         return NormalizedLifeEvent(
             id: "\(domain):x", sourceID: UUID(), domain: domain, kind: "k",

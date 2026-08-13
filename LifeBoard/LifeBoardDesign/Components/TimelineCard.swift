@@ -1,0 +1,218 @@
+import SwiftUI
+
+enum ClayTimelineTemporalState: String, Equatable {
+    case past
+    case current
+    case future
+}
+
+/// Shared pressed feedback for tappable Sunrise cards: a subtle settle rather
+/// than a button-like bounce, per the design-language pressed spec (0.985).
+struct PressableCardStyle: ButtonStyle {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed && reduceMotion == false ? 0.985 : 1)
+            .animation(.easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+struct TimelineCard: View, Equatable {
+    enum Kind: String, Equatable {
+        case anchor
+        case calendar
+        case task
+    }
+
+    struct Model: Identifiable, Equatable {
+        let id: String
+        let title: String
+        let subtitle: String
+        let timeText: String
+        let role: ClayRole
+        let kind: Kind
+        let tintHex: String?
+        let accessoryText: String?
+        let temporalState: ClayTimelineTemporalState
+        let isCompleted: Bool
+        let isCurrent: Bool
+    }
+
+    let model: Model
+    let onTap: () -> Void
+
+    nonisolated static func == (lhs: TimelineCard, rhs: TimelineCard) -> Bool {
+        lhs.model == rhs.model
+    }
+
+    var body: some View {
+        if let routineStyle {
+            TimelineRoutineAnchorCard(
+                style: routineStyle,
+                timeText: model.timeText,
+                onTap: onTap,
+                minimumHeight: 96,
+                leadingArtworkReserve: 96
+            )
+            .accessibilityIdentifier(accessibilityIdentifier)
+        } else {
+            let style = ClayColorTokens.role(model.role)
+            Button(action: onTap) {
+                GlassCard(
+                    cornerRadius: cornerRadius,
+                    borderColor: borderColor(style),
+                    fill: fillColor(style),
+                    shadow: nil,
+                    usesMaterialBackground: false
+                ) {
+                    HStack(spacing: ClayLayoutMetrics.sm) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(model.title)
+                                .font(ClayTypography.cardTitle)
+                                .foregroundStyle(titleColor)
+                                .lineLimit(2)
+                                .strikethrough(model.isCompleted && model.kind == .task, color: ClayColorTokens.navyMuted.opacity(0.65))
+                            Text(model.subtitle.isEmpty ? model.timeText : "\(model.timeText)  •  \(model.subtitle)")
+                                .font(ClayTypography.meta)
+                                .foregroundStyle(metaColor)
+                                .lineLimit(2)
+                        }
+                        .layoutPriority(1)
+                        Spacer(minLength: ClayLayoutMetrics.xs)
+                        if let accessoryText = model.accessoryText {
+                            Text(accessoryText)
+                                .font(ClayTypography.meta)
+                                .foregroundStyle(accessoryColor(style))
+                                .padding(.horizontal, ClayLayoutMetrics.sm)
+                                .padding(.vertical, ClayLayoutMetrics.xs)
+                                .background(accessoryFill(style), in: Capsule())
+                        }
+                    }
+                    .padding(.horizontal, horizontalPadding)
+                    .padding(.vertical, verticalPadding)
+                    .frame(minHeight: minimumHeight, alignment: .center)
+                }
+            }
+            .buttonStyle(PressableCardStyle())
+            .animation(.easeOut(duration: 0.22), value: model.isCompleted)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel(accessibilityLabel)
+            .accessibilityValue(accessibilityValue)
+            .accessibilityIdentifier(accessibilityIdentifier)
+        }
+    }
+
+    private var routineStyle: TimelineRoutineAnchorVisualStyle? {
+        guard model.kind == .anchor else { return nil }
+        return TimelineRoutineAnchorVisualStyle.resolve(
+            anchorID: model.id,
+            title: model.title,
+            subtitle: model.subtitle
+        )
+    }
+
+    private var accessibilityIdentifier: String {
+        if model.id.hasPrefix("event:") {
+            return "home.timeline.event.\(String(model.id.dropFirst("event:".count)))"
+        }
+        if model.id.hasPrefix("task:") {
+            return "home.timeline.task.\(String(model.id.dropFirst("task:".count)))"
+        }
+        return "home.timeline.\(model.kind.rawValue).\(model.id)"
+    }
+
+    private var accessibilityLabel: String {
+        [
+            accessibilityKind,
+            model.title,
+            model.subtitle.isEmpty ? model.timeText : "\(model.timeText), \(model.subtitle)"
+        ]
+        .filter { $0.isEmpty == false }
+        .joined(separator: ", ")
+    }
+
+    private var accessibilityKind: String {
+        switch model.kind {
+        case .anchor: return "Routine"
+        case .calendar: return "Meeting"
+        case .task: return "Task"
+        }
+    }
+
+    private var accessibilityValue: String {
+        model.kind == .task ? (model.isCompleted ? "Completed" : "Not completed") : ""
+    }
+
+    private var cornerRadius: CGFloat {
+        model.kind == .anchor ? 18 : RadiusTokens.card
+    }
+
+    private var horizontalPadding: CGFloat {
+        model.kind == .anchor ? ClayLayoutMetrics.sm : ClayLayoutMetrics.md
+    }
+
+    private var verticalPadding: CGFloat {
+        model.kind == .anchor ? 10 : ClayLayoutMetrics.sm
+    }
+
+    /// Non-anchor cards keep the 66pt design-language minimum so short titles
+    /// still read as substantial, tappable day blocks.
+    private var minimumHeight: CGFloat? {
+        model.kind == .anchor ? nil : 66
+    }
+
+    private var titleColor: Color {
+        if model.isCompleted && model.kind == .task {
+            return ClayColorTokens.navyMuted
+        }
+        if model.temporalState == .past {
+            return ClayColorTokens.navyMuted
+        }
+        return ClayColorTokens.navy
+    }
+
+    private var metaColor: Color {
+        model.temporalState == .past ? ClayColorTokens.textTertiary : ClayColorTokens.navyMuted
+    }
+
+    private func fillColor(_ style: RoleStyle) -> Color {
+        let baseOpacity: Double
+        switch model.kind {
+        case .anchor:
+            baseOpacity = 0.58
+        case .calendar:
+            baseOpacity = 0.62
+        case .task:
+            baseOpacity = model.isCompleted ? 0.36 : 0.68
+        }
+        if model.kind == .task, hasTaskTint {
+            let tintOpacity = model.isCompleted ? 0.12 : 0.18
+            return taskAccentColor(fallback: style.base).opacity(model.temporalState == .past ? tintOpacity * 0.58 : tintOpacity)
+        }
+        return style.softSurface.opacity(model.temporalState == .past ? baseOpacity * 0.58 : baseOpacity)
+    }
+
+    private func borderColor(_ style: RoleStyle) -> Color {
+        if model.kind == .task, hasTaskTint {
+            return taskAccentColor(fallback: style.border).opacity(model.temporalState == .past ? 0.20 : 0.38)
+        }
+        return model.temporalState == .past ? style.border.opacity(0.48) : style.border
+    }
+
+    private var hasTaskTint: Bool {
+        model.kind == .task && HexColor.normalized(model.tintHex) != nil
+    }
+
+    private func taskAccentColor(fallback: Color) -> Color {
+        HexColor.color(model.tintHex, fallback: fallback)
+    }
+
+    private func accessoryColor(_ style: RoleStyle) -> Color {
+        model.temporalState == .past ? style.deep.opacity(0.62) : style.deep
+    }
+
+    private func accessoryFill(_ style: RoleStyle) -> Color {
+        model.temporalState == .past ? style.softSurface.opacity(0.48) : style.softSurface
+    }
+}

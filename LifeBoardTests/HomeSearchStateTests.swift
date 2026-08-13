@@ -160,7 +160,7 @@ final class HomeSearchStateTests: XCTestCase {
     func testBeforeMeetingCommandKeepsTasksThatFitAvailableWindow() {
         let now = Date(timeIntervalSince1970: 1_000)
         let meetingStart = now.addingTimeInterval(45 * 60)
-        let meeting = LifeBoardCalendarEventSnapshot(
+        let meeting = CalendarEventSnapshot(
             id: "meeting",
             calendarID: "work",
             calendarTitle: "Work",
@@ -176,7 +176,7 @@ final class HomeSearchStateTests: XCTestCase {
             accessAction: .noneNeeded,
             selectedCalendarCount: 1,
             availableCalendarCount: 1,
-            nextMeeting: LifeBoardNextMeetingSummary(event: meeting, isInProgress: false, minutesUntilStart: 45),
+            nextMeeting: NextMeetingSummary(event: meeting, isInProgress: false, minutesUntilStart: 45),
             busyBlocks: [],
             freeUntil: meetingStart,
             selectedDayEvents: [meeting],
@@ -203,7 +203,7 @@ final class HomeSearchStateTests: XCTestCase {
 }
 
 @MainActor
-private final class MockHomeSearchEngine: HomeSearchEngine {
+private final class MockHomeSearchEngine: HomeSearchService {
     var onResultsUpdated: ((Int, [TaskDefinition]) -> Void)?
     var projects: [Project] = []
     var searchInvocations: [(query: String, revision: Int)] = []
@@ -234,6 +234,8 @@ private final class MockHomeSearchEngine: HomeSearchEngine {
     func invalidateSearchCache(revision: Int) {
         invalidatedRevisions.append(revision)
     }
+
+    func releaseResources() {}
 
     func groupTasksByProject(_ tasks: [TaskDefinition]) -> [(project: String, tasks: [TaskDefinition])] {
         Dictionary(grouping: tasks) { $0.projectName ?? ProjectConstants.inboxProjectName }

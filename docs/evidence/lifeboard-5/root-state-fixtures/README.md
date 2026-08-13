@@ -66,9 +66,8 @@ editing out of the title line. It is simulator evidence, not signed-device or
 wide-layout approval. Regular/wide iPad and Catalyst review follows only after
 this iPhone journey remains green.
 
-See
-[`LIFEBOARD_UI_UX_OVERHAUL_HANDOFF.md`](../../../todos/LIFEBOARD_UI_UX_OVERHAUL_HANDOFF.md)
-for the exact automated verification record and remaining promotion QA.
+See the [Unified Completion Status](../../../life-os/LIFEBOARD_UNIFIED_COMPLETION_STATUS.md)
+for the active automated-evidence boundary and remaining promotion QA.
 
 ## Catalyst resize gate
 

@@ -1,0 +1,56 @@
+//
+//  AddTaskNavigationBar.swift
+//  LifeBoard
+//
+//  Navigation bar: Cancel | Title | Done (Done disabled until valid).
+//
+
+import SwiftUI
+
+struct AddTaskNavigationBar: View {
+    @Environment(\.lifeboardTokens) private var tokens
+    let containerMode: AddTaskContainerMode
+    let title: LocalizedStringKey
+    let canSave: Bool
+    let onCancel: () -> Void
+    let onSave: () -> Void
+
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+
+    var body: some View {
+        HStack {
+            Button {
+                onCancel()
+            } label: {
+                Text(containerMode == .inspector ? "Close" : "Cancel")
+                    .font(.lifeboard(.callout))
+                    .foregroundStyle(Color.lifeboard.textSecondary)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("addTask.cancelButton")
+
+            Spacer()
+
+            Text(title)
+                .font(.lifeboard(.headline))
+                .foregroundStyle(Color.lifeboard.textPrimary)
+
+            Spacer()
+
+            Button {
+                if canSave {
+                    HapticFeedback.medium()
+                    onSave()
+                }
+            } label: {
+                Text("Done")
+                    .font(.lifeboard(.bodyEmphasis))
+                    .foregroundStyle(canSave ? Color.lifeboard.accentPrimary : Color.lifeboard.textQuaternary)
+            }
+            .buttonStyle(.plain)
+            .disabled(!canSave)
+            .accessibilityIdentifier("addTask.saveButton")
+        }
+        .padding(.vertical, spacing.s8)
+    }
+}

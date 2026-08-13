@@ -1,0 +1,110 @@
+import SwiftUI
+
+struct HomeEvaChatTopChromeView: View {
+    @Environment(\.lifeboardTokens) private var tokens
+    let chromeState: EvaChatNavigationChromeState
+    let onBack: () -> Void
+    let onSettings: () -> Void
+    let onHistory: () -> Void
+    let onNewChat: () -> Void
+
+    init(
+        chromeState: EvaChatNavigationChromeState,
+        onBack: @escaping () -> Void,
+        onSettings: @escaping () -> Void = {},
+        onHistory: @escaping () -> Void = {},
+        onNewChat: @escaping () -> Void = {}
+    ) {
+        self.chromeState = chromeState
+        self.onBack = onBack
+        self.onSettings = onSettings
+        self.onHistory = onHistory
+        self.onNewChat = onNewChat
+    }
+
+    private var spacing: SemanticSpacingTokens { ThemeStore.shared.currentTheme.tokens.spacing }
+
+    var body: some View {
+        HStack(alignment: .center, spacing: spacing.s12) {
+            iconButton(
+                systemName: "chevron.left",
+                identifier: "home.chat.back",
+                label: "Back to Home",
+                action: onBack
+            )
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(chromeState.title)
+                    .font(.lifeboard(.headline))
+                    .foregroundStyle(EvaChatSunriseGlass.navy)
+                    .lineLimit(1)
+
+                Text(chromeState.subtitle)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(EvaChatSunriseGlass.navyMuted)
+                    .lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            if chromeState.showsUtilityActions {
+                HStack(spacing: spacing.s4) {
+                    iconButton(
+                        systemName: "gearshape",
+                        identifier: "chat.header.settings",
+                        label: "Settings",
+                        action: onSettings
+                    )
+
+                    if chromeState.showsHistoryAction {
+                        iconButton(
+                            systemName: "text.below.folder",
+                            identifier: "chat.header.history",
+                            label: "History",
+                            action: onHistory
+                        )
+                    }
+
+                    if chromeState.showsNewChatAction {
+                        iconButton(
+                            systemName: "plus.message",
+                            identifier: "chat.header.new_chat",
+                            label: "New chat",
+                            action: onNewChat
+                        )
+                    }
+                }
+            }
+        }
+        .padding(.horizontal, spacing.s16)
+        .padding(.top, spacing.s8)
+        .padding(.bottom, spacing.s8)
+        .background(EvaChatSunriseGlass.canvasMid.opacity(0.72))
+        .accessibilityIdentifier("home.chat.topChrome")
+    }
+
+    private func iconButton(
+        systemName: String,
+        identifier: String,
+        label: String,
+        action: @escaping () -> Void
+    ) -> some View {
+        Button(action: action) {
+            Image(systemName: systemName)
+                .lifeboardFont(.headline)
+                .foregroundStyle(EvaChatSunriseGlass.navyMuted)
+                .frame(width: 44, height: 44)
+                .lifeboardPremiumSurface(
+                    cornerRadius: 22,
+                    fillColor: EvaChatSunriseGlass.glassFill,
+                    strokeColor: EvaChatSunriseGlass.glassBorder,
+                    accentColor: EvaChatSunriseGlass.primary,
+                    level: .e1
+                )
+                .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .scaleOnPress()
+        .accessibilityIdentifier(identifier)
+        .accessibilityLabel(label)
+    }
+}

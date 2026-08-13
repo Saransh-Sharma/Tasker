@@ -4,12 +4,12 @@ import XCTest
 final class TaskAgendaPresentationModelTests: XCTestCase {
     func testOverdueTaskMapsToDangerBadgeAndMoveAction() {
         let task = TaskDefinition(
+            projectName: "Work",
             title: "Ship release notes",
             details: "Needs the migration summary",
             priority: .high,
             type: .morning,
-            dueDate: Calendar.current.date(byAdding: .day, value: -1, to: Date()),
-            project: "Work"
+            dueDate: Calendar.current.date(byAdding: .day, value: -1, to: Date())
         )
 
         let presentation = TaskAgendaPresentationModelBuilder.build(
@@ -28,11 +28,11 @@ final class TaskAgendaPresentationModelTests: XCTestCase {
 
     func testTodayTaskIncludesTypeAndProjectInMetadataWhenRequested() {
         let task = TaskDefinition(
+            projectName: "Deep Work",
             title: "Plan focus block",
-            priority: .medium,
+            priority: .low,
             type: .evening,
-            dueDate: Date(),
-            project: "Deep Work"
+            dueDate: Date()
         )
 
         let presentation = TaskAgendaPresentationModelBuilder.build(
@@ -55,7 +55,7 @@ final class TaskAgendaPresentationModelTests: XCTestCase {
             projectID: ProjectConstants.inboxProjectID,
             projectName: ProjectConstants.inboxProjectName,
             title: "Inbox follow-up",
-            priority: .medium,
+            priority: .low,
             type: .morning,
             dueDate: dueDate
         )

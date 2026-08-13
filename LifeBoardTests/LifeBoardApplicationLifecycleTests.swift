@@ -36,16 +36,16 @@ final class LifeBoardApplicationLifecycleTests: XCTestCase {
         let landscapeSize = CGSize(width: 852, height: 393)
 
         XCTAssertGreaterThanOrEqual(
-            LifeBoardLaunchSplashMetrics.iconSide
-                * LifeBoardLaunchSplashMetrics.coverScale(for: portraitSize),
+            LaunchSplashMetrics.iconSide
+                * LaunchSplashMetrics.coverScale(for: portraitSize),
             max(portraitSize.width, portraitSize.height)
-                * LifeBoardLaunchSplashMetrics.coverOverscan
+                * LaunchSplashMetrics.coverOverscan
         )
         XCTAssertGreaterThanOrEqual(
-            LifeBoardLaunchSplashMetrics.iconSide
-                * LifeBoardLaunchSplashMetrics.coverScale(for: landscapeSize),
+            LaunchSplashMetrics.iconSide
+                * LaunchSplashMetrics.coverScale(for: landscapeSize),
             max(landscapeSize.width, landscapeSize.height)
-                * LifeBoardLaunchSplashMetrics.coverOverscan
+                * LaunchSplashMetrics.coverOverscan
         )
     }
 
@@ -144,9 +144,9 @@ final class LifeBoardApplicationLifecycleTests: XCTestCase {
 
         let taskID = UUID()
         center.post(
-            name: LifeBoardNotificationRouteBus.routeDidChange,
+            name: NotificationRouteBus.routeDidChange,
             object: nil,
-            userInfo: ["payload": LifeBoardNotificationRoute.taskDetail(taskID: taskID).payload]
+            userInfo: ["payload": NotificationRoute.taskDetail(taskID: taskID).payload]
         )
 
         wait(for: [eventExpectation], timeout: 1.0)
@@ -168,7 +168,7 @@ final class LifeBoardApplicationLifecycleTests: XCTestCase {
         center.post(name: .lifeboardPersistentSyncModeDidChange, object: nil)
         center.post(name: UIApplication.didBecomeActiveNotification, object: nil)
         center.post(name: UIApplication.significantTimeChangeNotification, object: nil)
-        center.post(name: LifeBoardWorkspacePreferencesStore.didChangeNotification, object: nil)
+        center.post(name: WorkspacePreferencesStore.didChangeNotification, object: nil)
         center.post(name: .homeHabitMutation, object: nil)
         center.post(name: .gamificationLedgerDidMutate, object: nil)
 

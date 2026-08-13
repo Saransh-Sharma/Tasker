@@ -1,5 +1,6 @@
+import LifeBoardContracts
 import SwiftUI
-import WatchCaptureKit
+import LifeBoardContracts
 
 @main
 struct LifeBoardWatchApp: App {

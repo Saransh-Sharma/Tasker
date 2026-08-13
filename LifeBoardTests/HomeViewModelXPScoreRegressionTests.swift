@@ -167,7 +167,7 @@ final class HomeViewModelXPScoreRegressionTests: XCTestCase {
         waitForMainQueueFlush(seconds: 0.35)
 
         let totalXP: Int64 = 980
-        let expectedNextLevelXP = XPCalculationEngine.levelForXP(totalXP).nextThreshold
+        let expectedNextLevelXP = XPCalculationService.levelForXP(totalXP).nextThreshold
         let mutation = GamificationLedgerMutation(
             source: XPSource.manual.rawValue,
             category: .complete,
@@ -178,7 +178,7 @@ final class HomeViewModelXPScoreRegressionTests: XCTestCase {
             previousLevel: 4,
             streakDays: 9,
             didChange: true,
-            dateKey: XPCalculationEngine.periodKey(),
+            dateKey: XPCalculationService.periodKey(),
             occurredAt: Date()
         )
 

@@ -11,7 +11,7 @@ public struct AmbientRenderingPolicy: Equatable, Sendable {
 
     public static func resolve(
         requestedTier: AmbientRenderingTier,
-        comfortProfile: LifeBoardComfortProfile,
+        comfortProfile: ComfortProfile,
         reduceMotion: Bool,
         lowPowerMode: Bool = ProcessInfo.processInfo.isLowPowerModeEnabled,
         thermalState: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
@@ -26,7 +26,7 @@ public struct AmbientRenderingPolicy: Equatable, Sendable {
             effectiveTier = requestedTier
         }
 
-        let maximumParallax: CGFloat
+        var maximumParallax: CGFloat
         let transitionDuration: TimeInterval
         let allowsIdleMotion: Bool
         switch comfortProfile {
@@ -35,13 +35,26 @@ public struct AmbientRenderingPolicy: Equatable, Sendable {
             transitionDuration = 0.18
             allowsIdleMotion = false
         case .balanced:
-            maximumParallax = constrained ? 0 : 4
+            maximumParallax = constrained ? 0 : 18
             transitionDuration = 0.24
             allowsIdleMotion = constrained == false
         case .playful:
-            maximumParallax = constrained ? 0 : 8
+            maximumParallax = constrained ? 0 : 30
             transitionDuration = 0.28
             allowsIdleMotion = constrained == false
+        }
+
+        // The rendering tier is what finally decides how much depth the scene
+        // has. Before this, `effectiveTier` was computed and then read by
+        // nothing at all, so the user-facing "Visual detail" control — Still /
+        // Atmosphere / Depth — changed precisely nothing.
+        switch effectiveTier {
+        case .static:
+            maximumParallax = 0
+        case .ambient2D:
+            break
+        case .enhanced3D:
+            maximumParallax *= 1.8
         }
 
         return AmbientRenderingPolicy(
@@ -56,7 +69,7 @@ public struct AmbientRenderingPolicy: Equatable, Sendable {
 
 // MARK: - Time-driven celestial atmosphere
 
-public enum LifeBoardCelestialPhase: String, Codable, CaseIterable, Hashable, Sendable {
+public enum CelestialPhase: String, Codable, CaseIterable, Hashable, Sendable {
     case dawn
     case morning
     case midday
@@ -118,8 +131,8 @@ public enum LifeBoardCelestialPhase: String, Codable, CaseIterable, Hashable, Se
     }
 }
 
-public struct LifeBoardAtmosphereDescriptor: Equatable, Sendable {
-    public let phase: LifeBoardCelestialPhase
+public struct AtmosphereDescriptor: Equatable, Sendable {
+    public let phase: CelestialPhase
     public let backgroundAsset: String
     public let celestialAsset: String
     public let fallbackHex: String
@@ -135,7 +148,7 @@ public struct LifeBoardAtmosphereDescriptor: Equatable, Sendable {
     /// Exposed on the phase so headers and overlays can ask without building a
     /// whole descriptor, and so there is one answer rather than each surface
     /// re-deciding with its own `phase == .night` check.
-    public static func usesInverseHeaderInk(for phase: LifeBoardCelestialPhase) -> Bool {
+    public static func usesInverseHeaderInk(for phase: CelestialPhase) -> Bool {
         descriptor(for: phase).usesInverseHeaderInk
     }
 
@@ -146,33 +159,33 @@ public struct LifeBoardAtmosphereDescriptor: Equatable, Sendable {
     /// reading column preserves the calm negative-space field the design
     /// contract asks for, and lets each phase differ by mood rather than by
     /// how much text it obscures.
-    public static func descriptor(for phase: LifeBoardCelestialPhase) -> Self {
+    public static func descriptor(for phase: CelestialPhase) -> Self {
         switch phase {
         case .dawn:
-            .init(phase: phase, backgroundAsset: "CelestialDawnBackground", celestialAsset: "CelestialDawn", fallbackHex: LifeBoardSceneHex.dawnFallback, usesInverseHeaderInk: false, scrimStrength: 0.10, celestialAnchorX: 0.74, celestialAnchorY: 0.15, celestialScale: 0.52, compactStarCount: 0, regularStarCount: 0)
+            .init(phase: phase, backgroundAsset: "CelestialDawnBackground", celestialAsset: "CelestialDawn", fallbackHex: SceneHex.dawnFallback, usesInverseHeaderInk: false, scrimStrength: 0.10, celestialAnchorX: 0.74, celestialAnchorY: 0.15, celestialScale: 0.52, compactStarCount: 0, regularStarCount: 0)
         case .morning:
-            .init(phase: phase, backgroundAsset: "CelestialMorningBackground", celestialAsset: "CelestialMorning", fallbackHex: LifeBoardSceneHex.morningFallback, usesInverseHeaderInk: false, scrimStrength: 0.08, celestialAnchorX: 0.76, celestialAnchorY: 0.13, celestialScale: 0.54, compactStarCount: 0, regularStarCount: 0)
+            .init(phase: phase, backgroundAsset: "CelestialMorningBackground", celestialAsset: "CelestialMorning", fallbackHex: SceneHex.morningFallback, usesInverseHeaderInk: false, scrimStrength: 0.08, celestialAnchorX: 0.76, celestialAnchorY: 0.13, celestialScale: 0.54, compactStarCount: 0, regularStarCount: 0)
         case .midday:
-            .init(phase: phase, backgroundAsset: "CelestialMiddayBackground", celestialAsset: "CelestialMidday", fallbackHex: LifeBoardSceneHex.middayFallback, usesInverseHeaderInk: false, scrimStrength: 0.12, celestialAnchorX: 0.78, celestialAnchorY: 0.11, celestialScale: 0.50, compactStarCount: 0, regularStarCount: 0)
+            .init(phase: phase, backgroundAsset: "CelestialMiddayBackground", celestialAsset: "CelestialMidday", fallbackHex: SceneHex.middayFallback, usesInverseHeaderInk: false, scrimStrength: 0.12, celestialAnchorX: 0.78, celestialAnchorY: 0.11, celestialScale: 0.50, compactStarCount: 0, regularStarCount: 0)
         case .goldenHour:
-            .init(phase: phase, backgroundAsset: "CelestialGoldenHourBackground", celestialAsset: "CelestialGoldenHour", fallbackHex: LifeBoardSceneHex.goldenHourFallback, usesInverseHeaderInk: false, scrimStrength: 0.13, celestialAnchorX: 0.74, celestialAnchorY: 0.17, celestialScale: 0.52, compactStarCount: 0, regularStarCount: 0)
+            .init(phase: phase, backgroundAsset: "CelestialGoldenHourBackground", celestialAsset: "CelestialGoldenHour", fallbackHex: SceneHex.goldenHourFallback, usesInverseHeaderInk: false, scrimStrength: 0.13, celestialAnchorX: 0.74, celestialAnchorY: 0.17, celestialScale: 0.52, compactStarCount: 0, regularStarCount: 0)
         case .twilight:
-            .init(phase: phase, backgroundAsset: "CelestialTwilightBackground", celestialAsset: "CelestialTwilight", fallbackHex: LifeBoardSceneHex.twilightFallback, usesInverseHeaderInk: false, scrimStrength: 0.20, celestialAnchorX: 0.76, celestialAnchorY: 0.15, celestialScale: 0.48, compactStarCount: 8, regularStarCount: 12)
+            .init(phase: phase, backgroundAsset: "CelestialTwilightBackground", celestialAsset: "CelestialTwilight", fallbackHex: SceneHex.twilightFallback, usesInverseHeaderInk: false, scrimStrength: 0.20, celestialAnchorX: 0.76, celestialAnchorY: 0.15, celestialScale: 0.48, compactStarCount: 8, regularStarCount: 12)
         case .night:
-            .init(phase: phase, backgroundAsset: "CelestialNightBackground", celestialAsset: "CelestialNight", fallbackHex: LifeBoardSceneHex.nightFallback, usesInverseHeaderInk: true, scrimStrength: 0.30, celestialAnchorX: 0.78, celestialAnchorY: 0.14, celestialScale: 0.46, compactStarCount: 14, regularStarCount: 22)
+            .init(phase: phase, backgroundAsset: "CelestialNightBackground", celestialAsset: "CelestialNight", fallbackHex: SceneHex.nightFallback, usesInverseHeaderInk: true, scrimStrength: 0.30, celestialAnchorX: 0.78, celestialAnchorY: 0.14, celestialScale: 0.46, compactStarCount: 14, regularStarCount: 22)
         }
     }
 }
 
-public struct LifeBoardAtmosphereSnapshot: Equatable, Sendable {
-    public let phase: LifeBoardCelestialPhase
+public struct AtmosphereSnapshot: Equatable, Sendable {
+    public let phase: CelestialPhase
     public let semanticDaypart: ResolvedDaypart
     public let observedAt: Date
     public let nextBoundary: Date
     public let transitionIdentity: String
 
     public init(
-        phase: LifeBoardCelestialPhase,
+        phase: CelestialPhase,
         observedAt: Date,
         nextBoundary: Date,
         transitionIdentity: String? = nil
@@ -185,15 +198,15 @@ public struct LifeBoardAtmosphereSnapshot: Equatable, Sendable {
     }
 
     public static func resolve(at date: Date = Date(), calendar: Calendar = .current) -> Self {
-        let phase = LifeBoardCelestialPhase.resolve(at: date, calendar: calendar)
+        let phase = CelestialPhase.resolve(at: date, calendar: calendar)
         return .init(
             phase: phase,
             observedAt: date,
-            nextBoundary: LifeBoardCelestialPhase.nextBoundary(after: date, calendar: calendar)
+            nextBoundary: CelestialPhase.nextBoundary(after: date, calendar: calendar)
         )
     }
 
-    public func replacingPhase(_ phase: LifeBoardCelestialPhase) -> Self {
+    public func replacingPhase(_ phase: CelestialPhase) -> Self {
         .init(
             phase: phase,
             observedAt: observedAt,
@@ -205,8 +218,8 @@ public struct LifeBoardAtmosphereSnapshot: Equatable, Sendable {
 
 @MainActor
 @Observable
-public final class LifeBoardAtmosphereClock {
-    public private(set) var snapshot: LifeBoardAtmosphereSnapshot
+public final class AtmosphereClock {
+    public private(set) var snapshot: AtmosphereSnapshot
     @ObservationIgnored private let now: @Sendable () -> Date
     @ObservationIgnored private let calendar: @Sendable () -> Calendar
 
@@ -238,84 +251,42 @@ public final class LifeBoardAtmosphereClock {
     }
 }
 
-public enum LifeBoardAtmospherePlacement: String, CaseIterable, Hashable, Sendable {
-    case home, plan, track, insights, eva, onboarding, focusedPresentation
-
-    public static func root(_ destination: LifeBoardDestination) -> Self {
-        switch destination {
-        case .home: .home
-        case .plan: .plan
-        case .track: .track
-        case .insights: .insights
-        case .eva: .eva
-        }
-    }
-
-    var suppressesAmbientDetail: Bool {
-        self == .onboarding || self == .focusedPresentation
-    }
-
-    /// How far down the celestial should sit, as a fraction of screen height
-    /// added to the descriptor's anchor.
-    ///
-    /// Home draws its own header on the open canvas, so the celestial can sit
-    /// high in the trailing corner. Every other root has a navigation bar
-    /// there, and a full-strength sun behind a toolbar makes its controls
-    /// unreadable. Those placements push the celestial below the bar.
-    var celestialAnchorOffset: Double {
-        switch self {
-        case .home, .onboarding, .focusedPresentation: return 0
-        case .plan, .track, .insights, .eva: return 0.14
-        }
-    }
-
-    /// Non-home roots are working surfaces; the celestial is atmosphere there,
-    /// not the subject.
-    var celestialScaleMultiplier: Double {
-        switch self {
-        case .home: return 0.76
-        case .onboarding, .focusedPresentation: return 1
-        case .plan, .track, .insights, .eva: return 0.78
-        }
-    }
+private struct AtmosphereSnapshotKey: EnvironmentKey {
+    static let defaultValue = AtmosphereSnapshot.resolve()
 }
 
-private struct LifeBoardAtmosphereSnapshotKey: EnvironmentKey {
-    static let defaultValue = LifeBoardAtmosphereSnapshot.resolve()
-}
-
-private struct LifeBoardAtmosphereHostedKey: EnvironmentKey {
+private struct AtmosphereHostedKey: EnvironmentKey {
     static let defaultValue = false
 }
 
 extension EnvironmentValues {
-    var lifeBoardAtmosphereSnapshot: LifeBoardAtmosphereSnapshot {
-        get { self[LifeBoardAtmosphereSnapshotKey.self] }
-        set { self[LifeBoardAtmosphereSnapshotKey.self] = newValue }
+    var lifeBoardAtmosphereSnapshot: AtmosphereSnapshot {
+        get { self[AtmosphereSnapshotKey.self] }
+        set { self[AtmosphereSnapshotKey.self] = newValue }
     }
 
     var lifeBoardAtmosphereIsHosted: Bool {
-        get { self[LifeBoardAtmosphereHostedKey.self] }
-        set { self[LifeBoardAtmosphereHostedKey.self] = newValue }
+        get { self[AtmosphereHostedKey.self] }
+        set { self[AtmosphereHostedKey.self] = newValue }
     }
 }
 
-public struct LifeBoardAtmosphereHost<Content: View>: View {
-    private let preferences: LifeBoardPresentationPreferences
-    private let placement: LifeBoardAtmospherePlacement
+public struct AtmosphereHost<Content: View>: View {
+    private let preferences: PresentationPreferences
+    private let placement: AtmospherePlacement
     private let content: Content
-    @State private var clock: LifeBoardAtmosphereClock
+    @State private var clock: AtmosphereClock
 
     public init(
-        preferences: LifeBoardPresentationPreferences,
-        placement: LifeBoardAtmospherePlacement,
-        clock: LifeBoardAtmosphereClock? = nil,
+        preferences: PresentationPreferences,
+        placement: AtmospherePlacement,
+        clock: AtmosphereClock? = nil,
         @ViewBuilder content: () -> Content
     ) {
         self.preferences = preferences
         self.placement = placement
         self.content = content()
-        _clock = State(initialValue: clock ?? LifeBoardAtmosphereClock())
+        _clock = State(initialValue: clock ?? AtmosphereClock())
     }
 
     public var body: some View {
@@ -338,38 +309,43 @@ public struct LifeBoardAtmosphereHost<Content: View>: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in clock.refresh() }
     }
 
-    private var effectiveSnapshot: LifeBoardAtmosphereSnapshot {
-        if let fixture = LifeBoardCelestialPhaseFixture.active {
+    private var effectiveSnapshot: AtmosphereSnapshot {
+        if let fixture = CelestialPhaseFixture.active {
             return clock.snapshot.replacingPhase(fixture.phase)
         }
         _ = preferences.resolvedDaypart(at: clock.snapshot.observedAt)
-        guard let manual = LifeBoardCelestialPhase.manualPhase(for: preferences.daypartSelection) else {
+        guard let manual = CelestialPhase.manualPhase(for: preferences.daypartSelection) else {
             return clock.snapshot
         }
         return clock.snapshot.replacingPhase(manual)
     }
 }
 
-public struct LifeBoardAdaptiveAtmosphere: View {
-    public let snapshot: LifeBoardAtmosphereSnapshot
-    public let placement: LifeBoardAtmospherePlacement
+public struct AdaptiveAtmosphere: View {
+    public let snapshot: AtmosphereSnapshot
+    public let placement: AtmospherePlacement
     public let requestedTier: AmbientRenderingTier
-    public let comfortProfile: LifeBoardComfortProfile
+    public let comfortProfile: ComfortProfile
     public let showsCelestial: Bool
 
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    // Internal rather than private: the motion budget lives in
+    // `AdaptiveAtmosphereMotion.swift` so this view type stays under the
+    // file-size ratchet's per-type ceiling, and an extension in another file
+    // cannot see `private` members.
+    @Environment(\.accessibilityReduceMotion) var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) var reduceTransparency
     @Environment(\.colorSchemeContrast) private var accessibilityContrast
     @Environment(\.colorScheme) private var colorScheme
-    @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.scenePhase) var scenePhase
+    @Environment(\.lifeBoardComposerScrollObserver) var scrollObserver
     @State private var transitionTrigger = 0
-    @State private var powerRevision = 0
+    @State var powerRevision = 0
 
     public init(
-        snapshot: LifeBoardAtmosphereSnapshot,
-        placement: LifeBoardAtmospherePlacement = .home,
+        snapshot: AtmosphereSnapshot,
+        placement: AtmospherePlacement = .home,
         requestedTier: AmbientRenderingTier = .ambient2D,
-        comfortProfile: LifeBoardComfortProfile = .balanced,
+        comfortProfile: ComfortProfile = .balanced,
         showsCelestial: Bool = true
     ) {
         self.snapshot = snapshot
@@ -380,7 +356,7 @@ public struct LifeBoardAdaptiveAtmosphere: View {
     }
 
     public var body: some View {
-        let descriptor = LifeBoardAtmosphereDescriptor.descriptor(for: snapshot.phase)
+        let descriptor = AtmosphereDescriptor.descriptor(for: snapshot.phase)
         GeometryReader { proxy in
             let layout = scenicLayout(for: proxy.size)
             ZStack {
@@ -398,9 +374,12 @@ public struct LifeBoardAdaptiveAtmosphere: View {
                         .clipped()
                 }
 
+                // The scene and the celestial travel in opposite directions as
+                // the content scrolls, so the backdrop separates into planes
+                // instead of reading as one flat picture behind a list.
                 scenicPlane(descriptor: descriptor, layout: layout)
                     .frame(width: layout.width, height: proxy.size.height)
-                    .position(x: layout.midX, y: proxy.size.height / 2)
+                    .position(x: layout.midX, y: proxy.size.height / 2 - parallaxOffset * 0.35)
 
                 if descriptor.compactStarCount > 0, placement.suppressesAmbientDetail == false {
                     starField(descriptor: descriptor, layout: layout, size: proxy.size)
@@ -443,7 +422,7 @@ public struct LifeBoardAdaptiveAtmosphere: View {
 
     /// Wide-layout underlay: the same daypart art, blown out and blurred until
     /// it reads as ambient colour rather than a second picture.
-    private func scenicBed(descriptor: LifeBoardAtmosphereDescriptor) -> some View {
+    private func scenicBed(descriptor: AtmosphereDescriptor) -> some View {
         Image(decorative: descriptor.backgroundAsset)
             .resizable()
             .scaledToFill()
@@ -455,7 +434,7 @@ public struct LifeBoardAdaptiveAtmosphere: View {
             .transition(.opacity)
     }
 
-    private func scenicPlane(descriptor: LifeBoardAtmosphereDescriptor, layout: ScenicLayout) -> some View {
+    private func scenicPlane(descriptor: AtmosphereDescriptor, layout: ScenicLayout) -> some View {
         Image(decorative: descriptor.backgroundAsset)
             .resizable()
             .scaledToFill()
@@ -487,13 +466,13 @@ public struct LifeBoardAdaptiveAtmosphere: View {
             }
     }
 
-    private func phaseWash(descriptor: LifeBoardAtmosphereDescriptor) -> some View {
+    private func phaseWash(descriptor: AtmosphereDescriptor) -> some View {
         let contrastBoost = accessibilityContrast == .increased ? 0.12 : 0
         let darkBoost = colorScheme == .dark ? 0.20 : 0
         return LinearGradient(
             colors: descriptor.usesInverseHeaderInk
-                ? [Color.black.opacity(descriptor.scrimStrength + contrastBoost), Color.clear, Color(LifeBoardColorTokens.foundationCanvas).opacity(0.12 + darkBoost)]
-                : [Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(descriptor.scrimStrength + contrastBoost), Color.clear, Color(LifeBoardColorTokens.foundationCanvas).opacity(darkBoost)],
+                ? [Color.black.opacity(descriptor.scrimStrength + contrastBoost), Color.clear, Color(SemanticColorTokens.foundationCanvas).opacity(0.12 + darkBoost)]
+                : [Color(SemanticColorTokens.foundationSurfaceSolid).opacity(descriptor.scrimStrength + contrastBoost), Color.clear, Color(SemanticColorTokens.foundationCanvas).opacity(darkBoost)],
             startPoint: .top,
             endPoint: .bottom
         )
@@ -514,7 +493,7 @@ public struct LifeBoardAdaptiveAtmosphere: View {
     private func nocturnalVeil() -> some View {
         if colorScheme == .dark {
             let canvas = Color(
-                lifeboardHex: LifeBoardDaypartTokens
+                lifeboardHex: DaypartTokens
                     .darkPalette(for: snapshot.semanticDaypart)
                     .canvas
             )
@@ -534,19 +513,27 @@ public struct LifeBoardAdaptiveAtmosphere: View {
 
     @ViewBuilder
     private func celestial(
-        descriptor: LifeBoardAtmosphereDescriptor,
+        descriptor: AtmosphereDescriptor,
         layout: ScenicLayout,
         size: CGSize
     ) -> some View {
         let policy = motionPolicy
-        let paused = policy.allowsIdleMotion == false || placement.suppressesAmbientDetail || scenePhase != .active
-        TimelineView(.animation(minimumInterval: 1 / 12, paused: paused)) { context in
+        // Gated on `allowsIdleDrift`, not `suppressesAmbientDetail`: a detail
+        // screen should be quieter than Home, not frozen.
+        let paused = policy.allowsIdleMotion == false
+            || placement.allowsIdleDrift == false
+            || scenePhase != .active
+        // 30fps rather than 12: at 12fps a slow drift reads as a stutter rather
+        // than as movement, which is worse than being still. The periods below
+        // are deliberately not whole multiples of one another, so the path
+        // never visibly repeats even though each component is a simple sine.
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: paused)) { context in
             let phase = paused ? 0 : context.date.timeIntervalSinceReferenceDate
-            let amplitude = celestialAmplitude
-            let driftX = CGFloat(sin(phase / 10.8)) * amplitude
-            let driftY = CGFloat(cos(phase / 12.0)) * amplitude * 0.66
-            let rotation = Double(sin(phase / 11.6)) * (comfortProfile == .playful ? 0.15 : 0.10)
-            let breath = 1 + CGFloat(sin(phase / 9.8)) * (comfortProfile == .playful ? 0.004 : 0.003)
+            let amplitude = celestialAmplitude * placement.idleDriftScale
+            let driftX = CGFloat(sin(phase / 4.5)) * amplitude
+            let driftY = CGFloat(cos(phase / 6.7)) * amplitude * 0.66
+            let rotation = Double(sin(phase / 5.9)) * (comfortProfile == .playful ? 1.6 : 0.9)
+            let breath = 1 + CGFloat(sin(phase / 3.8)) * (comfortProfile == .playful ? 0.02 : 0.015)
             // The floor used to be 220pt, which overrode every `celestialScale`
             // below ~0.56 on a compact width and forced a sun large enough to
             // sit behind the greeting. Lowering it lets the descriptor's scale
@@ -562,7 +549,9 @@ public struct LifeBoardAdaptiveAtmosphere: View {
                 .scaleEffect(breath)
                 .position(
                     x: layout.minX + layout.width * descriptor.celestialAnchorX + driftX,
-                    y: size.height * (descriptor.celestialAnchorY + placement.celestialAnchorOffset) + driftY
+                    y: size.height * (descriptor.celestialAnchorY + placement.celestialAnchorOffset)
+                        + driftY
+                        + parallaxOffset
                 )
                 .id(descriptor.celestialAsset)
                 .transition(.opacity.combined(with: .scale(scale: 0.992)))
@@ -570,7 +559,7 @@ public struct LifeBoardAdaptiveAtmosphere: View {
     }
 
     private func starField(
-        descriptor: LifeBoardAtmosphereDescriptor,
+        descriptor: AtmosphereDescriptor,
         layout: ScenicLayout,
         size: CGSize
     ) -> some View {
@@ -578,56 +567,34 @@ public struct LifeBoardAdaptiveAtmosphere: View {
         let count = size.width >= 700 ? descriptor.regularStarCount : descriptor.compactStarCount
         let visibleCount = reduceTransparency ? max(4, count / 2) : count
         let paused = policy.allowsIdleMotion == false || scenePhase != .active
-        return TimelineView(.animation(minimumInterval: 1 / 12, paused: paused)) { context in
+        return TimelineView(.animation(minimumInterval: 1 / 30, paused: paused)) { context in
             let time = paused ? 0 : context.date.timeIntervalSinceReferenceDate
             Canvas(rendersAsynchronously: true) { graphics, canvasSize in
                 for index in 0..<visibleCount {
                     let x = layout.minX + pseudoRandom(index * 41 + 7) * layout.width
                     let y = 18 + pseudoRandom(index * 67 + 19) * canvasSize.height * 0.40
                     let base = 0.8 + pseudoRandom(index * 23 + 3) * 1.4
-                    let cycle = 5 + pseudoRandom(index * 13 + 2) * 5
-                    let wave = paused ? 0.72 : 0.55 + 0.30 * sin((time / cycle + Double(index)) * .pi * 2)
+                    // Shorter, more varied cycles and a deeper swing: the old
+                    // ±0.30 around 0.55 over a 5–10s period was a barely
+                    // perceptible shimmer on a field of 1pt dots.
+                    let cycle = 2.2 + pseudoRandom(index * 13 + 2) * 3.4
+                    let wave = paused ? 0.72 : 0.52 + 0.46 * sin((time / cycle + Double(index)) * .pi * 2)
                     let opacity = reduceTransparency ? max(0.58, wave) : wave
                     let rect = CGRect(x: x, y: y, width: base, height: base)
                     let color = index.isMultiple(of: 3)
-                        ? Color(lifeboardHex: LifeBoardSceneHex.starCool)
-                        : Color(lifeboardHex: LifeBoardSceneHex.starWarm)
+                        ? Color(lifeboardHex: SceneHex.starCool)
+                        : Color(lifeboardHex: SceneHex.starWarm)
                     graphics.fill(Path(ellipseIn: rect), with: .color(color.opacity(opacity)))
                 }
             }
         }
     }
-
-    private var motionPolicy: LifeBoardMotionPolicy {
-        _ = powerRevision
-        return LifeBoardMotionPolicy.resolve(
-            reduceMotion: reduceMotion || LifeBoardVisualAppearanceFixture.active?.usesReducedMotion == true,
-            reduceTransparency: reduceTransparency || LifeBoardVisualAppearanceFixture.active?.usesReducedTransparency == true,
-            sceneIsActive: scenePhase == .active,
-            comfortProfile: comfortProfile,
-            isFocusedPresentation: placement.suppressesAmbientDetail
-        )
-    }
-
-    private var celestialAmplitude: CGFloat {
-        guard motionPolicy.allowsIdleMotion, requestedTier != .static else { return 0 }
-        return switch comfortProfile {
-        case .calm: 0
-        case .balanced: 3
-        case .playful: 4
-        }
-    }
-
-    private func pseudoRandom(_ seed: Int) -> Double {
-        let value = sin(Double(seed) * 12.9898) * 43_758.5453
-        return value - floor(value)
-    }
 }
 
-public struct LifeBoardAtmosphereView: View {
+public struct AtmosphereView: View {
     public let daypart: ResolvedDaypart
     public let requestedTier: AmbientRenderingTier
-    public let comfortProfile: LifeBoardComfortProfile
+    public let comfortProfile: ComfortProfile
 
     @Environment(\.lifeBoardAtmosphereSnapshot) private var sharedSnapshot
     @Environment(\.lifeBoardAtmosphereIsHosted) private var isHosted
@@ -635,7 +602,7 @@ public struct LifeBoardAtmosphereView: View {
     public init(
         daypart: ResolvedDaypart,
         requestedTier: AmbientRenderingTier = .ambient2D,
-        comfortProfile: LifeBoardComfortProfile = .balanced
+        comfortProfile: ComfortProfile = .balanced
     ) {
         self.daypart = daypart
         self.requestedTier = requestedTier
@@ -647,7 +614,7 @@ public struct LifeBoardAtmosphereView: View {
             if isHosted {
                 Color.clear
             } else {
-                LifeBoardAdaptiveAtmosphere(
+                AdaptiveAtmosphere(
                     snapshot: compatibleSnapshot,
                     placement: .track,
                     requestedTier: requestedTier,
@@ -659,9 +626,9 @@ public struct LifeBoardAtmosphereView: View {
         .allowsHitTesting(false)
     }
 
-    private var compatibleSnapshot: LifeBoardAtmosphereSnapshot {
+    private var compatibleSnapshot: AtmosphereSnapshot {
         if sharedSnapshot.semanticDaypart == daypart { return sharedSnapshot }
-        let phase: LifeBoardCelestialPhase
+        let phase: CelestialPhase
         switch daypart {
         case .morning: phase = .morning
         case .afternoon: phase = .midday
@@ -677,7 +644,7 @@ public struct LifeBoardAtmosphereView: View {
 /// The user-supplied paper artwork is intentionally kept separate from the
 /// transparent celestial assets. This lets daypart motion move one small
 /// decorative layer while the readable canvas remains perfectly stable.
-public struct LifeBoardScenicBackdrop: View {
+public struct ScenicBackdrop: View {
     public enum Scene: String, CaseIterable, Sendable {
         case home
         case plan
@@ -687,7 +654,7 @@ public struct LifeBoardScenicBackdrop: View {
     public let scene: Scene
     public let daypart: ResolvedDaypart
     public let requestedTier: AmbientRenderingTier
-    public let comfortProfile: LifeBoardComfortProfile
+    public let comfortProfile: ComfortProfile
     public let showsSun: Bool
 
     @Environment(\.lifeBoardAtmosphereSnapshot) private var sharedSnapshot
@@ -697,7 +664,7 @@ public struct LifeBoardScenicBackdrop: View {
         scene: Scene,
         daypart: ResolvedDaypart,
         requestedTier: AmbientRenderingTier = .ambient2D,
-        comfortProfile: LifeBoardComfortProfile = .balanced,
+        comfortProfile: ComfortProfile = .balanced,
         showsSun: Bool = true
     ) {
         self.scene = scene
@@ -712,7 +679,7 @@ public struct LifeBoardScenicBackdrop: View {
             if isHosted {
                 Color.clear
             } else {
-                LifeBoardAdaptiveAtmosphere(
+                AdaptiveAtmosphere(
                     snapshot: compatibleSnapshot,
                     placement: placement,
                     requestedTier: requestedTier,
@@ -725,7 +692,7 @@ public struct LifeBoardScenicBackdrop: View {
         .allowsHitTesting(false)
     }
 
-    private var placement: LifeBoardAtmospherePlacement {
+    private var placement: AtmospherePlacement {
         switch scene {
         case .home: .home
         case .plan: .plan
@@ -733,9 +700,9 @@ public struct LifeBoardScenicBackdrop: View {
         }
     }
 
-    private var compatibleSnapshot: LifeBoardAtmosphereSnapshot {
+    private var compatibleSnapshot: AtmosphereSnapshot {
         if sharedSnapshot.semanticDaypart == daypart { return sharedSnapshot }
-        let phase: LifeBoardCelestialPhase
+        let phase: CelestialPhase
         switch daypart {
         case .morning: phase = .morning
         case .afternoon: phase = .midday
@@ -750,14 +717,14 @@ public struct LifeBoardScenicBackdrop: View {
 
 /// Opaque reading surface for information. Glass is intentionally excluded
 /// from this component so text, charts, forms, and lists remain quiet.
-public struct LifeBoardPaperSection<Content: View>: View {
+public struct PaperSection<Content: View>: View {
     private let content: Content
     private let cornerRadius: CGFloat
     private let padding: CGFloat
     @Environment(\.colorSchemeContrast) private var contrast
 
     public init(
-        cornerRadius: CGFloat = LifeBoardFoundationRadius.card,
+        cornerRadius: CGFloat = Radius.card,
         padding: CGFloat = 16,
         @ViewBuilder content: () -> Content
     ) {
@@ -769,22 +736,22 @@ public struct LifeBoardPaperSection<Content: View>: View {
     public var body: some View {
         content
             .padding(padding)
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             .background(
-                Color(LifeBoardColorTokens.foundationSurfaceSolid),
+                Color(SemanticColorTokens.foundationSurfaceSolid),
                 in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             )
             .overlay {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                     .stroke(
-                        Color(LifeBoardColorTokens.foundationHairline),
+                        Color(SemanticColorTokens.foundationHairline),
                         lineWidth: contrast == .increased ? 1.5 : 1
                     )
             }
     }
 }
 
-public struct LifeBoardTactileTile<Label: View>: View {
+public struct TactileTile<Label: View>: View {
     private let action: () -> Void
     private let accessibilityLabel: String
     private let label: Label
@@ -801,19 +768,19 @@ public struct LifeBoardTactileTile<Label: View>: View {
 
     public var body: some View {
         Button {
-            LifeBoardFeedback.selection()
+            HapticFeedback.selection()
             action()
         } label: {
             label
                 .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                 .contentShape(Rectangle())
         }
-        .buttonStyle(LifeBoardTactileTileButtonStyle())
+        .buttonStyle(TactileTileButtonStyle())
         .accessibilityLabel(accessibilityLabel)
     }
 }
 
-public struct LifeBoardTactileTileButtonStyle: ButtonStyle {
+public struct TactileTileButtonStyle: ButtonStyle {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     public init() {}
@@ -822,12 +789,12 @@ public struct LifeBoardTactileTileButtonStyle: ButtonStyle {
         configuration.label
             .padding(12)
             .background(
-                Color(LifeBoardColorTokens.foundationSurfaceSolid),
-                in: RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.card, style: .continuous)
+                Color(SemanticColorTokens.foundationSurfaceSolid),
+                in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
             )
             .overlay {
-                RoundedRectangle(cornerRadius: LifeBoardFoundationRadius.card, style: .continuous)
-                    .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
+                RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+                    .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
             }
             .scaleEffect(configuration.isPressed && reduceMotion == false ? 0.97 : 1)
             .brightness(configuration.isPressed ? -0.025 : 0)
@@ -835,7 +802,7 @@ public struct LifeBoardTactileTileButtonStyle: ButtonStyle {
     }
 }
 
-public enum LifeBoardVisualFixtureRoot: String, CaseIterable, Sendable {
+public enum VisualFixtureRoot: String, CaseIterable, Sendable {
     case home
     case plan
     case track
@@ -843,7 +810,7 @@ public enum LifeBoardVisualFixtureRoot: String, CaseIterable, Sendable {
     case eva
 }
 
-public enum LifeBoardVisualFixtureState: String, CaseIterable, Sendable {
+public enum VisualFixtureState: String, CaseIterable, Sendable {
     case populated
     case empty
     case loading
@@ -857,16 +824,16 @@ public enum LifeBoardVisualFixtureState: String, CaseIterable, Sendable {
 
 /// Deterministic, launch-argument driven fixtures used by screenshot and UI
 /// tests. The production app never enters one of these states implicitly.
-public struct LifeBoardVisualFixture: Equatable, Identifiable, Sendable {
+public struct VisualFixture: Equatable, Identifiable, Sendable {
     public static let launchArgumentPrefix = "-LIFEBOARD_VISUAL_FIXTURE="
 
-    public let root: LifeBoardVisualFixtureRoot
-    public let state: LifeBoardVisualFixtureState
+    public let root: VisualFixtureRoot
+    public let state: VisualFixtureState
 
     public var id: String { "\(root.rawValue).\(state.rawValue)" }
     public var launchArgument: String { "\(Self.launchArgumentPrefix)\(root.rawValue):\(state.rawValue)" }
 
-    public init(root: LifeBoardVisualFixtureRoot, state: LifeBoardVisualFixtureState) {
+    public init(root: VisualFixtureRoot, state: VisualFixtureState) {
         self.root = root
         self.state = state
     }
@@ -876,14 +843,14 @@ public struct LifeBoardVisualFixture: Equatable, Identifiable, Sendable {
         let payload = argument.dropFirst(Self.launchArgumentPrefix.count)
         let components = payload.split(separator: ":", maxSplits: 1).map(String.init)
         guard components.count == 2,
-              let root = LifeBoardVisualFixtureRoot(rawValue: components[0]),
-              let state = LifeBoardVisualFixtureState(rawValue: components[1]) else { return nil }
+              let root = VisualFixtureRoot(rawValue: components[0]),
+              let state = VisualFixtureState(rawValue: components[1]) else { return nil }
         self.init(root: root, state: state)
     }
 
-    public static let catalog: [LifeBoardVisualFixture] = LifeBoardVisualFixtureRoot.allCases.flatMap { root in
-        LifeBoardVisualFixtureState.allCases.map { state in
-            LifeBoardVisualFixture(root: root, state: state)
+    public static let catalog: [VisualFixture] = VisualFixtureRoot.allCases.flatMap { root in
+        VisualFixtureState.allCases.map { state in
+            VisualFixture(root: root, state: state)
         }
     }
 }
@@ -892,58 +859,21 @@ public struct LifeBoardVisualFixture: Equatable, Identifiable, Sendable {
 /// launch argument is present. Keeping this separate from user preferences
 /// lets the evidence suite exercise comfort modes without mutating Simulator
 /// global settings or changing production behavior.
-public enum LifeBoardVisualAppearanceFixture: String, CaseIterable, Sendable {
-    case light
-    case dark
-    case highContrastLight = "high-contrast-light"
-    case highContrastDark = "high-contrast-dark"
-    case reducedTransparency = "reduced-transparency"
-    case reducedMotion = "reduced-motion"
-    case grayscale
-
-    public static let launchArgumentPrefix = "-LIFEBOARD_VISUAL_APPEARANCE="
-
-    public static var active: LifeBoardVisualAppearanceFixture? {
-        LifeBoardVisualAppearanceFixture(arguments: ProcessInfo.processInfo.arguments)
-    }
-
-    public init?(arguments: [String]) {
-        guard let argument = arguments.first(where: { $0.hasPrefix(Self.launchArgumentPrefix) }) else {
-            return nil
-        }
-        self.init(rawValue: String(argument.dropFirst(Self.launchArgumentPrefix.count)))
-    }
-
-    public var launchArgument: String { "\(Self.launchArgumentPrefix)\(rawValue)" }
-
-    public var preferredColorScheme: ColorScheme {
-        self == .dark || self == .highContrastDark ? .dark : .light
-    }
-
-    public var usesHighContrast: Bool {
-        self == .highContrastLight || self == .highContrastDark
-    }
-
-    public var usesReducedTransparency: Bool { self == .reducedTransparency }
-    public var usesReducedMotion: Bool { self == .reducedMotion }
-    public var usesGrayscale: Bool { self == .grayscale }
-}
-
 /// Screenshot/UI-test-only phase override. It is intentionally launch-argument
 /// driven and never persisted to presentation preferences.
-public struct LifeBoardCelestialPhaseFixture: Equatable, Sendable {
+public struct CelestialPhaseFixture: Equatable, Sendable {
     public static let launchArgumentPrefix = "-LIFEBOARD_CELESTIAL_PHASE="
-    public let phase: LifeBoardCelestialPhase
+    public let phase: CelestialPhase
 
     public static var active: Self? { Self(arguments: ProcessInfo.processInfo.arguments) }
 
-    public init(phase: LifeBoardCelestialPhase) {
+    public init(phase: CelestialPhase) {
         self.phase = phase
     }
 
     public init?(arguments: [String]) {
         guard let argument = arguments.first(where: { $0.hasPrefix(Self.launchArgumentPrefix) }),
-              let phase = LifeBoardCelestialPhase(rawValue: String(argument.dropFirst(Self.launchArgumentPrefix.count))) else {
+              let phase = CelestialPhase(rawValue: String(argument.dropFirst(Self.launchArgumentPrefix.count))) else {
             return nil
         }
         self.phase = phase
@@ -952,17 +882,17 @@ public struct LifeBoardCelestialPhaseFixture: Equatable, Sendable {
     public var launchArgument: String { "\(Self.launchArgumentPrefix)\(phase.rawValue)" }
 }
 
-public struct LifeBoardVisualFixtureSurface: View {
-    public let fixture: LifeBoardVisualFixture
+public struct VisualFixtureSurface: View {
+    public let fixture: VisualFixture
 
-    public init(fixture: LifeBoardVisualFixture) {
+    public init(fixture: VisualFixture) {
         self.fixture = fixture
     }
 
     public var body: some View {
         ZStack {
             Color.clear.ignoresSafeArea()
-            LifeBoardStatusSurface(
+            StatusSurface(
                 state: statusState,
                 title: copy.title,
                 message: copy.message,
@@ -974,7 +904,7 @@ public struct LifeBoardVisualFixtureSurface: View {
         .accessibilityIdentifier("fixture.\(fixture.id)")
     }
 
-    private var statusState: LifeBoardStatusSurface.State {
+    private var statusState: StatusSurface.State {
         switch fixture.state {
         case .populated, .empty: .empty
         case .loading: .loading
@@ -1003,21 +933,43 @@ public struct LifeBoardVisualFixtureSurface: View {
     }
 }
 
-public struct LifeBoardStatusSurface: View {
+public struct StatusSurface: View {
     public enum State: Equatable, Sendable {
         case loading
+        /// Nothing here yet, and that is a fine place to be — a successful
+        /// empty. Offers one next step.
         case empty
+        /// Nothing has been *recorded*. Distinct from `empty` (which is about a
+        /// collection) and from a zero (which is a measurement). DESIGN.md:
+        /// "Never infer completion, health, wellbeing, or urgency from missing
+        /// evidence", and "unknown data is not zero".
+        case noRecord
         case stale
         case offline
         case denied
+        /// Not supported on this device, OS version, or region. Nothing the
+        /// person can do, so this state never offers a retry.
+        case unavailable
         case recoverableError
         case locked
         case destructiveConfirmation
     }
 
+    /// How much room the surface takes.
+    ///
+    /// `.compact` exists so a state can replace a *row* rather than a screen.
+    /// The 42 raw `ContentUnavailableView` call sites in the app are mostly
+    /// inline: a full-height empty state inside a list section is why screens
+    /// reached for their own one-off instead of this type.
+    public enum Density: Equatable, Sendable {
+        case standard
+        case compact
+    }
+
     private let state: State
     private let title: String
     private let message: String
+    private let density: Density
     private let actionTitle: String?
     private let action: (() -> Void)?
 
@@ -1025,42 +977,57 @@ public struct LifeBoardStatusSurface: View {
         state: State,
         title: String,
         message: String,
+        density: Density = .standard,
         actionTitle: String? = nil,
         action: (() -> Void)? = nil
     ) {
         self.state = state
         self.title = title
         self.message = message
+        self.density = density
         self.actionTitle = actionTitle
         self.action = action
     }
 
     public var body: some View {
-        LifeBoardPaperSection {
-            HStack(alignment: .top, spacing: 12) {
-                statusIcon
-                    .frame(width: 28, height: 28)
-
-                VStack(alignment: .leading, spacing: 5) {
-                    Text(title)
-                        .font(.headline)
-                    Text(message)
-                        .font(.subheadline)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    if let actionTitle, let action {
-                        Button(actionTitle, action: action)
-                            .buttonStyle(.bordered)
-                            .controlSize(.regular)
-                            .padding(.top, 4)
-                    }
-                }
-                Spacer(minLength: 0)
+        Group {
+            if density == .compact {
+                // No PaperSection: a compact state sits inside a section that
+                // already has its own surface, and nesting one card inside
+                // another is exactly what DESIGN.md's "don't nest cards" rule
+                // is about.
+                inner
+            } else {
+                PaperSection { inner }
             }
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("lifeboard.status.\(accessibilityIdentifierSuffix)")
+    }
+
+    private var inner: some View {
+        HStack(alignment: .top, spacing: density == .compact ? 10 : 12) {
+            statusIcon
+                .frame(width: density == .compact ? 20 : 28, height: density == .compact ? 20 : 28)
+
+            VStack(alignment: .leading, spacing: density == .compact ? 2 : 5) {
+                Text(title)
+                    .font(density == .compact ? .subheadline.weight(.medium) : .headline)
+                Text(message)
+                    .font(density == .compact ? .caption : .subheadline)
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    .fixedSize(horizontal: false, vertical: true)
+
+                if let actionTitle, let action {
+                    Button(actionTitle, action: action)
+                        .buttonStyle(.bordered)
+                        .controlSize(density == .compact ? .small : .regular)
+                        .padding(.top, density == .compact ? 2 : 4)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, density == .compact ? 6 : 0)
     }
 
     @ViewBuilder
@@ -1069,7 +1036,7 @@ public struct LifeBoardStatusSurface: View {
             ProgressView().controlSize(.small)
         } else {
             Image(systemName: systemImage)
-                .font(.system(size: 18, weight: .semibold))
+                .lifeboardFont(.title2)
                 .foregroundStyle(iconColor)
         }
     }
@@ -1078,9 +1045,14 @@ public struct LifeBoardStatusSurface: View {
         switch state {
         case .loading: "hourglass"
         case .empty: "sparkles"
+        // Deliberately not "sparkles". An empty collection is an invitation;
+        // an absent recording is simply a gap, and dressing it up as a
+        // celebration is how an interface implies a measurement it never took.
+        case .noRecord: "minus.circle"
         case .stale: "clock.arrow.circlepath"
         case .offline: "wifi.slash"
         case .denied: "hand.raised"
+        case .unavailable: "circle.slash"
         case .recoverableError: "arrow.clockwise.circle"
         case .locked: "lock"
         case .destructiveConfirmation: "exclamationmark.triangle"
@@ -1091,7 +1063,9 @@ public struct LifeBoardStatusSurface: View {
         switch state {
         case .recoverableError, .destructiveConfirmation:
             Color.lifeboard(.statusWarning)
-        case .denied, .locked:
+        case .denied, .locked, .noRecord, .unavailable:
+            // Quiet ink, never a status colour. These are absences, and
+            // colouring an absence reads as a problem the person has to fix.
             Color.lifeboard(.textSecondary)
         default:
             Color.lifeboard(.accentPrimary)
@@ -1102,9 +1076,11 @@ public struct LifeBoardStatusSurface: View {
         switch state {
         case .loading: "loading"
         case .empty: "empty"
+        case .noRecord: "noRecord"
         case .stale: "stale"
         case .offline: "offline"
         case .denied: "denied"
+        case .unavailable: "unavailable"
         case .recoverableError: "error"
         case .locked: "locked"
         case .destructiveConfirmation: "confirmation"
@@ -1114,23 +1090,15 @@ public struct LifeBoardStatusSurface: View {
 
 /// The general reading/content surface. Depth geometry lives in
 /// `LifeBoardClaySurface`; this only pins the ink and the card radius.
-public struct LifeBoardPaperCardModifier: ViewModifier {
-    public func body(content: Content) -> some View {
-        content
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-            .lifeBoardClaySurface(.raised, cornerRadius: LifeBoardFoundationRadius.card)
-    }
-}
-
-public struct LifeBoardGlassSurfaceModifier: ViewModifier {
+public struct GlassSurfaceModifier: ViewModifier {
     public let cornerRadius: CGFloat
     public let interactive: Bool
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     public func body(content: Content) -> some View {
-        if reduceTransparency || LifeBoardVisualAppearanceFixture.active?.usesReducedTransparency == true {
+        if reduceTransparency || VisualAppearanceFixture.active?.usesReducedTransparency == true {
             content.background(
-                Color(LifeBoardColorTokens.foundationSurfaceSolid),
+                Color(SemanticColorTokens.foundationSurfaceSolid),
                 in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
             )
         } else {
@@ -1144,12 +1112,8 @@ public struct LifeBoardGlassSurfaceModifier: ViewModifier {
 }
 
 public extension View {
-    func lifeBoardPaperCard() -> some View {
-        modifier(LifeBoardPaperCardModifier())
-    }
-
-    func lifeBoardGlassSurface(cornerRadius: CGFloat = LifeBoardFoundationRadius.largeCard, interactive: Bool = false) -> some View {
-        modifier(LifeBoardGlassSurfaceModifier(cornerRadius: cornerRadius, interactive: interactive))
+    func lifeBoardGlassSurface(cornerRadius: CGFloat = Radius.largeCard, interactive: Bool = false) -> some View {
+        modifier(GlassSurfaceModifier(cornerRadius: cornerRadius, interactive: interactive))
     }
 }
 
@@ -1165,7 +1129,7 @@ public extension View {
 /// top highlight this comment has always promised.
 public extension View {
     func lifeBoardRaisedClayCard(
-        palette: LifeBoardDaypartPalette,
+        palette: DaypartPalette,
         cornerRadius: CGFloat = 20
     ) -> some View {
         lifeBoardClaySurface(
@@ -1176,7 +1140,7 @@ public extension View {
     }
 
     func lifeBoardFloatingClayCard(
-        palette: LifeBoardDaypartPalette,
+        palette: DaypartPalette,
         cornerRadius: CGFloat = 24
     ) -> some View {
         lifeBoardClaySurface(
@@ -1187,7 +1151,7 @@ public extension View {
     }
 
     func lifeBoardEmbeddedClayWell(
-        palette: LifeBoardDaypartPalette,
+        palette: DaypartPalette,
         cornerRadius: CGFloat = 14
     ) -> some View {
         lifeBoardClaySurface(
@@ -1198,11 +1162,11 @@ public extension View {
     }
 }
 
-public extension LifeBoardDaypartPalette {
+public extension DaypartPalette {
     /// The fill a clay surface takes on this palette. Nocturnal compositions
     /// lift off their own layer colours so cards stay part of the scene
     /// instead of punching bright holes in it.
-    func clayFill(for depth: LifeBoardClayDepth) -> Color {
+    func clayFill(for depth: ClayDepth) -> Color {
         switch depth {
         case .well:
             return isNocturnal
@@ -1211,11 +1175,11 @@ public extension LifeBoardDaypartPalette {
         case .resting, .raised:
             return isNocturnal
                 ? color(for: .layerOne)
-                : Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.94)
+                : Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.94)
         case .floating:
             return isNocturnal
                 ? color(for: .layerOne)
-                : Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.97)
+                : Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.97)
         }
     }
 }
@@ -1225,10 +1189,15 @@ public extension LifeBoardDaypartPalette {
 /// The shared circular signal used by Home, Track, and Insights. Values
 /// animate only when they change; empty and setup states stay visually and
 /// semantically distinct from an honest zero.
-public struct LifeBoardMetricRing: View {
+public struct MetricRing: View {
     public enum RingState: Equatable, Sendable {
         case loading
+        /// Authorized, but nothing recorded yet. Tapping can add a value.
         case setupRequired
+        /// Never authorized, so there is nothing to show and nothing to add.
+        /// Distinct from `setupRequired`: the way forward is a permission, not
+        /// an entry.
+        case permissionRequired
         case unavailable
         case stale(progress: Double, centerText: String)
         case zero(centerText: String)
@@ -1239,7 +1208,7 @@ public struct LifeBoardMetricRing: View {
     private let label: String
     private let state: RingState
     private let diameter: CGFloat
-    private let palette: LifeBoardDaypartPalette
+    private let palette: DaypartPalette
     /// When set, the interior renders a rising liquid surface (hydration,
     /// fasting) instead of staying empty — the ported wave fill.
     private let liquidTint: Color?
@@ -1249,7 +1218,7 @@ public struct LifeBoardMetricRing: View {
         label: String,
         state: RingState,
         diameter: CGFloat = 60,
-        palette: LifeBoardDaypartPalette,
+        palette: DaypartPalette,
         liquidTint: Color? = nil
     ) {
         self.label = label
@@ -1261,7 +1230,7 @@ public struct LifeBoardMetricRing: View {
 
     private var progress: Double {
         switch state {
-        case .loading, .setupRequired, .unavailable, .zero: 0
+        case .loading, .setupRequired, .permissionRequired, .unavailable, .zero: 0
         case .stale(let progress, _), .value(let progress, _): min(1, max(0, progress))
         case .complete: 1
         }
@@ -1269,7 +1238,7 @@ public struct LifeBoardMetricRing: View {
 
     private var centerText: String? {
         switch state {
-        case .loading, .setupRequired, .unavailable: nil
+        case .loading, .setupRequired, .permissionRequired, .unavailable: nil
         case .stale(_, let text), .zero(let text), .value(_, let text), .complete(let text): text
         }
     }
@@ -1280,15 +1249,15 @@ public struct LifeBoardMetricRing: View {
                 Circle()
                     .stroke(
                         Color(trackIsTheSignal
-                            ? LifeBoardColorTokens.metricRingTrackProminent
-                            : LifeBoardColorTokens.metricRingTrack),
+                            ? SemanticColorTokens.metricRingTrackProminent
+                            : SemanticColorTokens.metricRingTrack),
                         style: StrokeStyle(
                             lineWidth: trackIsTheSignal ? 3 : 5,
                             dash: usesDashedTrack ? [3, 5] : []
                         )
                     )
                 if let liquidTint, permitsProgressLayer {
-                    LifeBoardLiquidFill(level: progress, tint: liquidTint)
+                    LiquidFill(level: progress, tint: liquidTint)
                         .clipShape(Circle().inset(by: 4))
                         .allowsHitTesting(false)
                 }
@@ -1317,7 +1286,7 @@ public struct LifeBoardMetricRing: View {
                         .padding(.horizontal, 7)
                 } else if let statusSymbol {
                     Image(systemName: statusSymbol)
-                        .font(.system(size: 13, weight: .semibold))
+                        .lifeboardFont(.meta)
                         .foregroundStyle(palette.color(for: .foregroundSecondary))
                 }
             }
@@ -1334,17 +1303,17 @@ public struct LifeBoardMetricRing: View {
 
     private var ringColor: Color {
         if case .complete = state {
-            return Color(LifeBoardColorTokens.foundationSageAccent)
+            return Color(SemanticColorTokens.foundationSageAccent)
         }
         if case .stale = state {
-            return Color(LifeBoardColorTokens.foundationApricotAccent)
+            return Color(SemanticColorTokens.foundationApricotAccent)
         }
-        return Color(LifeBoardColorTokens.metricRingFill)
+        return Color(SemanticColorTokens.metricRingFill)
     }
 
     private var usesDashedTrack: Bool {
         switch state {
-        case .setupRequired, .unavailable, .stale: true
+        case .setupRequired, .permissionRequired, .unavailable, .stale: true
         default: false
         }
     }
@@ -1353,7 +1322,7 @@ public struct LifeBoardMetricRing: View {
     /// communicating state and has to carry full non-text contrast.
     private var trackIsTheSignal: Bool {
         switch state {
-        case .setupRequired, .unavailable: true
+        case .setupRequired, .permissionRequired, .unavailable: true
         default: false
         }
     }
@@ -1361,13 +1330,16 @@ public struct LifeBoardMetricRing: View {
     private var permitsProgressLayer: Bool {
         switch state {
         case .stale, .value, .complete: true
-        case .loading, .setupRequired, .unavailable, .zero: false
+        case .loading, .setupRequired, .permissionRequired, .unavailable, .zero: false
         }
     }
 
     private var statusSymbol: String? {
         switch state {
         case .setupRequired: "plus"
+        // Not "plus": a "+" promises that tapping adds a value, which is
+        // exactly what a declined permission cannot do.
+        case .permissionRequired: "hand.raised"
         case .unavailable: "slash"
         default: nil
         }
@@ -1377,6 +1349,7 @@ public struct LifeBoardMetricRing: View {
         switch state {
         case .loading: "Loading"
         case .setupRequired: "Set up"
+        case .permissionRequired: "Not shared"
         case .unavailable: "Unavailable"
         case .stale(let progress, let text): "\(text), out of date, \(Int((min(1, max(0, progress)) * 100).rounded())) percent"
         case .zero(let text): "\(text), no progress recorded"

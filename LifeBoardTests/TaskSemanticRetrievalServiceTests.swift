@@ -178,18 +178,18 @@ final class TaskSemanticRetrievalServiceTests: XCTestCase {
     }
 
     func testCosineSimilarityIsDeterministic() {
-        let similarity = TaskEmbeddingEngine.cosineSimilarity([1, 2, 3], [1, 2, 3])
-        let orthogonal = TaskEmbeddingEngine.cosineSimilarity([1, 0], [0, 1])
+        let similarity = TaskEmbeddingService.cosineSimilarity([1, 2, 3], [1, 2, 3])
+        let orthogonal = TaskEmbeddingService.cosineSimilarity([1, 0], [0, 1])
 
         XCTAssertEqual(similarity, 1.0, accuracy: 0.000_01)
         XCTAssertEqual(orthogonal, 0.0, accuracy: 0.000_01)
     }
 
     private func makeService(
-        vectorProvider: @escaping TaskEmbeddingEngine.VectorProvider
+        vectorProvider: @escaping TaskEmbeddingService.VectorProvider
     ) -> TaskSemanticRetrievalService {
         TaskSemanticRetrievalService(
-            embeddingEngine: TaskEmbeddingEngine(vectorProvider: vectorProvider),
+            embeddingEngine: TaskEmbeddingService(vectorProvider: vectorProvider),
             indexStore: TaskSemanticIndexStore(fileName: "task-semantic-test-\(UUID().uuidString).bin")
         )
     }

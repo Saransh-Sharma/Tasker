@@ -1,6 +1,7 @@
 import Combine
 import Observation
 import SwiftUI
+import LifeBoardDomain
 import UIKit
 
 struct AdaptiveTimelineItem: Equatable, Identifiable, Sendable {
@@ -31,7 +32,7 @@ private struct HomeTodayStoryItem: Identifiable, Equatable {
     let title: String
     let detail: String
     let symbol: String
-    let destination: LifeBoardDestination
+    let destination: Destination
 }
 
 /// App-level composition for the canonical Home projection.
@@ -112,7 +113,7 @@ final class AdaptiveHomeStore {
     @ObservationIgnored private let repository: (any DashboardLayoutRepository)?
     @ObservationIgnored private var contextCandidates: [HomeContextCandidate] = []
     @ObservationIgnored private var permitsSensitiveContext = false
-    @ObservationIgnored private let contextEngine: HomeContextEngine
+    @ObservationIgnored private let contextEngine: HomeContextService
     @ObservationIgnored private let contextPreferences: HomeContextPreferenceStore
     @ObservationIgnored let registry: DashboardWidgetRegistry
 
@@ -124,7 +125,7 @@ final class AdaptiveHomeStore {
     ) {
         self.repository = repository
         self.registry = registry
-        contextEngine = HomeContextEngine(policy: contextPolicy)
+        contextEngine = HomeContextService(policy: contextPolicy)
         self.contextPreferences = contextPreferences
         layout = DashboardLayoutValue(
             mode: .smart,
@@ -169,7 +170,7 @@ final class AdaptiveHomeStore {
             configuration.placement.sectionOverride = .userSpace
             configuration.placement.smartSlot = nil
         }
-        layout.placements = HomeGridPackingEngine.normalized(layout.placements + [placement])
+        layout.placements = HomeGridPackingService.normalized(layout.placements + [placement])
     }
 
     func beginCustomization() {
@@ -427,16 +428,7 @@ final class HomeContextPreferenceStore {
     }
 }
 
-public enum LifeBoardJournalMood: String, Codable, CaseIterable, Hashable, Identifiable, Sendable {
-    case none, angry, sad, anxious, tired, calm, grateful, happy, excited
-
-    public var id: String { rawValue }
-    public var title: String { rawValue.capitalized }
-
-    public static let dialOrder: [LifeBoardJournalMood] = [
-        .angry, .sad, .anxious, .tired, .none, .calm, .grateful, .happy, .excited
-    ]
-
+extension JournalMood {
     var supportiveCopy: String {
         switch self {
         case .none: return "Nothing to force."
@@ -481,27 +473,27 @@ public enum LifeBoardJournalMood: String, Codable, CaseIterable, Hashable, Ident
     }
 }
 
-struct LifeBoardJournalMoodDialSheet: View {
-    @Binding var selectedMood: LifeBoardJournalMood
+struct JournalMoodDialSheet: View {
+    @Binding var selectedMood: JournalMood
     let onSave: (Int?) -> Void
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var draftMood: LifeBoardJournalMood
+    @State private var draftMood: JournalMood
     @State private var stage: Stage = .mood
     @State private var energy = 3.0
     @State private var includesEnergy = false
 
     private enum Stage { case mood, energy }
 
-    init(selectedMood: Binding<LifeBoardJournalMood>, onSave: @escaping (Int?) -> Void) {
+    init(selectedMood: Binding<JournalMood>, onSave: @escaping (Int?) -> Void) {
         _selectedMood = selectedMood
         _draftMood = State(initialValue: selectedMood.wrappedValue)
         self.onSave = onSave
     }
 
     var body: some View {
-        let palette = LifeBoardDaypartTokens.palette(for: .afternoon)
+        let palette = DaypartTokens.palette(for: .afternoon)
         ZStack {
             LinearGradient(
                 colors: [palette.color(for: .canvas), palette.color(for: .canvasSecondary)],
@@ -526,7 +518,7 @@ struct LifeBoardJournalMoodDialSheet: View {
         .accessibilityIdentifier("journal.moodDial.sheet")
     }
 
-    private func header(palette: LifeBoardDaypartPalette) -> some View {
+    private func header(palette: DaypartPalette) -> some View {
         HStack {
             Button("Cancel") { dismiss() }
                 .frame(minWidth: 56, minHeight: 44)
@@ -551,7 +543,7 @@ struct LifeBoardJournalMoodDialSheet: View {
         .padding(.top, 10)
     }
 
-    private func moodStage(palette: LifeBoardDaypartPalette) -> some View {
+    private func moodStage(palette: DaypartPalette) -> some View {
         GeometryReader { proxy in
             VStack(spacing: 8) {
                 ZStack {
@@ -570,19 +562,19 @@ struct LifeBoardJournalMoodDialSheet: View {
                 .frame(width: min(proxy.size.width * 0.62, 280), height: min(proxy.size.width * 0.48, 220))
 
                 Text(draftMood.title)
-                    .font(.system(.title, design: .rounded, weight: .semibold))
+                    .lifeboardFont(.screenTitle)
                 Text(draftMood.supportiveCopy)
                     .font(.body)
                     .foregroundStyle(palette.color(for: .foregroundSecondary))
 
-                LifeBoardJournalMoodWheel(selectedMood: $draftMood, palette: palette)
+                JournalMoodWheel(selectedMood: $draftMood, palette: palette)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
             .padding(.top, 8)
         }
     }
 
-    private func energyStage(palette: LifeBoardDaypartPalette) -> some View {
+    private func energyStage(palette: DaypartPalette) -> some View {
         VStack(spacing: 26) {
             Spacer()
             Image(draftMood.largeAssetName)
@@ -591,7 +583,7 @@ struct LifeBoardJournalMoodDialSheet: View {
                 .frame(width: 140, height: 140)
                 .accessibilityHidden(true)
             Text(includesEnergy ? energyLabel : "Energy is optional")
-                .font(.system(.title2, design: .rounded, weight: .semibold))
+                .lifeboardFont(.metric)
             Toggle("Add an energy signal", isOn: $includesEnergy)
                 .font(.headline)
                 .padding(16)
@@ -600,7 +592,7 @@ struct LifeBoardJournalMoodDialSheet: View {
                 // A dial rather than a slider: energy is a level being tuned,
                 // not a position on a line, and the arc keeps the five detents
                 // far enough apart to hit without looking.
-                LifeBoardArcDial(
+                ArcDial(
                     title: "Energy",
                     value: $energy,
                     range: 1...5,
@@ -632,9 +624,9 @@ struct LifeBoardJournalMoodDialSheet: View {
     }
 }
 
-private struct LifeBoardJournalMoodWheel: View {
-    @Binding var selectedMood: LifeBoardJournalMood
-    let palette: LifeBoardDaypartPalette
+private struct JournalMoodWheel: View {
+    @Binding var selectedMood: JournalMood
+    let palette: DaypartPalette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
@@ -642,7 +634,7 @@ private struct LifeBoardJournalMoodWheel: View {
             let diameter = max(420, proxy.size.width * 1.36)
             let center = CGPoint(x: proxy.size.width / 2, y: diameter / 2 + 62)
             ZStack {
-                ForEach(Array(LifeBoardJournalMood.dialOrder.enumerated()), id: \.element.id) { index, mood in
+                ForEach(Array(JournalMood.dialOrder.enumerated()), id: \.element.id) { index, mood in
                     let angle = angleDegrees(for: index)
                     let radians = angle * .pi / 180
                     Button {
@@ -662,7 +654,7 @@ private struct LifeBoardJournalMoodWheel: View {
                             )
                             .overlay(Circle().stroke(Color.lifeboard(.textInverse).opacity(0.62), lineWidth: 1))
                             .shadow(
-                                color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(mood == selectedMood ? 0.2 : 0.08),
+                                color: Color(SemanticColorTokens.foundationWarmShadow).opacity(mood == selectedMood ? 0.2 : 0.08),
                                 radius: mood == selectedMood ? 10 : 4,
                                 y: 3
                             )
@@ -691,32 +683,32 @@ private struct LifeBoardJournalMoodWheel: View {
             .accessibilityValue(selectedMood.title)
             .accessibilityHint("Swipe up or down to change mood")
             .accessibilityAdjustableAction { direction in
-                let current = LifeBoardJournalMood.dialOrder.firstIndex(of: selectedMood) ?? 4
+                let current = JournalMood.dialOrder.firstIndex(of: selectedMood) ?? 4
                 let next: Int
                 switch direction {
-                case .increment: next = min(current + 1, LifeBoardJournalMood.dialOrder.count - 1)
+                case .increment: next = min(current + 1, JournalMood.dialOrder.count - 1)
                 case .decrement: next = max(current - 1, 0)
                 @unknown default: return
                 }
-                select(LifeBoardJournalMood.dialOrder[next])
+                select(JournalMood.dialOrder[next])
             }
         }
     }
 
     private func angleDegrees(for index: Int) -> Double {
-        205 + Double(index) * (130 / Double(max(1, LifeBoardJournalMood.dialOrder.count - 1)))
+        205 + Double(index) * (130 / Double(max(1, JournalMood.dialOrder.count - 1)))
     }
 
-    private func nearestMood(to point: CGPoint, center: CGPoint) -> LifeBoardJournalMood {
+    private func nearestMood(to point: CGPoint, center: CGPoint) -> JournalMood {
         let raw = atan2(point.y - center.y, point.x - center.x) * 180 / .pi
         let normalized = raw < 0 ? raw + 360 : raw
-        let index = LifeBoardJournalMood.dialOrder.indices.min {
+        let index = JournalMood.dialOrder.indices.min {
             abs(angleDegrees(for: $0) - normalized) < abs(angleDegrees(for: $1) - normalized)
         } ?? 4
-        return LifeBoardJournalMood.dialOrder[index]
+        return JournalMood.dialOrder[index]
     }
 
-    private func select(_ mood: LifeBoardJournalMood) {
+    private func select(_ mood: JournalMood) {
         guard mood != selectedMood else { return }
         if reduceMotion {
             selectedMood = mood
@@ -727,7 +719,7 @@ private struct LifeBoardJournalMoodWheel: View {
     }
 }
 
-struct LifeBoardOverlayHost<Overlay: View, Control: View>: View {
+struct OverlayHost<Overlay: View, Control: View>: View {
     let isPresented: Bool
     let overlay: () -> Overlay
     let control: () -> Control
@@ -773,12 +765,12 @@ private struct HomeTaskAgendaDatePicker: View {
     }
 }
 
-struct LifeBoardAdaptiveHome: View {
+struct AdaptiveHome: View {
     let projectionAdapter: HomeProjectionCoordinator
-    let preferences: LifeBoardPresentationPreferences
-    let router: LifeBoardAppRouter
+    let preferences: PresentationPreferences
+    let router: AppRouter
     let captureRouter: CaptureRouter
-    let phaseIIRepository: (any LifeBoardPhaseIIRepository)?
+    let phaseIIRepository: (any PhaseIIRepository)?
     private let hasPlanningRepository: Bool
     /// Retained so the day-loop stage can ask whether today already has an
     /// applied close receipt. Already passed in for the context providers; this
@@ -794,8 +786,8 @@ struct LifeBoardAdaptiveHome: View {
 
     @State private var store: AdaptiveHomeStore
     @State private var lifeOSStore: HomeLifeOSProjectionStore
-    @State private var healthStore = LifeBoardHealthRuntime.shared.connectionStore
-    @State private var selectedMood: LifeBoardJournalMood = .none
+    @State private var healthStore = HealthCoordinator.shared.connectionStore
+    @State private var selectedMood: JournalMood = .none
     @State private var moodEnergy: Int?
     @State private var showsMoodDial = false
     @State private var captureOrbState = CaptureOrbPresentationState()
@@ -838,14 +830,14 @@ struct LifeBoardAdaptiveHome: View {
 
     init(
         projectionAdapter: HomeProjectionCoordinator,
-        preferences: LifeBoardPresentationPreferences,
-        router: LifeBoardAppRouter,
+        preferences: PresentationPreferences,
+        router: AppRouter,
         captureRouter: CaptureRouter,
         repository: (any DashboardLayoutRepository)?,
-        phaseIIRepository: (any LifeBoardPhaseIIRepository)? = nil,
+        phaseIIRepository: (any PhaseIIRepository)? = nil,
         planningRepository: CoreDataPlanningRepository? = nil,
         trackFoundationRepository: CoreDataTrackFoundationRepository? = nil,
-        goalSampleProvider: (any GoalSampleProvider)? = nil,
+        goalSampleProvider: (any GoalSampleRepository)? = nil,
         wellnessRepository: (any WellnessRepository)? = nil,
         nutritionRepository: (any NutritionRepository)? = nil,
         lifeMomentRepository: (any LifeMomentRepository)? = nil,
@@ -862,24 +854,24 @@ struct LifeBoardAdaptiveHome: View {
         self.hasTrackFoundationRepository = trackFoundationRepository != nil
         self.showsEmbeddedComposer = showsEmbeddedComposer
         self.onCustomizationChanged = onCustomizationChanged
-        var candidateProviders: [any HomeContextCandidateProvider] = []
+        var candidateProviders: [any HomeContextCandidateSource] = []
         if let planningRepository {
-            candidateProviders.append(PlanningHomeContextCandidateProvider(repository: planningRepository))
+            candidateProviders.append(PlanningHomeContextCandidateSource(repository: planningRepository))
         }
         if let phaseIIRepository {
-            candidateProviders.append(JournalHomeContextCandidateProvider(repository: phaseIIRepository))
-            candidateProviders.append(WeeklyReflectionHomeContextCandidateProvider(repository: phaseIIRepository))
-            candidateProviders.append(JournalMemoryHomeContextCandidateProvider(repository: phaseIIRepository))
-            candidateProviders.append(FastingHomeContextCandidateProvider(
-                repository: LifeBoardFastingRepositoryAdapter(repository: phaseIIRepository)
+            candidateProviders.append(JournalHomeContextCandidateSource(repository: phaseIIRepository))
+            candidateProviders.append(WeeklyReflectionHomeContextCandidateSource(repository: phaseIIRepository))
+            candidateProviders.append(JournalMemoryHomeContextCandidateSource(repository: phaseIIRepository))
+            candidateProviders.append(FastingHomeContextCandidateSource(
+                repository: FastingRepositoryAdapter(repository: phaseIIRepository)
             ))
         }
         if let trackFoundationRepository {
-            candidateProviders.append(GoalHomeContextCandidateProvider(repository: trackFoundationRepository))
-            candidateProviders.append(RoutineHomeContextCandidateProvider(repository: trackFoundationRepository))
+            candidateProviders.append(GoalHomeContextCandidateSource(repository: trackFoundationRepository))
+            candidateProviders.append(RoutineHomeContextCandidateSource(repository: trackFoundationRepository))
         }
         if let lifeMomentRepository {
-            candidateProviders.append(LifeMomentContextCandidateProvider(repository: lifeMomentRepository))
+            candidateProviders.append(LifeMomentContextCandidateSource(repository: lifeMomentRepository))
         }
         self.contextProviderRegistry = HomeContextCandidateProviderRegistry(providers: candidateProviders)
         _store = State(initialValue: AdaptiveHomeStore(repository: repository))
@@ -890,21 +882,22 @@ struct LifeBoardAdaptiveHome: View {
             goalSampleProvider: goalSampleProvider,
             wellnessRepository: wellnessRepository,
             nutritionRepository: nutritionRepository,
-            lifeMomentRepository: lifeMomentRepository
+            lifeMomentRepository: lifeMomentRepository,
+            healthMetrics: HealthCoordinator.shared.metricsReader
         ))
     }
 
     var body: some View {
         @Bindable var store = store
         let daypart = atmosphereSnapshot.semanticDaypart
-        let palette = LifeBoardDaypartTokens.functionalPalette(for: daypart, colorScheme: colorScheme)
+        let palette = DaypartTokens.functionalPalette(for: daypart, colorScheme: colorScheme)
         let ambientPalette = daypart == .night && horizontalSizeClass == .regular
-            ? LifeBoardDaypartTokens.palette(for: daypart)
+            ? DaypartTokens.palette(for: daypart)
             : palette
 
         ZStack(alignment: .bottom) {
             if atmosphereIsHosted == false {
-                LifeBoardScenicBackdrop(
+                ScenicBackdrop(
                     scene: .home,
                     daypart: daypart,
                     requestedTier: preferences.renderingTier,
@@ -921,7 +914,7 @@ struct LifeBoardAdaptiveHome: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 20) {
                     if let errorMessage = store.errorMessage {
-                        LifeBoardStatusSurface(
+                        StatusSurface(
                             state: .stale,
                             title: "Showing your safe Home layout",
                             message: errorMessage,
@@ -944,9 +937,28 @@ struct LifeBoardAdaptiveHome: View {
                         "Signals",
                         palette: ambientPalette
                     )
-                    signalRowWidget(palette: ambientPalette)
+                    HomeSignalRow(
+                        lifeOSStore: lifeOSStore,
+                        healthStore: healthStore,
+                        router: router,
+                        captureRouter: captureRouter,
+                        hasTrackFoundationRepository: hasTrackFoundationRepository,
+                        hasPhaseIIRepository: phaseIIRepository != nil,
+                        palette: ambientPalette,
+                        reduceMotion: reduceMotion,
+                        showsFastEndReceipt: $showsFastEndReceipt,
+                        showsFastingError: $showsFastingError,
+                        fastingStateChangeTrigger: $fastingStateChangeTrigger
+                    )
                     if showsFastEndReceipt {
-                        fastingEndReceipt(palette: ambientPalette)
+                        HomeFastingEndReceipt(
+                            lifeOSStore: lifeOSStore,
+                            palette: ambientPalette,
+                            reduceMotion: reduceMotion,
+                            showsFastEndReceipt: $showsFastEndReceipt,
+                            showsFastingError: $showsFastingError,
+                            fastingStateChangeTrigger: $fastingStateChangeTrigger
+                        )
                             .transition(.asymmetric(
                                 insertion: .scale(scale: 0.96, anchor: .top).combined(with: .opacity),
                                 removal: .opacity
@@ -967,11 +979,21 @@ struct LifeBoardAdaptiveHome: View {
                     }
 
                     if budget.showsDayAhead {
-                        todayStorySection(palette: palette)
+                        HomeTodayStorySection(
+                            projectionAdapter: projectionAdapter,
+                            lifeOSStore: lifeOSStore,
+                            router: router,
+                            palette: palette
+                        )
                     }
 
                     if budget.showsNeedsAttention, store.contextSelection.candidates.count > 1 {
-                        needsAttentionSection(palette: palette)
+                        HomeNeedsAttentionSection(
+                            store: store,
+                            router: router,
+                            palette: palette,
+                            onPinAfterAction: pinContextAfterAction
+                        )
                     }
 
                     placementSection(
@@ -1043,6 +1065,7 @@ struct LifeBoardAdaptiveHome: View {
             .onScrollPhaseChange { _, phase in
                 store.setContextFrozen(phase != .idle, reason: "home-scroll")
             }
+            .lifeBoardReportsComposerScroll()
 
         }
         // The screen changing time of day should feel like weather moving
@@ -1050,11 +1073,22 @@ struct LifeBoardAdaptiveHome: View {
         .lifeboardDaypartCrossDissolve(trigger: daypartTransitionTrigger, daypart: daypart)
         .safeAreaInset(edge: .bottom, spacing: 8) {
             if store.isCustomizing {
-                customizationActionBar(palette: palette)
+                HomeCustomizationActionBar(
+                    store: store,
+                    palette: palette,
+                    motionAnimation: motionAnimation
+                )
                     .padding(.horizontal, 16)
                     .padding(.bottom, 4)
             } else if showsEmbeddedComposer {
-                lifeThreadComposer(palette: palette)
+                HomeLifeThreadComposer(
+                    store: store,
+                    router: router,
+                    captureRouter: captureRouter,
+                    palette: palette,
+                    composerText: $composerText,
+                    composerIsFocused: $composerIsFocused
+                )
                     .padding(.horizontal, 16)
                     .padding(.bottom, 4)
             }
@@ -1077,7 +1111,7 @@ struct LifeBoardAdaptiveHome: View {
             refreshContextSelection(boundary: .appForeground)
         }
         .task {
-            let updates = await HealthSyncInvalidationHub.shared.updates()
+            let updates = await HealthSyncInvalidationService.shared.updates()
             for await _ in updates {
                 guard Task.isCancelled == false else { return }
                 await lifeOSStore.load()
@@ -1125,7 +1159,7 @@ struct LifeBoardAdaptiveHome: View {
             AdaptiveWidgetGallery(store: store, preferences: preferences)
         }
         .fullScreenCover(isPresented: $showsMoodDial) {
-            LifeBoardJournalMoodDialSheet(selectedMood: $selectedMood) { energy in
+            JournalMoodDialSheet(selectedMood: $selectedMood) { energy in
                 moodEnergy = energy
                 Task {
                     await lifeOSStore.saveMood(selectedMood, energy: energy)
@@ -1134,7 +1168,12 @@ struct LifeBoardAdaptiveHome: View {
             }
         }
         .sheet(item: $contextReasonCandidate) { candidate in
-            contextReasonSheet(candidate, palette: palette)
+            HomeContextReasonSheet(
+                candidate: candidate,
+                store: store,
+                palette: palette,
+                contextReasonCandidate: $contextReasonCandidate
+            )
                 .presentationDetents([.height(300), .medium])
                 .presentationDragIndicator(.visible)
         }
@@ -1233,7 +1272,7 @@ struct LifeBoardAdaptiveHome: View {
     private func homeContextCandidates(now: Date) -> [HomeContextCandidate] {
         var candidates: [HomeContextCandidate] = []
         if let hero = lifeOSStore.heroSnapshot {
-            let destination: LifeBoardDestination = switch hero.priority {
+            let destination: Destination = switch hero.priority {
             case .safetySensitiveCare, .timedRoutine: .track
             case .activeFocus, .fixedCommitment, .urgentPlannedWork, .generalFocus, .recovery: .plan
             }
@@ -1266,40 +1305,15 @@ struct LifeBoardAdaptiveHome: View {
     /// A section heading carries the section's *state*, not an explanation of
     /// itself.
     ///
-    /// This previously took a mandatory `detail:` string, so every section was
-    /// structurally required to have a subtitle. Home opened with "A small,
-    /// explainable view of what matters next.", "The signals that are useful
-    /// right now." and "Your cards stay exactly where you put them." — three
-    /// lines that described the interface to the person already looking at it,
-    /// and together cost roughly a quarter of the first viewport. `state` is
-    /// now optional and reserved for information the user cannot see at a
-    /// glance: a count, a time, a number needing attention.
+    /// The heading itself is `HomeSectionHeading`; this is the call-site
+    /// spelling the sections already use.
     private func homeSectionHeading(
         _ title: String,
         state: String? = nil,
-        palette: LifeBoardDaypartPalette,
+        palette: DaypartPalette,
         usesInverseInk: Bool = false
-    ) -> some View {
-        let primary = usesInverseInk
-            ? Color.lifeboard(.textInverse)
-            : palette.color(for: .foreground)
-        let secondary = usesInverseInk
-            ? Color.lifeboard(.textInverse).opacity(0.78)
-            : palette.color(for: .foregroundSecondary)
-        return HStack(alignment: .firstTextBaseline, spacing: 8) {
-            Text(title)
-                .font(LifeBoardFoundationTypography.sectionTitle())
-                .foregroundStyle(primary)
-            if let state {
-                Text(state)
-                    .font(.footnote.weight(.medium))
-                    .foregroundStyle(secondary)
-                    .monospacedDigit()
-                    .lineLimit(1)
-            }
-            Spacer(minLength: 0)
-        }
-        .accessibilityElement(children: .combine)
+    ) -> HomeSectionHeading {
+        HomeSectionHeading(title, state: state, palette: palette, usesInverseInk: usesInverseInk)
     }
 
     /// Says how many things are actually asking for attention, which the user
@@ -1316,7 +1330,7 @@ struct LifeBoardAdaptiveHome: View {
     ///   passes `header: nil` to its deck.
     @ViewBuilder
     private func nowSection(
-        palette: LifeBoardDaypartPalette,
+        palette: DaypartPalette,
         showsHeading: Bool = true
     ) -> some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -1329,12 +1343,22 @@ struct LifeBoardAdaptiveHome: View {
                 )
             }
             if store.contextSelection.candidates.isEmpty {
-                focusNowWidget(palette: palette)
+                HomeFocusNowWidget(
+                    lifeOSStore: lifeOSStore,
+                    projectionAdapter: projectionAdapter,
+                    router: router,
+                    captureRouter: captureRouter,
+                    palette: palette
+                )
             } else if let candidate = store.contextSelection.candidates.first {
-                contextCard(
-                    candidate,
+                HomeContextCard(
+                    candidate: candidate,
+                    store: store,
+                    router: router,
                     palette: palette,
-                    accessibilityIdentifier: "home.hero"
+                    accessibilityIdentifier: "home.hero",
+                    contextReasonCandidate: $contextReasonCandidate,
+                    onPinAfterAction: { pinContextAfterAction($0) }
                 )
             }
         }
@@ -1342,144 +1366,6 @@ struct LifeBoardAdaptiveHome: View {
         // Its contents can legitimately swap from Focus to a context card as
         // providers hydrate, so the stable identity belongs on the region.
         .accessibilityIdentifier("home.hero")
-    }
-
-    private func needsAttentionSection(palette: LifeBoardDaypartPalette) -> some View {
-        let candidates = Array(store.contextSelection.candidates.dropFirst().prefix(3))
-        return VStack(alignment: .leading, spacing: 10) {
-            homeSectionHeading(
-                "Needs attention",
-                state: "\(candidates.count)",
-                palette: palette
-            )
-            ForEach(candidates) { candidate in
-                Button {
-                    pinContextAfterAction(candidate)
-                    router.select(candidate.destination)
-                } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: symbol(for: candidate.widgetKind))
-                            .frame(width: 30, height: 30)
-                            .background(palette.color(for: .canvasSecondary), in: Circle())
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(candidate.title)
-                                .font(.subheadline.weight(.semibold))
-                            Text(candidate.reason.message)
-                                .font(.caption)
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                                .lineLimit(2)
-                        }
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption.weight(.semibold))
-                    }
-                    .padding(.vertical, 8)
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-        }
-        .padding(14)
-        .lifeBoardRaisedClayCard(palette: palette)
-        .accessibilityIdentifier("home.needsAttention")
-    }
-
-    private func contextCard(
-        _ candidate: HomeContextCandidate,
-        palette: LifeBoardDaypartPalette,
-        accessibilityIdentifier: String
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 10) {
-                Image(systemName: symbol(for: candidate.widgetKind))
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 34, height: 34)
-                    .background(palette.color(for: .canvasSecondary), in: Circle())
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(candidate.title)
-                        .font(.system(.headline, design: .rounded, weight: .semibold))
-                        .lineLimit(2)
-                    Text(candidate.reason.message)
-                        .font(.caption)
-                        .foregroundStyle(palette.color(for: .foregroundSecondary))
-                        .lineLimit(2)
-                }
-                Spacer(minLength: 0)
-                Menu {
-                    Button("Why this?", systemImage: "info.circle") {
-                        contextReasonCandidate = candidate
-                    }
-                    Button("Keep on Home", systemImage: "pin") {
-                        store.pinContext(candidate)
-                        Task { await store.saveCustomization() }
-                    }
-                    Menu("Move to Section", systemImage: "rectangle.3.group") {
-                        ForEach(
-                            [HomeSectionRole.today, .keepSteady, .closeLoop, .userSpace],
-                            id: \.self
-                        ) { section in
-                            Button(section.title) {
-                                store.pinContext(candidate, section: section)
-                                Task { await store.saveCustomization() }
-                            }
-                        }
-                    }
-                    Button("Hide for today", systemImage: "sun.horizon") {
-                        store.hideContextForToday(candidate)
-                    }
-                    Button("Suggest less often", systemImage: "arrow.down.right") {
-                        store.suggestContextLessOften(candidate)
-                    }
-                    Button("Never suggest this", systemImage: "eye.slash", role: .destructive) {
-                        store.neverSuggestContext(candidate)
-                    }
-                } label: {
-                    Image(systemName: "ellipsis")
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                }
-                .accessibilityLabel("Options for \(candidate.title)")
-            }
-
-            Button {
-                pinContextAfterAction(candidate)
-                if let route = candidate.route {
-                    // `navigate` rather than `select` + `push`: it lets the root
-                    // change finish before the typed leaf is appended, so a
-                    // just-popped empty path cannot be written over the new
-                    // route. Root selection alone never leaves a blank frame now
-                    // (`LifeBoardRootRetention`), but the ordering still matters.
-                    router.navigate(route, in: candidate.destination)
-                } else {
-                    router.select(candidate.destination)
-                }
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-            } label: {
-                HStack {
-                    Text(candidate.actionTitle)
-                    Spacer()
-                    Image(systemName: "arrow.up.right")
-                }
-                .font(.subheadline.weight(.semibold))
-                .frame(minHeight: 44)
-            }
-            .buttonStyle(.plain)
-            .lifeBoardTransitionSource(
-                candidate.route?.spatialTransitionID ?? "route.home.context.\(candidate.id)"
-            )
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
-        .lifeBoardFloatingClayCard(palette: palette)
-        .accessibilityElement(children: .contain)
-        .accessibilityLabel(candidate.title)
-        .accessibilityHint(candidate.reason.message)
-        .accessibilityIdentifier(accessibilityIdentifier)
-        .simultaneousGesture(
-            DragGesture(minimumDistance: 0)
-                .onChanged { _ in store.setContextFrozen(true, reason: "context-touch") }
-                .onEnded { _ in store.setContextFrozen(false, reason: "context-touch") }
-        )
     }
 
     private func pinContextAfterAction(_ candidate: HomeContextCandidate) {
@@ -1491,203 +1377,6 @@ struct LifeBoardAdaptiveHome: View {
         }
         store.pinContext(candidate, section: section)
         Task { await store.saveCustomization() }
-    }
-
-    private func contextReasonSheet(
-        _ candidate: HomeContextCandidate,
-        palette: LifeBoardDaypartPalette
-    ) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                Image(systemName: "sparkles")
-                    .font(.title2)
-                Text("Why this is here")
-                    .font(.system(.title2, design: .rounded, weight: .bold))
-                Spacer()
-            }
-            Text(candidate.reason.message)
-                .font(.body)
-            Label("Based on \(candidate.reason.signal)", systemImage: "checkmark.shield")
-                .font(.subheadline)
-                .foregroundStyle(palette.color(for: .foregroundSecondary))
-            Spacer()
-            Button("Keep on Home") {
-                store.pinContext(candidate)
-                contextReasonCandidate = nil
-                Task { await store.saveCustomization() }
-            }
-            .buttonStyle(.borderedProminent)
-            .frame(maxWidth: .infinity)
-        }
-        .padding(24)
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid))
-    }
-
-    private func todayStorySection(palette: LifeBoardDaypartPalette) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            homeSectionHeading(
-                "Day ahead",
-                state: todayStoryItems.isEmpty ? nil : "\(todayStoryItems.count) moments",
-                palette: palette
-            )
-            VStack(spacing: 0) {
-                ForEach(todayStoryItems) { item in
-                    Button {
-                        router.select(item.destination)
-                    } label: {
-                        HStack(alignment: .top, spacing: 12) {
-                            Image(systemName: item.symbol)
-                                .font(.system(size: 15, weight: .semibold))
-                                .frame(width: 30, height: 30)
-                                .background(palette.color(for: .canvasSecondary), in: Circle())
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(item.title)
-                                    .font(.subheadline.weight(.semibold))
-                                Text(item.detail)
-                                    .font(.caption)
-                                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                        }
-                        .padding(.vertical, 13)
-                    }
-                    .buttonStyle(.plain)
-                    if item.id != todayStoryItems.last?.id {
-                        Divider().padding(.leading, 42)
-                    }
-                }
-            }
-            .padding(.horizontal, 14)
-            .lifeBoardRaisedClayCard(palette: palette)
-        }
-        .accessibilityIdentifier("home.todayStory")
-    }
-
-    private var todayStoryItems: [HomeTodayStoryItem] {
-        var items: [HomeTodayStoryItem] = []
-        if projectionAdapter.snapshot.openTaskCount > 0 {
-            items.append(.init(
-                id: "tasks",
-                title: "Today is still in motion",
-                detail: "\(projectionAdapter.snapshot.openTaskCount) open tasks remain; choose what still deserves today.",
-                symbol: "checklist",
-                destination: .plan
-            ))
-        }
-        if let mood = lifeOSStore.latestMood {
-            items.append(.init(
-                id: "mood",
-                title: "You checked in as \(mood.mood.title.lowercased())",
-                detail: mood.energy.map { "Energy was \($0) out of 5." } ?? "No energy score was needed.",
-                symbol: "face.smiling",
-                destination: .track
-            ))
-        }
-        if projectionAdapter.snapshot.completionRate > 0 {
-            // This read "N% of today's planned work is complete", which broke
-            // the copy law twice on a closed day. It reported 100% after an
-            // evening reconciliation where one task was carried to tomorrow and
-            // one was let go — neither is completion — and it asserted a
-            // confident percentage for a day that had nothing scheduled at all,
-            // so "absent" rendered as "100%". Counts say what happened; a rate
-            // says what someone should conclude from it.
-            let openCount = projectionAdapter.snapshot.openTaskCount
-            items.append(.init(
-                id: "progress",
-                title: "Progress is settling in",
-                detail: openCount == 0
-                    ? "Nothing you committed to is still open."
-                    : "\(openCount) still open.",
-                symbol: "chart.line.uptrend.xyaxis",
-                destination: .insights
-            ))
-        }
-        if items.isEmpty {
-            items.append(.init(
-                id: "empty",
-                title: "The day is still open",
-                detail: "Capture one thought or choose one useful next step.",
-                symbol: "sparkles",
-                destination: .eva
-            ))
-        }
-        return Array(items.prefix(3))
-    }
-
-    private func lifeThreadComposer(palette: LifeBoardDaypartPalette) -> some View {
-        HStack(spacing: 10) {
-            Menu {
-                Button("Task", systemImage: "checkmark.circle") {
-                    captureRouter.request(kind: .task, source: .shell)
-                }
-                Button("Journal", systemImage: "book.closed") {
-                    captureRouter.request(kind: .journal, source: .shell)
-                }
-                Button("Mood + Energy", systemImage: "face.smiling") {
-                    captureRouter.request(kind: .mood, source: .shell)
-                }
-                Button("Hydration", systemImage: "drop.fill") {
-                    captureRouter.request(kind: .hydration, source: .shell)
-                }
-            } label: {
-                Image(systemName: "plus")
-                    .font(.system(size: 17, weight: .semibold))
-                    .frame(width: 44, height: 44)
-            }
-            .accessibilityLabel("Capture something")
-
-            TextField("Talk to Eva or capture anything", text: $composerText, axis: .vertical)
-                .lineLimit(1...4)
-                .focused($composerIsFocused)
-                .submitLabel(.send)
-                .onSubmit(submitComposer)
-                .accessibilityIdentifier("home.lifeThread.composer")
-
-            Button(action: composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                   ? { captureRouter.request(kind: .journal, source: .shell) }
-                   : submitComposer) {
-                Image(systemName: composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                      ? "waveform"
-                      : "arrow.up")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
-                    .frame(width: 44, height: 44)
-                    .background(Color(LifeBoardColorTokens.inkPrimary), in: Circle())
-            }
-            .accessibilityLabel(
-                composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    ? "Record in Journal"
-                    : "Send to Eva"
-            )
-        }
-        .padding(8)
-        .lifeBoardGlassSurface(cornerRadius: 27, interactive: true)
-        .overlay {
-            RoundedRectangle(cornerRadius: 27, style: .continuous)
-                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
-        }
-        .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.18), radius: 14, y: 8)
-    }
-
-    private func submitComposer() {
-        let prompt = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard prompt.isEmpty == false else { return }
-        do {
-            try EvaChatLaunchRequestStore.shared.submit(.init(prompt: prompt))
-            composerText = ""
-            composerIsFocused = false
-            router.select(.eva)
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        } catch {
-            store.dismissError()
-        }
-    }
-
-    private func symbol(for kind: DashboardWidgetKind) -> String {
-        store.registry.descriptor(for: kind)?.systemImage ?? "square.grid.2x2"
     }
 
     /// Section membership now comes from `DashboardWidgetDescriptor.sectionRole`.
@@ -1761,8 +1450,8 @@ struct LifeBoardAdaptiveHome: View {
         _ title: String,
         placements: [DashboardWidgetPlacementValue],
         daypart: ResolvedDaypart,
-        palette: LifeBoardDaypartPalette,
-        ambientPalette: LifeBoardDaypartPalette
+        palette: DaypartPalette,
+        ambientPalette: DaypartPalette
     ) -> some View {
         if placements.isEmpty == false {
             homeSectionHeading(title, palette: ambientPalette)
@@ -1790,8 +1479,8 @@ struct LifeBoardAdaptiveHome: View {
     @ViewBuilder
     private func userSpaceSection(
         daypart: ResolvedDaypart,
-        palette: LifeBoardDaypartPalette,
-        ambientPalette: LifeBoardDaypartPalette
+        palette: DaypartPalette,
+        ambientPalette: DaypartPalette
     ) -> some View {
         // Rendered even with nothing in it. This section used to appear only once
         // `supportingPlacements` was non-empty or customization was already
@@ -1868,35 +1557,6 @@ struct LifeBoardAdaptiveHome: View {
         }
     }
 
-    private func customizationActionBar(palette: LifeBoardDaypartPalette) -> some View {
-        HStack(spacing: 12) {
-            Button("Cancel") {
-                withAnimation(motionAnimation) { store.cancelCustomization() }
-            }
-            .frame(minWidth: 88, minHeight: 48)
-            .accessibilityIdentifier("home.customization.cancel")
-
-            Spacer(minLength: 8)
-
-            Button("Done") {
-                Task { await store.saveCustomization() }
-            }
-            .fontWeight(.semibold)
-            .frame(minWidth: 88, minHeight: 48)
-            .accessibilityIdentifier("home.customization.done")
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
-        .foregroundStyle(palette.color(for: .foreground))
-        .lifeBoardGlassSurface(cornerRadius: 28, interactive: true)
-        .overlay {
-            RoundedRectangle(cornerRadius: 28, style: .continuous)
-                .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.customization.actions")
-    }
-
     private var motionAnimation: Animation? {
         guard reduceMotion == false, preferences.comfortProfile != .calm else {
             return .easeInOut(duration: 0.18)
@@ -1918,308 +1578,48 @@ struct LifeBoardAdaptiveHome: View {
         return isExpandedTaskCard ? 0 : 1
     }
 
-    @ViewBuilder
+    /// Builds one dashboard card. Deliberately returns the concrete
+    /// `HomeDashboardWidget` rather than `some View`: the card's own `body`
+    /// then runs in its own stack frame instead of being inlined here.
     private func dashboardWidget(
         for placement: DashboardWidgetPlacementValue,
         daypart: ResolvedDaypart,
-        palette: LifeBoardDaypartPalette
-    ) -> some View {
-        let kind = resolvedWidgetKind(for: placement, daypart: daypart)
-        let preset = effectivePreset(for: placement.semanticSize)
-        VStack(spacing: store.isCustomizing ? 6 : 0) {
-            if store.isCustomizing {
-                HStack(spacing: 8) {
-                    Image(systemName: "line.3.horizontal")
-                        .font(.headline)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                        .frame(width: 44, height: 44)
-                        .contentShape(Rectangle())
-                        .accessibilityLabel("Drag widget")
-                        .accessibilityIdentifier("home.widget.drag.\(placement.id.uuidString)")
-
-                    Spacer(minLength: 0)
-                    customizationControls(for: placement, daypart: daypart, palette: palette)
-                }
-                .padding(.horizontal, 4)
-            }
-
-            Group {
-                if preset == .compact {
-                    glanceWidget(kind: kind, daypart: daypart, palette: palette)
-                } else if preset == .standard {
-                    // Standard cards must preserve their meaningful primary actions.
-                    // Collapsing these into a generic "Open" tile made capture,
-                    // recovery, and evidence routes undiscoverable in the curated
-                    // two-column Home layout.
-                    switch kind {
-                    case .care:
-                        careWidget(daypart: daypart, palette: palette)
-                    case .tasks:
-                        tasksWidget(placementID: placement.id, palette: palette)
-                    case .routines:
-                        routinesWidget(daypart: daypart, palette: palette)
-                    case .scheduleCapacity:
-                        capacityWidget(palette: palette)
-                    case .journal:
-                        journalWidget(palette: palette)
-                    case .progressReflection:
-                        progressWidget(palette: palette)
-                    default:
-                        archetypeWidget(kind: kind, preset: preset, palette: palette)
-                    }
-                } else {
-                    switch kind {
-                    case .focusNow:
-                        focusNowWidget(palette: palette)
-                    case .lifeSnapshot:
-                        lifeSnapshotWidget(palette: palette)
-                    case .care:
-                        careWidget(daypart: daypart, palette: palette)
-                    case .tasks:
-                        tasksWidget(placementID: placement.id, palette: palette)
-                    case .routines:
-                        routinesWidget(daypart: daypart, palette: palette)
-                    case .scheduleCapacity:
-                        capacityWidget(palette: palette)
-                    case .quickCapture:
-                        quickCaptureWidget(palette: palette)
-                    case .compactTimeline:
-                        timelineWidget(palette: palette)
-                    case .journal:
-                        journalWidget(palette: palette)
-                    case .progressReflection:
-                        progressWidget(palette: palette)
-                    case .fasting:
-                        fastingWidget(palette: palette)
-                    default:
-                        // Was `EmptyView()`. Eleven registered kinds — goals,
-                        // body metric, workout, sleep, movement, nutrition,
-                        // recent meal, log meal, life moment, saved Eva
-                        // insight and setup — reached this branch and drew
-                        // nothing. Accessibility text sizes force this preset,
-                        // so those cards were blank for anyone using large
-                        // type. Every kind now has an archetype, and every
-                        // archetype draws.
-                        archetypeWidget(kind: kind, preset: preset, palette: palette)
-                    }
-                }
-            }
-            .frame(minHeight: preset.minimumCardHeight)
-        }
-        .modifier(
-            HomeCardReorderModifier(
-                placementID: placement.id,
-                isEnabled: store.isCustomizing,
-                onMove: { sourceID, targetID in store.movePlacement(id: sourceID, before: targetID) },
-                onResize: { expanding in store.cycleSize(id: placement.id, expanding: expanding) }
-            )
+        palette: DaypartPalette
+    ) -> HomeDashboardWidget {
+        HomeDashboardWidget(
+            placement: placement,
+            kind: resolvedWidgetKind(for: placement, daypart: daypart),
+            preset: effectivePreset(for: placement.semanticSize),
+            daypart: daypart,
+            palette: palette,
+            store: store,
+            lifeOSStore: lifeOSStore,
+            projectionAdapter: projectionAdapter,
+            router: router,
+            captureRouter: captureRouter,
+            modePolicy: modePolicy,
+            dashboardDensity: dashboardDensity,
+            hasPlanningRepository: hasPlanningRepository,
+            hasTrackFoundationRepository: hasTrackFoundationRepository,
+            dayLoopSummary: dayLoopSummary,
+            motionAnimation: motionAnimation,
+            reduceMotion: reduceMotion,
+            selectedMood: selectedMood,
+            moodEnergy: moodEnergy,
+            showsMoodDial: $showsMoodDial,
+            expandedTaskWidgetIDs: $expandedTaskWidgetIDs,
+            onOpenWidget: { openWidget($0) }
         )
-        .onLongPressGesture(minimumDuration: 0.45) {
-            guard store.isCustomizing == false else { return }
-            withAnimation(motionAnimation) { store.beginCustomization() }
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        }
-        .accessibilityAction(named: "Customize") { store.beginCustomization() }
     }
 
-    /// Renders a card from its registered archetype rather than a per-kind
-    /// case. This is the universal body: any registered kind draws something
-    /// meaningful at any preset, which is what makes the old `EmptyView()`
-    /// fallthrough unrepresentable.
-    @ViewBuilder
-    private func archetypeWidget(
-        kind: DashboardWidgetKind,
-        preset: WidgetSizePreset,
-        palette: LifeBoardDaypartPalette
-    ) -> some View {
-        let descriptor = store.registry.descriptor(for: kind)
-        Button {
-            openWidget(kind)
-        } label: {
-            LifeBoardHomeCardBody(
-                snapshot: lifeOSStore.cardSnapshot(kind: kind, size: preset),
-                archetype: descriptor?.archetype ?? .queue,
-                preset: preset,
-                palette: palette,
-                title: descriptor?.title ?? "LifeBoard",
-                symbol: symbol(for: kind),
-                queueLimit: modePolicy
-                    .sectionBudget(for: router.dashboardMode)
-                    .applying(dashboardDensity)
-                    .queueLimit,
-                onAction: { action in
-                    if let destination = action.destination {
-                        router.select(destination)
-                    } else {
-                        openWidget(kind)
-                    }
-                },
-                onOpen: { openWidget(kind) }
-            )
-        }
-        .buttonStyle(.plain)
-        .lifeBoardRaisedClayCard(palette: palette)
-        .accessibilityHint("Opens the source")
-    }
-
-    private func glanceWidget(
-        kind: DashboardWidgetKind,
-        daypart: ResolvedDaypart,
-        palette: LifeBoardDaypartPalette
-    ) -> some View {
-        let descriptor = store.registry.descriptor(for: kind)
-        return Button {
-            openWidget(kind)
-        } label: {
-            HStack(spacing: 11) {
-                Image(systemName: descriptor?.systemImage ?? "square.grid.2x2")
-                    .font(.system(size: 18, weight: .semibold))
-                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-                    .frame(width: 30, height: 44)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(descriptor?.title ?? "LifeBoard")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(palette.color(for: .foregroundSecondary))
-                        .lineLimit(1)
-                    Text(widgetSummary(kind, daypart: daypart, size: .compact))
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                        .foregroundStyle(palette.color(for: .foreground))
-                        .lineLimit(2)
-                }
-                Spacer(minLength: 0)
-            }
-            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .lifeBoardRaisedClayCard(palette: palette)
-        .accessibilityElement(children: .combine)
-        .accessibilityHint("Opens the source")
-    }
-
-    private func compactWidget(
-        kind: DashboardWidgetKind,
-        daypart: ResolvedDaypart,
-        palette: LifeBoardDaypartPalette
-    ) -> some View {
-        let descriptor = store.registry.descriptor(for: kind)
-        return Button {
-            openWidget(kind)
-        } label: {
-            VStack(alignment: .leading, spacing: 12) {
-                HStack(spacing: 9) {
-                    Image(systemName: descriptor?.systemImage ?? "square.grid.2x2")
-                        .foregroundStyle(palette.color(for: .foregroundSecondary))
-                    Text(descriptor?.title ?? "LifeBoard")
-                        .font(.system(.headline, design: .rounded, weight: .semibold))
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                }
-                Text(widgetSummary(kind, daypart: daypart, size: .standard))
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(palette.color(for: .foreground))
-                    .lineLimit(3)
-                    .fixedSize(horizontal: false, vertical: true)
-                Spacer(minLength: 0)
-                HStack(spacing: 6) {
-                    Text("Open")
-                    Image(systemName: "arrow.up.right")
-                }
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(palette.color(for: .foregroundSecondary))
-            }
-            .frame(maxWidth: .infinity, minHeight: 146, alignment: .leading)
-            .padding(16)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .lifeBoardRaisedClayCard(palette: palette)
-        .accessibilityElement(children: .combine)
-        .accessibilityHint("Opens the source")
-    }
-
-    private func widgetSummary(
-        _ kind: DashboardWidgetKind,
-        daypart: ResolvedDaypart,
-        size: HomeCardSize = .compact
-    ) -> String {
-        // The domain provider registry is the only source of card copy.
-        //
-        // A parallel switch used to live here as a "first-frame fallback" and had
-        // drifted into a second, contradictory copy set for the same cards —
-        // tasks-empty existed in three spellings, fasting and journal in two, and
-        // Focus Now shipped the ungrammatical "Choose one kind next step". A card
-        // shows its title alone until its provider resolves, which is a frame at
-        // most, rather than showing something that disagrees with what follows.
-        guard let snapshot = lifeOSStore.cardSnapshot(kind: kind, size: size) else { return "" }
-        return [snapshot.value, snapshot.detail]
-            .compactMap { $0 }
-            .joined(separator: " · ")
-    }
-
-    /// The way into the end-of-day ritual, and the morning's read-only echo.
-    ///
-    /// A section-level affordance rather than a `DashboardWidgetKind`: it is not
-    /// a readout, it cannot be reordered or pinned, and registering it as a
-    /// widget would oblige it to render at all five size presets for no benefit.
-    ///
-    /// Deliberately *not* wired to `DayCompassEngine`'s `eveningReview` card —
-    /// that card's only consumer is the legacy Sunrise home, which this shell
-    /// replaces. Reusing the engine's window predicate and its snooze ledger
-    /// gives the same tested behaviour without shipping to a screen nobody sees.
-    @ViewBuilder
-    private func dayRitualEntry(palette: LifeBoardDaypartPalette) -> some View {
-        if V2FeatureFlags.dayCloseV1Enabled, let ritual = activeDayRitual {
-            Button {
-                router.push(ritual.route, in: .home)
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: ritual.symbol)
-                        .font(.title3)
-                        .foregroundStyle(Color(LifeBoardColorTokens.foundationSunAccent))
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(ritual.title)
-                            .font(.headline)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
-                        Text(ritual.subtitle)
-                            .font(.caption)
-                            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                    }
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.footnote)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
-                }
-                .frame(minHeight: 44)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .padding(16)
-            .lifeBoardClaySurface(.raised, cornerRadius: LifeBoardFoundationRadius.card)
-            // The ritual grows out of the row you tapped rather than sliding in
-            // from the edge as an unrelated screen — it is the same day, opened.
-            // Already gated on Reduce Motion, Catalyst and -UI_TESTING inside.
-            .lifeBoardTransitionSource(LifeBoardDayLoopTransition.id(for: ritual.route))
-            .accessibilityIdentifier("home.dayRitual")
-            .contextMenu {
-                if ritual.isEvening {
-                    Button("Not tonight") {
-                        DayCompassSnoozeStore().snoozeUntilEndOfDay(flow: .eveningReview)
-                        dayRitualSnoozeGeneration += 1
-                    }
-                }
-            }
-        }
-    }
-
-    private struct DayRitualEntry {
-        let route: AppRoute
-        let title: String
-        let subtitle: String
-        let symbol: String
-        let isEvening: Bool
+    /// The ritual row. Same reasoning as `dashboardWidget`: a concrete struct,
+    /// not an inlined `some View`.
+    private func dayRitualEntry(palette: DaypartPalette) -> HomeDayRitualRow {
+        HomeDayRitualRow(
+            ritual: activeDayRitual,
+            router: router,
+            dayRitualSnoozeGeneration: $dayRitualSnoozeGeneration
+        )
     }
 
     // MARK: - Loop spine
@@ -2233,32 +1633,35 @@ struct LifeBoardAdaptiveHome: View {
     /// that hides the gentle close.
     @ViewBuilder
     private func loopSpine(
-        palette: LifeBoardDaypartPalette,
-        ambientPalette: LifeBoardDaypartPalette,
+        palette: DaypartPalette,
+        ambientPalette: DaypartPalette,
         budget: HomeSectionBudget
     ) -> some View {
         let stage = dayLoopStage
         VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Text(spineTitle(for: stage))
-                    .font(LifeBoardFoundationTypography.sectionTitle())
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                Text(HomeSectionCopy.spineTitle(for: stage))
+                    .font(Typography.sectionTitle())
+                    .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 // The count belongs to whichever heading survives. `.act` used
                 // to stack the spine's title above `nowSection`'s own, so the
                 // screen read "Now" twice and only the lower one carried the
                 // number. One row now, and it keeps the number.
-                if let state = spineState(for: stage) {
+                // `.act` is the only stage whose body would otherwise have
+                // titled itself: it is `nowSection`, whose heading is
+                // suppressed so the spine owns the single row.
+                if stage == .act, let state = nowSectionState {
                     Text(state)
                         .font(.footnote.weight(.medium))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         .monospacedDigit()
                         .lineLimit(1)
                 }
                 Spacer(minLength: 8)
-                if let rhythm = dayLoopRhythmText {
+                if let rhythm = HomeSectionCopy.dayLoopRhythmText(dayLoopSummary) {
                     Text(rhythm)
                         .font(.caption)
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         // Two lines, never truncation: this once shortened to
                         // "1 of 14 days · 1 day…", hiding one of the two honest
                         // facts. Both numbers carry equal weight
@@ -2281,9 +1684,9 @@ struct LifeBoardAdaptiveHome: View {
             case .act:
                 nowSection(palette: palette, showsHeading: false)
             case .repair:
-                spineRepairBody
+                HomeSpineRepairBody(lifeOSStore: lifeOSStore, router: router)
             case .rest:
-                spineRestBody
+                HomeSpineRestBody()
             }
         }
         .lifeBoardMotion(.cardReflow, value: stage)
@@ -2295,108 +1698,6 @@ struct LifeBoardAdaptiveHome: View {
         return store.isCustomizing ? "\(base) · drag to arrange" : base
     }
 
-    /// The count the stage's body would otherwise have titled for itself.
-    ///
-    /// Only `.act` has one: its body is `nowSection`, whose heading is
-    /// suppressed so the spine owns the single row.
-    private func spineState(for stage: DayLoopStage) -> String? {
-        stage == .act ? nowSectionState : nil
-    }
-
-    private func spineTitle(for stage: DayLoopStage) -> String {
-        switch stage {
-        case .commit: "Start today"
-        case .act: "Now"
-        case .repair: "Worth a look"
-        case .close: "Ending the day"
-        // Not "Done" or "Complete" — the day is put down, not scored.
-        case .rest: "Today is closed"
-        }
-    }
-
-    /// `.repair` states what the day did, and offers a way to answer it.
-    ///
-    /// Not paired with `nowSection`: the deck already names the work, and
-    /// restating the same projection twice under one heading reads as two
-    /// separate asks.
-    ///
-    /// The copy reports and stops. "Nothing has changed yet" is the load-bearing
-    /// half — the deck is an offer, and a person who reads this and does nothing
-    /// has lost nothing. No count styled as a badge, no red, and none of
-    /// "missed", "late", "behind" or "overdue": these blocks did not happen when
-    /// they were planned, which is a fact about a day, not about a person.
-    @ViewBuilder
-    private var spineRepairBody: some View {
-        let count = lifeOSStore.driftCount
-        VStack(alignment: .leading, spacing: 12) {
-            Text(
-                count == 1
-                    ? "One thing didn't happen when you planned it. Nothing has changed yet."
-                    : "\(count) things didn't happen when you planned them. Nothing has changed yet."
-            )
-            .font(LifeBoardFoundationTypography.body())
-            .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-            .fixedSize(horizontal: false, vertical: true)
-
-            PlanRepairDeck(
-                proposals: lifeOSStore.repairProposals,
-                // The spine already says "Worth a look"; a second header here
-                // would title the same thing twice.
-                header: nil,
-                // The service's own wording — "this planned block has passed
-                // without a completion receipt" — is a sentence about our data
-                // model, not about the person's day.
-                fallbackExplanation: "This one didn't get its window today."
-            ) { action, _ in
-                // Home decides, Plan commits. Choosing a direction only *stages*
-                // a scenario, and staging needs a `PlanningScenarioCoordinator`
-                // that Home's `PlanStore` is built without — so acting here
-                // would look like it worked and quietly do nothing.
-                if action == .askEva {
-                    router.select(.eva)
-                } else {
-                    router.navigate(.planDay, in: .plan)
-                }
-            }
-        }
-        .accessibilityIdentifier("home.loopSpine.repair.body")
-    }
-
-    /// `.rest` asks for nothing.
-    ///
-    /// Closing a day must not open a new obligation, so this states the fact and
-    /// stops. No CTA, no next step, no offer to plan tomorrow.
-    private var spineRestBody: some View {
-        HStack(alignment: .center, spacing: 18) {
-            // The day, closed — the same ring from the ritual, small and
-            // finished. Its completion mark is already drawn at closedProgress 1,
-            // so this is a record rather than a second celebration.
-            LifeBoardDayRing(
-                plannedMinutes: nil,
-                focusedMinutes: nil,
-                closedProgress: 1,
-                diameter: 64
-            )
-            .accessibilityHidden(true)
-
-            Text("Nothing more is being asked of you today.")
-                .font(LifeBoardFoundationTypography.body())
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
-                .fixedSize(horizontal: false, vertical: true)
-
-            Spacer(minLength: 0)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(16)
-        .lifeBoardClaySurface(.resting, cornerRadius: LifeBoardFoundationRadius.card)
-        // Arrives, settles, and stops. A closed day must not shimmer, so there
-        // is deliberately no TimelineView, no repeatForever, and no CTA — the
-        // whole point of `.rest` is that it asks for nothing.
-        .transition(.opacity.combined(with: .scale(scale: 0.985)))
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel("Today is closed. Nothing more is being asked of you today.")
-        .accessibilityIdentifier("home.loopSpine.rest")
-    }
 
     /// The day-loop stage Home is currently in.
     ///
@@ -2407,7 +1708,7 @@ struct LifeBoardAdaptiveHome: View {
         // Read so a snooze re-evaluates this without a full Home reload.
         _ = dayRitualSnoozeGeneration
         let now = Date()
-        let engine = DayCompassEngine()
+        let engine = DayCompassService()
         let calendar = Calendar.current
 
         #if DEBUG
@@ -2445,13 +1746,13 @@ struct LifeBoardAdaptiveHome: View {
     /// The door is open at every stage except `.rest`. Previously it existed
     /// only between 05:00–11:00 and 18:00–midnight, so a day finished early —
     /// or a day whose owner works nights — had nowhere to put it down.
-    private var activeDayRitual: DayRitualEntry? {
+    private var activeDayRitual: HomeDayRitual? {
         let now = Date()
         let stage = dayLoopStage
         guard stage.offersClose else { return nil }
 
         if stage == .commit {
-            return DayRitualEntry(
+            return HomeDayRitual(
                 route: .dayOpen(now),
                 title: "What carried over",
                 // Deliberately does not claim "last night's decisions" yet: the
@@ -2466,9 +1767,9 @@ struct LifeBoardAdaptiveHome: View {
 
         let snoozes = DayCompassSnoozeStore().load(now: now, calendar: .current)
         guard snoozes.isSnoozed(.eveningReview, at: now) == false else { return nil }
-        return DayRitualEntry(
+        return HomeDayRitual(
             route: .dayClose(now),
-            // Matches the wording already shipped in `LBDayCompassCard` rather
+            // Matches the wording already shipped in `DayCompassCard` rather
             // than inventing a second voice for the same moment.
             title: "Close the day",
             subtitle: stage == .close
@@ -2505,6 +1806,10 @@ struct LifeBoardAdaptiveHome: View {
     }
 
     private func openWidget(_ kind: DashboardWidgetKind) {
+        if let route = HomeWidgetRouteResolver.route(for: kind) {
+            router.openLeaf(route, in: .track)
+            return
+        }
         switch kind {
         case .focusNow, .tasks:
             router.select(.plan)
@@ -2519,1259 +1824,10 @@ struct LifeBoardAdaptiveHome: View {
         case .progressReflection:
             router.select(.insights)
         case .fasting:
-            router.select(.track)
+            router.navigateReplacingPath(.fasting, in: .track)
         default:
             break
         }
-    }
-
-    private func focusNowWidget(palette: LifeBoardDaypartPalette) -> some View {
-        let hero = lifeOSStore.heroSnapshot
-        let primary = hero?.title ?? lifeOSStore.focusTask?.title ?? projectionAdapter.snapshot.focusTitles.first
-        let lowEnergy = router.dashboardMode == .lowEnergy
-        let expanded = hero?.priority == .activeFocus || hero?.priority == .safetySensitiveCare || hero?.priority == .recovery
-        return HStack(spacing: 12) {
-            Image(systemName: lowEnergy ? "leaf.fill" : heroSymbol(for: hero?.priority))
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                .frame(width: 28, height: 44)
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(lowEnergy ? "One small thing" : heroLabel(for: hero?.priority))
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-                Text(primary ?? (lowEnergy ? "Drink some water and take one quiet minute." : "Choose one useful next step"))
-                    .font(.system(.headline, design: .rounded, weight: .semibold))
-                    .lineLimit(expanded ? 2 : 1)
-                if expanded, let reason = hero?.detail ?? lifeOSStore.focusResult?.reasons.first?.text {
-                    Text(reason)
-                        .font(.caption2)
-                        .foregroundStyle(palette.color(for: .foregroundSecondary))
-                        .lineLimit(1)
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Button {
-                performHeroPrimaryAction(hero)
-            } label: {
-                Text(compactHeroActionTitle(hero?.primaryActionTitle ?? (primary == nil ? "Choose" : "Start")))
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(Color(LifeBoardColorTokens.foundationSurfaceSolid))
-                    .padding(.horizontal, 14)
-                    .frame(minHeight: 44)
-                    .background(Color(LifeBoardColorTokens.inkPrimary), in: Capsule())
-            }
-            .buttonStyle(.plain)
-            .frame(maxWidth: 112)
-            .accessibilityHint(hero?.secondaryActionTitles.first.map { "More actions include \($0)." } ?? "")
-        }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
-        .frame(minHeight: expanded ? 104 : 80)
-        .lifeBoardFloatingClayCard(palette: palette)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.hero")
-    }
-
-    private func heroLabel(for priority: AdaptiveHeroPriority?) -> String {
-        switch priority {
-        case .activeFocus: "Focus in progress"
-        case .safetySensitiveCare: "Care needs a decision"
-        case .fixedCommitment: "Current commitment"
-        case .urgentPlannedWork: "Must Do"
-        case .timedRoutine: "Routine"
-        case .recovery: "Recovery"
-        case .generalFocus, .none: "Focus Now"
-        }
-    }
-
-    private func heroSymbol(for priority: AdaptiveHeroPriority?) -> String {
-        switch priority {
-        case .activeFocus: "timer"
-        case .safetySensitiveCare: "cross.case"
-        case .fixedCommitment: "calendar"
-        case .urgentPlannedWork: "exclamationmark.circle"
-        case .timedRoutine: "list.bullet.clipboard"
-        case .recovery: "arrow.counterclockwise"
-        case .generalFocus, .none: "scope"
-        }
-    }
-
-    private func compactHeroActionTitle(_ title: String) -> String {
-        switch title {
-        case "Choose a focus": "Choose"
-        case "Open focus", "Open day": "Open"
-        default: title
-        }
-    }
-
-    private func performHeroPrimaryAction(_ hero: AdaptiveHeroSnapshot?) {
-        guard let hero else {
-            captureRouter.request(kind: .task, source: .shell)
-            return
-        }
-        switch hero.priority {
-        case .safetySensitiveCare, .timedRoutine:
-            router.select(.track)
-        case .activeFocus, .fixedCommitment, .urgentPlannedWork, .generalFocus, .recovery:
-            router.select(.plan)
-        }
-        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-    }
-
-    private func performHeroSecondaryAction(_ hero: AdaptiveHeroSnapshot?) {
-        guard let hero else { return }
-        switch hero.priority {
-        case .safetySensitiveCare, .timedRoutine: router.select(.track)
-        default: router.select(.plan)
-        }
-    }
-
-    @ViewBuilder
-    private func signalRowWidget(palette: LifeBoardDaypartPalette) -> some View {
-        let hydrationAmount = healthStore.aggregates[.water]?.value
-            ?? lifeOSStore.trackSnapshot?.hydrationAmountMilliliters
-        let hydrationTarget = lifeOSStore.trackSnapshot?.hydrationTargetMilliliters
-        let hydrationProgress = hydrationAmount.flatMap { amount in
-            hydrationTarget.flatMap { $0 > 0 ? min(1, amount / $0) : nil }
-        }
-        let hydrationAvailability: HomeSignalState = if lifeOSStore.isLoading {
-            .loading
-        } else if hasTrackFoundationRepository == false {
-            .unavailable
-        } else if hydrationAmount == nil {
-            .setupRequired
-        } else {
-            .available
-        }
-        let steps = healthStore.aggregates[.steps]
-        let activeEnergy = healthStore.aggregates[.activeEnergy]
-        let candidates = [
-            HomeSignalSlot(
-                id: "hydration", title: "Hydration",
-                valueText: hydrationAmount.map { "\(Int($0)) ml" }, progress: hydrationProgress,
-                systemImage: "drop.fill",
-                availability: hydrationAvailability
-            ),
-            HomeSignalSlot(
-                id: "steps",
-                title: "Steps",
-                valueText: steps.map { $0.value.formatted(.number.precision(.fractionLength(0))) },
-                progress: steps.map { min(1, $0.value / 10_000) },
-                systemImage: "figure.walk",
-                availability: homeAvailability(for: .activity, value: steps)
-            ),
-            HomeSignalSlot(
-                id: "active",
-                title: "Active",
-                valueText: activeEnergy.map { "\(Int($0.value)) kcal" },
-                progress: activeEnergy.map { min(1, $0.value / 500) },
-                systemImage: "flame.fill",
-                availability: homeAvailability(for: .energy, value: activeEnergy)
-            ),
-            HomeSignalSlot(
-                id: "fasting",
-                title: "Fasting",
-                valueText: nil,
-                progress: lifeOSStore.activeFast.flatMap { fast in
-                    fast.targetDuration.flatMap { $0 > 0 ? min(1, fast.elapsed() / $0) : nil }
-                },
-                systemImage: "timer",
-                availability: phaseIIRepository != nil ? .available : .unavailable
-            )
-        ]
-        // These are explicitly configured Home signals. The relevance budget
-        // still controls every other Home module, but silently dropping a
-        // configured timer makes its active state unreachable. Preserve all
-        // four and use ranking only to order the three Health facts.
-        let healthSlots = candidates
-            .filter { $0.id != "fasting" }
-            .sorted { signalRank($0) > signalRank($1) }
-        let slots = healthSlots + candidates.filter { $0.id == "fasting" }
-        if dynamicTypeSize.isAccessibilitySize {
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
-                ForEach(slots) { slot in compactSignalRing(slot, palette: palette) }
-            }
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("home.signalRow")
-        } else {
-            HStack(spacing: 8) {
-                ForEach(slots) { slot in compactSignalRing(slot, palette: palette) }
-            }
-            .frame(maxWidth: .infinity)
-            .accessibilityElement(children: .contain)
-            .accessibilityIdentifier("home.signalRow")
-        }
-    }
-
-    private func homeAvailability(
-        for domain: HealthDomain,
-        value: HealthAggregateValue?
-    ) -> HomeSignalState {
-        let signal = healthStore.statuses[domain]?.signal ?? .setupRequired
-        switch signal {
-        case .loading: return .loading
-        case .setupRequired: return .permissionRequired
-        case .stale, .partial: return value == nil ? .unavailable : .stale
-        case .unavailable, .protectedDataLocked, .offline, .writeDenied: return value == nil ? .unavailable : .stale
-        case .noRecord: return .setupRequired
-        case .explicitZero, .recorded: return value == nil ? .setupRequired : .available
-        }
-    }
-
-    private func signalRank(_ slot: HomeSignalSlot) -> Int {
-        let stateRank: Int = switch slot.availability {
-        case .available: 40
-        case .stale: 30
-        case .loading: 20
-        case .setupRequired, .permissionRequired: 10
-        case .unavailable: 0
-        }
-        let domainRank: Int = switch slot.id {
-        case "steps": 4
-        case "active": 3
-        case "hydration": 2
-        case "fasting": 1
-        default: 0
-        }
-        return stateRank + domainRank
-    }
-
-    @ViewBuilder
-    private func compactSignalRing(_ slot: HomeSignalSlot, palette: LifeBoardDaypartPalette) -> some View {
-        if slot.id == "fasting" {
-            fastingSignal(palette: palette)
-        } else {
-            Button {
-                if slot.id == "hydration" { captureRouter.request(kind: .hydration, source: .shell) }
-                else { router.select(.track) }
-            } label: {
-                LifeBoardMetricRing(
-                    label: slot.title,
-                    state: ringState(for: slot),
-                    diameter: 58,
-                    palette: palette,
-                    liquidTint: liquidTint(for: slot, palette: palette)
-                )
-                .frame(maxWidth: .infinity, minHeight: 100)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("\(slot.title), \(slot.valueText ?? accessibilityAvailability(slot.availability))")
-            .accessibilityIdentifier("home.signal.\(slot.id)")
-        }
-    }
-
-    private func fastingSignal(palette: LifeBoardDaypartPalette) -> some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let activeFast = lifeOSStore.activeFast
-            let mealAnchor = HomeFastingAnchorPolicy.recentMealAnchor(
-                latestMealAt: lifeOSStore.recentMealAt,
-                now: context.date
-            )
-            let openAnchor = mealAnchor ?? lifeOSStore.latestEndedFast?.endedAt
-            let elapsed = activeFast?.elapsed(at: context.date)
-                ?? openAnchor.map { max(0, context.date.timeIntervalSince($0)) }
-                ?? 0
-            let progress = activeFast?.targetDuration.flatMap { target in
-                target > 0 ? min(1, elapsed / target) : nil
-            } ?? 0
-            let isAvailable = phaseIIRepository != nil
-
-            Button {
-                guard isAvailable else {
-                    router.select(.track)
-                    return
-                }
-                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-                if activeFast == nil {
-                    let startDate = HomeFastingAnchorPolicy.recentMealAnchor(
-                        latestMealAt: lifeOSStore.recentMealAt,
-                        now: Date()
-                    ) ?? Date()
-                    Task { await commitFastStart(at: startDate) }
-                } else {
-                    Task { await commitFastEnd() }
-                }
-            } label: {
-                VStack(spacing: 5) {
-                    ZStack {
-                        Circle()
-                            .fill(palette.color(for: .canvasSecondary).opacity(0.62))
-                        Circle()
-                            .stroke(
-                                palette.color(for: .foregroundSecondary).opacity(activeFast == nil ? 0.48 : 0.20),
-                                style: StrokeStyle(lineWidth: activeFast == nil ? 2.5 : 5, dash: activeFast == nil ? [3, 5] : [])
-                            )
-                        if activeFast != nil {
-                            Circle()
-                                .trim(from: 0, to: max(0.025, progress))
-                                .stroke(
-                                    Color(LifeBoardColorTokens.foundationSunAccent),
-                                    style: StrokeStyle(lineWidth: 5, lineCap: .round)
-                                )
-                                .rotationEffect(.degrees(-90))
-                                .lifeboardFastingEmberRing(
-                                    progress: progress,
-                                    tint: Color(LifeBoardColorTokens.foundationSunAccent)
-                                )
-                        }
-                        VStack(spacing: 0) {
-                            Text(compactHours(elapsed))
-                                .font(.system(size: 12, weight: .bold, design: .rounded))
-                                .monospacedDigit()
-                                .lineLimit(1)
-                                .minimumScaleFactor(0.68)
-                                .contentTransition(.numericText())
-                            Text(activeFast != nil ? "fast" : (mealAnchor == nil ? "open" : "since meal"))
-                                .font(.system(size: 8, weight: .semibold, design: .rounded))
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                        }
-                    }
-                    .frame(width: 58, height: 58)
-
-                    Text("Fasting")
-                        .font(.caption2.weight(.medium))
-                        .foregroundStyle(palette.color(for: .foregroundSecondary))
-                    Text(isAvailable ? (activeFast == nil ? (mealAnchor == nil ? "Start" : "Start from meal") : "End") : "Unavailable")
-                        .font(.system(size: 9, weight: .semibold, design: .rounded))
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.68)
-                        .foregroundStyle(
-                            isAvailable
-                                ? Color(LifeBoardColorTokens.inkPrimary)
-                                : palette.color(for: .foregroundSecondary)
-                        )
-                }
-                .frame(maxWidth: .infinity, minHeight: 100)
-                .contentShape(Rectangle())
-                .lifeboardClayPressBloom(
-                    center: .center,
-                    trigger: fastingStateChangeTrigger,
-                    tint: Color(LifeBoardColorTokens.foundationSunAccent)
-                )
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel(activeFast == nil ? "Start fasting timer" : "End fasting timer")
-            .accessibilityValue(
-                activeFast == nil
-                    ? "Open window, \(spokenHours(elapsed))"
-                    : "Fasting, \(spokenHours(elapsed))"
-            )
-            .accessibilityHint(
-                activeFast == nil
-                    ? (mealAnchor == nil ? "Starts now" : "Starts from your latest meal with one tap")
-                    : "Saves the end time with one tap; an Undo appears below"
-            )
-            .accessibilityIdentifier("home.signal.fasting")
-        }
-    }
-
-    private func compactHours(_ interval: TimeInterval) -> String {
-        let totalMinutes = max(0, Int(interval / 60))
-        return "\(totalMinutes / 60)h \(totalMinutes % 60)m"
-    }
-
-    private func spokenHours(_ interval: TimeInterval) -> String {
-        let totalMinutes = max(0, Int(interval / 60))
-        let hours = totalMinutes / 60
-        let minutes = totalMinutes % 60
-        return "\(hours) hours, \(minutes) minutes"
-    }
-
-    @MainActor
-    private func commitFastStart(at date: Date) async {
-        if await lifeOSStore.startFast(targetDuration: nil, at: date) {
-            showsFastEndReceipt = false
-            fastingStateChangeTrigger &+= 1
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-        } else {
-            showsFastingError = true
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
-        }
-    }
-
-    @MainActor
-    private func commitFastEnd() async {
-        if await lifeOSStore.endActiveFast() {
-            withAnimation(reduceMotion ? nil : .spring(duration: 0.38, bounce: 0.16)) {
-                showsFastEndReceipt = true
-            }
-            fastingStateChangeTrigger &+= 1
-            UINotificationFeedbackGenerator().notificationOccurred(.success)
-        } else {
-            showsFastingError = true
-            UINotificationFeedbackGenerator().notificationOccurred(.error)
-        }
-    }
-
-    private func fastingEndReceipt(palette: LifeBoardDaypartPalette) -> some View {
-        HStack(spacing: 12) {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(Color(LifeBoardColorTokens.foundationSageAccent))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Fast saved")
-                    .font(.subheadline.weight(.semibold))
-                Text("Your open-window clock is running.")
-                    .font(.caption)
-                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-            }
-            Spacer(minLength: 8)
-            Button("Undo") {
-                Task {
-                    if await lifeOSStore.undoLastFastEnd() {
-                        withAnimation(reduceMotion ? nil : .spring(duration: 0.34, bounce: 0.12)) {
-                            showsFastEndReceipt = false
-                        }
-                        fastingStateChangeTrigger &+= 1
-                        UINotificationFeedbackGenerator().notificationOccurred(.success)
-                    } else {
-                        showsFastingError = true
-                    }
-                }
-            }
-            .font(.subheadline.weight(.semibold))
-            .frame(minWidth: 44, minHeight: 44)
-        }
-        .padding(.leading, 14)
-        .padding(.trailing, 10)
-        .padding(.vertical, 8)
-        .lifeBoardClaySurface(.raised, cornerRadius: 16)
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.fasting.receipt")
-    }
-
-    /// Water-like signals fill with liquid; movement signals keep the plain
-    /// arc so the metaphor stays honest.
-    private func liquidTint(for slot: HomeSignalSlot, palette: LifeBoardDaypartPalette) -> Color? {
-        guard slot.availability == .available || slot.availability == .stale else { return nil }
-        switch slot.id {
-        case "hydration": return Color(LifeBoardColorTokens.foundationSageAccent).opacity(0.55)
-        case "fasting": return Color(LifeBoardColorTokens.foundationApricotAccent).opacity(0.6)
-        default: return nil
-        }
-    }
-
-    private func ringState(for slot: HomeSignalSlot) -> LifeBoardMetricRing.RingState {
-        switch slot.availability {
-        case .loading:
-            return .loading
-        case .setupRequired, .permissionRequired:
-            return .setupRequired
-        case .unavailable:
-            return .unavailable
-        case .stale:
-            guard let value = slot.valueText else { return .unavailable }
-            return .stale(progress: slot.progress ?? 0, centerText: value)
-        case .available:
-            guard let value = slot.valueText else { return .setupRequired }
-            let progress = slot.progress ?? 0
-            if progress == 0 { return .zero(centerText: value) }
-            return progress >= 1 ? .complete(centerText: value) : .value(progress: progress, centerText: value)
-        }
-    }
-
-    private func accessibilityAvailability(_ availability: HomeSignalSlot.Availability) -> String {
-        switch availability {
-        case .available: "available"
-        case .loading: "loading"
-        case .setupRequired: "setup required"
-        case .permissionRequired: "permission required"
-        case .stale: "out of date"
-        case .unavailable: "unavailable"
-        }
-    }
-
-    private func lifeSnapshotWidget(palette: LifeBoardDaypartPalette) -> some View {
-        VStack(alignment: .leading, spacing: 15) {
-            widgetTitle("How life feels", symbol: "heart.text.square", palette: palette)
-                .accessibilityIdentifier("home.widget.lifeSnapshot")
-            HStack(spacing: 10) {
-                snapshotMetric(
-                    id: "mood",
-                    symbol: "face.smiling",
-                    value: selectedMood == .none ? "Check in" : selectedMood.title,
-                    label: moodEnergy.map { "Mood · E\($0)" } ?? "Mood",
-                    palette: palette
-                ) {
-                    showsMoodDial = true
-                }
-                snapshotMetric(
-                    id: "hydration",
-                    symbol: "drop.fill",
-                    value: homeHydrationLabel,
-                    label: "Hydration",
-                    palette: palette
-                ) { captureRouter.request(kind: .hydration, source: .shell) }
-                snapshotMetric(id: "steps", symbol: "figure.walk", value: "Connect", label: "Steps", palette: palette) {
-                    router.select(.track)
-                }
-                if router.dashboardMode != .lowEnergy {
-                    snapshotMetric(id: "active", symbol: "flame.fill", value: "Connect", label: "Active", palette: palette) {
-                        router.select(.track)
-                    }
-                }
-            }
-        }
-        .padding(16)
-        .lifeBoardRaisedClayCard(palette: palette)
-    }
-
-    private func careWidget(daypart: ResolvedDaypart, palette: LifeBoardDaypartPalette) -> some View {
-        let medicationEvents = lifeOSStore.trackSnapshot?.unresolvedMedicationEvents ?? []
-        return VStack(alignment: .leading, spacing: 13) {
-            widgetTitle("\(daypart.rawValue.capitalized) care", symbol: "cross.case.fill", palette: palette)
-                .accessibilityIdentifier("home.widget.care")
-            if medicationEvents.isEmpty {
-                honestEmptyState("No unresolved care decisions", symbol: "checkmark.circle", palette: palette)
-            } else {
-                ForEach(medicationEvents.prefix(router.dashboardMode == .lowEnergy ? 1 : 3)) { event in
-                    Button {
-                        router.navigate(.careLibrary, in: .track)
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: "pills")
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                            Text("Medication decision")
-                                .font(.subheadline.weight(.medium))
-                            Spacer()
-                            Text(event.status.rawValue.capitalized)
-                                .font(.caption)
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                        }
-                        .frame(minHeight: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("home.care.event.\(event.id.uuidString)")
-                }
-            }
-            Divider().overlay(Color(LifeBoardColorTokens.foundationHairline))
-            Button("Open Care") { router.navigate(.careLibrary, in: .track) }
-                .font(.subheadline.weight(.semibold))
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("home.care.open")
-        }
-        .padding(16)
-        .lifeBoardRaisedClayCard(palette: palette)
-    }
-
-    private func tasksWidget(placementID: UUID, palette: LifeBoardDaypartPalette) -> some View {
-        let snapshot = lifeOSStore.planSnapshot
-        let tasks = lifeOSStore.taskAgenda.tasks
-        let collapsedLimit = router.dashboardMode == .lowEnergy ? 2 : 4
-        let isExpanded = expandedTaskWidgetIDs.contains(placementID)
-        let visibleTasks = isExpanded ? tasks : Array(tasks.prefix(collapsedLimit))
-        let hasHiddenTasks = tasks.count > collapsedLimit
-        return VStack(alignment: .leading, spacing: 12) {
-            taskWidgetHeader(isExpanded: isExpanded, palette: palette)
-            if hasPlanningRepository == false {
-                honestEmptyState("Tasks are unavailable right now", symbol: "exclamationmark.triangle", palette: palette)
-            } else if lifeOSStore.isLoading, snapshot == nil {
-                honestEmptyState("Loading tasks", symbol: "hourglass", palette: palette)
-            } else if tasks.isEmpty {
-                honestEmptyState(taskWidgetEmptyMessage, symbol: "checkmark.circle", palette: palette)
-            } else {
-                ForEach(visibleTasks) { task in
-                    taskWidgetRow(task, palette: palette)
-                }
-            }
-            // A completion is a real mutation, so it gets a receipt here rather
-            // than relying on Plan's Undo, which reads a different PlanStore
-            // instance and can never see a completion made from Home.
-            if let completed = lifeOSStore.lastCompletedTask {
-                HStack(spacing: 8) {
-                    Text("Completed “\(completed.title)”")
-                        .font(.caption)
-                        .foregroundStyle(palette.color(for: .foregroundSecondary))
-                        .lineLimit(1)
-                    Spacer(minLength: 0)
-                    Button("Undo") {
-                        Task { await lifeOSStore.undoLastTaskCompletion() }
-                    }
-                    .font(.subheadline.weight(.semibold))
-                    .frame(minHeight: 44)
-                    .accessibilityHint("Reopens \(completed.title)")
-                    .accessibilityIdentifier("home.tasks.undoCompletion")
-                }
-                .buttonStyle(.plain)
-            }
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 12) {
-                    taskWidgetAddButton
-                    Spacer(minLength: 8)
-                    if isExpanded || hasHiddenTasks {
-                        taskWidgetExpansionButton(isExpanded: isExpanded, placementID: placementID)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    taskWidgetAddButton
-                    if isExpanded || hasHiddenTasks {
-                        taskWidgetExpansionButton(isExpanded: isExpanded, placementID: placementID)
-                    }
-                }
-            }
-        }
-        .padding(16)
-        .background {
-            // Keep the clay surface in its own noninteractive render subtree.
-            // An arbitrarily tall expanded agenda must not apply
-            // `lifeBoardRaisedClayCard` directly to its foreground hierarchy.
-            Color.clear
-                .lifeBoardRaisedClayCard(palette: palette)
-                .allowsHitTesting(false)
-                .accessibilityHidden(true)
-        }
-        .animation(taskWidgetAnimation, value: isExpanded)
-        .animation(taskWidgetAnimation, value: lifeOSStore.taskAgenda)
-    }
-
-    @ViewBuilder
-    private func taskWidgetHeader(isExpanded: Bool, palette: LifeBoardDaypartPalette) -> some View {
-        ViewThatFits(in: .horizontal) {
-            HStack(spacing: 12) {
-                taskWidgetTitleLabel(palette: palette)
-                if isExpanded {
-                    HomeTaskAgendaDatePicker(store: lifeOSStore)
-                }
-            }
-
-            VStack(alignment: .leading, spacing: 6) {
-                taskWidgetTitleLabel(palette: palette)
-                if isExpanded {
-                    HomeTaskAgendaDatePicker(store: lifeOSStore)
-                }
-            }
-        }
-        .accessibilityElement(children: .contain)
-        .accessibilityIdentifier("home.widget.tasks")
-    }
-
-    private func taskWidgetTitleLabel(palette: LifeBoardDaypartPalette) -> some View {
-        HStack(spacing: 9) {
-            Image(systemName: "checklist")
-                .foregroundStyle(palette.color(for: .foregroundSecondary))
-            Text(taskWidgetTitle)
-                .font(.system(.headline, design: .rounded, weight: .semibold))
-                .lineLimit(1)
-            Spacer(minLength: 0)
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private var taskWidgetTitle: String {
-        let selectedDate = lifeOSStore.taskAgenda.selectedDate
-        if Calendar.current.isDateInToday(selectedDate) {
-            return "Today’s tasks"
-        }
-        return "\(selectedDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) tasks"
-    }
-
-    private var taskWidgetEmptyMessage: String {
-        let selectedDate = lifeOSStore.taskAgenda.selectedDate
-        if Calendar.current.isDateInToday(selectedDate) {
-            return "No overdue tasks or tasks due today"
-        }
-        let date = selectedDate.formatted(.dateTime.month(.abbreviated).day())
-        return "No overdue tasks or tasks due \(date)"
-    }
-
-    private func taskWidgetRow(_ task: PlanningTaskSummary, palette: LifeBoardDaypartPalette) -> some View {
-        // The completion control is a sibling of the navigating button, never
-        // nested inside it: a Button within a Button gives its tap to the outer
-        // one and would silently open detail instead of completing the task.
-        HStack(spacing: 11) {
-            if V2FeatureFlags.lifeBoardDailyLoopV1Enabled {
-                LifeBoardCompletionControl(
-                    isComplete: false,
-                    title: task.title
-                ) { _ in
-                    Task { await lifeOSStore.setTaskCompletion(task, to: true) }
-                }
-                .padding(.leading, -11)
-            } else {
-                Image(systemName: task.metadata.commitmentLevel == .mustDo ? "exclamationmark.circle.fill" : "circle")
-                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-            }
-            Button {
-                router.navigate(.taskDetail(task.id), in: .home)
-            } label: {
-                HStack(spacing: 11) {
-                    if task.metadata.commitmentLevel == .mustDo {
-                        Image(systemName: "exclamationmark.circle.fill")
-                            .font(.caption)
-                            .foregroundStyle(palette.color(for: .foregroundSecondary))
-                            .accessibilityLabel("Must do")
-                    }
-                    Text(task.title)
-                        .font(.subheadline.weight(.medium))
-                        .lineLimit(2)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(palette.color(for: .foregroundSecondary))
-                }
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .lifeBoardTransitionSource("route.task.\(task.id.uuidString)")
-            .accessibilityIdentifier("home.task.\(task.id.uuidString)")
-        }
-        .frame(maxWidth: .infinity, minHeight: 44)
-    }
-
-    private var taskWidgetAddButton: some View {
-        Button {
-            captureRouter.request(kind: .task, source: .widget)
-        } label: {
-            Label("Add a task", systemImage: "plus")
-                .font(.subheadline.weight(.semibold))
-                .frame(minHeight: 44)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("home.tasks.add")
-    }
-
-    private func taskWidgetExpansionButton(isExpanded: Bool, placementID: UUID) -> some View {
-        Button {
-            withAnimation(taskWidgetAnimation) {
-                if isExpanded {
-                    expandedTaskWidgetIDs.remove(placementID)
-                    lifeOSStore.resetTaskAgendaDateToToday()
-                } else {
-                    lifeOSStore.resetTaskAgendaDateToToday()
-                    expandedTaskWidgetIDs.insert(placementID)
-                }
-            }
-        } label: {
-            Label(isExpanded ? "Show less" : "Show more", systemImage: isExpanded ? "chevron.up" : "chevron.down")
-                .font(.subheadline.weight(.semibold))
-                .frame(minHeight: 44)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier(isExpanded ? "home.tasks.showLess" : "home.tasks.showMore")
-        .accessibilityHint(isExpanded ? "Collapses the task card and returns to today" : "Shows every overdue task and task due today")
-    }
-
-    private var taskWidgetAnimation: Animation? {
-        guard reduceMotion == false else { return nil }
-        return motionAnimation
-    }
-
-    private func routinesWidget(daypart: ResolvedDaypart, palette: LifeBoardDaypartPalette) -> some View {
-        let dueRoutines = lifeOSStore.trackSnapshot?.dueRoutines ?? []
-        let habitTitles = projectionAdapter.snapshot.recoveryHabits + projectionAdapter.snapshot.currentHabits
-        return VStack(alignment: .leading, spacing: 12) {
-            widgetTitle("\(daypart.rawValue.capitalized) routines", symbol: "repeat", palette: palette)
-                .accessibilityIdentifier("home.widget.routines")
-            if hasTrackFoundationRepository == false {
-                honestEmptyState("Routines are unavailable right now", symbol: "exclamationmark.triangle", palette: palette)
-            } else if lifeOSStore.isLoading, lifeOSStore.trackSnapshot == nil {
-                honestEmptyState("Loading routines", symbol: "hourglass", palette: palette)
-            } else if dueRoutines.isEmpty, habitTitles.isEmpty {
-                honestEmptyState("No routines are due in this part of the day", symbol: "checkmark.circle", palette: palette)
-            } else {
-                ForEach(dueRoutines.prefix(router.dashboardMode == .lowEnergy ? 1 : 3)) { routine in
-                    Button {
-                        router.navigate(.routine(routine.id), in: .home)
-                    } label: {
-                        HStack(spacing: 11) {
-                            Image(systemName: "figure.mind.and.body")
-                            Text(routine.title)
-                                .font(.subheadline.weight(.medium))
-                                .lineLimit(2)
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.caption.weight(.semibold))
-                        }
-                        .foregroundStyle(palette.color(for: .foreground))
-                        .frame(minHeight: 44)
-                    }
-                    .buttonStyle(.plain)
-                    .frame(maxWidth: .infinity, minHeight: 44)
-                    .contentShape(Rectangle())
-                    .accessibilityIdentifier("home.routine.\(routine.id.uuidString)")
-                }
-                if dueRoutines.isEmpty, let habit = habitTitles.first {
-                    Button {
-                        router.navigate(.habitBoard, in: .track)
-                    } label: {
-                        HStack {
-                            Image(systemName: "repeat")
-                            Text(habit).font(.subheadline.weight(.medium)).lineLimit(2)
-                            Spacer()
-                            Image(systemName: "chevron.right").font(.caption.weight(.semibold))
-                        }
-                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("home.routines.openHabitBoard")
-                }
-            }
-            Button("Open routines") { router.select(.track) }
-                .font(.subheadline.weight(.semibold))
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("home.routines.open")
-        }
-        .padding(16)
-        .lifeBoardRaisedClayCard(palette: palette)
-    }
-
-    private func capacityWidget(palette: LifeBoardDaypartPalette) -> some View {
-        VStack(alignment: .leading, spacing: 13) {
-            widgetTitle(router.dashboardMode == .lowEnergy ? "Protected rest" : "Capacity", symbol: "calendar.badge.clock", palette: palette)
-                .accessibilityIdentifier("home.widget.scheduleCapacity")
-            if let capacity = lifeOSStore.planSnapshot?.capacity {
-                Text(capacity.overloadDuration > 0 ? "\(homeDuration(capacity.overloadDuration)) over capacity" : "\(homeDuration(capacity.remainingKnownCapacity)) known room")
-                    .font(.title3.weight(.semibold))
-                Text(capacity.isEstimateIncomplete ? "Estimate incomplete · confidence \(Int(capacity.confidence * 100))%" : "Usable capacity \(homeDuration(capacity.usableDuration))")
-                    .font(.subheadline)
-                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-            } else if projectionAdapter.snapshot.calendarNeedsSetup {
-                honestEmptyState("Connect Calendar to see your next usable window", symbol: "calendar.badge.plus", palette: palette)
-            } else if let freeUntil = projectionAdapter.snapshot.freeUntil {
-                Text("Open until \(freeUntil.formatted(date: .omitted, time: .shortened))")
-                    .font(.title3.weight(.semibold))
-                Text(capacityDescription)
-                    .font(.subheadline)
-                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-            } else {
-                Text("No reliable free window yet")
-                    .font(.headline)
-                Text("Missing estimates lower confidence; LifeBoard won’t invent precision.")
-                    .font(.caption)
-                    .foregroundStyle(palette.color(for: .foregroundSecondary))
-            }
-            Button("Open Day") { router.navigate(.planDay, in: .plan) }
-                .font(.subheadline.weight(.semibold))
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("home.capacity.openDay")
-        }
-        .padding(16)
-        .lifeBoardRaisedClayCard(palette: palette)
-    }
-
-    private func quickCaptureWidget(palette: LifeBoardDaypartPalette) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            widgetTitle("Capture", symbol: "plus", palette: palette)
-                .accessibilityIdentifier("home.widget.quickCapture")
-            HStack(spacing: 8) {
-                captureButton("Task", symbol: "checkmark.circle", kind: .task, palette: palette)
-                captureButton("Habit", symbol: "repeat", kind: .habit, palette: palette)
-                captureButton("Journal", symbol: "book.closed", kind: .journal, palette: palette)
-                if V2FeatureFlags.careModulesV2Enabled {
-                    captureButton("Water", symbol: "drop.fill", kind: .hydration, palette: palette)
-                }
-            }
-        }
-        .padding(16)
-        .lifeBoardRaisedClayCard(palette: palette)
-    }
-
-    private var homeHydrationLabel: String {
-        guard let amount = lifeOSStore.trackSnapshot?.hydrationAmountMilliliters else { return "Set up" }
-        return "\(Int(amount)) ml"
-    }
-
-    private var homeMedicationLabel: String {
-        let count = lifeOSStore.trackSnapshot?.unresolvedMedicationEvents.count ?? 0
-        return count == 0 ? "No unresolved medication events" : "\(count) medication decision\(count == 1 ? "" : "s")"
-    }
-
-    private func homeDuration(_ seconds: TimeInterval) -> String {
-        let minutes = max(0, Int((seconds / 60).rounded()))
-        if minutes < 60 { return "\(minutes)m" }
-        let hours = minutes / 60, remainder = minutes % 60
-        return remainder == 0 ? "\(hours)h" : "\(hours)h \(remainder)m"
-    }
-
-    private func timelineWidget(palette: LifeBoardDaypartPalette) -> some View {
-        VStack(alignment: .leading, spacing: 13) {
-            widgetTitle("Now & next", symbol: "timeline.selection", palette: palette)
-                .accessibilityIdentifier("home.widget.compactTimeline")
-            if projectionAdapter.snapshot.timelineItems.isEmpty {
-                honestEmptyState("Your next three commitments will appear here", symbol: "calendar", palette: palette)
-            } else {
-                ForEach(projectionAdapter.snapshot.timelineItems) { item in
-                    HStack(alignment: .top, spacing: 12) {
-                        Text(item.startDate.formatted(date: .omitted, time: .shortened))
-                            .font(.caption.monospacedDigit().weight(.semibold))
-                            .foregroundStyle(palette.color(for: .foregroundSecondary))
-                            .frame(width: 62, alignment: .leading)
-                        Capsule().fill(palette.color(for: .layerTwo)).frame(width: 4, height: 34)
-                        Text(item.title).font(.subheadline.weight(.medium)).lineLimit(2)
-                        Spacer()
-                    }
-                }
-            }
-            Button("Open complete day shape") { router.select(.plan) }
-                .font(.subheadline.weight(.semibold))
-                .frame(minHeight: 44)
-                .accessibilityIdentifier("home.timeline.openDay")
-        }
-        .padding(16)
-        .lifeBoardRaisedClayCard(palette: palette)
-    }
-
-    private func journalCaptureButton(palette: LifeBoardDaypartPalette) -> some View {
-        Button {
-            captureRouter.request(kind: .journal, source: .widget)
-        } label: {
-            Label("Write", systemImage: "square.and.pencil")
-                .lineLimit(1)
-        }
-        .buttonStyle(LifeBoardPrimaryActionStyle(fill: palette.color(for: .foreground)))
-        .accessibilityIdentifier("home.journal.capture")
-    }
-
-    private func journalSearchButton() -> some View {
-        Button {
-            router.navigate(.journalSearch, in: .home)
-        } label: {
-            Label("Search", systemImage: "magnifyingglass")
-                .lineLimit(1)
-                .frame(maxWidth: .infinity, minHeight: 44)
-        }
-        .buttonStyle(.bordered)
-        .accessibilityIdentifier("home.journal.search")
-    }
-
-    private func journalWidget(palette: LifeBoardDaypartPalette) -> some View {
-        VStack(alignment: .leading, spacing: 13) {
-            widgetTitle("Journal", symbol: "book.closed", palette: palette)
-                .accessibilityIdentifier("home.widget.journal")
-            Text("Keep one honest moment from today—words, photos, or audio.")
-                .font(.subheadline)
-                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                .fixedSize(horizontal: false, vertical: true)
-            // In a half-width card these two buttons get about 63pt each, which
-            // is narrower than "Search" plus its symbol. Laid out in a fixed
-            // HStack the labels wrapped to one character per line and the
-            // buttons grew to ~350pt tall. `ViewThatFits` keeps the side-by-side
-            // arrangement wherever it genuinely fits and stacks otherwise.
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) {
-                    journalCaptureButton(palette: palette)
-                    journalSearchButton()
-                }
-                VStack(spacing: 8) {
-                    journalCaptureButton(palette: palette)
-                    journalSearchButton()
-                }
-            }
-            Button {
-                let week = Calendar.current.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
-                router.navigate(.weeklyReflection(week), in: .home)
-            } label: {
-                HStack {
-                    Label("Weekly reflection", systemImage: "sparkles.rectangle.stack")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                }
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("home.journal.weeklyReflection")
-        }
-        .padding(16)
-        .lifeBoardRaisedClayCard(palette: palette)
-    }
-
-    @ViewBuilder
-    private var progressMetricLabels: some View {
-        Label("\(projectionAdapter.snapshot.openTaskCount) open", systemImage: "checklist")
-            .lineLimit(1)
-        Spacer(minLength: 0)
-        // Was `snapshot.streakDays` — `GamificationEngine`'s "consecutive days
-        // with any XP event", which is not a fact about the loop at all. These
-        // two come from applied close receipts, so the number cannot disagree
-        // with what actually happened, and Undo moves it.
-        if let rhythm = dayLoopRhythmText {
-            // Two lines rather than one: the Progress card renders in a 2-up
-            // grid, and truncating to "1 of 14 days · 1 day…" would hide one of
-            // the two honest facts. DESIGN.md forbids
-            // shrinking type to preserve a grid, so it wraps instead.
-            Label(rhythm, systemImage: "circle.hexagongrid")
-                .lineLimit(2)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-
-    /// The loop's rhythm: how the last two weeks went, then the current run.
-    ///
-    /// Both numbers render at the same size in the same label, which is the
-    /// anti-guilt mechanism — it is arithmetic, not copy. Consistency leads so
-    /// breaking a run cannot make the smallest number the first visual fact.
-    ///
-    /// `nil` before anything has been closed: "0 days running" would be a
-    /// verdict on nothing.
-    private var dayLoopRhythmText: String? {
-        guard let summary = dayLoopSummary, summary.hasNoHistory == false else { return nil }
-        let window = "\(summary.closedInWindow) of \(summary.window) days"
-        guard summary.runLength > 0 else { return window }
-        let run = summary.runLength == 1 ? "1 day running" : "\(summary.runLength) days running"
-        return "\(window) · \(run)"
-    }
-
-    private func progressWidget(palette: LifeBoardDaypartPalette) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            widgetTitle(router.dashboardMode == .lowEnergy ? "Continuity" : "Progress", symbol: "chart.line.uptrend.xyaxis", palette: palette)
-                .accessibilityIdentifier("home.widget.progressReflection")
-            ProgressView(value: projectionAdapter.snapshot.completionRate)
-                .tint(palette.color(for: .celestialCore))
-                .accessibilityLabel("Today’s progress")
-                .accessibilityValue(projectionAdapter.snapshot.completionRate.formatted(.percent))
-            // Half-width cards hyphenated "continuity" mid-word. These two
-            // metrics wrap as a unit rather than breaking their own labels.
-            ViewThatFits(in: .horizontal) {
-                HStack {
-                    progressMetricLabels
-                }
-                VStack(alignment: .leading, spacing: 6) {
-                    progressMetricLabels
-                }
-            }
-            .font(.caption.weight(.medium))
-            Divider().overlay(Color(LifeBoardColorTokens.foundationHairline))
-            Button {
-                // The label promises evidence, so open the evidence route with
-                // its disclosure already expanded rather than the Insights
-                // overview the user then has to dig through.
-                router.select(.insights)
-                router.push(.insightEvidence(nil), in: .insights)
-            } label: {
-                HStack {
-                    Label("See evidence behind today", systemImage: "chart.xyaxis.line")
-                    Spacer()
-                    Image(systemName: "chevron.right")
-                }
-                .frame(minHeight: 44)
-            }
-            .buttonStyle(.plain)
-            .accessibilityIdentifier("home.progress.openInsights")
-        }
-        .padding(16)
-        .lifeBoardRaisedClayCard(palette: palette)
-    }
-
-    private func fastingWidget(palette: LifeBoardDaypartPalette) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            widgetTitle("Active fast", symbol: "timer", palette: palette)
-                .accessibilityIdentifier("home.widget.fasting")
-            if let fast = lifeOSStore.activeFast {
-                TimelineView(.periodic(from: .now, by: 1)) { context in
-                    let elapsed = fast.elapsed(at: context.date)
-                    let progress = fast.targetDuration.map { $0 > 0 ? min(1, elapsed / $0) : 0.25 } ?? 0.25
-                    HStack(spacing: 18) {
-                        ZStack {
-                            Circle()
-                                .stroke(palette.color(for: .canvasSecondary), lineWidth: 8)
-                            Circle()
-                                .trim(from: 0, to: max(0.025, progress))
-                                .stroke(
-                                    palette.color(for: .celestialCore),
-                                    style: StrokeStyle(lineWidth: 8, lineCap: .round)
-                                )
-                                .rotationEffect(.degrees(-90))
-                                .lifeboardFastingEmberRing(
-                                    progress: progress,
-                                    tint: palette.color(for: .celestialCore)
-                                )
-                        }
-                        .frame(width: 86, height: 86)
-                        .accessibilityHidden(true)
-
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text(homeDuration(elapsed))
-                                .font(.system(.title2, design: .rounded, weight: .bold).monospacedDigit())
-                            Text(fast.targetDuration.map {
-                                elapsed >= $0
-                                    ? "Planned duration reached"
-                                    : "\(homeDuration($0 - elapsed)) until your planned finish"
-                            } ?? "End whenever it feels right")
-                                .font(.caption)
-                                .foregroundStyle(palette.color(for: .foregroundSecondary))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Active fast")
-                    .accessibilityValue("\(homeDuration(elapsed)) elapsed")
-                }
-                HStack(spacing: 10) {
-                    Button("End fast") {
-                        Task { await lifeOSStore.endActiveFast() }
-                    }
-                    .buttonStyle(LifeBoardPrimaryActionStyle(fill: palette.color(for: .foreground)))
-                    Button("Open Track") { router.select(.track) }
-                        .buttonStyle(.bordered)
-                        .frame(maxWidth: .infinity, minHeight: 44)
-                }
-            } else {
-                honestEmptyState("No fast is active", symbol: "checkmark.circle", palette: palette)
-                Button("Set up in Track") { router.select(.track) }
-                    .font(.subheadline.weight(.semibold))
-                    .frame(minHeight: 44)
-            }
-        }
-        .padding(16)
-        .lifeBoardRaisedClayCard(palette: palette)
-    }
-
-    private func widgetTitle(_ title: String, symbol: String, palette: LifeBoardDaypartPalette) -> some View {
-        HStack(spacing: 9) {
-            Image(systemName: symbol).foregroundStyle(palette.color(for: .foregroundSecondary))
-            Text(title).font(.system(.headline, design: .rounded, weight: .semibold))
-            Spacer()
-        }
-        .accessibilityElement(children: .combine)
-    }
-
-    private func snapshotMetric(
-        id: String,
-        symbol: String,
-        value: String,
-        label: String,
-        palette: LifeBoardDaypartPalette,
-        action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            VStack(spacing: 7) {
-                Image(systemName: symbol).font(.system(size: 18, weight: .semibold))
-                Text(value).font(.caption2.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
-                Text(label).font(.caption2).foregroundStyle(palette.color(for: .foregroundSecondary))
-            }
-            .frame(maxWidth: .infinity, minHeight: 76)
-            .lifeBoardEmbeddedClayWell(palette: palette)
-        }
-        .buttonStyle(.plain)
-        .accessibilityElement(children: .combine)
-        .accessibilityIdentifier("home.snapshot.\(id)")
-    }
-
-    private func captureButton(
-        _ title: String,
-        symbol: String,
-        kind: CaptureKind,
-        palette: LifeBoardDaypartPalette
-    ) -> some View {
-        Button {
-            captureRouter.request(kind: kind, source: .shell)
-            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
-        } label: {
-            VStack(spacing: 6) {
-                Image(systemName: symbol).font(.system(size: 18, weight: .semibold))
-                Text(title).font(.caption.weight(.medium)).lineLimit(1)
-            }
-            .frame(maxWidth: .infinity, minHeight: 62)
-            .lifeBoardEmbeddedClayWell(palette: palette)
-        }
-        .buttonStyle(.plain)
-        .accessibilityIdentifier("home.capture.\(kind.rawValue)")
-    }
-
-    private func honestEmptyState(_ text: String, symbol: String, palette: LifeBoardDaypartPalette) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol).foregroundStyle(palette.color(for: .foregroundSecondary))
-            Text(text).font(.subheadline).foregroundStyle(palette.color(for: .foregroundSecondary))
-            Spacer(minLength: 0)
-        }
-        .fixedSize(horizontal: false, vertical: true)
-    }
-
-    private var capacityDescription: String {
-        if router.dashboardMode == .lowEnergy { return "Keep this window light and protect recovery." }
-        if projectionAdapter.snapshot.overdueCount > 2 { return "Your day is carrying some pressure. Choose one commitment." }
-        return "There is room for one focused block."
-    }
-
-    private func customizationControls(
-        for placement: DashboardWidgetPlacementValue,
-        daypart: ResolvedDaypart,
-        palette: LifeBoardDaypartPalette
-    ) -> some View {
-        Menu {
-            if let descriptor = store.registry.descriptor(for: DashboardWidgetKind(rawValue: placement.widgetKind)) {
-                Section("Size") {
-                    ForEach(WidgetSizePreset.allCases, id: \.self) { size in
-                        if descriptor.supportedSizes.contains(size) {
-                            Button(size.title) { store.resizePlacement(id: placement.id, to: size) }
-                        }
-                    }
-                }
-            }
-            Button("Move earlier", systemImage: "arrow.up") { store.movePlacement(id: placement.id, offset: -1) }
-            Button("Move later", systemImage: "arrow.down") { store.movePlacement(id: placement.id, offset: 1) }
-            Button(
-                placement.ownership == .smart ? "Make pinned" : "Make adaptive",
-                systemImage: placement.ownership == .smart ? "pin" : "sparkles"
-            ) {
-                store.toggleSmartSlot(id: placement.id)
-            }
-            if placement.ownership == .smart {
-                let slot = placement.smartSlot ?? .init()
-                Section("Smart Slot") {
-                    Button(
-                        slot.frozenWidgetKind == nil ? "Freeze current card" : "Resume adapting",
-                        systemImage: slot.frozenWidgetKind == nil ? "snowflake" : "sparkles"
-                    ) {
-                        let displayed = resolvedWidgetKind(for: placement, daypart: daypart)
-                        store.updateSmartSlot(id: placement.id) {
-                            $0.frozenWidgetKind = slot.frozenWidgetKind == nil ? displayed.rawValue : nil
-                        }
-                    }
-                    Menu("When it adapts", systemImage: "clock") {
-                        ForEach(HomeSmartSlotSchedule.allCases, id: \.self) { schedule in
-                            Button {
-                                store.updateSmartSlot(id: placement.id) { $0.schedule = schedule }
-                            } label: {
-                                if slot.schedule == schedule {
-                                    Label(schedule.title, systemImage: "checkmark")
-                                } else {
-                                    Text(schedule.title)
-                                }
-                            }
-                        }
-                    }
-                    Menu("Allowed sections", systemImage: "square.grid.2x2") {
-                        ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
-                            Button {
-                                store.updateSmartSlot(id: placement.id) { configuration in
-                                    if configuration.allowedDestinations.contains(destination),
-                                       configuration.allowedDestinations.count > 1 {
-                                        configuration.allowedDestinations.remove(destination)
-                                    } else {
-                                        configuration.allowedDestinations.insert(destination)
-                                    }
-                                }
-                            } label: {
-                                Label(
-                                    destination.title,
-                                    systemImage: slot.allowedDestinations.contains(destination) ? "checkmark.circle.fill" : "circle"
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            Button("Hide", systemImage: "eye.slash", role: .destructive) { store.hidePlacement(id: placement.id) }
-        } label: {
-            Image(systemName: "ellipsis")
-                .font(.headline)
-                .frame(width: 44, height: 44)
-                .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: Circle())
-                .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow), radius: 6, y: 2)
-        }
-        .accessibilityLabel("Edit widget")
-        .accessibilityIdentifier("home.widget.edit.\(placement.id.uuidString)")
-        .accessibilityAction(named: "Move before") { store.movePlacement(id: placement.id, offset: -1) }
-        .accessibilityAction(named: "Move after") { store.movePlacement(id: placement.id, offset: 1) }
-        .accessibilityAction(named: "Hide") { store.hidePlacement(id: placement.id) }
     }
 
     private func resolvedWidgetKind(
@@ -3816,9 +1872,2462 @@ struct LifeBoardAdaptiveHome: View {
     }
 }
 
+// MARK: - Adaptive Home sections
+//
+// Every section below used to be a computed `some View` member of
+// `AdaptiveHome`. A computed property is inlined into its caller's
+// frame, so the entire screen was built inside `body`'s frame and walked off
+// the 1 MB main-thread stack in Debug — `-Onone` gives every SwiftUI temporary
+// its own stack slot instead of reusing them, which is why it never reproduced
+// in Release. A `struct: View` gets its own `body` call and therefore its own
+// frame. This is pure code motion: behaviour, copy, layout and every
+// accessibility identifier are unchanged.
+
+/// Pure derivations lifted out of `AdaptiveHome`.
+///
+/// `@MainActor` is required rather than decorative: several of these read
+/// `@Observable @MainActor` stores.
+@MainActor
+enum HomeSectionCopy {
+    static func symbol(for kind: DashboardWidgetKind, store: AdaptiveHomeStore) -> String {
+        store.registry.descriptor(for: kind)?.systemImage ?? "square.grid.2x2"
+    }
+
+    static func heroLabel(for priority: AdaptiveHeroPriority?) -> String {
+        switch priority {
+        case .activeFocus: "Focus in progress"
+        case .safetySensitiveCare: "Care needs a decision"
+        case .fixedCommitment: "Current commitment"
+        case .urgentPlannedWork: "Must Do"
+        case .timedRoutine: "Routine"
+        case .recovery: "Recovery"
+        case .generalFocus, .none: "Focus Now"
+        }
+    }
+
+    static func heroSymbol(for priority: AdaptiveHeroPriority?) -> String {
+        switch priority {
+        case .activeFocus: "timer"
+        case .safetySensitiveCare: "cross.case"
+        case .fixedCommitment: "calendar"
+        case .urgentPlannedWork: "exclamationmark.circle"
+        case .timedRoutine: "list.bullet.clipboard"
+        case .recovery: "arrow.counterclockwise"
+        case .generalFocus, .none: "scope"
+        }
+    }
+
+    static func compactHeroActionTitle(_ title: String) -> String {
+        switch title {
+        case "Choose a focus": "Choose"
+        case "Open focus", "Open day": "Open"
+        default: title
+        }
+    }
+
+    static func homeAvailability(
+        for domain: HealthDomain,
+        value: HealthAggregateValue?,
+        healthStore: HealthConnectionStore
+    ) -> HomeSignalState {
+        let signal = healthStore.statuses[domain]?.signal ?? .setupRequired
+        switch signal {
+        case .loading: return .loading
+        case .setupRequired: return .permissionRequired
+        case .stale, .partial: return value == nil ? .unavailable : .stale
+        case .unavailable, .protectedDataLocked, .offline, .writeDenied: return value == nil ? .unavailable : .stale
+        case .noRecord: return .setupRequired
+        case .explicitZero, .recorded: return value == nil ? .setupRequired : .available
+        }
+    }
+
+    static func signalRank(_ slot: HomeSignalSlot) -> Int {
+        let stateRank: Int = switch slot.availability {
+        case .available: 40
+        case .stale: 30
+        case .loading: 20
+        case .setupRequired, .permissionRequired: 10
+        case .unavailable: 0
+        }
+        let domainRank: Int = switch slot.id {
+        case "steps": 4
+        case "active": 3
+        case "hydration": 2
+        case "fasting": 1
+        default: 0
+        }
+        return stateRank + domainRank
+    }
+
+    /// Water-like signals fill with liquid; movement signals keep the plain
+    /// arc so the metaphor stays honest.
+    static func liquidTint(for slot: HomeSignalSlot, palette: DaypartPalette) -> Color? {
+        guard slot.availability == .available || slot.availability == .stale else { return nil }
+        switch slot.id {
+        case "hydration": return Color(SemanticColorTokens.foundationSageAccent).opacity(0.55)
+        case "fasting": return Color(SemanticColorTokens.foundationApricotAccent).opacity(0.6)
+        default: return nil
+        }
+    }
+
+    static func ringState(for slot: HomeSignalSlot) -> MetricRing.RingState {
+        switch slot.availability {
+        case .loading:
+            return .loading
+        case .setupRequired:
+            return .setupRequired
+        case .permissionRequired:
+            // These two were one case, and the collapse discarded a distinction
+            // the domain had just made: `homeAvailability` above separates
+            // "HealthKit was never authorized" (.permissionRequired) from
+            // "authorized, nothing recorded yet" (.setupRequired). Both drew the
+            // same dashed "+", so a declined permission read as unfinished
+            // setup — and the "+" implied tapping would let you add a value,
+            // which it cannot.
+            return .permissionRequired
+        case .unavailable:
+            return .unavailable
+        case .stale:
+            guard let value = slot.valueText else { return .unavailable }
+            return .stale(progress: slot.progress ?? 0, centerText: value)
+        case .available:
+            guard let value = slot.valueText else { return .setupRequired }
+            let progress = slot.progress ?? 0
+            if progress == 0 { return .zero(centerText: value) }
+            return progress >= 1 ? .complete(centerText: value) : .value(progress: progress, centerText: value)
+        }
+    }
+
+    static func accessibilityAvailability(_ availability: HomeSignalSlot.Availability) -> String {
+        switch availability {
+        case .available: "available"
+        case .loading: "loading"
+        case .setupRequired: "setup required"
+        case .permissionRequired: "permission required"
+        case .stale: "out of date"
+        case .unavailable: "unavailable"
+        }
+    }
+
+    static func compactHours(_ interval: TimeInterval) -> String {
+        let totalMinutes = max(0, Int(interval / 60))
+        return "\(totalMinutes / 60)h \(totalMinutes % 60)m"
+    }
+
+    static func spokenHours(_ interval: TimeInterval) -> String {
+        let totalMinutes = max(0, Int(interval / 60))
+        let hours = totalMinutes / 60
+        let minutes = totalMinutes % 60
+        return "\(hours) hours, \(minutes) minutes"
+    }
+
+    static func duration(_ seconds: TimeInterval) -> String {
+        let minutes = max(0, Int((seconds / 60).rounded()))
+        if minutes < 60 { return "\(minutes)m" }
+        let hours = minutes / 60, remainder = minutes % 60
+        return remainder == 0 ? "\(hours)h" : "\(hours)h \(remainder)m"
+    }
+
+    static func hydrationLabel(_ lifeOSStore: HomeLifeOSProjectionStore) -> String {
+        guard let amount = lifeOSStore.trackSnapshot?.hydrationAmountMilliliters else { return "Set up" }
+        return "\(Int(amount)) ml"
+    }
+
+    static func medicationLabel(_ lifeOSStore: HomeLifeOSProjectionStore) -> String {
+        let count = lifeOSStore.trackSnapshot?.unresolvedMedicationEvents.count ?? 0
+        return count == 0 ? "No unresolved medication events" : "\(count) medication decision\(count == 1 ? "" : "s")"
+    }
+
+    static func capacityDescription(
+        router: AppRouter,
+        projectionAdapter: HomeProjectionCoordinator
+    ) -> String {
+        if router.dashboardMode == .lowEnergy { return "Keep this window light and protect recovery." }
+        if projectionAdapter.snapshot.overdueCount > 2 { return "Your day is carrying some pressure. Choose one commitment." }
+        return "There is room for one focused block."
+    }
+
+    static func taskWidgetTitle(_ lifeOSStore: HomeLifeOSProjectionStore) -> String {
+        let selectedDate = lifeOSStore.taskAgenda.selectedDate
+        if Calendar.current.isDateInToday(selectedDate) {
+            return "Today’s tasks"
+        }
+        return "\(selectedDate.formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day())) tasks"
+    }
+
+    static func taskWidgetEmptyMessage(_ lifeOSStore: HomeLifeOSProjectionStore) -> String {
+        let selectedDate = lifeOSStore.taskAgenda.selectedDate
+        if Calendar.current.isDateInToday(selectedDate) {
+            return "No overdue tasks or tasks due today"
+        }
+        let date = selectedDate.formatted(.dateTime.month(.abbreviated).day())
+        return "No overdue tasks or tasks due \(date)"
+    }
+
+    static func spineTitle(for stage: DayLoopStage) -> String {
+        switch stage {
+        case .commit: "Start today"
+        case .act: "Now"
+        case .repair: "Worth a look"
+        case .close: "Ending the day"
+        // Not "Done" or "Complete" — the day is put down, not scored.
+        case .rest: "Today is closed"
+        }
+    }
+
+    /// The loop's rhythm: how the last two weeks went, then the current run.
+    ///
+    /// Both numbers render at the same size in the same label, which is the
+    /// anti-guilt mechanism — it is arithmetic, not copy. Consistency leads so
+    /// breaking a run cannot make the smallest number the first visual fact.
+    ///
+    /// `nil` before anything has been closed: "0 days running" would be a
+    /// verdict on nothing.
+    static func dayLoopRhythmText(_ dayLoopSummary: DayLoopSummary?) -> String? {
+        guard let summary = dayLoopSummary, summary.hasNoHistory == false else { return nil }
+        let window = "\(summary.closedInWindow) of \(summary.window) days"
+        guard summary.runLength > 0 else { return window }
+        let run = summary.runLength == 1 ? "1 day running" : "\(summary.runLength) days running"
+        return "\(window) · \(run)"
+    }
+
+    /// The domain provider registry is the only source of card copy.
+    ///
+    /// A parallel switch used to live here as a "first-frame fallback" and had
+    /// drifted into a second, contradictory copy set for the same cards —
+    /// tasks-empty existed in three spellings, fasting and journal in two, and
+    /// Focus Now shipped the ungrammatical "Choose one kind next step". A card
+    /// shows its title alone until its provider resolves, which is a frame at
+    /// most, rather than showing something that disagrees with what follows.
+    static func widgetSummary(
+        _ kind: DashboardWidgetKind,
+        size: HomeCardSize,
+        lifeOSStore: HomeLifeOSProjectionStore
+    ) -> String {
+        guard let snapshot = lifeOSStore.cardSnapshot(kind: kind, size: size) else { return "" }
+        return [snapshot.value, snapshot.detail]
+            .compactMap { $0 }
+            .joined(separator: " · ")
+    }
+}
+
+// MARK: - Home shared chrome
+
+private struct HomeSectionHeading: View {
+    let title: String
+    var state: String?
+    let palette: DaypartPalette
+    var usesInverseInk = false
+
+    init(
+        _ title: String,
+        state: String? = nil,
+        palette: DaypartPalette,
+        usesInverseInk: Bool = false
+    ) {
+        self.title = title
+        self.state = state
+        self.palette = palette
+        self.usesInverseInk = usesInverseInk
+    }
+
+    var body: some View {
+        let primary = usesInverseInk
+            ? Color.lifeboard(.textInverse)
+            : palette.color(for: .foreground)
+        let secondary = usesInverseInk
+            ? Color.lifeboard(.textInverse).opacity(0.78)
+            : palette.color(for: .foregroundSecondary)
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+            Text(title)
+                .font(Typography.sectionTitle())
+                .foregroundStyle(primary)
+            if let state {
+                Text(state)
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(secondary)
+                    .monospacedDigit()
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct HomeWidgetTitle: View {
+    let title: String
+    let symbol: String
+    let palette: DaypartPalette
+
+    init(_ title: String, symbol: String, palette: DaypartPalette) {
+        self.title = title
+        self.symbol = symbol
+        self.palette = palette
+    }
+
+    var body: some View {
+        HStack(spacing: 9) {
+            Image(systemName: symbol).foregroundStyle(palette.color(for: .foregroundSecondary))
+            Text(title).lifeboardFont(.headline)
+            Spacer()
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct HomeEmptyStateRow: View {
+    let text: String
+    let symbol: String
+    let palette: DaypartPalette
+
+    init(_ text: String, symbol: String, palette: DaypartPalette) {
+        self.text = text
+        self.symbol = symbol
+        self.palette = palette
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: symbol).foregroundStyle(palette.color(for: .foregroundSecondary))
+            Text(text).font(.subheadline).foregroundStyle(palette.color(for: .foregroundSecondary))
+            Spacer(minLength: 0)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+private struct HomeSnapshotMetric: View {
+    let id: String
+    let symbol: String
+    let value: String
+    let label: String
+    let palette: DaypartPalette
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 7) {
+                Image(systemName: symbol).lifeboardFont(.title2)
+                Text(value).font(.caption2.weight(.semibold)).lineLimit(1).minimumScaleFactor(0.7)
+                Text(label).font(.caption2).foregroundStyle(palette.color(for: .foregroundSecondary))
+            }
+            .frame(maxWidth: .infinity, minHeight: 76)
+            .lifeBoardEmbeddedClayWell(palette: palette)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("home.snapshot.\(id)")
+    }
+}
+
+private struct HomeCaptureTile: View {
+    let title: String
+    let symbol: String
+    let kind: CaptureKind
+    let palette: DaypartPalette
+    let captureRouter: CaptureRouter
+
+    var body: some View {
+        Button {
+            captureRouter.request(kind: kind, source: .shell)
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        } label: {
+            VStack(spacing: 6) {
+                Image(systemName: symbol).lifeboardFont(.title2)
+                Text(title).font(.caption.weight(.medium)).lineLimit(1)
+            }
+            .frame(maxWidth: .infinity, minHeight: 62)
+            .lifeBoardEmbeddedClayWell(palette: palette)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.capture.\(kind.rawValue)")
+    }
+}
+
+// MARK: - Home orientation sections
+
+private struct HomeNeedsAttentionSection: View {
+    let store: AdaptiveHomeStore
+    let router: AppRouter
+    let palette: DaypartPalette
+    let onPinAfterAction: (HomeContextCandidate) -> Void
+
+    var body: some View {
+        let candidates = Array(store.contextSelection.candidates.dropFirst().prefix(3))
+        VStack(alignment: .leading, spacing: 10) {
+            HomeSectionHeading(
+                "Needs attention",
+                state: "\(candidates.count)",
+                palette: palette
+            )
+            ForEach(candidates) { candidate in
+                Button {
+                    onPinAfterAction(candidate)
+                    router.select(candidate.destination)
+                } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: HomeSectionCopy.symbol(for: candidate.widgetKind, store: store))
+                            .frame(width: 30, height: 30)
+                            .background(palette.color(for: .canvasSecondary), in: Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(candidate.title)
+                                .font(.subheadline.weight(.semibold))
+                            Text(candidate.reason.message)
+                                .font(.caption)
+                                .foregroundStyle(palette.color(for: .foregroundSecondary))
+                                .lineLimit(2)
+                        }
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                    }
+                    .padding(.vertical, 8)
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .lifeBoardRaisedClayCard(palette: palette)
+        .accessibilityIdentifier("home.needsAttention")
+    }
+}
+
+private struct HomeContextCard: View {
+    let candidate: HomeContextCandidate
+    let store: AdaptiveHomeStore
+    let router: AppRouter
+    let palette: DaypartPalette
+    let accessibilityIdentifier: String
+    @Binding var contextReasonCandidate: HomeContextCandidate?
+    let onPinAfterAction: (HomeContextCandidate) -> Void
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: HomeSectionCopy.symbol(for: candidate.widgetKind, store: store))
+                    .lifeboardFont(.title2)
+                    .frame(width: 34, height: 34)
+                    .background(palette.color(for: .canvasSecondary), in: Circle())
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(candidate.title)
+                        .lifeboardFont(.headline)
+                        .lineLimit(2)
+                    Text(candidate.reason.message)
+                        .font(.caption)
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
+                Menu {
+                    Button("Why this?", systemImage: "info.circle") {
+                        contextReasonCandidate = candidate
+                    }
+                    Button("Keep on Home", systemImage: "pin") {
+                        store.pinContext(candidate)
+                        Task { await store.saveCustomization() }
+                    }
+                    Menu("Move to Section", systemImage: "rectangle.3.group") {
+                        ForEach(
+                            [HomeSectionRole.today, .keepSteady, .closeLoop, .userSpace],
+                            id: \.self
+                        ) { section in
+                            Button(section.title) {
+                                store.pinContext(candidate, section: section)
+                                Task { await store.saveCustomization() }
+                            }
+                        }
+                    }
+                    Button("Hide for today", systemImage: "sun.horizon") {
+                        store.hideContextForToday(candidate)
+                    }
+                    Button("Suggest less often", systemImage: "arrow.down.right") {
+                        store.suggestContextLessOften(candidate)
+                    }
+                    Button("Never suggest this", systemImage: "eye.slash", role: .destructive) {
+                        store.neverSuggestContext(candidate)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                }
+                .accessibilityLabel("Options for \(candidate.title)")
+            }
+
+            Button {
+                onPinAfterAction(candidate)
+                if let route = candidate.route {
+                    // `navigate` rather than `select` + `push`: it lets the root
+                    // change finish before the typed leaf is appended, so a
+                    // just-popped empty path cannot be written over the new
+                    // route. Root selection alone never leaves a blank frame now
+                    // (`RootRetention`), but the ordering still matters.
+                    router.navigate(route, in: candidate.destination)
+                } else {
+                    router.select(candidate.destination)
+                }
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+            } label: {
+                HStack {
+                    Text(candidate.actionTitle)
+                    Spacer()
+                    Image(systemName: "arrow.up.right")
+                }
+                .font(.subheadline.weight(.semibold))
+                .frame(minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .lifeBoardTransitionSource(
+                candidate.route?.spatialTransitionID ?? "route.home.context.\(candidate.id)"
+            )
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
+        .lifeBoardFloatingClayCard(palette: palette)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(candidate.title)
+        .accessibilityHint(candidate.reason.message)
+        .accessibilityIdentifier(accessibilityIdentifier)
+        .simultaneousGesture(
+            DragGesture(minimumDistance: 0)
+                .onChanged { _ in store.setContextFrozen(true, reason: "context-touch") }
+                .onEnded { _ in store.setContextFrozen(false, reason: "context-touch") }
+        )
+    }
+}
+
+private struct HomeContextReasonSheet: View {
+    let candidate: HomeContextCandidate
+    let store: AdaptiveHomeStore
+    let palette: DaypartPalette
+    @Binding var contextReasonCandidate: HomeContextCandidate?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack {
+                Image(systemName: "sparkles")
+                    .font(.title2)
+                Text("Why this is here")
+                    .lifeboardFont(.metric)
+                Spacer()
+            }
+            Text(candidate.reason.message)
+                .font(.body)
+            Label("Based on \(candidate.reason.signal)", systemImage: "checkmark.shield")
+                .font(.subheadline)
+                .foregroundStyle(palette.color(for: .foregroundSecondary))
+            Spacer()
+            Button("Keep on Home") {
+                store.pinContext(candidate)
+                contextReasonCandidate = nil
+                Task { await store.saveCustomization() }
+            }
+            .buttonStyle(.borderedProminent)
+            .frame(maxWidth: .infinity)
+        }
+        .padding(24)
+        .background(Color(SemanticColorTokens.foundationSurfaceSolid))
+    }
+}
+
+private struct HomeTodayStorySection: View {
+    let projectionAdapter: HomeProjectionCoordinator
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let router: AppRouter
+    let palette: DaypartPalette
+
+    var body: some View {
+        let items = todayStoryItems
+        VStack(alignment: .leading, spacing: 14) {
+            HomeSectionHeading(
+                "Day ahead",
+                state: items.isEmpty ? nil : "\(items.count) moments",
+                palette: palette
+            )
+            VStack(spacing: 0) {
+                ForEach(items) { item in
+                    Button {
+                        router.select(item.destination)
+                    } label: {
+                        HStack(alignment: .top, spacing: 12) {
+                            Image(systemName: item.symbol)
+                                .lifeboardFont(.headline)
+                                .frame(width: 30, height: 30)
+                                .background(palette.color(for: .canvasSecondary), in: Circle())
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(item.title)
+                                    .font(.subheadline.weight(.semibold))
+                                Text(item.detail)
+                                    .font(.caption)
+                                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(palette.color(for: .foregroundSecondary))
+                        }
+                        .padding(.vertical, 13)
+                    }
+                    .buttonStyle(.plain)
+                    if item.id != items.last?.id {
+                        Divider().padding(.leading, 42)
+                    }
+                }
+            }
+            .padding(.horizontal, 14)
+            .lifeBoardRaisedClayCard(palette: palette)
+        }
+        .accessibilityIdentifier("home.todayStory")
+    }
+
+    private var todayStoryItems: [HomeTodayStoryItem] {
+        var items: [HomeTodayStoryItem] = []
+        if projectionAdapter.snapshot.openTaskCount > 0 {
+            items.append(.init(
+                id: "tasks",
+                title: "Today is still in motion",
+                detail: "\(projectionAdapter.snapshot.openTaskCount) open tasks remain; choose what still deserves today.",
+                symbol: "checklist",
+                destination: .plan
+            ))
+        }
+        if let mood = lifeOSStore.latestMood {
+            items.append(.init(
+                id: "mood",
+                title: "You checked in as \(mood.mood.title.lowercased())",
+                detail: mood.energy.map { "Energy was \($0) out of 5." } ?? "No energy score was needed.",
+                symbol: "face.smiling",
+                destination: .track
+            ))
+        }
+        if projectionAdapter.snapshot.completionRate > 0 {
+            // This read "N% of today's planned work is complete", which broke
+            // the copy law twice on a closed day. It reported 100% after an
+            // evening reconciliation where one task was carried to tomorrow and
+            // one was let go — neither is completion — and it asserted a
+            // confident percentage for a day that had nothing scheduled at all,
+            // so "absent" rendered as "100%". Counts say what happened; a rate
+            // says what someone should conclude from it.
+            let openCount = projectionAdapter.snapshot.openTaskCount
+            items.append(.init(
+                id: "progress",
+                title: "Progress is settling in",
+                detail: openCount == 0
+                    ? "Nothing you committed to is still open."
+                    : "\(openCount) still open.",
+                symbol: "chart.line.uptrend.xyaxis",
+                destination: .insights
+            ))
+        }
+        if items.isEmpty {
+            items.append(.init(
+                id: "empty",
+                title: "The day is still open",
+                detail: "Capture one thought or choose one useful next step.",
+                symbol: "sparkles",
+                destination: .eva
+            ))
+        }
+        return Array(items.prefix(3))
+    }
+}
+
+private struct HomeLifeThreadComposer: View {
+    let store: AdaptiveHomeStore
+    let router: AppRouter
+    let captureRouter: CaptureRouter
+    let palette: DaypartPalette
+    @Binding var composerText: String
+    var composerIsFocused: FocusState<Bool>.Binding
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Menu {
+                Button("Task", systemImage: "checkmark.circle") {
+                    captureRouter.request(kind: .task, source: .shell)
+                }
+                Button("Journal", systemImage: "book.closed") {
+                    captureRouter.request(kind: .journal, source: .shell)
+                }
+                Button("Mood + Energy", systemImage: "face.smiling") {
+                    captureRouter.request(kind: .mood, source: .shell)
+                }
+                Button("Hydration", systemImage: "drop.fill") {
+                    captureRouter.request(kind: .hydration, source: .shell)
+                }
+            } label: {
+                Image(systemName: "plus")
+                    .lifeboardFont(.title2)
+                    .frame(width: 44, height: 44)
+            }
+            .accessibilityLabel("Capture something")
+
+            TextField("Talk to Eva or capture anything", text: $composerText, axis: .vertical)
+                .lineLimit(1...4)
+                .focused(composerIsFocused)
+                .submitLabel(.send)
+                .onSubmit(submitComposer)
+                .accessibilityIdentifier("home.lifeThread.composer")
+
+            Button(action: composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                   ? { captureRouter.request(kind: .journal, source: .shell) }
+                   : submitComposer) {
+                Image(systemName: composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                      ? "waveform"
+                      : "arrow.up")
+                    .lifeboardFont(.headline)
+                    .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
+                    .frame(width: 44, height: 44)
+                    .background(Color(SemanticColorTokens.inkPrimary), in: Circle())
+            }
+            .accessibilityLabel(
+                composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? "Record in Journal"
+                    : "Send to Eva"
+            )
+        }
+        .padding(8)
+        .lifeBoardGlassSurface(cornerRadius: 27, interactive: true)
+        .overlay {
+            RoundedRectangle(cornerRadius: 27, style: .continuous)
+                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
+        }
+        .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.18), radius: 14, y: 8)
+    }
+
+    private func submitComposer() {
+        let prompt = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard prompt.isEmpty == false else { return }
+        do {
+            try EvaChatLaunchRequestStore.shared.submit(.init(prompt: prompt))
+            composerText = ""
+            composerIsFocused.wrappedValue = false
+            router.select(.eva)
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        } catch {
+            store.dismissError()
+        }
+    }
+}
+
+private struct HomeCustomizationActionBar: View {
+    let store: AdaptiveHomeStore
+    let palette: DaypartPalette
+    let motionAnimation: Animation?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Button("Cancel") {
+                withAnimation(motionAnimation) { store.cancelCustomization() }
+            }
+            .frame(minWidth: 88, minHeight: 48)
+            .accessibilityIdentifier("home.customization.cancel")
+
+            Spacer(minLength: 8)
+
+            Button("Done") {
+                Task { await store.saveCustomization() }
+            }
+            .fontWeight(.semibold)
+            .frame(minWidth: 88, minHeight: 48)
+            .accessibilityIdentifier("home.customization.done")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .foregroundStyle(palette.color(for: .foreground))
+        .lifeBoardGlassSurface(cornerRadius: 28, interactive: true)
+        .overlay {
+            RoundedRectangle(cornerRadius: 28, style: .continuous)
+                .stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1)
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.customization.actions")
+    }
+}
+
+// MARK: - Home loop spine
+
+/// The ritual row's content, resolved once by `AdaptiveHome`.
+private struct HomeDayRitual {
+    let route: AppRoute
+    let title: String
+    let subtitle: String
+    let symbol: String
+    let isEvening: Bool
+}
+
+/// The way into the end-of-day ritual, and the morning's read-only echo.
+///
+/// A section-level affordance rather than a `DashboardWidgetKind`: it is not
+/// a readout, it cannot be reordered or pinned, and registering it as a
+/// widget would oblige it to render at all five size presets for no benefit.
+///
+/// Deliberately *not* wired to `DayCompassService`'s `eveningReview` card —
+/// that card's only consumer is the legacy Sunrise home, which this shell
+/// replaces. Reusing the engine's window predicate and its snooze ledger
+/// gives the same tested behaviour without shipping to a screen nobody sees.
+private struct HomeDayRitualRow: View {
+    let ritual: HomeDayRitual?
+    let router: AppRouter
+    @Binding var dayRitualSnoozeGeneration: Int
+
+    var body: some View {
+        if V2FeatureFlags.dayCloseV1Enabled, let ritual {
+            Button {
+                router.push(ritual.route, in: .home)
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: ritual.symbol)
+                        .font(.title3)
+                        .foregroundStyle(Color(SemanticColorTokens.foundationSunAccent))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(ritual.title)
+                            .font(.headline)
+                            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
+                        Text(ritual.subtitle)
+                            .font(.caption)
+                            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                    }
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.footnote)
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
+                }
+                .frame(minHeight: 44)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(16)
+            .lifeBoardClaySurface(.raised, cornerRadius: Radius.card)
+            // The ritual grows out of the row you tapped rather than sliding in
+            // from the edge as an unrelated screen — it is the same day, opened.
+            // Already gated on Reduce Motion, Catalyst and -UI_TESTING inside.
+            .lifeBoardTransitionSource(DayLoopTransition.id(for: ritual.route))
+            .accessibilityIdentifier("home.dayRitual")
+            .contextMenu {
+                if ritual.isEvening {
+                    Button("Not tonight") {
+                        DayCompassSnoozeStore().snoozeUntilEndOfDay(flow: .eveningReview)
+                        dayRitualSnoozeGeneration += 1
+                    }
+                }
+            }
+        }
+    }
+}
+
+/// `.repair` states what the day did, and offers a way to answer it.
+///
+/// Not paired with `nowSection`: the deck already names the work, and
+/// restating the same projection twice under one heading reads as two
+/// separate asks.
+///
+/// The copy reports and stops. "Nothing has changed yet" is the load-bearing
+/// half — the deck is an offer, and a person who reads this and does nothing
+/// has lost nothing. No count styled as a badge, no red, and none of
+/// "missed", "late", "behind" or "overdue": these blocks did not happen when
+/// they were planned, which is a fact about a day, not about a person.
+private struct HomeSpineRepairBody: View {
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let router: AppRouter
+
+    var body: some View {
+        let count = lifeOSStore.driftCount
+        VStack(alignment: .leading, spacing: 12) {
+            Text(
+                count == 1
+                    ? "One thing didn't happen when you planned it. Nothing has changed yet."
+                    : "\(count) things didn't happen when you planned them. Nothing has changed yet."
+            )
+            .font(Typography.body())
+            .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+            .fixedSize(horizontal: false, vertical: true)
+
+            PlanRepairDeck(
+                proposals: lifeOSStore.repairProposals,
+                // The spine already says "Worth a look"; a second header here
+                // would title the same thing twice.
+                header: nil,
+                // The service's own wording — "this planned block has passed
+                // without a completion receipt" — is a sentence about our data
+                // model, not about the person's day.
+                fallbackExplanation: "This one didn't get its window today."
+            ) { action, _ in
+                // Home decides, Plan commits. Choosing a direction only *stages*
+                // a scenario, and staging needs a `PlanningScenarioCoordinator`
+                // that Home's `PlanStore` is built without — so acting here
+                // would look like it worked and quietly do nothing.
+                if action == .askEva {
+                    router.select(.eva)
+                } else {
+                    router.navigate(.planDay, in: .plan)
+                }
+            }
+        }
+        .accessibilityIdentifier("home.loopSpine.repair.body")
+    }
+}
+
+/// `.rest` asks for nothing.
+///
+/// Closing a day must not open a new obligation, so this states the fact and
+/// stops. No CTA, no next step, no offer to plan tomorrow.
+private struct HomeSpineRestBody: View {
+    var body: some View {
+        HStack(alignment: .center, spacing: 18) {
+            // The day, closed — the same ring from the ritual, small and
+            // finished. Its completion mark is already drawn at closedProgress 1,
+            // so this is a record rather than a second celebration.
+            DayRing(
+                plannedMinutes: nil,
+                focusedMinutes: nil,
+                closedProgress: 1,
+                diameter: 64
+            )
+            .accessibilityHidden(true)
+
+            Text("Nothing more is being asked of you today.")
+                .font(Typography.body())
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                .fixedSize(horizontal: false, vertical: true)
+
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .lifeBoardClaySurface(.resting, cornerRadius: Radius.card)
+        // Arrives, settles, and stops. A closed day must not shimmer, so there
+        // is deliberately no TimelineView, no repeatForever, and no CTA — the
+        // whole point of `.rest` is that it asks for nothing.
+        .transition(.opacity.combined(with: .scale(scale: 0.985)))
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("Today is closed. Nothing more is being asked of you today.")
+        .accessibilityIdentifier("home.loopSpine.rest")
+    }
+}
+
+// MARK: - Home signals
+
+private struct HomeSignalRow: View {
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let healthStore: HealthConnectionStore
+    let router: AppRouter
+    let captureRouter: CaptureRouter
+    let hasTrackFoundationRepository: Bool
+    let hasPhaseIIRepository: Bool
+    let palette: DaypartPalette
+    let reduceMotion: Bool
+    @Binding var showsFastEndReceipt: Bool
+    @Binding var showsFastingError: Bool
+    @Binding var fastingStateChangeTrigger: Int
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    var body: some View {
+        let slots = signalSlots
+        if dynamicTypeSize.isAccessibilitySize {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                ForEach(slots) { slot in ring(slot) }
+            }
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home.signalRow")
+        } else {
+            HStack(spacing: 8) {
+                ForEach(slots) { slot in ring(slot) }
+            }
+            .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("home.signalRow")
+        }
+    }
+
+    @ViewBuilder
+    private func ring(_ slot: HomeSignalSlot) -> some View {
+        if slot.id == "fasting" {
+            HomeFastingSignal(
+                lifeOSStore: lifeOSStore,
+                router: router,
+                hasPhaseIIRepository: hasPhaseIIRepository,
+                palette: palette,
+                reduceMotion: reduceMotion,
+                showsFastEndReceipt: $showsFastEndReceipt,
+                showsFastingError: $showsFastingError,
+                fastingStateChangeTrigger: $fastingStateChangeTrigger
+            )
+        } else {
+            Button {
+                if slot.id == "hydration" { captureRouter.request(kind: .hydration, source: .shell) }
+                else { router.select(.track) }
+            } label: {
+                MetricRing(
+                    label: slot.title,
+                    state: HomeSectionCopy.ringState(for: slot),
+                    diameter: 58,
+                    palette: palette,
+                    liquidTint: HomeSectionCopy.liquidTint(for: slot, palette: palette)
+                )
+                .frame(maxWidth: .infinity, minHeight: 100)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(slot.title), \(slot.valueText ?? HomeSectionCopy.accessibilityAvailability(slot.availability))")
+            .accessibilityIdentifier("home.signal.\(slot.id)")
+        }
+    }
+
+    private var signalSlots: [HomeSignalSlot] {
+        let hydrationAmount = healthStore.aggregates[.water]?.value
+            ?? lifeOSStore.trackSnapshot?.hydrationAmountMilliliters
+        let hydrationTarget = lifeOSStore.trackSnapshot?.hydrationTargetMilliliters
+        let hydrationProgress = hydrationAmount.flatMap { amount in
+            hydrationTarget.flatMap { $0 > 0 ? min(1, amount / $0) : nil }
+        }
+        let hydrationAvailability: HomeSignalState = if lifeOSStore.isLoading {
+            .loading
+        } else if hasTrackFoundationRepository == false {
+            .unavailable
+        } else if hydrationAmount == nil {
+            .setupRequired
+        } else {
+            .available
+        }
+        let steps = healthStore.aggregates[.steps]
+        let activeEnergy = healthStore.aggregates[.activeEnergy]
+        let candidates = [
+            HomeSignalSlot(
+                id: "hydration", title: "Hydration",
+                valueText: hydrationAmount.map { "\(Int($0)) ml" }, progress: hydrationProgress,
+                systemImage: "drop.fill",
+                availability: hydrationAvailability
+            ),
+            HomeSignalSlot(
+                id: "steps",
+                title: "Steps",
+                valueText: steps.map { $0.value.formatted(.number.precision(.fractionLength(0))) },
+                progress: steps.map { min(1, $0.value / 10_000) },
+                systemImage: "figure.walk",
+                availability: HomeSectionCopy.homeAvailability(for: .activity, value: steps, healthStore: healthStore)
+            ),
+            HomeSignalSlot(
+                id: "active",
+                title: "Active",
+                valueText: activeEnergy.map { "\(Int($0.value)) kcal" },
+                progress: activeEnergy.map { min(1, $0.value / 500) },
+                systemImage: "flame.fill",
+                availability: HomeSectionCopy.homeAvailability(for: .energy, value: activeEnergy, healthStore: healthStore)
+            ),
+            HomeSignalSlot(
+                id: "fasting",
+                title: "Fasting",
+                valueText: nil,
+                progress: lifeOSStore.activeFast.flatMap { fast in
+                    fast.targetDuration.flatMap { $0 > 0 ? min(1, fast.elapsed() / $0) : nil }
+                },
+                systemImage: "timer",
+                availability: hasPhaseIIRepository ? .available : .unavailable
+            )
+        ]
+        // These are explicitly configured Home signals. The relevance budget
+        // still controls every other Home module, but silently dropping a
+        // configured timer makes its active state unreachable. Preserve all
+        // four and use ranking only to order the three Health facts.
+        let healthSlots = candidates
+            .filter { $0.id != "fasting" }
+            .sorted { HomeSectionCopy.signalRank($0) > HomeSectionCopy.signalRank($1) }
+        return healthSlots + candidates.filter { $0.id == "fasting" }
+    }
+
+}
+
+private struct HomeFastingSignal: View {
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let router: AppRouter
+    let hasPhaseIIRepository: Bool
+    let palette: DaypartPalette
+    let reduceMotion: Bool
+    @Binding var showsFastEndReceipt: Bool
+    @Binding var showsFastingError: Bool
+    @Binding var fastingStateChangeTrigger: Int
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { context in
+            let activeFast = lifeOSStore.activeFast
+            let mealAnchor = HomeFastingAnchorPolicy.recentMealAnchor(
+                latestMealAt: lifeOSStore.recentMealAt,
+                now: context.date
+            )
+            let openAnchor = mealAnchor ?? lifeOSStore.latestEndedFast?.endedAt
+            let elapsed = activeFast?.elapsed(at: context.date)
+                ?? openAnchor.map { max(0, context.date.timeIntervalSince($0)) }
+                ?? 0
+            let progress = activeFast?.targetDuration.flatMap { target in
+                target > 0 ? min(1, elapsed / target) : nil
+            } ?? 0
+            let isAvailable = hasPhaseIIRepository
+
+            Button {
+                guard isAvailable else {
+                    router.select(.track)
+                    return
+                }
+                UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+                if activeFast == nil {
+                    let startDate = HomeFastingAnchorPolicy.recentMealAnchor(
+                        latestMealAt: lifeOSStore.recentMealAt,
+                        now: Date()
+                    ) ?? Date()
+                    Task { await commitFastStart(at: startDate) }
+                } else {
+                    Task { await commitFastEnd() }
+                }
+            } label: {
+                VStack(spacing: 5) {
+                    ZStack {
+                        Circle()
+                            .fill(palette.color(for: .canvasSecondary).opacity(0.62))
+                        Circle()
+                            .stroke(
+                                palette.color(for: .foregroundSecondary).opacity(activeFast == nil ? 0.48 : 0.20),
+                                style: StrokeStyle(lineWidth: activeFast == nil ? 2.5 : 5, dash: activeFast == nil ? [3, 5] : [])
+                            )
+                        if activeFast != nil {
+                            Circle()
+                                .trim(from: 0, to: max(0.025, progress))
+                                .stroke(
+                                    Color(SemanticColorTokens.foundationSunAccent),
+                                    style: StrokeStyle(lineWidth: 5, lineCap: .round)
+                                )
+                                .rotationEffect(.degrees(-90))
+                                .lifeboardFastingEmberRing(
+                                    progress: progress,
+                                    tint: Color(SemanticColorTokens.foundationSunAccent)
+                                )
+                        }
+                        VStack(spacing: 0) {
+                            Text(HomeSectionCopy.compactHours(elapsed))
+                                .lifeboardFont(.eyebrow)
+                                .monospacedDigit()
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.68)
+                                .contentTransition(.numericText())
+                            Text(activeFast != nil ? "fast" : (mealAnchor == nil ? "open" : "since meal"))
+                                .lifeboardFont(.eyebrow)
+                                .foregroundStyle(palette.color(for: .foregroundSecondary))
+                        }
+                    }
+                    .frame(width: 58, height: 58)
+
+                    Text("Fasting")
+                        .font(.caption2.weight(.medium))
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                    Text(isAvailable ? (activeFast == nil ? (mealAnchor == nil ? "Start" : "Start from meal") : "End") : "Unavailable")
+                        .lifeboardFont(.eyebrow)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.68)
+                        .foregroundStyle(
+                            isAvailable
+                                ? Color(SemanticColorTokens.inkPrimary)
+                                : palette.color(for: .foregroundSecondary)
+                        )
+                }
+                .frame(maxWidth: .infinity, minHeight: 100)
+                .contentShape(Rectangle())
+                .lifeboardClayPressBloom(
+                    center: .center,
+                    trigger: fastingStateChangeTrigger,
+                    tint: Color(SemanticColorTokens.foundationSunAccent)
+                )
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(activeFast == nil ? "Start fasting timer" : "End fasting timer")
+            .accessibilityValue(
+                activeFast == nil
+                    ? "Open window, \(HomeSectionCopy.spokenHours(elapsed))"
+                    : "Fasting, \(HomeSectionCopy.spokenHours(elapsed))"
+            )
+            .accessibilityHint(
+                activeFast == nil
+                    ? (mealAnchor == nil ? "Starts now" : "Starts from your latest meal with one tap")
+                    : "Saves the end time with one tap; an Undo appears below"
+            )
+            .accessibilityIdentifier("home.signal.fasting")
+        }
+    }
+
+    @MainActor
+    private func commitFastStart(at date: Date) async {
+        if await lifeOSStore.startFast(targetDuration: nil, at: date) {
+            showsFastEndReceipt = false
+            fastingStateChangeTrigger &+= 1
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } else {
+            showsFastingError = true
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
+    }
+
+    @MainActor
+    private func commitFastEnd() async {
+        if await lifeOSStore.endActiveFast() {
+            withAnimation(reduceMotion ? nil : .spring(duration: 0.38, bounce: 0.16)) {
+                showsFastEndReceipt = true
+            }
+            fastingStateChangeTrigger &+= 1
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        } else {
+            showsFastingError = true
+            UINotificationFeedbackGenerator().notificationOccurred(.error)
+        }
+    }
+}
+
+private struct HomeFastingEndReceipt: View {
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let palette: DaypartPalette
+    let reduceMotion: Bool
+    @Binding var showsFastEndReceipt: Bool
+    @Binding var showsFastingError: Bool
+    @Binding var fastingStateChangeTrigger: Int
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "checkmark.circle.fill")
+                .foregroundStyle(Color(SemanticColorTokens.foundationSageAccent))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Fast saved")
+                    .font(.subheadline.weight(.semibold))
+                Text("Your open-window clock is running.")
+                    .font(.caption)
+                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+            }
+            Spacer(minLength: 8)
+            Button("Undo") {
+                Task {
+                    if await lifeOSStore.undoLastFastEnd() {
+                        withAnimation(reduceMotion ? nil : .spring(duration: 0.34, bounce: 0.12)) {
+                            showsFastEndReceipt = false
+                        }
+                        fastingStateChangeTrigger &+= 1
+                        UINotificationFeedbackGenerator().notificationOccurred(.success)
+                    } else {
+                        showsFastingError = true
+                    }
+                }
+            }
+            .font(.subheadline.weight(.semibold))
+            .frame(minWidth: 44, minHeight: 44)
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 10)
+        .padding(.vertical, 8)
+        .lifeBoardClaySurface(.raised, cornerRadius: 16)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.fasting.receipt")
+    }
+}
+
+// MARK: - Home dashboard widgets
+
+private struct HomeDashboardWidget: View {
+    let placement: DashboardWidgetPlacementValue
+    let kind: DashboardWidgetKind
+    let preset: WidgetSizePreset
+    let daypart: ResolvedDaypart
+    let palette: DaypartPalette
+    let store: AdaptiveHomeStore
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let projectionAdapter: HomeProjectionCoordinator
+    let router: AppRouter
+    let captureRouter: CaptureRouter
+    let modePolicy: any DashboardModePolicy
+    let dashboardDensity: DashboardDensity
+    let hasPlanningRepository: Bool
+    let hasTrackFoundationRepository: Bool
+    let dayLoopSummary: DayLoopSummary?
+    let motionAnimation: Animation?
+    let reduceMotion: Bool
+    let selectedMood: JournalMood
+    let moodEnergy: Int?
+    @Binding var showsMoodDial: Bool
+    @Binding var expandedTaskWidgetIDs: Set<UUID>
+    let onOpenWidget: (DashboardWidgetKind) -> Void
+
+    var body: some View {
+        VStack(spacing: store.isCustomizing ? 6 : 0) {
+            if store.isCustomizing {
+                HStack(spacing: 8) {
+                    Image(systemName: "line.3.horizontal")
+                        .font(.headline)
+                        .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Rectangle())
+                        .accessibilityLabel("Drag widget")
+                        .accessibilityIdentifier("home.widget.drag.\(placement.id.uuidString)")
+
+                    Spacer(minLength: 0)
+                    HomeCustomizationControls(
+                        placement: placement,
+                        displayedKind: kind,
+                        store: store
+                    )
+                }
+                .padding(.horizontal, 4)
+            }
+
+            Group {
+                if preset == .compact {
+                    HomeGlanceWidget(
+                        kind: kind,
+                        daypart: daypart,
+                        store: store,
+                        lifeOSStore: lifeOSStore,
+                        router: router,
+                        palette: palette,
+                        onOpenWidget: onOpenWidget
+                    )
+                } else if preset == .standard {
+                    // Standard cards must preserve their meaningful primary actions.
+                    // Collapsing these into a generic "Open" tile made capture,
+                    // recovery, and evidence routes undiscoverable in the curated
+                    // two-column Home layout.
+                    switch kind {
+                    case .care:
+                        careWidget
+                    case .tasks:
+                        tasksWidget
+                    case .routines:
+                        routinesWidget
+                    case .scheduleCapacity:
+                        capacityWidget
+                    case .journal:
+                        journalWidget
+                    case .progressReflection:
+                        progressWidget
+                    default:
+                        archetypeWidget
+                    }
+                } else {
+                    switch kind {
+                    case .focusNow:
+                        focusNowWidget
+                    case .lifeSnapshot:
+                        lifeSnapshotWidget
+                    case .care:
+                        careWidget
+                    case .tasks:
+                        tasksWidget
+                    case .routines:
+                        routinesWidget
+                    case .scheduleCapacity:
+                        capacityWidget
+                    case .quickCapture:
+                        HomeQuickCaptureWidget(captureRouter: captureRouter, palette: palette)
+                    case .compactTimeline:
+                        HomeTimelineWidget(
+                            projectionAdapter: projectionAdapter,
+                            router: router,
+                            palette: palette
+                        )
+                    case .journal:
+                        journalWidget
+                    case .progressReflection:
+                        progressWidget
+                    case .fasting:
+                        HomeFastingWidget(
+                            lifeOSStore: lifeOSStore,
+                            palette: palette,
+                            onOpen: { onOpenWidget(.fasting) }
+                        )
+                    default:
+                        // Was `EmptyView()`. Eleven registered kinds — goals,
+                        // body metric, workout, sleep, movement, nutrition,
+                        // recent meal, log meal, life moment, saved Eva
+                        // insight and setup — reached this branch and drew
+                        // nothing. Accessibility text sizes force this preset,
+                        // so those cards were blank for anyone using large
+                        // type. Every kind now has an archetype, and every
+                        // archetype draws.
+                        archetypeWidget
+                    }
+                }
+            }
+            .frame(minHeight: preset.minimumCardHeight)
+        }
+        .modifier(
+            HomeCardReorderModifier(
+                placementID: placement.id,
+                isEnabled: store.isCustomizing,
+                onMove: { sourceID, targetID in store.movePlacement(id: sourceID, before: targetID) },
+                onResize: { expanding in store.cycleSize(id: placement.id, expanding: expanding) }
+            )
+        )
+        .onLongPressGesture(minimumDuration: 0.45) {
+            guard store.isCustomizing == false else { return }
+            withAnimation(motionAnimation) { store.beginCustomization() }
+            UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+        }
+        .accessibilityAction(named: "Customize") { store.beginCustomization() }
+    }
+
+    private var archetypeWidget: some View {
+        HomeArchetypeWidget(
+            kind: kind,
+            preset: preset,
+            daypart: daypart,
+            palette: palette,
+            store: store,
+            lifeOSStore: lifeOSStore,
+            router: router,
+            modePolicy: modePolicy,
+            dashboardDensity: dashboardDensity,
+            onOpenWidget: onOpenWidget
+        )
+    }
+
+    private var focusNowWidget: some View {
+        HomeFocusNowWidget(
+            lifeOSStore: lifeOSStore,
+            projectionAdapter: projectionAdapter,
+            router: router,
+            captureRouter: captureRouter,
+            palette: palette
+        )
+    }
+
+    private var lifeSnapshotWidget: some View {
+        HomeLifeSnapshotWidget(
+            lifeOSStore: lifeOSStore,
+            router: router,
+            captureRouter: captureRouter,
+            palette: palette,
+            selectedMood: selectedMood,
+            moodEnergy: moodEnergy,
+            showsMoodDial: $showsMoodDial
+        )
+    }
+
+    private var careWidget: some View {
+        HomeCareWidget(
+            lifeOSStore: lifeOSStore,
+            router: router,
+            daypart: daypart,
+            palette: palette
+        )
+    }
+
+    private var tasksWidget: some View {
+        HomeTasksWidget(
+            placementID: placement.id,
+            lifeOSStore: lifeOSStore,
+            router: router,
+            captureRouter: captureRouter,
+            hasPlanningRepository: hasPlanningRepository,
+            palette: palette,
+            motionAnimation: motionAnimation,
+            reduceMotion: reduceMotion,
+            expandedTaskWidgetIDs: $expandedTaskWidgetIDs
+        )
+    }
+
+    private var routinesWidget: some View {
+        HomeRoutinesWidget(
+            lifeOSStore: lifeOSStore,
+            projectionAdapter: projectionAdapter,
+            router: router,
+            hasTrackFoundationRepository: hasTrackFoundationRepository,
+            daypart: daypart,
+            palette: palette
+        )
+    }
+
+    private var capacityWidget: some View {
+        HomeCapacityWidget(
+            lifeOSStore: lifeOSStore,
+            projectionAdapter: projectionAdapter,
+            router: router,
+            palette: palette
+        )
+    }
+
+    private var journalWidget: some View {
+        HomeJournalWidget(
+            router: router,
+            captureRouter: captureRouter,
+            palette: palette
+        )
+    }
+
+    private var progressWidget: some View {
+        HomeProgressWidget(
+            projectionAdapter: projectionAdapter,
+            router: router,
+            dayLoopSummary: dayLoopSummary,
+            palette: palette
+        )
+    }
+}
+
+/// Renders a card from its registered archetype rather than a per-kind
+/// case. This is the universal body: any registered kind draws something
+/// meaningful at any preset, which is what makes the old `EmptyView()`
+/// fallthrough unrepresentable.
+private struct HomeArchetypeWidget: View {
+    let kind: DashboardWidgetKind
+    let preset: WidgetSizePreset
+    let daypart: ResolvedDaypart
+    let palette: DaypartPalette
+    let store: AdaptiveHomeStore
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let router: AppRouter
+    let modePolicy: any DashboardModePolicy
+    let dashboardDensity: DashboardDensity
+    let onOpenWidget: (DashboardWidgetKind) -> Void
+
+    /// Counts opens so the card warps as its destination arrives — the
+    /// `source` of source → travel → settle. Without it a whole screen
+    /// replaces a motionless card, which reads as a cut.
+    @State private var openTrigger = 0
+
+    var body: some View {
+        let descriptor = store.registry.descriptor(for: kind)
+        let resolution = lifeOSStore.cardResolution(kind: kind, size: preset)
+        let target = HomeWidgetRouteResolver.target(
+            for: kind,
+            resolution: resolution,
+            daypart: daypart
+        )
+        HomeCardBody(
+            snapshot: relabeledSnapshot(resolution?.snapshot ?? lifeOSStore.cardSnapshot(kind: kind, size: preset), target: target),
+            archetype: descriptor?.archetype ?? .queue,
+            preset: preset,
+            palette: palette,
+            title: descriptor?.title ?? "LifeBoard",
+            symbol: HomeSectionCopy.symbol(for: kind, store: store),
+            queueLimit: modePolicy
+                .sectionBudget(for: router.dashboardMode)
+                .applying(dashboardDensity)
+                .queueLimit,
+            onAction: { action in
+                openTrigger += 1
+                if let target {
+                    router.openLeaf(target.route, in: .track)
+                } else if let destination = action.destination {
+                    router.select(destination)
+                } else {
+                    onOpenWidget(kind)
+                }
+            },
+            onOpen: {
+                openTrigger += 1
+                if let target {
+                    router.openLeaf(target.route, in: .track)
+                } else {
+                    onOpenWidget(kind)
+                }
+            }
+        )
+        // The hero radius: a Home card is the closed form of the hero it
+        // opens into, and the shared silhouette is the continuity.
+        .lifeBoardRaisedClayCard(palette: palette, cornerRadius: Radius.hero)
+        .lifeboardCardMorphWarp(origin: .center, trigger: openTrigger)
+        .accessibilityHint("Opens the source")
+    }
+
+    private func relabeledSnapshot(
+        _ snapshot: HomeCardSnapshot?,
+        target: HomeWidgetOpenTarget?
+    ) -> HomeCardSnapshot? {
+        guard var snapshot, let target, snapshot.actions.isEmpty == false else { return snapshot }
+        snapshot.actions = snapshot.actions.enumerated().map { index, action in
+            guard index == 0 else { return action }
+            return HomeCardActionDescriptor(
+                id: action.id,
+                title: target.actionTitle,
+                systemImage: action.systemImage,
+                role: action.role,
+                destination: action.destination,
+                requiresMutationPreview: action.requiresMutationPreview
+            )
+        }
+        return snapshot
+    }
+}
+
+private struct HomeGlanceWidget: View {
+    let kind: DashboardWidgetKind
+    let daypart: ResolvedDaypart
+    let store: AdaptiveHomeStore
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let router: AppRouter
+    let palette: DaypartPalette
+    let onOpenWidget: (DashboardWidgetKind) -> Void
+
+    var body: some View {
+        let descriptor = store.registry.descriptor(for: kind)
+        let target = HomeWidgetRouteResolver.target(
+            for: kind,
+            resolution: lifeOSStore.cardResolution(kind: kind, size: .compact),
+            daypart: daypart
+        )
+        Button {
+            if let target {
+                router.openLeaf(target.route, in: .track)
+            } else {
+                onOpenWidget(kind)
+            }
+        } label: {
+            HStack(spacing: 11) {
+                Image(systemName: descriptor?.systemImage ?? "square.grid.2x2")
+                    .lifeboardFont(.title2)
+                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+                    .frame(width: 30, height: 44)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(descriptor?.title ?? "LifeBoard")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                        .lineLimit(1)
+                    Text(HomeSectionCopy.widgetSummary(kind, size: .compact, lifeOSStore: lifeOSStore))
+                        .lifeboardFont(.support)
+                        .foregroundStyle(palette.color(for: .foreground))
+                        .lineLimit(2)
+                }
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, minHeight: 72, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .lifeBoardRaisedClayCard(palette: palette)
+        .accessibilityElement(children: .combine)
+        .accessibilityHint("Opens the source")
+    }
+}
+
+private struct HomeFocusNowWidget: View {
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let projectionAdapter: HomeProjectionCoordinator
+    let router: AppRouter
+    let captureRouter: CaptureRouter
+    let palette: DaypartPalette
+
+    var body: some View {
+        let hero = lifeOSStore.heroSnapshot
+        let primary = hero?.title ?? lifeOSStore.focusTask?.title ?? projectionAdapter.snapshot.focusTitles.first
+        let lowEnergy = router.dashboardMode == .lowEnergy
+        let expanded = hero?.priority == .activeFocus || hero?.priority == .safetySensitiveCare || hero?.priority == .recovery
+        HStack(spacing: 12) {
+            Image(systemName: lowEnergy ? "leaf.fill" : HomeSectionCopy.heroSymbol(for: hero?.priority))
+                .lifeboardFont(.title2)
+                .foregroundStyle(palette.color(for: .foregroundSecondary))
+                .frame(width: 28, height: 44)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(lowEnergy ? "One small thing" : HomeSectionCopy.heroLabel(for: hero?.priority))
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+                Text(primary ?? (lowEnergy ? "Drink some water and take one quiet minute." : "Choose one useful next step"))
+                    .lifeboardFont(.headline)
+                    .lineLimit(expanded ? 2 : 1)
+                if expanded, let reason = hero?.detail ?? lifeOSStore.focusResult?.reasons.first?.text {
+                    Text(reason)
+                        .font(.caption2)
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                        .lineLimit(1)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Button {
+                performHeroPrimaryAction(hero)
+            } label: {
+                Text(HomeSectionCopy.compactHeroActionTitle(hero?.primaryActionTitle ?? (primary == nil ? "Choose" : "Start")))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(Color(SemanticColorTokens.foundationSurfaceSolid))
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 44)
+                    .background(Color(SemanticColorTokens.inkPrimary), in: Capsule())
+            }
+            .buttonStyle(.plain)
+            .frame(maxWidth: 112)
+            .accessibilityHint(hero?.secondaryActionTitles.first.map { "More actions include \($0)." } ?? "")
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(minHeight: expanded ? 104 : 80)
+        .lifeBoardFloatingClayCard(palette: palette)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.hero")
+    }
+
+    private func performHeroPrimaryAction(_ hero: AdaptiveHeroSnapshot?) {
+        guard let hero else {
+            captureRouter.request(kind: .task, source: .shell)
+            return
+        }
+        switch hero.priority {
+        case .safetySensitiveCare, .timedRoutine:
+            router.select(.track)
+        case .activeFocus, .fixedCommitment, .urgentPlannedWork, .generalFocus, .recovery:
+            router.select(.plan)
+        }
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
+    }
+}
+
+private struct HomeLifeSnapshotWidget: View {
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let router: AppRouter
+    let captureRouter: CaptureRouter
+    let palette: DaypartPalette
+    let selectedMood: JournalMood
+    let moodEnergy: Int?
+    @Binding var showsMoodDial: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 15) {
+            HomeWidgetTitle("How life feels", symbol: "heart.text.square", palette: palette)
+                .accessibilityIdentifier("home.widget.lifeSnapshot")
+            HStack(spacing: 10) {
+                HomeSnapshotMetric(
+                    id: "mood",
+                    symbol: "face.smiling",
+                    value: selectedMood == .none ? "Check in" : selectedMood.title,
+                    label: moodEnergy.map { "Mood · E\($0)" } ?? "Mood",
+                    palette: palette
+                ) {
+                    showsMoodDial = true
+                }
+                HomeSnapshotMetric(
+                    id: "hydration",
+                    symbol: "drop.fill",
+                    value: HomeSectionCopy.hydrationLabel(lifeOSStore),
+                    label: "Hydration",
+                    palette: palette
+                ) { captureRouter.request(kind: .hydration, source: .shell) }
+                HomeSnapshotMetric(id: "steps", symbol: "figure.walk", value: "Connect", label: "Steps", palette: palette) {
+                    router.select(.track)
+                }
+                if router.dashboardMode != .lowEnergy {
+                    HomeSnapshotMetric(id: "active", symbol: "flame.fill", value: "Connect", label: "Active", palette: palette) {
+                        router.select(.track)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .lifeBoardRaisedClayCard(palette: palette)
+    }
+}
+
+private struct HomeCareWidget: View {
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let router: AppRouter
+    let daypart: ResolvedDaypart
+    let palette: DaypartPalette
+
+    var body: some View {
+        let medicationEvents = lifeOSStore.trackSnapshot?.unresolvedMedicationEvents ?? []
+        VStack(alignment: .leading, spacing: 13) {
+            HomeWidgetTitle("\(daypart.rawValue.capitalized) care", symbol: "cross.case.fill", palette: palette)
+                .accessibilityIdentifier("home.widget.care")
+            if medicationEvents.isEmpty {
+                HomeEmptyStateRow("No unresolved care decisions", symbol: "checkmark.circle", palette: palette)
+            } else {
+                ForEach(medicationEvents.prefix(router.dashboardMode == .lowEnergy ? 1 : 3)) { event in
+                    Button {
+                        router.navigate(.careLibrary, in: .track)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "pills")
+                                .foregroundStyle(palette.color(for: .foregroundSecondary))
+                            Text("Medication decision")
+                                .font(.subheadline.weight(.medium))
+                            Spacer()
+                            Text(event.status.rawValue.capitalized)
+                                .font(.caption)
+                                .foregroundStyle(palette.color(for: .foregroundSecondary))
+                        }
+                        .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.care.event.\(event.id.uuidString)")
+                }
+            }
+            Divider().overlay(Color(SemanticColorTokens.foundationHairline))
+            Button("Open Care") { router.navigate(.careLibrary, in: .track) }
+                .font(.subheadline.weight(.semibold))
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("home.care.open")
+        }
+        .padding(16)
+        .lifeBoardRaisedClayCard(palette: palette)
+    }
+}
+
+private struct HomeTasksWidget: View {
+    let placementID: UUID
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let router: AppRouter
+    let captureRouter: CaptureRouter
+    let hasPlanningRepository: Bool
+    let palette: DaypartPalette
+    let motionAnimation: Animation?
+    let reduceMotion: Bool
+    @Binding var expandedTaskWidgetIDs: Set<UUID>
+
+    var body: some View {
+        let snapshot = lifeOSStore.planSnapshot
+        let tasks = lifeOSStore.taskAgenda.tasks
+        let collapsedLimit = router.dashboardMode == .lowEnergy ? 2 : 4
+        let isExpanded = expandedTaskWidgetIDs.contains(placementID)
+        let visibleTasks = isExpanded ? tasks : Array(tasks.prefix(collapsedLimit))
+        let hasHiddenTasks = tasks.count > collapsedLimit
+        VStack(alignment: .leading, spacing: 12) {
+            header(isExpanded: isExpanded)
+            if hasPlanningRepository == false {
+                HomeEmptyStateRow("Tasks are unavailable right now", symbol: "exclamationmark.triangle", palette: palette)
+            } else if lifeOSStore.isLoading, snapshot == nil {
+                HomeEmptyStateRow("Loading tasks", symbol: "hourglass", palette: palette)
+            } else if tasks.isEmpty {
+                HomeEmptyStateRow(HomeSectionCopy.taskWidgetEmptyMessage(lifeOSStore), symbol: "checkmark.circle", palette: palette)
+            } else {
+                ForEach(visibleTasks) { task in
+                    row(task)
+                }
+            }
+            // A completion is a real mutation, so it gets a receipt here rather
+            // than relying on Plan's Undo, which reads a different PlanStore
+            // instance and can never see a completion made from Home.
+            if let completed = lifeOSStore.lastCompletedTask {
+                HStack(spacing: 8) {
+                    Text("Completed “\(completed.title)”")
+                        .font(.caption)
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Button("Undo") {
+                        Task { await lifeOSStore.undoLastTaskCompletion() }
+                    }
+                    .font(.subheadline.weight(.semibold))
+                    .frame(minHeight: 44)
+                    .accessibilityHint("Reopens \(completed.title)")
+                    .accessibilityIdentifier("home.tasks.undoCompletion")
+                }
+                .buttonStyle(.plain)
+            }
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    addButton
+                    Spacer(minLength: 8)
+                    if isExpanded || hasHiddenTasks {
+                        expansionButton(isExpanded: isExpanded)
+                    }
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    addButton
+                    if isExpanded || hasHiddenTasks {
+                        expansionButton(isExpanded: isExpanded)
+                    }
+                }
+            }
+        }
+        .padding(16)
+        .background {
+            // Keep the clay surface in its own noninteractive render subtree.
+            // An arbitrarily tall expanded agenda must not apply
+            // `lifeBoardRaisedClayCard` directly to its foreground hierarchy.
+            Color.clear
+                .lifeBoardRaisedClayCard(palette: palette)
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+        }
+        .animation(taskWidgetAnimation, value: isExpanded)
+        .animation(taskWidgetAnimation, value: lifeOSStore.taskAgenda)
+    }
+
+    @ViewBuilder
+    private func header(isExpanded: Bool) -> some View {
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                titleLabel
+                if isExpanded {
+                    HomeTaskAgendaDatePicker(store: lifeOSStore)
+                }
+            }
+
+            VStack(alignment: .leading, spacing: 6) {
+                titleLabel
+                if isExpanded {
+                    HomeTaskAgendaDatePicker(store: lifeOSStore)
+                }
+            }
+        }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("home.widget.tasks")
+    }
+
+    private var titleLabel: some View {
+        HStack(spacing: 9) {
+            Image(systemName: "checklist")
+                .foregroundStyle(palette.color(for: .foregroundSecondary))
+            Text(HomeSectionCopy.taskWidgetTitle(lifeOSStore))
+                .lifeboardFont(.headline)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func row(_ task: PlanningTaskSummary) -> some View {
+        // The completion control is a sibling of the navigating button, never
+        // nested inside it: a Button within a Button gives its tap to the outer
+        // one and would silently open detail instead of completing the task.
+        HStack(spacing: 11) {
+            if V2FeatureFlags.lifeBoardDailyLoopV1Enabled {
+                CompletionControl(
+                    isComplete: false,
+                    title: task.title
+                ) { _ in
+                    Task { await lifeOSStore.setTaskCompletion(task, to: true) }
+                }
+                .padding(.leading, -11)
+            } else {
+                Image(systemName: task.metadata.commitmentLevel == .mustDo ? "exclamationmark.circle.fill" : "circle")
+                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+            }
+            Button {
+                router.navigate(.taskDetail(task.id), in: .home)
+            } label: {
+                HStack(spacing: 11) {
+                    if task.metadata.commitmentLevel == .mustDo {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .font(.caption)
+                            .foregroundStyle(palette.color(for: .foregroundSecondary))
+                            .accessibilityLabel("Must do")
+                    }
+                    Text(task.title)
+                        .font(.subheadline.weight(.medium))
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(palette.color(for: .foregroundSecondary))
+                }
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .lifeBoardTransitionSource("route.task.\(task.id.uuidString)")
+            .accessibilityIdentifier("home.task.\(task.id.uuidString)")
+        }
+        .frame(maxWidth: .infinity, minHeight: 44)
+    }
+
+    private var addButton: some View {
+        Button {
+            captureRouter.request(kind: .task, source: .widget)
+        } label: {
+            Label("Add a task", systemImage: "plus")
+                .font(.subheadline.weight(.semibold))
+                .frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier("home.tasks.add")
+    }
+
+    private func expansionButton(isExpanded: Bool) -> some View {
+        Button {
+            withAnimation(taskWidgetAnimation) {
+                if isExpanded {
+                    expandedTaskWidgetIDs.remove(placementID)
+                    lifeOSStore.resetTaskAgendaDateToToday()
+                } else {
+                    lifeOSStore.resetTaskAgendaDateToToday()
+                    expandedTaskWidgetIDs.insert(placementID)
+                }
+            }
+        } label: {
+            Label(isExpanded ? "Show less" : "Show more", systemImage: isExpanded ? "chevron.up" : "chevron.down")
+                .font(.subheadline.weight(.semibold))
+                .frame(minHeight: 44)
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(isExpanded ? "home.tasks.showLess" : "home.tasks.showMore")
+        .accessibilityHint(isExpanded ? "Collapses the task card and returns to today" : "Shows every overdue task and task due today")
+    }
+
+    private var taskWidgetAnimation: Animation? {
+        guard reduceMotion == false else { return nil }
+        return motionAnimation
+    }
+}
+
+private struct HomeRoutinesWidget: View {
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let projectionAdapter: HomeProjectionCoordinator
+    let router: AppRouter
+    let hasTrackFoundationRepository: Bool
+    let daypart: ResolvedDaypart
+    let palette: DaypartPalette
+
+    var body: some View {
+        let dueRoutines = lifeOSStore.trackSnapshot?.dueRoutines ?? []
+        let habitTitles = projectionAdapter.snapshot.recoveryHabits + projectionAdapter.snapshot.currentHabits
+        VStack(alignment: .leading, spacing: 12) {
+            Button {
+                openDaypart()
+            } label: {
+                HomeWidgetTitle("\(daypart.rawValue.capitalized) routines", symbol: "repeat", palette: palette)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("View \(daypart.rawValue) routines")
+            .accessibilityIdentifier("home.widget.routines")
+            if hasTrackFoundationRepository == false {
+                HomeEmptyStateRow("Routines are unavailable right now", symbol: "exclamationmark.triangle", palette: palette)
+            } else if lifeOSStore.isLoading, lifeOSStore.trackSnapshot == nil {
+                HomeEmptyStateRow("Loading routines", symbol: "hourglass", palette: palette)
+            } else if dueRoutines.isEmpty, habitTitles.isEmpty {
+                HomeEmptyStateRow("No routines are due in this part of the day", symbol: "checkmark.circle", palette: palette)
+            } else {
+                ForEach(dueRoutines.prefix(router.dashboardMode == .lowEnergy ? 1 : 3)) { routine in
+                    Button {
+                        router.openLeaf(.routine(routine.id), in: .track)
+                    } label: {
+                        HStack(spacing: 11) {
+                            Image(systemName: "figure.mind.and.body")
+                            Text(routine.title)
+                                .font(.subheadline.weight(.medium))
+                                .lineLimit(2)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                        }
+                        .foregroundStyle(palette.color(for: .foreground))
+                        .frame(minHeight: 44)
+                    }
+                    .buttonStyle(.plain)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .contentShape(Rectangle())
+                    .accessibilityIdentifier("home.routine.\(routine.id.uuidString)")
+                }
+                if dueRoutines.isEmpty, let habit = habitTitles.first {
+                    Button {
+                        router.navigate(.habitBoard, in: .track)
+                    } label: {
+                        HStack {
+                            Image(systemName: "repeat")
+                            Text(habit).font(.subheadline.weight(.medium)).lineLimit(2)
+                            Spacer()
+                            Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                        }
+                        .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.routines.openHabitBoard")
+                }
+            }
+            Button("View \(daypart.rawValue) routines") { openDaypart() }
+                .font(.subheadline.weight(.semibold))
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("home.routines.open")
+        }
+        .padding(16)
+        .lifeBoardRaisedClayCard(palette: palette)
+    }
+
+    private func openDaypart() {
+        router.openLeaf(.routines(.daypart(daypart)), in: .track)
+    }
+}
+
+private struct HomeCapacityWidget: View {
+    let lifeOSStore: HomeLifeOSProjectionStore
+    let projectionAdapter: HomeProjectionCoordinator
+    let router: AppRouter
+    let palette: DaypartPalette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HomeWidgetTitle(router.dashboardMode == .lowEnergy ? "Protected rest" : "Capacity", symbol: "calendar.badge.clock", palette: palette)
+                .accessibilityIdentifier("home.widget.scheduleCapacity")
+            if let capacity = lifeOSStore.planSnapshot?.capacity {
+                Text(capacity.overloadDuration > 0 ? "\(HomeSectionCopy.duration(capacity.overloadDuration)) over capacity" : "\(HomeSectionCopy.duration(capacity.remainingKnownCapacity)) known room")
+                    .font(.title3.weight(.semibold))
+                Text(capacity.isEstimateIncomplete ? "Estimate incomplete · confidence \(Int(capacity.confidence * 100))%" : "Usable capacity \(HomeSectionCopy.duration(capacity.usableDuration))")
+                    .font(.subheadline)
+                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+            } else if projectionAdapter.snapshot.calendarNeedsSetup {
+                HomeEmptyStateRow("Connect Calendar to see your next usable window", symbol: "calendar.badge.plus", palette: palette)
+            } else if let freeUntil = projectionAdapter.snapshot.freeUntil {
+                Text("Open until \(freeUntil.formatted(date: .omitted, time: .shortened))")
+                    .font(.title3.weight(.semibold))
+                Text(HomeSectionCopy.capacityDescription(router: router, projectionAdapter: projectionAdapter))
+                    .font(.subheadline)
+                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+            } else {
+                Text("No reliable free window yet")
+                    .font(.headline)
+                Text("Missing estimates lower confidence; LifeBoard won’t invent precision.")
+                    .font(.caption)
+                    .foregroundStyle(palette.color(for: .foregroundSecondary))
+            }
+            Button("Open Day") { router.navigate(.planDay, in: .plan) }
+                .font(.subheadline.weight(.semibold))
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("home.capacity.openDay")
+        }
+        .padding(16)
+        .lifeBoardRaisedClayCard(palette: palette)
+    }
+}
+
+private struct HomeQuickCaptureWidget: View {
+    let captureRouter: CaptureRouter
+    let palette: DaypartPalette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HomeWidgetTitle("Capture", symbol: "plus", palette: palette)
+                .accessibilityIdentifier("home.widget.quickCapture")
+            HStack(spacing: 8) {
+                HomeCaptureTile(title: "Task", symbol: "checkmark.circle", kind: .task, palette: palette, captureRouter: captureRouter)
+                HomeCaptureTile(title: "Habit", symbol: "repeat", kind: .habit, palette: palette, captureRouter: captureRouter)
+                HomeCaptureTile(title: "Journal", symbol: "book.closed", kind: .journal, palette: palette, captureRouter: captureRouter)
+                if V2FeatureFlags.careModulesV2Enabled {
+                    HomeCaptureTile(title: "Water", symbol: "drop.fill", kind: .hydration, palette: palette, captureRouter: captureRouter)
+                }
+            }
+        }
+        .padding(16)
+        .lifeBoardRaisedClayCard(palette: palette)
+    }
+}
+
+private struct HomeTimelineWidget: View {
+    let projectionAdapter: HomeProjectionCoordinator
+    let router: AppRouter
+    let palette: DaypartPalette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HomeWidgetTitle("Now & next", symbol: "timeline.selection", palette: palette)
+                .accessibilityIdentifier("home.widget.compactTimeline")
+            if projectionAdapter.snapshot.timelineItems.isEmpty {
+                HomeEmptyStateRow("Your next three commitments will appear here", symbol: "calendar", palette: palette)
+            } else {
+                ForEach(projectionAdapter.snapshot.timelineItems) { item in
+                    HStack(alignment: .top, spacing: 12) {
+                        Text(item.startDate.formatted(date: .omitted, time: .shortened))
+                            .font(.caption.monospacedDigit().weight(.semibold))
+                            .foregroundStyle(palette.color(for: .foregroundSecondary))
+                            .frame(width: 62, alignment: .leading)
+                        Capsule().fill(palette.color(for: .layerTwo)).frame(width: 4, height: 34)
+                        Text(item.title).font(.subheadline.weight(.medium)).lineLimit(2)
+                        Spacer()
+                    }
+                }
+            }
+            Button("Open complete day shape") { router.select(.plan) }
+                .font(.subheadline.weight(.semibold))
+                .frame(minHeight: 44)
+                .accessibilityIdentifier("home.timeline.openDay")
+        }
+        .padding(16)
+        .lifeBoardRaisedClayCard(palette: palette)
+    }
+}
+
+private struct HomeJournalWidget: View {
+    let router: AppRouter
+    let captureRouter: CaptureRouter
+    let palette: DaypartPalette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 13) {
+            HomeWidgetTitle("Journal", symbol: "book.closed", palette: palette)
+                .accessibilityIdentifier("home.widget.journal")
+            Text("Keep one honest moment from today—words, photos, or audio.")
+                .font(.subheadline)
+                .foregroundStyle(palette.color(for: .foregroundSecondary))
+                .fixedSize(horizontal: false, vertical: true)
+            // In a half-width card these two buttons get about 63pt each, which
+            // is narrower than "Search" plus its symbol. Laid out in a fixed
+            // HStack the labels wrapped to one character per line and the
+            // buttons grew to ~350pt tall. `ViewThatFits` keeps the side-by-side
+            // arrangement wherever it genuinely fits and stacks otherwise.
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 10) {
+                    captureButton
+                    searchButton
+                }
+                VStack(spacing: 8) {
+                    captureButton
+                    searchButton
+                }
+            }
+            Button {
+                let week = Calendar.current.dateInterval(of: .weekOfYear, for: Date())?.start ?? Date()
+                router.navigate(.weeklyReflection(week), in: .home)
+            } label: {
+                HStack {
+                    Label("Weekly reflection", systemImage: "sparkles.rectangle.stack")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                }
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.journal.weeklyReflection")
+        }
+        .padding(16)
+        .lifeBoardRaisedClayCard(palette: palette)
+    }
+
+    private var captureButton: some View {
+        Button {
+            captureRouter.request(kind: .journal, source: .widget)
+        } label: {
+            Label("Write", systemImage: "square.and.pencil")
+                .lineLimit(1)
+        }
+        .buttonStyle(PrimaryActionStyle(fill: palette.color(for: .foreground)))
+        .accessibilityIdentifier("home.journal.capture")
+    }
+
+    private var searchButton: some View {
+        Button {
+            router.navigate(.journalSearch, in: .home)
+        } label: {
+            Label("Search", systemImage: "magnifyingglass")
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.bordered)
+        .accessibilityIdentifier("home.journal.search")
+    }
+}
+
+private struct HomeProgressWidget: View {
+    let projectionAdapter: HomeProjectionCoordinator
+    let router: AppRouter
+    let dayLoopSummary: DayLoopSummary?
+    let palette: DaypartPalette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HomeWidgetTitle(router.dashboardMode == .lowEnergy ? "Continuity" : "Progress", symbol: "chart.line.uptrend.xyaxis", palette: palette)
+                .accessibilityIdentifier("home.widget.progressReflection")
+            ProgressView(value: projectionAdapter.snapshot.completionRate)
+                .tint(palette.color(for: .celestialCore))
+                .accessibilityLabel("Today’s progress")
+                .accessibilityValue(projectionAdapter.snapshot.completionRate.formatted(.percent))
+            // Half-width cards hyphenated "continuity" mid-word. These two
+            // metrics wrap as a unit rather than breaking their own labels.
+            ViewThatFits(in: .horizontal) {
+                HStack {
+                    metricLabels
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    metricLabels
+                }
+            }
+            .font(.caption.weight(.medium))
+            Divider().overlay(Color(SemanticColorTokens.foundationHairline))
+            Button {
+                // The label promises evidence, so open the evidence route with
+                // its disclosure already expanded rather than the Insights
+                // overview the user then has to dig through.
+                router.select(.insights)
+                router.push(.insightEvidence(nil), in: .insights)
+            } label: {
+                HStack {
+                    Label("See evidence behind today", systemImage: "chart.xyaxis.line")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                }
+                .frame(minHeight: 44)
+            }
+            .buttonStyle(.plain)
+            .accessibilityIdentifier("home.progress.openInsights")
+        }
+        .padding(16)
+        .lifeBoardRaisedClayCard(palette: palette)
+    }
+
+    @ViewBuilder
+    private var metricLabels: some View {
+        Label("\(projectionAdapter.snapshot.openTaskCount) open", systemImage: "checklist")
+            .lineLimit(1)
+        Spacer(minLength: 0)
+        // Was `snapshot.streakDays` — `GamificationService`'s "consecutive days
+        // with any XP event", which is not a fact about the loop at all. These
+        // two come from applied close receipts, so the number cannot disagree
+        // with what actually happened, and Undo moves it.
+        if let rhythm = HomeSectionCopy.dayLoopRhythmText(dayLoopSummary) {
+            // Two lines rather than one: the Progress card renders in a 2-up
+            // grid, and truncating to "1 of 14 days · 1 day…" would hide one of
+            // the two honest facts. DESIGN.md forbids
+            // shrinking type to preserve a grid, so it wraps instead.
+            Label(rhythm, systemImage: "circle.hexagongrid")
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+/// The product-owned mapping from a Home card to the typed leaf that owns its
+/// review and capture experience. Kept pure so route coverage cannot regress
+/// behind SwiftUI interaction tests alone.
+struct HomeWidgetOpenTarget: Equatable {
+    let route: AppRoute
+    let actionTitle: String
+}
+
+enum HomeWidgetRouteResolver {
+    static func target(
+        for kind: DashboardWidgetKind,
+        resolution: HomeCardResolution?,
+        daypart: ResolvedDaypart
+    ) -> HomeWidgetOpenTarget? {
+        if let route = resolution?.primaryRoute {
+            return HomeWidgetOpenTarget(
+                route: route,
+                actionTitle: resolution?.primaryActionTitle ?? "Open"
+            )
+        }
+        switch kind {
+        case .goals: return .init(route: .goals, actionTitle: "View goals")
+        case .routines: return .init(route: .routines(.daypart(daypart)), actionTitle: "View routines")
+        case .lifeMoment: return .init(route: .lifeMoments(.overview), actionTitle: "View moments")
+        case .logMeal: return .init(route: .nutrition(.logMeal), actionTitle: "Log meal")
+        case .nutritionSummary: return .init(route: .nutrition(.dailySummary), actionTitle: "View nutrition")
+        case .bodyMetric: return .init(route: .wellness(.bodyMetric(.bodyMass)), actionTitle: "View body metrics")
+        case .workout: return .init(route: .wellness(.workouts), actionTitle: "View workouts")
+        case .sleep: return .init(route: .wellness(.sleep), actionTitle: "View sleep")
+        case .movement: return .init(route: .wellness(.movement), actionTitle: "View movement")
+        case .fasting: return .init(route: .fasting, actionTitle: "View fasting")
+        default: return nil
+        }
+    }
+
+    static func route(for kind: DashboardWidgetKind) -> AppRoute? {
+        switch kind {
+        case .goals: .goals
+        case .routines: .routines(.library)
+        case .lifeMoment: .lifeMoments(.overview)
+        case .bodyMetric: .wellness(.bodyMetric(.bodyMass))
+        case .workout: .wellness(.workouts)
+        case .sleep: .wellness(.sleep)
+        case .movement: .wellness(.movement)
+        case .nutritionSummary: .nutrition(.dailySummary)
+        case .logMeal: .nutrition(.logMeal)
+        case .fasting: .fasting
+        default: nil
+        }
+    }
+}
+
+private struct HomeCustomizationControls: View {
+    let placement: DashboardWidgetPlacementValue
+    /// The kind the card is currently *drawing*, which is what "Freeze current
+    /// card" has to capture. Resolved by the caller so smart-slot resolution
+    /// happens exactly once per placement.
+    let displayedKind: DashboardWidgetKind
+    let store: AdaptiveHomeStore
+
+    var body: some View {
+        Menu {
+            if let descriptor = store.registry.descriptor(for: DashboardWidgetKind(rawValue: placement.widgetKind)) {
+                Section("Size") {
+                    ForEach(WidgetSizePreset.allCases, id: \.self) { size in
+                        if descriptor.supportedSizes.contains(size) {
+                            Button(size.title) { store.resizePlacement(id: placement.id, to: size) }
+                        }
+                    }
+                }
+            }
+            Button("Move earlier", systemImage: "arrow.up") { store.movePlacement(id: placement.id, offset: -1) }
+            Button("Move later", systemImage: "arrow.down") { store.movePlacement(id: placement.id, offset: 1) }
+            Button(
+                placement.ownership == .smart ? "Make pinned" : "Make adaptive",
+                systemImage: placement.ownership == .smart ? "pin" : "sparkles"
+            ) {
+                store.toggleSmartSlot(id: placement.id)
+            }
+            if placement.ownership == .smart {
+                let slot = placement.smartSlot ?? .init()
+                Section("Smart Slot") {
+                    Button(
+                        slot.frozenWidgetKind == nil ? "Freeze current card" : "Resume adapting",
+                        systemImage: slot.frozenWidgetKind == nil ? "snowflake" : "sparkles"
+                    ) {
+                        let displayed = displayedKind
+                        store.updateSmartSlot(id: placement.id) {
+                            $0.frozenWidgetKind = slot.frozenWidgetKind == nil ? displayed.rawValue : nil
+                        }
+                    }
+                    Menu("When it adapts", systemImage: "clock") {
+                        ForEach(HomeSmartSlotSchedule.allCases, id: \.self) { schedule in
+                            Button {
+                                store.updateSmartSlot(id: placement.id) { $0.schedule = schedule }
+                            } label: {
+                                if slot.schedule == schedule {
+                                    Label(schedule.title, systemImage: "checkmark")
+                                } else {
+                                    Text(schedule.title)
+                                }
+                            }
+                        }
+                    }
+                    Menu("Allowed sections", systemImage: "square.grid.2x2") {
+                        ForEach(Destination.allCases, id: \.self) { destination in
+                            Button {
+                                store.updateSmartSlot(id: placement.id) { configuration in
+                                    if configuration.allowedDestinations.contains(destination),
+                                       configuration.allowedDestinations.count > 1 {
+                                        configuration.allowedDestinations.remove(destination)
+                                    } else {
+                                        configuration.allowedDestinations.insert(destination)
+                                    }
+                                }
+                            } label: {
+                                Label(
+                                    destination.title,
+                                    systemImage: slot.allowedDestinations.contains(destination) ? "checkmark.circle.fill" : "circle"
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            Button("Hide", systemImage: "eye.slash", role: .destructive) { store.hidePlacement(id: placement.id) }
+        } label: {
+            Image(systemName: "ellipsis")
+                .font(.headline)
+                .frame(width: 44, height: 44)
+                .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: Circle())
+                .shadow(color: Color(SemanticColorTokens.foundationWarmShadow), radius: 6, y: 2)
+        }
+        .accessibilityLabel("Edit widget")
+        .accessibilityIdentifier("home.widget.edit.\(placement.id.uuidString)")
+        .accessibilityAction(named: "Move before") { store.movePlacement(id: placement.id, offset: -1) }
+        .accessibilityAction(named: "Move after") { store.movePlacement(id: placement.id, offset: 1) }
+        .accessibilityAction(named: "Hide") { store.hidePlacement(id: placement.id) }
+    }
+}
+
 private struct AdaptiveWidgetGallery: View {
     let store: AdaptiveHomeStore
-    let preferences: LifeBoardPresentationPreferences
+    let preferences: PresentationPreferences
     @Environment(\.dismiss) private var dismiss
     @State private var query = ""
 
@@ -3838,7 +4347,7 @@ private struct AdaptiveWidgetGallery: View {
                                         Image(systemName: descriptor.systemImage)
                                             .font(.title3)
                                             .frame(width: 38, height: 38)
-                                            .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 12))
+                                            .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 12))
                                         VStack(alignment: .leading, spacing: 3) {
                                             Text(descriptor.title).font(.headline)
                                             Text("\(descriptor.defaultSize.title) · \(descriptor.multiplicity.title)")
@@ -3926,14 +4435,14 @@ private struct HomeCardReorderModifier: ViewModifier {
                 .contentShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                 .draggable(placementID.uuidString) {
                     RoundedRectangle(cornerRadius: 22, style: .continuous)
-                        .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid).opacity(0.94))
+                        .fill(Color(SemanticColorTokens.foundationSurfaceSolid).opacity(0.94))
                         .frame(width: 170, height: 108)
                         .overlay {
                             Image(systemName: "hand.draw.fill")
                                 .font(.title2)
-                                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                         }
-                        .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.18), radius: 14, y: 8)
+                        .shadow(color: Color(SemanticColorTokens.foundationWarmShadow).opacity(0.18), radius: 14, y: 8)
                 }
                 .dropDestination(for: String.self) { items, _ in
                     guard let source = items.compactMap(UUID.init(uuidString:)).first,
@@ -4169,15 +4678,15 @@ private extension WidgetSizePreset {
     }
 }
 
-public struct LifeBoardReferenceDashboard: View {
-    public let preferences: LifeBoardPresentationPreferences
+public struct ReferenceDashboard: View {
+    public let preferences: PresentationPreferences
     public var showsDeveloperControls: Bool
 
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     public init(
-        preferences: LifeBoardPresentationPreferences,
+        preferences: PresentationPreferences,
         showsDeveloperControls: Bool = true
     ) {
         self.preferences = preferences
@@ -4187,10 +4696,10 @@ public struct LifeBoardReferenceDashboard: View {
     public var body: some View {
         @Bindable var preferences = preferences
         let daypart = preferences.resolvedDaypart()
-        let palette = LifeBoardDaypartTokens.functionalPalette(for: daypart, colorScheme: colorScheme)
+        let palette = DaypartTokens.functionalPalette(for: daypart, colorScheme: colorScheme)
 
         ZStack {
-            LifeBoardAtmosphereView(
+            AtmosphereView(
                 daypart: daypart,
                 requestedTier: preferences.renderingTier,
                 comfortProfile: preferences.comfortProfile
@@ -4225,7 +4734,7 @@ public struct LifeBoardReferenceDashboard: View {
     }
 
     @ViewBuilder
-    private func header(daypart: ResolvedDaypart, palette: LifeBoardDaypartPalette) -> some View {
+    private func header(daypart: ResolvedDaypart, palette: DaypartPalette) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Menu {
@@ -4239,9 +4748,9 @@ public struct LifeBoardReferenceDashboard: View {
                 } label: {
                     HStack(spacing: 6) {
                         Text("Smart")
-                            .font(.system(size: 22, weight: .semibold))
+                            .lifeboardFont(.title1)
                         Image(systemName: "chevron.up.chevron.down")
-                            .font(.system(size: 11, weight: .semibold))
+                            .lifeboardFont(.eyebrow)
                     }
                     .foregroundStyle(palette.color(for: .foreground))
                 }
@@ -4251,7 +4760,7 @@ public struct LifeBoardReferenceDashboard: View {
 
                 Button {} label: {
                     Image(systemName: "square.grid.2x2")
-                        .font(.system(size: 20, weight: .medium))
+                        .lifeboardFont(.sectionTitle)
                         .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.plain)
@@ -4259,7 +4768,7 @@ public struct LifeBoardReferenceDashboard: View {
             }
 
             Text(daypart.greeting)
-                .font(LifeBoardFoundationTypography.hero())
+                .font(Typography.hero())
                 .minimumScaleFactor(0.82)
                 .lineLimit(1)
                 // The one line in the app that is addressed to the person
@@ -4270,12 +4779,12 @@ public struct LifeBoardReferenceDashboard: View {
                 .lifeBoardKineticGreeting()
 
             Text(Date.now.formatted(.dateTime.hour().minute().weekday(.wide).month(.wide).day()))
-                .font(LifeBoardFoundationTypography.body())
+                .font(Typography.body())
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
         }
     }
 
-    private func metricRibbon(palette: LifeBoardDaypartPalette) -> some View {
+    private func metricRibbon(palette: DaypartPalette) -> some View {
         HStack(spacing: 12) {
             ReferenceMetricRing(label: "Hydration", value: "1460ml", progress: 0.62, palette: palette)
             ReferenceMetricRing(label: "Steps", value: "3563", progress: 0.48, palette: palette)
@@ -4286,7 +4795,7 @@ public struct LifeBoardReferenceDashboard: View {
     }
 
     @ViewBuilder
-    private func medicationSection(daypart: ResolvedDaypart, palette: LifeBoardDaypartPalette) -> some View {
+    private func medicationSection(daypart: ResolvedDaypart, palette: DaypartPalette) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             ReferenceSectionHeader(title: "\(daypart.rawValue.capitalized) Medications", showsAdd: false, palette: palette)
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 10) {
@@ -4300,7 +4809,7 @@ public struct LifeBoardReferenceDashboard: View {
         }
     }
 
-    private func todoSection(palette: LifeBoardDaypartPalette) -> some View {
+    private func todoSection(palette: DaypartPalette) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             ReferenceSectionHeader(title: "Todos", showsAdd: true, palette: palette)
             ReferenceTodoRow(title: "Ship the ultimate browser", palette: palette)
@@ -4309,7 +4818,7 @@ public struct LifeBoardReferenceDashboard: View {
     }
 
     @ViewBuilder
-    private func habitSection(daypart: ResolvedDaypart, palette: LifeBoardDaypartPalette) -> some View {
+    private func habitSection(daypart: ResolvedDaypart, palette: DaypartPalette) -> some View {
         VStack(alignment: .leading, spacing: 14) {
             ReferenceSectionHeader(title: "\(daypart.rawValue.capitalized) Habits", showsAdd: false, palette: palette)
             HStack(spacing: 10) {
@@ -4321,15 +4830,15 @@ public struct LifeBoardReferenceDashboard: View {
     }
 
     private func developerControls(
-        preferences: LifeBoardPresentationPreferences,
-        palette: LifeBoardDaypartPalette
+        preferences: PresentationPreferences,
+        palette: DaypartPalette
     ) -> some View {
         @Bindable var preferences = preferences
         return VStack(alignment: .leading, spacing: 14) {
             Text("Foundation controls")
-                .font(LifeBoardFoundationTypography.sectionTitle())
+                .font(Typography.sectionTitle())
             Picker("Comfort", selection: $preferences.comfortProfile) {
-                ForEach(LifeBoardComfortProfile.allCases, id: \.self) { profile in
+                ForEach(ComfortProfile.allCases, id: \.self) { profile in
                     Text(profile.title).tag(profile)
                 }
             }
@@ -4348,7 +4857,7 @@ public struct LifeBoardReferenceDashboard: View {
 
     private var referenceDock: some View {
         HStack(spacing: 0) {
-            ForEach(LifeBoardDestination.allCases, id: \.self) { destination in
+            ForEach(Destination.allCases, id: \.self) { destination in
                 VStack(spacing: 4) {
                     Image(systemName: destination.systemImage)
                         .font(.system(size: 17, weight: destination == .home ? .semibold : .regular))
@@ -4358,15 +4867,15 @@ public struct LifeBoardReferenceDashboard: View {
                 .frame(maxWidth: .infinity)
                 .foregroundStyle(
                     destination == .home
-                        ? Color(LifeBoardColorTokens.inkPrimary)
-                        : Color(LifeBoardColorTokens.inkSecondary)
+                        ? Color(SemanticColorTokens.inkPrimary)
+                        : Color(SemanticColorTokens.inkSecondary)
                 )
             }
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 12)
         .background(
-            Color(LifeBoardColorTokens.warmMenuGlass)
+            Color(SemanticColorTokens.warmMenuGlass)
                 .opacity(reduceTransparency ? 1 : 0.96),
             in: RoundedRectangle(cornerRadius: 28, style: .continuous)
         )
@@ -4374,17 +4883,17 @@ public struct LifeBoardReferenceDashboard: View {
             RoundedRectangle(cornerRadius: 28, style: .continuous)
                 .stroke(Color.lifeboard(.textInverse).opacity(colorScheme == .dark ? 0.15 : 0.68), lineWidth: 1)
         }
-        .shadow(color: Color(LifeBoardColorTokens.foundationWarmShadow), radius: 18, y: 8)
+        .shadow(color: Color(SemanticColorTokens.foundationWarmShadow), radius: 18, y: 8)
         .padding(.horizontal, 16)
         .padding(.bottom, 6)
         .accessibilityElement(children: .contain)
     }
 }
 
-public struct LifeBoardTokenGallery: View {
-    public let preferences: LifeBoardPresentationPreferences
+public struct TokenGallery: View {
+    public let preferences: PresentationPreferences
 
-    public init(preferences: LifeBoardPresentationPreferences) {
+    public init(preferences: PresentationPreferences) {
         self.preferences = preferences
     }
 
@@ -4392,21 +4901,21 @@ public struct LifeBoardTokenGallery: View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 24) {
                 ForEach(ResolvedDaypart.allCases, id: \.self) { daypart in
-                    let palette = LifeBoardDaypartTokens.palette(for: daypart)
+                    let palette = DaypartTokens.palette(for: daypart)
                     VStack(alignment: .leading, spacing: 12) {
                         Text(daypart.rawValue.capitalized)
-                            .font(LifeBoardFoundationTypography.sectionTitle())
+                            .font(Typography.sectionTitle())
                             .foregroundStyle(palette.color(for: .foreground))
 
                         LazyVGrid(columns: [GridItem(.adaptive(minimum: 132))], spacing: 10) {
-                            ForEach(LifeBoardDaypartColorRole.allCases, id: \.self) { role in
+                            ForEach(DaypartColorRole.allCases, id: \.self) { role in
                                 VStack(alignment: .leading, spacing: 8) {
                                     RoundedRectangle(cornerRadius: 12, style: .continuous)
                                         .fill(palette.color(for: role))
                                         .frame(height: 72)
                                         .overlay {
                                             RoundedRectangle(cornerRadius: 12, style: .continuous)
-                                                .stroke(Color(LifeBoardColorTokens.foundationWarmShadow).opacity(0.08), lineWidth: 1)
+                                                .stroke(Color(SemanticColorTokens.foundationWarmShadow).opacity(0.08), lineWidth: 1)
                                         }
                                     Text(role.rawValue)
                                         .font(.caption.weight(.semibold))
@@ -4414,7 +4923,7 @@ public struct LifeBoardTokenGallery: View {
                                         .font(.caption.monospaced())
                                 }
                                 .padding(10)
-                                .background(Color(LifeBoardColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+                                .background(Color(SemanticColorTokens.foundationSurfaceSolid), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
                             }
                         }
                     }
@@ -4425,7 +4934,7 @@ public struct LifeBoardTokenGallery: View {
             .padding(20)
         }
         .navigationTitle("Daypart tokens")
-        .background(Color(LifeBoardColorTokens.foundationSurfaceSolid))
+        .background(Color(SemanticColorTokens.foundationSurfaceSolid))
     }
 }
 
@@ -4433,30 +4942,30 @@ private struct ReferenceMetricRing: View {
     let label: String
     let value: String
     let progress: Double
-    let palette: LifeBoardDaypartPalette
+    let palette: DaypartPalette
 
     var body: some View {
         VStack(spacing: 7) {
             Text(label)
-                .font(LifeBoardFoundationTypography.metadata())
+                .font(Typography.metadata())
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
                 .lineLimit(1)
                 .minimumScaleFactor(0.72)
             ZStack {
                 Circle()
                     .trim(from: 0.12, to: 0.88)
-                    .stroke(Color(LifeBoardColorTokens.metricRingTrack), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .stroke(Color(SemanticColorTokens.metricRingTrack), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 Circle()
                     .trim(from: 0.12, to: 0.12 + 0.76 * progress)
-                    .stroke(Color(LifeBoardColorTokens.metricRingFill), style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                    .stroke(Color(SemanticColorTokens.metricRingFill), style: StrokeStyle(lineWidth: 6, lineCap: .round))
                 Text(value)
-                    .font(LifeBoardFoundationTypography.metadata().weight(.semibold))
+                    .font(Typography.metadata().weight(.semibold))
                     .foregroundStyle(palette.color(for: .foreground))
             }
             .rotationEffect(.degrees(90))
             .overlay {
                 Text(value)
-                    .font(.system(size: 11, weight: .semibold))
+                    .lifeboardFont(.eyebrow)
                     .foregroundStyle(palette.color(for: .foreground))
             }
             .frame(width: 60, height: 60)
@@ -4470,14 +4979,14 @@ private struct ReferenceMetricRing: View {
 private struct ReferenceSectionHeader: View {
     let title: String
     let showsAdd: Bool
-    let palette: LifeBoardDaypartPalette
+    let palette: DaypartPalette
 
     var body: some View {
         HStack(spacing: 8) {
             Text(title)
-                .font(LifeBoardFoundationTypography.sectionTitle())
+                .font(Typography.sectionTitle())
             Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .semibold))
+                .lifeboardFont(.buttonSmall)
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
             Spacer()
             if showsAdd {
@@ -4493,12 +5002,12 @@ private struct ReferenceMedicationCard: View {
     let symbol: String
     let title: String
     let detail: String
-    let palette: LifeBoardDaypartPalette
+    let palette: DaypartPalette
 
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: symbol)
-                .font(.system(size: 22, weight: .medium))
+                .lifeboardFont(.title1)
                 .foregroundStyle(palette.color(for: .layerOne))
                 .frame(width: 34)
             VStack(alignment: .leading, spacing: 3) {
@@ -4520,16 +5029,16 @@ private struct ReferenceMedicationCard: View {
 
 private struct ReferenceTodoRow: View {
     let title: String
-    let palette: LifeBoardDaypartPalette
+    let palette: DaypartPalette
 
     var body: some View {
         HStack(spacing: 12) {
             Circle()
-                .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
-                .overlay(Circle().stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1.5))
+                .fill(Color(SemanticColorTokens.foundationSurfaceSolid))
+                .overlay(Circle().stroke(Color(SemanticColorTokens.foundationHairline), lineWidth: 1.5))
                 .frame(width: 28, height: 28)
             Text(title)
-                .font(LifeBoardFoundationTypography.body())
+                .font(Typography.body())
             Spacer()
         }
         .accessibilityElement(children: .combine)
@@ -4540,12 +5049,12 @@ private struct ReferenceTodoRow: View {
 private struct ReferenceHabitCard: View {
     let symbol: String
     let title: String
-    let palette: LifeBoardDaypartPalette
+    let palette: DaypartPalette
 
     var body: some View {
         VStack(spacing: 9) {
             Image(systemName: symbol)
-                .font(.system(size: 22, weight: .medium))
+                .lifeboardFont(.title1)
                 .foregroundStyle(palette.color(for: .foregroundSecondary))
             Text(title)
                 .font(.caption.weight(.medium))

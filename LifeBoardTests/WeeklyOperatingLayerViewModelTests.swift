@@ -4,9 +4,9 @@ import XCTest
 final class WeeklyOperatingLayerViewModelTests: XCTestCase {
     func testWorkspacePreferencesStoreRoundTripsWeekStartDay() {
         let defaults = UserDefaults(suiteName: "weekly.workspace.preferences.\(UUID().uuidString)")!
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
+        let store = WorkspacePreferencesStore(defaults: defaults)
 
-        store.save(LifeBoardWorkspacePreferences(weekStartsOn: .wednesday))
+        store.save(WorkspacePreferences(weekStartsOn: .wednesday))
 
         XCTAssertEqual(store.load().weekStartsOn, .wednesday)
     }
@@ -17,7 +17,7 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         let summaryUseCase = makeWeeklySummaryUseCase(workspaceStore: workspaceStore)
         let completion = expectation(description: "weekly summary resolved")
         let referenceDate = makeDate(year: 2024, month: 4, day: 8) // Monday before a Wednesday week start
-        let expectedUpcomingWeekStart = XPCalculationEngine.upcomingWeekStart(
+        let expectedUpcomingWeekStart = XPCalculationService.upcomingWeekStart(
             after: referenceDate,
             startingOn: weekStartsOn
         )
@@ -38,14 +38,14 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         let weekStartsOn: Weekday = .monday
         let workspaceStore = makeWorkspacePreferencesStore(weekStartsOn: weekStartsOn)
         let referenceDate = makeDate(year: 2024, month: 4, day: 6) // Saturday in Monday-start preview window
-        let currentWeekStart = XPCalculationEngine.startOfWeek(
+        let currentWeekStart = XPCalculationService.startOfWeek(
             for: referenceDate,
             startingOn: weekStartsOn
         )
         let plan = WeeklyPlan(
             id: UUID(),
             weekStartDate: currentWeekStart,
-            weekEndDate: XPCalculationEngine.endOfWeek(
+            weekEndDate: XPCalculationService.endOfWeek(
                 for: currentWeekStart,
                 startingOn: weekStartsOn
             ),
@@ -73,11 +73,11 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         let weekStartsOn: Weekday = .monday
         let workspaceStore = makeWorkspacePreferencesStore(weekStartsOn: weekStartsOn)
         let referenceDate = makeDate(year: 2024, month: 4, day: 29)
-        let currentWeekStart = XPCalculationEngine.startOfWeek(
+        let currentWeekStart = XPCalculationService.startOfWeek(
             for: referenceDate,
             startingOn: weekStartsOn
         )
-        let calendar = XPCalculationEngine.weekCalendar(startingOn: weekStartsOn)
+        let calendar = XPCalculationService.weekCalendar(startingOn: weekStartsOn)
         let completedTasks: [TaskDefinition] = (0..<8).map { index in
             let completedAt = calendar.date(byAdding: .day, value: -(index + 1), to: currentWeekStart) ?? currentWeekStart
             return TaskDefinition(
@@ -792,16 +792,16 @@ final class WeeklyOperatingLayerViewModelTests: XCTestCase {
         Date(timeIntervalSince1970: 1_712_592_000) // 2024-04-01 Monday UTC
     }
 
-    private func makeWorkspacePreferencesStore(weekStartsOn: Weekday) -> LifeBoardWorkspacePreferencesStore {
+    private func makeWorkspacePreferencesStore(weekStartsOn: Weekday) -> WorkspacePreferencesStore {
         let defaults = UserDefaults(suiteName: "weekly.workspace.preferences.\(UUID().uuidString)")!
-        let store = LifeBoardWorkspacePreferencesStore(defaults: defaults)
-        store.save(LifeBoardWorkspacePreferences(weekStartsOn: weekStartsOn))
+        let store = WorkspacePreferencesStore(defaults: defaults)
+        store.save(WorkspacePreferences(weekStartsOn: weekStartsOn))
         return store
     }
 
     private func makeWeeklySummaryUseCase(
         plan: WeeklyPlan? = nil,
-        workspaceStore: LifeBoardWorkspacePreferencesStore
+        workspaceStore: WorkspacePreferencesStore
     ) -> GetWeeklySummaryUseCase {
         let taskRepository = InMemoryTaskDefinitionRepositoryStub(seed: [])
         let buildSnapshot = BuildWeeklyPlanSnapshotUseCase(

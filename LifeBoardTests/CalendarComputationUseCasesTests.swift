@@ -93,7 +93,7 @@ final class CalendarComputationUseCasesTests: XCTestCase {
         let useCase = ComputeTaskFitHintUseCase(bufferMinutes: 15, calendar: CalendarTestClock.calendar)
         let now = CalendarTestClock.date(hour: 9)
         let dueDate = CalendarTestClock.date(hour: 12)
-        let busy = [LifeBoardCalendarBusyBlock(
+        let busy = [CalendarBusyBlock(
             startDate: CalendarTestClock.date(hour: 10),
             endDate: CalendarTestClock.date(hour: 10, minute: 30)
         )]
@@ -128,7 +128,7 @@ final class CalendarComputationUseCasesTests: XCTestCase {
         let now = CalendarTestClock.date(hour: 9)
         let dueDate = CalendarTestClock.date(hour: 10)
         let busy = [
-            LifeBoardCalendarBusyBlock(
+            CalendarBusyBlock(
                 startDate: CalendarTestClock.date(hour: 9),
                 endDate: CalendarTestClock.date(hour: 9, minute: 50)
             )
@@ -173,10 +173,10 @@ final class CalendarComputationUseCasesTests: XCTestCase {
         title: String = "Event",
         calendarID: String = "work",
         isAllDay: Bool = false,
-        availability: LifeBoardCalendarEventAvailability = .busy,
-        participationStatus: LifeBoardCalendarEventParticipationStatus = .accepted
-    ) -> LifeBoardCalendarEventSnapshot {
-        LifeBoardCalendarEventSnapshot(
+        availability: CalendarEventAvailability = .busy,
+        participationStatus: CalendarEventParticipationStatus = .accepted
+    ) -> CalendarEventSnapshot {
+        CalendarEventSnapshot(
             id: UUID().uuidString,
             calendarID: calendarID,
             calendarTitle: "Work",

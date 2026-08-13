@@ -22,9 +22,9 @@ import Lottie
 /// fixed overlay) and collapse to nothing under Reduce Motion / UI testing
 /// / scroll-optimized rendering. Overlay it on the celebrating view and
 /// bump `trigger` to fire.
-struct LBCelebrationBurst: View {
+struct CelebrationBurst: View {
     let trigger: Int
-    var tint: Color = LBColorTokens.leaf
+    var tint: Color = ClayColorTokens.leaf
 
     @State private var firedAt: Date?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -61,7 +61,7 @@ struct LBCelebrationBurst: View {
     private var celebrationLayer: some View {
         #if canImport(Lottie) && (os(iOS) || os(visionOS))
         if Self.confettiIsBundled {
-            LBConfettiView(assetName: Self.confettiAssetName)
+            ConfettiView(assetName: Self.confettiAssetName)
         } else {
             canvasBurst
         }
@@ -120,7 +120,7 @@ struct LBCelebrationBurst: View {
 /// Plays a bundled Lottie animation exactly once. Mirrors the existing
 /// `EvaLoopingLottieView` pattern but with `.playOnce`. Rendered inside an
 /// already-guarded context, so it does no Reduce-Motion checks itself.
-private struct LBConfettiView: UIViewRepresentable {
+private struct ConfettiView: UIViewRepresentable {
     let assetName: String
 
     func makeUIView(context: Context) -> UIView {
@@ -153,7 +153,7 @@ private struct LBConfettiView: UIViewRepresentable {
 
 /// A slow, ambient diagonal light sweep for primary CTAs. Far subtler than
 /// a loading shimmer: one pass every few seconds, masked to the content.
-private struct LBAnimatedSheen: ViewModifier {
+private struct AnimatedSheen: ViewModifier {
     let isEnabled: Bool
     @State private var phase: CGFloat = -1
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -194,7 +194,7 @@ private struct LBAnimatedSheen: ViewModifier {
 
 /// One-shot scale pop with a per-index delay, so a row of cells reads as a
 /// wave (40ms/cell) when a check-in lands. Bump `trigger` to fire.
-private struct LBRipplePop: ViewModifier {
+private struct RipplePop: ViewModifier {
     let trigger: Int
     let index: Int
     @State private var popped = false
@@ -225,17 +225,17 @@ extension View {
     /// Overlays a one-shot celebration burst; bump `trigger` to fire.
     /// Reserve for event-gated moments (first completion of the day,
     /// streak milestones) — not every interaction.
-    func lbCelebrationBurst(trigger: Int, tint: Color = LBColorTokens.leaf) -> some View {
-        overlay(LBCelebrationBurst(trigger: trigger, tint: tint))
+    func lbCelebrationBurst(trigger: Int, tint: Color = ClayColorTokens.leaf) -> some View {
+        overlay(CelebrationBurst(trigger: trigger, tint: tint))
     }
 
     /// Ambient diagonal light sweep for primary CTAs.
     func lbAnimatedSheen(isEnabled: Bool = true) -> some View {
-        modifier(LBAnimatedSheen(isEnabled: isEnabled))
+        modifier(AnimatedSheen(isEnabled: isEnabled))
     }
 
     /// One-shot scale pop delayed by `index`, forming a ripple across a row.
     func lbRipplePop(trigger: Int, index: Int) -> some View {
-        modifier(LBRipplePop(trigger: trigger, index: index))
+        modifier(RipplePop(trigger: trigger, index: index))
     }
 }

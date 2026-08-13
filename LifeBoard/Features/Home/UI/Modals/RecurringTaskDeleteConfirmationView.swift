@@ -1,0 +1,125 @@
+//
+//  RecurringTaskDeleteConfirmationView.swift
+//  LifeBoard
+//
+
+import SwiftUI
+
+private enum RecurringTaskDeleteType {
+    case single
+    case series
+
+    var accessibilityIdentifier: String {
+        switch self {
+        case .single:
+            return "home.recurringTaskDelete.single"
+        case .series:
+            return "home.recurringTaskDelete.series"
+        }
+    }
+}
+
+struct RecurringTaskDeleteConfirmationView: View {
+    let taskTitle: String
+    let onDeleteSingle: () -> Void
+    let onDeleteSeries: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.lifeboard.bgCanvas.ignoresSafeArea()
+
+                VStack(alignment: .leading, spacing: ClayLayoutMetrics.lg) {
+                    header
+
+                    GlassCard(
+                        cornerRadius: RadiusTokens.largeCard,
+                        fill: reduceTransparency ? Color.lifeboard.surfacePrimary : ClayColorTokens.glassStrong.opacity(0.86),
+                        usesMaterialBackground: reduceTransparency == false
+                    ) {
+                        VStack(spacing: ClayLayoutMetrics.sm) {
+                            destructiveAction(
+                                title: "Delete This Task",
+                                systemImage: "calendar.badge.minus",
+                                type: .single,
+                                action: onDeleteSingle
+                            )
+
+                            Divider()
+                                .overlay(Color.lifeboard.strokeHairline.opacity(0.5))
+
+                            destructiveAction(
+                                title: "Delete Entire Series",
+                                systemImage: "repeat.circle",
+                                type: .series,
+                                action: onDeleteSeries
+                            )
+                        }
+                        .padding(ClayLayoutMetrics.md)
+                    }
+
+                    Button("Cancel") {
+                        dismiss()
+                    }
+                    .font(.lifeboard(.body))
+                    .foregroundColor(Color.lifeboard.textSecondary)
+                    .frame(maxWidth: .infinity, minHeight: 44)
+                    .background(Color.lifeboard.surfaceSecondary, in: Capsule())
+                    .buttonStyle(.plain)
+                    .accessibilityIdentifier("home.recurringTaskDelete.cancel")
+                }
+                .padding(ClayLayoutMetrics.lg)
+                .frame(maxWidth: 560)
+            }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") {
+                        dismiss()
+                    }
+                    .accessibilityIdentifier("home.recurringTaskDelete.close")
+                }
+            }
+        }
+        .presentationDragIndicator(.visible)
+    }
+
+    private var header: some View {
+        VStack(alignment: .leading, spacing: ClayLayoutMetrics.xs) {
+            Text("Delete recurring task?")
+                .font(.lifeboard(.title3))
+                .foregroundColor(Color.lifeboard.textPrimary)
+
+            Text("Choose whether to delete only \"\(taskTitle)\" or every task in the series.")
+                .font(.lifeboard(.body))
+                .foregroundColor(Color.lifeboard.textSecondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private func destructiveAction(title: String, systemImage: String, type: RecurringTaskDeleteType, action: @escaping () -> Void) -> some View {
+        Button {
+            dismiss()
+            action()
+        } label: {
+            HStack(spacing: ClayLayoutMetrics.sm) {
+                Image(systemName: systemImage)
+                    .lifeboardFont(.title2)
+                    .frame(width: 28, height: 28)
+
+                Text(title)
+                    .font(.lifeboard(.body))
+
+                Spacer()
+            }
+            .foregroundColor(Color.lifeboard.statusDanger)
+            .frame(maxWidth: .infinity, minHeight: 48)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityIdentifier(type.accessibilityIdentifier)
+    }
+}

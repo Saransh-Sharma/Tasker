@@ -21,26 +21,30 @@ final class AddTaskSuggestionFlowTests: BaseUITest {
         )
     }
 
-    func testHomeAddSheetShowsTaskHabitSwitchAndDefaultsToTask() throws {
+    func testHomeTaskAndHabitCaptureEntrypointsOpenExpectedComposers() throws {
         let homePage = HomePage(app: app)
         let addTaskPage = homePage.tapAddTask()
 
-        guard addTaskPage.verifyIsDisplayed(timeout: 8) else {
-            throw XCTSkip("Unified add sheet did not open in this launch state")
-        }
-
-        XCTAssertTrue(addTaskPage.modePicker.waitForExistence(timeout: 2))
-        XCTAssertTrue(addTaskPage.taskModeButton.exists)
-        XCTAssertTrue(addTaskPage.habitModeButton.exists)
+        XCTAssertTrue(addTaskPage.verifyIsDisplayed(timeout: 8))
         XCTAssertTrue(addTaskPage.titleField.exists)
 
-        addTaskPage.switchToHabitMode()
+        let dismiss = app.buttons["foundation.capture.dismiss"]
+        XCTAssertTrue(dismiss.waitForExistence(timeout: 3))
+        dismiss.tap()
+
+        let tools = app.buttons["lifeThread.composer.toolsToggle"]
+        XCTAssertTrue(tools.waitForExistence(timeout: 4))
+        tools.tap()
+
+        let habitTool = app.buttons["lifeThread.composer.tool.habit"]
+        XCTAssertTrue(habitTool.waitForExistence(timeout: 3))
+        habitTool.tap()
 
         let habitSurface = app.otherElements["addHabit.view"]
         XCTAssertTrue(habitSurface.waitForExistence(timeout: 3))
     }
 
-    func testTypingTaskTitleShowsIconPreviewAndPicker() throws {
+    func testTypingTaskTitleUpdatesTimelinePreview() throws {
         let homePage = HomePage(app: app)
         let addTaskPage = homePage.tapAddTask()
 
@@ -48,17 +52,12 @@ final class AddTaskSuggestionFlowTests: BaseUITest {
             throw XCTSkip("Add Task surface did not open in this launch state")
         }
 
-        XCTAssertTrue(addTaskPage.iconButton.waitForExistence(timeout: 3))
-
         addTaskPage.enterTitle("call dentist after lunch")
-        let iconPreviewUpdated =
-            addTaskPage.waitForIconButtonLabel(containing: "stethoscope", timeout: 3)
-            || addTaskPage.waitForIconButtonLabel(containing: "icon", timeout: 1)
-        XCTAssertTrue(iconPreviewUpdated, "Expected task icon preview button label to refresh after typing")
-
-        addTaskPage.openIconPicker()
-        XCTAssertTrue(addTaskPage.iconPickerSheet.waitForExistence(timeout: 3))
-        XCTAssertTrue(addTaskPage.iconSearchField.exists)
+        XCTAssertTrue(addTaskPage.timelinePreview.waitForExistence(timeout: 3))
+        XCTAssertTrue(
+            addTaskPage.timelinePreview.label.localizedCaseInsensitiveContains("call dentist after lunch"),
+            "Expected the timeline preview to reflect the typed task title"
+        )
     }
 
     func testAddTaskScheduleEditorShowsBelowTitleAndSupportsTimeAndDurationControls() throws {

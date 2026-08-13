@@ -8,13 +8,13 @@ import SwiftUI
 /// are carved into the surface — so the state survives greyscale and
 /// Differentiate Without Colour without the tint doing any work on its own.
 ///
-/// This is not `LifeBoardLensPicker`, and the difference matters. The lens
+/// This is not `LensPicker`, and the difference matters. The lens
 /// picker is a view switcher: one travelling thumb, equal-weight segments, and a
 /// `matchedGeometryEffect` id that is a global constant, so two of them on one
 /// screen fight over the same thumb. It stays reserved for replacing
 /// `.pickerStyle(.segmented)`. This is for choosing a *value*, where labels have
 /// wildly different lengths and more than one rail per screen is normal.
-public struct LifeBoardOptionRail<Value: Hashable>: View {
+public struct OptionRail<Value: Hashable>: View {
     private let label: String
     private let values: [Value]
     private let identifierPrefix: String
@@ -59,7 +59,7 @@ public struct LifeBoardOptionRail<Value: Hashable>: View {
             if showsLabel {
                 Text(label)
                     .font(.lifeboard(.meta))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
             }
             rail
         }
@@ -67,7 +67,7 @@ public struct LifeBoardOptionRail<Value: Hashable>: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text(label))
         .accessibilityIdentifier(identifierPrefix)
-        .modifier(LifeBoardOptionRailBloom(
+        .modifier(OptionRailBloom(
             tint: pressBloomTint,
             center: bloomCenter,
             trigger: bloomTrigger
@@ -84,7 +84,7 @@ public struct LifeBoardOptionRail<Value: Hashable>: View {
                 ForEach(values, id: \.self) { chip($0) }
             }
         } else {
-            LifeBoardOptionFlow(spacing: 8) {
+            OptionFlow(spacing: 8) {
                 ForEach(values, id: \.self) { chip($0) }
             }
         }
@@ -94,7 +94,7 @@ public struct LifeBoardOptionRail<Value: Hashable>: View {
         let isSelected = value == selection
         return Button {
             guard isSelected == false else { return }
-            LifeBoardHaptic.pick.play()
+            Haptic.pick.play()
             selection = value
             if pressBloomTint != nil { bloomTrigger &+= 1 }
         } label: {
@@ -111,13 +111,13 @@ public struct LifeBoardOptionRail<Value: Hashable>: View {
                 if let detail {
                     Text(detail(value))
                         .font(.lifeboard(.caption2))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary))
                 }
             }
             .foregroundStyle(
                 Color(isSelected
-                    ? LifeBoardColorTokens.inkPrimary
-                    : LifeBoardColorTokens.inkSecondary)
+                    ? SemanticColorTokens.inkPrimary
+                    : SemanticColorTokens.inkSecondary)
             )
             .lineLimit(2)
             .multilineTextAlignment(.leading)
@@ -126,7 +126,7 @@ public struct LifeBoardOptionRail<Value: Hashable>: View {
             .frame(minHeight: 44)
             .lifeBoardClaySurface(
                 isSelected ? .raised : .well,
-                cornerRadius: LifeBoardFoundationRadius.pill
+                cornerRadius: Radius.pill
             )
             .contentShape(Capsule())
         }
@@ -154,7 +154,7 @@ public struct LifeBoardOptionRail<Value: Hashable>: View {
 /// the "animate every state change" failure DESIGN.md warns about; it belongs on
 /// choices that carry weight — the kind of tracker you are creating, the mood
 /// you are recording — and not on a unit toggle.
-private struct LifeBoardOptionRailBloom: ViewModifier {
+private struct OptionRailBloom: ViewModifier {
     let tint: Color?
     let center: UnitPoint
     let trigger: Int
@@ -173,7 +173,7 @@ private struct LifeBoardOptionRailBloom: ViewModifier {
 /// the edge. Chips whose labels vary from "Yes" to "Recurring meaningful event"
 /// cannot share a fixed grid without either truncating or leaving half the row
 /// empty.
-struct LifeBoardOptionFlow: Layout {
+struct OptionFlow: Layout {
     let spacing: CGFloat
 
     init(spacing: CGFloat = 8) {
@@ -241,7 +241,7 @@ struct LifeBoardOptionFlow: Layout {
 /// hides the one thing that matters: that this is a *scale*, and where the
 /// current answer sits on it. Beads show the range and the answer in one glance,
 /// and one continuous drag across them is faster than four taps.
-public struct LifeBoardBeadStepper: View {
+public struct BeadStepper: View {
     private let label: String
     private let range: ClosedRange<Int>
     private let beadSymbol: String?
@@ -274,12 +274,12 @@ public struct LifeBoardBeadStepper: View {
             HStack {
                 Text(label)
                     .font(.lifeboard(.meta))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                 Spacer(minLength: 8)
                 if let caption {
                     Text(caption(value))
                         .font(.lifeboard(.meta))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                        .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 }
             }
             GeometryReader { proxy in
@@ -292,10 +292,10 @@ public struct LifeBoardBeadStepper: View {
             }
             .frame(height: 52)
             .padding(.horizontal, 6)
-            .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.pill)
+            .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .modifier(LifeBoardFieldIdentity(identifier: identifier))
+        .modifier(FieldIdentity(identifier: identifier))
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text(label))
         .accessibilityValue(Text(caption.map { "\($0(value)), \(value) of \(range.upperBound)" }
@@ -304,7 +304,7 @@ public struct LifeBoardBeadStepper: View {
             let next = direction == .increment ? value + 1 : value - 1
             guard range.contains(next) else { return }
             value = next
-            LifeBoardHaptic.pick.play()
+            Haptic.pick.play()
         }
     }
 
@@ -313,14 +313,14 @@ public struct LifeBoardBeadStepper: View {
         return ZStack {
             Circle()
                 .fill(Color(filled
-                    ? LifeBoardColorTokens.foundationApricotAccent
-                    : LifeBoardColorTokens.foundationSurfaceSolid))
+                    ? SemanticColorTokens.foundationApricotAccent
+                    : SemanticColorTokens.foundationSurfaceSolid))
             if let beadSymbol {
                 Image(systemName: beadSymbol)
                     .font(.system(size: 13, weight: .semibold))
                     .foregroundStyle(Color(filled
-                        ? LifeBoardColorTokens.foundationOnCelestialAccent
-                        : LifeBoardColorTokens.inkTertiary))
+                        ? SemanticColorTokens.foundationOnCelestialAccent
+                        : SemanticColorTokens.inkTertiary))
             }
         }
         .frame(maxWidth: .infinity)
@@ -330,7 +330,7 @@ public struct LifeBoardBeadStepper: View {
             // answer is legible with no colour at all.
             if step == value {
                 Capsule()
-                    .stroke(Color(LifeBoardColorTokens.inkPrimary), lineWidth: 2)
+                    .stroke(Color(SemanticColorTokens.inkPrimary), lineWidth: 2)
             }
         }
         .clipShape(Capsule())
@@ -338,7 +338,7 @@ public struct LifeBoardBeadStepper: View {
         .onTapGesture {
             guard step != value else { return }
             value = step
-            LifeBoardHaptic.pick.play()
+            Haptic.pick.play()
         }
     }
 
@@ -356,7 +356,7 @@ public struct LifeBoardBeadStepper: View {
                 value = next
                 if lastDetent != next {
                     lastDetent = next
-                    LifeBoardHaptic.pick.play()
+                    Haptic.pick.play()
                 }
             }
             .onEnded { _ in lastDetent = nil }
@@ -367,11 +367,11 @@ public struct LifeBoardBeadStepper: View {
 
 /// A bounded but wide value, set on an arc.
 ///
-/// Wraps the existing `LifeBoardArcDial` with a backing plate and explicit −/+
+/// Wraps the existing `ArcDial` with a backing plate and explicit −/+
 /// buttons. The bare dial ships no visible control at all, and DESIGN.md
 /// requires every gesture to have a button, a keyboard route and a VoiceOver
 /// action; the dial supplied only the last of those.
-public struct LifeBoardComposerDial: View {
+public struct ComposerDial: View {
     private let label: String
     private let range: ClosedRange<Double>
     private let step: Double
@@ -400,7 +400,7 @@ public struct LifeBoardComposerDial: View {
 
     public var body: some View {
         VStack(spacing: 10) {
-            LifeBoardArcDial(
+            ArcDial(
                 title: unit ?? label,
                 value: $value,
                 range: range,
@@ -413,7 +413,7 @@ public struct LifeBoardComposerDial: View {
                 nudge(-step, systemImage: "minus", label: "Decrease \(label)")
                 Text(label)
                     .font(.lifeboard(.meta))
-                    .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                    .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
                     .frame(maxWidth: .infinity)
                     .accessibilityHidden(true)
                 nudge(step, systemImage: "plus", label: "Increase \(label)")
@@ -428,13 +428,13 @@ public struct LifeBoardComposerDial: View {
             let next = min(max(value + delta, range.lowerBound), range.upperBound)
             guard next != value else { return }
             value = next
-            LifeBoardHaptic.pick.play()
+            Haptic.pick.play()
         } label: {
             Image(systemName: systemImage)
                 .font(.lifeboard(.bodyStrong))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+                .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
                 .frame(width: 44, height: 44)
-                .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.pill)
+                .lifeBoardClaySurface(.well, cornerRadius: Radius.pill)
                 .contentShape(Circle())
         }
         .buttonStyle(.plain)
@@ -444,13 +444,13 @@ public struct LifeBoardComposerDial: View {
 
 // MARK: - Value drum geometry
 
-/// Tape arithmetic for `LifeBoardValueDrum`, kept apart from the view.
+/// Tape arithmetic for `ValueDrum`, kept apart from the view.
 ///
 /// Everything that can be wrong on a scrubbing tape is arithmetic: which way the
 /// value runs relative to the finger, what happens past the ends, and whether a
 /// detent fires once or on every touch sample. That is only catchable in
-/// isolation, which is the same reason `LifeBoardArcDialGeometry` exists.
-public enum LifeBoardValueDrumGeometry {
+/// isolation, which is the same reason `ArcDialGeometry` exists.
+public enum ValueDrumGeometry {
     /// Travel for one `step`. Tuned so a 300-point tape spans roughly twenty
     /// detents — dense enough to feel like a scale, loose enough to land on one.
     public static let pointsPerStep: CGFloat = 14
@@ -561,7 +561,7 @@ public enum LifeBoardValueDrumGeometry {
 /// number, and it is also what keeps `app.textFields["track.tracker.value.numeric"]`
 /// bound. The tape is for the far more common case of nudging from yesterday's
 /// value, where a keyboard is the slow way to move 1.4 kilograms.
-public struct LifeBoardValueDrum: View {
+public struct ValueDrum: View {
     private let label: String
     private let range: ClosedRange<Double>
     private let step: Double
@@ -620,26 +620,26 @@ public struct LifeBoardValueDrum: View {
                 value: $value,
                 format: .number.precision(.fractionLength(0...fractionDigits))
             )
-            .font(LifeBoardFoundationTypography.hero())
+            .font(Typography.hero())
             .monospacedDigit()
             .multilineTextAlignment(.center)
             .keyboardType(.decimalPad)
             .focused($isTyping)
-            .foregroundStyle(Color(LifeBoardColorTokens.inkPrimary))
+            .foregroundStyle(Color(SemanticColorTokens.inkPrimary))
             .frame(maxWidth: .infinity)
             .frame(minHeight: 52)
-            .modifier(LifeBoardFieldIdentity(identifier: identifier))
+            .modifier(FieldIdentity(identifier: identifier))
             .accessibilityLabel(Text(label))
 
             Text(unit)
                 .font(.lifeboard(.meta))
-                .foregroundStyle(Color(LifeBoardColorTokens.inkSecondary))
+                .foregroundStyle(Color(SemanticColorTokens.inkSecondary))
         }
     }
 
     private var tape: some View {
         GeometryReader { proxy in
-            LifeBoardValueDrumTape(
+            ValueDrumTape(
                 value: value,
                 range: range,
                 step: step,
@@ -657,24 +657,24 @@ public struct LifeBoardValueDrum: View {
         }
         .frame(height: 64)
         .clipShape(RoundedRectangle(
-            cornerRadius: LifeBoardFoundationRadius.compact + 2,
+            cornerRadius: Radius.compact + 2,
             style: .continuous
         ))
-        .lifeBoardClaySurface(.well, cornerRadius: LifeBoardFoundationRadius.compact + 2)
+        .lifeBoardClaySurface(.well, cornerRadius: Radius.compact + 2)
         .accessibilityElement(children: .ignore)
         .accessibilityLabel(Text("\(label) tape"))
         .accessibilityValue(Text("\(formatted(value)) \(unit)"))
         .accessibilityHint(Text("Swipe left or right to change the value"))
         .accessibilityAdjustableAction { direction in
             let delta = coarseStep ?? step
-            let next = LifeBoardValueDrumGeometry.settled(
+            let next = ValueDrumGeometry.settled(
                 value + (direction == .increment ? delta : -delta),
                 range: range,
                 step: step
             )
             guard next != value else { return }
             value = next
-            LifeBoardHaptic.pick.play()
+            Haptic.pick.play()
         }
     }
 
@@ -684,7 +684,7 @@ public struct LifeBoardValueDrum: View {
     private var centreIndicator: some View {
         VStack(spacing: 0) {
             Capsule()
-                .fill(Color(LifeBoardColorTokens.foundationApricotAccent))
+                .fill(Color(SemanticColorTokens.foundationApricotAccent))
                 .frame(width: 2.5, height: 30)
             Spacer(minLength: 0)
         }
@@ -700,10 +700,10 @@ public struct LifeBoardValueDrum: View {
                     dragStart = value
                     grip = 1
                     isTyping = false
-                    LifeBoardHaptic.lift.play()
+                    Haptic.lift.play()
                 }
                 guard let dragStart else { return }
-                let next = LifeBoardValueDrumGeometry.value(
+                let next = ValueDrumGeometry.value(
                     from: dragStart,
                     translation: drag.translation.width,
                     range: range,
@@ -714,11 +714,11 @@ public struct LifeBoardValueDrum: View {
                 tick(next)
             }
             .onEnded { _ in
-                value = LifeBoardValueDrumGeometry.settled(value, range: range, step: step)
+                value = ValueDrumGeometry.settled(value, range: range, step: step)
                 dragStart = nil
                 lastDetent = nil
                 grip = 0
-                LifeBoardHaptic.settle.play()
+                Haptic.settle.play()
             }
     }
 
@@ -728,10 +728,10 @@ public struct LifeBoardValueDrum: View {
         guard lastDetent != next else { return }
         lastDetent = next
         if let coarse = coarseStep,
-           LifeBoardValueDrumGeometry.isCoarse(next, coarseStep: coarse) {
-            LifeBoardHaptic.threshold.play()
+           ValueDrumGeometry.isCoarse(next, coarseStep: coarse) {
+            Haptic.threshold.play()
         } else {
-            LifeBoardHaptic.pick.play()
+            Haptic.pick.play()
         }
     }
 
@@ -746,7 +746,7 @@ public struct LifeBoardValueDrum: View {
 /// ticks at a time and re-lays them out on every frame of a drag, which is
 /// exactly the workload SwiftUI's layout engine is worst at and immediate-mode
 /// drawing is best at.
-private struct LifeBoardValueDrumTape: View {
+private struct ValueDrumTape: View {
     let value: Double
     let range: ClosedRange<Double>
     let step: Double
@@ -755,7 +755,7 @@ private struct LifeBoardValueDrumTape: View {
 
     var body: some View {
         Canvas { context, size in
-            let ticks = LifeBoardValueDrumGeometry.visibleTicks(
+            let ticks = ValueDrumGeometry.visibleTicks(
                 centeredOn: value,
                 width: size.width,
                 range: range,
@@ -764,12 +764,12 @@ private struct LifeBoardValueDrumTape: View {
             let midX = size.width / 2
 
             for tick in ticks {
-                let x = midX + LifeBoardValueDrumGeometry.offset(
+                let x = midX + ValueDrumGeometry.offset(
                     ofTick: tick, centeredOn: value, step: step
                 )
                 guard x >= -4, x <= size.width + 4 else { continue }
 
-                let isCoarse = LifeBoardValueDrumGeometry.isCoarse(tick, coarseStep: coarseStep)
+                let isCoarse = ValueDrumGeometry.isCoarse(tick, coarseStep: coarseStep)
                 let height: CGFloat = isCoarse ? 22 : 12
                 // Ticks fade toward the rims so the tape reads as continuing
                 // past the edge rather than being cut off.
@@ -784,8 +784,8 @@ private struct LifeBoardValueDrumTape: View {
                     )),
                     with: .color(
                         Color(isCoarse
-                            ? LifeBoardColorTokens.inkSecondary
-                            : LifeBoardColorTokens.inkTertiary)
+                            ? SemanticColorTokens.inkSecondary
+                            : SemanticColorTokens.inkTertiary)
                         .opacity(falloff)
                     )
                 )
@@ -793,7 +793,7 @@ private struct LifeBoardValueDrumTape: View {
                 if isCoarse {
                     let text = Text(tick.formatted(.number.precision(.fractionLength(0))))
                         .font(.system(size: 10, weight: .medium, design: .monospaced))
-                        .foregroundStyle(Color(LifeBoardColorTokens.inkTertiary).opacity(falloff))
+                        .foregroundStyle(Color(SemanticColorTokens.inkTertiary).opacity(falloff))
                     context.draw(text, at: CGPoint(x: x, y: size.height / 2 + 22))
                 }
             }

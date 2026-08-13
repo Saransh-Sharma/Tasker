@@ -74,9 +74,9 @@ public final class UseCaseCoordinator: @unchecked Sendable {
         public let gamificationRepository: GamificationRepositoryProtocol
         public let assistantActionRepository: AssistantActionRepositoryProtocol
         public let externalSyncRepository: ExternalSyncRepositoryProtocol
-        public let remindersProvider: AppleRemindersProviderProtocol?
-        public let calendarEventsProvider: CalendarEventsProviderProtocol?
-        public let workspacePreferencesStore: LifeBoardWorkspacePreferencesStore
+        public let remindersProvider: AppleRemindersRepositoryProtocol?
+        public let calendarEventsProvider: CalendarEventsRepositoryProtocol?
+        public let workspacePreferencesStore: WorkspacePreferencesStore
 
         /// Initializes a new instance.
         public init(
@@ -103,9 +103,9 @@ public final class UseCaseCoordinator: @unchecked Sendable {
             gamificationRepository: GamificationRepositoryProtocol,
             assistantActionRepository: AssistantActionRepositoryProtocol,
             externalSyncRepository: ExternalSyncRepositoryProtocol,
-            remindersProvider: AppleRemindersProviderProtocol? = nil,
-            calendarEventsProvider: CalendarEventsProviderProtocol? = nil,
-            workspacePreferencesStore: LifeBoardWorkspacePreferencesStore = .shared
+            remindersProvider: AppleRemindersRepositoryProtocol? = nil,
+            calendarEventsProvider: CalendarEventsRepositoryProtocol? = nil,
+            workspacePreferencesStore: WorkspacePreferencesStore = .shared
         ) {
             self.projectRepository = projectRepository
             self.lifeAreaRepository = lifeAreaRepository
@@ -196,7 +196,7 @@ public final class UseCaseCoordinator: @unchecked Sendable {
     public let buildRecoveryInsights: BuildRecoveryInsightsUseCase
     public let completeWeeklyReview: CompleteWeeklyReviewUseCase
     public let recordXP: RecordXPUseCase
-    public let gamificationEngine: GamificationEngine
+    public let gamificationEngine: GamificationService
     public let focusSession: FocusSessionUseCase
     public let assistantActionPipeline: AssistantActionPipelineUseCase
     public let linkExternalReminders: LinkExternalRemindersUseCase
@@ -282,7 +282,7 @@ public final class UseCaseCoordinator: @unchecked Sendable {
 
         // V2 use cases
         let xp = RecordXPUseCase(repository: v2Dependencies.gamificationRepository)
-        let engine = GamificationEngine(repository: v2Dependencies.gamificationRepository)
+        let engine = GamificationService(repository: v2Dependencies.gamificationRepository)
         self.gamificationEngine = engine
         self.focusSession = FocusSessionUseCase(repository: v2Dependencies.gamificationRepository, engine: engine)
         self.manageLifeAreas = ManageLifeAreasUseCase(repository: v2Dependencies.lifeAreaRepository)

@@ -1,6 +1,7 @@
 import CoreData
 import XCTest
 @testable import LifeBoard
+import LifeBoardContracts
 
 /// In-memory stand-in for the task repository.
 ///
@@ -380,9 +381,8 @@ final class PhaseOneRealCoreDataMutationJourneyTests: XCTestCase {
     }
 
     private func makeContainer() throws -> NSPersistentContainer {
-        let bundles = [Bundle.main, Bundle(for: type(of: self))]
-        guard let model = NSManagedObjectModel.mergedModel(from: bundles),
-              model.entitiesByName["TaskDefinition"] != nil,
+        let model = try PersistenceTestModel.model()
+        guard model.entitiesByName["TaskDefinition"] != nil,
               model.entitiesByName["PlanningMutationReceipt"] != nil else {
             throw NSError(
                 domain: "PhaseOneRealCoreDataMutationJourneyTests",

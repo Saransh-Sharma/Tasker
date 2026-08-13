@@ -1,3 +1,0 @@
-import Foundation
-
-typealias HabitDefinitionMapper = StateHabitDefinitionMapper

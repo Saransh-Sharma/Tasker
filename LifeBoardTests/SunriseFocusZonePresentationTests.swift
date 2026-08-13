@@ -11,7 +11,7 @@ final class SunriseFocusZonePresentationTests: XCTestCase {
             estimatedDuration: 900
         )
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: overdueTask, insight: nil, now: now)
+        let presentation = FocusZoneRowPresentation.make(task: overdueTask, insight: nil, now: now)
 
         XCTAssertEqual(presentation.secondaryLineText, "Late by 2d")
     }
@@ -26,21 +26,21 @@ final class SunriseFocusZonePresentationTests: XCTestCase {
             estimatedDuration: 600
         )
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: overdueProjectTask, insight: nil, now: now)
+        let presentation = FocusZoneRowPresentation.make(task: overdueProjectTask, insight: nil, now: now)
 
         XCTAssertEqual(presentation.secondaryLineText, "Late by 2d · Project Alpha")
     }
 
     func testEmptyStateMessageUsesGenericCopyWhenVisibleRowLimitIsNil() {
         XCTAssertEqual(
-            SunriseFocusZone.emptyStateMessage(maxVisibleRows: nil),
+            FocusZone.emptyStateMessage(maxVisibleRows: nil),
             "Add tasks for today to see your upcoming tasks."
         )
     }
 
     func testEmptyStateMessageInterpolatesConfiguredVisibleRowLimit() {
         XCTAssertEqual(
-            SunriseFocusZone.emptyStateMessage(maxVisibleRows: 5),
+            FocusZone.emptyStateMessage(maxVisibleRows: 5),
             "Add tasks for today to see your next 5."
         )
     }
@@ -52,7 +52,7 @@ final class SunriseFocusZonePresentationTests: XCTestCase {
             dueDate: Calendar.current.date(byAdding: .hour, value: 8, to: now)
         )
 
-        let presentation = SunriseFocusZoneRowPresentation.make(
+        let presentation = FocusZoneRowPresentation.make(
             task: dueTodayTask,
             insight: nil,
             now: Calendar.current.date(byAdding: .hour, value: 1, to: now) ?? now
@@ -68,7 +68,7 @@ final class SunriseFocusZonePresentationTests: XCTestCase {
             dueDate: Calendar.current.date(byAdding: .minute, value: 45, to: now)
         )
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: dueSoonTask, insight: nil, now: now)
+        let presentation = FocusZoneRowPresentation.make(task: dueSoonTask, insight: nil, now: now)
 
         XCTAssertEqual(presentation.secondaryLineText, "Due soon")
     }
@@ -84,7 +84,7 @@ final class SunriseFocusZonePresentationTests: XCTestCase {
             dueDate: dueDate
         )
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: task, insight: nil, now: now)
+        let presentation = FocusZoneRowPresentation.make(task: task, insight: nil, now: now)
 
         XCTAssertEqual(presentation.secondaryLineText, "M26")
     }
@@ -97,7 +97,7 @@ final class SunriseFocusZonePresentationTests: XCTestCase {
             estimatedDuration: 600
         )
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: task, insight: nil, now: now)
+        let presentation = FocusZoneRowPresentation.make(task: task, insight: nil, now: now)
 
         XCTAssertNil(presentation.secondaryLineText)
     }
@@ -110,7 +110,7 @@ final class SunriseFocusZonePresentationTests: XCTestCase {
             priority: .high
         )
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: task, insight: nil)
+        let presentation = FocusZoneRowPresentation.make(task: task, insight: nil)
 
         XCTAssertNil(presentation.secondaryLineText)
     }
@@ -122,7 +122,7 @@ final class SunriseFocusZonePresentationTests: XCTestCase {
             projectName: "Project Alpha"
         )
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: task, insight: nil)
+        let presentation = FocusZoneRowPresentation.make(task: task, insight: nil)
 
         XCTAssertEqual(presentation.secondaryLineText, "Project Alpha")
     }
@@ -143,7 +143,7 @@ final class SunriseFocusZonePresentationTests: XCTestCase {
             ]
         )
 
-        let presentation = SunriseFocusZoneRowPresentation.make(task: blockedTask, insight: nil)
+        let presentation = FocusZoneRowPresentation.make(task: blockedTask, insight: nil)
 
         XCTAssertEqual(presentation.secondaryLineText, "Project Alpha")
     }
@@ -155,7 +155,7 @@ final class SunriseFocusZonePresentationTests: XCTestCase {
             projectName: "Inbox"
         )
 
-        let metadata = SunriseFocusZoneSecondaryLineResolver.resolve(task: task)
+        let metadata = FocusZoneSecondaryLineResolver.resolve(task: task)
 
         XCTAssertEqual(metadata.text, "Inbox")
     }

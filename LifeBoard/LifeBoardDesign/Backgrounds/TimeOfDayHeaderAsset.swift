@@ -76,14 +76,14 @@ struct TimeOfDayHeaderAsset: Equatable {
         activationID: String = defaultActivationID,
         calendar: Calendar = .current
     ) -> TimeOfDayHeaderAsset {
-        let phase = LifeBoardCelestialPhase.resolve(at: date, calendar: calendar)
+        let phase = CelestialPhase.resolve(at: date, calendar: calendar)
         let period = period(for: date, calendar: calendar)
         let key = "\(phase.rawValue)-\(activationID)"
         if let cached = cachedBySelectionKey.withLock({ $0[key] }) {
             return cached
         }
 
-        let name = LifeBoardAtmosphereDescriptor.descriptor(for: phase).backgroundAsset
+        let name = AtmosphereDescriptor.descriptor(for: phase).backgroundAsset
         let asset = TimeOfDayHeaderAsset(period: period, name: name, selectionKey: key)
 
         return cachedBySelectionKey.withLock { cache in
@@ -157,7 +157,7 @@ struct TimeOfDayHeaderAsset: Equatable {
     #endif
 }
 
-struct LBHeaderTimeContext: Equatable {
+struct HeaderTimeContext: Equatable {
     enum ForegroundStyle: Equatable {
         case navy
         case light
@@ -212,12 +212,12 @@ struct LBHeaderTimeContext: Equatable {
         now: Date = Date(),
         activationID: String = TimeOfDayHeaderAsset.defaultActivationID,
         calendar: Calendar = .current
-    ) -> LBHeaderTimeContext {
+    ) -> HeaderTimeContext {
         let effectiveDate = effectiveDate(selectedDate: selectedDate, now: now, calendar: calendar)
         // The selected date changes the content lens, not the ambient world.
         let asset = TimeOfDayHeaderAsset.resolve(for: now, activationID: activationID, calendar: calendar)
         let foregroundStyle = foregroundStyle(for: asset)
-        return LBHeaderTimeContext(
+        return HeaderTimeContext(
             selectedDate: selectedDate,
             now: now,
             effectiveDate: effectiveDate,
@@ -310,7 +310,7 @@ struct LBHeaderTimeContext: Equatable {
     private static func foregroundStyle(for asset: TimeOfDayHeaderAsset) -> ForegroundStyle {
         #if canImport(UIKit)
         if let cached = TimeOfDayHeaderAsset.luminanceCache.withLock({ $0[asset.name] }) {
-            return LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: cached) == .lightContent ? .light : .navy
+            return ImageReadabilityPolicy.foregroundStyle(forLuminance: cached) == .lightContent ? .light : .navy
         }
         if let image = TimeOfDayHeaderAsset.image(named: asset.name) {
             let luminance = TimeOfDayHeaderAsset.averageLuminance(
@@ -320,7 +320,7 @@ struct LBHeaderTimeContext: Equatable {
             TimeOfDayHeaderAsset.luminanceCache.withLock {
                 $0[asset.name] = luminance
             }
-            return LifeBoardImageReadabilityPolicy.foregroundStyle(forLuminance: luminance) == .lightContent ? .light : .navy
+            return ImageReadabilityPolicy.foregroundStyle(forLuminance: luminance) == .lightContent ? .light : .navy
         }
         #endif
         return asset.period == .night ? .light : .navy

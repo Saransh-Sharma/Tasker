@@ -11,7 +11,7 @@ import SwiftUI
 /// requested ad-hoc at their call sites with no priming, no memory of a refusal,
 /// and no recovery route once iOS had recorded a denial. This enum is the seam
 /// that lets all six share the same "ask once, respect the answer" policy.
-public enum LifeBoardPermissionKind: String, CaseIterable, Sendable, Identifiable {
+public enum PermissionKind: String, CaseIterable, Sendable, Identifiable {
     case notifications
     case calendar
     case appleHealth
@@ -95,7 +95,7 @@ public enum LifeBoardPermissionKind: String, CaseIterable, Sendable, Identifiabl
 /// This generalises the Health-only `HealthAuthorizationPromptState`; that type
 /// now forwards here so there is exactly one source of truth, and the three
 /// legacy Health keys are migrated in place on first read.
-public enum LifeBoardPermissionPromptState {
+public enum PermissionPromptState {
     /// Two weeks — long enough not to nag, short enough to re-surface if the
     /// user keeps using the feature and simply was not ready the first time.
     public static let snoozeInterval: TimeInterval = 14 * 24 * 60 * 60
@@ -105,24 +105,24 @@ public enum LifeBoardPermissionPromptState {
         UserDefaults(suiteName: AppGroupConstants.suiteName) ?? .standard
     }
 
-    private static func key(_ kind: LifeBoardPermissionKind, _ suffix: String) -> String {
+    private static func key(_ kind: PermissionKind, _ suffix: String) -> String {
         "feature.life_os.permission.\(kind.rawValue).\(suffix)"
     }
 
     /// True once any path — onboarding, Settings, a hub, or a priming prompt —
     /// has actually invoked the system request, granted or denied. HealthKit
     /// hides read-denial, so for that kind this is our only durable signal.
-    public static func hasRequested(_ kind: LifeBoardPermissionKind) -> Bool {
+    public static func hasRequested(_ kind: PermissionKind) -> Bool {
         migrateLegacyHealthKeysIfNeeded()
         return defaults.bool(forKey: key(kind, "has_requested"))
     }
 
-    public static func snoozedUntil(_ kind: LifeBoardPermissionKind) -> Date? {
+    public static func snoozedUntil(_ kind: PermissionKind) -> Date? {
         migrateLegacyHealthKeysIfNeeded()
         return defaults.object(forKey: key(kind, "snoozed_until")) as? Date
     }
 
-    public static func declineCount(_ kind: LifeBoardPermissionKind) -> Int {
+    public static func declineCount(_ kind: PermissionKind) -> Int {
         migrateLegacyHealthKeysIfNeeded()
         return defaults.integer(forKey: key(kind, "decline_count"))
     }
@@ -132,11 +132,11 @@ public enum LifeBoardPermissionPromptState {
     /// and sets no snooze, so the first genuine use of the feature may still
     /// offer once. Skipping a wall of permissions you have not seen the value of
     /// yet is not the same as refusing one in context.
-    public static func wasDeferredInOnboarding(_ kind: LifeBoardPermissionKind) -> Bool {
+    public static func wasDeferredInOnboarding(_ kind: PermissionKind) -> Bool {
         defaults.bool(forKey: key(kind, "onboarding_deferred"))
     }
 
-    public static func shouldOffer(_ kind: LifeBoardPermissionKind, now: Date = Date()) -> Bool {
+    public static func shouldOffer(_ kind: PermissionKind, now: Date = Date()) -> Bool {
         guard kind.isSupportedOnThisDevice else { return false }
         guard kind.isSystemPromptedAtPointOfUse == false else { return false }
         guard hasRequested(kind) == false else { return false }
@@ -145,32 +145,32 @@ public enum LifeBoardPermissionPromptState {
         return true
     }
 
-    public static func recordRequested(_ kind: LifeBoardPermissionKind) {
+    public static func recordRequested(_ kind: PermissionKind) {
         migrateLegacyHealthKeysIfNeeded()
         defaults.set(true, forKey: key(kind, "has_requested"))
         defaults.removeObject(forKey: key(kind, "snoozed_until"))
         defaults.removeObject(forKey: key(kind, "onboarding_deferred"))
     }
 
-    public static func recordDecline(_ kind: LifeBoardPermissionKind, now: Date = Date()) {
+    public static func recordDecline(_ kind: PermissionKind, now: Date = Date()) {
         migrateLegacyHealthKeysIfNeeded()
         defaults.set(declineCount(kind) + 1, forKey: key(kind, "decline_count"))
         defaults.set(now.addingTimeInterval(snoozeInterval), forKey: key(kind, "snoozed_until"))
     }
 
-    public static func recordOnboardingDeferral(_ kind: LifeBoardPermissionKind) {
+    public static func recordOnboardingDeferral(_ kind: PermissionKind) {
         defaults.set(true, forKey: key(kind, "onboarding_deferred"))
     }
 
     /// Test hook — clears the persisted gate for one kind.
-    public static func reset(_ kind: LifeBoardPermissionKind) {
+    public static func reset(_ kind: PermissionKind) {
         for suffix in ["has_requested", "snoozed_until", "decline_count", "onboarding_deferred"] {
             defaults.removeObject(forKey: key(kind, suffix))
         }
     }
 
     public static func resetAll() {
-        LifeBoardPermissionKind.allCases.forEach(reset)
+        PermissionKind.allCases.forEach(reset)
         defaults.removeObject(forKey: legacyMigrationKey)
     }
 
@@ -208,15 +208,15 @@ public enum LifeBoardPermissionPromptState {
 /// One pending invitation. `leadHealthDomain` is the health feature the user
 /// just touched, so Apple Health priming can name the right thing; `trigger` is
 /// an analytics-friendly source id.
-public struct LifeBoardPermissionPrompt: Identifiable, Equatable, Sendable {
+public struct PermissionPrompt: Identifiable, Equatable, Sendable {
     public let id: UUID
-    public let kind: LifeBoardPermissionKind
+    public let kind: PermissionKind
     public let trigger: String
     public let leadHealthDomain: HealthDomain?
 
     public init(
         id: UUID = UUID(),
-        kind: LifeBoardPermissionKind,
+        kind: PermissionKind,
         trigger: String,
         leadHealthDomain: HealthDomain? = nil
     ) {
@@ -237,10 +237,10 @@ public struct LifeBoardPermissionPrompt: Identifiable, Equatable, Sendable {
 /// creating a reminder in the same breath must not stack two sheets.
 @MainActor
 @Observable
-public final class LifeBoardPermissionPrimingCoordinator {
-    public static let shared = LifeBoardPermissionPrimingCoordinator()
+public final class PermissionPrimingCoordinator {
+    public static let shared = PermissionPrimingCoordinator()
 
-    public private(set) var pendingPrompt: LifeBoardPermissionPrompt?
+    public private(set) var pendingPrompt: PermissionPrompt?
 
     private var connectHealth: (@MainActor (Set<HealthDomain>) async -> Void)?
     private var requestNotifications: (@MainActor () async -> Void)?
@@ -265,13 +265,13 @@ public final class LifeBoardPermissionPrimingCoordinator {
     /// already refused twice, and nothing is already showing. Safe to call on
     /// every interaction.
     public func offerIfNeeded(
-        kind: LifeBoardPermissionKind,
+        kind: PermissionKind,
         trigger: String,
         leadHealthDomain: HealthDomain? = nil
     ) {
         guard pendingPrompt == nil,
-              LifeBoardPermissionPromptState.shouldOffer(kind) else { return }
-        pendingPrompt = LifeBoardPermissionPrompt(
+              PermissionPromptState.shouldOffer(kind) else { return }
+        pendingPrompt = PermissionPrompt(
             kind: kind,
             trigger: trigger,
             leadHealthDomain: leadHealthDomain
@@ -282,7 +282,7 @@ public final class LifeBoardPermissionPrimingCoordinator {
     /// to settle before offering, so the action always feels instant and the
     /// invitation reads as a gentle follow-on rather than an interruption.
     public func offerAfterReward(
-        kind: LifeBoardPermissionKind,
+        kind: PermissionKind,
         trigger: String,
         leadHealthDomain: HealthDomain? = nil
     ) async {
@@ -301,7 +301,7 @@ public final class LifeBoardPermissionPrimingCoordinator {
     /// Runs a request outside the prompt flow — the onboarding permissions step
     /// and Settings rows both use this so every path records state identically.
     public func performRequest(
-        kind: LifeBoardPermissionKind,
+        kind: PermissionKind,
         healthDomains: Set<HealthDomain> = []
     ) async {
         switch kind {
@@ -310,14 +310,14 @@ public final class LifeBoardPermissionPrimingCoordinator {
             // flag is set before the system sheet can be dismissed.
             await connectHealth?(healthDomains)
         case .notifications:
-            LifeBoardPermissionPromptState.recordRequested(kind)
+            PermissionPromptState.recordRequested(kind)
             await requestNotifications?()
         case .calendar:
-            LifeBoardPermissionPromptState.recordRequested(kind)
+            PermissionPromptState.recordRequested(kind)
             requestCalendar?()
         case .microphone, .speech, .camera:
             // Requested by the capture surface at the point of use.
-            LifeBoardPermissionPromptState.recordRequested(kind)
+            PermissionPromptState.recordRequested(kind)
         }
     }
 
@@ -327,6 +327,6 @@ public final class LifeBoardPermissionPrimingCoordinator {
     public func decline() {
         guard let prompt = pendingPrompt else { return }
         pendingPrompt = nil
-        LifeBoardPermissionPromptState.recordDecline(prompt.kind)
+        PermissionPromptState.recordDecline(prompt.kind)
     }
 }

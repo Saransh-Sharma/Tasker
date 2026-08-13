@@ -1,0 +1,308 @@
+import SwiftUI
+#if canImport(UIKit)
+import UIKit
+#endif
+
+enum ClayRole: String, CaseIterable {
+    case routine
+    case windDown
+    case task
+    case meeting
+    case personal
+    case focus
+    case meal
+    case assistant
+    case warning
+    case error
+    case neutral
+}
+
+struct RoleStyle: Equatable {
+    let base: Color
+    let deep: Color
+    let softSurface: Color
+    let border: Color
+    let symbolName: String
+}
+
+enum ClayColorTokens {
+    // Compatibility bridge for the Life OS semantic system. New foundation
+    // surfaces resolve through SemanticColorTokens; legacy Sunrise values stay
+    // stable while the production feature flag is off.
+    static var lifeOSInkPrimary: Color { Color(SemanticColorTokens.inkPrimary) }
+    static var lifeOSInkSecondary: Color { Color(SemanticColorTokens.inkSecondary) }
+    static var lifeOSSurfaceSolid: Color { Color(SemanticColorTokens.foundationSurfaceSolid) }
+    static var lifeOSHairline: Color { Color(SemanticColorTokens.foundationHairline) }
+
+    static func lifeOSPalette(for daypart: ResolvedDaypart) -> DaypartPalette {
+        SemanticColorTokens.daypartPalette(for: daypart)
+    }
+
+    // Compatibility wrappers: the Sunrise-era names now resolve to the warm
+    // paper/cocoa canonical palette so every remaining LB* component matches
+    // the unified presentation. Violet stays only as the assistant/focus
+    // domain accent below.
+    static let navy = adaptive(light: "#2B2118", dark: "#F4EBDD", darkHighContrast: "#FFFFFF")
+    static let navySoft = adaptive(light: "#4A3A2A", dark: "#E7DFD1", darkHighContrast: "#FFFFFF")
+    static let navyMuted = adaptive(light: "#746757", dark: "#C6BBA8", darkHighContrast: "#E8E0D2")
+    static let textTertiary = adaptive(light: "#9B8F7E", dark: "#96907F", darkHighContrast: "#C9C2B2")
+    static let canvas = adaptive(light: "#FFF7D8", dark: "#0E1220", darkHighContrast: "#080B15")
+    static let warmCanvas = adaptive(light: "#FAF2DA", dark: "#111624", darkHighContrast: "#0A0E1A")
+    static let coolCanvas = adaptive(light: "#F5ECC9", dark: "#0E1220", darkHighContrast: "#080B15")
+    static let glass = adaptive(light: "#FFFDF7", dark: "#202741", lightOpacity: 0.90, darkOpacity: 0.86, darkHighContrast: "#262E4A", darkHighContrastOpacity: 0.94)
+    static let glassStrong = adaptive(light: "#FFFDF7", dark: "#262E4A", lightOpacity: 0.96, darkOpacity: 0.92, darkHighContrast: "#2E3652", darkHighContrastOpacity: 0.98)
+    /// Fully opaque surface used in place of glass/material when Reduce
+    /// Transparency is on (design language §19.4).
+    static let surfaceSolid = adaptive(light: "#FFFDF7", dark: "#202741", darkHighContrast: "#2B3146")
+    static let glassBorder = adaptive(light: "#FFFFFF", dark: "#FFFFFF", lightOpacity: 0.72, darkOpacity: 0.16, darkHighContrastOpacity: 0.28)
+    static let glassDimmingOverlay = adaptive(light: "#000000", dark: "#000000", lightOpacity: 0.05, darkOpacity: 0.12, darkHighContrastOpacity: 0.18)
+    static let mediaScrim = adaptive(light: "#000000", dark: "#000000")
+    static let hairline = adaptive(light: "#E9DFC6", dark: "#3A4258", darkHighContrast: "#56617B")
+    static let elevationShadow = adaptive(light: "#2B2118", dark: "#000000", lightOpacity: 0.10, darkOpacity: 0.34)
+    static let floatingShadow = adaptive(light: "#2B2118", dark: "#000000", lightOpacity: 0.22, darkOpacity: 0.38)
+    static let dockShadow = adaptive(light: "#2B2118", dark: "#000000", lightOpacity: 0.12, darkOpacity: 0.42)
+    static let whiteStroke = adaptive(light: "#FFFFFF", dark: "#FFFFFF", lightOpacity: 0.58, darkOpacity: 0.18, darkHighContrastOpacity: 0.30)
+    static let violet = adaptive(light: "#6842FF", dark: "#A890FF", darkHighContrast: "#C3B5FF")
+    static let violetDeep = adaptive(light: "#4F2CFF", dark: "#D8CCFF", darkHighContrast: "#F1ECFF")
+    static let violetFill = adaptive(light: "#6842FF", dark: "#6F55FF", darkHighContrast: "#846CFF")
+    static let violetFillDeep = adaptive(light: "#4F2CFF", dark: "#4F37D9", darkHighContrast: "#674FE8")
+    static let violetSoft = adaptive(light: "#EEE9FF", dark: "#29243F", darkHighContrast: "#3A315E")
+    static let sunriseGold = adaptive(light: "#F0CD87", dark: "#E7BB7E")
+    static let sky = adaptive(light: "#2F8CFF", dark: "#78B7FF", darkHighContrast: "#A8D0FF")
+    static let leaf = adaptive(light: "#28B53F", dark: "#6EE581", darkHighContrast: "#95F0A4")
+    static let coral = adaptive(light: "#FF7A3D", dark: "#FF9A70", darkHighContrast: "#FFC0A8")
+    static let amberSoft = adaptive(light: "#FFF7DF", dark: "#332611", darkHighContrast: "#483618")
+    static let coralSoft = adaptive(light: "#FFF1E9", dark: "#3A2018", darkHighContrast: "#522D21")
+
+    static func role(_ role: ClayRole) -> RoleStyle {
+        switch role {
+        case .routine:
+            return RoleStyle(base: sunriseGold, deep: adaptive(light: "#D88900", dark: "#FFD36A"), softSurface: amberSoft, border: adaptive(light: "#F6DE9A", dark: "#7E6425"), symbolName: "sun.max")
+        case .windDown:
+            return RoleStyle(base: adaptive(light: "#E7A900", dark: "#F0C96A"), deep: adaptive(light: "#8F6500", dark: "#F7DD97"), softSurface: adaptive(light: "#FFF9EC", dark: "#292414"), border: adaptive(light: "#F4E0B8", dark: "#69572D"), symbolName: "moon.stars.fill")
+        case .task:
+            return RoleStyle(base: leaf, deep: adaptive(light: "#15952B", dark: "#8AF09A"), softSurface: adaptive(light: "#EFF9EC", dark: "#152819"), border: adaptive(light: "#D6EFD3", dark: "#315F38"), symbolName: "checkmark.square")
+        case .meeting:
+            return RoleStyle(base: violet, deep: adaptive(light: "#5230F3", dark: "#C7B9FF"), softSurface: adaptive(light: "#F4F0FF", dark: "#211B38"), border: adaptive(light: "#E2D8FF", dark: "#4C3D76"), symbolName: "calendar")
+        case .personal:
+            return RoleStyle(base: coral, deep: adaptive(light: "#C74716", dark: "#FFB494"), softSurface: coralSoft, border: adaptive(light: "#FFD8C5", dark: "#7A442F"), symbolName: "figure.walk")
+        case .focus:
+            return RoleStyle(base: sky, deep: adaptive(light: "#1266D6", dark: "#A8D0FF"), softSurface: adaptive(light: "#EAF6FF", dark: "#11283C"), border: adaptive(light: "#CFE9FF", dark: "#315F86"), symbolName: "sparkles")
+        case .meal:
+            return RoleStyle(base: adaptive(light: "#F26C35", dark: "#FF9A70"), deep: adaptive(light: "#B84312", dark: "#FFB99F"), softSurface: adaptive(light: "#FFF0E8", dark: "#351F17"), border: adaptive(light: "#FFD8C5", dark: "#74442E"), symbolName: "fork.knife")
+        case .assistant:
+            return RoleStyle(base: violet, deep: violetDeep, softSurface: adaptive(light: "#F6F2FF", dark: "#231D3B"), border: adaptive(light: "#DACDFF", dark: "#51417E"), symbolName: "sparkles")
+        case .warning:
+            return RoleStyle(base: adaptive(light: "#D88900", dark: "#FFD36A"), deep: adaptive(light: "#9B6200", dark: "#FFE0A0"), softSurface: amberSoft, border: adaptive(light: "#F4E0B8", dark: "#7B622D"), symbolName: "exclamationmark.triangle")
+        case .error:
+            return RoleStyle(base: coral, deep: adaptive(light: "#A83A32", dark: "#FFB7AD"), softSurface: coralSoft, border: adaptive(light: "#FFD8C5", dark: "#80463F"), symbolName: "exclamationmark.circle")
+        case .neutral:
+            return RoleStyle(base: textTertiary, deep: navyMuted, softSurface: adaptive(light: "#F8FAFF", dark: "#171C2B"), border: hairline, symbolName: "minus")
+        }
+    }
+
+    static func actionGradient(for role: ClayRole) -> [Color] {
+        switch role {
+        case .routine, .windDown, .warning:
+            return [
+                adaptive(light: "#B87300", dark: "#D58A00"),
+                adaptive(light: "#8C5400", dark: "#9E6400")
+            ]
+        case .task:
+            return [
+                adaptive(light: "#15952B", dark: "#218A38"),
+                adaptive(light: "#0B6F1D", dark: "#11692A")
+            ]
+        case .meeting, .assistant:
+            return [violetFill, violetFillDeep]
+        case .personal, .meal, .error:
+            return [
+                adaptive(light: "#C74716", dark: "#C85B32"),
+                adaptive(light: "#A83A32", dark: "#96372F")
+            ]
+        case .focus:
+            return [
+                adaptive(light: "#1266D6", dark: "#1F6ECB"),
+                adaptive(light: "#0B4FA8", dark: "#134C95")
+            ]
+        case .neutral:
+            return [
+                adaptive(light: "#48607F", dark: "#3A4258"),
+                adaptive(light: "#203765", dark: "#252D40")
+            ]
+        }
+    }
+
+    static func adaptive(
+        light: String,
+        dark: String,
+        lightOpacity: Double = 1,
+        darkOpacity: Double = 1,
+        lightHighContrast: String? = nil,
+        darkHighContrast: String? = nil,
+        lightHighContrastOpacity: Double? = nil,
+        darkHighContrastOpacity: Double? = nil
+    ) -> Color {
+        #if canImport(UIKit)
+        Color(UIColor { traits in
+            let isDark = traits.userInterfaceStyle == .dark
+            let isHighContrast = traits.accessibilityContrast == .high
+            let hex: String
+            let opacity: Double
+            if isDark {
+                hex = isHighContrast ? (darkHighContrast ?? dark) : dark
+                opacity = isHighContrast ? (darkHighContrastOpacity ?? darkOpacity) : darkOpacity
+            } else {
+                hex = isHighContrast ? (lightHighContrast ?? light) : light
+                opacity = isHighContrast ? (lightHighContrastOpacity ?? lightOpacity) : lightOpacity
+            }
+            return UIColor(lifeboardHex: hex).withAlphaComponent(CGFloat(opacity))
+        })
+        #else
+        Color(lifeboardHex: light).opacity(lightOpacity)
+        #endif
+    }
+}
+
+typealias LBSunriseColorTokens = ClayColorTokens
+typealias LBSunriseTypographyTokens = ClayTypography
+typealias LBSunriseSpacingTokens = ClayLayoutMetrics
+typealias LBSunriseRadiusTokens = RadiusTokens
+typealias LBSunriseElevationTokens = ShadowTokens
+typealias LBSunriseRoleTokens = ClayRole
+
+enum MaterialTokens {
+    static let glass = ClayColorTokens.glass
+    static let glassStrong = ClayColorTokens.glassStrong
+    static let border = ClayColorTokens.glassBorder
+    static let dimmingOverlay = ClayColorTokens.glassDimmingOverlay
+}
+
+enum MotionTokens {
+    static let responsive = Animation.spring(response: 0.38, dampingFraction: 0.86)
+    static let gentle = Animation.easeInOut(duration: 0.22)
+}
+
+enum HabitTokens {
+    static let completed = ClayColorTokens.leaf
+    static let dueToday = ClayColorTokens.violet
+    static let skipped = ClayColorTokens.coral
+    static let bridge = ClayColorTokens.sky
+    static let noActivity = ClayColorTokens.textTertiary
+}
+
+typealias SunriseScaffold<Content: View> = DestinationScaffold<Content>
+typealias SunriseScenicHeader<Content: View> = HeaderView<Content>
+typealias SunriseGlassDock = BottomDock
+typealias SunriseEmptyState = EmptyState
+typealias SunriseLoadingSkeleton = LoadingSkeleton
+typealias SunriseTimelineSpine = TimelineSpine
+typealias SunriseRoleCard = TimelineCard
+
+struct GlassButton: View {
+    let title: String
+    var systemImage: String?
+    var action: () -> Void
+
+    var body: some View {
+        PrimaryButton(title: title, systemImage: systemImage, action: action)
+    }
+}
+
+struct InlineBanner: View {
+    let title: String
+    let message: String
+    var role: ClayRole = .assistant
+
+    var body: some View {
+        let style = ClayColorTokens.role(role)
+        HStack(alignment: .top, spacing: ClayLayoutMetrics.sm) {
+            Image(systemName: style.symbolName)
+                .font(.headline)
+                .foregroundStyle(style.deep)
+                .frame(width: 32, height: 32)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(ClayTypography.cardTitle)
+                    .foregroundStyle(ClayColorTokens.navy)
+                Text(message)
+                    .font(ClayTypography.body)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(ClayLayoutMetrics.md)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(style.softSurface.opacity(0.74), in: RoundedRectangle(cornerRadius: RadiusTokens.card, style: .continuous))
+        .overlay {
+            RoundedRectangle(cornerRadius: RadiusTokens.card, style: .continuous)
+                .stroke(style.border, lineWidth: 1)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+struct UndoSnackbar: View {
+    let message: String
+    let undoTitle: String
+    let undo: () -> Void
+
+    var body: some View {
+        HStack(spacing: ClayLayoutMetrics.sm) {
+            Text(message)
+                .font(ClayTypography.body)
+                .foregroundStyle(ClayColorTokens.navy)
+                .lineLimit(2)
+            Spacer(minLength: ClayLayoutMetrics.xs)
+            Button(undoTitle, action: undo)
+                .font(ClayTypography.chip)
+                .foregroundStyle(ClayColorTokens.violetDeep)
+                .frame(minHeight: 44)
+        }
+        .padding(.horizontal, ClayLayoutMetrics.md)
+        .padding(.vertical, ClayLayoutMetrics.sm)
+        .background(ClayColorTokens.glassStrong, in: Capsule())
+        .overlay(Capsule().stroke(ClayColorTokens.glassBorder, lineWidth: 1))
+        .shadow(color: ClayColorTokens.elevationShadow, radius: 14, y: 7)
+    }
+}
+
+struct DecisionDeck<Content: View>: View {
+    let progressText: String
+    @ViewBuilder let content: Content
+
+    var body: some View {
+        GlassCard(cornerRadius: RadiusTokens.largeCard) {
+            VStack(alignment: .leading, spacing: ClayLayoutMetrics.md) {
+                Text(progressText)
+                    .font(ClayTypography.meta)
+                    .foregroundStyle(ClayColorTokens.navyMuted)
+                content
+            }
+            .padding(ClayLayoutMetrics.lg)
+        }
+    }
+}
+
+extension Color {
+    init(lifeboardHex hex: String) {
+        let sanitized = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: sanitized).scanHexInt64(&int)
+        let red: UInt64
+        let green: UInt64
+        let blue: UInt64
+        switch sanitized.count {
+        case 3:
+            red = ((int >> 8) & 0xF) * 17
+            green = ((int >> 4) & 0xF) * 17
+            blue = (int & 0xF) * 17
+        default:
+            red = (int >> 16) & 0xFF
+            green = (int >> 8) & 0xFF
+            blue = int & 0xFF
+        }
+        self.init(.sRGB, red: Double(red) / 255, green: Double(green) / 255, blue: Double(blue) / 255, opacity: 1)
+    }
+}

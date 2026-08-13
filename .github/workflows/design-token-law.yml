@@ -27,5 +27,8 @@ jobs:
       - name: Enforce no direct print logging
         run: bash scripts/check-no-print-logs.sh
 
-      - name: Run SwiftLint token rules
-        run: swiftlint --strict --config .swiftlint.yml
+      # `swiftlint --strict` fails on 194 pre-existing token-law errors, so this
+      # job was red on every PR and could not signal a regression. The baseline
+      # gate holds that debt per rule and fails only when the counts change.
+      - name: Enforce SwiftLint token-law debt baseline
+        run: bash scripts/check-swiftlint-baseline.sh

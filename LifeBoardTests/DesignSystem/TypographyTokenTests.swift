@@ -5,7 +5,7 @@ import UIKit
 @MainActor
 final class TypographyTokenTests: XCTestCase {
     func testTypographyStylesExist() {
-        let typography = LifeBoardTheme(index: 0).tokens.typography
+        let typography = Theme(index: 0).tokens.typography
 
         XCTAssertGreaterThan(typography.heroDisplay.pointSize, 0)
         XCTAssertGreaterThan(typography.screenTitle.pointSize, 0)
@@ -17,7 +17,7 @@ final class TypographyTokenTests: XCTestCase {
     }
 
     func testDisplayFontClampsToExpectedRange() {
-        let typography = LifeBoardTheme(index: 0).tokens.typography
+        let typography = Theme(index: 0).tokens.typography
         let largeAccessibility = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
         let display = typography.dynamicFont(for: .display, compatibleWith: largeAccessibility)
         XCTAssertLessThanOrEqual(display.pointSize, 40)
@@ -25,22 +25,22 @@ final class TypographyTokenTests: XCTestCase {
     }
 
     func testButtonStylesAreSemiboldLike() {
-        let typography = LifeBoardTheme(index: 0).tokens.typography
+        let typography = Theme(index: 0).tokens.typography
 
         XCTAssertGreaterThanOrEqual(typography.button.pointSize, typography.buttonSmall.pointSize)
     }
 
     func testMetricAndMonoRolesUseSpecializedDesigns() {
-        let typography = LifeBoardTheme(index: 0).tokens.typography
+        let typography = Theme(index: 0).tokens.typography
 
         XCTAssertTrue(typography.metric.fontName.localizedCaseInsensitiveContains("rounded"))
         XCTAssertTrue(typography.monoMeta.fontName.localizedCaseInsensitiveContains("mono"))
     }
 
     func testTextStylesAreDynamicTypeCompatibleAndNotHelvetica() {
-        let typography = LifeBoardTheme(index: 0).tokens.typography
+        let typography = Theme(index: 0).tokens.typography
 
-        let expectedStyles: [(LifeBoardTextStyle, UIFont, UIFont.TextStyle)] = [
+        let expectedStyles: [(TypographyStyle, UIFont, UIFont.TextStyle)] = [
             (.display, typography.display, .largeTitle),
             (.title1, typography.title1, .title1),
             (.title2, typography.title2, .title2),
@@ -69,7 +69,7 @@ final class TypographyTokenTests: XCTestCase {
     }
 
     func testNonDisplayStylesScaleWithoutClampInLargeAccessibility() {
-        let typography = LifeBoardTheme(index: 0).tokens.typography
+        let typography = Theme(index: 0).tokens.typography
         let largeAccessibility = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
         let scaledTitle1 = typography.dynamicFont(for: .title1, compatibleWith: largeAccessibility)
 #if targetEnvironment(macCatalyst)
@@ -80,8 +80,8 @@ final class TypographyTokenTests: XCTestCase {
     }
 
     func testDynamicFontPreservesLayoutClassScale() {
-        let phoneTypography = LifeBoardTypographyTokens.make(for: .phone)
-        let padTypography = LifeBoardTypographyTokens.make(for: .padExpanded)
+        let phoneTypography = SemanticTypographyTokens.make(for: .phone)
+        let padTypography = SemanticTypographyTokens.make(for: .padExpanded)
         let largeAccessibility = UITraitCollection(preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge)
 
         XCTAssertEqual(phoneTypography.layoutScale, 1.0)
@@ -97,10 +97,10 @@ final class TypographyTokenTests: XCTestCase {
             preferredContentSizeCategory: .accessibilityExtraExtraExtraLarge
         )
 
-        for style in LifeBoardTextStyle.allCases {
-            let phone = LifeBoardTypographyTokens.make(for: .phone)
-            let compactPad = LifeBoardTypographyTokens.make(for: .padCompact)
-            let expandedPad = LifeBoardTypographyTokens.make(for: .padExpanded)
+        for style in TypographyStyle.allCases {
+            let phone = SemanticTypographyTokens.make(for: .phone)
+            let compactPad = SemanticTypographyTokens.make(for: .padCompact)
+            let expandedPad = SemanticTypographyTokens.make(for: .padExpanded)
             let phoneBase = phone.font(for: style)
             let phoneAccessibility = phone.dynamicFont(for: style, compatibleWith: accessibilityTraits)
 

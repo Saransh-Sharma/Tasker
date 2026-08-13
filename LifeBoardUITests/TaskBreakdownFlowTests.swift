@@ -7,7 +7,8 @@ final class TaskBreakdownFlowTests: BaseUITest {
 
     func testTaskDetailCanOpenBreakdownSheetWhenEntryIsVisible() throws {
         let homePage = HomePage(app: app)
-        guard homePage.view.waitForExistence(timeout: 8) else {
+        let foundationHome = app.buttons["foundation.destination.home"]
+        guard homePage.view.waitForExistence(timeout: 8) || foundationHome.waitForExistence(timeout: 2) else {
             throw XCTSkip("Home view did not stabilize for breakdown smoke test")
         }
 

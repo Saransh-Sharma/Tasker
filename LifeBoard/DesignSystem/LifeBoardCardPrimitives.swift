@@ -10,81 +10,9 @@ import SwiftUI
 
 // MARK: - Hero numeral
 
-/// An odometer-style numeral. Rolls only when the *value* changes, never on an
-/// incidental redraw, so a scrolling dashboard stays still.
-public struct LifeBoardNumericRoll: View {
-    private let value: Double
-    private let fractionDigits: Int
-    private let unit: String?
-    private let emphasis: Emphasis
-
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    public enum Emphasis {
-        /// Inline with supporting copy.
-        case standard
-        /// The card's single largest element.
-        case hero
-
-        var textStyle: LifeBoardTextStyle {
-            switch self {
-            case .standard: .metric
-            case .hero: .heroDisplay
-            }
-        }
-    }
-
-    public init(
-        value: Double,
-        fractionDigits: Int = 0,
-        unit: String? = nil,
-        emphasis: Emphasis = .standard
-    ) {
-        self.value = value
-        self.fractionDigits = fractionDigits
-        self.unit = unit
-        self.emphasis = emphasis
-    }
-
-    public var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 3) {
-            Text(formatted)
-                .lifeboardFont(emphasis.textStyle)
-                .monospacedDigit()
-                .contentTransition(.numericText(value: value))
-                .animation(
-                    reduceMotion ? nil : .spring(response: 0.42, dampingFraction: 0.82),
-                    value: value
-                )
-            if let unit, unit.isEmpty == false {
-                Text(unit)
-                    .lifeboardFont(.caption1)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(accessibleValue)
-    }
-
-    private var formatted: String {
-        value.formatted(
-            .number
-                .precision(.fractionLength(fractionDigits))
-                .grouping(.automatic)
-        )
-    }
-
-    private var accessibleValue: String {
-        guard let unit, unit.isEmpty == false else { return formatted }
-        return "\(formatted) \(unit)"
-    }
-}
-
 // MARK: - Focus dial
 
-enum LifeBoardFocusDialMetrics {
+enum FocusDialMetrics {
     static func elapsedFraction(
         totalDuration: TimeInterval?,
         remainingDuration: TimeInterval?
@@ -96,7 +24,7 @@ enum LifeBoardFocusDialMetrics {
 
 /// A presentation-only focus dial. Timer ownership stays with the Focus domain;
 /// this view only turns a supplied progress value into one calm, interruptible arc.
-public struct LifeBoardFocusDial<Content: View>: View {
+public struct FocusDial<Content: View>: View {
     private let progress: Double?
     private let isPaused: Bool
     private let accessibilityValue: String
@@ -120,7 +48,7 @@ public struct LifeBoardFocusDial<Content: View>: View {
         ZStack {
             Circle()
                 .stroke(
-                    Color(LifeBoardColorTokens.foundationSurfaceRecessed),
+                    Color(SemanticColorTokens.foundationSurfaceRecessed),
                     style: StrokeStyle(lineWidth: 11)
                 )
 
@@ -129,13 +57,13 @@ public struct LifeBoardFocusDial<Content: View>: View {
                     .trim(from: 0, to: max(0.018, progress))
                     .stroke(
                         isPaused
-                            ? Color(LifeBoardColorTokens.foundationSageAccent)
-                            : Color(LifeBoardColorTokens.foundationApricotAccent),
+                            ? Color(SemanticColorTokens.foundationSageAccent)
+                            : Color(SemanticColorTokens.foundationApricotAccent),
                         style: StrokeStyle(lineWidth: 11, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
                     .shadow(
-                        color: Color(LifeBoardColorTokens.foundationApricotAccent)
+                        color: Color(SemanticColorTokens.foundationApricotAccent)
                             .opacity(isPaused ? 0 : 0.2),
                         radius: 8
                     )
@@ -147,7 +75,7 @@ public struct LifeBoardFocusDial<Content: View>: View {
                 Circle()
                     .trim(from: 0, to: 0.72)
                     .stroke(
-                        Color(LifeBoardColorTokens.foundationSageAccent),
+                        Color(SemanticColorTokens.foundationSageAccent),
                         style: StrokeStyle(lineWidth: 11, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
@@ -165,7 +93,7 @@ public struct LifeBoardFocusDial<Content: View>: View {
 
 /// Change against the comparison window. Never colour alone — the arrow and the
 /// spoken label both carry the direction.
-public struct LifeBoardTrendBadge: View {
+public struct TrendBadge: View {
     private let trend: HomeMetricValue.Trend
     private let description: String?
 
@@ -207,7 +135,7 @@ public struct LifeBoardTrendBadge: View {
     private var tint: Color {
         // Direction is not judgement: a downward weight trend is not "bad".
         // Callers that need valence colour it themselves.
-        Color(LifeBoardColorTokens.inkSecondary)
+        Color(SemanticColorTokens.inkSecondary)
     }
 }
 
@@ -215,7 +143,7 @@ public struct LifeBoardTrendBadge: View {
 
 /// A compact shape-only series for glance and standard sizes. Deliberately not
 /// a chart: no axes, no gridlines, nothing to read precisely.
-public struct LifeBoardSparkline: View {
+public struct Sparkline: View {
     private let points: [HomeSeriesPoint]
     private let tint: Color
 
@@ -288,7 +216,7 @@ public struct LifeBoardSparkline: View {
 /// A real chart with an always-present text equivalent. The chart draws itself
 /// in once behind a travelling mask; the equivalent is what VoiceOver reads and
 /// what replaces the chart entirely at accessibility text sizes.
-public struct LifeBoardTrendChart: View {
+public struct TrendChart: View {
     private let points: [HomeSeriesPoint]
     private let tint: Color
     private let unit: String?
@@ -384,7 +312,7 @@ public struct LifeBoardTrendChart: View {
 
 /// A ring whose fill settles rather than snapping, with a meniscus that
 /// overshoots once and comes to rest.
-public struct LifeBoardProgressRing: View {
+public struct ProgressRing: View {
     private let fraction: Double
     private let tint: Color
     private let trackTint: Color
@@ -447,7 +375,7 @@ public struct LifeBoardProgressRing: View {
 
 /// Recent performance as a row or grid of days. Shape and opacity both carry
 /// the outcome, so it survives Differentiate Without Color.
-public struct LifeBoardStreakGrid: View {
+public struct StreakGrid: View {
     private let days: [HomeDayState]
     private let tint: Color
     private let columns: Int
@@ -514,92 +442,8 @@ public struct LifeBoardStreakGrid: View {
 
 // MARK: - Deck stack
 
-/// Shows that a triage card is the front of a queue.
-///
-/// Plan Repair and Overdue Rescue render one proposal at a time with no hint
-/// that more are waiting, so resolving one felt like it produced another out of
-/// nowhere. This is the sample project's shuffle idea reduced to the part that
-/// carries information: depth. It deliberately does not take over the host's
-/// gesture — Plan Repair maps swipe *direction* to distinct actions, which a
-/// generic dismiss-deck would throw away.
-public struct LifeBoardDeckDepth: ViewModifier {
-    private let remaining: Int
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    /// Three reads as "a stack"; two reads as "one spare". Beyond three the
-    /// cards stop being distinguishable and just thicken the shadow.
-    ///
-    /// Depth cues adapted from SwiftUI-Animations `Cards Shuffle/CardsShuffleView.swift`
-    /// (Apache-2.0, © Shubham Singh) — scale falloff plus a per-level peek. The
-    /// rotation and lateral scatter are additions: a perfectly concentric stack
-    /// reads as a drop shadow, and the point here is that a queue of real
-    /// decisions is waiting.
-    private static let maximumBackingCards = 3
-
-    public init(remaining: Int) {
-        self.remaining = remaining
-    }
-
-    private var backingCount: Int {
-        max(0, min(Self.maximumBackingCards, remaining - 1))
-    }
-
-    /// Deterministic, not random: the stack must not reshuffle its own geometry
-    /// on every re-render.
-    private func lean(_ depth: Int) -> Double {
-        depth.isMultiple(of: 2) ? 1 : -1
-    }
-
-    public func body(content: Content) -> some View {
-        content
-            .background(alignment: .bottom) {
-                if backingCount > 0 {
-                    ZStack {
-                        ForEach(Array((1...backingCount).reversed()), id: \.self) { depth in
-                            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                .fill(Color(LifeBoardColorTokens.foundationSurfaceSolid))
-                                .overlay {
-                                    RoundedRectangle(cornerRadius: 20, style: .continuous)
-                                        .stroke(Color(LifeBoardColorTokens.foundationHairline), lineWidth: 1)
-                                }
-                                .scaleEffect(1 - (CGFloat(depth) * 0.038))
-                                .offset(
-                                    x: CGFloat(depth) * 1.5 * lean(depth),
-                                    y: CGFloat(depth) * 8
-                                )
-                                // Tilted away from the viewer so the stack has a
-                                // top edge rather than a flat silhouette.
-                                .rotation3DEffect(
-                                    .degrees(Double(depth) * 1.6),
-                                    axis: (x: 1, y: 0, z: 0),
-                                    perspective: 0.6
-                                )
-                                .rotationEffect(.degrees(Double(depth) * 0.5 * lean(depth)))
-                                .opacity(1 - (Double(depth) * 0.22))
-                        }
-                    }
-                    .allowsHitTesting(false)
-                    .animation(
-                        reduceMotion ? nil : .spring(response: 0.36, dampingFraction: 0.84),
-                        value: backingCount
-                    )
-                }
-            }
-            .accessibilityValue(
-                remaining > 1 ? "1 of \(remaining)" : ""
-            )
-    }
-}
-
-public extension View {
-    /// Renders the card as the front of a queue of `remaining` items.
-    func lifeBoardDeckDepth(remaining: Int) -> some View {
-        modifier(LifeBoardDeckDepth(remaining: remaining))
-    }
-}
-
 /// A plain-advance deck is now the degenerate case of
-/// `LifeBoardDirectionalDeck` (a single candidate action fills the `right`
+/// `DirectionalDeck` (a single candidate action fills the `right`
 /// slot), so `LifeBoardDeckStack` was removed rather than left as a second deck
 /// idiom with its own hardcoded springs and horizontal-only gesture. It had no
-/// call sites. See `LifeBoard/DesignSystem/LifeBoardDirectionalDeck.swift`.
+/// call sites. See `LifeBoard/DesignSystem/DirectionalDeck.swift`.

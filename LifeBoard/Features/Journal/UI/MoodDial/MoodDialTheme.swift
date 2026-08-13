@@ -1,0 +1,157 @@
+//
+//  MoodDialTheme.swift
+//  MoodDialKit
+//
+//  Visual identity injection for the mood dial. OffRecord supplies its
+//  pastel palette; LifeBoard supplies Sunrise Glass. The dial's interaction
+//  logic and artwork stay shared while every color, font, and prompt string
+//  flows through this theme.
+//
+
+import SwiftUI
+import LifeBoardDomain
+import Foundation
+#if canImport(UIKit)
+import UIKit
+#endif
+
+public struct MoodDialTheme: @unchecked Sendable {
+    /// Background gradient behind the dial (top → bottom).
+    public var backgroundTop: Color
+    public var backgroundBottom: Color
+    /// Primary accent: pointer fill, Done button background, Cancel label.
+    public var accent: Color
+    /// Content color on top of `accent` (Done label) and light button fills.
+    public var accentContrast: Color
+    /// Surface color for the pointer's inner dot.
+    public var surface: Color
+    /// Heading color for the prompt title.
+    public var heading: Color
+    /// Secondary text (mood sentence).
+    public var textSecondary: Color
+    /// Tertiary text (supportive copy, chevron).
+    public var textTertiary: Color
+    /// Prompt title font.
+    public var titleFont: Font
+    /// Button/sentence label font.
+    public var labelFont: Font
+    /// Supportive copy font.
+    public var captionFont: Font
+    /// The header prompt, e.g. "How are\nyou feeling?".
+    public var promptTitle: String
+    /// Fill color per dial segment.
+    public var segmentColor: (Mood) -> Color
+    /// Accent color per mood (chips, selected states outside the dial).
+    public var moodAccent: (Mood) -> Color
+
+    public init(
+        backgroundTop: Color,
+        backgroundBottom: Color,
+        accent: Color,
+        accentContrast: Color,
+        surface: Color,
+        heading: Color,
+        textSecondary: Color,
+        textTertiary: Color,
+        titleFont: Font,
+        labelFont: Font,
+        captionFont: Font,
+        promptTitle: String = "How are\nyou feeling?",
+        segmentColor: @escaping (Mood) -> Color,
+        moodAccent: @escaping (Mood) -> Color
+    ) {
+        self.backgroundTop = backgroundTop
+        self.backgroundBottom = backgroundBottom
+        self.accent = accent
+        self.accentContrast = accentContrast
+        self.surface = surface
+        self.heading = heading
+        self.textSecondary = textSecondary
+        self.textTertiary = textTertiary
+        self.titleFont = titleFont
+        self.labelFont = labelFont
+        self.captionFont = captionFont
+        self.promptTitle = promptTitle
+        self.segmentColor = segmentColor
+        self.moodAccent = moodAccent
+    }
+
+    /// Grayscale fallback used when a host app forgets to inject a theme
+    /// (previews, tests). Intentionally plain so the omission is visible.
+    public static let neutral = MoodDialTheme(
+        backgroundTop: Color(white: 0.97),
+        backgroundBottom: Color(white: 0.93),
+        accent: Color(white: 0.25),
+        accentContrast: .white,
+        surface: .white,
+        heading: Color(white: 0.15),
+        textSecondary: Color(white: 0.35),
+        textTertiary: Color(white: 0.55),
+        titleFont: .system(size: 30, weight: .bold, design: .rounded),
+        labelFont: .system(size: 17, weight: .semibold, design: .rounded),
+        captionFont: .system(size: 14, weight: .regular, design: .rounded),
+        segmentColor: { _ in Color(white: 0.8) },
+        moodAccent: { _ in Color(white: 0.4) }
+    )
+}
+
+#if canImport(UIKit)
+public enum MoodAssetPreheater {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var didPreheat = false
+    private static let queue = DispatchQueue(label: "mood-dial-kit.mood-preheater", qos: .userInitiated)
+
+    public static func preheatMoodAssets() {
+        lock.lock()
+        let shouldPreheat = !didPreheat
+        didPreheat = true
+        lock.unlock()
+
+        guard shouldPreheat else { return }
+
+        MoodDialSignposts.event("MoodAssetPreheatScheduled")
+        let assetNames = Set(Mood.dialMoods.map(\.dialFaceAssetName))
+        queue.async {
+            let token = MoodDialSignposts.begin("MoodAssetPreheat")
+            for name in assetNames {
+                autoreleasepool {
+                    _ = UIImage(named: name, in: .module, with: nil)?.preparingForDisplay()
+                }
+            }
+            MoodDialSignposts.end(token)
+        }
+    }
+
+    #if DEBUG
+    public static func resetForTesting() {
+        lock.lock()
+        didPreheat = false
+        lock.unlock()
+    }
+    #endif
+}
+#else
+public enum MoodAssetPreheater {
+    public static func preheatMoodAssets() {}
+}
+#endif
+
+private struct MoodDialThemeKey: EnvironmentKey {
+    static let defaultValue = MoodDialTheme.neutral
+}
+
+private struct JournalHapticsKey: EnvironmentKey {
+    static let defaultValue: JournalHapticsProviding = NoopJournalHaptics()
+}
+
+extension EnvironmentValues {
+    public var moodDialTheme: MoodDialTheme {
+        get { self[MoodDialThemeKey.self] }
+        set { self[MoodDialThemeKey.self] = newValue }
+    }
+
+    public var journalHaptics: JournalHapticsProviding {
+        get { self[JournalHapticsKey.self] }
+        set { self[JournalHapticsKey.self] = newValue }
+    }
+}

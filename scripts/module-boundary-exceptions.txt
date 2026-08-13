@@ -1,0 +1,51 @@
+# Module-boundary exceptions.
+#
+# One `<path>\t<import>` per line. An entry suppresses exactly one banned import
+# in exactly one file — it does not exempt the file, the directory, or any other
+# import. Adding a line requires the rationale comment above it to say what the
+# real fix is and why it is not being done in the same change.
+#
+# This file exists because the structural refactor moves files into layered
+# directories faster than it can un-couple them. Every entry is debt with a
+# name on it, not an accepted design.
+
+# `CalculateAnalyticsUseCase` registers for
+# `UIApplication.didReceiveMemoryWarningNotification` in its own `init` to drop
+# its analytics caches. The cache invalidation itself is already public
+# (`invalidateCaches()`), so the fix is for the app tier to own the observer and
+# call it — a wiring change, which does not belong in a move-only wave.
+LifeBoard/Features/Insights/Domain/CalculateAnalyticsUseCase.swift	UIKit
+
+# `GamificationEngine.isIdempotentReplayError` reads `NSManagedObjectConstraintMergeError`
+# off an `NSError` to recognise a replayed award write. Classifying a persistence
+# error is the repository's job, and `GamificationRepositoryWriteError` already
+# has an `.idempotentReplay` case for exactly this — the repository just does not
+# always produce it yet. The fix is to translate at the repository boundary and
+# delete the Cocoa-code branch here.
+LifeBoard/Features/Gamification/Domain/GamificationEngine.swift	CoreData
+
+# `AppDelegate` owns the persistent container's lifetime: it builds it at
+# launch, holds it, and installs the store observers. Composition roots are
+# allowed to know about persistence — that is what composition means. This entry
+# exists so the rule can be exact rather than carved with a path pattern.
+LifeBoard/AppDelegate.swift	CoreData
+
+# `LifeBoardHealthRuntime.attach(container:)` takes the container the app
+# already built and hands it to the health ledger and projection repositories.
+# It passes a container through rather than querying with one; the fix is for
+# the app tier to construct those two repositories and inject them, which is a
+# wiring change.
+LifeBoard/Features/Health/HealthSync/HealthRuntime.swift	CoreData
+
+# `LifeBoardAppShortcuts` holds an `NSPersistentContainer` and the repositories
+# built from it so App Intents can run without the app UI. It is a second, small
+# composition root for the extension entry point — the same exemption as
+# `AppDelegate`, and it should end up sharing that root rather than having one.
+LifeBoard/Features/Eva/Models/LifeBoardAppShortcuts.swift	CoreData
+
+# `CompositionRoot` builds every repository from the `NSPersistentContainer`,
+# which is what a composition root is for — the same exemption `AppDelegate`
+# already carries. It replaced `EnhancedDependencyContainer`, which sat in
+# `Persistence/Bootstrap/` and so needed no entry; moving it to `App/DI/` where
+# composition roots belong is what surfaced this.
+LifeBoard/App/DI/CompositionRoot.swift	CoreData

@@ -4,8 +4,8 @@ import XCTest
 final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
     func testSunriseDaySwipeSidesMapToDayDirections() {
-        XCTAssertEqual(SunriseDaySwipeSide.leading.direction, .previous)
-        XCTAssertEqual(SunriseDaySwipeSide.trailing.direction, .next)
+        XCTAssertEqual(DaySwipeSide.leading.direction, .previous)
+        XCTAssertEqual(DaySwipeSide.trailing.direction, .next)
     }
 
     func testCurvedTimelineStreamLaneIsResponsiveAndPreservesContentWidth() {
@@ -344,7 +344,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
     }
 
     func testSunriseDaySwipeHandleInteractionStartsOncePerDragSequence() {
-        var state = SunriseDaySwipeHandleInteractionState()
+        var state = DaySwipeHandleInteractionState()
 
         XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
         XCTAssertFalse(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
@@ -355,7 +355,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
     }
 
     func testSunriseDaySwipeHandleInteractionResetsWhenUnavailable() {
-        var state = SunriseDaySwipeHandleInteractionState()
+        var state = DaySwipeHandleInteractionState()
 
         XCTAssertTrue(state.startIfNeeded(isEnabled: true, isChromeVisible: true))
         XCTAssertFalse(state.startIfNeeded(isEnabled: false, isChromeVisible: true))
@@ -376,28 +376,28 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         let size = CGSize(width: 390, height: 760)
 
         XCTAssertEqual(
-            SunriseDaySwipeData.side(forStartLocation: CGPoint(x: 20, y: 300), containerSize: size),
+            DaySwipeData.side(forStartLocation: CGPoint(x: 20, y: 300), containerSize: size),
             .leading
         )
         XCTAssertEqual(
-            SunriseDaySwipeData.side(forStartLocation: CGPoint(x: 370, y: 300), containerSize: size),
+            DaySwipeData.side(forStartLocation: CGPoint(x: 370, y: 300), containerSize: size),
             .trailing
         )
     }
 
     func testSunriseDaySwipeEdgeActivationWidthUsesTwentyPercentReduction() {
-        XCTAssertEqual(SunriseDaySwipeData.edgeActivationWidth, 70.4, accuracy: 0.001)
+        XCTAssertEqual(DaySwipeData.edgeActivationWidth, 70.4, accuracy: 0.001)
     }
 
     func testSunriseDaySwipeEdgeStartUsesReducedLeadingBoundary() {
         let size = CGSize(width: 390, height: 760)
 
         XCTAssertEqual(
-            SunriseDaySwipeData.side(forStartLocation: CGPoint(x: 70.4, y: 300), containerSize: size),
+            DaySwipeData.side(forStartLocation: CGPoint(x: 70.4, y: 300), containerSize: size),
             .leading
         )
         XCTAssertNil(
-            SunriseDaySwipeData.side(forStartLocation: CGPoint(x: 70.5, y: 300), containerSize: size)
+            DaySwipeData.side(forStartLocation: CGPoint(x: 70.5, y: 300), containerSize: size)
         )
     }
 
@@ -405,17 +405,17 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         let size = CGSize(width: 390, height: 760)
 
         XCTAssertNil(
-            SunriseDaySwipeData.side(forStartLocation: CGPoint(x: 319.5, y: 300), containerSize: size)
+            DaySwipeData.side(forStartLocation: CGPoint(x: 319.5, y: 300), containerSize: size)
         )
         XCTAssertEqual(
-            SunriseDaySwipeData.side(forStartLocation: CGPoint(x: 319.6, y: 300), containerSize: size),
+            DaySwipeData.side(forStartLocation: CGPoint(x: 319.6, y: 300), containerSize: size),
             .trailing
         )
     }
 
     func testSunriseDaySwipeEdgeStartIgnoresCenterDrag() {
         XCTAssertNil(
-            SunriseDaySwipeData.side(
+            DaySwipeData.side(
                 forStartLocation: CGPoint(x: 195, y: 300),
                 containerSize: CGSize(width: 390, height: 760)
             )
@@ -424,62 +424,62 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
     func testSunriseDaySwipeRestingLedgeUsesCompactFourPointInset() {
         let size = CGSize(width: 390, height: 760)
-        let leading = SunriseDaySwipeData(side: .leading, containerSize: size)
-        let trailing = SunriseDaySwipeData(side: .trailing, containerSize: size)
+        let leading = DaySwipeData(side: .leading, containerSize: size)
+        let trailing = DaySwipeData(side: .trailing, containerSize: size)
 
-        XCTAssertEqual(SunriseDaySwipeData.waveMinLedge, 4, accuracy: 0.001)
+        XCTAssertEqual(DaySwipeData.waveMinLedge, 4, accuracy: 0.001)
         XCTAssertEqual(leading.waveLedgeX, 4, accuracy: 0.001)
         XCTAssertEqual(trailing.waveLedgeX, size.width - 4, accuracy: 0.001)
     }
 
     func testSunriseDaySwipeVisibleHandleUsesTwentyPercentReduction() {
-        XCTAssertEqual(SunriseDaySwipeData.buttonRadius, 24, accuracy: 0.001)
-        XCTAssertEqual(SunriseDaySwipeData.buttonVisualScale, 0.8, accuracy: 0.001)
-        XCTAssertEqual(SunriseDaySwipeData.buttonVisualRadius, 19.2, accuracy: 0.001)
-        XCTAssertEqual(SunriseDaySwipeData.buttonVisualRadius * 2, 38.4, accuracy: 0.001)
+        XCTAssertEqual(DaySwipeData.buttonRadius, 24, accuracy: 0.001)
+        XCTAssertEqual(DaySwipeData.buttonVisualScale, 0.8, accuracy: 0.001)
+        XCTAssertEqual(DaySwipeData.buttonVisualRadius, 19.2, accuracy: 0.001)
+        XCTAssertEqual(DaySwipeData.buttonVisualRadius * 2, 38.4, accuracy: 0.001)
     }
 
     func testSunriseDaySwipeInitialHandlesShareTimelineStartHeight() {
         let size = CGSize(width: 390, height: 760)
-        let leading = SunriseDaySwipeData(side: .leading, containerSize: size)
-        let trailing = SunriseDaySwipeData(side: .trailing, containerSize: size)
+        let leading = DaySwipeData(side: .leading, containerSize: size)
+        let trailing = DaySwipeData(side: .trailing, containerSize: size)
 
         XCTAssertEqual(leading.buttonCenter.y, trailing.buttonCenter.y)
-        XCTAssertEqual(leading.buttonCenter.y, SunriseDaySwipeData.timelineHandleCenterY)
+        XCTAssertEqual(leading.buttonCenter.y, DaySwipeData.timelineHandleCenterY)
     }
 
     func testSunriseDaySwipeInitialHandleHeightIsNearTopAndClampedInsideOverlay() {
         let size = CGSize(width: 390, height: 760)
-        let leading = SunriseDaySwipeData(side: .leading, containerSize: size)
-        let trailing = SunriseDaySwipeData(side: .trailing, containerSize: size)
+        let leading = DaySwipeData(side: .leading, containerSize: size)
+        let trailing = DaySwipeData(side: .trailing, containerSize: size)
 
-        XCTAssertGreaterThanOrEqual(leading.buttonCenter.y, SunriseDaySwipeData.buttonRadius)
+        XCTAssertGreaterThanOrEqual(leading.buttonCenter.y, DaySwipeData.buttonRadius)
         XCTAssertLessThanOrEqual(leading.buttonCenter.y, 48)
-        XCTAssertGreaterThanOrEqual(trailing.buttonCenter.y, SunriseDaySwipeData.buttonRadius)
+        XCTAssertGreaterThanOrEqual(trailing.buttonCenter.y, DaySwipeData.buttonRadius)
         XCTAssertLessThanOrEqual(trailing.buttonCenter.y, 48)
     }
 
     func testSunriseDaySwipeInitialResetReturnsHandleToTimelineStartHeight() {
-        let data = SunriseDaySwipeData(
+        let data = DaySwipeData(
             side: .leading,
             centerY: 220,
             progress: 0.24,
             containerSize: CGSize(width: 390, height: 760)
         )
 
-        XCTAssertEqual(data.initial().buttonCenter.y, SunriseDaySwipeData.timelineHandleCenterY)
+        XCTAssertEqual(data.initial().buttonCenter.y, DaySwipeData.timelineHandleCenterY)
         XCTAssertEqual(data.initial().progress, 0)
     }
 
     func testSunriseDaySwipeInitialHandlesUseConfiguredRestingHeight() {
         let size = CGSize(width: 390, height: 760)
         let restingCenterY: CGFloat = 124
-        let leading = SunriseDaySwipeData(
+        let leading = DaySwipeData(
             side: .leading,
             containerSize: size,
             restingCenterY: restingCenterY
         )
-        let trailing = SunriseDaySwipeData(
+        let trailing = DaySwipeData(
             side: .trailing,
             containerSize: size,
             restingCenterY: restingCenterY
@@ -492,7 +492,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
     func testSunriseDaySwipeInitialResetReturnsHandleToConfiguredRestingHeight() {
         let restingCenterY: CGFloat = 132
-        let data = SunriseDaySwipeData(
+        let data = DaySwipeData(
             side: .leading,
             centerY: 220,
             progress: 0.24,
@@ -506,7 +506,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
     func testSunriseDaySwipeChromeVisibilityHidesOnCollapsedScrollState() {
         XCTAssertFalse(
-            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            DaySwipeChromeVisibilityPolicy.nextVisibility(
                 currentVisibility: true,
                 for: .collapsed
             )
@@ -515,13 +515,13 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
     func testSunriseDaySwipeChromeVisibilityShowsNearTopAndExpanded() {
         XCTAssertTrue(
-            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            DaySwipeChromeVisibilityPolicy.nextVisibility(
                 currentVisibility: false,
                 for: .nearTop
             )
         )
         XCTAssertTrue(
-            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            DaySwipeChromeVisibilityPolicy.nextVisibility(
                 currentVisibility: false,
                 for: .expanded
             )
@@ -530,14 +530,14 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
     func testSunriseDaySwipeChromeVisibilityCanRestoreOnlyNearTop() {
         XCTAssertFalse(
-            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            DaySwipeChromeVisibilityPolicy.nextVisibility(
                 currentVisibility: false,
                 for: .expanded,
                 restoresOnExpanded: false
             )
         )
         XCTAssertTrue(
-            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            DaySwipeChromeVisibilityPolicy.nextVisibility(
                 currentVisibility: false,
                 for: .nearTop,
                 restoresOnExpanded: false
@@ -548,21 +548,21 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
     func testHomeTimelineDaySwipeChromeRestoresOnlyWhenNearTopAfterUpwardScroll() {
         var isVisible = true
 
-        isVisible = SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+        isVisible = DaySwipeChromeVisibilityPolicy.nextVisibility(
             currentVisibility: isVisible,
             for: .collapsed,
             restoresOnExpanded: false
         )
         XCTAssertFalse(isVisible)
 
-        isVisible = SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+        isVisible = DaySwipeChromeVisibilityPolicy.nextVisibility(
             currentVisibility: isVisible,
             for: .expanded,
             restoresOnExpanded: false
         )
         XCTAssertFalse(isVisible)
 
-        isVisible = SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+        isVisible = DaySwipeChromeVisibilityPolicy.nextVisibility(
             currentVisibility: isVisible,
             for: .nearTop,
             restoresOnExpanded: false
@@ -572,13 +572,13 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
     func testSunriseDaySwipeChromeVisibilityKeepsCurrentStateWhenIdle() {
         XCTAssertTrue(
-            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            DaySwipeChromeVisibilityPolicy.nextVisibility(
                 currentVisibility: true,
                 for: .idle
             )
         )
         XCTAssertFalse(
-            SunriseDaySwipeChromeVisibilityPolicy.nextVisibility(
+            DaySwipeChromeVisibilityPolicy.nextVisibility(
                 currentVisibility: false,
                 for: .idle
             )
@@ -586,11 +586,11 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
     }
 
     func testSunriseDaySwipeVisibleChromePresentationDoesNotOffsetHandles() {
-        let leading = SunriseDaySwipeChromePresentation.value(
+        let leading = DaySwipeChromePresentation.value(
             for: .leading,
             isChromeVisible: true
         )
-        let trailing = SunriseDaySwipeChromePresentation.value(
+        let trailing = DaySwipeChromePresentation.value(
             for: .trailing,
             isChromeVisible: true
         )
@@ -606,11 +606,11 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
     }
 
     func testSunriseDaySwipeHiddenChromePresentationCollapsesTowardEdges() {
-        let leading = SunriseDaySwipeChromePresentation.value(
+        let leading = DaySwipeChromePresentation.value(
             for: .leading,
             isChromeVisible: false
         )
-        let trailing = SunriseDaySwipeChromePresentation.value(
+        let trailing = DaySwipeChromePresentation.value(
             for: .trailing,
             isChromeVisible: false
         )
@@ -626,12 +626,12 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
     }
 
     func testSunriseDaySwipeHiddenChromePresentationUsesOpacityOnlyForReducedMotion() {
-        let leading = SunriseDaySwipeChromePresentation.value(
+        let leading = DaySwipeChromePresentation.value(
             for: .leading,
             isChromeVisible: false,
             reduceMotion: true
         )
-        let trailing = SunriseDaySwipeChromePresentation.value(
+        let trailing = DaySwipeChromePresentation.value(
             for: .trailing,
             isChromeVisible: false,
             reduceMotion: true
@@ -677,7 +677,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
             measuredNeedsReplanTrayHeight: 96
         )
 
-        XCTAssertEqual(centerY, SunriseDaySwipeData.timelineHandleCenterY, accuracy: 0.001)
+        XCTAssertEqual(centerY, DaySwipeData.timelineHandleCenterY, accuracy: 0.001)
     }
 
     func testSunriseDaySwipeRestingPositionClearsQuietTrackingRailOnly() {
@@ -727,7 +727,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
     }
 
     func testSunriseDaySwipeKeepsVerticalDragAvailableFromEdges() {
-        let side = SunriseDaySwipeData.side(
+        let side = DaySwipeData.side(
             forStartLocation: CGPoint(x: 20, y: 300),
             containerSize: CGSize(width: 390, height: 760)
         )
@@ -754,7 +754,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
             translation: translation,
             predictedEndTranslation: translation
         )
-        let dragged = SunriseDaySwipeData(side: .leading, containerSize: size)
+        let dragged = DaySwipeData(side: .leading, containerSize: size)
             .drag(translation: translation, location: CGPoint(x: 32, y: 304))
 
         XCTAssertEqual(side, .leading)
@@ -820,7 +820,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
     }
 
     func testLeadingSunriseDaySwipeDataProgressesOnRightwardDrag() {
-        let data = SunriseDaySwipeData(
+        let data = DaySwipeData(
             side: .leading,
             centerY: 180,
             progress: 0,
@@ -840,7 +840,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
     }
 
     func testTrailingSunriseDaySwipeDataProgressesOnLeftwardDrag() {
-        let data = SunriseDaySwipeData(
+        let data = DaySwipeData(
             side: .trailing,
             centerY: 320,
             progress: 0,
@@ -859,7 +859,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
     func testLeadingSunriseDaySwipeDataDoesNotProgressOnOppositeHandleDrag() {
         let restingCenterY: CGFloat = 124
-        let data = SunriseDaySwipeData(
+        let data = DaySwipeData(
             side: .leading,
             containerSize: CGSize(width: 390, height: 760),
             restingCenterY: restingCenterY
@@ -875,7 +875,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
     func testTrailingSunriseDaySwipeDataDoesNotProgressOnOppositeHandleDrag() {
         let restingCenterY: CGFloat = 124
-        let data = SunriseDaySwipeData(
+        let data = DaySwipeData(
             side: .trailing,
             containerSize: CGSize(width: 390, height: 760),
             restingCenterY: restingCenterY
@@ -899,12 +899,12 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
             predictedEndTranslation: CGSize(width: 110, height: 6)
         )
 
-        XCTAssertNotEqual(leadingDirection, SunriseDaySwipeSide.leading.direction)
-        XCTAssertNotEqual(trailingDirection, SunriseDaySwipeSide.trailing.direction)
+        XCTAssertNotEqual(leadingDirection, DaySwipeSide.leading.direction)
+        XCTAssertNotEqual(trailingDirection, DaySwipeSide.trailing.direction)
     }
 
     func testSunriseDaySwipeDataCancelsShortDragAndResetsProgress() {
-        let data = SunriseDaySwipeData(
+        let data = DaySwipeData(
             side: .leading,
             centerY: 180,
             progress: 0.12,
@@ -1024,26 +1024,26 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
 
     func testPhoneTimelineRendererUsesUnifiedCanvasForNormalTextSizes() {
         XCTAssertEqual(
-            SunriseTimelineRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: .compact, isAccessibilitySize: false),
+            TimelineRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: .compact, isAccessibilitySize: false),
             .expanded
         )
         XCTAssertEqual(
-            SunriseTimelineRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: .expanded, isAccessibilitySize: false),
+            TimelineRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: .expanded, isAccessibilitySize: false),
             .expanded
         )
     }
 
     func testTimelineRendererKeepsAccessibilityAndPadCompactFallbacks() {
         XCTAssertEqual(
-            SunriseTimelineRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: .expanded, isAccessibilitySize: true),
+            TimelineRendererPolicy.mode(layoutClass: .phone, dayLayoutMode: .expanded, isAccessibilitySize: true),
             .agenda
         )
         XCTAssertEqual(
-            SunriseTimelineRendererPolicy.mode(layoutClass: .padCompact, dayLayoutMode: .expanded, isAccessibilitySize: false),
+            TimelineRendererPolicy.mode(layoutClass: .padCompact, dayLayoutMode: .expanded, isAccessibilitySize: false),
             .compact
         )
         XCTAssertEqual(
-            SunriseTimelineRendererPolicy.mode(layoutClass: .padRegular, dayLayoutMode: .compact, isAccessibilitySize: false),
+            TimelineRendererPolicy.mode(layoutClass: .padRegular, dayLayoutMode: .compact, isAccessibilitySize: false),
             .expanded
         )
     }
@@ -2411,11 +2411,12 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         // production file-decomposition pass, and no longer `private`.
         let rowSource = try Self.sourceFile(
             "LifeBoard",
-            "Presentation",
+            "Features",
             "Home",
+            "UI",
             "Timeline",
             "Surface",
-            "TimelineMeetingBlockRow.swift"
+            "TimelineItemCards.swift"
         )
 
         XCTAssertFalse(rowSource.contains("Text(labelText)"))
@@ -2431,22 +2432,22 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
         let screenSource = try Self.sourceFile(
             "LifeBoard",
             "LifeBoardDesign",
-            "SunriseHomeScreen.swift"
+            "HomeScreen.swift"
         )
         let itemSource = try Self.sourceFile(
             "LifeBoard",
             "LifeBoardDesign",
             "Components",
-            "LBTimelineItem.swift"
+            "TimelineItem.swift"
         )
         let spineSource = try Self.sourceFile(
             "LifeBoard",
             "LifeBoardDesign",
             "Components",
-            "LBTimelineSpine.swift"
+            "TimelineSpine.swift"
         )
 
-        XCTAssertEqual(LBSpacingTokens.timelineRailWidth, 36, accuracy: 0.001)
+        XCTAssertEqual(ClayLayoutMetrics.timelineRailWidth, 36, accuracy: 0.001)
         XCTAssertTrue(itemSource.contains("spineIconSystemName"))
         XCTAssertTrue(itemSource.contains("spineIconAccessibilityValue"))
         XCTAssertTrue(spineSource.contains("var iconSystemName: String?"))
@@ -2470,13 +2471,13 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
             "LifeBoard",
             "LifeBoardDesign",
             "Components",
-            "LBTimelineCard.swift"
+            "TimelineCard.swift"
         )
         let assistantSource = try Self.sourceFile(
             "LifeBoard",
             "LifeBoardDesign",
             "Components",
-            "LBAssistantPromptCard.swift"
+            "AssistantPromptCard.swift"
         )
         let routineSource = try Self.sourceFile(
             "LifeBoard",
@@ -2488,7 +2489,7 @@ final class HomeSunriseLayoutMetricsTests: XCTestCase {
             "LifeBoard",
             "LifeBoardDesign",
             "Components",
-            "LBMeetingFlockCard.swift"
+            "MeetingFlockCard.swift"
         )
 
         XCTAssertFalse(timelineCardSource.contains("private func leadingControl"))
@@ -2868,8 +2869,8 @@ private extension HomeSunriseLayoutMetricsTests {
         measuredNeedsReplanTrayHeight: CGFloat,
         needsReplanTrayFallbackHeight: CGFloat = 88
     ) -> CGFloat {
-        SunriseDaySwipeRestingPosition.centerY(
-            defaultCenterY: SunriseDaySwipeData.timelineHandleCenterY,
+        DaySwipeRestingPosition.centerY(
+            defaultCenterY: DaySwipeData.timelineHandleCenterY,
             showsQuietTrackingRail: showsQuietTrackingRail,
             measuredQuietTrackingRailHeight: measuredQuietTrackingRailHeight,
             quietTrackingRailFallbackHeight: quietTrackingRailFallbackHeight,
@@ -2878,7 +2879,7 @@ private extension HomeSunriseLayoutMetricsTests {
             needsReplanTrayFallbackHeight: needsReplanTrayFallbackHeight,
             topPadding: 8,
             interModuleSpacing: 12,
-            buttonRadius: SunriseDaySwipeData.buttonRadius,
+            buttonRadius: DaySwipeData.buttonRadius,
             clearance: 4
         )
     }
@@ -2896,8 +2897,9 @@ private extension HomeSunriseLayoutMetricsTests {
             .deletingLastPathComponent()
         let sourceDirectory = workspaceRoot
             .appendingPathComponent("LifeBoard")
-            .appendingPathComponent("Presentation")
+            .appendingPathComponent("Features")
             .appendingPathComponent("Home")
+            .appendingPathComponent("UI")
             .appendingPathComponent("Timeline")
             .appendingPathComponent("Surface")
         let sourceURLs = try FileManager.default.contentsOfDirectory(
@@ -3076,7 +3078,7 @@ private extension HomeSunriseLayoutMetricsTests {
             currentMinuteStamp: Int(now.timeIntervalSinceReferenceDate / 60),
             sunriseAnchor: .collapsed,
             calendarSnapshot: makeCalendarSnapshot(selectedDate: selectedDay),
-            workspacePreferences: LifeBoardWorkspacePreferences(),
+            workspacePreferences: WorkspacePreferences(),
             hiddenCalendarEvents: [],
             pinnedFocusTaskIDs: [],
             needsReplanCandidates: [],
@@ -3160,7 +3162,7 @@ private extension HomeSunriseLayoutMetricsTests {
 }
 
 @MainActor
-private final class MockHomeSearchEngine: HomeSearchEngine {
+private final class MockHomeSearchEngine: HomeSearchService {
     var onResultsUpdated: ((Int, [TaskDefinition]) -> Void)?
     var projects: [Project] = [Project.createInbox()]
 

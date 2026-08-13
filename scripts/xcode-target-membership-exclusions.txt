@@ -1,0 +1,3 @@
+# No exclusions are currently permitted. The package-owned Core Data model uses
+# Manual/None code generation, so its public hand-written properties compile in
+# LifeBoardPersistence and are validated like every other source.
