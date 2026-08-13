@@ -1,0 +1,468 @@
+{
+  "schemaVersion": 1,
+  "capturedAt": "2026-08-13T15:50:36.150Z",
+  "fixedNow": "2026-08-13T10:00:00Z",
+  "buildIdentity": "d6986a51cca2",
+  "device": "LifeBoard Test iPhone",
+  "devices": [
+    "LifeBoard Test iPhone",
+    "LifeBoard Test iPad"
+  ],
+  "locale": "en_US",
+  "timezone": "UTC",
+  "appearance": "Light",
+  "dynamicType": "UICTContentSizeCategoryL",
+  "sourceTest": "LifeBoardUITests/AppStoreScreenshotUITests/testCaptureReadmeLifeOSTour",
+  "screenshots": [
+    {
+      "id": "home-command-center",
+      "device": "LifeBoard Test iPhone",
+      "file": "life-os-home.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 143272,
+      "sha256": "61ee9ad5e5b25f9d6d39a7a4b3710291ce25e52699c2fa820bf0af1fb9f7f9ea",
+      "variants": [
+        {
+          "file": "life-os-home-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 31996,
+          "sha256": "6f2dd4e60bbf1949bc2e07bbd9828ced4d20cb38db7ee8a6cb42c25d4ae541a3"
+        },
+        {
+          "file": "life-os-home-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 60582,
+          "sha256": "346758a6baf411034baed8000154775d487aab5f99c8b24f6c19959eb898d7dc"
+        }
+      ]
+    },
+    {
+      "id": "universal-capture-review",
+      "device": "LifeBoard Test iPhone",
+      "file": "universal-capture-review.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 116802,
+      "sha256": "05cd5e36ffe2fb0b61273929cb15c14d7adf15b88563832deba97b1097c20f6e",
+      "variants": [
+        {
+          "file": "universal-capture-review-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 27772,
+          "sha256": "7bc12ca559f2de5037c613aa600720a73d0e9caeac0f473bc7d80a973ac6debb"
+        },
+        {
+          "file": "universal-capture-review-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 49622,
+          "sha256": "b4ae6656567f60a3af95942501a50f998343247829fffb77f2dd70ac674e6fc8"
+        }
+      ]
+    },
+    {
+      "id": "plan-day-capacity",
+      "device": "LifeBoard Test iPhone",
+      "file": "life-os-plan.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 114438,
+      "sha256": "4bc3fb4365d6811ee17cd00157ac01bd60c3a505b24ec46f5fc9a6cea436c754",
+      "variants": [
+        {
+          "file": "life-os-plan-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 27778,
+          "sha256": "8f117af62e8c9560be28a67d8fa252e220c18340b1070a998ccbc1860dc074e5"
+        },
+        {
+          "file": "life-os-plan-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 51348,
+          "sha256": "8238e59b7f786232a9efdcd8f1395cd91a840d4ca19bb62da8b0853cc7f0e864"
+        }
+      ]
+    },
+    {
+      "id": "plan-week-workspace",
+      "device": "LifeBoard Test iPhone",
+      "file": "plan-week-workspace.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 164684,
+      "sha256": "173fafb1638796e2021fb7cc66dfb6ff68957dc1fd8e79b6764c075d77e4b997",
+      "variants": [
+        {
+          "file": "plan-week-workspace-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 43188,
+          "sha256": "aabe8f21e5c80039e7ad700205e55bb41f2cda38232ead01c1b11a71cda21b8b"
+        },
+        {
+          "file": "plan-week-workspace-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 80044,
+          "sha256": "9373f01cd71089736fa0a069144341527f459b35f2b2c9083819e8025786b5cf"
+        }
+      ]
+    },
+    {
+      "id": "focus-active-session",
+      "device": "LifeBoard Test iPhone",
+      "file": "focus-active-session.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 100908,
+      "sha256": "8aefa494024ad90d4e884e1602ed23255a7b19d8232dc9370a146783aae9b78d",
+      "variants": [
+        {
+          "file": "focus-active-session-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 27512,
+          "sha256": "e7f063a96928b9576e47212766fc16c7ba995d3b197d77ca91db973e3f6a2f6d"
+        },
+        {
+          "file": "focus-active-session-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 49670,
+          "sha256": "1661f1fcf0303afe7a3d3ea48fd3d0ae2476f3a110ce6ad5fde33c6e3df64383"
+        }
+      ]
+    },
+    {
+      "id": "track-habit-board",
+      "device": "LifeBoard Test iPhone",
+      "file": "life-os-track.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 91100,
+      "sha256": "e6ee98fc8fb01ac0a95a9df7cee31a856d4c042d0d8ef8a078cbb7e4167f05ed",
+      "variants": [
+        {
+          "file": "life-os-track-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 26464,
+          "sha256": "8cc45d1cb133be724caec98f3c867453f7ec2b3b35bf47cf9493febe9deedaa4"
+        },
+        {
+          "file": "life-os-track-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 46568,
+          "sha256": "acb8a1333591ce879ea1bff2225d5eefe5413ce5c4e5053c3a2ecec624594ea8"
+        }
+      ]
+    },
+    {
+      "id": "track-overview",
+      "device": "LifeBoard Test iPhone",
+      "file": "track-overview.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 149190,
+      "sha256": "8395af11702377087e5d6166e0de43e7031084eec2e51bdd959ef67c1c13c571",
+      "variants": [
+        {
+          "file": "track-overview-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 33170,
+          "sha256": "a46aad107e9f010238ca971c4778f862f885972bd48c3b6a3b59b46a90a1e572"
+        },
+        {
+          "file": "track-overview-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 62414,
+          "sha256": "08f667894206b4a9ffe3d061d94bd29422a5d030aa99acda585a1a6f380b20f5"
+        }
+      ]
+    },
+    {
+      "id": "track-goals-routines",
+      "device": "LifeBoard Test iPhone",
+      "file": "track-goals-routines.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 147188,
+      "sha256": "67304e4318cc3eb924b890aaeb953509a5223b534e3b5aa209696f2d717f5471",
+      "variants": [
+        {
+          "file": "track-goals-routines-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 35166,
+          "sha256": "4068448afa5b7f0f8ccdc9c545b0a8eba2ea3e0d134a96c06733e86bd85042e3"
+        },
+        {
+          "file": "track-goals-routines-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 64972,
+          "sha256": "786de8f468f38322f6080c6d69dde14f6af52e2d5c31c7e668d2a7eaa81e0f7a"
+        }
+      ]
+    },
+    {
+      "id": "track-wellness",
+      "device": "LifeBoard Test iPhone",
+      "file": "track-wellness.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 106388,
+      "sha256": "9c17f3c992ee1dde7bccb897a042a8cdae1e8b59b080259ccbc8550844f74c0b",
+      "variants": [
+        {
+          "file": "track-wellness-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 28452,
+          "sha256": "74221721c6780b9dfb28d841ac6d352be83f9fbf399879ee7ad19753c891bed1"
+        },
+        {
+          "file": "track-wellness-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 51534,
+          "sha256": "e7ac3e59ab0b5abfe9fb1bb58209db332c8f8527ab57add44954f6c5605d29f3"
+        }
+      ]
+    },
+    {
+      "id": "track-nutrition",
+      "device": "LifeBoard Test iPhone",
+      "file": "track-nutrition.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 154762,
+      "sha256": "7fd7d3fe4489fc3a95eb3d12e977d81a4f41d73d3e96cbdf9907f675469c1a24",
+      "variants": [
+        {
+          "file": "track-nutrition-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 39432,
+          "sha256": "f909511437df13749625faeae43d2e9d73d1e3eea3fa1438a0b41afec08e185e"
+        },
+        {
+          "file": "track-nutrition-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 72722,
+          "sha256": "670fe008f72b59209b253dd8e954e508b963cfec3f813d5f8f321b1630516274"
+        }
+      ]
+    },
+    {
+      "id": "track-fasting",
+      "device": "LifeBoard Test iPhone",
+      "file": "track-fasting.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 100908,
+      "sha256": "8aefa494024ad90d4e884e1602ed23255a7b19d8232dc9370a146783aae9b78d",
+      "variants": [
+        {
+          "file": "track-fasting-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 27512,
+          "sha256": "e7f063a96928b9576e47212766fc16c7ba995d3b197d77ca91db973e3f6a2f6d"
+        },
+        {
+          "file": "track-fasting-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 49670,
+          "sha256": "1661f1fcf0303afe7a3d3ea48fd3d0ae2476f3a110ce6ad5fde33c6e3df64383"
+        }
+      ]
+    },
+    {
+      "id": "track-life-moment",
+      "device": "LifeBoard Test iPhone",
+      "file": "track-life-moment.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 147766,
+      "sha256": "4380767cb8dd88aea8db08ad6b197a868e35abd6c6a87c602054bd40212207e7",
+      "variants": [
+        {
+          "file": "track-life-moment-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 39026,
+          "sha256": "ae62486316d25303fdd916074bb0a960d2a4ec7fa67357e72cee9194cbf97489"
+        },
+        {
+          "file": "track-life-moment-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 72182,
+          "sha256": "4afc67064dbc7e4c882c1fa56f831f41f6398fc534b3dbc33171f33e98a318bf"
+        }
+      ]
+    },
+    {
+      "id": "journal-day",
+      "device": "LifeBoard Test iPhone",
+      "file": "journal-day.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 101946,
+      "sha256": "0a3cc35e9294ba7a50b678d87d45df26f397694e77588e6b724ddd7dd0ab4926",
+      "variants": [
+        {
+          "file": "journal-day-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 27644,
+          "sha256": "1db398c361f3856b99bcf0377f7e4daa671f949c287ddaf70a68ef31ba67c39e"
+        },
+        {
+          "file": "journal-day-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 52420,
+          "sha256": "8524c95a27306d37780ed8597cf5b12d7cf1c3fd45ecb7f6fca9def51035b978"
+        }
+      ]
+    },
+    {
+      "id": "knowledge-notes",
+      "device": "LifeBoard Test iPhone",
+      "file": "knowledge-notes.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 93218,
+      "sha256": "80378929e3344c8d77dfdac7ba93452c980db680233584277bb478344982a08d",
+      "variants": [
+        {
+          "file": "knowledge-notes-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 25362,
+          "sha256": "8213641f077add341ef852636ae3d7209959224185e1d30c2f417b4e3b2c74e7"
+        },
+        {
+          "file": "knowledge-notes-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 47172,
+          "sha256": "776dfc840907f9674851136eac9da74c87f09fc22b7f1c873a464334f90e3312"
+        }
+      ]
+    },
+    {
+      "id": "insights-evidence",
+      "device": "LifeBoard Test iPhone",
+      "file": "life-os-insights.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 95206,
+      "sha256": "b8947b48018595f99a7d737624213d411aa6a3d67db566432848145e7eef233f",
+      "variants": [
+        {
+          "file": "life-os-insights-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 22320,
+          "sha256": "5d9dc9c334fe56f48e97557abb2061b731b9b367517f42cf6251bec24d1844d9"
+        },
+        {
+          "file": "life-os-insights-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 42472,
+          "sha256": "d8e7bd3e9d8d88b5fb9c8253f75567ddb259b489f8ca443066432f901ca48a5d"
+        }
+      ]
+    },
+    {
+      "id": "eva-proposal-review",
+      "device": "LifeBoard Test iPhone",
+      "file": "life-os-eva.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 128686,
+      "sha256": "1d974279286db4b1d5a9f2b27aa1a40d5d27da3e19febe0c6ee7d9beace7e294",
+      "variants": [
+        {
+          "file": "life-os-eva-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 37394,
+          "sha256": "7adf33eaf85f4ebad31691061e38585039637c69cc9ada65ec9ded211fbdfd2b"
+        },
+        {
+          "file": "life-os-eva-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 64048,
+          "sha256": "5677baee014102305ef7dc35d59179d66144ed327bd94004cb1ce26f61cd8c82"
+        }
+      ]
+    },
+    {
+      "id": "recovery-overdue-rescue",
+      "device": "LifeBoard Test iPhone",
+      "file": "life-os-recovery.webp",
+      "width": 1206,
+      "height": 2622,
+      "bytes": 73544,
+      "sha256": "8e51c05647cbbb5450d30aa5eeae43187ef9f54da26db3b022fe80e51d2a1323",
+      "variants": [
+        {
+          "file": "life-os-recovery-480.webp",
+          "width": 480,
+          "height": 1044,
+          "bytes": 18978,
+          "sha256": "f6508f87ded84ab1044a9b3cf8181ddf18ab15d54d3903b417c1daf3e78a4b81"
+        },
+        {
+          "file": "life-os-recovery-760.webp",
+          "width": 760,
+          "height": 1652,
+          "bytes": 35942,
+          "sha256": "04b1a2b208914ba41938c8c35bf3bb65ae249446f795b18d70f312b37d30594e"
+        }
+      ]
+    },
+    {
+      "id": "plan-week-ipad",
+      "device": "LifeBoard Test iPad",
+      "file": "plan-week-ipad.webp",
+      "width": 1668,
+      "height": 2420,
+      "bytes": 94436,
+      "sha256": "c6098de724ac0b583e9625def1beedc573121880d51da1e28b6f78cb9745d70f",
+      "variants": [
+        {
+          "file": "plan-week-ipad-480.webp",
+          "width": 480,
+          "height": 696,
+          "bytes": 16828,
+          "sha256": "6a9263f28042fc1b6815647d6c373623c54509ede2cd48a581879bfe9e5dad5e"
+        },
+        {
+          "file": "plan-week-ipad-760.webp",
+          "width": 760,
+          "height": 1103,
+          "bytes": 35200,
+          "sha256": "cd44fa03832664cf758f38f621679c87fc59ef6104a2d0e0a2943d66639258fd"
+        }
+      ]
+    }
+  ]
+}
