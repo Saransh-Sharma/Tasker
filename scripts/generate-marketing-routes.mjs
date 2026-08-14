@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dist = join(root, 'dist');
 const template = await readFile(join(dist, 'index.html'), 'utf8');
+const siteOrigin = 'https://getlifeboard.app';
 
 const routes = {
   '/': ['LifeBoard — One place to run the life you actually have', 'A private, recovery-aware Life OS for work, home, health, routines, plans, and reflections.'],
@@ -34,7 +35,7 @@ for (const [route, [title, description]] of Object.entries(routes)) {
     .replace(/<meta name="description" content="[^"]*"\s*\/>/, `<meta name="description" content="${escaped(description)}" />`)
     .replace(/<meta property="og:title" content="[^"]*"\s*\/>/, `<meta property="og:title" content="${escaped(title)}" />`)
     .replace(/<meta property="og:description" content="[^"]*"\s*\/>/, `<meta property="og:description" content="${escaped(description)}" />`)
-    .replace('</head>', `    <link rel="canonical" href="https://lifeboard.app/LifeBoard${route}" />\n  </head>`);
+    .replace('</head>', `    <link rel="canonical" href="${siteOrigin}${route}" />\n  </head>`);
   await writeFile(join(outputDir, 'index.html'), html);
 }
 
