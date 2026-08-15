@@ -165,6 +165,7 @@ extension MessageView {
                     )
                     if isLiveOutput == false {
                         evidenceCitationRail(for: answer)
+                        spokenOutputControls(for: answer)
                     }
                 }
 
@@ -175,6 +176,47 @@ extension MessageView {
             .padding(.vertical, Theme.Spacing.sm)
             .frame(maxWidth: messageMaxWidth, alignment: .leading)
             .padding(.trailing, oppositeSideInset)
+        }
+    }
+
+    @ViewBuilder
+    func spokenOutputControls(for text: String) -> some View {
+        if EvaCloudAccountState.shared.configuration?.ttsEnabled == true,
+           text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            VStack(alignment: .leading, spacing: Theme.Spacing.xs) {
+                HStack(spacing: Theme.Spacing.xs) {
+                    if spokenOutput.activeText == text {
+                        switch spokenOutput.state {
+                        case .loading:
+                            ProgressView()
+                                .controlSize(.small)
+                            Button("Stop", systemImage: "stop.fill") { spokenOutput.stop() }
+                        case .playing:
+                            Button("Pause", systemImage: "pause.fill") { spokenOutput.pause() }
+                        case .paused:
+                            Button("Resume", systemImage: "play.fill") { spokenOutput.resume() }
+                            Button("Stop", systemImage: "stop.fill") { spokenOutput.stop() }
+                        case .failed:
+                            Button("Try again", systemImage: "arrow.clockwise") { spokenOutput.play(text: text) }
+                            if spokenOutput.requiresPaidRegeneration {
+                                Button("Regenerate · 1 credit") { paidSpeechRegenerationText = text }
+                            }
+                        case .idle:
+                            Button("Speak", systemImage: "speaker.wave.2.fill") { spokenOutput.play(text: text) }
+                        }
+                    } else {
+                        Button("Speak", systemImage: "speaker.wave.2.fill") { spokenOutput.play(text: text) }
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+
+                Text(spokenOutput.disclosure)
+                    .font(.lifeboard(.caption2))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
+                    .accessibilityLabel("Spoken with an AI-generated voice")
+            }
+            .accessibilityElement(children: .contain)
         }
     }
 

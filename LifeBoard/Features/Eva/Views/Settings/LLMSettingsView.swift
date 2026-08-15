@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 struct LLMSettingsView: View {
@@ -10,6 +11,8 @@ struct LLMSettingsView: View {
     @Binding var currentThread: Thread?
     var showsCloseButton: Bool = false
     @StateObject private var assistantIdentity = AssistantIdentityModel()
+    @State private var cloudAccount = EvaCloudAccountState.shared
+    @AppStorage("eva.cloud.migration.notice.dismissed.v1") private var dismissedCloudMigrationNotice = false
 
     private var spacing: SemanticSpacingTokens {
         tokens.spacing
@@ -47,7 +50,7 @@ struct LLMSettingsView: View {
                 SettingsHeroCard(
                     eyebrow: assistantIdentity.snapshot.uppercaseName,
                     title: "Run your day with \(assistantIdentity.snapshot.displayName)",
-                    subtitle: "Manage behavior, local models, and memory for your private executive assistant.",
+                    subtitle: "Manage Cloud EVA, Offline EVA, behavior, and the context you choose to share.",
                     statusItems: heroItems
                 )
                 .padding(.horizontal, spacing.screenHorizontal)
@@ -112,9 +115,10 @@ struct LLMSettingsView: View {
 
     private var phoneContent: some View {
         VStack(spacing: 0) {
-            behaviorSection(baseIndex: 1)
-            modelsSection(baseIndex: 4)
-            privacySection(baseIndex: 6)
+            cloudSection(baseIndex: 1)
+            behaviorSection(baseIndex: 3)
+            modelsSection(baseIndex: 6)
+            privacySection(baseIndex: 8)
         }
     }
 
@@ -122,17 +126,82 @@ struct LLMSettingsView: View {
         VStack(spacing: 0) {
             HStack(alignment: .top, spacing: spacing.sectionGap) {
                 VStack(spacing: 0) {
-                    behaviorSection(baseIndex: 1, includeHorizontalPadding: false)
+                    cloudSection(baseIndex: 1, includeHorizontalPadding: false)
+                    behaviorSection(baseIndex: 3, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 560, alignment: .top)
 
                 VStack(spacing: 0) {
-                    modelsSection(baseIndex: 4, includeHorizontalPadding: false)
-                    privacySection(baseIndex: 6, includeHorizontalPadding: false)
+                    modelsSection(baseIndex: 6, includeHorizontalPadding: false)
+                    privacySection(baseIndex: 8, includeHorizontalPadding: false)
                 }
                 .frame(maxWidth: 560, alignment: .top)
             }
             .padding(.horizontal, spacing.screenHorizontal)
+        }
+    }
+
+    private func cloudSection(baseIndex: Int, includeHorizontalPadding: Bool = true) -> some View {
+        VStack(spacing: 0) {
+            SettingsSectionHeader(
+                title: "Cloud & Offline EVA",
+                subtitle: "Connect Luna, review credits and consent, or keep using an installed local model."
+            )
+            .enhancedStaggeredAppearance(index: baseIndex)
+            .padding(.top, spacing.sectionGap)
+
+            if appManager.installedModels.isEmpty == false,
+               cloudAccount.isAuthenticated == false,
+               dismissedCloudMigrationNotice == false {
+                SurfaceCard(active: true) {
+                    VStack(alignment: .leading, spacing: spacing.s12) {
+                        HStack(alignment: .top, spacing: spacing.s12) {
+                            Image(systemName: "cloud.sun.fill")
+                                .foregroundStyle(Color.lifeboard(.accentPrimary))
+                                .accessibilityHidden(true)
+                            VStack(alignment: .leading, spacing: spacing.s4) {
+                                Text("Cloud EVA is now available")
+                                    .font(.lifeboard(.headline))
+                                    .foregroundStyle(Color.lifeboard(.textPrimary))
+                                Text("Your installed model remains available as Offline EVA. Connect Luna when you want stronger cloud answers and spoken output.")
+                                    .font(.lifeboard(.caption1))
+                                    .foregroundStyle(Color.lifeboard(.textSecondary))
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
+                        }
+
+                        Button("Dismiss") { dismissedCloudMigrationNotice = true }
+                            .font(.lifeboard(.button))
+                            .foregroundStyle(Color.lifeboard(.accentPrimary))
+                            .accessibilityIdentifier("llmSettings.cloudMigration.dismiss")
+                    }
+                }
+                .accessibilityIdentifier("llmSettings.cloudMigration.notice")
+                .padding(.horizontal, includeHorizontalPadding ? spacing.screenHorizontal : 0)
+                .padding(.top, spacing.s12)
+            }
+
+            SurfaceCard(active: cloudAccount.canUseCloud) {
+                NavigationLink {
+                    EvaCloudSettingsView()
+                } label: {
+                    SettingsNavigationRow(
+                        descriptor: SettingsDestinationDescriptor(
+                            iconName: "cloud.fill",
+                            title: "Cloud EVA",
+                            subtitle: "Sign in with Apple, verify 18+, choose context, and manage Luna credits.",
+                            trailingStatus: cloudAccount.isAuthenticated ? "Connected" : "Set up",
+                            inlineBadge: cloudAccount.credits.map { SettingsInlineBadge(title: "\($0.balance) credits") },
+                            tone: cloudAccount.canUseCloud ? .success : .accent,
+                            accessibilityIdentifier: "llmSettings.cloudEvaRow"
+                        )
+                    )
+                }
+                .buttonStyle(.plain)
+            }
+            .enhancedStaggeredAppearance(index: baseIndex + 1)
+            .padding(.horizontal, includeHorizontalPadding ? spacing.screenHorizontal : 0)
+            .padding(.top, spacing.s12)
         }
     }
 
@@ -260,7 +329,7 @@ struct LLMSettingsView: View {
 
     private var footer: some View {
         VStack(spacing: spacing.s4) {
-            Text("Responses and memory stay local to your device.")
+            Text("Offline EVA stays local. Cloud EVA sends only the request context you authorize.")
                 .font(.lifeboard(.caption2))
                 .foregroundStyle(Color.lifeboard(.textQuaternary))
 
@@ -501,13 +570,23 @@ struct LLMDataPrivacySettingsView: View {
     }
 
     private func deleteChats() {
-        do {
-            currentThread = nil
-            try modelContext.delete(model: Thread.self)
-            try modelContext.delete(model: Message.self)
-            try modelContext.save()
-        } catch {
-            logError("Failed to delete chats.")
+        Task { @MainActor in
+            do {
+                let messages = try modelContext.fetch(FetchDescriptor<Message>())
+                for message in messages where message.role == .assistant {
+                    let renderModel = ChatMessageRenderModel(message: message)
+                    if let answer = renderModel.answerText,
+                       answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                        await EvaSpokenOutputController.shared.deleteCachedSpeech(for: answer)
+                    }
+                }
+                currentThread = nil
+                try modelContext.delete(model: Thread.self)
+                try modelContext.delete(model: Message.self)
+                try modelContext.save()
+            } catch {
+                logError("Failed to delete chats.")
+            }
         }
     }
 }

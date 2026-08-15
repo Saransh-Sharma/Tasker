@@ -42,6 +42,10 @@ struct MessageView: View {
 
     @State var dayOverviewNotices: [String] = []
 
+    @State var spokenOutput = EvaSpokenOutputController.shared
+
+    @State var paidSpeechRegenerationText: String?
+
     let renderModel: ChatMessageRenderModel
 
     let now: Date
@@ -108,6 +112,23 @@ struct MessageView: View {
                     fields: ["run_id": payload.runID?.uuidString ?? "unknown"]
                 )
             }
+        }
+        .confirmationDialog(
+            "Regenerate spoken audio for one cloud credit?",
+            isPresented: Binding(
+                get: { paidSpeechRegenerationText != nil },
+                set: { if !$0 { paidSpeechRegenerationText = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button("Regenerate · 1 credit") {
+                guard let text = paidSpeechRegenerationText else { return }
+                paidSpeechRegenerationText = nil
+                spokenOutput.play(text: text, allowPaidRegeneration: true)
+            }
+            Button("Cancel", role: .cancel) { paidSpeechRegenerationText = nil }
+        } message: {
+            Text("The local audio copy is unavailable. A new cloud rendering uses one credit.")
         }
     }
 }

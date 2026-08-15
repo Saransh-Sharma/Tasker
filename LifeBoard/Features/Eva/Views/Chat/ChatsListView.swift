@@ -231,6 +231,7 @@ struct ChatsListView: View {
                 selection = nil
                 await Task.yield()
                 await ThreadContextAttachmentStore.shared.clear(threadID: threadID)
+                await deleteCachedSpeech(for: targetThread)
                 modelContext.delete(targetThread)
                 do {
                     try modelContext.save()
@@ -255,6 +256,7 @@ struct ChatsListView: View {
         }
         Task { @MainActor in
             await ThreadContextAttachmentStore.shared.clear(threadID: threadID)
+            await deleteCachedSpeech(for: thread)
             modelContext.delete(thread)
             do {
                 try modelContext.save()
@@ -264,6 +266,16 @@ struct ChatsListView: View {
                     message: "Failed to save chat thread deletion",
                     fields: ["thread_id": threadID.uuidString, "error": error.localizedDescription]
                 )
+            }
+        }
+    }
+
+    private func deleteCachedSpeech(for thread: Thread) async {
+        for message in thread.messages where message.role == .assistant {
+            let renderModel = ChatMessageRenderModel(message: message)
+            if let answer = renderModel.answerText,
+               answer.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+                await EvaSpokenOutputController.shared.deleteCachedSpeech(for: answer)
             }
         }
     }

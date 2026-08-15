@@ -1254,28 +1254,6 @@ extension ChatView {
         )
     }
 
-    @MainActor
-    private func promptSnapshot(
-        threadID: UUID,
-        model: MLXLMCommon.ModelConfiguration,
-        systemPrompt: String
-    ) -> LLMChatPromptSnapshot? {
-        guard let thread = thread(matching: threadID) else {
-            logWarning(
-                event: "chat_thread_resolve_failed",
-                message: "Could not resolve chat thread for prompt snapshot",
-                fields: ["thread_id": threadID.uuidString]
-            )
-            return nil
-        }
-        let startedAt = Date()
-        return LLMChatPromptSnapshot(
-            messages: model.getChatMessages(thread: thread, systemPrompt: systemPrompt),
-            systemPromptCharacterCount: systemPrompt.count,
-            buildDurationMs: Int(Date().timeIntervalSince(startedAt) * 1_000)
-        )
-    }
-
 }
 
 // MARK: - Generation entry point
@@ -1487,10 +1465,13 @@ extension ChatView {
             llm: llm,
             taskReadModelRepository: LLMContextRepositoryFactory.taskReadModelRepository
         )
+        let planUsesCloud = await MainActor.run { EvaCloudAccountState.shared.canUseCloud }
         let planResult = await service.generatePlan(
             userPrompt: message,
             thread: Thread(),
-            contextPayload: authorizedLifeEvidence.injecting(into: contextPayload.payload),
+            contextPayload: planUsesCloud
+                ? contextPayload.payload
+                : authorizedLifeEvidence.injecting(into: contextPayload.payload),
             taskTitleByID: [:],
             projectNameByID: [:],
             knownTaskIDs: [],
@@ -1842,6 +1823,14 @@ extension ChatView {
             slashContext: slashCommandContext,
             taskContext: runtimeTaskContext
         )
+        let cloudContext = EvaCloudContextProjection.sections(
+            taskProjection: contextPayload.payload,
+            executiveState: executiveContext,
+            slashCommandState: slashCommandContext,
+            personalMemory: memoryBlock,
+            evidence: authorizedLifeEvidence,
+            consent: EvaCloudAccountState.shared.consent
+        )
         PerformanceTrace.end(promptAssemblyTrace)
         ChatGenerationLog.promptComponentSizes(
             threadID: tID,
@@ -1853,9 +1842,13 @@ extension ChatView {
             finalPrompt: dynamicSystemPrompt
         )
 
-        guard let modelName = appManager.currentModelName else {
+        guard let modelName = EvaModelSelection.resolve(appManager.currentModelName) else {
             await MainActor.run {
-                _ = sendMessage(role: .assistant, content: "No model selected", threadID: threadID)
+                _ = sendMessage(
+                    role: .assistant,
+                    content: "Activate Cloud EVA or install an Offline EVA model to continue.",
+                    threadID: threadID
+                )
                 llm.isThinking = false
             }
             return
@@ -1872,7 +1865,8 @@ extension ChatView {
         await MainActor.run {
             updatePendingResponsePhase(.preparingModel, for: runID)
         }
-        let prepareResult = await LLMRuntimeCoordinator.shared.ensureReady(modelName: modelName)
+        let preparation = await EvaRuntimePreparation.ensureReady(modelName: modelName, route: .chat)
+        let (prepareResult, cloudReady) = preparation
         let prepareMs = Int(Date().timeIntervalSince(prepareStartedAt) * 1_000)
         ChatGenerationLog.modelPrepare(
             modelName: modelName,
@@ -1911,10 +1905,12 @@ extension ChatView {
         }
         guard let promptSnapshot = await MainActor.run(
             body: {
-                self.promptSnapshot(
+                EvaChatPromptSnapshotFactory.make(
                     threadID: threadID,
+                    resolveThread: { self.thread(matching: $0) },
                     model: runtimeModelConfiguration,
-                    systemPrompt: dynamicSystemPrompt
+                    systemPrompt: dynamicSystemPrompt,
+                    cloudContext: cloudContext
                 )
             }
         ) else {
@@ -1967,7 +1963,7 @@ extension ChatView {
         let primaryUsableOutput = primaryOutputAssessment.finalOutput.isEmpty == false &&
             primaryOutputAssessment.qualityAssessment.hardFailureReasons.isEmpty
 
-        if qualityAssessment.shouldRetry {
+        if qualityAssessment.shouldRetry && cloudReady == false {
             logWarning(
                 event: "chat_quality_retry_triggered",
                 message: "Retrying chat generation in answer-completion mode",
@@ -2015,45 +2011,21 @@ extension ChatView {
                 taskContext: retryTaskContext,
                 additionalInstruction: "Return only the final answer. Do not repeat the previous analysis, thinking, or intro. Keep it short and directly useful."
             )
-            let retryThread = Thread()
             let retrySeedContent = primaryOutputAssessment.finalOutput.isEmpty == false
                 ? primaryOutputAssessment.finalOutput
                 : output
-            retryThread.messages = [
-                Message(role: .user, content: message, thread: retryThread),
-                Message(
-                    role: .assistant,
-                    content: retrySeedContent,
-                    thread: retryThread,
-                    sourceModelName: prepareResult.resolvedModelName
-                ),
-                Message(
-                    role: .user,
-                    content: "Continue with only the final answer. Do not repeat the prior analysis, thinking, or bullets.",
-                    thread: retryThread
-                )
-            ]
-            let retryRequestOptions = LLMGenerationRequestOptions.answerCompletionRetry(
-                for: runtimeModelConfiguration
-            )
-            let retryProfile = LLMGenerationProfile.chatProfile(
-                for: runtimeModelConfiguration,
-                requestOptions: retryRequestOptions
-            )
-            let retryPromptStartedAt = Date()
-            let retryPromptSnapshot = LLMChatPromptSnapshot(
-                messages: runtimeModelConfiguration.getChatMessages(
-                    thread: retryThread,
-                    systemPrompt: retrySystemPrompt
-                ),
-                systemPromptCharacterCount: retrySystemPrompt.count,
-                buildDurationMs: Int(Date().timeIntervalSince(retryPromptStartedAt) * 1_000)
+            let retryPrompt = EvaChatRetryPromptFactory.make(
+                userMessage: message,
+                seedContent: retrySeedContent,
+                sourceModelName: prepareResult.resolvedModelName,
+                model: runtimeModelConfiguration,
+                systemPrompt: retrySystemPrompt
             )
             let retryOutput = await llm.generate(
                 modelName: prepareResult.resolvedModelName,
-                promptSnapshot: retryPromptSnapshot,
-                profile: retryProfile,
-                requestOptions: retryRequestOptions
+                promptSnapshot: retryPrompt.snapshot,
+                profile: retryPrompt.profile,
+                requestOptions: retryPrompt.requestOptions
             )
             let retryTerminationReason = await MainActor.run { llm.lastTerminationReason }
             ChatGenerationLog.generationResult(
