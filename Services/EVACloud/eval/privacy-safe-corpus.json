@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "privacy": "Synthetic content only. No production or user-derived data.",
+  "cases": [
+    { "route": "chat", "prompt": "Suggest a calm way to organize a fictional afternoon.", "context": [] },
+    { "route": "plan", "prompt": "Return a plan that makes no mutations because no projects are supplied.", "context": [] },
+    { "route": "planRepair", "prompt": "Return a valid empty repaired plan.", "context": [] },
+    { "route": "fieldSuggestion", "prompt": "Suggest fields for a synthetic task called Read a chapter.", "context": [] },
+    { "route": "topThree", "prompt": "Choose the supplied synthetic task as a priority.", "context": [{ "category": "planning", "payload": { "tasks": [{ "id": "11111111-1111-4111-8111-111111111111", "title": "Read a fictional chapter" }] } }] },
+    { "route": "taskBreakdown", "prompt": "Break down the fictional task Prepare a picnic.", "context": [] },
+    { "route": "dailyBrief", "prompt": "Write a short synthetic daily brief.", "context": [] },
+    { "route": "universalInputClassification", "prompt": "Buy fictional groceries tomorrow.", "context": [] },
+    { "route": "dynamicChips", "prompt": "Suggest neutral productivity prompts.", "context": [] },
+    { "route": "journalAnswer", "prompt": "Offer a general reflection prompt without personal context.", "context": [] },
+    { "route": "knowledgeAnswer", "prompt": "Explain the idea of time blocking in general terms.", "context": [] },
+    { "route": "shortcutsAnswer", "prompt": "Give a concise synthetic status summary.", "context": [] },
+    { "route": "debugSmoke", "prompt": "Reply ready.", "context": [] }
+  ]
+}
