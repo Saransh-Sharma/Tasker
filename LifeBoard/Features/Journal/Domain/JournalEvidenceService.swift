@@ -13,8 +13,8 @@
 //  3. `SensitiveDomainPolicy` — high-risk content suppresses analysis and
 //     yields supportive, non-clinical copy only.
 //
-//  The language model (FoundationModels when available and enabled) only
-//  phrases retrieved evidence; retrieval and citation validation stay
+//  The host-selected EVA provider only phrases retrieved evidence; retrieval
+//  and citation validation stay
 //  deterministic, with a model-free fallback always available.
 //
 
@@ -104,18 +104,14 @@ struct JournalEvidenceService {
             persona: persona
         )
 
-        #if canImport(FoundationModels)
-        if JournalFeatureFlags.evaFoundationModelsResponderEnabled, #available(iOS 26.0, macOS 26.0, *) {
-            if let modelAnswer = try? await FoundationModelsEvidenceResponder().respond(
-                question: question,
-                evidence: evidence,
-                persona: persona,
-                fallback: fallback
-            ) {
-                return modelAnswer
-            }
+        if let modelAnswer = try? await EvidenceResponderRegistry.shared.response(
+            question: question,
+            evidence: evidence,
+            persona: persona,
+            fallback: fallback
+        ) {
+            return modelAnswer
         }
-        #endif
         return fallback
     }
 
