@@ -1,0 +1,18 @@
+{
+  "requestId": "5ad4a27b-73f7-48d6-909f-14f12a8fc98c",
+  "route": "chat",
+  "contractVersion": 1,
+  "locale": "en-IN",
+  "timeZone": "Asia/Kolkata",
+  "messages": [{ "role": "user", "content": "Plan my afternoon." }],
+  "context": [{ "category": "planning", "payload": { "taskCount": 3 } }],
+  "clientVersion": "1.0.0",
+  "platform": "ios",
+  "installationId": "e6703cd8-eada-48bd-b9f5-b593d03d09a3",
+  "consentRevision": 0,
+  "providerCapabilities": {
+    "streaming": true,
+    "structuredOutput": true,
+    "spokenOutput": true
+  }
+}

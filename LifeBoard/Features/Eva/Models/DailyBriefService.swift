@@ -45,7 +45,7 @@ final class DailyBriefService {
     ) async -> DailyBriefOutput {
         let resolvedHabitSignals = await resolveHabitSignals(suppliedSignals: habitSignals)
         let route = AIChatModeRouter.route(for: .dailyBrief)
-        guard let modelName = route.selectedModelName else {
+        guard let modelName = EvaModelSelection.resolve(route.selectedModelName) else {
             return DailyBriefOutput(
                 brief: fallbackBrief(
                     todayOpenCount: todayOpenCount,

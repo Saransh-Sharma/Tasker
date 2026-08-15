@@ -403,20 +403,18 @@ final class AssistantPlannerService {
             ))
         }
 
-        guard
-            let modelName = modelRoute.selectedModelName,
-            let model = ModelConfiguration.getModelByName(modelName)
-        else {
+        guard let modelName = EvaModelSelection.resolve(modelRoute.selectedModelName) else { return .failure(.noModelConfigured) }
+        let model = ModelConfiguration.getModelByName(modelName)
+        guard model != nil || EvaCloudAccountState.shared.canUseCloud else {
             return .failure(.noModelConfigured)
         }
-
         let systemPrompt = planSystemPrompt(referenceDate: fallbackContext.now)
         let plannerThread = cleanPlannerThread(userPrompt: userPrompt, contextPayload: contextPayload)
         logWarning(
             event: "eva_plan_started",
             message: "Started EVA plan generation",
             fields: traceFields(traceContext, [
-                "model": model.name,
+                "model": modelName,
                 "prompt_chars": String(userPrompt.count),
                 "context_chars": String(contextPayload.count),
                 "clean_thread_message_count": String(plannerThread.messages.count),
@@ -424,17 +422,16 @@ final class AssistantPlannerService {
             ])
         )
         let output = await llm.generate(
-            modelName: model.name,
+            modelName: modelName,
             thread: plannerThread,
             systemPrompt: systemPrompt,
             profile: .chatPlanJSON,
-            requestOptions: .structuredOutput(for: model)
+            requestOptions: model.map(LLMGenerationRequestOptions.structuredOutput(for:))
         )
 
         if output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return .failure(.generationFailed("empty_model_output"))
         }
-
         logJSONShape(rawOutput: output, stage: "model", traceContext: traceContext)
         let validated = AssistantEnvelopeValidator.parseAndValidateDetailed(
             rawOutput: output,
@@ -458,6 +455,7 @@ final class AssistantPlannerService {
                 rawOutput: output,
                 userPrompt: userPrompt,
                 contextPayload: contextPayload,
+                modelName: modelName,
                 model: model,
                 knownTaskIDs: effectiveKnownTaskIDs,
                 intent: intent,
@@ -469,7 +467,7 @@ final class AssistantPlannerService {
                     proposalCards: EvaProposalCardBuilder.build(commands: repaired.envelope.commands, taskTitleByID: effectiveTaskTitleByID),
                     taskTitleByID: effectiveTaskTitleByID,
                     projectNameByID: projectNameByID,
-                    modelName: model.name,
+                    modelName: modelName,
                     route: modelRoute,
                     generationSource: repaired.didNormalize ? "repair_normalized" : "repair",
                     contextReceipt: contextReceipt,
@@ -490,7 +488,7 @@ final class AssistantPlannerService {
                     proposalCards: fallback.cards,
                     taskTitleByID: effectiveTaskTitleByID,
                     projectNameByID: projectNameByID,
-                    modelName: model.name,
+                    modelName: modelName,
                     route: modelRoute,
                     generationSource: "deterministic_fallback",
                     contextReceipt: contextReceipt,
@@ -529,7 +527,7 @@ final class AssistantPlannerService {
                     proposalCards: output.cards,
                     taskTitleByID: effectiveTaskTitleByID,
                     projectNameByID: projectNameByID,
-                    modelName: model.name,
+                    modelName: modelName,
                     route: modelRoute,
                     generationSource: "grounding_rejected",
                     contextReceipt: contextReceipt,
@@ -542,7 +540,7 @@ final class AssistantPlannerService {
                 proposalCards: EvaProposalCardBuilder.build(commands: grounded.commands, taskTitleByID: effectiveTaskTitleByID),
                 taskTitleByID: effectiveTaskTitleByID,
                 projectNameByID: projectNameByID,
-                modelName: model.name,
+                modelName: modelName,
                 route: modelRoute,
                 generationSource: parsed.didNormalize ? "model_normalized" : "model",
                 contextReceipt: contextReceipt,
@@ -716,7 +714,8 @@ final class AssistantPlannerService {
         rawOutput: String,
         userPrompt: String,
         contextPayload: String,
-        model: ModelConfiguration,
+        modelName: String,
+        model: ModelConfiguration?,
         knownTaskIDs: Set<UUID>,
         intent: EvaPlannerIntent,
         traceContext: EvaTurnTraceContext?
@@ -736,11 +735,11 @@ final class AssistantPlannerService {
         """
         thread.messages.append(Message(role: .user, content: prompt, thread: thread))
         let output = await llm.generate(
-            modelName: model.name,
+            modelName: modelName,
             thread: thread,
             systemPrompt: planSystemPrompt(referenceDate: nowProvider()),
-            profile: .chatPlanJSON,
-            requestOptions: .structuredOutput(for: model)
+            profile: .planRepairJSON,
+            requestOptions: model.map(LLMGenerationRequestOptions.structuredOutput(for:))
         )
         logJSONShape(rawOutput: output, stage: "repair", traceContext: traceContext)
         let parsed = AssistantEnvelopeValidator.parseAndValidateDetailed(

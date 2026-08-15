@@ -8,6 +8,7 @@ public enum RemoteEvaContextCategory: String, Codable, CaseIterable, Hashable, S
     case journal
     case health
     case lifeMoments
+    case personalMemory
     case planningContext
 }
 
@@ -32,7 +33,7 @@ public struct RemoteEvaContextSection: Codable, Equatable, Sendable {
 /// remains governed by `SystemSurfaceSnapshot` and is deliberately
 /// outside this policy.
 public struct RemoteEvaContextPolicy: Codable, Equatable, Sendable {
-    public static let currentSchemaVersion = 1
+    public static let currentSchemaVersion = 2
 
     public let schemaVersion: Int
     public let accountID: String

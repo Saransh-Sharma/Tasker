@@ -89,7 +89,7 @@ final class AISuggestionService {
         fallback.modelName = nil
         fallback.routeBanner = route.bannerMessage
 
-        guard let modelName = route.selectedModelName else {
+        guard let modelName = EvaModelSelection.resolve(route.selectedModelName, route: .fieldSuggestion) else {
             return fallback
         }
 
@@ -152,7 +152,7 @@ final class AISuggestionService {
             routeBanner: route.bannerMessage
         )
 
-        guard let modelName = route.selectedModelName else {
+        guard let modelName = EvaModelSelection.resolve(route.selectedModelName, route: .topThree) else {
             return fallback
         }
 
@@ -204,7 +204,7 @@ final class AISuggestionService {
         guard fallback.isEmpty == false else { return [] }
 
         let route = AIChatModeRouter.route(for: .dynamicChips)
-        guard let modelName = route.selectedModelName else {
+        guard let modelName = EvaModelSelection.resolve(route.selectedModelName, route: .dynamicChips) else {
             return fallback
         }
 

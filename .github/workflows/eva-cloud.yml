@@ -1,0 +1,136 @@
+name: EVA Cloud
+
+on:
+  pull_request:
+  push:
+    branches: [develop, master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eva-cloud-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm audit --audit-level=high
+      - name: Reject local and production credentials
+        run: |
+          set -euo pipefail
+          if find . -type f \( -name '.dev.vars' -o -name '*.p8' \) -not -path './node_modules/*' | grep -q .; then
+            echo 'Local secret files or Apple private keys are tracked.'
+            exit 1
+          fi
+          if git grep -nE '(^|[^A-Za-z0-9])sk-(proj-)?[A-Za-z0-9_-]{20,}|BEGIN (EC |RSA )?PRIVATE KEY' -- ':!package-lock.json'; then
+            echo 'A credential-shaped value is present in tracked source.'
+            exit 1
+          fi
+      - run: npm run contracts:check
+      - run: npm run backend:typecheck
+      - run: npm run backend:test
+      - run: npm --workspace @lifeboard/eva-cloud run deploy:dry-run
+      - run: npm run lint
+      - run: npm run build
+      - run: npm run check:marketing
+
+  ios-guardrails:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Resolve Swift packages and build iOS
+        run: |
+          xcodebuild -workspace LifeBoard.xcworkspace \
+            -scheme LifeBoard \
+            -configuration Debug \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Build Mac Catalyst
+        run: |
+          xcodebuild -workspace LifeBoard.xcworkspace \
+            -scheme LifeBoard \
+            -configuration Debug \
+            -destination 'generic/platform=macOS,variant=Mac Catalyst' \
+            CODE_SIGNING_ALLOWED=NO build
+      - name: Repository guardrails
+        run: |
+          set -euo pipefail
+          for check_script in \
+            scripts/check-xcode-target-membership.sh \
+            scripts/check-module-boundaries.sh \
+            scripts/check-file-size-guardrails.sh \
+            scripts/check-directory-shrapnel.sh \
+            scripts/check-accessibility-identifiers.sh \
+            scripts/check-localization-keys.sh \
+            scripts/check-frozen-contracts.sh \
+            scripts/check-no-print-logs.sh \
+            scripts/check-documentation-current.sh; do
+            bash "$check_script"
+          done
+      - name: Baseline-aware iOS tests
+        run: bash scripts/run-baseline-aware-tests.sh
+
+  deploy-staging:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    needs: [verify, ios-guardrails]
+    runs-on: ubuntu-latest
+    environment: eva-cloud-staging
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Verify staging bindings, client pins, and remote secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm --workspace @lifeboard/eva-cloud run preflight:staging -- --remote-secrets
+      - name: Upload staging Worker version
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm run backend:deploy:staging
+      - name: Verify staging health and signed fail-closed configuration
+        if: vars.EVA_STAGING_BASE_URL != '' && vars.EVA_CONFIG_PUBLIC_JWK != ''
+        env:
+          EVA_STAGING_BASE_URL: ${{ vars.EVA_STAGING_BASE_URL }}
+          EVA_CONFIG_PUBLIC_JWK: ${{ vars.EVA_CONFIG_PUBLIC_JWK }}
+        run: npm --workspace @lifeboard/eva-cloud run smoke:staging
+
+  upload-production:
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/master'
+    needs: [verify, ios-guardrails]
+    runs-on: ubuntu-latest
+    environment: eva-cloud-production
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Verify production bindings, client pins, and remote secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm --workspace @lifeboard/eva-cloud run preflight:production -- --remote-secrets
+      - name: Upload production Worker version for progressive deployment
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npm --workspace @lifeboard/eva-cloud run deploy:production

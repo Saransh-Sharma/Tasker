@@ -1,7 +1,6 @@
 //
 //  Data.swift
 //
-//
 
 @preconcurrency import SwiftUI
 import SwiftData
@@ -12,6 +11,7 @@ enum EvaActivationStage: String, Codable, CaseIterable {
     case intro
     case aboutYou
     case goals
+    case cloudSetup
     case modelChoice
     case modelDownload
     case installRecovery

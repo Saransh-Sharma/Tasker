@@ -1,0 +1,10 @@
+{
+  "plan": { "schemaVersion": 3, "commands": [], "rationaleText": "No changes are required." },
+  "planRepair": { "schemaVersion": 3, "commands": [], "rationaleText": "The empty plan is valid." },
+  "fieldSuggestion": { "priority": "high", "energy": "medium", "type": "upcoming", "context": "computer", "rationale": "A focused desk task.", "confidence": 0.9 },
+  "topThree": { "items": [{ "task_id": "11111111-1111-4111-8111-111111111111", "rationale": "Synthetic priority.", "confidence": 0.9 }] },
+  "taskBreakdown": ["Choose a fictional topic", "Read one chapter", "Write a short summary"],
+  "dailyBrief": { "brief": "A calm synthetic day with one clear priority." },
+  "universalInputClassification": { "intent": "captureTask", "rawText": "Read a fictional chapter", "clarifyOptions": [], "confidence": 0.95 },
+  "dynamicChips": { "chips": ["Plan my day", "Pick a priority", "Review my week"] }
+}
