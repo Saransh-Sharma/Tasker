@@ -2,36 +2,15 @@
 //  UniversalInputSemanticAdapter.swift
 //  LifeBoard
 //
-//  Stage-3 + stage-4 semantic intent adapters for the universal input
-//  pipeline. Stage 3 uses Apple Foundation Models with a bounded
-//  `@Generable` schema when available; stage 4 falls back to the app's
-//  installed MLX generative runtime with a prompt-engineered bounded JSON
-//  schema (mirroring `AISuggestionService`). Both adapters produce only
+//  Semantic intent adapter for the universal input pipeline. Submitted input
+//  uses the same Cloud EVA / Offline EVA provider seam as the rest of the app.
+//  Live preview remains deterministic. The adapter produces only
 //  allow-listed resolutions and never invoke repositories, save records,
 //  or access protected journal content. Unparseable output yields `nil`
 //  and the resolver terminal `.answer` becomes an EVA conversation.
 //
 
 import Foundation
-#if canImport(FoundationModels)
-import FoundationModels
-
-@available(iOS 26.0, macOS 26.0, *)
-@Generable
-private struct UniversalInputFoundationModelSchema {
-    @Guide(description: "One of: captureTask, captureNote, captureJournal, startPlanning, weeklyPlanner, dayRescue, overdueRescue, showSchedule, clarify, conversation")
-    var intent: String
-
-    @Guide(description: "The user-facing raw text contributing to this capture, if any. Empty string when not applicable.")
-    var rawText: String
-
-    @Guide(description: "When intent=clarify, zero to three short concrete option labels. Empty otherwise.")
-    var clarifyOptions: [String]
-
-    @Guide(description: "Confidence between 0.0 and 1.0.")
-    var confidence: Double
-}
-#endif
 
 /// Allow-list of intent labels that the semantic adapters are permitted
 /// to emit. The model can never directly return arbitrary resolution
@@ -50,9 +29,8 @@ public enum UniversalInputSemanticIntent: String, CaseIterable, Sendable {
     case conversation
 }
 
-/// Shared stage-3 + stage-4 schema-definition. The `@Generable` struct
-/// (stage 3) and the JSON DTO (stage 4) both encode the same fields so a
-/// single down-stream mapper handles either source.
+/// Shared bounded semantic result. Cloud EVA and Offline EVA encode the same
+/// fields so one downstream mapper handles either provider.
 public struct UniversalInputSemanticResult: Sendable, Equatable {
     public let intent: UniversalInputSemanticIntent
     public let rawText: String?
@@ -80,87 +58,22 @@ public struct UniversalInputSemanticAdapter: LifeThreadIntentAdapter {
     }
 
     private static func classify(_ input: LifeThreadIntentInput) async -> UniversalInputSemanticResult? {
-        #if canImport(FoundationModels)
-        if #available(iOS 26.0, macOS 26.0, *) {
-            if let resolved = await withTimeout(.seconds(1.2), operation: {
-                try await Self.classifyWithFoundationModels(input)
-            }) {
-                return resolved
-            }
-        }
-        #endif
-        return await classifyWithMLX(input)
+        await classifyWithEva(input)
     }
-
-    #if canImport(FoundationModels)
-    @available(iOS 26.0, macOS 26.0, *)
-    private static func classifyWithFoundationModels(_ input: LifeThreadIntentInput) async throws -> UniversalInputSemanticResult {
-        guard SystemLanguageModel.default.availability == .available else {
-            throw NSError(domain: "UniversalInputSemanticAdapter", code: 1, userInfo: [NSLocalizedDescriptionKey: "Foundation Models unavailable"])
-        }
-        let session = LanguageModelSession(
-            model: .default,
-            instructions: """
-            You classify a single line of user input into one of a fixed set of \
-            productivity intents. You never invoke data, never retrieve personal \
-            content, and never invent information. You select exactly one intent \
-            from the allow-list, optionally surface 2-3 concrete clarification \
-            choices when the intent is `clarify`, and assign a confidence between \
-            0.0 and 1.0. When the input is genuinely conversational, you return \
-            `conversation` with high confidence rather than forcing a capture.
-            """
-        )
-        let prompt = """
-        Available intents:
-        - captureTask: explicit commitment to do something later, often with date/time/project/tag tokens.
-        - captureNote: storing text without a commitment (note, idea, scratchpad).
-        - captureJournal: reflection, journaling, narrative about today or the past.
-        - startPlanning: opening the day-planning activity.
-        - weeklyPlanner: opening the weekly planner.
-        - dayRescue: bringing today's tasks that need replanning into the rescue deck.
-        - overdueRescue: opening the overdue-task rescue deck.
-        - showSchedule: surfacing today's calendar meetings.
-        - clarify: input reads two ways (e.g. "make a note for tomorrow" → note vs. scheduled task). Provide 2-3 concrete option labels.
-        - conversation: genuinely conversational; everything else falls here.
-
-        Input text:
-        \(input.text)
-
-        Context (do not reveal or assume facts beyond this):
-        - Active root: \(input.destination)
-        - Date the user is looking at: \(input.selectedDate.map { ISO8601DateFormatter().string(from: $0) } ?? "today")
-        - Calendar authorized: \(input.calendarAvailable)
-        - Day-rescue eligible: \(input.dayRescueEligible) (today's tasks needing replanning)
-        - Overdue-rescue eligible: \(input.overdueRescueEligible) (stale overdue tasks)
-
-        Respond with the schema. Do not add prose outside the schema.
-        """
-        let response = try await session.respond(to: prompt, generating: UniversalInputFoundationModelSchema.self)
-        let intent = UniversalInputSemanticIntent(rawValue: response.content.intent.trimmingCharacters(in: .whitespacesAndNewlines))
-        guard let intent else {
-            throw NSError(
-                domain: "UniversalInputSemanticAdapter",
-                code: 2,
-                userInfo: [NSLocalizedDescriptionKey: "The classifier returned an intent outside the allow-list."]
-            )
-        }
-        let confidence = min(max(response.content.confidence, 0.0), 1.0)
-        let raw = response.content.rawText.trimmingCharacters(in: .whitespacesAndNewlines)
-        return UniversalInputSemanticResult(
-            intent: intent,
-            rawText: raw.isEmpty ? nil : raw,
-            clarifyOptions: response.content.clarifyOptions,
-            confidence: confidence
-        )
-    }
-    #endif
 
     @MainActor
-    private static func classifyWithMLX(_ input: LifeThreadIntentInput) async -> UniversalInputSemanticResult? {
+    private static func classifyWithEva(_ input: LifeThreadIntentInput) async -> UniversalInputSemanticResult? {
         let route = AIChatModeRouter.route(for: .addTaskSuggestion)
-        guard let requestedModelName = route.selectedModelName else { return nil }
-        let readiness = await LLMRuntimeCoordinator.shared.ensureReady(modelName: requestedModelName)
-        guard readiness.ready else { return nil }
+        let cloudReady = EvaCloudAccountState.shared.canUseCloud(route: .universalInputClassification)
+        let resolvedModelName: String
+        if cloudReady {
+            resolvedModelName = route.selectedModelName ?? "cloud-eva"
+        } else {
+            guard let requestedModelName = route.selectedModelName else { return nil }
+            let readiness = await LLMRuntimeCoordinator.shared.ensureReady(modelName: requestedModelName)
+            guard readiness.ready else { return nil }
+            resolvedModelName = readiness.resolvedModelName
+        }
 
         let prompt = """
         Classify this universal-input request:
@@ -180,12 +93,12 @@ public struct UniversalInputSemanticAdapter: LifeThreadIntentAdapter {
         let message = Message(role: .user, content: prompt, thread: thread)
         thread.messages = [message]
         let output = await LLMRuntimeCoordinator.shared.evaluator.generate(
-            modelName: readiness.resolvedModelName,
+            modelName: resolvedModelName,
             thread: thread,
             systemPrompt: "You are a private, on-device intent classifier. Output valid JSON only. Never invent personal context.",
             profile: .universalInputClassification
         )
-        return decodeMLXResult(output)
+        return decodeModelResult(output)
     }
 
     private struct MLXSemanticDTO: Decodable {
@@ -195,7 +108,7 @@ public struct UniversalInputSemanticAdapter: LifeThreadIntentAdapter {
         let confidence: Double
     }
 
-    private static func decodeMLXResult(_ output: String) -> UniversalInputSemanticResult? {
+    private static func decodeModelResult(_ output: String) -> UniversalInputSemanticResult? {
         let stripped = output
             .replacingOccurrences(of: "```json", with: "")
             .replacingOccurrences(of: "```", with: "")

@@ -111,6 +111,13 @@ extension LifeManagementView {
                 errorCard(message: errorMessage)
             }
 
+            NavigationLink {
+                LifeMapManagementView(areaRows: viewModel.areaRows)
+            } label: {
+                lifeMapDestinationCard
+            }
+            .buttonStyle(.plain)
+
             lifeManagementPrimaryActionCard
 
             if isSearching && hasTreeContent == false {
@@ -135,6 +142,35 @@ extension LifeManagementView {
                 }
             }
         }
+    }
+
+    var lifeMapDestinationCard: some View {
+        SettingsCard(active: true) {
+            HStack(spacing: spacing.s12) {
+                ZStack {
+                    Circle().stroke(Color.lifeboard(.accentPrimary).opacity(0.32), lineWidth: 1)
+                    Circle().fill(Color.lifeboard(.accentPrimary).opacity(0.14)).frame(width: 24, height: 24)
+                    Image(systemName: "point.3.connected.trianglepath.dotted")
+                        .foregroundStyle(Color.lifeboard(.accentPrimary))
+                }
+                .frame(width: 54, height: 54)
+                .accessibilityHidden(true)
+
+                VStack(alignment: .leading, spacing: spacing.s4) {
+                    Text("Life Map")
+                        .font(.lifeboard(.headline))
+                        .foregroundStyle(Color.lifeboard(.textPrimary))
+                    Text("See how your areas, capacity, and LifeBoard roots connect.")
+                        .font(.lifeboard(.callout))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("settings.lifeManagement.lifeMap")
     }
 
     var lifeManagementPrimaryActionCard: some View {

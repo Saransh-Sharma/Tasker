@@ -77,6 +77,8 @@ public struct FoundationShell: View {
     /// Deferred so a `push` never lands under a still-animating sheet.
     @State private var pendingDisplayPanelSettingsPush = false
     @State private var scannedDraft: ScannedDraft?
+    @State private var bridgedScenePhase: ScenePhase = UIApplication.shared.applicationState == .background
+        ? .background : .active
     @State var lifeBoardActionReceipt: ActionReceipt?
     /// Fires the one-shot background warp when a card zooms into its detail
     /// route. Incremented on a real push, never on a redraw.
@@ -256,6 +258,7 @@ public struct FoundationShell: View {
             }
         }
         .onChange(of: router.selectedDestination, initial: true) { _, destination in
+            MotionDiagnosticsState.shared.record("root:\(destination.rawValue)")
             lifeThreadComposer.move(to: destination)
             if destination != .eva {
                 updateEvaComposerFocus(false)
@@ -299,6 +302,15 @@ public struct FoundationShell: View {
                 )
             }
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
+            bridgedScenePhase = .active
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
+            bridgedScenePhase = .inactive
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
+            bridgedScenePhase = .background
+        }
         // "Full motion". `\.accessibilityReduceMotion` is a get-only key path,
         // so this cannot be injected into the environment; `MotionOverride`
         // applies the rule inside the motion policy instead and every token
@@ -314,6 +326,16 @@ public struct FoundationShell: View {
         // the observable preferences at the outermost level so sheets and
         // navigation destinations receive the same environment as root views.
         .environment(runtime.preferences)
+        .lifeBoardMotionDiagnostics(preferences: runtime.preferences)
+        .environment(\.scenePhase, bridgedScenePhase)
+        // Outermost, and after the scene-phase bridge it depends on. This is the
+        // single observation-tracked read of `ShaderReadinessStore` in the shell:
+        // warm-up finishing now invalidates this modifier and re-publishes
+        // readiness downward, which is what the static gate could never do.
+        .lifeBoardResolvedMotion(
+            comfortProfile: runtime.preferences.comfortProfile,
+            requestedAmbientTierID: runtime.preferences.renderingTier.rawValue
+        )
     }
 
     /// Whether the Full motion override is live.
