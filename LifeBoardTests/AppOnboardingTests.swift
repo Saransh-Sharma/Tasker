@@ -68,7 +68,7 @@ final class AppOnboardingTests: XCTestCase {
         )
     }
 
-    func testEligibilityReturnsPromptOnlyForEstablishedWorkspaceWithoutState() async {
+    func testEligibilityDoesNotInterruptEstablishedWorkspace() async {
         let context = makeStoreContext()
         defer { context.cleanup() }
 
@@ -86,14 +86,25 @@ final class AppOnboardingTests: XCTestCase {
             }
         )
 
+        // `.promptOnly` no longer means "present a modal". The coordinator routes
+        // it to a dismissible Home invitation and the permanent Life Map card in
+        // Life Management, so an established workspace is offered the map without
+        // its launch being seized. Asserting `.suppressed` here would lock in the
+        // behaviour where existing users were never told the Life Map exists.
         let result = await service.evaluate()
+        // One custom area, not two: `isCustomLifeArea` excludes "General".
+        XCTAssertEqual(result, .promptOnly(OnboardingWorkspaceSnapshot(
+            customLifeAreaCount: 1,
+            customProjectCount: 1,
+            taskCount: 3
+        )))
 
-        guard case .promptOnly(let snapshot) = result else {
-            return XCTFail("Expected prompt-only onboarding for an established workspace.")
-        }
-        XCTAssertEqual(snapshot.customLifeAreaCount, 1)
-        XCTAssertEqual(snapshot.customProjectCount, 1)
-        XCTAssertEqual(snapshot.taskCount, 3)
+        // And "Not now" has to stick. This is the assertion that was missing
+        // while `establishedWorkspacePromptDismissedVersion` was written by
+        // `markEstablishedWorkspacePromptDismissed()` and read by nothing.
+        context.store.markEstablishedWorkspacePromptDismissed()
+        let afterDismissal = await service.evaluate()
+        XCTAssertEqual(afterDismissal, .suppressed)
     }
 
     func testEligibilitySuppressesWhenCurrentVersionAlreadyHandled() async {
@@ -187,31 +198,6 @@ final class AppOnboardingTests: XCTestCase {
 
 
     @MainActor
-    func testDefaultOnboardingMascotIsYesManAndEvaTransitionIsNonBlocking() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let viewModel = OnboardingFlowModel(
-            stateStore: context.store,
-            isEvaBackgroundPreparationEnabled: false
-        )
-
-        viewModel.prepareForPresentation(snapshot: nil)
-        viewModel.begin(mode: .guided)
-
-        XCTAssertEqual(viewModel.selectedMascotID, .yesman)
-        viewModel.selectGoal(.dailyExecution)
-        viewModel.continueFromIntent()
-
-        XCTAssertEqual(viewModel.step, .lifeAreas)
-        XCTAssertEqual(viewModel.evaPreparationState.phase, .idle)
-    }
-
-
-
-
-
-
     func testCatalogReuseMatchesAliasesForExistingLifeAreasAndProjects() {
         let healthTemplate = tryUnwrap(StarterWorkspaceCatalog.lifeAreaTemplate(id: "health-self"))
         let existingLifeArea = LifeArea(name: "Wellness")
@@ -351,218 +337,6 @@ final class AppOnboardingTests: XCTestCase {
     }
 
     @MainActor
-    func testFlowModelCapsLifeAreaSelectionAtThree() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let viewModel = OnboardingFlowModel(stateStore: context.store)
-        viewModel.begin(mode: .guided)
-        viewModel.selectedLifeAreaIDs = []
-
-        viewModel.toggleLifeArea("health-self")
-        viewModel.toggleLifeArea("work-career")
-        viewModel.toggleLifeArea("life-admin")
-        viewModel.toggleLifeArea("learning-growth")
-
-        XCTAssertEqual(viewModel.selectedLifeAreaIDs.count, 3)
-        XCTAssertFalse(viewModel.selectedLifeAreaIDs.contains("learning-growth"))
-        XCTAssertTrue(viewModel.canContinueLifeAreas)
-    }
-
-    @MainActor
-    func testPrepareForPresentationRestoresJourneySnapshot() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let area = LifeArea(name: "Health")
-        let project = Project(lifeAreaID: area.id, name: "Move your body")
-        let task = TaskDefinition(
-            projectID: project.id,
-            projectName: project.name,
-            lifeAreaID: area.id,
-            title: "Put on workout clothes",
-            estimatedDuration: 60
-        )
-        let projectDraft = tryUnwrap(
-            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health-self"], mode: .guided).first
-        )
-        let snapshot = OnboardingJourneySnapshot(
-            step: .firstWin,
-            mode: .guided,
-            entryContext: .establishedWorkspace,
-            selectedLifeAreaIDs: ["health-self"],
-            showAllLifeAreas: false,
-            projectDrafts: [projectDraft],
-            resolvedLifeAreas: [
-                ResolvedLifeAreaSelection(templateID: "health-self", lifeArea: area, reusedExisting: true)
-            ],
-            resolvedProjects: [
-                ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
-            ],
-            createdHabits: [
-                HabitDefinitionRecord(
-                    lifeAreaID: area.id,
-                    projectID: project.id,
-                    title: "Drink water after you wake up",
-                    habitType: "positive_daily_check_in"
-                )
-            ],
-            createdHabitTemplateMap: ["habit-health-water": UUID()],
-            createdTasks: [task],
-            createdTaskTemplateMap: ["task-health-move-clothes": task.id],
-            focusTaskID: task.id,
-            successSummary: nil,
-            hasSeenSuccess: false
-        )
-
-        let viewModel = OnboardingFlowModel(stateStore: context.store)
-        viewModel.prepareForPresentation(snapshot: snapshot)
-
-        XCTAssertEqual(viewModel.step, .firstWin)
-        XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
-        XCTAssertEqual(viewModel.mode, .guided)
-        
-        XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["health-self"]))
-        XCTAssertEqual(viewModel.createdHabits.map(\.title), ["Drink water after you wake up"])
-        XCTAssertEqual(viewModel.focusTaskID, task.id)
-        
-        XCTAssertEqual(viewModel.createdTasks.map(\.id), [task.id])
-    }
-
-    @MainActor
-    func testStoreAndRestoreJourneySnapshotPreservesMidFlowState() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let area = LifeArea(name: "Health")
-        let project = Project(lifeAreaID: area.id, name: "Move your body")
-        let task = TaskDefinition(
-            projectID: project.id,
-            projectName: project.name,
-            lifeAreaID: area.id,
-            title: "Put on workout clothes",
-            estimatedDuration: 60
-        )
-        let projectDraft = tryUnwrap(
-            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["health-self"], mode: .guided).first
-        )
-        let snapshot = OnboardingJourneySnapshot(
-            step: .firstWin,
-            mode: .custom,
-            entryContext: .establishedWorkspace,
-            selectedLifeAreaIDs: ["health-self"],
-            showAllLifeAreas: true,
-            projectDrafts: [projectDraft],
-            expandedProjectIDs: [UUID()],
-            resolvedLifeAreas: [
-                ResolvedLifeAreaSelection(templateID: "health-self", lifeArea: area, reusedExisting: true)
-            ],
-            resolvedProjects: [
-                ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
-            ],
-            createdHabits: [
-                HabitDefinitionRecord(
-                    lifeAreaID: area.id,
-                    projectID: project.id,
-                    title: "Put your phone on the charger before bed",
-                    habitType: "positive_daily_check_in"
-                )
-            ],
-            createdHabitTemplateMap: ["habit-health-charge": UUID()],
-            createdTasks: [task],
-            createdTaskTemplateMap: ["task-health-move-clothes": task.id],
-            focusTaskID: task.id,
-            successSummary: nil,
-            hasSeenSuccess: false,
-        )
-
-        context.store.storeJourney(snapshot)
-
-        let restoredSnapshot = tryUnwrap(context.store.load().journeySnapshot)
-        XCTAssertEqual(restoredSnapshot.step, .firstWin)
-        XCTAssertEqual(restoredSnapshot.entryContext, .establishedWorkspace)
-        XCTAssertEqual(restoredSnapshot.selectedLifeAreaIDs, ["health-self"])
-
-        let viewModel = OnboardingFlowModel(stateStore: context.store)
-        viewModel.prepareForPresentation(snapshot: restoredSnapshot)
-
-        XCTAssertEqual(viewModel.step, .firstWin)
-        XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
-        XCTAssertEqual(viewModel.mode, .custom)
-        XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["health-self"]))
-        XCTAssertTrue(viewModel.showAllLifeAreas)
-        XCTAssertEqual(viewModel.projectDrafts, [projectDraft])
-        XCTAssertEqual(viewModel.createdHabits.map(\.title), ["Put your phone on the charger before bed"])
-        XCTAssertEqual(viewModel.createdTasks.map(\.id), [task.id])
-        XCTAssertEqual(viewModel.focusTaskID, task.id)
-    }
-
-    @MainActor
-    func testPrepareForPresentationWithoutSnapshotDefaultsEntryContextToFreshFlow() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let viewModel = OnboardingFlowModel(stateStore: context.store)
-        viewModel.prepareForPresentation(snapshot: nil)
-
-        XCTAssertEqual(viewModel.step, .welcome)
-        XCTAssertEqual(viewModel.entryContext, .freshFlow)
-    }
-
-    @MainActor
-    func testPrepareForPresentationNormalizesLegacyTemplateIDs() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let area = LifeArea(name: "Career")
-        let project = Project(lifeAreaID: area.id, name: "Ship one thing")
-        let legacyDraft = OnboardingProjectDraft(
-            lifeAreaTemplateID: "career",
-            templateID: "career-ship",
-            name: "Ship one thing",
-            summary: "Keep the next visible output moving.",
-            suggestionTemplateIDs: ["career-ship", "career-followups", "career-admin"],
-            suggestionIndex: 0,
-            isSelected: true
-        )
-        let task = TaskDefinition(
-            projectID: project.id,
-            projectName: project.name,
-            lifeAreaID: area.id,
-            title: "Put clothes in one basket",
-            estimatedDuration: 120
-        )
-        let snapshot = OnboardingJourneySnapshot(
-            step: .firstWin,
-            mode: .guided,
-            selectedLifeAreaIDs: ["career", "home", "health"],
-            showAllLifeAreas: true,
-            projectDrafts: [legacyDraft],
-            resolvedLifeAreas: [
-                ResolvedLifeAreaSelection(templateID: "career", lifeArea: area, reusedExisting: true)
-            ],
-            resolvedProjects: [
-                ResolvedProjectSelection(draft: legacyDraft, project: project, reusedExisting: true)
-            ],
-            createdHabits: [],
-            createdHabitTemplateMap: ["habit-home-laundry": UUID()],
-            createdTasks: [task],
-            createdTaskTemplateMap: ["task-home-laundry-basket": task.id],
-            focusTaskID: task.id,
-            successSummary: nil,
-            hasSeenSuccess: false
-        )
-
-        let viewModel = OnboardingFlowModel(stateStore: context.store)
-        viewModel.prepareForPresentation(snapshot: snapshot)
-
-        XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["work-career", "life-admin", "health-self"]))
-        XCTAssertEqual(viewModel.projectDrafts.first?.lifeAreaTemplateID, "work-career")
-        XCTAssertEqual(viewModel.projectDrafts.first?.templateID, "work-ship")
-        XCTAssertNotNil(viewModel.createdHabitTemplateMap["habit-home-reset"])
-        XCTAssertNotNil(viewModel.createdTaskTemplateMap["task-home-reset-five"])
-    }
-
     func testJourneySnapshotDecodeDefaultsMissingEntryContextToFreshFlow() throws {
         let snapshot = OnboardingJourneySnapshot(
             step: .intent,
@@ -592,99 +366,6 @@ final class AppOnboardingTests: XCTestCase {
 
 
     @MainActor
-    func testPrepareEstablishedWorkspaceEntryReusesExistingWorkspaceAndStartsAtIntent() async {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let career = LifeArea(name: "Career")
-        let home = LifeArea(name: "Home")
-        let shipProject = Project(lifeAreaID: career.id, name: "Ship one thing")
-        let homeReset = Project(lifeAreaID: home.id, name: "Home reset")
-
-        let viewModel = OnboardingFlowModel(
-            stateStore: context.store,
-            fetchLifeAreas: { [career, home] },
-            fetchProjects: { [Project.createInbox(), shipProject, homeReset] }
-        )
-
-        await viewModel.prepareEstablishedWorkspaceEntry()
-
-        XCTAssertEqual(viewModel.step, .intent)
-        XCTAssertEqual(viewModel.entryContext, .establishedWorkspace)
-        XCTAssertEqual(viewModel.resolvedLifeAreas.map(\.lifeArea.name), ["Career", "Home"])
-        XCTAssertEqual(viewModel.resolvedProjects.map(\.project.name), ["Ship one thing", "Home reset"])
-        XCTAssertEqual(viewModel.selectedLifeAreaIDs, Set(["work-career", "life-admin"]))
-    }
-
-
-    func testPresentationQueuePrefersFullFlowOverPrompt() {
-        var queue = OnboardingPresentationQueue()
-        let snapshot = OnboardingWorkspaceSnapshot(customLifeAreaCount: 1, customProjectCount: 1, taskCount: 3)
-
-        queue.enqueue(.prompt(snapshot: snapshot))
-        XCTAssertEqual(queue.pending, .prompt(snapshot: snapshot))
-
-        queue.enqueue(.fullFlow(source: "resume"))
-        XCTAssertEqual(queue.pending, .fullFlow(source: "resume"))
-
-        queue.markPresented(.prompt(snapshot: snapshot))
-        XCTAssertEqual(queue.pending, .fullFlow(source: "resume"))
-
-        queue.markPresented(.fullFlow(source: "resume"))
-        XCTAssertNil(queue.pending)
-    }
-
-    @MainActor
-    func testResetForReplayClearsPersistedJourneyAndReturnsToWelcome() {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        let area = LifeArea(name: "Career")
-        let project = Project(lifeAreaID: area.id, name: "Ship one thing")
-        let task = TaskDefinition(
-            projectID: project.id,
-            projectName: project.name,
-            lifeAreaID: area.id,
-            title: "Open the draft and write 3 lines",
-            estimatedDuration: 120
-        )
-        let projectDraft = tryUnwrap(
-            StarterWorkspaceCatalog.defaultProjectDrafts(for: ["work-career"], mode: .guided).first
-        )
-        let snapshot = OnboardingJourneySnapshot(
-            step: .firstWin,
-            mode: .guided,
-            selectedLifeAreaIDs: ["work-career"],
-            showAllLifeAreas: false,
-            projectDrafts: [projectDraft],
-            expandedProjectIDs: [],
-            resolvedLifeAreas: [
-                ResolvedLifeAreaSelection(templateID: "work-career", lifeArea: area, reusedExisting: true)
-            ],
-            resolvedProjects: [
-                ResolvedProjectSelection(draft: projectDraft, project: project, reusedExisting: true)
-            ],
-            createdTasks: [task],
-            createdTaskTemplateMap: [:],
-            focusTaskID: task.id,
-            successSummary: nil,
-            hasSeenSuccess: false,
-        )
-
-        let viewModel = OnboardingFlowModel(stateStore: context.store)
-        viewModel.prepareForPresentation(snapshot: snapshot)
-        viewModel.resetForReplay()
-
-        XCTAssertEqual(viewModel.step, .welcome)
-        XCTAssertEqual(viewModel.entryContext, .freshFlow)
-        XCTAssertEqual(viewModel.mode, .guided)
-        
-        XCTAssertTrue(viewModel.selectedLifeAreaIDs.isEmpty)
-        XCTAssertTrue(viewModel.projectDrafts.isEmpty)
-        XCTAssertTrue(viewModel.createdTasks.isEmpty)
-        XCTAssertNil(context.store.load().journeySnapshot)
-    }
-
     func testMarkHandledClearsPersistedJourneySnapshot() {
         let context = makeStoreContext()
         defer { context.cleanup() }
@@ -715,82 +396,6 @@ final class AppOnboardingTests: XCTestCase {
         XCTAssertTrue(state.hasHandledCurrentVersion)
     }
 
-    @MainActor
-    func testSkipToFocusRoomSeedsStarterWorkspaceAndTask() async {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        var createdLifeAreas: [LifeArea] = []
-        var createdProjects: [Project] = []
-        var createdTasks: [TaskDefinition] = []
-
-        let viewModel = OnboardingFlowModel(
-            stateStore: context.store,
-            fetchLifeAreas: { [] },
-            fetchProjects: { [] },
-            fetchTask: { taskID in createdTasks.first(where: { $0.id == taskID }) },
-            createLifeArea: { template in
-                let area = LifeArea(name: template.name, color: template.colorHex, icon: template.icon)
-                createdLifeAreas.append(area)
-                return area
-            },
-            createProject: { draft, lifeArea in
-                let project = Project(lifeAreaID: lifeArea.id, name: draft.name, projectDescription: draft.summary)
-                createdProjects.append(project)
-                return project
-            },
-            createTask: { request in
-                let task = request.toTaskDefinition(projectName: request.projectName)
-                createdTasks.append(task)
-                return task
-            }
-        )
-
-        await viewModel.skipToEnd()
-
-        XCTAssertEqual(viewModel.step, .permissions)
-        XCTAssertFalse(createdLifeAreas.isEmpty)
-        XCTAssertFalse(createdProjects.isEmpty)
-        XCTAssertEqual(createdTasks.count, 1)
-        XCTAssertEqual(viewModel.createdTasks.count, 1)
-        XCTAssertEqual(viewModel.focusTaskID, createdTasks.first?.id)
-        XCTAssertEqual(context.store.load().journeySnapshot?.step, .permissions)
-    }
-
-
-
-
-
-    #if targetEnvironment(simulator)
-    @MainActor
-    func testSkipToFocusRoomBypassesBlockingEvaPreparationOnSimulator() async {
-        let context = makeStoreContext()
-        defer { context.cleanup() }
-
-        var createdTasks: [TaskDefinition] = []
-        let viewModel = OnboardingFlowModel(
-            stateStore: context.store,
-            fetchLifeAreas: { [] },
-            fetchProjects: { [] },
-            fetchTask: { taskID in createdTasks.first(where: { $0.id == taskID }) },
-            createTask: { request in
-                let task = request.toTaskDefinition(projectName: request.projectName)
-                createdTasks.append(task)
-                return task
-            },
-            isEvaBackgroundPreparationEnabled: true
-        )
-
-        await viewModel.skipToEnd()
-
-        XCTAssertEqual(viewModel.step, .permissions)
-        XCTAssertEqual(viewModel.evaPreparationState.phase, .idle)
-        XCTAssertEqual(createdTasks.count, 1)
-    }
-    #endif
-
-
-
     private func makeStoreContext() -> StoreContext {
         let suiteName = "AppOnboardingTests.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
@@ -812,6 +417,317 @@ final class AppOnboardingTests: XCTestCase {
         let fg = foreground.resolvedColor(with: traits)
         let bg = background.resolvedColor(with: traits)
         return contrastRatio(fg, bg)
+    }
+}
+
+@MainActor
+final class LifeMapOnboardingTests: XCTestCase {
+    func testDraftUsesV4SnapshotSchemaAndCoreFlowEndsAtReveal() {
+        XCTAssertEqual(AppOnboardingState.currentVersion, 4)
+        XCTAssertEqual(LifeMapDraft().schemaVersion, 6)
+        XCTAssertEqual(LifeMapOnboardingStep.core.first, .welcome)
+        XCTAssertEqual(LifeMapOnboardingStep.core.last, .reveal)
+        XCTAssertFalse(LifeMapOnboardingStep.reveal.isPowerUp)
+        XCTAssertTrue(LifeMapOnboardingStep.permissionsPowerUp.isPowerUp)
+    }
+
+    func testLifeAreaSelectionStaysBetweenTwoAndFiveAndPreservesOrder() {
+        let harness = makeLifeMapHarness()
+        let areas = StarterWorkspaceCatalog.allLifeAreas
+        for area in areas.prefix(6) { harness.model.toggleLifeArea(area) }
+        XCTAssertEqual(harness.model.draft.orderedLifeAreaTemplateIDs.count, 5)
+        XCTAssertEqual(harness.model.draft.orderedLifeAreaTemplateIDs, areas.prefix(5).map(\.id))
+
+        for area in areas.prefix(4) { harness.model.toggleLifeArea(area) }
+        XCTAssertEqual(harness.model.draft.orderedLifeAreaTemplateIDs.count, 2)
+        harness.cleanup()
+    }
+
+    func testLifeMapSnapshotResumesAndVersionThreeJourneyDoesNot() {
+        let harness = makeLifeMapHarness()
+        var draft = LifeMapDraft()
+        draft.step = .capacity
+        draft.desiredChange = .clearHead
+        draft.orderedLifeAreaTemplateIDs = ["life-admin", "work-career"]
+        harness.model.prepareForPresentation(snapshot: draft)
+        XCTAssertEqual(harness.model.step, .capacity)
+        XCTAssertEqual(harness.model.sceneModel.lifeAreas.map(\.id), ["life-admin", "work-career"])
+
+        var invalid = draft
+        invalid.schemaVersion = 3
+        harness.model.prepareForPresentation(snapshot: invalid)
+        XCTAssertEqual(harness.model.step, .welcome)
+        harness.cleanup()
+    }
+
+    func testCommitRetryDoesNotDuplicateAreasOrCaptureAndCompletesOnlyAfterEveryWrite() async throws {
+        enum InjectedFailure: Error { case workingHours }
+
+        let suite = "life.map.commit.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let stateStore = AppOnboardingStateStore(userDefaults: defaults)
+        var areas: [LifeArea] = []
+        var createdAreaCount = 0
+        var createdTaskCount = 0
+        var failWorkingHoursOnce = true
+
+        let coordinator = LifeMapCommitCoordinator(
+            dependencies: .init(
+                fetchLifeAreas: { areas },
+                createLifeArea: { template in
+                    createdAreaCount += 1
+                    let area = LifeArea(name: template.name, color: template.colorHex, icon: template.icon)
+                    areas.append(area)
+                    return area
+                },
+                updateLifeArea: { updated in
+                    if let index = areas.firstIndex(where: { $0.id == updated.id }) { areas[index] = updated }
+                    return updated
+                },
+                fetchTask: { _ in nil },
+                createTask: { request in
+                    createdTaskCount += 1
+                    return request.toTaskDefinition(projectName: request.projectName)
+                },
+                fetchReflection: { _ in nil },
+                saveReflection: { $0 },
+                saveWorkingHours: { _ in
+                    if failWorkingHoursOnce {
+                        failWorkingHoursOnce = false
+                        throw InjectedFailure.workingHours
+                    }
+                },
+                fetchHomeLayout: { nil },
+                saveHomeLayout: { _ in }
+            ),
+            stateStore: stateStore,
+            profileStore: LifeMapProfileStore(defaults: defaults),
+            preferencesStore: WorkspacePreferencesStore(defaults: defaults)
+        )
+
+        var draft = LifeMapDraft()
+        draft.desiredChange = .seeWeek
+        draft.frictionIDs = [LifeMapFriction.scattered.id]
+        draft.orderedLifeAreaTemplateIDs = ["work-career", "life-admin"]
+        draft.moduleGroupIDs = [LifeMapModuleGroup.planFocus.id]
+        draft.stagedCapture = LifeMapStagedCapture(
+            id: UUID(),
+            text: "Book a dentist appointment",
+            kind: .task,
+            lifeAreaTemplateID: "life-admin",
+            isReviewed: true
+        )
+
+        do {
+            _ = try await coordinator.commit(draft)
+            XCTFail("The injected write failure should escape")
+        } catch InjectedFailure.workingHours {
+            XCTAssertNil(stateStore.load().outcome)
+            XCTAssertEqual(createdTaskCount, 0, "Capture must remain the final write")
+        }
+
+        _ = try await coordinator.commit(draft)
+        XCTAssertEqual(createdAreaCount, 2, "Retry must match canonical areas instead of duplicating them")
+        XCTAssertEqual(createdTaskCount, 1)
+        XCTAssertEqual(stateStore.load().outcome, .completed)
+        XCTAssertEqual(stateStore.load().completedVersion, 4)
+    }
+
+    /// The regression that made every Metal effect invisible.
+    ///
+    /// `ShaderReadiness` was a `@MainActor enum` with `static var` storage. Warm-up
+    /// runs on a detached task and completes *after* first render, so when it
+    /// flipped `engineReady` there was nothing to invalidate — a `static var`
+    /// read is not an observation-tracked access. Every view gated on it kept
+    /// its "not ready" answer for the whole session.
+    ///
+    /// This asserts the observation, not the value: the value was always
+    /// correct, and that is exactly why the bug survived.
+    @MainActor
+    func testShaderReadinessPublishesAnObservableChange() {
+        let store = ShaderReadinessStore.shared
+        store.publishEngineReady(false, reason: "test reset")
+        XCTAssertFalse(store.allowsShaderRendering)
+
+        // `onChange` is `@Sendable`, so the signal has to leave the closure
+        // through something concurrency-safe.
+        let observed = expectation(description: "readiness change invalidates observers")
+        withObservationTracking {
+            _ = store.allowsShaderRendering
+        } onChange: {
+            observed.fulfill()
+        }
+
+        store.publishEngineReady(true)
+        wait(for: [observed], timeout: 1)
+        XCTAssertTrue(store.allowsShaderRendering)
+        XCTAssertNil(store.unavailabilityReason)
+
+        store.publishEngineReady(false, reason: "Low Power Mode.")
+        XCTAssertEqual(store.unavailabilityReason, "Low Power Mode.")
+        store.publishEngineReady(true)
+    }
+
+    /// Calm must still suppress shaders through the observable path.
+    @MainActor
+    func testCalmComfortProfileSuppressesShaderRendering() {
+        let store = ShaderReadinessStore.shared
+        store.publishEngineReady(true)
+        store.publishComfort(profile: .calm)
+        XCTAssertFalse(store.allowsShaderRendering, "Calm drops the Metal layer")
+        store.publishComfort(profile: .balanced)
+        XCTAssertTrue(store.allowsShaderRendering)
+    }
+
+    /// A retry must resume from the recorded phase, not replay writes that
+    /// already landed. `preferencesStore.update` and `profileStore.save` are
+    /// unconditional overwrites with no rollback, so replaying them would
+    /// clobber state a merge-mode user already had.
+    func testCommitRetryResumesFromRecordedPhaseInsteadOfReplayingWrites() async throws {
+        enum InjectedFailure: Error { case layout }
+
+        let suite = "life.map.resume.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let stateStore = AppOnboardingStateStore(userDefaults: defaults)
+
+        var areas: [LifeArea] = []
+        var workingHoursWrites = 0
+        var layoutWrites = 0
+        var failLayoutOnce = true
+
+        let coordinator = await LifeMapCommitCoordinator(
+            dependencies: .init(
+                fetchLifeAreas: { areas },
+                createLifeArea: { template in
+                    let area = LifeArea(name: template.name, color: template.colorHex, icon: template.icon)
+                    areas.append(area)
+                    return area
+                },
+                updateLifeArea: { updated in
+                    if let index = areas.firstIndex(where: { $0.id == updated.id }) { areas[index] = updated }
+                    return updated
+                },
+                fetchTask: { _ in nil },
+                createTask: { $0.toTaskDefinition(projectName: $0.projectName) },
+                fetchReflection: { _ in nil },
+                saveReflection: { $0 },
+                saveWorkingHours: { _ in workingHoursWrites += 1 },
+                fetchHomeLayout: { nil },
+                saveHomeLayout: { _ in
+                    if failLayoutOnce {
+                        failLayoutOnce = false
+                        throw InjectedFailure.layout
+                    }
+                    layoutWrites += 1
+                }
+            ),
+            stateStore: stateStore,
+            profileStore: LifeMapProfileStore(defaults: defaults),
+            preferencesStore: WorkspacePreferencesStore(defaults: defaults)
+        )
+
+        var draft = LifeMapDraft()
+        draft.desiredChange = .seeWeek
+        draft.orderedLifeAreaTemplateIDs = ["work-career", "life-admin"]
+
+        // Capture partial progress the way `assemble()` does.
+        var partial = draft
+        do {
+            _ = try await coordinator.commit(draft) { partial = $0 }
+            XCTFail("The injected layout failure should escape")
+        } catch InjectedFailure.layout {
+            XCTAssertEqual(workingHoursWrites, 1)
+            XCTAssertEqual(partial.commitPhase, .capacityWritten, "Progress must survive the throw")
+            XCTAssertNil(stateStore.load().outcome, "Completion must not be marked early")
+        }
+
+        _ = try await coordinator.commit(partial)
+        XCTAssertEqual(workingHoursWrites, 1, "Capacity already landed; the retry must not rewrite it")
+        XCTAssertEqual(layoutWrites, 1)
+        XCTAssertEqual(areas.count, 2, "Retry must match canonical areas rather than duplicate them")
+        XCTAssertEqual(stateStore.load().outcome, .completed)
+    }
+
+    /// Merge mode must not overwrite a Home the user already arranged.
+    func testEstablishedWorkspaceCommitMergesHomeLayoutInsteadOfReplacingIt() async throws {
+        let suite = "life.map.merge.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        let existingKind = "userArrangedCard"
+        let existing = DashboardLayoutValue(
+            mode: .smart,
+            isDefault: false,
+            placements: [DashboardWidgetPlacementValue(widgetKind: existingKind, semanticSize: .wide, ordinal: 0)]
+        )
+        var saved: DashboardLayoutValue?
+        var workingHoursWrites = 0
+
+        let coordinator = await LifeMapCommitCoordinator(
+            dependencies: .init(
+                fetchLifeAreas: { [] },
+                createLifeArea: { LifeArea(name: $0.name, color: $0.colorHex, icon: $0.icon) },
+                updateLifeArea: { $0 },
+                fetchTask: { _ in nil },
+                createTask: { $0.toTaskDefinition(projectName: $0.projectName) },
+                fetchReflection: { _ in nil },
+                saveReflection: { $0 },
+                saveWorkingHours: { _ in workingHoursWrites += 1 },
+                fetchHomeLayout: { existing },
+                saveHomeLayout: { saved = $0 }
+            ),
+            stateStore: AppOnboardingStateStore(userDefaults: defaults),
+            profileStore: LifeMapProfileStore(defaults: defaults),
+            preferencesStore: WorkspacePreferencesStore(defaults: defaults)
+        )
+
+        var draft = LifeMapDraft()
+        draft.entryContext = .establishedWorkspace
+        draft.desiredChange = .seeWeek
+        draft.orderedLifeAreaTemplateIDs = ["work-career", "life-admin"]
+        draft.moduleGroupIDs = [LifeMapModuleGroup.planFocus.id]
+
+        _ = try await coordinator.commit(draft)
+
+        let savedKinds = try XCTUnwrap(saved).placements.map(\.widgetKind)
+        XCTAssertTrue(savedKinds.contains(existingKind), "The user's existing card must survive a merge-mode commit")
+        XCTAssertGreaterThan(savedKinds.count, 1, "Recommended modules should still be appended")
+        XCTAssertEqual(
+            workingHoursWrites, 0,
+            "An established user who never edited capacity must not have their week rewritten"
+        )
+    }
+
+    private func makeLifeMapHarness() -> (model: LifeMapOnboardingModel, cleanup: () -> Void) {
+        let suite = "life.map.tests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suite)!
+        let store = AppOnboardingStateStore(userDefaults: defaults)
+        let commit = LifeMapCommitCoordinator(
+            dependencies: .init(
+                fetchLifeAreas: { [] },
+                createLifeArea: { LifeArea(name: $0.name, color: $0.colorHex, icon: $0.icon) },
+                updateLifeArea: { $0 },
+                fetchTask: { _ in nil },
+                createTask: { $0.toTaskDefinition(projectName: $0.projectName) },
+                fetchReflection: { _ in nil },
+                saveReflection: { $0 },
+                saveWorkingHours: { _ in },
+                fetchHomeLayout: { nil },
+                saveHomeLayout: { _ in }
+            ),
+            stateStore: store,
+            profileStore: LifeMapProfileStore(defaults: defaults),
+            preferencesStore: WorkspacePreferencesStore(defaults: defaults)
+        )
+        let model = LifeMapOnboardingModel(
+            stateStore: store,
+            commitCoordinator: commit,
+            feedback: OnboardingFeedbackController()
+        )
+        model.prepareForPresentation(snapshot: nil)
+        return (model, { defaults.removePersistentDomain(forName: suite) })
     }
 }
 

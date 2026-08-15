@@ -1,6 +1,188 @@
+import CryptoKit
 import MLXLMCommon
 import XCTest
 @testable import LifeBoard
+
+final class EvaPlaybackCompletionTrackerTests: XCTestCase {
+    func testFinishesImmediatelyWhenStreamContainsNoPlayableFrames() {
+        var tracker = EvaPlaybackCompletionTracker()
+
+        XCTAssertTrue(tracker.finishedScheduling())
+        XCTAssertEqual(tracker.pendingBufferCount, 0)
+        XCTAssertTrue(tracker.streamFinished)
+    }
+
+    func testFinishesOnlyAfterTheLastScheduledBufferCompletes() {
+        var tracker = EvaPlaybackCompletionTracker()
+        tracker.scheduledBuffer()
+        tracker.scheduledBuffer()
+
+        XCTAssertFalse(tracker.finishedScheduling())
+        XCTAssertFalse(tracker.completedBuffer())
+        XCTAssertTrue(tracker.completedBuffer())
+        XCTAssertEqual(tracker.pendingBufferCount, 0)
+    }
+
+    func testEarlyBufferCompletionWaitsForTheStreamToEndAndResetClearsState() {
+        var tracker = EvaPlaybackCompletionTracker()
+        tracker.scheduledBuffer()
+
+        XCTAssertFalse(tracker.completedBuffer())
+        XCTAssertTrue(tracker.finishedScheduling())
+        tracker.reset()
+        XCTAssertEqual(tracker, EvaPlaybackCompletionTracker())
+    }
+}
+
+final class EvaSignedConfigurationVerifierTests: XCTestCase {
+    private let now = Date(timeIntervalSince1970: 1_800_000_000)
+
+    func testAcceptsAValidPinnedConfiguration() throws {
+        let key = Curve25519.Signing.PrivateKey()
+        let configuration = makeConfiguration()
+        let signed = try sign(configuration, using: key)
+
+        let verified = try verifier(key: key).verify(signed)
+
+        XCTAssertEqual(verified.version, configuration.version)
+        XCTAssertEqual(verified.cloudState, .disabled)
+    }
+
+    func testRejectsTamperingAndUnapprovedProtectedHeaders() throws {
+        let key = Curve25519.Signing.PrivateKey()
+        let signed = try sign(makeConfiguration(), using: key)
+        let segments = signed.split(separator: ".", omittingEmptySubsequences: false)
+        let tamperedPayload = Data("{}".utf8).evaTestBase64URL
+        let tampered = "\(segments[0]).\(tamperedPayload).\(segments[2])"
+
+        assertConfigurationError(.invalidSignature) { try verifier(key: key).verify(tampered) }
+        assertConfigurationError(.invalidSignature) {
+            try verifier(key: key).verify(try sign(makeConfiguration(), using: key, keyIdentifier: "attacker"))
+        }
+    }
+
+    func testRejectsMissingOrDifferentPinnedKeys() throws {
+        let signingKey = Curve25519.Signing.PrivateKey()
+        let signed = try sign(makeConfiguration(), using: signingKey)
+
+        assertConfigurationError(.missingPinnedKey) {
+            try EvaSignedConfigurationVerifier(
+                pinnedPublicKey: nil,
+                expectedEnvironment: "staging",
+                acceptedVersion: 0,
+                now: now
+            ).verify(signed)
+        }
+        assertConfigurationError(.invalidSignature) {
+            try verifier(key: Curve25519.Signing.PrivateKey()).verify(signed)
+        }
+    }
+
+    func testRejectsStaleAndFutureDocuments() throws {
+        let key = Curve25519.Signing.PrivateKey()
+        let stale = makeConfiguration(issuedAt: now.addingTimeInterval(-7 * 24 * 60 * 60 - 1))
+        let future = makeConfiguration(issuedAt: now.addingTimeInterval(5 * 60 + 1))
+
+        assertConfigurationError(.stale) { try verifier(key: key).verify(try sign(stale, using: key)) }
+        assertConfigurationError(.stale) { try verifier(key: key).verify(try sign(future, using: key)) }
+    }
+
+    func testRejectsRollbackAndEnvironmentMismatch() throws {
+        let key = Curve25519.Signing.PrivateKey()
+        let rollback = makeConfiguration(version: 9)
+        let production = makeConfiguration(environment: "production")
+
+        assertConfigurationError(.rollback) {
+            try verifier(key: key, acceptedVersion: 10).verify(try sign(rollback, using: key))
+        }
+        assertConfigurationError(.unsupported) {
+            try verifier(key: key).verify(try sign(production, using: key))
+        }
+    }
+
+    func testRejectsUnsupportedContractAndProviderIdentity() throws {
+        let key = Curve25519.Signing.PrivateKey()
+        let wrongContract = makeConfiguration(contractVersions: [2])
+        let wrongModel = makeConfiguration(textModel: "gpt-5.6-not-luna")
+
+        assertConfigurationError(.unsupported) {
+            try verifier(key: key).verify(try sign(wrongContract, using: key))
+        }
+        assertConfigurationError(.unsupported) {
+            try verifier(key: key).verify(try sign(wrongModel, using: key))
+        }
+    }
+
+    private func verifier(
+        key: Curve25519.Signing.PrivateKey,
+        acceptedVersion: Int = 0
+    ) -> EvaSignedConfigurationVerifier {
+        EvaSignedConfigurationVerifier(
+            pinnedPublicKey: key.publicKey.rawRepresentation,
+            expectedEnvironment: "staging",
+            acceptedVersion: acceptedVersion,
+            now: now
+        )
+    }
+
+    private func makeConfiguration(
+        version: Int = 10,
+        issuedAt: Date? = nil,
+        environment: String = "staging",
+        contractVersions: [Int] = [1],
+        textModel: String = "gpt-5.6-luna"
+    ) -> EvaCloudRuntimeConfiguration {
+        EvaCloudRuntimeConfiguration(
+            schemaVersion: 2,
+            version: version,
+            issuedAt: issuedAt ?? now,
+            environment: environment,
+            cloudState: .disabled,
+            ttsEnabled: false,
+            maintenanceMessage: "Cloud EVA is disabled during qualification.",
+            offlineRecoveryPolicy: "offerTryOffline",
+            textModel: textModel,
+            speechModel: "tts-1",
+            speechVoice: "nova",
+            minimumClientVersion: "2.1.0",
+            contractVersions: contractVersions,
+            routes: [:]
+        )
+    }
+
+    private func sign(
+        _ configuration: EvaCloudRuntimeConfiguration,
+        using key: Curve25519.Signing.PrivateKey,
+        keyIdentifier: String = "eva-config-v2"
+    ) throws -> String {
+        let header = try JSONSerialization.data(withJSONObject: ["alg": "EdDSA", "kid": keyIdentifier])
+        let encodedHeader = header.evaTestBase64URL
+        let encodedPayload = try JSONEncoder.evaCloud.encode(configuration).evaTestBase64URL
+        let signingInput = Data("\(encodedHeader).\(encodedPayload)".utf8)
+        let signature = try key.signature(for: signingInput).evaTestBase64URL
+        return "\(encodedHeader).\(encodedPayload).\(signature)"
+    }
+
+    private func assertConfigurationError(
+        _ expected: EvaConfigurationError,
+        operation: () throws -> Void,
+        file: StaticString = #filePath,
+        line: UInt = #line
+    ) {
+        XCTAssertThrowsError(try operation(), file: file, line: line) { error in
+            XCTAssertEqual(error as? EvaConfigurationError, expected, file: file, line: line)
+        }
+    }
+}
+
+private extension Data {
+    var evaTestBase64URL: String {
+        base64EncodedString()
+            .replacingOccurrences(of: "+", with: "-")
+            .replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: "=", with: "")
+    }
+}
 #if canImport(UIKit)
 import UIKit
 #endif
@@ -480,7 +662,7 @@ final class EvaActivationTests: XCTestCase {
             EvaActivationNavigationChrome(
                 screenTitle: "Meet Eva",
                 stepIndex: 1,
-                stepCount: 6,
+                stepCount: 5,
                 showsProgress: true,
                 showsTrailingHistoryButton: false,
                 leadingActionStyle: .close
@@ -496,7 +678,7 @@ final class EvaActivationTests: XCTestCase {
         XCTAssertEqual(coordinator.navigationChrome.stepIndex, 3)
 
         coordinator.continueFromGoals()
-        XCTAssertEqual(coordinator.navigationChrome.screenTitle, "Choose Eva's Mode")
+        XCTAssertEqual(coordinator.navigationChrome.screenTitle, "Connect Cloud EVA")
         XCTAssertEqual(coordinator.navigationChrome.stepIndex, 4)
     }
 
@@ -513,7 +695,7 @@ final class EvaActivationTests: XCTestCase {
         coordinator.continueFromIntro()
         coordinator.continueFromAboutYou()
         coordinator.continueFromGoals()
-        XCTAssertEqual(coordinator.navigationChrome.screenTitle, "Choose Sato's Mode")
+        XCTAssertEqual(coordinator.navigationChrome.screenTitle, "Connect Cloud EVA")
     }
 
     func testLeadingNavigationRoutesBackThroughActivationStages() throws {
@@ -542,12 +724,29 @@ final class EvaActivationTests: XCTestCase {
         XCTAssertEqual(coordinator.state.stage, .aboutYou)
 
         coordinator.continueFromAboutYou()
-        coordinator.selectModel(ModelConfiguration.qwen_3_0_6b_4bit.name)
         coordinator.continueFromGoals()
         coordinator.handleLeadingNavigation {
             dismissed = true
         }
         XCTAssertEqual(coordinator.state.stage, .goals)
+    }
+
+    func testCloudSetupIsPrimaryAndOfflineSetupRemainsAvailable() throws {
+        let defaults = try makeDefaults()
+        let coordinator = makeCoordinator(defaults: defaults)
+
+        coordinator.continueFromIntro()
+        coordinator.continueFromAboutYou()
+        coordinator.continueFromGoals()
+        XCTAssertEqual(coordinator.state.stage, .cloudSetup)
+
+        coordinator.chooseOfflineSetup()
+        XCTAssertEqual(coordinator.state.stage, .modelChoice)
+
+        coordinator.backToGoals()
+        coordinator.continueFromGoals()
+        coordinator.completeCloudSetup()
+        XCTAssertEqual(coordinator.state.stage, .firstChat)
     }
 
     func testLeadingNavigationRoutesRecoveryToModelChoice() throws {

@@ -1550,6 +1550,16 @@ final class LifeOSFoundationContractTests: XCTestCase {
     }
 
     func testRenderingPolicyHonorsComfortAndAccessibility() {
+        // `AmbientRenderingPolicy.resolve` now applies `MotionOverride` itself
+        // rather than trusting callers to pre-resolve, so Full Motion has to be
+        // off for the system Reduce Motion setting to reach the tier at all.
+        // That is the intended semantic — Full Motion exists precisely to
+        // override system Reduce Motion — and it is why this test has to state
+        // which of the two it is exercising.
+        let previousFullMotion = MotionOverride.fullMotionEnabled
+        defer { MotionOverride.fullMotionEnabled = previousFullMotion }
+        MotionOverride.fullMotionEnabled = false
+
         let reduced = AmbientRenderingPolicy.resolve(
             requestedTier: .enhanced3D,
             comfortProfile: .playful,
@@ -1560,6 +1570,21 @@ final class LifeOSFoundationContractTests: XCTestCase {
         XCTAssertEqual(reduced.effectiveTier, .static)
         XCTAssertEqual(reduced.maximumParallax, 0)
         XCTAssertFalse(reduced.allowsIdleMotion)
+
+        // The other half of the contract: with Full Motion on, the same raw
+        // system flag must no longer pin the tier to `.static`. This is the
+        // behaviour the policy could not deliver while it took a bare `Bool`.
+        MotionOverride.fullMotionEnabled = true
+        let overridden = AmbientRenderingPolicy.resolve(
+            requestedTier: .ambient2D,
+            comfortProfile: .playful,
+            reduceMotion: true,
+            lowPowerMode: false,
+            thermalState: .nominal
+        )
+        XCTAssertEqual(overridden.effectiveTier, .ambient2D)
+        XCTAssertTrue(overridden.allowsIdleMotion)
+        MotionOverride.fullMotionEnabled = false
 
         let balanced = AmbientRenderingPolicy.resolve(
             requestedTier: .ambient2D,

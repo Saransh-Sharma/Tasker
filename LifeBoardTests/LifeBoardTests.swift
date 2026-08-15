@@ -9996,12 +9996,17 @@ final class AddTaskViewModelAISuggestionPerformanceTests: XCTestCase {
     override func setUp() {
         super.setUp()
         originalAssistantCopilotEnabled = V2FeatureFlags.assistantCopilotEnabled
+        UserDefaults.standard.set(
+            EvaProviderRouter.Preference.offline.rawValue,
+            forKey: "eva.provider.preference.v1"
+        )
     }
 
     override func tearDown() {
         V2FeatureFlags.assistantCopilotEnabled = originalAssistantCopilotEnabled
         UserDefaults.standard.removeObject(forKey: "currentModelName")
         UserDefaults.standard.removeObject(forKey: "installedModels")
+        UserDefaults.standard.removeObject(forKey: "eva.provider.preference.v1")
         super.tearDown()
     }
 

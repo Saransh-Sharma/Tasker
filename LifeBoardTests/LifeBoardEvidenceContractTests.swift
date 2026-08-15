@@ -237,3 +237,64 @@ final class LifeBoardEvidenceContractTests: XCTestCase {
         XCTAssertNotNil(object["tasks"])
     }
 }
+
+final class EvaCloudWireContractTests: XCTestCase {
+    func testSharedStructuredFixturesDecodeThroughSwiftWireValue() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtureURL = repositoryRoot.appending(path: "Shared/EVACloudContracts/fixtures/structured-results-v1.json")
+        let fixtures = try JSONDecoder.evaCloud.decode(
+            [String: EvaJSONValue].self,
+            from: Data(contentsOf: fixtureURL)
+        )
+        XCTAssertEqual(
+            Set(fixtures.keys),
+            Set(["plan", "planRepair", "fieldSuggestion", "topThree", "taskBreakdown", "dailyBrief", "universalInputClassification", "dynamicChips"])
+        )
+        XCTAssertNoThrow(try JSONEncoder.evaCloud.encode(fixtures))
+    }
+
+    func testInferenceRequestV1EncodesTheSharedWireShape() throws {
+        let requestID = UUID(uuidString: "11111111-1111-4111-8111-111111111111")!
+        let installationID = UUID(uuidString: "22222222-2222-4222-8222-222222222222")!
+        let request = EvaInferenceRequest(
+            requestId: requestID,
+            route: .chat,
+            contractVersion: 1,
+            locale: "en_US",
+            timeZone: "Asia/Kolkata",
+            messages: [.init(role: .user, content: "Help me plan today.")],
+            context: [.init(category: .planning, payload: .object(["tasks": .array([])]))],
+            clientVersion: "1.0",
+            platform: "ios",
+            installationId: installationID,
+            consentRevision: 3,
+            providerCapabilities: .init(streaming: true, structuredOutput: true, spokenOutput: true)
+        )
+
+        let data = try JSONEncoder.evaCloud.encode(request)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        XCTAssertEqual(object["requestId"] as? String, requestID.uuidString)
+        XCTAssertEqual(object["route"] as? String, "chat")
+        XCTAssertEqual(object["contractVersion"] as? Int, 1)
+        XCTAssertEqual(object["installationId"] as? String, installationID.uuidString)
+        XCTAssertNil(object["model"])
+        XCTAssertNil(object["systemPrompt"])
+        XCTAssertNil(object["creditCharge"])
+    }
+
+    func testStableErrorAndCreditDatesDecodeFromBackendJSON() throws {
+        let json = #"{"code":"insufficient_credits","message":"No cloud credits are available yet.","requestId":"request-1","retryable":false,"recoveryAction":"tryOffline","credits":{"balance":0,"capacity":100,"refillAmount":20,"nextRefillAt":"2026-08-15T10:00:00Z"}}"#
+        let error = try JSONDecoder.evaCloud.decode(EvaErrorEnvelope.self, from: Data(json.utf8))
+        XCTAssertEqual(error.code, "insufficient_credits")
+        XCTAssertEqual(error.credits?.balance, 0)
+        XCTAssertEqual(error.recoveryAction, "tryOffline")
+    }
+
+    func testRemoteContextPolicyV2RemainsDenyByDefault() {
+        let policy = RemoteEvaContextPolicy(accountID: "account-1")
+        XCTAssertEqual(policy.schemaVersion, 2)
+        XCTAssertFalse(policy.isRemoteEvaEnabled)
+        XCTAssertTrue(policy.grantedCategories.isEmpty)
+        XCTAssertFalse(policy.permits(.personalMemory, forAccountID: "account-1"))
+    }
+}

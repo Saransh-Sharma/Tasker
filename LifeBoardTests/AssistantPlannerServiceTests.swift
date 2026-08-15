@@ -46,6 +46,7 @@ final class AssistantPlannerServiceTests: XCTestCase {
         let defaults = UserDefaults.standard
         let originalInstalledData = defaults.data(forKey: LLMPersistedModelSelection.installedModelsKey)
         let originalCurrentModelName = defaults.string(forKey: LLMPersistedModelSelection.currentModelKey)
+        let originalProviderPreference = defaults.string(forKey: "eva.provider.preference.v1")
         defer {
             if let originalInstalledData {
                 defaults.set(originalInstalledData, forKey: LLMPersistedModelSelection.installedModelsKey)
@@ -57,10 +58,16 @@ final class AssistantPlannerServiceTests: XCTestCase {
             } else {
                 defaults.removeObject(forKey: LLMPersistedModelSelection.currentModelKey)
             }
+            if let originalProviderPreference {
+                defaults.set(originalProviderPreference, forKey: "eva.provider.preference.v1")
+            } else {
+                defaults.removeObject(forKey: "eva.provider.preference.v1")
+            }
         }
 
         LLMPersistedModelSelection.persistInstalledModels([modelName], defaults: defaults)
         defaults.set(modelName, forKey: LLMPersistedModelSelection.currentModelKey)
+        defaults.set(EvaProviderRouter.Preference.offline.rawValue, forKey: "eva.provider.preference.v1")
         let route = AIChatModeRouter.route(for: .planMode)
         guard route.selectedModelName == modelName else {
             throw XCTSkip("No supported local model route is available in this test environment.")
@@ -1584,8 +1591,10 @@ private func configureSupportedPlanRouteOrSkip() throws -> () -> Void {
     let defaults = UserDefaults.standard
     let originalInstalledData = defaults.data(forKey: LLMPersistedModelSelection.installedModelsKey)
     let originalCurrentModelName = defaults.string(forKey: LLMPersistedModelSelection.currentModelKey)
+    let originalProviderPreference = defaults.string(forKey: "eva.provider.preference.v1")
     LLMPersistedModelSelection.persistInstalledModels([modelName], defaults: defaults)
     defaults.set(modelName, forKey: LLMPersistedModelSelection.currentModelKey)
+    defaults.set(EvaProviderRouter.Preference.offline.rawValue, forKey: "eva.provider.preference.v1")
     let route = AIChatModeRouter.route(for: .planMode)
     guard route.selectedModelName == modelName else {
         if let originalInstalledData {
@@ -1597,6 +1606,11 @@ private func configureSupportedPlanRouteOrSkip() throws -> () -> Void {
             defaults.set(originalCurrentModelName, forKey: LLMPersistedModelSelection.currentModelKey)
         } else {
             defaults.removeObject(forKey: LLMPersistedModelSelection.currentModelKey)
+        }
+        if let originalProviderPreference {
+            defaults.set(originalProviderPreference, forKey: "eva.provider.preference.v1")
+        } else {
+            defaults.removeObject(forKey: "eva.provider.preference.v1")
         }
         throw XCTSkip("No supported local model route is available in this test environment.")
     }
@@ -1610,6 +1624,11 @@ private func configureSupportedPlanRouteOrSkip() throws -> () -> Void {
             defaults.set(originalCurrentModelName, forKey: LLMPersistedModelSelection.currentModelKey)
         } else {
             defaults.removeObject(forKey: LLMPersistedModelSelection.currentModelKey)
+        }
+        if let originalProviderPreference {
+            defaults.set(originalProviderPreference, forKey: "eva.provider.preference.v1")
+        } else {
+            defaults.removeObject(forKey: "eva.provider.preference.v1")
         }
     }
 }

@@ -341,6 +341,49 @@ enum AccessibilityIdentifiers {
 
     // MARK: - Onboarding
 
+    /// The Life Map flow — the one the app actually presents.
+    ///
+    /// Mirrors `LifeMapAccessibilityID` in the app target. The `Onboarding` enum
+    /// below still describes the deleted nine-step flow; its constants compile
+    /// (they are plain strings) but match nothing at runtime. They are kept only
+    /// until the two files that still use them — `BaseUITest` and
+    /// `AppStoreScreenshotUITests` — are migrated.
+    enum LifeMap {
+        static let flow = "onboarding.lifeMap.flow"
+        static let canvas = "onboarding.lifeMap.canvas"
+        static let progress = "onboarding.lifeMap.progress"
+        static let back = "onboarding.lifeMap.back"
+        static let primaryAction = "onboarding.primaryAction"
+        static let secondaryAction = "onboarding.secondaryAction"
+        static let error = "onboarding.error"
+
+        static let captureField = "onboarding.capture.field"
+        static let captureInterpret = "onboarding.capture.interpret"
+        static let captureApprove = "onboarding.capture.approve"
+        static let captureSkip = "onboarding.capture.skip"
+        static let homePreview = "onboarding.reveal.homePreview"
+
+        static func step(_ suffix: String) -> String { "onboarding.lifeMap.step.\(suffix)" }
+        static func desiredChange(_ id: String) -> String { "onboarding.desiredChange.\(id)" }
+        static func friction(_ id: String) -> String { "onboarding.friction.\(id)" }
+        static func lifeArea(_ id: String) -> String { "onboarding.lifeArea.\(id)" }
+        static func moveEarlier(_ id: String) -> String { "onboarding.priority.\(id).earlier" }
+        static func moveLater(_ id: String) -> String { "onboarding.priority.\(id).later" }
+        static func moduleGroup(_ id: String) -> String { "onboarding.moduleGroup.\(id)" }
+        static func permission(_ id: String) -> String { "onboarding.permission.\(id)" }
+        static func permissionSkip(_ id: String) -> String { "onboarding.permission.\(id).skip" }
+
+        static let welcome = step("welcome")
+        static let desiredChangeStep = step("desiredChange")
+        static let frictionStep = step("friction")
+        static let lifeAreasStep = step("lifeAreas")
+        static let prioritiesStep = step("priorities")
+        static let capacityStep = step("capacity")
+        static let connectionsStep = step("connections")
+        static let captureStep = step("capture")
+        static let revealStep = step("reveal")
+    }
+
     enum Onboarding {
         static let flow = "onboarding.flow"
         static let progress = "onboarding.header.progress"

@@ -285,21 +285,6 @@ final class SettingsViewModelTests: XCTestCase {
         XCTAssertEqual(workspaceStore.load().chiefOfStaffMascotID, .maddie)
     }
 
-    func testOnboardingFlowModelSelectChiefOfStaffMascotPersistsSelection() {
-        let defaults = UserDefaults(suiteName: suiteName)!
-        let workspaceStore = WorkspacePreferencesStore(defaults: defaults)
-        let flowModel = OnboardingFlowModel(
-            workspacePreferencesStore: workspaceStore,
-            isEvaBackgroundPreparationEnabled: false
-        )
-
-        flowModel.selectChiefOfStaffMascot(.theo)
-
-        XCTAssertEqual(flowModel.selectedMascotID, .theo)
-        XCTAssertEqual(flowModel.selectedMascotPersona.displayName, "Theo")
-        XCTAssertEqual(workspaceStore.load().chiefOfStaffMascotID, .theo)
-    }
-
     func testSettingsSetupStatusCollapsesHealthyServicesIntoOneReassuringItem() {
         let status = SettingsSetupStatusResolver.resolve(
             notificationPermissionGranted: true,
