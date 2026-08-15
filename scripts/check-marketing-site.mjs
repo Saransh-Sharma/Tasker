@@ -83,7 +83,7 @@ for (const id of requiredScreenshotIds) {
 }
 
 if (!marketing.includes("https://apps.apple.com/app/id1574046107")) throw new Error('App Store URL drift');
-if (!marketing.includes("support@lifeboard.app")) throw new Error('Support email drift');
+if (!marketing.includes("support@getlifeboard.app")) throw new Error('Support email drift');
 
 const forbidden = ['secured by a recovery phrase', 'end-to-end encrypted by lifeboard', 'autonomous calendar editing', 'silent ai mutations'];
 for (const phrase of forbidden) {

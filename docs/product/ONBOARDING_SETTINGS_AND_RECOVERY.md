@@ -4,17 +4,17 @@
 **Audience:** Users, support, product, design, engineering, and QA
 **Capability status:** Current workspace
 **Source authority:** Onboarding flow/state, Settings routes/stores, bootstrap/recovery services
-**Last verified:** 2026-08-13
+**Last verified:** 2026-08-14
 **Primary routes:** First launch, EVA activation, Settings, Life Management, permission prompts, and bootstrap recovery
 
 ## Promise and user jobs
 
-Onboarding gets a person to one useful, completed loop without requiring full configuration. Settings makes control, privacy, integrations, and life structure understandable after activation. Recovery surfaces preserve user work and explain what can be retried safely.
+Onboarding builds a useful personal Life Map without requiring permissions, EVA, or a network connection. Settings makes control, privacy, integrations, and life structure understandable after activation. Recovery surfaces preserve user work and explain what can be retried safely.
 
 Users need to:
 
 - understand the product promise and privacy model;
-- create or choose life areas, a first task, and an initial focus;
+- choose and prioritize life areas, set realistic capacity, and optionally route one real capture;
 - configure EVA locally or continue without it;
 - grant permissions at the moment their value is clear;
 - manage projects, areas, routines, reminders, quiet hours, and privacy;
@@ -23,18 +23,20 @@ Users need to:
 
 ## Onboarding journey
 
-The journey is progressive:
+The v4 journey is progressive and visibly assembles one persistent Life Map:
 
-1. Welcome and product promise.
-2. Goal/context selection.
-3. Life area and starter workspace choices.
-4. First task with enough detail to act.
-5. Focus demonstration and completion.
-6. EVA preference/model setup where supported.
-7. Optional permissions in context.
-8. Outcome summary and entry into the five-root shell.
+1. Welcome and the promise “Your whole life, in one calm system.”
+2. Desired change and up to two sources of friction.
+3. Two to five active life areas and their seasonal priority order.
+4. Real working capacity and week start.
+5. Recommended module connections across Home, Plan, Track, Insights, and EVA.
+6. One optional Universal Input capture, reviewed before staging.
+7. An idempotent assembly phase and the completed Life Map reveal.
+8. Optional, resumable permissions and EVA activation.
 
-Each step has one primary action. Skip is offered where the feature is optional and explains the resulting limitation. Progress persists so termination or interruption resumes at the correct step. Starter content uses canonical repositories and reversible installation/compensation.
+Each step has one primary action. Core completion never depends on permission, model download, network access, or sample data. The v4 draft uses snapshot schema 6; a version-3 partial journey restarts safely at Welcome. The commit upserts canonical life areas/order, working hours, and Home layout, stores only goal/friction as small profile metadata, then writes the reviewed capture last. Completion is recorded only after required writes succeed. No starter projects, chores, habits, tasks, or fabricated activity are installed.
+
+Completed users remain completed. An established workspace is never interrupted by a launch prompt; Life Management exposes the live, canonical Life Map and a voluntary “Refresh my map” merge flow that preserves existing records.
 
 ## EVA activation and model setup
 
@@ -80,7 +82,7 @@ Derived-state recovery can rebuild indexes, caches, or projections without repla
 | State | Required behavior |
 |---|---|
 | Fresh start | One clear next action and honest time/permission expectations |
-| Resumed onboarding | Restore exact step and recoverable draft |
+| Resumed onboarding | Restore exact v4 step and recoverable schema-6 Life Map draft |
 | Permission denied | Explain limitation, preserve remaining functionality, link to Settings |
 | Unsupported device | Describe unavailable capability and keep core app usable |
 | Download interrupted | Preserve progress/state where supported and offer retry/cancel |
@@ -91,7 +93,9 @@ Derived-state recovery can rebuild indexes, caches, or projections without repla
 
 ## UI/UX contract
 
-- Onboarding uses cinematic atmosphere sparingly; required copy and controls sit on readable surfaces.
+- Onboarding uses the bundled, muted dawn hero video as its single ambient timeline; required copy and controls remain readable over an adaptive scrim.
+- The orbit is persistent. Daily Loop stays central, the five application roots form the inner ring, and chosen life areas form the outer ring.
+- Ordinary choices use clay. Regular Liquid Glass is limited to the primary control dock or one hero/control surface; glass is never stacked.
 - Progress is clear but not punitive.
 - Forms use local validation with nearby recovery text and preserve entered values after failure.
 - Settings favors grouped open rows and descriptive subtitles over nested decorative cards.
@@ -111,4 +115,4 @@ Primary anchors include onboarding flow models/views, EVA activation coordinator
 
 Onboarding and Settings expose or consume the staged flags documented by each feature chapter. They must not reinterpret a disabled feature as deleted data. Model eligibility, optional assistant setup, permission state, and rollout state remain independent decisions.
 
-Recorded evidence covers onboarding persistence, first-task/focus flow, model eligibility policy, Settings migration, life-management destructive flows, permission copy surfaces, and bootstrap semantic presentation. Signed-device permissions, model download pressure, production-style migration, export/restore, and complete keyboard/assistive-technology passes remain release gates.
+Motion verification must use the non-`-UI_TESTING` audit launch path because `-UI_TESTING` disables process animations. Record frame differences for the video, orbit mutations, capture routing, reveal, and representative root transitions. Explicitly cover Full Motion/system Reduce Motion combinations, Low Power, thermal pressure, Reduce Transparency, VoiceOver reorder actions, Dynamic Type, RTL, iPad split layouts, and signed-device permissions. Model download pressure, production-style migration, export/restore, and complete keyboard/assistive-technology passes remain release gates.

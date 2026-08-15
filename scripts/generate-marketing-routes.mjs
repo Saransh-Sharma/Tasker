@@ -34,7 +34,7 @@ for (const [route, [title, description]] of Object.entries(routes)) {
     .replace(/<meta name="description" content="[^"]*"\s*\/>/, `<meta name="description" content="${escaped(description)}" />`)
     .replace(/<meta property="og:title" content="[^"]*"\s*\/>/, `<meta property="og:title" content="${escaped(title)}" />`)
     .replace(/<meta property="og:description" content="[^"]*"\s*\/>/, `<meta property="og:description" content="${escaped(description)}" />`)
-    .replace('</head>', `    <link rel="canonical" href="https://lifeboard.app/LifeBoard${route}" />\n  </head>`);
+    .replace('</head>', `    <link rel="canonical" href="https://getlifeboard.app/LifeBoard${route}" />\n  </head>`);
   await writeFile(join(outputDir, 'index.html'), html);
 }
 

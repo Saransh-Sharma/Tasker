@@ -92,7 +92,7 @@ waitlist, or newsletter actions.
 The canonical destination is:
 `https://apps.apple.com/app/id1574046107`.
 
-Support links use `support@lifeboard.app`. Public pages must not contain a
+Support links use `support@getlifeboard.app`. Public pages must not contain a
 personal phone number, postal address, personal inbox, or conflicting account
 deletion instructions.
 

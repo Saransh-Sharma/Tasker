@@ -49,5 +49,34 @@
 # cannot resolve. `"\(identifierPrefix).\(item.id)"` remains in the set:
 # `SignalStrip` is kept in LifeBoardUI for future use, just no longer adopted
 # on Home.
-count=775
-sha256=b95063fd3b382f27b346b7337a7449e2349282727009c671e325e48154bf4a85
+# 2026-08-14, Life Map onboarding: 775 -> 845. Additions only, no removals.
+#
+# The Life Map flow shipped with four raw string literals and no per-step or
+# per-choice identifiers at all, so every UI assertion against it had to reach
+# for a localized label. Labels are not a test contract: they move with copy
+# edits and break under RTL and non-English runs. `LifeMapAccessibilityID` now
+# covers all eleven steps plus the controls, and derives `step(_:)` from
+# `LifeMapOnboardingStep` so a new step cannot be added without one.
+#
+# `identifierSuffix` is spelled out per case rather than derived from
+# `String(describing:)` on purpose — the latter would silently rename every
+# identifier if a case were renamed, turning a source refactor into a broken
+# UI-test contract with no compiler error.
+#
+# 2026-08-14, dead nine-step flow removed: 845 -> 818. Removals only, zero
+# additions — the 27 that went are exactly the `AppOnboardingAccessibilityID.*`
+# entries plus the three interpolated day-shape/permission identifiers that only
+# `AppOnboardingJourneyView` declared.
+#
+# The removal was diffed before deleting, per the standing hazard that dead UI
+# stays reachable by identifier at runtime even with zero Swift references. Two
+# live, non-onboarding UI test files — `Base/BaseUITest.swift` and
+# `AppStoreScreenshotUITests.swift` — do still reference the *test-side*
+# `AccessibilityIdentifiers.Onboarding` constants. They keep compiling (those are
+# test-target string constants with no app dependency), but they now match
+# nothing at runtime. That was already true before this deletion: the Life Map
+# flow has been the presented flow for a while and never declared
+# `onboarding.flow`. Rewiring those two files to the `LifeMapAccessibilityID`
+# namespace is the follow-up.
+count=818
+sha256=bad25d40131dd1755f90e11ecb5344e90c17f3b387226a4d18927b49a6896ad8

@@ -29,7 +29,7 @@ function screenshot(
 }
 
 export const APP_STORE_URL = 'https://apps.apple.com/app/id1574046107';
-export const SUPPORT_EMAIL = 'support@lifeboard.app';
+export const SUPPORT_EMAIL = 'support@getlifeboard.app';
 
 export type MarketingPath =
   | '/'
