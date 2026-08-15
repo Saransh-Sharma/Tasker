@@ -271,8 +271,26 @@ public enum SignatureShaders {
     /// this deliberately stops at the supported public boundary instead of rasterizing hidden UI.
     /// The measured result is retained for diagnostics and makes repeated calls idempotent.
     public static func warmUp() {
-        guard performancePermits else { return }
+        guard performancePermits else {
+            // Publishing on this path matters in both directions. Returning
+            // silently used to leave `preloadState` at `.idle` with
+            // `engineReady` never set on a cold start; worse, when the device
+            // *entered* Low Power the power-state observer re-entered here, hit
+            // this guard, and left `engineReady` still `true` — so hero glass
+            // and every Metal effect kept drawing under exactly the constraint
+            // they were supposed to respect.
+            publishEngineReadiness(reason: performanceBlockReason)
+            return
+        }
+        // A previous verdict of `.unavailable` must not be terminal: it is
+        // reachable purely from transient state, and the power/thermal
+        // observers plus scene activation call back in when that state clears.
+        if case .unavailable = preloadState { preloadTask = nil }
         guard preloadTask == nil else { return }
+        guard preloadDidFinish == false else {
+            publishEngineReadiness()
+            return
+        }
 
         preloadState = .loading
         let names = functionNames
@@ -311,8 +329,10 @@ public enum SignatureShaders {
         }
     }
 
-    /// Shared `Color` → shader float3. Each modifier used to carry its own
-    /// private copy of this.
+}
+
+extension SignatureShaders {
+    /// Shared `Color` → shader float3. Each modifier used to carry its own private copy.
     static func components(of color: Color) -> (Float, Float, Float) {
         let ui = UIColor(color)
         var r: CGFloat = 1, g: CGFloat = 1, b: CGFloat = 1, a: CGFloat = 1

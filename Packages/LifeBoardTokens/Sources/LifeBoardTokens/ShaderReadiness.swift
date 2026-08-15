@@ -24,24 +24,71 @@ import Foundation
 /// daypart bloom's tint fade, for example, is reachable **only** under Reduce
 /// Motion — folding reduce-motion into a global gate would delete that fallback
 /// rather than degrade to it.
+/// The observable owner of both facts.
+///
+/// This exists because the static `ShaderReadiness` facade below could not
+/// invalidate SwiftUI. Warm-up runs on a detached task and finishes *after*
+/// first render; when it flipped `engineReady`, every view that had already
+/// asked `allowsShaderRendering` inside its `body` kept its "not ready" answer
+/// forever. Reading a `static var` is not an observation-tracked access, so
+/// there was nothing to re-evaluate — which is why shaders appeared to be
+/// permanently disabled even with Full Motion on and the flag enabled.
+///
+/// Views must not read this type directly either. Read
+/// `\.lifeBoardShaderReadiness` from the environment: the root modifier
+/// performs one tracked read on everyone's behalf and re-publishes, so a single
+/// observation drives the whole tree.
+@MainActor
+@Observable
+public final class ShaderReadinessStore {
+    public static let shared = ShaderReadinessStore()
+
+    public private(set) var engineReady = false
+    public private(set) var comfortPermits = true
+
+    /// Why the engine is unavailable, when it is. Surfaced by the DEBUG motion
+    /// diagnostics overlay so "no shaders" can be distinguished from "shaders
+    /// suppressed on purpose" without attaching a debugger.
+    public private(set) var unavailabilityReason: String?
+
+    public var allowsShaderRendering: Bool { engineReady && comfortPermits }
+
+    public func publishEngineReady(_ isReady: Bool, reason: String? = nil) {
+        engineReady = isReady
+        unavailabilityReason = isReady ? nil : reason
+    }
+
+    public func publishComfort(profile: ComfortProfile) {
+        comfortPermits = profile != .calm
+    }
+}
+
 @MainActor
 public enum ShaderReadiness {
     /// The app target's full verdict: every stitchable function materialized,
     /// the signature-shader flag on, not in Low Power Mode, and not thermally
     /// constrained. Starts false — nothing may render before the app says so.
-    public private(set) static var engineReady = false
+    public static var engineReady: Bool { ShaderReadinessStore.shared.engineReady }
 
     /// Set by the shell whenever the comfort profile or presentation changes.
     /// Defaults permissive so nothing regresses before the first publish.
-    public private(set) static var comfortPermits = true
+    public static var comfortPermits: Bool { ShaderReadinessStore.shared.comfortPermits }
 
-    /// The question every effect should actually ask.
-    public static var allowsShaderRendering: Bool {
-        engineReady && comfortPermits
+    public static var unavailabilityReason: String? {
+        ShaderReadinessStore.shared.unavailabilityReason
     }
 
-    public static func publishEngineReady(_ isReady: Bool) {
-        engineReady = isReady
+    /// The question every effect should actually ask.
+    ///
+    /// Still a valid read for non-SwiftUI callers and for one-shot checks inside
+    /// an already-invalidating body. It does **not** establish observation on
+    /// its own — see `ShaderReadinessStore`.
+    public static var allowsShaderRendering: Bool {
+        ShaderReadinessStore.shared.allowsShaderRendering
+    }
+
+    public static func publishEngineReady(_ isReady: Bool, reason: String? = nil) {
+        ShaderReadinessStore.shared.publishEngineReady(isReady, reason: reason)
     }
 
     /// `DESIGN.md`: "Comfort profiles change expression, not capability."
@@ -60,6 +107,6 @@ public enum ShaderReadiness {
     /// which already drives the celestial and star field through
     /// `AtmospherePlacement.suppressesAmbientDetail`.
     public static func publishComfort(profile: ComfortProfile) {
-        comfortPermits = profile != .calm
+        ShaderReadinessStore.shared.publishComfort(profile: profile)
     }
 }

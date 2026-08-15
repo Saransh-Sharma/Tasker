@@ -16,6 +16,15 @@ public struct AmbientRenderingPolicy: Equatable, Sendable {
         lowPowerMode: Bool = ProcessInfo.processInfo.isLowPowerModeEnabled,
         thermalState: ProcessInfo.ThermalState = ProcessInfo.processInfo.thermalState
     ) -> AmbientRenderingPolicy {
+        // Applied here rather than trusted to the caller. This parameter was a
+        // raw `Bool` that happened to be correct only because its single call
+        // site pre-applied the override; any second caller passing
+        // `@Environment(\.accessibilityReduceMotion)` straight through would
+        // have silently pinned the ambient tier to `.static` with Full Motion
+        // on. Resolving inside makes that impossible rather than merely
+        // discouraged. `MotionOverride.resolve` is idempotent, so a caller that
+        // already resolved loses nothing.
+        let reduceMotion = MotionOverride.resolve(reduceMotion)
         let constrained = reduceMotion || lowPowerMode || thermalState == .serious || thermalState == .critical
         let effectiveTier: AmbientRenderingTier
         if reduceMotion {
@@ -401,23 +410,21 @@ public struct AdaptiveAtmosphere: View {
                 daypart: snapshot.semanticDaypart
             )
         }
-        .animation(reduceMotion ? .linear(duration: 0.18) : .easeInOut(duration: 0.65), value: snapshot.transitionIdentity)
+        // Effective, not raw: this was the one branch in the atmosphere that
+        // still read the system flag directly, so a Full Motion user with
+        // system Reduce Motion on kept the 0.18s cut here while every other
+        // layer around it crossfaded.
+        .animation(
+            MotionOverride.resolve(reduceMotion)
+                ? .linear(duration: 0.18)
+                : .easeInOut(duration: 0.65),
+            value: snapshot.transitionIdentity
+        )
         .accessibilityHidden(true)
         .allowsHitTesting(false)
         .onChange(of: snapshot.transitionIdentity) { _, _ in transitionTrigger &+= 1 }
         .onReceive(NotificationCenter.default.publisher(for: .NSProcessInfoPowerStateDidChange)) { _ in powerRevision &+= 1 }
         .onReceive(NotificationCenter.default.publisher(for: ProcessInfo.thermalStateDidChangeNotification)) { _ in powerRevision &+= 1 }
-    }
-
-    private struct ScenicLayout {
-        let width: CGFloat
-        let minX: CGFloat
-        var midX: CGFloat { minX + width / 2 }
-    }
-
-    private func scenicLayout(for size: CGSize) -> ScenicLayout {
-        let width = size.width >= 700 ? min(520, size.width) : size.width
-        return ScenicLayout(width: width, minX: (size.width - width) / 2)
     }
 
     /// Wide-layout underlay: the same daypart art, blown out and blurred until

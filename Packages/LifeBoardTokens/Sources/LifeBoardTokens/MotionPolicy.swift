@@ -46,7 +46,11 @@ public struct MotionPolicy: Equatable, Sendable {
             allowsCustomShaders: allowsShaders,
             allowsIdleMotion: allowsIdleMotion,
             allowsSpatialMotion: allowsSpatialMotion,
-            allowsHaptics: sceneIsActive && isCatalyst == false,
+            // Low Power belongs here. This type's own documentation claimed it
+            // "suppresses haptics under Low Power Mode and on Catalyst", but
+            // only the Catalyst term was ever written, so the Taptic engine
+            // kept firing in exactly the mode the user enabled to stop it.
+            allowsHaptics: sceneIsActive && isCatalyst == false && lowPowerMode == false,
             usesOpaqueSurfaces: reduceTransparency,
             transitionDuration: reduceMotion ? 0 : (energyConstrained ? 0.12 : 0.28),
             springDamping: reduceMotion ? 1 : (comfortProfile == .playful ? 0.78 : 0.86),
