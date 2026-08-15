@@ -13,42 +13,28 @@ protocol AppOnboardingHostAdapter: AnyObject {
 
     func prepareForOnboardingHomeGuidance()
     func present(_ viewControllerToPresent: UIViewController, animated flag: Bool, completion: (() -> Void)?)
-    func makeOnboardingAddTaskController(
-        prefill: AddTaskPrefillTemplate,
-        onTaskCreated: @escaping (UUID) -> Void,
-        onDismissWithoutTask: (() -> Void)?
-    ) -> UIViewController?
-    func makeOnboardingAddHabitController(
-        prefill: AddHabitPrefillTemplate,
-        onHabitCreated: @escaping (UUID) -> Void,
-        onDismissWithoutTask: (() -> Void)?
-    ) -> UIViewController?
-    func makeOnboardingTaskDetailController(
-        task: TaskDefinition,
-        onDismiss: @escaping () -> Void
-    ) -> UIViewController?
 }
 
-/// UIKit composition host for the SwiftUI Life OS root and first-run modals.
-/// It contains no Home behavior: its only jobs are child containment and the
-/// three UIKit presentations onboarding still requires.
+/// UIKit composition host for the SwiftUI Life OS root.
+///
+/// It contains no Home behavior; its only job is child containment. The three
+/// `makeOnboarding*Controller` factories that used to live here — add-task,
+/// add-habit, and task-detail — went with the nine-step flow: the Life Map flow
+/// creates at most one record, through the reviewed capture, and never presents
+/// a UIKit composer.
 @MainActor
 final class ApplicationHostController: UIViewController, AppOnboardingHostAdapter {
     private let root: AnyView
     private let presentationDependencies: CompositionRoot
-    private let planDependencies: PlanFeatureDependencies?
     private let router: AppRouter
-    private var taskDetailDismissBridges: [ObjectIdentifier: OnboardingTaskDetailDismissBridge] = [:]
 
     init(
         root: AnyView,
         presentationDependencies: CompositionRoot,
-        planDependencies: PlanFeatureDependencies?,
         router: AppRouter
     ) {
         self.root = root
         self.presentationDependencies = presentationDependencies
-        self.planDependencies = planDependencies
         self.router = router
         super.init(nibName: nil, bundle: nil)
     }
@@ -79,69 +65,4 @@ final class ApplicationHostController: UIViewController, AppOnboardingHostAdapte
         router.select(.home)
     }
 
-    func makeOnboardingAddTaskController(
-        prefill: AddTaskPrefillTemplate,
-        onTaskCreated: @escaping (UUID) -> Void,
-        onDismissWithoutTask: (() -> Void)?
-    ) -> UIViewController? {
-        let model = presentationDependencies.makeNewAddTaskViewModel()
-        model.applyPrefill(prefill)
-        let content = AddTaskSheetView(
-            viewModel: model,
-            onTaskCreated: onTaskCreated,
-            onDismissWithoutTask: onDismissWithoutTask
-        )
-        let host = UIHostingController(rootView: AnyView(content.lifeBoardTokenEnvironment(for: currentOnboardingLayoutClass)))
-        configureComposerSheet(host)
-        return host
-    }
-
-    func makeOnboardingAddHabitController(
-        prefill: AddHabitPrefillTemplate,
-        onHabitCreated: @escaping (UUID) -> Void,
-        onDismissWithoutTask: (() -> Void)?
-    ) -> UIViewController? {
-        let model = presentationDependencies.makeNewAddHabitViewModel()
-        model.applyPrefill(prefill)
-        let content = AddHabitSheetView(
-            viewModel: model,
-            onHabitCreated: onHabitCreated,
-            onDismissWithoutHabit: onDismissWithoutTask
-        )
-        let host = UIHostingController(rootView: AnyView(content.lifeBoardTokenEnvironment(for: currentOnboardingLayoutClass)))
-        configureComposerSheet(host)
-        return host
-    }
-
-    func makeOnboardingTaskDetailController(
-        task: TaskDefinition,
-        onDismiss: @escaping () -> Void
-    ) -> UIViewController? {
-        guard let planDependencies else { return nil }
-        let content = NavigationStack {
-            TaskRouteView(id: task.id, dependencies: planDependencies, router: router)
-        }
-        .lifeBoardTokenEnvironment(for: currentOnboardingLayoutClass)
-        let host = UIHostingController(rootView: AnyView(content))
-        host.modalPresentationStyle = currentOnboardingLayoutClass == .phone ? .pageSheet : .formSheet
-        if currentOnboardingLayoutClass != .phone {
-            host.preferredContentSize = CGSize(width: 540, height: 680)
-        }
-        let bridge = OnboardingTaskDetailDismissBridge(onDismiss: { [weak self, weak host] in
-            if let host { self?.taskDetailDismissBridges[ObjectIdentifier(host)] = nil }
-            onDismiss()
-        })
-        taskDetailDismissBridges[ObjectIdentifier(host)] = bridge
-        host.presentationController?.delegate = bridge
-        return host
-    }
-
-    private func configureComposerSheet<Content: View>(_ host: UIHostingController<Content>) {
-        host.modalPresentationStyle = .pageSheet
-        if let sheet = host.sheetPresentationController {
-            sheet.detents = [.medium(), .large()]
-            sheet.prefersGrabberVisible = true
-            sheet.prefersScrollingExpandsWhenScrolledToEdge = false
-        }
-    }
 }

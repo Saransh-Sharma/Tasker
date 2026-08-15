@@ -23,7 +23,7 @@ extension AppOnboardingCoordinator {
             .rootViewController
         else { return hostAdapter }
         var topmost = root
-        while let presented = topmost.presentedViewController, presented !== onboardingHost, presented !== promptHost {
+        while let presented = topmost.presentedViewController, presented !== onboardingHost {
             topmost = presented
         }
         return topmost
@@ -43,15 +43,20 @@ extension AppOnboardingCoordinator {
             guard self.eligibilityService.isSuppressedByLaunchArgument == false else { return }
 
             let state = self.stateStore.load()
-            if state.hasHandledCurrentVersion == false, state.journeySnapshot != nil {
+            if state.hasHandledCurrentVersion == false, state.lifeMapJourneySnapshot != nil {
                 self.enqueuePresentation(.fullFlow(source: "resume"))
                 return
             }
             switch await self.eligibilityService.evaluate() {
             case .fullFlow:
                 self.enqueuePresentation(.fullFlow(source: "launch_auto"))
-            case .promptOnly(let snapshot):
-                self.enqueuePresentation(.prompt(snapshot: snapshot))
+            case .promptOnly:
+                // Deliberately not `enqueuePresentation(.prompt(...))`. An
+                // established user opening the app asked for their workspace,
+                // not for a setup flow; the invitation waits on Home until they
+                // want it, and the permanent entry is the Life Map card in
+                // Life Management.
+                self.guidanceModel.showLifeMapInvitation()
             case .suppressed:
                 break
             }
@@ -60,7 +65,6 @@ extension AppOnboardingCoordinator {
 
     func restartOnboarding() {
         stateStore.clear()
-        viewModel.resetForReplay()
         guidanceModel.clear()
         presentationQueue = OnboardingPresentationQueue()
         enqueuePresentation(.fullFlow(source: "settings_replay"))
@@ -99,8 +103,6 @@ extension AppOnboardingCoordinator {
     func attemptPresentation(_ presentation: PendingOnboardingPresentation, source: String) -> Bool {
         let presented: Bool
         switch presentation {
-        case .prompt(let snapshot):
-            presented = presentPromptIfPossible(snapshot: snapshot)
         case .fullFlow(let sourceLabel):
             presented = presentFullFlowIfPossible(source: sourceLabel)
         }
@@ -119,89 +121,41 @@ extension AppOnboardingCoordinator {
         return presented
     }
 
-    func presentPromptIfPossible(snapshot: OnboardingWorkspaceSnapshot) -> Bool {
-        guard promptHost == nil else { return false }
-        guard let hostAdapter else { return false }
-        guard let anchor = presentationAnchor, anchor.presentedViewController == nil else { return false }
-
-        let controller = UIHostingController(
-            rootView: AnyView(
-                AppOnboardingPromptSheetView(
-                    snapshot: snapshot,
-                    onStart: { [weak self] in
-                        Task { @MainActor [weak self] in
-                            guard let self else { return }
-                            await self.viewModel.prepareEstablishedWorkspaceEntry()
-                            self.dismissPrompt(animated: true) {
-                                self.enqueuePresentation(.fullFlow(source: "prompt_opt_in"))
-                            }
-                        }
-                    },
-                    onNotNow: { [weak self] in
-                        self?.stateStore.markEstablishedWorkspacePromptDismissed()
-                        self?.dismissPrompt(animated: true, completion: nil)
-                    }
-                )
-                .lifeBoardTokenEnvironment(for: hostAdapter.currentOnboardingLayoutClass)
-            )
-        )
-        controller.modalPresentationStyle = .pageSheet
-        if let sheet = controller.sheetPresentationController {
-            sheet.detents = [.large()]
-            sheet.selectedDetentIdentifier = .large
-            sheet.prefersGrabberVisible = false
-            sheet.preferredCornerRadius = 30
-        }
-        promptHost = controller
-        anchor.present(controller, animated: true, completion: nil)
-        return true
-    }
-
-    func dismissPrompt(animated: Bool, completion: (() -> Void)?) {
-        guard let promptHost else {
-            completion?()
-            return
-        }
-        self.promptHost = nil
-        promptHost.dismiss(animated: animated, completion: completion)
-    }
-
     func presentFullFlowIfPossible(source: String) -> Bool {
-        dismissPrompt(animated: false, completion: nil)
         guard onboardingHost == nil else { return false }
         guard let hostAdapter else { return false }
         guard let anchor = presentationAnchor, anchor.presentedViewController == nil else { return false }
 
         feedbackController.prepare()
-        viewModel.prepareForPresentation(snapshot: stateStore.load().journeySnapshot)
+        let entryContext: OnboardingEntryContext = source == "settings_replay" || source == "life_map_refresh"
+            ? .establishedWorkspace : .freshFlow
+        lifeMapModel.prepareForPresentation(
+            snapshot: stateStore.load().lifeMapJourneySnapshot,
+            entryContext: entryContext
+        )
         logOnboardingInfo(
             event: "onboarding_started",
-            message: "Started ADHD-first onboarding flow",
+            message: "Started Life Map onboarding flow",
             fields: ["source": source]
         )
 
-        let rootView = AppOnboardingJourneyView(
-            viewModel: viewModel,
-            feedbackController: feedbackController,
-            onOpenCustomTaskComposer: { [weak self] prefill in
-                self?.presentCustomTaskComposer(prefill: prefill) ?? false
-            },
-            onOpenCustomHabitComposer: { [weak self] prefill in
-                self?.presentCustomHabitComposer(prefill: prefill) ?? false
-            },
-            onEditTask: { [weak self] task in
-                self?.presentTaskEditor(task: task) ?? false
-            },
+        let rootView = LifeMapOnboardingView(
+            model: self.lifeMapModel,
             onDismissFlow: { [weak self] in
                 guard let self else { return }
-                if self.viewModel.successSummary != nil,
-                   let createdHabit = self.viewModel.createdHabits.first {
-                    self.guidanceModel.showHabitGuide(habit: createdHabit)
-                }
                 self.dismissFullFlow(animated: true)
             }
         )
         .lifeBoardTokenEnvironment(for: hostAdapter.currentOnboardingLayoutClass)
+        // Mandatory, not decorative. This hosting controller is presented from
+        // UIKit and inherits none of `FoundationShell`'s environment, so
+        // without its own resolution the flow would read the default motion
+        // context and a permanently-false shader readiness — which is exactly
+        // why the onboarding view already hand-bridges `\.scenePhase`.
+        .lifeBoardResolvedMotion(
+            comfortProfile: FoundationCoordinator.shared.preferences.comfortProfile,
+            requestedAmbientTierID: FoundationCoordinator.shared.preferences.renderingTier.rawValue
+        )
 
         let controller = UIHostingController(rootView: AnyView(rootView))
         controller.modalPresentationStyle = .fullScreen
@@ -217,50 +171,6 @@ extension AppOnboardingCoordinator {
         }
         self.onboardingHost = nil
         onboardingHost.dismiss(animated: animated, completion: completion)
-    }
-
-    func presentCustomTaskComposer(prefill: AddTaskPrefillTemplate) -> Bool {
-        guard let onboardingHost, onboardingHost.presentedViewController == nil else { return false }
-        guard let controller = hostAdapter?.makeOnboardingAddTaskController(
-            prefill: prefill,
-            onTaskCreated: { [weak self] taskID in
-                Task { @MainActor [weak self] in
-                    await self?.viewModel.registerCustomCreatedTask(taskID: taskID)
-                }
-            },
-            onDismissWithoutTask: nil
-        ) else { return false }
-        onboardingHost.present(controller, animated: true)
-        return true
-    }
-
-    func presentCustomHabitComposer(prefill: AddHabitPrefillTemplate) -> Bool {
-        guard let onboardingHost, onboardingHost.presentedViewController == nil else { return false }
-        guard let controller = hostAdapter?.makeOnboardingAddHabitController(
-            prefill: prefill,
-            onHabitCreated: { [weak self] habitID in
-                Task { @MainActor [weak self] in
-                    await self?.viewModel.registerCustomCreatedHabit(habitID: habitID)
-                }
-            },
-            onDismissWithoutTask: nil
-        ) else { return false }
-        onboardingHost.present(controller, animated: true)
-        return true
-    }
-
-    func presentTaskEditor(task: TaskDefinition) -> Bool {
-        guard let onboardingHost, onboardingHost.presentedViewController == nil else { return false }
-        guard let controller = hostAdapter?.makeOnboardingTaskDetailController(
-            task: task,
-            onDismiss: { [weak self] in
-                Task { @MainActor [weak self] in
-                    await self?.viewModel.refreshCreatedTask(taskID: task.id)
-                }
-            }
-        ) else { return false }
-        onboardingHost.present(controller, animated: true)
-        return true
     }
 
     func isPresentationBlocked() -> Bool {

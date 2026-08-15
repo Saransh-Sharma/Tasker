@@ -29,6 +29,7 @@ final class AppOnboardingStateStore: @unchecked Sendable {
         state.outcome = outcome
         state.completedVersion = version
         state.journeySnapshot = nil
+        state.lifeMapJourneySnapshot = nil
         save(state)
     }
 
@@ -44,9 +45,22 @@ final class AppOnboardingStateStore: @unchecked Sendable {
         save(state)
     }
 
+    func storeLifeMapJourney(_ snapshot: LifeMapDraft?) {
+        var state = load()
+        state.lifeMapJourneySnapshot = snapshot
+        save(state)
+    }
+
+    func clearLifeMapJourney() {
+        var state = load()
+        state.lifeMapJourneySnapshot = nil
+        save(state)
+    }
+
     func clearJourney() {
         var state = load()
         state.journeySnapshot = nil
+        state.lifeMapJourneySnapshot = nil
         save(state)
     }
 

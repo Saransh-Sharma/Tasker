@@ -14,4 +14,12 @@ extension LifeAreaRepositoryProtocol {
             }
         }
     }
+
+    func updateAsync(_ area: LifeArea) async throws -> LifeArea {
+        try await withCheckedThrowingContinuation { continuation in
+            update(area) { result in
+                continuation.resume(with: result)
+            }
+        }
+    }
 }

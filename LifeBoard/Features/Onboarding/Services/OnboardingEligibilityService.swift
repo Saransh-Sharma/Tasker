@@ -108,10 +108,17 @@ final class OnboardingEligibilityService: @unchecked Sendable {
             return .fullFlow(snapshot)
         }
 
+        // Existing workspaces are never interrupted, but they are not ignored
+        // either. `.promptOnly` no longer means "present a blocking sheet" — the
+        // coordinator routes it to a dismissible invitation on Home and to the
+        // permanent Life Map card in Life Management.
+        //
+        // This is also the only reader of `establishedWorkspacePromptDismissedVersion`.
+        // `markEstablishedWorkspacePromptDismissed()` has always written it and
+        // nothing ever consulted it, so "Not now" did not actually mean "not now".
         if state.establishedWorkspacePromptDismissedVersion == version {
             return .suppressed
         }
-
         return .promptOnly(snapshot)
     }
 }
