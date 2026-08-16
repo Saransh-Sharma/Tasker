@@ -1,5 +1,47 @@
 import XCTest
 
+@MainActor
+final class EvaCloudLiveDeviceSmokeTests: XCTestCase {
+    func testAppleCloudActivationOnPhysicalDevice() throws {
+        try XCTSkipUnless(
+            Bundle(for: Self.self).object(forInfoDictionaryKey: "LIFEBOARDRunLiveCloudSmoke") as? Bool == true,
+            "Live Apple smoke runs only when explicitly enabled on a physical device."
+        )
+        continueAfterFailure = false
+
+        let app = XCUIApplication()
+        app.launch()
+
+        let evaDestination = app.buttons["foundation.destination.eva"]
+        if evaDestination.waitForExistence(timeout: 8) {
+            evaDestination.tap()
+        }
+
+        let cloudSetup = app.otherElements["eva.activation.cloud_setup"]
+        XCTAssertTrue(
+            cloudSetup.waitForExistence(timeout: 10),
+            "Place Eva activation on the Cloud Setup step before running the live smoke."
+        )
+
+        let continueWithApple = app.buttons["Continue with Apple"]
+        XCTAssertTrue(continueWithApple.waitForExistence(timeout: 5))
+        continueWithApple.tap()
+
+        let error = app.descendants(matching: .any)["eva.activation.cloud.error"]
+        let cloudReady = app.buttons["Continue to First Win"]
+        let completed = NSPredicate { _, _ in
+            error.exists || cloudReady.exists || !cloudSetup.exists
+        }
+        let result = XCTWaiter.wait(
+            for: [XCTNSPredicateExpectation(predicate: completed, object: app)],
+            timeout: 180
+        )
+
+        XCTAssertNotEqual(result, .timedOut, "Apple cloud activation did not finish within three minutes.")
+        XCTAssertFalse(error.exists, error.exists ? error.label : "Cloud activation failed.")
+    }
+}
+
 final class ChatPlanApplyUndoTests: BaseUITest {
     func testChatEntryPointOpensAssistantSurfaceAndSlashPicker() throws {
         try openChatSurface()

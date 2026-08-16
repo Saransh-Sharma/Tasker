@@ -239,6 +239,23 @@ final class LifeBoardEvidenceContractTests: XCTestCase {
 }
 
 final class EvaCloudWireContractTests: XCTestCase {
+    func testAppleExchangeRequestMatchesSharedFixture() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtureURL = repositoryRoot.appending(path: "Shared/EVACloudContracts/fixtures/apple-auth-exchange-v1.json")
+        let fixtureData = try Data(contentsOf: fixtureURL)
+        let request = try JSONDecoder.evaCloud.decode(EvaAppleExchangeRequestV1.self, from: fixtureData)
+
+        XCTAssertEqual(request.challengeId.uuidString, "11111111-1111-4111-8111-111111111111")
+        XCTAssertEqual(request.installationId.uuidString, "22222222-2222-4222-8222-222222222222")
+        XCTAssertEqual(request.platform, "ios")
+
+        let encodedObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder.evaCloud.encode(request)) as? NSDictionary
+        )
+        let fixtureObject = try XCTUnwrap(JSONSerialization.jsonObject(with: fixtureData) as? NSDictionary)
+        XCTAssertEqual(encodedObject, fixtureObject)
+    }
+
     func testSharedStructuredFixturesDecodeThroughSwiftWireValue() throws {
         let repositoryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let fixtureURL = repositoryRoot.appending(path: "Shared/EVACloudContracts/fixtures/structured-results-v1.json")
