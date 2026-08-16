@@ -1,8 +1,30 @@
 import { type Static, Type } from '@sinclair/typebox'
+import { EvaPlatformSchema, EvaUUIDSchema } from './primitives.js'
+
+export { EvaPlatformSchema, EvaUUIDPattern, EvaUUIDSchema } from './primitives.js'
 
 export const EvaContractVersion = 1 as const
-const UUIDPattern = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
 const ISODateTimePattern = '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?Z$'
+
+export const EvaAppleExchangeRequestV1Schema = Type.Object({
+  challengeId: EvaUUIDSchema,
+  nonce: Type.String({ minLength: 20, maxLength: 256 }),
+  identityToken: Type.String({ minLength: 20 }),
+  authorizationCode: Type.String({ minLength: 1 }),
+  installationId: EvaUUIDSchema,
+  platform: EvaPlatformSchema,
+  signedAppTransaction: Type.Optional(Type.String({ minLength: 20, maxLength: 65_536 })),
+}, { $id: 'EvaAppleExchangeRequestV1', additionalProperties: false })
+export type EvaAppleExchangeRequestV1 = Static<typeof EvaAppleExchangeRequestV1Schema>
+
+export const EvaRefreshRequestV1Schema = Type.Object({
+  accountId: Type.String({ minLength: 20, maxLength: 128 }),
+  familyId: EvaUUIDSchema,
+  refreshToken: Type.String({ minLength: 32 }),
+  installationId: EvaUUIDSchema,
+  platform: EvaPlatformSchema,
+}, { $id: 'EvaRefreshRequestV1', additionalProperties: false })
+export type EvaRefreshRequestV1 = Static<typeof EvaRefreshRequestV1Schema>
 
 export const EvaRouteSchema = Type.Union([
   Type.Literal('chat'),
@@ -42,7 +64,7 @@ export const EvaContextSectionSchema = Type.Object({
 }, { additionalProperties: false })
 
 export const EvaInferenceRequestV1Schema = Type.Object({
-  requestId: Type.String({ pattern: UUIDPattern }),
+  requestId: EvaUUIDSchema,
   route: EvaRouteSchema,
   contractVersion: Type.Literal(EvaContractVersion),
   locale: Type.String({ minLength: 2, maxLength: 64 }),
@@ -50,8 +72,8 @@ export const EvaInferenceRequestV1Schema = Type.Object({
   messages: Type.Array(EvaMessageSchema, { minItems: 1, maxItems: 64 }),
   context: Type.Array(EvaContextSectionSchema, { maxItems: 5 }),
   clientVersion: Type.String({ minLength: 1, maxLength: 64 }),
-  platform: Type.Union([Type.Literal('ios'), Type.Literal('catalyst')]),
-  installationId: Type.String({ pattern: UUIDPattern }),
+  platform: EvaPlatformSchema,
+  installationId: EvaUUIDSchema,
   consentRevision: Type.Integer({ minimum: 0 }),
   providerCapabilities: Type.Object({
     streaming: Type.Boolean(),
@@ -111,7 +133,7 @@ export const EvaErrorEnvelopeSchema = Type.Object({
 export type EvaErrorEnvelope = Static<typeof EvaErrorEnvelopeSchema>
 
 const EvaStreamBaseSchema = Type.Object({
-  requestId: Type.String({ pattern: UUIDPattern }),
+  requestId: EvaUUIDSchema,
   sequence: Type.Integer({ minimum: 0 }),
 })
 
@@ -163,7 +185,7 @@ export const EvaConsentPolicySchema = Type.Object({
 export type EvaConsentPolicy = Static<typeof EvaConsentPolicySchema>
 
 export const EvaSpeechRequestSchema = Type.Object({
-  requestId: Type.String({ pattern: UUIDPattern }),
+  requestId: EvaUUIDSchema,
   speechTicket: Type.String({ minLength: 1 }),
   text: Type.String({ minLength: 1, maxLength: 12_000 }),
   allowPaidRegeneration: Type.Boolean(),

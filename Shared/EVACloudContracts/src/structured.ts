@@ -1,10 +1,10 @@
 import { type Static, type TSchema, Type } from '@sinclair/typebox'
 import type { EvaInferenceRequestV1, EvaRoute } from './index.js'
+import { EvaUUIDSchema } from './primitives.js'
 
-const UUIDPattern = '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$'
 const ISODateTimePattern = '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d+)?(?:Z|[+-]\\d{2}:\\d{2})$'
 
-const UUID = Type.String({ pattern: UUIDPattern })
+const UUID = EvaUUIDSchema
 const NullableUUID = Type.Union([UUID, Type.Null()])
 const NullableDate = Type.Union([Type.String({ pattern: ISODateTimePattern }), Type.Null()])
 const NullableDuration = Type.Union([Type.Number({ minimum: 60, maximum: 86_400 }), Type.Null()])
