@@ -81,6 +81,15 @@ app.onError((error, context) => {
   const safeError = error instanceof EvaHttpError
     ? error
     : new EvaHttpError(500, 'provider_unavailable', 'Cloud EVA encountered an unexpected error.', { retryable: true })
+  if (safeError.code === 'schema_invalid' && safeError.options.rejectedFields?.length) {
+    recordTelemetry(context.env, {
+      event: 'contract_rejection',
+      requestId,
+      route: context.req.path,
+      status: safeError.code,
+      detail: safeError.options.rejectedFields.join(','),
+    })
+  }
   recordTelemetry(context.env, {
     event: 'http_error',
     requestId,

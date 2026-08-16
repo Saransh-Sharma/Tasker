@@ -45,7 +45,19 @@ export async function readJson<T>(request: Request, schema: TSchema): Promise<T>
     throw new EvaHttpError(400, 'schema_invalid', 'The request body is not valid JSON.')
   }
   if (!Value.Check(schema, value)) {
-    throw new EvaHttpError(400, 'schema_invalid', 'The request does not match the EVA API contract.')
+    throw new EvaHttpError(400, 'schema_invalid', 'The request does not match the EVA API contract.', {
+      rejectedFields: rejectedContractFields(schema, value),
+    })
   }
   return value as T
+}
+
+function rejectedContractFields(schema: TSchema, value: unknown): string[] {
+  const fields = new Set<string>()
+  for (const error of Value.Errors(schema, value)) {
+    const topLevelField = error.path.split('/').find(Boolean)
+    fields.add(topLevelField ?? '$body')
+    if (fields.size >= 16) break
+  }
+  return [...fields].sort()
 }

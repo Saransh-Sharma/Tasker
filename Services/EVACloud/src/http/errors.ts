@@ -10,6 +10,8 @@ export class EvaHttpError extends Error {
       retryAfter?: number
       credits?: EvaCreditState
       recoveryAction?: EvaErrorEnvelope['recoveryAction']
+      /** Top-level schema field names only. Never include field values. */
+      rejectedFields?: readonly string[]
     } = {},
   ) {
     super(message)

@@ -1,3 +1,9 @@
+import {
+  type EvaAppleExchangeRequestV1,
+  EvaAppleExchangeRequestV1Schema,
+  type EvaRefreshRequestV1,
+  EvaRefreshRequestV1Schema,
+} from '@lifeboard/eva-contracts'
 import { Type } from '@sinclair/typebox'
 import { Hono } from 'hono'
 import type { AppVariables, Env, SessionPrincipal } from '../environment.js'
@@ -10,27 +16,10 @@ import { exchangeAppleAuthorizationCode, verifyAppleAccountEvent, verifyAppleIde
 import { verifyCatalystAppTransaction } from './app-transaction.js'
 import { requireSession } from './middleware.js'
 import { accessTokenExpiresAt, issueAccessToken, newRefreshToken } from './session.js'
+import { recordTelemetry } from '../telemetry/events.js'
 
 const ChallengeRequestSchema = Type.Object({
   purpose: Type.Optional(Type.Union([Type.Literal('signIn'), Type.Literal('reauthenticate')])),
-}, { additionalProperties: false })
-
-const AppleExchangeSchema = Type.Object({
-  challengeId: Type.String({ format: 'uuid' }),
-  nonce: Type.String({ minLength: 20, maxLength: 256 }),
-  identityToken: Type.String({ minLength: 20 }),
-  authorizationCode: Type.String({ minLength: 1 }),
-  installationId: Type.String({ format: 'uuid' }),
-  platform: Type.Union([Type.Literal('ios'), Type.Literal('catalyst')]),
-  signedAppTransaction: Type.Optional(Type.String({ minLength: 20, maxLength: 65_536 })),
-}, { additionalProperties: false })
-
-const RefreshSchema = Type.Object({
-  accountId: Type.String({ minLength: 20, maxLength: 128 }),
-  familyId: Type.String({ format: 'uuid' }),
-  refreshToken: Type.String({ minLength: 32 }),
-  installationId: Type.String({ format: 'uuid' }),
-  platform: Type.Union([Type.Literal('ios'), Type.Literal('catalyst')]),
 }, { additionalProperties: false })
 
 export const authRoutes = new Hono<{ Bindings: Env; Variables: AppVariables }>()
@@ -38,7 +27,7 @@ export const authRoutes = new Hono<{ Bindings: Env; Variables: AppVariables }>()
 authRoutes.post('/challenge', async (context) => {
   const body = await readJson<{ purpose?: 'signIn' | 'reauthenticate' }>(context.req.raw, ChallengeRequestSchema)
   const challengeId = crypto.randomUUID()
-  const stub = durableObjectStub(context.env.AUTH_CHALLENGES, challengeId)
+  const stub = authChallengeStub(context.env, challengeId)
   const challenge = await durableJson<{ nonce: string; expiresAt: string }>(stub, '/issue', {
     method: 'POST',
     body: JSON.stringify({ purpose: body.purpose ?? 'signIn', ttlSeconds: 300 }),
@@ -47,22 +36,15 @@ authRoutes.post('/challenge', async (context) => {
 })
 
 authRoutes.post('/apple/exchange', async (context) => {
-  const body = await readJson<{
-    challengeId: string
-    nonce: string
-    identityToken: string
-    authorizationCode: string
-    installationId: string
-    platform: 'ios' | 'catalyst'
-    signedAppTransaction?: string
-  }>(context.req.raw, AppleExchangeSchema)
-  const challenge = durableObjectStub(context.env.AUTH_CHALLENGES, body.challengeId)
+  const body = await readJson<EvaAppleExchangeRequestV1>(context.req.raw, EvaAppleExchangeRequestV1Schema)
+  const challenge = authChallengeStub(context.env, body.challengeId)
   try {
     await durableJson(challenge, '/consume', {
       method: 'POST',
       body: JSON.stringify({ purpose: 'signIn', nonce: body.nonce }),
     })
   } catch {
+    recordAppleExchangeFailure(context.env, context.get('requestId'), 'challenge')
     throw new EvaHttpError(409, 'unauthenticated', 'The sign-in request expired. Try again.', {
       recoveryAction: 'signIn',
     })
@@ -72,6 +54,7 @@ authRoutes.post('/apple/exchange', async (context) => {
   try {
     identity = await verifyAppleIdentityToken(context.env, body.identityToken, body.nonce)
   } catch {
+    recordAppleExchangeFailure(context.env, context.get('requestId'), 'identity_token')
     throw new EvaHttpError(401, 'unauthenticated', 'Apple sign-in could not be verified.', {
       recoveryAction: 'signIn',
     })
@@ -82,6 +65,7 @@ authRoutes.post('/apple/exchange', async (context) => {
     try {
       catalystRisk = await verifyCatalystAppTransaction(context.env, body.signedAppTransaction)
     } catch {
+      recordAppleExchangeFailure(context.env, context.get('requestId'), 'catalyst_transaction')
       throw new EvaHttpError(401, 'attestation_required', 'This Mac could not be verified for Cloud EVA.', {
         recoveryAction: 'signIn',
       })
@@ -96,11 +80,13 @@ authRoutes.post('/apple/exchange', async (context) => {
       identity.audience,
     )
   } catch {
+    recordAppleExchangeFailure(context.env, context.get('requestId'), 'authorization_code')
     throw new EvaHttpError(401, 'unauthenticated', 'Apple sign-in could not be verified.', {
       recoveryAction: 'signIn',
     })
   }
   if (appleTokens.identity.subject !== identity.subject || appleTokens.identity.audience !== identity.audience) {
+    recordAppleExchangeFailure(context.env, context.get('requestId'), 'identity_mismatch')
     throw new EvaHttpError(401, 'unauthenticated', 'Apple sign-in identities did not match.', {
       recoveryAction: 'signIn',
     })
@@ -162,14 +148,27 @@ authRoutes.post('/apple/exchange', async (context) => {
   })
 })
 
+function authChallengeStub(env: Env, challengeId: string): DurableObjectStub {
+  // Swift's UUID Codable representation is uppercase while crypto.randomUUID()
+  // is lowercase. Durable Object names are case-sensitive, so always resolve a
+  // UUID challenge through one canonical name at both issuance and consumption.
+  return durableObjectStub(env.AUTH_CHALLENGES, challengeId.toLowerCase())
+}
+
+function recordAppleExchangeFailure(env: Env, requestId: string, stage: string): void {
+  recordTelemetry(env, {
+    event: 'auth.apple.exchange.failed',
+    requestId,
+    route: '/v1/auth/apple/exchange',
+    status: stage,
+  })
+  // Deliberately content-free so live Worker tails can identify the failing
+  // verification stage without exposing credentials, subjects, or payloads.
+  console.warn(JSON.stringify({ event: 'auth.apple.exchange.failed', requestId, stage }))
+}
+
 authRoutes.post('/refresh', async (context) => {
-  const body = await readJson<{
-    accountId: string
-    familyId: string
-    refreshToken: string
-    installationId: string
-    platform: 'ios' | 'catalyst'
-  }>(context.req.raw, RefreshSchema)
+  const body = await readJson<EvaRefreshRequestV1>(context.req.raw, EvaRefreshRequestV1Schema)
   const replacement = await newRefreshToken()
   try {
     const rotation = await durableJson<{

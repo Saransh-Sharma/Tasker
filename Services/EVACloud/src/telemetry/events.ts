@@ -14,6 +14,8 @@ export interface EvaTelemetryEvent {
   cacheWriteTokens?: number
   reasoningTokens?: number
   actualMicroUsd?: number
+  /** Content-free diagnostic dimensions such as rejected schema field names. */
+  detail?: string
 }
 
 export function recordTelemetry(env: Env, event: EvaTelemetryEvent): void {
@@ -25,6 +27,7 @@ export function recordTelemetry(env: Env, event: EvaTelemetryEvent): void {
       event.route ?? '',
       event.status ?? '',
       env.ENVIRONMENT,
+      event.detail ?? '',
     ],
     doubles: [
       event.durationMs ?? 0,
