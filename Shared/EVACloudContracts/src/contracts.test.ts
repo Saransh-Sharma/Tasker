@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   EvaErrorEnvelopeSchema,
+  EvaAppleExchangeRequestV1Schema,
   EvaInferenceRequestV1Schema,
+  EvaRefreshRequestV1Schema,
   EvaStreamEventSchema,
   EvaPlanResultSchema,
   EvaTopThreeResultSchema,
@@ -12,6 +14,24 @@ import {
 } from './index.js'
 
 describe('EVA cloud v1 contracts', () => {
+  it('accepts Apple auth UUIDs without relying on an ambient format registry', () => {
+    const exchange = JSON.parse(readFileSync(
+      new URL('../fixtures/apple-auth-exchange-v1.json', import.meta.url),
+      'utf8',
+    )) as Record<string, unknown>
+    expect(Value.Check(EvaAppleExchangeRequestV1Schema, exchange)).toBe(true)
+    expect(Value.Check(EvaAppleExchangeRequestV1Schema, { ...exchange, challengeId: 'not-a-uuid' })).toBe(false)
+    expect(Value.Check(EvaAppleExchangeRequestV1Schema, { ...exchange, unexpected: 'private-value' })).toBe(false)
+
+    expect(Value.Check(EvaRefreshRequestV1Schema, {
+      accountId: 'account-identifier-long-enough',
+      familyId: '33333333-3333-4333-8333-333333333333',
+      refreshToken: 'r'.repeat(32),
+      installationId: exchange.installationId,
+      platform: exchange.platform,
+    })).toBe(true)
+  })
+
   it('accepts a bounded inference request fixture', () => {
     expect(Value.Check(EvaInferenceRequestV1Schema, {
       requestId: '5ad4a27b-73f7-48d6-909f-14f12a8fc98c',

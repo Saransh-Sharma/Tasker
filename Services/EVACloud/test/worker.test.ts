@@ -26,6 +26,15 @@ async function bootstrappedAccount() {
 }
 
 describe('EVA Cloud Worker', () => {
+  const validAppleExchangeBody = () => ({
+    challengeId: crypto.randomUUID(),
+    nonce: 'n'.repeat(20),
+    identityToken: 'header.payload.signature',
+    authorizationCode: 'apple-authorization-code',
+    installationId: crypto.randomUUID(),
+    platform: 'ios',
+  })
+
   it('exposes content-free health information and security headers', async () => {
     const response = await SELF.fetch('https://eva.test/health')
     expect(response.status).toBe(200)
@@ -63,6 +72,81 @@ describe('EVA Cloud Worker', () => {
     })
     expect(first.status).toBe(200)
     expect(replay.status).toBe(409)
+  })
+
+  it('accepts valid UUIDs at the Apple exchange schema boundary', async () => {
+    const response = await SELF.fetch('https://eva.test/v1/auth/apple/exchange', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(validAppleExchangeBody()),
+    })
+    expect(response.status).toBe(409)
+    await expect(response.json()).resolves.toMatchObject({
+      code: 'unauthenticated',
+      message: 'The sign-in request expired. Try again.',
+    })
+  })
+
+  it('consumes a freshly issued challenge when Swift re-encodes its UUID in uppercase', async () => {
+    const issued = await SELF.fetch('https://eva.test/v1/auth/challenge', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ purpose: 'signIn' }),
+    })
+    expect(issued.status).toBe(200)
+    const challenge = await issued.json<{ challengeId: string; nonce: string }>()
+
+    const exchange = await SELF.fetch('https://eva.test/v1/auth/apple/exchange', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...validAppleExchangeBody(),
+        challengeId: challenge.challengeId.toUpperCase(),
+        nonce: challenge.nonce,
+      }),
+    })
+
+    expect(exchange.status).toBe(401)
+    await expect(exchange.json()).resolves.toMatchObject({
+      code: 'unauthenticated',
+      message: 'Apple sign-in could not be verified.',
+    })
+  })
+
+  it('rejects malformed Apple exchange UUIDs and extra properties', async () => {
+    const malformed = await SELF.fetch('https://eva.test/v1/auth/apple/exchange', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validAppleExchangeBody(), challengeId: 'not-a-uuid' }),
+    })
+    expect(malformed.status).toBe(400)
+    await expect(malformed.json()).resolves.toMatchObject({ code: 'schema_invalid' })
+
+    const extra = await SELF.fetch('https://eva.test/v1/auth/apple/exchange', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...validAppleExchangeBody(), unexpected: 'must-not-leak' }),
+    })
+    expect(extra.status).toBe(400)
+    const error = await extra.text()
+    expect(error).toContain('schema_invalid')
+    expect(error).not.toContain('must-not-leak')
+  })
+
+  it('accepts valid UUIDs at the refresh schema boundary', async () => {
+    const response = await SELF.fetch('https://eva.test/v1/auth/refresh', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: 'account-identifier-long-enough',
+        familyId: crypto.randomUUID(),
+        refreshToken: 'r'.repeat(32),
+        installationId: crypto.randomUUID(),
+        platform: 'ios',
+      }),
+    })
+    expect(response.status).toBe(401)
+    await expect(response.json()).resolves.toMatchObject({ code: 'session_expired' })
   })
 
   it('keeps credit reservations exact under concurrency', async () => {
