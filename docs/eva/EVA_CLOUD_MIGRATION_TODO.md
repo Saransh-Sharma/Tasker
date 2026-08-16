@@ -6,6 +6,22 @@ This file is the implementation ledger for the Luna text and spoken-output migra
 
 The first implementation pass established the end-to-end architecture, but its original checkboxes treated a working skeleton as completion. The remaining work below is authoritative. Earlier phase summaries are retained as implementation history and no longer imply production readiness.
 
+### Sign in with Apple UUID contract incident — 2026-08-15
+
+- [x] Identify the pre-authentication failure: TypeBox rejected valid Apple exchange and refresh UUIDs because the Worker used an unregistered JSON Schema `uuid` format.
+- [x] Replace ambient UUID formats with the canonical shared pattern and reuse shared Apple exchange/refresh schemas.
+- [x] Add content-free contract-rejection telemetry that records only endpoint and field names.
+- [x] Add TypeScript Worker/contract regressions and a Swift Apple exchange fixture compatibility test.
+- [x] Deploy the UUID contract fix to staging and verify the live HTTP boundary: valid Apple exchange UUIDs reach challenge verification, malformed UUIDs remain `schema_invalid`, and a valid refresh request reaches session lookup. Staging Worker version `be990909-ffb2-4c8c-a07e-36a0f8fdfa71`.
+- [ ] Verify staging on a physical iPhone through Apple exchange, App Attest, 18+ eligibility, credits, consent, and refresh.
+- [x] Deploy the same code to production while keeping the production Luna/TTS switches disabled until staging acceptance. Production Worker version `44ebe167-8863-4962-a663-c181a705e285`; `api.getlifeboard.app` health and schema boundaries passed, while the GitHub Pages apex and `www` remained healthy.
+- [x] Diagnose the second live-device failure: Swift re-encoded the issued UUID in uppercase and selected a different case-sensitive `AuthChallengeDO` name during exchange.
+- [x] Canonicalize challenge Durable Object names and add an HTTP issue→uppercase-exchange regression test.
+- [x] Add content-free Apple-exchange stage telemetry for live-device diagnosis without retaining credentials or request content.
+- [x] Deploy the challenge-key fix and stage telemetry to staging (`8323796f-6db5-48a6-8a1f-97469da14b26`) and production (`43cd8dfe-f0dd-4c6b-9baa-57ccede62820`). Live issue→uppercase-exchange checks advance to identity-token verification; replay remains rejected.
+- [ ] Pass the physical-device Apple exchange, App Attest, 18+ eligibility, credits, consent, and refresh flow. The iPhone is connected but must be unlocked for the attached diagnostic launch.
+- [ ] Enable Luna text from a higher-version signed configuration after live staging acceptance; keep TTS independently disabled.
+
 ### A — Reproducible source tree
 
 - [x] Pin Node 24 for local and CI Worker tooling.
@@ -66,7 +82,7 @@ The first implementation pass established the end-to-end architecture, but its o
 - [x] Provision environment-isolated Cloudflare, OpenAI, and Apple secrets/keys. OpenAI, generated signing/encryption/HMAC material, Apple team/client IDs, Apple trust roots, App Attest environment, and the Sign in with Apple key for Team ID `CJ43UNM3AR` are uploaded in development, staging, and production. Private values remain only in Cloudflare secret storage.
 - [x] Add executable staging smoke, privacy-safe Luna eval, and load-test tools.
 - [x] Add deployment preflight and environment-isolated key-generation tooling that never prints private values.
-- [x] Deploy staging with cloud and TTS disabled and observe a clean remote workflow. Staging Worker version `34a172bc-97e5-4fe6-a4c5-c4a23c802dca` is deployed; `/health` and signed disabled configuration were verified remotely.
+- [x] Deploy staging with cloud and TTS disabled and observe a clean remote workflow. Staging Worker version `be990909-ffb2-4c8c-a07e-36a0f8fdfa71` is deployed; `/health`, the signed disabled configuration, and Apple exchange/refresh schema boundaries were verified remotely.
 - [ ] Pass real-device iOS, signed Catalyst, Luna, moderation, and TTS staging smoke tests.
 - [ ] Meet structured-validity and latency acceptance thresholds at 10× launch load.
 - [ ] Complete ZDR, privacy, threat-model, App Store, and TestFlight gates. Cloudflare imported the existing GitHub Pages records, the GoDaddy nameserver cutover completed, the production custom domain is attached, and the marketing apex/www paths were verified through Cloudflare without changing their GitHub Pages targets. The Apple App ID server-notification configuration was submitted for `https://api.getlifeboard.app/v1/auth/apple/events`; Apple portal propagation remains a final console verification.
@@ -158,7 +174,7 @@ The first implementation pass established the end-to-end architecture, but its o
 
 - [x] `npm run check` passes with the marketing app, shared contracts, Worker type-check, and Worker tests.
 - [x] `npm audit --audit-level=high` reports zero vulnerabilities; local credential-shape and secret-file scans are clean.
-- [x] Worker suite passes 36 tests, including fail-closed configuration, request-body ceilings, fixture-backed App Attest chain/environment/nonce/RP-ID/signature/counter verification, age leases, synthetic Catalyst App Transaction and platform binding, concurrent and one-remaining-credit reservations, crash reconciliation, idempotent release/commit, refresh-token reuse, consent revisioning, speech claim/accounting concurrency, mocked moderation, prompt ownership, and versioned cost accounting.
+- [x] Worker suite passes 40 tests, including fail-closed configuration, request-body ceilings, fixture-backed App Attest chain/environment/nonce/RP-ID/signature/counter verification, age leases, synthetic Catalyst App Transaction and platform binding, concurrent and one-remaining-credit reservations, crash reconciliation, idempotent release/commit, refresh-token reuse, consent revisioning, speech claim/accounting concurrency, mocked moderation, prompt ownership, versioned cost accounting, Apple exchange/refresh UUID contract regressions, and case-insensitive challenge key resolution.
 - [x] `wrangler deploy --dry-run --env staging` packages the Worker and all declared bindings.
 - [x] The iOS generic simulator build passes with the EVA Cloud implementation.
 - [x] Clean iOS Simulator and universal Mac Catalyst builds pass after reconciling the onboarding and widget package-link changes.

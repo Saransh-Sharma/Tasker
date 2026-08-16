@@ -22,6 +22,8 @@ Development, staging, and production KV namespaces are provisioned in the Cloudf
 
 The Sign in with Apple key for the app's actual Team ID `CJ43UNM3AR` is now uploaded to development, staging, and production. The private key exists only in Cloudflare secret storage; do not paste or commit it. Staging is deployed with cloud and TTS disabled and has passed remote health/config verification. Production is attached to `api.getlifeboard.app`; the marketing apex and `www` remain on the imported GitHub Pages records.
 
+The versioned price schedule must match the official OpenAI model pages and the project's billing view before setting `approved: true`. As verified on 2026-08-15, the public Luna page lists $1.00/M uncached input tokens, $0.10/M cached input tokens, $6.00/M output tokens, and cache writes at 1.25× uncached input; `tts-1` lists $15.00/M characters. Reverify these values immediately before each enablement rather than treating this note as permanent pricing.
+
 1. Create a KV namespace and replace the matching placeholder ID in `Services/EVACloud/wrangler.toml`.
 2. Confirm Durable Object migrations are forward-only. Never remove or rename a deployed class without a new migration tag.
 3. Add every secret named in `.dev.vars.example` with `wrangler secret put --env <environment>` (omit `--env` for development).
