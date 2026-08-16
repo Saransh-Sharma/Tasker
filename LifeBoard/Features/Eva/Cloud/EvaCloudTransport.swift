@@ -1,6 +1,16 @@
 import CryptoKit
 import Foundation
 
+struct EvaAppleExchangeRequestV1: Codable, Sendable {
+    let challengeId: UUID
+    let nonce: String
+    let identityToken: String
+    let authorizationCode: String
+    let installationId: UUID
+    let platform: String
+    let signedAppTransaction: String?
+}
+
 actor EvaCloudTransport {
     static let shared = EvaCloudTransport()
 
@@ -89,16 +99,7 @@ actor EvaCloudTransport {
         appleUserIdentifier: String,
         signedAppTransaction: String?
     ) async throws -> EvaSessionCredentials {
-        struct Body: Encodable {
-            let challengeId: UUID
-            let nonce: String
-            let identityToken: String
-            let authorizationCode: String
-            let installationId: UUID
-            let platform: String
-            let signedAppTransaction: String?
-        }
-        let body = Body(
+        let body = EvaAppleExchangeRequestV1(
             challengeId: challengeId,
             nonce: nonce,
             identityToken: identityToken,
