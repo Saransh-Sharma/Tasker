@@ -213,38 +213,105 @@ private struct LifeMapPermissionRow: View {
 // MARK: - EVA power-up
 
 struct LifeMapEvaStep: View {
+    let isAuthenticated: Bool
+    let isAdultEligible: Bool
+    let isCloudReady: Bool
+    let isWorking: Bool
+    let errorMessage: String?
+
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.lg) {
-            LifeMapEyebrow("OPTIONAL · RESUMABLE")
-            Text("Meet EVA when you’re ready.")
+            LifeMapEyebrow("OPTIONAL · PRIVATE · RESUMABLE")
+            Text(isCloudReady ? "EVA is connected." : "Enable EVA with Apple.")
                 .font(.lifeboard(.heroDisplay))
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .minimumScaleFactor(0.75)
                 .fixedSize(horizontal: false, vertical: true)
-            Text("EVA can help connect plans, patterns, and reflection. Activation stays private, explains storage before any download, and can be finished later from EVA or your Life Map.")
+            Text(isCloudReady
+                 ? "Your private cloud session is ready. Continue to choose how EVA should work with you and try your first useful prompt."
+                 : "Sign in with Apple enables Cloud EVA without sharing your name or email. Apple confirms an 18+ age range; LifeBoard never asks for your birth date.")
                 .font(.lifeboard(.title3))
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
-            VStack(alignment: .leading, spacing: Theme.Spacing.sm) {
-                LifeMapEvaFact(symbol: "iphone.gen3", text: "On-device eligibility check")
-                LifeMapEvaFact(symbol: "person.crop.circle.badge.checkmark", text: "Persona and model choice")
-                LifeMapEvaFact(symbol: "internaldrive", text: "Storage and network confirmation")
+
+            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+                LifeMapEvaRequirement(
+                    symbol: "apple.logo",
+                    title: "Sign in privately with Apple",
+                    detail: "A nonce-bound session for this device",
+                    isComplete: isAuthenticated
+                )
+                LifeMapEvaRequirement(
+                    symbol: "checkmark.shield.fill",
+                    title: "Confirm adult eligibility",
+                    detail: "Apple shares only an 18+ result",
+                    isComplete: isAdultEligible
+                )
+                LifeMapEvaRequirement(
+                    symbol: "hand.raised.fill",
+                    title: "Choose EVA’s boundaries",
+                    detail: "You approve any sensitive context",
+                    isComplete: isCloudReady
+                )
             }
+            .padding(Theme.Spacing.lg)
+            .lifeBoardClaySurface(.resting, cornerRadius: 22)
+
+            if isWorking {
+                HStack(spacing: Theme.Spacing.sm) {
+                    ProgressView()
+                        .tint(Color.lifeboard(.accentPrimary))
+                    Text("Securing your EVA session…")
+                        .font(.lifeboard(.bodyStrong))
+                        .foregroundStyle(Color.lifeboard(.textSecondary))
+                }
+                .accessibilityElement(children: .combine)
+                .accessibilityAddTraits(.updatesFrequently)
+            }
+
+            if let errorMessage {
+                Label(errorMessage, systemImage: "exclamationmark.triangle.fill")
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.statusWarning))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Text("Prefer everything on-device? Finish later and choose Offline EVA from EVA setup. Core LifeBoard never requires an account.")
+                .font(.lifeboard(.caption1))
+                .foregroundStyle(Color.lifeboard(.textTertiary))
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(Theme.Spacing.xl)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .lifeBoardClaySurface(.raised, cornerRadius: 28)
         .accessibilityIdentifier(LifeMapAccessibilityID.step(.evaPowerUp))
     }
 }
 
-private struct LifeMapEvaFact: View {
+private struct LifeMapEvaRequirement: View {
     let symbol: String
-    let text: String
+    let title: String
+    let detail: String
+    let isComplete: Bool
 
     var body: some View {
-        Label(text, systemImage: symbol)
-            .font(.lifeboard(.body))
-            .foregroundStyle(Color.lifeboard(.textSecondary))
+        HStack(spacing: Theme.Spacing.md) {
+            Image(systemName: symbol)
+                .font(.lifeboard(.title3))
+                .foregroundStyle(Color.lifeboard(isComplete ? .statusSuccess : .accentPrimary))
+                .frame(width: 28)
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.lifeboard(.bodyStrong))
+                    .foregroundStyle(Color.lifeboard(.textPrimary))
+                Text(detail)
+                    .font(.lifeboard(.caption1))
+                    .foregroundStyle(Color.lifeboard(.textTertiary))
+            }
+            Spacer(minLength: Theme.Spacing.sm)
+            Image(systemName: isComplete ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(Color.lifeboard(isComplete ? .statusSuccess : .textQuaternary))
+                .accessibilityHidden(true)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityValue(isComplete ? "Complete" : "Not complete")
     }
 }

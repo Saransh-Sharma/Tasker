@@ -6,6 +6,12 @@ import AVFoundation
 import Network
 import MLXLMCommon
 
+private final class LifeMapOnboardingHostingController: UIHostingController<AnyView> {
+    override var preferredStatusBarStyle: UIStatusBarStyle {
+        traitCollection.userInterfaceStyle == .dark ? .lightContent : .darkContent
+    }
+}
+
 extension AppOnboardingCoordinator {
     /// The controller onboarding should actually present from.
     ///
@@ -157,8 +163,12 @@ extension AppOnboardingCoordinator {
             requestedAmbientTierID: FoundationCoordinator.shared.preferences.renderingTier.rawValue
         )
 
-        let controller = UIHostingController(rootView: AnyView(rootView))
+        let controller = LifeMapOnboardingHostingController(rootView: AnyView(rootView))
         controller.modalPresentationStyle = .fullScreen
+        controller.modalPresentationCapturesStatusBarAppearance = true
+        controller.edgesForExtendedLayout = .all
+        controller.extendedLayoutIncludesOpaqueBars = true
+        controller.view.backgroundColor = .clear
         onboardingHost = controller
         anchor.present(controller, animated: true, completion: nil)
         return true

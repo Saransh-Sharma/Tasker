@@ -1,3 +1,4 @@
+import AuthenticationServices
 import LifeBoardTokens
 import LifeBoardUI
 import SwiftUI
@@ -23,6 +24,10 @@ struct LifeMapOnboardingView: View {
     @State private var cardMorphTrigger = 0
     @State private var completionTrigger = 0
     @State private var showTuneSheet = false
+    @State private var evaAccount = EvaCloudAccountState.shared
+    @State private var evaIsWorking = false
+    @State private var evaErrorMessage: String?
+    @State private var contentSafeAreaInsets = LifeMapOnboardingView.windowSafeAreaInsets
     @State private var bridgedScenePhase: ScenePhase =
         UIApplication.shared.applicationState == .background ? .background : .active
 
@@ -34,11 +39,20 @@ struct LifeMapOnboardingView: View {
 
             GeometryReader { proxy in
                 let isWide = horizontalSizeClass == .regular && proxy.size.width > 760
-                if isWide {
-                    wideLayout(proxy: proxy)
-                } else {
-                    compactLayout(proxy: proxy)
+                let usableHeight = max(
+                    0,
+                    proxy.size.height - contentSafeAreaInsets.top - contentSafeAreaInsets.bottom
+                )
+                Group {
+                    if isWide {
+                        wideLayout()
+                    } else {
+                        compactLayout(availableHeight: usableHeight)
+                    }
                 }
+                .frame(width: proxy.size.width, height: usableHeight, alignment: .top)
+                .padding(.top, contentSafeAreaInsets.top)
+                .padding(.bottom, contentSafeAreaInsets.bottom)
             }
 
             if model.isCommitting {
@@ -62,6 +76,7 @@ struct LifeMapOnboardingView: View {
             .presentationDragIndicator(.visible)
         }
         .onAppear {
+            refreshContentSafeAreaInsets()
             firstLightTrigger += 1
             model.feedback.prepare()
         }
@@ -74,6 +89,7 @@ struct LifeMapOnboardingView: View {
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didBecomeActiveNotification)) { _ in
             bridgedScenePhase = .active
+            refreshContentSafeAreaInsets()
         }
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.willResignActiveNotification)) { _ in
             bridgedScenePhase = .inactive
@@ -81,16 +97,45 @@ struct LifeMapOnboardingView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIApplication.didEnterBackgroundNotification)) { _ in
             bridgedScenePhase = .background
         }
+        .onReceive(NotificationCenter.default.publisher(for: UIDevice.orientationDidChangeNotification)) { _ in
+            refreshContentSafeAreaInsets()
+        }
+        .task(id: model.step) {
+            guard model.step == .evaPowerUp,
+                  (try? await EvaCloudSessionStore.shared.load()) != nil else { return }
+            await evaAccount.refresh()
+        }
         // UIHostingController-backed flows do not participate in a SwiftUI App
         // scene, so their raw `scenePhase` can read `.background` while fully
         // visible. Bridging UIKit lifecycle keeps the shader, glass, and haptic
         // gates live while on screen and quiet once it is not.
         .environment(\.scenePhase, bridgedScenePhase)
+        // The UIKit host otherwise proposes only its safe rectangle. Let the
+        // media own the physical display, then re-inset controls with the real
+        // window geometry captured above.
+        .ignoresSafeArea(.container, edges: .all)
+    }
+
+    private static var windowSafeAreaInsets: EdgeInsets {
+        let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+        let window = scenes.flatMap(\.windows).first(where: \.isKeyWindow)
+            ?? scenes.first(where: { $0.activationState == .foregroundActive })?.windows.first
+        let insets = window?.safeAreaInsets ?? .zero
+        return EdgeInsets(
+            top: insets.top,
+            leading: insets.left,
+            bottom: insets.bottom,
+            trailing: insets.right
+        )
+    }
+
+    private func refreshContentSafeAreaInsets() {
+        contentSafeAreaInsets = Self.windowSafeAreaInsets
     }
 
     // MARK: - Layout
 
-    private func wideLayout(proxy: GeometryProxy) -> some View {
+    private func wideLayout() -> some View {
         HStack(spacing: Theme.Spacing.xxl + 6) {
             mapCanvas
                 .frame(maxWidth: 520)
@@ -101,10 +146,10 @@ struct LifeMapOnboardingView: View {
         .padding(.vertical, Theme.Spacing.xxl)
     }
 
-    private func compactLayout(proxy: GeometryProxy) -> some View {
+    private func compactLayout(availableHeight: CGFloat) -> some View {
         VStack(spacing: Theme.Spacing.sm) {
             mapCanvas
-                .frame(height: min(390, max(250, proxy.size.height * 0.43)))
+                .frame(height: min(390, max(250, availableHeight * 0.43)))
             contentColumn
         }
         .padding(.horizontal, Theme.Spacing.xl - 2)
@@ -212,7 +257,13 @@ struct LifeMapOnboardingView: View {
                 onDefer: model.deferPermission
             )
         case .evaPowerUp:
-            LifeMapEvaStep()
+            LifeMapEvaStep(
+                isAuthenticated: evaAccount.isAuthenticated,
+                isAdultEligible: evaAccount.isAdultEligible,
+                isCloudReady: evaAccount.canUseCloud,
+                isWorking: evaIsWorking,
+                errorMessage: evaErrorMessage
+            )
         }
     }
 
@@ -235,7 +286,10 @@ struct LifeMapOnboardingView: View {
         case .capture: "Connect it"
         case .reveal: "Enter LifeBoard"
         case .permissionsPowerUp: "Continue to EVA"
-        case .evaPowerUp: "Open EVA"
+        case .evaPowerUp:
+            if evaIsWorking { "Connecting…" }
+            else if evaAccount.canUseCloud { "Continue EVA setup" }
+            else { "Sign in with Apple" }
         default: "Continue"
         }
     }
@@ -257,6 +311,7 @@ struct LifeMapOnboardingView: View {
         case .friction: model.draft.frictionIDs.isEmpty
         case .lifeAreas: model.draft.isLifeAreaSelectionValid == false
         case .capture: model.draft.isCaptureResolved == false
+        case .evaPowerUp: evaIsWorking
         default: false
         }
     }
@@ -266,8 +321,11 @@ struct LifeMapOnboardingView: View {
         case .reveal:
             onDismissFlow()
         case .evaPowerUp:
-            NotificationCenter.default.post(name: .lifeboardOpenChatDeepLink, object: nil)
-            onDismissFlow()
+            if evaAccount.canUseCloud {
+                openEvaSetup()
+            } else {
+                enableCloudEva()
+            }
         default:
             Task {
                 if await model.advance() { onDismissFlow() }
@@ -284,6 +342,29 @@ struct LifeMapOnboardingView: View {
         default:
             break
         }
+    }
+
+    private func enableCloudEva() {
+        guard evaIsWorking == false else { return }
+        evaIsWorking = true
+        evaErrorMessage = nil
+        Task { @MainActor in
+            defer { evaIsWorking = false }
+            do {
+                try await evaAccount.activateCloud()
+                if let readinessError = evaAccount.readinessError() { throw readinessError }
+                model.feedback.successSignature()
+            } catch let error as ASAuthorizationError where error.code == .canceled {
+                evaErrorMessage = "Sign in was cancelled. You can try again or finish later."
+            } catch {
+                evaErrorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    private func openEvaSetup() {
+        NotificationCenter.default.post(name: .lifeboardOpenChatDeepLink, object: nil)
+        onDismissFlow()
     }
 
     private var stepTransition: AnyTransition {
