@@ -48,6 +48,18 @@ final class EvaSignedConfigurationVerifierTests: XCTestCase {
         XCTAssertEqual(verified.cloudState, .disabled)
     }
 
+    func testRuntimeRoutesUseTheServerObjectShape() throws {
+        let configuration = makeConfiguration()
+        let encoded = try JSONEncoder.evaCloud.encode(configuration)
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        let routes = try XCTUnwrap(object["routes"] as? [String: Any])
+
+        XCTAssertNotNil(routes[EvaCloudRoute.chat.rawValue])
+
+        let decoded = try JSONDecoder.evaCloud.decode(EvaCloudRuntimeConfiguration.self, from: encoded)
+        XCTAssertEqual(decoded.routes[.chat]?.enabled, true)
+    }
+
     func testRejectsTamperingAndUnapprovedProtectedHeaders() throws {
         let key = Curve25519.Signing.PrivateKey()
         let signed = try sign(makeConfiguration(), using: key)
@@ -146,7 +158,16 @@ final class EvaSignedConfigurationVerifierTests: XCTestCase {
             speechVoice: "nova",
             minimumClientVersion: "2.1.0",
             contractVersions: contractVersions,
-            routes: [:]
+            routes: [
+                .chat: .init(
+                    enabled: true,
+                    inputTokenCap: 16_000,
+                    outputTokenCap: 2_048,
+                    reasoning: "low",
+                    billable: true,
+                    structured: false
+                )
+            ]
         )
     }
 
@@ -190,6 +211,44 @@ import UIKit
 @MainActor
 final class EvaActivationTests: XCTestCase {
     private let defaultAssistantIdentity = AssistantIdentitySnapshot(mascotID: .eva)
+
+    func testCloudReadinessPreservesDisabledConfigurationMaintenanceReason() {
+        let configuration = EvaCloudRuntimeConfiguration(
+            schemaVersion: 2,
+            version: 2,
+            issuedAt: Date(),
+            environment: "staging",
+            cloudState: .disabled,
+            ttsEnabled: false,
+            maintenanceMessage: "Staging text inference is paused for maintenance.",
+            offlineRecoveryPolicy: "offerTryOffline",
+            textModel: "gpt-5.6-luna",
+            speechModel: "tts-1",
+            speechVoice: "nova",
+            minimumClientVersion: "1.0.0",
+            contractVersions: [1],
+            routes: [.chat: .init(
+                enabled: false,
+                inputTokenCap: 16_000,
+                outputTokenCap: 2_048,
+                reasoning: "low",
+                billable: true,
+                structured: false
+            )]
+        )
+
+        let error = EvaCloudAccountState.readinessError(
+            configuration: configuration,
+            isAuthenticated: true,
+            isAdultEligible: true,
+            hasConsent: true,
+            creditBalance: 100,
+            route: .chat,
+            lastError: nil
+        )
+
+        XCTAssertEqual(error?.localizedDescription, "Staging text inference is paused for maintenance.")
+    }
 
     func testAssistantIdentityTextFormatsDefaultAndSelectedPersona() {
         let eva = AssistantIdentitySnapshot(mascotID: .eva)
@@ -522,6 +581,11 @@ final class EvaActivationTests: XCTestCase {
 
         EvaActivationDefaultsStore.markCompleted(defaults: defaults)
         XCTAssertTrue(EvaActivationDefaultsStore.load(defaults: defaults).isComplete)
+
+        EvaActivationDefaultsStore.stageCloudSetupForUITesting(defaults: defaults)
+        let cloudSetupState = EvaActivationDefaultsStore.load(defaults: defaults)
+        XCTAssertEqual(cloudSetupState.stage, .cloudSetup)
+        XCTAssertFalse(cloudSetupState.isComplete)
     }
 
     func testCoordinatorRequiresSameThreadForCompletion() throws {

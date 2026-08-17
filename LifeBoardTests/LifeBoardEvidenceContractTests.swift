@@ -256,6 +256,23 @@ final class EvaCloudWireContractTests: XCTestCase {
         XCTAssertEqual(encodedObject, fixtureObject)
     }
 
+    func testAdultEligibilityRequestPreservesExplicitNullLowerBound() throws {
+        let repositoryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        let fixtureURL = repositoryRoot.appending(path: "Shared/EVACloudContracts/fixtures/adult-eligibility-v1.json")
+        let fixtureData = try Data(contentsOf: fixtureURL)
+        let request = try JSONDecoder.evaCloud.decode(EvaAdultEligibilityRequestV1.self, from: fixtureData)
+
+        XCTAssertEqual(request.declaration, "unavailable")
+        XCTAssertNil(request.lowerBound)
+
+        let encodedObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: JSONEncoder.evaCloud.encode(request)) as? NSDictionary
+        )
+        let fixtureObject = try XCTUnwrap(JSONSerialization.jsonObject(with: fixtureData) as? NSDictionary)
+        XCTAssertEqual(encodedObject, fixtureObject)
+        XCTAssertEqual(encodedObject["lowerBound"] as? NSNull, NSNull())
+    }
+
     func testSharedStructuredFixturesDecodeThroughSwiftWireValue() throws {
         let repositoryRoot = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
         let fixtureURL = repositoryRoot.appending(path: "Shared/EVACloudContracts/fixtures/structured-results-v1.json")

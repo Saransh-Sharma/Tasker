@@ -48,6 +48,7 @@ extension XCUIApplication {
         case testCalendarStub = "-LIFEBOARD_TEST_CALENDAR_STUB"
         case testCalendarMode = "-LIFEBOARD_TEST_CALENDAR_MODE"
         case testEvaActivationCompleted = "-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED"
+        case testEvaCloudSetup = "-LIFEBOARD_TEST_EVA_CLOUD_SETUP"
         case testHabitDetailEditorSupportDelayMilliseconds = "-LIFEBOARD_TEST_HABIT_DETAIL_EDITOR_SUPPORT_DELAY_MS"
         case visualFixture = "-LIFEBOARD_VISUAL_FIXTURE"
         case visualAppearance = "-LIFEBOARD_VISUAL_APPEARANCE"

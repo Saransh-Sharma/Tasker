@@ -3,13 +3,18 @@ import XCTest
 @MainActor
 final class EvaCloudLiveDeviceSmokeTests: XCTestCase {
     func testAppleCloudActivationOnPhysicalDevice() throws {
-        try XCTSkipUnless(
-            Bundle(for: Self.self).object(forInfoDictionaryKey: "LIFEBOARDRunLiveCloudSmoke") as? Bool == true,
-            "Live Apple smoke runs only when explicitly enabled on a physical device."
-        )
+        #if !LIFEBOARD_LIVE_CLOUD_SMOKE
+        throw XCTSkip("Live Apple smoke runs only with the LIFEBOARD_LIVE_CLOUD_SMOKE build condition.")
+        #endif
         continueAfterFailure = false
 
         let app = XCUIApplication()
+        app.launchArguments = [
+            XCUIApplication.LaunchArgumentKey.uiTesting.rawValue,
+            XCUIApplication.LaunchArgumentKey.disableAnimations.rawValue,
+            XCUIApplication.LaunchArgumentKey.skipOnboarding.rawValue,
+            XCUIApplication.LaunchArgumentKey.testEvaCloudSetup.rawValue
+        ]
         app.launch()
 
         let evaDestination = app.buttons["foundation.destination.eva"]
@@ -17,18 +22,54 @@ final class EvaCloudLiveDeviceSmokeTests: XCTestCase {
             evaDestination.tap()
         }
 
-        let cloudSetup = app.otherElements["eva.activation.cloud_setup"]
+        let cloudSetup = app.descendants(matching: .any)["eva.activation.cloud_setup"]
         XCTAssertTrue(
             cloudSetup.waitForExistence(timeout: 10),
-            "Place Eva activation on the Cloud Setup step before running the live smoke."
+            "Expected the UI-test launch argument to place EVA on Cloud Setup. Hierarchy: \(app.debugDescription)"
         )
 
         let continueWithApple = app.buttons["Continue with Apple"]
-        XCTAssertTrue(continueWithApple.waitForExistence(timeout: 5))
+        let continueToFirstWin = app.buttons["Continue to First Win"]
+        let primaryActionAvailable = NSPredicate { _, _ in
+            continueWithApple.exists || continueToFirstWin.exists
+        }
+        XCTAssertEqual(
+            XCTWaiter.wait(
+                for: [XCTNSPredicateExpectation(predicate: primaryActionAvailable, object: app)],
+                timeout: 10
+            ),
+            .completed,
+            "Expected either a fresh Apple sign-in action or the ready-state continuation. Hierarchy: \(app.debugDescription)"
+        )
+
+        if continueToFirstWin.exists {
+            continueToFirstWin.tap()
+            let leftCloudSetup = XCTNSPredicateExpectation(
+                predicate: NSPredicate(format: "exists == false"),
+                object: cloudSetup
+            )
+            XCTAssertEqual(
+                XCTWaiter.wait(for: [leftCloudSetup], timeout: 10),
+                .completed,
+                "A ready Cloud EVA account should advance to First Win."
+            )
+            XCTAssertFalse(
+                app.descendants(matching: .any)["eva.activation.cloud.error"].exists,
+                "A previously authenticated Cloud EVA session should remain ready."
+            )
+            return
+        }
+
         continueWithApple.tap()
 
+        #if targetEnvironment(simulator)
+        throw XCTSkip(
+            "The simulator reached Apple's native authorization flow. Complete end-to-end qualification on physical hardware because App Attest is unavailable in Simulator."
+        )
+        #endif
+
         let error = app.descendants(matching: .any)["eva.activation.cloud.error"]
-        let cloudReady = app.buttons["Continue to First Win"]
+        let cloudReady = continueToFirstWin
         let completed = NSPredicate { _, _ in
             error.exists || cloudReady.exists || !cloudSetup.exists
         }

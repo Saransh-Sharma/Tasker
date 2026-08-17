@@ -1589,6 +1589,35 @@ final class LifeBoardPlanningTrackFoundationTests: XCTestCase {
         XCTAssertNil(policiesAfterGroupDelete.first?.groupID)
     }
 
+    func testPlanningProjectionCoalescesDuplicateProjectIDsWithoutCrashing() async throws {
+        let container = try await makeTrackFoundationContainer()
+        let projectID = ProjectConstants.inboxProjectID
+        let taskID = UUID()
+        let context = container.newBackgroundContext()
+
+        try await context.perform {
+            for (name, mode) in [("Inbox", "parallel"), ("Inbox duplicate", "sequential")] {
+                let project = NSEntityDescription.insertNewObject(forEntityName: "Project", into: context)
+                project.setValue(projectID, forKey: "id")
+                project.setValue(name, forKey: "name")
+                project.setValue(mode, forKey: "executionModeRaw")
+            }
+
+            let task = NSEntityDescription.insertNewObject(forEntityName: "TaskDefinition", into: context)
+            task.setValue(taskID, forKey: "id")
+            task.setValue("Survive the merge window", forKey: "title")
+            task.setValue(projectID, forKey: "projectID")
+            task.setValue(false, forKey: "isComplete")
+            try context.save()
+        }
+
+        let tasks = try await CoreDataPlanningRepository(container: container).fetchOpenPlanningTasks()
+
+        XCTAssertEqual(tasks.map(\.id), [taskID])
+        XCTAssertEqual(tasks.first?.projectExecutionMode, .sequential)
+        XCTAssertTrue(tasks.first?.dependenciesReady == true)
+    }
+
     func testTrackCorrectionReceiptIsDeterministicAndPreservesExactSnapshots() throws {
         let sourceID = UUID(uuidString: "E7EAC788-E837-4B12-93B8-1A7F7252A031")!
         let appliedAt = Date(timeIntervalSinceReferenceDate: 800_000_000.125)
