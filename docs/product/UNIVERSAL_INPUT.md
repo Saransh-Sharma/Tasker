@@ -4,7 +4,7 @@
 **Audience:** Users, support, product, design, engineering, and QA
 **Capability status:** Current workspace; model and speech availability vary
 **Source authority:** Universal Input adapters, capture router, and LifeBoardTranscription
-**Last verified:** 2026-08-13
+**Last verified:** 2026-08-17
 **Surfaces:** Persistent Life Thread composer and Eva structured composer
 **Related:** [Adaptive Home](./HOME.md), [Insights and Eva](./INSIGHTS_AND_EVA.md), [Product UI/UX Guide](../design/LIFEBOARD_PRODUCT_UI_UX_GUIDE.md)
 
@@ -34,7 +34,7 @@ No capture is saved merely because the system classified it. Editors remain the 
 - All icon-only controls have a minimum 44-by-44-point hit target and an explicit VoiceOver label.
 - The primary button reads as “Interpret input” when text exists and “Start dictation” when empty.
 - Deterministic interpretations may appear while typing. They are review rows, not automatic navigation.
-- Semantic model inference starts only after explicit submission. Typing pauses must not repeatedly start Foundation Models or MLX work.
+- Semantic model inference starts only after explicit submission. Typing pauses must not repeatedly start Cloud EVA or Offline EVA work.
 - Ambiguous or medium-confidence results present concrete choices. Low-confidence results fall through to Eva rather than forcing an action.
 - The draft and attachments survive clarification, navigation, permission failure, and recoverable presentation changes.
 - Reduce Motion removes repeating recording animation while preserving status text.
@@ -46,9 +46,8 @@ Resolution is ordered and allow-listed:
 1. Exact commands and slash aliases.
 2. Explicit task language parsed by `TaskCaptureParser`.
 3. Note, journal, and known ambiguity patterns.
-4. Apple Foundation Models structured classification on supported devices.
-5. The installed on-device MLX model with bounded JSON output.
-6. Eva conversation fallback.
+4. The shared EVA provider seam: eligible Cloud EVA or the explicitly selected installed MLX provider, using bounded structured output.
+5. Eva conversation fallback.
 
 The semantic stages receive only the current input and small state facts such as active root, calendar availability, and rescue eligibility. They do not receive journal contents, note contents, calendar titles, task titles, or repository access. Model output cannot name arbitrary routes or execute code; it maps through `UniversalInputSemanticIntent`.
 
@@ -68,7 +67,7 @@ Both saved Journal audio transcription and live composer dictation use Apple’s
 - Live microphone input uses `LiveTranscriptionSession`, `AVAudioEngine`, `SpeechAnalyzer.bestAvailableAudioFormat`, and `SpeechAnalyzer` streaming.
 - `SpeechTranscriber` is preferred for live input. `DictationTranscriber` is the analyzer-based fallback for supported locales.
 - Required model assets are installed through the shared asset manager. Unsupported locale, denied microphone, asset-install failure, and transient analyzer failure are distinct recovery states.
-- Audio and inference remain on device. Dictation stops when its surface disappears or the app leaves the foreground.
+- Microphone audio and transcription inference remain on device. Dictation stops when its surface disappears or the app leaves the foreground; only the resulting text is eligible for a separately submitted EVA request.
 
 `LifeBoardTranscription` publishes a cumulative transcript string rather than the analyzer’s finalized range. LifeBoard therefore treats the whole live transcript as provisional and commits the latest cumulative value on stop. This is intentionally loss-safe: a revised partial may change while listening, but stopping cannot erase the visible transcript. Exposing finalized/volatile ranges from the package remains a quality improvement, not a correctness dependency.
 
@@ -77,10 +76,10 @@ Both saved Journal audio transcription and live composer dictation use Apple’s
 | Flag | Enabled behavior | Disabled behavior |
 |---|---|---|
 | `universalInputRoutingEnabled` | Structured universal routing | Preserve prior Eva conversation submission |
-| `universalInputSemanticClassifierEnabled` | Foundation Models then installed MLX fallback | Deterministic adapters then Eva |
+| `universalInputSemanticClassifierEnabled` | Shared Cloud EVA / explicitly selected Offline EVA classifier | Deterministic adapters then Eva |
 | `universalInputDictationEnabled` | Live SpeechAnalyzer dictation | Preserve the existing Journal audio-capture path in the shell |
 
-The feature must remain useful with no installed MLX model, unavailable Foundation Models, unavailable calendar permission, and an unsupported speech locale.
+The feature must remain useful with no qualified Cloud EVA account, no installed MLX model, unavailable calendar permission, and an unsupported speech locale.
 
 ## Verification and release gates
 
@@ -93,7 +92,7 @@ Before production promotion, verify on supported physical iPhone and iPad hardwa
 - long dictation, punctuation, revised partials, cancel restoration, thermal behavior, and memory;
 - VoiceOver, Voice Control, Switch Control, Dynamic Type, Reduce Motion, and Increase Contrast;
 - intent accuracy with a versioned corpus of typed and spoken utterances, including false-action rate and clarification rate;
-- Foundation Models unavailable, no MLX model installed, and feature-flag rollback.
+- Cloud disabled/unavailable, no MLX model installed, explicit Offline selection, and feature-flag rollback.
 
 Promotion requires accuracy measurements against the app’s real task/note/journal/planning vocabulary. Third-party benchmark results can motivate the architecture but do not replace LifeBoard’s own corpus or signed-device evidence.
 

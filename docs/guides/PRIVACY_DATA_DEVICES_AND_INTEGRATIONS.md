@@ -4,7 +4,7 @@
 > Audience: All users, support, privacy, security, and QA
 > Capability status: Current workspace; backup/export gaps are not disguised
 > Source authority: [System Surfaces](../product/SYSTEM_SURFACES_AND_CONTINUITY.md), persistence/runtime configuration, and [Feature Catalog](../product/FEATURE_CATALOG.md)
-> Last verified: 2026-08-13
+> Last verified: 2026-08-17
 
 ## Know where authority lives
 
@@ -26,7 +26,7 @@ App lock, biometric protection, protected routes, and app-switcher shielding min
 - **Reminders:** linked items retain external source identity; a missing external record is not silently replaced.
 - **Notifications:** denial disables delivery, not the underlying Focus, routine, fasting, care, or planning feature.
 - **Speech/camera/photos/files:** denial preserves text/manual capture and the draft.
-- **EVA models:** local runtime is preferred where available. Remote use requires explicit, minimized, category-aware context consent.
+- **EVA models:** Offline EVA uses an explicitly selected installed MLX model and keeps inference on device. Cloud EVA uses Luna only after Sign in with Apple, device trust, Apple 18+ eligibility, signed policy, credits, and explicit minimized category-aware consent. The provider does not switch silently during a request.
 
 ## Apple surfaces
 

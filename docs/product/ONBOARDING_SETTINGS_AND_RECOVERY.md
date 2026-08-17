@@ -4,7 +4,7 @@
 **Audience:** Users, support, product, design, engineering, and QA
 **Capability status:** Current workspace
 **Source authority:** Onboarding flow/state, Settings routes/stores, bootstrap/recovery services
-**Last verified:** 2026-08-14
+**Last verified:** 2026-08-17
 **Primary routes:** First launch, EVA activation, Settings, Life Management, permission prompts, and bootstrap recovery
 
 ## Promise and user jobs
@@ -15,7 +15,7 @@ Users need to:
 
 - understand the product promise and privacy model;
 - choose and prioritize life areas, set realistic capacity, and optionally route one real capture;
-- configure EVA locally or continue without it;
+- activate Cloud EVA, configure Offline EVA, or continue without either;
 - grant permissions at the moment their value is clear;
 - manage projects, areas, routines, reminders, quiet hours, and privacy;
 - recover from unavailable dependencies, migration issues, or damaged derived state;
@@ -40,10 +40,11 @@ Completed users remain completed. An established workspace is never interrupted 
 
 ## EVA activation and model setup
 
-- Explain local processing, device support, model size, storage impact, and expected capability before download.
-- Model choice does not imply clinical, guaranteed, or autonomous behavior.
-- Download shows truthful progress, cancellation, retry, insufficient-storage, network, and unsupported-device states.
-- Users can use the non-assistant app when model setup is skipped or fails.
+- Cloud activation explains Luna processing, Sign in with Apple, per-device Apple 18+ eligibility, device trust, credits, bounded context, and optional AI-generated spoken output before consent.
+- Sensitive Journal, Health, Life Moments, and personal-memory grants are separate and off by default. Cloud setup force-refreshes verified policy so a cached disabled configuration cannot hide a newly available staging service.
+- Offline EVA explains on-device processing, supported hardware, model size, storage impact, download progress, cancellation, retry, insufficient storage, and expected capability.
+- The provider chosen for a request stays fixed. Cloud failure may offer explicit Offline EVA but never silently redirects private context to another provider.
+- Model choice does not imply clinical, guaranteed, or autonomous behavior. Users can use ordinary LifeBoard when all assistant setup is skipped or fails.
 
 ## Permission contract
 
@@ -85,6 +86,9 @@ Derived-state recovery can rebuild indexes, caches, or projections without repla
 | Resumed onboarding | Restore exact v4 step and recoverable schema-6 Life Map draft |
 | Permission denied | Explain limitation, preserve remaining functionality, link to Settings |
 | Unsupported device | Describe unavailable capability and keep core app usable |
+| Cloud policy disabled | Show the signed maintenance reason and offer explicit Offline EVA |
+| Apple/18+/trust failure | Name the failed gate; do not claim that account setup completed |
+| Credits unavailable | Show balance/refill recovery; do not retry billable work automatically |
 | Download interrupted | Preserve progress/state where supported and offer retry/cancel |
 | Missing dependency | Enter bootstrap recovery rather than partial shell |
 | Migration interrupted | Preserve stores, expose retry/recovery, avoid reset |

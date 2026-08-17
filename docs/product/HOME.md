@@ -85,7 +85,7 @@ Smart Slots may recommend or place contextually useful content only within the d
 
 Compact Home exposes a raised capture control in the floating chrome. Expanding it reveals enabled capture kinds with 44-point targets. Drag selection, tap selection, keyboard alternatives, VoiceOver labels, and draft recovery lead into the same capture router.
 
-The adjacent persistent composer is Universal Input rather than a chat-only shortcut. It accepts typed or live SpeechAnalyzer-dictated language and can open Journal, Note, Task capture, today’s meetings, Day Plan, Weekly Planner, Day Rescue, or Overdue Rescue. Deterministic interpretations can appear while typing; semantic Foundation Models/MLX classification runs only after submission. Ambiguous results ask, low-confidence results fall through to Eva, and no classification auto-saves. The complete contract is [Universal Input and Speech](./UNIVERSAL_INPUT.md).
+The adjacent persistent composer is Universal Input rather than a chat-only shortcut. It accepts typed or live SpeechAnalyzer-dictated language and can open Journal, Note, Task capture, today’s meetings, Day Plan, Weekly Planner, Day Rescue, or Overdue Rescue. Deterministic interpretations can appear while typing; semantic classification uses the shared Cloud EVA / explicitly selected Offline EVA provider seam only after submission. Ambiguous results ask, low-confidence results fall through to Eva, and no classification auto-saves. The complete contract is [Universal Input and Speech](./UNIVERSAL_INPUT.md).
 
 ### Overdue Rescue
 
