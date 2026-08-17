@@ -153,11 +153,14 @@ actor EvaCloudTransport {
     }
 
     func registerAdultEligibility(lowerBound: Int?, declaration: String) async throws {
-        struct Body: Encodable { let declaration: String; let lowerBound: Int?; let policyVersion: String }
         _ = try await send(
             path: "/v1/age/eligibility",
             method: "POST",
-            body: JSONEncoder.evaCloud.encode(Body(declaration: declaration, lowerBound: lowerBound, policyVersion: "apple-dar-v1")),
+            body: JSONEncoder.evaCloud.encode(EvaAdultEligibilityRequestV1(
+                declaration: declaration,
+                lowerBound: lowerBound,
+                policyVersion: "apple-dar-v1"
+            )),
             authenticated: true,
             attested: true
         )

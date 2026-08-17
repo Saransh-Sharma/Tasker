@@ -2,6 +2,23 @@
 import Foundation
 import UIKit
 
+struct EvaAdultEligibilityRequestV1: Codable, Sendable {
+    let declaration: String
+    let lowerBound: Int?
+    let policyVersion: String
+
+    private enum CodingKeys: String, CodingKey {
+        case declaration, lowerBound, policyVersion
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(declaration, forKey: .declaration)
+        try container.encode(lowerBound, forKey: .lowerBound)
+        try container.encode(policyVersion, forKey: .policyVersion)
+    }
+}
+
 @MainActor
 struct EvaAgeEligibilityService {
     private static let lastEligibleAtKey = "eva.cloud.age.last-eligible-at.v1"
@@ -14,13 +31,6 @@ struct EvaAgeEligibilityService {
     }
 
     func requestAndRegister(using client: EvaCloudTransport = .shared) async throws -> Result {
-        if #available(iOS 26.2, macCatalyst 26.2, *) {
-            guard try await AgeRangeService.shared.isEligibleForAgeFeatures else {
-                try await registerResult(lowerBound: nil, declaration: "unavailable", using: client)
-                UserDefaults.standard.removeObject(forKey: Self.lastEligibleAtKey)
-                return Result(eligibleAdult: false, lowerBound: nil, declaration: "unavailable")
-            }
-        }
         guard let presenter = UIApplication.shared.connectedScenes
             .compactMap({ $0 as? UIWindowScene })
             .flatMap(\.windows)
@@ -28,7 +38,14 @@ struct EvaAgeEligibilityService {
             .rootViewController?.topmostPresentedViewController else {
             throw EvaProviderError.unavailable(String(localized: "The age-range sheet cannot be presented right now."))
         }
-        let response = try await AgeRangeService.shared.requestAgeRange(ageGates: 18, in: presenter)
+        let response: AgeRangeService.Response
+        do {
+            response = try await AgeRangeService.shared.requestAgeRange(ageGates: 18, in: presenter)
+        } catch AgeRangeService.Error.notAvailable {
+            try await registerResult(lowerBound: nil, declaration: "unavailable", using: client)
+            UserDefaults.standard.removeObject(forKey: Self.lastEligibleAtKey)
+            return Result(eligibleAdult: false, lowerBound: nil, declaration: "unavailable")
+        }
         switch response {
         case .declinedSharing:
             try await registerResult(lowerBound: nil, declaration: "declined", using: client)
