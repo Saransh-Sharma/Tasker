@@ -31,6 +31,108 @@ struct EvaCloudRuntimeConfiguration: Codable, Sendable {
     let minimumClientVersion: String
     let contractVersions: [Int]
     let routes: [EvaCloudRoute: RoutePolicy]
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion
+        case version
+        case issuedAt
+        case environment
+        case cloudState
+        case ttsEnabled
+        case maintenanceMessage
+        case offlineRecoveryPolicy
+        case textModel
+        case speechModel
+        case speechVoice
+        case minimumClientVersion
+        case contractVersions
+        case routes
+    }
+
+    init(
+        schemaVersion: Int,
+        version: Int,
+        issuedAt: Date,
+        environment: String,
+        cloudState: CloudState,
+        ttsEnabled: Bool,
+        maintenanceMessage: String?,
+        offlineRecoveryPolicy: String,
+        textModel: String,
+        speechModel: String,
+        speechVoice: String,
+        minimumClientVersion: String,
+        contractVersions: [Int],
+        routes: [EvaCloudRoute: RoutePolicy]
+    ) {
+        self.schemaVersion = schemaVersion
+        self.version = version
+        self.issuedAt = issuedAt
+        self.environment = environment
+        self.cloudState = cloudState
+        self.ttsEnabled = ttsEnabled
+        self.maintenanceMessage = maintenanceMessage
+        self.offlineRecoveryPolicy = offlineRecoveryPolicy
+        self.textModel = textModel
+        self.speechModel = speechModel
+        self.speechVoice = speechVoice
+        self.minimumClientVersion = minimumClientVersion
+        self.contractVersions = contractVersions
+        self.routes = routes
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        version = try container.decode(Int.self, forKey: .version)
+        issuedAt = try container.decode(Date.self, forKey: .issuedAt)
+        environment = try container.decode(String.self, forKey: .environment)
+        cloudState = try container.decode(CloudState.self, forKey: .cloudState)
+        ttsEnabled = try container.decode(Bool.self, forKey: .ttsEnabled)
+        maintenanceMessage = try container.decodeIfPresent(String.self, forKey: .maintenanceMessage)
+        offlineRecoveryPolicy = try container.decode(String.self, forKey: .offlineRecoveryPolicy)
+        textModel = try container.decode(String.self, forKey: .textModel)
+        speechModel = try container.decode(String.self, forKey: .speechModel)
+        speechVoice = try container.decode(String.self, forKey: .speechVoice)
+        minimumClientVersion = try container.decode(String.self, forKey: .minimumClientVersion)
+        contractVersions = try container.decode([Int].self, forKey: .contractVersions)
+
+        let wireRoutes = try container.decode([String: RoutePolicy].self, forKey: .routes)
+        var decodedRoutes: [EvaCloudRoute: RoutePolicy] = [:]
+        decodedRoutes.reserveCapacity(wireRoutes.count)
+        for (rawRoute, policy) in wireRoutes {
+            guard let route = EvaCloudRoute(rawValue: rawRoute) else {
+                throw DecodingError.dataCorruptedError(
+                    forKey: .routes,
+                    in: container,
+                    debugDescription: "Unsupported Cloud EVA route: \(rawRoute)"
+                )
+            }
+            decodedRoutes[route] = policy
+        }
+        routes = decodedRoutes
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(schemaVersion, forKey: .schemaVersion)
+        try container.encode(version, forKey: .version)
+        try container.encode(issuedAt, forKey: .issuedAt)
+        try container.encode(environment, forKey: .environment)
+        try container.encode(cloudState, forKey: .cloudState)
+        try container.encode(ttsEnabled, forKey: .ttsEnabled)
+        try container.encodeIfPresent(maintenanceMessage, forKey: .maintenanceMessage)
+        try container.encode(offlineRecoveryPolicy, forKey: .offlineRecoveryPolicy)
+        try container.encode(textModel, forKey: .textModel)
+        try container.encode(speechModel, forKey: .speechModel)
+        try container.encode(speechVoice, forKey: .speechVoice)
+        try container.encode(minimumClientVersion, forKey: .minimumClientVersion)
+        try container.encode(contractVersions, forKey: .contractVersions)
+        try container.encode(
+            Dictionary(uniqueKeysWithValues: routes.map { ($0.key.rawValue, $0.value) }),
+            forKey: .routes
+        )
+    }
 }
 
 struct EvaSignedConfigurationVerifier {
