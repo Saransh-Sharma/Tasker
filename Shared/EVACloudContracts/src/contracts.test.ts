@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs'
 import { describe, expect, it } from 'vitest'
 import {
   EvaErrorEnvelopeSchema,
+  EvaAdultEligibilityRequestV1Schema,
   EvaAppleExchangeRequestV1Schema,
   EvaInferenceRequestV1Schema,
   EvaRefreshRequestV1Schema,
@@ -30,6 +31,19 @@ describe('EVA cloud v1 contracts', () => {
       installationId: exchange.installationId,
       platform: exchange.platform,
     })).toBe(true)
+  })
+
+  it('requires an explicit nullable lower bound for adult eligibility', () => {
+    const eligibility = JSON.parse(readFileSync(
+      new URL('../fixtures/adult-eligibility-v1.json', import.meta.url),
+      'utf8',
+    )) as Record<string, unknown>
+    expect(Value.Check(EvaAdultEligibilityRequestV1Schema, eligibility)).toBe(true)
+    expect(Value.Check(EvaAdultEligibilityRequestV1Schema, { ...eligibility, declaration: 'shared', lowerBound: 18 })).toBe(true)
+    const missingLowerBound = { ...eligibility }
+    delete missingLowerBound.lowerBound
+    expect(Value.Check(EvaAdultEligibilityRequestV1Schema, missingLowerBound)).toBe(false)
+    expect(Value.Check(EvaAdultEligibilityRequestV1Schema, { ...eligibility, unexpected: true })).toBe(false)
   })
 
   it('accepts a bounded inference request fixture', () => {

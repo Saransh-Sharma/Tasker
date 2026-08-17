@@ -1,6 +1,10 @@
 import { Type } from '@sinclair/typebox'
 import { Hono } from 'hono'
-import type { EvaConsentPolicy } from '@lifeboard/eva-contracts'
+import {
+  EvaAdultEligibilityRequestV1Schema,
+  type EvaAdultEligibilityRequestV1,
+  type EvaConsentPolicy,
+} from '@lifeboard/eva-contracts'
 import type { AppVariables, Env } from '../environment.js'
 import { requireSession } from '../auth/middleware.js'
 import { revokeAppleRefreshToken } from '../auth/apple.js'
@@ -16,17 +20,6 @@ import { durableJson } from '../durable-objects/helpers.js'
 import { readJson } from '../http/body.js'
 import { EvaHttpError } from '../http/errors.js'
 import { decryptString } from '../security/crypto.js'
-
-const AdultEligibilitySchema = Type.Object({
-  declaration: Type.Union([
-    Type.Literal('shared'),
-    Type.Literal('declined'),
-    Type.Literal('unavailable'),
-    Type.Literal('expired'),
-  ]),
-  lowerBound: Type.Union([Type.Integer({ minimum: 0, maximum: 120 }), Type.Null()]),
-  policyVersion: Type.String({ minLength: 1, maxLength: 64 }),
-}, { additionalProperties: false })
 
 const ConsentUpdateSchema = Type.Object({
   expectedRevision: Type.Integer({ minimum: 0 }),
@@ -44,11 +37,10 @@ accountRoutes.use('*', requireSession)
 accountRoutes.post('/age/eligibility', async (context) => {
   const principal = context.get('principal')
   await verifyRequestAttestation(context.env, principal, context.req.raw)
-  const body = await readJson<{
-    declaration: 'shared' | 'declined' | 'unavailable' | 'expired'
-    lowerBound: number | null
-    policyVersion: string
-  }>(context.req.raw, AdultEligibilitySchema)
+  const body = await readJson<EvaAdultEligibilityRequestV1>(
+    context.req.raw,
+    EvaAdultEligibilityRequestV1Schema,
+  )
   const eligibleAdult = body.declaration === 'shared' && body.lowerBound !== null && body.lowerBound >= 18
   const result = await registerDeviceAge(context.env, principal.accountId, {
     installationId: principal.installationId,
