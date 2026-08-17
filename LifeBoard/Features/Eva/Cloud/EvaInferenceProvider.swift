@@ -101,22 +101,59 @@ final class EvaCloudAccountState {
     }
 
     func canUseCloud(route: EvaCloudRoute) -> Bool {
-        let requiresCredit = configuration?.routes[route]?.billable ?? true
-        return isAuthenticated
-            && isAdultEligible
-            && configuration?.cloudState != .disabled
-            && configuration?.routes[route]?.enabled == true
-            && consent != nil
-            && (!requiresCredit || (credits?.balance ?? 0) > 0)
+        readinessError(route: route) == nil
     }
 
-    func refresh(using transport: EvaCloudTransport = .shared) async {
+    func readinessError(route: EvaCloudRoute = .chat) -> EvaProviderError? {
+        Self.readinessError(
+            configuration: configuration,
+            isAuthenticated: isAuthenticated,
+            isAdultEligible: isAdultEligible,
+            hasConsent: consent != nil,
+            creditBalance: credits?.balance,
+            route: route,
+            lastError: lastError
+        )
+    }
+
+    static func readinessError(
+        configuration: EvaCloudRuntimeConfiguration?,
+        isAuthenticated: Bool,
+        isAdultEligible: Bool,
+        hasConsent: Bool,
+        creditBalance: Int?,
+        route: EvaCloudRoute,
+        lastError: String?
+    ) -> EvaProviderError? {
+        if let lastError { return .unavailable(lastError) }
+        guard isAuthenticated else { return .authenticationRequired }
+        guard isAdultEligible else { return .adultEligibilityRequired }
+        guard let configuration else {
+            return .unavailable(String(localized: "Cloud configuration could not be verified."))
+        }
+        guard configuration.cloudState != .disabled else {
+            return .unavailable(configuration.maintenanceMessage ?? String(localized: "Cloud EVA is temporarily unavailable."))
+        }
+        guard configuration.routes[route]?.enabled == true else {
+            return .unavailable(configuration.maintenanceMessage ?? String(localized: "This Cloud EVA capability is temporarily unavailable."))
+        }
+        guard hasConsent else { return .consentRequired }
+        if configuration.routes[route]?.billable == true, (creditBalance ?? 0) <= 0 {
+            return .creditsExhausted(nil)
+        }
+        return nil
+    }
+
+    func refresh(
+        using transport: EvaCloudTransport = .shared,
+        forceConfigurationRefresh: Bool = false
+    ) async {
         do {
             guard await EvaAppleIdentityService.shared.credentialIsAuthorized() else {
                 await handleAppleCredentialInvalidation()
                 return
             }
-            configuration = try await transport.runtimeConfiguration()
+            configuration = try await transport.runtimeConfiguration(forceRefresh: forceConfigurationRefresh)
             consent = try await transport.consent()
             credits = try await transport.credits()
             isAuthenticated = true
@@ -133,7 +170,8 @@ final class EvaCloudAccountState {
         _ = try await EvaAppleIdentityService.shared.signIn()
         let age = try await EvaAgeEligibilityService().requestAndRegister()
         guard age.eligibleAdult else { throw EvaProviderError.adultEligibilityRequired }
-        await refresh()
+        await refresh(forceConfigurationRefresh: true)
+        if let readinessError = readinessError() { throw readinessError }
     }
 
     func accept(credits: EvaCreditState?) {

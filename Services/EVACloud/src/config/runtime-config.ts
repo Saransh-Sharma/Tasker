@@ -100,16 +100,16 @@ export function failClosedRuntimeConfig(env: Env): EvaRuntimeConfig {
     minimumClientVersion: env.MINIMUM_CLIENT_VERSION,
     contractVersions: [1],
     creditPolicy: { initial: 100, capacity: 100, refillAmount: 20, refillPeriodSeconds: 86_400 },
-    // Values mirror the official model pages fetched on 2026-08-15, but stay
+    // Values mirror the official model pages fetched on 2026-08-16, but stay
     // unapproved until checked against the actual OpenAI project billing page.
     priceSchedule: {
-      version: 'openai-2026-08-15-unverified',
-      effectiveAt: '2026-08-15T00:00:00.000Z',
+      version: 'openai-2026-08-16-unverified',
+      effectiveAt: '2026-08-16T00:00:00.000Z',
       approved: false,
-      lunaInputMicroUsdPerMillion: 1_000_000,
-      lunaCachedInputMicroUsdPerMillion: 100_000,
-      lunaCacheWriteMicroUsdPerMillion: 1_250_000,
-      lunaOutputMicroUsdPerMillion: 6_000_000,
+      lunaInputMicroUsdPerMillion: 200_000,
+      lunaCachedInputMicroUsdPerMillion: 20_000,
+      lunaCacheWriteMicroUsdPerMillion: 250_000,
+      lunaOutputMicroUsdPerMillion: 1_200_000,
       moderationMicroUsdPerMillion: 0,
       ttsMicroUsdPerMillionCharacters: 15_000_000,
     },
@@ -139,12 +139,16 @@ export async function runtimeConfig(env: Env): Promise<EvaRuntimeConfig> {
   if (config.environment !== env.ENVIRONMENT) return fallback
   if (config.version < Number(env.MIN_RUNTIME_CONFIG_VERSION)) return fallback
   const issuedAt = Date.parse(config.issuedAt)
-  if (!Number.isFinite(issuedAt) || issuedAt > Date.now() + 5 * 60 * 1_000 || issuedAt < Date.now() - 7 * 86_400_000) {
+  if (!Number.isFinite(issuedAt) || issuedAt > Date.now() + 5 * 60 * 1_000) {
     return fallback
   }
   if (config.cloudState !== 'disabled' && !config.priceSchedule.approved) return fallback
   if (config.ttsEnabled && config.cloudState === 'disabled') return fallback
-  return config
+  // KV contains the durable policy revision. `issuedAt` describes the signed
+  // response delivered to clients, so refresh it whenever the Worker signs the
+  // policy. Otherwise an intentionally persistent enabled policy expires after
+  // seven days and silently disables every client.
+  return { ...config, issuedAt: new Date().toISOString() }
 }
 
 export async function signedRuntimeConfig(env: Env): Promise<string> {

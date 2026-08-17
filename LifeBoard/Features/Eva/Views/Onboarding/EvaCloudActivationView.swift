@@ -99,9 +99,7 @@ struct EvaCloudActivationView: View {
             defer { isWorking = false }
             do {
                 try await account.activateCloud()
-                guard account.canUseCloud else {
-                    throw EvaProviderError.unavailable(String(localized: "Cloud EVA is not available yet. You can continue with Offline EVA."))
-                }
+                if let readinessError = account.readinessError() { throw readinessError }
                 onCloudReady()
             } catch {
                 errorMessage = error.localizedDescription

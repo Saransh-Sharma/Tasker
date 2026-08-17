@@ -14,18 +14,14 @@ describe.sequential('signed runtime configuration source', () => {
     await expect(runtimeConfig(bindings)).resolves.toMatchObject({ version: 0, cloudState: 'disabled', ttsEnabled: false })
   })
 
-  it('rejects stale, future, rolled-back, and unapproved enabled documents', async () => {
+  it('rejects future, rolled-back, and unapproved enabled documents', async () => {
     const candidate = failClosedRuntimeConfig(bindings)
     candidate.version = 1
     candidate.cloudState = 'enabled'
     candidate.routes.chat!.enabled = true
 
-    candidate.issuedAt = new Date(Date.now() - 8 * 86_400_000).toISOString()
-    candidate.priceSchedule.approved = true
-    await bindings.EVA_CONFIG.put('runtime-config-v2', JSON.stringify(candidate))
-    await expect(runtimeConfig(bindings)).resolves.toMatchObject({ version: 0, cloudState: 'disabled' })
-
     candidate.issuedAt = new Date(Date.now() + 10 * 60_000).toISOString()
+    candidate.priceSchedule.approved = true
     await bindings.EVA_CONFIG.put('runtime-config-v2', JSON.stringify(candidate))
     await expect(runtimeConfig(bindings)).resolves.toMatchObject({ version: 0, cloudState: 'disabled' })
 
@@ -38,6 +34,21 @@ describe.sequential('signed runtime configuration source', () => {
     candidate.priceSchedule.approved = false
     await bindings.EVA_CONFIG.put('runtime-config-v2', JSON.stringify(candidate))
     await expect(runtimeConfig(bindings)).resolves.toMatchObject({ version: 0, cloudState: 'disabled' })
+  })
+
+  it('reissues a persisted policy with a current signed-document timestamp', async () => {
+    const candidate = failClosedRuntimeConfig(bindings)
+    candidate.version = 1
+    candidate.issuedAt = new Date(Date.now() - 30 * 86_400_000).toISOString()
+    candidate.cloudState = 'enabled'
+    candidate.routes.chat!.enabled = true
+    candidate.priceSchedule.approved = true
+    await bindings.EVA_CONFIG.put('runtime-config-v2', JSON.stringify(candidate))
+
+    const result = await runtimeConfig(bindings)
+
+    expect(result).toMatchObject({ version: 1, cloudState: 'enabled' })
+    expect(Date.parse(result.issuedAt)).toBeGreaterThan(Date.now() - 60_000)
   })
 
   it('accepts a current approved environment-matched document', async () => {
