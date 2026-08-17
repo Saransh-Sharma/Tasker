@@ -1,0 +1,53 @@
+# Cloud EVA Risk Register
+
+**Owner:** Cross-functional EVA release group  
+**Review cadence:** Weekly before launch; monthly after stable rollout; immediately after an incident or provider/policy change  
+**Last reviewed:** 2026-08-17
+
+## Scoring
+
+Likelihood and impact are scored 1–5. Exposure is `likelihood × impact`: Low 1–5, Moderate 6–10, High 11–15, Critical 16–25. Controls reduce probability or blast radius but do not erase the underlying risk. “Open” means a release gate or evidence gap remains; “Controlled” means implemented controls exist and still require routine monitoring.
+
+## Register
+
+| ID | Risk and trigger | L | I | Exposure | Preventive controls | Leading indicator / response | Owner | Status or release gate |
+|---|---|---:|---:|---:|---|---|---|---|
+| R01 | Private prompt, answer, health, journal, memory, speech, or credential appears in logs/storage | 2 | 5 | 10 | Content-free schemas; prohibited-field policy; no server history; `store:false`; secret scanning | Payload-shaped event or processor retention mismatch → disable cloud, preserve restricted evidence, privacy incident process | Privacy + Backend | Open: ZDR and production log inspection |
+| R02 | OpenAI project lacks expected Zero Data Retention despite product wording | 3 | 5 | 15 | Disclosure distinguishes `store:false` from ZDR; release checklist | Project setting/approval absent → keep claims accurate and production disabled | Privacy + Product | Open, launch blocker |
+| R03 | Auth challenge, Apple code, refresh token, or session family is replayed/taken over | 2 | 5 | 10 | One-time challenge DO; nonce/audience/code identity validation; hashed rotation; reuse revocation; short access life | Replay/reuse telemetry → revoke family, rotate affected signing material if systemic | Security + Backend | Controlled; physical adversarial smoke |
+| R04 | App Attest accepts wrong app/environment, counter replay, or unbound body | 2 | 5 | 10 | Certificate/RP ID/env/key/nonce/signature/counter/body/path checks | Attestation anomaly → disable iOS cloud, investigate device cohort | Apple Platform + Security | Controlled; physical production qualification open |
+| R05 | Catalyst's weaker App Transaction evidence is forged, stale, or misconfigured | 3 | 4 | 12 | Apple chain validation; bundle/env binding; half limits; risk isolation | Catalyst auth spike or chain failure → disable Catalyst route/account bootstrap | Apple Platform + Backend | Open: real Sandbox/Production JWS tests |
+| R06 | Adult eligibility becomes stale or Apple range changes | 2 | 5 | 10 | Per-device lease; activation/24h revalidation; fail closed; no DOB | Expired/changed age result → invalidate cloud eligibility immediately | Apple Platform + Product | Controlled; physical refresh smoke open |
+| R07 | Signed policy is stale, cached disabled, tampered, wrong-environment, rolled back, or encoded differently across TypeScript/Swift | 2 | 5 | 10 | Ed25519 pins; monotonic version; environment/model/contracts checks; explicit route-object codec; forced activation refresh; fresh response `issuedAt` | Verification/readiness error → fail closed, inspect origin/pin/KV version and cross-language wire shape | Backend + Apple Platform | Controlled by 2026-08-17 fixes; retain shared fixture |
+| R08 | Staging capability or key leaks into Release, or production points at staging | 2 | 5 | 10 | Xcode environment origins/pins; config environment validation; CI preflight | Release reports staging origin/pin → block build/rollout | Release Engineering | Controlled; retain contract test |
+| R09 | Prompt injection in projected journal/knowledge/task content gains instruction authority | 3 | 5 | 15 | Context is delimited untrusted input; no tools; strict schemas/semantics; all input moderation | Increased invalid/refusal/action-like output → disable route, expand eval corpus | AI Safety + Backend | Controlled; continuous evaluation |
+| R10 | Unsafe or overconfident health, self-harm, legal, or financial response harms a user | 3 | 5 | 15 | Moderation; supportive self-harm policy; no diagnosis/intervention; evidence/uncertainty UX; route kill switches | Safety-category or user-report increase → disable route/model, safety review | Product Safety | Open: live evaluation and policy review |
+| R11 | Structured output is syntactically valid but invents IDs or unsafe mutation intent | 2 | 5 | 10 | Per-route strict schemas; server semantic validators; canonical proposal/apply/undo | Repair/semantic rejection rise → disable route; regression fixture | Backend + Domain | Controlled; ≥99.5% gate open |
+| R12 | Credits double-charge, strand, or drift after disconnect/retry/Worker termination | 2 | 4 | 8 | Durable request lifecycle; idempotent transitions; alarm expiry; account-scoped keys | Reserve/commit/release mismatch → disable billable routes, reconcile ledger | Backend + Finance Ops | Controlled; live interruption smoke open |
+| R13 | Price change makes reservations or account/global fuses inaccurate | 3 | 4 | 12 | Versioned approved schedule; full attempt-graph reserve; hard fuses | Actual billing diverges from telemetry → close budget, disable cloud, republish prices | Backend + Finance Ops | Open recurring operational gate |
+| R14 | Luna, moderation, Cloudflare, or Apple dependency outage blocks Cloud EVA | 4 | 3 | 12 | Explicit Offline EVA; independent routes/TTS; transient-only retry; degraded state | Availability/latency threshold → disable narrow capability; communicate recovery | SRE + Product | Controlled; load/failover evidence open |
+| R15 | Model alias/behavior drift reduces quality or violates exact-Luna promise | 3 | 4 | 12 | Exact server model ID; config validation; route eval corpus; staged rollout | Helpfulness/schema/safety regression → stop rollout and compare provider behavior | AI Product + Backend | Open continuous gate |
+| R16 | TTS ticket/text hash mismatch or restart/cache eviction causes incorrect charge | 2 | 3 | 6 | Exact `speechSource`; persisted ticket/hash; single-use lifecycle; explicit paid regeneration | Speech claims/rejections/charges diverge → disable TTS and reconcile | Backend + Apple Platform | Controlled; physical smoke open |
+| R17 | Audio session remains active, conflicts with dictation/recording, or plays after route loss | 3 | 3 | 9 | Central arbiter; idle release; interruption/route handling; recording precedence | Playback state/audio-route complaint → disable TTS, device reproduction | Apple Platform | Open: physical route matrix |
+| R18 | Core Data/CloudKit duplicate domain identities crash sign-in-adjacent app paths | 3 | 4 | 12 | Deterministic duplicate coalescing; conservative execution mode; content-free collision signal | Collision count/crash signature → quarantine/repair duplicate rows | Apple Data | Controlled for planning projection; broader duplicate audit advised |
+| R19 | Consent UI is misunderstood, causing over-sharing or trust loss | 3 | 5 | 15 | Off-by-default sensitive categories; plain-language disclosure; authoritative revision; local-first alternative | High revoke/abandon/support rate → usability research, simplify grants | Product + Privacy + Design | Open: TestFlight comprehension study |
+| R20 | Credits feel punitive or opaque, hurting activation and retention | 3 | 3 | 9 | Balance/refill UI; failures unmetered; included first speech; explicit regeneration | Surprise-charge/support/abandon rate → clarify receipt and revisit policy | Product + Finance | Open product validation |
+| R21 | Accessibility/localization defect blocks sign-in, consent, errors, or playback | 2 | 4 | 8 | Localization snapshots; VoiceOver/Dynamic Type identifiers; explicit text states | Journey failure by locale/accessibility setting → halt rollout for affected flow | Design + Apple Platform | Controlled; physical matrix open |
+| R22 | Analytics is too sparse to distinguish auth, policy, provider, or client failure | 3 | 4 | 12 | Content-free stage/error/latency/accounting events; request correlation | Generic-unavailable reports without stage → add safe dimension, never payload logging | SRE + Backend | Controlled by readiness/stage work; dashboards open |
+| R23 | Key compromise requires config-pin change that cannot ship instantly | 2 | 5 | 10 | Environment isolation; scoped Cloudflare access; version-scoped secrets; rotation runbook | Unauthorized signing/use → disable service, revoke keys, expedited dual-pin app migration | Security + Release Engineering | Open: formal key-rotation drill |
+| R24 | EVA DNS/deploy change breaks GitHub Pages marketing site | 1 | 4 | 4 | API-only custom domain; explicit apex/www prohibition; health checks | Apex/www status or DNS target changes → restore imported GitHub Pages records | Web Ops + SRE | Controlled; verify after production change |
+| R25 | Roadmap autonomy expands faster than trust, undo, or privacy architecture | 3 | 5 | 15 | Proposal-first product doctrine; explicit “do not build” boundaries; staged capability reviews | Silent action or broad context request proposed → stop and require threat/product review | Product + Architecture | Open governance risk |
+
+## Top launch decisions
+
+The current highest-priority open risks are R02 (ZDR truth), R05 (real Catalyst evidence), R10 (high-stakes safety), R13 (pricing drift), R19 (consent comprehension), and the live evidence portions of R11/R14/R17. Production Luna must remain disabled until these launch gates are accepted or an accountable owner records a time-bounded exception with compensating controls.
+
+## Review protocol
+
+At each review:
+
+1. Re-score likelihood and impact using incidents, near misses, support reports, billing, and evaluation results.
+2. Link each open release gate to evidence in `EVA_CLOUD_MIGRATION_TODO.md`.
+3. Add risks introduced by model, SDK, Apple policy, consent, processor, data-flow, credit, or roadmap changes.
+4. Retire a row only when the scenario is impossible; otherwise mark it controlled and keep monitoring.
+5. Convert any realized risk into an incident/postmortem and update preventive controls and leading indicators.
