@@ -26,6 +26,18 @@ export const EvaRefreshRequestV1Schema = Type.Object({
 }, { $id: 'EvaRefreshRequestV1', additionalProperties: false })
 export type EvaRefreshRequestV1 = Static<typeof EvaRefreshRequestV1Schema>
 
+export const EvaAdultEligibilityRequestV1Schema = Type.Object({
+  declaration: Type.Union([
+    Type.Literal('shared'),
+    Type.Literal('declined'),
+    Type.Literal('unavailable'),
+    Type.Literal('expired'),
+  ]),
+  lowerBound: Type.Union([Type.Integer({ minimum: 0, maximum: 120 }), Type.Null()]),
+  policyVersion: Type.String({ minLength: 1, maxLength: 64 }),
+}, { $id: 'EvaAdultEligibilityRequestV1', additionalProperties: false })
+export type EvaAdultEligibilityRequestV1 = Static<typeof EvaAdultEligibilityRequestV1Schema>
+
 export const EvaRouteSchema = Type.Union([
   Type.Literal('chat'),
   Type.Literal('plan'),
