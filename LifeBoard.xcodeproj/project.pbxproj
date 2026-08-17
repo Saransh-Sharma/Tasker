@@ -169,6 +169,7 @@
 		4F6E5189E8E1A1F05E05600D /* LifeOSFoundationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D4C2029D4BC463019FF6673 /* LifeOSFoundationTests.swift */; };
 		50117460BC314EEA54344A9E /* LifeBoard/Features/Tasks/Domain/GetHomeFilteredTasksUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9AF308251FE7FA9FEE55702D /* LifeBoard/Features/Tasks/Domain/GetHomeFilteredTasksUseCase.swift */; };
 		50A7B8B5DE36B32D1E81B375 /* PlanningCoreServices.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A67568BD18347F46207EDB1 /* PlanningCoreServices.swift */; };
+		C0D3F1A20000000000000002 /* ProjectExecutionModeProjection.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0D3F1A20000000000000001 /* ProjectExecutionModeProjection.swift */; };
 		51459E137A715214E7CD7481 /* LifeBoard/Features/Settings/LifeManagement/AreaListRow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51840B6F63D4405BC246D786 /* LifeBoard/Features/Settings/LifeManagement/AreaListRow.swift */; };
 		52623D942AC2922413277FF6 /* LifeBoardWatchApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA3610ABC404898F73D042EA /* LifeBoardWatchApp.swift */; };
 		52EA01C705B92C45F65720CA /* SunriseTaskSectionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A7397B50382FF7FB4FAEC5F /* SunriseTaskSectionView.swift */; };
@@ -1191,6 +1192,7 @@
 		391110AA08B7ED7F8ED57B9C /* HomeViewModel+RescueEligibility.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = "HomeViewModel+RescueEligibility.swift"; path = "LifeBoard/Features/Home/UI/ViewModels/HomeViewModel+RescueEligibility.swift"; sourceTree = SOURCE_ROOT; };
 		397C07871DD37C43B8DBB641 /* TrackFoundationServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = TrackFoundationServices.swift; path = Features/Track/Domain/TrackFoundationServices.swift; sourceTree = "<group>"; };
 		3A67568BD18347F46207EDB1 /* PlanningCoreServices.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = PlanningCoreServices.swift; path = Features/Plan/Domain/PlanningCoreServices.swift; sourceTree = "<group>"; };
+		C0D3F1A20000000000000001 /* ProjectExecutionModeProjection.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ProjectExecutionModeProjection.swift; path = Features/Plan/Domain/ProjectExecutionModeProjection.swift; sourceTree = "<group>"; };
 		3ACB1F98FD6BA7DDDC213D7B /* LifeBoard/Features/Onboarding/Models/OnboardingProgress.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/OnboardingProgress.swift; sourceTree = SOURCE_ROOT; };
 		3C66EE511C59B0C5DAAAEA30 /* LifeBoard/Features/Settings/LifeManagement/ProjectMoveSheet.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Settings/LifeManagement/ProjectMoveSheet.swift; sourceTree = SOURCE_ROOT; };
 		3C9C1DCD3D8D37AB96401D40 /* LifeBoard/Features/Onboarding/Models/onboardingNaturalLanguageList.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = LifeBoard/Features/Onboarding/Models/onboardingNaturalLanguageList.swift; sourceTree = SOURCE_ROOT; };
@@ -2529,6 +2531,7 @@
 				F0C000000000000000000002 /* FocusLiveActivityCoordinator.swift */,
 				AFD9965E6C4E172D7429387C /* PlanningCorePersistence.swift */,
 				3A67568BD18347F46207EDB1 /* PlanningCoreServices.swift */,
+				C0D3F1A20000000000000001 /* ProjectExecutionModeProjection.swift */,
 				E3C601AEBC0C7801C2805519 /* PlanBacklogFilters.swift */,
 				919B0674A3942AB514770407 /* PlanScheduleModels.swift */,
 				0F6F48917D4BC283718B3C65 /* PlanLayoutResolvers.swift */,
@@ -5201,6 +5204,7 @@
 				BD8794DA9800CE9FE3355836 /* PlanningCoreModels.swift in Sources */,
 				C97158559B083DC4E73DD335 /* PlanningCorePersistence.swift in Sources */,
 				50A7B8B5DE36B32D1E81B375 /* PlanningCoreServices.swift in Sources */,
+				C0D3F1A20000000000000002 /* ProjectExecutionModeProjection.swift in Sources */,
 				95097957B411ACEFF6448250 /* TrackFoundationModels.swift in Sources */,
 				1791AD919926F7B2CB1FD895 /* TrackFoundationPersistence.swift in Sources */,
 				9031116FF086B97F08AE6437 /* TrackFoundationServices.swift in Sources */,
