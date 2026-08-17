@@ -212,9 +212,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, @MainActor UNUserNotifica
                 resetAppState()
             }
 
-            if launchArguments.contains("-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED") {
-                EvaActivationDefaultsStore.markCompleted()
-            }
+            EvaActivationDefaultsStore.stageForUITesting(arguments: launchArguments)
         }
 
         // Seeded outside the `-UI_TESTING` branch but after it, so a manual

@@ -173,3 +173,25 @@ enum EvaActivationChatEvent: Equatable {
     case userMessagePersisted(threadID: UUID)
     case assistantReplyPersisted(threadID: UUID, countsForCompletion: Bool)
 }
+
+extension EvaActivationDefaultsStore {
+    /// Stages navigation for explicit UI tests only. All cloud authentication,
+    /// device-trust, age, consent, and credit gates remain live.
+    static func stageForUITesting(
+        arguments: [String],
+        defaults: UserDefaults = .standard
+    ) {
+        if arguments.contains("-LIFEBOARD_TEST_EVA_ACTIVATION_COMPLETED") {
+            markCompleted(defaults: defaults)
+        } else if arguments.contains("-LIFEBOARD_TEST_EVA_CLOUD_SETUP") {
+            var state = load(defaults: defaults)
+            state.stage = .cloudSetup
+            state.isComplete = false
+            save(state, defaults: defaults)
+        }
+    }
+
+    static func stageCloudSetupForUITesting(defaults: UserDefaults = .standard) {
+        stageForUITesting(arguments: ["-LIFEBOARD_TEST_EVA_CLOUD_SETUP"], defaults: defaults)
+    }
+}
