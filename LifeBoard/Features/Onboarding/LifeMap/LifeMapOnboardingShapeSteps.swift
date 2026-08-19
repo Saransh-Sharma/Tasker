@@ -96,7 +96,11 @@ private struct LifeMapCapacityRow: View {
 /// Steppers rather than a slider: 30-minute detents are the real granularity of
 /// a working day, and buttons are reachable by Switch Control and VoiceOver
 /// without a custom rotor.
-private struct LifeMapTimeStepper: View {
+///
+/// Internal rather than file-private because the v6 day-shape step discloses the
+/// same control behind `Edit hours`. Two implementations of a time stepper is
+/// two places for the detent, the bounds, and the accessibility labels to drift.
+struct LifeMapTimeStepper: View {
     let label: String
     let value: Int
     let action: (Int) -> Void

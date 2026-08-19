@@ -26,11 +26,11 @@ struct LifeMapQuestionScaffold<Content: View>: View {
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.Spacing.md) {
             Text(title)
-                .font(.lifeboard(.screenTitle))
+                .lifeboardFont(.screenTitle)
                 .foregroundStyle(Color.lifeboard(.textPrimary))
                 .fixedSize(horizontal: false, vertical: true)
             Text(support)
-                .font(.lifeboard(.support))
+                .lifeboardFont(.support)
                 .foregroundStyle(Color.lifeboard(.textSecondary))
                 .fixedSize(horizontal: false, vertical: true)
             content()
@@ -50,7 +50,7 @@ struct LifeMapEyebrow: View {
 
     var body: some View {
         Text(text)
-            .font(.lifeboard(.eyebrow))
+            .lifeboardFont(.eyebrow)
             .tracking(1.5)
             .foregroundStyle(Color.lifeboard(.textTertiary))
             .accessibilityAddTraits(.isHeader)
@@ -76,24 +76,24 @@ struct LifeMapChoiceRow: View {
         Button(action: action) {
             HStack(spacing: Theme.Spacing.sm + 1) {
                 Image(systemName: symbol)
-                    .font(.lifeboard(.title3))
+                    .lifeboardFont(.title3)
                     .foregroundStyle(Color.lifeboard(isSelected ? .accentPrimary : .textSecondary))
                     .frame(width: 34)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(title)
-                        .font(.lifeboard(.bodyStrong))
+                        .lifeboardFont(.bodyStrong)
                         .foregroundStyle(Color.lifeboard(.textPrimary))
                         .multilineTextAlignment(.leading)
                     if let subtitle {
                         Text(subtitle)
-                            .font(.lifeboard(.caption1))
+                            .lifeboardFont(.caption1)
                             .foregroundStyle(Color.lifeboard(.textTertiary))
                             .multilineTextAlignment(.leading)
                     }
                 }
                 Spacer(minLength: Theme.Spacing.sm)
                 Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.lifeboard(.title3))
+                    .lifeboardFont(.title3)
                     .foregroundStyle(Color.lifeboard(isSelected ? .accentPrimary : .textQuaternary))
             }
             .padding(15)
@@ -132,7 +132,7 @@ struct LifeMapTopBar: View {
             if showsBack {
                 Button(action: onBack) {
                     Image(systemName: "chevron.left")
-                        .font(.lifeboard(.headline))
+                        .lifeboardFont(.headline)
                         .foregroundStyle(Color.lifeboard(.textPrimary))
                         .frame(width: 44, height: 44)
                         .lifeBoardClaySurface(.resting, cornerRadius: 22)
@@ -143,7 +143,7 @@ struct LifeMapTopBar: View {
             Spacer(minLength: 0)
             if step.isPowerUp == false, step.isClosing == false {
                 Text(progressLabel)
-                    .font(.lifeboard(.eyebrow))
+                    .lifeboardFont(.eyebrow)
                     .tracking(1.4)
                     .foregroundStyle(Color.lifeboard(.textSecondary))
                     .monospacedDigit()
@@ -217,7 +217,7 @@ struct LifeMapPrimaryButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.lifeboard(.button))
+            .lifeboardFont(.button)
             .foregroundStyle(Color.lifeboard(.accentOnPrimary))
             .frame(minHeight: 52)
             .padding(.horizontal, Theme.Spacing.lg)
@@ -235,7 +235,7 @@ struct LifeMapPrimaryButtonStyle: ButtonStyle {
 struct LifeMapSecondaryButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.lifeboard(.button))
+            .lifeboardFont(.button)
             .foregroundStyle(Color.lifeboard(.textPrimary))
             .frame(minHeight: 52)
             .padding(.horizontal, Theme.Spacing.lg)
