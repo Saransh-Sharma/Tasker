@@ -35,6 +35,8 @@ flowchart LR
 |---|---|---|---|
 | Prompt and bounded chat history | The person submits a cloud request | Cloudflare, OpenAI | Not retained by EVA Worker |
 | Tasks, projects, habits, calendar projection | Base cloud context is enabled and relevant | Cloudflare, OpenAI | Not retained as content |
+| Capacity, goals, day loop, weekly retrospective | Base cloud context is enabled and relevant | Cloudflare, OpenAI | Not retained as content |
+| The person's own standing instruction to EVA | They have customised it in Settings and submit a cloud request | Cloudflare, OpenAI | Not retained as content |
 | Journal | Journal grant is enabled for the account revision | Cloudflare, OpenAI | Not retained as content |
 | Health/wellness | Health grant is enabled and projection is relevant | Cloudflare, OpenAI | Not retained as content |
 | Life Moments | Life Moments grant is enabled | Cloudflare, OpenAI | Not retained as content |
@@ -49,6 +51,37 @@ flowchart LR
 
 The client never sends raw Core Data/CloudKit models. Projection DTOs are bounded by route budgets and consent revision. Calendar content is read-only. Sensitive protected evidence must be unlocked and explicitly authorized before projection.
 
+### What changed with contract v2, and what did not
+
+The envelope is materially larger. A chat turn previously carried roughly 1,500
+tokens — six task titles reduced to `title | due | project`. It now carries up to
+the route's published input cap, with typed records that include priority,
+energy, estimates, and how many times each item has been deferred or replanned.
+
+What did **not** change is which categories require a grant. `journal`, `health`,
+`lifeMoments`, and `personalMemory` remain deny-by-default and separately
+granted, enforced server-side by `sensitiveContextCategories` before any model
+call. The categories v2 added — `capacity`, `goals`, `habits`, `dayLoop`,
+`retrospective`, `calendar`, `conversationSummary` — project records the person
+already sees in LifeBoard and ride on the request's own authorization, exactly as
+`planning` always did. Widening the list did not widen what a grant means.
+
+Two consequences are worth stating plainly rather than leaving implied:
+
+- **More detail per record.** `deferredCount` and `replanCount` describe a
+  behavioural pattern, not just a task. They are what let EVA say "you have moved
+  this four times" instead of listing work back. That is the point, and it is
+  also more revealing than a title alone, so it is named here.
+- **A larger moderation surface.** The whole envelope is still moderated before
+  any model call. Oversized input is chunked and evaluated concurrently rather
+  than truncated, so growth does not create a gap where unmoderated content could
+  pass — a chunk that fails, fails the request.
+
+The person's standing instruction (`userInstructions`) leaves the device only
+when they have changed it from the built-in default. An unmodified default is
+never sent: it is not their voice, and a second copy would only compete with the
+server's own persona.
+
 ## Identity minimization
 
 The Worker validates Sign in with Apple and derives the Durable Object account name from an HMAC of the Apple subject. It does not expose the Apple subject as an EVA identifier. Access tokens last 15 minutes. Refresh tokens rotate, have a 30-day maximum life, and are stored only as hashes; Apple refresh credentials are AES-GCM encrypted. Client credentials use ThisDeviceOnly Keychain protection.
@@ -62,6 +95,18 @@ LifeBoard and Cloud EVA are 18+. The app requests Apple's Declared Age Range at 
 ## Consent and revocation
 
 The server owns the authoritative context-policy revision. The app mirrors it locally, shows each sensitive category separately, and includes the revision on every model request. A stale request receives `consent_revision_conflict`; revocation therefore takes effect before the next accepted cloud request on every device. Revocation does not remove local LifeBoard data.
+
+`RemoteEvaContextPolicy` in the app is **not** this gate. It is a local-only
+mirror of the same idea with an overlapping category enum and no production
+caller; the server-authoritative `EvaConsentPolicy` is what actually authorizes a
+section. Two consent models describing one boundary is a hazard, so do not add a
+caller to the local one expecting it to gate anything.
+
+Personal memory statements carry a `provenance` field of `userStated` or
+`inferred`. EVA may propose a revision to an inference, but a proposal can never
+silently overwrite something the person stated — otherwise a confident wrong
+guess becomes a permanent fact about them that they never agreed to and cannot
+find to correct.
 
 ## Logging and observability
 

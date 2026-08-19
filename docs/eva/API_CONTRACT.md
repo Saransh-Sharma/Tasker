@@ -51,18 +51,80 @@ All JSON request objects reject unknown properties. The Worker applies a 256 KiB
 
 ## Inference request
 
-`EvaInferenceRequestV1` contains:
+`EvaInferenceRequest` contains:
 
 - `requestId`: canonical UUID and idempotency key.
 - `route`: one semantic route listed below.
-- `contractVersion`: currently `1`.
+- `contractVersion`: `1` or `2`. The Worker admits both; only a v2 request may carry `userInstructions`.
 - `locale`, `timeZone`, `clientVersion`, `platform`, and `installationId`.
-- `messages`: bounded manual conversation history.
-- `context`: bounded projection envelope, not persistence models.
+- `messages`: bounded conversation history, at most 64 turns.
+- `context`: the typed projection envelope, at most 12 sections — one per category.
+- `userInstructions` *(v2, optional)*: the person's own standing instruction from Settings.
 - `consentRevision`: the account policy revision used by the projection.
 - `providerCapabilities`: client decoding/playback capabilities, not provider controls.
 
 The server owns model selection, stable prompts, schemas, reasoning effort, caching boundaries, output caps, moderation, repairs, safety identifiers, attempt graph, and credit/cost charging.
+
+### Context envelope (v2)
+
+v1 carried `payload: unknown`, so a drifted client projection degraded answer
+quality silently — nothing on the server could notice a field had disappeared.
+Each category now declares a TypeBox schema in
+`Shared/EVACloudContracts/src/context.ts`, and a mismatch fails at the request
+boundary with `schema_invalid`.
+
+| Category | Grant required | Carries |
+|---|---|---|
+| `planning` | — | Typed task records, summary counts, projects, life areas, and the rendered overview |
+| `capacity` | — | Working/fixed/buffer/usable/planned minutes, overload, confidence, free windows |
+| `goals` | — | Goal titles, `whyItMatters`, status, target date, progress, risk reason |
+| `habits` | — | Streaks, adherence, the last 14 days oldest-first, best time of day |
+| `dayLoop` | — | Closes, opens, run length, reversals, and yesterday's close ring |
+| `retrospective` | — | Week focus statement, outcomes, and the person's own wins/blockers/lessons |
+| `calendar` | — | Read-only busy blocks; the title may be withheld while the block still constrains the day |
+| `conversationSummary` | — | A rolling summary of turns outside the live window |
+| `journal` | `journal` | Authorized, already-redacted evidence events |
+| `health` | `health` | Authorized, already-redacted evidence events |
+| `lifeMoments` | `lifeMoments` | Authorized, already-redacted evidence events |
+| `personalMemory` | `personalMemory` | Versioned statements tagged `userStated` or `inferred` |
+
+Only the last four are consent-gated (`sensitiveContextCategories`). The rest
+project records the person already sees inside LifeBoard and ride on the
+request's own authorization, so widening the list does not widen what a grant
+means.
+
+Two conventions hold across every schema:
+
+- **Durations are minutes**, never seconds and never wall-clock strings. One unit
+  makes capacity arithmetic reliable.
+- **Absent and `null` mean the same thing: not known.** Swift's synthesized
+  `Encodable` uses `encodeIfPresent`, so a nil property is omitted rather than
+  written as `null`. Schemas that demanded an explicit null would reject every
+  request the client actually sends. `additionalProperties: false` still keeps
+  each shape closed.
+
+Task records carry `deferredCount` and `replanCount`. These are the fields that
+change the character of an answer — the difference between reading someone's list
+back to them and being able to say "you have moved this four times."
+
+### Client budgets
+
+The client sizes its envelope from `RoutePolicy.inputTokenCap` in the signed
+configuration, not from a local model's token table. `EvaContextBudget` is the
+only place a budget is produced and it **fails closed to the offline budget**
+whenever a cloud turn cannot be positively confirmed: no verified configuration,
+a disabled route or cloud state, an unready account, or a model name that is not
+the cloud sentinel. Offline budgets are unchanged from the per-model table.
+
+### User instructions (v2)
+
+`userInstructions.persona` is **user-authored text, not developer authority**. It
+reaches the model inside the developer message so tone and working style take
+effect, but it is fenced, explicitly subordinated to the doctrine and
+constraints above it, capped server-side at 2,000 characters, moderated with the
+rest of the input, and placed *after* the prompt-cache breakpoint so it cannot
+poison the shared prefix. It cannot grant capabilities, relax a constraint, or
+change what counts as a refusal.
 
 ## Semantic routes
 
@@ -74,7 +136,7 @@ The server owns model selection, stable prompts, schemas, reasoning effort, cach
 | `fieldSuggestion` | Structured | Unmetered | Suggest bounded capture fields |
 | `topThree` | Structured | Billable when explicit | Select at most three priorities |
 | `taskBreakdown` | Structured | Billable | Create bounded, reviewable steps |
-| `dailyBrief` | Structured | Billable | Summarize the day and tensions |
+| `dailyBrief` | Structured | Billable | Name what is fixed, what fits, and the tradeoff |
 | `universalInputClassification` | Structured | Unmetered | Classify submitted universal input |
 | `dynamicChips` | Structured | Unmetered | Produce bounded next-prompt chips |
 | `journalAnswer` | Structured | Billable | Answer from explicitly granted journal evidence |
@@ -83,6 +145,19 @@ The server owns model selection, stable prompts, schemas, reasoning effort, cach
 | `debugSmoke` | Text | Environment policy | Internal end-to-end qualification |
 
 Every structured route has its own strict schema, bounds, enums, identifier rules, and semantic validator. Identifiers must originate in supplied context; outputs cannot invent mutation authority. One unmetered repair is allowed. Final schema or semantic failure releases reservations.
+
+`semanticValidationError` authorizes identifiers by scanning **`request.context`
+only**. A route that returns a `taskID`, `projectID`, `task_id`, `lifeAreaID`,
+`tagIDs`, or `evidenceTaskIDs` must therefore carry its roster in the context
+envelope, not inlined in the prompt text — otherwise every non-empty result is
+rejected as referencing an identifier outside supplied context. This applies to
+`plan`, `planRepair`, `topThree`, and `dailyBrief`.
+
+`dailyBrief` returns a structured brief: `brief` (required, and the only field a
+v1 client reads), plus optional `fixedCommitments`, `nextMove`,
+`tradeoff { drop, because }`, `evidenceTaskIDs`, and `isOvercommitted`. Modelling
+the tradeoff rather than burying it in prose is what makes "what fits, what does
+not, and why" checkable.
 
 Runtime configuration encodes `routes` as a JSON object keyed by the semantic route strings above. Swift must explicitly translate those string keys to `EvaCloudRoute`; synthesized `Codable` for an enum-keyed dictionary is not the wire contract and may expect an alternating array instead.
 
@@ -128,7 +203,8 @@ Speech accepts at most 12,000 source characters, validates the exact SHA-256-bou
 
 ## Versioning
 
-- `/v1` paths and `contractVersion: 1` remain stable for compatible additions.
+- `/v1` paths remain stable for compatible additions. `contractVersion` `1` and `2` are both admitted; `runtime-config` publishes `contractVersions: [1, 2]`.
+- v2 added optional fields and new context categories only. A v1 client never sends them, so one schema serves both and admission control does not fork.
 - New required fields, changed semantics, or incompatible output schemas require a new contract version and dual-read migration period.
 - Runtime configuration publishes supported contract versions and minimum client version.
 - The client rejects invalid signatures, environment mismatch, unsupported versions/models, future documents, or monotonic rollback.

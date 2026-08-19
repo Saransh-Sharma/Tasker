@@ -23,7 +23,7 @@ Users need to:
 
 ## Onboarding journey
 
-The v4 journey is progressive and visibly assembles one persistent Life Map:
+The v5 journey is progressive and visibly assembles one persistent Life Map:
 
 1. Welcome and the promise “Your whole life, in one calm system.”
 2. Desired change and up to two sources of friction.
@@ -32,13 +32,34 @@ The v4 journey is progressive and visibly assembles one persistent Life Map:
 5. Recommended module connections across Home, Plan, Track, Insights, and EVA.
 6. One optional Universal Input capture, reviewed before staging.
 7. An idempotent assembly phase and the completed Life Map reveal.
-8. Optional, resumable permissions and EVA activation.
 
-Each step has one primary action. Core completion never depends on permission, model download, network access, or sample data. The v4 draft uses snapshot schema 6; a version-3 partial journey restarts safely at Welcome. The commit upserts canonical life areas/order, working hours, and Home layout, stores only goal/friction as small profile metadata, then writes the reviewed capture last. Completion is recorded only after required writes succeed. No starter projects, chores, habits, tasks, or fabricated activity are installed.
+The reveal is the end of core. Two branches leave it, and both converge on the
+same closing phase:
+
+- **Power it up** — an optional connect chain: calendar access *and calendar
+  selection*, Apple Health reading with a separate write-back choice, reminders,
+  and Cloud EVA activation. Each step is skippable, is omitted entirely when no
+  chosen module needs it, and is navigable backwards within the chain.
+- **Show me around** — straight to the closing phase.
+
+The closing phase is a five-beat orientation across Home, Plan, Track, Insights,
+and EVA, then a hand-off that stages EVA opening prompts composed from the
+user's own answers. Every user sees it, including one who declined every
+connection.
+
+Each step has one primary action. Core completion never depends on permission, model download, network access, or sample data — which is precisely why the connect chain and EVA activation sit after the commit rather than inside it. The v5 draft uses snapshot schema 7; version-3 and schema-6 partial journeys restart safely at Welcome. The connect chain and closing phase run after completion is recorded and are deliberately not resumable: an established workspace is never interrupted by a launch prompt, and the Home setup checklist, the Life Map invitation, and just-in-time permission offers re-offer what was skipped. The commit upserts canonical life areas/order, working hours, and Home layout, stores only goal/friction as small profile metadata, then writes the reviewed capture last. Completion is recorded only after required writes succeed. No starter projects, chores, habits, tasks, or fabricated activity are installed.
 
 Completed users remain completed. An established workspace is never interrupted by a launch prompt; Life Management exposes the live, canonical Life Map and a voluntary “Refresh my map” merge flow that preserves existing records.
 
 ## EVA activation and model setup
+
+EVA has no separate first-run flow. Its former five-stage journey — meet EVA,
+working style, goals, cloud setup, first chat — is retired; opening the EVA tab
+lands directly in chat. Any of those stages left persisted by an interrupted
+update normalises to completed rather than stranding the person on a screen that
+no longer leads anywhere. EVA's profile is derived from the Life Map instead of
+re-asked, carrying the person's literal wording alongside the structured
+mapping. Offline model installation keeps its own entry point in Settings.
 
 - Cloud activation explains Luna processing, Sign in with Apple, per-device Apple 18+ eligibility, device trust, credits, bounded context, and optional AI-generated spoken output before consent.
 - Sensitive Journal, Health, Life Moments, and personal-memory grants are separate and off by default. Cloud setup force-refreshes verified policy so a cached disabled configuration cannot hide a newly available staging service.
@@ -85,6 +106,9 @@ Derived-state recovery can rebuild indexes, caches, or projections without repla
 | Fresh start | One clear next action and honest time/permission expectations |
 | Resumed onboarding | Restore exact v4 step and recoverable schema-6 Life Map draft |
 | Permission denied | Explain limitation, preserve remaining functionality, link to Settings |
+| Calendar granted, none selected | Never ship this state: an empty selection means *no calendars*, so grant preselects what is available and leaves the list editable |
+| Health read without write | Default. Reading is authorized; writing back is a separate, off-by-default answer per domain |
+| EVA deferred or declined | Record the choice, stage the opening prompts anyway, and let the EVA tab offer connection inline |
 | Unsupported device | Describe unavailable capability and keep core app usable |
 | Cloud policy disabled | Show the signed maintenance reason and offer explicit Offline EVA |
 | Apple/18+/trust failure | Name the failed gate; do not claim that account setup completed |

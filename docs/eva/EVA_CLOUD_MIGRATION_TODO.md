@@ -58,6 +58,65 @@ The first implementation pass established the end-to-end architecture, but its o
 - [x] Add a combined product/technical guide, scored risk register, and evidence-gated 24-month EVA/Life OS roadmap.
 - [x] Reconcile product, onboarding, Universal Input, repository, and EVA provider-architecture documentation with the Cloud Luna / Offline MLX seam and removal of Apple Foundation Models.
 
+### Context and prompt rebuild for a reasoning model — 2026-08-19
+
+The prompt and context layer was designed for a 0.6B MLX model and shipped
+underneath Cloud EVA unchanged. The client was spending a fraction of the
+capacity the Worker already authorizes, and three routes were structurally
+broken on the cloud path.
+
+- [x] Diagnose the ceiling: `LLMSystemPromptComposer` and `getChatMessages` read
+      `ModelConfiguration.tokenBudget`, so a cloud-only account fell back to
+      `defaultModel` and capped Luna at 1,536 input tokens / 360 task-context
+      tokens / 8 history messages, while `RoutePolicy.inputTokenCap` (16 K chat,
+      32 K plan) was decoded from the signed configuration and never read.
+- [x] Fix the routing sentinel defect: the legacy
+      `generate(modelName:thread:systemPrompt:)` overload required a local
+      `ModelConfiguration`, so every caller on it — daily brief, top three, task
+      breakdown, field suggestion, planner, plan repair, Shortcuts — returned
+      "Failed: model not found" the moment Cloud EVA was selected and silently
+      fell back to heuristics without ever reaching the network.
+- [x] Fix identifier authorization: `semanticValidationError` scans
+      `request.context` only, but `plan`, `planRepair`, and `topThree` inlined
+      their rosters into the prompt and sent `context: []`, so any structured
+      result naming a real record was rejected. Rosters now travel as context
+      sections; regressions cover both directions in TypeScript and Swift.
+- [x] Add contract v2: typed per-category context payloads, twelve categories
+      (four still consent-gated), optional `userInstructions`, and
+      `contractVersions: [1, 2]`. One schema admits both versions.
+- [x] Carry the person's own Settings prompt as `userInstructions` — fenced,
+      subordinated to policy, capped server-side, moderated, and placed after the
+      prompt-cache breakpoint. It had been silently discarded on every cloud
+      request since Cloud EVA shipped.
+- [x] Chunk input moderation so a 16 K-token envelope cannot exceed the
+      moderation input limit; a failing chunk fails the request.
+- [x] Add `EvaContextBudget` as the single budget source, reading the published
+      route cap for cloud and the per-model table for offline, failing closed to
+      offline on every unconfirmed path. Offline budgets are unchanged.
+- [x] Add the typed context envelope with `.compact`/`.rich` render modes. The
+      offline path is byte-identical to v1 and never consults the rich
+      projectors; overflow drops whole records rather than truncating.
+- [x] Use the existing embedding index for cloud context selection instead of
+      substring matching. Offline keeps substring matching.
+- [x] Add `EvaMemoryStoreV2` with provenance, confidence, and revisions, and a
+      rolling conversation summary section.
+- [x] Rewrite the server prompts: real persona and doctrine, per-route judgement
+      contracts, and no restating of JSON shapes the strict schema already
+      enforces. Raise `chat` and `dailyBrief` reasoning effort to `medium`.
+- [x] Widen the daily-brief result to carry fixed commitments, the next move, an
+      explicit tradeoff, evidence identifiers, and an overcommitment flag.
+- [ ] Deploy the Worker to staging and run a physical-device chat, plan, and
+      daily brief. Confirm from `response.usage` that `inputTokens` lands in the
+      thousands rather than ~1,500, that `cachedInputTokens` is non-trivial on the
+      second turn of a thread, and that the larger payload produces no
+      `input_rejected` or `output_rejected`.
+- [ ] Run the before/after quality evaluation on a seeded workspace: cites a real
+      task by name, respects capacity, proposes subtraction when overloaded, and
+      gives a reason traceable to a supplied signal. Token counts alone do not
+      show the enrichment worked.
+- [ ] Reconcile `response.usage` against the price schedule in staging telemetry
+      before enabling production.
+
 ### A — Reproducible source tree
 
 - [x] Pin Node 24 for local and CI Worker tooling.

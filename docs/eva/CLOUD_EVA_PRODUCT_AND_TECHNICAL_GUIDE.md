@@ -4,7 +4,7 @@
 **Implementation status:** Complete architecture; staging end-to-end qualification in progress  
 **Text provider:** OpenAI [`gpt-5.6-luna`](https://developers.openai.com/api/docs/models/gpt-5.6-luna)
 **Spoken output:** OpenAI [`tts-1`](https://developers.openai.com/api/docs/models/tts-1), `nova`; no cloud speech-to-text or full duplex
-**Last verified:** 2026-08-17
+**Last verified:** 2026-08-19
 
 ## Product promise
 
@@ -16,10 +16,13 @@ Cloud EVA extends that experience with Luna while preserving Offline EVA through
 
 ### Text intelligence
 
-- Free-text conversation with moderated streaming.
+- Free-text conversation with moderated streaming, grounded in a typed context
+  envelope rather than a plain-text summary.
 - Planning and one bounded structured repair.
 - Field suggestions and dynamic prompt chips.
-- Explicit top-three prioritization, task breakdown, and daily brief.
+- Explicit top-three prioritization and task breakdown.
+- A daily brief that separates what is fixed from what is suggested, names one
+  explicit tradeoff, and cites the records it rests on.
 - Universal-input classification after submission; live preview stays deterministic.
 - Journal, Knowledge, and Siri/Shortcuts answers using only authorized projections.
 - A debug smoke route for qualified non-production environments.
@@ -40,18 +43,42 @@ The person may request an AI-generated reading of a successful answer. The first
 
 ### Context controls
 
-Base context may include prompt, tasks/projects, habits, a read-only calendar projection, executive/slash-command state, and bounded chat history. Journal, health, Life Moments, and personal memory remain separate, off-by-default grants. Revocation is authoritative on the server before the next accepted request on any device.
+Base context may include the prompt, typed task records, projects and life areas,
+habits with their recent history, capacity for the day, goals, the day-loop
+state, the weekly retrospective the person wrote, a read-only calendar
+projection, executive/slash-command state, and bounded chat history. Journal,
+health, Life Moments, and personal memory remain separate, off-by-default grants.
+Revocation is authoritative on the server before the next accepted request on any
+device.
+
+Two properties are worth being precise about, because the first is easy to
+overstate and the second is easy to miss:
+
+- **The envelope is typed, not free-form.** Every category has a schema in
+  `Shared/EVACloudContracts/src/context.ts`, so a client projection that drifts
+  fails at the request boundary instead of quietly degrading answers.
+- **Size is governed by the server, not the phone.** The client reads
+  `RoutePolicy.inputTokenCap` from the signed configuration. Offline EVA keeps its
+  own, much smaller per-model budgets, and the resolver fails closed to those
+  whenever a cloud turn cannot be positively confirmed.
 
 ## User journeys
 
 ### Activate Cloud EVA
 
-1. The person chooses Cloud EVA and reads the private-context and AI-processing disclosure.
+Activation happens inside app onboarding, as an optional step in the connect
+chain after the Life Map reveal. There is no separate EVA activation flow: the
+EVA tab opens straight into chat.
+
+1. The person reaches the EVA step and reads the private-context and AI-processing disclosure.
 2. Sign in with Apple establishes a pseudonymous account.
 3. The app qualifies device trust and asks Apple for an 18+ age-range result.
-4. The person reviews sensitive-context grants.
-5. The app force-refreshes signed configuration, then loads consent and credits.
-6. If all gates pass, Cloud EVA becomes available. Otherwise the exact failed gate is shown with an explicit recovery path; Offline EVA remains available.
+4. The app force-refreshes signed configuration, then loads consent and credits.
+5. Sensitive-context grants are then offered as off-by-default toggles. Skipping them is the expected path — a fresh account bootstraps at revision 0 with no grants, which is already sufficient for chat — and each toggle is a compare-and-swap on the server revision, so it is written one at a time and never retried.
+6. If all gates pass, Cloud EVA becomes available and onboarding stages opening prompts composed from the person's own Life Map answers. Otherwise the exact failed gate is shown with an explicit recovery path; Offline EVA remains available from Settings.
+
+Declining or deferring is a first-class outcome: the prompts are staged either
+way, and the EVA tab offers connection inline rather than reopening setup.
 
 ### Ask and review
 
@@ -132,10 +159,12 @@ Classification, suggestions, chips, repairs, retries, failures, cancellation, de
 |---|---|---|
 | Activation | Qualified users reaching first answer | Exact gate-specific recovery; no trust bypass |
 | Utility | Answer helpfulness, proposal accept/edit rate | No autonomous mutation |
+| Grounding | Share of answers naming a real task, project, or habit from the supplied context | An answer that cannot cite a supplied signal is a generic answer, and token count alone does not detect it |
+| Subtraction | Share of over-committed days where the answer proposes deferring or dropping work | Capacity before ambition: a denser plan for an impossible day is a failure, not a helpful response |
 | Reliability | Completion, cancellation reconciliation, schema validity | ≥99.5% structured validity after one repair |
 | Speed | Classifier, text TTFT, TTS first audio | p95 ≤1.5s, ≤5s, and ≤3s respectively |
 | Trust | Consent comprehension, Offline selection, deletion success | No private content in logs/storage |
-| Economics | Cost/success, cache efficiency, budget headroom | Account/global hard fuses and approved pricing |
+| Economics | Cost/success, cache efficiency, budget headroom | Account/global hard fuses and approved pricing; `cachedInputTokens` staying substantial on second turns |
 | Accessibility | VoiceOver/Dynamic Type/keyboard/audio-control journeys | No capability depends on inaccessible disclosure or control |
 
 ## Known release gaps
