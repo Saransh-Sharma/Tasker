@@ -249,14 +249,9 @@ public enum V2FeatureFlags {
         set { setStagedFeature(newValue, key: "feature.life_os.track_behavior_flagship_v1") }
     }
 
-    /// The v6 "Life Weave" first run: six core decisions, review folded into
-    /// capture, connectors demoted to an optional branch off the reveal, and no
-    /// root tour. Presentation-only. The v5 Life Map journey stays composed and
-    /// resumable while this is off, and both write the same canonical records
-    /// through `LifeMapCommitCoordinator`, so rollback strands nothing.
-    ///
-    /// Held back from Release promotion until the rollout completes — see
-    /// `heldBackFromReleasePromotion` in `FeatureFlagPromotionTests`.
+    /// The v6 "Life Weave" first run. Presentation-only: v5 stays composed and
+    /// resumable while this is off, and both commit through the same coordinator.
+    /// Held back from Release — see `heldBackFromReleasePromotion` in the tests.
     public static var onboardingLifeWeaveV6Enabled: Bool {
         get { stagedFeatureEnabled(key: "feature.onboarding.life_weave_v6", argument: "ONBOARDING_V6") }
         set { setStagedFeature(newValue, key: "feature.onboarding.life_weave_v6") }
@@ -342,9 +337,6 @@ public enum V2FeatureFlags {
         // path whose off state preserves canonical records and deterministic
         // behavior.
         "feature.life_os.track_behavior_flagship_v1": true,
-        // Held back deliberately: the v6 first run is still being built, so it
-        // is on for developers and off in Release until the rollout completes.
-        // The entry exists so the flag cannot be *silently* missing.
         "feature.onboarding.life_weave_v6": false
     ]
 
