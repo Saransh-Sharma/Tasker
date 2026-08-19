@@ -103,5 +103,16 @@
 # matches. Additions cover the calendar scoping list, the Health write-back
 # toggles, EVA's consent rows, and the staged first-win prompts.
 
-count=838
-sha256=1285f5aeeae63073b37cd68a9d993246a5dffbe4e4f7701ab08080e52e981eec
+# 2026-08-19 — the v6 "Life Weave" first run.
+# Additive only. Every new identifier is namespaced `onboarding.lifeweave.*`
+# (`LifeWeaveAccessibilityID`), so no v5 `onboarding.lifemap.*` value moved and
+# the existing Life Map UI-test contract still matches exactly. The two flows
+# ship side by side behind `feature.onboarding.life_weave_v6`, which is why both
+# identifier families are present at once rather than one replacing the other.
+# `LifeWeaveStep.identifierSuffix` is hand-written for the same reason its v5
+# counterpart is: a renamed case must not be able to rename a published value.
+# Also adds `onboarding.tip.<tip>` for the four one-time root cues that replaced
+# v6's root tour — Home, Plan, Track and Eva. Insights has no cue by design.
+
+count=855
+sha256=198164938aa9a95b3f64c81e033af7a59f39b54f1d1beefc80945df9ce217290

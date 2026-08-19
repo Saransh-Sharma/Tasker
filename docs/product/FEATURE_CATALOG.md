@@ -389,4 +389,5 @@ The current `promotedDefaults` keys are exhaustively accounted for here:
 | `feature.universal_input.dictation_v1` | Live SpeechAnalyzer dictation |
 | `feature.universal_input.semantic_v1` | Semantic classification and fallback |
 | `feature.life_os.track_behavior_flagship_v1` | Flagship habit/goal/care/tracker presentation |
+| `feature.onboarding.life_weave_v6` | v6 "Life Weave" first run; off in Release until the rollout completes, with the v5 Life Map journey still composed and resumable |
 | `feature.life_os.eva_fm_responder_v1` | Legacy key retained for migration compatibility; Apple Foundation Models are no longer an EVA provider |

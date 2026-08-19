@@ -4,7 +4,7 @@
 **Audience:** Users, support, product, design, engineering, and QA
 **Capability status:** Current workspace
 **Source authority:** Onboarding flow/state, Settings routes/stores, bootstrap/recovery services
-**Last verified:** 2026-08-17
+**Last verified:** 2026-08-19
 **Primary routes:** First launch, EVA activation, Settings, Life Management, permission prompts, and bootstrap recovery
 
 ## Promise and user jobs
@@ -23,9 +23,55 @@ Users need to:
 
 ## Onboarding journey
 
-The v5 journey is progressive and visibly assembles one persistent Life Map:
+Two journeys ship side by side. `feature.onboarding.life_weave_v6` selects which
+one a fresh install sees; both commit through the same coordinator and record the
+same canonical structure, so the flag is a presentation rollback and never
+strands work.
 
-1. Welcome and the promise “Your whole life, in one calm system.”
+### v6 — Life Weave (six core steps, schema 8)
+
+1. **Arrival.** The promise, the privacy line, and one action. No feature list,
+   no root names, no percentage.
+2. **Intent.** What would make this week feel lighter. The sources of friction
+   unfold *inline* under the chosen answer, are optional, and never gate the
+   primary action.
+3. **Life areas.** Two to five, and — inline, after the second selection — which
+   one needs the clearest path first. One tap replaces the drag ranking.
+4. **Day shape.** Presets first, including "my days move around" as a
+   first-class answer. Exact hours, weekends, and week start sit behind `Edit
+   hours`; week start is derived from the locale and shown as a fact with a way
+   to change it, not as a question.
+5. **First capture.** One real sentence, interpreted in front of the person and
+   reviewed in place. Nothing is written until they keep it. When the
+   interpretation is genuinely uncertain the destination is *asked*, never
+   guessed. Onboarding offers Task and Journal, which are the two stores it
+   actually writes.
+6. **Reveal.** A deterministic personalised sentence, a receipt of what was
+   saved, and one dominant action into Home.
+
+Everything else is reached from the reveal's quiet secondary action: calendar
+access and calendar selection, Apple Health reading with a separate per-domain
+write-back choice, reminders, and Cloud EVA. Each is skippable, each is omitted
+when nothing would consume it, and the chain is navigable backwards. There is no
+closing phase and **no root tour** — the five destinations are introduced by four
+one-time contextual cues the first time the person opens Home, Plan, Track, and
+EVA. Insights deliberately has no cue until there is evidence to interpret.
+
+The modules screen is gone. What Home contains is derived from the intent and the
+chosen areas rather than asked for, so removing the question does not mean every
+user gets the same Home.
+
+An interrupted v5 journey is migrated rather than restarted: intent, friction,
+areas and their order, day shape, a reviewed capture, permission outcomes, and
+the commit phase all carry across. The v5 snapshot is left in place so turning
+the flag back off resumes rather than restarts. Migration resumes at the screen
+that now owns each question, which is never later than the person reached.
+
+### v5 — Life Map (nine core steps, schema 7)
+
+The v5 journey remains composed and resumable while the flag is off:
+
+1. Welcome and the promise "Your whole life, in one calm system."
 2. Desired change and up to two sources of friction.
 3. Two to five active life areas and their seasonal priority order.
 4. Real working capacity and week start.
@@ -33,23 +79,24 @@ The v5 journey is progressive and visibly assembles one persistent Life Map:
 6. One optional Universal Input capture, reviewed before staging.
 7. An idempotent assembly phase and the completed Life Map reveal.
 
-The reveal is the end of core. Two branches leave it, and both converge on the
-same closing phase:
+Two branches leave the reveal — an optional connect chain, or straight on — and
+both converge on a five-beat orientation across the five roots.
 
-- **Power it up** — an optional connect chain: calendar access *and calendar
-  selection*, Apple Health reading with a separate write-back choice, reminders,
-  and Cloud EVA activation. Each step is skippable, is omitted entirely when no
-  chosen module needs it, and is navigable backwards within the chain.
-- **Show me around** — straight to the closing phase.
+### What both guarantee
 
-The closing phase is a five-beat orientation across Home, Plan, Track, Insights,
-and EVA, then a hand-off that stages EVA opening prompts composed from the
-user's own answers. Every user sees it, including one who declined every
-connection.
+Each step has one primary action. Core completion never depends on permission,
+model download, network access, or sample data — which is precisely why the
+connect chain and EVA activation sit after the commit rather than inside it. The
+commit upserts canonical life areas and their order, working hours, and Home
+layout, stores only goal/friction as small profile metadata, then writes the
+reviewed capture last; it is phase-tracked, so a failure resumes rather than
+replays. Completion is recorded only after required writes succeed. No starter
+projects, chores, habits, tasks, or fabricated activity are installed, and a
+skipped capture is reported as an honest empty state rather than dressed up.
 
-Each step has one primary action. Core completion never depends on permission, model download, network access, or sample data — which is precisely why the connect chain and EVA activation sit after the commit rather than inside it. The v5 draft uses snapshot schema 7; version-3 and schema-6 partial journeys restart safely at Welcome. The connect chain and closing phase run after completion is recorded and are deliberately not resumable: an established workspace is never interrupted by a launch prompt, and the Home setup checklist, the Life Map invitation, and just-in-time permission offers re-offer what was skipped. The commit upserts canonical life areas/order, working hours, and Home layout, stores only goal/friction as small profile metadata, then writes the reviewed capture last. Completion is recorded only after required writes succeed. No starter projects, chores, habits, tasks, or fabricated activity are installed.
-
-Completed users remain completed. An established workspace is never interrupted by a launch prompt; Life Management exposes the live, canonical Life Map and a voluntary “Refresh my map” merge flow that preserves existing records.
+Completed users remain completed. An established workspace is never interrupted
+by a launch prompt; Life Management exposes the live, canonical Life Map and a
+voluntary "Refresh my map" merge flow that preserves existing records.
 
 ## EVA activation and model setup
 
